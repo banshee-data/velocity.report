@@ -67,7 +67,7 @@ func (c *CSVWriter) WriteHeaders(buckets []string) {
 
 // writeSummaryHeader writes the summary CSV header.
 func (c *CSVWriter) writeSummaryHeader(buckets []string) {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count"}
 	for _, b := range buckets {
 		header = append(header, "bucket_"+b+"_mean")
 	}
@@ -82,7 +82,7 @@ func (c *CSVWriter) writeSummaryHeader(buckets []string) {
 
 // writeRawHeader writes the raw data CSV header.
 func (c *CSVWriter) writeRawHeader(buckets []string) {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count", "iter", "timestamp"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count", "iter", "timestamp"}
 	for _, b := range buckets {
 		header = append(header, "accept_counts_"+b)
 	}
@@ -201,7 +201,7 @@ func (c *CSVWriter) Flush() {
 
 // FormatSummaryHeaders returns the summary header column names for given buckets.
 func FormatSummaryHeaders(buckets []string) []string {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count"}
 	for _, b := range buckets {
 		header = append(header, "bucket_"+b+"_mean")
 	}
@@ -214,7 +214,7 @@ func FormatSummaryHeaders(buckets []string) []string {
 
 // FormatRawHeaders returns the raw data header column names for given buckets.
 func FormatRawHeaders(buckets []string) []string {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count", "iter", "timestamp"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count", "iter", "timestamp"}
 	for _, b := range buckets {
 		header = append(header, "accept_counts_"+b)
 	}

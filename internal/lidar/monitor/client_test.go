@@ -541,8 +541,8 @@ func TestClient_SetTrackerConfig_Success(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if receivedParams["gating_distance_squared"].(float64) != 25.0 {
-		t.Errorf("Expected gating_distance_squared=25.0, got %v", receivedParams["gating_distance_squared"])
+	if receivedParams["l5.cv_kf_v1.gating_distance_squared"].(float64) != 25.0 {
+		t.Errorf("Expected l5.cv_kf_v1.gating_distance_squared=25.0, got %v", receivedParams["l5.cv_kf_v1.gating_distance_squared"])
 	}
 }
 
@@ -590,11 +590,11 @@ func TestClient_SetTrackerConfig_AllParams(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if receivedParams["process_noise_vel"].(float64) != 1.0 {
-		t.Errorf("Expected process_noise_vel=1.0, got %v", receivedParams["process_noise_vel"])
+	if receivedParams["l5.cv_kf_v1.process_noise_vel"].(float64) != 1.0 {
+		t.Errorf("Expected l5.cv_kf_v1.process_noise_vel=1.0, got %v", receivedParams["l5.cv_kf_v1.process_noise_vel"])
 	}
-	if receivedParams["measurement_noise"].(float64) != 0.1 {
-		t.Errorf("Expected measurement_noise=0.1, got %v", receivedParams["measurement_noise"])
+	if receivedParams["l5.cv_kf_v1.measurement_noise"].(float64) != 0.1 {
+		t.Errorf("Expected l5.cv_kf_v1.measurement_noise=0.1, got %v", receivedParams["l5.cv_kf_v1.measurement_noise"])
 	}
 }
 
@@ -616,8 +616,8 @@ func TestTrackingParams_JSONOmitEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
-	if !strings.Contains(string(data2), "gating_distance_squared") {
-		t.Errorf("Expected gating_distance_squared in JSON, got %s", string(data2))
+	if !strings.Contains(string(data2), "l5.cv_kf_v1.gating_distance_squared") {
+		t.Errorf("Expected l5.cv_kf_v1.gating_distance_squared in JSON, got %s", string(data2))
 	}
 }
 
@@ -639,18 +639,18 @@ func TestClient_SetTuningParams_Success(t *testing.T) {
 
 	c := NewClient(server.Client(), server.URL, "sensor1")
 	err := c.SetTuningParams(map[string]interface{}{
-		"noise_relative":       0.15,
-		"closeness_multiplier": 2.2,
+		"l3.ema_baseline_v1.noise_relative":       0.15,
+		"l3.ema_baseline_v1.closeness_multiplier": 2.2,
 	})
 	if err != nil {
 		t.Fatalf("SetTuningParams failed: %v", err)
 	}
 
-	if received["noise_relative"].(float64) != 0.15 {
-		t.Fatalf("expected noise_relative=0.15, got %v", received["noise_relative"])
+	if received["l3.ema_baseline_v1.noise_relative"].(float64) != 0.15 {
+		t.Fatalf("expected l3.ema_baseline_v1.noise_relative=0.15, got %v", received["l3.ema_baseline_v1.noise_relative"])
 	}
-	if received["closeness_multiplier"].(float64) != 2.2 {
-		t.Fatalf("expected closeness_multiplier=2.2, got %v", received["closeness_multiplier"])
+	if received["l3.ema_baseline_v1.closeness_multiplier"].(float64) != 2.2 {
+		t.Fatalf("expected l3.ema_baseline_v1.closeness_multiplier=2.2, got %v", received["l3.ema_baseline_v1.closeness_multiplier"])
 	}
 }
 
@@ -672,7 +672,7 @@ func TestClient_SetTuningParams_ServerError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.Client(), server.URL, "sensor1")
-	err := c.SetTuningParams(map[string]interface{}{"noise_relative": 0.1})
+	err := c.SetTuningParams(map[string]interface{}{"l3.ema_baseline_v1.noise_relative": 0.1})
 	if err == nil {
 		t.Fatal("expected error")
 	}

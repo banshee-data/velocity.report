@@ -82,36 +82,45 @@ type TrackerConfig struct {
 // that have already validated config availability.
 func DefaultTrackerConfig() TrackerConfig {
 	cfg := config.MustLoadDefaultConfig()
-	return TrackerConfigFromTuning(cfg)
+	return TrackerConfigFromTuning(cfg.L5.CvKfV1)
 }
 
-// TrackerConfigFromTuning builds a TrackerConfig from a loaded TuningConfig.
-// Use this in production code where the TuningConfig is already loaded.
-func TrackerConfigFromTuning(cfg *config.TuningConfig) TrackerConfig {
-	return TrackerConfig{
-		MaxTracks:                        cfg.GetMaxTracks(),
-		MaxMisses:                        cfg.GetMaxMisses(),
-		MaxMissesConfirmed:               cfg.GetMaxMissesConfirmed(),
-		HitsToConfirm:                    cfg.GetHitsToConfirm(),
-		GatingDistanceSquared:            float32(cfg.GetGatingDistanceSquared()),
-		ProcessNoisePos:                  float32(cfg.GetProcessNoisePos()),
-		ProcessNoiseVel:                  float32(cfg.GetProcessNoiseVel()),
-		MeasurementNoise:                 float32(cfg.GetMeasurementNoise()),
-		OcclusionCovInflation:            float32(cfg.GetOcclusionCovInflation()),
-		DeletedTrackGracePeriod:          cfg.GetDeletedTrackGracePeriod(),
-		MaxReasonableSpeedMps:            float32(cfg.GetMaxReasonableSpeedMps()),
-		MaxPositionJumpMeters:            float32(cfg.GetMaxPositionJumpMeters()),
-		MaxPredictDt:                     float32(cfg.GetMaxPredictDt()),
-		MaxCovarianceDiag:                float32(cfg.GetMaxCovarianceDiag()),
-		MinPointsForPCA:                  cfg.GetMinPointsForPCA(),
-		OBBHeadingSmoothingAlpha:         float32(cfg.GetOBBHeadingSmoothingAlpha()),
-		OBBAspectRatioLockThreshold:      float32(cfg.GetOBBAspectRatioLockThreshold()),
-		MaxTrackHistoryLength:            cfg.GetMaxTrackHistoryLength(),
-		MaxSpeedHistoryLength:            cfg.GetMaxSpeedHistoryLength(),
-		MergeSizeRatio:                   float32(cfg.GetMergeSizeRatio()),
-		SplitSizeRatio:                   float32(cfg.GetSplitSizeRatio()),
-		MinObservationsForClassification: cfg.GetMinObservationsForClassification(),
+// TrackerConfigFromTuning builds a TrackerConfig from the active L5 engine
+// block. Callers are expected to pass the validated selected engine struct for
+// the current pipeline on this branch.
+func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
+	if l5cfg == nil {
+		return TrackerConfig{}
 	}
+	return TrackerConfig{
+		MaxTracks:                        l5cfg.MaxTracks,
+		MaxMisses:                        l5cfg.MaxMisses,
+		MaxMissesConfirmed:               l5cfg.MaxMissesConfirmed,
+		HitsToConfirm:                    l5cfg.HitsToConfirm,
+		GatingDistanceSquared:            float32(l5cfg.GatingDistanceSquared),
+		ProcessNoisePos:                  float32(l5cfg.ProcessNoisePos),
+		ProcessNoiseVel:                  float32(l5cfg.ProcessNoiseVel),
+		MeasurementNoise:                 float32(l5cfg.MeasurementNoise),
+		OcclusionCovInflation:            float32(l5cfg.OcclusionCovInflation),
+		DeletedTrackGracePeriod:          mustParseDuration(l5cfg.DeletedTrackGracePeriod),
+		MaxReasonableSpeedMps:            float32(l5cfg.MaxReasonableSpeedMps),
+		MaxPositionJumpMeters:            float32(l5cfg.MaxPositionJumpMetres),
+		MaxPredictDt:                     float32(l5cfg.MaxPredictDt),
+		MaxCovarianceDiag:                float32(l5cfg.MaxCovarianceDiag),
+		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
+		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
+		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
+		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
+		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),
+		SplitSizeRatio:                   float32(l5cfg.SplitSizeRatio),
+		MinObservationsForClassification: l5cfg.MinObservationsForClassification,
+	}
+}
+
+func mustParseDuration(raw string) time.Duration {
+	d, _ := time.ParseDuration(raw)
+	return d
 }
 
 // TrackPoint represents a single point in a track's history.

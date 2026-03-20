@@ -187,9 +187,18 @@ func configurePDFLaTeXFlow(flow, texRootFlag string) error {
 	}
 }
 
+func visitedFlags() map[string]bool {
+	visited := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		visited[f.Name] = true
+	})
+	return visited
+}
+
 // Main
 func main() {
 	flag.Parse()
+	explicitFlags := visitedFlags()
 
 	// Configure logging: default to stdout; optionally tee to a log file via env.
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -319,6 +328,27 @@ func main() {
 		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
+	if tuningCfg.L3.Engine != "ema_baseline_v1" {
+		log.Fatalf("Unsupported l3.engine %q: this branch only implements ema_baseline_v1 at runtime", tuningCfg.L3.Engine)
+	}
+	if tuningCfg.L4.Engine != "dbscan_xy_v1" {
+		log.Fatalf("Unsupported l4.engine %q: this branch only implements dbscan_xy_v1 at runtime", tuningCfg.L4.Engine)
+	}
+	if tuningCfg.L5.Engine != "cv_kf_v1" {
+		log.Fatalf("Unsupported l5.engine %q: this branch only implements cv_kf_v1 at runtime", tuningCfg.L5.Engine)
+	}
+	if explicitFlags["lidar-sensor"] {
+		log.Printf("Warning: --lidar-sensor is deprecated; using l1.sensor=%q from %s", tuningCfg.GetSensor(), *configFile)
+	}
+	if explicitFlags["lidar-udp-port"] {
+		log.Printf("Warning: --lidar-udp-port is deprecated; using l1.udp_port=%d from %s", tuningCfg.GetUDPPort(), *configFile)
+	}
+	if explicitFlags["lidar-forward-port"] {
+		log.Printf("Warning: --lidar-forward-port is deprecated; using l1.forward_port=%d from %s", tuningCfg.GetForwardPort(), *configFile)
+	}
+	if explicitFlags["lidar-foreground-forward-port"] {
+		log.Printf("Warning: --lidar-foreground-forward-port is deprecated; using l1.foreground_forward_port=%d from %s", tuningCfg.GetForegroundForwardPort(), *configFile)
+	}
 
 	// Compute tuning config hash for VRLOG provenance.
 	tuningJSON, err := json.Marshal(tuningCfg)
@@ -385,6 +415,12 @@ func main() {
 
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
+		lidarSensorID := tuningCfg.GetSensor()
+		lidarUDPListenPort := tuningCfg.GetUDPPort()
+		lidarUDPRcvBuf := tuningCfg.GetUDPRcvBuf()
+		lidarForwardPortCfg := tuningCfg.GetForwardPort()
+		lidarFGForwardPortCfg := tuningCfg.GetForegroundForwardPort()
+
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database
 
@@ -396,11 +432,11 @@ func main() {
 
 		// Create BackgroundManager from TuningConfig. All tunable parameters
 		// come exclusively from the config file (single source of truth).
-		bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg)
+		bgConfig := l3grid.BackgroundConfigFromTuning(tuningCfg.L3.EmaBaselineV1, tuningCfg.L4.DbscanXyV1)
 
-		backgroundManager := l3grid.NewBackgroundManager(*lidarSensor, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
+		backgroundManager := l3grid.NewBackgroundManager(lidarSensorID, 40, 1800, bgConfig.ToBackgroundParams(), lidarDB)
 		if backgroundManager != nil {
-			log.Printf("BackgroundManager created and registered for sensor %s", *lidarSensor)
+			log.Printf("BackgroundManager created and registered for sensor %s", lidarSensorID)
 		}
 
 		// Start periodic background grid flushing using BackgroundFlusher
@@ -434,15 +470,15 @@ func main() {
 		var vrlogRecorderPath string
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
-		if *lidarFGForward {
-			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, *lidarFGFwdPort, nil)
+		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
+			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, lidarFGForwardPortCfg, nil)
 			if err != nil {
 				log.Printf("failed to create foreground forwarder: %v", err)
 			} else {
 				foregroundForwarder = fg
 				foregroundForwarder.Start(ctx)
 				defer foregroundForwarder.Close()
-				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, *lidarFGFwdPort)
+				log.Printf("Foreground forwarder enabled to %s:%d", *lidarFGFwdAddr, lidarFGForwardPortCfg)
 			}
 		}
 
@@ -458,12 +494,12 @@ func main() {
 			parse.ConfigureTimestampMode(parser)
 
 			// Initialise tracking components from tuning config
-			trackerCfg := l5tracks.TrackerConfigFromTuning(tuningCfg)
+			trackerCfg := l5tracks.TrackerConfigFromTuning(tuningCfg.L5.CvKfV1)
 			tracker = l5tracks.NewTracker(trackerCfg)
 			classifier = l6objects.NewTrackClassifierWithMinObservations(
 				tuningCfg.GetMinObservationsForClassification(),
 			)
-			log.Printf("Tracker and classifier initialized for sensor %s", *lidarSensor)
+			log.Printf("Tracker and classifier initialized for sensor %s", lidarSensorID)
 
 			// Wire per-ring elevation corrections from parser config into BackgroundManager
 			// This ensures background ASC exports use the same per-channel elevations as frames.
@@ -471,12 +507,12 @@ func main() {
 				elev := parse.ElevationsFromConfig(config)
 				if elev != nil {
 					if err := backgroundManager.SetRingElevations(elev); err != nil {
-						log.Printf("Failed to set ring elevations for background manager %s: %v", *lidarSensor, err)
+						log.Printf("Failed to set ring elevations for background manager %s: %v", lidarSensorID, err)
 					} else {
-						log.Printf("BackgroundManager ring elevations set for sensor %s", *lidarSensor)
+						log.Printf("BackgroundManager ring elevations set for sensor %s", lidarSensorID)
 					}
 				} else {
-					log.Printf("No elevation corrections available for sensor %s; background export will use z=0 projection", *lidarSensor)
+					log.Printf("No elevation corrections available for sensor %s; background export will use z=0 projection", lidarSensorID)
 				}
 			}
 
@@ -495,7 +531,7 @@ func main() {
 			if forwardMode == "grpc" || forwardMode == "both" {
 				vizConfig := visualiser.DefaultConfig()
 				vizConfig.ListenAddr = *lidarGRPCListen
-				vizConfig.SensorID = *lidarSensor
+				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
 				visualiserPublisher = visualiser.NewPublisher(vizConfig)
@@ -509,7 +545,7 @@ func main() {
 				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
 				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
-				frameAdapter = visualiser.NewFrameAdapter(*lidarSensor)
+				frameAdapter = visualiser.NewFrameAdapter(lidarSensorID)
 
 				// Wire M3.5 split streaming: connect background manager to publisher
 				// so that background snapshots are sent periodically instead of
@@ -529,7 +565,7 @@ func main() {
 			if forwardMode == "lidarview" || forwardMode == "both" {
 				if foregroundForwarder != nil {
 					lidarViewAdapter = visualiser.NewLidarViewAdapter(foregroundForwarder)
-					log.Printf("LidarView adapter enabled (forwarding to %s:%d)", *lidarFGFwdAddr, *lidarFGFwdPort)
+					log.Printf("LidarView adapter enabled (forwarding to %s:%d)", *lidarFGFwdAddr, lidarFGForwardPortCfg)
 				}
 			}
 
@@ -540,7 +576,7 @@ func main() {
 				Tracker:             tracker,
 				Classifier:          classifier,
 				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
-				SensorID:            *lidarSensor,
+				SensorID:            lidarSensorID,
 				VisualiserPublisher: visualiserPublisher,
 				VisualiserAdapter:   frameAdapter,
 				LidarViewAdapter:    lidarViewAdapter,
@@ -552,7 +588,7 @@ func main() {
 			callback := pipelineConfig.NewFrameCallback()
 
 			frameBuilder = l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{
-				SensorID:      *lidarSensor,
+				SensorID:      lidarSensorID,
 				FrameCallback: callback,
 				// Use CLI-configurable MinFramePoints and BufferTimeout so devs can tune
 				MinFramePoints:  minFramePoints,
@@ -571,8 +607,8 @@ func main() {
 		var packetForwarder *network.PacketForwarder
 		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
 		packetStats := monitor.NewPacketStats()
-		if *lidarForward && (*lidarForwardMode == "lidarview" || *lidarForwardMode == "both") {
-			createdForwarder, err := network.NewPacketForwarder(*lidarFwdAddr, *lidarFwdPort, packetStats, time.Minute)
+		if *lidarForward && lidarForwardPortCfg > 0 && (*lidarForwardMode == "lidarview" || *lidarForwardMode == "both") {
+			createdForwarder, err := network.NewPacketForwarder(*lidarFwdAddr, lidarForwardPortCfg, packetStats, time.Minute)
 			if err != nil {
 				log.Printf("failed to create lidar forwarder: %v", err)
 			} else {
@@ -581,10 +617,10 @@ func main() {
 			}
 		}
 
-		udpAddr := fmt.Sprintf(":%d", *lidarUDPPort)
+		udpAddr := fmt.Sprintf(":%d", lidarUDPListenPort)
 		udpListenerConfig := network.UDPListenerConfig{
 			Address:        udpAddr,
-			RcvBuf:         4 << 20,
+			RcvBuf:         lidarUDPRcvBuf,
 			LogInterval:    time.Minute,
 			Stats:          packetStats,
 			Forwarder:      packetForwarder,
@@ -592,7 +628,7 @@ func main() {
 			FrameBuilder:   frameBuilder,
 			DB:             lidarDB,
 			DisableParsing: *lidarNoParse,
-			UDPPort:        *lidarUDPPort,
+			UDPPort:        lidarUDPListenPort,
 		}
 
 		// Start lidar webserver for monitoring (moved into internal/api)
@@ -601,13 +637,13 @@ func main() {
 		lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
 			Address:           *lidarListen,
 			Stats:             packetStats,
-			ForwardingEnabled: *lidarForward,
+			ForwardingEnabled: *lidarForward && lidarForwardPortCfg > 0,
 			ForwardAddr:       *lidarFwdAddr,
-			ForwardPort:       *lidarFwdPort,
+			ForwardPort:       lidarForwardPortCfg,
 			ParsingEnabled:    !*lidarNoParse,
-			UDPPort:           *lidarUDPPort,
+			UDPPort:           lidarUDPListenPort,
 			DB:                lidarDB,
-			SensorID:          *lidarSensor,
+			SensorID:          lidarSensorID,
 			Parser:            parser,
 			FrameBuilder:      frameBuilder,
 			PCAPSafeDir:       *lidarPCAPDir,
@@ -622,6 +658,7 @@ func main() {
 			PacketForwarder:   packetForwarder,
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
+			TuningConfig:      tuningCfg,
 			OnPCAPStarted: func() {
 				// Stop any active VRLOG replay so its frames don't
 				// interleave with the new PCAP pipeline frames.
@@ -679,7 +716,7 @@ func main() {
 					return
 				}
 				recordPath := filepath.Join(baseDir, runID)
-				rec, err := recorder.NewRecorder(recordPath, *lidarSensor)
+				rec, err := recorder.NewRecorder(recordPath, lidarSensorID)
 				if err != nil {
 					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
 					return
@@ -778,7 +815,7 @@ func main() {
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
-		sweepBackend := monitor.NewDirectBackend(*lidarSensor, lidarWebServer)
+		sweepBackend := monitor.NewDirectBackend(lidarSensorID, lidarWebServer)
 		sweepRunner := sweep.NewRunner(sweepBackend)
 		lidarWebServer.SetSweepRunner(sweepRunner)
 

@@ -16,8 +16,9 @@ const (
 	// safetyNeighborConfirmationCount is a safety guard used only when
 	// BackgroundParams.NeighborConfirmationCount is negative.
 	safetyNeighborConfirmationCount = 3
-	// FreezeThresholdMultiplier is the multiplier applied to closeness threshold to trigger cell freeze
-	FreezeThresholdMultiplier = 3.0
+	// defaultFreezeThresholdMultiplier is the fallback freeze-gate multiplier when
+	// config has not provided a positive value.
+	defaultFreezeThresholdMultiplier = 3.0
 	// DefaultReacquisitionBoostMultiplier is the default multiplier for fast re-acquisition
 	DefaultReacquisitionBoostMultiplier = 5.0
 	// DefaultMinConfidenceFloor is the minimum TimesSeenCount to preserve during foreground
@@ -113,6 +114,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		neighConfirm = safetyNeighborConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
+	freezeThresholdMultiplier := float64(g.Params.FreezeThresholdMultiplier)
+	if freezeThresholdMultiplier <= 0 {
+		freezeThresholdMultiplier = defaultFreezeThresholdMultiplier
+	}
 
 	// Fast re-acquisition parameters
 	reacqBoost := float64(g.Params.ReacquisitionBoostMultiplier)
@@ -328,7 +333,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// and then rejects the true background because it differs from that edge.
 		if !isBackgroundLike && cell.TimesSeenCount <= minConfFloor && cell.RecentForegroundCount > 4 {
 			// Only force-learn if we wouldn't otherwise freeze this cell (avoid learning dynamic obstacles)
-			freezeThresh := FreezeThresholdMultiplier * closenessThreshold
+			freezeThresh := freezeThresholdMultiplier * closenessThreshold
 			if cellDiff <= freezeThresh {
 				isBackgroundLike = true
 			}
@@ -417,11 +422,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			// Freeze cell if divergence is very large, but only if we are not confident
 			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
 			// a passing object should not freeze the background model.
-			if cell.TimesSeenCount < 100 && cellDiff > FreezeThresholdMultiplier*closenessThreshold {
+			if cell.TimesSeenCount < 100 && cellDiff > freezeThresholdMultiplier*closenessThreshold {
 				if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
 					tracef("[FG_FREEZE] r=%d az=%.1f froze for %.1fs, dist=%.3f avg=%.3f cellDiff=%.3f freezeThresh=%.3f recFg=%d",
 						ring, az, float64(freezeDur)/1e9, p.Distance, cell.AverageRangeMeters,
-						cellDiff, FreezeThresholdMultiplier*closenessThreshold, cell.RecentForegroundCount)
+						cellDiff, freezeThresholdMultiplier*closenessThreshold, cell.RecentForegroundCount)
 				}
 				cell.FrozenUntilUnixNanos = nowNanos + freezeDur
 			}

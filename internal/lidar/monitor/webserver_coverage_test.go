@@ -496,16 +496,16 @@ func TestCov2_HandleTuningParams_POST_JSONBody(t *testing.T) {
 	l3grid.RegisterBackgroundManager("cov2-tuning-post", bm)
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"noise_relative":                0.3,
-		"enable_diagnostics":            true,
-		"closeness_multiplier":          1.5,
-		"neighbor_confirmation_count":   2,
-		"seed_from_first":               true,
-		"warmup_duration_nanos":         int64(1e9),
-		"warmup_min_frames":             10,
-		"post_settle_update_fraction":   0.01,
-		"foreground_min_cluster_points": 5,
-		"foreground_dbscan_eps":         0.5,
+		"l3.ema_baseline_v1.noise_relative":               0.3,
+		"l3.ema_baseline_v1.enable_diagnostics":           true,
+		"l3.ema_baseline_v1.closeness_multiplier":         1.5,
+		"l3.ema_baseline_v1.neighbour_confirmation_count": 2,
+		"l3.ema_baseline_v1.seed_from_first":              true,
+		"l3.ema_baseline_v1.warmup_duration_nanos":        int64(1e9),
+		"l3.ema_baseline_v1.warmup_min_frames":            10,
+		"l3.ema_baseline_v1.post_settle_update_fraction":  0.01,
+		"l4.dbscan_xy_v1.foreground_min_cluster_points":   5,
+		"l4.dbscan_xy_v1.foreground_dbscan_eps":           0.5,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-post", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -536,7 +536,7 @@ func TestCov2_HandleTuningParams_POST_FormSubmission(t *testing.T) {
 	l3grid.RegisterBackgroundManager("cov2-tuning-form", bm)
 
 	form := url.Values{}
-	form.Set("config_json", `{"noise_relative": 0.2}`)
+	form.Set("config_json", `{"l3.ema_baseline_v1.noise_relative": 0.2}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-form", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -587,14 +587,14 @@ func TestCov2_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	ws := &WebServer{tracker: tracker}
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"gating_distance_squared": 100.0,
-		"process_noise_pos":       0.1,
-		"process_noise_vel":       0.5,
-		"measurement_noise":       1.0,
-		"occlusion_cov_inflation": 2.0,
-		"hits_to_confirm":         3,
-		"max_misses":              5,
-		"max_misses_confirmed":    10,
+		"l5.cv_kf_v1.gating_distance_squared": 100.0,
+		"l5.cv_kf_v1.process_noise_pos":       0.1,
+		"l5.cv_kf_v1.process_noise_vel":       0.5,
+		"l5.cv_kf_v1.measurement_noise":       1.0,
+		"l5.cv_kf_v1.occlusion_cov_inflation": 2.0,
+		"l5.cv_kf_v1.hits_to_confirm":         3,
+		"l5.cv_kf_v1.max_misses":              5,
+		"l5.cv_kf_v1.max_misses_confirmed":    10,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-track-post", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -612,7 +612,7 @@ func TestCov2_HandleTuningParams_POST_ForegroundMaxInputPoints(t *testing.T) {
 	ws := &WebServer{}
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"foreground_max_input_points": 4000,
+		"l4.dbscan_xy_v1.foreground_max_input_points": 4000,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id=cov2-tuning-fgmax-post", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -4734,7 +4734,7 @@ func TestCov5_HandleTuningParams_FormSubmission(t *testing.T) {
 	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
 	l3grid.RegisterBackgroundManager(sid, bm)
 
-	configJSON := `{"noise_relative": 0.05, "enable_diagnostics": true}`
+	configJSON := `{"l3.ema_baseline_v1.noise_relative": 0.05, "l3.ema_baseline_v1.enable_diagnostics": true}`
 	body := fmt.Sprintf("config_json=%s", configJSON)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id="+sid,
 		strings.NewReader(body))
@@ -4760,24 +4760,24 @@ func TestCov5_HandleTuningParams_AllParams(t *testing.T) {
 	ws.tracker = l5tracks.NewTracker(tc)
 
 	body := `{
-		"noise_relative": 0.05,
-		"enable_diagnostics": false,
-		"closeness_multiplier": 1.5,
-		"neighbor_confirmation_count": 3,
-		"seed_from_first": true,
-		"warmup_duration_nanos": 1000000000,
-		"warmup_min_frames": 10,
-		"post_settle_update_fraction": 0.01,
-		"foreground_min_cluster_points": 5,
-		"foreground_dbscan_eps": 0.3,
-		"gating_distance_squared": 4.0,
-		"process_noise_pos": 0.1,
-		"process_noise_vel": 0.5,
-		"measurement_noise": 1.0,
-		"occlusion_cov_inflation": 2.0,
-		"hits_to_confirm": 3,
-		"max_misses": 5,
-		"max_misses_confirmed": 10
+		"l3.ema_baseline_v1.noise_relative": 0.05,
+		"l3.ema_baseline_v1.enable_diagnostics": false,
+		"l3.ema_baseline_v1.closeness_multiplier": 1.5,
+		"l3.ema_baseline_v1.neighbour_confirmation_count": 3,
+		"l3.ema_baseline_v1.seed_from_first": true,
+		"l3.ema_baseline_v1.warmup_duration_nanos": 1000000000,
+		"l3.ema_baseline_v1.warmup_min_frames": 10,
+		"l3.ema_baseline_v1.post_settle_update_fraction": 0.01,
+		"l4.dbscan_xy_v1.foreground_min_cluster_points": 5,
+		"l4.dbscan_xy_v1.foreground_dbscan_eps": 0.3,
+		"l5.cv_kf_v1.gating_distance_squared": 4.0,
+		"l5.cv_kf_v1.process_noise_pos": 0.1,
+		"l5.cv_kf_v1.process_noise_vel": 0.5,
+		"l5.cv_kf_v1.measurement_noise": 1.0,
+		"l5.cv_kf_v1.occlusion_cov_inflation": 2.0,
+		"l5.cv_kf_v1.hits_to_confirm": 3,
+		"l5.cv_kf_v1.max_misses": 5,
+		"l5.cv_kf_v1.max_misses_confirmed": 10
 	}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id="+sid,
 		strings.NewReader(body))
@@ -5347,9 +5347,11 @@ func TestCov6_HandleTuningParams_GetWithTracker(t *testing.T) {
 	var resp map[string]interface{}
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	// Tracker fields should be present in the response.
-	assert.Contains(t, resp, "gating_distance_squared")
-	assert.Contains(t, resp, "process_noise_pos")
-	assert.Contains(t, resp, "max_tracks")
+	l5 := resp["l5"].(map[string]interface{})
+	cv := l5["cv_kf_v1"].(map[string]interface{})
+	assert.Contains(t, cv, "gating_distance_squared")
+	assert.Contains(t, cv, "process_noise_pos")
+	assert.Contains(t, cv, "max_tracks")
 }
 
 // ---------- 12. handleTuningParams POST response includes tracker config (lines ~1362-1377, 2 stmts) ----------
@@ -5364,7 +5366,7 @@ func TestCov6_HandleTuningParams_PostWithTracker(t *testing.T) {
 	tc := l5tracks.DefaultTrackerConfig()
 	ws.tracker = l5tracks.NewTracker(tc)
 
-	body := `{"noise_relative": 0.03}`
+	body := `{"l3.ema_baseline_v1.noise_relative": 0.03}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/tuning-params?sensor_id="+sid,
 		bytes.NewReader([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
@@ -5374,9 +5376,9 @@ func TestCov6_HandleTuningParams_PostWithTracker(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	var resp map[string]interface{}
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
-	assert.Equal(t, "ok", resp["status"])
-	// Tracker keys should appear in the POST response too.
-	assert.Contains(t, resp, "gating_distance_squared")
+	l5 := resp["l5"].(map[string]interface{})
+	cv := l5["cv_kf_v1"].(map[string]interface{})
+	assert.Contains(t, cv, "gating_distance_squared")
 }
 
 // ---------- 13. handleBackgroundRegions with RegionDebugInfo nil (lines 3411-3414, 2 stmts) ----------
@@ -5782,19 +5784,19 @@ func TestCov7_HandleTuningParams_POST_ExtendedTrackerFields(t *testing.T) {
 	ws := &WebServer{tracker: tracker, classifier: classifier}
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"max_reasonable_speed_mps":            50.0,
-		"max_position_jump_meters":            5.0,
-		"max_predict_dt":                      0.5,
-		"max_covariance_diag":                 100.0,
-		"min_points_for_pca":                  3,
-		"obb_heading_smoothing_alpha":         0.8,
-		"obb_aspect_ratio_lock_threshold":     1.5,
-		"max_track_history_length":            200,
-		"max_speed_history_length":            100,
-		"merge_size_ratio":                    0.5,
-		"split_size_ratio":                    2.0,
-		"deleted_track_grace_period":          "5s",
-		"min_observations_for_classification": 10,
+		"l5.cv_kf_v1.max_reasonable_speed_mps":            50.0,
+		"l5.cv_kf_v1.max_position_jump_metres":            5.0,
+		"l5.cv_kf_v1.max_predict_dt":                      0.5,
+		"l5.cv_kf_v1.max_covariance_diag":                 100.0,
+		"l5.cv_kf_v1.min_points_for_pca":                  3,
+		"l5.cv_kf_v1.obb_heading_smoothing_alpha":         0.8,
+		"l5.cv_kf_v1.obb_aspect_ratio_lock_threshold":     1.5,
+		"l5.cv_kf_v1.max_track_history_length":            200,
+		"l5.cv_kf_v1.max_speed_history_length":            100,
+		"l5.cv_kf_v1.merge_size_ratio":                    0.5,
+		"l5.cv_kf_v1.split_size_ratio":                    2.0,
+		"l5.cv_kf_v1.deleted_track_grace_period":          "5s",
+		"l5.cv_kf_v1.min_observations_for_classification": 10,
 	})
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/lidar/tuning-params?sensor_id="+sid, bytes.NewReader(body))

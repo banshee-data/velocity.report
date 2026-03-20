@@ -102,6 +102,8 @@ help:
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
 	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
+	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
+	@echo "  config-validate      Validate a schema v2 tuning JSON (CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
 	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
@@ -1051,9 +1053,23 @@ check-agent-drift: ## Compare agent definitions between Copilot and Claude for d
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
+.PHONY: config-migrate config-validate
+
+CONFIG ?= config/tuning.defaults.json
+
+config-migrate:
+	@if [ -z "$(IN)" ]; then \
+		echo "usage: make config-migrate IN=path/to/legacy.json [OUT=path/to/output.json]"; \
+		exit 2; \
+	fi
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-migrate --in "$(IN)" $(if $(OUT),--out "$(OUT)")
+
+config-validate:
+	@env GOCACHE=/tmp/velocity-report-go-cache go run ./cmd/tools/config-validate --in "$(CONFIG)"
+
 check-config-order:
 	@./scripts/config-order-sync \
-		--main-go-struct internal/config/tuning.go:TuningConfig \
+		--main-json config/tuning.defaults.json \
 		--discover \
 		--md-target config/README.md \
 		--check
@@ -1061,10 +1077,6 @@ check-config-order:
 sync-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
-		--discover \
-		--md-target config/README.md
-	@./scripts/config-order-sync \
-		--main-go-struct internal/config/tuning.go:TuningConfig \
 		--discover \
 		--md-target config/README.md
 

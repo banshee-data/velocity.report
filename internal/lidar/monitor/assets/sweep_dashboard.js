@@ -47,7 +47,7 @@ var chartBg = "transparent";
 
 // Parameter schema derived from TuningConfig (with descriptions)
 var PARAM_SCHEMA = {
-  noise_relative: {
+  "l3.ema_baseline_v1.noise_relative": {
     type: "float64",
     label: "Noise Relative",
     step: 0.001,
@@ -55,7 +55,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.2,
     desc: "Fraction of measured range treated as noise threshold (0–1). Higher = more tolerant of range variation.",
   },
-  closeness_multiplier: {
+  "l3.ema_baseline_v1.closeness_multiplier": {
     type: "float64",
     label: "Closeness Multiplier",
     step: 0.5,
@@ -63,7 +63,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 20.0,
     desc: "Multiplier for closeness threshold. Higher = wider band for background acceptance.",
   },
-  neighbor_confirmation_count: {
+  "l3.ema_baseline_v1.neighbour_confirmation_count": {
     type: "int",
     label: "Neighbour Confirmation",
     step: 1,
@@ -71,12 +71,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 8,
     desc: "Number of neighbouring cells (0–8) that must agree before marking foreground.",
   },
-  seed_from_first: {
+  "l3.ema_baseline_v1.seed_from_first": {
     type: "bool",
     label: "Seed From First",
     desc: "If true, initialise background model from the very first observation.",
   },
-  warmup_duration_nanos: {
+  "l3.ema_baseline_v1.warmup_duration_nanos": {
     type: "int64",
     label: "Warmup Duration (ns)",
     step: 1000000000,
@@ -84,7 +84,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 120000000000,
     desc: "Duration in nanoseconds for the warmup phase before classification begins.",
   },
-  warmup_min_frames: {
+  "l3.ema_baseline_v1.warmup_min_frames": {
     type: "int",
     label: "Warmup Min Frames",
     step: 10,
@@ -92,7 +92,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 500,
     desc: "Minimum frames required before the warmup phase can complete.",
   },
-  post_settle_update_fraction: {
+  "l3.ema_baseline_v1.post_settle_update_fraction": {
     type: "float64",
     label: "Post-Settle Update Fraction",
     step: 0.01,
@@ -100,7 +100,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.5,
     desc: "Background update alpha after settling (0 = freeze background).",
   },
-  background_update_fraction: {
+  "l3.ema_baseline_v1.background_update_fraction": {
     type: "float64",
     label: "Background Update Fraction",
     step: 0.005,
@@ -108,7 +108,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.1,
     desc: "EMA learning rate for background grid updates during settling (0–1).",
   },
-  safety_margin_meters: {
+  "l3.ema_baseline_v1.safety_margin_metres": {
     type: "float64",
     label: "Safety Margin (m)",
     step: 0.1,
@@ -116,12 +116,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "Additional additive margin (metres) on the closeness threshold for background classification.",
   },
-  enable_diagnostics: {
+  "l3.ema_baseline_v1.enable_diagnostics": {
     type: "bool",
     label: "Enable Diagnostics",
     desc: "If true, enables verbose per-frame diagnostic logging.",
   },
-  foreground_min_cluster_points: {
+  "l4.dbscan_xy_v1.foreground_min_cluster_points": {
     type: "int",
     label: "FG Min Cluster Points",
     step: 1,
@@ -129,7 +129,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 20,
     desc: "Minimum points for a foreground cluster to be reported. 0 = disabled.",
   },
-  foreground_dbscan_eps: {
+  "l4.dbscan_xy_v1.foreground_dbscan_eps": {
     type: "float64",
     label: "FG DBSCAN Eps",
     step: 0.1,
@@ -137,12 +137,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "DBSCAN epsilon for foreground point clustering. 0 = disabled.",
   },
-  buffer_timeout: {
+  "pipeline.buffer_timeout": {
     type: "string",
     label: "Buffer Timeout",
     desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").',
   },
-  min_frame_points: {
+  "pipeline.min_frame_points": {
     type: "int",
     label: "Min Frame Points",
     step: 100,
@@ -150,17 +150,17 @@ var PARAM_SCHEMA = {
     defaultEnd: 5000,
     desc: "Minimum points in a frame before processing. Fewer points = frame dropped.",
   },
-  flush_interval: {
+  "pipeline.flush_interval": {
     type: "string",
     label: "Flush Interval",
     desc: 'How often the background grid is flushed to disk (e.g. "60s").',
   },
-  background_flush: {
+  "pipeline.background_flush": {
     type: "bool",
     label: "Background Flush",
     desc: "If true, enables periodic background grid flush to disk. Default: false (disabled).",
   },
-  gating_distance_squared: {
+  "l5.cv_kf_v1.gating_distance_squared": {
     type: "float64",
     label: "Gating Distance²",
     step: 1.0,
@@ -168,7 +168,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 100.0,
     desc: "Squared Mahalanobis distance threshold for track-to-cluster association.",
   },
-  process_noise_pos: {
+  "l5.cv_kf_v1.process_noise_pos": {
     type: "float64",
     label: "Process Noise Pos",
     step: 0.01,
@@ -176,7 +176,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 1.0,
     desc: "Kalman process noise for position. Higher = more position uncertainty expected.",
   },
-  process_noise_vel: {
+  "l5.cv_kf_v1.process_noise_vel": {
     type: "float64",
     label: "Process Noise Vel",
     step: 0.01,
@@ -184,7 +184,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "Kalman process noise for velocity. Higher = more velocity changes expected.",
   },
-  measurement_noise: {
+  "l5.cv_kf_v1.measurement_noise": {
     type: "float64",
     label: "Measurement Noise",
     step: 0.01,
@@ -200,7 +200,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 5.0,
     desc: "Covariance inflation factor during occlusion (missed observations).",
   },
-  hits_to_confirm: {
+  "l5.cv_kf_v1.hits_to_confirm": {
     type: "int",
     label: "Hits to Confirm",
     step: 1,
@@ -208,7 +208,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 10,
     desc: "Consecutive successful associations needed to confirm a tentative track.",
   },
-  max_misses: {
+  "l5.cv_kf_v1.max_misses": {
     type: "int",
     label: "Max Misses",
     step: 1,
@@ -216,7 +216,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 10,
     desc: "Consecutive misses before a tentative track is deleted.",
   },
-  max_misses_confirmed: {
+  "l5.cv_kf_v1.max_misses_confirmed": {
     type: "int",
     label: "Max Misses Confirmed",
     step: 1,
@@ -224,7 +224,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 30,
     desc: "Consecutive misses before a confirmed track is deleted.",
   },
-  max_tracks: {
+  "l5.cv_kf_v1.max_tracks": {
     type: "int",
     label: "Max Tracks",
     step: 10,
@@ -3076,15 +3076,15 @@ function disposeAllCharts() {
 
 // Default parameters for HINT auto-configuration when user hasn't added any.
 var DEFAULT_HINT_FOREGROUND_PARAMS = [
-  "foreground_min_cluster_points",
-  "foreground_dbscan_eps",
+  "l4.dbscan_xy_v1.foreground_min_cluster_points",
+  "l4.dbscan_xy_v1.foreground_dbscan_eps",
 ];
 
 var DEFAULT_HINT_BACKGROUND_PARAMS = [
-  "noise_relative",
-  "closeness_multiplier",
-  "background_update_fraction",
-  "safety_margin_meters",
+  "l3.ema_baseline_v1.noise_relative",
+  "l3.ema_baseline_v1.closeness_multiplier",
+  "l3.ema_baseline_v1.background_update_fraction",
+  "l3.ema_baseline_v1.safety_margin_metres",
 ];
 
 // DEFAULT_HINT_PARAMS kept for backward compatibility (all params).
@@ -3281,7 +3281,7 @@ function init() {
     });
 
   // Add a default parameter row
-  addParamRow("noise_relative");
+  addParamRow("l3.ema_baseline_v1.noise_relative");
   updateSweepSummary();
 
   // Fetch and display current tuning parameters

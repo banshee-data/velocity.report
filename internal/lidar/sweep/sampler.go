@@ -194,7 +194,7 @@ func WriteRawRow(w *csv.Writer, noise, closeness float64, neighbour, iter int, r
 
 // WriteRawHeaders writes the header row for raw sample data.
 func WriteRawHeaders(w *csv.Writer, buckets []string) {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count", "iter", "timestamp"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count", "iter", "timestamp"}
 	for _, b := range buckets {
 		header = append(header, "accept_counts_"+b)
 	}
@@ -213,7 +213,7 @@ func WriteRawHeaders(w *csv.Writer, buckets []string) {
 
 // WriteSummaryHeaders writes the header row for summary data.
 func WriteSummaryHeaders(w *csv.Writer, buckets []string) {
-	header := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count"}
+	header := []string{"l3.ema_baseline_v1.noise_relative", "l3.ema_baseline_v1.closeness_multiplier", "l3.ema_baseline_v1.neighbour_confirmation_count"}
 	for _, b := range buckets {
 		header = append(header, "bucket_"+b+"_mean")
 	}

@@ -1,194 +1,271 @@
 # Configuration System
 
-This directory contains configuration files for tuning the velocity.report system.
+This directory contains the canonical LiDAR tuning config files used by
+`velocity.report`.
 
-## Maths Cross-Reference
+## Schema
 
-For a direct mapping between config keys and the maths/algorithm docs, see:
+The runtime now accepts a versioned nested schema.
 
-- [`README.maths.md`](README.maths.md)
-- [`../data/maths/README.md`](../data/maths/README.md)
+- `version` must equal `2`
+- `l1` holds sensor and network settings
+- `l3`, `l4`, and `l5` each contain:
+  - `engine`
+  - exactly one engine block matching that selector
+- `pipeline` holds cross-cutting runtime settings
 
-## Planned Restructure (Breaking Change)
+The runtime rejects:
 
-The flat config schema is being replaced with a **layer-scoped nested structure**
-to support multi-engine algorithm selection and layer-isolated evaluation.
-See [`CONFIG-RESTRUCTURE.md`](CONFIG-RESTRUCTURE.md) for the full migration plan,
-target schema, and implementation sequence.
+- missing required fields
+- unknown fields
+- old flat root keys
+- legacy spellings such as `neighbor_*` and `*_meters`
 
-## LiDAR Tuning Configuration
-
-`tuning.defaults.json` is the **single source of truth** for all tuning parameters. The Go binary **requires** a valid configuration file at startup — there are **no hardcoded fallback defaults for tuning keys** in the codebase. If the file cannot be loaded or is missing required keys, the process will not start.
-
-### Usage
+## Usage
 
 ```bash
-# Uses the default config file (config/tuning.defaults.json)
 ./velocity-report --enable-lidar
+./velocity-report --config config/tuning.example.json --enable-lidar
 
-# Uses a custom config file
-./velocity-report --config config/tuning.custom.json --enable-lidar
+make config-validate CONFIG=config/tuning.defaults.json
+make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
 ```
 
-### Configuration Structure
-
-The configuration uses a flat JSON schema. **All keys are required** — the file must specify every parameter. The same schema is used by the `/api/lidar/params` endpoint for runtime updates.
+## Canonical Example
 
 ```json
 {
-  "background_update_fraction": 0.02,
-  "closeness_multiplier": 8.0,
-  "safety_margin_meters": 0.4,
-  "noise_relative": 0.04,
-  "neighbor_confirmation_count": 7,
-  "seed_from_first": true,
-  "warmup_duration_nanos": 30000000000,
-  "warmup_min_frames": 100,
-  "post_settle_update_fraction": 0,
-  "enable_diagnostics": false,
-  "foreground_dbscan_eps": 0.8,
-  "foreground_min_cluster_points": 5,
-  "foreground_max_input_points": 8000,
-  "buffer_timeout": "500ms",
-  "min_frame_points": 1000,
-  "flush_interval": "60s",
-  "background_flush": false,
-  "gating_distance_squared": 9.21,
-  "process_noise_pos": 1.0,
-  "process_noise_vel": 5.0,
-  "measurement_noise": 0.3,
-  "occlusion_cov_inflation": 0.5,
-  "hits_to_confirm": 3,
-  "max_misses": 3,
-  "max_misses_confirmed": 15,
-  "max_tracks": 100,
-  "height_band_floor": -2.8,
-  "height_band_ceiling": 1.5,
-  "remove_ground": true,
-  "max_cluster_diameter": 12.0,
-  "min_cluster_diameter": 0.05,
-  "max_cluster_aspect_ratio": 15.0,
-  "max_reasonable_speed_mps": 30.0,
-  "max_position_jump_meters": 5.0,
-  "max_predict_dt": 0.5,
-  "max_covariance_diag": 100.0,
-  "min_points_for_pca": 4,
-  "obb_heading_smoothing_alpha": 0.08,
-  "obb_aspect_ratio_lock_threshold": 0.25,
-  "max_track_history_length": 200,
-  "max_speed_history_length": 100,
-  "merge_size_ratio": 2.5,
-  "split_size_ratio": 0.3,
-  "deleted_track_grace_period": "5s",
-  "min_observations_for_classification": 5
+  "version": 2,
+  "l1": {
+    "sensor": "hesai-pandar40p",
+    "data_source": "live",
+    "udp_port": 2369,
+    "udp_rcv_buf": 4194304,
+    "forward_port": 2368,
+    "foreground_forward_port": 2370
+  },
+  "l3": {
+    "engine": "ema_baseline_v1",
+    "ema_baseline_v1": {
+      "background_update_fraction": 0.02,
+      "closeness_multiplier": 3,
+      "safety_margin_metres": 0.15,
+      "noise_relative": 0.02,
+      "neighbour_confirmation_count": 3,
+      "seed_from_first": true,
+      "warmup_duration_nanos": 30000000000,
+      "warmup_min_frames": 100,
+      "post_settle_update_fraction": 0,
+      "enable_diagnostics": false,
+      "freeze_duration": "5s",
+      "freeze_threshold_multiplier": 3,
+      "settling_period": "5m",
+      "snapshot_interval": "2h",
+      "change_threshold_snapshot": 100,
+      "reacquisition_boost_multiplier": 5,
+      "min_confidence_floor": 3,
+      "locked_baseline_threshold": 50,
+      "locked_baseline_multiplier": 4,
+      "sensor_movement_foreground_threshold": 0.2,
+      "background_drift_threshold_metres": 0.5,
+      "background_drift_ratio_threshold": 0.1,
+      "settling_min_coverage": 0.8,
+      "settling_max_spread_delta": 0.001,
+      "settling_min_region_stability": 0.95,
+      "settling_min_confidence": 10
+    }
+  },
+  "l4": {
+    "engine": "dbscan_xy_v1",
+    "dbscan_xy_v1": {
+      "foreground_dbscan_eps": 0.8,
+      "foreground_min_cluster_points": 5,
+      "foreground_max_input_points": 8000,
+      "height_band_floor": -2.8,
+      "height_band_ceiling": 1.5,
+      "remove_ground": true,
+      "max_cluster_diameter": 12,
+      "min_cluster_diameter": 0.05,
+      "max_cluster_aspect_ratio": 15
+    }
+  },
+  "l5": {
+    "engine": "cv_kf_v1",
+    "cv_kf_v1": {
+      "gating_distance_squared": 36,
+      "process_noise_pos": 0.05,
+      "process_noise_vel": 0.2,
+      "measurement_noise": 0.05,
+      "occlusion_cov_inflation": 0.5,
+      "hits_to_confirm": 4,
+      "max_misses": 3,
+      "max_misses_confirmed": 15,
+      "max_tracks": 100,
+      "max_reasonable_speed_mps": 30,
+      "max_position_jump_metres": 5,
+      "max_predict_dt": 0.5,
+      "max_covariance_diag": 100,
+      "min_points_for_pca": 4,
+      "obb_heading_smoothing_alpha": 0.08,
+      "obb_aspect_ratio_lock_threshold": 0.25,
+      "max_track_history_length": 200,
+      "max_speed_history_length": 100,
+      "merge_size_ratio": 2.5,
+      "split_size_ratio": 0.3,
+      "deleted_track_grace_period": "5s",
+      "min_observations_for_classification": 5
+    }
+  },
+  "pipeline": {
+    "buffer_timeout": "500ms",
+    "min_frame_points": 1000,
+    "flush_interval": "60s",
+    "background_flush": false
+  }
 }
 ```
 
-### Key Order Consistency
+## Runtime Updates
 
-Key order is validated in CI across:
+`POST /api/lidar/params` accepts partial updates in either form:
 
-- `internal/config/tuning.go` (`TuningConfig` JSON tag order)
-- `config/tuning*.json`
-- this README JSON example block
+1. Nested JSON objects
+2. Dot-path keys
 
-Use:
+Example:
 
-```bash
-# check only (CI)
-make config-order-check
-
-# rewrite targets to canonical order
-make config-order-sync
+```json
+{
+  "l3.ema_baseline_v1.noise_relative": 0.03,
+  "l3.ema_baseline_v1.closeness_multiplier": 2.5,
+  "l5.cv_kf_v1.max_tracks": 120
+}
 ```
 
-### Parameters
+Runtime updates are limited on this branch to:
 
-#### Background Model
+- `l3.ema_baseline_v1.*`
+- `l4.dbscan_xy_v1.foreground_dbscan_eps`
+- `l4.dbscan_xy_v1.foreground_min_cluster_points`
+- `l4.dbscan_xy_v1.foreground_max_input_points`
+- `l5.cv_kf_v1.*`
 
-Controls how the background (static scene) model is built and updated. The model classifies each LiDAR return as background or foreground by comparing measured range to an exponential moving average (EMA).
+`l1.*`, `pipeline.*`, and engine selectors remain startup-only.
 
-| Key                           | Type    | Default     | Description                                                                                                                                                                                                                                                 |
-| ----------------------------- | ------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `background_update_fraction`  | float64 | 0.02        | EMA blend factor for background range updates. Each frame, the stored range moves toward the measurement by this fraction. Higher = faster adaptation; lower = more stable. Range: (0, 1].                                                                  |
-| `closeness_multiplier`        | float64 | 8.0         | Multiplier for the closeness threshold. A point is background if its range falls within: `average ± closeness_multiplier × max(noise_relative × range, safety_margin)`. Higher = more permissive (fewer foreground); lower = more sensitive. Range: (0, ∞). |
-| `safety_margin_meters`        | float64 | 0.4         | Additive safety margin (metres) for the closeness threshold. Ensures a minimum acceptance window at close range where `noise_relative × range` is small. Range: [0, ∞).                                                                                     |
-| `noise_relative`              | float64 | 0.04        | Fractional noise estimate relative to measured range. 0.04 = 4% of range (at 50 m → ±2 m noise band). Range: [0, 1].                                                                                                                                        |
-| `neighbor_confirmation_count` | int     | 7           | Number of neighbouring polar cells that must also classify a point as foreground before the centre cell is confirmed. Higher = fewer false positives; lower = higher recall. Range: [0, 8].                                                                 |
-| `seed_from_first`             | bool    | true        | Seed each background cell from its first observation. When true, warmup converges faster; when false, the EMA starts from zero.                                                                                                                             |
-| `warmup_duration_nanos`       | int64   | 30000000000 | Duration (nanoseconds) of the warmup phase during which foreground detections are suppressed. 30 000 000 000 ns = 30 s.                                                                                                                                     |
-| `warmup_min_frames`           | int     | 100         | Minimum frames that must elapse during warmup regardless of wall-clock time.                                                                                                                                                                                |
-| `post_settle_update_fraction` | float64 | 0           | EMA alpha applied after the settling period. Set to 0 to freeze the background model once settled (useful for fixed scenes).                                                                                                                                |
-| `enable_diagnostics`          | bool    | false       | Enable detailed per-cell background diagnostics. Generates significant log output; development only.                                                                                                                                                        |
+## Key Order
 
-#### Foreground Clustering (DBSCAN)
-
-After foreground extraction, world-frame points are clustered via DBSCAN. These parameters control how points are grouped into object clusters.
-
-| Key                             | Type    | Default | Description                                                                                                                                                                                                                                           |
-| ------------------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `foreground_dbscan_eps`         | float64 | 0.8     | DBSCAN neighbourhood radius (metres). Two points closer than this (2D Euclidean, X/Y) are neighbours. **Must be ≥0.5** to avoid catastrophic cluster fragmentation — values below this cause vehicles to split into many sub-clusters. Range: (0, ∞). |
-| `foreground_min_cluster_points` | int     | 5       | Minimum points to form a cluster. Smaller clusters are discarded as noise. Lower values detect sparser/more distant objects but admit more noise. Range: [1, ∞).                                                                                      |
-| `foreground_max_input_points`   | int     | 8000    | Maximum foreground points fed into DBSCAN per frame. When the foreground point count exceeds this value, uniform random subsampling is applied to keep runtime bounded. 0 or negative applies the default cap of 8000. Range: [1, ∞).                 |
-
-#### Frame Builder
-
-| Key                | Type   | Default | Description                                                                                                                 |
-| ------------------ | ------ | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `buffer_timeout`   | string | "500ms" | Maximum time to wait for additional packets before finalising an incomplete frame. Go duration string (e.g. "250ms", "1s"). |
-| `min_frame_points` | int    | 1000    | Minimum LiDAR returns required to accept a frame. Frames with fewer points are discarded.                                   |
-
-#### Background Grid Persistence
-
-| Key                | Type   | Default | Description                                                                              |
-| ------------------ | ------ | ------- | ---------------------------------------------------------------------------------------- |
-| `flush_interval`   | string | "60s"   | Interval between periodic background-grid snapshots to the database. Go duration string. |
-| `background_flush` | bool   | false   | Master switch for periodic flushing. When false, no snapshots are written.               |
-
-#### Kalman Tracker
-
-Constant-velocity Kalman filter with 2D state [x, y, vx, vy]. Cluster centroids are used as position measurements.
-
-| Key                       | Type    | Default | Description                                                                                                                                                                                              |
-| ------------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gating_distance_squared` | float64 | 9.21    | Squared Mahalanobis distance threshold for cluster-to-track association. Associations exceeding this are forbidden in the Hungarian assignment. 9.21 = χ²(2, 0.99) — 99% confidence gate. Range: (0, ∞). |
-| `process_noise_pos`       | float64 | 1.0     | Position process noise (m²/s), dt-normalised. Actual noise added is `value × dt`. Controls how quickly position uncertainty grows during prediction.                                                     |
-| `process_noise_vel`       | float64 | 5.0     | Velocity process noise (m²/s³), dt-normalised. Controls how quickly velocity uncertainty grows, allowing tracking of accelerating objects.                                                               |
-| `measurement_noise`       | float64 | 0.3     | Measurement noise (m²). Models uncertainty in cluster centroid positions. Higher = trust predictions more; lower = trust measurements more.                                                              |
-| `occlusion_cov_inflation` | float64 | 0.5     | Extra covariance inflation per frame when a confirmed track has no matching cluster. Widens the gating ellipse for easier re-association.                                                                |
-| `hits_to_confirm`         | int     | 3       | Consecutive successful associations required to promote a track from tentative to confirmed.                                                                                                             |
-| `max_misses`              | int     | 3       | Consecutive missed associations before a **tentative** track is deleted.                                                                                                                                 |
-| `max_misses_confirmed`    | int     | 15      | Consecutive missed associations before a **confirmed** track is deleted. Higher values allow coasting through brief occlusions. At 10 Hz: 15 frames = 1.5 s.                                             |
-| `max_tracks`              | int     | 100     | Maximum number of concurrent tracked objects.                                                                                                                                                            |
-
-#### Height Band Filter
-
-Vertical (Z-axis) band filter applied after foreground extraction to remove ground-plane and overhead-structure returns before clustering. Bounds are expressed in the **input coordinate frame** — when no sensor→world pose transform is applied (identity pose), Z=0 is the sensor's horizontal plane. For a sensor mounted ≈ 3 m above road level, ground sits at approximately Z = −3.0 m.
-
-| Key                   | Type    | Default | Description                                                                                                                                                       |
-| --------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `height_band_floor`   | float64 | −2.8    | Lower Z bound (metres, sensor frame). Points below this are assumed to be road surface returns. −2.8 ≈ 0.2 m above ground for a 3 m mount. Range: (−∞, 0].        |
-| `height_band_ceiling` | float64 | 1.5     | Upper Z bound (metres, sensor frame). Points above this are assumed to be overhead structures. +1.5 allows objects extending ≈ 1.5 m above sensor. Range: [0, ∞). |
-| `remove_ground`       | bool    | true    | Master switch for vertical height band filtering. When false, all points pass through to clustering regardless of Z value.                                        |
-
-### Creating Custom Configurations
-
-1. Copy `tuning.defaults.json` to a new file (e.g. `tuning.custom.json`)
-2. Modify the values as needed — **all keys must be present**
-3. Use the `--config` flag:
+Canonical ordering is derived from `config/tuning.defaults.json`.
 
 ```bash
-./velocity-report --config config/tuning.custom.json --enable-lidar
+make check-config-order
+make sync-config-order
+make check-config-maths
 ```
 
-### No Hardcoded Defaults
+## Field Reference
 
-The Go binary contains **no hardcoded parameter values**. Every tuning parameter is loaded exclusively from the configuration file at startup. If the file is missing, unreadable, or incomplete (missing required keys), the process exits with an error.
+### Root
 
-This design ensures:
+| Path       | Type   | Notes                             |
+| ---------- | ------ | --------------------------------- |
+| `version`  | int    | Must equal `2`.                   |
+| `l1`       | object | Sensor/network settings.          |
+| `l3`       | object | Background/foreground extraction. |
+| `l4`       | object | Clustering and ground filtering.  |
+| `l5`       | object | Tracking.                         |
+| `pipeline` | object | Cross-cutting runtime settings.   |
 
-- A single source of truth (`tuning.defaults.json`)
-- No hidden parameter divergence between code and config
-- Full reproducibility — the config file completely determines system behaviour
+### L1
 
-Runtime updates can be made via the `/api/lidar/params` endpoint, but the initial configuration must come from the file.
+| Path                         | Type   | Default           | Notes                                   |
+| ---------------------------- | ------ | ----------------- | --------------------------------------- |
+| `l1.sensor`                  | string | `hesai-pandar40p` | Sensor identifier.                      |
+| `l1.data_source`             | string | `live`            | One of `live`, `pcap`, `pcap_analysis`. |
+| `l1.udp_port`                | int    | `2369`            | LiDAR UDP listen port.                  |
+| `l1.udp_rcv_buf`             | int    | `4194304`         | Socket receive buffer in bytes.         |
+| `l1.forward_port`            | int    | `2368`            | Raw packet forward port.                |
+| `l1.foreground_forward_port` | int    | `2370`            | Foreground packet forward port.         |
+
+### L3
+
+| Path                                                      | Type    | Default           | Notes                                           |
+| --------------------------------------------------------- | ------- | ----------------- | ----------------------------------------------- |
+| `l3.engine`                                               | string  | `ema_baseline_v1` | Active L3 engine.                               |
+| `l3.ema_baseline_v1.background_update_fraction`           | float64 | `0.02`            | Background EMA alpha.                           |
+| `l3.ema_baseline_v1.closeness_multiplier`                 | float64 | `3`               | Background acceptance multiplier.               |
+| `l3.ema_baseline_v1.safety_margin_metres`                 | float64 | `0.15`            | Additive safety margin.                         |
+| `l3.ema_baseline_v1.noise_relative`                       | float64 | `0.02`            | Range-relative noise model.                     |
+| `l3.ema_baseline_v1.neighbour_confirmation_count`         | int     | `3`               | Spatial confirmation threshold.                 |
+| `l3.ema_baseline_v1.seed_from_first`                      | bool    | `true`            | Seed cells from first observation.              |
+| `l3.ema_baseline_v1.warmup_duration_nanos`                | int64   | `30000000000`     | Warmup duration.                                |
+| `l3.ema_baseline_v1.warmup_min_frames`                    | int     | `100`             | Minimum warmup frames.                          |
+| `l3.ema_baseline_v1.post_settle_update_fraction`          | float64 | `0`               | Background alpha after settling.                |
+| `l3.ema_baseline_v1.enable_diagnostics`                   | bool    | `false`           | Verbose background diagnostics.                 |
+| `l3.ema_baseline_v1.freeze_duration`                      | string  | `5s`              | Freeze duration after foreground.               |
+| `l3.ema_baseline_v1.freeze_threshold_multiplier`          | float64 | `3`               | Freeze trigger multiplier.                      |
+| `l3.ema_baseline_v1.settling_period`                      | string  | `5m`              | Settling period before persistence.             |
+| `l3.ema_baseline_v1.snapshot_interval`                    | string  | `2h`              | Snapshot cadence.                               |
+| `l3.ema_baseline_v1.change_threshold_snapshot`            | int     | `100`             | Minimum changed cells before snapshot.          |
+| `l3.ema_baseline_v1.reacquisition_boost_multiplier`       | float64 | `5`               | Fast background reacquisition multiplier.       |
+| `l3.ema_baseline_v1.min_confidence_floor`                 | int     | `3`               | Minimum confidence preserved during foreground. |
+| `l3.ema_baseline_v1.locked_baseline_threshold`            | int     | `50`              | Observation count needed before baseline lock.  |
+| `l3.ema_baseline_v1.locked_baseline_multiplier`           | float64 | `4`               | Locked-baseline spread multiplier.              |
+| `l3.ema_baseline_v1.sensor_movement_foreground_threshold` | float64 | `0.2`             | Sensor movement detection ratio.                |
+| `l3.ema_baseline_v1.background_drift_threshold_metres`    | float64 | `0.5`             | Drift distance threshold.                       |
+| `l3.ema_baseline_v1.background_drift_ratio_threshold`     | float64 | `0.1`             | Drift ratio threshold.                          |
+| `l3.ema_baseline_v1.settling_min_coverage`                | float64 | `0.8`             | Minimum coverage for convergence.               |
+| `l3.ema_baseline_v1.settling_max_spread_delta`            | float64 | `0.001`           | Maximum spread delta for convergence.           |
+| `l3.ema_baseline_v1.settling_min_region_stability`        | float64 | `0.95`            | Minimum region stability for convergence.       |
+| `l3.ema_baseline_v1.settling_min_confidence`              | float64 | `10`              | Minimum confidence for convergence.             |
+
+### L4
+
+| Path                                            | Type    | Default        | Notes                                  |
+| ----------------------------------------------- | ------- | -------------- | -------------------------------------- |
+| `l4.engine`                                     | string  | `dbscan_xy_v1` | Active L4 engine.                      |
+| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | `0.8`          | DBSCAN epsilon.                        |
+| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | `5`            | DBSCAN min points.                     |
+| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | `8000`         | DBSCAN input cap.                      |
+| `l4.dbscan_xy_v1.height_band_floor`             | float64 | `-2.8`         | Lower Z filter bound.                  |
+| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | `1.5`          | Upper Z filter bound.                  |
+| `l4.dbscan_xy_v1.remove_ground`                 | bool    | `true`         | Ground filter master switch.           |
+| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | `12`           | Maximum accepted cluster diameter.     |
+| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | `0.05`         | Minimum accepted cluster diameter.     |
+| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | `15`           | Maximum accepted cluster aspect ratio. |
+
+### L5
+
+| Path                                              | Type    | Default    | Notes                                       |
+| ------------------------------------------------- | ------- | ---------- | ------------------------------------------- |
+| `l5.engine`                                       | string  | `cv_kf_v1` | Active L5 engine.                           |
+| `l5.cv_kf_v1.gating_distance_squared`             | float64 | `36`       | Mahalanobis association gate.               |
+| `l5.cv_kf_v1.process_noise_pos`                   | float64 | `0.05`     | Position process noise.                     |
+| `l5.cv_kf_v1.process_noise_vel`                   | float64 | `0.2`      | Velocity process noise.                     |
+| `l5.cv_kf_v1.measurement_noise`                   | float64 | `0.05`     | Measurement noise.                          |
+| `l5.cv_kf_v1.occlusion_cov_inflation`             | float64 | `0.5`      | Coast-mode covariance inflation.            |
+| `l5.cv_kf_v1.hits_to_confirm`                     | int     | `4`        | Hits required for confirmation.             |
+| `l5.cv_kf_v1.max_misses`                          | int     | `3`        | Tentative-track miss budget.                |
+| `l5.cv_kf_v1.max_misses_confirmed`                | int     | `15`       | Confirmed-track miss budget.                |
+| `l5.cv_kf_v1.max_tracks`                          | int     | `100`      | Tracker capacity, validated in `[1,1000]`.  |
+| `l5.cv_kf_v1.max_reasonable_speed_mps`            | float64 | `30`       | Speed sanity limit.                         |
+| `l5.cv_kf_v1.max_position_jump_metres`            | float64 | `5`        | Max plausible position jump.                |
+| `l5.cv_kf_v1.max_predict_dt`                      | float64 | `0.5`      | Maximum prediction horizon.                 |
+| `l5.cv_kf_v1.max_covariance_diag`                 | float64 | `100`      | Covariance clamp.                           |
+| `l5.cv_kf_v1.min_points_for_pca`                  | int     | `4`        | Minimum points for OBB PCA.                 |
+| `l5.cv_kf_v1.obb_heading_smoothing_alpha`         | float64 | `0.08`     | Heading smoothing factor.                   |
+| `l5.cv_kf_v1.obb_aspect_ratio_lock_threshold`     | float64 | `0.25`     | Heading lock threshold.                     |
+| `l5.cv_kf_v1.max_track_history_length`            | int     | `200`      | Track history capacity.                     |
+| `l5.cv_kf_v1.max_speed_history_length`            | int     | `100`      | Speed history capacity.                     |
+| `l5.cv_kf_v1.merge_size_ratio`                    | float64 | `2.5`      | Merge heuristic ratio.                      |
+| `l5.cv_kf_v1.split_size_ratio`                    | float64 | `0.3`      | Split heuristic ratio.                      |
+| `l5.cv_kf_v1.deleted_track_grace_period`          | string  | `5s`       | Deleted-track reuse window.                 |
+| `l5.cv_kf_v1.min_observations_for_classification` | int     | `5`        | Minimum observations before classification. |
+
+### Pipeline
+
+| Path                        | Type   | Default | Notes                                       |
+| --------------------------- | ------ | ------- | ------------------------------------------- |
+| `pipeline.buffer_timeout`   | string | `500ms` | Frame assembly timeout.                     |
+| `pipeline.min_frame_points` | int    | `1000`  | Minimum points required to process a frame. |
+| `pipeline.flush_interval`   | string | `60s`   | Background snapshot cadence.                |
+| `pipeline.background_flush` | bool   | `false` | Background snapshot master switch.          |

@@ -13,14 +13,15 @@ import (
 // a BackgroundManager.
 type BackgroundConfig struct {
 	// Core background model parameters
-	UpdateFraction           float32       // Alpha for background update (default: 0.02)
-	ClosenessSensitivity     float32       // Multiplier for closeness threshold (default: 8.0)
-	SafetyMargin             float32       // Meters added to threshold (default: 0.4)
-	FreezeDuration           time.Duration // Time to freeze cell after foreground (default: 5s)
-	NeighborConfirmation     int           // Neighbors required for foreground (default: 7)
-	NoiseRelativeFraction    float32       // Fraction of range as noise (default: 0.04)
-	MinConfidenceFloor       uint32        // Min confidence to preserve (default: 3)
-	SeedFromFirstObservation bool          // Seed from first observation (default: true)
+	UpdateFraction            float32       // Alpha for background update (default: 0.02)
+	ClosenessSensitivity      float32       // Multiplier for closeness threshold (default: 8.0)
+	SafetyMargin              float32       // Meters added to threshold (default: 0.4)
+	FreezeDuration            time.Duration // Time to freeze cell after foreground (default: 5s)
+	FreezeThresholdMultiplier float32       // Multiplier for freeze trigger gate (default: 3.0)
+	NeighborConfirmation      int           // Neighbors required for foreground (default: 7)
+	NoiseRelativeFraction     float32       // Fraction of range as noise (default: 0.04)
+	MinConfidenceFloor        uint32        // Min confidence to preserve (default: 3)
+	SeedFromFirstObservation  bool          // Seed from first observation (default: true)
 
 	// Settling and warmup
 	SettlingPeriod  time.Duration // Time before first snapshot (default: 5m)
@@ -32,10 +33,17 @@ type BackgroundConfig struct {
 	ChangeThresholdSnapshot int           // Min changed cells for snapshot (default: 100)
 
 	// Advanced tuning (typically left at defaults)
-	PostSettleUpdateFraction     float32 // Alpha after settling (default: 0)
-	ReacquisitionBoostMultiplier float32 // Boost for re-acquiring background (default: 5.0)
-	LockedBaselineThreshold      uint32  // Min count before locking baseline (default: 50)
-	LockedBaselineMultiplier     float32 // Spread multiplier for locked baseline (default: 4.0)
+	PostSettleUpdateFraction          float32 // Alpha after settling (default: 0)
+	ReacquisitionBoostMultiplier      float32 // Boost for re-acquiring background (default: 5.0)
+	LockedBaselineThreshold           uint32  // Min count before locking baseline (default: 50)
+	LockedBaselineMultiplier          float32 // Spread multiplier for locked baseline (default: 4.0)
+	SensorMovementForegroundThreshold float32 // Fraction of foreground points that indicates sensor movement
+	BackgroundDriftThresholdMeters    float32 // Drift distance threshold for locked baseline checks
+	BackgroundDriftRatioThreshold     float32 // Fraction of settled cells that must drift to trigger reset
+	SettlingMinCoverage               float32 // Minimum coverage for settling convergence
+	SettlingMaxSpreadDelta            float32 // Maximum spread delta for settling convergence
+	SettlingMinRegionStability        float32 // Minimum region stability for settling convergence
+	SettlingMinConfidence             float32 // Minimum confidence for settling convergence
 
 	// Foreground filtering
 	ForegroundMinClusterPoints int     // Min points for cluster (default: 0)
@@ -49,36 +57,52 @@ type BackgroundConfig struct {
 // that have already validated config availability.
 func DefaultBackgroundConfig() *BackgroundConfig {
 	cfg := config.MustLoadDefaultConfig()
-	return BackgroundConfigFromTuning(cfg)
+	return BackgroundConfigFromTuning(cfg.L3.EmaBaselineV1, cfg.L4.DbscanXyV1)
 }
 
-// BackgroundConfigFromTuning builds a BackgroundConfig from a loaded TuningConfig.
-// Use this in production code where the TuningConfig is already loaded.
-// Fields not present in TuningConfig (FreezeDuration, SettlingPeriod, etc.)
-// use fixed operational defaults that are not user-tunable.
-func BackgroundConfigFromTuning(cfg *config.TuningConfig) *BackgroundConfig {
-	return &BackgroundConfig{
-		UpdateFraction:               float32(cfg.GetBackgroundUpdateFraction()),
-		ClosenessSensitivity:         float32(cfg.GetClosenessMultiplier()),
-		SafetyMargin:                 float32(cfg.GetSafetyMarginMeters()),
-		FreezeDuration:               5 * time.Second,
-		NeighborConfirmation:         cfg.GetNeighborConfirmationCount(),
-		NoiseRelativeFraction:        float32(cfg.GetNoiseRelative()),
-		MinConfidenceFloor:           DefaultMinConfidenceFloor,
-		SeedFromFirstObservation:     cfg.GetSeedFromFirst(),
-		SettlingPeriod:               5 * time.Minute,
-		WarmupDuration:               time.Duration(cfg.GetWarmupDurationNanos()),
-		WarmupMinFrames:              cfg.GetWarmupMinFrames(),
-		SnapshotInterval:             2 * time.Hour,
-		ChangeThresholdSnapshot:      100,
-		ReacquisitionBoostMultiplier: 5.0,
-		LockedBaselineThreshold:      50,
-		LockedBaselineMultiplier:     4.0,
-
-		ForegroundMinClusterPoints: cfg.GetForegroundMinClusterPoints(),
-		ForegroundDBSCANEps:        float32(cfg.GetForegroundDBSCANEps()),
-		ForegroundMaxInputPoints:   cfg.GetForegroundMaxInputPoints(),
+// BackgroundConfigFromTuning builds a BackgroundConfig from the active L3 and
+// L4 engine blocks. Callers are expected to pass the validated selected engine
+// structs for the current pipeline on this branch.
+func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4DbscanXyV1) *BackgroundConfig {
+	if l3cfg == nil || l4cfg == nil {
+		return &BackgroundConfig{}
 	}
+	return &BackgroundConfig{
+		UpdateFraction:                    float32(l3cfg.BackgroundUpdateFraction),
+		ClosenessSensitivity:              float32(l3cfg.ClosenessMultiplier),
+		SafetyMargin:                      float32(l3cfg.SafetyMarginMetres),
+		FreezeDuration:                    mustParseDuration(l3cfg.FreezeDuration),
+		FreezeThresholdMultiplier:         float32(l3cfg.FreezeThresholdMultiplier),
+		NeighborConfirmation:              l3cfg.NeighbourConfirmationCount,
+		NoiseRelativeFraction:             float32(l3cfg.NoiseRelative),
+		MinConfidenceFloor:                uint32(l3cfg.MinConfidenceFloor),
+		SeedFromFirstObservation:          l3cfg.SeedFromFirst,
+		SettlingPeriod:                    mustParseDuration(l3cfg.SettlingPeriod),
+		WarmupDuration:                    time.Duration(l3cfg.WarmupDurationNanos),
+		WarmupMinFrames:                   l3cfg.WarmupMinFrames,
+		SnapshotInterval:                  mustParseDuration(l3cfg.SnapshotInterval),
+		ChangeThresholdSnapshot:           l3cfg.ChangeThresholdSnapshot,
+		PostSettleUpdateFraction:          float32(l3cfg.PostSettleUpdateFraction),
+		ReacquisitionBoostMultiplier:      float32(l3cfg.ReacquisitionBoostMultiplier),
+		LockedBaselineThreshold:           uint32(l3cfg.LockedBaselineThreshold),
+		LockedBaselineMultiplier:          float32(l3cfg.LockedBaselineMultiplier),
+		SensorMovementForegroundThreshold: float32(l3cfg.SensorMovementForegroundThreshold),
+		BackgroundDriftThresholdMeters:    float32(l3cfg.BackgroundDriftThresholdMetres),
+		BackgroundDriftRatioThreshold:     float32(l3cfg.BackgroundDriftRatioThreshold),
+		SettlingMinCoverage:               float32(l3cfg.SettlingMinCoverage),
+		SettlingMaxSpreadDelta:            float32(l3cfg.SettlingMaxSpreadDelta),
+		SettlingMinRegionStability:        float32(l3cfg.SettlingMinRegionStability),
+		SettlingMinConfidence:             float32(l3cfg.SettlingMinConfidence),
+
+		ForegroundMinClusterPoints: l4cfg.ForegroundMinClusterPoints,
+		ForegroundDBSCANEps:        float32(l4cfg.ForegroundDBSCANEps),
+		ForegroundMaxInputPoints:   l4cfg.ForegroundMaxInputPoints,
+	}
+}
+
+func mustParseDuration(raw string) time.Duration {
+	d, _ := time.ParseDuration(raw)
+	return d
 }
 
 // Validate checks if the configuration is valid.
@@ -95,6 +119,9 @@ func (c *BackgroundConfig) Validate() error {
 	}
 	if c.FreezeDuration < 0 {
 		return fmt.Errorf("FreezeDuration must be non-negative, got %v", c.FreezeDuration)
+	}
+	if c.FreezeThresholdMultiplier <= 0 {
+		return fmt.Errorf("FreezeThresholdMultiplier must be positive, got %f", c.FreezeThresholdMultiplier)
 	}
 	if c.NeighborConfirmation < 0 || c.NeighborConfirmation > 8 {
 		return fmt.Errorf("NeighborConfirmation must be in [0, 8], got %d", c.NeighborConfirmation)
@@ -117,32 +144,61 @@ func (c *BackgroundConfig) Validate() error {
 	if c.ChangeThresholdSnapshot < 0 {
 		return fmt.Errorf("ChangeThresholdSnapshot must be non-negative, got %d", c.ChangeThresholdSnapshot)
 	}
+	if c.SensorMovementForegroundThreshold < 0 || c.SensorMovementForegroundThreshold > 1 {
+		return fmt.Errorf("SensorMovementForegroundThreshold must be in [0, 1], got %f", c.SensorMovementForegroundThreshold)
+	}
+	if c.BackgroundDriftThresholdMeters < 0 {
+		return fmt.Errorf("BackgroundDriftThresholdMeters must be non-negative, got %f", c.BackgroundDriftThresholdMeters)
+	}
+	if c.BackgroundDriftRatioThreshold < 0 || c.BackgroundDriftRatioThreshold > 1 {
+		return fmt.Errorf("BackgroundDriftRatioThreshold must be in [0, 1], got %f", c.BackgroundDriftRatioThreshold)
+	}
+	if c.SettlingMinCoverage < 0 || c.SettlingMinCoverage > 1 {
+		return fmt.Errorf("SettlingMinCoverage must be in [0, 1], got %f", c.SettlingMinCoverage)
+	}
+	if c.SettlingMaxSpreadDelta < 0 {
+		return fmt.Errorf("SettlingMaxSpreadDelta must be non-negative, got %f", c.SettlingMaxSpreadDelta)
+	}
+	if c.SettlingMinRegionStability < 0 || c.SettlingMinRegionStability > 1 {
+		return fmt.Errorf("SettlingMinRegionStability must be in [0, 1], got %f", c.SettlingMinRegionStability)
+	}
+	if c.SettlingMinConfidence < 0 {
+		return fmt.Errorf("SettlingMinConfidence must be non-negative, got %f", c.SettlingMinConfidence)
+	}
 	return nil
 }
 
 // ToBackgroundParams converts the config to BackgroundParams for use with BackgroundManager.
 func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 	return BackgroundParams{
-		BackgroundUpdateFraction:       c.UpdateFraction,
-		ClosenessSensitivityMultiplier: c.ClosenessSensitivity,
-		SafetyMarginMeters:             c.SafetyMargin,
-		FreezeDurationNanos:            c.FreezeDuration.Nanoseconds(),
-		NeighborConfirmationCount:      c.NeighborConfirmation,
-		NoiseRelativeFraction:          c.NoiseRelativeFraction,
-		MinConfidenceFloor:             c.MinConfidenceFloor,
-		SeedFromFirstObservation:       c.SeedFromFirstObservation,
-		SettlingPeriodNanos:            c.SettlingPeriod.Nanoseconds(),
-		WarmupDurationNanos:            c.WarmupDuration.Nanoseconds(),
-		WarmupMinFrames:                c.WarmupMinFrames,
-		SnapshotIntervalNanos:          c.SnapshotInterval.Nanoseconds(),
-		ChangeThresholdForSnapshot:     c.ChangeThresholdSnapshot,
-		PostSettleUpdateFraction:       c.PostSettleUpdateFraction,
-		ReacquisitionBoostMultiplier:   c.ReacquisitionBoostMultiplier,
-		LockedBaselineThreshold:        c.LockedBaselineThreshold,
-		LockedBaselineMultiplier:       c.LockedBaselineMultiplier,
-		ForegroundMinClusterPoints:     c.ForegroundMinClusterPoints,
-		ForegroundDBSCANEps:            c.ForegroundDBSCANEps,
-		ForegroundMaxInputPoints:       c.ForegroundMaxInputPoints,
+		BackgroundUpdateFraction:          c.UpdateFraction,
+		ClosenessSensitivityMultiplier:    c.ClosenessSensitivity,
+		SafetyMarginMeters:                c.SafetyMargin,
+		FreezeDurationNanos:               c.FreezeDuration.Nanoseconds(),
+		FreezeThresholdMultiplier:         c.FreezeThresholdMultiplier,
+		NeighborConfirmationCount:         c.NeighborConfirmation,
+		NoiseRelativeFraction:             c.NoiseRelativeFraction,
+		MinConfidenceFloor:                c.MinConfidenceFloor,
+		SeedFromFirstObservation:          c.SeedFromFirstObservation,
+		SettlingPeriodNanos:               c.SettlingPeriod.Nanoseconds(),
+		WarmupDurationNanos:               c.WarmupDuration.Nanoseconds(),
+		WarmupMinFrames:                   c.WarmupMinFrames,
+		SnapshotIntervalNanos:             c.SnapshotInterval.Nanoseconds(),
+		ChangeThresholdForSnapshot:        c.ChangeThresholdSnapshot,
+		PostSettleUpdateFraction:          c.PostSettleUpdateFraction,
+		ReacquisitionBoostMultiplier:      c.ReacquisitionBoostMultiplier,
+		LockedBaselineThreshold:           c.LockedBaselineThreshold,
+		LockedBaselineMultiplier:          c.LockedBaselineMultiplier,
+		SensorMovementForegroundThreshold: c.SensorMovementForegroundThreshold,
+		BackgroundDriftThresholdMeters:    c.BackgroundDriftThresholdMeters,
+		BackgroundDriftRatioThreshold:     c.BackgroundDriftRatioThreshold,
+		SettlingMinCoverage:               c.SettlingMinCoverage,
+		SettlingMaxSpreadDelta:            c.SettlingMaxSpreadDelta,
+		SettlingMinRegionStability:        c.SettlingMinRegionStability,
+		SettlingMinConfidence:             c.SettlingMinConfidence,
+		ForegroundMinClusterPoints:        c.ForegroundMinClusterPoints,
+		ForegroundDBSCANEps:               c.ForegroundDBSCANEps,
+		ForegroundMaxInputPoints:          c.ForegroundMaxInputPoints,
 	}
 }
 

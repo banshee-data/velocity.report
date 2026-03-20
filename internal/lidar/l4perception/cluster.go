@@ -238,12 +238,23 @@ type DBSCANParams struct {
 // Panics if the file cannot be found.
 func DefaultDBSCANParams() DBSCANParams {
 	cfg := config.MustLoadDefaultConfig()
+	return DBSCANParamsFromTuning(cfg.L4.DbscanXyV1)
+}
+
+// DBSCANParamsFromTuning builds DBSCAN parameters from the active L4 engine
+// block. Callers are expected to pass the validated selected engine struct for
+// the current pipeline on this branch.
+func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
+	if l4cfg == nil {
+		return DBSCANParams{}
+	}
 	return DBSCANParams{
-		Eps:                   cfg.GetForegroundDBSCANEps(),
-		MinPts:                cfg.GetForegroundMinClusterPoints(),
-		MaxClusterDiameter:    cfg.GetMaxClusterDiameter(),
-		MinClusterDiameter:    cfg.GetMinClusterDiameter(),
-		MaxClusterAspectRatio: cfg.GetMaxClusterAspectRatio(),
+		Eps:                   l4cfg.ForegroundDBSCANEps,
+		MinPts:                l4cfg.ForegroundMinClusterPoints,
+		MaxInputPoints:        l4cfg.ForegroundMaxInputPoints,
+		MaxClusterDiameter:    l4cfg.MaxClusterDiameter,
+		MinClusterDiameter:    l4cfg.MinClusterDiameter,
+		MaxClusterAspectRatio: l4cfg.MaxClusterAspectRatio,
 	}
 }
 

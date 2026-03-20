@@ -20,6 +20,7 @@ type BackgroundParams struct {
 	ClosenessSensitivityMultiplier float32 // e.g., 3.0
 	SafetyMarginMeters             float32 // e.g., 0.5
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
+	FreezeThresholdMultiplier      float32 // e.g., 3.0
 	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
 	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
 	WarmupMinFrames                int     // optional minimum frames before considering settled
@@ -73,6 +74,12 @@ type BackgroundParams struct {
 	// BackgroundDriftRatioThreshold is the fraction of settled cells that must have
 	// drifted to consider the entire background drifted. Default: 0.10 (10%).
 	BackgroundDriftRatioThreshold float32
+
+	// Settling convergence thresholds.
+	SettlingMinCoverage        float32
+	SettlingMaxSpreadDelta     float32
+	SettlingMinRegionStability float32
+	SettlingMinConfidence      float32
 
 	// Debug logging region (only active if EnableDiagnostics is true)
 	DebugRingMin int     // Min ring index (inclusive)

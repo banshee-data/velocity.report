@@ -1939,7 +1939,7 @@ func TestWebServer_HandleTuningParams_POST_WithManager(t *testing.T) {
 	server := NewWebServer(config)
 
 	// POST with JSON body
-	body := `{"noise_relative": 0.05, "enable_diagnostics": false}`
+	body := `{"l3.ema_baseline_v1.noise_relative": 0.05, "l3.ema_baseline_v1.enable_diagnostics": false}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-post-sensor", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -2542,7 +2542,7 @@ func TestWebServer_HandleTuningParams_POST(t *testing.T) {
 
 	server := NewWebServer(config)
 
-	body := `{"sensor_id":"` + sensorID + `", "closeness_threshold": 0.5, "neighbor_threshold": 3}`
+	body := `{"l3.ema_baseline_v1.closeness_multiplier": 0.5, "l3.ema_baseline_v1.neighbour_confirmation_count": 3}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/background/params?sensor_id="+sensorID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -3632,7 +3632,7 @@ func TestWebServer_HandleTuningParams_POST_Complete(t *testing.T) {
 	server := NewWebServer(config)
 
 	// POST with JSON body to set params
-	body := `{"noise_relative_fraction": 0.05, "safety_margin_meters": 0.5}`
+	body := `{"l3.ema_baseline_v1.noise_relative": 0.05, "l3.ema_baseline_v1.safety_margin_metres": 0.5}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/background/params?sensor_id="+sensorID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -4032,7 +4032,7 @@ func TestWebServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
 	server.SetTracker(tracker)
 
-	body := strings.NewReader(`{"gating_distance_squared": 25.0, "process_noise_pos": 0.5, "max_tracks": 77}`)
+	body := strings.NewReader(`{"l5.cv_kf_v1.gating_distance_squared": 25.0, "l5.cv_kf_v1.process_noise_pos": 0.5, "l5.cv_kf_v1.max_tracks": 77}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-tracker-sensor", body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -4066,9 +4066,9 @@ func TestWebServer_HandleTuningParams_POST_InvalidMaxTracks(t *testing.T) {
 		name string
 		body string
 	}{
-		{"zero", `{"max_tracks": 0}`},
-		{"negative", `{"max_tracks": -1}`},
-		{"too_large", `{"max_tracks": 1001}`},
+		{"zero", `{"l5.cv_kf_v1.max_tracks": 0}`},
+		{"negative", `{"l5.cv_kf_v1.max_tracks": -1}`},
+		{"too_large", `{"l5.cv_kf_v1.max_tracks": 1001}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/api/lidar/params?sensor_id=params-invalid-max-tracks", strings.NewReader(tc.body))
@@ -4100,7 +4100,7 @@ func TestWebServer_HandleTuningParams_POST_InvalidDeletedTrackGracePeriod(t *tes
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/lidar/params?sensor_id=params-invalid-grace",
-		strings.NewReader(`{"deleted_track_grace_period":"not-a-duration"}`),
+		strings.NewReader(`{"l5.cv_kf_v1.deleted_track_grace_period":"not-a-duration"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -4132,7 +4132,7 @@ func TestWebServer_HandleTuningParams_POST_UpdatesClassifierMinObservations(t *t
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/lidar/params?sensor_id=params-classifier-minobs",
-		strings.NewReader(`{"min_observations_for_classification":9}`),
+		strings.NewReader(`{"l5.cv_kf_v1.min_observations_for_classification":9}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()

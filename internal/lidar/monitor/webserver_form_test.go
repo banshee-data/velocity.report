@@ -38,7 +38,7 @@ func TestHandleTuningParams_FormSubmission(t *testing.T) {
 
 	// Create form data
 	newParams := map[string]interface{}{
-		"noise_relative": 0.05,
+		"l3.ema_baseline_v1.noise_relative": 0.05,
 	}
 	jsonBytes, _ := json.Marshal(newParams)
 

@@ -154,10 +154,10 @@ func (c *Client) ResetGrid() error {
 
 // BackgroundParams holds the parameters for the background model.
 type BackgroundParams struct {
-	NoiseRelative              float64 `json:"noise_relative"`
-	ClosenessMultiplier        float64 `json:"closeness_multiplier"`
-	NeighbourConfirmationCount int     `json:"neighbor_confirmation_count"`
-	SeedFromFirst              bool    `json:"seed_from_first"`
+	NoiseRelative              float64 `json:"l3.ema_baseline_v1.noise_relative"`
+	ClosenessMultiplier        float64 `json:"l3.ema_baseline_v1.closeness_multiplier"`
+	NeighbourConfirmationCount int     `json:"l3.ema_baseline_v1.neighbour_confirmation_count"`
+	SeedFromFirst              bool    `json:"l3.ema_baseline_v1.seed_from_first"`
 }
 
 // SetParams sets the background model parameters.
@@ -470,10 +470,10 @@ func (c *Client) FetchTrackingMetrics() (map[string]interface{}, error) {
 // TrackingParams holds tracker configuration values for sweep operations.
 // Only non-nil fields will be updated on the server.
 type TrackingParams struct {
-	GatingDistanceSquared *float64 `json:"gating_distance_squared,omitempty"`
-	ProcessNoisePos       *float64 `json:"process_noise_pos,omitempty"`
-	ProcessNoiseVel       *float64 `json:"process_noise_vel,omitempty"`
-	MeasurementNoise      *float64 `json:"measurement_noise,omitempty"`
+	GatingDistanceSquared *float64 `json:"l5.cv_kf_v1.gating_distance_squared,omitempty"`
+	ProcessNoisePos       *float64 `json:"l5.cv_kf_v1.process_noise_pos,omitempty"`
+	ProcessNoiseVel       *float64 `json:"l5.cv_kf_v1.process_noise_vel,omitempty"`
+	MeasurementNoise      *float64 `json:"l5.cv_kf_v1.measurement_noise,omitempty"`
 }
 
 // SetTrackerConfig updates tracker configuration on the server via the consolidated /api/lidar/params endpoint.

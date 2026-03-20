@@ -209,148 +209,15 @@ func (d *DirectBackend) SetTuningParams(params map[string]interface{}) error {
 		return fmt.Errorf("no background manager for sensor %q", d.sensorID)
 	}
 
-	// Marshal / unmarshal via the same struct the HTTP handler uses so that
-	// field mapping stays consistent.
-	data, err := json.Marshal(params)
+	patch, err := normaliseTuningPatch(params)
 	if err != nil {
-		return fmt.Errorf("marshal tuning params: %w", err)
+		return err
+	}
+	if err := applyRuntimeTuningPatch(d.ws, mgr, patch); err != nil {
+		return err
 	}
 
-	var body struct {
-		NoiseRelative              *float64 `json:"noise_relative"`
-		EnableDiagnostics          *bool    `json:"enable_diagnostics"`
-		ClosenessMultiplier        *float64 `json:"closeness_multiplier"`
-		NeighborConfirmation       *int     `json:"neighbor_confirmation_count"`
-		SeedFromFirst              *bool    `json:"seed_from_first"`
-		WarmupDurationNanos        *int64   `json:"warmup_duration_nanos"`
-		WarmupMinFrames            *int     `json:"warmup_min_frames"`
-		PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
-		ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
-		ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
-		ForegroundMaxInputPoints   *int     `json:"foreground_max_input_points"`
-		BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
-		SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
-		GatingDistanceSquared      *float64 `json:"gating_distance_squared"`
-		ProcessNoisePos            *float64 `json:"process_noise_pos"`
-		ProcessNoiseVel            *float64 `json:"process_noise_vel"`
-		MeasurementNoise           *float64 `json:"measurement_noise"`
-		OcclusionCovInflation      *float64 `json:"occlusion_cov_inflation"`
-		HitsToConfirm              *int     `json:"hits_to_confirm"`
-		MaxMisses                  *int     `json:"max_misses"`
-		MaxMissesConfirmed         *int     `json:"max_misses_confirmed"`
-	}
-
-	if err := json.Unmarshal(data, &body); err != nil {
-		return fmt.Errorf("decode tuning params: %w", err)
-	}
-
-	// Apply background manager params (same logic as handleTuningParams POST)
-	if body.NoiseRelative != nil {
-		if err := mgr.SetNoiseRelativeFraction(float32(*body.NoiseRelative)); err != nil {
-			return err
-		}
-	}
-	if body.EnableDiagnostics != nil {
-		mgr.SetEnableDiagnostics(*body.EnableDiagnostics)
-	}
-	if body.ClosenessMultiplier != nil {
-		if err := mgr.SetClosenessSensitivityMultiplier(float32(*body.ClosenessMultiplier)); err != nil {
-			return err
-		}
-	}
-	if body.NeighborConfirmation != nil {
-		if err := mgr.SetNeighborConfirmationCount(*body.NeighborConfirmation); err != nil {
-			return err
-		}
-	}
-	if body.SeedFromFirst != nil {
-		if err := mgr.SetSeedFromFirstObservation(*body.SeedFromFirst); err != nil {
-			return err
-		}
-	}
-	if body.WarmupDurationNanos != nil || body.WarmupMinFrames != nil {
-		curParams := mgr.GetParams()
-		dur := curParams.WarmupDurationNanos
-		if body.WarmupDurationNanos != nil {
-			dur = *body.WarmupDurationNanos
-		}
-		frames := curParams.WarmupMinFrames
-		if body.WarmupMinFrames != nil {
-			frames = *body.WarmupMinFrames
-		}
-		if err := mgr.SetWarmupParams(dur, frames); err != nil {
-			return err
-		}
-	}
-	if body.PostSettleUpdateFraction != nil {
-		if err := mgr.SetPostSettleUpdateFraction(float32(*body.PostSettleUpdateFraction)); err != nil {
-			return err
-		}
-	}
-	if body.ForegroundMinClusterPoints != nil || body.ForegroundDBSCANEps != nil {
-		curParams := mgr.GetParams()
-		minPts := curParams.ForegroundMinClusterPoints
-		if body.ForegroundMinClusterPoints != nil {
-			minPts = *body.ForegroundMinClusterPoints
-		}
-		eps := curParams.ForegroundDBSCANEps
-		if body.ForegroundDBSCANEps != nil {
-			eps = float32(*body.ForegroundDBSCANEps)
-		}
-		if err := mgr.SetForegroundClusterParams(minPts, eps); err != nil {
-			return err
-		}
-	}
-	if body.ForegroundMaxInputPoints != nil {
-		p := mgr.GetParams()
-		p.ForegroundMaxInputPoints = *body.ForegroundMaxInputPoints
-		if err := mgr.SetParams(p); err != nil {
-			return err
-		}
-	}
-	if body.BackgroundUpdateFraction != nil {
-		p := mgr.GetParams()
-		p.BackgroundUpdateFraction = float32(*body.BackgroundUpdateFraction)
-		if err := mgr.SetParams(p); err != nil {
-			return err
-		}
-	}
-	if body.SafetyMarginMeters != nil {
-		p := mgr.GetParams()
-		p.SafetyMarginMeters = float32(*body.SafetyMarginMeters)
-		if err := mgr.SetParams(p); err != nil {
-			return err
-		}
-	}
-
-	// Apply tracker config
-	if d.ws.tracker != nil {
-		if body.GatingDistanceSquared != nil {
-			d.ws.tracker.Config.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
-		}
-		if body.ProcessNoisePos != nil {
-			d.ws.tracker.Config.ProcessNoisePos = float32(*body.ProcessNoisePos)
-		}
-		if body.ProcessNoiseVel != nil {
-			d.ws.tracker.Config.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
-		}
-		if body.MeasurementNoise != nil {
-			d.ws.tracker.Config.MeasurementNoise = float32(*body.MeasurementNoise)
-		}
-		if body.OcclusionCovInflation != nil {
-			d.ws.tracker.Config.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
-		}
-		if body.HitsToConfirm != nil {
-			d.ws.tracker.Config.HitsToConfirm = *body.HitsToConfirm
-		}
-		if body.MaxMisses != nil {
-			d.ws.tracker.Config.MaxMisses = *body.MaxMisses
-		}
-		if body.MaxMissesConfirmed != nil {
-			d.ws.tracker.Config.MaxMissesConfirmed = *body.MaxMissesConfirmed
-		}
-	}
-
+	data, _ := json.Marshal(patch)
 	diagf("[DirectBackend] Applied tuning params: %s", string(data))
 	return nil
 }
