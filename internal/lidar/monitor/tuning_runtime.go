@@ -36,9 +36,6 @@ func (ws *WebServer) storeTuningConfig(cfg *cfgpkg.TuningConfig) {
 
 func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.TuningConfig {
 	cfg := ws.snapshotTuningConfig()
-	if cfg == nil {
-		return nil
-	}
 	syncRuntimeState := ws.hasStoredTuningConfig()
 
 	if ws.sensorID != "" {
@@ -171,9 +168,6 @@ func flattenTuningPatch(prefix string, value interface{}, out map[string]interfa
 
 func applyRuntimeTuningPatch(ws *WebServer, bm *l3grid.BackgroundManager, paths map[string]interface{}) error {
 	cfg := ws.runtimeTuningConfig(bm)
-	if cfg == nil {
-		return fmt.Errorf("no tuning config registered for monitor")
-	}
 
 	orderedPaths := make([]string, 0, len(paths))
 	for path := range paths {
@@ -393,7 +387,7 @@ func setConfigValueByPath(cfg *cfgpkg.TuningConfig, path string, value interface
 		}
 		current = field
 	}
-	return fmt.Errorf("invalid tuning path %q", path)
+	return fmt.Errorf("%q did not resolve to a config field", path)
 }
 
 func fieldByJSONName(v reflect.Value, name string) (reflect.Value, error) {

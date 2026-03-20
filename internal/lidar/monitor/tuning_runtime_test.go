@@ -202,8 +202,8 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	if err := setConfigValueByPath(cfg, "unknown.path", 1); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
 		t.Fatalf("expected unknown path error, got %v", err)
 	}
-	if err := setConfigValueByPath(cfg, "", 1); err == nil || !strings.Contains(err.Error(), `unknown tuning path segment ""`) {
-		t.Fatalf("expected empty-path error, got %v", err)
+	if err := setConfigValueByPath(cfg, "l3.ema_baseline_v1.noise_relative.extra", 1); err == nil || !strings.Contains(err.Error(), "does not resolve to a config field") {
+		t.Fatalf("expected non-struct resolution error, got %v", err)
 	}
 
 	type embedded struct {
@@ -221,6 +221,14 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "missing"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
 		t.Fatalf("expected missing field error, got %v", err)
 	}
+	if _, err := fieldByJSONName(reflect.ValueOf(struct {
+		Hidden int `json:"-"`
+	}{Hidden: 1}), "Hidden"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
+		t.Fatalf("expected skipped field error, got %v", err)
+	}
+	if _, err := fieldByJSONName(reflect.ValueOf(container{embedded: &embedded{Value: 7}}), "value"); err != nil {
+		t.Fatalf("expected embedded pointer lookup to succeed, got %v", err)
+	}
 
 	var target int
 	if err := assignJSONValue(reflect.ValueOf(&target).Elem(), make(chan int), "path"); err == nil || !strings.Contains(err.Error(), "marshal value") {
@@ -228,6 +236,10 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	}
 	if err := assignJSONValue(reflect.ValueOf(&target).Elem(), "bad", "path"); err == nil || !strings.Contains(err.Error(), "cannot unmarshal string") {
 		t.Fatalf("expected unmarshal error, got %v", err)
+	}
+	var ptr *int
+	if err := assignJSONValue(reflect.ValueOf(&ptr).Elem(), 12, "path"); err != nil || ptr == nil || *ptr != 12 {
+		t.Fatalf("assignJSONValue pointer set = (%v, %v)", ptr, err)
 	}
 
 	typ := reflect.TypeOf(container{})
@@ -262,11 +274,27 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	ws.storeTuningConfig(cfg)
 
 	patch := map[string]interface{}{
-		"l3.ema_baseline_v1.noise_relative":               0.2,
-		"l4.dbscan_xy_v1.foreground_max_input_points":     5000,
-		"l5.cv_kf_v1.min_observations_for_classification": 10,
-		"l5.cv_kf_v1.deleted_track_grace_period":          "3s",
-		"l5.cv_kf_v1.max_tracks":                          55,
+		"l3.ema_baseline_v1.noise_relative":                       0.2,
+		"l3.ema_baseline_v1.freeze_duration":                      "4s",
+		"l3.ema_baseline_v1.freeze_threshold_multiplier":          4.0,
+		"l3.ema_baseline_v1.settling_period":                      "6m",
+		"l3.ema_baseline_v1.snapshot_interval":                    "30m",
+		"l3.ema_baseline_v1.change_threshold_snapshot":            22,
+		"l3.ema_baseline_v1.reacquisition_boost_multiplier":       3.0,
+		"l3.ema_baseline_v1.min_confidence_floor":                 4,
+		"l3.ema_baseline_v1.locked_baseline_threshold":            5,
+		"l3.ema_baseline_v1.locked_baseline_multiplier":           6.0,
+		"l3.ema_baseline_v1.sensor_movement_foreground_threshold": 0.3,
+		"l3.ema_baseline_v1.background_drift_threshold_metres":    0.4,
+		"l3.ema_baseline_v1.background_drift_ratio_threshold":     0.2,
+		"l3.ema_baseline_v1.settling_min_coverage":                0.8,
+		"l3.ema_baseline_v1.settling_max_spread_delta":            0.01,
+		"l3.ema_baseline_v1.settling_min_region_stability":        0.9,
+		"l3.ema_baseline_v1.settling_min_confidence":              2.0,
+		"l4.dbscan_xy_v1.foreground_max_input_points":             5000,
+		"l5.cv_kf_v1.min_observations_for_classification":         10,
+		"l5.cv_kf_v1.deleted_track_grace_period":                  "3s",
+		"l5.cv_kf_v1.max_tracks":                                  55,
 	}
 	if err := applyRuntimeTuningPatch(ws, bm, patch); err != nil {
 		t.Fatalf("applyRuntimeTuningPatch returned error: %v", err)
@@ -276,6 +304,15 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	}
 	if got := bm.GetParams().ForegroundMaxInputPoints; got != 5000 {
 		t.Fatalf("background manager foreground_max_input_points = %d, want 5000", got)
+	}
+	if got := bm.GetParams().FreezeDurationNanos; got != 4*time.Second.Nanoseconds() {
+		t.Fatalf("background manager freeze_duration_nanos = %d, want %d", got, 4*time.Second.Nanoseconds())
+	}
+	if got := bm.GetParams().SnapshotIntervalNanos; got != 30*time.Minute.Nanoseconds() {
+		t.Fatalf("background manager snapshot_interval_nanos = %d, want %d", got, 30*time.Minute.Nanoseconds())
+	}
+	if got := bm.GetParams().SettlingMinConfidence; !approxEqualFloat64(float64(got), 2.0) {
+		t.Fatalf("background manager settling_min_confidence = %v, want 2.0", got)
 	}
 	if tracker.Config.MinObservationsForClassification != 10 || classifier.MinObservations != 10 {
 		t.Fatalf("expected min observations 10, got tracker=%d classifier=%d", tracker.Config.MinObservationsForClassification, classifier.MinObservations)
@@ -304,5 +341,8 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 	}
 	if err := applyRuntimeTuningPath(ws, bm, ws.snapshotTuningConfig(), "l5.cv_kf_v1.unknown"); err == nil || !strings.Contains(err.Error(), "unsupported runtime path") {
 		t.Fatalf("expected unsupported tracker path error, got %v", err)
+	}
+	if err := applyRuntimeTuningPath(ws, bm, ws.snapshotTuningConfig(), "totally.unknown"); err == nil || !strings.Contains(err.Error(), "unsupported runtime path") {
+		t.Fatalf("expected unsupported path error, got %v", err)
 	}
 }
