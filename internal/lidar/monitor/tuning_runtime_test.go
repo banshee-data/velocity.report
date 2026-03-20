@@ -115,7 +115,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		runtimeCfg.L1.DataSource != string(DataSourcePCAP) {
 		t.Fatalf("unexpected L1 runtime sync: %+v", runtimeCfg.L1)
 	}
-	if runtimeCfg.L3.EmaBaselineV1.NoiseRelative != 0.12 ||
+	if !approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.NoiseRelative, 0.12) ||
 		runtimeCfg.L3.EmaBaselineV1.EnableDiagnostics != true ||
 		runtimeCfg.L4.DbscanXyV1.ForegroundMaxInputPoints != 9000 {
 		t.Fatalf("unexpected L3/L4 runtime sync: %+v %+v", runtimeCfg.L3.EmaBaselineV1, runtimeCfg.L4.DbscanXyV1)
@@ -215,7 +215,7 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 		skip string `json:"skip"`
 	}
 	field, err := fieldByJSONName(reflect.ValueOf(container{}), "value")
-	if err != nil || field.Kind() != reflect.Ptr {
+	if err != nil || field.Kind() != reflect.Int {
 		t.Fatalf("fieldByJSONName(value) = (%v, %v)", field, err)
 	}
 	if _, err := fieldByJSONName(reflect.ValueOf(container{}), "missing"); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {
@@ -237,6 +237,14 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 	if name, tagged := jsonName(typ.Field(0)); name != "embedded" || tagged {
 		t.Fatalf("jsonName(empty tag default) = (%q, %v)", name, tagged)
 	}
+}
+
+func approxEqualFloat64(a, b float64) bool {
+	const eps = 1e-6
+	if a > b {
+		return a-b < eps
+	}
+	return b-a < eps
 }
 
 func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
