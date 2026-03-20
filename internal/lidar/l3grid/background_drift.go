@@ -63,9 +63,9 @@ func (bm *BackgroundManager) CheckBackgroundDrift() (bool, DriftMetrics) {
 	settledCount := 0
 
 	// Get thresholds from params with sensible defaults
-	driftThresholdMeters := float64(g.Params.BackgroundDriftThresholdMeters)
-	if driftThresholdMeters == 0 {
-		driftThresholdMeters = 0.5
+	driftThresholdMetres := float64(g.Params.BackgroundDriftThresholdMetres)
+	if driftThresholdMetres == 0 {
+		driftThresholdMetres = 0.5
 	}
 
 	driftRatioThreshold := float64(g.Params.BackgroundDriftRatioThreshold)
@@ -87,7 +87,7 @@ func (bm *BackgroundManager) CheckBackgroundDrift() (bool, DriftMetrics) {
 
 		// Calculate drift from locked baseline
 		drift := math.Abs(float64(cell.AverageRangeMeters - cell.LockedBaseline))
-		if drift > driftThresholdMeters {
+		if drift > driftThresholdMetres {
 			driftingCells++
 			totalDrift += drift
 		}

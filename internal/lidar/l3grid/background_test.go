@@ -12,10 +12,10 @@ func makeTestGrid(rings, azBins int) *BackgroundGrid {
 		BackgroundUpdateFraction:       0.5, // use large alpha for deterministic updates
 		ClosenessSensitivityMultiplier: 2.0,
 		// set a generous safety margin so single-frame initialization is accepted in tests
-		SafetyMarginMeters:        20.0,
-		FreezeDurationNanos:       int64(1 * time.Second),
-		NeighborConfirmationCount: 2,
-		NoiseRelativeFraction:     0.01,
+		SafetyMarginMetres:         20.0,
+		FreezeDurationNanos:        int64(1 * time.Second),
+		NeighbourConfirmationCount: 2,
+		NoiseRelativeFraction:      0.01,
 	}
 	g := &BackgroundGrid{
 		SensorID:    "test-sensor",
@@ -90,12 +90,12 @@ func TestProcessFramePolar_DivergentFreeze(t *testing.T) {
 	}
 }
 
-// Test neighbor confirmation: neighbors with similar ranges help classify as background
-func TestProcessFramePolar_NeighborConfirmation(t *testing.T) {
+// Test neighbour confirmation: neighbours with similar ranges help classify as background
+func TestProcessFramePolar_NeighbourConfirmation(t *testing.T) {
 	g := makeTestGrid(3, 3)
 	bm := g.Manager
 
-	// Initialise neighbors around center (ring1, az1) with 10m
+	// Initialise neighbours around center (ring1, az1) with 10m
 	// compute azimuths that map to the intended az bins (use bin centers)
 	azStep := 360.0 / float64(g.AzimuthBins)
 	for dr := -1; dr <= 1; dr++ {
@@ -110,13 +110,13 @@ func TestProcessFramePolar_NeighborConfirmation(t *testing.T) {
 		}
 	}
 
-	// Now observe center with slightly different distance; neighbor confirmation should help
+	// Now observe center with slightly different distance; neighbour confirmation should help
 	centerAz := (float64(1) + 0.5) * azStep
 	bm.ProcessFramePolar([]PointPolar{{Channel: 2, Azimuth: centerAz, Distance: 10.5}})
 	centerIdx := g.Idx(1, 1)
 	cell := g.Cells[centerIdx]
 	if cell.TimesSeenCount == 0 {
-		t.Fatalf("expected center to be updated due to neighbor confirmation")
+		t.Fatalf("expected center to be updated due to neighbour confirmation")
 	}
 }
 
@@ -334,23 +334,23 @@ func TestBackgroundManager_SetClosenessSensitivityMultiplier(t *testing.T) {
 	}
 }
 
-// TestBackgroundManager_SetNeighborConfirmationCount tests SetNeighborConfirmationCount method
-func TestBackgroundManager_SetNeighborConfirmationCount(t *testing.T) {
+// TestBackgroundManager_SetNeighbourConfirmationCount tests SetNeighbourConfirmationCount method
+func TestBackgroundManager_SetNeighbourConfirmationCount(t *testing.T) {
 	g := makeTestGrid(2, 8)
 
-	err := g.Manager.SetNeighborConfirmationCount(5)
+	err := g.Manager.SetNeighbourConfirmationCount(5)
 	if err != nil {
-		t.Errorf("SetNeighborConfirmationCount returned error: %v", err)
+		t.Errorf("SetNeighbourConfirmationCount returned error: %v", err)
 	}
 
 	params := g.Manager.GetParams()
-	if params.NeighborConfirmationCount != 5 {
-		t.Errorf("expected NeighborConfirmationCount 5, got %v", params.NeighborConfirmationCount)
+	if params.NeighbourConfirmationCount != 5 {
+		t.Errorf("expected NeighbourConfirmationCount 5, got %v", params.NeighbourConfirmationCount)
 	}
 
 	// Test with nil manager
 	var nilMgr *BackgroundManager
-	err = nilMgr.SetNeighborConfirmationCount(5)
+	err = nilMgr.SetNeighbourConfirmationCount(5)
 	if err == nil {
 		t.Error("expected error from nil manager")
 	}

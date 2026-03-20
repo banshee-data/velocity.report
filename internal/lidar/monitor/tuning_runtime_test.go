@@ -65,9 +65,9 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	params := l3grid.DefaultBackgroundConfig().ToBackgroundParams()
 	params.BackgroundUpdateFraction = 0.07
 	params.ClosenessSensitivityMultiplier = 9
-	params.SafetyMarginMeters = 0.9
+	params.SafetyMarginMetres = 0.9
 	params.NoiseRelativeFraction = 0.12
-	params.NeighborConfirmationCount = 4
+	params.NeighbourConfirmationCount = 4
 	params.SeedFromFirstObservation = false
 	params.WarmupDurationNanos = 9
 	params.WarmupMinFrames = 8
@@ -79,7 +79,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	params.LockedBaselineThreshold = 6
 	params.LockedBaselineMultiplier = 7
 	params.SensorMovementForegroundThreshold = 0.4
-	params.BackgroundDriftThresholdMeters = 0.5
+	params.BackgroundDriftThresholdMetres = 0.5
 	params.BackgroundDriftRatioThreshold = 0.6
 	params.SettlingMinCoverage = 0.7
 	params.SettlingMaxSpreadDelta = 0.8
@@ -103,7 +103,7 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		cfg.MaxMissesConfirmed = 8
 		cfg.MaxTracks = 9
 		cfg.MaxReasonableSpeedMps = 10
-		cfg.MaxPositionJumpMeters = 11
+		cfg.MaxPositionJumpMetres = 11
 		cfg.MaxPredictDt = 12
 		cfg.MaxCovarianceDiag = 13
 		cfg.MinPointsForPCA = 14

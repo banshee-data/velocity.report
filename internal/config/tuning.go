@@ -915,8 +915,8 @@ func (c *TuningConfig) GetClosenessMultiplier() float64 {
 	return c.L3.ActiveCommon().ClosenessMultiplier
 }
 
-// GetNeighborConfirmationCount returns the active L3 neighbour confirmation count.
-func (c *TuningConfig) GetNeighborConfirmationCount() int {
+// GetNeighbourConfirmationCount returns the active L3 neighbour confirmation count.
+func (c *TuningConfig) GetNeighbourConfirmationCount() int {
 	return c.L3.ActiveCommon().NeighbourConfirmationCount
 }
 
@@ -982,8 +982,8 @@ func (c *TuningConfig) GetBackgroundUpdateFraction() float64 {
 	return c.L3.ActiveCommon().BackgroundUpdateFraction
 }
 
-// GetSafetyMarginMeters returns the active L3 safety margin in metres.
-func (c *TuningConfig) GetSafetyMarginMeters() float64 { return c.L3.ActiveCommon().SafetyMarginMetres }
+// GetSafetyMarginMetres returns the active L3 safety margin in metres.
+func (c *TuningConfig) GetSafetyMarginMetres() float64 { return c.L3.ActiveCommon().SafetyMarginMetres }
 
 // GetEnableDiagnostics returns the active L3 diagnostics switch.
 func (c *TuningConfig) GetEnableDiagnostics() bool { return c.L3.ActiveCommon().EnableDiagnostics }
@@ -1094,8 +1094,8 @@ func (c *TuningConfig) GetMaxReasonableSpeedMps() float64 {
 	return c.L5.ActiveCommon().MaxReasonableSpeedMps
 }
 
-// GetMaxPositionJumpMeters returns the active L5 max position jump.
-func (c *TuningConfig) GetMaxPositionJumpMeters() float64 {
+// GetMaxPositionJumpMetres returns the active L5 max position jump.
+func (c *TuningConfig) GetMaxPositionJumpMetres() float64 {
 	return c.L5.ActiveCommon().MaxPositionJumpMetres
 }
 

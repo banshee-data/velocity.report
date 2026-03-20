@@ -11,9 +11,9 @@ func makeTestGridStrict(rings, azBins int) *BackgroundGrid {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.5, // use large alpha for deterministic updates
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             0.5, // tight safety margin for sensitive foreground detection
+		SafetyMarginMetres:             0.5, // tight safety margin for sensitive foreground detection
 		FreezeDurationNanos:            int64(1 * time.Second),
-		NeighborConfirmationCount:      5, // higher threshold to avoid neighbor confirmation
+		NeighbourConfirmationCount:     5, // higher threshold to avoid neighbour confirmation
 		NoiseRelativeFraction:          0.01,
 		SeedFromFirstObservation:       true, // seed from first observation to build background
 	}
@@ -228,11 +228,11 @@ func TestComputeFrameMetrics_EmptyMask(t *testing.T) {
 	}
 }
 
-func TestProcessFramePolarWithMask_NeighborConfirmation(t *testing.T) {
+func TestProcessFramePolarWithMask_NeighbourConfirmation(t *testing.T) {
 	g := makeTestGrid(3, 3)
 	bm := g.Manager
 
-	// Initialise center and neighbors with 10m
+	// Initialise center and neighbours with 10m
 	azStep := 360.0 / float64(g.AzimuthBins)
 	for da := -1; da <= 1; da++ {
 		a := 1 + da
@@ -241,7 +241,7 @@ func TestProcessFramePolarWithMask_NeighborConfirmation(t *testing.T) {
 		bm.ProcessFramePolar([]PointPolar{{Channel: 2, Azimuth: az, Distance: 10.0}})
 	}
 
-	// Test point with similar distance - should be background due to neighbor confirmation
+	// Test point with similar distance - should be background due to neighbour confirmation
 	centerAz := (float64(1) + 0.5) * azStep
 	points := []PointPolar{{Channel: 2, Azimuth: centerAz, Distance: 10.2}}
 
@@ -251,7 +251,7 @@ func TestProcessFramePolarWithMask_NeighborConfirmation(t *testing.T) {
 	}
 
 	if mask[0] {
-		t.Errorf("expected point to be background due to neighbor confirmation")
+		t.Errorf("expected point to be background due to neighbour confirmation")
 	}
 }
 
@@ -277,13 +277,13 @@ func TestProcessFramePolarWithMask_FrozenCell(t *testing.T) {
 
 func TestProcessFramePolarWithMask_FastReacquisition(t *testing.T) {
 	// Test that cells recover quickly from foreground events
-	// Use a larger grid to allow neighbor confirmation to work
+	// Use a larger grid to allow neighbour confirmation to work
 	g := makeTestGridStrict(4, 16)
 	g.Params.ReacquisitionBoostMultiplier = 5.0 // 5x faster re-acquisition
 	g.Params.MinConfidenceFloor = 3             // Preserve minimum confidence
 	g.Params.BackgroundUpdateFraction = 0.1     // 10% base alpha
-	g.Params.SafetyMarginMeters = 0.1           // Tight safety for this test
-	g.Params.NeighborConfirmationCount = 0      // 0 to disable neighbor confirmation
+	g.Params.SafetyMarginMetres = 0.1           // Tight safety for this test
+	g.Params.NeighbourConfirmationCount = 0     // 0 to disable neighbour confirmation
 	g.Params.ClosenessSensitivityMultiplier = 1.0
 	g.Params.NoiseRelativeFraction = 0.01
 	g.Params.FreezeDurationNanos = 0 // Disable freeze for this test
@@ -304,7 +304,7 @@ func TestProcessFramePolarWithMask_FastReacquisition(t *testing.T) {
 	spread := g.Cells[idx].RangeSpreadMeters
 	noiseRel := g.Params.NoiseRelativeFraction
 	closenessMultiplier := g.Params.ClosenessSensitivityMultiplier
-	safety := g.Params.SafetyMarginMeters
+	safety := g.Params.SafetyMarginMetres
 	threshold := float64(closenessMultiplier)*(float64(spread)+float64(noiseRel)*10.0+0.01) + float64(safety)
 	t.Logf("After 10 bg observations: avg=%.2f, spread=%.4f, seen=%d, recentFg=%d, threshold=%.4f",
 		g.Cells[idx].AverageRangeMeters, spread, g.Cells[idx].TimesSeenCount,
@@ -436,8 +436,8 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveParams(t *testing.T) {
 	// Tight global params: 0.5m residual at 10.5m should be foreground.
 	g.Params.ClosenessSensitivityMultiplier = 1.0
 	g.Params.NoiseRelativeFraction = 0.01
-	g.Params.SafetyMarginMeters = 0.1
-	g.Params.NeighborConfirmationCount = 0
+	g.Params.SafetyMarginMetres = 0.1
+	g.Params.NeighbourConfirmationCount = 0
 	g.Params.BackgroundUpdateFraction = 0.5
 	g.Params.SeedFromFirstObservation = false
 
@@ -475,9 +475,9 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveParams(t *testing.T) {
 			CellList:  []int{idx},
 			CellCount: 1,
 			Params: RegionParams{
-				NoiseRelativeFraction:     0.10,
-				NeighborConfirmationCount: 0,
-				SettleUpdateFraction:      0.10,
+				NoiseRelativeFraction:      0.10,
+				NeighbourConfirmationCount: 0,
+				SettleUpdateFraction:       0.10,
 			},
 		},
 	}
@@ -499,23 +499,23 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveParams(t *testing.T) {
 	}
 }
 
-// TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm verifies that a
-// region override of NeighborConfirmationCount takes effect when it differs from
+// TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighbourConfirm verifies that a
+// region override of NeighbourConfirmationCount takes effect when it differs from
 // the global default.
 //
 // Scenario: main cell background=10m, neighbour cell background=10.5m.
 // A point at 10.5m is foreground relative to the main cell by distance, but the
 // neighbour cell confirms it as background via the neighbour-confirmation path
-// (global NeighborConfirmationCount=1, and 1 neighbour confirms).
-// When the region override raises NeighborConfirmationCount to 2, a single
+// (global NeighbourConfirmationCount=1, and 1 neighbour confirms).
+// When the region override raises NeighbourConfirmationCount to 2, a single
 // neighbouring confirmation is no longer sufficient and the point is correctly
 // classified as foreground.
 //
-// Note: NeighborConfirmationCount == 0 is treated as "unset" (falls back to the
+// Note: NeighbourConfirmationCount == 0 is treated as "unset" (falls back to the
 // global default) because Go's zero-value int would silently disable the check
 // for every un-initialised region, causing all points to be classified as
-// background (neighborConfirmCount >= 0 is always true).
-func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.T) {
+// background (neighbourConfirmCount >= 0 is always true).
+func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighbourConfirm(t *testing.T) {
 	// Grid: 1 ring, 8 azimuth bins.
 	g := makeTestGridStrict(1, 8)
 	bm := g.Manager
@@ -524,8 +524,8 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 	// Global params: tight noise, 1 neighbour required, small safety.
 	g.Params.ClosenessSensitivityMultiplier = 1.0
 	g.Params.NoiseRelativeFraction = 0.01
-	g.Params.SafetyMarginMeters = 0.1
-	g.Params.NeighborConfirmationCount = 1
+	g.Params.SafetyMarginMetres = 0.1
+	g.Params.NeighbourConfirmationCount = 1
 	g.Params.BackgroundUpdateFraction = 0.5
 	g.Params.SeedFromFirstObservation = false
 
@@ -549,8 +549,8 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 	// Restore main cell after update.
 	g.Cells[g.Idx(0, 0)] = BackgroundCell{AverageRangeMeters: 10.0, TimesSeenCount: 120}
 
-	// Apply a region override with NeighborConfirmationCount=2 for azBin=0 only.
-	// The global NeighborConfirmationCount=1 should be overridden; with only 1
+	// Apply a region override with NeighbourConfirmationCount=2 for azBin=0 only.
+	// The global NeighbourConfirmationCount=1 should be overridden; with only 1
 	// neighbouring cell confirming, the threshold of 2 is not met and the point
 	// is classified as foreground.
 	mainIdx := g.Idx(0, 0)
@@ -567,9 +567,9 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 			CellList:  []int{mainIdx},
 			CellCount: 1,
 			Params: RegionParams{
-				NoiseRelativeFraction:     0.01,
-				NeighborConfirmationCount: 2, // require 2 neighbours — only 1 available
-				SettleUpdateFraction:      0.5,
+				NoiseRelativeFraction:      0.01,
+				NeighbourConfirmationCount: 2, // require 2 neighbours — only 1 available
+				SettleUpdateFraction:       0.5,
 			},
 		},
 	}
@@ -577,7 +577,7 @@ func TestProcessFramePolarWithMask_UsesRegionAdaptiveNeighborConfirm(t *testing.
 	rm.IdentificationComplete = true
 	g.RegionMgr = rm
 
-	// With NeighborConfirmationCount=2 override: only 1 neighbour confirms,
+	// With NeighbourConfirmationCount=2 override: only 1 neighbour confirms,
 	// so the point should now be foreground.
 	mask, err = bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0.0, Distance: 10.5}})
 	if err != nil {
@@ -596,10 +596,10 @@ func TestProcessFramePolarWithMask_AcceptanceCounting(t *testing.T) {
 	bm := NewBackgroundManager("test-acceptance-counting", 4, 180, BackgroundParams{
 		BackgroundUpdateFraction:       0.5,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.4,
+		SafetyMarginMetres:             0.4,
 		NoiseRelativeFraction:          0.01,
 		SeedFromFirstObservation:       true,
-		NeighborConfirmationCount:      5,
+		NeighbourConfirmationCount:     5,
 	}, nil)
 	if bm == nil {
 		t.Fatal("failed to create background manager")

@@ -14,9 +14,9 @@ func makeCoverageGrid(rings, azBins int) *BackgroundGrid {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.5,
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		FreezeDurationNanos:            int64(1 * time.Second),
-		NeighborConfirmationCount:      0, // disable neighbour confirmation
+		NeighbourConfirmationCount:     0, // disable neighbour confirmation
 		NoiseRelativeFraction:          0.01,
 		SeedFromFirstObservation:       true,
 	}
@@ -224,7 +224,7 @@ func TestMask_LockedBaselineClassification(t *testing.T) {
 	g := makeCoverageGrid(2, 8)
 	g.Params.LockedBaselineThreshold = 10
 	g.Params.LockedBaselineMultiplier = 4.0
-	g.Params.SafetyMarginMeters = 0.1
+	g.Params.SafetyMarginMetres = 0.1
 	g.Params.ClosenessSensitivityMultiplier = 1.0
 	g.Params.NoiseRelativeFraction = 0.01
 	bm := g.Manager
@@ -256,7 +256,7 @@ func TestMask_DeadlockBreaker(t *testing.T) {
 	g := makeCoverageGrid(2, 8)
 	g.Params.MinConfidenceFloor = 3
 	g.Params.ClosenessSensitivityMultiplier = 2.0
-	g.Params.SafetyMarginMeters = 0.1
+	g.Params.SafetyMarginMetres = 0.1
 	g.Params.NoiseRelativeFraction = 0.01
 	g.Params.FreezeDurationNanos = int64(1 * time.Second)
 	bm := g.Manager
@@ -304,7 +304,7 @@ func TestMask_CellFreezeOnHighDivergence(t *testing.T) {
 	g := makeCoverageGrid(2, 8)
 	g.Params.FreezeDurationNanos = int64(2 * time.Second)
 	g.Params.ClosenessSensitivityMultiplier = 2.0
-	g.Params.SafetyMarginMeters = 0.1
+	g.Params.SafetyMarginMetres = 0.1
 	g.Params.NoiseRelativeFraction = 0.01
 	bm := g.Manager
 
@@ -376,7 +376,7 @@ func TestMask_FreezeThawReacquire(t *testing.T) {
 	g := makeCoverageGrid(2, 8)
 	g.Params.FreezeDurationNanos = int64(50 * time.Millisecond) // short freeze
 	g.Params.ClosenessSensitivityMultiplier = 2.0
-	g.Params.SafetyMarginMeters = 0.5
+	g.Params.SafetyMarginMetres = 0.5
 	g.Params.SeedFromFirstObservation = true
 	g.Params.ReacquisitionBoostMultiplier = 5.0
 	g.Params.MinConfidenceFloor = 3
@@ -435,9 +435,9 @@ func TestMask_LockedBaselineOverridesEMA(t *testing.T) {
 	g.Params.LockedBaselineThreshold = 5
 	g.Params.LockedBaselineMultiplier = 4.0
 	g.Params.ClosenessSensitivityMultiplier = 1.0
-	g.Params.SafetyMarginMeters = 0.0
+	g.Params.SafetyMarginMetres = 0.0
 	g.Params.NoiseRelativeFraction = 0.005
-	g.Params.NeighborConfirmationCount = 0
+	g.Params.NeighbourConfirmationCount = 0
 	bm := g.Manager
 
 	idx := g.Idx(0, 0)
@@ -470,9 +470,9 @@ func TestMask_LockedBaselineNotMetThreshold(t *testing.T) {
 	g.Params.LockedBaselineThreshold = 100 // very high threshold
 	g.Params.LockedBaselineMultiplier = 4.0
 	g.Params.ClosenessSensitivityMultiplier = 1.0
-	g.Params.SafetyMarginMeters = 0.0
+	g.Params.SafetyMarginMetres = 0.0
 	g.Params.NoiseRelativeFraction = 0.005
-	g.Params.NeighborConfirmationCount = 0
+	g.Params.NeighbourConfirmationCount = 0
 	bm := g.Manager
 
 	idx := g.Idx(0, 0)
@@ -700,7 +700,7 @@ func TestMask_DefaultClosenessSensitivity(t *testing.T) {
 
 func TestMask_NegativeNeighborConfirmCount(t *testing.T) {
 	g := makeCoverageGrid(2, 4)
-	g.Params.NeighborConfirmationCount = -1 // → defaults to 3 (lines 108-110)
+	g.Params.NeighbourConfirmationCount = -1 // → defaults to 3 (lines 108-110)
 	bm := g.Manager
 
 	mask, err := bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0, Distance: 10}})
@@ -775,10 +775,10 @@ func TestMask_LockedBaselineMinWindow(t *testing.T) {
 	g := makeCoverageGrid(2, 8)
 	g.Params.LockedBaselineThreshold = 5
 	g.Params.LockedBaselineMultiplier = 0.001 // very small multiplier
-	g.Params.SafetyMarginMeters = 0.0
+	g.Params.SafetyMarginMetres = 0.0
 	g.Params.NoiseRelativeFraction = 0.0001
 	g.Params.ClosenessSensitivityMultiplier = 0.001
-	g.Params.NeighborConfirmationCount = 0
+	g.Params.NeighbourConfirmationCount = 0
 	bm := g.Manager
 
 	idx := g.Idx(0, 0)

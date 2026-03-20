@@ -13,9 +13,9 @@ const (
 	// BackgroundParams.ClosenessSensitivityMultiplier is zero/negative,
 	// which should never happen with a properly loaded config.
 	safetyClosenessSensitivityMultiplier = 3.0
-	// safetyNeighborConfirmationCount is a safety guard used only when
-	// BackgroundParams.NeighborConfirmationCount is negative.
-	safetyNeighborConfirmationCount = 3
+	// safetyNeighbourConfirmationCount is a safety guard used only when
+	// BackgroundParams.NeighbourConfirmationCount is negative.
+	safetyNeighbourConfirmationCount = 3
 	// defaultFreezeThresholdMultiplier is the fallback freeze-gate multiplier when
 	// config has not provided a positive value.
 	defaultFreezeThresholdMultiplier = 3.0
@@ -79,7 +79,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	if alpha <= 0 || alpha > 1 {
 		alpha = 0.02
 	}
-	safety := float64(g.Params.SafetyMarginMeters)
+	safety := float64(g.Params.SafetyMarginMetres)
 	freezeDur := g.Params.FreezeDurationNanos
 
 	warmupActive := false
@@ -109,9 +109,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 	if closenessMultiplier <= 0 {
 		closenessMultiplier = safetyClosenessSensitivityMultiplier
 	}
-	neighConfirm := g.Params.NeighborConfirmationCount
+	neighConfirm := g.Params.NeighbourConfirmationCount
 	if neighConfirm < 0 {
-		neighConfirm = safetyNeighborConfirmationCount
+		neighConfirm = safetyNeighbourConfirmationCount
 	}
 	seedFromFirst := g.Params.SeedFromFirstObservation
 	freezeThresholdMultiplier := float64(g.Params.FreezeThresholdMultiplier)
@@ -227,7 +227,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 
 		// Region-adaptive parameter overrides (if identified) must apply on the
 		// mask path as well, since this is the production runtime path.
-		cellNoiseRel, cellNeighborConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+		cellNoiseRel, cellNeighbourConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
 
 		// If frozen, treat as foreground but don't accumulate recFg
 		// The freeze itself is sufficient protection; accumulating recFg during freeze
@@ -259,12 +259,12 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			cell.FrozenUntilUnixNanos = 0 // Clear the expired freeze timestamp
 		}
 
-		// Same-ring neighbor confirmation
-		neighborConfirmCount := 0
-		if cellNeighborConfirm > 0 {
+		// Same-ring neighbour confirmation
+		neighbourConfirmCount := 0
+		if cellNeighbourConfirm > 0 {
 			// Search radius should be at least equal to the required confirmation count
 			// to make it possible to satisfy the condition.
-			searchRadius := cellNeighborConfirm
+			searchRadius := cellNeighbourConfirm
 			if searchRadius < 1 {
 				searchRadius = 1
 			}
@@ -277,14 +277,14 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 				if deltaAz == 0 {
 					continue
 				}
-				neighborAzimuth := (azBin + deltaAz + azBins) % azBins
-				neighborIdx := g.Idx(ring, neighborAzimuth)
-				neighborCell := g.Cells[neighborIdx]
-				if neighborCell.TimesSeenCount > 0 {
-					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - p.Distance)
-					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + cellNoiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
-					if neighborDiff <= neighborCloseness {
-						neighborConfirmCount++
+				neighbourAzimuth := (azBin + deltaAz + azBins) % azBins
+				neighbourIdx := g.Idx(ring, neighbourAzimuth)
+				neighbourCell := g.Cells[neighbourIdx]
+				if neighbourCell.TimesSeenCount > 0 {
+					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - p.Distance)
+					neighbourCloseness := closenessMultiplier * (float64(neighbourCell.RangeSpreadMeters) + cellNoiseRel*float64(neighbourCell.AverageRangeMeters) + 0.01)
+					if neighbourDiff <= neighbourCloseness {
+						neighbourConfirmCount++
 					}
 				}
 			}
@@ -322,7 +322,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// Classification decision: prioritize locked baseline if available
 		isBackgroundLike := isWithinLockedRange ||
 			cellDiff <= closenessThreshold ||
-			(cellNeighborConfirm > 0 && neighborConfirmCount >= cellNeighborConfirm)
+			(cellNeighbourConfirm > 0 && neighbourConfirmCount >= cellNeighbourConfirm)
 
 		// Deadlock Breaker:
 		// If a cell is persistently classified as foreground (RecentForegroundCount high)

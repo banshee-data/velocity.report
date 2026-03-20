@@ -192,8 +192,8 @@ func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 		Background: BackgroundParamsExport{
 			BackgroundUpdateFraction:       float32(cfg.GetBackgroundUpdateFraction()),
 			ClosenessSensitivityMultiplier: float32(cfg.GetClosenessMultiplier()),
-			SafetyMarginMeters:             float32(cfg.GetSafetyMarginMeters()),
-			NeighborConfirmationCount:      cfg.GetNeighborConfirmationCount(),
+			SafetyMarginMeters:             float32(cfg.GetSafetyMarginMetres()),
+			NeighborConfirmationCount:      cfg.GetNeighbourConfirmationCount(),
 			NoiseRelativeFraction:          float32(cfg.GetNoiseRelative()),
 			SeedFromFirstObservation:       cfg.GetSeedFromFirst(),
 			FreezeDurationNanos:            5e9,
@@ -224,8 +224,8 @@ func FromBackgroundParams(p BackgroundParams) BackgroundParamsExport {
 	return BackgroundParamsExport{
 		BackgroundUpdateFraction:       p.BackgroundUpdateFraction,
 		ClosenessSensitivityMultiplier: p.ClosenessSensitivityMultiplier,
-		SafetyMarginMeters:             p.SafetyMarginMeters,
-		NeighborConfirmationCount:      p.NeighborConfirmationCount,
+		SafetyMarginMeters:             p.SafetyMarginMetres,
+		NeighborConfirmationCount:      p.NeighbourConfirmationCount,
 		NoiseRelativeFraction:          p.NoiseRelativeFraction,
 		SeedFromFirstObservation:       p.SeedFromFirstObservation,
 		FreezeDurationNanos:            p.FreezeDurationNanos,

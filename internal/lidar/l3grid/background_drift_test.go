@@ -105,7 +105,7 @@ func TestCheckBackgroundDrift_NoSettledCells(t *testing.T) {
 func TestCheckBackgroundDrift_DefaultThresholds(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	// Ensure drift/ratio thresholds default to their built-in values
-	g.Params.BackgroundDriftThresholdMeters = 0
+	g.Params.BackgroundDriftThresholdMetres = 0
 	g.Params.BackgroundDriftRatioThreshold = 0
 	g.Params.LockedBaselineThreshold = 5
 
@@ -128,7 +128,7 @@ func TestCheckBackgroundDrift_DefaultThresholds(t *testing.T) {
 func TestCheckBackgroundDrift_LockedBaselineZero(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	g.Params.LockedBaselineThreshold = 5
-	g.Params.BackgroundDriftThresholdMeters = 0.5
+	g.Params.BackgroundDriftThresholdMetres = 0.5
 	g.Params.BackgroundDriftRatioThreshold = 0.10
 
 	// Settled but LockedBaseline is 0 → skipped (continue branch)
@@ -150,7 +150,7 @@ func TestCheckBackgroundDrift_LockedBaselineZero(t *testing.T) {
 func TestCheckBackgroundDrift_DriftDetected(t *testing.T) {
 	g := makeTestGrid(1, 4)
 	g.Params.LockedBaselineThreshold = 5
-	g.Params.BackgroundDriftThresholdMeters = 0.5
+	g.Params.BackgroundDriftThresholdMetres = 0.5
 	g.Params.BackgroundDriftRatioThreshold = 0.10
 
 	// All 4 cells are settled with significant drift

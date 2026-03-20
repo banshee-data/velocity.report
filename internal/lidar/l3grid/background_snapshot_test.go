@@ -9,7 +9,7 @@ func TestBackgroundManager_GenerateBackgroundSnapshot(t *testing.T) {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.1,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		LockedBaselineThreshold:        10,
 	}
 
@@ -144,7 +144,7 @@ func TestBackgroundManager_CheckForSensorMovement(t *testing.T) {
 func TestBackgroundManager_CheckBackgroundDrift(t *testing.T) {
 	params := BackgroundParams{
 		LockedBaselineThreshold:        10,
-		BackgroundDriftThresholdMeters: 0.5,
+		BackgroundDriftThresholdMetres: 0.5,
 		BackgroundDriftRatioThreshold:  0.10,
 	}
 

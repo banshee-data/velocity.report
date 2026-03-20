@@ -1072,8 +1072,8 @@ func createBackgroundManager(sensorID string, store l3grid.BgStore) *l3grid.Back
 	params := l3grid.BackgroundParams{
 		BackgroundUpdateFraction:       0.02,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
-		NeighborConfirmationCount:      3,
+		SafetyMarginMetres:             0.5,
+		NeighbourConfirmationCount:     3,
 		NoiseRelativeFraction:          0.315,
 		SeedFromFirstObservation:       true, // Important for PCAP replay
 		FreezeDurationNanos:            int64(5 * time.Second),

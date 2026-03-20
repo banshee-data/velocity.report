@@ -55,7 +55,7 @@ type TrackerConfig struct {
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
-	MaxPositionJumpMeters float32 // Maximum position jump between observations (metres)
+	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)
 	MaxPredictDt          float32 // Maximum dt (seconds) per predict step
 	MaxCovarianceDiag     float32 // Maximum covariance diagonal element
 
@@ -104,7 +104,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		OcclusionCovInflation:            float32(l5cfg.OcclusionCovInflation),
 		DeletedTrackGracePeriod:          mustParseDuration(l5cfg.DeletedTrackGracePeriod),
 		MaxReasonableSpeedMps:            float32(l5cfg.MaxReasonableSpeedMps),
-		MaxPositionJumpMeters:            float32(l5cfg.MaxPositionJumpMetres),
+		MaxPositionJumpMetres:            float32(l5cfg.MaxPositionJumpMetres),
 		MaxPredictDt:                     float32(l5cfg.MaxPredictDt),
 		MaxCovarianceDiag:                float32(l5cfg.MaxCovarianceDiag),
 		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
@@ -793,7 +793,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Physical plausibility check: reject if position jump is too large
 	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-	if euclideanDist > t.Config.MaxPositionJumpMeters {
+	if euclideanDist > t.Config.MaxPositionJumpMetres {
 		return SingularDistanceRejection
 	}
 

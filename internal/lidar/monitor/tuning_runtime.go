@@ -104,9 +104,9 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 		if l3 != nil {
 			l3.BackgroundUpdateFraction = roundTo6(float64(params.BackgroundUpdateFraction))
 			l3.ClosenessMultiplier = roundTo6(float64(params.ClosenessSensitivityMultiplier))
-			l3.SafetyMarginMetres = roundTo6(float64(params.SafetyMarginMeters))
+			l3.SafetyMarginMetres = roundTo6(float64(params.SafetyMarginMetres))
 			l3.NoiseRelative = roundTo6(float64(params.NoiseRelativeFraction))
-			l3.NeighbourConfirmationCount = params.NeighborConfirmationCount
+			l3.NeighbourConfirmationCount = params.NeighbourConfirmationCount
 			l3.SeedFromFirst = params.SeedFromFirstObservation
 			l3.WarmupDurationNanos = params.WarmupDurationNanos
 			l3.WarmupMinFrames = params.WarmupMinFrames
@@ -119,7 +119,7 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 			l3.LockedBaselineThreshold = int(params.LockedBaselineThreshold)
 			l3.LockedBaselineMultiplier = roundTo6(float64(params.LockedBaselineMultiplier))
 			l3.SensorMovementForegroundThreshold = roundTo6(float64(params.SensorMovementForegroundThreshold))
-			l3.BackgroundDriftThresholdMetres = roundTo6(float64(params.BackgroundDriftThresholdMeters))
+			l3.BackgroundDriftThresholdMetres = roundTo6(float64(params.BackgroundDriftThresholdMetres))
 			l3.BackgroundDriftRatioThreshold = roundTo6(float64(params.BackgroundDriftRatioThreshold))
 			l3.SettlingMinCoverage = roundTo6(float64(params.SettlingMinCoverage))
 			l3.SettlingMaxSpreadDelta = roundTo6(float64(params.SettlingMaxSpreadDelta))
@@ -153,7 +153,7 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 			l5.MaxMissesConfirmed = trackerCfg.MaxMissesConfirmed
 			l5.MaxTracks = trackerCfg.MaxTracks
 			l5.MaxReasonableSpeedMps = roundTo6(float64(trackerCfg.MaxReasonableSpeedMps))
-			l5.MaxPositionJumpMetres = roundTo6(float64(trackerCfg.MaxPositionJumpMeters))
+			l5.MaxPositionJumpMetres = roundTo6(float64(trackerCfg.MaxPositionJumpMetres))
 			l5.MaxPredictDt = roundTo6(float64(trackerCfg.MaxPredictDt))
 			l5.MaxCovarianceDiag = roundTo6(float64(trackerCfg.MaxCovarianceDiag))
 			l5.MinPointsForPCA = trackerCfg.MinPointsForPCA
@@ -359,11 +359,11 @@ func applyRuntimeTuningPath(ws *WebServer, bm *l3grid.BackgroundManager, cfg *cf
 		case "l3.ema_baseline_v1.closeness_multiplier":
 			params.ClosenessSensitivityMultiplier = float32(l3.ClosenessMultiplier)
 		case "l3.ema_baseline_v1.safety_margin_metres":
-			params.SafetyMarginMeters = float32(l3.SafetyMarginMetres)
+			params.SafetyMarginMetres = float32(l3.SafetyMarginMetres)
 		case "l3.ema_baseline_v1.noise_relative":
 			params.NoiseRelativeFraction = float32(l3.NoiseRelative)
 		case "l3.ema_baseline_v1.neighbour_confirmation_count":
-			params.NeighborConfirmationCount = l3.NeighbourConfirmationCount
+			params.NeighbourConfirmationCount = l3.NeighbourConfirmationCount
 		case "l3.ema_baseline_v1.seed_from_first":
 			params.SeedFromFirstObservation = l3.SeedFromFirst
 		case "l3.ema_baseline_v1.warmup_duration_nanos":
@@ -395,7 +395,7 @@ func applyRuntimeTuningPath(ws *WebServer, bm *l3grid.BackgroundManager, cfg *cf
 		case "l3.ema_baseline_v1.sensor_movement_foreground_threshold":
 			params.SensorMovementForegroundThreshold = float32(l3.SensorMovementForegroundThreshold)
 		case "l3.ema_baseline_v1.background_drift_threshold_metres":
-			params.BackgroundDriftThresholdMeters = float32(l3.BackgroundDriftThresholdMetres)
+			params.BackgroundDriftThresholdMetres = float32(l3.BackgroundDriftThresholdMetres)
 		case "l3.ema_baseline_v1.background_drift_ratio_threshold":
 			params.BackgroundDriftRatioThreshold = float32(l3.BackgroundDriftRatioThreshold)
 		case "l3.ema_baseline_v1.settling_min_coverage":
@@ -447,7 +447,7 @@ func applyRuntimeTuningPath(ws *WebServer, bm *l3grid.BackgroundManager, cfg *cf
 			case "l5.cv_kf_v1.max_reasonable_speed_mps":
 				trackerCfg.MaxReasonableSpeedMps = float32(l5.MaxReasonableSpeedMps)
 			case "l5.cv_kf_v1.max_position_jump_metres":
-				trackerCfg.MaxPositionJumpMeters = float32(l5.MaxPositionJumpMetres)
+				trackerCfg.MaxPositionJumpMetres = float32(l5.MaxPositionJumpMetres)
 			case "l5.cv_kf_v1.max_predict_dt":
 				trackerCfg.MaxPredictDt = float32(l5.MaxPredictDt)
 			case "l5.cv_kf_v1.max_covariance_diag":

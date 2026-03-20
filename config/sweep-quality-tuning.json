@@ -50,7 +50,7 @@
       "description": "Background acceptance bandwidth. Affects empty boxes and foreground capture."
     },
     {
-      "name": "safety_margin_meters",
+      "name": "safety_margin_metres",
       "type": "float64",
       "start": 0.1,
       "end": 0.3,
@@ -88,7 +88,7 @@
     "- Jitter: measurement_noise, process_noise_vel",
     "- Fragmentation: foreground_dbscan_eps, gating_distance_squared, foreground_min_cluster_points",
     "- Misalignment: process_noise_vel, measurement_noise",
-    "- Empty boxes: closeness_multiplier, safety_margin_meters",
+    "- Empty boxes: closeness_multiplier, safety_margin_metres",
     "",
     "The objective weights heavily penalise fragmentation (-5.0) and empty boxes (-3.0),",
     "moderately penalise jitter (-2.0 each), and reward foreground capture (+1.0).",

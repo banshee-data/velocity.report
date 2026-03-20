@@ -1390,10 +1390,10 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 		// Include current params for context
 		params := mgr.GetParams()
 		debugInfo["params"] = map[string]interface{}{
-			"noise_relative":        params.NoiseRelativeFraction,
-			"closeness_multiplier":  params.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation": params.NeighborConfirmationCount,
-			"seed_from_first":       params.SeedFromFirstObservation,
+			"noise_relative":         params.NoiseRelativeFraction,
+			"closeness_multiplier":   params.ClosenessSensitivityMultiplier,
+			"neighbour_confirmation": params.NeighbourConfirmationCount,
+			"seed_from_first":        params.SeedFromFirstObservation,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(debugInfo)

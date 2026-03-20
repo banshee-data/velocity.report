@@ -12,7 +12,7 @@ func TestNewBackgroundManagerDI(t *testing.T) {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.1,
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             20.0,
+		SafetyMarginMetres:             20.0,
 	}
 
 	t.Run("success without store", func(t *testing.T) {
@@ -96,8 +96,8 @@ func TestAssignRegionParams_ZeroDefaults(t *testing.T) {
 	if rp.NoiseRelativeFraction <= 0 {
 		t.Errorf("expected positive noise fraction, got %f", rp.NoiseRelativeFraction)
 	}
-	if rp.NeighborConfirmationCount <= 0 {
-		t.Errorf("expected positive neighbor count, got %d", rp.NeighborConfirmationCount)
+	if rp.NeighbourConfirmationCount <= 0 {
+		t.Errorf("expected positive neighbor count, got %d", rp.NeighbourConfirmationCount)
 	}
 	if rp.SettleUpdateFraction <= 0 {
 		t.Errorf("expected positive update fraction, got %f", rp.SettleUpdateFraction)

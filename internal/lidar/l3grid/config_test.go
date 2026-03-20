@@ -22,8 +22,8 @@ func TestDefaultBackgroundConfig(t *testing.T) {
 	if cfg.FreezeDuration < 0 {
 		t.Errorf("FreezeDuration must be non-negative, got %v", cfg.FreezeDuration)
 	}
-	if cfg.NeighborConfirmation < 0 || cfg.NeighborConfirmation > 8 {
-		t.Errorf("NeighborConfirmation must be in [0, 8], got %d", cfg.NeighborConfirmation)
+	if cfg.NeighbourConfirmation < 0 || cfg.NeighbourConfirmation > 8 {
+		t.Errorf("NeighbourConfirmation must be in [0, 8], got %d", cfg.NeighbourConfirmation)
 	}
 	if cfg.NoiseRelativeFraction < 0 || cfg.NoiseRelativeFraction > 1 {
 		t.Errorf("NoiseRelativeFraction must be in [0, 1], got %f", cfg.NoiseRelativeFraction)
@@ -97,7 +97,7 @@ func TestBackgroundConfig_Validate_InvalidSafetyMargin(t *testing.T) {
 	}
 }
 
-func TestBackgroundConfig_Validate_InvalidNeighborConfirmation(t *testing.T) {
+func TestBackgroundConfig_Validate_InvalidNeighbourConfirmation(t *testing.T) {
 	tests := []struct {
 		name  string
 		value int
@@ -109,9 +109,9 @@ func TestBackgroundConfig_Validate_InvalidNeighborConfirmation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := DefaultBackgroundConfig()
-			cfg.NeighborConfirmation = tc.value
+			cfg.NeighbourConfirmation = tc.value
 			if err := cfg.Validate(); err == nil {
-				t.Error("expected error for invalid NeighborConfirmation")
+				t.Error("expected error for invalid NeighbourConfirmation")
 			}
 		})
 	}
@@ -185,7 +185,7 @@ func TestBackgroundConfig_ToBackgroundParams(t *testing.T) {
 	cfg.ClosenessSensitivity = 6.0
 	cfg.SafetyMargin = 0.3
 	cfg.FreezeDuration = 10 * time.Second
-	cfg.NeighborConfirmation = 5
+	cfg.NeighbourConfirmation = 5
 	cfg.NoiseRelativeFraction = 0.02
 	cfg.SeedFromFirstObservation = false
 	cfg.SettlingPeriod = 10 * time.Minute
@@ -202,14 +202,14 @@ func TestBackgroundConfig_ToBackgroundParams(t *testing.T) {
 	if params.ClosenessSensitivityMultiplier != 6.0 {
 		t.Errorf("expected ClosenessSensitivity 6.0, got %f", params.ClosenessSensitivityMultiplier)
 	}
-	if params.SafetyMarginMeters != 0.3 {
-		t.Errorf("expected SafetyMargin 0.3, got %f", params.SafetyMarginMeters)
+	if params.SafetyMarginMetres != 0.3 {
+		t.Errorf("expected SafetyMargin 0.3, got %f", params.SafetyMarginMetres)
 	}
 	if params.FreezeDurationNanos != (10 * time.Second).Nanoseconds() {
 		t.Errorf("expected FreezeDurationNanos %d, got %d", (10 * time.Second).Nanoseconds(), params.FreezeDurationNanos)
 	}
-	if params.NeighborConfirmationCount != 5 {
-		t.Errorf("expected NeighborConfirmation 5, got %d", params.NeighborConfirmationCount)
+	if params.NeighbourConfirmationCount != 5 {
+		t.Errorf("expected NeighbourConfirmation 5, got %d", params.NeighbourConfirmationCount)
 	}
 	if params.NoiseRelativeFraction != 0.02 {
 		t.Errorf("expected NoiseRelativeFraction 0.02, got %f", params.NoiseRelativeFraction)
@@ -240,7 +240,7 @@ func TestBackgroundConfig_FluentAPI(t *testing.T) {
 		WithClosenessSensitivity(5.0).
 		WithSafetyMargin(0.2).
 		WithFreezeDuration(3 * time.Second).
-		WithNeighborConfirmation(4).
+		WithNeighbourConfirmation(4).
 		WithNoiseRelativeFraction(0.03).
 		WithSeedFromFirstObservation(false).
 		WithSettlingPeriod(3 * time.Minute).
@@ -262,8 +262,8 @@ func TestBackgroundConfig_FluentAPI(t *testing.T) {
 	if cfg.FreezeDuration != 3*time.Second {
 		t.Errorf("expected FreezeDuration 3s, got %v", cfg.FreezeDuration)
 	}
-	if cfg.NeighborConfirmation != 4 {
-		t.Errorf("expected NeighborConfirmation 4, got %d", cfg.NeighborConfirmation)
+	if cfg.NeighbourConfirmation != 4 {
+		t.Errorf("expected NeighbourConfirmation 4, got %d", cfg.NeighbourConfirmation)
 	}
 	if cfg.NoiseRelativeFraction != 0.03 {
 		t.Errorf("expected NoiseRelativeFraction 0.03, got %f", cfg.NoiseRelativeFraction)
@@ -299,16 +299,16 @@ func TestBackgroundConfig_Validate_EdgeCases(t *testing.T) {
 		t.Errorf("UpdateFraction=1.0 should be valid, got: %v", err)
 	}
 
-	// Edge case: NeighborConfirmation exactly 0 and 8 should be valid
+	// Edge case: NeighbourConfirmation exactly 0 and 8 should be valid
 	cfg = DefaultBackgroundConfig()
-	cfg.NeighborConfirmation = 0
+	cfg.NeighbourConfirmation = 0
 	if err := cfg.Validate(); err != nil {
-		t.Errorf("NeighborConfirmation=0 should be valid, got: %v", err)
+		t.Errorf("NeighbourConfirmation=0 should be valid, got: %v", err)
 	}
 
-	cfg.NeighborConfirmation = 8
+	cfg.NeighbourConfirmation = 8
 	if err := cfg.Validate(); err != nil {
-		t.Errorf("NeighborConfirmation=8 should be valid, got: %v", err)
+		t.Errorf("NeighbourConfirmation=8 should be valid, got: %v", err)
 	}
 
 	// Edge case: NoiseRelativeFraction exactly 0 and 1 should be valid
@@ -365,11 +365,11 @@ func TestBackgroundConfig_Validate_NewFieldErrors(t *testing.T) {
 			wantText: "SensorMovementForegroundThreshold must be in [0, 1]",
 		},
 		{
-			name: "BackgroundDriftThresholdMeters",
+			name: "BackgroundDriftThresholdMetres",
 			mutate: func(c *BackgroundConfig) {
-				c.BackgroundDriftThresholdMeters = -1
+				c.BackgroundDriftThresholdMetres = -1
 			},
-			wantText: "BackgroundDriftThresholdMeters must be non-negative",
+			wantText: "BackgroundDriftThresholdMetres must be non-negative",
 		},
 		{
 			name: "BackgroundDriftRatioThreshold",

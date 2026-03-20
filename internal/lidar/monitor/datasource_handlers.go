@@ -530,8 +530,8 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 				tuned.SeedFromFirstObservation = true
 				tuned.ClosenessSensitivityMultiplier = 2.0
 				tuned.NoiseRelativeFraction = 0.02
-				tuned.NeighborConfirmationCount = 5
-				tuned.SafetyMarginMeters = 0.3
+				tuned.NeighbourConfirmationCount = 5
+				tuned.SafetyMarginMetres = 0.3
 				_ = bgManager.SetParams(tuned)
 				restoreParams = func() { _ = bgManager.SetParams(orig) }
 			}

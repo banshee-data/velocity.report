@@ -18,7 +18,7 @@ type BackgroundConfig struct {
 	SafetyMargin              float32       // Meters added to threshold (default: 0.4)
 	FreezeDuration            time.Duration // Time to freeze cell after foreground (default: 5s)
 	FreezeThresholdMultiplier float32       // Multiplier for freeze trigger gate (default: 3.0)
-	NeighborConfirmation      int           // Neighbors required for foreground (default: 7)
+	NeighbourConfirmation     int           // Neighbours required for foreground (default: 7)
 	NoiseRelativeFraction     float32       // Fraction of range as noise (default: 0.04)
 	MinConfidenceFloor        uint32        // Min confidence to preserve (default: 3)
 	SeedFromFirstObservation  bool          // Seed from first observation (default: true)
@@ -38,7 +38,7 @@ type BackgroundConfig struct {
 	LockedBaselineThreshold           uint32  // Min count before locking baseline (default: 50)
 	LockedBaselineMultiplier          float32 // Spread multiplier for locked baseline (default: 4.0)
 	SensorMovementForegroundThreshold float32 // Fraction of foreground points that indicates sensor movement
-	BackgroundDriftThresholdMeters    float32 // Drift distance threshold for locked baseline checks
+	BackgroundDriftThresholdMetres    float32 // Drift distance threshold for locked baseline checks
 	BackgroundDriftRatioThreshold     float32 // Fraction of settled cells that must drift to trigger reset
 	SettlingMinCoverage               float32 // Minimum coverage for settling convergence
 	SettlingMaxSpreadDelta            float32 // Maximum spread delta for settling convergence
@@ -73,7 +73,7 @@ func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4D
 		SafetyMargin:                      float32(l3cfg.SafetyMarginMetres),
 		FreezeDuration:                    mustParseDuration(l3cfg.FreezeDuration),
 		FreezeThresholdMultiplier:         float32(l3cfg.FreezeThresholdMultiplier),
-		NeighborConfirmation:              l3cfg.NeighbourConfirmationCount,
+		NeighbourConfirmation:             l3cfg.NeighbourConfirmationCount,
 		NoiseRelativeFraction:             float32(l3cfg.NoiseRelative),
 		MinConfidenceFloor:                uint32(l3cfg.MinConfidenceFloor),
 		SeedFromFirstObservation:          l3cfg.SeedFromFirst,
@@ -87,7 +87,7 @@ func BackgroundConfigFromTuning(l3cfg *config.L3EmaBaselineV1, l4cfg *config.L4D
 		LockedBaselineThreshold:           uint32(l3cfg.LockedBaselineThreshold),
 		LockedBaselineMultiplier:          float32(l3cfg.LockedBaselineMultiplier),
 		SensorMovementForegroundThreshold: float32(l3cfg.SensorMovementForegroundThreshold),
-		BackgroundDriftThresholdMeters:    float32(l3cfg.BackgroundDriftThresholdMetres),
+		BackgroundDriftThresholdMetres:    float32(l3cfg.BackgroundDriftThresholdMetres),
 		BackgroundDriftRatioThreshold:     float32(l3cfg.BackgroundDriftRatioThreshold),
 		SettlingMinCoverage:               float32(l3cfg.SettlingMinCoverage),
 		SettlingMaxSpreadDelta:            float32(l3cfg.SettlingMaxSpreadDelta),
@@ -126,8 +126,8 @@ func (c *BackgroundConfig) Validate() error {
 	if c.FreezeThresholdMultiplier <= 0 {
 		return fmt.Errorf("FreezeThresholdMultiplier must be positive, got %f", c.FreezeThresholdMultiplier)
 	}
-	if c.NeighborConfirmation < 0 || c.NeighborConfirmation > 8 {
-		return fmt.Errorf("NeighborConfirmation must be in [0, 8], got %d", c.NeighborConfirmation)
+	if c.NeighbourConfirmation < 0 || c.NeighbourConfirmation > 8 {
+		return fmt.Errorf("NeighbourConfirmation must be in [0, 8], got %d", c.NeighbourConfirmation)
 	}
 	if c.NoiseRelativeFraction < 0 || c.NoiseRelativeFraction > 1 {
 		return fmt.Errorf("NoiseRelativeFraction must be in [0, 1], got %f", c.NoiseRelativeFraction)
@@ -150,8 +150,8 @@ func (c *BackgroundConfig) Validate() error {
 	if c.SensorMovementForegroundThreshold < 0 || c.SensorMovementForegroundThreshold > 1 {
 		return fmt.Errorf("SensorMovementForegroundThreshold must be in [0, 1], got %f", c.SensorMovementForegroundThreshold)
 	}
-	if c.BackgroundDriftThresholdMeters < 0 {
-		return fmt.Errorf("BackgroundDriftThresholdMeters must be non-negative, got %f", c.BackgroundDriftThresholdMeters)
+	if c.BackgroundDriftThresholdMetres < 0 {
+		return fmt.Errorf("BackgroundDriftThresholdMetres must be non-negative, got %f", c.BackgroundDriftThresholdMetres)
 	}
 	if c.BackgroundDriftRatioThreshold < 0 || c.BackgroundDriftRatioThreshold > 1 {
 		return fmt.Errorf("BackgroundDriftRatioThreshold must be in [0, 1], got %f", c.BackgroundDriftRatioThreshold)
@@ -176,10 +176,10 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 	return BackgroundParams{
 		BackgroundUpdateFraction:          c.UpdateFraction,
 		ClosenessSensitivityMultiplier:    c.ClosenessSensitivity,
-		SafetyMarginMeters:                c.SafetyMargin,
+		SafetyMarginMetres:                c.SafetyMargin,
 		FreezeDurationNanos:               c.FreezeDuration.Nanoseconds(),
 		FreezeThresholdMultiplier:         c.FreezeThresholdMultiplier,
-		NeighborConfirmationCount:         c.NeighborConfirmation,
+		NeighbourConfirmationCount:        c.NeighbourConfirmation,
 		NoiseRelativeFraction:             c.NoiseRelativeFraction,
 		MinConfidenceFloor:                c.MinConfidenceFloor,
 		SeedFromFirstObservation:          c.SeedFromFirstObservation,
@@ -193,7 +193,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		LockedBaselineThreshold:           c.LockedBaselineThreshold,
 		LockedBaselineMultiplier:          c.LockedBaselineMultiplier,
 		SensorMovementForegroundThreshold: c.SensorMovementForegroundThreshold,
-		BackgroundDriftThresholdMeters:    c.BackgroundDriftThresholdMeters,
+		BackgroundDriftThresholdMetres:    c.BackgroundDriftThresholdMetres,
 		BackgroundDriftRatioThreshold:     c.BackgroundDriftRatioThreshold,
 		SettlingMinCoverage:               c.SettlingMinCoverage,
 		SettlingMaxSpreadDelta:            c.SettlingMaxSpreadDelta,
@@ -229,9 +229,9 @@ func (c *BackgroundConfig) WithFreezeDuration(d time.Duration) *BackgroundConfig
 	return c
 }
 
-// WithNeighborConfirmation sets the neighbor confirmation count.
-func (c *BackgroundConfig) WithNeighborConfirmation(n int) *BackgroundConfig {
-	c.NeighborConfirmation = n
+// WithNeighbourConfirmation sets the neighbour confirmation count.
+func (c *BackgroundConfig) WithNeighbourConfirmation(n int) *BackgroundConfig {
+	c.NeighbourConfirmation = n
 	return c
 }
 

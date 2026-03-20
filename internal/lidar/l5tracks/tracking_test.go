@@ -534,7 +534,7 @@ func TestMahalanobisDistanceSquared(t *testing.T) {
 
 		// Cluster very far away, exceeding config max_position_jump_meters
 		cluster := WorldCluster{
-			CentroidX: tracker.Config.MaxPositionJumpMeters + 10, // way beyond limit
+			CentroidX: tracker.Config.MaxPositionJumpMetres + 10, // way beyond limit
 			CentroidY: 0,
 		}
 

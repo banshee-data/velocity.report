@@ -873,7 +873,7 @@ func TestTuningConfigGettersAndActiveConfig(t *testing.T) {
 		cfg.GetNoiseRelative() != cfg.L3.EmaBaselineV1.NoiseRelative ||
 		cfg.GetSeedFromFirst() != cfg.L3.EmaBaselineV1.SeedFromFirst ||
 		cfg.GetClosenessMultiplier() != cfg.L3.EmaBaselineV1.ClosenessMultiplier ||
-		cfg.GetNeighborConfirmationCount() != cfg.L3.EmaBaselineV1.NeighbourConfirmationCount ||
+		cfg.GetNeighbourConfirmationCount() != cfg.L3.EmaBaselineV1.NeighbourConfirmationCount ||
 		cfg.GetWarmupDurationNanos() != cfg.L3.EmaBaselineV1.WarmupDurationNanos ||
 		cfg.GetWarmupMinFrames() != cfg.L3.EmaBaselineV1.WarmupMinFrames ||
 		cfg.GetPostSettleUpdateFraction() != cfg.L3.EmaBaselineV1.PostSettleUpdateFraction ||
@@ -890,7 +890,7 @@ func TestTuningConfigGettersAndActiveConfig(t *testing.T) {
 		cfg.GetMaxMissesConfirmed() != cfg.L5.CvKfV1.MaxMissesConfirmed ||
 		cfg.GetMaxTracks() != cfg.L5.CvKfV1.MaxTracks ||
 		cfg.GetBackgroundUpdateFraction() != cfg.L3.EmaBaselineV1.BackgroundUpdateFraction ||
-		cfg.GetSafetyMarginMeters() != cfg.L3.EmaBaselineV1.SafetyMarginMetres ||
+		cfg.GetSafetyMarginMetres() != cfg.L3.EmaBaselineV1.SafetyMarginMetres ||
 		cfg.GetEnableDiagnostics() != cfg.L3.EmaBaselineV1.EnableDiagnostics ||
 		cfg.GetFreezeThresholdMultiplier() != cfg.L3.EmaBaselineV1.FreezeThresholdMultiplier ||
 		cfg.GetChangeThresholdSnapshot() != cfg.L3.EmaBaselineV1.ChangeThresholdSnapshot ||
@@ -912,7 +912,7 @@ func TestTuningConfigGettersAndActiveConfig(t *testing.T) {
 		cfg.GetMinClusterDiameter() != cfg.L4.DbscanXyV1.MinClusterDiameter ||
 		cfg.GetMaxClusterAspectRatio() != cfg.L4.DbscanXyV1.MaxClusterAspectRatio ||
 		cfg.GetMaxReasonableSpeedMps() != cfg.L5.CvKfV1.MaxReasonableSpeedMps ||
-		cfg.GetMaxPositionJumpMeters() != cfg.L5.CvKfV1.MaxPositionJumpMetres ||
+		cfg.GetMaxPositionJumpMetres() != cfg.L5.CvKfV1.MaxPositionJumpMetres ||
 		cfg.GetMaxPredictDt() != cfg.L5.CvKfV1.MaxPredictDt ||
 		cfg.GetMaxCovarianceDiag() != cfg.L5.CvKfV1.MaxCovarianceDiag ||
 		cfg.GetMinPointsForPCA() != cfg.L5.CvKfV1.MinPointsForPCA ||

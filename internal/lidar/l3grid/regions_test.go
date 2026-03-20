@@ -256,9 +256,9 @@ func TestRegionParameterApplication(t *testing.T) {
 	}
 
 	// Verify high variance region has more relaxed parameters
-	if highVarianceParams.NeighborConfirmationCount <= grid.Params.NeighborConfirmationCount {
+	if highVarianceParams.NeighbourConfirmationCount <= grid.Params.NeighbourConfirmationCount {
 		t.Errorf("High variance region should require more neighbor confirmation, got %d vs base %d",
-			highVarianceParams.NeighborConfirmationCount, grid.Params.NeighborConfirmationCount)
+			highVarianceParams.NeighbourConfirmationCount, grid.Params.NeighbourConfirmationCount)
 	}
 }
 
@@ -330,9 +330,9 @@ func TestRegionIdentificationDuringSettling(t *testing.T) {
 	bm := NewBackgroundManager("test-sensor", rings, azBins, BackgroundParams{
 		BackgroundUpdateFraction:       0.5,
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             20.0,
+		SafetyMarginMetres:             20.0,
 		FreezeDurationNanos:            int64(1000000000),
-		NeighborConfirmationCount:      2,
+		NeighbourConfirmationCount:     2,
 		NoiseRelativeFraction:          0.01,
 		WarmupMinFrames:                5,
 		WarmupDurationNanos:            0, // disable duration check
