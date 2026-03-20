@@ -443,6 +443,53 @@ func TestBackgroundParams_JSONEncoding(t *testing.T) {
 	}
 }
 
+func TestBackgroundParams_UnmarshalJSON_InvalidJSON(t *testing.T) {
+	var p BackgroundParams
+	if err := p.UnmarshalJSON([]byte(`not-json`)); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestTrackingParams_JSONRoundTrip(t *testing.T) {
+	gd := 25.0
+	pnp := 0.5
+	pnv := 1.0
+	mn := 0.1
+	params := TrackingParams{
+		GatingDistanceSquared: &gd,
+		ProcessNoisePos:       &pnp,
+		ProcessNoiseVel:       &pnv,
+		MeasurementNoise:      &mn,
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	var decoded TrackingParams
+	if err := decoded.UnmarshalJSON(data); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if decoded.GatingDistanceSquared == nil || *decoded.GatingDistanceSquared != 25.0 {
+		t.Errorf("GatingDistanceSquared mismatch")
+	}
+	if decoded.ProcessNoisePos == nil || *decoded.ProcessNoisePos != 0.5 {
+		t.Errorf("ProcessNoisePos mismatch")
+	}
+	if decoded.ProcessNoiseVel == nil || *decoded.ProcessNoiseVel != 1.0 {
+		t.Errorf("ProcessNoiseVel mismatch")
+	}
+	if decoded.MeasurementNoise == nil || *decoded.MeasurementNoise != 0.1 {
+		t.Errorf("MeasurementNoise mismatch")
+	}
+}
+
+func TestTrackingParams_UnmarshalJSON_InvalidJSON(t *testing.T) {
+	var p TrackingParams
+	if err := p.UnmarshalJSON([]byte(`not-json`)); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
 // ====== FetchTrackingMetrics tests ======
 
 func TestClient_FetchTrackingMetrics_Success(t *testing.T) {

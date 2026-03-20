@@ -414,3 +414,18 @@ func TestApplyRuntimeTuningPatchAndPathErrors(t *testing.T) {
 		t.Fatalf("expected unsupported path error, got %v", err)
 	}
 }
+
+func TestLastTuningPathSegment(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"l3.background.learning_rate", "learning_rate"},
+		{"nodot", "nodot"},
+	}
+	for _, tt := range tests {
+		if got := lastTuningPathSegment(tt.input); got != tt.want {
+			t.Errorf("lastTuningPathSegment(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
