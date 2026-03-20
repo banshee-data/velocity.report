@@ -75,7 +75,7 @@
     "speed_jitter": -2.0
   },
   "acceptance_criteria": {
-    "max_fragmentation_ratio": 0.20,
+    "max_fragmentation_ratio": 0.2,
     "max_empty_box_ratio": 0.12
   },
   "iterations": 100,
