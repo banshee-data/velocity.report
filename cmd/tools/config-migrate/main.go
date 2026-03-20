@@ -10,6 +10,9 @@ import (
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 )
 
+var exit = os.Exit
+var marshalIndent = json.MarshalIndent
+
 type legacyTuningConfig struct {
 	BackgroundUpdateFraction         float64 `json:"background_update_fraction"`
 	ClosenessMultiplier              float64 `json:"closeness_multiplier"`
@@ -59,7 +62,7 @@ type legacyTuningConfig struct {
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -99,7 +102,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: migrated config failed validation: %v\n", err)
 		return 1
 	}
-	output, err := json.MarshalIndent(migrated, "", "  ")
+	output, err := marshalIndent(migrated, "", "  ")
 	if err != nil {
 		fmt.Fprintf(stderr, "error: encode migrated config: %v\n", err)
 		return 1

@@ -154,6 +154,14 @@ func TestRun(t *testing.T) {
 		requireContains(t, stderr.String(), "--in is required")
 	})
 
+	t.Run("flag parse error", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"-bad-flag"}, &stdout, &stderr); code != 2 {
+			t.Fatalf("run returned %d, want 2", code)
+		}
+		requireContains(t, stderr.String(), "flag provided but not defined")
+	})
+
 	t.Run("read error", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		if code := run([]string{"-in", filepath.Join(t.TempDir(), "missing.json")}, &stdout, &stderr); code != 1 {
@@ -220,6 +228,20 @@ func TestRun(t *testing.T) {
 		requireContains(t, stderr.String(), "error: write stdout")
 	})
 
+	t.Run("encode error", func(t *testing.T) {
+		originalMarshalIndent := marshalIndent
+		marshalIndent = func(v interface{}, prefix, indent string) ([]byte, error) {
+			return nil, errors.New("encode boom")
+		}
+		defer func() { marshalIndent = originalMarshalIndent }()
+
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"-in", validLegacy}, &stdout, &stderr); code != 1 {
+			t.Fatalf("run returned %d, want 1", code)
+		}
+		requireContains(t, stderr.String(), "error: encode migrated config")
+	})
+
 	t.Run("file output success", func(t *testing.T) {
 		outPath := filepath.Join(t.TempDir(), "nested.json")
 		var stdout, stderr bytes.Buffer
@@ -244,6 +266,27 @@ func TestRun(t *testing.T) {
 		}
 		requireContains(t, stderr.String(), "error: write")
 	})
+}
+
+func TestMain(t *testing.T) {
+	originalExit := exit
+	exit = func(code int) {
+		panic(code)
+	}
+	defer func() { exit = originalExit }()
+
+	oldArgs := os.Args
+	os.Args = []string{"config-migrate", "-bad-flag"}
+	defer func() { os.Args = oldArgs }()
+
+	defer func() {
+		recovered := recover()
+		code, ok := recovered.(int)
+		if !ok || code != 2 {
+			t.Fatalf("main panic = %#v, want exit code 2", recovered)
+		}
+	}()
+	main()
 }
 
 type errWriter struct{}
