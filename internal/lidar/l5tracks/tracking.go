@@ -119,7 +119,10 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 }
 
 func mustParseDuration(raw string) time.Duration {
-	d, _ := time.ParseDuration(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		panic(fmt.Sprintf("invalid duration %q for tracker config: %v", raw, err))
+	}
 	return d
 }
 
