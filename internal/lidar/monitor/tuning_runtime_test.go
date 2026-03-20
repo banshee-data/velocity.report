@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -37,6 +38,24 @@ func TestSnapshotStoreAndCloneTuningConfig(t *testing.T) {
 	snap.L1.Sensor = "mutated"
 	if ws.snapshotTuningConfig().L1.Sensor == "mutated" {
 		t.Fatal("snapshotTuningConfig should return an isolated clone")
+	}
+}
+
+func TestCloneTuningConfigMarshalFailureFallsBackToOriginal(t *testing.T) {
+	cfg := cfgpkg.MustLoadDefaultConfig()
+	cfg.L3.EmaBaselineV1.NoiseRelative = math.NaN()
+
+	if cloned := cloneTuningConfig(cfg); cloned != cfg {
+		t.Fatal("cloneTuningConfig should return the original pointer when marshal fails")
+	}
+}
+
+func TestCloneTuningConfigUnmarshalFailureFallsBackToOriginal(t *testing.T) {
+	cfg := cfgpkg.MustLoadDefaultConfig()
+	cfg.L3.Engine = "unknown_engine"
+
+	if cloned := cloneTuningConfig(cfg); cloned != cfg {
+		t.Fatal("cloneTuningConfig should return the original pointer when unmarshal fails")
 	}
 }
 
