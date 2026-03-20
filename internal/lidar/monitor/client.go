@@ -153,11 +153,48 @@ func (c *Client) ResetGrid() error {
 }
 
 // BackgroundParams holds the parameters for the background model.
+// Serialises as nested JSON matching tuning.defaults.json structure.
 type BackgroundParams struct {
-	NoiseRelative              float64 `json:"l3.ema_baseline_v1.noise_relative"`
-	ClosenessMultiplier        float64 `json:"l3.ema_baseline_v1.closeness_multiplier"`
-	NeighbourConfirmationCount int     `json:"l3.ema_baseline_v1.neighbour_confirmation_count"`
-	SeedFromFirst              bool    `json:"l3.ema_baseline_v1.seed_from_first"`
+	NoiseRelative              float64
+	ClosenessMultiplier        float64
+	NeighbourConfirmationCount int
+	SeedFromFirst              bool
+}
+
+// MarshalJSON produces nested JSON: {"l3":{"ema_baseline_v1":{...}}}.
+func (p BackgroundParams) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"l3": map[string]interface{}{
+			"ema_baseline_v1": map[string]interface{}{
+				"noise_relative":               p.NoiseRelative,
+				"closeness_multiplier":         p.ClosenessMultiplier,
+				"neighbour_confirmation_count": p.NeighbourConfirmationCount,
+				"seed_from_first":              p.SeedFromFirst,
+			},
+		},
+	})
+}
+
+// UnmarshalJSON reads nested JSON: {"l3":{"ema_baseline_v1":{...}}}.
+func (p *BackgroundParams) UnmarshalJSON(data []byte) error {
+	var nested struct {
+		L3 struct {
+			EmaBaselineV1 struct {
+				NoiseRelative              float64 `json:"noise_relative"`
+				ClosenessMultiplier        float64 `json:"closeness_multiplier"`
+				NeighbourConfirmationCount int     `json:"neighbour_confirmation_count"`
+				SeedFromFirst              bool    `json:"seed_from_first"`
+			} `json:"ema_baseline_v1"`
+		} `json:"l3"`
+	}
+	if err := json.Unmarshal(data, &nested); err != nil {
+		return err
+	}
+	p.NoiseRelative = nested.L3.EmaBaselineV1.NoiseRelative
+	p.ClosenessMultiplier = nested.L3.EmaBaselineV1.ClosenessMultiplier
+	p.NeighbourConfirmationCount = nested.L3.EmaBaselineV1.NeighbourConfirmationCount
+	p.SeedFromFirst = nested.L3.EmaBaselineV1.SeedFromFirst
+	return nil
 }
 
 // SetParams sets the background model parameters.
@@ -469,11 +506,59 @@ func (c *Client) FetchTrackingMetrics() (map[string]interface{}, error) {
 
 // TrackingParams holds tracker configuration values for sweep operations.
 // Only non-nil fields will be updated on the server.
+// Serialises as nested JSON: {"l5":{"cv_kf_v1":{...}}}.
 type TrackingParams struct {
-	GatingDistanceSquared *float64 `json:"l5.cv_kf_v1.gating_distance_squared,omitempty"`
-	ProcessNoisePos       *float64 `json:"l5.cv_kf_v1.process_noise_pos,omitempty"`
-	ProcessNoiseVel       *float64 `json:"l5.cv_kf_v1.process_noise_vel,omitempty"`
-	MeasurementNoise      *float64 `json:"l5.cv_kf_v1.measurement_noise,omitempty"`
+	GatingDistanceSquared *float64
+	ProcessNoisePos       *float64
+	ProcessNoiseVel       *float64
+	MeasurementNoise      *float64
+}
+
+// MarshalJSON produces nested JSON, omitting nil fields.
+func (p TrackingParams) MarshalJSON() ([]byte, error) {
+	inner := map[string]interface{}{}
+	if p.GatingDistanceSquared != nil {
+		inner["gating_distance_squared"] = *p.GatingDistanceSquared
+	}
+	if p.ProcessNoisePos != nil {
+		inner["process_noise_pos"] = *p.ProcessNoisePos
+	}
+	if p.ProcessNoiseVel != nil {
+		inner["process_noise_vel"] = *p.ProcessNoiseVel
+	}
+	if p.MeasurementNoise != nil {
+		inner["measurement_noise"] = *p.MeasurementNoise
+	}
+	if len(inner) == 0 {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(map[string]interface{}{
+		"l5": map[string]interface{}{
+			"cv_kf_v1": inner,
+		},
+	})
+}
+
+// UnmarshalJSON reads nested JSON: {"l5":{"cv_kf_v1":{...}}}.
+func (p *TrackingParams) UnmarshalJSON(data []byte) error {
+	var nested struct {
+		L5 struct {
+			CvKfV1 struct {
+				GatingDistanceSquared *float64 `json:"gating_distance_squared"`
+				ProcessNoisePos       *float64 `json:"process_noise_pos"`
+				ProcessNoiseVel       *float64 `json:"process_noise_vel"`
+				MeasurementNoise      *float64 `json:"measurement_noise"`
+			} `json:"cv_kf_v1"`
+		} `json:"l5"`
+	}
+	if err := json.Unmarshal(data, &nested); err != nil {
+		return err
+	}
+	p.GatingDistanceSquared = nested.L5.CvKfV1.GatingDistanceSquared
+	p.ProcessNoisePos = nested.L5.CvKfV1.ProcessNoisePos
+	p.ProcessNoiseVel = nested.L5.CvKfV1.ProcessNoiseVel
+	p.MeasurementNoise = nested.L5.CvKfV1.MeasurementNoise
+	return nil
 }
 
 // SetTrackerConfig updates tracker configuration on the server via the consolidated /api/lidar/params endpoint.

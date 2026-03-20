@@ -127,18 +127,23 @@ make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
 
 ## Runtime Updates
 
-`POST /api/lidar/params` accepts partial updates in either form:
-
-1. Nested JSON objects
-2. Dot-path keys
+`POST /api/lidar/params` accepts partial updates as nested JSON objects matching the `tuning.defaults.json` structure. Legacy dot-path keys are normalised internally but nested format is preferred.
 
 Example:
 
 ```json
 {
-  "l3.ema_baseline_v1.noise_relative": 0.03,
-  "l3.ema_baseline_v1.closeness_multiplier": 2.5,
-  "l5.cv_kf_v1.max_tracks": 120
+  "l3": {
+    "ema_baseline_v1": {
+      "noise_relative": 0.03,
+      "closeness_multiplier": 2.5
+    }
+  },
+  "l5": {
+    "cv_kf_v1": {
+      "max_tracks": 120
+    }
+  }
 }
 ```
 
