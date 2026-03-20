@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -12,6 +13,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
+
+// roundTo6 rounds a float64 to 6 decimal places, trimming noise from
+// float32→float64 conversions (e.g. 0.10000000149011612 → 0.1).
+func roundTo6(v float64) float64 {
+	return math.Round(v*1e6) / 1e6
+}
 
 var (
 	runtimeTuningAliasOnce sync.Once
@@ -65,32 +72,32 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 		l3 := cfg.L3.ActiveCommon()
 		l4 := cfg.L4.ActiveCommon()
 		if l3 != nil {
-			l3.BackgroundUpdateFraction = float64(params.BackgroundUpdateFraction)
-			l3.ClosenessMultiplier = float64(params.ClosenessSensitivityMultiplier)
-			l3.SafetyMarginMetres = float64(params.SafetyMarginMeters)
-			l3.NoiseRelative = float64(params.NoiseRelativeFraction)
+			l3.BackgroundUpdateFraction = roundTo6(float64(params.BackgroundUpdateFraction))
+			l3.ClosenessMultiplier = roundTo6(float64(params.ClosenessSensitivityMultiplier))
+			l3.SafetyMarginMetres = roundTo6(float64(params.SafetyMarginMeters))
+			l3.NoiseRelative = roundTo6(float64(params.NoiseRelativeFraction))
 			l3.NeighbourConfirmationCount = params.NeighborConfirmationCount
 			l3.SeedFromFirst = params.SeedFromFirstObservation
 			l3.WarmupDurationNanos = params.WarmupDurationNanos
 			l3.WarmupMinFrames = params.WarmupMinFrames
-			l3.PostSettleUpdateFraction = float64(params.PostSettleUpdateFraction)
+			l3.PostSettleUpdateFraction = roundTo6(float64(params.PostSettleUpdateFraction))
 			l3.EnableDiagnostics = bm.EnableDiagnostics
-			l3.FreezeThresholdMultiplier = float64(params.FreezeThresholdMultiplier)
+			l3.FreezeThresholdMultiplier = roundTo6(float64(params.FreezeThresholdMultiplier))
 			l3.ChangeThresholdSnapshot = params.ChangeThresholdForSnapshot
-			l3.ReacquisitionBoostMultiplier = float64(params.ReacquisitionBoostMultiplier)
+			l3.ReacquisitionBoostMultiplier = roundTo6(float64(params.ReacquisitionBoostMultiplier))
 			l3.MinConfidenceFloor = int(params.MinConfidenceFloor)
 			l3.LockedBaselineThreshold = int(params.LockedBaselineThreshold)
-			l3.LockedBaselineMultiplier = float64(params.LockedBaselineMultiplier)
-			l3.SensorMovementForegroundThreshold = float64(params.SensorMovementForegroundThreshold)
-			l3.BackgroundDriftThresholdMetres = float64(params.BackgroundDriftThresholdMeters)
-			l3.BackgroundDriftRatioThreshold = float64(params.BackgroundDriftRatioThreshold)
-			l3.SettlingMinCoverage = float64(params.SettlingMinCoverage)
-			l3.SettlingMaxSpreadDelta = float64(params.SettlingMaxSpreadDelta)
-			l3.SettlingMinRegionStability = float64(params.SettlingMinRegionStability)
-			l3.SettlingMinConfidence = float64(params.SettlingMinConfidence)
+			l3.LockedBaselineMultiplier = roundTo6(float64(params.LockedBaselineMultiplier))
+			l3.SensorMovementForegroundThreshold = roundTo6(float64(params.SensorMovementForegroundThreshold))
+			l3.BackgroundDriftThresholdMetres = roundTo6(float64(params.BackgroundDriftThresholdMeters))
+			l3.BackgroundDriftRatioThreshold = roundTo6(float64(params.BackgroundDriftRatioThreshold))
+			l3.SettlingMinCoverage = roundTo6(float64(params.SettlingMinCoverage))
+			l3.SettlingMaxSpreadDelta = roundTo6(float64(params.SettlingMaxSpreadDelta))
+			l3.SettlingMinRegionStability = roundTo6(float64(params.SettlingMinRegionStability))
+			l3.SettlingMinConfidence = roundTo6(float64(params.SettlingMinConfidence))
 		}
 		if l4 != nil {
-			l4.ForegroundDBSCANEps = float64(params.ForegroundDBSCANEps)
+			l4.ForegroundDBSCANEps = roundTo6(float64(params.ForegroundDBSCANEps))
 			l4.ForegroundMinClusterPoints = params.ForegroundMinClusterPoints
 			l4.ForegroundMaxInputPoints = params.ForegroundMaxInputPoints
 		}
@@ -106,26 +113,26 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 		l5 := cfg.L5.ActiveCommon()
 		if l5 != nil {
 			trackerCfg := ws.tracker.GetConfig()
-			l5.GatingDistanceSquared = float64(trackerCfg.GatingDistanceSquared)
-			l5.ProcessNoisePos = float64(trackerCfg.ProcessNoisePos)
-			l5.ProcessNoiseVel = float64(trackerCfg.ProcessNoiseVel)
-			l5.MeasurementNoise = float64(trackerCfg.MeasurementNoise)
-			l5.OcclusionCovInflation = float64(trackerCfg.OcclusionCovInflation)
+			l5.GatingDistanceSquared = roundTo6(float64(trackerCfg.GatingDistanceSquared))
+			l5.ProcessNoisePos = roundTo6(float64(trackerCfg.ProcessNoisePos))
+			l5.ProcessNoiseVel = roundTo6(float64(trackerCfg.ProcessNoiseVel))
+			l5.MeasurementNoise = roundTo6(float64(trackerCfg.MeasurementNoise))
+			l5.OcclusionCovInflation = roundTo6(float64(trackerCfg.OcclusionCovInflation))
 			l5.HitsToConfirm = trackerCfg.HitsToConfirm
 			l5.MaxMisses = trackerCfg.MaxMisses
 			l5.MaxMissesConfirmed = trackerCfg.MaxMissesConfirmed
 			l5.MaxTracks = trackerCfg.MaxTracks
-			l5.MaxReasonableSpeedMps = float64(trackerCfg.MaxReasonableSpeedMps)
-			l5.MaxPositionJumpMetres = float64(trackerCfg.MaxPositionJumpMeters)
-			l5.MaxPredictDt = float64(trackerCfg.MaxPredictDt)
-			l5.MaxCovarianceDiag = float64(trackerCfg.MaxCovarianceDiag)
+			l5.MaxReasonableSpeedMps = roundTo6(float64(trackerCfg.MaxReasonableSpeedMps))
+			l5.MaxPositionJumpMetres = roundTo6(float64(trackerCfg.MaxPositionJumpMeters))
+			l5.MaxPredictDt = roundTo6(float64(trackerCfg.MaxPredictDt))
+			l5.MaxCovarianceDiag = roundTo6(float64(trackerCfg.MaxCovarianceDiag))
 			l5.MinPointsForPCA = trackerCfg.MinPointsForPCA
-			l5.OBBHeadingSmoothingAlpha = float64(trackerCfg.OBBHeadingSmoothingAlpha)
-			l5.OBBAspectRatioLockThreshold = float64(trackerCfg.OBBAspectRatioLockThreshold)
+			l5.OBBHeadingSmoothingAlpha = roundTo6(float64(trackerCfg.OBBHeadingSmoothingAlpha))
+			l5.OBBAspectRatioLockThreshold = roundTo6(float64(trackerCfg.OBBAspectRatioLockThreshold))
 			l5.MaxTrackHistoryLength = trackerCfg.MaxTrackHistoryLength
 			l5.MaxSpeedHistoryLength = trackerCfg.MaxSpeedHistoryLength
-			l5.MergeSizeRatio = float64(trackerCfg.MergeSizeRatio)
-			l5.SplitSizeRatio = float64(trackerCfg.SplitSizeRatio)
+			l5.MergeSizeRatio = roundTo6(float64(trackerCfg.MergeSizeRatio))
+			l5.SplitSizeRatio = roundTo6(float64(trackerCfg.SplitSizeRatio))
 			l5.DeletedTrackGracePeriod = trackerCfg.DeletedTrackGracePeriod.String()
 			l5.MinObservationsForClassification = trackerCfg.MinObservationsForClassification
 		}

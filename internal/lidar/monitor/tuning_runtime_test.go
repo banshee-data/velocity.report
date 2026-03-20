@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"encoding/json"
 	"math"
 	"reflect"
 	"strings"
@@ -426,6 +427,110 @@ func TestLastTuningPathSegment(t *testing.T) {
 	for _, tt := range tests {
 		if got := lastTuningPathSegment(tt.input); got != tt.want {
 			t.Errorf("lastTuningPathSegment(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestRoundTo6(t *testing.T) {
+	tests := []struct {
+		name  string
+		input float64
+		want  float64
+	}{
+		{"clean value", 0.1, 0.1},
+		{"float32 noise", float64(float32(0.1)), 0.1},
+		{"float32 noise 0.02", float64(float32(0.02)), 0.02},
+		{"integer", 3.0, 3.0},
+		{"six decimals", 0.123456, 0.123456},
+		{"seven decimals rounds", 0.1234567, 0.123457},
+		{"zero", 0.0, 0.0},
+	}
+	for _, tt := range tests {
+		got := roundTo6(tt.input)
+		if got != tt.want {
+			t.Errorf("roundTo6(%s): got %.20f, want %.20f", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestRuntimeTuningConfigFloat32RoundTrip(t *testing.T) {
+	// Verify that runtimeTuningConfig produces JSON matching defaults
+	// even after float32→float64 conversion (the common source of noise).
+	defaults := cfgpkg.MustLoadDefaultConfig()
+	defaultJSON, err := json.Marshal(defaults)
+	if err != nil {
+		t.Fatalf("marshal defaults: %v", err)
+	}
+
+	// Build BM from default config (float64→float32 in BackgroundConfig,
+	// then float32→float64 in runtimeTuningConfig — the round-trip under test).
+	bgCfg := l3grid.DefaultBackgroundConfig()
+	params := bgCfg.ToBackgroundParams()
+	bm := l3grid.NewBackgroundManager("test-sensor", 64, 360, params, nil)
+
+	tracker := l5tracks.NewTracker(l5tracks.DefaultTrackerConfig())
+
+	ws := &WebServer{
+		sensorID: "test-sensor",
+		tracker:  tracker,
+	}
+	ws.storeTuningConfig(defaults)
+
+	runtimeCfg := ws.runtimeTuningConfig(bm)
+	runtimeJSON, err := json.Marshal(runtimeCfg)
+	if err != nil {
+		t.Fatalf("marshal runtime: %v", err)
+	}
+
+	// Parse both into generic maps for structural comparison.
+	var defaultMap, runtimeMap map[string]interface{}
+	if err := json.Unmarshal(defaultJSON, &defaultMap); err != nil {
+		t.Fatalf("unmarshal defaults: %v", err)
+	}
+	if err := json.Unmarshal(runtimeJSON, &runtimeMap); err != nil {
+		t.Fatalf("unmarshal runtime: %v", err)
+	}
+
+	// Duration fields differ in string format ("5m" vs "5m0s") — exclude them.
+	durationKeys := map[string]bool{
+		"settling_period": true, "freeze_duration": true,
+		"snapshot_interval": true, "deleted_track_grace_period": true,
+	}
+	// Compare only tuning layers (L3, L4, L5) — L1 is overwritten with runtime state.
+	for _, layer := range []string{"l3", "l4", "l5"} {
+		dSub := deepCopyMap(defaultMap[layer])
+		rSub := deepCopyMap(runtimeMap[layer])
+		removeDurationKeys(dSub, durationKeys)
+		removeDurationKeys(rSub, durationKeys)
+		dJSON, _ := json.MarshalIndent(dSub, "", "  ")
+		rJSON, _ := json.MarshalIndent(rSub, "", "  ")
+		if string(dJSON) != string(rJSON) {
+			dLines := strings.Split(string(dJSON), "\n")
+			rLines := strings.Split(string(rJSON), "\n")
+			for i := 0; i < len(dLines) && i < len(rLines); i++ {
+				if dLines[i] != rLines[i] {
+					t.Errorf("%s: first diff at line %d:\n  default: %s\n  runtime: %s", layer, i+1, dLines[i], rLines[i])
+					break
+				}
+			}
+			t.Fatalf("%s: runtime JSON should match defaults after float32 round-trip", layer)
+		}
+	}
+}
+
+func deepCopyMap(v interface{}) map[string]interface{} {
+	b, _ := json.Marshal(v)
+	var m map[string]interface{}
+	json.Unmarshal(b, &m) //nolint:errcheck
+	return m
+}
+
+func removeDurationKeys(m map[string]interface{}, keys map[string]bool) {
+	for k, v := range m {
+		if keys[k] {
+			delete(m, k)
+		} else if sub, ok := v.(map[string]interface{}); ok {
+			removeDurationKeys(sub, keys)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 # Config Restructure: Flat → Layer-Scoped
 
-- **Status:** Phase 1 complete, Phase 2 complete (CLI flag deprecation pending)
+- **Status:** Phase 1 complete, Phase 2 complete, Phase 2B proposed, Phase 3 pending (CLI flag deprecation pending)
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
   layer-isolated evaluation, and coherent parameter grouping.
@@ -1017,6 +1017,45 @@ gates must pass before a configuration change is promoted.
 See: [velocity-coherent-foreground-extraction.md §7](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 for the full statistical protocol.
 
+### 7.1 Long-term posture gaps (post-branch review)
+
+This branch substantially improves **schema discipline**:
+
+- the runtime now has a strict, versioned nested schema,
+- config files can be migrated and validated locally,
+- runtime updates use canonical layer/engine dot-paths,
+- the monitor/sweep surfaces are converging on one config contract.
+
+That is necessary, but it is not yet the full long-term config posture needed
+for **experimentation**, **deterministic replay**, and **trustworthy run
+provenance**. The main remaining gaps are:
+
+1. **Schema-valid is not yet experiment-valid.** We can load a config file, but
+   we do not yet persist a first-class _resolved run config_ that freezes the
+   exact effective tuning, active engine selectors, and build identity that
+   were actually executed.
+2. **Requested params, effective config, and execution metadata are still only
+   partially separated.** Some run/replay/recommendation surfaces still rely on
+   copied JSON blobs rather than immutable references to canonical config
+   assets.
+3. **Config identity is not yet the system boundary.** The branch introduces
+   validation and hashing, but hashes are not yet the canonical FK-backed
+   identity used consistently across runs, replay cases, UI diff views,
+   recordings, and reports.
+4. **Deterministic experiment inputs are incomplete.** Search seed, replay
+   window, objective profile, and dataset selection are not yet promoted to a
+   stable experiment manifest that can be re-run exactly.
+5. **Legacy artifact posture is still transitional.** Runtime/API compatibility
+   can smooth upgrades, but the durable answer is migration from copied legacy
+   blobs to canonical parameter-set / run-config assets.
+
+**Boundary decision:** this document remains the canonical home for the
+**runtime schema and config contract**. Detailed database/API design for
+immutable run-config assets remains canonical in
+[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md).
+The new phase below is the sequencing bridge between this schema restructure
+and that deterministic asset plan.
+
 ---
 
 ## 8. Implementation Sequence
@@ -1064,6 +1103,24 @@ are pending — tracked separately.
 | 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅                                     |
 | 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅                                     |
 
+### Phase 2B — Experiment contract + deterministic config identity (v0.6.x / v0.7.0)
+
+Turn the new nested schema into a reproducible **experiment surface**, not just
+a startup file format. This phase creates the bridge from runtime tuning config
+to immutable experiment assets. The detailed DB/API/storage design lives in
+[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md);
+this plan tracks the config-system work required to make that design land
+cleanly.
+
+| Step | Description                                                                                                                                                                             | Depends on  | Status   |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------- |
+| 17   | Define the canonical resolved-config projection: exact effective tuning payload, canonical key order, normalised durations, no timestamps/UUIDs in deterministic identity               | Phase 2     | Proposed |
+| 18   | Split config concepts explicitly in code/docs: requested param set vs effective resolved config vs non-deterministic execution metadata                                                 | Step 17     | Proposed |
+| 19   | Add local tooling to export and verify deterministic config assets (`config-resolve`, `config-canonicalise`, `config-hash`)                                                             | Step 17     | Proposed |
+| 20   | Persist exact config identity for sweep/replay runs: build identity, effective config identity, replay window, objective profile, and search seed                                       | Steps 17–19 | Proposed |
+| 21   | Replace copied JSON blobs in run/replay/recommendation surfaces with references to canonical param-set / run-config assets; keep legacy blobs only as migration shims while backfilling | Step 20     | Proposed |
+| 22   | Upgrade UI, reports, and VRLOG provenance to diff/display exact config assets rather than ad hoc blobs or best-effort hashes                                                            | Steps 19–21 | Proposed |
+
 ### Phase 3 — Remaining variable exposure + L6 classification (v2.0)
 
 Expose lower-priority hardcoded constants (L2 frame assembly, L5 occlusion,
@@ -1075,13 +1132,13 @@ is a candidate for replacement by an ML classifier (see
 
 | Step | Description                                                                       | Depends on  |
 | ---- | --------------------------------------------------------------------------------- | ----------- |
-| 17   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2     |
-| 18   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2     |
-| 19   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2     |
-| 20   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2     |
-| 21   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 20     |
-| 22   | Regenerate config files with all Phase 3 fields                                   | Steps 17–21 |
-| 23   | Update `config/README.md` with Phase 3 field documentation                        | Step 22     |
+| 23   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2B    |
+| 24   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2B    |
+| 25   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2B    |
+| 26   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2B    |
+| 27   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 26     |
+| 28   | Regenerate config files with all Phase 3 fields                                   | Steps 23–27 |
+| 29   | Update `config/README.md` with Phase 3 field documentation                        | Step 28     |
 
 ---
 
@@ -1089,6 +1146,7 @@ is a candidate for replacement by an ML classifier (see
 
 - [Config README](README.md) — current parameter documentation
 - [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping
+- [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md) — canonical design for immutable config assets and exact run provenance
 - [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
 - [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
 - [Maths README](../data/maths/README.md) — proposal roadmap (P1–P4)
