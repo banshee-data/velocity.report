@@ -112,6 +112,14 @@ func TestRun(t *testing.T) {
 		requireContains(t, stderr.String(), "--in is required")
 	})
 
+	t.Run("flag parse error", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"-bad-flag"}, &stdout, &stderr); code != 2 {
+			t.Fatalf("run returned %d, want 2", code)
+		}
+		requireContains(t, stderr.String(), "flag provided but not defined")
+	})
+
 	t.Run("invalid config", func(t *testing.T) {
 		invalidPath := filepath.Join(t.TempDir(), "invalid.json")
 		if err := os.WriteFile(invalidPath, []byte(`{}`), 0o644); err != nil {
@@ -135,6 +143,27 @@ func TestRun(t *testing.T) {
 			t.Fatalf("expected empty stderr, got %q", stderr.String())
 		}
 	})
+}
+
+func TestMain(t *testing.T) {
+	originalExit := exit
+	exit = func(code int) {
+		panic(code)
+	}
+	defer func() { exit = originalExit }()
+
+	oldArgs := os.Args
+	os.Args = []string{"config-validate", "-bad-flag"}
+	defer func() { os.Args = oldArgs }()
+
+	defer func() {
+		recovered := recover()
+		code, ok := recovered.(int)
+		if !ok || code != 2 {
+			t.Fatalf("main panic = %#v, want exit code 2", recovered)
+		}
+	}()
+	main()
 }
 
 func requireContains(t *testing.T, got, want string) {

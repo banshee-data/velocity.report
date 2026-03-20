@@ -9,8 +9,10 @@ import (
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 )
 
+var exit = os.Exit
+
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
