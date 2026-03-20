@@ -338,14 +338,9 @@ func cloneTuningConfig(cfg *cfgpkg.TuningConfig) *cfgpkg.TuningConfig {
 	if cfg == nil {
 		return nil
 	}
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		return nil
-	}
+	data, _ := json.Marshal(cfg)
 	var cloned cfgpkg.TuningConfig
-	if err := json.Unmarshal(data, &cloned); err != nil {
-		return nil
-	}
+	_ = json.Unmarshal(data, &cloned)
 	return &cloned
 }
 
@@ -813,10 +808,6 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 	switch r.Method {
 	case http.MethodGet:
 		resp := ws.runtimeTuningConfig(bm)
-		if resp == nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, "no tuning config registered")
-			return
-		}
 		if r.URL.Query().Get("format") == "pretty" {
 			w.Header().Set("Content-Type", "application/json")
 			enc := json.NewEncoder(w)
@@ -863,10 +854,6 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		resp := ws.runtimeTuningConfig(bm)
-		if resp == nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, "no tuning config registered")
-			return
-		}
 
 		// If this was a form submission, redirect back to status page
 		if r.FormValue("config_json") != "" {
