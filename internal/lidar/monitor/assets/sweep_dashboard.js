@@ -2665,7 +2665,11 @@ window.addEventListener("resize", function () {
 // ---- Current params display ----
 
 function fetchCurrentParams() {
-  fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId))
+  fetch(
+    "/api/lidar/params?sensor_id=" +
+      encodeURIComponent(sensorId) +
+      "&format=flat",
+  )
     .then(function (r) {
       if (!r.ok) throw new Error("Failed to fetch params");
       return r.json();
