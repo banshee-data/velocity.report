@@ -22,6 +22,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 
 ## v0.5.2 (Replay/Runtime Stabilisation)
@@ -35,6 +36,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Legacy `.vrlog` speed-key shim removal — remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Visualiser debug overlay + cluster proto follow-through — finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Visualiser performance and scene health metrics — timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking — [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
+- Unpopulated data structure remediation Phase 4 — `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1 — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 
 ## v0.5.3 (Product Polish + Release Readiness)
@@ -79,6 +81,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - (#4) Radar configuration via UI — read and send radar config commands through the web interface — [design doc](radar/architecture/serial-configuration-ui.md) `M`
 - (#323) Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
 - Profile comparison UI delivery — cross-run compare workflow + scene evaluation UX — [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
+- Unpopulated data structure remediation Phases 5–6, 8 — training data export endpoint, run comparison API, and scaffolding struct cleanup; schedule when ML classifier training and comparison UI are active — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `L`
 - PDF generation migration to Go — replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting — [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - Transit deduplication (D-03) — duplicate transit record prevention — [design doc](radar/architecture/transit-deduplication.md) `M`
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
