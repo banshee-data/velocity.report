@@ -7,6 +7,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
 )
 
 type logfFunc func(string, ...any)
@@ -27,6 +28,10 @@ type replayModeController interface {
 
 type pcapProgressSetter interface {
 	SetPCAPProgress(uint64, uint64)
+}
+
+type pcapTimestampsSetter interface {
+	SetPCAPTimestamps(int64, int64)
 }
 
 var marshalTuningJSON = json.Marshal
@@ -124,4 +129,38 @@ func publishPCAPProgress(server pcapProgressSetter, current, total uint64) {
 	if server != nil {
 		server.SetPCAPProgress(current, total)
 	}
+}
+
+func pcapProgressCallback(server pcapProgressSetter) func(uint64, uint64) {
+	return func(current, total uint64) {
+		publishPCAPProgress(server, current, total)
+	}
+}
+
+func pcapStartedCallback(publisher vrlogReplayController, server replayModeController, logf logfFunc) func() {
+	return func() {
+		handlePCAPStartedVisualiser(publisher, server, logf)
+	}
+}
+
+func pcapTimestampsCallback(server pcapTimestampsSetter) func(int64, int64) {
+	return func(startNs, endNs int64) {
+		if server != nil {
+			server.SetPCAPTimestamps(startNs, endNs)
+		}
+	}
+}
+
+func newVRLogRecorderOrLog(
+	newRecorder func(string, string) (*recorder.Recorder, error),
+	recordPath string,
+	sensorID string,
+	logf logfFunc,
+) *recorder.Recorder {
+	rec, err := newRecorder(recordPath, sensorID)
+	if err != nil {
+		logf("[Visualiser] VRLOG recording failed: %v", err)
+		return nil
+	}
+	return rec
 }

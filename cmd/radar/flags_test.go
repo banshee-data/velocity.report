@@ -12,6 +12,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
 )
 
 // TestBgFlushEnableCondition verifies the logic that determines whether
@@ -353,6 +354,7 @@ type stubReplayServer struct {
 	vrlogModes  []bool
 	replayModes []bool
 	progress    [][2]uint64
+	timestamps  [][2]int64
 }
 
 func (s *stubReplayServer) SetVRLogMode(v bool) {
@@ -365,6 +367,10 @@ func (s *stubReplayServer) SetReplayMode(v bool) {
 
 func (s *stubReplayServer) SetPCAPProgress(current, total uint64) {
 	s.progress = append(s.progress, [2]uint64{current, total})
+}
+
+func (s *stubReplayServer) SetPCAPTimestamps(startNs, endNs int64) {
+	s.timestamps = append(s.timestamps, [2]int64{startNs, endNs})
 }
 
 func TestHandlePCAPStartedVisualiserAndPublishProgress(t *testing.T) {
@@ -390,7 +396,42 @@ func TestHandlePCAPStartedVisualiserAndPublishProgress(t *testing.T) {
 	if len(server.progress) != 1 || server.progress[0] != [2]uint64{10, 20} {
 		t.Fatalf("unexpected progress updates: %#v", server.progress)
 	}
+	pcapProgressCallback(server)(30, 40)
+	if len(server.progress) != 2 || server.progress[1] != [2]uint64{30, 40} {
+		t.Fatalf("unexpected callback progress updates: %#v", server.progress)
+	}
+	pcapStartedCallback(publisher, server, logf)()
+	pcapTimestampsCallback(server)(50, 60)
+	if len(server.timestamps) != 1 || server.timestamps[0] != [2]int64{50, 60} {
+		t.Fatalf("unexpected timestamps: %#v", server.timestamps)
+	}
 
 	handlePCAPStartedVisualiser(nil, nil, logf)
 	publishPCAPProgress(nil, 1, 2)
+}
+
+func TestNewVRLogRecorderOrLog(t *testing.T) {
+	recordPath := t.TempDir()
+	var logs []string
+	logf := func(format string, args ...any) {
+		logs = append(logs, fmt.Sprintf(format, args...))
+	}
+
+	rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, "sensor-a", logf)
+	if rec == nil {
+		t.Fatal("expected recorder to be created")
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	rec = newVRLogRecorderOrLog(
+		func(string, string) (*recorder.Recorder, error) { return nil, errors.New("recorder boom") },
+		recordPath,
+		"sensor-a",
+		logf,
+	)
+	if rec != nil || len(logs) == 0 || !strings.Contains(logs[len(logs)-1], "recorder boom") {
+		t.Fatalf("unexpected recorder failure result: rec=%v logs=%#v", rec, logs)
+	}
 }

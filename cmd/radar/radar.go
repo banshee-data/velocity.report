@@ -621,23 +621,15 @@ func main() {
 			UDPListenerConfig: udpListenerConfig,
 			PlotsBaseDir:      filepath.Join(*lidarPCAPDir, "plots"),
 			TuningConfig:      tuningCfg,
-			OnPCAPStarted: func() {
-				handlePCAPStartedVisualiser(visualiserPublisher, visualiserServer, log.Printf)
-			},
+			OnPCAPStarted:     pcapStartedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPStopped: func() {
 				if visualiserServer != nil {
 					visualiserServer.SetReplayMode(false)
 					log.Printf("[Visualiser] PCAP stopped — switched to live mode")
 				}
 			},
-			OnPCAPProgress: func(current, total uint64) {
-				publishPCAPProgress(visualiserServer, current, total)
-			},
-			OnPCAPTimestamps: func(startNs, endNs int64) {
-				if visualiserServer != nil {
-					visualiserServer.SetPCAPTimestamps(startNs, endNs)
-				}
-			},
+			OnPCAPProgress:   pcapProgressCallback(visualiserServer),
+			OnPCAPTimestamps: pcapTimestampsCallback(visualiserServer),
 			OnRecordingStart: func(runID string) {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")
@@ -663,9 +655,8 @@ func main() {
 					return
 				}
 				recordPath := filepath.Join(baseDir, runID)
-				rec, err := recorder.NewRecorder(recordPath, lidarSensorID)
-				if err != nil {
-					log.Printf("[Visualiser] VRLOG recording failed: %v", err)
+				rec := newVRLogRecorderOrLog(recorder.NewRecorder, recordPath, lidarSensorID, log.Printf)
+				if rec == nil {
 					return
 				}
 
