@@ -4464,6 +4464,19 @@ func TestCov4_HandleStatus_HTMLPage(t *testing.T) {
 	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
 		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
 	}
+	body := w.Body.String()
+	if !strings.Contains(body, "l3.ema_baseline_v1.background_update_fraction") {
+		t.Errorf("status page should render canonical tuning keys, body: %s", body)
+	}
+	if !strings.Contains(body, "l3.ema_baseline_v1.neighbour_confirmation_count") {
+		t.Errorf("status page should render canonical neighbour key, body: %s", body)
+	}
+	if strings.Contains(body, "neighbor_confirmation_count") {
+		t.Errorf("status page should not render legacy neighbour key, body: %s", body)
+	}
+	if strings.Contains(body, "safety_margin_meters") {
+		t.Errorf("status page should not render legacy metres spelling, body: %s", body)
+	}
 }
 
 func TestCov4_HandleStatus_WrongPath(t *testing.T) {

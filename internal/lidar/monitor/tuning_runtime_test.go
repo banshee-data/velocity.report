@@ -163,13 +163,19 @@ func TestNormaliseTuningPatchAndValidateRuntimePath(t *testing.T) {
 			},
 		},
 		"l4.dbscan_xy_v1.foreground_dbscan_eps": 0.8,
+		"background_update_fraction":            0.02,
+		"neighbor_confirmation_count":           3,
+		"safety_margin_meters":                  0.4,
 	})
 	if err != nil {
 		t.Fatalf("normaliseTuningPatch returned error: %v", err)
 	}
-	if len(patch) != 2 ||
+	if len(patch) != 5 ||
 		patch["l3.ema_baseline_v1.noise_relative"] != 0.2 ||
-		patch["l4.dbscan_xy_v1.foreground_dbscan_eps"] != 0.8 {
+		patch["l4.dbscan_xy_v1.foreground_dbscan_eps"] != 0.8 ||
+		patch["l3.ema_baseline_v1.background_update_fraction"] != 0.02 ||
+		patch["l3.ema_baseline_v1.neighbour_confirmation_count"] != 3 ||
+		patch["l3.ema_baseline_v1.safety_margin_metres"] != 0.4 {
 		t.Fatalf("unexpected flattened patch: %#v", patch)
 	}
 

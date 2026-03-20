@@ -1223,53 +1223,16 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Get background manager to show current params
 	var bgParams *l3grid.BackgroundParams
 	var bgParamsJSON string
-	var bgParamDefs []ParamDef
 	var bgParamsJSONLines int
 
 	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		params := mgr.GetParams()
 		bgParams = &params
 
-		bgParamDefs = []ParamDef{
-			// Background subtraction params
-			{"noise_relative", "Noise Relative Fraction", params.NoiseRelativeFraction, "%.4f"},
-			{"closeness_multiplier", "Closeness Sensitivity Multiplier", params.ClosenessSensitivityMultiplier, "%.2f"},
-			{"neighbor_confirmation_count", "Neighbor Confirmation Count", params.NeighborConfirmationCount, ""},
-			{"background_update_fraction", "Background Update Fraction", params.BackgroundUpdateFraction, "%.4f"},
-			{"post_settle_update_fraction", "Post-Settle Update Fraction", params.PostSettleUpdateFraction, "%.4f"},
-			{"warmup_duration_nanos", "Warmup Duration (ns)", params.WarmupDurationNanos, ""},
-			{"warmup_min_frames", "Warmup Minimum Frames", params.WarmupMinFrames, ""},
-			{"safety_margin_meters", "Safety Margin (meters)", params.SafetyMarginMeters, "%.2f"},
-			{"seed_from_first", "Seed From First Observation", params.SeedFromFirstObservation, ""},
-			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
-			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
-			{"foreground_max_input_points", "Foreground Max Input Points", params.ForegroundMaxInputPoints, ""},
-			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
-		}
-
-		// Add tracker params if tracker is available
-		if ws.tracker != nil {
-			cfg := ws.tracker.Config
-			bgParamDefs = append(bgParamDefs,
-				ParamDef{"gating_distance_squared", "Gating Distance Squared", cfg.GatingDistanceSquared, "%.2f"},
-				ParamDef{"process_noise_pos", "Process Noise Position", cfg.ProcessNoisePos, "%.4f"},
-				ParamDef{"process_noise_vel", "Process Noise Velocity", cfg.ProcessNoiseVel, "%.4f"},
-				ParamDef{"measurement_noise", "Measurement Noise", cfg.MeasurementNoise, "%.4f"},
-				ParamDef{"occlusion_cov_inflation", "Occlusion Covariance Inflation", cfg.OcclusionCovInflation, "%.2f"},
-				ParamDef{"hits_to_confirm", "Hits to Confirm Track", cfg.HitsToConfirm, ""},
-				ParamDef{"max_misses", "Max Misses (tentative)", cfg.MaxMisses, ""},
-				ParamDef{"max_misses_confirmed", "Max Misses (confirmed)", cfg.MaxMissesConfirmed, ""},
-				ParamDef{"max_tracks", "Max Tracks", cfg.MaxTracks, ""},
-			)
-		}
-
-		// Create a map for JSON representation matching the API structure
-		paramsMap := make(map[string]interface{})
-		for _, def := range bgParamDefs {
-			paramsMap[def.Key] = def.Value
-		}
-
-		if jsonBytes, err := json.MarshalIndent(paramsMap, "", "  "); err == nil {
+		editableParams, err := ws.editableRuntimeTuningPatch(mgr)
+		if err != nil {
+			opsf("monitor: failed to build editable tuning config for status page: %v", err)
+		} else if jsonBytes, err := json.MarshalIndent(editableParams, "", "  "); err == nil {
 			bgParamsJSON = string(jsonBytes)
 			bgParamsJSONLines = strings.Count(bgParamsJSON, "\n") + 2
 		}
@@ -1301,7 +1264,6 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		SensorID          string
 		BGParams          *l3grid.BackgroundParams
 		BGParamsJSON      string
-		BGParamDefs       []ParamDef
 		BGParamsJSONLines int
 		PCAPFile          string
 		PCAPInProgress    bool
@@ -1323,7 +1285,6 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		SensorID:          ws.sensorID,
 		BGParams:          bgParams,
 		BGParamsJSON:      bgParamsJSON,
-		BGParamDefs:       bgParamDefs,
 		BGParamsJSONLines: bgParamsJSONLines,
 		PCAPFile:          currentPCAPFile,
 		PCAPInProgress:    pcapInProgress,

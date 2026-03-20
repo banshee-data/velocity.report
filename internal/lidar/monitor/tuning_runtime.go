@@ -6,10 +6,16 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+)
+
+var (
+	runtimeTuningAliasOnce sync.Once
+	runtimeTuningAliases   map[string]string
 )
 
 func (ws *WebServer) snapshotTuningConfig() *cfgpkg.TuningConfig {
@@ -128,12 +134,40 @@ func (ws *WebServer) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.T
 	return cfg
 }
 
+func (ws *WebServer) editableRuntimeTuningPatch(bm *l3grid.BackgroundManager) (map[string]interface{}, error) {
+	cfg := ws.runtimeTuningConfig(bm)
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal runtime tuning config: %w", err)
+	}
+	var nested map[string]interface{}
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return nil, fmt.Errorf("unmarshal runtime tuning config: %w", err)
+	}
+	flat := make(map[string]interface{})
+	if err := flattenTuningPatch("", nested, flat); err != nil {
+		return nil, fmt.Errorf("flatten runtime tuning config: %w", err)
+	}
+
+	editable := make(map[string]interface{})
+	for path, value := range flat {
+		if validateRuntimeTuningPath(path) == nil {
+			editable[path] = value
+		}
+	}
+	return editable, nil
+}
+
 func normaliseTuningPatch(raw map[string]interface{}) (map[string]interface{}, error) {
 	flat := make(map[string]interface{})
 	if err := flattenTuningPatch("", raw, flat); err != nil {
 		return nil, err
 	}
-	return flat, nil
+	normalised := make(map[string]interface{}, len(flat))
+	for path, value := range flat {
+		normalised[canonicalRuntimeTuningPath(path)] = value
+	}
+	return normalised, nil
 }
 
 func flattenTuningPatch(prefix string, value interface{}, out map[string]interface{}) error {
@@ -164,6 +198,72 @@ func flattenTuningPatch(prefix string, value interface{}, out map[string]interfa
 		}
 	}
 	return nil
+}
+
+func canonicalRuntimeTuningPath(path string) string {
+	if mapped, ok := runtimeTuningPathAliases()[path]; ok {
+		return mapped
+	}
+	return path
+}
+
+func runtimeTuningPathAliases() map[string]string {
+	runtimeTuningAliasOnce.Do(func() {
+		runtimeTuningAliases = buildRuntimeTuningPathAliases()
+	})
+	return runtimeTuningAliases
+}
+
+func buildRuntimeTuningPathAliases() map[string]string {
+	aliases := make(map[string]string)
+
+	raw, err := json.Marshal(cfgpkg.MustLoadDefaultConfig())
+	if err != nil {
+		return aliases
+	}
+	var nested map[string]interface{}
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return aliases
+	}
+	flat := make(map[string]interface{})
+	if err := flattenTuningPatch("", nested, flat); err != nil {
+		return aliases
+	}
+
+	suffixCounts := make(map[string]int)
+	validPaths := make([]string, 0, len(flat))
+	for path := range flat {
+		if validateRuntimeTuningPath(path) != nil {
+			continue
+		}
+		validPaths = append(validPaths, path)
+		suffixCounts[lastTuningPathSegment(path)]++
+	}
+
+	replacer := strings.NewReplacer("neighbour", "neighbor", "metres", "meters")
+	for _, path := range validPaths {
+		suffix := lastTuningPathSegment(path)
+		if suffixCounts[suffix] == 1 {
+			aliases[suffix] = path
+		}
+		aliasPath := replacer.Replace(path)
+		if aliasPath != path {
+			aliases[aliasPath] = path
+			if suffixCounts[suffix] == 1 {
+				aliases[lastTuningPathSegment(aliasPath)] = path
+			}
+		}
+	}
+
+	return aliases
+}
+
+func lastTuningPathSegment(path string) string {
+	idx := strings.LastIndex(path, ".")
+	if idx == -1 {
+		return path
+	}
+	return path[idx+1:]
 }
 
 func applyRuntimeTuningPatch(ws *WebServer, bm *l3grid.BackgroundManager, paths map[string]interface{}) error {
