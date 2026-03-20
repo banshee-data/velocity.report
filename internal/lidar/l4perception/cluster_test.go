@@ -410,3 +410,10 @@ func TestDefaultDBSCANParams(t *testing.T) {
 		t.Errorf("expected MinPts=%d, got %d", cfg.GetForegroundMinClusterPoints(), params.MinPts)
 	}
 }
+
+func TestDBSCANParamsFromTuning_NilConfig(t *testing.T) {
+	params := DBSCANParamsFromTuning(nil)
+	if params != (DBSCANParams{}) {
+		t.Fatalf("expected zero-value params, got %+v", params)
+	}
+}
