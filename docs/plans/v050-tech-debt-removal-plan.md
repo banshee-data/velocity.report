@@ -115,10 +115,11 @@ test coverage that can be updated in the same pass.
 | **Effort** | ¼ day (bundled with A3) |
 | **Risk** | None |
 
-### Category B — Structural Debt (Defer to v0.5.1+)
+### Category B — Structural Debt (Stretch for v0.5.0)
 
-These items are real technical debt but cannot be safely removed in under
-a week, or have external dependencies that block removal.
+These items are real technical debt that could land in v0.5.0 if time permits,
+but are not required for the release. Each is self-contained and safe to
+defer to v0.5.1 if the sprint runs short.
 
 #### B1. `internal/lidar/aliases.go` — cross-layer type aliases
 
@@ -129,64 +130,73 @@ a week, or have external dependencies that block removal.
 | **Decision** | **Retain.** These serve a legitimate package-boundary purpose. The `internal/lidar` package is the public API surface for consumers that do not need layer-level granularity. Evaluated in [shim removal §8](v050-backward-compatibility-shim-removal-plan.md) and retained. |
 | **Existing plan ref** | [Shim removal §8](v050-backward-compatibility-shim-removal-plan.md) (Status: Retained) |
 
-#### B2. `cmd/deploy` and `internal/deploy/` — deployment tool
+#### B2. God file splits
+
+| Detail | Value |
+| ------ | ----- |
+| **Location** | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400) |
+| **Decision** | **Stretch.** Mechanical refactoring that does not affect external interfaces. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Falls to v0.5.1 if not reached. |
+| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md) |
+
+#### B3. Context propagation in HTTP handlers
+
+| Detail | Value |
+| ------ | ----- |
+| **Location** | 30+ HTTP handlers across `internal/api/`, `internal/lidar/monitor/` |
+| **Decision** | **Stretch.** Important for correctness but requires careful per-handler audit. Tracked in [structural hygiene plan](go-codebase-structural-hygiene-plan.md). Falls to v0.5.1 if not reached. |
+| **Existing plan ref** | [Structural hygiene plan Item 1](go-codebase-structural-hygiene-plan.md) |
+
+#### B4. `serialmux.CurrentState` race condition
+
+| Detail | Value |
+| ------ | ----- |
+| **Location** | `internal/serialmux/` |
+| **Decision** | **Stretch.** Global map with no sync — real bug but scoped to serial multiplexer. Tracked in [structural hygiene plan](go-codebase-structural-hygiene-plan.md). Falls to v0.5.1 if not reached. |
+| **Existing plan ref** | [Structural hygiene plan Item 2](go-codebase-structural-hygiene-plan.md) |
+
+#### B5. Config restructure Phase 2B — experiment contract
+
+| Detail | Value |
+| ------ | ----- |
+| **Location** | `config/CONFIG-RESTRUCTURE.md` Steps 17–22 |
+| **Decision** | **Stretch.** Depends on Phase 2 completion and the [deterministic run config plan](lidar-immutable-run-config-asset-plan.md). Falls to v0.6.x/v0.7.0 if not reached. |
+| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 2B](../../config/CONFIG-RESTRUCTURE.md) |
+
+#### B6. Config restructure Phase 3 — remaining variable exposure
+
+| Detail | Value |
+| ------ | ----- |
+| **Location** | `config/CONFIG-RESTRUCTURE.md` Steps 23–29 |
+| **Decision** | **Stretch.** Lower-priority constants (L2 frame assembly, L5 occlusion, pipeline TTL/prune, L6 classification). L6 classifier strategy is not yet settled. Falls to v2.0 if not reached. |
+| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 3](../../config/CONFIG-RESTRUCTURE.md) |
+
+### Category C — Externally Gated Deferrals
+
+These items have hard external dependencies that block removal regardless
+of available time. They are not stretch goals — they cannot land until their
+gate conditions are met.
+
+#### C1. `cmd/deploy` and `internal/deploy/` — deployment tool
 
 | Detail | Value |
 | ------ | ----- |
 | **Location** | `cmd/deploy/`, `internal/deploy/`, `scripts/setup-radar-host.sh`, 8+ Makefile targets |
 | **What** | SSH-based deployment tool with backward-compat methods (`buildSSHCommand`, `buildSCPArgs`, `WriteFile`). |
-| **Decision** | **Defer.** Removal is gated on the Raspberry Pi image pipeline (#210). The [retirement gate](platform-simplification-and-deprecation-plan.md) has four conditions, none yet met. |
+| **Decision** | **Gated on #210.** Removal requires the Raspberry Pi image pipeline. The [retirement gate](platform-simplification-and-deprecation-plan.md) has four conditions, none yet met. |
 | **Existing plan ref** | [Simplification plan Project B](platform-simplification-and-deprecation-plan.md), Deploy Retirement Gate |
+| **Gate** | #210 image pipeline operational + packaging confirmed + migration period elapsed + zero active users |
 
-#### B3. God file splits
-
-| Detail | Value |
-| ------ | ----- |
-| **Location** | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400) |
-| **Decision** | **Defer to v0.5.1.** Mechanical refactoring that does not affect external interfaces. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). |
-| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md) |
-
-#### B4. Context propagation in HTTP handlers
-
-| Detail | Value |
-| ------ | ----- |
-| **Location** | 30+ HTTP handlers across `internal/api/`, `internal/lidar/monitor/` |
-| **Decision** | **Defer to v0.5.1.** Important for correctness but requires careful per-handler audit. Tracked in [structural hygiene plan](go-codebase-structural-hygiene-plan.md). |
-| **Existing plan ref** | [Structural hygiene plan Item 1](go-codebase-structural-hygiene-plan.md) |
-
-#### B5. `serialmux.CurrentState` race condition
-
-| Detail | Value |
-| ------ | ----- |
-| **Location** | `internal/serialmux/` |
-| **Decision** | **Defer to v0.5.1.** Global map with no sync — real bug but scoped to serial multiplexer. Tracked in [structural hygiene plan](go-codebase-structural-hygiene-plan.md). |
-| **Existing plan ref** | [Structural hygiene plan Item 2](go-codebase-structural-hygiene-plan.md) |
-
-#### B6. Config restructure Phase 2B — experiment contract
-
-| Detail | Value |
-| ------ | ----- |
-| **Location** | `config/CONFIG-RESTRUCTURE.md` Steps 17–22 |
-| **Decision** | **Defer to v0.6.x/v0.7.0.** Depends on Phase 2 completion and the [deterministic run config plan](lidar-immutable-run-config-asset-plan.md). |
-| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 2B](../../config/CONFIG-RESTRUCTURE.md) |
-
-#### B7. Config restructure Phase 3 — remaining variable exposure
-
-| Detail | Value |
-| ------ | ----- |
-| **Location** | `config/CONFIG-RESTRUCTURE.md` Steps 23–29 |
-| **Decision** | **Defer to v2.0.** Lower-priority constants (L2 frame assembly, L5 occlusion, pipeline TTL/prune, L6 classification). L6 classifier strategy is not yet settled. |
-| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 3](../../config/CONFIG-RESTRUCTURE.md) |
-
-#### B8. Python PDF elimination
+#### C2. Python PDF elimination
 
 | Detail | Value |
 | ------ | ----- |
 | **Location** | `tools/pdf-generator/` (entire 45-package Python stack) |
-| **Decision** | **Defer.** Migration to Go SVG + LaTeX is tracked in [pdf-go-chart-migration-plan.md](pdf-go-chart-migration-plan.md). Multi-sprint effort. |
+| **What** | Full Python PDF generation stack. Migration to Go SVG + LaTeX is a multi-sprint effort. |
+| **Decision** | **Gated on Go charting migration.** Cannot be removed until the replacement stack is functional. |
 | **Existing plan ref** | [PDF Go chart migration plan](pdf-go-chart-migration-plan.md) |
+| **Gate** | Go SVG charting + LaTeX template pipeline operational and producing equivalent output |
 
-### Category C — Already Complete (Status Verification)
+### Category D — Already Complete (Status Verification)
 
 Items that existing plans mark as done. Verified during this audit.
 
@@ -282,8 +292,8 @@ Items are ordered by dependency and blast radius (safest first).
 | ----- | ------ | ----- |
 | Phase 1 — Structural realignment | ✅ Complete | 12/12 steps done |
 | Phase 2 — Essential variable exposure | ✅ Complete (except CLI deprecation) | 4/4 steps done; CLI flag removal is A3 above |
-| Phase 2B — Experiment contract | Proposed | v0.6.x/v0.7.0 — not in scope for this sprint |
-| Phase 3 — Remaining variable exposure | Proposed | v2.0 — not in scope |
+| Phase 2B — Experiment contract | Proposed | Stretch (B5); deferred to v0.6.x/v0.7.0 if not completed |
+| Phase 3 — Remaining variable exposure | Proposed | Stretch (B6); deferred to v2.0 if not completed |
 
 ### v050-backward-compatibility-shim-removal-plan.md
 
@@ -313,7 +323,7 @@ Items are ordered by dependency and blast radius (safest first).
 | Project | Status | Notes |
 | ------- | ------ | ----- |
 | A — Deprecation signalling | ✅ Complete | |
-| B — Deploy retirement gate | Gated on #210 | Not in sprint scope |
+| B — Deploy retirement gate | Gated on #210 | Externally gated — see Category C (C1) |
 | C — Frontend consolidation | Blocked on #252 | Not in sprint scope |
 | D — CLI simplification | Partially addressed | A3 above closes the LiDAR flag items |
 | E — Compat shim removal | ✅ Nearly complete | A1 closes the last gap |
@@ -346,7 +356,7 @@ Items are ordered by dependency and blast radius (safest first).
    for pre-#352 `.vrlog` files has not closed. Removing it now would silently
    lose speed data on replay. Deferred to v0.5.2 per shim removal §18.
 
-2. **Deploy tool is explicitly retained.** Removal is gated on four conditions
+2. **Deploy tool is externally gated (C1).** Removal is gated on four conditions
    in the retirement gate (image pipeline operational, packaging confirmed,
    migration period elapsed, zero active users). None are met.
 
@@ -358,10 +368,11 @@ Items are ordered by dependency and blast radius (safest first).
    package aliases provide a stable package boundary. They are not legacy
    shims and will not be removed.
 
-5. **Sprint scope is deliberately conservative.** Only items with clear scope,
-   limited blast radius, and existing test coverage are included. Structural
-   debt (god files, context propagation, race conditions) is deferred to
-   v0.5.1 where it can receive proper attention.
+5. **Sprint scope is deliberately conservative.** Only Category A items are
+   required for v0.5.0. Category B items (structural debt) are stretch goals
+   that land if time permits and fall to v0.5.1 otherwise. Category C items
+   (deploy tool, Python PDF) are externally gated and cannot land regardless
+   of available time.
 
 ---
 
