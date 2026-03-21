@@ -491,6 +491,11 @@ func (api *TrackAPI) handleUpdateTrack(w http.ResponseWriter, r *http.Request, t
 		track.ClassificationModel = *req.ClassificationModel
 	}
 
+	// GetTrack() returns a snapshot, so update the live tracker explicitly.
+	if api.tracker != nil {
+		api.tracker.UpdateClassification(trackID, track.ObjectClass, track.ObjectConfidence, track.ClassificationModel)
+	}
+
 	// Persist to database
 	if err := sqlite.UpdateTrack(api.db, track); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track: %v", err))

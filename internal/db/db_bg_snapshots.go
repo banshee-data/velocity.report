@@ -149,7 +149,7 @@ type DuplicateSnapshotGroup struct {
 	BlobHash    string  // hex-encoded hash of grid_blob
 	Count       int     // number of snapshots with this hash
 	SnapshotIDs []int64 // list of snapshot IDs with this hash
-	KeepID      int64   // the snapshot ID to keep (oldest)
+	KeepID      int64   // the snapshot ID to keep (most recent)
 	DeleteIDs   []int64 // snapshot IDs that would be deleted
 	BlobBytes   int     // size of the blob in bytes
 	SensorID    string  // sensor ID for this group
@@ -234,9 +234,9 @@ func (db *DB) FindDuplicateBgSnapshots(sensorID string) ([]DuplicateSnapshotGrou
 			ids[i] = info.id
 		}
 
-		// Keep the oldest (first) snapshot
-		keepID := ids[0]
-		deleteIDs := ids[1:]
+		// Keep the most recent snapshot to match DeleteDuplicateBgSnapshots.
+		keepID := ids[len(ids)-1]
+		deleteIDs := ids[:len(ids)-1]
 
 		result = append(result, DuplicateSnapshotGroup{
 			BlobHash:    hash,

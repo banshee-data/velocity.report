@@ -222,16 +222,16 @@ func TestFindDuplicateBgSnapshots_WithDuplicates(t *testing.T) {
 		t.Errorf("Expected sensor ID %s, got %s", sensorID, group.SensorID)
 	}
 
-	if group.KeepID != id1 {
-		t.Errorf("Expected to keep oldest snapshot %d, got %d", id1, group.KeepID)
+	if group.KeepID != id3 {
+		t.Errorf("Expected to keep newest snapshot %d, got %d", id3, group.KeepID)
 	}
 
 	if len(group.DeleteIDs) != 2 {
 		t.Errorf("Expected 2 IDs to delete, got %d", len(group.DeleteIDs))
 	}
 
-	if group.DeleteIDs[0] != id2 || group.DeleteIDs[1] != id3 {
-		t.Errorf("Expected delete IDs [%d, %d], got %v", id2, id3, group.DeleteIDs)
+	if group.DeleteIDs[0] != id1 || group.DeleteIDs[1] != id2 {
+		t.Errorf("Expected delete IDs [%d, %d], got %v", id1, id2, group.DeleteIDs)
 	}
 
 	if group.BlobBytes != len(duplicateBlob) {

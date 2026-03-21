@@ -175,7 +175,7 @@ func (fb *FrameBuilder) finalizeCurrentFrame() {
 	// silently overwriting intermediate frames and delivering only ~12%
 	// of the rotations.
 	if fb.blockOnFrameChannel {
-		fb.finalizeFrame(frame, "direct_blocking")
+		fb.finalizeFrameLocked(frame, "direct_blocking")
 		return
 	}
 
@@ -208,7 +208,7 @@ func (fb *FrameBuilder) evictOldestBufferedFrame() {
 		// Remove from buffer and finalize so the callback is invoked.
 		delete(fb.frameBuffer, oldestID)
 		// Finalize the frame so the registered callback receives it.
-		fb.finalizeFrame(oldestFrame, "buffer_evict")
+		fb.finalizeFrameLocked(oldestFrame, "buffer_evict")
 	}
 }
 
@@ -290,7 +290,7 @@ func (fb *FrameBuilder) cleanupFrames() {
 	for _, frameID := range frameIDsToFinalize {
 		frame := fb.frameBuffer[frameID]
 		delete(fb.frameBuffer, frameID)
-		fb.finalizeFrame(frame, "buffer_timeout")
+		fb.finalizeFrameLocked(frame, "buffer_timeout")
 	}
 
 	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
@@ -316,8 +316,18 @@ func (fb *FrameBuilder) cleanupFrames() {
 	}
 }
 
-// finalizeFrame completes a frame and calls the callback
+// finalizeFrame completes a frame and calls the callback.
+// It is safe to call without holding fb.mu.
 func (fb *FrameBuilder) finalizeFrame(frame *LiDARFrame, reason string) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	fb.finalizeFrameLocked(frame, reason)
+}
+
+// finalizeFrameLocked completes a frame and calls the callback.
+// Caller must hold fb.mu on entry. When blockOnFrameChannel is enabled this
+// method temporarily releases and re-acquires fb.mu around the blocking send.
+func (fb *FrameBuilder) finalizeFrameLocked(frame *LiDARFrame, reason string) {
 	if frame == nil {
 		return
 	}

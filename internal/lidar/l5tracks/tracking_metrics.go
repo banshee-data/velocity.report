@@ -164,13 +164,10 @@ func (t *Tracker) GetTrack(trackID string) *TrackedObject {
 		return nil
 	}
 
-	// Shallow copy the struct to snapshot scalar fields
-	copied := *track
+
 	// Deep copy slices to avoid race with concurrent Update() appends
+	copied := *track
 	if len(track.History) > 0 {
-		copied.History = make([]TrackPoint, len(track.History))
-		copy(copied.History, track.History)
-	}
 	if len(track.speedHistory) > 0 {
 		copied.speedHistory = make([]float32, len(track.speedHistory))
 		copy(copied.speedHistory, track.speedHistory)
