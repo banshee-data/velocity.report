@@ -161,6 +161,6 @@ func (ws *Server) writeJSON(w http.ResponseWriter, status int, data interface{})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		fmt.Printf("JSON encoding error: %v\n", err)
+		opsf("JSON encoding error: %v", err)
 	}
 }

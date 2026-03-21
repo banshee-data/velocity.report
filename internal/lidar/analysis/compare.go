@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -315,7 +314,7 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		if report.Version == version.Version {
 			return report, nil
 		}
-		log.Printf("Stale analysis version %q (want %q) for %s, regenerating ...",
+		diagf("stale analysis version %q (want %q) for %s, regenerating ...",
 			report.Version, version.Version, vrlogPath)
 	} else {
 		// Only regenerate for file-not-found, JSON parse errors, or schema
@@ -323,7 +322,7 @@ func loadOrGenerate(vrlogPath string) (*AnalysisReport, error) {
 		if !errors.Is(err, os.ErrNotExist) && !isJSONError(err) && !errors.Is(err, errSchemaInvalid) {
 			return nil, err
 		}
-		log.Printf("Generating analysis for %s ...", vrlogPath)
+		diagf("generating analysis for %s ...", vrlogPath)
 	}
 	// analysis.json missing, corrupt, or stale-schema — generate it.
 	diagf("Generating analysis for %s ...", vrlogPath)

@@ -257,6 +257,7 @@ func main() {
 	sqlite.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	sweep.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	l9endpoints.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	recorder.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -568,9 +567,9 @@ func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 			n = 5
 		}
 		for i := 0; i < n; i++ {
-			log.Printf("[Replayer] SeekToTimestamp: index[%d] ts=%d frameID=%d", i, r.index[i].TimestampNs, r.index[i].FrameID)
+			diagf("SeekToTimestamp: index[%d] ts=%d frameID=%d", i, r.index[i].TimestampNs, r.index[i].FrameID)
 		}
-		log.Printf("[Replayer] SeekToTimestamp: target=%d, header.StartNs=%d, header.EndNs=%d, totalEntries=%d",
+		diagf("SeekToTimestamp: target=%d, header.StartNs=%d, header.EndNs=%d, totalEntries=%d",
 			timestampNs, r.header.StartNs, r.header.EndNs, len(r.index))
 	}
 
@@ -588,14 +587,14 @@ func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
 
 	if bestIdx >= 0 {
 		r.currentFrame = uint64(bestIdx)
-		log.Printf("[Replayer] SeekToTimestamp: landed on index %d (ts=%d, delta=%d ns)",
+		diagf("SeekToTimestamp: landed on index %d (ts=%d, delta=%d ns)",
 			bestIdx, bestTs, bestTs-timestampNs)
 		return nil
 	}
 
 	// All entries are before the target timestamp; seek to end.
 	r.currentFrame = uint64(len(r.index) - 1)
-	log.Printf("[Replayer] SeekToTimestamp: timestamp beyond log, landed on last frame %d", r.currentFrame)
+	diagf("SeekToTimestamp: timestamp beyond log, landed on last frame %d", r.currentFrame)
 	return nil
 }
 
