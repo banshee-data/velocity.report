@@ -31,7 +31,7 @@ func TestClassifyPayload(t *testing.T) {
 
 func TestHandleConfigResponse_ValidAndInvalid(t *testing.T) {
 	// reset state
-	ResetCurrentState()
+	resetCurrentState()
 
 	if err := HandleConfigResponse(`{"alpha":123,"beta":"x"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -101,7 +101,7 @@ func TestHandleEvent_ConfigEvent(t *testing.T) {
 	defer d.Close()
 
 	// Reset state
-	ResetCurrentState()
+	resetCurrentState()
 
 	// Config event
 	config := `{"config_key": "config_value", "number": 42}`
@@ -302,7 +302,7 @@ func TestHandleRawData_InvalidJSON(t *testing.T) {
 // update existing state rather than replacing it.
 func TestHandleConfigResponse_UpdatesExistingState(t *testing.T) {
 	// Reset state
-	ResetCurrentState()
+	resetCurrentState()
 
 	// Set initial state
 	if err := HandleConfigResponse(`{"key1": "value1"}`); err != nil {

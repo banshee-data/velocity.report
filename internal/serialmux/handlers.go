@@ -16,7 +16,8 @@ var (
 
 // CurrentStateSnapshot returns a shallow copy of the latest config values
 // received from the device. Returns nil if no config has been received yet.
-// Callers must not mutate the returned map.
+// Callers must treat the returned map and all nested values (maps, slices, etc.)
+// as read-only. Code that needs to modify the data should first deep-copy it.
 func CurrentStateSnapshot() map[string]any {
 	currentStateMu.RLock()
 	defer currentStateMu.RUnlock()
@@ -30,8 +31,8 @@ func CurrentStateSnapshot() map[string]any {
 	return out
 }
 
-// ResetCurrentState clears the current config state. Used by tests.
-func ResetCurrentState() {
+// resetCurrentState clears the current config state. Used by tests.
+func resetCurrentState() {
 	currentStateMu.Lock()
 	defer currentStateMu.Unlock()
 	currentState = nil
