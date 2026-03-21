@@ -34,14 +34,14 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 
 ```mermaid
 flowchart TD
-    A["L1 Parse: UDP bytes → []PointPolar (sensor polar)"] --> B["L2 AddPointsPolar(): PointPolar → Point (sensor Cartesian)"]
-    B --> C["LiDARFrame.Points: []Point (sensor Cartesian + polar metadata)"]
-    C --> D["Pipeline re-wrap: frame.Points → []PointPolar (copy stored polar fields — no inverse trig)"]
-    D --> E["L3 ProcessFramePolarWithMask(): foreground mask (sensor polar)"]
-    E --> F["Foreground subset: []PointPolar (sensor polar)"]
-    F --> G["L4 TransformToWorld(): []PointPolar → []WorldPoint (world Cartesian)"]
-    G --> H["Ground filter / Voxel / DBSCAN: []WorldPoint → []WorldCluster (world Cartesian)"]
-    H --> I["L5 Tracks: []WorldCluster → TrackedObject (world Cartesian, float32 state)"]
+    A["L1 Parse: UDP bytes → PointPolar list (sensor polar)"] --> B["L2 AddPointsPolar: PointPolar → Point (sensor Cartesian)"]
+    B --> C["LiDARFrame.Points: Point list (sensor Cartesian + polar metadata)"]
+    C --> D["Pipeline re-wrap: frame.Points → PointPolar list (copy stored polar fields — no inverse trig)"]
+    D --> E["L3 ProcessFramePolarWithMask: foreground mask (sensor polar)"]
+    E --> F["Foreground subset: PointPolar list (sensor polar)"]
+    F --> G["L4 TransformToWorld: PointPolar list → WorldPoint list (world Cartesian)"]
+    G --> H["Ground filter / Voxel / DBSCAN: WorldPoint list → WorldCluster list (world Cartesian)"]
+    H --> I["L5 Tracks: WorldCluster list → TrackedObject (world Cartesian, float32 state)"]
     I --> J["L6 Objects + DB: world Cartesian summaries"]
 ```
 
@@ -54,7 +54,7 @@ flowchart TD
     A["LiDARFrame.Points (L2 sensor Cartesian)"] --> B["gRPC point cloud — visualiser/adapter (L2 Cartesian direct)"]
     A --> C["ASC frame export — l2frames/export.go (Cartesian)"]
 
-    D["L3 foreground subset: []PointPolar (sensor polar)"] --> E["Foreground UDP forwarder — keeps polar, rebuilds packets"]
+    D["L3 foreground subset: PointPolar list (sensor polar)"] --> E["Foreground UDP forwarder — keeps polar, rebuilds packets"]
     D --> F["Foreground snapshot store — l3grid (raw polar)"]
     F --> G["Debug chart / ASC export (lazy polar → Cartesian on access)"]
 

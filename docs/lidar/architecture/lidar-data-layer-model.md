@@ -49,7 +49,7 @@ flowchart TB
     classDef infra fill:#e9eef5,stroke:#6b7c93,color:#334155;
     classDef deprecated fill:#fde8e8,stroke:#b91c1c,color:#7f1d1d;
 
-    subgraph P0_sensors[" "]
+    subgraph P0_sensors["P0 Sources"]
         direction LR
         P0c["LiDAR sensor"]
         P0b["Disk storage"]
@@ -57,7 +57,7 @@ flowchart TB
 
     P0a["Radar sensor"]
 
-    subgraph P0_io[" "]
+    subgraph P0_io["P0 I/O"]
         direction LR
         P0f["UDP socket"]
         P0e["Filesystem"]
@@ -71,7 +71,7 @@ flowchart TB
         L1c["PCAP replay"]
     end
 
-    subgraph L1[" "]
+    subgraph L1["L1 Ingest"]
         direction LR
         L1sub
         L1a["Radar ingest"]
@@ -99,7 +99,7 @@ flowchart TB
         L4e["OBB geometry"]
     end
 
-    subgraph L5[" "]
+    subgraph L5["L5 Tracking"]
         L5a["Radar sessions"]
         L5sub
     end
@@ -131,7 +131,7 @@ flowchart TB
         L8c["Sweep tuning / HINT"]
     end
 
-    subgraph L8[" "]
+    subgraph L8["L8 Analytics"]
         direction LR
         L8sub
         L8a["Radar metrics"]
