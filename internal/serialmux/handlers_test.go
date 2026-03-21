@@ -31,16 +31,17 @@ func TestClassifyPayload(t *testing.T) {
 
 func TestHandleConfigResponse_ValidAndInvalid(t *testing.T) {
 	// reset state
-	CurrentState = nil
+	ResetCurrentState()
 
 	if err := HandleConfigResponse(`{"alpha":123,"beta":"x"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if CurrentState == nil {
-		t.Fatalf("expected CurrentState to be initialized")
+	snap := CurrentStateSnapshot()
+	if snap == nil {
+		t.Fatalf("expected CurrentStateSnapshot to be initialised")
 	}
-	if v, ok := CurrentState["alpha"]; !ok || v == nil {
-		t.Fatalf("expected alpha in CurrentState")
+	if v, ok := snap["alpha"]; !ok || v == nil {
+		t.Fatalf("expected alpha in CurrentStateSnapshot")
 	}
 
 	// invalid JSON should return an error and not panic
@@ -100,7 +101,7 @@ func TestHandleEvent_ConfigEvent(t *testing.T) {
 	defer d.Close()
 
 	// Reset state
-	CurrentState = nil
+	ResetCurrentState()
 
 	// Config event
 	config := `{"config_key": "config_value", "number": 42}`
@@ -109,10 +110,11 @@ func TestHandleEvent_ConfigEvent(t *testing.T) {
 	}
 
 	// Check that config was stored
-	if CurrentState == nil {
-		t.Fatal("CurrentState should be initialized after config event")
+	snap := CurrentStateSnapshot()
+	if snap == nil {
+		t.Fatal("CurrentStateSnapshot should be initialised after config event")
 	}
-	if v, ok := CurrentState["config_key"]; !ok || v != "config_value" {
+	if v, ok := snap["config_key"]; !ok || v != "config_value" {
 		t.Errorf("Expected config_key to be 'config_value', got %v", v)
 	}
 }
@@ -300,7 +302,7 @@ func TestHandleRawData_InvalidJSON(t *testing.T) {
 // update existing state rather than replacing it.
 func TestHandleConfigResponse_UpdatesExistingState(t *testing.T) {
 	// Reset state
-	CurrentState = nil
+	ResetCurrentState()
 
 	// Set initial state
 	if err := HandleConfigResponse(`{"key1": "value1"}`); err != nil {
@@ -313,18 +315,20 @@ func TestHandleConfigResponse_UpdatesExistingState(t *testing.T) {
 	}
 
 	// Both keys should be present
-	if CurrentState["key1"] != "value1" {
-		t.Errorf("Expected key1 to be preserved, got %v", CurrentState["key1"])
+	snap := CurrentStateSnapshot()
+	if snap["key1"] != "value1" {
+		t.Errorf("Expected key1 to be preserved, got %v", snap["key1"])
 	}
-	if CurrentState["key2"] != "value2" {
-		t.Errorf("Expected key2 to be added, got %v", CurrentState["key2"])
+	if snap["key2"] != "value2" {
+		t.Errorf("Expected key2 to be added, got %v", snap["key2"])
 	}
 
 	// Update existing key
 	if err := HandleConfigResponse(`{"key1": "updated"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if CurrentState["key1"] != "updated" {
-		t.Errorf("Expected key1 to be updated, got %v", CurrentState["key1"])
+	snap = CurrentStateSnapshot()
+	if snap["key1"] != "updated" {
+		t.Errorf("Expected key1 to be updated, got %v", snap["key1"])
 	}
 }

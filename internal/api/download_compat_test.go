@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -105,7 +106,7 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 				Source:      "radar_data_transits",
 			}
 
-			if err := dbInst.CreateSiteReport(report); err != nil {
+			if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 				t.Fatalf("failed to create report: %v", err)
 			}
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,7 @@ func TestHandleSiteConfigPeriods_CreateAndList(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -94,7 +95,7 @@ func TestHandleSiteConfigPeriods_Overlap(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -166,7 +167,7 @@ func TestHandleTimeline(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 

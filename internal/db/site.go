@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -30,7 +31,7 @@ type Site struct {
 }
 
 // CreateSite creates a new site in the database
-func (db *DB) CreateSite(site *Site) error {
+func (db *DB) CreateSite(ctx context.Context, site *Site) error {
 	query := `
 		INSERT INTO site (
 			name, location, description,
@@ -51,7 +52,8 @@ func (db *DB) CreateSite(site *Site) error {
 		mapSVGData = *site.MapSVGData
 	}
 
-	result, err := db.DB.Exec(
+	result, err := db.DB.ExecContext(
+		ctx,
 		query,
 		site.Name,
 		site.Location,
@@ -84,7 +86,7 @@ func (db *DB) CreateSite(site *Site) error {
 }
 
 // GetSite retrieves a site by ID
-func (db *DB) GetSite(id int) (*Site, error) {
+func (db *DB) GetSite(ctx context.Context, id int) (*Site, error) {
 	query := `
 		SELECT
 			id, name, location, description,
@@ -102,7 +104,7 @@ func (db *DB) GetSite(id int) (*Site, error) {
 	var createdAtUnix, updatedAtUnix int64
 	var mapSVGData []byte
 
-	err := db.DB.QueryRow(query, id).Scan(
+	err := db.DB.QueryRowContext(ctx, query, id).Scan(
 		&site.ID,
 		&site.Name,
 		&site.Location,
@@ -142,7 +144,7 @@ func (db *DB) GetSite(id int) (*Site, error) {
 }
 
 // GetAllSites retrieves all sites from the database
-func (db *DB) GetAllSites() ([]Site, error) {
+func (db *DB) GetAllSites(ctx context.Context) ([]Site, error) {
 	query := `
 		SELECT
 			id, name, location, description,
@@ -155,7 +157,7 @@ func (db *DB) GetAllSites() ([]Site, error) {
 		ORDER BY name ASC
 	`
 
-	rows, err := db.DB.Query(query)
+	rows, err := db.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sites: %w", err)
 	}
@@ -211,7 +213,7 @@ func (db *DB) GetAllSites() ([]Site, error) {
 }
 
 // UpdateSite updates an existing site in the database
-func (db *DB) UpdateSite(site *Site) error {
+func (db *DB) UpdateSite(ctx context.Context, site *Site) error {
 	query := `
 		UPDATE site SET
 			name = ?,
@@ -243,7 +245,8 @@ func (db *DB) UpdateSite(site *Site) error {
 		mapSVGData = *site.MapSVGData
 	}
 
-	result, err := db.DB.Exec(
+	result, err := db.DB.ExecContext(
+		ctx,
 		query,
 		site.Name,
 		site.Location,
@@ -283,10 +286,10 @@ func (db *DB) UpdateSite(site *Site) error {
 }
 
 // DeleteSite deletes a site from the database
-func (db *DB) DeleteSite(id int) error {
+func (db *DB) DeleteSite(ctx context.Context, id int) error {
 	query := `DELETE FROM site WHERE id = ?`
 
-	result, err := db.DB.Exec(query, id)
+	result, err := db.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete site: %w", err)
 	}

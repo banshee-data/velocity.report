@@ -1480,7 +1480,7 @@ func TestGenerateReport_FullFlowCommandFails(t *testing.T) {
 		BBoxSWLng:  &swLng,
 		IncludeMap: true,
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("create site: %v", err)
 	}
 	// Create active config period
@@ -1535,7 +1535,7 @@ func TestGenerateReport_DefaultSiteFields(t *testing.T) {
 		Surveyor: "",
 		Contact:  "",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("create site: %v", err)
 	}
 	notes := "test"
@@ -1647,7 +1647,7 @@ func TestDownloadReport_ZipMissing(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("create report: %v", err)
 	}
 
@@ -1680,7 +1680,7 @@ func TestDownloadReport_FileNotFound(t *testing.T) {
 		Units:       "mph",
 		Source:      "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("create report: %v", err)
 	}
 
@@ -1806,7 +1806,7 @@ func TestGenerateReport_PythonDiscovery(t *testing.T) {
 		Surveyor: "S",
 		Contact:  "C",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("create site: %v", err)
 	}
 	notes := "test"
@@ -1883,7 +1883,7 @@ func TestDownloadReport_SuccessfulPDFDownload(t *testing.T) {
 		Units:       "mph",
 		Source:      "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("create report: %v", err)
 	}
 
@@ -1926,7 +1926,7 @@ func TestListSiteReports_HappyPath(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("create site: %v", err)
 	}
 
@@ -1995,7 +1995,7 @@ func TestGetSite_EncodeError(t *testing.T) {
 
 	// Create a site first
 	site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
-	dbInst.CreateSite(site)
+	dbInst.CreateSite(context.Background(), site)
 
 	fw := &failWriter{writeFail: true}
 	req := httptest.NewRequest(http.MethodGet, "/api/sites/1", nil)
@@ -2019,7 +2019,7 @@ func TestUpdateSite_EncodeError(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
-	dbInst.CreateSite(site)
+	dbInst.CreateSite(context.Background(), site)
 
 	fw := &failWriter{writeFail: true}
 	body := `{"name": "Updated", "location": "Updated Loc"}`
@@ -2033,7 +2033,7 @@ func TestListSiteConfigPeriods_EncodeError(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
-	dbInst.CreateSite(site)
+	dbInst.CreateSite(context.Background(), site)
 
 	fw := &failWriter{writeFail: true}
 	req := httptest.NewRequest(http.MethodGet, "/api/site-config-periods?site_id=1", nil)
@@ -2046,7 +2046,7 @@ func TestHandleTimeline_EncodeError(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{Name: "Test", Location: "Loc", Surveyor: "S", Contact: "C"}
-	dbInst.CreateSite(site)
+	dbInst.CreateSite(context.Background(), site)
 
 	fw := &failWriter{writeFail: true}
 	req := httptest.NewRequest(http.MethodGet, "/api/timeline?site_id=1", nil)
@@ -2099,7 +2099,7 @@ func TestGetReport_EncodeError(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	dbInst.CreateSiteReport(report)
+	dbInst.CreateSiteReport(context.Background(), report)
 
 	fw := &failWriter{writeFail: true}
 	req := httptest.NewRequest(http.MethodGet, "/api/reports/1", nil)

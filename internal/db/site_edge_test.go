@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 )
@@ -69,7 +70,7 @@ func TestCreateSite_InvalidData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := db.CreateSite(&tc.site)
+			err := db.CreateSite(context.Background(), &tc.site)
 			// Just verify no panics occur - some may succeed, some may fail
 			t.Logf("CreateSite result: err=%v, ID=%d", err, tc.site.ID)
 		})
@@ -88,7 +89,7 @@ func TestGetSite_NonexistentID(t *testing.T) {
 	defer db.Close()
 
 	// Try to get site with ID that doesn't exist
-	site, err := db.GetSite(99999)
+	site, err := db.GetSite(context.Background(), 99999)
 	if err == nil {
 		t.Errorf("Expected error for non-existent site, got: %+v", site)
 	}
@@ -106,7 +107,7 @@ func TestGetSite_NegativeID(t *testing.T) {
 	defer db.Close()
 
 	// Try to get site with negative ID
-	site, err := db.GetSite(-1)
+	site, err := db.GetSite(context.Background(), -1)
 	if err == nil {
 		t.Errorf("Expected error for negative ID, got: %+v", site)
 	}
@@ -124,7 +125,7 @@ func TestGetSite_ZeroID(t *testing.T) {
 	defer db.Close()
 
 	// Try to get site with zero ID
-	site, err := db.GetSite(0)
+	site, err := db.GetSite(context.Background(), 0)
 	if err == nil {
 		t.Errorf("Expected error for zero ID, got: %+v", site)
 	}
@@ -149,7 +150,7 @@ func TestUpdateSite_NonexistentID(t *testing.T) {
 		Contact:  "updated@example.com",
 	}
 
-	err = db.UpdateSite(site)
+	err = db.UpdateSite(context.Background(), site)
 	// Should handle gracefully (may update 0 rows)
 	t.Logf("UpdateSite for non-existent ID result: %v", err)
 }
@@ -165,7 +166,7 @@ func TestDeleteSite_NonexistentID(t *testing.T) {
 	}
 	defer db.Close()
 
-	err = db.DeleteSite(99999)
+	err = db.DeleteSite(context.Background(), 99999)
 	// Should handle gracefully
 	t.Logf("DeleteSite for non-existent ID result: %v", err)
 }
@@ -181,7 +182,7 @@ func TestGetAllSites_EmptyDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	sites, err := db.GetAllSites()
+	sites, err := db.GetAllSites(context.Background())
 	if err != nil {
 		t.Fatalf("GetAllSites on empty database failed: %v", err)
 	}
@@ -217,7 +218,7 @@ func TestCreateSite_WithOptionalFields(t *testing.T) {
 		SiteDescription: nil,
 	}
 
-	err = db.CreateSite(&site)
+	err = db.CreateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("CreateSite with nil optional fields failed: %v", err)
 	}
@@ -227,7 +228,7 @@ func TestCreateSite_WithOptionalFields(t *testing.T) {
 	}
 
 	// Retrieve and verify
-	retrieved, err := db.GetSite(site.ID)
+	retrieved, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve site: %v", err)
 	}
@@ -272,13 +273,13 @@ func TestCreateSite_WithAllOptionalFields(t *testing.T) {
 		SiteDescription: &siteDesc,
 	}
 
-	err = db.CreateSite(&site)
+	err = db.CreateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("CreateSite with all optional fields failed: %v", err)
 	}
 
 	// Retrieve and verify all fields
-	retrieved, err := db.GetSite(site.ID)
+	retrieved, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve site: %v", err)
 	}
@@ -330,7 +331,7 @@ func TestCreateSite_BoundaryCoordinates(t *testing.T) {
 				Longitude: &tc.lon,
 			}
 
-			err := db.CreateSite(&site)
+			err := db.CreateSite(context.Background(), &site)
 			if err != nil {
 				t.Errorf("CreateSite with boundary coords (%f, %f) failed: %v", tc.lat, tc.lon, err)
 			}
@@ -358,7 +359,7 @@ func TestUpdateSite_AllFields(t *testing.T) {
 		IncludeMap: false,
 	}
 
-	err = db.CreateSite(&site)
+	err = db.CreateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -383,13 +384,13 @@ func TestUpdateSite_AllFields(t *testing.T) {
 	site.IncludeMap = true
 	site.SiteDescription = &newSiteDesc
 
-	err = db.UpdateSite(&site)
+	err = db.UpdateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("UpdateSite failed: %v", err)
 	}
 
 	// Verify updates
-	retrieved, err := db.GetSite(site.ID)
+	retrieved, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve updated site: %v", err)
 	}
@@ -421,7 +422,7 @@ func TestDeleteSite_CascadeReports(t *testing.T) {
 		Contact:  "test@example.com",
 	}
 
-	err = db.CreateSite(&site)
+	err = db.CreateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -439,19 +440,19 @@ func TestDeleteSite_CascadeReports(t *testing.T) {
 		Source:    "radar_data",
 	}
 
-	err = db.CreateSiteReport(&report)
+	err = db.CreateSiteReport(context.Background(), &report)
 	if err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
 	// Delete the site
-	err = db.DeleteSite(site.ID)
+	err = db.DeleteSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("DeleteSite failed: %v", err)
 	}
 
 	// Verify site is deleted
-	_, err = db.GetSite(site.ID)
+	_, err = db.GetSite(context.Background(), site.ID)
 	if err == nil {
 		t.Error("Expected error getting deleted site")
 	}
