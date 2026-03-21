@@ -243,7 +243,7 @@ Target end state for handlers:
 
 - request parsing
 - auth and validation
-- response serialization
+- response serialisation
 - delegation to `l8analytics/` or thin application services
 
 They must not own:
