@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -67,10 +68,10 @@ func TestHandleSites_List(t *testing.T) {
 		Contact:  "contact2@example.com",
 	}
 
-	if err := dbInst.CreateSite(site1); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site1); err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
-	if err := dbInst.CreateSite(site2); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site2); err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
 
@@ -105,7 +106,7 @@ func TestHandleSites_Get(t *testing.T) {
 		Contact:  "test@example.com",
 	}
 
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
 
@@ -235,7 +236,7 @@ func TestHandleSites_Update(t *testing.T) {
 		Contact:  "original@example.com",
 	}
 
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
 
@@ -304,7 +305,7 @@ func TestHandleSites_Delete(t *testing.T) {
 		Contact:  "contact@example.com",
 	}
 
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
 
@@ -318,7 +319,7 @@ func TestHandleSites_Delete(t *testing.T) {
 	}
 
 	// Verify it's deleted
-	_, err := dbInst.GetSite(site.ID)
+	_, err := dbInst.GetSite(context.Background(), site.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted site")
 	}
@@ -1160,7 +1161,7 @@ func TestListSitesSuccess(t *testing.T) {
 
 	// Create a test site
 	site := &db.Site{Name: "List Sites Test", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1191,7 +1192,7 @@ func TestGetSiteSuccess(t *testing.T) {
 
 	// Create a test site
 	site := &db.Site{Name: "Get Site Test", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1256,7 +1257,7 @@ func TestListSiteReportsSuccess(t *testing.T) {
 
 	// Create a test site first
 	site := &db.Site{Name: "Report Test Site", Location: "Test"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1331,7 +1332,7 @@ func TestListSiteConfigPeriodsSuccess(t *testing.T) {
 
 	// Create a test site first
 	site := &db.Site{Name: "Config Period Test", Location: "Test"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1369,7 +1370,7 @@ func TestHandleTimelineSuccess(t *testing.T) {
 
 	// Create a test site first
 	site := &db.Site{Name: "Timeline Test", Location: "Test"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1455,7 +1456,7 @@ func TestHandleSites_PUT(t *testing.T) {
 
 	// Create site first
 	site := &db.Site{Name: "PUT Test Site", Location: "Old Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1709,7 +1710,7 @@ func TestListEvents_WithSiteID(t *testing.T) {
 
 	// Create a test site
 	site := &db.Site{Name: "Events Test", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 

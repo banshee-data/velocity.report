@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -77,7 +78,7 @@ func TestHandleReports_List(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := dbInst.CreateSiteReport(report); err != nil {
+		if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("Failed to create report: %v", err)
 		}
 	}
@@ -111,7 +112,7 @@ func TestHandleReports_ListSiteReports(t *testing.T) {
 		Name:     "Test Site",
 		Location: "Test Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -128,7 +129,7 @@ func TestHandleReports_ListSiteReports(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := dbInst.CreateSiteReport(report); err != nil {
+		if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("Failed to create report: %v", err)
 		}
 	}
@@ -168,7 +169,7 @@ func TestHandleReports_GetReport(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -222,7 +223,7 @@ func TestHandleReports_DeleteReport(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -236,7 +237,7 @@ func TestHandleReports_DeleteReport(t *testing.T) {
 	}
 
 	// Verify deletion
-	_, err := dbInst.GetSiteReport(report.ID)
+	_, err := dbInst.GetSiteReport(context.Background(), report.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted report")
 	}
@@ -318,7 +319,7 @@ func TestHandleReports_Download_MethodNotAllowed(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -348,7 +349,7 @@ func TestDownloadReport_InvalidFileType(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -394,7 +395,7 @@ func TestDownloadReport_ZipNotAvailable(t *testing.T) {
 		Source:    "radar_objects",
 		// Note: ZipFilepath and ZipFilename are nil
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -581,7 +582,7 @@ func TestGenerateReport_MinSpeedParameter(t *testing.T) {
 		Surveyor: "Test Surveyor",
 		Contact:  "test@example.com",
 	}
-	err := dbInst.CreateSite(site)
+	err := dbInst.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
@@ -661,7 +662,7 @@ func TestGenerateReport_BoundaryThresholdParameter(t *testing.T) {
 		Surveyor: "Test Surveyor",
 		Contact:  "test@example.com",
 	}
-	err := dbInst.CreateSite(site)
+	err := dbInst.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
@@ -741,7 +742,7 @@ func TestGenerateReport_CombinedMinSpeedAndBoundaryThreshold(t *testing.T) {
 		Surveyor: "Test Surveyor",
 		Contact:  "test@example.com",
 	}
-	err := dbInst.CreateSite(site)
+	err := dbInst.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create test site: %v", err)
 	}
@@ -1034,5 +1035,27 @@ func TestSetTransitController(t *testing.T) {
 
 	if server.transitController != mockTC {
 		t.Error("Expected transit controller to be set")
+	}
+}
+
+// TestListSites_ContextCancellation verifies that a cancelled context causes
+// the database call to return an error and the handler to respond with 500.
+func TestListSites_ContextCancellation(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	// Pre-cancel the context so the DB call sees a done context immediately.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sites", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	server.listSites(w, req)
+
+	// The request context is already done; the DB call should fail and the
+	// handler should return 500.
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 with cancelled context, got %d", w.Code)
 	}
 }
