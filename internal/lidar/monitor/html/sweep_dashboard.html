@@ -480,7 +480,8 @@
         <h2>Paste &amp; Apply Params</h2>
         <small class="field-desc" style="display: block; margin-bottom: 8px">
           Paste a full tuning config JSON (same format as tuning.defaults.json)
-          and apply to the system. Non-editable fields are silently ignored.
+          and apply to the system. Non-editable fields (version, l1.*, etc.) are
+          skipped; at least one runtime-editable field must be present.
         </small>
         <textarea id="paste-params-json" rows="12"
           style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical" placeholder='{

@@ -649,6 +649,17 @@ func TestClient_SetTrackerConfig_AllParams(t *testing.T) {
 	}
 }
 
+func TestClient_SetTrackerConfig_EmptyParams(t *testing.T) {
+	c := NewClient(http.DefaultClient, "http://localhost", "sensor1")
+	err := c.SetTrackerConfig(TrackingParams{})
+	if err == nil {
+		t.Fatal("expected error for empty TrackingParams")
+	}
+	if !strings.Contains(err.Error(), "no parameters set") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestTrackingParams_JSONOmitEmpty(t *testing.T) {
 	// Test that nil fields are omitted
 	params := TrackingParams{}

@@ -563,6 +563,10 @@ func (p *TrackingParams) UnmarshalJSON(data []byte) error {
 
 // SetTrackerConfig updates tracker configuration on the server via the consolidated /api/lidar/params endpoint.
 func (c *Client) SetTrackerConfig(params TrackingParams) error {
+	if params.GatingDistanceSquared == nil && params.ProcessNoisePos == nil &&
+		params.ProcessNoiseVel == nil && params.MeasurementNoise == nil {
+		return fmt.Errorf("SetTrackerConfig: no parameters set")
+	}
 	url := fmt.Sprintf("%s/api/lidar/params?sensor_id=%s", c.BaseURL, c.SensorID)
 	data, err := json.Marshal(params)
 	if err != nil {

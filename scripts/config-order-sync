@@ -67,7 +67,7 @@ def discover_targets(cwd: Path, md_targets: set[Path], json_targets: set[Path]) 
     for path in sorted((cwd / "config").glob("tuning*.json")):
         if path.is_file():
             json_targets.add(path.resolve())
-    for path in sorted((cwd / "config").glob("*.md")):
+    for path in sorted((cwd / "config").glob("README*.md")):
         if path.is_file():
             md_targets.add(path.resolve())
 
