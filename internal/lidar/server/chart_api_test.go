@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -536,5 +537,192 @@ func TestHandleChartClustersJSON_WithQueryParams(t *testing.T) {
 	// Should fail because trackAPI is nil, but should parse params first
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("got status %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestHandleChartPolarJSON_EmptyCells(t *testing.T) {
+	// A fresh background manager has no processed data, so GetGridCells
+	// returns an empty slice and the handler should return 404.
+	sensorID := "test-polar-empty-" + time.Now().Format("150405.000")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &Server{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartPolarJSON(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("got status %d, want 404 for empty grid cells", rec.Code)
+	}
+}
+
+func TestHandleChartHeatmapJSON_EmptyBuckets(t *testing.T) {
+	// A fresh grid returns buckets with FilledCells=0 but the array is
+	// non-empty (one bucket per ring×azimuth combination), so the handler
+	// takes the happy path.  We verify the handler returns a valid response.
+	sensorID := "test-heatmap-empty-" + time.Now().Format("150405.000")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	ws := &Server{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/heatmap", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartHeatmapJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want 200", rec.Code)
+	}
+}
+
+func TestHandleChartForegroundJSON_WithSnapshot(t *testing.T) {
+	sensorID := "test-fg-snap-" + time.Now().Format("150405.000")
+
+	// Store a foreground snapshot so the handler can find it.
+	l3grid.StoreForegroundSnapshot(sensorID, time.Now(),
+		[]l3grid.PointPolar{{Channel: 0, Azimuth: 10, Distance: 5}},   // foreground
+		[]l3grid.PointPolar{{Channel: 0, Azimuth: 180, Distance: 12}}, // background
+		100, 30,
+	)
+
+	ws := &Server{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartForegroundJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want 200", rec.Code)
+	}
+
+	var result l9endpoints.ForegroundChartData
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+	if result.SensorID != sensorID {
+		t.Errorf("SensorID = %q, want %q", result.SensorID, sensorID)
+	}
+	if result.ForegroundCount != 30 {
+		t.Errorf("ForegroundCount = %d, want 30", result.ForegroundCount)
+	}
+}
+
+func TestHandleChartClustersJSON_WithDB(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	sensorID := "clust-sensor"
+	now := time.Now().UnixNano()
+
+	// Insert a cluster within the time window.
+	_, err := db.Exec(`INSERT INTO lidar_clusters
+		(sensor_id, frame_id, ts_unix_nanos,
+		 centroid_x, centroid_y, centroid_z,
+		 bounding_box_length, bounding_box_width, bounding_box_height,
+		 points_count, height_p95, intensity_mean)
+		VALUES (?, 'sensor', ?, 1.0, 2.0, 0.5, 3.0, 1.5, 1.0, 20, 1.0, 80.0)`,
+		sensorID, now)
+	if err != nil {
+		t.Fatalf("insert cluster: %v", err)
+	}
+
+	ws := &Server{
+		sensorID: sensorID,
+		trackAPI: NewTrackAPI(db, sensorID),
+	}
+
+	startSec := (now / 1e9) - 60
+	endSec := (now / 1e9) + 60
+	url := fmt.Sprintf("/api/lidar/chart/clusters?sensor_id=%s&start=%d&end=%d&limit=50",
+		sensorID, startSec, endSec)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartClustersJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var result l9endpoints.RecentClustersData
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode JSON: %v", err)
+	}
+	if result.NumClusters != 1 {
+		t.Errorf("NumClusters = %d, want 1", result.NumClusters)
+	}
+}
+
+func TestHandleChartClustersJSON_DefaultSensorAndTimeWindow(t *testing.T) {
+	// No sensor_id, start, or end in query — exercises the fallback paths.
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	sensorID := "default-sensor"
+	now := time.Now().UnixNano()
+
+	_, err := db.Exec(`INSERT INTO lidar_clusters
+		(sensor_id, frame_id, ts_unix_nanos,
+		 centroid_x, centroid_y, centroid_z,
+		 bounding_box_length, bounding_box_width, bounding_box_height,
+		 points_count, height_p95, intensity_mean)
+		VALUES (?, 'sensor', ?, 2.0, 3.0, 0.5, 3.0, 1.5, 1.0, 15, 1.0, 70.0)`,
+		sensorID, now)
+	if err != nil {
+		t.Fatalf("insert cluster: %v", err)
+	}
+
+	ws := &Server{
+		sensorID: sensorID,
+		trackAPI: NewTrackAPI(db, sensorID),
+	}
+
+	// No sensor_id, start, end, or limit in URL — all defaults.
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartClustersJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleChartClustersJSON_DBError(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	ws := &Server{
+		sensorID: "err-sensor",
+		trackAPI: NewTrackAPI(db, "err-sensor"),
+	}
+
+	// Close the DB to provoke an error from GetRecentClusters.
+	cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartClustersJSON(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("got status %d, want 500 after DB close", rec.Code)
+	}
+}
+
+func TestWriteJSON_EncodeError(t *testing.T) {
+	ws := &Server{}
+	rec := httptest.NewRecorder()
+
+	// A channel cannot be marshalled to JSON — triggers the error path.
+	ws.writeJSON(rec, http.StatusOK, make(chan int))
+
+	// Header and status are already written before Encode fails,
+	// so we only verify the handler does not panic.
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 (written before encode)", rec.Code)
 	}
 }

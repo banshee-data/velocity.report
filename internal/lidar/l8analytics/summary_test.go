@@ -2,6 +2,7 @@ package l8analytics
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -163,5 +164,16 @@ func TestParseRunStatistics_Invalid(t *testing.T) {
 	_, err := ParseRunStatistics("invalid json")
 	if err == nil {
 		t.Error("ParseRunStatistics should fail on invalid JSON")
+	}
+}
+
+func TestRunStatistics_ToJSON_Error(t *testing.T) {
+	stats := &RunStatistics{
+		AvgTrackLength: float32(math.NaN()),
+	}
+
+	_, err := stats.ToJSON()
+	if err == nil {
+		t.Error("ToJSON should fail with NaN value")
 	}
 }

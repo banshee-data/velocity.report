@@ -4594,3 +4594,69 @@ func TestServer_GetLatestFgCounts_ReturnsCopy(t *testing.T) {
 		t.Errorf("expected total=100 (immutable), got %d", counts2["total"])
 	}
 }
+
+func TestNewServer_UDPPortAddressFallback(t *testing.T) {
+	// When UDPListenerConfig.Address is empty, NewServer should derive it
+	// from UDPPort.
+	config := Config{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		UDPPort:           9999,
+		UDPListenerConfig: network.UDPListenerConfig{
+			// Address intentionally left empty.
+		},
+	}
+
+	srv := NewServer(config)
+	if srv == nil {
+		t.Fatal("NewServer returned nil")
+	}
+	if srv.udpPort != 9999 {
+		t.Errorf("udpPort = %d, want 9999", srv.udpPort)
+	}
+}
+
+func TestServer_StartAndShutdown(t *testing.T) {
+	// Exercises the full shutdown path inside Start():
+	//   stop live listener, cancel pcap, shutdown HTTP server.
+	config := Config{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	srv := NewServer(config)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+
+	go func() { errCh <- srv.Start(ctx) }()
+
+	// Give the HTTP server time to bind.
+	time.Sleep(150 * time.Millisecond)
+
+	// Cancel context triggers the shutdown path.
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("Start returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return within 5s after context cancellation")
+	}
+}
+
+func TestServer_Close_WithHTTPServer(t *testing.T) {
+	// NewServer creates ws.server; Close should return server.Close() result.
+	config := Config{
+		Address:           ":0",
+		Stats:             NewPacketStats(),
+		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
+	}
+	srv := NewServer(config)
+
+	if err := srv.Close(); err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+}
