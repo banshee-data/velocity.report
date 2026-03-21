@@ -65,7 +65,6 @@ const {
 	pollAutoTuneStatus,
 	comboLabel,
 	formatParamValues,
-	normaliseParamMap,
 	extractEditableTuningParams,
 	renderRecommendation,
 	renderTable,
@@ -487,38 +486,9 @@ describe('formatParamValues', () => {
 		const params = { unknown_param: 42 };
 		expect(formatParamValues(params)).toContain('unknown_param=42');
 	});
-
-	it('normalises legacy flat keys before formatting', () => {
-		const formatted = formatParamValues({
-			background_update_fraction: 0.02,
-			safety_margin_meters: 0.5
-		});
-		expect(formatted).toContain('Background Update Fraction=0.0200');
-		expect(formatted).toContain('Safety Margin (m)=0.5000');
-	});
 });
 
 describe('param normalisation helpers', () => {
-	it('normaliseParamMap flattens nested config and canonicalises legacy names', () => {
-		expect(
-			normaliseParamMap({
-				l3: {
-					ema_baseline_v1: {
-						noise_relative: 0.05,
-						neighbor_confirmation_count: 3,
-						safety_margin_meters: 0.4
-					}
-				},
-				background_update_fraction: 0.02
-			})
-		).toEqual({
-			'l3.ema_baseline_v1.noise_relative': 0.05,
-			'l3.ema_baseline_v1.neighbour_confirmation_count': 3,
-			'l3.ema_baseline_v1.safety_margin_metres': 0.4,
-			'l3.ema_baseline_v1.background_update_fraction': 0.02
-		});
-	});
-
 	it('extractEditableTuningParams keeps only supported tuning params', () => {
 		expect(
 			extractEditableTuningParams({
@@ -2131,7 +2101,7 @@ describe('applyRecommendation', () => {
 		);
 	});
 
-	it('canonicalises legacy recommendation keys before posting params', async () => {
+	it('resolves suffix keys from recommendation before posting params', async () => {
 		global.fetch = jest.fn().mockImplementation((url: string) => {
 			if (url.includes('/api/lidar/sweep/auto')) {
 				return Promise.resolve({
@@ -2140,7 +2110,7 @@ describe('applyRecommendation', () => {
 						Promise.resolve({
 							recommendation: {
 								background_update_fraction: 0.02,
-								safety_margin_meters: 0.5,
+								safety_margin_metres: 0.5,
 								score: 0.9
 							}
 						})
@@ -2242,7 +2212,7 @@ describe('applySceneParams', () => {
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
 	});
 
-	it('canonicalises legacy scene params before posting', async () => {
+	it('resolves suffix scene params before posting', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -2252,7 +2222,7 @@ describe('applySceneParams', () => {
 							replay_case_id: 'legacy-scene',
 							pcap_file: 'test.pcap',
 							optimal_params_json:
-								'{"background_update_fraction":0.02,"neighbor_confirmation_count":3}'
+								'{"background_update_fraction":0.02,"neighbour_confirmation_count":3}'
 						}
 					]
 				})

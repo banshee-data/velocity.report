@@ -1093,17 +1093,16 @@ becomes the single source of truth (no dual sources, DRY). Deprecated flags
 log a warning and are removed in a subsequent release.
 
 Delivered alongside Phase 1 in `dd/config-restructure`. L1Config struct and
-all 16 new L3 fields are wired and validated. CLI flag deprecation warnings
-are active — flag removal is tracked in the
-[v0.5.0 tech debt removal plan](../docs/plans/v050-tech-debt-removal-plan.md)
-(item A3).
+all 16 new L3 fields are wired and validated. Deprecated CLI flags have been
+removed — the config file is now the single source of truth for LiDAR
+network settings.
 
-| Step | Description                                                                     | Depends on  | Status                                 |
-| ---- | ------------------------------------------------------------------------------- | ----------- | -------------------------------------- |
-| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     | ✅ struct + wiring; ⏳ CLI deprecation |
-| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     | ✅                                     |
-| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅                                     |
-| 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅                                     |
+| Step | Description                                                                     | Depends on  | Status      |
+| ---- | ------------------------------------------------------------------------------- | ----------- | ----------- |
+| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     | ✅ Complete |
+| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     | ✅          |
+| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅          |
+| 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅          |
 
 ### Phase 2B — Experiment contract + deterministic config identity (v0.6.x / v0.7.0)
 

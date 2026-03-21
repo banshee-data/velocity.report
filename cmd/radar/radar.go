@@ -65,14 +65,10 @@ var (
 var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
 	lidarListen    = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
-	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
 	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
-	lidarSensor    = flag.String("lidar-sensor", "hesai-pandar40p", "Sensor name identifier for lidar background manager")
 	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
-	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
 	lidarFwdAddr   = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
 	lidarFGForward = flag.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
-	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Visualiser gRPC streaming (M2)
@@ -197,7 +193,6 @@ func visitedFlags() map[string]bool {
 // Main
 func main() {
 	flag.Parse()
-	explicitFlags := visitedFlags()
 
 	// Configure logging: default to stdout; optionally tee to a log file via env.
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -329,9 +324,6 @@ func main() {
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
-	for _, warning := range deprecatedLidarFlagWarnings(explicitFlags, tuningCfg, *configFile) {
-		log.Print(warning)
-	}
 
 	// Compute tuning config hash for VRLOG provenance.
 	tuningHash := tuningHashOrWarn(tuningCfg, log.Printf)

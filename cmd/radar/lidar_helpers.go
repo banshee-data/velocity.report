@@ -69,23 +69,6 @@ func ensureSupportedTuning(tuningCfg *config.TuningConfig, fatalf logfFunc) {
 	}
 }
 
-func deprecatedLidarFlagWarnings(explicitFlags map[string]bool, tuningCfg *config.TuningConfig, configPath string) []string {
-	var warnings []string
-	if explicitFlags["lidar-sensor"] {
-		warnings = append(warnings, fmt.Sprintf("Warning: --lidar-sensor is deprecated; using l1.sensor=%q from %s", tuningCfg.GetSensor(), configPath))
-	}
-	if explicitFlags["lidar-udp-port"] {
-		warnings = append(warnings, fmt.Sprintf("Warning: --lidar-udp-port is deprecated; using l1.udp_port=%d from %s", tuningCfg.GetUDPPort(), configPath))
-	}
-	if explicitFlags["lidar-forward-port"] {
-		warnings = append(warnings, fmt.Sprintf("Warning: --lidar-forward-port is deprecated; using l1.forward_port=%d from %s", tuningCfg.GetForwardPort(), configPath))
-	}
-	if explicitFlags["lidar-foreground-forward-port"] {
-		warnings = append(warnings, fmt.Sprintf("Warning: --lidar-foreground-forward-port is deprecated; using l1.foreground_forward_port=%d from %s", tuningCfg.GetForegroundForwardPort(), configPath))
-	}
-	return warnings
-}
-
 func tuningHashOrWarn(tuningCfg *config.TuningConfig, warnf logfFunc) string {
 	tuningJSON, err := marshalTuningJSON(tuningCfg)
 	if err != nil {
