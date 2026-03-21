@@ -136,6 +136,9 @@ func (db *DB) GetRecentReportsForSite(ctx context.Context, siteID int, limit int
 		}
 		reports = append(reports, report)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating site reports: %w", err)
+	}
 
 	return reports, nil
 }
@@ -178,6 +181,9 @@ func (db *DB) GetRecentReportsAllSites(ctx context.Context, limit int) ([]SiteRe
 			return nil, fmt.Errorf("failed to scan site report: %w", err)
 		}
 		reports = append(reports, report)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating site reports: %w", err)
 	}
 
 	return reports, nil

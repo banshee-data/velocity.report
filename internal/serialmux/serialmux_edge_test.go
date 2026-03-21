@@ -444,7 +444,7 @@ func TestHandleConfigResponse_EdgeCases(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Reset state before each test
-			ResetCurrentState()
+			resetCurrentState()
 
 			err := HandleConfigResponse(tc.payload)
 			if tc.expectError && err == nil {
@@ -459,7 +459,7 @@ func TestHandleConfigResponse_EdgeCases(t *testing.T) {
 
 // TestHandleConfigResponse_AccumulatesState tests that state accumulates
 func TestHandleConfigResponse_AccumulatesState(t *testing.T) {
-	ResetCurrentState()
+	resetCurrentState()
 
 	// First response
 	if err := HandleConfigResponse(`{"key1":"value1"}`); err != nil {
