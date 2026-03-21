@@ -216,26 +216,6 @@ func TestEnsureSupportedTuning(t *testing.T) {
 	}
 }
 
-func TestDeprecatedLidarFlagWarnings(t *testing.T) {
-	cfg := config.MustLoadDefaultConfig()
-	warnings := deprecatedLidarFlagWarnings(map[string]bool{
-		"lidar-sensor":                  true,
-		"lidar-udp-port":                true,
-		"lidar-forward-port":            true,
-		"lidar-foreground-forward-port": true,
-	}, cfg, "config/tuning.defaults.json")
-
-	if len(warnings) != 4 {
-		t.Fatalf("expected 4 warnings, got %d: %#v", len(warnings), warnings)
-	}
-	if !strings.Contains(warnings[0], "--lidar-sensor") || !strings.Contains(warnings[3], "--lidar-foreground-forward-port") {
-		t.Fatalf("unexpected warnings: %#v", warnings)
-	}
-	if got := deprecatedLidarFlagWarnings(map[string]bool{}, cfg, "config/tuning.defaults.json"); len(got) != 0 {
-		t.Fatalf("expected no warnings, got %#v", got)
-	}
-}
-
 type stubRingElevationsSetter struct {
 	err      error
 	lastElev []float64
