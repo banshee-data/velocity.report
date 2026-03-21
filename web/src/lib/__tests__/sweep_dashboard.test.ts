@@ -65,7 +65,6 @@ const {
 	pollAutoTuneStatus,
 	comboLabel,
 	formatParamValues,
-	normaliseParamMap,
 	extractEditableTuningParams,
 	renderRecommendation,
 	renderTable,
@@ -487,38 +486,9 @@ describe('formatParamValues', () => {
 		const params = { unknown_param: 42 };
 		expect(formatParamValues(params)).toContain('unknown_param=42');
 	});
-
-	it('normalises legacy flat keys before formatting', () => {
-		const formatted = formatParamValues({
-			background_update_fraction: 0.02,
-			safety_margin_meters: 0.5
-		});
-		expect(formatted).toContain('Background Update Fraction=0.0200');
-		expect(formatted).toContain('Safety Margin (m)=0.5000');
-	});
 });
 
 describe('param normalisation helpers', () => {
-	it('normaliseParamMap flattens nested config and canonicalises legacy names', () => {
-		expect(
-			normaliseParamMap({
-				l3: {
-					ema_baseline_v1: {
-						noise_relative: 0.05,
-						neighbor_confirmation_count: 3,
-						safety_margin_meters: 0.4
-					}
-				},
-				background_update_fraction: 0.02
-			})
-		).toEqual({
-			'l3.ema_baseline_v1.noise_relative': 0.05,
-			'l3.ema_baseline_v1.neighbour_confirmation_count': 3,
-			'l3.ema_baseline_v1.safety_margin_metres': 0.4,
-			'l3.ema_baseline_v1.background_update_fraction': 0.02
-		});
-	});
-
 	it('extractEditableTuningParams keeps only supported tuning params', () => {
 		expect(
 			extractEditableTuningParams({

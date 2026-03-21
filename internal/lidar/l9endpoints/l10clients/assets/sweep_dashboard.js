@@ -242,16 +242,6 @@ var PARAM_SCHEMA = {
   },
 };
 
-var LEGACY_PARAM_ALIASES = {
-  neighbor_confirmation_count:
-    "l3.ema_baseline_v1.neighbour_confirmation_count",
-  "l3.ema_baseline_v1.neighbor_confirmation_count":
-    "l3.ema_baseline_v1.neighbour_confirmation_count",
-  safety_margin_meters: "l3.ema_baseline_v1.safety_margin_metres",
-  "l3.ema_baseline_v1.safety_margin_meters":
-    "l3.ema_baseline_v1.safety_margin_metres",
-};
-
 function buildParamSuffixMap(schema) {
   var suffixCounts = {};
   Object.keys(schema).forEach(function (key) {
@@ -267,12 +257,6 @@ function buildParamSuffixMap(schema) {
     }
   });
 
-  Object.keys(LEGACY_PARAM_ALIASES).forEach(function (alias) {
-    if (alias.indexOf(".") === -1) {
-      suffixMap[alias] = LEGACY_PARAM_ALIASES[alias];
-    }
-  });
-
   return suffixMap;
 }
 
@@ -285,9 +269,6 @@ function isParamObject(value) {
 function canonicalParamKey(key) {
   if (PARAM_SCHEMA[key]) {
     return key;
-  }
-  if (LEGACY_PARAM_ALIASES[key]) {
-    return LEGACY_PARAM_ALIASES[key];
   }
   if (key.indexOf(".") === -1 && PARAM_SUFFIX_MAP[key]) {
     return PARAM_SUFFIX_MAP[key];
