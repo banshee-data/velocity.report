@@ -1108,6 +1108,8 @@ lint-go:
 	fi
 	@echo "Checking database/sql import boundary..."
 	@bash scripts/check-db-sql-imports.sh
+	@echo "Checking SQLite driver standardisation..."
+	@bash scripts/check-single-sqlite-driver.sh
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."
