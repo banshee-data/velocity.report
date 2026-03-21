@@ -13,10 +13,10 @@ Documentation structure, scope, and naming conventions.
 
 ## /docs/ root structure
 
+- `/data/` # Stable data references, maths notes, and explorations
 - `/docs/lidar/` # LiDAR pipeline and sensor
 - `/docs/radar/` # Radar sensor processing
 - `/docs/ui/` # Web, mac, PDF clients
-- `/data/` # Stable data references, maths notes, and explorations
 - `/docs/plans/` # Implementation plans, roadmap
 - `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
 - `/docs/DECISIONS.md` # Resolved executive decisions register
