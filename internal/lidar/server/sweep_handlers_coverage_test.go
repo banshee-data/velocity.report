@@ -10,7 +10,7 @@ import (
 	"time"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // setupSweepStoreWithRecord creates a test sweep store with one record inserted.

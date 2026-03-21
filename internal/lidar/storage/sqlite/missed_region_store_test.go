@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func insertAnalysisRunForMissedRegions(t *testing.T, db *sql.DB, runID string) {
@@ -98,7 +98,7 @@ func TestMissedRegionStore_InsertListDelete(t *testing.T) {
 }
 
 func TestMissedRegionStore_ErrorPaths(t *testing.T) {
-	dbNoTable, err := sql.Open("sqlite3", ":memory:")
+	dbNoTable, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestMissedRegionStore_ErrorPaths(t *testing.T) {
 }
 
 func TestMissedRegionStore_ListByRun_ScanError(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open sqlite db: %v", err)
 	}

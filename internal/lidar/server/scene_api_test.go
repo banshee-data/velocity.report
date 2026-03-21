@@ -11,13 +11,13 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // setupTestSceneAPIDB creates a test database with required tables.
 func setupTestSceneAPIDB(t *testing.T) *db.DB {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}

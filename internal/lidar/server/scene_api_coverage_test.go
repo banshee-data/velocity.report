@@ -16,6 +16,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	_ "modernc.org/sqlite"
 )
 
 // --- handleUpdateScene additional coverage ---
@@ -481,7 +482,7 @@ func TestCov_HandleListSceneEvaluations_GET(t *testing.T) {
 // schema so that InsertRun succeeds (the original helper only has 2 columns).
 func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}

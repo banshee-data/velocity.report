@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type mockSweepHandlerRunner struct {
@@ -293,7 +293,7 @@ func TestSweepHandlers_AutoTune(t *testing.T) {
 // setupTestSweepStoreForHandlers creates an in-memory database and SweepStore for handler testing
 func setupTestSweepStoreForHandlers(t *testing.T) (*sql.DB, *sqlite.SweepStore) {
 	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}

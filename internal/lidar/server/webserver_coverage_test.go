@@ -26,6 +26,7 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 // --- SetSweepStore ---
@@ -319,7 +320,7 @@ func searchString(s, substr string) bool {
 // setupCov2Server creates a minimal Server with DB and sensorID for testing.
 func setupCov2Server(t *testing.T) *Server {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -1572,7 +1573,7 @@ func TestCov2_ResetAllState_NoManagerNoBuilder(t *testing.T) {
 // setupCov3Server creates a Server with correct schema for coverage tests.
 func setupCov3Server(t *testing.T) *Server {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -3274,7 +3275,7 @@ func TestCov3_RegisterRoutes(t *testing.T) {
 
 func setupTrackDB(t *testing.T) *sql.DB {
 	t.Helper()
-	rawDB, err := sql.Open("sqlite3", ":memory:")
+	rawDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open track db: %v", err)
 	}
@@ -3866,7 +3867,7 @@ func TestCov3_HandlePCAPStop_FormValueSensorID(t *testing.T) {
 // setupCov4Server creates a Server with correct schema for coverage4 tests.
 func setupCov4Server(t *testing.T) *Server {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -4571,7 +4572,7 @@ func TestCov4_HandleBackgroundRegionsDashboard(t *testing.T) {
 // setupCov5Server creates a minimal Server for targeted coverage tests.
 func setupCov5Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -5098,7 +5099,7 @@ func TestCov5_HandleExportForegroundASC(t *testing.T) {
 // for targeted coverage tests that need snapshot DB access.
 func setupCov6Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", ":memory:")
+	sqlDB, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
 	t.Cleanup(func() { sqlDB.Close() })
 
