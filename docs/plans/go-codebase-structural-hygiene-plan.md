@@ -35,20 +35,20 @@ conventions become contracts.
 | `cmd/tools/` boundary compliance      | Implemented     | Implemented | `cmd/tools/backfill_ring_elevations/backfill.go` no longer imports `database/sql` directly                                                                                                |
 | LiDAR server / endpoint package split | Not implemented | In progress | This branch adds `internal/lidar/server/`, `internal/lidar/l8analytics/`, and `internal/lidar/l9endpoints/`; `main` still uses `internal/lidar/monitor/` and `internal/lidar/visualiser/` |
 | Single SQLite driver policy           | Not implemented | Implemented | `main` still carries `github.com/mattn/go-sqlite3` in tests and `go.mod`; this branch standardises on `modernc.org/sqlite` and adds `scripts/check-single-sqlite-driver.sh`               |
-| Context propagation                   | Not implemented | Implemented | 8 `_ = r` placeholders removed from `internal/api/server.go`; 10 DB methods in `site.go`/`site_report.go` now accept `context.Context` and use `*Context` SQL methods                    |
-| `serialmux.CurrentState` race         | Not implemented | Implemented | Replaced unsynchronised map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()` and `ResetCurrentState()`                                                        |
+| Context propagation                   | Not implemented | Implemented | 8 `_ = r` placeholders removed from `internal/api/server.go`; 10 DB methods in `site.go`/`site_report.go` now accept `context.Context` and use `*Context` SQL methods                     |
+| `serialmux.CurrentState` race         | Not implemented | Implemented | Replaced unsynchronised map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()`; unexported test helper `resetCurrentState`                                       |
 
 ## Updated Findings
 
-| Category                   | Current state                                                                                                                                                                        | Severity | Release view                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | -------------------------------------------- |
-| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants                                           | ~~Critical~~ | **Done**                                 |
-| God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints`                               | High     | Continue via companion plans                 |
-| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                                                      | ~~High~~ | **Done**                                     |
-| Query-boundary leak        | `internal/api/lidar_labels.go` still contains raw SQL even though the import boundary is fixed                                                                                       | Medium   | Move before the API/storage boundary settles |
-| JSON tag inconsistency     | `internal/db/db.go` `EventAPI` still uses PascalCase JSON tags                                                                                                                       | Medium   | Must land before v0.5.0 API freeze           |
-| Silent error drops         | Still present in `internal/db/db.go`, `internal/lidar/l3grid/export_bg_snapshot.go`, `internal/lidar/server/datasource_handlers.go`, and `internal/lidar/server/echarts_handlers.go` | Medium   | Clean up in v0.5.0 or v0.5.1                 |
-| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                                                  | Low      | Worth reducing in early v0.5.x               |
+| Category                   | Current state                                                                                                                                                                        | Severity     | Release view                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | -------------------------------------------- |
+| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants                                            | ~~Critical~~ | **Done**                                     |
+| God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints`                               | High         | Continue via companion plans                 |
+| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                                                       | ~~High~~     | **Done**                                     |
+| Query-boundary leak        | `internal/api/lidar_labels.go` still contains raw SQL even though the import boundary is fixed                                                                                       | Medium       | Move before the API/storage boundary settles |
+| JSON tag inconsistency     | `internal/db/db.go` `EventAPI` still uses PascalCase JSON tags                                                                                                                       | Medium       | Must land before v0.5.0 API freeze           |
+| Silent error drops         | Still present in `internal/db/db.go`, `internal/lidar/l3grid/export_bg_snapshot.go`, `internal/lidar/server/datasource_handlers.go`, and `internal/lidar/server/echarts_handlers.go` | Medium       | Clean up in v0.5.0 or v0.5.1                 |
+| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                                                  | Low          | Worth reducing in early v0.5.x               |
 
 ## What The Original Draft Got Right, And What Changed
 
@@ -143,7 +143,7 @@ var (
 
 `HandleConfigResponse` holds the write lock while mutating the map. Callers read via
 `CurrentStateSnapshot()` (returns a shallow copy under `RLock`). Tests reset state via
-`ResetCurrentState()`. Verified with `go test -race`.
+`resetCurrentState()`. Verified with `go test -race`.
 
 ### 3. `EventAPI` still violates the JSON naming convention
 

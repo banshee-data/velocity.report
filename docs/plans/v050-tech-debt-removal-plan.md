@@ -140,19 +140,19 @@ defer to v0.5.1 if the sprint runs short.
 
 #### B3. Context propagation in HTTP handlers
 
-| Detail                | Value                                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Location**          | `internal/api/server.go`, `internal/db/site.go`, `internal/db/site_report.go`                                                                               |
+| Detail                | Value                                                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Location**          | `internal/api/server.go`, `internal/db/site.go`, `internal/db/site_report.go`                                                                                                |
 | **Decision**          | **Complete.** Removed 8 `_ = r` placeholders; added `context.Context` to 10 DB methods; switched to `ExecContext`/`QueryContext`/`QueryRowContext`; added cancellation test. |
-| **Existing plan ref** | [Structural hygiene plan Item 1](go-codebase-structural-hygiene-plan.md)                                                                                     |
+| **Existing plan ref** | [Structural hygiene plan Item 1](go-codebase-structural-hygiene-plan.md)                                                                                                     |
 
 #### B4. `serialmux.CurrentState` race condition
 
-| Detail                | Value                                                                                                                                               |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Location**          | `internal/serialmux/handlers.go`                                                                                                                    |
-| **Decision**          | **Complete.** Replaced unsynchronised package-level map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()` and `ResetCurrentState()`. |
-| **Existing plan ref** | [Structural hygiene plan Item 2](go-codebase-structural-hygiene-plan.md)                                                                            |
+| Detail                | Value                                                                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Location**          | `internal/serialmux/handlers.go`                                                                                                                                                                                        |
+| **Decision**          | **Complete.** Replaced unsynchronised package-level map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()`; unexported test helper to `resetCurrentState`; clarified shallow-copy doc comment. |
+| **Existing plan ref** | [Structural hygiene plan Item 2](go-codebase-structural-hygiene-plan.md)                                                                                                                                                |
 
 #### B5. Config restructure Phase 2B — experiment contract
 
