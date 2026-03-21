@@ -388,11 +388,8 @@ func (ws *Server) Start(ctx context.Context) error {
 	defer cancel()
 
 	if err := ws.server.Shutdown(shutdownCtx); err != nil {
-		opsf("HTTP server shutdown error: %v", err)
-		// Force close the server if graceful shutdown fails
-		if err := ws.server.Close(); err != nil {
-			opsf("HTTP server force close error: %v", err)
-		}
+		opsf("HTTP server shutdown error: %v, forcing close", err)
+		_ = ws.server.Close()
 	}
 
 	diagf("HTTP server routine stopped")
