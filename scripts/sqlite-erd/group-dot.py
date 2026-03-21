@@ -20,9 +20,10 @@ CLUSTERS = (
 # emitted into that subgroup. Remaining lidar tables go into a third "other"
 # subgroup. Adjust these anchors if the schema grows new lidar domains.
 LIDAR_SUBGROUP_ROOTS = (
-    ("analysis_runs", "lidar_analysis_runs"),
+    ("analysis_runs", "lidar_run_records"),
     ("tracks", "lidar_tracks"),
 )
+ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
 
 # Large lidar subgroups are packed into 2-4 inner columns so they stay wide
 # without forcing explicit node coordinates. The target weight is a rough table
@@ -38,13 +39,18 @@ LIDAR_SUBGROUP_TARGET_WEIGHT = 36
 LIDAR_SUBGROUP_COLUMN_OVERRIDES = {
     "analysis_runs": [
         ["lidar_run_tracks"],
-        ["lidar_evaluations"],
-        ["lidar_missed_regions", "lidar_scenes"],
-        ["lidar_analysis_runs"],
+        ["lidar_replay_evaluations"],
+        ["lidar_run_missed_regions", "lidar_replay_cases"],
+        ["lidar_run_records"],
+    ],
+    "tracks": [
+        ["lidar_track_observations"],
+        ["lidar_track_annotations"],
+        ["lidar_tracks"],
     ],
     "other": [
         ["lidar_bg_snapshot", "lidar_bg_regions"],
-        ["lidar_sweeps"],
+        ["lidar_tuning_sweeps"],
         ["lidar_clusters"],
     ],
 }
@@ -141,8 +147,15 @@ def dependency_components(tables, parents, children):
 def split_lidar_subgroups(tables, parents, children):
     subgroups = {name: [] for name, _ in LIDAR_SUBGROUP_ROOTS}
     subgroups["other"] = []
+    available_names = {name for name, _ in tables}
 
     components = dependency_components(tables, parents, children)
+    for _, root_name in LIDAR_SUBGROUP_ROOTS:
+        if root_name not in available_names:
+            sys.stderr.write(
+                f"Warning: lidar subgroup root '{root_name}' was not found; "
+                "falling back to the 'other' subgroup where needed.\n"
+            )
     for component in components:
         component_names = set(component["names"])
         target_subgroup = "other"
@@ -171,38 +184,11 @@ def split_names_into_columns(names, table_lookup, column_count):
     if column_count == 1:
         return [names]
 
-    weights = [node_weight(table_lookup[name]) for name in names]
-    prefix = [0]
-    for weight in weights:
-        prefix.append(prefix[-1] + weight)
-
-    total_names = len(names)
-    inf = float("inf")
-    best = [[inf] * (column_count + 1) for _ in range(total_names + 1)]
-    split_at = [[-1] * (column_count + 1) for _ in range(total_names + 1)]
-    best[0][0] = 0
-
-    for name_count in range(1, total_names + 1):
-        for columns_used in range(1, min(column_count, name_count) + 1):
-            for previous_count in range(columns_used - 1, name_count):
-                candidate = max(
-                    best[previous_count][columns_used - 1],
-                    prefix[name_count] - prefix[previous_count],
-                )
-                if candidate < best[name_count][columns_used]:
-                    best[name_count][columns_used] = candidate
-                    split_at[name_count][columns_used] = previous_count
-
-    columns = []
-    name_count = total_names
-    columns_used = column_count
-    while columns_used > 0:
-        previous_count = split_at[name_count][columns_used]
-        columns.append(names[previous_count:name_count])
-        name_count = previous_count
-        columns_used -= 1
-
-    columns.reverse()
+    columns = balanced_partition(
+        names,
+        [node_weight(table_lookup[name]) for name in names],
+        column_count,
+    )
     return [column for column in columns if column]
 
 
@@ -215,45 +201,54 @@ def split_level_groups_into_columns(level_groups, table_lookup, column_count):
     if column_count == len(filtered_levels):
         return filtered_levels
 
-    level_weights = [
-        sum(node_weight(table_lookup[name]) for name in level_names)
-        for level_names in filtered_levels
+    columns = balanced_partition(
+        filtered_levels,
+        [
+            sum(node_weight(table_lookup[name]) for name in level_names)
+            for level_names in filtered_levels
+        ],
+        column_count,
+    )
+    return [
+        [name for level_names in column_levels for name in level_names]
+        for column_levels in columns
+        if column_levels
     ]
+
+
+def balanced_partition(items, weights, column_count):
+    total_items = len(items)
+    inf = float("inf")
     prefix = [0]
-    for weight in level_weights:
+    for weight in weights:
         prefix.append(prefix[-1] + weight)
 
-    total_levels = len(filtered_levels)
-    inf = float("inf")
-    best = [[inf] * (column_count + 1) for _ in range(total_levels + 1)]
-    split_at = [[-1] * (column_count + 1) for _ in range(total_levels + 1)]
+    best = [[inf] * (column_count + 1) for _ in range(total_items + 1)]
+    split_at = [[-1] * (column_count + 1) for _ in range(total_items + 1)]
     best[0][0] = 0
 
-    for level_count in range(1, total_levels + 1):
-        for columns_used in range(1, min(column_count, level_count) + 1):
-            for previous_count in range(columns_used - 1, level_count):
+    for item_count in range(1, total_items + 1):
+        for columns_used in range(1, min(column_count, item_count) + 1):
+            for previous_count in range(columns_used - 1, item_count):
                 candidate = max(
                     best[previous_count][columns_used - 1],
-                    prefix[level_count] - prefix[previous_count],
+                    prefix[item_count] - prefix[previous_count],
                 )
-                if candidate < best[level_count][columns_used]:
-                    best[level_count][columns_used] = candidate
-                    split_at[level_count][columns_used] = previous_count
+                if candidate < best[item_count][columns_used]:
+                    best[item_count][columns_used] = candidate
+                    split_at[item_count][columns_used] = previous_count
 
-    columns = []
-    level_count = total_levels
+    partitions = []
+    item_count = total_items
     columns_used = column_count
     while columns_used > 0:
-        previous_count = split_at[level_count][columns_used]
-        column_names = []
-        for level_names in filtered_levels[previous_count:level_count]:
-            column_names.extend(level_names)
-        columns.append(column_names)
-        level_count = previous_count
+        previous_count = split_at[item_count][columns_used]
+        partitions.append(items[previous_count:item_count])
+        item_count = previous_count
         columns_used -= 1
 
-    columns.reverse()
-    return [column for column in columns if column]
+    partitions.reverse()
+    return partitions
 
 
 def manual_lidar_subgroup_columns(subgroup_name, names):
@@ -266,6 +261,10 @@ def manual_lidar_subgroup_columns(subgroup_name, names):
         name for column_names in override_columns for name in column_names
     }
     if available_names != specified_names:
+        sys.stderr.write(
+            f"Warning: ignoring lidar subgroup override '{subgroup_name}' due to "
+            "schema mismatch.\n"
+        )
         return None
 
     return [list(column_names) for column_names in override_columns]
@@ -288,7 +287,7 @@ def emit_lidar_subgroup(output_lines, subgroup_name, names, table_lookup, parent
     columns = manual_lidar_subgroup_columns(subgroup_name, names)
     if columns is None:
         column_count = lidar_subgroup_column_count(names, table_lookup)
-        if subgroup_name in {name for name, _ in LIDAR_SUBGROUP_ROOTS}:
+        if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
             columns = list(
                 reversed(
                     split_level_groups_into_columns(

@@ -14,6 +14,24 @@ LAYOUT_ENGINE="${SCHEMA_LAYOUT_ENGINE:-osage}"
 DOT_FILE="$DEFAULT_DOT_FILE"
 SVG_FILE="$DEFAULT_SVG_FILE"
 INPUT_FILE=""
+TEMP_FILES=()
+
+cleanup_temp_files() {
+  if [ ${#TEMP_FILES[@]} -gt 0 ]; then
+    rm -f "${TEMP_FILES[@]}"
+  fi
+}
+
+make_temp_file() {
+  local template="$1"
+  local temp_file
+
+  temp_file=$(mktemp -t "$template")
+  TEMP_FILES+=("$temp_file")
+  printf '%s\n' "$temp_file"
+}
+
+trap cleanup_temp_files EXIT
 
 usage() {
   cat <<EOF
@@ -56,35 +74,30 @@ render_dot() {
   local svg_output="$2"
   local tmp_output
 
-  tmp_output=$(mktemp -t schema_svg)
+  tmp_output=$(make_temp_file schema_svg)
   case "$MODE" in
     current)
       if ! command -v "$LAYOUT_ENGINE" >/dev/null 2>&1; then
         echo "Error: Graphviz layout engine '$LAYOUT_ENGINE' not found" >&2
-        rm -f "$tmp_output"
         exit 1
       fi
       if ! "$LAYOUT_ENGINE" -Gpack=true "-Gpackmode=array_i${PACK_COLUMNS}" -Gsplines=curved -Tsvg "$dot_input" >"$tmp_output"; then
         echo "Error: failed to render schema SVG with Graphviz '$LAYOUT_ENGINE'" >&2
-        rm -f "$tmp_output"
         exit 1
       fi
       ;;
     minimal)
       if ! command -v dot >/dev/null 2>&1; then
         echo "Error: Graphviz 'dot' not found" >&2
-        rm -f "$tmp_output"
         exit 1
       fi
       if ! dot -Tsvg "$dot_input" >"$tmp_output"; then
         echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
-        rm -f "$tmp_output"
         exit 1
       fi
       ;;
     *)
       echo "Error: unsupported mode '$MODE' (expected 'current' or 'minimal')" >&2
-      rm -f "$tmp_output"
       exit 1
       ;;
   esac
@@ -96,15 +109,17 @@ generate_dot() {
   local schema_file="$1"
   local dot_output="$2"
   local temp_db
+  local tmp_dot_output
 
   require_file "$schema_file" "Schema file"
   require_file "$SCRIPT_DIR/sqlite_graph.sql" "sqlite_graph.sql"
   require_file "$SCRIPT_DIR/group-dot.py" "group-dot.py"
 
-  temp_db=$(mktemp -t schema_db)
+  temp_db=$(make_temp_file schema_db)
+  tmp_dot_output=$(make_temp_file schema_dot)
   sqlite3 "$temp_db" < "$schema_file"
-  sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" >"$dot_output"
-  rm -f "$temp_db"
+  sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" >"$tmp_dot_output"
+  mv "$tmp_dot_output" "$dot_output"
 }
 
 while [ $# -gt 0 ]; do

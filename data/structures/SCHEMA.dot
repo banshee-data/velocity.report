@@ -237,20 +237,8 @@ subgraph cluster_lidar {
                                          <TD PORT="avg_speed_mps_from">avg_speed_mps</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="peak_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="peak_speed_mps_from">peak_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p50_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p50_speed_mps_from">p50_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p85_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p85_speed_mps_from">p85_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p95_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p95_speed_mps_from">p95_speed_mps</TD>
+                                         <TD PORT="max_speed_mps_to">&nbsp;</TD>
+                                         <TD PORT="max_speed_mps_from">max_speed_mps</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="bounding_box_length_avg_to">&nbsp;</TD>
@@ -325,18 +313,18 @@ subgraph cluster_lidar {
     }
     subgraph lidar_analysis_runs_col2 {
       rank=same;
-      lidar_evaluations [label=<
+      lidar_replay_evaluations [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_evaluations</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_replay_evaluations</B></TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="evaluation_id_to">🔑</TD>
                                          <TD PORT="evaluation_id_from">evaluation_id</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="scene_id_to">&nbsp;</TD>
-                                         <TD PORT="scene_id_from">scene_id</TD>
+                                         <TD PORT="replay_case_id_to">&nbsp;</TD>
+                                         <TD PORT="replay_case_id_from">replay_case_id</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="reference_run_id_to">&nbsp;</TD>
@@ -407,10 +395,10 @@ subgraph cluster_lidar {
     }
     subgraph lidar_analysis_runs_col3 {
       rank=same;
-      lidar_missed_regions [label=<
+      lidar_run_missed_regions [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_missed_regions</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_run_missed_regions</B></TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="region_id_to">🔑</TD>
@@ -458,14 +446,14 @@ subgraph cluster_lidar {
                                      </TR>
                                  </TABLE>
                              >];
-      lidar_scenes [label=<
+      lidar_replay_cases [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_scenes</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_replay_cases</B></TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="scene_id_to">🔑</TD>
-                                         <TD PORT="scene_id_from">scene_id</TD>
+                                         <TD PORT="replay_case_id_to">🔑</TD>
+                                         <TD PORT="replay_case_id_from">replay_case_id</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="sensor_id_to">&nbsp;</TD>
@@ -508,10 +496,10 @@ subgraph cluster_lidar {
     }
     subgraph lidar_analysis_runs_col4 {
       rank=same;
-      lidar_analysis_runs [label=<
+      lidar_run_records [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_analysis_runs</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_run_records</B></TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="run_id_to">🔑</TD>
@@ -588,73 +576,18 @@ subgraph cluster_lidar {
                                  </TABLE>
                              >];
     }
-    lidar_run_tracks -> lidar_evaluations [style="invis", weight=50];
-    lidar_evaluations -> lidar_missed_regions [style="invis", weight=50];
-    lidar_missed_regions -> lidar_analysis_runs [style="invis", weight=50];
+    lidar_run_tracks -> lidar_replay_evaluations [style="invis", weight=50];
+    lidar_replay_evaluations -> lidar_run_missed_regions [style="invis", weight=50];
+    lidar_run_missed_regions -> lidar_run_records [style="invis", weight=50];
   }
   subgraph cluster_lidar_tracks {
     graph [style="invis"];
     subgraph lidar_tracks_col1 {
       rank=same;
-      lidar_labels [label=<
+      lidar_track_observations [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_labels</B></TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="label_id_to">🔑</TD>
-                                         <TD PORT="label_id_from">label_id</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="track_id_to">&nbsp;</TD>
-                                         <TD PORT="track_id_from">track_id</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="class_label_to">&nbsp;</TD>
-                                         <TD PORT="class_label_from">class_label</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="start_timestamp_ns_to">&nbsp;</TD>
-                                         <TD PORT="start_timestamp_ns_from">start_timestamp_ns</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="end_timestamp_ns_to">&nbsp;</TD>
-                                         <TD PORT="end_timestamp_ns_from">end_timestamp_ns</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="confidence_to">&nbsp;</TD>
-                                         <TD PORT="confidence_from">confidence</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="created_by_to">&nbsp;</TD>
-                                         <TD PORT="created_by_from">created_by</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="created_at_ns_to">&nbsp;</TD>
-                                         <TD PORT="created_at_ns_from">created_at_ns</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="updated_at_ns_to">&nbsp;</TD>
-                                         <TD PORT="updated_at_ns_from">updated_at_ns</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="notes_to">&nbsp;</TD>
-                                         <TD PORT="notes_from">notes</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="scene_id_to">&nbsp;</TD>
-                                         <TD PORT="scene_id_from">scene_id</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="source_file_to">&nbsp;</TD>
-                                         <TD PORT="source_file_from">source_file</TD>
-                                     </TR>
-                                 </TABLE>
-                             >];
-      lidar_track_obs [label=<
-                                 <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
-                                     <TR>
-                                         <TD COLSPAN="2"><B>lidar_track_obs</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_track_observations</B></TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="track_id_to">🔑</TD>
@@ -665,8 +598,8 @@ subgraph cluster_lidar {
                                          <TD PORT="ts_unix_nanos_from">ts_unix_nanos</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="world_frame_to">&nbsp;</TD>
-                                         <TD PORT="world_frame_from">world_frame</TD>
+                                         <TD PORT="frame_id_to">&nbsp;</TD>
+                                         <TD PORT="frame_id_from">frame_id</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="x_to">&nbsp;</TD>
@@ -721,6 +654,64 @@ subgraph cluster_lidar {
     }
     subgraph lidar_tracks_col2 {
       rank=same;
+      lidar_track_annotations [label=<
+                                 <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                                     <TR>
+                                         <TD COLSPAN="2"><B>lidar_track_annotations</B></TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="label_id_to">🔑</TD>
+                                         <TD PORT="label_id_from">label_id</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="track_id_to">&nbsp;</TD>
+                                         <TD PORT="track_id_from">track_id</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="class_label_to">&nbsp;</TD>
+                                         <TD PORT="class_label_from">class_label</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="start_timestamp_ns_to">&nbsp;</TD>
+                                         <TD PORT="start_timestamp_ns_from">start_timestamp_ns</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="end_timestamp_ns_to">&nbsp;</TD>
+                                         <TD PORT="end_timestamp_ns_from">end_timestamp_ns</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="confidence_to">&nbsp;</TD>
+                                         <TD PORT="confidence_from">confidence</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="created_by_to">&nbsp;</TD>
+                                         <TD PORT="created_by_from">created_by</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="created_at_ns_to">&nbsp;</TD>
+                                         <TD PORT="created_at_ns_from">created_at_ns</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="updated_at_ns_to">&nbsp;</TD>
+                                         <TD PORT="updated_at_ns_from">updated_at_ns</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="notes_to">&nbsp;</TD>
+                                         <TD PORT="notes_from">notes</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="replay_case_id_to">&nbsp;</TD>
+                                         <TD PORT="replay_case_id_from">replay_case_id</TD>
+                                     </TR>
+                                     <TR>
+                                         <TD PORT="source_file_to">&nbsp;</TD>
+                                         <TD PORT="source_file_from">source_file</TD>
+                                     </TR>
+                                 </TABLE>
+                             >];
+    }
+    subgraph lidar_tracks_col3 {
+      rank=same;
       lidar_tracks [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
@@ -735,8 +726,8 @@ subgraph cluster_lidar {
                                          <TD PORT="sensor_id_from">sensor_id</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="world_frame_to">&nbsp;</TD>
-                                         <TD PORT="world_frame_from">world_frame</TD>
+                                         <TD PORT="frame_id_to">&nbsp;</TD>
+                                         <TD PORT="frame_id_from">frame_id</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="track_state_to">&nbsp;</TD>
@@ -759,20 +750,8 @@ subgraph cluster_lidar {
                                          <TD PORT="avg_speed_mps_from">avg_speed_mps</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="peak_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="peak_speed_mps_from">peak_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p50_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p50_speed_mps_from">p50_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p85_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p85_speed_mps_from">p85_speed_mps</TD>
-                                     </TR>
-                                     <TR>
-                                         <TD PORT="p95_speed_mps_to">&nbsp;</TD>
-                                         <TD PORT="p95_speed_mps_from">p95_speed_mps</TD>
+                                         <TD PORT="max_speed_mps_to">&nbsp;</TD>
+                                         <TD PORT="max_speed_mps_from">max_speed_mps</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="bounding_box_length_avg_to">&nbsp;</TD>
@@ -833,7 +812,8 @@ subgraph cluster_lidar {
                                  </TABLE>
                              >];
     }
-    lidar_labels -> lidar_tracks [style="invis", weight=50];
+    lidar_track_observations -> lidar_track_annotations [style="invis", weight=50];
+    lidar_track_annotations -> lidar_tracks [style="invis", weight=50];
   }
   subgraph cluster_lidar_other {
     graph [style="invis"];
@@ -924,8 +904,8 @@ subgraph cluster_lidar {
                                          <TD PORT="settling_frames_from">settling_frames</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="scene_hash_to">&nbsp;</TD>
-                                         <TD PORT="scene_hash_from">scene_hash</TD>
+                                         <TD PORT="grid_hash_to">&nbsp;</TD>
+                                         <TD PORT="grid_hash_from">grid_hash</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="source_path_to">&nbsp;</TD>
@@ -936,10 +916,10 @@ subgraph cluster_lidar {
     }
     subgraph lidar_other_col2 {
       rank=same;
-      lidar_sweeps [label=<
+      lidar_tuning_sweeps [label=<
                                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
                                      <TR>
-                                         <TD COLSPAN="2"><B>lidar_sweeps</B></TD>
+                                         <TD COLSPAN="2"><B>lidar_tuning_sweeps</B></TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="id_to">🔑</TD>
@@ -1060,8 +1040,8 @@ subgraph cluster_lidar {
                                          <TD PORT="sensor_id_from">sensor_id</TD>
                                      </TR>
                                      <TR>
-                                         <TD PORT="world_frame_to">&nbsp;</TD>
-                                         <TD PORT="world_frame_from">world_frame</TD>
+                                         <TD PORT="frame_id_to">&nbsp;</TD>
+                                         <TD PORT="frame_id_from">frame_id</TD>
                                      </TR>
                                      <TR>
                                          <TD PORT="ts_unix_nanos_to">&nbsp;</TD>
@@ -1118,10 +1098,10 @@ subgraph cluster_lidar {
                                  </TABLE>
                              >];
     }
-    lidar_bg_snapshot -> lidar_sweeps [style="invis", weight=50];
-    lidar_sweeps -> lidar_clusters [style="invis", weight=50];
+    lidar_bg_snapshot -> lidar_tuning_sweeps [style="invis", weight=50];
+    lidar_tuning_sweeps -> lidar_clusters [style="invis", weight=50];
   }
-  lidar_analysis_runs -> lidar_labels [style="invis", weight=50];
+  lidar_run_records -> lidar_track_observations [style="invis", weight=50];
   lidar_tracks -> lidar_bg_snapshot [style="invis", weight=50];
 }
 subgraph cluster_radar {
@@ -1307,14 +1287,14 @@ schema_migrations [label=<
                            </TABLE>
                        >];
 lidar_bg_regions:snapshot_id_from:e -> lidar_bg_snapshot:snapshot_id_to:w
-lidar_evaluations:candidate_run_id_from:e -> lidar_analysis_runs:run_id_to:w
-lidar_evaluations:reference_run_id_from:e -> lidar_analysis_runs:run_id_to:w
-lidar_evaluations:scene_id_from:e -> lidar_scenes:scene_id_to:w
-lidar_labels:track_id_from:e -> lidar_tracks:track_id_to:w
-lidar_missed_regions:run_id_from:e -> lidar_analysis_runs:run_id_to:w
-lidar_run_tracks:run_id_from:e -> lidar_analysis_runs:run_id_to:w
-lidar_scenes:reference_run_id_from:e -> lidar_analysis_runs:run_id_to:w
-lidar_track_obs:track_id_from:e -> lidar_tracks:track_id_to:w
+lidar_replay_cases:reference_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:candidate_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:reference_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:replay_case_id_from:e -> lidar_replay_cases:replay_case_id_to:w
+lidar_run_missed_regions:run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_run_tracks:run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_track_annotations:track_id_from:e -> lidar_tracks:track_id_to:w
+lidar_track_observations:track_id_from:e -> lidar_tracks:track_id_to:w
 radar_command_log:command_id_from:e -> radar_commands:command_id_to:w
 radar_transit_links:data_rowid_from:e -> radar_data
 radar_transit_links:transit_id_from:e -> radar_data_transits:transit_id_to:w
