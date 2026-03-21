@@ -4,7 +4,6 @@ import re
 import sys
 from collections import defaultdict, deque
 
-
 NODE_BLOCK_RE = re.compile(r"(?ms)^([A-Za-z0-9_]+)\s+\[label=<.*?>\];\s*")
 GRAPH_OPEN_RE = re.compile(r"\A\s*digraph\s+[^{]+\{", re.MULTILINE)
 EDGE_PAIR_RE = re.compile(r"^([A-Za-z0-9_]+):[^\s]+ -> ([A-Za-z0-9_]+)(?::[^\s]+)?$")

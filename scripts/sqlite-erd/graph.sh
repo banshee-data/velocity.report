@@ -23,10 +23,18 @@ cleanup_temp_files() {
 }
 
 make_temp_file() {
-  local template="$1"
+  local prefix="$1"
+  local suffix="${2:-}"
+  local temp_dir="${TMPDIR:-/tmp}"
+  local template="${temp_dir%/}/${prefix}.XXXXXX"
   local temp_file
 
-  temp_file=$(mktemp -t "$template")
+  temp_file=$(mktemp "$template")
+  if [ -n "$suffix" ]; then
+    local suffixed_temp_file="${temp_file}${suffix}"
+    mv "$temp_file" "$suffixed_temp_file"
+    temp_file="$suffixed_temp_file"
+  fi
   TEMP_FILES+=("$temp_file")
   printf '%s\n' "$temp_file"
 }
@@ -60,6 +68,14 @@ require_file() {
   fi
 }
 
+require_command() {
+  local command_name="$1"
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Error: required command '$command_name' not found" >&2
+    exit 1
+  fi
+}
+
 ensure_positive_integer() {
   local value="$1"
   local label="$2"
@@ -74,23 +90,17 @@ render_dot() {
   local svg_output="$2"
   local tmp_output
 
-  tmp_output=$(make_temp_file schema_svg)
+  tmp_output=$(make_temp_file schema_svg .svg)
   case "$MODE" in
     current)
-      if ! command -v "$LAYOUT_ENGINE" >/dev/null 2>&1; then
-        echo "Error: Graphviz layout engine '$LAYOUT_ENGINE' not found" >&2
-        exit 1
-      fi
+      require_command "$LAYOUT_ENGINE"
       if ! "$LAYOUT_ENGINE" -Gpack=true "-Gpackmode=array_i${PACK_COLUMNS}" -Gsplines=curved -Tsvg "$dot_input" >"$tmp_output"; then
         echo "Error: failed to render schema SVG with Graphviz '$LAYOUT_ENGINE'" >&2
         exit 1
       fi
       ;;
     minimal)
-      if ! command -v dot >/dev/null 2>&1; then
-        echo "Error: Graphviz 'dot' not found" >&2
-        exit 1
-      fi
+      require_command dot
       if ! dot -Tsvg "$dot_input" >"$tmp_output"; then
         echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
         exit 1
@@ -114,11 +124,19 @@ generate_dot() {
   require_file "$schema_file" "Schema file"
   require_file "$SCRIPT_DIR/sqlite_graph.sql" "sqlite_graph.sql"
   require_file "$SCRIPT_DIR/group-dot.py" "group-dot.py"
+  require_command sqlite3
+  require_command python3
 
-  temp_db=$(make_temp_file schema_db)
-  tmp_dot_output=$(make_temp_file schema_dot)
-  sqlite3 "$temp_db" < "$schema_file"
-  sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" >"$tmp_dot_output"
+  temp_db=$(make_temp_file schema_db .db)
+  tmp_dot_output=$(make_temp_file schema_dot .dot)
+  if ! sqlite3 "$temp_db" < "$schema_file"; then
+    echo "Error: failed to import schema into temporary SQLite database" >&2
+    exit 1
+  fi
+  if ! sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" >"$tmp_dot_output"; then
+    echo "Error: failed to generate schema DOT" >&2
+    exit 1
+  fi
   mv "$tmp_dot_output" "$dot_output"
 }
 
