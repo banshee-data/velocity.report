@@ -179,7 +179,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 
 // UpdateTrackLabel updates the user label and quality label for a track.
 // Both userLabel and qualityLabel can be empty strings, which will be stored as NULL in the database.
-// Values are trimmed and canonicalized before storage.
+// Values are trimmed and canonicalised before storage.
 // This function does NOT validate enum values - it accepts any string and stores it as-is.
 // Validation of label enum values should be performed by the caller (e.g., API handlers)
 // using ValidateUserLabel() and ValidateQualityLabel() from the api package.
@@ -200,21 +200,22 @@ func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 		WHERE run_id = ? AND track_id = ?
 	`
 
-	_, err := s.db.Exec(query,
-		nullString(userLabel),
-		confidence,
-		nullString(labelerID),
-		time.Now().UnixNano(),
-		nullString(qualityLabel),
-		nullString(labelSource),
-		runID,
-		trackID,
-	)
-	if err != nil {
-		return fmt.Errorf("update track label: %w", err)
-	}
-
-	return nil
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query,
+			nullString(userLabel),
+			confidence,
+			nullString(labelerID),
+			time.Now().UnixNano(),
+			nullString(qualityLabel),
+			nullString(labelSource),
+			runID,
+			trackID,
+		)
+		if err != nil {
+			return fmt.Errorf("update track label: %w", err)
+		}
+		return nil
+	})
 }
 
 // UpdateTrackQualityFlags updates the split/merge flags for a track.
@@ -235,10 +236,11 @@ func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSpli
 		WHERE run_id = ? AND track_id = ?
 	`
 
-	_, err := s.db.Exec(query, isSplit, isMerge, linkedJSON, runID, trackID)
-	if err != nil {
-		return fmt.Errorf("update track quality flags: %w", err)
-	}
-
-	return nil
+	return retryOnBusy(func() error {
+		_, err := s.db.Exec(query, isSplit, isMerge, linkedJSON, runID, trackID)
+		if err != nil {
+			return fmt.Errorf("update track quality flags: %w", err)
+		}
+		return nil
+	})
 }
