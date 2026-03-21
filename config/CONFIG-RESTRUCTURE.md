@@ -1,6 +1,6 @@
 # Config Restructure: Flat → Layer-Scoped
 
-- **Status:** Proposal — full design complete, Phase 1 implementation pending (v0.5.0)
+- **Status:** Phase 1 complete, Phase 2 complete, Phase 2B proposed, Phase 3 pending (CLI flag deprecation pending)
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
   layer-isolated evaluation, and coherent parameter grouping.
@@ -1017,32 +1017,73 @@ gates must pass before a configuration change is promoted.
 See: [velocity-coherent-foreground-extraction.md §7](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 for the full statistical protocol.
 
+### 7.1 Long-term posture gaps (post-branch review)
+
+This branch substantially improves **schema discipline**:
+
+- the runtime now has a strict, versioned nested schema,
+- config files can be migrated and validated locally,
+- runtime updates use canonical layer/engine dot-paths,
+- the monitor/sweep surfaces are converging on one config contract.
+
+That is necessary, but it is not yet the full long-term config posture needed
+for **experimentation**, **deterministic replay**, and **trustworthy run
+provenance**. The main remaining gaps are:
+
+1. **Schema-valid is not yet experiment-valid.** We can load a config file, but
+   we do not yet persist a first-class _resolved run config_ that freezes the
+   exact effective tuning, active engine selectors, and build identity that
+   were actually executed.
+2. **Requested params, effective config, and execution metadata are still only
+   partially separated.** Some run/replay/recommendation surfaces still rely on
+   copied JSON blobs rather than immutable references to canonical config
+   assets.
+3. **Config identity is not yet the system boundary.** The branch introduces
+   validation and hashing, but hashes are not yet the canonical FK-backed
+   identity used consistently across runs, replay cases, UI diff views,
+   recordings, and reports.
+4. **Deterministic experiment inputs are incomplete.** Search seed, replay
+   window, objective profile, and dataset selection are not yet promoted to a
+   stable experiment manifest that can be re-run exactly.
+5. **Legacy artifact posture is still transitional.** Runtime/API compatibility
+   can smooth upgrades, but the durable answer is migration from copied legacy
+   blobs to canonical parameter-set / run-config assets.
+
+**Boundary decision:** this document remains the canonical home for the
+**runtime schema and config contract**. Detailed database/API design for
+immutable run-config assets remains canonical in
+[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md).
+The new phase below is the sequencing bridge between this schema restructure
+and that deterministic asset plan.
+
 ---
 
 ## 8. Implementation Sequence
 
-### Phase 1 — Structural realignment (v0.5.0)
+### Phase 1 — Structural realignment (v0.5.0) ✅ Complete
 
 Reorganise the existing 44 flat params into the versioned, layer-scoped,
 engine-selectable schema. No new parameters are added in this phase — the
 config surface area is identical, only the structure changes.
 
-| Step | Description                                                                                                         | Depends on |
-| ---- | ------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | —          |
-| 2    | Implement engine registry and `LoadTuningConfig` with strict validation                                             | Step 1     |
-| 3    | Add `make config-migrate` target (converts v1 flat → v2 nested)                                                     | Step 1     |
-| 4    | Regenerate `tuning.defaults.json`, `tuning.example.json`, `tuning.optimised.json`                                   | Step 3     |
-| 5    | Apply spelling corrections (`neighbor` → `neighbour`, `meters` → `metres`)                                          | Step 4     |
-| 6    | Update factory functions to accept concrete engine structs                                                          | Step 1     |
-| 7    | Update sweep param path resolution (dot-paths only)                                                                 | Step 1     |
-| 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     |
-| 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     |
-| 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     |
-| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     |
-| 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    |
+Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 
-### Phase 2 — Essential new variable exposure (v0.6.0)
+| Step | Description                                                                                                         | Depends on | Status |
+| ---- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | —          | ✅     |
+| 2    | Implement engine registry and `LoadTuningConfig` with strict validation                                             | Step 1     | ✅     |
+| 3    | Add `make config-migrate` target (converts v1 flat → v2 nested)                                                     | Step 1     | ✅     |
+| 4    | Regenerate `tuning.defaults.json`, `tuning.example.json`, `tuning.optimised.json`                                   | Step 3     | ✅     |
+| 5    | Apply spelling corrections (`neighbor` → `neighbour`, `meters` → `metres`)                                          | Step 4     | ✅     |
+| 6    | Update factory functions to accept concrete engine structs                                                          | Step 1     | ✅     |
+| 7    | Update sweep param path resolution (dot-paths only)                                                                 | Step 1     | ✅     |
+| 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     | ✅     |
+| 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     | ✅     |
+| 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     | ✅     |
+| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
+| 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
+
+### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Complete (CLI deprecation pending)
 
 Expose the highest-impact hardcoded constants: L1 sensor/network settings and
 L3 background/foreground parameters. CLI flags for sensor/network settings
@@ -1051,12 +1092,36 @@ L3 background/foreground parameters. CLI flags for sensor/network settings
 becomes the single source of truth (no dual sources, DRY). Deprecated flags
 log a warning and are removed in a subsequent release.
 
-| Step | Description                                                                     | Depends on  |
-| ---- | ------------------------------------------------------------------------------- | ----------- |
-| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     |
-| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     |
-| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 |
-| 16   | Update `config/README.md` with new field documentation                          | Step 15     |
+Delivered alongside Phase 1 in `dd/config-restructure`. L1Config struct and
+all 16 new L3 fields are wired and validated. CLI flag deprecation warnings
+are active — flag removal is tracked in the
+[v0.5.0 tech debt removal plan](../docs/plans/v050-tech-debt-removal-plan.md)
+(item A3).
+
+| Step | Description                                                                     | Depends on  | Status                                 |
+| ---- | ------------------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| 13   | Add `L1Config` struct; wire sensor/UDP/forward-port fields; deprecate CLI flags | Phase 1     | ✅ struct + wiring; ⏳ CLI deprecation |
+| 14   | Expand `l3Common` with 16 new fields; wire through background/foreground logic  | Phase 1     | ✅                                     |
+| 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅                                     |
+| 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅                                     |
+
+### Phase 2B — Experiment contract + deterministic config identity (v0.6.x / v0.7.0)
+
+Turn the new nested schema into a reproducible **experiment surface**, not just
+a startup file format. This phase creates the bridge from runtime tuning config
+to immutable experiment assets. The detailed DB/API/storage design lives in
+[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md);
+this plan tracks the config-system work required to make that design land
+cleanly.
+
+| Step | Description                                                                                                                                                                             | Depends on  | Status   |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------- |
+| 17   | Define the canonical resolved-config projection: exact effective tuning payload, canonical key order, normalised durations, no timestamps/UUIDs in deterministic identity               | Phase 2     | Proposed |
+| 18   | Split config concepts explicitly in code/docs: requested param set vs effective resolved config vs non-deterministic execution metadata                                                 | Step 17     | Proposed |
+| 19   | Add local tooling to export and verify deterministic config assets (`config-resolve`, `config-canonicalise`, `config-hash`)                                                             | Step 17     | Proposed |
+| 20   | Persist exact config identity for sweep/replay runs: build identity, effective config identity, replay window, objective profile, and search seed                                       | Steps 17–19 | Proposed |
+| 21   | Replace copied JSON blobs in run/replay/recommendation surfaces with references to canonical param-set / run-config assets; keep legacy blobs only as migration shims while backfilling | Step 20     | Proposed |
+| 22   | Upgrade UI, reports, and VRLOG provenance to diff/display exact config assets rather than ad hoc blobs or best-effort hashes                                                            | Steps 19–21 | Proposed |
 
 ### Phase 3 — Remaining variable exposure + L6 classification (v2.0)
 
@@ -1069,13 +1134,13 @@ is a candidate for replacement by an ML classifier (see
 
 | Step | Description                                                                       | Depends on  |
 | ---- | --------------------------------------------------------------------------------- | ----------- |
-| 17   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2     |
-| 18   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2     |
-| 19   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2     |
-| 20   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2     |
-| 21   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 20     |
-| 22   | Regenerate config files with all Phase 3 fields                                   | Steps 17–21 |
-| 23   | Update `config/README.md` with Phase 3 field documentation                        | Step 22     |
+| 23   | Add `L2Config` struct; wire frame-assembly constants through `FrameBuilder`       | Phase 2B    |
+| 24   | Add `OcclusionThresholdNanos` to `L5Common`; wire through tracker                 | Phase 2B    |
+| 25   | Add `DeletedTrackTTL`, `PruneInterval` to `PipelineConfig`; wire through pipeline | Phase 2B    |
+| 26   | Add `L6Common` + `L6RuleBasedV1` struct; wire classification thresholds           | Phase 2B    |
+| 27   | Add L6 engine to registry; update validation for engine-selectable L6             | Step 26     |
+| 28   | Regenerate config files with all Phase 3 fields                                   | Steps 23–27 |
+| 29   | Update `config/README.md` with Phase 3 field documentation                        | Step 28     |
 
 ---
 
@@ -1083,6 +1148,7 @@ is a candidate for replacement by an ML classifier (see
 
 - [Config README](README.md) — current parameter documentation
 - [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping
+- [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md) — canonical design for immutable config assets and exact run provenance
 - [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
 - [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
 - [Maths README](../data/maths/README.md) — proposal roadmap (P1–P4)

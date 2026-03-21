@@ -510,7 +510,7 @@ func (tc *TrackClassifier) ClassifyAndUpdate(track *TrackedObject) {
 // ComputeSpeedPercentiles computes speed percentiles from a track's speed history.
 // Uses floor-based indexing for percentiles. For small arrays (n<3), all percentiles
 // may return similar values. For production use with precise percentile requirements,
-// consider using linear interpolation between neighboring values.
+// consider using linear interpolation between neighbouring values.
 func ComputeSpeedPercentiles(speedHistory []float32) (p50, p85, p95 float32) {
 	if len(speedHistory) == 0 {
 		return 0, 0, 0

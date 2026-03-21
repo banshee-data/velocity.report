@@ -268,21 +268,25 @@ body {
   color: var(--fg-faint);
   max-height: 500px;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.4;
   margin-top: 8px;
 }
 
-.param-line {
-  display: block;
+#current-params-display pre {
+  margin: 0;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
-.param-line.swept {
-  background: rgba(255, 204, 0, 0.15);
+.diff-changed {
+  background: rgba(46, 160, 67, 0.15);
   color: var(--fg);
   font-weight: 500;
-  padding: 2px 4px;
-  margin: 1px -4px;
-  border-radius: 3px;
+  display: inline-block;
+  width: 100%;
+  border-radius: 2px;
 }
 
 .current-params-header {

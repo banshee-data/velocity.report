@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
+	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
@@ -84,6 +85,8 @@ type WebServer struct {
 	pcapSafeDir       string // Safe directory for PCAP file access
 	vrlogSafeDir      string // Safe directory for VRLOG file access
 	packetForwarder   *network.PacketForwarder
+	tuningConfigMu    sync.RWMutex
+	tuningConfig      *cfgpkg.TuningConfig
 
 	// UDP listener lifecycle (live data source)
 	udpListenerConfig network.UDPListenerConfig
@@ -202,6 +205,7 @@ type WebServerConfig struct {
 	PacketForwarder   *network.PacketForwarder
 	UDPListenerConfig network.UDPListenerConfig
 	PlotsBaseDir      string // Base directory for plot output (e.g., "plots")
+	TuningConfig      *cfgpkg.TuningConfig
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -287,6 +291,7 @@ func NewWebServer(config WebServerConfig) *WebServer {
 		pcapSafeDir:       config.PCAPSafeDir,
 		vrlogSafeDir:      vrlogSafeDir,
 		packetForwarder:   config.PacketForwarder,
+		tuningConfig:      cloneTuningConfig(config.TuningConfig),
 		udpListenerConfig: listenerConfig,
 		currentSource:     DataSourceLive,
 		latestFgCounts:    make(map[string]int),
@@ -327,6 +332,23 @@ func NewWebServer(config WebServerConfig) *WebServer {
 	}
 
 	return ws
+}
+
+func cloneTuningConfig(cfg *cfgpkg.TuningConfig) *cfgpkg.TuningConfig {
+	if cfg == nil {
+		return nil
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		opsf("monitor: failed to marshal tuning config for clone: %v", err)
+		return cfg
+	}
+	var cloned cfgpkg.TuningConfig
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		opsf("monitor: failed to unmarshal tuning config for clone: %v", err)
+		return cfg
+	}
+	return &cloned
 }
 
 func (ws *WebServer) setBaseContext(ctx context.Context) {
@@ -769,15 +791,16 @@ func (ws *WebServer) setupRoutes() *http.ServeMux {
 // handleTuningParams is the unified LIDAR configuration endpoint for all
 // tuning parameters including background subtraction, frame builder, and tracker configuration.
 //
-// Query params: sensor_id (required)
+// Query params: sensor_id (required), source (optional: "default"), format (optional: "compact")
 //
-// GET: Returns all configuration parameters including:
-//   - Background params: noise_relative, closeness_multiplier, neighbor_confirmation_count, etc.
-//   - Frame builder params: buffer_timeout, min_frame_points
-//   - Flush params: flush_interval, flush_disable
-//   - Tracker params (if tracker available): gating_distance_squared, process_noise_pos, etc.
+// GET: Returns the full nested TuningConfig (L1/L3/L4/L5 sections) as indented JSON.
+//   - source=default — returns the built-in default config rather than the live runtime config.
+//   - format=compact — returns a single-line JSON response (default is indented).
 //
-// POST: Accepts partial JSON updates. All fields are optional; only non-nil fields are applied.
+// POST: Accepts partial or full JSON updates using nested objects (or legacy dot-path keys).
+//
+//	All fields are optional; only runtime-editable fields are applied,
+//	non-editable fields are silently ignored.
 func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID == "" {
@@ -792,112 +815,24 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 
 	switch r.Method {
 	case http.MethodGet:
-		params := bm.GetParams()
-		resp := map[string]interface{}{
-			"noise_relative":                params.NoiseRelativeFraction,
-			"enable_diagnostics":            bm.EnableDiagnostics,
-			"closeness_multiplier":          params.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation_count":   params.NeighborConfirmationCount,
-			"seed_from_first":               params.SeedFromFirstObservation,
-			"warmup_duration_nanos":         params.WarmupDurationNanos,
-			"warmup_min_frames":             params.WarmupMinFrames,
-			"post_settle_update_fraction":   params.PostSettleUpdateFraction,
-			"foreground_min_cluster_points": params.ForegroundMinClusterPoints,
-			"foreground_dbscan_eps":         params.ForegroundDBSCANEps,
-			"foreground_max_input_points":   params.ForegroundMaxInputPoints,
-			"background_update_fraction":    params.BackgroundUpdateFraction,
-			"safety_margin_meters":          params.SafetyMarginMeters,
-		}
-
-		// Include tracker config if tracker is available
-		if ws.tracker != nil {
-			cfg := ws.tracker.Config
-			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
-			resp["process_noise_pos"] = cfg.ProcessNoisePos
-			resp["process_noise_vel"] = cfg.ProcessNoiseVel
-			resp["measurement_noise"] = cfg.MeasurementNoise
-			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
-			resp["hits_to_confirm"] = cfg.HitsToConfirm
-			resp["max_misses"] = cfg.MaxMisses
-			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
-			resp["max_tracks"] = cfg.MaxTracks
-			resp["max_reasonable_speed_mps"] = cfg.MaxReasonableSpeedMps
-			resp["max_position_jump_meters"] = cfg.MaxPositionJumpMeters
-			resp["max_predict_dt"] = cfg.MaxPredictDt
-			resp["max_covariance_diag"] = cfg.MaxCovarianceDiag
-			resp["min_points_for_pca"] = cfg.MinPointsForPCA
-			resp["obb_heading_smoothing_alpha"] = cfg.OBBHeadingSmoothingAlpha
-			resp["obb_aspect_ratio_lock_threshold"] = cfg.OBBAspectRatioLockThreshold
-			resp["max_track_history_length"] = cfg.MaxTrackHistoryLength
-			resp["max_speed_history_length"] = cfg.MaxSpeedHistoryLength
-			resp["merge_size_ratio"] = cfg.MergeSizeRatio
-			resp["split_size_ratio"] = cfg.SplitSizeRatio
-			resp["deleted_track_grace_period"] = cfg.DeletedTrackGracePeriod.String()
-			resp["min_observations_for_classification"] = cfg.MinObservationsForClassification
-		}
-
-		if r.URL.Query().Get("format") == "pretty" {
-			w.Header().Set("Content-Type", "application/json")
-			enc := json.NewEncoder(w)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(resp); err != nil {
-				opsf("failed to encode response: %v", err)
-			}
-			return
+		var resp *cfgpkg.TuningConfig
+		if r.URL.Query().Get("source") == "default" {
+			resp = cfgpkg.MustLoadDefaultConfig()
+		} else {
+			resp = ws.runtimeTuningConfig(bm)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		enc := json.NewEncoder(w)
+		if r.URL.Query().Get("format") != "compact" {
+			enc.SetIndent("", "  ")
+		}
+		if err := enc.Encode(resp); err != nil {
+			opsf("failed to encode response: %v", err)
+		}
 		return
 	case http.MethodPost:
-		// @TODO(config-parity): align this POST body with the canonical tuning schema
-		// (internal/config/tuning.go:TuningConfig and config/tuning.defaults.json)
-		// and keep fields in canonical key order.
-		// Missing keys: buffer_timeout, min_frame_points, flush_interval, background_flush,
-		// height_band_floor, height_band_ceiling, remove_ground,
-		// max_cluster_diameter, min_cluster_diameter, max_cluster_aspect_ratio.
-		var body struct {
-			// Background params
-			NoiseRelative              *float64 `json:"noise_relative"`
-			EnableDiagnostics          *bool    `json:"enable_diagnostics"`
-			ClosenessMultiplier        *float64 `json:"closeness_multiplier"`
-			NeighborConfirmation       *int     `json:"neighbor_confirmation_count"`
-			SeedFromFirst              *bool    `json:"seed_from_first"`
-			WarmupDurationNanos        *int64   `json:"warmup_duration_nanos"`
-			WarmupMinFrames            *int     `json:"warmup_min_frames"`
-			PostSettleUpdateFraction   *float64 `json:"post_settle_update_fraction"`
-			ForegroundMinClusterPoints *int     `json:"foreground_min_cluster_points"`
-			ForegroundDBSCANEps        *float64 `json:"foreground_dbscan_eps"`
-			ForegroundMaxInputPoints   *int     `json:"foreground_max_input_points"`
-			BackgroundUpdateFraction   *float64 `json:"background_update_fraction"`
-			SafetyMarginMeters         *float64 `json:"safety_margin_meters"`
-			// Tracker params
-			GatingDistanceSquared *float64 `json:"gating_distance_squared"`
-			ProcessNoisePos       *float64 `json:"process_noise_pos"`
-			ProcessNoiseVel       *float64 `json:"process_noise_vel"`
-			MeasurementNoise      *float64 `json:"measurement_noise"`
-			OcclusionCovInflation *float64 `json:"occlusion_cov_inflation"`
-			HitsToConfirm         *int     `json:"hits_to_confirm"`
-			MaxMisses             *int     `json:"max_misses"`
-			MaxMissesConfirmed    *int     `json:"max_misses_confirmed"`
-			MaxTracks             *int     `json:"max_tracks"`
-			// Extended tracker params
-			MaxReasonableSpeedMps            *float64 `json:"max_reasonable_speed_mps"`
-			MaxPositionJumpMeters            *float64 `json:"max_position_jump_meters"`
-			MaxPredictDt                     *float64 `json:"max_predict_dt"`
-			MaxCovarianceDiag                *float64 `json:"max_covariance_diag"`
-			MinPointsForPCA                  *int     `json:"min_points_for_pca"`
-			OBBHeadingSmoothingAlpha         *float64 `json:"obb_heading_smoothing_alpha"`
-			OBBAspectRatioLockThreshold      *float64 `json:"obb_aspect_ratio_lock_threshold"`
-			MaxTrackHistoryLength            *int     `json:"max_track_history_length"`
-			MaxSpeedHistoryLength            *int     `json:"max_speed_history_length"`
-			MergeSizeRatio                   *float64 `json:"merge_size_ratio"`
-			SplitSizeRatio                   *float64 `json:"split_size_ratio"`
-			DeletedTrackGracePeriod          *string  `json:"deleted_track_grace_period"`
-			MinObservationsForClassification *int     `json:"min_observations_for_classification"`
-		}
-
-		// Check if this is a form submission from the status page
+		var body map[string]interface{}
 		contentType := r.Header.Get("Content-Type")
 		if r.FormValue("config_json") != "" || contentType == "application/x-www-form-urlencoded" {
 			configJSON := r.FormValue("config_json")
@@ -910,205 +845,25 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		} else {
-			// Standard JSON body
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 				return
 			}
 		}
-
-		if body.NoiseRelative != nil {
-			if err := bm.SetNoiseRelativeFraction(float32(*body.NoiseRelative)); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
+		patch, err := normaliseTuningPatch(body)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
 		}
-		if body.EnableDiagnostics != nil {
-			bm.SetEnableDiagnostics(*body.EnableDiagnostics)
+		if len(patch) == 0 {
+			ws.writeJSONError(w, http.StatusBadRequest, "empty tuning patch")
+			return
 		}
-		if body.ClosenessMultiplier != nil {
-			if err := bm.SetClosenessSensitivityMultiplier(float32(*body.ClosenessMultiplier)); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
+		if err := applyRuntimeTuningPatch(ws, bm, patch); err != nil {
+			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
 		}
-		if body.NeighborConfirmation != nil {
-			if err := bm.SetNeighborConfirmationCount(*body.NeighborConfirmation); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.SeedFromFirst != nil {
-			if err := bm.SetSeedFromFirstObservation(*body.SeedFromFirst); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.WarmupDurationNanos != nil || body.WarmupMinFrames != nil {
-			dur := bm.GetParams().WarmupDurationNanos
-			if body.WarmupDurationNanos != nil {
-				dur = *body.WarmupDurationNanos
-			}
-			frames := bm.GetParams().WarmupMinFrames
-			if body.WarmupMinFrames != nil {
-				frames = *body.WarmupMinFrames
-			}
-			if err := bm.SetWarmupParams(dur, frames); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.PostSettleUpdateFraction != nil {
-			if err := bm.SetPostSettleUpdateFraction(float32(*body.PostSettleUpdateFraction)); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.ForegroundMinClusterPoints != nil || body.ForegroundDBSCANEps != nil {
-			minPts := bm.GetParams().ForegroundMinClusterPoints
-			if body.ForegroundMinClusterPoints != nil {
-				minPts = *body.ForegroundMinClusterPoints
-			}
-			eps := bm.GetParams().ForegroundDBSCANEps
-			if body.ForegroundDBSCANEps != nil {
-				eps = float32(*body.ForegroundDBSCANEps)
-			}
-			if err := bm.SetForegroundClusterParams(minPts, eps); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.ForegroundMaxInputPoints != nil {
-			p := bm.GetParams()
-			p.ForegroundMaxInputPoints = *body.ForegroundMaxInputPoints
-			if err := bm.SetParams(p); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.BackgroundUpdateFraction != nil {
-			p := bm.GetParams()
-			p.BackgroundUpdateFraction = float32(*body.BackgroundUpdateFraction)
-			if err := bm.SetParams(p); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		if body.SafetyMarginMeters != nil {
-			p := bm.GetParams()
-			p.SafetyMarginMeters = float32(*body.SafetyMarginMeters)
-			if err := bm.SetParams(p); err != nil {
-				ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-
-		// Apply tracker config changes if tracker is available.
-		// Validation that may reject the request is done before
-		// acquiring the tracker lock.
-		if ws.tracker != nil {
-			if body.MaxTracks != nil {
-				if *body.MaxTracks < 1 || *body.MaxTracks > 1000 {
-					ws.writeJSONError(w, http.StatusBadRequest, "max_tracks must be between 1 and 1000")
-					return
-				}
-			}
-			var gracePeriod time.Duration
-			if body.DeletedTrackGracePeriod != nil {
-				var err error
-				gracePeriod, err = time.ParseDuration(*body.DeletedTrackGracePeriod)
-				if err != nil {
-					ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid deleted_track_grace_period: %v", err))
-					return
-				}
-			}
-
-			ws.tracker.UpdateConfig(func(cfg *l5tracks.TrackerConfig) {
-				if body.GatingDistanceSquared != nil {
-					cfg.GatingDistanceSquared = float32(*body.GatingDistanceSquared)
-				}
-				if body.ProcessNoisePos != nil {
-					cfg.ProcessNoisePos = float32(*body.ProcessNoisePos)
-				}
-				if body.ProcessNoiseVel != nil {
-					cfg.ProcessNoiseVel = float32(*body.ProcessNoiseVel)
-				}
-				if body.MeasurementNoise != nil {
-					cfg.MeasurementNoise = float32(*body.MeasurementNoise)
-				}
-				if body.OcclusionCovInflation != nil {
-					cfg.OcclusionCovInflation = float32(*body.OcclusionCovInflation)
-				}
-				if body.HitsToConfirm != nil {
-					cfg.HitsToConfirm = *body.HitsToConfirm
-				}
-				if body.MaxMisses != nil {
-					cfg.MaxMisses = *body.MaxMisses
-				}
-				if body.MaxMissesConfirmed != nil {
-					cfg.MaxMissesConfirmed = *body.MaxMissesConfirmed
-				}
-				if body.MaxTracks != nil {
-					cfg.MaxTracks = *body.MaxTracks
-				}
-				if body.MaxReasonableSpeedMps != nil {
-					cfg.MaxReasonableSpeedMps = float32(*body.MaxReasonableSpeedMps)
-				}
-				if body.MaxPositionJumpMeters != nil {
-					cfg.MaxPositionJumpMeters = float32(*body.MaxPositionJumpMeters)
-				}
-				if body.MaxPredictDt != nil {
-					cfg.MaxPredictDt = float32(*body.MaxPredictDt)
-				}
-				if body.MaxCovarianceDiag != nil {
-					cfg.MaxCovarianceDiag = float32(*body.MaxCovarianceDiag)
-				}
-				if body.MinPointsForPCA != nil {
-					cfg.MinPointsForPCA = *body.MinPointsForPCA
-				}
-				if body.OBBHeadingSmoothingAlpha != nil {
-					cfg.OBBHeadingSmoothingAlpha = float32(*body.OBBHeadingSmoothingAlpha)
-				}
-				if body.OBBAspectRatioLockThreshold != nil {
-					cfg.OBBAspectRatioLockThreshold = float32(*body.OBBAspectRatioLockThreshold)
-				}
-				if body.MaxTrackHistoryLength != nil {
-					cfg.MaxTrackHistoryLength = *body.MaxTrackHistoryLength
-				}
-				if body.MaxSpeedHistoryLength != nil {
-					cfg.MaxSpeedHistoryLength = *body.MaxSpeedHistoryLength
-				}
-				if body.MergeSizeRatio != nil {
-					cfg.MergeSizeRatio = float32(*body.MergeSizeRatio)
-				}
-				if body.SplitSizeRatio != nil {
-					cfg.SplitSizeRatio = float32(*body.SplitSizeRatio)
-				}
-				if body.DeletedTrackGracePeriod != nil {
-					cfg.DeletedTrackGracePeriod = gracePeriod
-				}
-				if body.MinObservationsForClassification != nil {
-					cfg.MinObservationsForClassification = *body.MinObservationsForClassification
-				}
-			})
-
-			// Propagate classification threshold to the classifier outside
-			// the tracker lock to avoid holding two locks simultaneously.
-			if body.MinObservationsForClassification != nil && ws.classifier != nil {
-				ws.classifier.MinObservations = *body.MinObservationsForClassification
-			}
-		}
-
-		// Read back current params for confirmation
-		cur := bm.GetParams()
-		// Emit an info log so operators can see applied changes in the app logs
-		diagf("[Monitor] Applied background params for sensor=%s: noise_relative=%.6f, enable_diagnostics=%v", sensorID, cur.NoiseRelativeFraction, bm.EnableDiagnostics)
-
-		// Log D: API call timing for params with all active settings
-		timestamp := time.Now().UnixNano()
-		tracef("[API:params] sensor=%s noise_rel=%.6f closeness=%.3f neighbors=%d seed_from_first=%v warmup_ns=%d warmup_frames=%d post_settle_alpha=%.4f fg_min_pts=%d fg_eps=%.3f fg_max_pts=%d timestamp=%d",
-			sensorID, cur.NoiseRelativeFraction, cur.ClosenessSensitivityMultiplier,
-			cur.NeighborConfirmationCount, cur.SeedFromFirstObservation, cur.WarmupDurationNanos, cur.WarmupMinFrames, cur.PostSettleUpdateFraction, cur.ForegroundMinClusterPoints, cur.ForegroundDBSCANEps, cur.ForegroundMaxInputPoints, timestamp)
+		resp := ws.runtimeTuningConfig(bm)
 
 		// If this was a form submission, redirect back to status page
 		if r.FormValue("config_json") != "" {
@@ -1116,52 +871,10 @@ func (ws *WebServer) handleTuningParams(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		resp := map[string]interface{}{
-			"status":                        "ok",
-			"noise_relative":                cur.NoiseRelativeFraction,
-			"enable_diagnostics":            bm.EnableDiagnostics,
-			"closeness_multiplier":          cur.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation_count":   cur.NeighborConfirmationCount,
-			"seed_from_first":               cur.SeedFromFirstObservation,
-			"warmup_duration_nanos":         cur.WarmupDurationNanos,
-			"warmup_min_frames":             cur.WarmupMinFrames,
-			"post_settle_update_fraction":   cur.PostSettleUpdateFraction,
-			"foreground_min_cluster_points": cur.ForegroundMinClusterPoints,
-			"foreground_dbscan_eps":         cur.ForegroundDBSCANEps,
-			"foreground_max_input_points":   cur.ForegroundMaxInputPoints,
-			"background_update_fraction":    cur.BackgroundUpdateFraction,
-			"safety_margin_meters":          cur.SafetyMarginMeters,
-		}
-
-		// Include tracker config in response if tracker is available
-		if ws.tracker != nil {
-			cfg := ws.tracker.Config
-			resp["gating_distance_squared"] = cfg.GatingDistanceSquared
-			resp["process_noise_pos"] = cfg.ProcessNoisePos
-			resp["process_noise_vel"] = cfg.ProcessNoiseVel
-			resp["measurement_noise"] = cfg.MeasurementNoise
-			resp["occlusion_cov_inflation"] = cfg.OcclusionCovInflation
-			resp["hits_to_confirm"] = cfg.HitsToConfirm
-			resp["max_misses"] = cfg.MaxMisses
-			resp["max_misses_confirmed"] = cfg.MaxMissesConfirmed
-			resp["max_tracks"] = cfg.MaxTracks
-			resp["max_reasonable_speed_mps"] = cfg.MaxReasonableSpeedMps
-			resp["max_position_jump_meters"] = cfg.MaxPositionJumpMeters
-			resp["max_predict_dt"] = cfg.MaxPredictDt
-			resp["max_covariance_diag"] = cfg.MaxCovarianceDiag
-			resp["min_points_for_pca"] = cfg.MinPointsForPCA
-			resp["obb_heading_smoothing_alpha"] = cfg.OBBHeadingSmoothingAlpha
-			resp["obb_aspect_ratio_lock_threshold"] = cfg.OBBAspectRatioLockThreshold
-			resp["max_track_history_length"] = cfg.MaxTrackHistoryLength
-			resp["max_speed_history_length"] = cfg.MaxSpeedHistoryLength
-			resp["merge_size_ratio"] = cfg.MergeSizeRatio
-			resp["split_size_ratio"] = cfg.SplitSizeRatio
-			resp["deleted_track_grace_period"] = cfg.DeletedTrackGracePeriod.String()
-			resp["min_observations_for_classification"] = cfg.MinObservationsForClassification
-		}
-
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(resp)
 		return
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -1494,53 +1207,14 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Get background manager to show current params
 	var bgParams *l3grid.BackgroundParams
 	var bgParamsJSON string
-	var bgParamDefs []ParamDef
 	var bgParamsJSONLines int
 
 	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		params := mgr.GetParams()
 		bgParams = &params
 
-		bgParamDefs = []ParamDef{
-			// Background subtraction params
-			{"noise_relative", "Noise Relative Fraction", params.NoiseRelativeFraction, "%.4f"},
-			{"closeness_multiplier", "Closeness Sensitivity Multiplier", params.ClosenessSensitivityMultiplier, "%.2f"},
-			{"neighbor_confirmation_count", "Neighbor Confirmation Count", params.NeighborConfirmationCount, ""},
-			{"background_update_fraction", "Background Update Fraction", params.BackgroundUpdateFraction, "%.4f"},
-			{"post_settle_update_fraction", "Post-Settle Update Fraction", params.PostSettleUpdateFraction, "%.4f"},
-			{"warmup_duration_nanos", "Warmup Duration (ns)", params.WarmupDurationNanos, ""},
-			{"warmup_min_frames", "Warmup Minimum Frames", params.WarmupMinFrames, ""},
-			{"safety_margin_meters", "Safety Margin (meters)", params.SafetyMarginMeters, "%.2f"},
-			{"seed_from_first", "Seed From First Observation", params.SeedFromFirstObservation, ""},
-			{"foreground_min_cluster_points", "Foreground Min Cluster Points", params.ForegroundMinClusterPoints, ""},
-			{"foreground_dbscan_eps", "Foreground DBSCAN Eps", params.ForegroundDBSCANEps, "%.3f"},
-			{"foreground_max_input_points", "Foreground Max Input Points", params.ForegroundMaxInputPoints, ""},
-			{"enable_diagnostics", "Enable Diagnostics", mgr.EnableDiagnostics, ""},
-		}
-
-		// Add tracker params if tracker is available
-		if ws.tracker != nil {
-			cfg := ws.tracker.Config
-			bgParamDefs = append(bgParamDefs,
-				ParamDef{"gating_distance_squared", "Gating Distance Squared", cfg.GatingDistanceSquared, "%.2f"},
-				ParamDef{"process_noise_pos", "Process Noise Position", cfg.ProcessNoisePos, "%.4f"},
-				ParamDef{"process_noise_vel", "Process Noise Velocity", cfg.ProcessNoiseVel, "%.4f"},
-				ParamDef{"measurement_noise", "Measurement Noise", cfg.MeasurementNoise, "%.4f"},
-				ParamDef{"occlusion_cov_inflation", "Occlusion Covariance Inflation", cfg.OcclusionCovInflation, "%.2f"},
-				ParamDef{"hits_to_confirm", "Hits to Confirm Track", cfg.HitsToConfirm, ""},
-				ParamDef{"max_misses", "Max Misses (tentative)", cfg.MaxMisses, ""},
-				ParamDef{"max_misses_confirmed", "Max Misses (confirmed)", cfg.MaxMissesConfirmed, ""},
-				ParamDef{"max_tracks", "Max Tracks", cfg.MaxTracks, ""},
-			)
-		}
-
-		// Create a map for JSON representation matching the API structure
-		paramsMap := make(map[string]interface{})
-		for _, def := range bgParamDefs {
-			paramsMap[def.Key] = def.Value
-		}
-
-		if jsonBytes, err := json.MarshalIndent(paramsMap, "", "  "); err == nil {
+		cfg := ws.runtimeTuningConfig(mgr)
+		if jsonBytes, err := json.MarshalIndent(cfg, "", "  "); err == nil {
 			bgParamsJSON = string(jsonBytes)
 			bgParamsJSONLines = strings.Count(bgParamsJSON, "\n") + 2
 		}
@@ -1572,7 +1246,6 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		SensorID          string
 		BGParams          *l3grid.BackgroundParams
 		BGParamsJSON      string
-		BGParamDefs       []ParamDef
 		BGParamsJSONLines int
 		PCAPFile          string
 		PCAPInProgress    bool
@@ -1594,7 +1267,6 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		SensorID:          ws.sensorID,
 		BGParams:          bgParams,
 		BGParamsJSON:      bgParamsJSON,
-		BGParamDefs:       bgParamDefs,
 		BGParamsJSONLines: bgParamsJSONLines,
 		PCAPFile:          currentPCAPFile,
 		PCAPInProgress:    pcapInProgress,
@@ -1718,10 +1390,10 @@ func (ws *WebServer) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Requ
 		// Include current params for context
 		params := mgr.GetParams()
 		debugInfo["params"] = map[string]interface{}{
-			"noise_relative":        params.NoiseRelativeFraction,
-			"closeness_multiplier":  params.ClosenessSensitivityMultiplier,
-			"neighbor_confirmation": params.NeighborConfirmationCount,
-			"seed_from_first":       params.SeedFromFirstObservation,
+			"noise_relative":         params.NoiseRelativeFraction,
+			"closeness_multiplier":   params.ClosenessSensitivityMultiplier,
+			"neighbour_confirmation": params.NeighbourConfirmationCount,
+			"seed_from_first":        params.SeedFromFirstObservation,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(debugInfo)

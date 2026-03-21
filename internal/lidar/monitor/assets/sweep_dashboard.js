@@ -47,7 +47,7 @@ var chartBg = "transparent";
 
 // Parameter schema derived from TuningConfig (with descriptions)
 var PARAM_SCHEMA = {
-  noise_relative: {
+  "l3.ema_baseline_v1.noise_relative": {
     type: "float64",
     label: "Noise Relative",
     step: 0.001,
@@ -55,7 +55,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.2,
     desc: "Fraction of measured range treated as noise threshold (0–1). Higher = more tolerant of range variation.",
   },
-  closeness_multiplier: {
+  "l3.ema_baseline_v1.closeness_multiplier": {
     type: "float64",
     label: "Closeness Multiplier",
     step: 0.5,
@@ -63,7 +63,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 20.0,
     desc: "Multiplier for closeness threshold. Higher = wider band for background acceptance.",
   },
-  neighbor_confirmation_count: {
+  "l3.ema_baseline_v1.neighbour_confirmation_count": {
     type: "int",
     label: "Neighbour Confirmation",
     step: 1,
@@ -71,12 +71,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 8,
     desc: "Number of neighbouring cells (0–8) that must agree before marking foreground.",
   },
-  seed_from_first: {
+  "l3.ema_baseline_v1.seed_from_first": {
     type: "bool",
     label: "Seed From First",
     desc: "If true, initialise background model from the very first observation.",
   },
-  warmup_duration_nanos: {
+  "l3.ema_baseline_v1.warmup_duration_nanos": {
     type: "int64",
     label: "Warmup Duration (ns)",
     step: 1000000000,
@@ -84,7 +84,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 120000000000,
     desc: "Duration in nanoseconds for the warmup phase before classification begins.",
   },
-  warmup_min_frames: {
+  "l3.ema_baseline_v1.warmup_min_frames": {
     type: "int",
     label: "Warmup Min Frames",
     step: 10,
@@ -92,7 +92,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 500,
     desc: "Minimum frames required before the warmup phase can complete.",
   },
-  post_settle_update_fraction: {
+  "l3.ema_baseline_v1.post_settle_update_fraction": {
     type: "float64",
     label: "Post-Settle Update Fraction",
     step: 0.01,
@@ -100,7 +100,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.5,
     desc: "Background update alpha after settling (0 = freeze background).",
   },
-  background_update_fraction: {
+  "l3.ema_baseline_v1.background_update_fraction": {
     type: "float64",
     label: "Background Update Fraction",
     step: 0.005,
@@ -108,7 +108,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 0.1,
     desc: "EMA learning rate for background grid updates during settling (0–1).",
   },
-  safety_margin_meters: {
+  "l3.ema_baseline_v1.safety_margin_metres": {
     type: "float64",
     label: "Safety Margin (m)",
     step: 0.1,
@@ -116,12 +116,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "Additional additive margin (metres) on the closeness threshold for background classification.",
   },
-  enable_diagnostics: {
+  "l3.ema_baseline_v1.enable_diagnostics": {
     type: "bool",
     label: "Enable Diagnostics",
     desc: "If true, enables verbose per-frame diagnostic logging.",
   },
-  foreground_min_cluster_points: {
+  "l4.dbscan_xy_v1.foreground_min_cluster_points": {
     type: "int",
     label: "FG Min Cluster Points",
     step: 1,
@@ -129,7 +129,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 20,
     desc: "Minimum points for a foreground cluster to be reported. 0 = disabled.",
   },
-  foreground_dbscan_eps: {
+  "l4.dbscan_xy_v1.foreground_dbscan_eps": {
     type: "float64",
     label: "FG DBSCAN Eps",
     step: 0.1,
@@ -137,12 +137,12 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "DBSCAN epsilon for foreground point clustering. 0 = disabled.",
   },
-  buffer_timeout: {
+  "pipeline.buffer_timeout": {
     type: "string",
     label: "Buffer Timeout",
     desc: 'Max wait time for a complete frame (Go duration, e.g. "500ms").',
   },
-  min_frame_points: {
+  "pipeline.min_frame_points": {
     type: "int",
     label: "Min Frame Points",
     step: 100,
@@ -150,17 +150,17 @@ var PARAM_SCHEMA = {
     defaultEnd: 5000,
     desc: "Minimum points in a frame before processing. Fewer points = frame dropped.",
   },
-  flush_interval: {
+  "pipeline.flush_interval": {
     type: "string",
     label: "Flush Interval",
     desc: 'How often the background grid is flushed to disk (e.g. "60s").',
   },
-  background_flush: {
+  "pipeline.background_flush": {
     type: "bool",
     label: "Background Flush",
     desc: "If true, enables periodic background grid flush to disk. Default: false (disabled).",
   },
-  gating_distance_squared: {
+  "l5.cv_kf_v1.gating_distance_squared": {
     type: "float64",
     label: "Gating Distance²",
     step: 1.0,
@@ -168,7 +168,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 100.0,
     desc: "Squared Mahalanobis distance threshold for track-to-cluster association.",
   },
-  process_noise_pos: {
+  "l5.cv_kf_v1.process_noise_pos": {
     type: "float64",
     label: "Process Noise Pos",
     step: 0.01,
@@ -176,7 +176,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 1.0,
     desc: "Kalman process noise for position. Higher = more position uncertainty expected.",
   },
-  process_noise_vel: {
+  "l5.cv_kf_v1.process_noise_vel": {
     type: "float64",
     label: "Process Noise Vel",
     step: 0.01,
@@ -184,7 +184,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 2.0,
     desc: "Kalman process noise for velocity. Higher = more velocity changes expected.",
   },
-  measurement_noise: {
+  "l5.cv_kf_v1.measurement_noise": {
     type: "float64",
     label: "Measurement Noise",
     step: 0.01,
@@ -200,7 +200,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 5.0,
     desc: "Covariance inflation factor during occlusion (missed observations).",
   },
-  hits_to_confirm: {
+  "l5.cv_kf_v1.hits_to_confirm": {
     type: "int",
     label: "Hits to Confirm",
     step: 1,
@@ -208,7 +208,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 10,
     desc: "Consecutive successful associations needed to confirm a tentative track.",
   },
-  max_misses: {
+  "l5.cv_kf_v1.max_misses": {
     type: "int",
     label: "Max Misses",
     step: 1,
@@ -216,7 +216,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 10,
     desc: "Consecutive misses before a tentative track is deleted.",
   },
-  max_misses_confirmed: {
+  "l5.cv_kf_v1.max_misses_confirmed": {
     type: "int",
     label: "Max Misses Confirmed",
     step: 1,
@@ -224,7 +224,7 @@ var PARAM_SCHEMA = {
     defaultEnd: 30,
     desc: "Consecutive misses before a confirmed track is deleted.",
   },
-  max_tracks: {
+  "l5.cv_kf_v1.max_tracks": {
     type: "int",
     label: "Max Tracks",
     step: 10,
@@ -241,6 +241,82 @@ var PARAM_SCHEMA = {
     desc: "PCAP replay speed multiplier (e.g. 0.5 = half speed, 1.0 = realtime, 1.5 = 1.5x). Requires PCAP mode.",
   },
 };
+
+var LEGACY_PARAM_ALIASES = {
+  neighbor_confirmation_count:
+    "l3.ema_baseline_v1.neighbour_confirmation_count",
+  "l3.ema_baseline_v1.neighbor_confirmation_count":
+    "l3.ema_baseline_v1.neighbour_confirmation_count",
+  safety_margin_meters: "l3.ema_baseline_v1.safety_margin_metres",
+  "l3.ema_baseline_v1.safety_margin_meters":
+    "l3.ema_baseline_v1.safety_margin_metres",
+};
+
+function buildParamSuffixMap(schema) {
+  var suffixCounts = {};
+  Object.keys(schema).forEach(function (key) {
+    var suffix = key.split(".").pop();
+    suffixCounts[suffix] = (suffixCounts[suffix] || 0) + 1;
+  });
+
+  var suffixMap = {};
+  Object.keys(schema).forEach(function (key) {
+    var suffix = key.split(".").pop();
+    if (suffixCounts[suffix] === 1) {
+      suffixMap[suffix] = key;
+    }
+  });
+
+  Object.keys(LEGACY_PARAM_ALIASES).forEach(function (alias) {
+    if (alias.indexOf(".") === -1) {
+      suffixMap[alias] = LEGACY_PARAM_ALIASES[alias];
+    }
+  });
+
+  return suffixMap;
+}
+
+var PARAM_SUFFIX_MAP = buildParamSuffixMap(PARAM_SCHEMA);
+
+function isParamObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function canonicalParamKey(key) {
+  if (PARAM_SCHEMA[key]) {
+    return key;
+  }
+  if (LEGACY_PARAM_ALIASES[key]) {
+    return LEGACY_PARAM_ALIASES[key];
+  }
+  if (key.indexOf(".") === -1 && PARAM_SUFFIX_MAP[key]) {
+    return PARAM_SUFFIX_MAP[key];
+  }
+  return key;
+}
+
+function flattenParamObject(prefix, value, out) {
+  if (isParamObject(value)) {
+    Object.keys(value).forEach(function (key) {
+      var next = prefix ? prefix + "." + key : key;
+      flattenParamObject(next, value[key], out);
+    });
+    return;
+  }
+  if (!prefix) {
+    return;
+  }
+  out[canonicalParamKey(prefix)] = value;
+}
+
+function normaliseParamMap(params) {
+  if (!isParamObject(params)) {
+    return {};
+  }
+  var flat = {};
+  flattenParamObject("", params, flat);
+  return flat;
+}
 
 var paramNames = Object.keys(PARAM_SCHEMA);
 var paramCounter = 0;
@@ -304,7 +380,7 @@ var METRIC_KEYS = [
 
 function metricLabel(key) {
   if (key === "_combo") return "Combination";
-  var schema = PARAM_SCHEMA[key];
+  var schema = PARAM_SCHEMA[canonicalParamKey(key)];
   if (schema) return schema.label;
   return key.replace(/_/g, " ").replace(/\b\w/g, function (c) {
     return c.toUpperCase();
@@ -312,8 +388,13 @@ function metricLabel(key) {
 }
 
 function extractValue(result, key) {
-  if (result.param_values && result.param_values[key] !== undefined) {
-    return result.param_values[key];
+  var canonicalKey = canonicalParamKey(key);
+  var paramValues = normaliseParamMap(result.param_values || {});
+  if (paramValues[canonicalKey] !== undefined) {
+    return paramValues[canonicalKey];
+  }
+  if (result[canonicalKey] !== undefined) {
+    return result[canonicalKey];
   }
   if (result[key] !== undefined) {
     return result[key];
@@ -329,7 +410,7 @@ function getAvailableMetrics(results) {
   if (!results || results.length === 0) return defaultResult;
 
   var r0 = results[0];
-  var params = Object.keys(r0.param_values || {});
+  var params = Object.keys(normaliseParamMap(r0.param_values || {}));
   var metrics = METRIC_KEYS.filter(function (k) {
     return r0[k] !== undefined;
   });
@@ -554,7 +635,7 @@ function removeParamRow(id) {
   if (row) row.remove();
   updateSweepSummary();
   if (window.currentParamsCache)
-    displayCurrentParams(window.currentParamsCache);
+    displayCurrentParams(window.currentParamsCache, window.defaultParamsCache);
 }
 
 function updateParamFields(id) {
@@ -616,7 +697,7 @@ function updateParamFields(id) {
   }
   updateSweepSummary();
   if (window.currentParamsCache)
-    displayCurrentParams(window.currentParamsCache);
+    displayCurrentParams(window.currentParamsCache, window.defaultParamsCache);
 }
 
 function showError(msg) {
@@ -1273,8 +1354,9 @@ function stopPolling() {
 }
 
 function comboLabel(r) {
-  if (r.param_values) {
-    return Object.entries(r.param_values)
+  var paramValues = normaliseParamMap(r.param_values || {});
+  if (Object.keys(paramValues).length > 0) {
+    return Object.entries(paramValues)
       .map(function (e) {
         var key = e[0];
         var v = e[1];
@@ -1527,7 +1609,8 @@ function formatScore(score) {
 
 function formatParamValues(params) {
   if (!params) return "";
-  return Object.keys(params)
+  var normalised = normaliseParamMap(params);
+  return Object.keys(normalised)
     .filter(function (k) {
       return (
         k !== "score" &&
@@ -1538,7 +1621,7 @@ function formatParamValues(params) {
       );
     })
     .map(function (k) {
-      var v = params[k];
+      var v = normalised[k];
       var schema = PARAM_SCHEMA[k];
       var label = schema ? schema.label : k;
       if (typeof v === "number" && v !== Math.floor(v)) {
@@ -1552,10 +1635,11 @@ function formatParamValues(params) {
 function renderRecommendation(rec, roundResults) {
   var card = document.getElementById("recommendation-card");
   var content = document.getElementById("recommendation-content");
+  var normalisedRec = normaliseParamMap(rec || {});
 
   // Build param cards
   var paramHtml = '<div class="recommendation-params">';
-  var paramKeys = Object.keys(rec).filter(function (k) {
+  var paramKeys = Object.keys(normalisedRec).filter(function (k) {
     return (
       k !== "score" &&
       k !== "acceptance_rate" &&
@@ -1572,7 +1656,7 @@ function renderRecommendation(rec, roundResults) {
   paramKeys.forEach(function (k) {
     var schema = PARAM_SCHEMA[k];
     var label = schema ? schema.label : k;
-    var v = rec[k];
+    var v = normalisedRec[k];
     var displayVal =
       typeof v === "number" && v !== Math.floor(v) ? v.toFixed(6) : v;
     paramHtml +=
@@ -1687,25 +1771,14 @@ function applyRecommendation() {
         showError("No recommendation available.");
         return;
       }
-      // Build tuning params (exclude score/metrics keys)
-      var tuningParams = {};
-      Object.keys(st.recommendation).forEach(function (k) {
-        if (
-          k !== "score" &&
-          k !== "acceptance_rate" &&
-          k !== "misalignment_ratio" &&
-          k !== "alignment_deg" &&
-          k !== "nonzero_cells" &&
-          k !== "foreground_capture" &&
-          k !== "unbounded_point_ratio" &&
-          k !== "empty_box_ratio" &&
-          k !== "fragmentation_ratio" &&
-          k !== "heading_jitter_deg" &&
-          k !== "speed_jitter_mps"
-        ) {
-          tuningParams[k] = st.recommendation[k];
-        }
-      });
+      var extracted = extractEditableTuningParams(st.recommendation);
+      var tuningParams = extracted.params;
+      if (Object.keys(tuningParams).length === 0) {
+        showError(
+          "Recommendation did not contain any editable tuning parameters.",
+        );
+        return;
+      }
 
       fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
         method: "POST",
@@ -1753,6 +1826,13 @@ function applySceneParams() {
     showError("Failed to parse replay case parameters: " + e.message);
     return;
   }
+  tuningParams = extractEditableTuningParams(tuningParams).params;
+  if (Object.keys(tuningParams).length === 0) {
+    showError(
+      "Selected replay case did not contain any editable tuning parameters.",
+    );
+    return;
+  }
 
   fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
     method: "POST",
@@ -1794,6 +1874,31 @@ var METRIC_FILTER_KEYS = [
   "speed_jitter_mps",
 ];
 
+function extractEditableTuningParams(params) {
+  var normalised = normaliseParamMap(params);
+  var tuningParams = {};
+  var filteredMetricKeys = [];
+  var filteredUnsupportedKeys = [];
+
+  Object.keys(normalised).forEach(function (key) {
+    if (METRIC_FILTER_KEYS.indexOf(key) !== -1) {
+      filteredMetricKeys.push(key);
+      return;
+    }
+    if (!PARAM_SCHEMA[key]) {
+      filteredUnsupportedKeys.push(key);
+      return;
+    }
+    tuningParams[key] = normalised[key];
+  });
+
+  return {
+    params: tuningParams,
+    filteredMetricKeys: filteredMetricKeys,
+    filteredUnsupportedKeys: filteredUnsupportedKeys,
+  };
+}
+
 function applyPastedParams() {
   var textarea = document.getElementById("paste-params-json");
   var statusEl = document.getElementById("paste-apply-status");
@@ -1818,47 +1923,20 @@ function applyPastedParams() {
     return;
   }
 
-  // Filter out metric keys
-  var tuningParams = {};
-  var filtered = [];
-  Object.keys(parsed).forEach(function (k) {
-    if (METRIC_FILTER_KEYS.indexOf(k) !== -1) {
-      filtered.push(k);
-    } else {
-      tuningParams[k] = parsed[k];
-    }
-  });
-
-  var paramCount = Object.keys(tuningParams).length;
-  if (paramCount === 0) {
-    showError(
-      "No tuning parameters found after filtering metrics. Keys filtered: " +
-        filtered.join(", "),
-    );
-    return;
-  }
-
-  statusEl.textContent = "Applying " + paramCount + " params...";
+  statusEl.textContent = "Applying params...";
   btn.disabled = true;
 
   fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(tuningParams),
+    body: JSON.stringify(parsed),
   })
     .then(function (r) {
       if (!r.ok)
         return r.text().then(function (t) {
           throw new Error(t);
         });
-      statusEl.textContent =
-        "Applied " +
-        paramCount +
-        " params" +
-        (filtered.length
-          ? " (" + filtered.length + " metric keys filtered)"
-          : "") +
-        " ✓";
+      statusEl.textContent = "Applied ✓";
       btn.disabled = false;
       fetchCurrentParams();
     })
@@ -1870,11 +1948,7 @@ function applyPastedParams() {
 }
 
 function loadCurrentIntoEditor() {
-  fetch(
-    "/api/lidar/params?sensor_id=" +
-      encodeURIComponent(sensorId) +
-      "&format=pretty",
-  )
+  fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId))
     .then(function (r) {
       return r.json();
     })
@@ -2518,8 +2592,11 @@ function buildScatterOption(results, cfg) {
 function renderTable(results) {
   // Determine param columns from first result
   var paramKeys = [];
-  if (results[0] && results[0].param_values) {
-    paramKeys = Object.keys(results[0].param_values);
+  var paramValuesList = results.map(function (r) {
+    return normaliseParamMap(r.param_values || {});
+  });
+  if (results[0]) {
+    paramKeys = Object.keys(paramValuesList[0]);
   }
 
   // Check if we have ground truth scores
@@ -2562,11 +2639,12 @@ function renderTable(results) {
   // Rebuild body
   var tbody = document.getElementById("results-body");
   tbody.innerHTML = "";
-  results.forEach(function (r) {
+  results.forEach(function (r, idx) {
+    var paramValues = paramValuesList[idx];
     var tr = document.createElement("tr");
     var html = "";
     paramKeys.forEach(function (k) {
-      var v = r.param_values ? r.param_values[k] : undefined;
+      var v = paramValues[k];
       if (typeof v === "number" && v !== Math.floor(v)) {
         html += '<td class="mono">' + escapeHTML(v.toFixed(4)) + "</td>";
       } else {
@@ -2665,14 +2743,34 @@ window.addEventListener("resize", function () {
 // ---- Current params display ----
 
 function fetchCurrentParams() {
-  fetch("/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId))
-    .then(function (r) {
+  var baseUrl = "/api/lidar/params?sensor_id=" + encodeURIComponent(sensorId);
+
+  var fetches = [
+    fetch(baseUrl).then(function (r) {
       if (!r.ok) throw new Error("Failed to fetch params");
       return r.json();
-    })
-    .then(function (params) {
-      window.currentParamsCache = params;
-      displayCurrentParams(params);
+    }),
+  ];
+
+  // Fetch defaults once — cache for subsequent calls.
+  if (!window.defaultParamsCache) {
+    fetches.push(
+      fetch(baseUrl + "&source=default").then(function (r) {
+        if (!r.ok) throw new Error("Failed to fetch defaults");
+        return r.json();
+      }),
+    );
+  } else {
+    fetches.push(Promise.resolve(window.defaultParamsCache));
+  }
+
+  Promise.all(fetches)
+    .then(function (results) {
+      var current = results[0];
+      var defaults = results[1];
+      window.currentParamsCache = current;
+      window.defaultParamsCache = defaults;
+      displayCurrentParams(current, defaults);
     })
     .catch(function (err) {
       document.getElementById("current-params-display").textContent =
@@ -2680,61 +2778,43 @@ function fetchCurrentParams() {
     });
 }
 
-function displayCurrentParams(params) {
-  // Get list of currently swept parameters in order
-  var sweptParams = {};
-  var sweptParamOrder = [];
-  var rows = document.getElementById("param-rows").children;
-  for (var i = 0; i < rows.length; i++) {
-    var rowId = rows[i].id.replace("param-row-", "");
-    var nameEl = document.getElementById("pname-" + rowId);
-    if (nameEl && nameEl.value) {
-      sweptParams[nameEl.value] = true;
-      sweptParamOrder.push(nameEl.value);
+function renderJsonDiff(currentJson, defaultJson) {
+  var currentLines = currentJson.split("\n");
+  var defaultLines = defaultJson.split("\n");
+  var html = [];
+  var changedCount = 0;
+  for (var i = 0; i < currentLines.length; i++) {
+    var line = currentLines[i];
+    var isChanged =
+      i < defaultLines.length && currentLines[i] !== defaultLines[i];
+    if (isChanged) {
+      changedCount++;
+      html.push('<span class="diff-changed">' + escapeHTML(line) + "</span>");
+    } else {
+      html.push("<span>" + escapeHTML(line) + "</span>");
     }
   }
+  return { html: html.join("\n"), changedCount: changedCount };
+}
 
-  // Sort keys: swept params first (in order), then remaining alphabetically
-  var keys = Object.keys(params);
-  var sweptKeys = sweptParamOrder.filter(function (k) {
-    return keys.indexOf(k) !== -1;
-  });
-  var otherKeys = keys
-    .filter(function (k) {
-      return sweptParamOrder.indexOf(k) === -1;
-    })
-    .sort();
-  var sortedKeys = sweptKeys.concat(otherKeys);
+function displayCurrentParams(current, defaults) {
+  var currentJson = JSON.stringify(current, null, 2);
+  var defaultJson = defaults ? JSON.stringify(defaults, null, 2) : currentJson;
+  var diff = renderJsonDiff(currentJson, defaultJson);
+  var el = document.getElementById("current-params-display");
+  el.innerHTML = "<pre>" + diff.html + "</pre>";
 
-  var lines = [];
-  sortedKeys.forEach(function (key) {
-    var value = params[key];
-    var displayValue = value;
-
-    // Format value for display
-    if (typeof value === "boolean") {
-      displayValue = value ? "true" : "false";
-    } else if (typeof value === "number") {
-      if (Number.isInteger(value)) {
-        displayValue = value.toString();
-      } else {
-        displayValue = value.toFixed(6).replace(/\.?0+$/, "");
-      }
-    } else if (value === null) {
-      displayValue = "null";
-    }
-
-    var line = escapeHTML(key) + ": " + escapeHTML(displayValue);
-    var isSwept = sweptParams[key] === true;
-
-    if (isSwept) {
-      lines.push('<span class="param-line swept">' + line + "</span>");
-    } else {
-      lines.push('<span class="param-line">' + line + "</span>");
-    }
-  });
-
-  document.getElementById("current-params-display").innerHTML = lines.join("");
+  // Update header with change count
+  var header = document.querySelector(".current-params-header .field-desc");
+  if (header) {
+    header.textContent =
+      diff.changedCount > 0
+        ? diff.changedCount +
+          " value" +
+          (diff.changedCount !== 1 ? "s" : "") +
+          " changed from default (highlighted)."
+        : "All values match defaults.";
+  }
 }
 
 // ---- Chart builder ----
@@ -3076,15 +3156,15 @@ function disposeAllCharts() {
 
 // Default parameters for HINT auto-configuration when user hasn't added any.
 var DEFAULT_HINT_FOREGROUND_PARAMS = [
-  "foreground_min_cluster_points",
-  "foreground_dbscan_eps",
+  "l4.dbscan_xy_v1.foreground_min_cluster_points",
+  "l4.dbscan_xy_v1.foreground_dbscan_eps",
 ];
 
 var DEFAULT_HINT_BACKGROUND_PARAMS = [
-  "noise_relative",
-  "closeness_multiplier",
-  "background_update_fraction",
-  "safety_margin_meters",
+  "l3.ema_baseline_v1.noise_relative",
+  "l3.ema_baseline_v1.closeness_multiplier",
+  "l3.ema_baseline_v1.background_update_fraction",
+  "l3.ema_baseline_v1.safety_margin_metres",
 ];
 
 // DEFAULT_HINT_PARAMS kept for backward compatibility (all params).
@@ -3100,6 +3180,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatDuration: formatDuration,
     comboLabel: comboLabel,
     formatParamValues: formatParamValues,
+    normaliseParamMap: normaliseParamMap,
+    extractEditableTuningParams: extractEditableTuningParams,
     PARAM_SCHEMA: PARAM_SCHEMA,
     val: val,
     numVal: numVal,
@@ -3189,6 +3271,8 @@ function init() {
   currentSweepId = null;
   viewingHistorical = false;
   pendingResumeSweepId = null;
+  window.currentParamsCache = null;
+  window.defaultParamsCache = null;
 
   sensorId = document.querySelector('meta[name="sensor-id"]').content;
 
@@ -3281,7 +3365,7 @@ function init() {
     });
 
   // Add a default parameter row
-  addParamRow("noise_relative");
+  addParamRow("l3.ema_baseline_v1.noise_relative");
   updateSweepSummary();
 
   // Fetch and display current tuning parameters
@@ -3317,9 +3401,13 @@ function init() {
     .getElementById("param-rows")
     .addEventListener("input", updateSweepSummary);
 
-  // Update highlighted params when param rows change
+  // Re-render params display when param rows change
   document.getElementById("param-rows").addEventListener("change", function () {
-    displayCurrentParams(window.currentParamsCache || {});
+    if (window.currentParamsCache)
+      displayCurrentParams(
+        window.currentParamsCache,
+        window.defaultParamsCache,
+      );
   });
 }
 

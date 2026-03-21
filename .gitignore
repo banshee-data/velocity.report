@@ -21,6 +21,7 @@ _site/
 static/
 node_modules/
 package-lock.json
+.tmp/
 
 # =============================================================================
 # Local/Archived Data
@@ -173,3 +174,4 @@ data/**/*.csv
 data/**/*.json
 data/**/results/*
 *.test
+scripts/*.cover

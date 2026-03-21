@@ -18,9 +18,10 @@ import (
 type BackgroundParams struct {
 	BackgroundUpdateFraction       float32 // e.g., 0.02
 	ClosenessSensitivityMultiplier float32 // e.g., 3.0
-	SafetyMarginMeters             float32 // e.g., 0.5
+	SafetyMarginMetres             float32 // e.g., 0.5
 	FreezeDurationNanos            int64   // e.g., 5e9 (5s)
-	NeighborConfirmationCount      int     // e.g., 5 of 8 neighbors
+	FreezeThresholdMultiplier      float32 // e.g., 3.0
+	NeighbourConfirmationCount     int     // e.g., 5 of 8 neighbours
 	WarmupDurationNanos            int64   // optional extra settle time before emitting foreground
 	WarmupMinFrames                int     // optional minimum frames before considering settled
 	PostSettleUpdateFraction       float32 // optional lower alpha after settle for stability
@@ -67,12 +68,18 @@ type BackgroundParams struct {
 	// SensorMovementForegroundThreshold is the fraction of points that must be
 	// classified as foreground to trigger sensor movement detection. Default: 0.20 (20%).
 	SensorMovementForegroundThreshold float32
-	// BackgroundDriftThresholdMeters is the drift distance in metres that indicates
+	// BackgroundDriftThresholdMetres is the drift distance in metres that indicates
 	// a cell has drifted significantly. Default: 0.5m.
-	BackgroundDriftThresholdMeters float32
+	BackgroundDriftThresholdMetres float32
 	// BackgroundDriftRatioThreshold is the fraction of settled cells that must have
 	// drifted to consider the entire background drifted. Default: 0.10 (10%).
 	BackgroundDriftRatioThreshold float32
+
+	// Settling convergence thresholds.
+	SettlingMinCoverage        float32
+	SettlingMaxSpreadDelta     float32
+	SettlingMinRegionStability float32
+	SettlingMinConfidence      float32
 
 	// Debug logging region (only active if EnableDiagnostics is true)
 	DebugRingMin int     // Min ring index (inclusive)
@@ -88,9 +95,9 @@ type BackgroundParams struct {
 
 // RegionParams defines parameters that can vary per region
 type RegionParams struct {
-	NoiseRelativeFraction     float32 `json:"noise_relative_fraction"`     // noise threshold for this region
-	NeighborConfirmationCount int     `json:"neighbor_confirmation_count"` // neighbor confirmation for this region
-	SettleUpdateFraction      float32 `json:"settle_update_fraction"`      // alpha during settling for this region
+	NoiseRelativeFraction      float32 `json:"noise_relative_fraction"`     // noise threshold for this region
+	NeighbourConfirmationCount int     `json:"neighbor_confirmation_count"` // neighbour confirmation for this region
+	SettleUpdateFraction       float32 `json:"settle_update_fraction"`      // alpha during settling for this region
 }
 
 // Region represents a contiguous spatial region with distinct parameters
@@ -433,22 +440,22 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			current := queue[0]
 			queue = queue[1:]
 
-			// Get neighbors (same ring ± 1 az, same az ± 1 ring)
+			// Get neighbours (same ring ± 1 az, same az ± 1 ring)
 			ring := current / grid.AzimuthBins
 			azBin := current % grid.AzimuthBins
 
-			neighbors := []struct{ r, az int }{
+			neighbours := []struct{ r, az int }{
 				{ring, (azBin + 1) % grid.AzimuthBins},
 				{ring, (azBin - 1 + grid.AzimuthBins) % grid.AzimuthBins},
 			}
 			if ring > 0 {
-				neighbors = append(neighbors, struct{ r, az int }{ring - 1, azBin})
+				neighbours = append(neighbours, struct{ r, az int }{ring - 1, azBin})
 			}
 			if ring < grid.Rings-1 {
-				neighbors = append(neighbors, struct{ r, az int }{ring + 1, azBin})
+				neighbours = append(neighbours, struct{ r, az int }{ring + 1, azBin})
 			}
 
-			for _, n := range neighbors {
+			for _, n := range neighbours {
 				nIdx := grid.Idx(n.r, n.az)
 				if !visited[nIdx] && cellCategory[nIdx] == category {
 					visited[nIdx] = true
@@ -506,9 +513,9 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 	if baseNoise <= 0 {
 		baseNoise = 0.01
 	}
-	baseNeighbor := baseParams.NeighborConfirmationCount
-	if baseNeighbor <= 0 {
-		baseNeighbor = 3
+	baseNeighbour := baseParams.NeighbourConfirmationCount
+	if baseNeighbour <= 0 {
+		baseNeighbour = 3
 	}
 	baseAlpha := baseParams.BackgroundUpdateFraction
 	if baseAlpha <= 0 {
@@ -518,27 +525,27 @@ func (rm *RegionManager) assignRegionParams(category int, baseParams BackgroundP
 	switch category {
 	case 0: // stable (low variance) - EXTREMELY high tolerance to eliminate false positives, faster settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 4.0, // EXTREMELY high tolerance - stable surfaces should almost never flag FG
-			NeighborConfirmationCount: baseNeighbor,    // standard neighbor check
-			SettleUpdateFraction:      baseAlpha * 1.5, // faster settling
+			NoiseRelativeFraction:      baseNoise * 4.0, // EXTREMELY high tolerance - stable surfaces should almost never flag FG
+			NeighbourConfirmationCount: baseNeighbour,   // standard neighbour check
+			SettleUpdateFraction:       baseAlpha * 1.5, // faster settling
 		}
 	case 1: // variable (medium variance) - significantly higher tolerance
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 3.0, // significantly higher tolerance
-			NeighborConfirmationCount: baseNeighbor,
-			SettleUpdateFraction:      baseAlpha,
+			NoiseRelativeFraction:      baseNoise * 3.0, // significantly higher tolerance
+			NeighbourConfirmationCount: baseNeighbour,
+			SettleUpdateFraction:       baseAlpha,
 		}
 	case 2: // volatile (high variance - trees, glass) - extremely high tolerance, slower settling
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise * 8.0,  // EXTREMELY high tolerance for dynamic surfaces
-			NeighborConfirmationCount: baseNeighbor + 2, // require more neighbors
-			SettleUpdateFraction:      baseAlpha * 0.5,  // slower settling to handle variance
+			NoiseRelativeFraction:      baseNoise * 8.0,   // EXTREMELY high tolerance for dynamic surfaces
+			NeighbourConfirmationCount: baseNeighbour + 2, // require more neighbours
+			SettleUpdateFraction:       baseAlpha * 0.5,   // slower settling to handle variance
 		}
 	default:
 		return RegionParams{
-			NoiseRelativeFraction:     baseNoise,
-			NeighborConfirmationCount: baseNeighbor,
-			SettleUpdateFraction:      baseAlpha,
+			NoiseRelativeFraction:      baseNoise,
+			NeighbourConfirmationCount: baseNeighbour,
+			SettleUpdateFraction:       baseAlpha,
 		}
 	}
 }
@@ -550,31 +557,31 @@ func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *Backgroun
 		return regions[i].CellCount < regions[j].CellCount
 	})
 
-	// Merge smallest regions into nearest neighbors until we reach target
+	// Merge smallest regions into nearest neighbours until we reach target
 	for len(regions) > targetMax {
 		// Take the smallest region
 		smallest := regions[0]
 		regions = regions[1:]
 
-		// Find the nearest region (by checking neighbors of cells in smallest)
+		// Find the nearest region (by checking neighbours of cells in smallest)
 		nearestRegionID := -1
 		for _, cellIdx := range smallest.CellList {
 			ring := cellIdx / grid.AzimuthBins
 			azBin := cellIdx % grid.AzimuthBins
 
-			// Check all neighbors
-			neighbors := []int{
+			// Check all neighbours
+			neighbours := []int{
 				grid.Idx(ring, (azBin+1)%grid.AzimuthBins),
 				grid.Idx(ring, (azBin-1+grid.AzimuthBins)%grid.AzimuthBins),
 			}
 			if ring > 0 {
-				neighbors = append(neighbors, grid.Idx(ring-1, azBin))
+				neighbours = append(neighbours, grid.Idx(ring-1, azBin))
 			}
 			if ring < grid.Rings-1 {
-				neighbors = append(neighbors, grid.Idx(ring+1, azBin))
+				neighbours = append(neighbours, grid.Idx(ring+1, azBin))
 			}
 
-			for _, nIdx := range neighbors {
+			for _, nIdx := range neighbours {
 				nRegionID := rm.CellToRegionID[nIdx]
 				if nRegionID >= 0 && nRegionID != smallest.ID {
 					nearestRegionID = nRegionID
@@ -586,7 +593,7 @@ func (rm *RegionManager) mergeSmallestRegions(regions []*Region, grid *Backgroun
 			}
 		}
 
-		// Merge into nearest region (or first region if no neighbor found)
+		// Merge into nearest region (or first region if no neighbour found)
 		if nearestRegionID < 0 && len(regions) > 0 {
 			nearestRegionID = regions[0].ID
 		}
@@ -633,9 +640,9 @@ func (rm *RegionManager) createDefaultRegion(grid *BackgroundGrid) error {
 		CellList:  make([]int, 0, totalCells),
 		CellCount: totalCells,
 		Params: RegionParams{
-			NoiseRelativeFraction:     grid.Params.NoiseRelativeFraction,
-			NeighborConfirmationCount: grid.Params.NeighborConfirmationCount,
-			SettleUpdateFraction:      grid.Params.BackgroundUpdateFraction,
+			NoiseRelativeFraction:      grid.Params.NoiseRelativeFraction,
+			NeighbourConfirmationCount: grid.Params.NeighbourConfirmationCount,
+			SettleUpdateFraction:       grid.Params.BackgroundUpdateFraction,
 		},
 	}
 	for i := 0; i < totalCells; i++ {
@@ -668,15 +675,15 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 
 // effectiveCellParams returns the region-adaptive parameters for a given cell,
 // falling back to the provided defaults when no region override is active.
-// For NeighborConfirmationCount: zero and negative values are treated as unset
+// For NeighbourConfirmationCount: zero and negative values are treated as unset
 // and defer to the default. This matches the original inline behaviour where
 // <= 0 fell back to the global default — critical because many persisted
 // region snapshots store 0 (the Go zero value) meaning "not explicitly set".
-// Using 0 as "disable" would cause neighborConfirmCount >= 0 to be always true
+// Using 0 as "disable" would cause neighbourConfirmCount >= 0 to be always true
 // in the foreground classifier, absorbing all points into the background.
-func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighborConfirm int, defaultAlpha float64) (noiseRel float64, neighborConfirm int, alpha float64) {
+func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighbourConfirm int, defaultAlpha float64) (noiseRel float64, neighbourConfirm int, alpha float64) {
 	noiseRel = defaultNoiseRel
-	neighborConfirm = defaultNeighborConfirm
+	neighbourConfirm = defaultNeighbourConfirm
 	alpha = defaultAlpha
 	if g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
 		return
@@ -689,8 +696,8 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 	if v := float64(regionParams.NoiseRelativeFraction); v > 0 {
 		noiseRel = v
 	}
-	if v := regionParams.NeighborConfirmationCount; v > 0 {
-		neighborConfirm = v
+	if v := regionParams.NeighbourConfirmationCount; v > 0 {
+		neighbourConfirm = v
 	}
 	if v := float64(regionParams.SettleUpdateFraction); v > 0 && v <= 1 {
 		alpha = v
@@ -897,14 +904,14 @@ func (bm *BackgroundManager) SetClosenessSensitivityMultiplier(v float32) error 
 	return nil
 }
 
-// SetNeighborConfirmationCount safely updates the NeighborConfirmationCount parameter.
-func (bm *BackgroundManager) SetNeighborConfirmationCount(v int) error {
+// SetNeighbourConfirmationCount safely updates the NeighbourConfirmationCount parameter.
+func (bm *BackgroundManager) SetNeighbourConfirmationCount(v int) error {
 	if bm == nil || bm.Grid == nil {
 		return fmt.Errorf("background manager or grid nil")
 	}
 	g := bm.Grid
 	g.mu.Lock()
-	g.Params.NeighborConfirmationCount = v
+	g.Params.NeighbourConfirmationCount = v
 	g.mu.Unlock()
 	return nil
 }
@@ -1298,7 +1305,7 @@ func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
 //   - Tracks a simple two-level confidence via TimesSeenCount (increment on close matches,
 //     decrement on mismatches). When a cell deviates strongly repeatedly it is frozen for
 //     FreezeDurationNanos to avoid corrupting the background model.
-//   - Uses neighbor confirmation: updates are applied more readily when adjacent cells
+//   - Uses neighbour confirmation: updates are applied more readily when adjacent cells
 //     agree (helps suppress isolated noise).
 func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if bm == nil || bm.Grid == nil || len(points) == 0 {
@@ -1380,7 +1387,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	var closenessMultiplier float64
 	var neighConfirm int
 	var seedFromFirst bool
-	safety := float64(g.Params.SafetyMarginMeters)
+	safety := float64(g.Params.SafetyMarginMetres)
 	freezeDur := g.Params.FreezeDurationNanos
 
 	// We'll read Params under lock so updates via SetNoiseRelativeFraction
@@ -1459,7 +1466,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if closenessMultiplier <= 0 {
 		closenessMultiplier = 3.0
 	}
-	neighConfirm = g.Params.NeighborConfirmationCount
+	neighConfirm = g.Params.NeighbourConfirmationCount
 	if neighConfirm <= 0 {
 		neighConfirm = 3
 	}
@@ -1482,7 +1489,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			}
 
 			// Get region-specific parameters if regions are identified
-			cellNoiseRel, cellNeighborConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+			cellNoiseRel, cellNeighbourConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
 
 			observationMean := sums[cellIdx] / float64(counts[cellIdx])
 			// Small protection when minDistances == +Inf (shouldn't happen if counts>0)
@@ -1498,26 +1505,26 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				continue
 			}
 
-			// Neighbor confirmation: count neighbors that have similar average.
-			// Restrict to same-ring neighbors to avoid cross-ring elevation geometry
+			// Neighbour confirmation: count neighbours that have similar average.
+			// Restrict to same-ring neighbours to avoid cross-ring elevation geometry
 			// from influencing horizontal azimuth confirmation (reduces bias).
-			neighborConfirmCount := 0
-			neighborRing := ringIdx
+			neighbourConfirmCount := 0
+			neighbourRing := ringIdx
 			for deltaAz := -1; deltaAz <= 1; deltaAz++ {
 				if deltaAz == 0 {
 					continue
 				}
-				neighborAzimuth := (azBinIdx + deltaAz + azBins) % azBins
-				neighborIdx := g.Idx(neighborRing, neighborAzimuth)
-				neighborCell := g.Cells[neighborIdx]
-				// consider neighbor confirmed if it has some history and close range
-				if neighborCell.TimesSeenCount > 0 {
-					neighborDiff := math.Abs(float64(neighborCell.AverageRangeMeters) - observationMean)
-					// include a distance-proportional noise term based on the neighbor's mean
+				neighbourAzimuth := (azBinIdx + deltaAz + azBins) % azBins
+				neighbourIdx := g.Idx(neighbourRing, neighbourAzimuth)
+				neighbourCell := g.Cells[neighbourIdx]
+				// consider neighbour confirmed if it has some history and close range
+				if neighbourCell.TimesSeenCount > 0 {
+					neighbourDiff := math.Abs(float64(neighbourCell.AverageRangeMeters) - observationMean)
+					// include a distance-proportional noise term based on the neighbour's mean
 					// Use cell-specific noise threshold
-					neighborCloseness := closenessMultiplier * (float64(neighborCell.RangeSpreadMeters) + cellNoiseRel*float64(neighborCell.AverageRangeMeters) + 0.01)
-					if neighborDiff <= neighborCloseness {
-						neighborConfirmCount++
+					neighbourCloseness := closenessMultiplier * (float64(neighbourCell.RangeSpreadMeters) + cellNoiseRel*float64(neighbourCell.AverageRangeMeters) + 0.01)
+					if neighbourDiff <= neighbourCloseness {
+						neighbourConfirmCount++
 					}
 				}
 			}
@@ -1530,8 +1537,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
 
 			// Decide if this observation is background-like or foreground-like
-			// Use cell-specific neighbor confirmation threshold
-			isBackgroundLike := cellDiff <= closenessThreshold || neighborConfirmCount >= cellNeighborConfirm
+			// Use cell-specific neighbour confirmation threshold
+			isBackgroundLike := cellDiff <= closenessThreshold || neighbourConfirmCount >= cellNeighbourConfirm
 
 			// Optionally seed empty cells from the first observation when configured.
 			// This helps PCAP replay populate a background grid when no prior history exists.
@@ -1552,10 +1559,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				}
 
 				if logThis {
-					tracef("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbor_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
+					tracef("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbour_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
 						g.SensorID, ringIdx, azBinIdx, observationMean,
 						cell.AverageRangeMeters, cell.RangeSpreadMeters, cell.TimesSeenCount,
-						neighborConfirmCount, closenessThreshold, cellDiff,
+						neighbourConfirmCount, closenessThreshold, cellDiff,
 						isBackgroundLike, initIfEmpty)
 				}
 			}
@@ -1648,7 +1655,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		if total > 0 {
 			acceptPct = (float64(backgroundCount) / float64(total)) * 100.0
 		}
-		tracef("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbor_confirm=%d seed_from_first=%v",
+		tracef("[ProcessFramePolar:summary] sensor=%s points_in=%d cells_updated=%d bg_accept=%d fg_reject=%d accept_pct=%.2f%% noise_rel=%.6f closeness_mult=%.3f neighbour_confirm=%d seed_from_first=%v",
 			g.SensorID, len(points), total, backgroundCount, foregroundCount, acceptPct,
 			noiseRel, closenessMultiplier, neighConfirm, seedFromFirst)
 	}

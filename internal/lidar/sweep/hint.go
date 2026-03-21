@@ -132,15 +132,15 @@ type HINTRound struct {
 // included since each exploration combo must re-settle the grid.
 func defaultHINTParams(tuneBackground bool) []SweepParam {
 	params := []SweepParam{
-		{Name: "foreground_min_cluster_points", Type: "int", Start: 0, End: 20},
-		{Name: "foreground_dbscan_eps", Type: "float64", Start: 0, End: 2.0},
+		{Name: "l4.dbscan_xy_v1.foreground_min_cluster_points", Type: "int", Start: 0, End: 20},
+		{Name: "l4.dbscan_xy_v1.foreground_dbscan_eps", Type: "float64", Start: 0, End: 2.0},
 	}
 	if tuneBackground {
 		params = append(params,
-			SweepParam{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.2},
-			SweepParam{Name: "closeness_multiplier", Type: "float64", Start: 1.0, End: 20.0},
-			SweepParam{Name: "background_update_fraction", Type: "float64", Start: 0.005, End: 0.1},
-			SweepParam{Name: "safety_margin_meters", Type: "float64", Start: 0, End: 2.0},
+			SweepParam{Name: "l3.ema_baseline_v1.noise_relative", Type: "float64", Start: 0.01, End: 0.2},
+			SweepParam{Name: "l3.ema_baseline_v1.closeness_multiplier", Type: "float64", Start: 1.0, End: 20.0},
+			SweepParam{Name: "l3.ema_baseline_v1.background_update_fraction", Type: "float64", Start: 0.005, End: 0.1},
+			SweepParam{Name: "l3.ema_baseline_v1.safety_margin_metres", Type: "float64", Start: 0, End: 2.0},
 		)
 	}
 	return params

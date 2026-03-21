@@ -10,9 +10,9 @@ import (
 func TestAliasesCompile(t *testing.T) {
 	// BackgroundParams alias should be usable as the parent type.
 	var p l3grid.BackgroundParams
-	p.NeighborConfirmationCount = 5
-	if p.NeighborConfirmationCount != 5 {
-		t.Fatalf("BackgroundParams alias broken: got %d", p.NeighborConfirmationCount)
+	p.NeighbourConfirmationCount = 5
+	if p.NeighbourConfirmationCount != 5 {
+		t.Fatalf("BackgroundParams alias broken: got %d", p.NeighbourConfirmationCount)
 	}
 
 	// FrameMetrics alias.

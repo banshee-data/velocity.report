@@ -61,11 +61,11 @@ func TestDefaultHINTParams_ForegroundOnly(t *testing.T) {
 	if len(params) != 2 {
 		t.Fatalf("expected 2 params, got %d", len(params))
 	}
-	if params[0].Name != "foreground_min_cluster_points" {
-		t.Errorf("expected foreground_min_cluster_points, got %s", params[0].Name)
+	if params[0].Name != "l4.dbscan_xy_v1.foreground_min_cluster_points" {
+		t.Errorf("expected l4.dbscan_xy_v1.foreground_min_cluster_points, got %s", params[0].Name)
 	}
-	if params[1].Name != "foreground_dbscan_eps" {
-		t.Errorf("expected foreground_dbscan_eps, got %s", params[1].Name)
+	if params[1].Name != "l4.dbscan_xy_v1.foreground_dbscan_eps" {
+		t.Errorf("expected l4.dbscan_xy_v1.foreground_dbscan_eps, got %s", params[1].Name)
 	}
 }
 
@@ -79,7 +79,12 @@ func TestDefaultHINTParams_WithBackground(t *testing.T) {
 	for _, p := range params {
 		names[p.Name] = true
 	}
-	for _, expected := range []string{"noise_relative", "closeness_multiplier", "background_update_fraction", "safety_margin_meters"} {
+	for _, expected := range []string{
+		"l3.ema_baseline_v1.noise_relative",
+		"l3.ema_baseline_v1.closeness_multiplier",
+		"l3.ema_baseline_v1.background_update_fraction",
+		"l3.ema_baseline_v1.safety_margin_metres",
+	} {
 		if !names[expected] {
 			t.Errorf("missing expected param %s", expected)
 		}

@@ -46,7 +46,7 @@ type TrackerConfig struct {
 	MaxMisses               int           // Consecutive misses before tentative track deletion
 	MaxMissesConfirmed      int           // Consecutive misses before confirmed track deletion (coasting)
 	HitsToConfirm           int           // Consecutive hits needed for confirmation
-	GatingDistanceSquared   float32       // Squared gating distance for association (meters²)
+	GatingDistanceSquared   float32       // Squared gating distance for association (metres²)
 	ProcessNoisePos         float32       // Process noise for position (σ²)
 	ProcessNoiseVel         float32       // Process noise for velocity (σ²)
 	MeasurementNoise        float32       // Measurement noise (σ²)
@@ -55,7 +55,7 @@ type TrackerConfig struct {
 
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
-	MaxPositionJumpMeters float32 // Maximum position jump between observations (metres)
+	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)
 	MaxPredictDt          float32 // Maximum dt (seconds) per predict step
 	MaxCovarianceDiag     float32 // Maximum covariance diagonal element
 
@@ -82,36 +82,48 @@ type TrackerConfig struct {
 // that have already validated config availability.
 func DefaultTrackerConfig() TrackerConfig {
 	cfg := config.MustLoadDefaultConfig()
-	return TrackerConfigFromTuning(cfg)
+	return TrackerConfigFromTuning(cfg.L5.CvKfV1)
 }
 
-// TrackerConfigFromTuning builds a TrackerConfig from a loaded TuningConfig.
-// Use this in production code where the TuningConfig is already loaded.
-func TrackerConfigFromTuning(cfg *config.TuningConfig) TrackerConfig {
-	return TrackerConfig{
-		MaxTracks:                        cfg.GetMaxTracks(),
-		MaxMisses:                        cfg.GetMaxMisses(),
-		MaxMissesConfirmed:               cfg.GetMaxMissesConfirmed(),
-		HitsToConfirm:                    cfg.GetHitsToConfirm(),
-		GatingDistanceSquared:            float32(cfg.GetGatingDistanceSquared()),
-		ProcessNoisePos:                  float32(cfg.GetProcessNoisePos()),
-		ProcessNoiseVel:                  float32(cfg.GetProcessNoiseVel()),
-		MeasurementNoise:                 float32(cfg.GetMeasurementNoise()),
-		OcclusionCovInflation:            float32(cfg.GetOcclusionCovInflation()),
-		DeletedTrackGracePeriod:          cfg.GetDeletedTrackGracePeriod(),
-		MaxReasonableSpeedMps:            float32(cfg.GetMaxReasonableSpeedMps()),
-		MaxPositionJumpMeters:            float32(cfg.GetMaxPositionJumpMeters()),
-		MaxPredictDt:                     float32(cfg.GetMaxPredictDt()),
-		MaxCovarianceDiag:                float32(cfg.GetMaxCovarianceDiag()),
-		MinPointsForPCA:                  cfg.GetMinPointsForPCA(),
-		OBBHeadingSmoothingAlpha:         float32(cfg.GetOBBHeadingSmoothingAlpha()),
-		OBBAspectRatioLockThreshold:      float32(cfg.GetOBBAspectRatioLockThreshold()),
-		MaxTrackHistoryLength:            cfg.GetMaxTrackHistoryLength(),
-		MaxSpeedHistoryLength:            cfg.GetMaxSpeedHistoryLength(),
-		MergeSizeRatio:                   float32(cfg.GetMergeSizeRatio()),
-		SplitSizeRatio:                   float32(cfg.GetSplitSizeRatio()),
-		MinObservationsForClassification: cfg.GetMinObservationsForClassification(),
+// TrackerConfigFromTuning builds a TrackerConfig from the active L5 engine
+// block. Callers are expected to pass the validated selected engine struct for
+// the current pipeline on this branch.
+func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
+	if l5cfg == nil {
+		return TrackerConfig{}
 	}
+	return TrackerConfig{
+		MaxTracks:                        l5cfg.MaxTracks,
+		MaxMisses:                        l5cfg.MaxMisses,
+		MaxMissesConfirmed:               l5cfg.MaxMissesConfirmed,
+		HitsToConfirm:                    l5cfg.HitsToConfirm,
+		GatingDistanceSquared:            float32(l5cfg.GatingDistanceSquared),
+		ProcessNoisePos:                  float32(l5cfg.ProcessNoisePos),
+		ProcessNoiseVel:                  float32(l5cfg.ProcessNoiseVel),
+		MeasurementNoise:                 float32(l5cfg.MeasurementNoise),
+		OcclusionCovInflation:            float32(l5cfg.OcclusionCovInflation),
+		DeletedTrackGracePeriod:          mustParseDuration(l5cfg.DeletedTrackGracePeriod),
+		MaxReasonableSpeedMps:            float32(l5cfg.MaxReasonableSpeedMps),
+		MaxPositionJumpMetres:            float32(l5cfg.MaxPositionJumpMetres),
+		MaxPredictDt:                     float32(l5cfg.MaxPredictDt),
+		MaxCovarianceDiag:                float32(l5cfg.MaxCovarianceDiag),
+		MinPointsForPCA:                  l5cfg.MinPointsForPCA,
+		OBBHeadingSmoothingAlpha:         float32(l5cfg.OBBHeadingSmoothingAlpha),
+		OBBAspectRatioLockThreshold:      float32(l5cfg.OBBAspectRatioLockThreshold),
+		MaxTrackHistoryLength:            l5cfg.MaxTrackHistoryLength,
+		MaxSpeedHistoryLength:            l5cfg.MaxSpeedHistoryLength,
+		MergeSizeRatio:                   float32(l5cfg.MergeSizeRatio),
+		SplitSizeRatio:                   float32(l5cfg.SplitSizeRatio),
+		MinObservationsForClassification: l5cfg.MinObservationsForClassification,
+	}
+}
+
+func mustParseDuration(raw string) time.Duration {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		panic(fmt.Sprintf("mustParseDuration: invalid duration %q: %v", raw, err))
+	}
+	return d
 }
 
 // TrackPoint represents a single point in a track's history.
@@ -328,6 +340,14 @@ func (t *Tracker) UpdateConfig(fn func(*TrackerConfig)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	fn(&t.Config)
+}
+
+// GetConfig returns a snapshot of the tracker's current configuration
+// under a read lock. Safe to call from any goroutine.
+func (t *Tracker) GetConfig() TrackerConfig {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.Config
 }
 
 // Reset clears all tracks and resets the tracker to its initial state.
@@ -773,7 +793,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *TrackedObject, cluster World
 
 	// Physical plausibility check: reject if position jump is too large
 	euclideanDist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-	if euclideanDist > t.Config.MaxPositionJumpMeters {
+	if euclideanDist > t.Config.MaxPositionJumpMetres {
 		return SingularDistanceRejection
 	}
 

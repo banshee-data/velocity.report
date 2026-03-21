@@ -48,6 +48,31 @@ func TestDefaultTrackerConfig(t *testing.T) {
 	}
 }
 
+func TestTrackerConfigFromTuning_NilConfig(t *testing.T) {
+	cfg := TrackerConfigFromTuning(nil)
+	if cfg != (TrackerConfig{}) {
+		t.Fatalf("expected zero-value tracker config, got %+v", cfg)
+	}
+}
+
+func TestTracker_GetConfigReturnsSnapshot(t *testing.T) {
+	tracker := NewTracker(DefaultTrackerConfig())
+	tracker.UpdateConfig(func(cfg *TrackerConfig) {
+		cfg.GatingDistanceSquared = 42
+		cfg.HitsToConfirm = 7
+	})
+
+	snapshot := tracker.GetConfig()
+	if snapshot.GatingDistanceSquared != 42 || snapshot.HitsToConfirm != 7 {
+		t.Fatalf("unexpected config snapshot: %+v", snapshot)
+	}
+
+	snapshot.GatingDistanceSquared = 99
+	if tracker.GetConfig().GatingDistanceSquared != 42 {
+		t.Fatal("GetConfig should return a copy, not a mutable alias")
+	}
+}
+
 func TestTracker_InitTrack(t *testing.T) {
 	tracker := NewTracker(DefaultTrackerConfig())
 	now := time.Now()
@@ -507,9 +532,9 @@ func TestMahalanobisDistanceSquared(t *testing.T) {
 			P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 		}
 
-		// Cluster very far away, exceeding config max_position_jump_meters
+		// Cluster very far away, exceeding config MaxPositionJumpMetres
 		cluster := WorldCluster{
-			CentroidX: tracker.Config.MaxPositionJumpMeters + 10, // way beyond limit
+			CentroidX: tracker.Config.MaxPositionJumpMetres + 10, // way beyond limit
 			CentroidY: 0,
 		}
 

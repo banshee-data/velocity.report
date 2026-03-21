@@ -18,7 +18,7 @@ func TestProcessFramePolarWithMask_WarmupSensitivity(t *testing.T) {
 		Params: BackgroundParams{
 			BackgroundUpdateFraction:       0.02, // Slow update
 			ClosenessSensitivityMultiplier: 3.0,
-			SafetyMarginMeters:             0.1,  // 10cm safety
+			SafetyMarginMetres:             0.1,  // 10cm safety
 			NoiseRelativeFraction:          0.01, // 1% relative noise
 			SeedFromFirstObservation:       true,
 		},

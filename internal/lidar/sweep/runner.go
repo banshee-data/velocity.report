@@ -514,9 +514,9 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		}
 
 		// Extract values for SampleConfig CSV output if present
-		noise, _ := toFloat64(paramValues["noise_relative"])
-		closeness, _ := toFloat64(paramValues["closeness_multiplier"])
-		neighbour, _ := toInt(paramValues["neighbor_confirmation_count"])
+		noise, _ := toFloat64(paramValues["l3.ema_baseline_v1.noise_relative"])
+		closeness, _ := toFloat64(paramValues["l3.ema_baseline_v1.closeness_multiplier"])
+		neighbour, _ := toInt(paramValues["l3.ema_baseline_v1.neighbour_confirmation_count"])
 
 		// Sample
 		cfg := SampleConfig{

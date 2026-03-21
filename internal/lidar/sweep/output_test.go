@@ -141,7 +141,11 @@ func TestFormatSummaryHeaders(t *testing.T) {
 	buckets := []string{"15", "20", "25"}
 	headers := FormatSummaryHeaders(buckets)
 
-	expectedStart := []string{"noise_relative", "closeness_multiplier", "neighbour_confirmation_count"}
+	expectedStart := []string{
+		"l3.ema_baseline_v1.noise_relative",
+		"l3.ema_baseline_v1.closeness_multiplier",
+		"l3.ema_baseline_v1.neighbour_confirmation_count",
+	}
 	for i, expected := range expectedStart {
 		if headers[i] != expected {
 			t.Errorf("Header %d: expected %s, got %s", i, expected, headers[i])
@@ -171,8 +175,8 @@ func TestFormatRawHeaders(t *testing.T) {
 	buckets := []string{"15", "20"}
 	headers := FormatRawHeaders(buckets)
 
-	if headers[0] != "noise_relative" {
-		t.Errorf("First header should be noise_relative, got %s", headers[0])
+	if headers[0] != "l3.ema_baseline_v1.noise_relative" {
+		t.Errorf("First header should be l3.ema_baseline_v1.noise_relative, got %s", headers[0])
 	}
 	if headers[3] != "iter" {
 		t.Errorf("Fourth header should be iter, got %s", headers[3])

@@ -158,8 +158,8 @@ func makeTestBgManager(t *testing.T, sensorID string) *l3grid.BackgroundManager 
 		SeedFromFirstObservation:       true,
 		BackgroundUpdateFraction:       0.5,
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             0.5,
-		NeighborConfirmationCount:      0,
+		SafetyMarginMetres:             0.5,
+		NeighbourConfirmationCount:     0,
 		NoiseRelativeFraction:          0.01,
 		// Zero warmup — foreground emitted immediately
 		WarmupDurationNanos: 0,
@@ -583,8 +583,8 @@ func TestTrackingPipelineConfig_WithFgForwarder_DebugRange(t *testing.T) {
 		SeedFromFirstObservation:       true,
 		BackgroundUpdateFraction:       0.5,
 		ClosenessSensitivityMultiplier: 2.0,
-		SafetyMarginMeters:             0.5,
-		NeighborConfirmationCount:      0,
+		SafetyMarginMetres:             0.5,
+		NeighbourConfirmationCount:     0,
 		NoiseRelativeFraction:          0.01,
 		// Set debug range to only forward a specific region
 		DebugRingMin: 0,
@@ -1149,9 +1149,9 @@ func testBackgroundManagerPrePopulated(t *testing.T) *l3grid.BackgroundManager {
 	t.Helper()
 	params := l3grid.BackgroundParams{
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		BackgroundUpdateFraction:       0.02,
-		NeighborConfirmationCount:      0, // no neighbour requirement
+		NeighbourConfirmationCount:     0, // no neighbour requirement
 		WarmupMinFrames:                0, // skip warmup
 	}
 	bm := l3grid.NewBackgroundManagerDI("test-cov", 40, 1800, params, nil)
@@ -1288,9 +1288,9 @@ func TestNilTrackerAfterClusters(t *testing.T) {
 func TestNoClustersRecordStats(t *testing.T) {
 	params := l3grid.BackgroundParams{
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		BackgroundUpdateFraction:       0.02,
-		NeighborConfirmationCount:      0,
+		NeighbourConfirmationCount:     0,
 		WarmupMinFrames:                0,
 		ForegroundMinClusterPoints:     999, // impossibly high → no clusters
 		ForegroundDBSCANEps:            2.0,
@@ -1556,7 +1556,7 @@ func TestNilTracker(t *testing.T) {
 	bgMgr := l3grid.NewBackgroundManagerDI("test", 16, 360, l3grid.BackgroundParams{
 		BackgroundUpdateFraction:       0.1,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 	}, nil)
 
 	// Populate background

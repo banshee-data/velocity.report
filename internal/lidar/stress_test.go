@@ -32,9 +32,9 @@ func TestStressProcessFramePolarConcurrency(t *testing.T) {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.02,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		FreezeDurationNanos:            int64(1e9),
-		NeighborConfirmationCount:      3,
+		NeighbourConfirmationCount:     3,
 		NoiseRelativeFraction:          0.01,
 	}
 
@@ -95,9 +95,9 @@ func TestStressProcessFramePolarLongRunning(t *testing.T) {
 	params := BackgroundParams{
 		BackgroundUpdateFraction:       0.02,
 		ClosenessSensitivityMultiplier: 3.0,
-		SafetyMarginMeters:             0.5,
+		SafetyMarginMetres:             0.5,
 		FreezeDurationNanos:            int64(1e9),
-		NeighborConfirmationCount:      3,
+		NeighbourConfirmationCount:     3,
 		NoiseRelativeFraction:          0.01,
 	}
 

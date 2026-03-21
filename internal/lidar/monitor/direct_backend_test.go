@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -257,7 +258,13 @@ func TestDirectBackend_SetTuningParams_NoManager(t *testing.T) {
 	ws := &WebServer{sensorID: sensorID}
 	db := NewDirectBackend(sensorID, ws)
 
-	err := db.SetTuningParams(map[string]interface{}{"noise_relative": 0.1})
+	err := db.SetTuningParams(map[string]interface{}{
+		"l3": map[string]interface{}{
+			"ema_baseline_v1": map[string]interface{}{
+				"noise_relative": 0.1,
+			},
+		},
+	})
 	if err == nil {
 		t.Error("expected error when no manager is registered")
 	}
@@ -272,21 +279,29 @@ func TestDirectBackend_SetTuningParams_WithTracker(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	params := map[string]interface{}{
-		"noise_relative":              0.15,
-		"enable_diagnostics":          true,
-		"closeness_multiplier":        2.0,
-		"seed_from_first":             true,
-		"gating_distance_squared":     5.0,
-		"process_noise_pos":           0.5,
-		"process_noise_vel":           1.0,
-		"measurement_noise":           0.3,
-		"occlusion_cov_inflation":     2.0,
-		"hits_to_confirm":             4,
-		"max_misses":                  8,
-		"max_misses_confirmed":        12,
-		"background_update_fraction":  0.02,
-		"safety_margin_meters":        0.5,
-		"post_settle_update_fraction": 0.01,
+		"l3": map[string]interface{}{
+			"ema_baseline_v1": map[string]interface{}{
+				"noise_relative":              0.15,
+				"enable_diagnostics":          true,
+				"closeness_multiplier":        2.0,
+				"seed_from_first":             true,
+				"background_update_fraction":  0.02,
+				"safety_margin_metres":        0.5,
+				"post_settle_update_fraction": 0.01,
+			},
+		},
+		"l5": map[string]interface{}{
+			"cv_kf_v1": map[string]interface{}{
+				"gating_distance_squared": 5.0,
+				"process_noise_pos":       0.5,
+				"process_noise_vel":       1.0,
+				"measurement_noise":       0.3,
+				"occlusion_cov_inflation": 2.0,
+				"hits_to_confirm":         4,
+				"max_misses":              8,
+				"max_misses_confirmed":    12,
+			},
+		},
 	}
 
 	err := db.SetTuningParams(params)
@@ -313,8 +328,8 @@ func TestDirectBackend_SetTuningParams_EmptyParams(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{})
-	if err != nil {
-		t.Errorf("unexpected error for empty params: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no runtime-editable parameters") {
+		t.Errorf("expected 'no runtime-editable parameters' error for empty params, got %v", err)
 	}
 }
 
@@ -325,8 +340,12 @@ func TestDirectBackend_SetTuningParams_WarmupParams(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{
-		"warmup_duration_nanos": int64(5e9),
-		"warmup_min_frames":     10,
+		"l3": map[string]interface{}{
+			"ema_baseline_v1": map[string]interface{}{
+				"warmup_duration_nanos": int64(5e9),
+				"warmup_min_frames":     10,
+			},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -340,22 +359,30 @@ func TestDirectBackend_SetTuningParams_ForegroundClusterParams(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{
-		"foreground_min_cluster_points": 5,
-		"foreground_dbscan_eps":         0.8,
+		"l4": map[string]interface{}{
+			"dbscan_xy_v1": map[string]interface{}{
+				"foreground_min_cluster_points": 5,
+				"foreground_dbscan_eps":         0.8,
+			},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
-func TestDirectBackend_SetTuningParams_NeighborConfirmation(t *testing.T) {
-	sensorID := "direct-test-neighbor-" + t.Name()
+func TestDirectBackend_SetTuningParams_NeighbourConfirmation(t *testing.T) {
+	sensorID := "direct-test-neighbour-" + t.Name()
 	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
 	ws := &WebServer{sensorID: sensorID}
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{
-		"neighbor_confirmation_count": 3,
+		"l3": map[string]interface{}{
+			"ema_baseline_v1": map[string]interface{}{
+				"neighbour_confirmation_count": 3,
+			},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -369,10 +396,38 @@ func TestDirectBackend_SetTuningParams_ForegroundMaxInputPoints(t *testing.T) {
 	db := NewDirectBackend(sensorID, ws)
 
 	err := db.SetTuningParams(map[string]interface{}{
-		"foreground_max_input_points": 5000,
+		"l4": map[string]interface{}{
+			"dbscan_xy_v1": map[string]interface{}{
+				"foreground_max_input_points": 5000,
+			},
+		},
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestDirectBackend_SetTuningParams_InvalidPatch(t *testing.T) {
+	sensorID := "direct-test-invalid-patch-" + t.Name()
+	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	ws := &WebServer{sensorID: sensorID}
+	db := NewDirectBackend(sensorID, ws)
+
+	err := db.SetTuningParams(map[string]interface{}{"": 1})
+	if err == nil || !strings.Contains(err.Error(), "empty key") {
+		t.Fatalf("expected empty-key error, got %v", err)
+	}
+}
+
+func TestDirectBackend_SetTuningParams_RuntimeApplyError(t *testing.T) {
+	sensorID := "direct-test-runtime-apply-" + t.Name()
+	_ = l3grid.NewBackgroundManager(sensorID, 16, 360, l3grid.BackgroundParams{}, nil)
+	ws := &WebServer{sensorID: sensorID}
+	db := NewDirectBackend(sensorID, ws)
+
+	err := db.SetTuningParams(map[string]interface{}{"unknown.path": 1})
+	if err == nil || !strings.Contains(err.Error(), "no runtime-editable parameters") {
+		t.Fatalf("expected 'no runtime-editable parameters' error, got %v", err)
 	}
 }
 

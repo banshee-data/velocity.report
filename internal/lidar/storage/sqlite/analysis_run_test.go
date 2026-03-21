@@ -47,8 +47,8 @@ func TestFromBackgroundParams(t *testing.T) {
 	bg := BackgroundParams{
 		BackgroundUpdateFraction:       0.05,
 		ClosenessSensitivityMultiplier: 2.5,
-		SafetyMarginMeters:             0.3,
-		NeighborConfirmationCount:      4,
+		SafetyMarginMetres:             0.3,
+		NeighbourConfirmationCount:     4,
 		NoiseRelativeFraction:          0.02,
 		SeedFromFirstObservation:       true,
 		FreezeDurationNanos:            3e9,
@@ -62,10 +62,10 @@ func TestFromBackgroundParams(t *testing.T) {
 	if export.ClosenessSensitivityMultiplier != bg.ClosenessSensitivityMultiplier {
 		t.Errorf("ClosenessSensitivityMultiplier mismatch")
 	}
-	if export.SafetyMarginMeters != bg.SafetyMarginMeters {
+	if export.SafetyMarginMeters != bg.SafetyMarginMetres {
 		t.Errorf("SafetyMarginMeters mismatch")
 	}
-	if export.NeighborConfirmationCount != bg.NeighborConfirmationCount {
+	if export.NeighborConfirmationCount != bg.NeighbourConfirmationCount {
 		t.Errorf("NeighborConfirmationCount mismatch")
 	}
 	if export.NoiseRelativeFraction != bg.NoiseRelativeFraction {
