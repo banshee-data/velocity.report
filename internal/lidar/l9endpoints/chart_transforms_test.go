@@ -69,6 +69,12 @@ func TestPrepareHeatmapFromBuckets(t *testing.T) {
 		if result.MaxValue != 7.0 {
 			t.Errorf("MaxValue = %f, want 7.0 (from SettledCells)", result.MaxValue)
 		}
+		if len(result.Points) != 1 {
+			t.Fatalf("expected 1 point, got %d", len(result.Points))
+		}
+		if result.Points[0].Value != 7.0 {
+			t.Errorf("Point.Value = %f, want 7.0 (from SettledCells fallback)", result.Points[0].Value)
+		}
 	})
 
 	t.Run("fallback range from min/max when mean range is zero", func(t *testing.T) {

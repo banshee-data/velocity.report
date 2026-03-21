@@ -60,7 +60,11 @@ func PrepareHeatmapFromBuckets(buckets []l3grid.CoarseBucket, sensorID string) *
 			maxAbs = math.Abs(y)
 		}
 
-		points = append(points, ScatterPoint{X: x, Y: y, Value: b.MeanTimesSeen})
+		val := b.MeanTimesSeen
+		if val == 0 {
+			val = float64(b.SettledCells)
+		}
+		points = append(points, ScatterPoint{X: x, Y: y, Value: val})
 	}
 
 	if maxAbs > 0 {
