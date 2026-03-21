@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"os"
 
@@ -53,6 +54,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	coreRoutes := []route{
 		{"/health", ws.handleHealth},
 		{"/api/lidar/server", ws.handleStatus},
+		{"/api/lidar/monitor", ws.handleStatus},
 		{"GET /api/lidar/status", ws.handleLidarStatus},
 		{"POST /api/lidar/persist", ws.handleLidarPersist},
 	}
@@ -157,6 +159,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
+			log.Printf("[routes] registering %q", r.pattern)
 			mux.HandleFunc(r.pattern, r.handler)
 		}
 	}
