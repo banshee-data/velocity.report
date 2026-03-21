@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tailscale/tailsql/server/tailsql"
@@ -28,6 +29,10 @@ type TableStats struct {
 type DatabaseStats struct {
 	TotalSizeMB float64      `json:"total_size_mb"`
 	Tables      []TableStats `json:"tables"`
+}
+
+func quoteSQLiteIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 // GetDatabaseStats returns size and row count information for all tables in the database.
@@ -68,12 +73,12 @@ func (db *DB) GetDatabaseStats() (*DatabaseStats, error) {
 	var tables []TableStats
 	for _, tableName := range tableNames {
 		var rowCount int64
-		// Build the COUNT(*) query dynamically with a quoted table name.
-		// SQL/SQLite prepared statements only parameterize values, not identifiers,
-		// so table names cannot be bound as parameters. Here tableName comes from
-		// sqlite_master (trusted metadata), and %q applies proper SQLite identifier
-		// quoting, so this is not a SQL injection risk.
-		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)
+		// Build the COUNT(*) query dynamically with a quoted SQLite identifier.
+		// SQL prepared statements parameterize values, not identifiers, so table
+		// names cannot be bound as parameters. Here tableName comes from
+		// sqlite_master (trusted metadata), and quoteSQLiteIdentifier applies
+		// SQLite's identifier escaping rules by doubling embedded quotes.
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteSQLiteIdentifier(tableName))
 		if err := db.QueryRow(countQuery).Scan(&rowCount); err != nil {
 			// Table might be empty or have issues, continue with 0
 			rowCount = 0

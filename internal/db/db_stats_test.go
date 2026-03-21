@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -96,6 +97,39 @@ func TestGetDatabaseStats_EmptyDB(t *testing.T) {
 	if len(stats.Tables) == 0 {
 		t.Error("Expected at least migration tables in empty database")
 	}
+}
+
+func TestGetDatabaseStats_QuotedTableName(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	tableName := `odd"table`
+	createQuery := fmt.Sprintf("CREATE TABLE %s (id INTEGER)", quoteSQLiteIdentifier(tableName))
+	if _, err := db.Exec(createQuery); err != nil {
+		t.Fatalf("Failed to create quoted-name table: %v", err)
+	}
+	insertQuery := fmt.Sprintf("INSERT INTO %s (id) VALUES (?)", quoteSQLiteIdentifier(tableName))
+	for i := 0; i < 2; i++ {
+		if _, err := db.Exec(insertQuery, i); err != nil {
+			t.Fatalf("Failed to insert row %d into quoted-name table: %v", i, err)
+		}
+	}
+
+	stats, err := db.GetDatabaseStats()
+	if err != nil {
+		t.Fatalf("GetDatabaseStats failed: %v", err)
+	}
+
+	for _, table := range stats.Tables {
+		if table.Name == tableName {
+			if table.RowCount != 2 {
+				t.Fatalf("Expected quoted-name table row count 2, got %d", table.RowCount)
+			}
+			return
+		}
+	}
+
+	t.Fatalf("Expected quoted-name table %q in stats", tableName)
 }
 
 // TestFindDuplicateBgSnapshots_NoDuplicates tests when there are no duplicates

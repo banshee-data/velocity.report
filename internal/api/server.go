@@ -57,17 +57,6 @@ func (s *Server) SetTransitController(tc TransitController) {
 	s.transitController = tc
 }
 
-func (lrw *loggingResponseWriter) WriteHeader(code int) {
-	lrw.statusCode = code
-	lrw.ResponseWriter.WriteHeader(code)
-}
-
-func (lrw *loggingResponseWriter) Flush() {
-	if flusher, ok := lrw.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
 func (s *Server) ServeMux() *http.ServeMux {
 	if s.mux != nil {
 		return s.mux
