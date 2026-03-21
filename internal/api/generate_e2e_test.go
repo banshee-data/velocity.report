@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -55,7 +56,7 @@ func TestGenerateReport_E2E(t *testing.T) {
 		Contact:         "test@example.com",
 		SiteDescription: &siteDescription,
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("failed to create site: %v", err)
 	}
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"net/http"
@@ -22,7 +23,7 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 )
@@ -23,7 +24,7 @@ func TestCreateSiteReport_InvalidData(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	err = db.CreateSite(&site)
+	err = db.CreateSite(context.Background(), &site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -120,7 +121,7 @@ func TestCreateSiteReport_InvalidData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := db.CreateSiteReport(&tc.report)
+			err := db.CreateSiteReport(context.Background(), &tc.report)
 			// Just verify no panics occur
 			t.Logf("CreateSiteReport result: err=%v, ID=%d", err, tc.report.ID)
 		})
@@ -138,7 +139,7 @@ func TestGetSiteReport_NonexistentID(t *testing.T) {
 	}
 	defer db.Close()
 
-	report, err := db.GetSiteReport(99999)
+	report, err := db.GetSiteReport(context.Background(), 99999)
 	if err == nil {
 		t.Errorf("Expected error for non-existent report, got: %+v", report)
 	}
@@ -155,7 +156,7 @@ func TestGetSiteReport_NegativeID(t *testing.T) {
 	}
 	defer db.Close()
 
-	report, err := db.GetSiteReport(-1)
+	report, err := db.GetSiteReport(context.Background(), -1)
 	if err == nil {
 		t.Errorf("Expected error for negative ID, got: %+v", report)
 	}
@@ -172,7 +173,7 @@ func TestGetRecentReportsForSite_EmptyDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	reports, err := db.GetRecentReportsForSite(1, 10)
+	reports, err := db.GetRecentReportsForSite(context.Background(), 1, 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -200,7 +201,7 @@ func TestGetRecentReportsForSite_VaryingLimits(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	db.CreateSite(&site)
+	db.CreateSite(context.Background(), &site)
 
 	for i := 0; i < 10; i++ {
 		report := SiteReport{
@@ -214,7 +215,7 @@ func TestGetRecentReportsForSite_VaryingLimits(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_data",
 		}
-		db.CreateSiteReport(&report)
+		db.CreateSiteReport(context.Background(), &report)
 	}
 
 	testCases := []struct {
@@ -231,7 +232,7 @@ func TestGetRecentReportsForSite_VaryingLimits(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			reports, err := db.GetRecentReportsForSite(site.ID, tc.limit)
+			reports, err := db.GetRecentReportsForSite(context.Background(), site.ID, tc.limit)
 			if err != nil {
 				t.Fatalf("GetRecentReportsForSite failed: %v", err)
 			}
@@ -253,7 +254,7 @@ func TestGetRecentReportsAllSites_EmptyDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	reports, err := db.GetRecentReportsAllSites(10)
+	reports, err := db.GetRecentReportsAllSites(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites failed: %v", err)
 	}
@@ -274,7 +275,7 @@ func TestDeleteSiteReport_NonexistentID(t *testing.T) {
 	}
 	defer db.Close()
 
-	err = db.DeleteSiteReport(99999)
+	err = db.DeleteSiteReport(context.Background(), 99999)
 	// Should handle gracefully
 	t.Logf("DeleteSiteReport for non-existent ID result: %v", err)
 }
@@ -302,7 +303,7 @@ func TestCreateSiteReport_ForNonexistentSite(t *testing.T) {
 		Source:    "radar_data",
 	}
 
-	err = db.CreateSiteReport(&report)
+	err = db.CreateSiteReport(context.Background(), &report)
 	// May succeed (no foreign key) or fail depending on schema
 	t.Logf("CreateSiteReport for non-existent site: err=%v, ID=%d", err, report.ID)
 }
@@ -324,7 +325,7 @@ func TestCreateSiteReport_WithOptionalZipFields(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	db.CreateSite(&site)
+	db.CreateSite(context.Background(), &site)
 
 	// Report without zip
 	reportNoZip := SiteReport{
@@ -341,7 +342,7 @@ func TestCreateSiteReport_WithOptionalZipFields(t *testing.T) {
 		Source:      "radar_data",
 	}
 
-	err = db.CreateSiteReport(&reportNoZip)
+	err = db.CreateSiteReport(context.Background(), &reportNoZip)
 	if err != nil {
 		t.Fatalf("CreateSiteReport without zip failed: %v", err)
 	}
@@ -363,13 +364,13 @@ func TestCreateSiteReport_WithOptionalZipFields(t *testing.T) {
 		Source:      "radar_data_transits",
 	}
 
-	err = db.CreateSiteReport(&reportWithZip)
+	err = db.CreateSiteReport(context.Background(), &reportWithZip)
 	if err != nil {
 		t.Fatalf("CreateSiteReport with zip failed: %v", err)
 	}
 
 	// Verify retrieval
-	retrieved, err := db.GetSiteReport(reportWithZip.ID)
+	retrieved, err := db.GetSiteReport(context.Background(), reportWithZip.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve report: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestCreateSiteReport_DifferentSources(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	db.CreateSite(&site)
+	db.CreateSite(context.Background(), &site)
 
 	sources := []string{
 		"radar_objects",
@@ -420,7 +421,7 @@ func TestCreateSiteReport_DifferentSources(t *testing.T) {
 				Source:    source,
 			}
 
-			err := db.CreateSiteReport(&report)
+			err := db.CreateSiteReport(context.Background(), &report)
 			t.Logf("CreateSiteReport with source %q: err=%v", source, err)
 		})
 	}
@@ -443,7 +444,7 @@ func TestCreateSiteReport_DifferentUnits(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	db.CreateSite(&site)
+	db.CreateSite(context.Background(), &site)
 
 	units := []string{"mph", "kph", "km/h", "m/s", ""}
 
@@ -461,7 +462,7 @@ func TestCreateSiteReport_DifferentUnits(t *testing.T) {
 				Source:    "radar_data",
 			}
 
-			err := db.CreateSiteReport(&report)
+			err := db.CreateSiteReport(context.Background(), &report)
 			t.Logf("CreateSiteReport with units %q: err=%v", unit, err)
 		})
 	}
@@ -484,7 +485,7 @@ func TestCreateSiteReport_DifferentTimezones(t *testing.T) {
 		Surveyor: "Test",
 		Contact:  "test@example.com",
 	}
-	db.CreateSite(&site)
+	db.CreateSite(context.Background(), &site)
 
 	timezones := []string{
 		"UTC",
@@ -509,7 +510,7 @@ func TestCreateSiteReport_DifferentTimezones(t *testing.T) {
 				Source:    "radar_data",
 			}
 
-			err := db.CreateSiteReport(&report)
+			err := db.CreateSiteReport(context.Background(), &report)
 			t.Logf("CreateSiteReport with timezone %q: err=%v", tz, err)
 		})
 	}

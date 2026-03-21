@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -19,7 +20,7 @@ func TestSiteConfigPeriodOverlap(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -80,7 +81,7 @@ func TestRadarObjectRollupRangeCosineCorrection(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -147,7 +148,7 @@ func TestRadarDataRollupRangeCosineCorrection(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -206,7 +207,7 @@ func TestListSiteConfigPeriods_All(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site1); err != nil {
+	if err := db.CreateSite(context.Background(), site1); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -216,7 +217,7 @@ func TestListSiteConfigPeriods_All(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site2); err != nil {
+	if err := db.CreateSite(context.Background(), site2); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -284,7 +285,7 @@ func TestListSiteConfigPeriods_FilteredBySite(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site1); err != nil {
+	if err := db.CreateSite(context.Background(), site1); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -294,7 +295,7 @@ func TestListSiteConfigPeriods_FilteredBySite(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site2); err != nil {
+	if err := db.CreateSite(context.Background(), site2); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -362,7 +363,7 @@ func TestGetSiteConfigPeriod_Success(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -438,7 +439,7 @@ func TestGetActiveSiteConfigPeriod_Success(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -490,7 +491,7 @@ func TestGetActiveSiteConfigPeriod_NotFound(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -514,7 +515,7 @@ func TestCreateSiteConfigPeriod_Validation(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -603,7 +604,7 @@ func TestUpdateSiteConfigPeriod_Success(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -677,7 +678,7 @@ func TestUpdateSiteConfigPeriod_NotFound(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -708,7 +709,7 @@ func TestUpdateSiteConfigPeriod_OverlapDetection(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -757,7 +758,7 @@ func TestSiteConfigPeriod_NullableFields(t *testing.T) {
 		Surveyor: "Surveyor",
 		Contact:  "contact@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
 
@@ -847,7 +848,7 @@ func TestSiteConfigPeriod_OverlapScenarios(t *testing.T) {
 				Surveyor: "Surveyor",
 				Contact:  "contact@example.com",
 			}
-			if err := db.CreateSite(site); err != nil {
+			if err := db.CreateSite(context.Background(), site); err != nil {
 				t.Fatalf("CreateSite failed: %v", err)
 			}
 

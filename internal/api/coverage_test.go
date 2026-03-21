@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -385,7 +386,7 @@ func TestUpsertSiteConfigPeriod_UpdateExisting(t *testing.T) {
 		Name:     "Update Test Site",
 		Location: "Test Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -537,7 +538,7 @@ func TestHandleTimeline_WithPeriods(t *testing.T) {
 		Name:     "Timeline Test Site",
 		Location: "Test Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -597,7 +598,7 @@ func TestDownloadReport_PDFFileNotFound(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -645,7 +646,7 @@ func TestDownloadReport_Success(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -705,7 +706,7 @@ func TestDownloadReport_ZIPSuccess(t *testing.T) {
 		Units:       "mph",
 		Source:      "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -744,7 +745,7 @@ func TestDownloadReport_PathTraversal(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -799,7 +800,7 @@ func TestHandleReports_ListWithFilename(t *testing.T) {
 		Units:       "mph",
 		Source:      "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -868,7 +869,7 @@ func TestUpdateSite_MissingFields(t *testing.T) {
 		Name:     "Original",
 		Location: "Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -912,7 +913,7 @@ func TestShowRadarObjectStats_WithSiteID(t *testing.T) {
 		Name:     "Stats Site",
 		Location: "Test Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1104,7 +1105,7 @@ func TestGenerateReport_WithValidSiteAndConfigPeriod(t *testing.T) {
 		Surveyor: "Test Surveyor",
 		Contact:  "test@example.com",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1164,7 +1165,7 @@ func TestGenerateReport_SiteWithNoConfigPeriod(t *testing.T) {
 		Name:     "No Config Site",
 		Location: "Test Location",
 	}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1200,7 +1201,7 @@ func TestListSites_SuccessfulList(t *testing.T) {
 			Name:     fmt.Sprintf("Site %d", i),
 			Location: fmt.Sprintf("Location %d", i),
 		}
-		if err := dbInst.CreateSite(site); err != nil {
+		if err := dbInst.CreateSite(context.Background(), site); err != nil {
 			t.Fatalf("Failed to create site %d: %v", i, err)
 		}
 	}
@@ -1244,7 +1245,7 @@ func TestGetSite_Success(t *testing.T) {
 	defer cleanupTestServer(t, dbInst)
 
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1265,7 +1266,7 @@ func TestListAllReports_Success(t *testing.T) {
 
 	// Create a site first
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1276,7 +1277,7 @@ func TestListAllReports_Success(t *testing.T) {
 		Filename:    "test_report.pdf",
 		ZipFilename: nil,
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -1305,7 +1306,7 @@ func TestListSiteReports_Success(t *testing.T) {
 
 	// Create a site
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1317,7 +1318,7 @@ func TestListSiteReports_Success(t *testing.T) {
 			Filename:    fmt.Sprintf("report_%d.pdf", i),
 			ZipFilename: nil,
 		}
-		if err := dbInst.CreateSiteReport(report); err != nil {
+		if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("Failed to create report %d: %v", i, err)
 		}
 	}
@@ -1354,7 +1355,7 @@ func TestGetReport_Success(t *testing.T) {
 
 	// Create a site
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1365,7 +1366,7 @@ func TestGetReport_Success(t *testing.T) {
 		Filename:    "test_report.pdf",
 		ZipFilename: nil,
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -1448,7 +1449,7 @@ func TestDeleteSite_Success(t *testing.T) {
 
 	// Create a site first
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1485,7 +1486,7 @@ func TestDeleteReport_Success(t *testing.T) {
 
 	// Create site and report
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1495,7 +1496,7 @@ func TestDeleteReport_Success(t *testing.T) {
 		Filename:    "test_report.pdf",
 		ZipFilename: nil,
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -1547,7 +1548,7 @@ func TestHandleReports_GetByID(t *testing.T) {
 
 	// Create site and report
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1557,7 +1558,7 @@ func TestHandleReports_GetByID(t *testing.T) {
 		Filename:    "test_report.pdf",
 		ZipFilename: nil,
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -1578,7 +1579,7 @@ func TestHandleReports_DeleteByID(t *testing.T) {
 
 	// Create site and report
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1588,7 +1589,7 @@ func TestHandleReports_DeleteByID(t *testing.T) {
 		Filename:    "test_report.pdf",
 		ZipFilename: nil,
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
@@ -1626,7 +1627,7 @@ func TestHandleReports_DownloadPDF(t *testing.T) {
 
 	// Create site and report with relative filepath (relative to PDF_GENERATOR_DIR)
 	site := &db.Site{Name: "Test Site", Location: "Test Location"}
-	if err := dbInst.CreateSite(site); err != nil {
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -1642,7 +1643,7 @@ func TestHandleReports_DownloadPDF(t *testing.T) {
 		Units:       "mph",
 		Source:      "radar_objects",
 	}
-	if err := dbInst.CreateSiteReport(report); err != nil {
+	if err := dbInst.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
