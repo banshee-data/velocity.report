@@ -36,10 +36,6 @@ func ComputeTemporalIoU(startA, endA, startB, endB int64) float64 {
 
 	union := float64(unionEnd - unionStart)
 
-	if union <= 0 {
-		return 0.0
-	}
-
 	return intersection / union
 }
 
