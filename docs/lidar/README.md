@@ -129,7 +129,7 @@ Tracking pipeline refactor and upgrade proposals.
 
 #### Phase 4.0: Track Labelling & VRLOG Replay (Feb 2026)
 
-- ✅ VRLOG recording format — binary frame bundles with index for seek (`internal/lidar/visualiser/recorder/`)
+- ✅ VRLOG recording format — binary frame bundles with index for seek (`internal/lidar/l9endpoints/recorder/`)
 - ✅ VRLOG replay in Publisher — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
 - ✅ gRPC control delegation — Pause/Play/Seek/SetRate with VRLOG mode routing
 - ✅ REST playback API — `/api/lidar/playback/*` (status, pause, play, seek, rate)
@@ -156,9 +156,9 @@ See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/t
 
 **Test Coverage (February 2026):**
 
-- `internal/lidar/visualiser`: 89.7%
+- `internal/lidar/l9endpoints`: 89.7%
 - `internal/lidar/network`: 94.7%
-- `internal/lidar/monitor`: 75.9%
+- `internal/lidar/server`: 75.9%
 - `internal/lidar`: 87.0%
 
 **Resolved Issues (January 2026):**
