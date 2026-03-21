@@ -1,4 +1,4 @@
-// Package monitor provides template abstractions for testability.
+// Package l9endpoints provides template abstractions for testability.
 package l9endpoints
 
 import (

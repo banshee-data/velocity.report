@@ -501,6 +501,61 @@ func TestCov2_HandleTuningParams_GET_SourceDefault(t *testing.T) {
 	}
 }
 
+func TestCov2_HandleTuningParams_GET_SourceDefault_NoBM(t *testing.T) {
+	// source=default should succeed even when no background manager exists.
+	sensorID := "cov2-tuning-no-bm"
+	l3grid.RegisterBackgroundManager(sensorID, nil) // ensure absent
+
+	ws := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tuning-params?sensor_id="+sensorID+"&source=default", nil)
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+	if _, ok := result["version"]; !ok {
+		t.Error("expected 'version' field in default config")
+	}
+}
+
+func TestCov2_HandleTuningParams_POST_FormWithCharset(t *testing.T) {
+	// Content-Type with charset parameter should still be detected as form data
+	// rather than falling through to the JSON body decoder.
+	sensorID := "cov2-tuning-charset"
+	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{
+		NoiseRelativeFraction: 0.01,
+	}, nil)
+	l3grid.RegisterBackgroundManager(sensorID, bm)
+	defer l3grid.RegisterBackgroundManager(sensorID, nil)
+
+	patch := map[string]interface{}{
+		"l3.ema_baseline_v1.noise_relative": 0.05,
+	}
+	patchJSON, _ := json.Marshal(patch)
+	form := url.Values{"config_json": {string(patchJSON)}}
+
+	ws := &Server{}
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/lidar/tuning-params?sensor_id="+sensorID,
+		strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+
+	w := httptest.NewRecorder()
+	ws.handleTuningParams(w, req)
+
+	// Form submission with config_json triggers a redirect.
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusSeeOther, w.Body.String())
+	}
+	if got := bm.GetParams().NoiseRelativeFraction; got != 0.05 {
+		t.Errorf("NoiseRelativeFraction = %f, want 0.05", got)
+	}
+}
+
 func TestCov2_HandleTuningParams_GET_WithTracker(t *testing.T) {
 	bm := l3grid.NewBackgroundManager("cov2-tuning-tracker", 10, 36, l3grid.BackgroundParams{}, nil)
 	l3grid.RegisterBackgroundManager("cov2-tuning-tracker", bm)

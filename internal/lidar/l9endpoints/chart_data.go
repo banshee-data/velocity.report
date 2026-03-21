@@ -1,4 +1,4 @@
-// Package monitor provides chart data preparation utilities for LiDAR visualisation.
+// Package l9endpoints provides chart data preparation utilities for LiDAR visualisation.
 // This file separates data transformation from eCharts rendering for improved testability.
 package l9endpoints
 

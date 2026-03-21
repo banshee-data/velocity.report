@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
@@ -28,20 +29,31 @@ func (ws *Server) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing 'sensor_id' parameter")
 		return
 	}
-	bm := l3grid.GetBackgroundManager(sensorID)
-	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
-		return
-	}
 
+	// source=default returns the built-in config and does not require a
+	// running sensor pipeline, so look up the background manager only
+	// when we actually need runtime state.
 	switch r.Method {
 	case http.MethodGet:
-		var resp *cfgpkg.TuningConfig
 		if r.URL.Query().Get("source") == "default" {
-			resp = cfgpkg.MustLoadDefaultConfig()
-		} else {
-			resp = ws.runtimeTuningConfig(bm)
+			resp := cfgpkg.MustLoadDefaultConfig()
+			w.Header().Set("Content-Type", "application/json")
+			enc := json.NewEncoder(w)
+			if r.URL.Query().Get("format") != "compact" {
+				enc.SetIndent("", "  ")
+			}
+			if err := enc.Encode(resp); err != nil {
+				opsf("failed to encode response: %v", err)
+			}
+			return
 		}
+
+		bm := l3grid.GetBackgroundManager(sensorID)
+		if bm == nil || bm.Grid == nil {
+			ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+			return
+		}
+		resp := ws.runtimeTuningConfig(bm)
 
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
@@ -53,9 +65,15 @@ func (ws *Server) handleTuningParams(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	case http.MethodPost:
+		bm := l3grid.GetBackgroundManager(sensorID)
+		if bm == nil || bm.Grid == nil {
+			ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+			return
+		}
+
 		var body map[string]interface{}
-		contentType := r.Header.Get("Content-Type")
-		if r.FormValue("config_json") != "" || contentType == "application/x-www-form-urlencoded" {
+		mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if r.FormValue("config_json") != "" || mediaType == "application/x-www-form-urlencoded" {
 			configJSON := r.FormValue("config_json")
 			if configJSON == "" {
 				ws.writeJSONError(w, http.StatusBadRequest, "missing config_json form value")
