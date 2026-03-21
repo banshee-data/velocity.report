@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -268,7 +268,7 @@ func TestLoadOrGenerate(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // createTestVrlogWithTracks builds a vrlog with specific confirmed tracks for testing comparison.
-func createTestVrlogWithTracks(t *testing.T, dir, name string, tracks []visualiser.Track, nFrames int, baseTimeNs int64) string {
+func createTestVrlogWithTracks(t *testing.T, dir, name string, tracks []l9endpoints.Track, nFrames int, baseTimeNs int64) string {
 	t.Helper()
 	basePath := filepath.Join(dir, name)
 	rec, err := recorder.NewRecorder(basePath, "compare-sensor")
@@ -280,7 +280,7 @@ func createTestVrlogWithTracks(t *testing.T, dir, name string, tracks []visualis
 		ts := baseTimeNs + int64(i)*100_000_000
 
 		// Update timestamps on each track for this frame
-		frameTracks := make([]visualiser.Track, len(tracks))
+		frameTracks := make([]l9endpoints.Track, len(tracks))
 		copy(frameTracks, tracks)
 		for j := range frameTracks {
 			frameTracks[j].LastSeenNanos = ts
@@ -288,14 +288,14 @@ func createTestVrlogWithTracks(t *testing.T, dir, name string, tracks []visualis
 			frameTracks[j].Y = float32(i)
 		}
 
-		frame := &visualiser.FrameBundle{
+		frame := &l9endpoints.FrameBundle{
 			FrameID:        uint64(i),
 			TimestampNanos: ts,
 			SensorID:       "compare-sensor",
-			CoordinateFrame: visualiser.CoordinateFrameInfo{
+			CoordinateFrame: l9endpoints.CoordinateFrameInfo{
 				ReferenceFrame: "ENU",
 			},
-			PointCloud: &visualiser.PointCloudFrame{
+			PointCloud: &l9endpoints.PointCloudFrame{
 				FrameID:        uint64(i),
 				TimestampNanos: ts,
 				SensorID:       "compare-sensor",
@@ -306,7 +306,7 @@ func createTestVrlogWithTracks(t *testing.T, dir, name string, tracks []visualis
 				Classification: []uint8{1},
 				PointCount:     1,
 			},
-			Tracks: &visualiser.TrackSet{
+			Tracks: &l9endpoints.TrackSet{
 				FrameID:        uint64(i),
 				TimestampNanos: ts,
 				Tracks:         frameTracks,
@@ -326,10 +326,10 @@ func TestCompareReportsOverlapping(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
 
-	tracksA := []visualiser.Track{
+	tracksA := []l9endpoints.Track{
 		{
 			TrackID:           "track-1",
-			State:             visualiser.TrackStateConfirmed,
+			State:             l9endpoints.TrackStateConfirmed,
 			SpeedMps:          5.0,
 			AvgSpeedMps:       5.0,
 			MaxSpeedMps:       6.0,
@@ -338,12 +338,12 @@ func TestCompareReportsOverlapping(t *testing.T) {
 			ObjectClass:       "car",
 			ClassConfidence:   0.9,
 			TrackLengthMetres: 50,
-			MotionModel:       visualiser.MotionModelCV,
+			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 		{
 			TrackID:           "track-2",
-			State:             visualiser.TrackStateConfirmed,
+			State:             l9endpoints.TrackStateConfirmed,
 			SpeedMps:          10.0,
 			AvgSpeedMps:       10.0,
 			MaxSpeedMps:       12.0,
@@ -352,16 +352,16 @@ func TestCompareReportsOverlapping(t *testing.T) {
 			ObjectClass:       "car",
 			ClassConfidence:   0.8,
 			TrackLengthMetres: 100,
-			MotionModel:       visualiser.MotionModelCV,
+			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 	}
 
 	// B has same temporal range, similar tracks with different speeds
-	tracksB := []visualiser.Track{
+	tracksB := []l9endpoints.Track{
 		{
 			TrackID:           "track-b1",
-			State:             visualiser.TrackStateConfirmed,
+			State:             l9endpoints.TrackStateConfirmed,
 			SpeedMps:          5.5,
 			AvgSpeedMps:       5.5,
 			MaxSpeedMps:       6.5,
@@ -370,12 +370,12 @@ func TestCompareReportsOverlapping(t *testing.T) {
 			ObjectClass:       "car",
 			ClassConfidence:   0.85,
 			TrackLengthMetres: 55,
-			MotionModel:       visualiser.MotionModelCV,
+			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 		{
 			TrackID:           "track-b2",
-			State:             visualiser.TrackStateConfirmed,
+			State:             l9endpoints.TrackStateConfirmed,
 			SpeedMps:          9.5,
 			AvgSpeedMps:       9.5,
 			MaxSpeedMps:       11.0,
@@ -384,7 +384,7 @@ func TestCompareReportsOverlapping(t *testing.T) {
 			ObjectClass:       "car",
 			ClassConfidence:   0.75,
 			TrackLengthMetres: 95,
-			MotionModel:       visualiser.MotionModelCV,
+			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 	}
@@ -436,10 +436,10 @@ func TestCompareReportsNoOverlap(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// A at time 0, B at time 10s later — no overlap
-	tracksA := []visualiser.Track{
+	tracksA := []l9endpoints.Track{
 		{
 			TrackID:          "a1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -447,10 +447,10 @@ func TestCompareReportsNoOverlap(t *testing.T) {
 			FirstSeenNanos:   0,
 		},
 	}
-	tracksB := []visualiser.Track{
+	tracksB := []l9endpoints.Track{
 		{
 			TrackID:          "b1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         7.0,
 			AvgSpeedMps:      7.0,
 			ObservationCount: 5,
@@ -489,10 +489,10 @@ func TestCompareReportsWriteOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
 
-	tracks := []visualiser.Track{
+	tracks := []l9endpoints.Track{
 		{
 			TrackID:          "t1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -538,10 +538,10 @@ func TestCompareReportsAutoGenerate(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
 
-	tracks := []visualiser.Track{
+	tracks := []l9endpoints.Track{
 		{
 			TrackID:          "t1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -582,10 +582,10 @@ func TestCompareReportsInvalidPathB(t *testing.T) {
 	// A is valid, B is invalid — exercises the "load B" error branch
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
-	tracks := []visualiser.Track{
+	tracks := []l9endpoints.Track{
 		{
 			TrackID:          "t1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -603,10 +603,10 @@ func TestCompareReportsInvalidPathB(t *testing.T) {
 func TestCompareReportsWriteError(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
-	tracks := []visualiser.Track{
+	tracks := []l9endpoints.Track{
 		{
 			TrackID:          "t1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -639,11 +639,11 @@ func TestCompareReportsEmptyTracks(t *testing.T) {
 			t.Fatalf("NewRecorder: %v", err)
 		}
 		for i := 0; i < 3; i++ {
-			frame := &visualiser.FrameBundle{
+			frame := &l9endpoints.FrameBundle{
 				FrameID:        uint64(i),
 				TimestampNanos: baseTime + int64(i)*100_000_000,
 				SensorID:       "empty-sensor",
-				CoordinateFrame: visualiser.CoordinateFrameInfo{
+				CoordinateFrame: l9endpoints.CoordinateFrameInfo{
 					ReferenceFrame: "ENU",
 				},
 			}
@@ -680,10 +680,10 @@ func TestCompareReportsQualityDelta(t *testing.T) {
 	baseTime := int64(1_000_000_000_000)
 
 	// A has high fragmentation (many tentative tracks)
-	tracksA := []visualiser.Track{
+	tracksA := []l9endpoints.Track{
 		{
 			TrackID:          "ca1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 10,
@@ -693,17 +693,17 @@ func TestCompareReportsQualityDelta(t *testing.T) {
 		},
 		{
 			TrackID:        "ta1",
-			State:          visualiser.TrackStateTentative,
+			State:          l9endpoints.TrackStateTentative,
 			SpeedMps:       2.0,
 			FirstSeenNanos: baseTime,
 		},
 	}
 
 	// B has no tentative tracks, fewer occlusions
-	tracksB := []visualiser.Track{
+	tracksB := []l9endpoints.Track{
 		{
 			TrackID:          "cb1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 15,
@@ -745,10 +745,10 @@ func TestCompareReportsSpeedDelta(t *testing.T) {
 	baseTime := int64(1_000_000_000_000)
 
 	// Create two vrlogs with overlapping tracks at different speeds
-	tracksA := []visualiser.Track{
+	tracksA := []l9endpoints.Track{
 		{
 			TrackID:          "s1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 10,
@@ -758,7 +758,7 @@ func TestCompareReportsSpeedDelta(t *testing.T) {
 		},
 		{
 			TrackID:          "s2",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         10.0,
 			AvgSpeedMps:      10.0,
 			ObservationCount: 10,
@@ -768,10 +768,10 @@ func TestCompareReportsSpeedDelta(t *testing.T) {
 		},
 	}
 
-	tracksB := []visualiser.Track{
+	tracksB := []l9endpoints.Track{
 		{
 			TrackID:          "s1b",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         6.0,
 			AvgSpeedMps:      6.0,
 			ObservationCount: 10,
@@ -781,7 +781,7 @@ func TestCompareReportsSpeedDelta(t *testing.T) {
 		},
 		{
 			TrackID:          "s2b",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         11.0,
 			AvgSpeedMps:      11.0,
 			ObservationCount: 10,
@@ -814,10 +814,10 @@ func TestCompareReportsVersionAndTimestamp(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
 
-	tracks := []visualiser.Track{
+	tracks := []l9endpoints.Track{
 		{
 			TrackID:          "v1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 5,
@@ -923,10 +923,10 @@ func TestCompareReportsImplementableNowMetrics(t *testing.T) {
 	tmpDir := t.TempDir()
 	baseTime := int64(1_000_000_000_000)
 
-	tracksA := []visualiser.Track{
+	tracksA := []l9endpoints.Track{
 		{
 			TrackID:          "m1",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         5.0,
 			AvgSpeedMps:      5.0,
 			ObservationCount: 10,
@@ -935,10 +935,10 @@ func TestCompareReportsImplementableNowMetrics(t *testing.T) {
 			LastSeenNanos:    baseTime + 1_000_000_000,
 		},
 	}
-	tracksB := []visualiser.Track{
+	tracksB := []l9endpoints.Track{
 		{
 			TrackID:          "m2",
-			State:            visualiser.TrackStateConfirmed,
+			State:            l9endpoints.TrackStateConfirmed,
 			SpeedMps:         7.0,
 			AvgSpeedMps:      7.0,
 			ObservationCount: 10,

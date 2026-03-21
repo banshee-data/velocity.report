@@ -39,11 +39,12 @@ point to the authoritative source files.
 
 ### Internal Models
 
-| Definition               | File                                                                                                           | Description                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Data layer model         | [`docs/lidar/architecture/lidar-data-layer-model.md`](../../docs/lidar/architecture/lidar-data-layer-model.md) | Six-layer model (L1 Packets → L6 Objects) |
-| FrameBundle (Go)         | [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)                               | Canonical internal model for LiDAR frames |
-| Recorder / Replayer (Go) | [`internal/lidar/visualiser/recorder/recorder.go`](../../internal/lidar/visualiser/recorder/recorder.go)       | VRLOG read/write logic                    |
+| Definition               | File                                                                                                           | Description                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Data layer model         | [`docs/lidar/architecture/lidar-data-layer-model.md`](../../docs/lidar/architecture/lidar-data-layer-model.md) | Ten-layer model (L1 Packets → L10 Clients)                 |
+| L8 Analytics (Go)        | [`internal/lidar/l8analytics/`](../../internal/lidar/l8analytics/)                                             | Canonical run metrics, comparisons, summaries, percentiles |
+| FrameBundle (Go)         | [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)                             | Canonical internal model for LiDAR frames                  |
+| Recorder / Replayer (Go) | [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)     | VRLOG read/write logic                                     |
 
 ## TODO — Candidates for Dedicated Documentation
 

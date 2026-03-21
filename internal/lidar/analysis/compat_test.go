@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 )
 
 func TestTrackDetailMarshalUsesMaxSpeedMps(t *testing.T) {
@@ -62,14 +62,14 @@ func TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing(t *testing.T) {
 	speeds := []float32{1.5, 4.0, 3.2}
 	for i, speed := range speeds {
 		ts := baseTime + int64(i)*100_000_000
-		frame := &visualiser.FrameBundle{
+		frame := &l9endpoints.FrameBundle{
 			TimestampNanos: ts,
-			Tracks: &visualiser.TrackSet{
+			Tracks: &l9endpoints.TrackSet{
 				TimestampNanos: ts,
-				Tracks: []visualiser.Track{
+				Tracks: []l9endpoints.Track{
 					{
 						TrackID:          "legacy-track",
-						State:            visualiser.TrackStateConfirmed,
+						State:            l9endpoints.TrackStateConfirmed,
 						SpeedMps:         speed,
 						MaxSpeedMps:      0,
 						ObservationCount: i + 1,

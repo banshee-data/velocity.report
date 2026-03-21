@@ -22,6 +22,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,7 +85,7 @@ func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
 // dropdown. This catches regressions from the lidar_scenes → lidar_replay_cases
 // rename.
 func TestCov_SweepDashboardJS_ReplayCaseID(t *testing.T) {
-	content, err := EchartsAssets.ReadFile("assets/sweep_dashboard.js")
+	content, err := l9endpoints.ReadLegacyAsset("sweep_dashboard.js")
 	if err != nil {
 		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
 	}

@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 		}
 	}()
 
-	gen := visualiser.NewSyntheticGenerator("sample")
+	gen := l9endpoints.NewSyntheticGenerator("sample")
 	for i := 0; i < *frames; i++ {
 		if err := rec.Record(gen.NextFrame()); err != nil {
 			log.Fatalf("Failed to record frame %d: %v", i+1, err)

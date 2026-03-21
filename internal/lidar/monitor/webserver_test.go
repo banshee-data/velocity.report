@@ -18,6 +18,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 
 	_ "modernc.org/sqlite"
 )
@@ -4200,7 +4201,7 @@ func TestWebServer_HandleChartClustersJSON_WithActualDB(t *testing.T) {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var resp RecentClustersData
+	var resp l9endpoints.RecentClustersData
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
-	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
 // Analysis Run Infrastructure
@@ -340,17 +340,17 @@ type AnalysisStats struct {
 }
 
 // RunComparison shows differences between two analysis runs.
-// Canonical type is in l6objects; this alias preserves backward compatibility.
-type RunComparison = l6objects.RunComparison
+// Canonical type is in l8analytics.
+type RunComparison = l8analytics.RunComparison
 
 // TrackSplit represents a suspected track split between runs.
-type TrackSplit = l6objects.TrackSplit
+type TrackSplit = l8analytics.TrackSplit
 
 // TrackMerge represents a suspected track merge between runs.
-type TrackMerge = l6objects.TrackMerge
+type TrackMerge = l8analytics.TrackMerge
 
 // TrackMatch represents a matched track between two runs.
-type TrackMatch = l6objects.TrackMatch
+type TrackMatch = l8analytics.TrackMatch
 
 // AnalysisRunStore provides persistence for analysis runs.
 type AnalysisRunStore struct {

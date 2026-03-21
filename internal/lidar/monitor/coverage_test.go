@@ -17,6 +17,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
 
 // ====== TrackAPI handleListObservations coverage tests (DB-backed) ======
@@ -595,7 +596,7 @@ func TestPrepareHeatmapFromBuckets_ZeroMeanRange(t *testing.T) {
 		},
 	}
 
-	result := PrepareHeatmapFromBuckets(buckets, "sensor-001")
+	result := l9endpoints.PrepareHeatmapFromBuckets(buckets, "sensor-001")
 
 	if len(result.Points) != 1 {
 		t.Fatalf("expected 1 point, got %d", len(result.Points))
@@ -617,7 +618,7 @@ func TestPrepareHeatmapFromBuckets_AllZeroValues(t *testing.T) {
 		},
 	}
 
-	result := PrepareHeatmapFromBuckets(buckets, "sensor-001")
+	result := l9endpoints.PrepareHeatmapFromBuckets(buckets, "sensor-001")
 
 	// MaxValue should default to 1.0 when all values are zero
 	if result.MaxValue != 1.0 {
@@ -636,7 +637,7 @@ func TestPrepareHeatmapFromBuckets_MaxAbsCalculation(t *testing.T) {
 		},
 	}
 
-	result := PrepareHeatmapFromBuckets(buckets, "sensor-001")
+	result := l9endpoints.PrepareHeatmapFromBuckets(buckets, "sensor-001")
 
 	// At azimuth ~93 degrees, Y will be much larger than X
 	// MaxAbs should be 20 * 1.05 = 21
@@ -649,7 +650,7 @@ func TestPrepareHeatmapFromBuckets_MaxAbsCalculation(t *testing.T) {
 // ====== Templates additional coverage tests ======
 
 func TestMockTemplateProvider_ExecuteTemplate_TemplateNotFound(t *testing.T) {
-	provider := NewMockTemplateProvider(map[string]string{})
+	provider := l9endpoints.NewMockTemplateProvider(map[string]string{})
 
 	var buf bytes.Buffer
 	err := provider.ExecuteTemplate(&buf, "nonexistent.html", nil)
@@ -788,7 +789,7 @@ func TestPreparePolarChartData_NegativeMaxPoints(t *testing.T) {
 	}
 
 	// Negative maxPoints should use default
-	result := PreparePolarChartData(cells, "test", -100)
+	result := l9endpoints.PreparePolarChartData(cells, "test", -100)
 
 	if result.Stride != 1 {
 		t.Errorf("Expected Stride=1 with default maxPoints, got %d", result.Stride)
@@ -800,7 +801,7 @@ func TestPrepareClustersChartData_SingleEmptyCluster(t *testing.T) {
 		{}, // Empty cluster
 	}
 
-	result := PrepareClustersChartData(clusters, "test")
+	result := l9endpoints.PrepareClustersChartData(clusters, "test")
 
 	if result.NumClusters != 1 {
 		t.Errorf("Expected 1 cluster, got %d", result.NumClusters)
@@ -821,7 +822,7 @@ func TestPrepareClustersChartData_ClusterIDsCorrect(t *testing.T) {
 		{{AzimuthDeg: 180, Range: 15}},
 	}
 
-	result := PrepareClustersChartData(clusters, "test")
+	result := l9endpoints.PrepareClustersChartData(clusters, "test")
 
 	if result.NumClusters != 3 {
 		t.Fatalf("Expected 3 clusters, got %d", result.NumClusters)

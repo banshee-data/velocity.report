@@ -4,17 +4,12 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
 
-// StatsSnapshot represents a snapshot of current statistics
-type StatsSnapshot struct {
-	PacketsPerSec float64
-	MBPerSec      float64
-	PointsPerSec  float64
-	DroppedCount  int64
-	Timestamp     time.Time
-	ParseEnabled  bool
-}
+// StatsSnapshot is a type alias for l9endpoints.StatsSnapshot.
+type StatsSnapshot = l9endpoints.StatsSnapshot
 
 // PacketStats tracks packet statistics with thread-safe operations
 type PacketStats struct {

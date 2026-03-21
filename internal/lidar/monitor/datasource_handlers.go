@@ -14,6 +14,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -400,8 +401,8 @@ func (ws *WebServer) startPCAPLocked(pcapFile string, speedMode string, speedRat
 
 	// Initialize grid plotter if enabled
 	if enablePlots && ws.plotsBaseDir != "" {
-		outputDir := MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
-		ws.gridPlotter = NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
+		outputDir := l9endpoints.MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
+		ws.gridPlotter = l9endpoints.NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
 		if err := ws.gridPlotter.Start(outputDir); err != nil {
 			opsf("Warning: Failed to start grid plotter: %v", err)
 			ws.gridPlotter = nil

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
-	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -38,7 +38,7 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 	bStart := reportB.Recording.StartNs
 	bEnd := reportB.Recording.EndNs
 
-	overlap := l6objects.ComputeTemporalIoU(aStart, aEnd, bStart, bEnd)
+	overlap := l8analytics.ComputeTemporalIoU(aStart, aEnd, bStart, bEnd)
 
 	overlapStart := max(aStart, bStart)
 	overlapEnd := min(aEnd, bEnd)
@@ -91,7 +91,7 @@ func CompareReports(pathA, pathB, outPath string) (*ComparisonReport, error) {
 		costMatrix[i] = make([]float32, len(tracksB))
 		iouMatrix[i] = make([]float64, len(tracksB))
 		for j, tB := range tracksB {
-			iou := l6objects.ComputeTemporalIoU(tA.startNs, tA.endNs, tB.startNs, tB.endNs)
+			iou := l8analytics.ComputeTemporalIoU(tA.startNs, tA.endNs, tB.startNs, tB.endNs)
 			iouMatrix[i][j] = iou
 			if iou > iouThreshold {
 				costMatrix[i][j] = float32(1.0 - iou)

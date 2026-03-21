@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -51,10 +51,10 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		maxSpeed            float32
 		heightP95Max        float32
 		occlusionCount      int
-		motionModel         visualiser.MotionModel
+		motionModel         l9endpoints.MotionModel
 		confidence          float32
 		hits, misses        int
-		state               visualiser.TrackState
+		state               l9endpoints.TrackState
 		objectClass         string
 		classConf           float32
 		obsCount            int
@@ -232,7 +232,7 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 		trackDetails = append(trackDetails, td)
 
 		switch acc.state {
-		case visualiser.TrackStateConfirmed:
+		case l9endpoints.TrackStateConfirmed:
 			confirmedCount++
 			confirmedSpeeds = append(confirmedSpeeds, avgSpeed)
 			confirmedObsCounts = append(confirmedObsCounts, float64(acc.obsCount))
@@ -261,9 +261,9 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			ca.sumSpeed += float64(avgSpeed)
 			ca.sumDur += dur
 			ca.sumObs += float64(acc.obsCount)
-		case visualiser.TrackStateTentative:
+		case l9endpoints.TrackStateTentative:
 			tentativeCount++
-		case visualiser.TrackStateDeleted:
+		case l9endpoints.TrackStateDeleted:
 			deletedCount++
 		}
 	}
@@ -441,24 +441,24 @@ type classAccum struct {
 	sumObs   float64
 }
 
-func trackStateName(s visualiser.TrackState) string {
+func trackStateName(s l9endpoints.TrackState) string {
 	switch s {
-	case visualiser.TrackStateTentative:
+	case l9endpoints.TrackStateTentative:
 		return "tentative"
-	case visualiser.TrackStateConfirmed:
+	case l9endpoints.TrackStateConfirmed:
 		return "confirmed"
-	case visualiser.TrackStateDeleted:
+	case l9endpoints.TrackStateDeleted:
 		return "deleted"
 	default:
 		return "unknown"
 	}
 }
 
-func motionModelName(m visualiser.MotionModel) string {
+func motionModelName(m l9endpoints.MotionModel) string {
 	switch m {
-	case visualiser.MotionModelCV:
+	case l9endpoints.MotionModelCV:
 		return "CV"
-	case visualiser.MotionModelCA:
+	case l9endpoints.MotionModelCA:
 		return "CA"
 	default:
 		return "unknown"

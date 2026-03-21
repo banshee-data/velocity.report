@@ -10,6 +10,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 )
 
 func TestPrepareHeatmapFromBuckets(t *testing.T) {
@@ -66,7 +67,7 @@ func TestPrepareHeatmapFromBuckets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := PrepareHeatmapFromBuckets(tt.buckets, tt.sensorID)
+			result := l9endpoints.PrepareHeatmapFromBuckets(tt.buckets, tt.sensorID)
 			if result == nil {
 				t.Fatal("PrepareHeatmapFromBuckets returned nil")
 			}
@@ -95,7 +96,7 @@ func TestPrepareHeatmapFromBuckets_PolarToCartesian(t *testing.T) {
 		},
 	}
 
-	result := PrepareHeatmapFromBuckets(buckets, "sensor-001")
+	result := l9endpoints.PrepareHeatmapFromBuckets(buckets, "sensor-001")
 	if len(result.Points) != 1 {
 		t.Fatalf("expected 1 point, got %d", len(result.Points))
 	}
@@ -157,7 +158,7 @@ func TestPrepareForegroundChartData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := PrepareForegroundChartData(tt.snapshot, tt.sensorID)
+			result := l9endpoints.PrepareForegroundChartData(tt.snapshot, tt.sensorID)
 			if result == nil {
 				t.Fatal("PrepareForegroundChartData returned nil")
 			}
@@ -189,7 +190,7 @@ func TestPrepareForegroundChartData_MaxAbs(t *testing.T) {
 		Timestamp:       time.Now(),
 	}
 
-	result := PrepareForegroundChartData(snapshot, "sensor-001")
+	result := l9endpoints.PrepareForegroundChartData(snapshot, "sensor-001")
 
 	// Max abs should be 20 (from Y=-20) * 1.05 = 21
 	expectedMaxAbs := 20.0 * 1.05
@@ -208,7 +209,7 @@ func TestPrepareForegroundChartData_ForegroundPercent(t *testing.T) {
 		Timestamp:        time.Now(),
 	}
 
-	result := PrepareForegroundChartData(snapshot, "sensor-001")
+	result := l9endpoints.PrepareForegroundChartData(snapshot, "sensor-001")
 
 	expectedPercent := (1.0 / 3.0) * 100
 	if math.Abs(result.ForegroundPercent-expectedPercent) > 0.001 {
@@ -246,7 +247,7 @@ func TestPrepareRecentClustersData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := PrepareRecentClustersData(tt.clusters, tt.sensorID)
+			result := l9endpoints.PrepareRecentClustersData(tt.clusters, tt.sensorID)
 			if result == nil {
 				t.Fatal("PrepareRecentClustersData returned nil")
 			}
@@ -269,7 +270,7 @@ func TestPrepareRecentClustersData_MaxAbs(t *testing.T) {
 		{CentroidX: -25.0, CentroidY: 3.0, PointsCount: 1},
 	}
 
-	result := PrepareRecentClustersData(clusters, "sensor-001")
+	result := l9endpoints.PrepareRecentClustersData(clusters, "sensor-001")
 
 	// Max abs should be 25 * 1.05 = 26.25
 	expectedMaxAbs := 25.0 * 1.05

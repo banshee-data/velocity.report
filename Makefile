@@ -337,7 +337,7 @@ dmg-mac-release:
 # =============================================================================
 
 PROTO_DIR = proto/velocity_visualiser/v1
-PROTO_GO_OUT = internal/lidar/visualiser/pb
+PROTO_GO_OUT = internal/lidar/l9endpoints/pb
 PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift

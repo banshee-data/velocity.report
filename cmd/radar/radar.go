@@ -35,12 +35,12 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
+	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -252,11 +252,11 @@ func main() {
 	l4perception.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	l5tracks.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	l6objects.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
-	monitor.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	server.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	pipeline.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	sqlite.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 	sweep.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
-	visualiser.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
+	l9endpoints.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
 
 	// Handle version flags (-v, --version)
 	if *versionFlag || *versionShort {
@@ -385,7 +385,7 @@ func main() {
 	defer stop()
 
 	// Lidar webserver instance (if enabled)
-	var lidarWebServer *monitor.WebServer
+	var lidarServer *server.Server
 	var foregroundForwarder *network.ForegroundForwarder
 	var bgFlusher *l3grid.BackgroundFlusher
 
@@ -439,8 +439,8 @@ func main() {
 		var tracker *l5tracks.Tracker
 		var classifier *l6objects.TrackClassifier
 		var pipelineConfig *pipeline.TrackingPipelineConfig // hoisted so BenchmarkMode can be wired post-webserver creation
-		var visualiserServer *visualiser.Server             // Hoisted so WebServerConfig callbacks can reference it
-		var visualiserPublisher *visualiser.Publisher       // Hoisted so OnVRLogLoad callback can reference it
+		var visualiserServer *l9endpoints.Server            // Hoisted so Config callbacks can reference it
+		var visualiserPublisher *l9endpoints.Publisher      // Hoisted so OnVRLogLoad callback can reference it
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
@@ -482,8 +482,8 @@ func main() {
 			}
 
 			// Initialise visualiser components if gRPC mode is enabled
-			var frameAdapter *visualiser.FrameAdapter
-			var lidarViewAdapter *visualiser.LidarViewAdapter
+			var frameAdapter *l9endpoints.FrameAdapter
+			var lidarViewAdapter *l9endpoints.LidarViewAdapter
 
 			// Validate forward mode
 			forwardMode := *lidarForwardMode
@@ -491,13 +491,13 @@ func main() {
 
 			// Initialise gRPC publisher if needed
 			if forwardMode == "grpc" || forwardMode == "both" {
-				vizConfig := visualiser.DefaultConfig()
+				vizConfig := l9endpoints.DefaultConfig()
 				vizConfig.ListenAddr = *lidarGRPCListen
 				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
-				visualiserPublisher = visualiser.NewPublisher(vizConfig)
-				visualiserServer = visualiser.NewServer(visualiserPublisher)
+				visualiserPublisher = l9endpoints.NewPublisher(vizConfig)
+				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
 				if err := visualiserPublisher.Start(); err != nil {
 					log.Fatalf("Failed to start visualiser publisher: %v", err)
@@ -505,9 +505,9 @@ func main() {
 				defer visualiserPublisher.Stop()
 
 				// Register gRPC service (must happen after Start() to ensure GRPCServer is initialised)
-				visualiser.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
+				l9endpoints.RegisterService(visualiserPublisher.GRPCServer(), visualiserServer)
 
-				frameAdapter = visualiser.NewFrameAdapter(lidarSensorID)
+				frameAdapter = l9endpoints.NewFrameAdapter(lidarSensorID)
 
 				// Wire M3.5 split streaming: connect background manager to publisher
 				// so that background snapshots are sent periodically instead of
@@ -526,7 +526,7 @@ func main() {
 			// Initialise LidarView adapter for UDP forwarding if needed
 			if forwardMode == "lidarview" || forwardMode == "both" {
 				if foregroundForwarder != nil {
-					lidarViewAdapter = visualiser.NewLidarViewAdapter(foregroundForwarder)
+					lidarViewAdapter = l9endpoints.NewLidarViewAdapter(foregroundForwarder)
 					log.Printf("LidarView adapter enabled (forwarding to %s:%d)", *lidarFGFwdAddr, lidarFGForwardPortCfg)
 				}
 			}
@@ -568,7 +568,7 @@ func main() {
 		// packets to localhost:2368 causes write-error noise in the log.
 		var packetForwarder *network.PacketForwarder
 		// Create a PacketStats instance and wire it into the forwarder, listener and webserver
-		packetStats := monitor.NewPacketStats()
+		packetStats := server.NewPacketStats()
 		if *lidarForward && lidarForwardPortCfg > 0 && (*lidarForwardMode == "lidarview" || *lidarForwardMode == "both") {
 			createdForwarder, err := network.NewPacketForwarder(*lidarFwdAddr, lidarForwardPortCfg, packetStats, time.Minute)
 			if err != nil {
@@ -596,7 +596,7 @@ func main() {
 		// Start lidar webserver for monitoring (moved into internal/api)
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
-		lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
+		lidarServer = server.NewServer(server.Config{
 			Address:           *lidarListen,
 			Stats:             packetStats,
 			ForwardingEnabled: *lidarForward && lidarForwardPortCfg > 0,
@@ -664,12 +664,12 @@ func main() {
 				sourceType := "live"
 				pcapPath := ""
 				playbackRate := 0.0
-				if lidarWebServer != nil {
-					src := lidarWebServer.CurrentSource()
-					if src == monitor.DataSourcePCAP || src == monitor.DataSourcePCAPAnalysis {
+				if lidarServer != nil {
+					src := lidarServer.CurrentSource()
+					if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
 						sourceType = "pcap"
-						pcapPath = filepath.Base(lidarWebServer.CurrentPCAPFile())
-						playbackRate = lidarWebServer.PCAPSpeedRatio()
+						pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
+						playbackRate = lidarServer.PCAPSpeedRatio()
 					}
 				}
 				rec.SetProvenance(sourceType, pcapPath, tuningHash, playbackRate)
@@ -740,30 +740,30 @@ func main() {
 		})
 		// Wire tracker for in-memory config access via /api/lidar/params
 		if tracker != nil {
-			lidarWebServer.SetTracker(tracker)
+			lidarServer.SetTracker(tracker)
 		}
 		if classifier != nil {
-			lidarWebServer.SetClassifier(classifier)
+			lidarServer.SetClassifier(classifier)
 		}
 		// Wire benchmark mode toggle from webserver to pipeline so the
 		// dashboard checkbox can enable/disable trace logging at runtime.
 		if pipelineConfig != nil {
-			pipelineConfig.BenchmarkMode = lidarWebServer.BenchmarkMode()
-			pipelineConfig.DisableTrackPersistence = lidarWebServer.DisableTrackPersistenceFlag()
+			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
+			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
 		}
 		// Create and wire sweep runner using direct in-process backend.
 		// This eliminates all HTTP overhead for sweep runner ↔ webserver communication.
-		sweepBackend := monitor.NewDirectBackend(lidarSensorID, lidarWebServer)
+		sweepBackend := server.NewDirectBackend(lidarSensorID, lidarServer)
 		sweepRunner := sweep.NewRunner(sweepBackend)
-		lidarWebServer.SetSweepRunner(sweepRunner)
+		lidarServer.SetSweepRunner(sweepRunner)
 
 		// Set up auto-tuner
 		autoTuner := sweep.NewAutoTuner(sweepRunner)
-		lidarWebServer.SetAutoTuneRunner(autoTuner)
+		lidarServer.SetAutoTuneRunner(autoTuner)
 
 		// Set up sweep persistence
 		sweepStore := sqlite.NewSweepStore(lidarDB.DB)
-		lidarWebServer.SetSweepStore(sweepStore)
+		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
 
@@ -809,12 +809,12 @@ func main() {
 		hintTuner.SetSceneGetter(&hintSceneAdapter{store: sceneStore})
 		hintTuner.SetLabelQuerier(&hintLabelAdapter{store: analysisRunStore})
 		hintTuner.SetRunCreator(&hintRunCreator{runner: sweepRunner})
-		lidarWebServer.SetHINTRunner(hintTuner)
+		lidarServer.SetHINTRunner(hintTuner)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := lidarWebServer.Start(ctx); err != nil {
+			if err := lidarServer.Start(ctx); err != nil {
 				log.Printf("Lidar webserver error: %v", err)
 			}
 		}()
@@ -888,8 +888,8 @@ func main() {
 		database.AttachAdminRoutes(mux)
 
 		// Attach Lidar routes if enabled
-		if lidarWebServer != nil {
-			lidarWebServer.RegisterRoutes(mux)
+		if lidarServer != nil {
+			lidarServer.RegisterRoutes(mux)
 		}
 
 		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
@@ -1019,7 +1019,7 @@ func runTransitsCommand(args []string) {
 }
 
 // backgroundManagerBridge adapts *l3grid.BackgroundManager to satisfy
-// visualiser.BackgroundManagerInterface, converting between the two
+// l9endpoints.BackgroundManagerInterface, converting between the two
 // package-specific snapshot types. This avoids a circular import between
 // the lidar and visualiser packages.
 type backgroundManagerBridge struct {
@@ -1034,15 +1034,15 @@ func (b *backgroundManagerBridge) GenerateBackgroundSnapshot() (interface{}, err
 	if data == nil {
 		return nil, nil
 	}
-	// Convert *l3grid.BackgroundSnapshotData → *visualiser.BackgroundSnapshot
-	return &visualiser.BackgroundSnapshot{
+	// Convert *l3grid.BackgroundSnapshotData → *l9endpoints.BackgroundSnapshot
+	return &l9endpoints.BackgroundSnapshot{
 		SequenceNumber: data.SequenceNumber,
 		TimestampNanos: data.TimestampNanos,
 		X:              data.X,
 		Y:              data.Y,
 		Z:              data.Z,
 		Confidence:     data.Confidence,
-		GridMetadata: visualiser.GridMetadata{
+		GridMetadata: l9endpoints.GridMetadata{
 			Rings:            data.Rings,
 			AzimuthBins:      data.AzimuthBins,
 			RingElevations:   data.RingElevations,

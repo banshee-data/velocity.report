@@ -30,7 +30,7 @@ type TrackerInterface interface {
 	GetAllTracks() []*TrackedObject
 
 	// GetRecentlyDeletedTracks returns deleted tracks within the grace period.
-	// Used for fade-out rendering in the visualiser.
+	// Used for fade-out rendering in the l9endpoints.
 	GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject
 
 	// GetLastAssociations returns the cluster-to-track mapping from the

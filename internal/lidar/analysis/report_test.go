@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
 
@@ -18,13 +18,13 @@ import (
 
 func TestTrackStateName(t *testing.T) {
 	tests := []struct {
-		state visualiser.TrackState
+		state l9endpoints.TrackState
 		want  string
 	}{
-		{visualiser.TrackStateTentative, "tentative"},
-		{visualiser.TrackStateConfirmed, "confirmed"},
-		{visualiser.TrackStateDeleted, "deleted"},
-		{visualiser.TrackState(99), "unknown"},
+		{l9endpoints.TrackStateTentative, "tentative"},
+		{l9endpoints.TrackStateConfirmed, "confirmed"},
+		{l9endpoints.TrackStateDeleted, "deleted"},
+		{l9endpoints.TrackState(99), "unknown"},
 	}
 	for _, tc := range tests {
 		got := trackStateName(tc.state)
@@ -40,12 +40,12 @@ func TestTrackStateName(t *testing.T) {
 
 func TestMotionModelName(t *testing.T) {
 	tests := []struct {
-		model visualiser.MotionModel
+		model l9endpoints.MotionModel
 		want  string
 	}{
-		{visualiser.MotionModelCV, "CV"},
-		{visualiser.MotionModelCA, "CA"},
-		{visualiser.MotionModel(99), "unknown"},
+		{l9endpoints.MotionModelCV, "CV"},
+		{l9endpoints.MotionModelCA, "CA"},
+		{l9endpoints.MotionModel(99), "unknown"},
 	}
 	for _, tc := range tests {
 		got := motionModelName(tc.model)
@@ -288,7 +288,7 @@ func createTestVrlog(t *testing.T, dir string, nFrames int) string {
 	if err != nil {
 		t.Fatalf("NewRecorder: %v", err)
 	}
-	gen := visualiser.NewSyntheticGenerator("test-sensor")
+	gen := l9endpoints.NewSyntheticGenerator("test-sensor")
 	for i := 0; i < nFrames; i++ {
 		if err := rec.Record(gen.NextFrame()); err != nil {
 			t.Fatalf("Record frame %d: %v", i, err)
@@ -576,11 +576,11 @@ func TestGenerateReportEmptyFrames(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		frame := &visualiser.FrameBundle{
+		frame := &l9endpoints.FrameBundle{
 			FrameID:        uint64(i),
 			TimestampNanos: int64(i) * 100_000_000, // 100ms apart
 			SensorID:       "empty-sensor",
-			CoordinateFrame: visualiser.CoordinateFrameInfo{
+			CoordinateFrame: l9endpoints.CoordinateFrameInfo{
 				ReferenceFrame: "ENU",
 			},
 			// No PointCloud, Clusters, or Tracks
@@ -626,14 +626,14 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		ts := baseTime + int64(i)*100_000_000
-		frame := &visualiser.FrameBundle{
+		frame := &l9endpoints.FrameBundle{
 			FrameID:        uint64(i),
 			TimestampNanos: ts,
 			SensorID:       "mixed-sensor",
-			CoordinateFrame: visualiser.CoordinateFrameInfo{
+			CoordinateFrame: l9endpoints.CoordinateFrameInfo{
 				ReferenceFrame: "ENU",
 			},
-			PointCloud: &visualiser.PointCloudFrame{
+			PointCloud: &l9endpoints.PointCloudFrame{
 				FrameID:        uint64(i),
 				TimestampNanos: ts,
 				SensorID:       "mixed-sensor",
@@ -644,18 +644,18 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 				Classification: []uint8{1, 0}, // one foreground, one background
 				PointCount:     2,
 			},
-			Clusters: &visualiser.ClusterSet{
+			Clusters: &l9endpoints.ClusterSet{
 				FrameID:        uint64(i),
 				TimestampNanos: ts,
-				Clusters:       []visualiser.Cluster{{ClusterID: 1}},
+				Clusters:       []l9endpoints.Cluster{{ClusterID: 1}},
 			},
-			Tracks: &visualiser.TrackSet{
+			Tracks: &l9endpoints.TrackSet{
 				FrameID:        uint64(i),
 				TimestampNanos: ts,
-				Tracks: []visualiser.Track{
+				Tracks: []l9endpoints.Track{
 					{
 						TrackID:           "confirmed-1",
-						State:             visualiser.TrackStateConfirmed,
+						State:             l9endpoints.TrackStateConfirmed,
 						SpeedMps:          5.0,
 						AvgSpeedMps:       5.0,
 						MaxSpeedMps:       6.0,
@@ -670,7 +670,7 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 						ObservationCount:  i + 1,
 						OcclusionCount:    2,
 						Confidence:        0.9,
-						MotionModel:       visualiser.MotionModelCV,
+						MotionModel:       l9endpoints.MotionModelCV,
 						ObjectClass:       "car",
 						ClassConfidence:   0.85,
 						TrackLengthMetres: float32(i) * 0.5,
@@ -679,10 +679,10 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 					},
 					{
 						TrackID:          "tentative-1",
-						State:            visualiser.TrackStateTentative,
+						State:            l9endpoints.TrackStateTentative,
 						SpeedMps:         3.0,
 						ObservationCount: 2,
-						MotionModel:      visualiser.MotionModelCA,
+						MotionModel:      l9endpoints.MotionModelCA,
 						FirstSeenNanos:   ts,
 						LastSeenNanos:    ts,
 					},
@@ -691,9 +691,9 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 		}
 		if i == 5 {
 			// Add a deleted track mid-way
-			frame.Tracks.Tracks = append(frame.Tracks.Tracks, visualiser.Track{
+			frame.Tracks.Tracks = append(frame.Tracks.Tracks, l9endpoints.Track{
 				TrackID:        "deleted-1",
-				State:          visualiser.TrackStateDeleted,
+				State:          l9endpoints.TrackStateDeleted,
 				SpeedMps:       1.0,
 				FirstSeenNanos: baseTime,
 				LastSeenNanos:  ts,
@@ -949,13 +949,13 @@ func TestGenerateReportJitterAlignmentMetrics(t *testing.T) {
 		// Track with varying speed and heading to exercise jitter metrics
 		heading := float32(float64(i) * math.Pi / 4) // 0,45,90,... degrees
 		speed := float32(2.0 + float64(i)*0.5)
-		frame := &visualiser.FrameBundle{
+		frame := &l9endpoints.FrameBundle{
 			TimestampNanos: ts,
-			Tracks: &visualiser.TrackSet{
-				Tracks: []visualiser.Track{
+			Tracks: &l9endpoints.TrackSet{
+				Tracks: []l9endpoints.Track{
 					{
 						TrackID:          "j1",
-						State:            visualiser.TrackStateConfirmed,
+						State:            l9endpoints.TrackStateConfirmed,
 						SpeedMps:         speed,
 						HeadingRad:       heading,
 						X:                float32(i),

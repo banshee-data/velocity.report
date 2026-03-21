@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -223,22 +224,11 @@ type TrackSummaryResponse struct {
 	Timestamp string                  `json:"timestamp"`
 }
 
-// ClassSummary contains summary statistics for a single object class.
-type ClassSummary struct {
-	Count       int     `json:"count"`
-	AvgSpeedMps float32 `json:"avg_speed_mps"`
-	MaxSpeedMps float32 `json:"max_speed_mps"`
-	AvgDuration float64 `json:"avg_duration_seconds"`
-}
+// ClassSummary is a type alias for l8analytics.TrackClassSummary.
+type ClassSummary = l8analytics.TrackClassSummary
 
-// OverallSummary contains overall summary statistics across all tracks.
-type OverallSummary struct {
-	TotalTracks    int     `json:"total_tracks"`
-	ConfirmedCount int     `json:"confirmed_count"`
-	TentativeCount int     `json:"tentative_count"`
-	DeletedCount   int     `json:"deleted_count"`
-	AvgSpeedMps    float32 `json:"avg_speed_mps"`
-}
+// OverallSummary is a type alias for l8analytics.TrackOverallSummary.
+type OverallSummary = l8analytics.TrackOverallSummary
 
 // handleListTracks handles GET /api/lidar/tracks
 // Query params:
@@ -765,74 +755,14 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Compute summary statistics
-	byClass := make(map[string]*classSummaryAccum)
-	byState := make(map[string]int)
-	var totalSpeed float32
-	var speedCount int
+	summary := l8analytics.ComputeTrackSummary(tracks)
 
-	for _, track := range tracks {
-		// By state
-		byState[string(track.State)]++
-
-		// By class
-		class := track.ObjectClass
-		if class == "" {
-			class = "unclassified"
-		}
-		if _, ok := byClass[class]; !ok {
-			byClass[class] = &classSummaryAccum{}
-		}
-		accum := byClass[class]
-		accum.count++
-		accum.totalSpeed += track.AvgSpeedMps
-		if track.MaxSpeedMps > accum.maxSpeed {
-			accum.maxSpeed = track.MaxSpeedMps
-		}
-		if track.LastUnixNanos > 0 && track.FirstUnixNanos > 0 {
-			duration := float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
-			accum.totalDuration += duration
-		}
-
-		// Overall
-		totalSpeed += track.AvgSpeedMps
-		speedCount++
-	}
-
-	// Build response
 	response := TrackSummaryResponse{
 		SensorID:  sensorID,
-		ByClass:   make(map[string]ClassSummary),
-		ByState:   byState,
+		ByClass:   summary.ByClass,
+		ByState:   summary.ByState,
+		Overall:   summary.Overall,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	}
-
-	for class, accum := range byClass {
-		var avgSpeed float32
-		var avgDuration float64
-		if accum.count > 0 {
-			avgSpeed = accum.totalSpeed / float32(accum.count)
-			avgDuration = accum.totalDuration / float64(accum.count)
-		}
-		response.ByClass[class] = ClassSummary{
-			Count:       accum.count,
-			AvgSpeedMps: avgSpeed,
-			MaxSpeedMps: accum.maxSpeed,
-			AvgDuration: avgDuration,
-		}
-	}
-
-	var overallAvgSpeed float32
-	if speedCount > 0 {
-		overallAvgSpeed = totalSpeed / float32(speedCount)
-	}
-
-	response.Overall = OverallSummary{
-		TotalTracks:    len(tracks),
-		ConfirmedCount: byState["confirmed"],
-		TentativeCount: byState["tentative"],
-		DeletedCount:   byState["deleted"],
-		AvgSpeedMps:    overallAvgSpeed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1024,14 +954,6 @@ func bboxFromTrack(track *l5tracks.TrackedObject) BBox {
 		h = track.BoundingBoxHeightAvg
 	}
 	return BBox{Length: l, Width: w, Height: h}
-}
-
-// classSummaryAccum is an accumulator for computing class summary statistics.
-type classSummaryAccum struct {
-	count         int
-	totalSpeed    float32
-	maxSpeed      float32
-	totalDuration float64
 }
 
 // handleTrackingMetrics returns aggregate velocity-trail alignment metrics

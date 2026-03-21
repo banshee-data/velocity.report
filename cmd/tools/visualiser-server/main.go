@@ -33,9 +33,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/pb"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 )
 
 func main() {
@@ -75,13 +75,13 @@ func runSyntheticMode(addr string, rate float64, points, tracks int) {
 	log.Printf("Configuration: %d points, %d tracks, %.1f Hz", points, tracks, rate)
 
 	// Create publisher
-	cfg := visualiser.DefaultConfig()
+	cfg := l9endpoints.DefaultConfig()
 	cfg.ListenAddr = addr
 	cfg.SensorID = "synthetic-01"
-	publisher := visualiser.NewPublisher(cfg)
+	publisher := l9endpoints.NewPublisher(cfg)
 
 	// Create gRPC server with synthetic mode
-	server := visualiser.NewServer(publisher)
+	server := l9endpoints.NewServer(publisher)
 	server.EnableSyntheticMode("synthetic-01")
 
 	// Configure synthetic generator
@@ -127,13 +127,13 @@ func runReplayMode(addr, logPath string) {
 	}
 
 	// Create publisher (for gRPC server infrastructure)
-	cfg := visualiser.DefaultConfig()
+	cfg := l9endpoints.DefaultConfig()
 	cfg.ListenAddr = addr
 	cfg.SensorID = header.SensorID
-	publisher := visualiser.NewPublisher(cfg)
+	publisher := l9endpoints.NewPublisher(cfg)
 
 	// Create replay server
-	replayServer := visualiser.NewReplayServer(publisher, replayer)
+	replayServer := l9endpoints.NewReplayServer(publisher, replayer)
 
 	// Start publisher (this starts the gRPC listener)
 	if err := publisher.Start(); err != nil {

@@ -2,11 +2,9 @@ package monitor
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"math"
 	"net/http"
 	"os"
@@ -25,6 +23,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
 	"tailscale.com/tsweb"
@@ -38,20 +37,12 @@ type ParamDef struct {
 	Format string      // Printf format string (optional)
 }
 
-//go:embed assets/*
-var EchartsAssets embed.FS
-
-//go:embed html/status.html
-var StatusHTML embed.FS
-
-//go:embed html/dashboard.html
-var dashboardHTML string
-
-//go:embed html/regions_dashboard.html
-var regionsDashboardHTML string
-
-//go:embed html/sweep_dashboard.html
-var sweepDashboardHTML string
+// Legacy embedded assets now live in l9endpoints/l10clients/.
+var (
+	dashboardHTML        = l9endpoints.LegacyDashboardHTML
+	regionsDashboardHTML = l9endpoints.LegacyRegionsDashboardHTML
+	sweepDashboardHTML   = l9endpoints.LegacySweepDashboardHTML
+)
 
 const echartsAssetsPrefix = "/assets/"
 
@@ -128,7 +119,7 @@ type WebServer struct {
 	analysisRunManager *sqlite.AnalysisRunManager
 
 	// Grid plotter for visualization during PCAP replay
-	gridPlotter  *GridPlotter
+	gridPlotter  *l9endpoints.GridPlotter
 	plotsBaseDir string // Base directory for plot output (e.g., "plots")
 	plotsEnabled bool   // Whether plots are enabled for current run
 
@@ -613,7 +604,7 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *WebServer) RegisterRoutes(mux *http.ServeMux) {
-	assetsFS, err := fs.Sub(EchartsAssets, "assets")
+	assetsFS, err := l9endpoints.LegacyAssetsFS()
 	if err != nil {
 		opsf("failed to prepare echarts assets: %v", err)
 		assetsFS = nil
@@ -1224,7 +1215,12 @@ func (ws *WebServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	ws.updateLatestFgCounts(ws.sensorID)
 
 	// Load and parse the HTML template from embedded filesystem
-	tmpl, err := template.ParseFS(StatusHTML, "html/status.html")
+	statusFS, statusFSErr := l9endpoints.LegacyStatusFS()
+	if statusFSErr != nil {
+		http.Error(w, "Error loading status assets: "+statusFSErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpl, err := template.ParseFS(statusFS, "status.html")
 	if err != nil {
 		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
 		return

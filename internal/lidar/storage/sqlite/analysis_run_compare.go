@@ -1,6 +1,6 @@
 package sqlite
 
-import "github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+import "github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 
 // compareParams compares two RunParams and returns a map of differences.
 func compareParams(p1, p2 *RunParams) map[string]any {
@@ -106,7 +106,7 @@ func compareParams(p1, p2 *RunParams) map[string]any {
 }
 
 // computeTemporalIoU calculates temporal IoU for two tracks.
-// Delegates to l6objects.ComputeTemporalIoU for the core algorithm.
+// Delegates to l8analytics.ComputeTemporalIoU for the core algorithm.
 func computeTemporalIoU(ref, cand *RunTrack) float64 {
-	return l6objects.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
+	return l8analytics.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
 }

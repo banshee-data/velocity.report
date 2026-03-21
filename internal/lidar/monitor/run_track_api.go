@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
 )
@@ -437,11 +438,7 @@ func (ws *WebServer) handleLabellingProgress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Calculate progress percentage
-	progressPct := 0.0
-	if total > 0 {
-		progressPct = float64(labelled) / float64(total) * 100.0
-	}
+	progressPct := l8analytics.ComputeLabellingProgress(total, labelled)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
