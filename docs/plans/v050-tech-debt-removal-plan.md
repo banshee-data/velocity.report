@@ -228,57 +228,60 @@ Items that existing plans mark as done. Verified during this audit.
 All items below can be completed within 1 week by a single developer.
 Items are ordered by dependency and blast radius (safest first).
 
-#### Day 1–2: Transit tool removal (A4, A5)
+#### Day 1–2: Transit tool removal (A4, A5) — ✅ Complete
 
-- [ ] Remove `cmd/transit-backfill/` directory
-- [ ] Remove `cmd/tools/scan_transits.go`
-- [ ] Remove any Makefile targets referencing `transit-backfill` or
-      `scan_transits` (if any exist)
-- [ ] Update `docs/plans/platform-simplification-and-deprecation-plan.md` —
+- [x] Remove `cmd/transit-backfill/` directory
+- [x] Remove `cmd/tools/scan_transits.go`
+- [x] Remove any Makefile targets referencing `transit-backfill` or
+      `scan_transits` (if any exist) — none found
+- [x] Update `docs/plans/platform-simplification-and-deprecation-plan.md` —
       mark §2B as complete
-- [ ] Update `docs/BACKLOG.md` — check off transit-backfill removal item
-- [ ] Verify `make build-radar-local` still succeeds
-- [ ] Verify `make test-go` still passes
+- [x] Update `docs/BACKLOG.md` — check off transit-backfill removal item
+- [x] Verify `make build-radar-local` still succeeds
+- [x] Verify `make test-go` still passes
 
-#### Day 2–3: Sweep dashboard legacy alias cleanup (A1, A2)
+#### Day 2–3: Sweep dashboard legacy alias cleanup (A1, A2) — ✅ Complete
 
-- [ ] Remove `LEGACY_PARAM_ALIASES` object from
-      `internal/lidar/monitor/assets/sweep_dashboard.js`
-- [ ] Remove `canonicalParamKey()` function (or simplify to identity if still
-      called by non-legacy paths)
-- [ ] Remove or simplify `flattenParamObject()` and `normaliseParamMap()` if
-      they exist only to serve the alias map
-- [ ] Remove legacy normalisation tests from
+- [x] Remove `LEGACY_PARAM_ALIASES` object from
+      `internal/lidar/l9endpoints/l10clients/assets/sweep_dashboard.js`
+- [x] Remove `canonicalParamKey()` function (or simplify to identity if still
+      called by non-legacy paths) — simplified: removed alias lookup, kept
+      schema and suffix resolution
+- [x] Remove or simplify `flattenParamObject()` and `normaliseParamMap()` if
+      they exist only to serve the alias map — retained: both serve
+      non-legacy nested→flat conversion
+- [x] Remove legacy normalisation tests from
       `web/src/lib/__tests__/sweep_dashboard.test.ts`
-- [ ] Verify `make build-web` succeeds
-- [ ] Verify `make test-web` passes
+- [x] Verify `make build-web` succeeds
+- [x] Verify `make test-web` passes
 - [ ] Verify sweep dashboard functions correctly with v2 dot-path keys
       (manual test: run monitor, trigger sweep, verify dashboard renders)
 
-#### Day 3–5: CLI flag removal (A3, A6)
+#### Day 3–5: CLI flag removal (A3, A6) — ✅ Complete
 
-- [ ] Remove `--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`,
+- [x] Remove `--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`,
       `--lidar-foreground-forward-port` flag definitions from
       `cmd/radar/radar.go`
-- [ ] Remove `deprecatedLidarFlagWarnings()` function from
+- [x] Remove `deprecatedLidarFlagWarnings()` function from
       `cmd/radar/lidar_helpers.go`
-- [ ] Update `cmd/radar/flags_test.go` — remove deprecated flag test cases
-- [ ] Add clear startup error if old flags are passed:
-      `"unknown flag --lidar-sensor; use l1.sensor in tuning config file"`
-- [ ] Update `config/CONFIG-RESTRUCTURE.md` Phase 2 Step 13 status:
+- [x] Update `cmd/radar/flags_test.go` — remove deprecated flag test cases
+- [x] Add clear startup error if old flags are passed:
+      Go’s `flag` package emits `flag provided but not defined` for
+      unknown flags, which is a clear error.
+- [x] Update `config/CONFIG-RESTRUCTURE.md` Phase 2 Step 13 status:
       change `⏳ CLI deprecation` to `✅ Complete`
-- [ ] Update `docs/plans/platform-simplification-and-deprecation-plan.md` —
-      mark §3A as complete
-- [ ] Verify `make build-radar-local` succeeds
-- [ ] Verify `make test-go` passes
+- [x] Update `docs/plans/platform-simplification-and-deprecation-plan.md` —
+      §2B complete; §3A forwarding flags remain (active, not deprecated)
+- [x] Verify `make build-radar-local` succeeds
+- [x] Verify `make test-go` passes
 - [ ] Update operator documentation (setup guide, README) to reference
       config file fields instead of CLI flags
 
-#### Day 5: Plan hygiene and status updates
+#### Day 5: Plan hygiene and status updates — ✅ Complete
 
-- [ ] Update `docs/plans/v050-backward-compatibility-shim-removal-plan.md` —
+- [x] Update `docs/plans/v050-backward-compatibility-shim-removal-plan.md` —
       update §14 to note alias map fully removed
-- [ ] Update `docs/BACKLOG.md` — mark completed items
+- [x] Update `docs/BACKLOG.md` — mark completed items
 - [ ] Verify full quality gate: `make format && make lint && make test`
 - [ ] Verify `make build-radar-local` and `make build-web` both succeed
 
@@ -288,45 +291,45 @@ Items are ordered by dependency and blast radius (safest first).
 
 ### CONFIG-RESTRUCTURE.md
 
-| Phase                                 | Status                               | Notes                                                    |
-| ------------------------------------- | ------------------------------------ | -------------------------------------------------------- |
-| Phase 1 — Structural realignment      | ✅ Complete                          | 12/12 steps done                                         |
-| Phase 2 — Essential variable exposure | ✅ Complete (except CLI deprecation) | 4/4 steps done; CLI flag removal is A3 above             |
-| Phase 2B — Experiment contract        | Proposed                             | Stretch (B5); deferred to v0.6.x/v0.7.0 if not completed |
-| Phase 3 — Remaining variable exposure | Proposed                             | Stretch (B6); deferred to v2.0 if not completed          |
+| Phase                                 | Status      | Notes                                                    |
+| ------------------------------------- | ----------- | -------------------------------------------------------- |
+| Phase 1 — Structural realignment      | ✅ Complete | 12/12 steps done                                         |
+| Phase 2 — Essential variable exposure | ✅ Complete | 4/4 steps done; CLI flags removed                        |
+| Phase 2B — Experiment contract        | Proposed    | Stretch (B5); deferred to v0.6.x/v0.7.0 if not completed |
+| Phase 3 — Remaining variable exposure | Proposed    | Stretch (B6); deferred to v2.0 if not completed          |
 
 ### v050-backward-compatibility-shim-removal-plan.md
 
-| Section                        | Status             | Notes                        |
-| ------------------------------ | ------------------ | ---------------------------- |
-| §1 Speed contract reset        | ✅ Complete        | #352                         |
-| §2 Sweep legacy request format | ✅ Complete        |                              |
-| §3 Legacy download endpoint    | ✅ Complete        |                              |
-| §4 Lenient JSON parsing        | ✅ Complete        |                              |
-| §5 Deploy executor compat      | Deferred           | Owned by deploy retirement   |
-| §6 PacketHeader                | ✅ Complete        |                              |
-| §7 AddPoints comment           | ✅ Complete        |                              |
-| §8 Type aliases                | Retained           | Architectural choice         |
-| §9 Python legacy stats         | ✅ Complete        |                              |
-| §10 Python config conversion   | ✅ Complete        |                              |
-| §11 Python PyLaTeX fallback    | ✅ Complete        |                              |
-| §12 Svelte BackgroundCell      | ✅ Complete        |                              |
-| §13 Svelte stats cache         | ✅ Complete        |                              |
-| §14 Sweep dashboard legacy     | ✅ Partial         | Alias map remains — A1 above |
-| §15 macOS speed labels         | ✅ Complete        |                              |
-| §16 pointBuffer                | Reclassified       | Renderer work                |
-| §17 macOS playback defaults    | ✅ Complete        |                              |
-| §18 VRLOG speed-key fallback   | Deferred to v0.5.2 | **Intentionally retained**   |
+| Section                        | Status             | Notes                      |
+| ------------------------------ | ------------------ | -------------------------- |
+| §1 Speed contract reset        | ✅ Complete        | #352                       |
+| §2 Sweep legacy request format | ✅ Complete        |                            |
+| §3 Legacy download endpoint    | ✅ Complete        |                            |
+| §4 Lenient JSON parsing        | ✅ Complete        |                            |
+| §5 Deploy executor compat      | Deferred           | Owned by deploy retirement |
+| §6 PacketHeader                | ✅ Complete        |                            |
+| §7 AddPoints comment           | ✅ Complete        |                            |
+| §8 Type aliases                | Retained           | Architectural choice       |
+| §9 Python legacy stats         | ✅ Complete        |                            |
+| §10 Python config conversion   | ✅ Complete        |                            |
+| §11 Python PyLaTeX fallback    | ✅ Complete        |                            |
+| §12 Svelte BackgroundCell      | ✅ Complete        |                            |
+| §13 Svelte stats cache         | ✅ Complete        |                            |
+| §14 Sweep dashboard legacy     | ✅ Complete        | Alias map fully removed    |
+| §15 macOS speed labels         | ✅ Complete        |                            |
+| §16 pointBuffer                | Reclassified       | Renderer work              |
+| §17 macOS playback defaults    | ✅ Complete        |                            |
+| §18 VRLOG speed-key fallback   | Deferred to v0.5.2 | **Intentionally retained** |
 
 ### platform-simplification-and-deprecation-plan.md
 
-| Project                    | Status              | Notes                                  |
-| -------------------------- | ------------------- | -------------------------------------- |
-| A — Deprecation signalling | ✅ Complete         |                                        |
-| B — Deploy retirement gate | Gated on #210       | Externally gated — see Category C (C1) |
-| C — Frontend consolidation | Blocked on #252     | Not in sprint scope                    |
-| D — CLI simplification     | Partially addressed | A3 above closes the LiDAR flag items   |
-| E — Compat shim removal    | ✅ Nearly complete  | A1 closes the last gap                 |
+| Project                    | Status              | Notes                                                                     |
+| -------------------------- | ------------------- | ------------------------------------------------------------------------- |
+| A — Deprecation signalling | ✅ Complete         |                                                                           |
+| B — Deploy retirement gate | Gated on #210       | Externally gated — see Category C (C1)                                    |
+| C — Frontend consolidation | Blocked on #252     | Not in sprint scope                                                       |
+| D — CLI simplification     | Partially addressed | A3 closes deprecated LiDAR config flags; forwarding flags remain (active) |
+| E — Compat shim removal    | ✅ Complete         | A1 closed the last gap                                                    |
 
 ### schema-simplification-migration-030-plan.md
 

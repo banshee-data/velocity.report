@@ -75,17 +75,15 @@ Rationale: useful for development, but not required as first-class public workfl
 - Expected reduction: one binary + associated Make targets + duplicated deployment docs and pathways.
 - Dependency: [Raspberry Pi imager pipeline](deploy-rpi-imager-fork-plan.md) and packaging roadmap.
 
-#### B. `cmd/transit-backfill` (high priority)
+#### B. `cmd/transit-backfill` (high priority) — ✅ Complete
 
-- One-off operational backfill utility that can move behind documented maintenance procedures.
-- Candidate to deprecate after confirming no active production need.
-- Removal tracked in [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (items A4, A5).
+- Removed `cmd/transit-backfill/` and `cmd/tools/scan_transits.go`.
+- `velocity-report transits rebuild` is the supported replacement.
 
 #### C. `cmd/sweep` and ad hoc `cmd/tools/*` utilities (medium priority)
 
 - `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
-- `cmd/tools/scan_transits.go` — removal tracked alongside `transit-backfill` in
-  [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (item A5).
+- `cmd/tools/scan_transits.go` — ✅ removed alongside `transit-backfill`.
 - Other narrow-scope helper tools should be either:
   - promoted and maintained as supported tooling, or
   - explicitly marked deprecated and removed.
