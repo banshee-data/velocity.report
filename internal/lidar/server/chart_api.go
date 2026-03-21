@@ -72,11 +72,6 @@ func (ws *Server) handleChartHeatmapJSON(w http.ResponseWriter, r *http.Request)
 	}
 
 	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
-	if heatmap == nil || len(heatmap.Buckets) == 0 {
-		ws.writeJSONError(w, http.StatusNotFound, "no heatmap buckets available")
-		return
-	}
-
 	data := l9endpoints.PrepareHeatmapFromBuckets(heatmap.Buckets, sensorID)
 	ws.writeJSON(w, http.StatusOK, data)
 }

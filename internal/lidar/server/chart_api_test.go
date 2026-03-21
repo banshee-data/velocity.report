@@ -559,6 +559,29 @@ func TestHandleChartPolarJSON_EmptyCells(t *testing.T) {
 	}
 }
 
+func TestHandleChartPolarJSON_HappyPath(t *testing.T) {
+	// Populate a grid cell so GetGridCells returns data, exercising the
+	// PreparePolarChartData + writeJSON path.
+	sensorID := "test-polar-happy-" + time.Now().Format("150405.000")
+	cleanup := setupTestBackgroundManager(t, sensorID)
+	defer cleanup()
+
+	bm := l3grid.GetBackgroundManager(sensorID)
+	bm.Grid.Cells[0].TimesSeenCount = 10
+	bm.Grid.Cells[0].AverageRangeMeters = 5.0
+
+	ws := &Server{sensorID: sensorID}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar", nil)
+	rec := httptest.NewRecorder()
+
+	ws.handleChartPolarJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d, want 200", rec.Code)
+	}
+}
+
 func TestHandleChartHeatmapJSON_EmptyBuckets(t *testing.T) {
 	// A fresh grid returns buckets with FilledCells=0 but the array is
 	// non-empty (one bucket per ring×azimuth combination), so the handler

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -4624,6 +4625,136 @@ func TestServer_Close_WithHTTPServer(t *testing.T) {
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 	srv := NewServer(config)
+
+	if err := srv.Close(); err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+}
+
+func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
+	// Exercises the shutdown path in Start() where both a live listener
+	// and a PCAP replay are active when the context is cancelled.
+	config := Config{
+		Address: ":0",
+		Stats:   NewPacketStats(),
+	}
+	srv := NewServer(config)
+	// Skip automatic listener startup so Start() proceeds straight to
+	// the HTTP goroutine and blocks on <-ctx.Done().
+	srv.currentSource = DataSourcePCAP
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(ctx) }()
+
+	// Wait for the HTTP server to bind before injecting state.
+	time.Sleep(200 * time.Millisecond)
+
+	// Inject a fake running listener.  stopLiveListenerLocked() calls
+	// cancel then waits on done, so pre-closing done avoids a hang.
+	listenerDone := make(chan struct{})
+	close(listenerDone)
+	srv.dataSourceMu.Lock()
+	srv.udpListener = network.NewUDPListener(network.UDPListenerConfig{Address: ":0"})
+	srv.udpListenerCancel = func() {}
+	srv.udpListenerDone = listenerDone
+	srv.dataSourceMu.Unlock()
+
+	// Inject fake PCAP state.  The shutdown path checks pcapCancel and
+	// pcapDone; pre-closing pcapDone avoids blocking.
+	pcapDone := make(chan struct{})
+	close(pcapDone)
+	srv.pcapMu.Lock()
+	srv.pcapCancel = func() {}
+	srv.pcapDone = pcapDone
+	srv.pcapMu.Unlock()
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Errorf("Start returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return within 5 s after context cancellation")
+	}
+}
+
+func TestStart_ShutdownForceClose(t *testing.T) {
+	// Exercises the force-close branch in Start() where Shutdown() fails.
+	// We keep an active connection alive past the 1 s shutdown timeout,
+	// causing Shutdown to return context.DeadlineExceeded.
+
+	// Grab an ephemeral port so we know the real address after ListenAndServe.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to get ephemeral port: %v", err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+
+	config := Config{
+		Address: addr,
+		Stats:   NewPacketStats(),
+	}
+	srv := NewServer(config)
+	srv.currentSource = DataSourcePCAP
+
+	// Replace the handler with one that blocks until told to stop.
+	unblock := make(chan struct{})
+	srv.server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-unblock
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start(ctx) }()
+
+	// Wait for the HTTP server to bind.
+	time.Sleep(200 * time.Millisecond)
+
+	// Open a long-lived HTTP connection to the blocking handler.
+	go http.Get("http://" + addr + "/block") //nolint:errcheck
+
+	// Ensure the request is in flight before we cancel.
+	time.Sleep(200 * time.Millisecond)
+
+	// Cancel triggers shutdown.  Shutdown(1 s) will fail because the
+	// connection is still held open by our handler.
+	cancel()
+
+	select {
+	case err := <-errCh:
+		// Start should still return nil — errors are logged, not returned.
+		if err != nil {
+			t.Errorf("Start returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return within 5 s")
+	}
+	close(unblock)
+}
+
+func TestClose_WithRunningListener(t *testing.T) {
+	// Exercises the stopLiveListenerLocked path inside Close().
+	config := Config{
+		Address: ":0",
+		Stats:   NewPacketStats(),
+	}
+	srv := NewServer(config)
+
+	listenerDone := make(chan struct{})
+	close(listenerDone)
+	srv.dataSourceMu.Lock()
+	srv.udpListener = network.NewUDPListener(network.UDPListenerConfig{Address: ":0"})
+	srv.udpListenerCancel = func() {}
+	srv.udpListenerDone = listenerDone
+	srv.dataSourceMu.Unlock()
 
 	if err := srv.Close(); err != nil {
 		t.Errorf("Close returned error: %v", err)
