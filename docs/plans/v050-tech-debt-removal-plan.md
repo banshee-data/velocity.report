@@ -14,8 +14,8 @@
 v0.5.0 is a coordinated breaking-change release. The bulk of the backward
 compatibility shim removal is already complete (§2–§17 of the
 [shim removal plan](v050-backward-compatibility-shim-removal-plan.md)).
-Schema migrations 000030 and 000031 have landed. Config restructure Phases 1
-and 2 are complete.
+Schema migrations 000030 and 000031 have landed. Config restructure Phase 1
+and Phase 2 wiring are complete; CLI flag deprecation remains pending (A3).
 
 This plan consolidates the **remaining** technical debt items across the
 codebase, classifies each as remove-now vs retain/defer, and provides a
@@ -217,7 +217,7 @@ Items that existing plans mark as done. Verified during this audit.
 | Speed contract reset (§1, §15) | Shim removal §1, §15 | ✅ Verified — `max_speed_mps` on all surfaces |
 | Schema simplification (000030, 000031) | Schema plan | ✅ Verified — migrations implemented |
 | Config restructure Phase 1 | CONFIG-RESTRUCTURE.md | ✅ Verified — v2 schema active |
-| Config restructure Phase 2 | CONFIG-RESTRUCTURE.md | ✅ Verified — L1 + 16 new L3 fields wired |
+| Config restructure Phase 2 | CONFIG-RESTRUCTURE.md | ✅ Verified — L1 + 16 new L3 fields wired; CLI flag deprecation tracked as A3 |
 
 ---
 

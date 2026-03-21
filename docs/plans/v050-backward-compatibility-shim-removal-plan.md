@@ -4,7 +4,7 @@
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-- **Status:** Pending shim removal — one outstanding item (§18), plus §14 alias map residue
+- **Status:** Pending shim removal — two remaining items: §14 alias map residue and §18 VRLOG fallback
 
 - **Update:** All v0.5.0 shim removal work across Go, Python, Svelte, and macOS is
   complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
