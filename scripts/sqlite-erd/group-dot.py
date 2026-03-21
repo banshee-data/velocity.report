@@ -24,6 +24,9 @@ LIDAR_SUBGROUP_ROOTS = (
     ("tracks", "lidar_tracks"),
 )
 ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
+LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "analysis_runs", "other")
+LIDAR_SECOND_ROW_SUBGROUP = "other"
+LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
 
 # Large lidar subgroups are packed into 2-4 inner columns so they stay wide
 # without forcing explicit node coordinates. The target weight is a rough table
@@ -49,9 +52,10 @@ LIDAR_SUBGROUP_COLUMN_OVERRIDES = {
         ["lidar_tracks"],
     ],
     "other": [
-        ["lidar_bg_snapshot", "lidar_bg_regions"],
-        ["lidar_tuning_sweeps"],
+        ["lidar_bg_regions"],
+        ["lidar_bg_snapshot"],
         ["lidar_clusters"],
+        ["lidar_tuning_sweeps"],
     ],
 }
 
@@ -88,7 +92,9 @@ def topo_levels(component_names, parents, children):
 
     while queue:
         name = queue.popleft()
-        for child in sorted(child for child in children[name] if child in component_names):
+        for child in sorted(
+            child for child in children[name] if child in component_names
+        ):
             levels[child] = max(levels[child], levels[name] + 1)
             in_degree[child] -= 1
             if in_degree[child] == 0:
@@ -277,9 +283,11 @@ def emit_table_nodes(output_lines, indent, names, table_lookup):
                 output_lines.append(indent + line)
 
 
-def emit_lidar_subgroup(output_lines, subgroup_name, names, table_lookup, parents, children):
+def emit_lidar_subgroup(
+    output_lines, subgroup_name, names, table_lookup, parents, children
+):
     if not names:
-        return None, None
+        return None, None, []
 
     output_lines.append(f"  subgraph cluster_lidar_{subgroup_name} {{")
     output_lines.append('    graph [style="invis"];')
@@ -291,7 +299,9 @@ def emit_lidar_subgroup(output_lines, subgroup_name, names, table_lookup, parent
             columns = list(
                 reversed(
                     split_level_groups_into_columns(
-                        topo_levels(names, parents, children), table_lookup, column_count
+                        topo_levels(names, parents, children),
+                        table_lookup,
+                        column_count,
                     )
                 )
             )
@@ -309,12 +319,14 @@ def emit_lidar_subgroup(output_lines, subgroup_name, names, table_lookup, parent
         output_lines.append("    }")
 
     for left_name, right_name in zip(column_heads, column_heads[1:]):
-        output_lines.append(f'    {left_name} -> {right_name} [style="invis", weight=50];')
+        output_lines.append(
+            f'    {left_name} -> {right_name} [style="invis", weight=50];'
+        )
 
     output_lines.append("  }")
     if not column_heads:
-        return None, None
-    return column_heads[0], column_heads[-1]
+        return None, None, []
+    return column_heads[0], column_heads[-1], column_heads
 
 
 def main() -> int:
@@ -385,21 +397,23 @@ def main() -> int:
         tables = grouped_nodes[cluster_name]
         if not tables:
             continue
-        output_lines.append(f'subgraph cluster_{cluster_name} {{')
+        output_lines.append(f"subgraph cluster_{cluster_name} {{")
         output_lines.append(
-            '  graph ['
+            "  graph ["
             f'label="{label}", '
             'labelloc="t", '
             'labeljust="l", '
             'style="rounded", '
             'color="#aaaaaa"'
-            '];'
+            "];"
         )
         sorted_tables = sorted(tables, key=lambda item: item[0])
         cluster_levels = topo_levels(
             [name for name, _ in sorted_tables], parents, children
         )
-        ordered_tables = [name for level_names in cluster_levels for name in level_names]
+        ordered_tables = [
+            name for level_names in cluster_levels for name in level_names
+        ]
         table_lookup = {name: block for name, block in sorted_tables}
         if cluster_levels:
             cluster_bounds[cluster_name] = (
@@ -413,9 +427,10 @@ def main() -> int:
                 radar_component_left_anchors.append(component_levels[-1][0])
         if cluster_name == "lidar" and len(sorted_tables) > 4:
             lidar_subgroups = split_lidar_subgroups(sorted_tables, parents, children)
+            subgroup_heads = {}
             subgroup_bounds = []
-            for subgroup_name, _ in LIDAR_SUBGROUP_ROOTS:
-                subgroup_start, subgroup_end = emit_lidar_subgroup(
+            for subgroup_name in LIDAR_SUBGROUP_DISPLAY_ORDER:
+                subgroup_start, subgroup_end, column_heads = emit_lidar_subgroup(
                     output_lines,
                     subgroup_name,
                     lidar_subgroups[subgroup_name],
@@ -423,18 +438,12 @@ def main() -> int:
                     parents,
                     children,
                 )
-                if subgroup_start and subgroup_end:
-                    subgroup_bounds.append((subgroup_start, subgroup_end))
-            if lidar_subgroups["other"]:
-                subgroup_start, subgroup_end = emit_lidar_subgroup(
-                    output_lines,
-                    "other",
-                    lidar_subgroups["other"],
-                    table_lookup,
-                    parents,
-                    children,
-                )
-                if subgroup_start and subgroup_end:
+                subgroup_heads[subgroup_name] = column_heads
+                if (
+                    subgroup_name != LIDAR_SECOND_ROW_SUBGROUP
+                    and subgroup_start
+                    and subgroup_end
+                ):
                     subgroup_bounds.append((subgroup_start, subgroup_end))
             for (_, left_end), (right_start, _) in zip(
                 subgroup_bounds, subgroup_bounds[1:]
@@ -442,6 +451,13 @@ def main() -> int:
                 output_lines.append(
                     f'  {left_end} -> {right_start} [style="invis", weight=50];'
                 )
+            aligned_row = subgroup_heads.get(LIDAR_SECOND_ROW_SUBGROUP, [])
+            aligned_to_row = subgroup_heads.get(LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP, [])
+            if aligned_row and len(aligned_row) == len(aligned_to_row):
+                for aligned_to_name, aligned_name in zip(aligned_to_row, aligned_row):
+                    output_lines.append(
+                        f"  {{ rank=same; {aligned_to_name}; {aligned_name}; }}"
+                    )
         else:
             for name in ordered_tables:
                 for line in table_lookup[name].splitlines():
