@@ -8,7 +8,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.0 (Platform Hardening)
 
-- L8/L9/L10 layer refactor Phases 1–3 — update docs to ten-layer model, create `l8analytics/` package, move comparison/summary types from L6 and storage into L8, slim monitor handlers — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - v0.5.0 tech debt removal — remove all remaining compatibility shims (except VRLOG JSON fallback), consolidate and classify final cleanup items before v0.5.0 release. [design doc](plans/v050-tech-debt-removal-plan.md) `S`
@@ -25,7 +24,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 - Go codebase structural hygiene — address context propagation, god files, race conditions, DB abstraction leaks, JSON tag anomalies, silent error drops, and test infrastructure consistency. [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go god file splitting — split large, multi-concern files (webserver.go, server.go, tracking.go, db.go, analysis_run.go) into domain-driven modules. [design doc](plans/go-god-file-split-plan.md) `S`
-- Go logging streams unification — migrate all logging to three-stream rubric (Opsf, Diagf, Tracef), unify output config, and align with LiDAR logging conventions. [design doc](plans/go-structured-logging-plan.md) `M`
 
 ## v0.5.2 (Replay/Runtime Stabilisation)
 
@@ -196,3 +194,5 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#406] Database SQL boundary enforcement — sealed `database/sql` import boundary to two packages, type aliases, sentinel errors, and CI lint check — [design doc](plans/data-database-alignment-plan.md)
 - [#407] Config restructure Phase 1 — flat-to-nested realignment with versioned schema, engine selection, strict validation, spelling corrections, factory function updates, dot-path sweep params, config-migrate/config-validate tooling, README updates — [design doc](../config/CONFIG-RESTRUCTURE.md)
 - [#407] Config restructure Phase 2 (struct + wiring) — L1Config struct, 16 new L3 fields, regenerated config files, updated documentation; CLI flag deprecation pending — [design doc](../config/CONFIG-RESTRUCTURE.md)
+- [#409] L8/L9/L10 layer refactor Phases 1–3 — package split (`monitor/` → `server/` + `l9endpoints/`), package renames, unified tuning endpoint with mime.ParseMediaType, heatmap value/max consistency fix, 98%+ coverage on 6 files — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
+- [#409] Go logging streams unification (LiDAR packages) — migrated all `log.Printf` to `diagf`, `fmt.Printf` to `opsf`, created `recorder/debug.go`, wired logging into `cmd/radar/` — [design doc](plans/go-structured-logging-plan.md)
