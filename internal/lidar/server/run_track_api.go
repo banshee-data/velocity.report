@@ -16,12 +16,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// REST API endpoints for lidar_run_tracks labelling
-// REST API for analysis run management
-//
-// These handlers are methods on Server since it already has access to
-// the AnalysisRunManager and db. Routes are registered in RegisterRoutes().
-
 // handleRunTrackAPI is the main dispatcher for /api/lidar/runs/* endpoints.
 // It parses the URL path and dispatches to appropriate sub-handlers.
 func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
@@ -116,76 +110,6 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ws.writeJSONError(w, http.StatusNotFound, "endpoint not found")
-}
-
-// parseRunPath extracts run_id and remaining path segments from /api/lidar/runs/{run_id}/...
-func parseRunPath(path string) (runID string, subPath string) {
-	trimmed := strings.TrimPrefix(path, "/api/lidar/runs/")
-	if trimmed == path {
-		// No prefix match, return empty
-		return "", ""
-	}
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
-	runID = parts[0]
-	if len(parts) > 1 {
-		subPath = parts[1]
-	}
-	return
-}
-
-// parseTrackPath extracts track_id and action from tracks/{track_id}/{action}
-func parseTrackPath(path string) (trackID string, action string) {
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
-	trackID = parts[0]
-	if len(parts) > 1 {
-		action = parts[1]
-	}
-	return
-}
-
-// Track Labelling Handlers
-
-func normaliseCommaSeparatedLabelValue(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-
-	parts := strings.Split(value, ",")
-	normalised := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		normalised = append(normalised, part)
-	}
-	return strings.Join(normalised, ",")
-}
-
-func normaliseLinkedTrackIDsForRequest(linkedTrackIDs []string) []string {
-	if len(linkedTrackIDs) == 0 {
-		return nil
-	}
-
-	normalised := make([]string, 0, len(linkedTrackIDs))
-	for _, linkedTrackID := range linkedTrackIDs {
-		linkedTrackID = strings.TrimSpace(linkedTrackID)
-		if linkedTrackID == "" {
-			continue
-		}
-		normalised = append(normalised, linkedTrackID)
-	}
-	if len(normalised) == 0 {
-		return nil
-	}
-	return normalised
 }
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
@@ -450,8 +374,6 @@ func (ws *Server) handleLabellingProgress(w http.ResponseWriter, r *http.Request
 		"progress_pct": progressPct,
 	})
 }
-
-// Analysis Run Management Handlers
 
 // handleListRuns lists analysis runs with optional filters.
 // GET /api/lidar/runs?limit=50&sensor_id=sensor1&status=completed
@@ -748,8 +670,6 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 		opsf("Error encoding evaluation response: %v", err)
 	}
 }
-
-// Missed Regions Handlers
 
 // handleMissedRegions handles GET (list) and POST (create) for missed regions.
 // GET/POST /api/lidar/runs/{run_id}/missed-regions

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -842,6 +843,40 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestLoggingMiddleware_CapturesNon200Status(t *testing.T) {
+	var buf bytes.Buffer
+	oldOutput := log.Writer()
+	oldFlags := log.Flags()
+	oldPrefix := log.Prefix()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	log.SetPrefix("")
+	defer func() {
+		log.SetOutput(oldOutput)
+		log.SetFlags(oldFlags)
+		log.SetPrefix(oldPrefix)
+	}()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "teapot", http.StatusTeapot)
+	})
+
+	wrapped := LoggingMiddleware(handler)
+
+	req := httptest.NewRequest(http.MethodGet, "/status-check?x=1", nil)
+	req.Host = "localhost:8081"
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTeapot {
+		t.Fatalf("Expected status %d, got %d", http.StatusTeapot, w.Code)
+	}
+	if !strings.Contains(buf.String(), "[418] GET :8081/status-check?x=1") {
+		t.Fatalf("Expected log line to contain captured status and path, got %q", buf.String())
 	}
 }
 

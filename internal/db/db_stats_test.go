@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -96,6 +97,39 @@ func TestGetDatabaseStats_EmptyDB(t *testing.T) {
 	if len(stats.Tables) == 0 {
 		t.Error("Expected at least migration tables in empty database")
 	}
+}
+
+func TestGetDatabaseStats_QuotedTableName(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	tableName := `odd"table`
+	createQuery := fmt.Sprintf("CREATE TABLE %s (id INTEGER)", quoteSQLiteIdentifier(tableName))
+	if _, err := db.Exec(createQuery); err != nil {
+		t.Fatalf("Failed to create quoted-name table: %v", err)
+	}
+	insertQuery := fmt.Sprintf("INSERT INTO %s (id) VALUES (?)", quoteSQLiteIdentifier(tableName))
+	for i := 0; i < 2; i++ {
+		if _, err := db.Exec(insertQuery, i); err != nil {
+			t.Fatalf("Failed to insert row %d into quoted-name table: %v", i, err)
+		}
+	}
+
+	stats, err := db.GetDatabaseStats()
+	if err != nil {
+		t.Fatalf("GetDatabaseStats failed: %v", err)
+	}
+
+	for _, table := range stats.Tables {
+		if table.Name == tableName {
+			if table.RowCount != 2 {
+				t.Fatalf("Expected quoted-name table row count 2, got %d", table.RowCount)
+			}
+			return
+		}
+	}
+
+	t.Fatalf("Expected quoted-name table %q in stats", tableName)
 }
 
 // TestFindDuplicateBgSnapshots_NoDuplicates tests when there are no duplicates
@@ -222,16 +256,16 @@ func TestFindDuplicateBgSnapshots_WithDuplicates(t *testing.T) {
 		t.Errorf("Expected sensor ID %s, got %s", sensorID, group.SensorID)
 	}
 
-	if group.KeepID != id1 {
-		t.Errorf("Expected to keep oldest snapshot %d, got %d", id1, group.KeepID)
+	if group.KeepID != id3 {
+		t.Errorf("Expected to keep newest snapshot %d, got %d", id3, group.KeepID)
 	}
 
 	if len(group.DeleteIDs) != 2 {
 		t.Errorf("Expected 2 IDs to delete, got %d", len(group.DeleteIDs))
 	}
 
-	if group.DeleteIDs[0] != id2 || group.DeleteIDs[1] != id3 {
-		t.Errorf("Expected delete IDs [%d, %d], got %v", id2, id3, group.DeleteIDs)
+	if group.DeleteIDs[0] != id1 || group.DeleteIDs[1] != id2 {
+		t.Errorf("Expected delete IDs [%d, %d], got %v", id1, id2, group.DeleteIDs)
 	}
 
 	if group.BlobBytes != len(duplicateBlob) {
