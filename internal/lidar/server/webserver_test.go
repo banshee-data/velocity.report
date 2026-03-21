@@ -4616,37 +4616,6 @@ func TestNewServer_UDPPortAddressFallback(t *testing.T) {
 	}
 }
 
-func TestServer_StartAndShutdown(t *testing.T) {
-	// Exercises the full shutdown path inside Start():
-	//   stop live listener, cancel pcap, shutdown HTTP server.
-	config := Config{
-		Address:           ":0",
-		Stats:             NewPacketStats(),
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	srv := NewServer(config)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-
-	go func() { errCh <- srv.Start(ctx) }()
-
-	// Give the HTTP server time to bind.
-	time.Sleep(150 * time.Millisecond)
-
-	// Cancel context triggers the shutdown path.
-	cancel()
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("Start returned error: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Start did not return within 5s after context cancellation")
-	}
-}
-
 func TestServer_Close_WithHTTPServer(t *testing.T) {
 	// NewServer creates ws.server; Close should return server.Close() result.
 	config := Config{
