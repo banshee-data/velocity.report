@@ -303,7 +303,7 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleStatus handles the main status page endpoint
 func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/lidar/server" && r.URL.Path != "/" && r.URL.Path != "/api/lidar/server" {
+	if r.URL.Path != "/lidar/server" && r.URL.Path != "/" && r.URL.Path != "/api/lidar/server" && r.URL.Path != "/api/lidar/monitor" {
 		http.NotFound(w, r)
 		return
 	}

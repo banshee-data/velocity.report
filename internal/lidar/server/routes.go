@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"os"
 
@@ -159,7 +158,6 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		gridRoutes, pcapRoutes, chartRoutes, debugRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
-			log.Printf("[routes] registering %q", r.pattern)
 			mux.HandleFunc(r.pattern, r.handler)
 		}
 	}
