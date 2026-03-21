@@ -4,7 +4,7 @@
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 
-- **Status:** Pending shim removal — one outstanding item (§18)
+- **Status:** Pending shim removal — one outstanding item (§18), plus §14 alias map residue
 
 - **Update:** All v0.5.0 shim removal work across Go, Python, Svelte, and macOS is
   complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
@@ -13,16 +13,20 @@
   All Phase 6 build validation gates passed (`make build-web`, `make build-radar-local`,
   `make format && make lint && make test`). One shim remains: the VRLOG
   `Track.UnmarshalJSON` legacy speed-key fallback (§18), deferred to v0.5.2.
+  §14 sweep dashboard `LEGACY_PARAM_ALIASES` map and associated normalisation
+  functions remain — tracked for removal in the
+  [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (item A1).
 
 ## Tracking Snapshot
 
-| Outcome             | Sections                   | Notes                                                                                                                          |
-| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Removed in code     | §2-§4, §6, §7, §9-§14, §17 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code all clean |
-| Complete / resolved | §1, §15                    | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified       |
-| Deferred / retained | §5, §8                     | Either owned by another plan or still an active implementation path rather than a removable shim today                         |
-| Reclassified        | §16                        | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                  |
-| Pending removal     | §18                        | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                        |
+| Outcome             | Sections                    | Notes                                                                                                                                     |
+| ------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Removed in code     | §2-§4, §6, §7, §9-§13, §17 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code all clean            |
+| Mostly complete     | §14                         | Sweep dashboard `downloadCSV()`/`renderTable()` fallbacks removed; `LEGACY_PARAM_ALIASES` map and normalisation functions remain (see A1) |
+| Complete / resolved | §1, §15                     | Speed contract reset landed in #352; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified                  |
+| Deferred / retained | §5, §8                      | Either owned by another plan or still an active implementation path rather than a removable shim today                                    |
+| Reclassified        | §16                         | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                             |
+| Pending removal     | §18                         | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                                   |
 
 ## Shim Work Already Removed
 
@@ -266,7 +270,13 @@ generator is non-functional without pylatex — the stubs just defer the error.
 | Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                            |
 | Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                         |
 
-**Action:** No further action needed.
+**Action:** Legacy `downloadCSV()` and `renderTable()` fallbacks are removed. The
+`LEGACY_PARAM_ALIASES` map (`neighbor_confirmation_count` → dot-path,
+`safety_margin_meters` → dot-path), `canonicalParamKey()`, and
+`normaliseParamMap()` functions remain in `sweep_dashboard.js`. Two
+corresponding test cases remain in `sweep_dashboard.test.ts`. Tracked for
+removal in the [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md)
+(items A1, A2).
 
 ---
 

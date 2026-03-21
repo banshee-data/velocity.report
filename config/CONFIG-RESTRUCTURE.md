@@ -1094,7 +1094,9 @@ log a warning and are removed in a subsequent release.
 
 Delivered alongside Phase 1 in `dd/config-restructure`. L1Config struct and
 all 16 new L3 fields are wired and validated. CLI flag deprecation warnings
-are pending — tracked separately.
+are active — flag removal is tracked in the
+[v0.5.0 tech debt removal plan](../docs/plans/v050-tech-debt-removal-plan.md)
+(item A3).
 
 | Step | Description                                                                     | Depends on  | Status                                 |
 | ---- | ------------------------------------------------------------------------------- | ----------- | -------------------------------------- |

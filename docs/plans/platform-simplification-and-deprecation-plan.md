@@ -79,11 +79,14 @@ Rationale: useful for development, but not required as first-class public workfl
 
 - One-off operational backfill utility that can move behind documented maintenance procedures.
 - Candidate to deprecate after confirming no active production need.
+- Removal tracked in [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (items A4, A5).
 
 #### C. `cmd/sweep` and ad hoc `cmd/tools/*` utilities (medium priority)
 
 - `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
-- `cmd/tools/scan_transits.go` and narrow-scope helper tools should be either:
+- `cmd/tools/scan_transits.go` — removal tracked alongside `transit-backfill` in
+  [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (item A5).
+- Other narrow-scope helper tools should be either:
   - promoted and maintained as supported tooling, or
   - explicitly marked deprecated and removed.
 
