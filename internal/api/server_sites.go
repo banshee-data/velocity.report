@@ -52,8 +52,7 @@ func (s *Server) handleSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
-	_ = r
-	sites, err := s.db.GetAllSites()
+	sites, err := s.db.GetAllSites(r.Context())
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve sites: %v", err))
 		return
@@ -66,8 +65,7 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
-	_ = r
-	site, err := s.db.GetSite(id)
+	site, err := s.db.GetSite(r.Context(), id)
 	if err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
@@ -100,7 +98,7 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.CreateSite(&site); err != nil {
+	if err := s.db.CreateSite(r.Context(), &site); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create site: %v", err))
 		return
 	}
@@ -131,7 +129,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 		return
 	}
 
-	if err := s.db.UpdateSite(&site); err != nil {
+	if err := s.db.UpdateSite(r.Context(), &site); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
 		} else {
@@ -147,8 +145,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request, id int) {
 }
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request, id int) {
-	_ = r
-	if err := s.db.DeleteSite(id); err != nil {
+	if err := s.db.DeleteSite(r.Context(), id); err != nil {
 		if err.Error() == "site not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Site not found")
 		} else {
