@@ -62,8 +62,8 @@ export default {
 		'!web/src/lib/index.ts',
 		'!web/src/lib/icons.ts',
 		'!web/src/lib/assets/**',
-		'internal/lidar/monitor/assets/*.js',
-		'!internal/lidar/monitor/assets/echarts.min.js'
+		'internal/lidar/l9endpoints/l10clients/assets/*.js',
+		'!internal/lidar/l9endpoints/l10clients/assets/echarts.min.js'
 	],
 	coverageThreshold: {
 		[resolve(repoRoot, 'web/src/lib/')]: {
@@ -72,7 +72,7 @@ export default {
 			lines: 90,
 			statements: 90
 		},
-		[resolve(repoRoot, 'internal/lidar/monitor/assets/')]: {
+		[resolve(repoRoot, 'internal/lidar/l9endpoints/l10clients/assets/')]: {
 			branches: 90,
 			functions: 90,
 			lines: 90,

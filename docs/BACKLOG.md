@@ -30,7 +30,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#389] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
-- `transit-backfill` removal — ✅ removed `cmd/transit-backfill` and `cmd/tools/scan_transits.go`; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
 - Legacy `.vrlog` speed-key shim removal — remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
@@ -139,6 +138,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
+- [#411] `transit-backfill` and `scan-transits` removal — removed `cmd/transit-backfill` and `cmd/tools/scan_transits.go`; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints) — review doc item 4 — [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)

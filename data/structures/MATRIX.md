@@ -675,18 +675,16 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 | `velocity-report`     | `cmd/radar/radar.go`                  | Full server: API, DB, serial, LiDAR pipeline |
 | `velocity-sweep`      | `cmd/sweep/main.go`                   | LiDAR monitor, sweep engine, PCAP replay     |
 | `velocity-deploy`     | `cmd/deploy/main.go`                  | Deployment: install, upgrade, backup         |
-| `transit-backfill`    | `cmd/transit-backfill/main.go`        | DB: TransitWorker backfill                   |
 | `gen-vrlog`           | `cmd/tools/gen-vrlog/main.go`         | Synthetic VRLOG generation (no DB)           |
 | `vrlog-analyse`       | `cmd/tools/vrlog-analyse/main.go`     | VRLOG file analysis and comparison           |
 | `visualiser-server`   | `cmd/tools/visualiser-server/main.go` | Standalone gRPC (synthetic/replay/live)      |
 | `settling-eval`       | `cmd/tools/settling-eval/main.go`     | Background grid settling evaluation          |
 | `pcap-analyse`        | `cmd/tools/pcap-analyse/main.go`      | PCAP file analysis                           |
 | `backfill-elevations` | `cmd/tools/backfill_ring_elevations/` | Backfill ring elevation data                 |
-| `scan-transits`       | `cmd/tools/scan_transits.go`          | Scan for missing transit backfill gaps       |
 
-**Notes:** Only `velocity-report` and `transit-backfill` write to the
-production SQLite database. The sweep and eval tools operate on
-temporary/in-memory databases.
+**Notes:** Only `velocity-report` writes to the production SQLite
+database. The sweep and eval tools operate on temporary/in-memory
+databases.
 
 ---
 
