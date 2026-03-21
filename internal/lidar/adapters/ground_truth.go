@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
-	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -91,9 +91,9 @@ type TrackMatchResult struct {
 }
 
 // computeTemporalIoU calculates temporal IoU for two tracks.
-// Delegates to l6objects.ComputeTemporalIoU for the core algorithm.
+// Delegates to l8analytics.ComputeTemporalIoU for the core algorithm.
 func computeTemporalIoU(ref, cand *sqlite.RunTrack) float64 {
-	return l6objects.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
+	return l8analytics.ComputeTemporalIoU(ref.StartUnixNanos, ref.EndUnixNanos, cand.StartUnixNanos, cand.EndUnixNanos)
 }
 
 // matchTracks performs optimal bipartite matching between reference and candidate tracks

@@ -1,0 +1,711 @@
+// Package recorder provides recording and replay of LiDAR frame data.
+package recorder
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/version"
+)
+
+// FileExtension is the extension for velocity.report log files.
+const FileExtension = ".vrlog"
+
+// VRLOGFormatVersion is the wire-format version written into header.json.
+// Bump this when the on-disk layout (index, chunk encoding, header schema)
+// changes in a backwards-incompatible way. This is independent of the
+// application version (version.Version).
+const VRLOGFormatVersion = "0.5"
+
+// ChunkSize is the number of frames per chunk file (soft limit).
+// Chunks may contain fewer frames if maxChunkWriteBytes is reached first.
+const ChunkSize = 1000
+
+// maxChunkWriteBytes is the maximum bytes written to a single chunk before
+// rotating to the next. This prevents dense LiDAR frames from producing
+// chunks that exceed the read-side maxChunkSize limit (200 MB). Set below
+// the read limit to leave headroom for the final frame written before the
+// threshold is checked.
+const maxChunkWriteBytes = 150 * 1024 * 1024 // 150 MB
+
+// maxChunkSize is the maximum chunk size accepted by the replayer.
+const maxChunkSize = 200 * 1024 * 1024 // 200 MB
+
+// FrameEncoding identifies the on-disk frame payload format used by a VRLOG.
+type FrameEncoding string
+
+const (
+	FrameEncodingUnknown FrameEncoding = "unknown"
+	FrameEncodingProto   FrameEncoding = "proto"
+	FrameEncodingJSON    FrameEncoding = "json"
+)
+
+type frameDecoderFunc func([]byte) (*l9endpoints.FrameBundle, error)
+
+// LogHeader contains metadata about a recorded log.
+type LogHeader struct {
+	Version         string `json:"version"`
+	CreatedNs       int64  `json:"created_ns"`
+	SensorID        string `json:"sensor_id"`
+	TotalFrames     uint64 `json:"total_frames"`
+	StartNs         int64  `json:"start_ns"`
+	EndNs           int64  `json:"end_ns"`
+	CoordinateFrame struct {
+		FrameID        string `json:"frame_id"`
+		ReferenceFrame string `json:"reference_frame"`
+	} `json:"coordinate_frame"`
+
+	// Provenance fields — recording context written at start time.
+	SourceType   string  `json:"source_type,omitempty"`   // "live", "pcap", or "synthetic"
+	PCAPPath     string  `json:"pcap_path,omitempty"`     // original PCAP filename (basename)
+	PlaybackRate float64 `json:"playback_rate,omitempty"` // configured replay speed multiplier
+	TuningHash   string  `json:"tuning_hash,omitempty"`   // SHA-256 of tuning config JSON
+	BuildVersion string  `json:"build_version,omitempty"` // velocity.report version that wrote this
+}
+
+// IndexEntry is an entry in the seek index.
+type IndexEntry struct {
+	FrameID     uint64
+	TimestampNs int64
+	ChunkID     uint32
+	Offset      uint32
+}
+
+// Recorder writes FrameBundles to a log file.
+type Recorder struct {
+	basePath string
+	sensorID string
+
+	header        LogHeader
+	index         []IndexEntry
+	currentChunk  int
+	chunkFile     *os.File
+	chunkOffset   uint32
+	framesInChunk int // frames written to the current chunk
+
+	frameCount uint64
+	startNs    int64
+	endNs      int64
+
+	mu     sync.Mutex
+	closed bool
+}
+
+// NewRecorder creates a new Recorder that writes to the given directory.
+// If path is empty, a timestamped directory is created in /tmp.
+func NewRecorder(basePath, sensorID string) (*Recorder, error) {
+	if basePath == "" {
+		basePath = filepath.Join(os.TempDir(), fmt.Sprintf("vrlog_%s_%d", sensorID, time.Now().Unix()))
+	}
+
+	// Create directory structure
+	if err := os.MkdirAll(filepath.Join(basePath, "frames"), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	r := &Recorder{
+		basePath:     basePath,
+		sensorID:     sensorID,
+		currentChunk: -1,
+		index:        make([]IndexEntry, 0),
+		header: LogHeader{
+			Version:      VRLOGFormatVersion,
+			CreatedNs:    time.Now().UnixNano(),
+			SensorID:     sensorID,
+			BuildVersion: version.Version,
+		},
+	}
+
+	r.header.CoordinateFrame.FrameID = "site/" + sensorID
+	r.header.CoordinateFrame.ReferenceFrame = "ENU"
+
+	return r, nil
+}
+
+// Record writes a FrameBundle to the log.
+func (r *Recorder) Record(frame *l9endpoints.FrameBundle) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if frame == nil {
+		return fmt.Errorf("cannot record nil frame")
+	}
+
+	if r.closed {
+		return fmt.Errorf("recorder is closed")
+	}
+
+	// Track timestamps — only from foreground/full frames.  Background
+	// frames may carry wall-clock timestamps that contaminate the VRLOG
+	// time range when recording a PCAP replay.
+	if frame.FrameType != l9endpoints.FrameTypeBackground {
+		if r.startNs == 0 {
+			r.startNs = frame.TimestampNanos
+		}
+		r.endNs = frame.TimestampNanos
+	}
+
+	// Serialize frame before deciding whether to rotate, so we can check
+	// the projected post-write size and avoid creating empty chunks.
+	// (placeholder - in production, use protobuf)
+	data, err := serializeFrame(frame)
+	if err != nil {
+		return fmt.Errorf("failed to serialize frame: %w", err)
+	}
+
+	// Open new chunk if needed.
+	// Primary trigger: first frame.
+	// Secondary trigger: frame-count boundary (every ChunkSize frames).
+	// Tertiary trigger: projected post-write size would exceed
+	// maxChunkWriteBytes, preventing a single large frame from pushing a
+	// chunk past the limit. Uses uint64 arithmetic to avoid uint32 wrap.
+	postWriteSize := uint64(r.chunkOffset) + uint64(4+len(data))
+	needRotate := false
+	if r.currentChunk == -1 {
+		// First frame — open chunk 0.
+		needRotate = true
+	} else if r.framesInChunk >= ChunkSize {
+		// Crossed the frame-count boundary.
+		needRotate = true
+	} else if postWriteSize > maxChunkWriteBytes {
+		// Writing this frame would exceed the chunk byte limit.
+		needRotate = true
+	}
+	if needRotate {
+		if err := r.rotateChunk(r.currentChunk + 1); err != nil {
+			return err
+		}
+	}
+
+	// Write length-prefixed frame
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))
+	if _, err := r.chunkFile.Write(lenBuf); err != nil {
+		return fmt.Errorf("failed to write frame length: %w", err)
+	}
+	if _, err := r.chunkFile.Write(data); err != nil {
+		return fmt.Errorf("failed to write frame data: %w", err)
+	}
+
+	// Add to index
+	r.index = append(r.index, IndexEntry{
+		FrameID:     frame.FrameID,
+		TimestampNs: frame.TimestampNanos,
+		ChunkID:     uint32(r.currentChunk),
+		Offset:      r.chunkOffset,
+	})
+
+	r.chunkOffset += uint32(4 + len(data))
+	r.framesInChunk++
+	r.frameCount++
+
+	return nil
+}
+
+// rotateChunk closes the current chunk and opens a new one.
+func (r *Recorder) rotateChunk(chunkIdx int) error {
+	if r.chunkFile != nil {
+		if err := r.chunkFile.Close(); err != nil {
+			return err
+		}
+	}
+
+	chunkPath := filepath.Join(r.basePath, "frames", fmt.Sprintf("chunk_%04d.pb", chunkIdx))
+	f, err := os.Create(chunkPath)
+	if err != nil {
+		return fmt.Errorf("failed to create chunk file: %w", err)
+	}
+
+	r.chunkFile = f
+	r.currentChunk = chunkIdx
+	r.chunkOffset = 0
+	r.framesInChunk = 0
+
+	return nil
+}
+
+// Close finalises the log and writes the header and index.
+func (r *Recorder) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.closed {
+		return nil
+	}
+	r.closed = true
+
+	// Close current chunk
+	if r.chunkFile != nil {
+		r.chunkFile.Close()
+	}
+
+	// Write header
+	r.header.TotalFrames = r.frameCount
+	r.header.StartNs = r.startNs
+	r.header.EndNs = r.endNs
+
+	headerPath := filepath.Join(r.basePath, "header.json")
+	headerData, err := json.MarshalIndent(r.header, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal header: %w", err)
+	}
+	if err := os.WriteFile(headerPath, headerData, 0644); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+
+	// Write index
+	indexPath := filepath.Join(r.basePath, "index.bin")
+	indexFile, err := os.Create(indexPath)
+	if err != nil {
+		return fmt.Errorf("failed to create index file: %w", err)
+	}
+	defer indexFile.Close()
+
+	for _, entry := range r.index {
+		if err := binary.Write(indexFile, binary.LittleEndian, entry.FrameID); err != nil {
+			return err
+		}
+		if err := binary.Write(indexFile, binary.LittleEndian, entry.TimestampNs); err != nil {
+			return err
+		}
+		if err := binary.Write(indexFile, binary.LittleEndian, entry.ChunkID); err != nil {
+			return err
+		}
+		if err := binary.Write(indexFile, binary.LittleEndian, entry.Offset); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Path returns the base path of the log.
+func (r *Recorder) Path() string {
+	return r.basePath
+}
+
+// FrameCount returns the number of frames recorded.
+func (r *Recorder) FrameCount() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.frameCount
+}
+
+// SetProvenance sets recording-time provenance fields on the header.
+// Must be called before Close (which writes header.json).
+func (r *Recorder) SetProvenance(sourceType, pcapPath, tuningHash string, playbackRate float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.header.SourceType = sourceType
+	r.header.PCAPPath = pcapPath
+	r.header.TuningHash = tuningHash
+	r.header.PlaybackRate = playbackRate
+}
+
+// serializeFrame serializes a FrameBundle to protobuf wire format.
+func serializeFrame(frame *l9endpoints.FrameBundle) ([]byte, error) {
+	return serializeFrameProto(frame)
+}
+
+// deserializeFrame deserialises bytes to a FrameBundle.
+// Accepts both protobuf and legacy JSON formats, probing protobuf first.
+func deserializeFrame(data []byte) (*l9endpoints.FrameBundle, error) {
+	encoding, err := detectFrameEncoding(data)
+	if err != nil {
+		return nil, err
+	}
+
+	switch encoding {
+	case FrameEncodingProto:
+		return deserializeFrameProto(data)
+	case FrameEncodingJSON:
+		return deserializeFrameJSON(data)
+	default:
+		return nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
+	}
+}
+
+func deserializeFrameJSON(data []byte) (*l9endpoints.FrameBundle, error) {
+	var frame l9endpoints.FrameBundle
+	if err := json.Unmarshal(data, &frame); err != nil {
+		return nil, err
+	}
+	return &frame, nil
+}
+
+func detectFrameEncoding(data []byte) (FrameEncoding, error) {
+	if frame, err := deserializeFrameProto(data); err == nil && looksLikeFrameBundle(frame) {
+		return FrameEncodingProto, nil
+	}
+
+	if frame, err := deserializeFrameJSON(data); err == nil && looksLikeFrameBundle(frame) {
+		return FrameEncodingJSON, nil
+	}
+
+	return FrameEncodingUnknown, fmt.Errorf("could not detect frame encoding")
+}
+
+func looksLikeFrameBundle(frame *l9endpoints.FrameBundle) bool {
+	if frame == nil {
+		return false
+	}
+
+	return frame.FrameID != 0 ||
+		frame.TimestampNanos != 0 ||
+		frame.SensorID != "" ||
+		frame.CoordinateFrame.FrameID != "" ||
+		frame.CoordinateFrame.ReferenceFrame != "" ||
+		frame.PointCloud != nil ||
+		frame.Clusters != nil ||
+		frame.Tracks != nil ||
+		frame.PlaybackInfo != nil ||
+		frame.Background != nil ||
+		frame.FrameType != 0 ||
+		frame.BackgroundSeq != 0
+}
+
+func detectReplayerFrameDecoder(basePath string, index []IndexEntry) (FrameEncoding, frameDecoderFunc, error) {
+	if len(index) == 0 {
+		return FrameEncodingUnknown, deserializeFrameProto, nil
+	}
+
+	payload, err := readIndexedFramePayload(basePath, index[0])
+	if err != nil {
+		return FrameEncodingUnknown, nil, err
+	}
+
+	encoding, err := detectFrameEncoding(payload)
+	if err != nil {
+		return FrameEncodingUnknown, nil, err
+	}
+
+	switch encoding {
+	case FrameEncodingProto:
+		return encoding, deserializeFrameProto, nil
+	case FrameEncodingJSON:
+		return encoding, deserializeFrameJSON, nil
+	default:
+		return FrameEncodingUnknown, nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
+	}
+}
+
+func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) {
+	chunkPath := filepath.Join(basePath, "frames", fmt.Sprintf("chunk_%04d.pb", entry.ChunkID))
+	f, err := os.Open(chunkPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open chunk: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat chunk: %w", err)
+	}
+	if info.Size() > maxChunkSize {
+		return nil, fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
+	}
+
+	frameOffset := int64(entry.Offset)
+	if frameOffset+4 > info.Size() {
+		return nil, fmt.Errorf("invalid frame offset")
+	}
+
+	var lenBuf [4]byte
+	if _, err := f.ReadAt(lenBuf[:], frameOffset); err != nil {
+		return nil, fmt.Errorf("failed to read frame length: %w", err)
+	}
+
+	frameLen := binary.LittleEndian.Uint32(lenBuf[:])
+	frameStart := frameOffset + 4
+	frameEnd := frameStart + int64(frameLen)
+	if frameEnd > info.Size() {
+		return nil, fmt.Errorf("invalid frame length")
+	}
+
+	payload := make([]byte, frameLen)
+	if _, err := f.ReadAt(payload, frameStart); err != nil {
+		return nil, fmt.Errorf("failed to read frame payload: %w", err)
+	}
+
+	return payload, nil
+}
+
+// Replayer reads FrameBundles from a log file.
+type Replayer struct {
+	basePath string
+	header   LogHeader
+	index    []IndexEntry
+
+	frameEncoding FrameEncoding
+	frameDecoder  frameDecoderFunc
+
+	// Playback state
+	currentFrame uint64
+	paused       bool
+	rate         float32
+
+	// Chunk cache
+	currentChunk int
+	chunkData    []byte
+	chunkFile    *os.File
+
+	mu sync.Mutex
+}
+
+// NewReplayer opens a log for replay.
+func NewReplayer(basePath string) (*Replayer, error) {
+	r := &Replayer{
+		basePath:     basePath,
+		currentChunk: -1,
+		rate:         1.0,
+	}
+
+	// Read header
+	headerPath := filepath.Join(basePath, "header.json")
+	headerData, err := os.ReadFile(headerPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read header: %w", err)
+	}
+	if err := json.Unmarshal(headerData, &r.header); err != nil {
+		return nil, fmt.Errorf("failed to parse header: %w", err)
+	}
+
+	// Read index
+	indexPath := filepath.Join(basePath, "index.bin")
+	indexFile, err := os.Open(indexPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open index: %w", err)
+	}
+	defer indexFile.Close()
+
+	r.index = make([]IndexEntry, 0, r.header.TotalFrames)
+	for {
+		var entry IndexEntry
+		if err := binary.Read(indexFile, binary.LittleEndian, &entry.FrameID); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if err := binary.Read(indexFile, binary.LittleEndian, &entry.TimestampNs); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(indexFile, binary.LittleEndian, &entry.ChunkID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(indexFile, binary.LittleEndian, &entry.Offset); err != nil {
+			return nil, err
+		}
+		r.index = append(r.index, entry)
+	}
+
+	frameEncoding, frameDecoder, err := detectReplayerFrameDecoder(basePath, r.index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect frame encoding: %w", err)
+	}
+	r.frameEncoding = frameEncoding
+	r.frameDecoder = frameDecoder
+
+	return r, nil
+}
+
+// Header returns the log header.
+func (r *Replayer) Header() LogHeader {
+	return r.header
+}
+
+// TotalFrames returns the total number of frames in the log.
+func (r *Replayer) TotalFrames() uint64 {
+	return r.header.TotalFrames
+}
+
+// FrameEncoding returns the detected frame encoding for the loaded VRLOG.
+func (r *Replayer) FrameEncoding() FrameEncoding {
+	return r.frameEncoding
+}
+
+// CurrentFrame returns the current frame index.
+func (r *Replayer) CurrentFrame() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.currentFrame
+}
+
+// Seek seeks to a specific frame by index.
+func (r *Replayer) Seek(frameIdx uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if frameIdx >= uint64(len(r.index)) {
+		return fmt.Errorf("frame index out of range: %d >= %d", frameIdx, len(r.index))
+	}
+
+	r.currentFrame = frameIdx
+	return nil
+}
+
+// SeekToTimestamp seeks to the frame closest to the given timestamp.
+// Uses a full scan to find the entry with the smallest timestamp that is
+// still >= the target. This handles non-monotonic index sequences caused
+// by background frames that may carry wall-clock timestamps different from
+// the foreground sensor timestamps.
+func (r *Replayer) SeekToTimestamp(timestampNs int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Log the first few index entries for diagnostics on first seek.
+	if len(r.index) > 0 {
+		n := len(r.index)
+		if n > 5 {
+			n = 5
+		}
+		for i := 0; i < n; i++ {
+			diagf("SeekToTimestamp: index[%d] ts=%d frameID=%d", i, r.index[i].TimestampNs, r.index[i].FrameID)
+		}
+		diagf("SeekToTimestamp: target=%d, header.StartNs=%d, header.EndNs=%d, totalEntries=%d",
+			timestampNs, r.header.StartNs, r.header.EndNs, len(r.index))
+	}
+
+	// Full scan: find the entry with the smallest timestamp >= target.
+	bestIdx := -1
+	var bestTs int64
+	for i, entry := range r.index {
+		if entry.TimestampNs >= timestampNs {
+			if bestIdx == -1 || entry.TimestampNs < bestTs {
+				bestTs = entry.TimestampNs
+				bestIdx = i
+			}
+		}
+	}
+
+	if bestIdx >= 0 {
+		r.currentFrame = uint64(bestIdx)
+		diagf("SeekToTimestamp: landed on index %d (ts=%d, delta=%d ns)",
+			bestIdx, bestTs, bestTs-timestampNs)
+		return nil
+	}
+
+	// All entries are before the target timestamp; seek to end.
+	r.currentFrame = uint64(len(r.index) - 1)
+	diagf("SeekToTimestamp: timestamp beyond log, landed on last frame %d", r.currentFrame)
+	return nil
+}
+
+// ReadFrame reads the current frame and advances.
+func (r *Replayer) ReadFrame() (*l9endpoints.FrameBundle, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.currentFrame >= uint64(len(r.index)) {
+		return nil, io.EOF
+	}
+
+	entry := r.index[r.currentFrame]
+
+	// Load chunk if needed
+	if int(entry.ChunkID) != r.currentChunk {
+		if err := r.loadChunk(int(entry.ChunkID)); err != nil {
+			return nil, err
+		}
+	}
+
+	// Read frame from chunk
+	offset := entry.Offset
+	chunkLen := uint64(len(r.chunkData))
+	if uint64(offset)+4 > chunkLen {
+		return nil, fmt.Errorf("invalid frame offset")
+	}
+
+	frameLen := binary.LittleEndian.Uint32(r.chunkData[offset:])
+	offset += 4
+
+	// Use uint64 to prevent wrap-around overflow when frameLen is large.
+	if uint64(offset)+uint64(frameLen) > chunkLen {
+		return nil, fmt.Errorf("invalid frame length")
+	}
+
+	frameData := r.chunkData[offset : offset+frameLen]
+	if r.frameDecoder == nil {
+		return nil, fmt.Errorf("frame decoder not initialised")
+	}
+
+	frame, err := r.frameDecoder(frameData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize frame: %w", err)
+	}
+
+	// Add playback info with current frame index (before incrementing)
+	frame.PlaybackInfo = &l9endpoints.PlaybackInfo{
+		IsLive:            false,
+		LogStartNs:        r.header.StartNs,
+		LogEndNs:          r.header.EndNs,
+		PlaybackRate:      r.rate,
+		Paused:            r.paused,
+		CurrentFrameIndex: r.currentFrame,
+		TotalFrames:       uint64(len(r.index)),
+		Seekable:          true,
+	}
+
+	r.currentFrame++
+	return frame, nil
+}
+
+// loadChunk loads a chunk file into memory.
+func (r *Replayer) loadChunk(chunkIdx int) error {
+	if r.chunkFile != nil {
+		r.chunkFile.Close()
+	}
+
+	chunkPath := filepath.Join(r.basePath, "frames", fmt.Sprintf("chunk_%04d.pb", chunkIdx))
+
+	// Validate file size before reading to prevent excessive memory allocation.
+	info, err := os.Stat(chunkPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat chunk: %w", err)
+	}
+
+	if info.Size() > maxChunkSize {
+		return fmt.Errorf("chunk file too large: %d bytes (max %d)", info.Size(), maxChunkSize)
+	}
+
+	data, err := os.ReadFile(chunkPath)
+	if err != nil {
+		return fmt.Errorf("failed to read chunk: %w", err)
+	}
+
+	r.chunkData = data
+	r.currentChunk = chunkIdx
+	return nil
+}
+
+// SetPaused sets the paused state.
+func (r *Replayer) SetPaused(paused bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.paused = paused
+}
+
+// SetRate sets the playback rate.
+func (r *Replayer) SetRate(rate float32) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.rate = rate
+}
+
+// Close closes the replayer.
+func (r *Replayer) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.chunkFile != nil {
+		return r.chunkFile.Close()
+	}
+	return nil
+}

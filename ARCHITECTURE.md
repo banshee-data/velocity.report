@@ -359,7 +359,7 @@ All components share a common SQLite database as the single source of truth, wit
 - ✅ Overlay toggles (show/hide tracks, trails, boxes)
 - ✅ Deterministic replay of `.vrlog` recordings
 
-**Go Backend** (`internal/lidar/visualiser/`):
+**Go Backend** (`internal/lidar/l9endpoints/`):
 
 - `grpc_server.go` - gRPC streaming server implementing VisualiserService
 - `replay.go` - ReplayServer for streaming `.vrlog` files with seek/rate control

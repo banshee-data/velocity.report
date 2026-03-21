@@ -8,7 +8,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
-	"github.com/banshee-data/velocity.report/internal/lidar/visualiser/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 )
 
 type logfFunc func(string, ...any)

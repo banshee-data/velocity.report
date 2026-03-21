@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/banshee-data/velocity.report/internal/lidar/monitor"
+	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/security"
 )
@@ -74,7 +74,7 @@ func main() {
 
 	// Create monitor client
 	httpClient := &http.Client{Timeout: 30 * time.Second}
-	client := monitor.NewClient(httpClient, *monitorURL, *sensorID)
+	client := server.NewClient(httpClient, *monitorURL, *sensorID)
 
 	// Tracking sweep mode: dedicated flow that replays PCAP per combination
 	if *sweepMode == "tracking" {
@@ -188,7 +188,7 @@ func main() {
 	sweep.WriteRawHeaders(rawW, buckets)
 
 	// Create sampler (wrap client as SweepBackend)
-	sampler := sweep.NewSampler(monitor.NewClientBackend(client), buckets, *interval)
+	sampler := sweep.NewSampler(server.NewClientBackend(client), buckets, *interval)
 
 	// Run sweep
 	comboNum := 0
@@ -216,7 +216,7 @@ func main() {
 				}
 
 				// Set parameters FIRST (before reset, so new config is active)
-				params := monitor.BackgroundParams{
+				params := server.BackgroundParams{
 					NoiseRelative:              noise,
 					ClosenessMultiplier:        closeness,
 					NeighbourConfirmationCount: neighbour,
@@ -304,7 +304,7 @@ func parseIntParamList(list string, start, end, step int) []int {
 // to minimise mean alignment error (velocity vectors should match direction
 // of travel from the track trail).
 func runTrackingSweep(
-	client *monitor.Client,
+	client *server.Client,
 	pcapFile string,
 	pcapSettle time.Duration,
 	outputFile string,
@@ -355,7 +355,7 @@ func runTrackingSweep(
 					comboNum, totalCombos, gating, pnoisePos, mnoise)
 
 				// Set tracker config
-				params := monitor.TrackingParams{
+				params := server.TrackingParams{
 					GatingDistanceSquared: &gating,
 					ProcessNoisePos:       &pnoisePos,
 					MeasurementNoise:      &mnoise,

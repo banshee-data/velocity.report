@@ -337,7 +337,7 @@ dmg-mac-release:
 # =============================================================================
 
 PROTO_DIR = proto/velocity_visualiser/v1
-PROTO_GO_OUT = internal/lidar/visualiser/pb
+PROTO_GO_OUT = internal/lidar/l9endpoints/pb
 PROTO_SWIFT_OUT = tools/visualiser-macos/VelocityVisualiser/gRPC/Generated
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
@@ -1108,6 +1108,8 @@ lint-go:
 	fi
 	@echo "Checking database/sql import boundary..."
 	@bash scripts/check-db-sql-imports.sh
+	@echo "Checking SQLite driver standardisation..."
+	@bash scripts/check-single-sqlite-driver.sh
 
 lint-python:
 	@echo "Checking Python formatting (black --check, ruff)..."

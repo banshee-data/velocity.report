@@ -22,7 +22,7 @@ type ForegroundForwarder interface {
 	ForwardForeground(points []l2frames.PointPolar)
 }
 
-// VisualiserPublisher interface allows publishing frames to the gRPC visualiser.
+// VisualiserPublisher interface allows publishing frames to the gRPC visualiser endpoints (l9endpoints).
 type VisualiserPublisher interface {
 	Publish(frame interface{})
 }

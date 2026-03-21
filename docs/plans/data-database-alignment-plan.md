@@ -189,20 +189,26 @@ Document it and monitor growth.
 
 **Effort:** XS — trivial.
 
-#### Gap 4: Mixed SQLite drivers in tests
+#### Gap 4: Single SQLite driver enforcement
 
-Some test files use `github.com/mattn/go-sqlite3`, others use
-`modernc.org/sqlite`. Production uses `modernc.org/sqlite`. Standardise
-on one driver for tests to prevent behavioural drift.
+This was a genuine gap when the plan was written: `main` still carried
+`github.com/mattn/go-sqlite3` in tests while production used
+`modernc.org/sqlite`. That duplication is now removed on this branch.
 
-**Work:**
+**Current state:**
 
-- Replace `mattn/go-sqlite3` imports in test files with
-  `modernc.org/sqlite`.
-- Verify all tests still pass (driver-level behaviour differences are
-  rare but possible).
+- This branch standardises on `modernc.org/sqlite` for both production
+  and tests
+- `github.com/mattn/go-sqlite3` has been removed from `go.mod`
+- `scripts/check-single-sqlite-driver.sh` now prevents reintroduction
+- `main` still needs the same cleanup until this branch lands
 
-**Effort:** XS — half a day.
+**Remaining work:**
+
+- Merge or cherry-pick the `modernc`-only cleanup to `main`
+- Keep the lint check in `make lint-go`
+
+**Effort:** XS — already done on this branch; still a small merge item for `main`.
 
 #### Gap 5: Hardcoded migration versions in tests
 
@@ -251,7 +257,7 @@ is the only current violator.
 | 1. Label SQL move              | S    |     1–2 | High — last remaining query-boundary violation |
 | 2. Unified PRAGMAs             | XS   |     0.5 | Medium — reduces drift risk                    |
 | 3. BgSnapshot docs             | XS   |     0.1 | Low — documentation only                       |
-| 4. Driver unification          | XS   |     0.5 | Medium — prevents behavioural drift            |
+| 4. Single driver enforcement   | XS   |     0.5 | Medium — prevents behavioural drift            |
 | 5. Migration version discovery | XS   |     0.5 | Low — convenience                              |
 | 6. cmd/tools/ DB access        | XS   |     0.5 | High — boundary exemption removal              |
 | **Total**                      |      | **3–5** |                                                |
