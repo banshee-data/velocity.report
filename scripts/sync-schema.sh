@@ -125,7 +125,7 @@ echo "4. Formatting schema.sql..."
 if command -v sql-formatter &> /dev/null; then
     if sql-formatter --fix -l sqlite -c "$PROJECT_ROOT/.sql-formatter.json" "$SCHEMA_FILE" 2>&1 > /dev/null; then
         # sql-formatter appends /* view_name(col,...) */ hints to VIEWs — strip them
-        sed -i.bak '/^[[:space:]]*\/\* [a-z_]*(.*\) \*\/;*$/d' "$SCHEMA_FILE"
+        sed -i.bak '/\/\*.*\*\/;*$/d' "$SCHEMA_FILE"
         rm -f "$SCHEMA_FILE.bak"
         echo -e "${GREEN}✓ Schema formatted successfully${NC}"
     else
