@@ -51,6 +51,7 @@ ALLOWED_HUB_PREFIXES = (
     "docs/lidar/",
     "docs/radar/",
     "docs/ui/",
+    "docs/platform/",
     "config/",
     "data/",
 )

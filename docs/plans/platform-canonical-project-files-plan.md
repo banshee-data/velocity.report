@@ -24,7 +24,7 @@ What is already in place and what remains to be done:
 - [x] `scripts/check-plan-canonical-links.py` — advisory-only mode landed
 - [x] `make check-plan-hygiene` / `make report-plan-hygiene` — Makefile targets added
 - [x] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
-- [ ] `Canonical` metadata added to any plan file (0 of 65 done)
+- [~] `Canonical` metadata added to 3 of 68 plan files (data-\* batch)
 - [ ] Any plan graduated to a symlink
 - [x] CI enforcement enabled (advisory-only; `.github/workflows/plan-hygiene-ci.yml`)
 

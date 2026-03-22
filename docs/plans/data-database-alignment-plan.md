@@ -2,6 +2,7 @@
 
 - **Status:** Implemented (March 21, 2026)
 - **Layers:** Cross-cutting (database infrastructure)
+- **Canonical:** [database-sql-boundary.md](../platform/architecture/database-sql-boundary.md)
 - **Supersedes:** Partially replaces
   [data-sqlite-client-standardisation-plan.md](data-sqlite-client-standardisation-plan.md)
   (original plan proposed collapsing everything into `internal/db`; this plan
