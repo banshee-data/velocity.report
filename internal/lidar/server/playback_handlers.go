@@ -531,7 +531,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 			ws.writeJSONError(w, http.StatusInternalServerError, "database not configured")
 			return
 		}
-		store := sqlite.NewAnalysisRunStore(ws.db.DB)
+		store := sqlite.NewAnalysisRunStore(ws.db)
 		run, err := store.GetRun(body.RunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("run not found: %v", err))

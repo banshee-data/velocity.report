@@ -3,73 +3,19 @@ package sqlite
 import (
 	"database/sql"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	_ "modernc.org/sqlite"
+	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 )
 
-// setupTestDBWithSchema creates a test database with full schema for track store tests.
-// Reads schema.sql directly to avoid import cycle with db package.
+// setupTestDBWithSchema creates a test database via the canonical internal/db bootstrap path.
 func setupTestDBWithSchema(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
-
-	// Apply essential PRAGMAs
-	pragmas := []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA busy_timeout=5000",
-		"PRAGMA synchronous=NORMAL",
-		"PRAGMA temp_store=MEMORY",
-		"PRAGMA foreign_keys=ON",
-	}
-	for _, pragma := range pragmas {
-		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
-			t.Fatalf("Failed to execute %q: %v", pragma, err)
-		}
-	}
-
-	// Read and execute schema.sql from the db package
-	schemaPath := filepath.Join("..", "..", "..", "db", "schema.sql")
-	schemaSQL, err := os.ReadFile(schemaPath)
-	if err != nil {
-		db.Close()
-		t.Fatalf("Failed to read schema.sql: %v", err)
-	}
-
-	if _, err := db.Exec(string(schemaSQL)); err != nil {
-		db.Close()
-		t.Fatalf("Failed to execute schema.sql: %v", err)
-	}
-
-	// Baseline at latest migration version
-	// NOTE: This version number must be updated when new migrations are added to internal/db/migrations/
-	// Current latest: 000015_add_site_map_fields (as of 2026-02-02)
-	// To find latest version: ls -1 internal/db/migrations/*.up.sql | sort | tail -1
-	latestMigrationVersion := 15
-	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
-		db.Close()
-		t.Fatalf("Failed to baseline migrations: %v", err)
-	}
-
-	cleanup := func() {
-		db.Close()
-		os.Remove(dbPath)
-		os.Remove(dbPath + "-shm")
-		os.Remove(dbPath + "-wal")
-	}
-
-	return db, cleanup
+	db, cleanup := dbpkg.NewTestDB(t)
+	return db.DB, cleanup
 }
 
 // TestClearTracks verifies clearing tracks, observations, and clusters for a sensor.

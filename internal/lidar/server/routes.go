@@ -190,7 +190,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 
 	// Label API routes (delegate to LidarLabelAPI handlers)
 	if ws.db != nil {
-		labelAPI := api.NewLidarLabelAPI(ws.db.DB)
+		labelAPI := api.NewLidarLabelAPI(ws.db)
 		labelAPI.RegisterRoutes(mux)
 	}
 

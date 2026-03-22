@@ -13,6 +13,15 @@ type SQLDB = sql.DB
 // database/sql directly.
 type SQLTx = sql.Tx
 
+// DBClient is the minimal query/exec surface shared by *sql.DB and *db.DB.
+// It standardises store constructors on behaviour rather than a concrete type.
+type DBClient interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+	Begin() (*sql.Tx, error)
+}
+
 // ErrNotFound is returned when a queried record does not exist.
 // Callers outside the storage layer should check against this sentinel
 // instead of importing database/sql for sql.ErrNoRows.

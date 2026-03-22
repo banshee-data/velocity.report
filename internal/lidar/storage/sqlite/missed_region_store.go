@@ -26,11 +26,11 @@ type MissedRegion struct {
 
 // MissedRegionStore provides persistence for missed region annotations.
 type MissedRegionStore struct {
-	db *sql.DB
+	db DBClient
 }
 
 // NewMissedRegionStore creates a new MissedRegionStore.
-func NewMissedRegionStore(db *sql.DB) *MissedRegionStore {
+func NewMissedRegionStore(db DBClient) *MissedRegionStore {
 	return &MissedRegionStore{db: db}
 }
 

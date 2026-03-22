@@ -755,7 +755,7 @@ func main() {
 		lidarServer.SetAutoTuneRunner(autoTuner)
 
 		// Set up sweep persistence
-		sweepStore := sqlite.NewSweepStore(lidarDB.DB)
+		sweepStore := sqlite.NewSweepStore(lidarDB)
 		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
@@ -763,8 +763,8 @@ func main() {
 		// Wire ground truth scorer and scene store for label-aware auto-tuning.
 		// The scene store enables persisting optimal params after ground truth sweeps.
 		// The scorer closure resolves the scene's reference_run_id at evaluation time.
-		sceneStore := sqlite.NewReplayCaseStore(lidarDB.DB)
-		analysisRunStore := sqlite.NewAnalysisRunStore(lidarDB.DB)
+		sceneStore := sqlite.NewReplayCaseStore(lidarDB)
+		analysisRunStore := sqlite.NewAnalysisRunStore(lidarDB)
 		autoTuner.SetSceneStore(sceneStore)
 		groundTruthScorer := func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
 			scene, err := sceneStore.GetScene(sceneID)

@@ -3,7 +3,6 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 )
 
 // LidarLabel represents a manual label applied to a track for training or validation.
@@ -254,14 +253,4 @@ func (s *LabelStore) ExportLabels() ([]LidarLabel, error) {
 	}
 
 	return labels, nil
-}
-
-// HasRawSQL reports whether a string still looks like inline SQL. Kept small
-// and local so callers can write simple assertions around query-boundary moves.
-func HasRawSQL(value string) bool {
-	value = strings.TrimSpace(strings.ToUpper(value))
-	return strings.HasPrefix(value, "SELECT ") ||
-		strings.HasPrefix(value, "INSERT ") ||
-		strings.HasPrefix(value, "UPDATE ") ||
-		strings.HasPrefix(value, "DELETE ")
 }

@@ -52,7 +52,7 @@ type Executor interface {
 }
 
 // InsertCluster inserts a cluster into the database and returns its ID.
-func InsertCluster(db *sql.DB, cluster *WorldCluster) (int64, error) {
+func InsertCluster(db DBClient, cluster *WorldCluster) (int64, error) {
 	query := `
 		INSERT INTO lidar_clusters (
 			sensor_id, frame_id, ts_unix_nanos,
@@ -151,7 +151,7 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 }
 
 // UpdateTrack updates an existing track in the database.
-func UpdateTrack(db *sql.DB, track *TrackedObject) error {
+func UpdateTrack(db DBClient, track *TrackedObject) error {
 	query := `
 		UPDATE lidar_tracks SET
 			track_state = ?,
@@ -230,7 +230,7 @@ func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 // prevents the database from growing unboundedly as the tracker
 // continuously creates and deletes short-lived spurious tracks.
 // Returns the number of tracks pruned and any error encountered.
-func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, error) {
+func PruneDeletedTracks(db DBClient, sensorID string, ttl time.Duration) (int64, error) {
 	if sensorID == "" {
 		return 0, fmt.Errorf("sensorID is required to prune deleted tracks")
 	}
@@ -277,7 +277,7 @@ func PruneDeletedTracks(db *sql.DB, sensorID string, ttl time.Duration) (int64, 
 
 // ClearTracks removes all tracks, observations, and clusters for a sensor.
 // This is intended for development/debug resets and should not be exposed in production without auth.
-func ClearTracks(db *sql.DB, sensorID string) error {
+func ClearTracks(db DBClient, sensorID string) error {
 	if sensorID == "" {
 		return fmt.Errorf("sensorID is required to clear tracks")
 	}
@@ -312,7 +312,7 @@ func ClearTracks(db *sql.DB, sensorID string) error {
 // ClearRuns removes all analysis runs and their associated run tracks for a sensor.
 // This is intended for development/debug resets and should not be exposed in production without auth.
 // The CASCADE foreign key on lidar_run_tracks will automatically delete associated run track records.
-func ClearRuns(db *sql.DB, sensorID string) error {
+func ClearRuns(db DBClient, sensorID string) error {
 	if sensorID == "" {
 		return fmt.Errorf("sensorID is required to clear runs")
 	}
@@ -338,7 +338,7 @@ func ClearRuns(db *sql.DB, sensorID string) error {
 
 // DeleteRun removes a specific analysis run and its associated run tracks.
 // The CASCADE foreign key on lidar_run_tracks will automatically delete associated run track records.
-func DeleteRun(db *sql.DB, runID string) error {
+func DeleteRun(db DBClient, runID string) error {
 	if runID == "" {
 		return fmt.Errorf("runID is required to delete run")
 	}
@@ -376,7 +376,7 @@ func DeleteRun(db *sql.DB, runID string) error {
 
 // GetTrackObservationsInRange returns observations for a sensor within a time window (inclusive).
 // Joins against tracks to scope by sensor.
-func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error) {
+func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNanos int64, limit int, trackID string) ([]*TrackObservation, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -429,7 +429,7 @@ func GetTrackObservationsInRange(db *sql.DB, sensorID string, startNanos, endNan
 
 // GetActiveTracks retrieves active tracks from the database.
 // If state is empty, returns all non-deleted tracks.
-func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObject, error) {
+func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObject, error) {
 	var query string
 	var args []interface{}
 
@@ -552,7 +552,7 @@ func GetActiveTracks(db *sql.DB, sensorID string, state string) ([]*TrackedObjec
 // GetTracksInRange retrieves tracks whose lifespan overlaps the given time window (nanoseconds).
 // A track is included if its start is on/before endNanos and its end (or start when end is NULL) is on/after startNanos.
 // Deleted tracks are excluded by default unless state explicitly requests them.
-func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error) {
+func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, endNanos int64, limit int) ([]*TrackedObject, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -669,7 +669,7 @@ func GetTracksInRange(db *sql.DB, sensorID string, state string, startNanos, end
 }
 
 // GetTrackObservations retrieves observations for a track.
-func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObservation, error) {
+func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObservation, error) {
 	query := `
 		SELECT track_id, ts_unix_nanos, frame_id,
 			x, y, z,
@@ -714,7 +714,7 @@ func GetTrackObservations(db *sql.DB, trackID string, limit int) ([]*TrackObserv
 }
 
 // GetRecentClusters retrieves recent clusters from the database.
-func GetRecentClusters(db *sql.DB, sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error) {
+func GetRecentClusters(db DBClient, sensorID string, startNanos, endNanos int64, limit int) ([]*WorldCluster, error) {
 	query := `
 		SELECT lidar_cluster_id, sensor_id, frame_id, ts_unix_nanos,
 			centroid_x, centroid_y, centroid_z,

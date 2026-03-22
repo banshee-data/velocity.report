@@ -26,11 +26,11 @@ type ReplayCase struct {
 
 // ReplayCaseStore provides persistence for LiDAR evaluation replay cases.
 type ReplayCaseStore struct {
-	db *sql.DB
+	db DBClient
 }
 
 // NewReplayCaseStore creates a new ReplayCaseStore.
-func NewReplayCaseStore(db *sql.DB) *ReplayCaseStore {
+func NewReplayCaseStore(db DBClient) *ReplayCaseStore {
 	return &ReplayCaseStore{db: db}
 }
 

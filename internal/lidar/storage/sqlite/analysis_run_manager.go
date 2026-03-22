@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"database/sql"
 	"encoding/json"
 	"sync"
 	"time"
@@ -35,7 +34,7 @@ var (
 )
 
 // NewAnalysisRunManager creates a new manager for tracking analysis runs.
-func NewAnalysisRunManager(db *sql.DB, sensorID string) *AnalysisRunManager {
+func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
 	return &AnalysisRunManager{
 		store:      NewAnalysisRunStore(db),
 		sensorID:   sensorID,
@@ -46,7 +45,7 @@ func NewAnalysisRunManager(db *sql.DB, sensorID string) *AnalysisRunManager {
 // NewAnalysisRunManagerDI creates a new manager without registering it in the
 // global registry. Prefer this constructor when wiring dependencies
 // explicitly via pipeline.SensorRuntime.
-func NewAnalysisRunManagerDI(db *sql.DB, sensorID string) *AnalysisRunManager {
+func NewAnalysisRunManagerDI(db DBClient, sensorID string) *AnalysisRunManager {
 	return &AnalysisRunManager{
 		store:      NewAnalysisRunStore(db),
 		sensorID:   sensorID,

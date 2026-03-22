@@ -15,6 +15,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 )
 
+// DB is the canonical radar/core SQLite wrapper for the shared schema.
+//
+// The package-level SQL boundary in this repo is intentionally split across
+// `internal/db` and `internal/lidar/storage/sqlite`. The only LiDAR crossover
+// that remains here is the small background/region snapshot surface needed to
+// satisfy l3grid.BgStore. Keeping that interface on DB avoids introducing a
+// third SQL package just for two persistence methods.
+//
 // compile-time assertion: ensure DB implements l3grid.BgStore (InsertBgSnapshot)
 var _ l3grid.BgStore = (*DB)(nil)
 
@@ -147,6 +155,12 @@ func applyPragmas(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// ApplyPragmas applies the canonical SQLite PRAGMA set used by both
+// production code and shared test helpers.
+func ApplyPragmas(db *sql.DB) error {
+	return applyPragmas(db)
 }
 
 func NewDB(path string) (*DB, error) {
@@ -334,4 +348,14 @@ func OpenDB(path string) (*DB, error) {
 	}
 
 	return &DB{db}, nil
+}
+
+// LatestMigrationVersion returns the latest available migration version from
+// the canonical migrations source for the current build mode.
+func LatestMigrationVersion() (uint, error) {
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		return 0, err
+	}
+	return GetLatestMigrationVersion(migrationsFS)
 }
