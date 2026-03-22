@@ -560,41 +560,6 @@ CREATE TRIGGER update_site_timestamp AFTER
     WHERE id = NEW.id;
 
 END;
-CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
-
-CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
-
-CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_label);
-
-CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
-
-CREATE INDEX idx_lidar_replay_annotations_replay_case ON lidar_replay_annotations (replay_case_id);
-
-CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
-
-CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
-
-CREATE INDEX idx_lidar_replay_annotations_run_track ON lidar_replay_annotations (run_id, track_id);
-
-CREATE INDEX idx_lidar_replay_annotations_track ON lidar_replay_annotations (track_id);
-
-CREATE INDEX idx_lidar_replay_annotations_time ON lidar_replay_annotations (start_timestamp_ns, end_timestamp_ns);
-
-CREATE INDEX idx_lidar_replay_annotations_class ON lidar_replay_annotations (class_label);
-
-CREATE INDEX idx_lidar_run_missed_regions_run_id ON lidar_run_missed_regions (run_id);
-
-CREATE INDEX idx_lidar_replay_cases_sensor ON lidar_replay_cases (sensor_id);
-
-CREATE INDEX idx_lidar_replay_cases_pcap ON lidar_replay_cases (pcap_file);
-
-CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (replay_case_id, reference_run_id, candidate_run_id);
-
-CREATE INDEX idx_lidar_replay_evaluations_replay_case_created_at ON lidar_replay_evaluations (replay_case_id, created_at DESC);
-
-CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
-
-CREATE INDEX idx_lidar_tuning_sweeps_status ON lidar_tuning_sweeps (status);
 
    CREATE VIEW lidar_all_tracks AS
    SELECT track_id

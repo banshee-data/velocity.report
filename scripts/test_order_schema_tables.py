@@ -51,7 +51,7 @@ def test_reorder_schema_handles_current_schema() -> None:
     reordered = mod.reorder_schema(schema)
 
     run_records_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_run_records"')
-    run_tracks_idx = reordered.index("CREATE TABLE lidar_run_tracks")
+    run_tracks_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_run_tracks"')
     replay_cases_idx = reordered.index(
         'CREATE TABLE IF NOT EXISTS "lidar_replay_cases"'
     )
