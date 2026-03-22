@@ -18,6 +18,34 @@ The current state is tolerable for development but not a good release baseline:
 - a number of enum/range contracts already exist in Go but are not enforced in SQLite
 - turning foreign keys on will also expose a small amount of non-LiDAR schema debt that should be fixed before `v0.5.0`
 
+## Architecture Decision Record
+
+- **Decision:** move free-form annotations to a replay-owned table, then enable foreign keys globally before `v0.5.0`
+- **Status:** proposed
+- **Owners:** LiDAR storage and API
+
+### Context
+
+- live tracks are transient and are intentionally pruned
+- free-form annotations are human-authored and should outlive live-track churn
+- canonical labelling already has a durable home on `lidar_run_tracks`
+- the main DB connection path still leaves FK enforcement off, so the schema contract is currently aspirational rather than real
+
+### Alternatives considered
+
+1. **Recommended: replay-own free-form annotations and turn FKs on**
+   - Effort: medium because it requires one migration window plus API/storage updates.
+   - Risk: moderate because legacy annotation migration must preserve or quarantine unresolved rows.
+   - Downstream impact: yields one clear owner per lifecycle and makes delete semantics predictable.
+2. **Keep current annotation table and only add a replay-case FK**
+   - Effort: low because it changes one table in place.
+   - Risk: high because the table would still depend on transient live tracks and would remain conceptually mixed.
+   - Downstream impact: improves provenance validation but preserves the lifecycle bug.
+3. **Do nothing until after `v0.5.0`**
+   - Effort: none now.
+   - Risk: high because release behaviour would still depend on FK-off connections and orphaning would remain possible.
+   - Downstream impact: pushes migration risk into a post-release cleanup when compatibility pressure is higher.
+
 ## End State We Want For v0.5.0
 
 - SQLite foreign keys are enabled on every production/test connection.
@@ -26,6 +54,47 @@ The current state is tolerable for development but not a good release baseline:
 - Run lineage and replay evaluation tables use explicit foreign keys and explicit delete behavior.
 - The database enforces the small set of enum, range, time-order, and boolean rules the code already assumes.
 - Global FK-on blockers outside LiDAR are removed.
+
+## System Boundary Diagram
+
+```text
+                   +--------------------------------------+
+                   | HTTP / UI / Visualiser clients       |
+                   |--------------------------------------|
+                   | /api/lidar/labels                    |
+                   | /api/lidar/runs/.../label            |
+                   | /api/lidar/scenes                    |
+                   +-------------------+------------------+
+                                       |
+                                       v
+                      +----------------+----------------+
+                      | LiDAR API / storage layer       |
+                      |---------------------------------|
+                      | Free-form replay annotations    |
+                      | Run-track canonical labels      |
+                      | Replay cases and evaluations    |
+                      +--------+---------------+--------+
+                               |               |
+                durable owner  |               | transient owner
+                               v               v
+                 +-------------+----+   +------+----------------+
+                 | Replay / run data |   | Live tracking data    |
+                 |-------------------|   |-----------------------|
+                 | lidar_replay_*    |   | lidar_tracks          |
+                 | lidar_run_records  |   | lidar_track_obs       |
+                 | lidar_run_tracks   |   | prune / clear paths   |
+                 +-------------+------+   +-----------+-----------+
+                               \                    /
+                                \                  /
+                                 v                v
+                          +------+----------------------+
+                          | SQLite with FK enforcement  |
+                          | PRAGMA foreign_keys = ON    |
+                          +-----------------------------+
+
+Non-LiDAR global FK-on dependency:
+site_reports -> site
+```
 
 ## Scope
 
@@ -64,6 +133,7 @@ Principles:
 - canonical track labels stay on `lidar_run_tracks`
 - annotation rows must not depend on the lifetime of `lidar_tracks`
 - optional run-track linkage should point at durable `(run_id, track_id)`, not live track buffers
+- new writes should require `replay_case_id`; free-form annotations without a replay owner should not be created post-migration
 
 Migration approach:
 
@@ -141,6 +211,17 @@ Recommended fix:
 - write `NULL`, not `0`, when a report is not attached to a site
 
 That keeps global FK enforcement from breaking unrelated report generation flows.
+
+## Failure Registry
+
+| Failure mode                                                 | What fails                        | User-visible effect                            | Required handling                                                                        |
+| ------------------------------------------------------------ | --------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Legacy annotation row cannot be mapped to replay-owned shape | migration                         | historical note would otherwise disappear      | copy row to legacy audit table and emit migration report; never silently drop            |
+| FK enforcement exposes existing orphan rows                  | app start or migration smoke test | upgrade blocked                                | run integrity audit before final migration, repair or quarantine violating rows          |
+| Replay case delete removes annotations unexpectedly          | replay case management            | user loses free-form notes                     | document delete contract explicitly and require migration test coverage for delete paths |
+| Run delete fails because child rows still reference it       | run lifecycle APIs                | delete endpoint starts erroring after FK-on    | make all run-owned children explicit before enabling FK-on                               |
+| Report creation without site still writes `0`                | non-LiDAR reporting               | unrelated report generation breaks under FK-on | migrate `site_reports.site_id` to nullable and write `NULL` in API path                  |
+| New enum checks reject legacy values                         | create/update APIs or migration   | writes begin failing after schema change       | backfill old taxonomy values during migration before adding `CHECK`s                     |
 
 ## Delivery Plan
 
