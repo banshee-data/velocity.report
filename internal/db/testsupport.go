@@ -16,6 +16,9 @@ func NewTestDB(tb testing.TB) (*DB, func()) {
 	if err != nil {
 		tb.Fatalf("failed to create test DB: %v", err)
 	}
+	if _, err := opened.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		tb.Fatalf("failed to enable foreign_keys for test DB: %v", err)
+	}
 
 	return opened, func() {
 		_ = opened.Close()

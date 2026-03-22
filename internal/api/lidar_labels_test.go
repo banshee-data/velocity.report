@@ -276,8 +276,10 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 
 	// Insert another track
 	_, err := db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, created_at, last_seen_at, track_state, observation_count)
-		VALUES ('track-002', 'test-sensor', 'ENU', 1000000000, 2000000000, 'confirmed', 5)
+		INSERT INTO lidar_tracks (
+			track_id, sensor_id, frame_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count
+		) VALUES ('track-002', 'test-sensor', 'ENU', 'confirmed', 1000000000, 2000000000, 5)
 	`)
 	if err != nil {
 		t.Fatalf("failed to insert test track: %v", err)
