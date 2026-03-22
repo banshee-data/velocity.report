@@ -33,12 +33,12 @@ questions quickly:
 
 Four mutually exclusive hubs, chosen by domain-first sorting:
 
-| Hub              | Scope                                         |
-| ---------------- | --------------------------------------------- |
-| `docs/lidar/`    | LiDAR pipeline, visualiser, clustering, QC    |
-| `docs/radar/`    | Radar pipeline, OmniPre-Sense, time-series    |
-| `docs/ui/`       | Web frontend, public site, macOS menu chrome  |
-| `docs/platform/` | Go packages, deploy, DB, tooling, methodology |
+| Hub              | Scope                                   |
+| ---------------- | --------------------------------------- |
+| `docs/lidar/`    | LiDAR pipeline, clustering, QC          |
+| `docs/radar/`    | Radar pipeline, time-series             |
+| `docs/ui/`       | Web frontend, macOS app, PDF generation |
+| `docs/platform/` | Go packages, deploy, DB, tooling        |
 
 Additional prefixes `config/` and `data/` are allowed for docs that live beside
 the artefacts they describe.
