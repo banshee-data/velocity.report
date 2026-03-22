@@ -488,10 +488,11 @@ func (e *Event) String() string {
 	return fmt.Sprintf("Uptime: %f, Magnitude: %f, Speed: %f", e.Uptime.Float64, e.Magnitude.Float64, e.Speed.Float64)
 }
 
+// the radar logs data with propoer case keys
 type EventAPI struct {
-	Magnitude *float64 `json:"magnitude,omitempty"`
-	Uptime    *float64 `json:"uptime,omitempty"`
-	Speed     *float64 `json:"speed,omitempty"`
+	Magnitude *float64 `json:"Magnitude,omitempty"`
+	Uptime    *float64 `json:"Uptime,omitempty"`
+	Speed     *float64 `json:"Speed,omitempty"`
 }
 
 func EventToAPI(e Event) EventAPI {
