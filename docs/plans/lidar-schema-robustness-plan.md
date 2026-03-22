@@ -51,7 +51,7 @@ The current state is tolerable for development but not a good release baseline:
 - SQLite foreign keys are enabled on every production/test connection.
 - Free-form annotations are replay-owned, not live-track-owned.
 - Canonical track truth remains on `lidar_run_tracks`.
-- Run lineage and replay evaluation tables use explicit foreign keys and explicit delete behavior.
+- Run lineage and replay evaluation tables use explicit foreign keys and explicit delete behaviour.
 - The database enforces the small set of enum, range, time-order, and boolean rules the code already assumes.
 - Global FK-on blockers outside LiDAR are removed.
 
@@ -122,6 +122,10 @@ CREATE TABLE lidar_replay_annotations (
     updated_at_ns INTEGER,
     notes TEXT,
     source_file TEXT,
+    CHECK (
+        (run_id IS NULL AND track_id IS NULL) OR
+        (run_id IS NOT NULL AND track_id IS NOT NULL)
+    ),
     FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases(replay_case_id) ON DELETE CASCADE,
     FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks(run_id, track_id) ON DELETE SET NULL
 );
@@ -148,7 +152,7 @@ This is the main bandaid to rip off before `v0.5.0`.
 
 Ship `v0.5.0` with foreign keys enabled by default in the main DB open path.
 
-That requires tightening the tables that currently rely on FK-off behavior:
+That requires tightening the tables that currently rely on FK-off behaviour:
 
 - enable `PRAGMA foreign_keys = ON` in `internal/db/db.go`
 - keep `lidar_track_observations -> lidar_tracks ON DELETE CASCADE`
@@ -163,7 +167,7 @@ That requires tightening the tables that currently rely on FK-off behavior:
 
 Why this matters:
 
-- today the schema says one thing and runtime behavior does another
+- today the schema says one thing and runtime behaviour does another
 - once FK enforcement is on, `DeleteRun()` and `ClearRuns()` must either cascade cleanly or fail for a deliberate reason
 - the current replay evaluation uniqueness key is too coarse for a table that is explicitly replay-case scoped
 
@@ -307,7 +311,7 @@ Exit criteria:
 
 ## Recommendation
 
-Do not ship `v0.5.0` with the current split between declared FKs and actual runtime behavior.
+Do not ship `v0.5.0` with the current split between declared FKs and actual runtime behaviour.
 
 The focused plan is:
 
