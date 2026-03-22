@@ -109,9 +109,7 @@ def topological_sort(
     for table, deps in dependencies.items():
         # Self-referential foreign keys do not constrain table creation order:
         # SQLite allows a table to reference itself within the same CREATE TABLE.
-        unique_deps = {
-            dep for dep in deps if dep in table_statements and dep != table
-        }
+        unique_deps = {dep for dep in deps if dep in table_statements and dep != table}
         for dep in unique_deps:
             in_degree[table] += 1
             adj_list[dep].append(table)
