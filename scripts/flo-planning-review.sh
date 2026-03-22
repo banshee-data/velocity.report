@@ -141,6 +141,9 @@ BACKLOG_MISSING_LINKS="$TMP_DIR/backlog_missing_links.txt"
 SECTION_COUNTS="$TMP_DIR/section_counts.txt"
 SPLIT_CANDIDATES="$TMP_DIR/split_candidates.txt"
 DECISION_MARKERS="$TMP_DIR/decision_markers.txt"
+CANONICAL_TARGETS="$TMP_DIR/canonical_targets.txt"
+CANONICAL_COLLISIONS="$TMP_DIR/canonical_collisions.txt"
+SYMLINK_PLANS="$TMP_DIR/symlink_plans.txt"
 
 touch \
   "$TOUCHED_PLANS" \
@@ -152,7 +155,10 @@ touch \
   "$BACKLOG_MISSING_LINKS" \
   "$SECTION_COUNTS" \
   "$SPLIT_CANDIDATES" \
-  "$DECISION_MARKERS"
+  "$DECISION_MARKERS" \
+  "$CANONICAL_TARGETS" \
+  "$CANONICAL_COLLISIONS" \
+  "$SYMLINK_PLANS"
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 BACKLOG_FILE="$REPO_ROOT/docs/BACKLOG.md"
@@ -174,7 +180,44 @@ if [[ ! -f "$DECISIONS_FILE" ]]; then
   exit 1
 fi
 
-find "$PLANS_DIR" -maxdepth 1 -type f -name '*.md' | sort >"$ALL_PLANS"
+find "$PLANS_DIR" -maxdepth 1 \( -type f -o -type l \) -name '*.md' | sort >"$ALL_PLANS"
+
+# Collect symlink plans and canonical targets for each regular plan.
+while IFS= read -r plan_abs; do
+  [[ -z "$plan_abs" ]] && continue
+  plan_rel="${plan_abs#$REPO_ROOT/}"
+  if [[ -L "$plan_abs" ]]; then
+    link_target=$(readlink "$plan_abs")
+    resolved=$(cd "$(dirname "$plan_abs")" && realpath -q "$link_target" 2>/dev/null || echo "$link_target")
+    resolved_rel="${resolved#$REPO_ROOT/}"
+    printf "%s\t%s\n" "$plan_rel" "$resolved_rel" >>"$SYMLINK_PLANS"
+  else
+    canonical=$(awk '/^## /{exit} /^\- \*\*Canonical:\*\*/{print; exit}' "$plan_abs" 2>/dev/null || true)
+    if [[ -n "$canonical" ]]; then
+      # Extract href from Markdown link or bare path.
+      href=$(printf '%s' "$canonical" | sed -n 's/.*](\([^)]*\)).*/\1/p')
+      if [[ -z "$href" ]]; then
+        href=$(printf '%s' "$canonical" | sed 's/.*\*\*Canonical:\*\*[[:space:]]*//')
+      fi
+      if [[ -n "$href" ]]; then
+        # Resolve relative to plan file location.
+        abs_target=$(cd "$(dirname "$plan_abs")" && realpath -q "$href" 2>/dev/null || echo "$href")
+        target_rel="${abs_target#$REPO_ROOT/}"
+        printf "%s\t%s\n" "$plan_rel" "$target_rel" >>"$CANONICAL_TARGETS"
+      fi
+    fi
+  fi
+done <"$ALL_PLANS"
+
+# Detect canonical-target collisions (two active plans → same hub doc).
+if [[ -s "$CANONICAL_TARGETS" ]]; then
+  awk -F '\t' '{print $2}' "$CANONICAL_TARGETS" | sort | uniq -d | while IFS= read -r dup; do
+    [[ -z "$dup" ]] && continue
+    owners=$(awk -F '\t' -v t="$dup" '$2 == t {print $1}' "$CANONICAL_TARGETS" | paste -sd ', ' -)
+    printf "%s\t%s\n" "$dup" "$owners" >>"$CANONICAL_COLLISIONS"
+  done
+fi
+
 git log --since="${SINCE_DAYS} days ago" --name-only --pretty=format: -- docs/plans 2>/dev/null \
   | grep '^docs/plans/.*\.md$' \
   | sort -u >"$TOUCHED_PLANS" || true
@@ -256,6 +299,10 @@ DECISION_GAP_COUNT=$(wc -l <"$TOUCHED_MISSING_DECISIONS" 2>/dev/null | tr -d ' '
 BACKLOG_LINK_GAP_COUNT=$(wc -l <"$BACKLOG_MISSING_LINKS" | tr -d ' ')
 SPLIT_CANDIDATE_COUNT=$(wc -l <"$SPLIT_CANDIDATES" | tr -d ' ')
 DECISION_MARKER_COUNT=$(wc -l <"$DECISION_MARKERS" | tr -d ' ')
+CANONICAL_COUNT=$(wc -l <"$CANONICAL_TARGETS" 2>/dev/null | tr -d ' ' || printf "0")
+SYMLINK_COUNT=$(wc -l <"$SYMLINK_PLANS" 2>/dev/null | tr -d ' ' || printf "0")
+COLLISION_COUNT=$(wc -l <"$CANONICAL_COLLISIONS" 2>/dev/null | tr -d ' ' || printf "0")
+MISSING_CANONICAL_COUNT=$(( TOTAL_PLAN_COUNT - CANONICAL_COUNT - SYMLINK_COUNT ))
 
 printf "# Florence Weekly Planning Review Snapshot\n\n"
 printf -- "- Generated: %s\n" "$(date '+%Y-%m-%d %H:%M:%S %Z')"
@@ -342,6 +389,46 @@ else
 fi
 
 printf "\n"
+
+# --- Canonical Hygiene ---
+
+printf "## Canonical-Link Hygiene\n\n"
+printf -- "- Plans with Canonical target: %s\n" "$CANONICAL_COUNT"
+printf -- "- Symlink (graduated) plans: %s\n" "$SYMLINK_COUNT"
+printf -- "- Plans missing Canonical metadata: %s\n" "$MISSING_CANONICAL_COUNT"
+printf -- "- Canonical-target collisions: %s\n\n" "$COLLISION_COUNT"
+
+if [[ -s "$CANONICAL_TARGETS" ]]; then
+  printf "### Active Plans And Their Canonical Targets\n\n"
+  printf "| Plan | Canonical Hub Doc |\n"
+  printf "| --- | --- |\n"
+  while IFS=$'\t' read -r plan target; do
+    [[ -z "$plan" ]] && continue
+    printf "| %s | %s |\n" "$plan" "$target"
+  done <"$CANONICAL_TARGETS"
+  printf "\n"
+fi
+
+if [[ -s "$SYMLINK_PLANS" ]]; then
+  printf "### Graduated (Symlink) Plans\n\n"
+  printf "| Plan | Resolves To |\n"
+  printf "| --- | --- |\n"
+  while IFS=$'\t' read -r plan target; do
+    [[ -z "$plan" ]] && continue
+    printf "| %s | %s |\n" "$plan" "$target"
+  done <"$SYMLINK_PLANS"
+  printf "\n"
+fi
+
+if [[ -s "$CANONICAL_COLLISIONS" ]]; then
+  printf "### Canonical-Target Collisions\n\n"
+  printf "Two or more active plans claim the same hub doc:\n\n"
+  while IFS=$'\t' read -r target owners; do
+    [[ -z "$target" ]] && continue
+    printf -- '- **%s** ← %s\n' "$target" "$owners"
+  done <"$CANONICAL_COLLISIONS"
+  printf "\n"
+fi
 
 # --- Agent Drift ---
 

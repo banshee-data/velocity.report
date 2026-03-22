@@ -1036,7 +1036,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
@@ -1046,6 +1046,12 @@ check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 
 check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
+
+check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail)
+	@python3 scripts/check-plan-canonical-links.py --check
+
+report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
+	@python3 scripts/check-plan-canonical-links.py --report
 
 lint-docs: check-mermaid ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, and relative links in Markdown
 	@python3 scripts/check-doc-header-metadata.py

@@ -21,9 +21,9 @@ What is already in place and what remains to be done:
 
 **Not yet done:**
 
-- [ ] `scripts/check-plan-canonical-links.py` — does not exist
-- [ ] `make check-plan-hygiene` / `make report-plan-hygiene` — not wired up
-- [ ] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
+- [x] `scripts/check-plan-canonical-links.py` — advisory-only mode landed
+- [x] `make check-plan-hygiene` / `make report-plan-hygiene` — Makefile targets added
+- [x] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
 - [ ] `Canonical` metadata added to any plan file (0 of 65 done)
 - [ ] Any plan graduated to a symlink
 - [ ] CI enforcement enabled
@@ -269,21 +269,21 @@ Three phases. Do not start phase N+1 until phase N is clean.
 
 ### Phase 1 — Tooling
 
-- [ ] Write `scripts/check-plan-canonical-links.py` in advisory-only mode
+- [x] Write `scripts/check-plan-canonical-links.py` in advisory-only mode
   - parses `- **Canonical:**` header lines in all non-symlink `.md` files under `docs/plans/`
   - reports missing `Canonical` metadata
   - reports targets that are under `docs/plans/` or outside the repo
   - reports duplicate targets (two plans claiming the same canonical doc)
   - reports symlinks resolving outside the repo or to `docs/plans/`
   - exits 0 (advisory only at this phase)
-- [ ] Add `make check-plan-hygiene` target — runs the checker in hard-fail mode (exits non-zero)
-- [ ] Add `make report-plan-hygiene` target — runs the checker in advisory/report mode
-- [ ] Update `scripts/flo-planning-review.sh`:
+- [x] Add `make check-plan-hygiene` target — runs the checker in hard-fail mode (exits non-zero)
+- [x] Add `make report-plan-hygiene` target — runs the checker in advisory/report mode
+- [x] Update `scripts/flo-planning-review.sh`:
   - change `find ... -type f` to include symlinks (`-type f -o -type l`)
   - report each active plan alongside its `Canonical` target
   - flag any two active plans sharing the same canonical target
 - [ ] Wire `make report-plan-hygiene` into CI as a non-fatal advisory job
-- [ ] Verify advisory output runs cleanly against the current 65 plans
+- [x] Verify advisory output runs cleanly against the current 68 plans
 
 ### Phase 2 — Repository Refactor
 
