@@ -59,12 +59,15 @@
         , total_tracks INTEGER
         , confirmed_tracks INTEGER
         , processing_time_ms INTEGER
-        , status TEXT DEFAULT 'running'
+        , status TEXT NOT NULL DEFAULT 'running'
         , error_message TEXT
         , parent_run_id TEXT
         , notes TEXT
         , statistics_json TEXT
         , vrlog_path TEXT
+        , CHECK (source_type IN ('live', 'pcap'))
+        , CHECK (status IN ('running', 'completed', 'failed'))
+        , FOREIGN KEY (parent_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE SET NULL
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
@@ -78,6 +81,14 @@
         , optimal_params_json TEXT
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
+        , CHECK (
+          pcap_start_secs IS NULL
+       OR pcap_start_secs >= 0
+          )
+        , CHECK (
+          pcap_duration_secs IS NULL
+       OR pcap_duration_secs >= 0
+          )
         , FOREIGN KEY (reference_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE SET NULL
           );
 
@@ -101,8 +112,8 @@
         , params_json TEXT
         , created_at INTEGER NOT NULL
         , FOREIGN KEY (replay_case_id) REFERENCES "lidar_replay_cases" (replay_case_id) ON DELETE CASCADE
-        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_run_records" (run_id)
-        , FOREIGN KEY (candidate_run_id) REFERENCES "lidar_run_records" (run_id)
+        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (candidate_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_run_missed_regions" (
@@ -113,10 +124,15 @@
         , radius_m REAL NOT NULL DEFAULT 3.0
         , time_start_ns INTEGER NOT NULL
         , time_end_ns INTEGER NOT NULL
-        , expected_label TEXT NOT NULL DEFAULT 'good_vehicle'
+        , expected_label TEXT NOT NULL DEFAULT 'car'
         , labeler_id TEXT
         , labeled_at INTEGER
         , notes TEXT
+        , CHECK (radius_m > 0)
+        , CHECK (time_end_ns >= time_start_ns)
+        , CHECK (
+          expected_label IN ('car', 'bus', 'pedestrian', 'cyclist', 'bird', 'noise', 'dynamic')
+          )
         , FOREIGN KEY (run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
           );
 
@@ -148,6 +164,27 @@
         , quality_label TEXT
         , label_source TEXT
         , PRIMARY KEY (run_id, track_id)
+        , CHECK (track_state IN ('tentative', 'confirmed', 'deleted'))
+        , CHECK (
+          end_unix_nanos IS NULL
+       OR end_unix_nanos >= start_unix_nanos
+          )
+        , CHECK (
+          object_confidence IS NULL
+       OR (
+          object_confidence >= 0
+      AND object_confidence <= 1
+          )
+          )
+        , CHECK (
+          label_confidence IS NULL
+       OR (
+          label_confidence >= 0
+      AND label_confidence <= 1
+          )
+          )
+        , CHECK (is_split_candidate IN (0, 1))
+        , CHECK (is_merge_candidate IN (0, 1))
         , FOREIGN KEY (run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE CASCADE
           );
 
@@ -175,11 +212,25 @@
         , max_occlusion_frames INTEGER DEFAULT 0
         , spatial_coverage REAL
         , noise_point_ratio REAL
+        , CHECK (track_state IN ('tentative', 'confirmed', 'deleted'))
+        , CHECK (
+          end_unix_nanos IS NULL
+       OR end_unix_nanos >= start_unix_nanos
+          )
+        , CHECK (
+          object_confidence IS NULL
+       OR (
+          object_confidence >= 0
+      AND object_confidence <= 1
+          )
+          )
           );
 
-   CREATE TABLE IF NOT EXISTS "lidar_track_annotations" (
-          label_id TEXT PRIMARY KEY
-        , track_id TEXT NOT NULL
+   CREATE TABLE lidar_replay_annotations (
+          annotation_id TEXT PRIMARY KEY
+        , replay_case_id TEXT NOT NULL
+        , run_id TEXT
+        , track_id TEXT
         , class_label TEXT NOT NULL
         , start_timestamp_ns INTEGER NOT NULL
         , end_timestamp_ns INTEGER
@@ -188,9 +239,30 @@
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
         , notes TEXT
-        , replay_case_id TEXT
         , source_file TEXT
-        , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
+        , CHECK (
+          (
+          run_id IS NULL
+      AND track_id IS NULL
+          )
+       OR (
+          run_id IS NOT NULL
+      AND track_id IS NOT NULL
+          )
+          )
+        , CHECK (
+          end_timestamp_ns IS NULL
+       OR end_timestamp_ns >= start_timestamp_ns
+          )
+        , CHECK (
+          confidence IS NULL
+       OR (
+          confidence >= 0
+      AND confidence <= 1
+          )
+          )
+        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+        , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_track_observations" (
@@ -239,6 +311,8 @@
         , checkpoint_bounds TEXT
         , checkpoint_results TEXT
         , checkpoint_request TEXT
+        , CHECK (mode IN ('manual', 'sweep', 'auto', 'auto-tune', 'hint'))
+        , CHECK (status IN ('running', 'completed', 'failed', 'suspended'))
           );
 
    CREATE TABLE IF NOT EXISTS "radar_commands" (
@@ -327,6 +401,7 @@
         , bbox_sw_lat REAL
         , bbox_sw_lng REAL
         , map_svg_data BLOB
+        , CHECK (include_map IN (0, 1))
           );
 
    CREATE TABLE site_config_periods (
@@ -339,12 +414,17 @@
         , cosine_error_angle DOUBLE NOT NULL DEFAULT 0
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , CHECK (is_active IN (0, 1))
+        , CHECK (
+          effective_end_unix IS NULL
+       OR effective_end_unix >= effective_start_unix
+          )
         , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
           );
 
    CREATE TABLE site_reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT
-        , site_id INTEGER NOT NULL DEFAULT 0
+        , site_id INTEGER
         , start_date TEXT NOT NULL
         , end_date TEXT NOT NULL
         , filepath TEXT NOT NULL
@@ -356,7 +436,7 @@
         , units TEXT NOT NULL
         , source TEXT NOT NULL
         , created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
+        , FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE SET NULL
           );
 
 CREATE UNIQUE INDEX version_unique ON schema_migrations (version);
@@ -452,17 +532,19 @@ CREATE INDEX idx_lidar_run_tracks_quality_label ON lidar_run_tracks (quality_lab
 
 CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
 
-CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
+CREATE INDEX idx_lidar_replay_annotations_replay_case ON lidar_replay_annotations (replay_case_id);
 
 CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
 
 CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
 
-CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations (track_id);
+CREATE INDEX idx_lidar_replay_annotations_run_track ON lidar_replay_annotations (run_id, track_id);
 
-CREATE INDEX idx_lidar_track_annotations_time ON lidar_track_annotations (start_timestamp_ns, end_timestamp_ns);
+CREATE INDEX idx_lidar_replay_annotations_track ON lidar_replay_annotations (track_id);
 
-CREATE INDEX idx_lidar_track_annotations_class ON lidar_track_annotations (class_label);
+CREATE INDEX idx_lidar_replay_annotations_time ON lidar_replay_annotations (start_timestamp_ns, end_timestamp_ns);
+
+CREATE INDEX idx_lidar_replay_annotations_class ON lidar_replay_annotations (class_label);
 
 CREATE INDEX idx_lidar_run_missed_regions_run_id ON lidar_run_missed_regions (run_id);
 
@@ -470,7 +552,9 @@ CREATE INDEX idx_lidar_replay_cases_sensor ON lidar_replay_cases (sensor_id);
 
 CREATE INDEX idx_lidar_replay_cases_pcap ON lidar_replay_cases (pcap_file);
 
-CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (reference_run_id, candidate_run_id);
+CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (replay_case_id, reference_run_id, candidate_run_id);
+
+CREATE INDEX idx_lidar_replay_evaluations_replay_case_created_at ON lidar_replay_evaluations (replay_case_id, created_at DESC);
 
 CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
 
