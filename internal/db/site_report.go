@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -24,7 +25,7 @@ type SiteReport struct {
 }
 
 // CreateSiteReport creates a new report record in the database
-func (db *DB) CreateSiteReport(report *SiteReport) error {
+func (db *DB) CreateSiteReport(ctx context.Context, report *SiteReport) error {
 	query := `
 		INSERT INTO site_reports (
 			site_id, start_date, end_date, filepath, filename,
@@ -32,7 +33,8 @@ func (db *DB) CreateSiteReport(report *SiteReport) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	result, err := db.DB.Exec(
+	result, err := db.DB.ExecContext(
+		ctx,
 		query,
 		report.SiteID,
 		report.StartDate,
@@ -60,7 +62,7 @@ func (db *DB) CreateSiteReport(report *SiteReport) error {
 }
 
 // GetSiteReport retrieves a report by ID
-func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
+func (db *DB) GetSiteReport(ctx context.Context, id int) (*SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
 		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
@@ -69,7 +71,7 @@ func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
 	`
 
 	var report SiteReport
-	err := db.DB.QueryRow(query, id).Scan(
+	err := db.DB.QueryRowContext(ctx, query, id).Scan(
 		&report.ID,
 		&report.SiteID,
 		&report.StartDate,
@@ -95,7 +97,7 @@ func (db *DB) GetSiteReport(id int) (*SiteReport, error) {
 }
 
 // GetRecentReportsForSite retrieves the most recent N reports for a specific site
-func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, error) {
+func (db *DB) GetRecentReportsForSite(ctx context.Context, siteID int, limit int) ([]SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
 		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
@@ -105,7 +107,7 @@ func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, erro
 		LIMIT ?
 	`
 
-	rows, err := db.DB.Query(query, siteID, limit)
+	rows, err := db.DB.QueryContext(ctx, query, siteID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query site reports: %w", err)
 	}
@@ -134,12 +136,15 @@ func (db *DB) GetRecentReportsForSite(siteID int, limit int) ([]SiteReport, erro
 		}
 		reports = append(reports, report)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate site reports: %w", err)
+	}
 
 	return reports, nil
 }
 
 // GetRecentReportsAllSites retrieves the most recent N reports across all sites
-func (db *DB) GetRecentReportsAllSites(limit int) ([]SiteReport, error) {
+func (db *DB) GetRecentReportsAllSites(ctx context.Context, limit int) ([]SiteReport, error) {
 	query := `
 		SELECT id, site_id, start_date, end_date, filepath, filename,
 		       zip_filepath, zip_filename, run_id, timezone, units, source, created_at
@@ -148,7 +153,7 @@ func (db *DB) GetRecentReportsAllSites(limit int) ([]SiteReport, error) {
 		LIMIT ?
 	`
 
-	rows, err := db.DB.Query(query, limit)
+	rows, err := db.DB.QueryContext(ctx, query, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query site reports: %w", err)
 	}
@@ -177,15 +182,18 @@ func (db *DB) GetRecentReportsAllSites(limit int) ([]SiteReport, error) {
 		}
 		reports = append(reports, report)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate site reports: %w", err)
+	}
 
 	return reports, nil
 }
 
 // DeleteSiteReport deletes a site report by ID
-func (db *DB) DeleteSiteReport(id int) error {
+func (db *DB) DeleteSiteReport(ctx context.Context, id int) error {
 	query := `DELETE FROM site_reports WHERE id = ?`
 
-	result, err := db.DB.Exec(query, id)
+	result, err := db.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete site report: %w", err)
 	}

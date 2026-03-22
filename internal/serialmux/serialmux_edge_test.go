@@ -444,7 +444,7 @@ func TestHandleConfigResponse_EdgeCases(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Reset state before each test
-			CurrentState = nil
+			resetCurrentState()
 
 			err := HandleConfigResponse(tc.payload)
 			if tc.expectError && err == nil {
@@ -459,7 +459,7 @@ func TestHandleConfigResponse_EdgeCases(t *testing.T) {
 
 // TestHandleConfigResponse_AccumulatesState tests that state accumulates
 func TestHandleConfigResponse_AccumulatesState(t *testing.T) {
-	CurrentState = nil
+	resetCurrentState()
 
 	// First response
 	if err := HandleConfigResponse(`{"key1":"value1"}`); err != nil {
@@ -472,10 +472,11 @@ func TestHandleConfigResponse_AccumulatesState(t *testing.T) {
 	}
 
 	// Both keys should be present
-	if CurrentState["key1"] != "value1" {
+	snap := CurrentStateSnapshot()
+	if snap["key1"] != "value1" {
 		t.Error("key1 not preserved")
 	}
-	if CurrentState["key2"] != "value2" {
+	if snap["key2"] != "value2" {
 		t.Error("key2 not set")
 	}
 
@@ -484,7 +485,8 @@ func TestHandleConfigResponse_AccumulatesState(t *testing.T) {
 		t.Fatalf("Third response failed: %v", err)
 	}
 
-	if CurrentState["key1"] != "updated" {
+	snap = CurrentStateSnapshot()
+	if snap["key1"] != "updated" {
 		t.Error("key1 not updated")
 	}
 }

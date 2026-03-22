@@ -4,13 +4,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/banshee-data/velocity.report/internal/db"
 )
 
-// CurrentState holds the latest config values received from the device
-// and is intentionally package-level so admin routes or tests can inspect it.
-var CurrentState map[string]any
+var (
+	currentStateMu sync.RWMutex
+	currentState   map[string]any
+)
+
+// CurrentStateSnapshot returns a shallow copy of the latest config values
+// received from the device. Returns nil if no config has been received yet.
+// Callers must treat the returned map and all nested values (maps, slices, etc.)
+// as read-only. Code that needs to modify the data should first deep-copy it.
+func CurrentStateSnapshot() map[string]any {
+	currentStateMu.RLock()
+	defer currentStateMu.RUnlock()
+	if currentState == nil {
+		return nil
+	}
+	out := make(map[string]any, len(currentState))
+	for k, v := range currentState {
+		out[k] = v
+	}
+	return out
+}
+
+// resetCurrentState clears the current config state. Used by tests.
+func resetCurrentState() {
+	currentStateMu.Lock()
+	defer currentStateMu.Unlock()
+	currentState = nil
+}
 
 func HandleRadarObject(d *db.DB, payload string) error {
 	log.Printf("Raw RadarObject Line: %+v", payload)
@@ -31,13 +57,14 @@ func HandleConfigResponse(payload string) error {
 		return fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
-	// update the current state with the new config values
-	if CurrentState == nil {
-		CurrentState = make(map[string]any)
+	currentStateMu.Lock()
+	if currentState == nil {
+		currentState = make(map[string]any)
 	}
 	for k, v := range configValues {
-		CurrentState[k] = v
+		currentState[k] = v
 	}
+	currentStateMu.Unlock()
 
 	// log the current line
 	log.Printf("Config Line: %+v", payload)

@@ -78,7 +78,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	var cosineErrorAngle float64
 	if req.SiteID != nil {
 		var err error
-		site, err = s.db.GetSite(*req.SiteID)
+		site, err = s.db.GetSite(r.Context(), *req.SiteID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			s.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("Failed to load site: %v", err))
@@ -371,7 +371,7 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		Source:      req.Source,
 	}
 
-	if err := s.db.CreateSiteReport(report); err != nil {
+	if err := s.db.CreateSiteReport(r.Context(), report); err != nil {
 		log.Printf("Failed to create report record: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to create report record")
@@ -477,8 +477,7 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
-	_ = r
-	reports, err := s.db.GetRecentReportsAllSites(15)
+	reports, err := s.db.GetRecentReportsAllSites(r.Context(), 15)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
 		return
@@ -491,8 +490,7 @@ func (s *Server) listAllReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID int) {
-	_ = r
-	reports, err := s.db.GetRecentReportsForSite(siteID, 5)
+	reports, err := s.db.GetRecentReportsForSite(r.Context(), siteID, 5)
 	if err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve reports: %v", err))
 		return
@@ -505,8 +503,7 @@ func (s *Server) listSiteReports(w http.ResponseWriter, r *http.Request, siteID 
 }
 
 func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int) {
-	_ = r
-	report, err := s.db.GetSiteReport(reportID)
+	report, err := s.db.GetSiteReport(r.Context(), reportID)
 	if err != nil {
 		if err.Error() == "report not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Report not found")
@@ -523,7 +520,6 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request, reportID int)
 }
 
 func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID int, fileFormat string) {
-	_ = r
 	// Validate file format
 	if fileFormat != "pdf" && fileFormat != "zip" {
 		w.Header().Set("Content-Type", "application/json")
@@ -532,7 +528,7 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, reportID
 	}
 
 	// Get report metadata from database
-	report, err := s.db.GetSiteReport(reportID)
+	report, err := s.db.GetSiteReport(r.Context(), reportID)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		if err.Error() == "report not found" {
@@ -635,8 +631,7 @@ func getPDFGeneratorDir() (string, error) {
 }
 
 func (s *Server) deleteReport(w http.ResponseWriter, r *http.Request, reportID int) {
-	_ = r
-	if err := s.db.DeleteSiteReport(reportID); err != nil {
+	if err := s.db.DeleteSiteReport(r.Context(), reportID); err != nil {
 		if err.Error() == "report not found" {
 			s.writeJSONError(w, http.StatusNotFound, "Report not found")
 		} else {

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func TestSiteReport_CreateAndRetrieve(t *testing.T) {
 		Longitude: floatPtr(-0.1278),
 	}
 
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -43,7 +44,7 @@ func TestSiteReport_CreateAndRetrieve(t *testing.T) {
 		Source:    "radar_objects",
 	}
 
-	err = db.CreateSiteReport(report)
+	err = db.CreateSiteReport(context.Background(), report)
 	if err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
@@ -53,7 +54,7 @@ func TestSiteReport_CreateAndRetrieve(t *testing.T) {
 	}
 
 	// Retrieve the report
-	retrieved, err := db.GetSiteReport(report.ID)
+	retrieved, err := db.GetSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("Failed to get report: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestSiteReport_GetRecentForSite(t *testing.T) {
 	site := &Site{
 		Name: "Test Site",
 	}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -99,13 +100,13 @@ func TestSiteReport_GetRecentForSite(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("Failed to create report: %v", err)
 		}
 	}
 
 	// Get recent reports
-	reports, err := db.GetRecentReportsForSite(site.ID, 3)
+	reports, err := db.GetRecentReportsForSite(context.Background(), site.ID, 3)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestSiteReport_GetRecentAllSites(t *testing.T) {
 		site := &Site{
 			Name: "Test Site " + string(rune('A'+i)),
 		}
-		err := db.CreateSite(site)
+		err := db.CreateSite(context.Background(), site)
 		if err != nil {
 			t.Fatalf("Failed to create site: %v", err)
 		}
@@ -147,13 +148,13 @@ func TestSiteReport_GetRecentAllSites(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("Failed to create report: %v", err)
 		}
 	}
 
 	// Get all recent reports
-	reports, err := db.GetRecentReportsAllSites(10)
+	reports, err := db.GetRecentReportsAllSites(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites failed: %v", err)
 	}
@@ -176,7 +177,7 @@ func TestSiteReport_Delete(t *testing.T) {
 
 	// Create a site and report
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -192,17 +193,17 @@ func TestSiteReport_Delete(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := db.CreateSiteReport(report); err != nil {
+	if err := db.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("Failed to create report: %v", err)
 	}
 
 	// Delete the report
-	if err := db.DeleteSiteReport(report.ID); err != nil {
+	if err := db.DeleteSiteReport(context.Background(), report.ID); err != nil {
 		t.Fatalf("DeleteSiteReport failed: %v", err)
 	}
 
 	// Verify it's deleted - GetSiteReport returns error when not found
-	_, err = db.GetSiteReport(report.ID)
+	_, err = db.GetSiteReport(context.Background(), report.ID)
 	if err == nil {
 		t.Error("Expected error after deletion, got nil")
 	}
@@ -224,7 +225,7 @@ func TestSite_UpdateSite(t *testing.T) {
 		Name:    "Original Name",
 		Address: strPtr("Original Address"),
 	}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -235,12 +236,12 @@ func TestSite_UpdateSite(t *testing.T) {
 		Name:    "Updated Name",
 		Address: strPtr("Updated Address"),
 	}
-	if err := db.UpdateSite(update); err != nil {
+	if err := db.UpdateSite(context.Background(), update); err != nil {
 		t.Fatalf("UpdateSite failed: %v", err)
 	}
 
 	// Verify update
-	retrieved, err := db.GetSite(site.ID)
+	retrieved, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("GetSite failed: %v", err)
 	}
@@ -266,18 +267,18 @@ func TestSite_DeleteSite(t *testing.T) {
 
 	// Create a site
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
 	// Delete the site
-	if err := db.DeleteSite(site.ID); err != nil {
+	if err := db.DeleteSite(context.Background(), site.ID); err != nil {
 		t.Fatalf("DeleteSite failed: %v", err)
 	}
 
 	// Verify it's deleted - GetSite returns error when not found
-	_, err = db.GetSite(site.ID)
+	_, err = db.GetSite(context.Background(), site.ID)
 	if err == nil {
 		t.Error("Expected error after deletion, got nil")
 	}
@@ -301,13 +302,13 @@ func TestSite_GetAllSitesWithData(t *testing.T) {
 			Latitude:  floatPtr(51.5074 + float64(i)*0.01),
 			Longitude: floatPtr(-0.1278 + float64(i)*0.01),
 		}
-		if err := db.CreateSite(site); err != nil {
+		if err := db.CreateSite(context.Background(), site); err != nil {
 			t.Fatalf("Failed to create site: %v", err)
 		}
 	}
 
 	// Get all sites
-	sites, err := db.GetAllSites()
+	sites, err := db.GetAllSites(context.Background())
 	if err != nil {
 		t.Fatalf("GetAllSites failed: %v", err)
 	}
@@ -330,7 +331,7 @@ func TestSiteConfigPeriod_GetActive(t *testing.T) {
 
 	// Create a site
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -375,7 +376,7 @@ func TestSiteConfigPeriod_List(t *testing.T) {
 
 	// Create a site
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -432,7 +433,7 @@ func TestSiteConfigPeriod_Update(t *testing.T) {
 
 	// Create a site
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -493,7 +494,7 @@ func TestSite_UpdateSite_NotFound(t *testing.T) {
 		ID:   99999, // Non-existent ID
 		Name: "Non-existent Site",
 	}
-	err = db.UpdateSite(update)
+	err = db.UpdateSite(context.Background(), update)
 	if err == nil {
 		t.Error("Expected error for non-existent site, got nil")
 	}
@@ -511,7 +512,7 @@ func TestSite_DeleteSite_NotFound(t *testing.T) {
 	defer db.Close()
 
 	// Try to delete a site that doesn't exist
-	err = db.DeleteSite(99999)
+	err = db.DeleteSite(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent site, got nil")
 	}
@@ -529,7 +530,7 @@ func TestSiteReport_DeleteSiteReport_NotFound(t *testing.T) {
 	defer db.Close()
 
 	// Try to delete a report that doesn't exist
-	err = db.DeleteSiteReport(99999)
+	err = db.DeleteSiteReport(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent report, got nil")
 	}
@@ -560,7 +561,7 @@ func TestSite_CreateSite_WithAllFields(t *testing.T) {
 		SiteDescription: strPtr("Detailed site description"),
 	}
 
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("CreateSite failed: %v", err)
 	}
@@ -570,7 +571,7 @@ func TestSite_CreateSite_WithAllFields(t *testing.T) {
 	}
 
 	// Verify all fields were stored correctly
-	retrieved, err := db.GetSite(site.ID)
+	retrieved, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("GetSite failed: %v", err)
 	}
@@ -596,7 +597,7 @@ func TestSiteReport_CreateSiteReport_AllFields(t *testing.T) {
 
 	// Create a site first
 	site := &Site{Name: "Test Site"}
-	err = db.CreateSite(site)
+	err = db.CreateSite(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
@@ -618,7 +619,7 @@ func TestSiteReport_CreateSiteReport_AllFields(t *testing.T) {
 		Source:      "lidar_tracks",
 	}
 
-	err = db.CreateSiteReport(report)
+	err = db.CreateSiteReport(context.Background(), report)
 	if err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
@@ -628,7 +629,7 @@ func TestSiteReport_CreateSiteReport_AllFields(t *testing.T) {
 	}
 
 	// Verify retrieval
-	retrieved, err := db.GetSiteReport(report.ID)
+	retrieved, err := db.GetSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("GetSiteReport failed: %v", err)
 	}

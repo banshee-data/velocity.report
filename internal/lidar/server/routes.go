@@ -53,6 +53,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	coreRoutes := []route{
 		{"/health", ws.handleHealth},
 		{"/api/lidar/server", ws.handleStatus},
+		{"/api/lidar/monitor", ws.handleStatus},
 		{"GET /api/lidar/status", ws.handleLidarStatus},
 		{"POST /api/lidar/persist", ws.handleLidarPersist},
 	}

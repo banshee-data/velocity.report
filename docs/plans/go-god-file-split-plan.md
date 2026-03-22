@@ -285,9 +285,9 @@ Phase 3 target: no production file above 600 LOC across the codebase.
 
 ## What This Plan Does Not Cover
 
-- **Context propagation** — covered in
-  [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Item 1)
-- **Race conditions** (`serialmux.CurrentState`) — remains in the hygiene plan (Item 2)
+- **Context propagation** — ~~covered in
+  [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Item 1)~~ **Complete.** All 8 `_ = r` placeholders removed from `internal/api/server.go`; 10 DB methods accept `context.Context`.
+- **Race conditions** (`serialmux.CurrentState`) — ~~remains in the hygiene plan (Item 2)~~ **Complete.** Replaced with `sync.RWMutex`-backed private state; `CurrentStateSnapshot()` and `ResetCurrentState()` exported.
 - **DB abstraction leaks** — remains in the hygiene plan (Item 2)
 - **Silent error drops** — remains in the hygiene plan (Item 2)
 - **JSON tag consistency** — covered in the hygiene plan (Item 3)

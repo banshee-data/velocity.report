@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 )
 
@@ -26,7 +27,7 @@ func TestCreateSiteReport(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -42,7 +43,7 @@ func TestCreateSiteReport(t *testing.T) {
 		Source:    "radar_objects",
 	}
 
-	err := db.CreateSiteReport(report)
+	err := db.CreateSiteReport(context.Background(), report)
 	if err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
@@ -73,13 +74,13 @@ func TestCreateSiteReport_WithZip(t *testing.T) {
 		Source:      "radar_data_transits",
 	}
 
-	err := db.CreateSiteReport(report)
+	err := db.CreateSiteReport(context.Background(), report)
 	if err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
 
 	// Retrieve and verify
-	retrieved, err := db.GetSiteReport(report.ID)
+	retrieved, err := db.GetSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("GetSiteReport failed: %v", err)
 	}
@@ -109,11 +110,11 @@ func TestGetSiteReport(t *testing.T) {
 		Source:    "radar_objects",
 	}
 
-	if err := db.CreateSiteReport(report); err != nil {
+	if err := db.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
 
-	retrieved, err := db.GetSiteReport(report.ID)
+	retrieved, err := db.GetSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("GetSiteReport failed: %v", err)
 	}
@@ -146,7 +147,7 @@ func TestGetSiteReport_NotFound(t *testing.T) {
 	db := setupSiteReportTestDB(t)
 	defer db.Close()
 
-	_, err := db.GetSiteReport(99999)
+	_, err := db.GetSiteReport(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent report")
 	}
@@ -165,7 +166,7 @@ func TestGetRecentReportsForSite(t *testing.T) {
 		Name:     "Test Site",
 		Location: "Test Location",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("Failed to create site: %v", err)
 	}
 
@@ -182,7 +183,7 @@ func TestGetRecentReportsForSite(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("CreateSiteReport failed: %v", err)
 		}
 	}
@@ -199,12 +200,12 @@ func TestGetRecentReportsForSite(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := db.CreateSiteReport(otherReport); err != nil {
+	if err := db.CreateSiteReport(context.Background(), otherReport); err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
 
 	// Get reports for specific site
-	reports, err := db.GetRecentReportsForSite(site.ID, 10)
+	reports, err := db.GetRecentReportsForSite(context.Background(), site.ID, 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -239,13 +240,13 @@ func TestGetRecentReportsForSite_Limit(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("CreateSiteReport failed: %v", err)
 		}
 	}
 
 	// Get only 2 reports
-	reports, err := db.GetRecentReportsForSite(0, 2)
+	reports, err := db.GetRecentReportsForSite(context.Background(), 0, 2)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -273,12 +274,12 @@ func TestGetRecentReportsAllSites(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("CreateSiteReport failed: %v", err)
 		}
 	}
 
-	reports, err := db.GetRecentReportsAllSites(10)
+	reports, err := db.GetRecentReportsAllSites(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites failed: %v", err)
 	}
@@ -306,13 +307,13 @@ func TestGetRecentReportsAllSites_Limit(t *testing.T) {
 			Units:     "mph",
 			Source:    "radar_objects",
 		}
-		if err := db.CreateSiteReport(report); err != nil {
+		if err := db.CreateSiteReport(context.Background(), report); err != nil {
 			t.Fatalf("CreateSiteReport failed: %v", err)
 		}
 	}
 
 	// Get only 3 reports
-	reports, err := db.GetRecentReportsAllSites(3)
+	reports, err := db.GetRecentReportsAllSites(context.Background(), 3)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites failed: %v", err)
 	}
@@ -339,18 +340,18 @@ func TestDeleteSiteReport(t *testing.T) {
 		Source:    "radar_objects",
 	}
 
-	if err := db.CreateSiteReport(report); err != nil {
+	if err := db.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("CreateSiteReport failed: %v", err)
 	}
 
 	// Delete the report
-	err := db.DeleteSiteReport(report.ID)
+	err := db.DeleteSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("DeleteSiteReport failed: %v", err)
 	}
 
 	// Verify it's deleted
-	_, err = db.GetSiteReport(report.ID)
+	_, err = db.GetSiteReport(context.Background(), report.ID)
 	if err == nil {
 		t.Error("Expected error when getting deleted report")
 	}
@@ -361,7 +362,7 @@ func TestDeleteSiteReport_NotFound(t *testing.T) {
 	db := setupSiteReportTestDB(t)
 	defer db.Close()
 
-	err := db.DeleteSiteReport(99999)
+	err := db.DeleteSiteReport(context.Background(), 99999)
 	if err == nil {
 		t.Error("Expected error for non-existent report")
 	}
@@ -375,7 +376,7 @@ func TestGetRecentReportsForSite_EmptyResult(t *testing.T) {
 	db := setupSiteReportTestDB(t)
 	defer db.Close()
 
-	reports, err := db.GetRecentReportsForSite(99999, 10)
+	reports, err := db.GetRecentReportsForSite(context.Background(), 99999, 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -395,7 +396,7 @@ func TestGetRecentReportsAllSites_EmptyResult(t *testing.T) {
 	}
 	defer db.Close()
 
-	reports, err := db.GetRecentReportsAllSites(10)
+	reports, err := db.GetRecentReportsAllSites(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites failed: %v", err)
 	}

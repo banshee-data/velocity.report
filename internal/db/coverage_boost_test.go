@@ -277,11 +277,11 @@ func TestGetAllSites_WithMapSVGData(t *testing.T) {
 		Contact:    "test@example.com",
 		MapSVGData: &svgData,
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
-	sites, err := db.GetAllSites()
+	sites, err := db.GetAllSites(context.Background())
 	if err != nil {
 		t.Fatalf("GetAllSites: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestGetActiveSiteConfigPeriod_WithEndUnix(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
@@ -398,7 +398,7 @@ func TestUpdateSiteConfigPeriod_NonExistentID(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
@@ -432,7 +432,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
@@ -447,7 +447,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 		Units:     "mph",
 		Source:    "radar_objects",
 	}
-	if err := db.CreateSiteReport(report); err != nil {
+	if err := db.CreateSiteReport(context.Background(), report); err != nil {
 		t.Fatalf("CreateSiteReport: %v", err)
 	}
 	if report.ID == 0 {
@@ -455,7 +455,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 	}
 
 	// Retrieve by ID
-	got, err := db.GetSiteReport(report.ID)
+	got, err := db.GetSiteReport(context.Background(), report.ID)
 	if err != nil {
 		t.Fatalf("GetSiteReport: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 	}
 
 	// GetRecentReportsForSite
-	reports, err := db.GetRecentReportsForSite(site.ID, 10)
+	reports, err := db.GetRecentReportsForSite(context.Background(), site.ID, 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite: %v", err)
 	}
@@ -473,7 +473,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 	}
 
 	// GetRecentReportsAllSites
-	allReports, err := db.GetRecentReportsAllSites(10)
+	allReports, err := db.GetRecentReportsAllSites(context.Background(), 10)
 	if err != nil {
 		t.Fatalf("GetRecentReportsAllSites: %v", err)
 	}
@@ -482,12 +482,12 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 	}
 
 	// Delete
-	if err := db.DeleteSiteReport(report.ID); err != nil {
+	if err := db.DeleteSiteReport(context.Background(), report.ID); err != nil {
 		t.Fatalf("DeleteSiteReport: %v", err)
 	}
 
 	// Verify deleted
-	_, err = db.GetSiteReport(report.ID)
+	_, err = db.GetSiteReport(context.Background(), report.ID)
 	if err == nil {
 		t.Error("expected error after deletion")
 	}
@@ -659,7 +659,7 @@ func TestListSiteConfigPeriods_WithEndUnix(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
@@ -809,27 +809,27 @@ func TestCovBoost_ClosedDB_SiteErrorPaths(t *testing.T) {
 	}
 	db.Close() // Close early to trigger error paths
 
-	_, err = db.GetAllSites()
+	_, err = db.GetAllSites(context.Background())
 	if err == nil {
 		t.Error("expected error from GetAllSites on closed DB")
 	}
 
-	err = db.DeleteSite(1)
+	err = db.DeleteSite(context.Background(), 1)
 	if err == nil {
 		t.Error("expected error from DeleteSite on closed DB")
 	}
 
-	err = db.UpdateSite(&Site{ID: 1, Name: "x", Location: "x", Surveyor: "x", Contact: "x"})
+	err = db.UpdateSite(context.Background(), &Site{ID: 1, Name: "x", Location: "x", Surveyor: "x", Contact: "x"})
 	if err == nil {
 		t.Error("expected error from UpdateSite on closed DB")
 	}
 
-	err = db.CreateSite(&Site{Name: "x", Location: "x", Surveyor: "x", Contact: "x"})
+	err = db.CreateSite(context.Background(), &Site{Name: "x", Location: "x", Surveyor: "x", Contact: "x"})
 	if err == nil {
 		t.Error("expected error from CreateSite on closed DB")
 	}
 
-	_, err = db.GetSite(1)
+	_, err = db.GetSite(context.Background(), 1)
 	if err == nil {
 		t.Error("expected error from GetSite on closed DB")
 	}
@@ -844,27 +844,27 @@ func TestCovBoost_ClosedDB_SiteReportErrorPaths(t *testing.T) {
 	}
 	db.Close()
 
-	err = db.CreateSiteReport(&SiteReport{SiteID: 1, StartDate: "2025-01-01", EndDate: "2025-01-31", Filepath: "/x", Filename: "x", RunID: "x", Timezone: "UTC", Units: "mph", Source: "radar_objects"})
+	err = db.CreateSiteReport(context.Background(), &SiteReport{SiteID: 1, StartDate: "2025-01-01", EndDate: "2025-01-31", Filepath: "/x", Filename: "x", RunID: "x", Timezone: "UTC", Units: "mph", Source: "radar_objects"})
 	if err == nil {
 		t.Error("expected error from CreateSiteReport on closed DB")
 	}
 
-	_, err = db.GetSiteReport(1)
+	_, err = db.GetSiteReport(context.Background(), 1)
 	if err == nil {
 		t.Error("expected error from GetSiteReport on closed DB")
 	}
 
-	_, err = db.GetRecentReportsForSite(1, 10)
+	_, err = db.GetRecentReportsForSite(context.Background(), 1, 10)
 	if err == nil {
 		t.Error("expected error from GetRecentReportsForSite on closed DB")
 	}
 
-	_, err = db.GetRecentReportsAllSites(10)
+	_, err = db.GetRecentReportsAllSites(context.Background(), 10)
 	if err == nil {
 		t.Error("expected error from GetRecentReportsAllSites on closed DB")
 	}
 
-	err = db.DeleteSiteReport(1)
+	err = db.DeleteSiteReport(context.Background(), 1)
 	if err == nil {
 		t.Error("expected error from DeleteSiteReport on closed DB")
 	}
@@ -1088,18 +1088,18 @@ func TestUpdateSite_WithMapSVGData(t *testing.T) {
 		Surveyor: "Tester",
 		Contact:  "test@example.com",
 	}
-	if err := db.CreateSite(site); err != nil {
+	if err := db.CreateSite(context.Background(), site); err != nil {
 		t.Fatalf("CreateSite: %v", err)
 	}
 
 	// Update with SVG data
 	svgData := []byte("<svg>updated</svg>")
 	site.MapSVGData = &svgData
-	if err := db.UpdateSite(site); err != nil {
+	if err := db.UpdateSite(context.Background(), site); err != nil {
 		t.Fatalf("UpdateSite: %v", err)
 	}
 
-	got, err := db.GetSite(site.ID)
+	got, err := db.GetSite(context.Background(), site.ID)
 	if err != nil {
 		t.Fatalf("GetSite: %v", err)
 	}
