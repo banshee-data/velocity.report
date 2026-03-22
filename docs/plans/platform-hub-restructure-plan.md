@@ -132,7 +132,7 @@ subdirectory to keep `operations/` navigable.
 | `velocity-visualiser-app/*`             | EXISTS | —                                             | Already canonical (5 files)          |
 | `web-frontend-consolidation.md`         | NEW    | `web-frontend-consolidation-plan` †           | Port consolidation + SPA unification |
 | `homepage.md`                           | NEW    | `homepage-responsive-gif-strategies`          | Static site responsive media         |
-| `wireshark-menu-alignment.md`           | NEW    | `wireshark-menu-alignment`                    | macOS menu structure patterns        |
+| `macos-menu-layout-design.md`           | NEW    | `wireshark-menu-alignment`                    | macOS menu layout design             |
 
 ### `docs/platform/` — 22 plans (was engineering + platform)
 

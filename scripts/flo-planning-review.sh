@@ -188,7 +188,7 @@ while IFS= read -r plan_abs; do
   plan_rel="${plan_abs#$REPO_ROOT/}"
   if [[ -L "$plan_abs" ]]; then
     link_target=$(readlink "$plan_abs")
-    resolved=$(cd "$(dirname "$plan_abs")" && realpath -q "$link_target" 2>/dev/null || echo "$link_target")
+    resolved=$(cd "$(dirname "$plan_abs")" && python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$link_target" 2>/dev/null || echo "$link_target")
     resolved_rel="${resolved#$REPO_ROOT/}"
     printf "%s\t%s\n" "$plan_rel" "$resolved_rel" >>"$SYMLINK_PLANS"
   else
@@ -201,7 +201,7 @@ while IFS= read -r plan_abs; do
       fi
       if [[ -n "$href" ]]; then
         # Resolve relative to plan file location.
-        abs_target=$(cd "$(dirname "$plan_abs")" && realpath -q "$href" 2>/dev/null || echo "$href")
+        abs_target=$(cd "$(dirname "$plan_abs")" && python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$href" 2>/dev/null || echo "$href")
         target_rel="${abs_target#$REPO_ROOT/}"
         printf "%s\t%s\n" "$plan_rel" "$target_rel" >>"$CANONICAL_TARGETS"
       fi

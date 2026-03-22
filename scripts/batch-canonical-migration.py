@@ -73,7 +73,7 @@ MAPPING = {
     "web-frontend-background-debug-surfaces-plan": "docs/ui/velocity-visualiser-implementation.md",
     "web-frontend-consolidation-plan": "docs/ui/web-frontend-consolidation.md",
     "homepage-responsive-gif-strategies": "docs/ui/homepage.md",
-    "wireshark-menu-alignment": "docs/ui/wireshark-menu-alignment.md",
+    "wireshark-menu-alignment": "docs/ui/macos-menu-layout-design.md",
     # ── docs/platform/architecture/ ──
     "go-codebase-structural-hygiene-plan": "docs/platform/architecture/go-package-structure.md",
     "go-god-file-split-plan": "docs/platform/architecture/go-package-structure.md",
@@ -130,7 +130,7 @@ STUB_TITLES = {
     "docs/radar/architecture/percentile-aggregation-semantics.md": "Percentile Aggregation Semantics",
     "docs/ui/web-frontend-consolidation.md": "Web Frontend Consolidation",
     "docs/ui/homepage.md": "Homepage",
-    "docs/ui/wireshark-menu-alignment.md": "Wireshark Menu Alignment",
+    "docs/ui/macos-menu-layout-design.md": "macOS Menu Layout Design",
     "docs/platform/architecture/go-package-structure.md": "Go Package Structure",
     "docs/platform/architecture/structured-logging.md": "Structured Logging",
     "docs/platform/architecture/typed-uuid-prefixes.md": "Typed UUID Prefixes",

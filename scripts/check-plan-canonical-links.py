@@ -99,8 +99,12 @@ def _parse_canonical_links(plan_path: str, root: str) -> list[str]:
                 rest = stripped[idx:].strip()
                 if "](" in rest:
                     start = rest.index("](") + 2
-                    end = rest.index(")", start)
-                    href = rest[start:end]
+                    try:
+                        end = rest.index(")", start)
+                    except ValueError:
+                        href = ""
+                    else:
+                        href = rest[start:end]
                 else:
                     href = rest
                 if href:
@@ -280,7 +284,6 @@ def main() -> int:
         action="store_true",
         help="Hard-fail mode. Exits 1 if any gate violation is found.",
     )
-    parser.parse_args()
     args = parser.parse_args()
 
     root = _repo_root()

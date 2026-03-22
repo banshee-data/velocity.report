@@ -22,8 +22,8 @@ What is already in place and what remains to be done:
 
 **Not yet done:**
 
-- [x] `scripts/check-plan-canonical-links.py` — advisory-only mode landed
-- [x] `make check-plan-hygiene` / `make report-plan-hygiene` — Makefile targets added
+- [x] `scripts/check-plan-canonical-links.py` — core checker added with advisory default and hard-fail `--check` mode
+- [x] `make check-plan-hygiene` / `make report-plan-hygiene` — hard-fail and report-only Makefile targets added
 - [x] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
 - [~] `Canonical` metadata added to 69 of 69 plan files
 - [x] 46 canonical doc stubs created across 4 hubs
@@ -305,8 +305,7 @@ Three phases. Do not start phase N+1 until phase N is clean.
 
 ### Phase 3 — Hard-Fail Enforcement
 
-- [ ] Switch `check-plan-canonical-links.py` to hard-fail mode (exit 1 on any gate breach)
-- [ ] Update `make lint-docs` to call `make check-plan-hygiene`
+- [ ] Wire `make check-plan-hygiene` (already hard-fail via `--check`) into `make lint-docs`
 - [ ] Update CI to fail on `make lint-docs`
 - [ ] Verify full `make lint-docs` passes in CI
 - [ ] Graduate this plan (symlink or mark complete in backlog)
