@@ -124,9 +124,10 @@ echo ""
 echo "4. Formatting schema.sql..."
 if command -v sql-formatter &> /dev/null; then
     if sql-formatter --fix -l sqlite -c "$PROJECT_ROOT/.sql-formatter.json" "$SCHEMA_FILE" 2>&1 > /dev/null; then
-        # sql-formatter appends /* view_name(col,...) */ hints to VIEWs — strip them
-        sed -i.bak '/\/\*.*\*\/;*$/d' "$SCHEMA_FILE"
-        rm -f "$SCHEMA_FILE.bak"
+        # sql-formatter appends /* view_name(col,...) */ hints to VIEWs — strip them.
+        # Use a distinct suffix so we don't clobber the Step 3 .bak used by Step 5's diff.
+        sed -i.sed-tmp '/\/\*.*\*\/;*$/d' "$SCHEMA_FILE"
+        rm -f "$SCHEMA_FILE.sed-tmp"
         echo -e "${GREEN}✓ Schema formatted successfully${NC}"
     else
         echo -e "${YELLOW}⚠ Failed to format schema (continuing anyway)${NC}"
