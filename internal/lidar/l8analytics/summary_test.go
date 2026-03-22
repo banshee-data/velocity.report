@@ -22,16 +22,14 @@ func TestComputeRunStatistics_Empty(t *testing.T) {
 
 func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 	tracks := []*l5tracks.TrackedObject{
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 50,
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.9,
+			TrackState:       l5tracks.TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 5.0,
 			OcclusionCount:    2,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  50,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.9,
-			TrackState:        l5tracks.TrackConfirmed,
 		},
 	}
 
@@ -59,38 +57,32 @@ func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 
 func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 	tracks := []*l5tracks.TrackedObject{
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.9,
+			TrackState:       l5tracks.TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 2.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.7,
-			ObservationCount:  20,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.9,
-			TrackState:        l5tracks.TrackConfirmed,
 		},
-		{
-			TrackLengthMeters: 20.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 40,
+			ObjectClass:      "pedestrian",
+			ObjectConfidence: 0.8,
+			TrackState:       l5tracks.TrackTentative}, TrackLengthMeters: 20.0,
 			TrackDurationSecs: 4.0,
 			OcclusionCount:    3,
 			NoisePointRatio:   0.2,
 			SpatialCoverage:   0.9,
-			ObservationCount:  40,
-			ObjectClass:       "pedestrian",
-			ObjectConfidence:  0.8,
-			TrackState:        l5tracks.TrackTentative,
 		},
-		{
-			TrackLengthMeters: 15.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 30,
+			ObjectClass:      "",
+			ObjectConfidence: 0.5,
+			TrackState:       l5tracks.TrackConfirmed}, TrackLengthMeters: 15.0,
 			TrackDurationSecs: 3.0,
 			OcclusionCount:    2,
 			NoisePointRatio:   0.15,
 			SpatialCoverage:   0.8,
-			ObservationCount:  30,
-			ObjectClass:       "",
-			ObjectConfidence:  0.5,
-			TrackState:        l5tracks.TrackConfirmed,
 		},
 	}
 

@@ -564,7 +564,7 @@ func TestFrameBundleToProto_WithTracks(t *testing.T) {
 			TimestampNanos: time.Now().UnixNano(),
 			Tracks: []Track{
 				{
-					TrackID: "track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor"}, State: TrackStateConfirmed,
+					TrackID: "track-001", SensorID: "test-sensor", State: TrackStateConfirmed,
 					X:        15.0,
 					Y:        25.0,
 					SpeedMps: 5.0,
@@ -626,15 +626,15 @@ func TestFrameBundleToProto_TrackFieldCompleteness(t *testing.T) {
 			TimestampNanos: 1_000_000_000,
 			Tracks: []Track{
 				{
-					TrackID: "trk-full", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+					TrackID: "trk-full", SensorID: "test-sensor",
 
-						ObservationCount: 13,
+					ObservationCount: 13,
 
-						HeightP95Max:     1.65,
-						IntensityMeanAvg: 42.0,
-						AvgSpeedMps:      4.2,
-						MaxSpeedMps:      6.8,
-						ObjectClass:      "car"}, State: TrackStateConfirmed,
+					HeightP95Max:     1.65,
+					IntensityMeanAvg: 42.0,
+					AvgSpeedMps:      4.2,
+					MaxSpeedMps:      6.8,
+					ObjectClass:      "car", State: TrackStateConfirmed,
 					Hits:   10,
 					Misses: 3,
 
@@ -1595,8 +1595,8 @@ func TestObjectClassConversionInProtoMessages(t *testing.T) {
 	// Create test tracks with various classifications
 	testTracks := []Track{
 		{
-			TrackID: "trk-car", TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: string(l6objects.ClassCar),
-				SensorID: "sensor-1"}, State: TrackStateConfirmed,
+			TrackID: "trk-car", ObjectClass: string(l6objects.ClassCar),
+			SensorID: "sensor-1", State: TrackStateConfirmed,
 			Hits:       10,
 			Misses:     0,
 			Confidence: 0.95,
@@ -1608,8 +1608,8 @@ func TestObjectClassConversionInProtoMessages(t *testing.T) {
 			Alpha:      1.0,
 		},
 		{
-			TrackID: "trk-pedestrian", TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: string(l6objects.ClassPedestrian),
-				SensorID: "sensor-1"}, State: TrackStateConfirmed,
+			TrackID: "trk-pedestrian", ObjectClass: string(l6objects.ClassPedestrian),
+			SensorID: "sensor-1", State: TrackStateConfirmed,
 			Hits:       8,
 			Misses:     0,
 			Confidence: 0.85,
@@ -1621,8 +1621,8 @@ func TestObjectClassConversionInProtoMessages(t *testing.T) {
 			Alpha:      1.0,
 		},
 		{
-			TrackID: "trk-bird", TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: string(l6objects.ClassBird),
-				SensorID: "sensor-1"}, State: TrackStateConfirmed,
+			TrackID: "trk-bird", ObjectClass: string(l6objects.ClassBird),
+			SensorID: "sensor-1", State: TrackStateConfirmed,
 			Hits:       5,
 			Misses:     0,
 			Confidence: 0.7,
@@ -1634,8 +1634,8 @@ func TestObjectClassConversionInProtoMessages(t *testing.T) {
 			Alpha:      1.0,
 		},
 		{
-			TrackID: "trk-unclassified", TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: "", // Unspecified
-				SensorID: "sensor-1"}, State: TrackStateTentative,
+			TrackID: "trk-unclassified", ObjectClass: "", // Unspecified
+			SensorID: "sensor-1", State: TrackStateTentative,
 			Hits:       2,
 			Misses:     1,
 			Confidence: 0.5,

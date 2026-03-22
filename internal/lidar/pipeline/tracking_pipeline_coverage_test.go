@@ -1369,8 +1369,8 @@ func TestDBInsertErrors(t *testing.T) {
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
 			{
-				TrackID: "err-t1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 10,
-					AvgSpeedMps: 4.0},
+				TrackID: "err-t1", ObservationCount: 10,
+				AvgSpeedMps: 4.0,
 			},
 		},
 	}
@@ -1407,7 +1407,7 @@ func TestRegistryRunManager(t *testing.T) {
 	bm := testBackgroundManagerPrePopulated(t)
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
-			{TrackID: "reg-t1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 10, AvgSpeedMps: 5.0}},
+			{TrackID: "reg-t1", ObservationCount: 10, AvgSpeedMps: 5.0},
 		},
 	}
 
@@ -1440,10 +1440,10 @@ func TestFeatureExportWithRunManager(t *testing.T) {
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
 			{
-				TrackID: "fe-t1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: minObsForClassification() + 5,
-					AvgSpeedMps:      6.0,
-					ObjectClass:      "vehicle",
-					ObjectConfidence: 0.9},
+				TrackID: "fe-t1", ObservationCount: minObsForClassification() + 5,
+				AvgSpeedMps:      6.0,
+				ObjectClass:      "vehicle",
+				ObjectConfidence: 0.9,
 			},
 		},
 	}
@@ -1473,15 +1473,15 @@ func TestDBPersistenceAndObservation(t *testing.T) {
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
 			{
-				TrackID: "db-t1", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "cov-db",
-					ObservationCount: 8,
-					AvgSpeedMps:      4.5,
+				TrackID: "db-t1", SensorID: "cov-db",
+				ObservationCount: 8,
+				AvgSpeedMps:      4.5,
 
-					BoundingBoxLengthAvg: 4.0,
-					BoundingBoxWidthAvg:  1.8,
-					BoundingBoxHeightAvg: 1.5,
-					HeightP95Max:         2.0,
-					IntensityMeanAvg:     45.0}, X: 1.0,
+				BoundingBoxLengthAvg: 4.0,
+				BoundingBoxWidthAvg:  1.8,
+				BoundingBoxHeightAvg: 1.5,
+				HeightP95Max:         2.0,
+				IntensityMeanAvg:     45.0, X: 1.0,
 				Y:  2.0,
 				VX: 0.3,
 				VY: 0.1,
@@ -1527,9 +1527,9 @@ func TestAnalysisRunManagerRecordTrack(t *testing.T) {
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
 			{
-				TrackID: "rt-t1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: minObsForClassification(),
-					AvgSpeedMps: 3.0,
-					ObjectClass: ""}, // triggers classify
+				TrackID: "rt-t1", ObservationCount: minObsForClassification(),
+				AvgSpeedMps: 3.0,
+				ObjectClass: "", // triggers classify
 			},
 		},
 	}
@@ -1595,7 +1595,7 @@ func TestDebugModeConfirmedTracks(t *testing.T) {
 
 	tracker := &mockTrackerCov{
 		confirmedTracks: []*l5tracks.TrackedObject{
-			{TrackID: "dbg-t1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 3, AvgSpeedMps: 2.0}},
+			{TrackID: "dbg-t1", ObservationCount: 3, AvgSpeedMps: 2.0},
 		},
 	}
 

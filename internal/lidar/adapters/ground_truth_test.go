@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -58,9 +59,10 @@ func TestComputeTemporalIoU(t *testing.T) {
 	}{
 		{
 			name: "identical ranges",
-			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
-				EndUnixNanos: 2000},
-			},
+			ref: &sqlite.RunTrack{
+				TrackMeasurement: l5tracks.TrackMeasurement{
+					StartUnixNanos: 1000,
+					EndUnixNanos:   2000}},
 			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
 				EndUnixNanos: 2000},
 			},

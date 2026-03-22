@@ -68,12 +68,12 @@ func TestSerializeDeserialize_FullFrame(t *testing.T) {
 			TimestampNanos: 1234567890,
 			Tracks: []l9endpoints.Track{
 				{
-					TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "s1",
+					TrackID: "t1", SensorID: "s1",
 
-						ObservationCount: 12,
+					ObservationCount: 12,
 
-						HeightP95Max: 1.8, IntensityMeanAvg: 120, AvgSpeedMps: 4.5, MaxSpeedMps: 8.0,
-						ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+					HeightP95Max: 1.8, IntensityMeanAvg: 120, AvgSpeedMps: 4.5, MaxSpeedMps: 8.0,
+					ObjectClass: "car", State: l9endpoints.TrackStateConfirmed,
 					Hits: 10, Misses: 2,
 					FirstSeenNanos: 1000, LastSeenNanos: 2000,
 					X: 1.0, Y: 2.0, Z: 3.0, VX: 0.5, VY: 0.3, VZ: 0.0,

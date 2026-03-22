@@ -1698,7 +1698,7 @@ func TestProtoRoundTrip_MaxSpeedMps(t *testing.T) {
 		TimestampNanos: frame.TimestampNanos,
 		Tracks: []l9endpoints.Track{
 			{
-				TrackID: "trk-speed-1", TrackMeasurement: l5tracks.TrackMeasurement{MaxSpeedMps: 12.75}, SpeedMps: 5.5,
+				TrackID: "trk-speed-1", MaxSpeedMps: 12.75, SpeedMps: 5.5,
 			},
 		},
 	}

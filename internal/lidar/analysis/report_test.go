@@ -654,14 +654,14 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 				TimestampNanos: ts,
 				Tracks: []l9endpoints.Track{
 					{
-						TrackID: "confirmed-1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
-							MaxSpeedMps: 6.0,
+						TrackID: "confirmed-1", AvgSpeedMps: 5.0,
+						MaxSpeedMps: 6.0,
 
-							HeightP95Max: 1.2,
+						HeightP95Max: 1.2,
 
-							ObservationCount: i + 1,
+						ObservationCount: i + 1,
 
-							ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+						ObjectClass: "car", State: l9endpoints.TrackStateConfirmed,
 						SpeedMps: 5.0,
 
 						X:          float32(i),
@@ -683,7 +683,7 @@ func TestGenerateReportWithMixedTracks(t *testing.T) {
 						LastSeenNanos:     ts,
 					},
 					{
-						TrackID: "tentative-1", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 2}, State: l9endpoints.TrackStateTentative,
+						TrackID: "tentative-1", ObservationCount: 2, State: l9endpoints.TrackStateTentative,
 						SpeedMps: 3.0,
 
 						MotionModel:    l9endpoints.MotionModelCA,
@@ -958,9 +958,9 @@ func TestGenerateReportJitterAlignmentMetrics(t *testing.T) {
 			Tracks: &l9endpoints.TrackSet{
 				Tracks: []l9endpoints.Track{
 					{
-						TrackID: "j1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: speed,
-							MaxSpeedMps:      speed,
-							ObservationCount: i + 1}, State: l9endpoints.TrackStateConfirmed,
+						TrackID: "j1", AvgSpeedMps: speed,
+						MaxSpeedMps:      speed,
+						ObservationCount: i + 1, State: l9endpoints.TrackStateConfirmed,
 						SpeedMps:   speed,
 						HeadingRad: heading,
 						X:          float32(i),
