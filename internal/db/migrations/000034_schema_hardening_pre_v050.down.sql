@@ -50,6 +50,10 @@ DROP VIEW IF EXISTS lidar_all_tracks;
 
      DROP INDEX IF EXISTS idx_lidar_tuning_sweeps_status;
 
+     DROP INDEX IF EXISTS idx_transit_links_transit;
+
+     DROP INDEX IF EXISTS idx_transit_links_data;
+
      DROP INDEX IF EXISTS idx_site_reports_site_id;
 
      DROP INDEX IF EXISTS idx_site_reports_created_at;
@@ -501,6 +505,47 @@ RENAME TO site_config_periods;
     ALTER TABLE site_reports_old
 RENAME TO site_reports;
 
+   CREATE TABLE radar_data_old (
+          write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , raw_event JSON NOT NULL
+        , uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED
+        , magnitude DOUBLE AS (JSON_EXTRACT(raw_event, '$.magnitude')) STORED
+        , speed DOUBLE AS (JSON_EXTRACT(raw_event, '$.speed')) STORED
+          );
+
+   INSERT INTO radar_data_old (rowid, write_timestamp, raw_event)
+   SELECT data_id
+        , write_timestamp
+        , raw_event
+     FROM radar_data;
+
+     DROP TABLE radar_data;
+
+    ALTER TABLE radar_data_old
+RENAME TO radar_data;
+
+   CREATE TABLE radar_transit_links_old (
+          link_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
+        , data_rowid INTEGER NOT NULL
+        , link_score DOUBLE
+        , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , UNIQUE (transit_id, data_rowid)
+          );
+
+   INSERT INTO radar_transit_links_old (link_id, transit_id, data_rowid, link_score, created_at)
+   SELECT link_id
+        , transit_id
+        , data_rowid
+        , link_score
+        , created_at
+     FROM radar_transit_links;
+
+     DROP TABLE radar_transit_links;
+
+    ALTER TABLE radar_transit_links_old
+RENAME TO radar_transit_links;
+
 CREATE INDEX idx_lidar_runs_created ON lidar_run_records (created_at);
 
 CREATE INDEX idx_lidar_runs_source ON lidar_run_records (source_path);
@@ -538,6 +583,10 @@ CREATE INDEX idx_lidar_replay_cases_pcap ON lidar_replay_cases (pcap_file);
 CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
 
 CREATE INDEX idx_lidar_tuning_sweeps_status ON lidar_tuning_sweeps (status);
+
+CREATE INDEX idx_transit_links_transit ON radar_transit_links (transit_id);
+
+CREATE INDEX idx_transit_links_data ON radar_transit_links (data_rowid);
 
 CREATE INDEX idx_site_reports_site_id ON site_reports (site_id);
 

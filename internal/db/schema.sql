@@ -330,7 +330,8 @@
           );
 
    CREATE TABLE IF NOT EXISTS "radar_data" (
-          write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+          data_id INTEGER PRIMARY KEY AUTOINCREMENT
+        , write_timestamp DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , raw_event JSON NOT NULL
         , uptime DOUBLE AS (JSON_EXTRACT(raw_event, '$.uptime')) STORED
         , magnitude DOUBLE AS (JSON_EXTRACT(raw_event, '$.magnitude')) STORED
@@ -373,7 +374,7 @@
    CREATE TABLE radar_transit_links (
           link_id INTEGER PRIMARY KEY AUTOINCREMENT
         , transit_id INTEGER NOT NULL REFERENCES radar_data_transits (transit_id) ON DELETE CASCADE
-        , data_rowid INTEGER NOT NULL REFERENCES radar_data (rowid) ON DELETE CASCADE
+        , data_rowid INTEGER NOT NULL REFERENCES radar_data (data_id) ON DELETE CASCADE
         , link_score DOUBLE
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , UNIQUE (transit_id, data_rowid)
