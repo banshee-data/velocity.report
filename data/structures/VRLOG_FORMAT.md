@@ -7,7 +7,7 @@ timestamped `FrameBundle` snapshots from the velocity.report perception pipeline
 seekable replay, labelling, and offline analysis.
 
 **Version:** 0.5
-**Source:** [`internal/lidar/visualiser/recorder/recorder.go`](../../internal/lidar/visualiser/recorder/recorder.go)
+**Source:** [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)
 
 ## Directory Layout
 
@@ -160,7 +160,7 @@ into each chunk frame:
 `Clusters`, `Tracks`) are nil. These frames exist for deterministic 1:1
 PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
-Full model definition: [`internal/lidar/visualiser/model.go`](../../internal/lidar/visualiser/model.go)
+Full model definition: [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)
 
 ## Deterministic Recording Guarantee (v0.5+)
 
@@ -228,6 +228,6 @@ The `Replayer` supports:
 ## Related
 
 - [Protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto) — gRPC API contract and target serialisation format
-- [FrameBundle model](../../internal/lidar/visualiser/model.go) — canonical Go struct
-- [Recorder / Replayer](../../internal/lidar/visualiser/recorder/recorder.go) — read/write implementation
+- [FrameBundle model](../../internal/lidar/l9endpoints/model.go) — canonical Go struct
+- [Recorder / Replayer](../../internal/lidar/l9endpoints/recorder/recorder.go) — read/write implementation
 - [gen-vrlog tool](../../cmd/tools/gen-vrlog/main.go) — CLI tool to generate sample recordings
