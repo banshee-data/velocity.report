@@ -6,14 +6,16 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 **Formatting:** Backlog items describe outstanding work only. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline — the Complete section is the record of delivered work.
 
-## v0.5.0 (Platform Hardening)
+## 05x Sunny Southeast 🌞
+
+### v0.5.0 - Platform Hardening (050)
 
 - LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
-## v0.5.1 (Data Contracts + Layer Foundations)
+### v0.5.1 - Data Contracts + Layer Foundations (051)
 
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
@@ -24,7 +26,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.2). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go god file splitting Phase 1 complete (1A–1G) — all seven Tier 1 god files split; remaining Tier 2/3 large-file splits are Phase 2 stretch goals. [design doc](plans/go-god-file-split-plan.md) `S`
 
-## v0.5.2 (Replay/Runtime Stabilisation)
+### v0.5.2 - Replay/Runtime Stabilisation (052)
 
 - [#389] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
@@ -38,14 +40,16 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - Database SQL boundary consolidation — enforce two-package model for all SQL operations, document and enforce via CI; decide between two-package or single-package long-term. [design doc](plans/data-database-alignment-plan.md) `M`
 
-## v0.5.3 (Product Polish + Release Readiness)
+### v0.5.3 - Product Polish + Release Readiness (053)
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
-## v0.6 (Deployment & Packaging)
+## 06x Ceilí Calling 🎻
+
+### v0.6.0 - Deployment & Packaging (060)
 
 - (#210) Raspberry Pi imager pipeline, downloadable `vr_v0.6.0.img.gz` asset with precompiled binary + LaTeX — [design doc](plans/deploy-rpi-imager-fork-plan.md) `L`
 - Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
@@ -62,7 +66,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
 - LiDAR pipeline performance measurement harness — add per-layer timing instrumentation, CI integration, and regression detection for pipeline performance. [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 
-## v0.7 (Unified Frontend)
+## 07x Rebel Realm ⛰️
+
+### v0.7.0 - Unified Frontend (070)
 
 - (#252) Frontend consolidation (Phases 0–5) — migrate status/regions/sweep to Svelte, retire port 8081 — [design doc](plans/web-frontend-consolidation-plan.md) `L`
 - ECharts → LayerChart rewrite (8 charts, D-11) — migrate all radar/lidar charts to Svelte LayerChart — [design doc](ui/DESIGN.md) `L`
@@ -76,7 +82,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - VelocityVisualiser light mode (3D scene) — follow system dark/light mode with tuned point cloud, trails, and box colours — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 
-## v0.8 (Radar Polish & Automation)
+## 08x Mobile Mesh 📶
+
+### v0.8.0 - Radar Polish + Automation (080)
 
 - (#4) Radar configuration via UI — read and send radar config commands through the web interface — [design doc](radar/architecture/serial-configuration-ui.md) `M`
 - (#323) Speed limit schedules (D-16) — time-based speed limits for school zones and weekday/weekend variation — [design doc](radar/architecture/speed-limit-schedules.md) `L`
@@ -87,7 +95,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - TicTacTail Phase 1 incubation (D-23) — in-repo pkg/tictactail engine + bounded cache + VRLOG thin adapter extraction — [design doc](plans/tictactail-platform-plan.md) `M`
 
-## v0.9.0 (Production-Ready)
+## 09x Banter Belt 💬
+
+### v0.9.0 - Production-Ready (090)
 
 - (#8) Data management (backup/archiving) — define backup destinations, read historical archives and rollup SQLite files from remote HTTP location — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - (#122) Database monitoring UI — daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard — [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
