@@ -73,7 +73,7 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-foreground-forward` (bool) — Forward foreground-only LiDAR packets to a separate port.
 - `--lidar-foreground-forward-port` (int) — Foreground forwarding destination port (default: `2370`).
 - `--lidar-foreground-forward-addr` (string) — Foreground forwarding destination address (default: `localhost`).
-- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 LiDAR networking remains per-process configuration for now. The listener and
 forwarding ports plus `--lidar-udp-rcv-buf` are startup-only CLI settings and
@@ -83,22 +83,22 @@ are not hot-reloadable via the JSON tuning config.
 
 Runtime switching lets you replay captures without special startup flags:
 
-1. **Create the PCAP directory** (default: `../sensor-data/lidar`):
+1. **Create the PCAP directory** (default: `../sensor_data/lidar`):
 
    ```bash
-   mkdir -p ../sensor-data/lidar
+   mkdir -p ../sensor_data/lidar
    ```
 
 2. **Place your PCAP files** in this directory:
 
    ```bash
-   cp /path/to/your/file.pcap ../sensor-data/lidar/
+   cp /path/to/your/file.pcap ../sensor_data/lidar/
    ```
 
 3. **Start the server** with LiDAR enabled (no dedicated PCAP mode required):
 
    ```bash
-   ./radar --enable-lidar --lidar-pcap-dir ../sensor-data/lidar
+   ./radar --enable-lidar --lidar-pcap-dir ../sensor_data/lidar
    ```
 
 4. **Switch to PCAP** via the API:
