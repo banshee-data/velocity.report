@@ -23,6 +23,12 @@ class LabelAPIClient {
     /// Current session ID for grouping labels.
     var sessionID: String = UUID().uuidString
 
+    /// Replay-owned labels must carry a replay case owner after the v0.5.0 schema reset.
+    var replayCaseID: String = ""
+
+    /// Optional durable run-track linkage for replay annotations.
+    var runID: String = ""
+
     /// Source file being annotated (for replay mode).
     var sourceFile: String = ""
 
@@ -50,6 +56,8 @@ class LabelAPIClient {
             "track_id": trackID, "class_label": classLabel, "start_timestamp_ns": startTimestampNs,
             "created_by": createdBy, "notes": notes,
         ]
+        if !replayCaseID.isEmpty { payload["replay_case_id"] = replayCaseID }
+        if !runID.isEmpty { payload["run_id"] = runID }
         if let endTimestampNs = endTimestampNs { payload["end_timestamp_ns"] = endTimestampNs }
         if let confidence = confidence { payload["confidence"] = confidence }
         if !sourceFile.isEmpty { payload["source_file"] = sourceFile }
@@ -69,7 +77,11 @@ class LabelAPIClient {
     func getLabelsForSession() async throws -> [LabelEvent] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/labels"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
+        if !replayCaseID.isEmpty {
+            components.queryItems = [URLQueryItem(name: "replay_case_id", value: replayCaseID)]
+        } else {
+            components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
+        }
 
         let (data, response) = try await session.data(from: components.url!)
 
@@ -84,7 +96,11 @@ class LabelAPIClient {
     func getLabelsForTrack(_ trackID: String) async throws -> [LabelEvent] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/labels"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "track_id", value: trackID)]
+        var queryItems = [URLQueryItem(name: "track_id", value: trackID)]
+        if !replayCaseID.isEmpty {
+            queryItems.append(URLQueryItem(name: "replay_case_id", value: replayCaseID))
+        }
+        components.queryItems = queryItems
 
         let (data, response) = try await session.data(from: components.url!)
 
@@ -132,7 +148,11 @@ class LabelAPIClient {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/labels/export"),
             resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
+        if !replayCaseID.isEmpty {
+            components.queryItems = [URLQueryItem(name: "replay_case_id", value: replayCaseID)]
+        } else {
+            components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
+        }
 
         let (data, response) = try await session.data(from: components.url!)
 

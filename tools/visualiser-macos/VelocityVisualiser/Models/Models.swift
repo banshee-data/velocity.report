@@ -326,6 +326,8 @@ struct PlaybackInfo {
 
 struct LabelEvent: Identifiable, Codable {
     var id: String = UUID().uuidString
+    var replayCaseID: String? = nil
+    var runID: String? = nil
     var trackID: String = ""
     var classLabel: String = ""
     var startTimestampNs: Int64 = 0
@@ -335,11 +337,12 @@ struct LabelEvent: Identifiable, Codable {
     var createdAtNs: Int64 = 0
     var updatedAtNs: Int64? = nil
     var notes: String? = nil
-    var sceneID: String? = nil
     var sourceFile: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id = "label_id"
+        case replayCaseID = "replay_case_id"
+        case runID = "run_id"
         case trackID = "track_id"
         case classLabel = "class_label"
         case startTimestampNs = "start_timestamp_ns"
@@ -349,7 +352,6 @@ struct LabelEvent: Identifiable, Codable {
         case createdAtNs = "created_at_ns"
         case updatedAtNs = "updated_at_ns"
         case notes
-        case sceneID = "scene_id"
         case sourceFile = "source_file"
     }
 }

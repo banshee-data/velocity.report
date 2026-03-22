@@ -1028,10 +1028,9 @@ private let logger = DevLogger(category: "AppState")
                     logger.info(
                         "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
                 } else {
-                    // Fallback to free-form label API for live mode
-                    _ = try await labelClient.createLabel(
-                        trackID: trackID, classLabel: label, startTimestampNs: currentTimestamp)
-                    logger.info("Label '\(label)' saved for track \(trackID)")
+                    logger.notice(
+                        "Skipping backend save for live label '\(label)' on track \(trackID); replay-owned free-form annotations now require replay_case_id"
+                    )
                 }
             } catch { logger.error("Failed to save label: \(error.localizedDescription)") }
         }
@@ -1055,9 +1054,11 @@ private let logger = DevLogger(category: "AppState")
                         runBrowserState.applySuccessfulLabelUpdate(
                             runID: runID, trackID: track.trackID, userLabel: label)
                     } else {
-                        _ = try await labelClient.createLabel(
-                            trackID: track.trackID, classLabel: label,
-                            startTimestampNs: currentTimestamp)
+                        failed += 1
+                        logger.notice(
+                            "Skipping backend save for live bulk label '\(label)' on track \(track.trackID); replay-owned free-form annotations now require replay_case_id"
+                        )
+                        continue
                     }
                     succeeded += 1
                 } catch {
