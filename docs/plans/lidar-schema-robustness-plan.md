@@ -236,7 +236,7 @@ That keeps global FK enforcement from breaking unrelated report generation flows
 
 Deliverables:
 
-- migration set `000032`/`000033` for:
+- migration set `000033`/`000034` for:
   - replay-owned annotations
   - FK-on compatibility
   - run lineage and replay evaluation fixes
