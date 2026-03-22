@@ -84,7 +84,8 @@ help:
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
-	@echo "  schema-erd           Generate schema ERD (entity-relationship diagram) as SVG"
+	@echo "  schema-erd           Regenerate grouped schema DOT and render schema SVG"
+	@echo "  schema-erd-compile   Render schema SVG from an existing SCHEMA.dot"
 	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
@@ -882,7 +883,7 @@ test-perf:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd schema-erd-compile
 
 # Apply all pending migrations
 migrate-up:
@@ -940,8 +941,13 @@ schema-sync:
 
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
-	@echo "Generating schema ERD (schema.svg)..."
-	@bash scripts/sqlite-erd/graph.sh internal/db/schema.sql
+	@echo "Generating schema ERD DOT+SVG..."
+	@bash scripts/sqlite-erd/graph.sh --generate internal/db/schema.sql
+
+# Render schema ERD SVG from an existing DOT file
+schema-erd-compile:
+	@echo "Compiling schema ERD from SCHEMA.dot..."
+	@bash scripts/sqlite-erd/graph.sh --compile
 
 # =============================================================================
 # FORMATTING (mutating)

@@ -1,0 +1,1307 @@
+digraph structs {
+rankdir="LR"
+node [shape=none]
+newrank=true
+subgraph cluster_site {
+  graph [label="SITE", labelloc="t", labeljust="l", style="rounded", color="#aaaaaa"];
+  site [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>site</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="id_to">🔑</TD>
+                      <TD PORT="id_from">id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="name_to">&nbsp;</TD>
+                      <TD PORT="name_from">name</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="location_to">&nbsp;</TD>
+                      <TD PORT="location_from">location</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="description_to">&nbsp;</TD>
+                      <TD PORT="description_from">description</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="surveyor_to">&nbsp;</TD>
+                      <TD PORT="surveyor_from">surveyor</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="contact_to">&nbsp;</TD>
+                      <TD PORT="contact_from">contact</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="address_to">&nbsp;</TD>
+                      <TD PORT="address_from">address</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="latitude_to">&nbsp;</TD>
+                      <TD PORT="latitude_from">latitude</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="longitude_to">&nbsp;</TD>
+                      <TD PORT="longitude_from">longitude</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="map_angle_to">&nbsp;</TD>
+                      <TD PORT="map_angle_from">map_angle</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="include_map_to">&nbsp;</TD>
+                      <TD PORT="include_map_from">include_map</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="site_description_to">&nbsp;</TD>
+                      <TD PORT="site_description_from">site_description</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="created_at_to">&nbsp;</TD>
+                      <TD PORT="created_at_from">created_at</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="updated_at_to">&nbsp;</TD>
+                      <TD PORT="updated_at_from">updated_at</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="bbox_ne_lat_to">&nbsp;</TD>
+                      <TD PORT="bbox_ne_lat_from">bbox_ne_lat</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="bbox_ne_lng_to">&nbsp;</TD>
+                      <TD PORT="bbox_ne_lng_from">bbox_ne_lng</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="bbox_sw_lat_to">&nbsp;</TD>
+                      <TD PORT="bbox_sw_lat_from">bbox_sw_lat</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="bbox_sw_lng_to">&nbsp;</TD>
+                      <TD PORT="bbox_sw_lng_from">bbox_sw_lng</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="map_svg_data_to">&nbsp;</TD>
+                      <TD PORT="map_svg_data_from">map_svg_data</TD>
+                  </TR>
+              </TABLE>
+          >];
+  site_config_periods [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>site_config_periods</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="id_to">🔑</TD>
+                      <TD PORT="id_from">id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="site_id_to">&nbsp;</TD>
+                      <TD PORT="site_id_from">site_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="effective_start_unix_to">&nbsp;</TD>
+                      <TD PORT="effective_start_unix_from">effective_start_unix</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="effective_end_unix_to">&nbsp;</TD>
+                      <TD PORT="effective_end_unix_from">effective_end_unix</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="is_active_to">&nbsp;</TD>
+                      <TD PORT="is_active_from">is_active</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="notes_to">&nbsp;</TD>
+                      <TD PORT="notes_from">notes</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="cosine_error_angle_to">&nbsp;</TD>
+                      <TD PORT="cosine_error_angle_from">cosine_error_angle</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="created_at_to">&nbsp;</TD>
+                      <TD PORT="created_at_from">created_at</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="updated_at_to">&nbsp;</TD>
+                      <TD PORT="updated_at_from">updated_at</TD>
+                  </TR>
+              </TABLE>
+          >];
+  site_reports [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>site_reports</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="id_to">🔑</TD>
+                      <TD PORT="id_from">id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="site_id_to">&nbsp;</TD>
+                      <TD PORT="site_id_from">site_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="start_date_to">&nbsp;</TD>
+                      <TD PORT="start_date_from">start_date</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="end_date_to">&nbsp;</TD>
+                      <TD PORT="end_date_from">end_date</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="filepath_to">&nbsp;</TD>
+                      <TD PORT="filepath_from">filepath</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="filename_to">&nbsp;</TD>
+                      <TD PORT="filename_from">filename</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="zip_filepath_to">&nbsp;</TD>
+                      <TD PORT="zip_filepath_from">zip_filepath</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="zip_filename_to">&nbsp;</TD>
+                      <TD PORT="zip_filename_from">zip_filename</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="run_id_to">&nbsp;</TD>
+                      <TD PORT="run_id_from">run_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="timezone_to">&nbsp;</TD>
+                      <TD PORT="timezone_from">timezone</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="units_to">&nbsp;</TD>
+                      <TD PORT="units_from">units</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="source_to">&nbsp;</TD>
+                      <TD PORT="source_from">source</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="created_at_to">&nbsp;</TD>
+                      <TD PORT="created_at_from">created_at</TD>
+                  </TR>
+              </TABLE>
+          >];
+}
+subgraph cluster_lidar {
+  graph [label="LIDAR", labelloc="t", labeljust="l", style="rounded", color="#aaaaaa"];
+  subgraph cluster_lidar_tracks {
+    graph [style="invis"];
+    subgraph lidar_tracks_col1 {
+      rank=same;
+      lidar_track_observations [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_track_observations</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_id_to">🔑</TD>
+                          <TD PORT="track_id_from">track_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="ts_unix_nanos_to">🔑</TD>
+                          <TD PORT="ts_unix_nanos_from">ts_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="frame_id_to">&nbsp;</TD>
+                          <TD PORT="frame_id_from">frame_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="x_to">&nbsp;</TD>
+                          <TD PORT="x_from">x</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="y_to">&nbsp;</TD>
+                          <TD PORT="y_from">y</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="z_to">&nbsp;</TD>
+                          <TD PORT="z_from">z</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="velocity_x_to">&nbsp;</TD>
+                          <TD PORT="velocity_x_from">velocity_x</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="velocity_y_to">&nbsp;</TD>
+                          <TD PORT="velocity_y_from">velocity_y</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="speed_mps_to">&nbsp;</TD>
+                          <TD PORT="speed_mps_from">speed_mps</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="heading_rad_to">&nbsp;</TD>
+                          <TD PORT="heading_rad_from">heading_rad</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_length_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_length_from">bounding_box_length</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_width_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_width_from">bounding_box_width</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_height_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_height_from">bounding_box_height</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="height_p95_to">&nbsp;</TD>
+                          <TD PORT="height_p95_from">height_p95</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="intensity_mean_to">&nbsp;</TD>
+                          <TD PORT="intensity_mean_from">intensity_mean</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_tracks_col2 {
+      rank=same;
+      lidar_track_annotations [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_track_annotations</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="label_id_to">🔑</TD>
+                          <TD PORT="label_id_from">label_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_id_to">&nbsp;</TD>
+                          <TD PORT="track_id_from">track_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="class_label_to">&nbsp;</TD>
+                          <TD PORT="class_label_from">class_label</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="start_timestamp_ns_to">&nbsp;</TD>
+                          <TD PORT="start_timestamp_ns_from">start_timestamp_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="end_timestamp_ns_to">&nbsp;</TD>
+                          <TD PORT="end_timestamp_ns_from">end_timestamp_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="confidence_to">&nbsp;</TD>
+                          <TD PORT="confidence_from">confidence</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_by_to">&nbsp;</TD>
+                          <TD PORT="created_by_from">created_by</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_at_ns_to">&nbsp;</TD>
+                          <TD PORT="created_at_ns_from">created_at_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="updated_at_ns_to">&nbsp;</TD>
+                          <TD PORT="updated_at_ns_from">updated_at_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="notes_to">&nbsp;</TD>
+                          <TD PORT="notes_from">notes</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="replay_case_id_to">&nbsp;</TD>
+                          <TD PORT="replay_case_id_from">replay_case_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="source_file_to">&nbsp;</TD>
+                          <TD PORT="source_file_from">source_file</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_tracks_col3 {
+      rank=same;
+      lidar_tracks [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_tracks</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_id_to">🔑</TD>
+                          <TD PORT="track_id_from">track_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="frame_id_to">&nbsp;</TD>
+                          <TD PORT="frame_id_from">frame_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_state_to">&nbsp;</TD>
+                          <TD PORT="track_state_from">track_state</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="start_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="start_unix_nanos_from">start_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="end_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="end_unix_nanos_from">end_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="observation_count_to">&nbsp;</TD>
+                          <TD PORT="observation_count_from">observation_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="avg_speed_mps_to">&nbsp;</TD>
+                          <TD PORT="avg_speed_mps_from">avg_speed_mps</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="max_speed_mps_to">&nbsp;</TD>
+                          <TD PORT="max_speed_mps_from">max_speed_mps</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_length_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_length_avg_from">bounding_box_length_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_width_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_width_avg_from">bounding_box_width_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_height_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_height_avg_from">bounding_box_height_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="height_p95_max_to">&nbsp;</TD>
+                          <TD PORT="height_p95_max_from">height_p95_max</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="intensity_mean_avg_to">&nbsp;</TD>
+                          <TD PORT="intensity_mean_avg_from">intensity_mean_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="object_class_to">&nbsp;</TD>
+                          <TD PORT="object_class_from">object_class</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="object_confidence_to">&nbsp;</TD>
+                          <TD PORT="object_confidence_from">object_confidence</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="classification_model_to">&nbsp;</TD>
+                          <TD PORT="classification_model_from">classification_model</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_length_meters_to">&nbsp;</TD>
+                          <TD PORT="track_length_meters_from">track_length_meters</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_duration_secs_to">&nbsp;</TD>
+                          <TD PORT="track_duration_secs_from">track_duration_secs</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="occlusion_count_to">&nbsp;</TD>
+                          <TD PORT="occlusion_count_from">occlusion_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="max_occlusion_frames_to">&nbsp;</TD>
+                          <TD PORT="max_occlusion_frames_from">max_occlusion_frames</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="spatial_coverage_to">&nbsp;</TD>
+                          <TD PORT="spatial_coverage_from">spatial_coverage</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="noise_point_ratio_to">&nbsp;</TD>
+                          <TD PORT="noise_point_ratio_from">noise_point_ratio</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    lidar_track_observations -> lidar_track_annotations [style="invis", weight=50];
+    lidar_track_annotations -> lidar_tracks [style="invis", weight=50];
+  }
+  subgraph cluster_lidar_analysis_runs {
+    graph [style="invis"];
+    subgraph lidar_analysis_runs_col1 {
+      rank=same;
+      lidar_run_tracks [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_run_tracks</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="run_id_to">🔑</TD>
+                          <TD PORT="run_id_from">run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_id_to">🔑</TD>
+                          <TD PORT="track_id_from">track_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="track_state_to">&nbsp;</TD>
+                          <TD PORT="track_state_from">track_state</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="start_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="start_unix_nanos_from">start_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="end_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="end_unix_nanos_from">end_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="observation_count_to">&nbsp;</TD>
+                          <TD PORT="observation_count_from">observation_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="avg_speed_mps_to">&nbsp;</TD>
+                          <TD PORT="avg_speed_mps_from">avg_speed_mps</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="max_speed_mps_to">&nbsp;</TD>
+                          <TD PORT="max_speed_mps_from">max_speed_mps</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_length_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_length_avg_from">bounding_box_length_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_width_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_width_avg_from">bounding_box_width_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_height_avg_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_height_avg_from">bounding_box_height_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="height_p95_max_to">&nbsp;</TD>
+                          <TD PORT="height_p95_max_from">height_p95_max</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="intensity_mean_avg_to">&nbsp;</TD>
+                          <TD PORT="intensity_mean_avg_from">intensity_mean_avg</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="object_class_to">&nbsp;</TD>
+                          <TD PORT="object_class_from">object_class</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="object_confidence_to">&nbsp;</TD>
+                          <TD PORT="object_confidence_from">object_confidence</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="classification_model_to">&nbsp;</TD>
+                          <TD PORT="classification_model_from">classification_model</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="user_label_to">&nbsp;</TD>
+                          <TD PORT="user_label_from">user_label</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="label_confidence_to">&nbsp;</TD>
+                          <TD PORT="label_confidence_from">label_confidence</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="labeler_id_to">&nbsp;</TD>
+                          <TD PORT="labeler_id_from">labeler_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="labeled_at_to">&nbsp;</TD>
+                          <TD PORT="labeled_at_from">labeled_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="is_split_candidate_to">&nbsp;</TD>
+                          <TD PORT="is_split_candidate_from">is_split_candidate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="is_merge_candidate_to">&nbsp;</TD>
+                          <TD PORT="is_merge_candidate_from">is_merge_candidate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="linked_track_ids_to">&nbsp;</TD>
+                          <TD PORT="linked_track_ids_from">linked_track_ids</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="quality_label_to">&nbsp;</TD>
+                          <TD PORT="quality_label_from">quality_label</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="label_source_to">&nbsp;</TD>
+                          <TD PORT="label_source_from">label_source</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_analysis_runs_col2 {
+      rank=same;
+      lidar_replay_evaluations [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_replay_evaluations</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="evaluation_id_to">🔑</TD>
+                          <TD PORT="evaluation_id_from">evaluation_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="replay_case_id_to">&nbsp;</TD>
+                          <TD PORT="replay_case_id_from">replay_case_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="reference_run_id_to">&nbsp;</TD>
+                          <TD PORT="reference_run_id_from">reference_run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="candidate_run_id_to">&nbsp;</TD>
+                          <TD PORT="candidate_run_id_from">candidate_run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="detection_rate_to">&nbsp;</TD>
+                          <TD PORT="detection_rate_from">detection_rate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="fragmentation_to">&nbsp;</TD>
+                          <TD PORT="fragmentation_from">fragmentation</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="false_positive_rate_to">&nbsp;</TD>
+                          <TD PORT="false_positive_rate_from">false_positive_rate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="velocity_coverage_to">&nbsp;</TD>
+                          <TD PORT="velocity_coverage_from">velocity_coverage</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="quality_premium_to">&nbsp;</TD>
+                          <TD PORT="quality_premium_from">quality_premium</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="truncation_rate_to">&nbsp;</TD>
+                          <TD PORT="truncation_rate_from">truncation_rate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="velocity_noise_rate_to">&nbsp;</TD>
+                          <TD PORT="velocity_noise_rate_from">velocity_noise_rate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="stopped_recovery_rate_to">&nbsp;</TD>
+                          <TD PORT="stopped_recovery_rate_from">stopped_recovery_rate</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="composite_score_to">&nbsp;</TD>
+                          <TD PORT="composite_score_from">composite_score</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="matched_count_to">&nbsp;</TD>
+                          <TD PORT="matched_count_from">matched_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="reference_count_to">&nbsp;</TD>
+                          <TD PORT="reference_count_from">reference_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="candidate_count_to">&nbsp;</TD>
+                          <TD PORT="candidate_count_from">candidate_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="params_json_to">&nbsp;</TD>
+                          <TD PORT="params_json_from">params_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_at_to">&nbsp;</TD>
+                          <TD PORT="created_at_from">created_at</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_analysis_runs_col3 {
+      rank=same;
+      lidar_run_missed_regions [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_run_missed_regions</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="region_id_to">🔑</TD>
+                          <TD PORT="region_id_from">region_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="run_id_to">&nbsp;</TD>
+                          <TD PORT="run_id_from">run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="center_x_to">&nbsp;</TD>
+                          <TD PORT="center_x_from">center_x</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="center_y_to">&nbsp;</TD>
+                          <TD PORT="center_y_from">center_y</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="radius_m_to">&nbsp;</TD>
+                          <TD PORT="radius_m_from">radius_m</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="time_start_ns_to">&nbsp;</TD>
+                          <TD PORT="time_start_ns_from">time_start_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="time_end_ns_to">&nbsp;</TD>
+                          <TD PORT="time_end_ns_from">time_end_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="expected_label_to">&nbsp;</TD>
+                          <TD PORT="expected_label_from">expected_label</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="labeler_id_to">&nbsp;</TD>
+                          <TD PORT="labeler_id_from">labeler_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="labeled_at_to">&nbsp;</TD>
+                          <TD PORT="labeled_at_from">labeled_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="notes_to">&nbsp;</TD>
+                          <TD PORT="notes_from">notes</TD>
+                      </TR>
+                  </TABLE>
+              >];
+      lidar_replay_cases [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_replay_cases</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="replay_case_id_to">🔑</TD>
+                          <TD PORT="replay_case_id_from">replay_case_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="pcap_file_to">&nbsp;</TD>
+                          <TD PORT="pcap_file_from">pcap_file</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="pcap_start_secs_to">&nbsp;</TD>
+                          <TD PORT="pcap_start_secs_from">pcap_start_secs</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="pcap_duration_secs_to">&nbsp;</TD>
+                          <TD PORT="pcap_duration_secs_from">pcap_duration_secs</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="description_to">&nbsp;</TD>
+                          <TD PORT="description_from">description</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="reference_run_id_to">&nbsp;</TD>
+                          <TD PORT="reference_run_id_from">reference_run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="optimal_params_json_to">&nbsp;</TD>
+                          <TD PORT="optimal_params_json_from">optimal_params_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_at_ns_to">&nbsp;</TD>
+                          <TD PORT="created_at_ns_from">created_at_ns</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="updated_at_ns_to">&nbsp;</TD>
+                          <TD PORT="updated_at_ns_from">updated_at_ns</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_analysis_runs_col4 {
+      rank=same;
+      lidar_run_records [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_run_records</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="run_id_to">🔑</TD>
+                          <TD PORT="run_id_from">run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_at_to">&nbsp;</TD>
+                          <TD PORT="created_at_from">created_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="source_type_to">&nbsp;</TD>
+                          <TD PORT="source_type_from">source_type</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="source_path_to">&nbsp;</TD>
+                          <TD PORT="source_path_from">source_path</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="params_json_to">&nbsp;</TD>
+                          <TD PORT="params_json_from">params_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="duration_secs_to">&nbsp;</TD>
+                          <TD PORT="duration_secs_from">duration_secs</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="total_frames_to">&nbsp;</TD>
+                          <TD PORT="total_frames_from">total_frames</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="total_clusters_to">&nbsp;</TD>
+                          <TD PORT="total_clusters_from">total_clusters</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="total_tracks_to">&nbsp;</TD>
+                          <TD PORT="total_tracks_from">total_tracks</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="confirmed_tracks_to">&nbsp;</TD>
+                          <TD PORT="confirmed_tracks_from">confirmed_tracks</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="processing_time_ms_to">&nbsp;</TD>
+                          <TD PORT="processing_time_ms_from">processing_time_ms</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="status_to">&nbsp;</TD>
+                          <TD PORT="status_from">status</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="error_message_to">&nbsp;</TD>
+                          <TD PORT="error_message_from">error_message</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="parent_run_id_to">&nbsp;</TD>
+                          <TD PORT="parent_run_id_from">parent_run_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="notes_to">&nbsp;</TD>
+                          <TD PORT="notes_from">notes</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="statistics_json_to">&nbsp;</TD>
+                          <TD PORT="statistics_json_from">statistics_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="vrlog_path_to">&nbsp;</TD>
+                          <TD PORT="vrlog_path_from">vrlog_path</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    lidar_run_tracks -> lidar_replay_evaluations [style="invis", weight=50];
+    lidar_replay_evaluations -> lidar_run_missed_regions [style="invis", weight=50];
+    lidar_run_missed_regions -> lidar_run_records [style="invis", weight=50];
+  }
+  subgraph cluster_lidar_other {
+    graph [style="invis"];
+    subgraph lidar_other_col1 {
+      rank=same;
+      lidar_bg_regions [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_bg_regions</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="region_set_id_to">🔑</TD>
+                          <TD PORT="region_set_id_from">region_set_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="snapshot_id_to">&nbsp;</TD>
+                          <TD PORT="snapshot_id_from">snapshot_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="created_unix_nanos_from">created_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="region_count_to">&nbsp;</TD>
+                          <TD PORT="region_count_from">region_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="regions_json_to">&nbsp;</TD>
+                          <TD PORT="regions_json_from">regions_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="variance_data_json_to">&nbsp;</TD>
+                          <TD PORT="variance_data_json_from">variance_data_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="settling_frames_to">&nbsp;</TD>
+                          <TD PORT="settling_frames_from">settling_frames</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="grid_hash_to">&nbsp;</TD>
+                          <TD PORT="grid_hash_from">grid_hash</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="source_path_to">&nbsp;</TD>
+                          <TD PORT="source_path_from">source_path</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_other_col2 {
+      rank=same;
+      lidar_bg_snapshot [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_bg_snapshot</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="snapshot_id_to">🔑</TD>
+                          <TD PORT="snapshot_id_from">snapshot_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="taken_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="taken_unix_nanos_from">taken_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="rings_to">&nbsp;</TD>
+                          <TD PORT="rings_from">rings</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="azimuth_bins_to">&nbsp;</TD>
+                          <TD PORT="azimuth_bins_from">azimuth_bins</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="params_json_to">&nbsp;</TD>
+                          <TD PORT="params_json_from">params_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="ring_elevations_json_to">&nbsp;</TD>
+                          <TD PORT="ring_elevations_json_from">ring_elevations_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="grid_blob_to">&nbsp;</TD>
+                          <TD PORT="grid_blob_from">grid_blob</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="changed_cells_count_to">&nbsp;</TD>
+                          <TD PORT="changed_cells_count_from">changed_cells_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="snapshot_reason_to">&nbsp;</TD>
+                          <TD PORT="snapshot_reason_from">snapshot_reason</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_other_col3 {
+      rank=same;
+      lidar_clusters [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_clusters</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="lidar_cluster_id_to">🔑</TD>
+                          <TD PORT="lidar_cluster_id_from">lidar_cluster_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="frame_id_to">&nbsp;</TD>
+                          <TD PORT="frame_id_from">frame_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="ts_unix_nanos_to">&nbsp;</TD>
+                          <TD PORT="ts_unix_nanos_from">ts_unix_nanos</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="centroid_x_to">&nbsp;</TD>
+                          <TD PORT="centroid_x_from">centroid_x</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="centroid_y_to">&nbsp;</TD>
+                          <TD PORT="centroid_y_from">centroid_y</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="centroid_z_to">&nbsp;</TD>
+                          <TD PORT="centroid_z_from">centroid_z</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_length_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_length_from">bounding_box_length</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_width_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_width_from">bounding_box_width</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="bounding_box_height_to">&nbsp;</TD>
+                          <TD PORT="bounding_box_height_from">bounding_box_height</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="points_count_to">&nbsp;</TD>
+                          <TD PORT="points_count_from">points_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="height_p95_to">&nbsp;</TD>
+                          <TD PORT="height_p95_from">height_p95</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="intensity_mean_to">&nbsp;</TD>
+                          <TD PORT="intensity_mean_from">intensity_mean</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="noise_points_count_to">&nbsp;</TD>
+                          <TD PORT="noise_points_count_from">noise_points_count</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="cluster_density_to">&nbsp;</TD>
+                          <TD PORT="cluster_density_from">cluster_density</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="aspect_ratio_to">&nbsp;</TD>
+                          <TD PORT="aspect_ratio_from">aspect_ratio</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    subgraph lidar_other_col4 {
+      rank=same;
+      lidar_tuning_sweeps [label=<
+                  <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                      <TR>
+                          <TD COLSPAN="2"><B>lidar_tuning_sweeps</B></TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="id_to">🔑</TD>
+                          <TD PORT="id_from">id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sweep_id_to">&nbsp;</TD>
+                          <TD PORT="sweep_id_from">sweep_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="sensor_id_to">&nbsp;</TD>
+                          <TD PORT="sensor_id_from">sensor_id</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="mode_to">&nbsp;</TD>
+                          <TD PORT="mode_from">mode</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="status_to">&nbsp;</TD>
+                          <TD PORT="status_from">status</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="request_to">&nbsp;</TD>
+                          <TD PORT="request_from">request</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="results_to">&nbsp;</TD>
+                          <TD PORT="results_from">results</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="charts_to">&nbsp;</TD>
+                          <TD PORT="charts_from">charts</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="recommendation_to">&nbsp;</TD>
+                          <TD PORT="recommendation_from">recommendation</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="round_results_to">&nbsp;</TD>
+                          <TD PORT="round_results_from">round_results</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="error_to">&nbsp;</TD>
+                          <TD PORT="error_from">error</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="started_at_to">&nbsp;</TD>
+                          <TD PORT="started_at_from">started_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="completed_at_to">&nbsp;</TD>
+                          <TD PORT="completed_at_from">completed_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="created_at_to">&nbsp;</TD>
+                          <TD PORT="created_at_from">created_at</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="objective_name_to">&nbsp;</TD>
+                          <TD PORT="objective_name_from">objective_name</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="objective_version_to">&nbsp;</TD>
+                          <TD PORT="objective_version_from">objective_version</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="transform_pipeline_name_to">&nbsp;</TD>
+                          <TD PORT="transform_pipeline_name_from">transform_pipeline_name</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="transform_pipeline_version_to">&nbsp;</TD>
+                          <TD PORT="transform_pipeline_version_from">transform_pipeline_version</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="score_components_json_to">&nbsp;</TD>
+                          <TD PORT="score_components_json_from">score_components_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="recommendation_explanation_json_to">&nbsp;</TD>
+                          <TD PORT="recommendation_explanation_json_from">recommendation_explanation_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="label_provenance_summary_json_to">&nbsp;</TD>
+                          <TD PORT="label_provenance_summary_json_from">label_provenance_summary_json</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="checkpoint_round_to">&nbsp;</TD>
+                          <TD PORT="checkpoint_round_from">checkpoint_round</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="checkpoint_bounds_to">&nbsp;</TD>
+                          <TD PORT="checkpoint_bounds_from">checkpoint_bounds</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="checkpoint_results_to">&nbsp;</TD>
+                          <TD PORT="checkpoint_results_from">checkpoint_results</TD>
+                      </TR>
+                      <TR>
+                          <TD PORT="checkpoint_request_to">&nbsp;</TD>
+                          <TD PORT="checkpoint_request_from">checkpoint_request</TD>
+                      </TR>
+                  </TABLE>
+              >];
+    }
+    lidar_bg_regions -> lidar_bg_snapshot [style="invis", weight=50];
+    lidar_bg_snapshot -> lidar_clusters [style="invis", weight=50];
+    lidar_clusters -> lidar_tuning_sweeps [style="invis", weight=50];
+  }
+  lidar_tracks -> lidar_run_tracks [style="invis", weight=50];
+  { rank=same; lidar_run_tracks; lidar_bg_regions; }
+  { rank=same; lidar_replay_evaluations; lidar_bg_snapshot; }
+  { rank=same; lidar_run_missed_regions; lidar_clusters; }
+  { rank=same; lidar_run_records; lidar_tuning_sweeps; }
+}
+subgraph cluster_radar {
+  graph [label="RADAR", labelloc="t", labeljust="l", style="rounded", color="#aaaaaa"];
+  radar_commands [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_commands</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="command_id_to">🔑</TD>
+                      <TD PORT="command_id_from">command_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="command_to">&nbsp;</TD>
+                      <TD PORT="command_from">command</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="write_timestamp_to">&nbsp;</TD>
+                      <TD PORT="write_timestamp_from">write_timestamp</TD>
+                  </TR>
+              </TABLE>
+          >];
+  radar_data [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_data</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="write_timestamp_to">&nbsp;</TD>
+                      <TD PORT="write_timestamp_from">write_timestamp</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="raw_event_to">&nbsp;</TD>
+                      <TD PORT="raw_event_from">raw_event</TD>
+                  </TR>
+              </TABLE>
+          >];
+  radar_data_transits [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_data_transits</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_id_to">🔑</TD>
+                      <TD PORT="transit_id_from">transit_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_key_to">&nbsp;</TD>
+                      <TD PORT="transit_key_from">transit_key</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="threshold_ms_to">&nbsp;</TD>
+                      <TD PORT="threshold_ms_from">threshold_ms</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_start_unix_to">&nbsp;</TD>
+                      <TD PORT="transit_start_unix_from">transit_start_unix</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_end_unix_to">&nbsp;</TD>
+                      <TD PORT="transit_end_unix_from">transit_end_unix</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_max_speed_to">&nbsp;</TD>
+                      <TD PORT="transit_max_speed_from">transit_max_speed</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_min_speed_to">&nbsp;</TD>
+                      <TD PORT="transit_min_speed_from">transit_min_speed</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_max_magnitude_to">&nbsp;</TD>
+                      <TD PORT="transit_max_magnitude_from">transit_max_magnitude</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_min_magnitude_to">&nbsp;</TD>
+                      <TD PORT="transit_min_magnitude_from">transit_min_magnitude</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="point_count_to">&nbsp;</TD>
+                      <TD PORT="point_count_from">point_count</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="model_version_to">&nbsp;</TD>
+                      <TD PORT="model_version_from">model_version</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="created_at_to">&nbsp;</TD>
+                      <TD PORT="created_at_from">created_at</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="updated_at_to">&nbsp;</TD>
+                      <TD PORT="updated_at_from">updated_at</TD>
+                  </TR>
+              </TABLE>
+          >];
+  radar_objects [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_objects</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="write_timestamp_to">&nbsp;</TD>
+                      <TD PORT="write_timestamp_from">write_timestamp</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="raw_event_to">&nbsp;</TD>
+                      <TD PORT="raw_event_from">raw_event</TD>
+                  </TR>
+              </TABLE>
+          >];
+  radar_transit_links [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_transit_links</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="link_id_to">🔑</TD>
+                      <TD PORT="link_id_from">link_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="transit_id_to">&nbsp;</TD>
+                      <TD PORT="transit_id_from">transit_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="data_rowid_to">&nbsp;</TD>
+                      <TD PORT="data_rowid_from">data_rowid</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="link_score_to">&nbsp;</TD>
+                      <TD PORT="link_score_from">link_score</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="created_at_to">&nbsp;</TD>
+                      <TD PORT="created_at_from">created_at</TD>
+                  </TR>
+              </TABLE>
+          >];
+  radar_command_log [label=<
+              <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                  <TR>
+                      <TD COLSPAN="2"><B>radar_command_log</B></TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="log_id_to">🔑</TD>
+                      <TD PORT="log_id_from">log_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="command_id_to">&nbsp;</TD>
+                      <TD PORT="command_id_from">command_id</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="log_data_to">&nbsp;</TD>
+                      <TD PORT="log_data_from">log_data</TD>
+                  </TR>
+                  <TR>
+                      <TD PORT="write_timestamp_to">&nbsp;</TD>
+                      <TD PORT="write_timestamp_from">write_timestamp</TD>
+                  </TR>
+              </TABLE>
+          >];
+}
+site -> radar_transit_links [style="invis", weight=50];
+site -> radar_command_log [style="invis", weight=50];
+site -> radar_objects [style="invis", weight=50];
+radar_data -> schema_migrations [style="invis", weight=50];
+radar_commands -> schema_migrations [style="invis", weight=50];
+radar_objects -> schema_migrations [style="invis", weight=50];
+schema_migrations [label=<
+            <TABLE BORDER="0" CELLSPACING="0" CELLBORDER="1">
+                <TR>
+                    <TD COLSPAN="2"><B>schema_migrations</B></TD>
+                </TR>
+                <TR>
+                    <TD PORT="version_to">&nbsp;</TD>
+                    <TD PORT="version_from">version</TD>
+                </TR>
+                <TR>
+                    <TD PORT="dirty_to">&nbsp;</TD>
+                    <TD PORT="dirty_from">dirty</TD>
+                </TR>
+            </TABLE>
+        >];
+lidar_bg_regions:snapshot_id_from:e -> lidar_bg_snapshot:snapshot_id_to:w
+lidar_replay_cases:reference_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:candidate_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:reference_run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_replay_evaluations:replay_case_id_from:e -> lidar_replay_cases:replay_case_id_to:w
+lidar_run_missed_regions:run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_run_tracks:run_id_from:e -> lidar_run_records:run_id_to:w
+lidar_track_annotations:track_id_from:e -> lidar_tracks:track_id_to:w
+lidar_track_observations:track_id_from:e -> lidar_tracks:track_id_to:w
+radar_command_log:command_id_from:e -> radar_commands:command_id_to:w
+radar_transit_links:data_rowid_from:e -> radar_data
+radar_transit_links:transit_id_from:e -> radar_data_transits:transit_id_to:w
+site_config_periods:site_id_from:e -> site:id_to:w
+site_reports:site_id_from:e -> site:id_to:w
+}
