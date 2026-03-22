@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestExtractClusterFeatures_Basic(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -39,33 +40,33 @@ func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 	tracks := []*sqlite.RunTrack{
 		{
 			RunID:   runID,
-			TrackID: "track-001", SensorID: "test-sensor",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1000000000,
-			EndUnixNanos:     2000000000,
-			ObservationCount: 10,
-			AvgSpeedMps:      5.5,
-			MaxSpeedMps:      8.0,
+			TrackID: "track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000000000,
+				EndUnixNanos:     2000000000,
+				ObservationCount: 10,
+				AvgSpeedMps:      5.5,
+				MaxSpeedMps:      8.0},
 		},
 		{
 			RunID:   runID,
-			TrackID: "track-002", SensorID: "test-sensor",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1500000000,
-			EndUnixNanos:     2500000000,
-			ObservationCount: 15,
-			AvgSpeedMps:      6.2,
-			MaxSpeedMps:      9.5,
+			TrackID: "track-002", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1500000000,
+				EndUnixNanos:     2500000000,
+				ObservationCount: 15,
+				AvgSpeedMps:      6.2,
+				MaxSpeedMps:      9.5},
 		},
 		{
 			RunID:   runID,
-			TrackID: "track-003", SensorID: "test-sensor",
-			TrackState:       "tentative",
-			StartUnixNanos:   2000000000,
-			EndUnixNanos:     2800000000,
-			ObservationCount: 5,
-			AvgSpeedMps:      3.1,
-			MaxSpeedMps:      4.5,
+			TrackID: "track-003", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+				TrackState:       "tentative",
+				StartUnixNanos:   2000000000,
+				EndUnixNanos:     2800000000,
+				ObservationCount: 5,
+				AvgSpeedMps:      3.1,
+				MaxSpeedMps:      4.5},
 		},
 	}
 

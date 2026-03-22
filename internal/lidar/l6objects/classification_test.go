@@ -2,6 +2,8 @@ package l6objects
 
 import (
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestTrackClassifier_Classify_Bird(t *testing.T) {

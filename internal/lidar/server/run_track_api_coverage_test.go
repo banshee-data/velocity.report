@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 

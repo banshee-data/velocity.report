@@ -3,6 +3,8 @@ package l6objects
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestComputeRunStatistics_Empty(t *testing.T) {
