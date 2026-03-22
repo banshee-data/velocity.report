@@ -71,6 +71,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		foregroundMask[i] = false
 	}
 
+	// Read diagnostics flag once per frame (atomic — no lock needed).
+	enableDiag := bm.enableDiagnostics.Load()
+
 	now := time.Now()
 	nowNanos := now.UnixNano()
 
@@ -236,7 +239,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			foregroundMask[i] = true
 			foregroundCount++
 			// Debug: log frozen cell observations to track freeze behavior
-			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+			if enableDiag && g.Params.IsInDebugRange(ring, az) {
 				remainingFreeze := float64(cell.FrozenUntilUnixNanos-nowNanos) / 1e9
 				tracef("[FG_FROZEN] r=%d az=%.1f dist=%.3f avg=%.3f remainingFreezeSec=%.2f recFg=%d",
 					ring, az, p.Distance, cell.AverageRangeMeters, remainingFreeze, cell.RecentForegroundCount)
@@ -251,7 +254,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
 		// Limitation: Thaw is only detected when a point observation hits this cell.
 		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
-			if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+			if enableDiag && g.Params.IsInDebugRange(ring, az) {
 				tracef("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
 					ring, az, cell.RecentForegroundCount)
 			}
@@ -423,7 +426,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 			// (TimesSeenCount < 100). If we have a solid background (e.g. static road),
 			// a passing object should not freeze the background model.
 			if cell.TimesSeenCount < 100 && cellDiff > freezeThresholdMultiplier*closenessThreshold {
-				if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+				if enableDiag && g.Params.IsInDebugRange(ring, az) {
 					tracef("[FG_FREEZE] r=%d az=%.1f froze for %.1fs, dist=%.3f avg=%.3f cellDiff=%.3f freezeThresh=%.3f recFg=%d",
 						ring, az, float64(freezeDur)/1e9, p.Distance, cell.AverageRangeMeters,
 						cellDiff, freezeThresholdMultiplier*closenessThreshold, cell.RecentForegroundCount)
@@ -434,7 +437,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		}
 
 		// Debug logging for specific region to investigate trailing foreground
-		if bm.EnableDiagnostics && g.Params.IsInDebugRange(ring, az) {
+		if enableDiag && g.Params.IsInDebugRange(ring, az) {
 			tracef("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
 				ring, az, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
 				cellDiff, closenessThreshold, cell.TimesSeenCount, cell.RecentForegroundCount,
@@ -466,7 +469,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMask(points []PointPolar) (for
 		foregroundCount = 0
 		backgroundCount = int64(len(points))
 
-		if bm != nil && bm.EnableDiagnostics {
+		if enableDiag {
 			tracef("[Foreground] warmup active: suppressed_fg=%d total_points=%d warmup_frames_remaining=%d warmup_duration_ns=%d elapsed_ms=%d",
 				suppressedFg, len(points), warmupFramesRemaining, warmupDuration, warmupElapsed.Milliseconds())
 		}

@@ -7,15 +7,11 @@ Primary schema sources:
 
 This file lists the canonical v2 leaf paths used by the runtime.
 
-## L1 Packets / Network
+## L1 Packets / Source
 
 - `version`
 - `l1.sensor`
 - `l1.data_source`
-- `l1.udp_port`
-- `l1.udp_rcv_buf`
-- `l1.forward_port`
-- `l1.foreground_forward_port`
 
 ## L3 Background Settling
 

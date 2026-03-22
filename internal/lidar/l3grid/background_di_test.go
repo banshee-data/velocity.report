@@ -80,7 +80,7 @@ func TestNewBackgroundManagerDI(t *testing.T) {
 func TestProcessFramePolar_Diagnostics(t *testing.T) {
 	t.Parallel()
 	g := makeTestGrid(2, 8)
-	g.Manager.EnableDiagnostics = true
+	g.Manager.SetEnableDiagnostics(true)
 	points := []PointPolar{{Channel: 0, Azimuth: 10.0, Distance: 5.0}}
 	g.Manager.ProcessFramePolar(points) // covers diagnostics log branch
 }

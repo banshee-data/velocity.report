@@ -142,12 +142,8 @@ func migrateLegacyConfig(legacy legacyTuningConfig) *cfgpkg.TuningConfig {
 	return &cfgpkg.TuningConfig{
 		Version: cfgpkg.CurrentConfigVersion,
 		L1: cfgpkg.L1Config{
-			Sensor:                "hesai-pandar40p",
-			DataSource:            "live",
-			UDPPort:               2369,
-			UDPRcvBuf:             4 << 20,
-			ForwardPort:           2368,
-			ForegroundForwardPort: 2370,
+			Sensor:     "hesai-pandar40p",
+			DataSource: "live",
 		},
 		L3: cfgpkg.L3Config{
 			Engine: "ema_baseline_v1",

@@ -10,7 +10,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
-- v0.5.0 tech debt removal — remove all remaining compatibility shims (except VRLOG JSON fallback), consolidate and classify final cleanup items before v0.5.0 release. [design doc](plans/v050-tech-debt-removal-plan.md) `S`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
@@ -22,7 +21,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
 - Go codebase structural hygiene — address god files, DB abstraction leaks, JSON tag anomalies (`EventAPI`), silent error drops, and test infrastructure consistency. [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
-- Go god file splitting — split large, multi-concern files (webserver.go, server.go, tracking.go, db.go, analysis_run.go) into domain-driven modules. [design doc](plans/go-god-file-split-plan.md) `S`
+- Go god file splitting Phase 1 complete (1A–1G) — all seven Tier 1 god files split; remaining Tier 2/3 large-file splits are Phase 2 stretch goals. [design doc](plans/go-god-file-split-plan.md) `S`
 
 ## v0.5.2 (Replay/Runtime Stabilisation)
 
@@ -57,7 +56,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR foundations fix-it — documentation truth alignment, implementation boundary stabilisation — [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
-- Config restructure Phase 2 remaining — deprecate CLI flags (`--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) with log warnings; struct wiring and config files already delivered — [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - [#382] Distributed sweep workers plan — architecture for parallel sweep execution across multiple cores or nodes `S`
 - [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
@@ -138,6 +136,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## Complete
 
 - SQLite client standardisation — unified DB client interfaces across `internal/db`, `internal/api`, and `internal/lidar/storage`, moved label SQL out of the API layer, and replaced duplicated SQLite test bootstraps with the shared helper — [design doc](plans/data-sqlite-client-standardisation-plan.md) [follow-up](plans/data-database-alignment-plan.md)
+- v0.5.0 tech debt removal — all Category A shim removals complete (A1–A6); `--lidar-sensor` flag removed, network port flags reclassified as active; transit tools removed; sweep dashboard aliases removed — [design doc](plans/v050-tech-debt-removal-plan.md)
+- Config restructure Phase 2 CLI flag deprecation — `--lidar-sensor` removed; network port flags (`--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) reclassified as active runtime flags — [design doc](../config/CONFIG-RESTRUCTURE.md)
 - [#411] `transit-backfill` and `scan-transits` removal — removed `cmd/transit-backfill` and `cmd/tools/scan_transits.go`; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#144] LiDAR analysis-run infrastructure (Phase 3.7) — versioned run storage + comparison/split/merge scaffolding implemented — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation — `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq` — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)

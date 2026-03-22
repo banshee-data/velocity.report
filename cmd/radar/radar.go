@@ -65,10 +65,14 @@ var (
 var (
 	enableLidar    = flag.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
 	lidarListen    = flag.String("lidar-listen", ":8081", "HTTP listen address for lidar monitor (when enabled)")
+	lidarUDPPort   = flag.Int("lidar-udp-port", 2369, "UDP port to listen for lidar packets")
+	lidarUDPRcvBuf = flag.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
 	lidarNoParse   = flag.Bool("lidar-no-parse", false, "Disable lidar packet parsing when lidar is enabled")
 	lidarForward   = flag.Bool("lidar-forward", false, "Forward lidar UDP packets to another port")
+	lidarFwdPort   = flag.Int("lidar-forward-port", 2368, "Port to forward lidar UDP packets to")
 	lidarFwdAddr   = flag.String("lidar-forward-addr", "localhost", "Address to forward lidar UDP packets to")
 	lidarFGForward = flag.Bool("lidar-foreground-forward", false, "Forward foreground-only LiDAR packets to a separate port (e.g., 2370)")
+	lidarFGFwdPort = flag.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr = flag.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir   = flag.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
 	// Visualiser gRPC streaming (M2)
@@ -324,6 +328,15 @@ func main() {
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
+	if *enableLidar {
+		ensureValidLidarNetworkingFlags(
+			*lidarUDPPort,
+			*lidarUDPRcvBuf,
+			*lidarFwdPort,
+			*lidarFGFwdPort,
+			log.Fatalf,
+		)
+	}
 
 	// Compute tuning config hash for VRLOG provenance.
 	tuningHash := tuningHashOrWarn(tuningCfg, log.Printf)
@@ -385,10 +398,10 @@ func main() {
 	// Optionally initialize lidar components inside this binary
 	if *enableLidar {
 		lidarSensorID := tuningCfg.GetSensor()
-		lidarUDPListenPort := tuningCfg.GetUDPPort()
-		lidarUDPRcvBuf := tuningCfg.GetUDPRcvBuf()
-		lidarForwardPortCfg := tuningCfg.GetForwardPort()
-		lidarFGForwardPortCfg := tuningCfg.GetForegroundForwardPort()
+		lidarUDPListenPort := *lidarUDPPort
+		lidarUDPRcvBuf := *lidarUDPRcvBuf
+		lidarForwardPortCfg := *lidarFwdPort
+		lidarFGForwardPortCfg := *lidarFGFwdPort
 
 		// Use the main DB instance for lidar data (no separate lidar DB file)
 		lidarDB := database

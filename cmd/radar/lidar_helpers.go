@@ -69,6 +69,35 @@ func ensureSupportedTuning(tuningCfg *config.TuningConfig, fatalf logfFunc) {
 	}
 }
 
+func validateLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort int) error {
+	if udpPort <= 0 || udpPort > 65535 {
+		return fmt.Errorf("invalid --lidar-udp-port=%d (must be in [1, 65535])", udpPort)
+	}
+	if udpRcvBuf <= 0 {
+		return fmt.Errorf("invalid --lidar-udp-rcv-buf=%d (must be positive)", udpRcvBuf)
+	}
+	if err := validateOptionalLidarPortFlag("--lidar-forward-port", forwardPort); err != nil {
+		return err
+	}
+	if err := validateOptionalLidarPortFlag("--lidar-foreground-forward-port", foregroundForwardPort); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateOptionalLidarPortFlag(name string, port int) error {
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("invalid %s=%d (must be in [0, 65535])", name, port)
+	}
+	return nil
+}
+
+func ensureValidLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort int, fatalf logfFunc) {
+	if err := validateLidarNetworkingFlags(udpPort, udpRcvBuf, forwardPort, foregroundForwardPort); err != nil {
+		fatalf("%v", err)
+	}
+}
+
 func tuningHashOrWarn(tuningCfg *config.TuningConfig, warnf logfFunc) string {
 	tuningJSON, err := marshalTuningJSON(tuningCfg)
 	if err != nil {

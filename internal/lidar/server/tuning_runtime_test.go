@@ -9,7 +9,6 @@ import (
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
-	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -118,22 +117,26 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 	})
 
 	ws := &Server{
-		sensorID:          "runtime-sensor",
-		udpPort:           4242,
-		forwardPort:       5252,
-		udpListenerConfig: network.UDPListenerConfig{RcvBuf: 64 << 10},
-		currentSource:     DataSourcePCAP,
-		tracker:           tracker,
+		sensorID:      "runtime-sensor",
+		currentSource: DataSourcePCAP,
+		tracker:       tracker,
 	}
 	ws.storeTuningConfig(cfg)
 
 	runtimeCfg := ws.runtimeTuningConfig(bm)
 	if runtimeCfg.L1.Sensor != "runtime-sensor" ||
-		runtimeCfg.L1.UDPPort != 4242 ||
-		runtimeCfg.L1.UDPRcvBuf != 64<<10 ||
-		runtimeCfg.L1.ForwardPort != 5252 ||
 		runtimeCfg.L1.DataSource != string(DataSourcePCAP) {
 		t.Fatalf("unexpected L1 runtime sync: %+v", runtimeCfg.L1)
+	}
+	l1JSON, err := json.Marshal(runtimeCfg.L1)
+	if err != nil {
+		t.Fatalf("marshal runtime L1: %v", err)
+	}
+	if strings.Contains(string(l1JSON), "udp_port") ||
+		strings.Contains(string(l1JSON), "udp_rcv_buf") ||
+		strings.Contains(string(l1JSON), "forward_port") ||
+		strings.Contains(string(l1JSON), "foreground_forward_port") {
+		t.Fatalf("runtime L1 unexpectedly exposed process-level networking fields: %s", l1JSON)
 	}
 	if !approxEqualFloat64(runtimeCfg.L3.EmaBaselineV1.NoiseRelative, 0.12) ||
 		runtimeCfg.L3.EmaBaselineV1.EnableDiagnostics != true ||
@@ -210,6 +213,7 @@ func TestNormaliseTuningPatchAndValidateRuntimePath(t *testing.T) {
 	disallowed := map[string]string{
 		"pipeline.buffer_timeout":           "not runtime-updatable",
 		"l4.dbscan_xy_v1.height_band_floor": "not runtime-updatable",
+		"l1.udp_port":                       "unknown tuning path",
 		"unknown.path":                      "unknown tuning path",
 	}
 	for path, want := range disallowed {
@@ -229,7 +233,7 @@ func TestSetConfigValueByPathAndReflectionHelpers(t *testing.T) {
 		t.Fatalf("unexpected track assist config: %+v", cfg.L3.EmaTrackAssistV2)
 	}
 
-	if err := setConfigValueByPath(cfg, "l1.udp_port", "bad"); err == nil || !strings.Contains(err.Error(), "cannot unmarshal string") {
+	if err := setConfigValueByPath(cfg, "l1.data_source", true); err == nil || !strings.Contains(err.Error(), "cannot unmarshal bool") {
 		t.Fatalf("expected type error, got %v", err)
 	}
 	if err := setConfigValueByPath(cfg, "unknown.path", 1); err == nil || !strings.Contains(err.Error(), "unknown tuning path segment") {

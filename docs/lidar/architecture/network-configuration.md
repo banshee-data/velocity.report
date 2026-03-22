@@ -14,6 +14,7 @@ The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address
 
 ```
 -lidar-udp-port 2369              # Listening port
+-lidar-udp-rcv-buf 4194304        # Socket receive buffer size in bytes
 -lidar-forward                    # Enable packet forwarding
 -lidar-forward-port 2368          # Forward destination port
 -lidar-forward-addr localhost     # Forward destination address
@@ -114,7 +115,7 @@ END;
 | `udp_port`       | UDP port to listen on (default 2369). Restricted to unprivileged range                                                                                                   |
 | `receive_buffer` | OS socket receive buffer in bytes (default 4 MiB, max 64 MiB). Higher values reduce packet drops under burst load; 64 MiB ceiling is safe on Raspberry Pi 4 (1–8 GB RAM) |
 | `sensor_model`   | Sensor identifier for parser selection. CHECK constraint: `LIKE 'hesai-%'`                                                                                               |
-| `forward_*`      | Packet forwarding target (mirrors `--lidar-forward-*` flags)                                                                                                             |
+| `forward_*`      | Packet forwarding target (configured via `l1.forward_port` and `l1.foreground_forward_port` in the tuning config file)                                                   |
 
 **Bind address resolution:** When `interface_name` is set but `bind_address` is empty, the system resolves the interface's primary IPv4 address at bind time. When both are empty, the listener binds to `0.0.0.0` (wildcard). When `bind_address` is explicit, it is used directly regardless of `interface_name`.
 

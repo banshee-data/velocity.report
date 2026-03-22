@@ -579,7 +579,7 @@ func TestMask_DiagnosticsFrozenCellLogging(t *testing.T) {
 	g.Params.DebugAzMin = 0
 	g.Params.DebugAzMax = 360
 	bm := g.Manager
-	bm.EnableDiagnostics = true
+	bm.SetEnableDiagnostics(true)
 
 	idx := g.Idx(0, 0)
 	g.Cells[idx].AverageRangeMeters = 10.0
@@ -603,7 +603,7 @@ func TestMask_DiagnosticsThawLogging(t *testing.T) {
 	g.Params.DebugAzMin = 0
 	g.Params.DebugAzMax = 360
 	bm := g.Manager
-	bm.EnableDiagnostics = true
+	bm.SetEnableDiagnostics(true)
 
 	idx := g.Idx(0, 0)
 	g.Cells[idx].AverageRangeMeters = 10.0
@@ -630,7 +630,7 @@ func TestMask_DiagnosticsFreezeLogging(t *testing.T) {
 	g.Params.DebugAzMin = 0
 	g.Params.DebugAzMax = 360
 	bm := g.Manager
-	bm.EnableDiagnostics = true
+	bm.SetEnableDiagnostics(true)
 
 	idx := g.Idx(0, 0)
 	g.Cells[idx].AverageRangeMeters = 10.0
@@ -654,7 +654,7 @@ func TestMask_DiagnosticsDebugLogging(t *testing.T) {
 	g.Params.DebugAzMin = 0
 	g.Params.DebugAzMax = 360
 	bm := g.Manager
-	bm.EnableDiagnostics = true
+	bm.SetEnableDiagnostics(true)
 
 	// Populate a cell, then observe it to trigger debug log (lines 424-429)
 	idx := g.Idx(0, 0)
@@ -673,7 +673,7 @@ func TestMask_DiagnosticsWarmupLogging(t *testing.T) {
 	g.Params.WarmupMinFrames = 100
 	g.Params.WarmupDurationNanos = int64(10 * time.Minute)
 	bm := g.Manager
-	bm.EnableDiagnostics = true
+	bm.SetEnableDiagnostics(true)
 
 	// During warmup with diagnostics → hits warmup diagnostic branch (lines 456-459)
 	_, err := bm.ProcessFramePolarWithMask([]PointPolar{{Channel: 1, Azimuth: 0, Distance: 10.0}})

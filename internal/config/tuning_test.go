@@ -29,8 +29,8 @@ func TestLoadDefaultsFile(t *testing.T) {
 	if cfg.GetSensor() == "" {
 		t.Fatal("GetSensor returned empty value")
 	}
-	if cfg.GetUDPPort() <= 0 {
-		t.Fatalf("GetUDPPort must be positive, got %d", cfg.GetUDPPort())
+	if cfg.GetDataSource() == "" {
+		t.Fatal("GetDataSource returned empty value")
 	}
 	if cfg.GetNoiseRelative() <= 0 || cfg.GetNoiseRelative() > 1 {
 		t.Fatalf("GetNoiseRelative out of range: %f", cfg.GetNoiseRelative())
@@ -104,16 +104,42 @@ func TestLoadTuningConfigRejectsUnknownTopLevelKey(t *testing.T) {
 	}
 }
 
+func TestLoadTuningConfigRejectsRemovedL1NetworkKeys(t *testing.T) {
+	cfg := sampleValidConfig()
+	raw := mustMarshalJSON(t, cfg)
+
+	var object map[string]interface{}
+	if err := json.Unmarshal(raw, &object); err != nil {
+		t.Fatalf("unmarshal sample config: %v", err)
+	}
+	l1, ok := object["l1"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected l1 object, got %#v", object["l1"])
+	}
+	l1["udp_port"] = 2369
+	l1["udp_rcv_buf"] = 4194304
+	l1["forward_port"] = 2368
+	l1["foreground_forward_port"] = 2370
+
+	path := writeConfigFile(t, mustMarshalJSON(t, object))
+	_, err := LoadTuningConfig(path)
+	if err == nil {
+		t.Fatal("expected removed L1 networking keys to be rejected")
+	}
+	if !strings.Contains(err.Error(), "udp_port") &&
+		!strings.Contains(err.Error(), "udp_rcv_buf") &&
+		!strings.Contains(err.Error(), "forward_port") &&
+		!strings.Contains(err.Error(), "foreground_forward_port") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestLoadTuningConfigRejectsMissingSelectedEngineBlock(t *testing.T) {
 	path := writeConfigFile(t, []byte(`{
   "version": 2,
   "l1": {
     "sensor": "hesai-pandar40p",
-    "data_source": "live",
-    "udp_port": 2369,
-    "udp_rcv_buf": 4194304,
-    "forward_port": 2368,
-    "foreground_forward_port": 2370
+    "data_source": "live"
   },
   "l3": {
     "engine": "ema_baseline_v1"
@@ -197,11 +223,7 @@ func TestLoadTuningConfigRejectsLegacySpellings(t *testing.T) {
   "version": 2,
   "l1": {
     "sensor": "hesai-pandar40p",
-    "data_source": "live",
-    "udp_port": 2369,
-    "udp_rcv_buf": 4194304,
-    "forward_port": 2368,
-    "foreground_forward_port": 2370
+    "data_source": "live"
   },
   "l3": {
     "engine": "ema_baseline_v1",
@@ -315,12 +337,8 @@ func sampleValidConfig() *TuningConfig {
 	return &TuningConfig{
 		Version: CurrentConfigVersion,
 		L1: L1Config{
-			Sensor:                "hesai-pandar40p",
-			DataSource:            "live",
-			UDPPort:               2369,
-			UDPRcvBuf:             4194304,
-			ForwardPort:           2368,
-			ForegroundForwardPort: 2370,
+			Sensor:     "hesai-pandar40p",
+			DataSource: "live",
 		},
 		L3: L3Config{
 			Engine: "ema_baseline_v1",

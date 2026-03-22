@@ -38,7 +38,7 @@ go build ./cmd/lidar
 ./radar --disable-radar --pdf-latex-flow full
 
 # Enable in-process LiDAR components (UDP listener + forwarder):
-./radar --enable-lidar --lidar-udp-port 2369 --lidar-listen :8081
+./radar --enable-lidar --lidar-listen :8081
 ```
 
 ## Command-line flags
@@ -64,34 +64,43 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool) — Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
 - `--lidar-listen` (string) — HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
-- `--lidar-udp-port` (int) — UDP port to listen for LiDAR packets (default: `2369`).
 - `--lidar-no-parse` (bool) — Disable LiDAR packet parsing (useful when only forwarding packets).
-- `--lidar-sensor` (string) — Sensor identifier (used for BackgroundManager registration and DB records). Default: `hesai-pandar40p`.
 - `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
-- `--lidar-forward-port` (int) — Forward destination port (default: `2368`).
 - `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
-- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+- `--lidar-forward-mode` (string) — Forward mode: `lidarview` (UDP only), `grpc` (gRPC only), or `both` (default: `lidarview`).
+- `--lidar-foreground-forward` (bool) — Forward foreground-only LiDAR packets to a separate port.
+- `--lidar-foreground-forward-addr` (string) — Address to forward foreground LiDAR packets to (default: `localhost`).
+- `--lidar-grpc-listen` (string) — gRPC server listen address for visualiser streaming (default: `localhost:50051`).
+- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+
+**Sensor/network settings (config file only):** The following settings are
+configured via the [tuning config file](../../config/README.md), not CLI flags:
+
+- `l1.sensor` — Sensor identifier (default: `hesai-pandar40p`).
+- `l1.udp_port` — UDP port to listen for LiDAR packets (default: `2369`).
+- `l1.forward_port` — Raw packet forward port (default: `2368`).
+- `l1.foreground_forward_port` — Foreground packet forward port (default: `2370`).
 
 ## PCAP Replay Setup
 
 Runtime switching lets you replay captures without special startup flags:
 
-1. **Create the PCAP directory** (default: `../sensor-data/lidar`):
+1. **Create the PCAP directory** (default: `../sensor_data/lidar`):
 
    ```bash
-   mkdir -p ../sensor-data/lidar
+   mkdir -p ../sensor_data/lidar
    ```
 
 2. **Place your PCAP files** in this directory:
 
    ```bash
-   cp /path/to/your/file.pcap ../sensor-data/lidar/
+   cp /path/to/your/file.pcap ../sensor_data/lidar/
    ```
 
 3. **Start the server** with LiDAR enabled (no dedicated PCAP mode required):
 
    ```bash
-   ./radar --enable-lidar --lidar-pcap-dir ../sensor-data/lidar
+   ./radar --enable-lidar --lidar-pcap-dir ../sensor_data/lidar
    ```
 
 4. **Switch to PCAP** via the API:
