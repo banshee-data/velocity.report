@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -188,14 +187,15 @@ func nullableFloat32Ptr(value *float32) interface{} {
 
 func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 	var (
-		runID        sql.NullString
-		trackID      sql.NullString
-		confidence   sql.NullFloat64
-		createdBy    sql.NullString
-		updatedAtNs  sql.NullInt64
-		notes        sql.NullString
-		replayCaseID sql.NullString
-		sourceFile   sql.NullString
+		replayCaseID *string
+		runID        *string
+		trackID      *string
+		endTimestamp *int64
+		confidence   *float64
+		createdBy    *string
+		updatedAtNs  *int64
+		notes        *string
+		sourceFile   *string
 	)
 
 	err := scanner.Scan(
@@ -205,7 +205,7 @@ func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 		&trackID,
 		&label.ClassLabel,
 		&label.StartTimestampNs,
-		&label.EndTimestampNs,
+		&endTimestamp,
 		&confidence,
 		&createdBy,
 		&label.CreatedAtNs,
@@ -214,50 +214,30 @@ func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 		&sourceFile,
 	)
 	if err != nil {
+		if err == sqlite.ErrNotFound {
+			return sqlite.ErrNotFound
+		}
 		return err
 	}
 
-	label.ReplayCaseID = nil
-	if replayCaseID.Valid {
-		label.ReplayCaseID = &replayCaseID.String
-	}
-
-	label.RunID = nil
-	if runID.Valid {
-		label.RunID = &runID.String
-	}
-
+	label.ReplayCaseID = replayCaseID
+	label.RunID = runID
 	label.TrackID = ""
-	if trackID.Valid {
-		label.TrackID = trackID.String
+	if trackID != nil {
+		label.TrackID = *trackID
 	}
 
+	label.EndTimestampNs = endTimestamp
 	label.Confidence = nil
-	if confidence.Valid {
-		value := float32(confidence.Float64)
+	if confidence != nil {
+		value := float32(*confidence)
 		label.Confidence = &value
 	}
 
-	label.CreatedBy = nil
-	if createdBy.Valid {
-		label.CreatedBy = &createdBy.String
-	}
-
-	label.UpdatedAtNs = nil
-	if updatedAtNs.Valid {
-		value := updatedAtNs.Int64
-		label.UpdatedAtNs = &value
-	}
-
-	label.Notes = nil
-	if notes.Valid {
-		label.Notes = &notes.String
-	}
-
-	label.SourceFile = nil
-	if sourceFile.Valid {
-		label.SourceFile = &sourceFile.String
-	}
+	label.CreatedBy = createdBy
+	label.UpdatedAtNs = updatedAtNs
+	label.Notes = notes
+	label.SourceFile = sourceFile
 
 	return nil
 }
@@ -278,7 +258,7 @@ func (api *LidarLabelAPI) getLabel(labelID string) (*LidarLabel, error) {
 func (api *LidarLabelAPI) ensureReplayCaseExists(replayCaseID string) error {
 	var exists int
 	err := api.db.QueryRow("SELECT 1 FROM lidar_replay_cases WHERE replay_case_id = ?", replayCaseID).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if err == sqlite.ErrNotFound {
 		return sqlite.ErrNotFound
 	}
 	return err
@@ -291,7 +271,7 @@ func (api *LidarLabelAPI) ensureRunTrackExists(runID, trackID string) error {
 		runID,
 		trackID,
 	).Scan(&exists)
-	if err == sql.ErrNoRows {
+	if err == sqlite.ErrNotFound {
 		return sqlite.ErrNotFound
 	}
 	return err
