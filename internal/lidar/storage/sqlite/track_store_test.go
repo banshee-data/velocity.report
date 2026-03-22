@@ -136,6 +136,7 @@ func TestUpdateTrack(t *testing.T) {
 	track.TrackState = TrackConfirmed
 	track.ObservationCount = 10
 	track.AvgSpeedMps = 8.0
+	track.EndUnixNanos = 1234567895000000000 // +5 seconds: exercises trackMeasurementUpdateArgs endNanos branch
 	track.ObjectClass = "pedestrian"
 	track.ObjectConfidence = 0.75
 	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})

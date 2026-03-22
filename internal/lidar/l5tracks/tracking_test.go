@@ -1,6 +1,7 @@
 package l5tracks
 
 import (
+	"io"
 	"math"
 	"testing"
 	"time"
@@ -645,4 +646,33 @@ func TestMahalanobisDistanceSquared(t *testing.T) {
 			t.Error("expected valid distance with dt=0, got SingularDistanceRejection")
 		}
 	})
+}
+
+// TestTracker_Update_TraceLogging covers the two traceLogger != nil blocks
+// in Update() that log active track counts before and after the frame.
+func TestTracker_Update_TraceLogging(t *testing.T) {
+	// Enable trace logging so the traceLogger != nil blocks execute.
+	SetLogWriters(nil, nil, io.Discard)
+	defer SetLogWriters(nil, nil, nil)
+
+	config := DefaultTrackerConfig()
+	config.HitsToConfirm = 2
+	tracker := NewTracker(config)
+	now := time.Now()
+
+	cluster := WorldCluster{CentroidX: 5.0, CentroidY: 10.0, SensorID: "test"}
+
+	// Frame 1: creates a tentative track (exercises "Update start" block)
+	tracker.Update([]WorldCluster{cluster}, now)
+
+	// Frame 2: confirms the track (exercises "Update complete" block with
+	// confirmed and new track counters populated)
+	now = now.Add(100 * time.Millisecond)
+	cluster.CentroidX = 5.1
+	tracker.Update([]WorldCluster{cluster}, now)
+
+	tracks := tracker.GetActiveTracks()
+	if len(tracks) != 1 {
+		t.Fatalf("expected 1 active track, got %d", len(tracks))
+	}
 }

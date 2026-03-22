@@ -567,3 +567,38 @@ func TestComputeSpeedPercentiles_SingleElement(t *testing.T) {
 		t.Errorf("expected all 5.0 for single element, got %.2f, %.2f, %.2f", p50, p85, p95)
 	}
 }
+
+// TestTrackClassifier_Classify_WithDuration covers the duration computation
+// branch in extractFeatures when EndUnixNanos > StartUnixNanos.
+func TestTrackClassifier_Classify_WithDuration(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	startNanos := int64(1_000_000_000_000_000_000) // 1e18
+	endNanos := startNanos + 5_000_000_000         // +5 seconds
+
+	track := &TrackedObject{
+		TrackID: "test-duration", TrackMeasurement: l5tracks.TrackMeasurement{
+			ObservationCount:     20,
+			StartUnixNanos:       startNanos,
+			EndUnixNanos:         endNanos,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.5,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          10.0,
+			MaxSpeedMps:          15.0},
+	}
+
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(8 + i%5)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	// The track should classify (vehicle-like dimensions) and the duration
+	// path should have executed without error.
+	if result.Class == "" {
+		t.Error("expected a non-empty classification")
+	}
+}
