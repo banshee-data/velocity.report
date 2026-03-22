@@ -8,7 +8,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.0 (Platform Hardening)
 
-- LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
+- LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
