@@ -68,22 +68,21 @@ func TestInsertAndGetTrack(t *testing.T) {
 	defer cleanup()
 
 	track := &TrackedObject{
-		TrackID:              "track-001",
-		SensorID:             "sensor-001",
-		TrackState:           TrackConfirmed,
-		StartUnixNanos:       1234567890000000000,
-		EndUnixNanos:         1234567900000000000,
-		ObservationCount:     10,
-		AvgSpeedMps:          8.5,
-		MaxSpeedMps:          12.0,
-		BoundingBoxLengthAvg: 4.0,
-		BoundingBoxWidthAvg:  2.0,
-		BoundingBoxHeightAvg: 1.5,
-		HeightP95Max:         1.4,
-		IntensityMeanAvg:     100.0,
-		ObjectClass:          "car",
-		ObjectConfidence:     0.85,
-		ClassificationModel:  "rule-based-v1.0",
+		TrackID: "track-001", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:           TrackConfirmed,
+			StartUnixNanos:       1234567890000000000,
+			EndUnixNanos:         1234567900000000000,
+			ObservationCount:     10,
+			AvgSpeedMps:          8.5,
+			MaxSpeedMps:          12.0,
+			BoundingBoxLengthAvg: 4.0,
+			BoundingBoxWidthAvg:  2.0,
+			BoundingBoxHeightAvg: 1.5,
+			HeightP95Max:         1.4,
+			IntensityMeanAvg:     100.0,
+			ObjectClass:          "car",
+			ObjectConfidence:     0.85,
+			ClassificationModel:  "rule-based-v1.0"},
 	}
 	track.SetSpeedHistory([]float32{7, 8, 9, 8, 9, 10, 8, 9, 8, 9})
 
@@ -120,12 +119,11 @@ func TestUpdateTrack(t *testing.T) {
 
 	// Insert initial track
 	track := &TrackedObject{
-		TrackID:          "track-update",
-		SensorID:         "sensor-001",
-		TrackState:       TrackTentative,
-		StartUnixNanos:   1234567890000000000,
-		ObservationCount: 3,
-		AvgSpeedMps:      5.0,
+		TrackID: "track-update", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:       TrackTentative,
+			StartUnixNanos:   1234567890000000000,
+			ObservationCount: 3,
+			AvgSpeedMps:      5.0},
 	}
 	track.SetSpeedHistory([]float32{4, 5, 6})
 
@@ -175,10 +173,9 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 
 	// Insert a track first
 	track := &TrackedObject{
-		TrackID:        "track-obs-test",
-		SensorID:       "sensor-001",
-		TrackState:     TrackConfirmed,
-		StartUnixNanos: 1234567890000000000,
+		TrackID: "track-obs-test", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1234567890000000000},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 
@@ -257,9 +254,9 @@ func TestGetActiveTracksFilterByState(t *testing.T) {
 
 	// Insert tracks with different states
 	tracks := []*TrackedObject{
-		{TrackID: "track-1", SensorID: "sensor-001", TrackState: TrackTentative, StartUnixNanos: 1},
-		{TrackID: "track-2", SensorID: "sensor-001", TrackState: TrackConfirmed, StartUnixNanos: 2},
-		{TrackID: "track-3", SensorID: "sensor-001", TrackState: TrackDeleted, StartUnixNanos: 3, EndUnixNanos: 4},
+		{TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackTentative, StartUnixNanos: 1}},
+		{TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackConfirmed, StartUnixNanos: 2}},
+		{TrackID: "track-3", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackDeleted, StartUnixNanos: 3, EndUnixNanos: 4}},
 	}
 
 	for _, track := range tracks {

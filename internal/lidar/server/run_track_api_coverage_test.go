@@ -42,15 +42,14 @@ func covInsertTrack(t *testing.T, ws *Server, runID, trackID string) {
 	t.Helper()
 	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 	track := &sqlite.RunTrack{
-		RunID:            runID,
-		TrackID:          trackID,
-		SensorID:         "test-sensor",
-		TrackState:       "confirmed",
-		ObservationCount: 10,
-		AvgSpeedMps:      5.0,
-		MaxSpeedMps:      8.0,
-		StartUnixNanos:   1000000000,
-		EndUnixNanos:     2000000000,
+		RunID:   runID,
+		TrackID: trackID, TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+			TrackState:       "confirmed",
+			ObservationCount: 10,
+			AvgSpeedMps:      5.0,
+			MaxSpeedMps:      8.0,
+			StartUnixNanos:   1000000000,
+			EndUnixNanos:     2000000000},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack: %v", err)
@@ -1420,13 +1419,12 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 		{"auto-cand-1", "auto-cand-t1"},
 	} {
 		track := &sqlite.RunTrack{
-			RunID:            rt.runID,
-			TrackID:          rt.trackID,
-			SensorID:         "sensor-auto",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1000000000,
-			ObservationCount: 10,
-			AvgSpeedMps:      5.0,
+			RunID:   rt.runID,
+			TrackID: rt.trackID, TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "sensor-auto",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000000000,
+				ObservationCount: 10,
+				AvgSpeedMps:      5.0},
 		}
 		if err := store.InsertRunTrack(track); err != nil {
 			t.Fatalf("InsertRunTrack %s: %v", rt.trackID, err)

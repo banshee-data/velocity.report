@@ -87,9 +87,8 @@ func TestLoadAnalysis(t *testing.T) {
 			FrameSummary: FrameSummary{TotalFrames: 100},
 			Tracks: []TrackDetail{
 				{
-					TrackID:     "track-1",
-					AvgSpeedMps: 8.4,
-					MaxSpeedMps: 9.1,
+					TrackID: "track-1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 8.4,
+						MaxSpeedMps: 9.1},
 				},
 			},
 		}
@@ -328,28 +327,30 @@ func TestCompareReportsOverlapping(t *testing.T) {
 
 	tracksA := []l9endpoints.Track{
 		{
-			TrackID:           "track-1",
-			State:             l9endpoints.TrackStateConfirmed,
-			SpeedMps:          5.0,
-			AvgSpeedMps:       5.0,
-			MaxSpeedMps:       6.0,
-			ObservationCount:  10,
-			Hits:              10,
-			ObjectClass:       "car",
+			TrackID: "track-1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				MaxSpeedMps:      6.0,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits: 10,
+
 			ClassConfidence:   0.9,
 			TrackLengthMetres: 50,
 			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 		{
-			TrackID:           "track-2",
-			State:             l9endpoints.TrackStateConfirmed,
-			SpeedMps:          10.0,
-			AvgSpeedMps:       10.0,
-			MaxSpeedMps:       12.0,
-			ObservationCount:  20,
-			Hits:              20,
-			ObjectClass:       "car",
+			TrackID: "track-2", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 10.0,
+				MaxSpeedMps:      12.0,
+				ObservationCount: 20,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 10.0,
+
+			Hits: 20,
+
 			ClassConfidence:   0.8,
 			TrackLengthMetres: 100,
 			MotionModel:       l9endpoints.MotionModelCV,
@@ -360,28 +361,30 @@ func TestCompareReportsOverlapping(t *testing.T) {
 	// B has same temporal range, similar tracks with different speeds
 	tracksB := []l9endpoints.Track{
 		{
-			TrackID:           "track-b1",
-			State:             l9endpoints.TrackStateConfirmed,
-			SpeedMps:          5.5,
-			AvgSpeedMps:       5.5,
-			MaxSpeedMps:       6.5,
-			ObservationCount:  10,
-			Hits:              10,
-			ObjectClass:       "car",
+			TrackID: "track-b1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.5,
+				MaxSpeedMps:      6.5,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.5,
+
+			Hits: 10,
+
 			ClassConfidence:   0.85,
 			TrackLengthMetres: 55,
 			MotionModel:       l9endpoints.MotionModelCV,
 			FirstSeenNanos:    baseTime,
 		},
 		{
-			TrackID:           "track-b2",
-			State:             l9endpoints.TrackStateConfirmed,
-			SpeedMps:          9.5,
-			AvgSpeedMps:       9.5,
-			MaxSpeedMps:       11.0,
-			ObservationCount:  18,
-			Hits:              18,
-			ObjectClass:       "car",
+			TrackID: "track-b2", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 9.5,
+				MaxSpeedMps:      11.0,
+				ObservationCount: 18,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 9.5,
+
+			Hits: 18,
+
 			ClassConfidence:   0.75,
 			TrackLengthMetres: 95,
 			MotionModel:       l9endpoints.MotionModelCV,
@@ -438,24 +441,22 @@ func TestCompareReportsNoOverlap(t *testing.T) {
 	// A at time 0, B at time 10s later — no overlap
 	tracksA := []l9endpoints.Track{
 		{
-			TrackID:          "a1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   0,
+			TrackID: "a1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: 0,
 		},
 	}
 	tracksB := []l9endpoints.Track{
 		{
-			TrackID:          "b1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         7.0,
-			AvgSpeedMps:      7.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   10_000_000_000, // 10 seconds later
+			TrackID: "b1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 7.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 7.0,
+
+			Hits:           5,
+			FirstSeenNanos: 10_000_000_000, // 10 seconds later
 		},
 	}
 
@@ -491,13 +492,12 @@ func TestCompareReportsWriteOutput(t *testing.T) {
 
 	tracks := []l9endpoints.Track{
 		{
-			TrackID:          "t1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   baseTime,
+			TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: baseTime,
 		},
 	}
 
@@ -540,13 +540,12 @@ func TestCompareReportsAutoGenerate(t *testing.T) {
 
 	tracks := []l9endpoints.Track{
 		{
-			TrackID:          "t1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   baseTime,
+			TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: baseTime,
 		},
 	}
 
@@ -584,13 +583,12 @@ func TestCompareReportsInvalidPathB(t *testing.T) {
 	baseTime := int64(1_000_000_000_000)
 	tracks := []l9endpoints.Track{
 		{
-			TrackID:          "t1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   baseTime,
+			TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: baseTime,
 		},
 	}
 	pathA := createTestVrlogWithTracks(t, tmpDir, "valid-a.vrlog", tracks, 5, baseTime)
@@ -605,13 +603,12 @@ func TestCompareReportsWriteError(t *testing.T) {
 	baseTime := int64(1_000_000_000_000)
 	tracks := []l9endpoints.Track{
 		{
-			TrackID:          "t1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   baseTime,
+			TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: baseTime,
 		},
 	}
 	pathA := createTestVrlogWithTracks(t, tmpDir, "wr-a.vrlog", tracks, 3, baseTime)
@@ -682,14 +679,13 @@ func TestCompareReportsQualityDelta(t *testing.T) {
 	// A has high fragmentation (many tentative tracks)
 	tracksA := []l9endpoints.Track{
 		{
-			TrackID:          "ca1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 10,
-			Hits:             10,
-			OcclusionCount:   3,
-			FirstSeenNanos:   baseTime,
+			TrackID: "ca1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 10}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           10,
+			OcclusionCount: 3,
+			FirstSeenNanos: baseTime,
 		},
 		{
 			TrackID:        "ta1",
@@ -702,14 +698,13 @@ func TestCompareReportsQualityDelta(t *testing.T) {
 	// B has no tentative tracks, fewer occlusions
 	tracksB := []l9endpoints.Track{
 		{
-			TrackID:          "cb1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 15,
-			Hits:             15,
-			OcclusionCount:   1,
-			FirstSeenNanos:   baseTime,
+			TrackID: "cb1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 15}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           15,
+			OcclusionCount: 1,
+			FirstSeenNanos: baseTime,
 		},
 	}
 
@@ -747,47 +742,51 @@ func TestCompareReportsSpeedDelta(t *testing.T) {
 	// Create two vrlogs with overlapping tracks at different speeds
 	tracksA := []l9endpoints.Track{
 		{
-			TrackID:          "s1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 10,
-			Hits:             10,
-			ObjectClass:      "car",
-			FirstSeenNanos:   baseTime,
+			TrackID: "s1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits: 10,
+
+			FirstSeenNanos: baseTime,
 		},
 		{
-			TrackID:          "s2",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         10.0,
-			AvgSpeedMps:      10.0,
-			ObservationCount: 10,
-			Hits:             10,
-			ObjectClass:      "car",
-			FirstSeenNanos:   baseTime,
+			TrackID: "s2", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 10.0,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 10.0,
+
+			Hits: 10,
+
+			FirstSeenNanos: baseTime,
 		},
 	}
 
 	tracksB := []l9endpoints.Track{
 		{
-			TrackID:          "s1b",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         6.0,
-			AvgSpeedMps:      6.0,
-			ObservationCount: 10,
-			Hits:             10,
-			ObjectClass:      "car",
-			FirstSeenNanos:   baseTime,
+			TrackID: "s1b", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 6.0,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 6.0,
+
+			Hits: 10,
+
+			FirstSeenNanos: baseTime,
 		},
 		{
-			TrackID:          "s2b",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         11.0,
-			AvgSpeedMps:      11.0,
-			ObservationCount: 10,
-			Hits:             10,
-			ObjectClass:      "car",
-			FirstSeenNanos:   baseTime,
+			TrackID: "s2b", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 11.0,
+				ObservationCount: 10,
+
+				ObjectClass: "car"}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 11.0,
+
+			Hits: 10,
+
+			FirstSeenNanos: baseTime,
 		},
 	}
 
@@ -816,13 +815,12 @@ func TestCompareReportsVersionAndTimestamp(t *testing.T) {
 
 	tracks := []l9endpoints.Track{
 		{
-			TrackID:          "v1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 5,
-			Hits:             5,
-			FirstSeenNanos:   baseTime,
+			TrackID: "v1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 5}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           5,
+			FirstSeenNanos: baseTime,
 		},
 	}
 
@@ -925,26 +923,24 @@ func TestCompareReportsImplementableNowMetrics(t *testing.T) {
 
 	tracksA := []l9endpoints.Track{
 		{
-			TrackID:          "m1",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         5.0,
-			AvgSpeedMps:      5.0,
-			ObservationCount: 10,
-			Hits:             10,
-			FirstSeenNanos:   baseTime,
-			LastSeenNanos:    baseTime + 1_000_000_000,
+			TrackID: "m1", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 5.0,
+				ObservationCount: 10}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 5.0,
+
+			Hits:           10,
+			FirstSeenNanos: baseTime,
+			LastSeenNanos:  baseTime + 1_000_000_000,
 		},
 	}
 	tracksB := []l9endpoints.Track{
 		{
-			TrackID:          "m2",
-			State:            l9endpoints.TrackStateConfirmed,
-			SpeedMps:         7.0,
-			AvgSpeedMps:      7.0,
-			ObservationCount: 10,
-			Hits:             10,
-			FirstSeenNanos:   baseTime,
-			LastSeenNanos:    baseTime + 1_000_000_000,
+			TrackID: "m2", TrackMeasurement: l5tracks.TrackMeasurement{AvgSpeedMps: 7.0,
+				ObservationCount: 10}, State: l9endpoints.TrackStateConfirmed,
+			SpeedMps: 7.0,
+
+			Hits:           10,
+			FirstSeenNanos: baseTime,
+			LastSeenNanos:  baseTime + 1_000_000_000,
 		},
 	}
 

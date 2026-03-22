@@ -22,8 +22,7 @@ func TestUpdateClassification(t *testing.T) {
 		tracker := NewTracker(DefaultTrackerConfig())
 		tracker.mu.Lock()
 		tracker.Tracks["trk_001"] = &TrackedObject{
-			TrackID:    "trk_001",
-			TrackState: TrackConfirmed,
+			TrackID: "trk_001", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed},
 		}
 		tracker.mu.Unlock()
 
@@ -61,16 +60,12 @@ func TestAdvanceMisses(t *testing.T) {
 
 		tracker.mu.Lock()
 		tracker.Tracks["t1"] = &TrackedObject{
-			TrackID:    "t1",
-			TrackState: TrackTentative,
-			Misses:     0,
-			Hits:       3,
+			TrackID: "t1", TrackMeasurement: TrackMeasurement{TrackState: TrackTentative}, Misses: 0,
+			Hits: 3,
 		}
 		tracker.Tracks["t2"] = &TrackedObject{
-			TrackID:    "t2",
-			TrackState: TrackConfirmed,
-			Misses:     1,
-			Hits:       2,
+			TrackID: "t2", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, Misses: 1,
+			Hits: 2,
 		}
 		tracker.mu.Unlock()
 
@@ -92,9 +87,7 @@ func TestAdvanceMisses(t *testing.T) {
 
 		tracker.mu.Lock()
 		tracker.Tracks["t1"] = &TrackedObject{
-			TrackID:    "t1",
-			TrackState: TrackTentative,
-			Misses:     2, // will become 3 → deleted
+			TrackID: "t1", TrackMeasurement: TrackMeasurement{TrackState: TrackTentative}, Misses: 2, // will become 3 → deleted
 		}
 		tracker.mu.Unlock()
 
@@ -114,9 +107,7 @@ func TestAdvanceMisses(t *testing.T) {
 
 		tracker.mu.Lock()
 		tracker.Tracks["t1"] = &TrackedObject{
-			TrackID:    "t1",
-			TrackState: TrackConfirmed,
-			Misses:     8, // will become 9, under MaxMissesConfirmed=10
+			TrackID: "t1", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, Misses: 8, // will become 9, under MaxMissesConfirmed=10
 		}
 		tracker.mu.Unlock()
 
@@ -135,9 +126,7 @@ func TestAdvanceMisses(t *testing.T) {
 
 		tracker.mu.Lock()
 		tracker.Tracks["t1"] = &TrackedObject{
-			TrackID:    "t1",
-			TrackState: TrackDeleted,
-			Misses:     0,
+			TrackID: "t1", TrackMeasurement: TrackMeasurement{TrackState: TrackDeleted}, Misses: 0,
 		}
 		tracker.mu.Unlock()
 
@@ -279,13 +268,11 @@ func TestPredict_NaNGuardResetsState(t *testing.T) {
 
 	// Create a track where prediction will produce NaN
 	track := &TrackedObject{
-		TrackID:    "trk-nan",
-		TrackState: TrackConfirmed,
-		X:          float32(math.Inf(1)),
-		Y:          1.0,
-		VX:         float32(math.NaN()),
-		VY:         0,
-		P:          [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		TrackID: "trk-nan", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, X: float32(math.Inf(1)),
+		Y:  1.0,
+		VX: float32(math.NaN()),
+		VY: 0,
+		P:  [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 	}
 
 	tracker.predict(track, 0.1)
@@ -308,13 +295,11 @@ func TestPredict_DtClamping(t *testing.T) {
 	tracker := NewTracker(cfg)
 
 	track := &TrackedObject{
-		TrackID:    "trk-dtclamp",
-		TrackState: TrackConfirmed,
-		X:          0,
-		Y:          0,
-		VX:         10.0,
-		VY:         0,
-		P:          [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+		TrackID: "trk-dtclamp", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, X: 0,
+		Y:  0,
+		VX: 10.0,
+		VY: 0,
+		P:  [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 	}
 
 	// dt=5.0 but should be clamped to MaxPredictDt=0.5
@@ -360,9 +345,7 @@ func TestPredict_WithDebugCollector(t *testing.T) {
 	tracker.DebugCollector = collector
 
 	track := &TrackedObject{
-		TrackID:    "trk-debug",
-		TrackState: TrackConfirmed,
-		X:          1.0, Y: 2.0, VX: 0.5, VY: -0.3,
+		TrackID: "trk-debug", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, X: 1.0, Y: 2.0, VX: 0.5, VY: -0.3,
 		P: [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 	}
 
@@ -409,9 +392,7 @@ func TestUpdate_WithDebugCollector(t *testing.T) {
 	tracker.DebugCollector = collector
 
 	track := &TrackedObject{
-		TrackID:    "trk-update-debug",
-		TrackState: TrackConfirmed,
-		X:          0, Y: 0, VX: 1, VY: 0,
+		TrackID: "trk-update-debug", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, X: 0, Y: 0, VX: 1, VY: 0,
 		P:       [16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
 		History: []TrackPoint{{X: 0, Y: 0, Timestamp: time.Now().UnixNano()}},
 	}
@@ -433,9 +414,7 @@ func TestUpdate_NaNGuardResetsState(t *testing.T) {
 	tracker := NewTracker(cfg)
 
 	track := &TrackedObject{
-		TrackID:    "trk-nan-update",
-		TrackState: TrackConfirmed,
-		X:          0, Y: 0, VX: 0, VY: 0,
+		TrackID: "trk-nan-update", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, X: 0, Y: 0, VX: 0, VY: 0,
 		P: [16]float32{
 			float32(math.Inf(1)), 0, 0, 0,
 			0, 1, 0, 0,
@@ -577,9 +556,7 @@ func TestGetTrackingMetrics_AllBranches(t *testing.T) {
 	tracker.EmptyBoxFrames = 15
 
 	tracker.Tracks["t1"] = &TrackedObject{
-		TrackID:              "t1",
-		TrackState:           TrackConfirmed,
-		HeadingJitterSumSq:   0.5,
+		TrackID: "t1", TrackMeasurement: TrackMeasurement{TrackState: TrackConfirmed}, HeadingJitterSumSq: 0.5,
 		HeadingJitterCount:   10,
 		SpeedJitterSumSq:     2.0,
 		SpeedJitterCount:     8,
@@ -589,9 +566,7 @@ func TestGetTrackingMetrics_AllBranches(t *testing.T) {
 		AlignmentMeanRad:     0.06,
 	}
 	tracker.Tracks["t2"] = &TrackedObject{
-		TrackID:              "t2",
-		TrackState:           TrackTentative,
-		HeadingJitterSumSq:   0.3,
+		TrackID: "t2", TrackMeasurement: TrackMeasurement{TrackState: TrackTentative}, HeadingJitterSumSq: 0.3,
 		HeadingJitterCount:   5,
 		SpeedJitterSumSq:     1.0,
 		SpeedJitterCount:     4,

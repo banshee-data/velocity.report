@@ -122,13 +122,13 @@ func TestListRuns(t *testing.T) {
 			t.Fatalf("InsertRun failed: %v", err)
 		}
 		if i == 4 {
-			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-classified", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 1, UserLabel: "car", LabelSource: "human_manual"}); err != nil {
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-classified", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 1}, UserLabel: "car", LabelSource: "human_manual"}); err != nil {
 				t.Fatalf("InsertRunTrack failed: %v", err)
 			}
-			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-tagged", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 2, QualityLabel: "noisy", LabelSource: "human_manual"}); err != nil {
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-tagged", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 2}, QualityLabel: "noisy", LabelSource: "human_manual"}); err != nil {
 				t.Fatalf("InsertRunTrack failed: %v", err)
 			}
-			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-carried", SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 3, UserLabel: "bus", LabelSource: "carried_over"}); err != nil {
+			if err := store.InsertRunTrack(&RunTrack{RunID: runID, TrackID: "track-carried", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1", TrackState: "confirmed", StartUnixNanos: 3}, UserLabel: "bus", LabelSource: "carried_over"}); err != nil {
 				t.Fatalf("InsertRunTrack failed: %v", err)
 			}
 		}
@@ -232,28 +232,25 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 	// Insert tracks
 	tracks := []*RunTrack{
 		{
-			RunID:            "run-1",
-			TrackID:          "track-1",
-			SensorID:         "sensor-1",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1000,
-			EndUnixNanos:     2000,
-			ObservationCount: 10,
-			AvgSpeedMps:      5.0,
-			MaxSpeedMps:      8.0,
-			ObjectClass:      "car",
-			ObjectConfidence: 0.85,
-			LinkedTrackIDs:   []string{"track-2"},
+			RunID:   "run-1",
+			TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000,
+				EndUnixNanos:     2000,
+				ObservationCount: 10,
+				AvgSpeedMps:      5.0,
+				MaxSpeedMps:      8.0,
+				ObjectClass:      "car",
+				ObjectConfidence: 0.85}, LinkedTrackIDs: []string{"track-2"},
 		},
 		{
-			RunID:            "run-1",
-			TrackID:          "track-2",
-			SensorID:         "sensor-1",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1500,
-			EndUnixNanos:     2500,
-			ObservationCount: 8,
-			AvgSpeedMps:      4.0,
+			RunID:   "run-1",
+			TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1500,
+				EndUnixNanos:     2500,
+				ObservationCount: 8,
+				AvgSpeedMps:      4.0},
 		},
 	}
 
@@ -313,11 +310,10 @@ func TestUpdateTrackLabel(t *testing.T) {
 
 	// Insert a track
 	track := &RunTrack{
-		RunID:          "run-label",
-		TrackID:        "track-label",
-		SensorID:       "sensor-1",
-		TrackState:     "confirmed",
-		StartUnixNanos: 1000,
+		RunID:   "run-label",
+		TrackID: "track-label", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "confirmed",
+			StartUnixNanos: 1000},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack failed: %v", err)
@@ -360,11 +356,10 @@ func TestUpdateTrackLabel_NormalizesWriteValues(t *testing.T) {
 
 	insertTestAnalysisRun(t, db, "run-label-normalized", "sensor-1")
 	track := &RunTrack{
-		RunID:          "run-label-normalized",
-		TrackID:        "track-label-normalized",
-		SensorID:       "sensor-1",
-		TrackState:     "confirmed",
-		StartUnixNanos: 1000,
+		RunID:   "run-label-normalized",
+		TrackID: "track-label-normalized", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "confirmed",
+			StartUnixNanos: 1000},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack failed: %v", err)
@@ -407,11 +402,10 @@ func TestUpdateTrackQualityFlags(t *testing.T) {
 
 	// Insert a track
 	track := &RunTrack{
-		RunID:          "run-flags",
-		TrackID:        "track-flags",
-		SensorID:       "sensor-1",
-		TrackState:     "confirmed",
-		StartUnixNanos: 1000,
+		RunID:   "run-flags",
+		TrackID: "track-flags", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "confirmed",
+			StartUnixNanos: 1000},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack failed: %v", err)
@@ -452,11 +446,10 @@ func TestUpdateTrackQualityFlags_NormalizesLinkedTrackIDs(t *testing.T) {
 
 	insertTestAnalysisRun(t, db, "run-flags-normalized", "sensor-1")
 	track := &RunTrack{
-		RunID:          "run-flags-normalized",
-		TrackID:        "track-flags-normalized",
-		SensorID:       "sensor-1",
-		TrackState:     "confirmed",
-		StartUnixNanos: 1000,
+		RunID:   "run-flags-normalized",
+		TrackID: "track-flags-normalized", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "confirmed",
+			StartUnixNanos: 1000},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack failed: %v", err)
@@ -493,9 +486,9 @@ func TestGetLabelingProgress(t *testing.T) {
 
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
-		{RunID: "run-progress", TrackID: "track-1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000},
-		{RunID: "run-progress", TrackID: "track-2", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000},
-		{RunID: "run-progress", TrackID: "track-3", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000},
+		{RunID: "run-progress", TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000}},
+		{RunID: "run-progress", TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000}},
+		{RunID: "run-progress", TrackID: "track-3", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000}},
 	}
 
 	for _, tr := range tracks {
@@ -537,9 +530,9 @@ func TestGetLabelingProgressWithRollup_TrimsLegacyWhitespaceValues(t *testing.T)
 	insertTestAnalysisRun(t, db, "run-progress-legacy-trim", "s1")
 
 	tracks := []*RunTrack{
-		{RunID: "run-progress-legacy-trim", TrackID: "track-1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000},
-		{RunID: "run-progress-legacy-trim", TrackID: "track-2", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000},
-		{RunID: "run-progress-legacy-trim", TrackID: "track-3", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000},
+		{RunID: "run-progress-legacy-trim", TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000}},
+		{RunID: "run-progress-legacy-trim", TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000}},
+		{RunID: "run-progress-legacy-trim", TrackID: "track-3", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000}},
 	}
 	for _, tr := range tracks {
 		if err := store.InsertRunTrack(tr); err != nil {
@@ -605,9 +598,9 @@ func TestGetUnlabeledTracks(t *testing.T) {
 
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
-		{RunID: "run-unlabeled", TrackID: "track-1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 20},
-		{RunID: "run-unlabeled", TrackID: "track-2", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000, ObservationCount: 10},
-		{RunID: "run-unlabeled", TrackID: "track-3", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000, ObservationCount: 30},
+		{RunID: "run-unlabeled", TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 20}},
+		{RunID: "run-unlabeled", TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 2000, ObservationCount: 10}},
+		{RunID: "run-unlabeled", TrackID: "track-3", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 3000, ObservationCount: 30}},
 	}
 
 	for _, tr := range tracks {
@@ -798,13 +791,12 @@ func TestAnalysisRunStore_CompleteRun(t *testing.T) {
 // TestRunTrackFromTrackedObject_EmptySpeedHistory tests conversion with empty speed history.
 func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:          "track-empty",
-		SensorID:         "sensor-1",
-		TrackState:       TrackConfirmed,
-		StartUnixNanos:   1000,
-		EndUnixNanos:     2000,
-		ObservationCount: 5,
-		AvgSpeedMps:      5.0,
+		TrackID: "track-empty", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:       TrackConfirmed,
+			StartUnixNanos:   1000,
+			EndUnixNanos:     2000,
+			ObservationCount: 5,
+			AvgSpeedMps:      5.0},
 	}
 	track.SetSpeedHistory([]float32{}) // Empty
 
@@ -874,12 +866,10 @@ func TestInsertRunTrack_EmptyLinkedIDs(t *testing.T) {
 	insertTestAnalysisRun(t, db, "run-empty-linked", "sensor-1")
 
 	track := &RunTrack{
-		RunID:          "run-empty-linked",
-		TrackID:        "track-1",
-		SensorID:       "sensor-1",
-		TrackState:     "confirmed",
-		StartUnixNanos: 1000,
-		LinkedTrackIDs: nil, // Empty
+		RunID:   "run-empty-linked",
+		TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "confirmed",
+			StartUnixNanos: 1000}, LinkedTrackIDs: nil, // Empty
 	}
 
 	if err := store.InsertRunTrack(track); err != nil {
@@ -915,11 +905,10 @@ func TestGetRunTracks_WithNullableFields(t *testing.T) {
 
 	// Insert track with minimal fields (many will be null/default)
 	track := &RunTrack{
-		RunID:          "run-nullable",
-		TrackID:        "track-nullable",
-		SensorID:       "sensor-1",
-		TrackState:     "tentative",
-		StartUnixNanos: 1000,
+		RunID:   "run-nullable",
+		TrackID: "track-nullable", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:     "tentative",
+			StartUnixNanos: 1000},
 		// All other fields left as zero/nil
 	}
 

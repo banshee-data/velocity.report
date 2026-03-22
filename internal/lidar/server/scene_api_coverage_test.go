@@ -1058,14 +1058,13 @@ func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
 		{"cand-run-success", "cand-track-1"},
 	} {
 		track := &sqlite.RunTrack{
-			RunID:            rt.runID,
-			TrackID:          rt.trackID,
-			SensorID:         "sensor-001",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1000000000,
-			EndUnixNanos:     2000000000,
-			ObservationCount: 10,
-			AvgSpeedMps:      5.0,
+			RunID:   rt.runID,
+			TrackID: rt.trackID, TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "sensor-001",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000000000,
+				EndUnixNanos:     2000000000,
+				ObservationCount: 10,
+				AvgSpeedMps:      5.0},
 		}
 		if err := runStore.InsertRunTrack(track); err != nil {
 			t.Fatalf("insert track %s: %v", rt.trackID, err)

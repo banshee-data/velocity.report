@@ -137,22 +137,21 @@ func TestFromTrackerConfig(t *testing.T) {
 
 func TestRunTrackFromTrackedObject(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:              "track_1",
-		SensorID:             "sensor_1",
-		TrackState:           TrackConfirmed,
-		StartUnixNanos:       1000000000,
-		EndUnixNanos:         2000000000,
-		ObservationCount:     10,
-		AvgSpeedMps:          5.0,
-		MaxSpeedMps:          8.0,
-		BoundingBoxLengthAvg: 2.5,
-		BoundingBoxWidthAvg:  1.5,
-		BoundingBoxHeightAvg: 1.7,
-		HeightP95Max:         1.9,
-		IntensityMeanAvg:     120.0,
-		ObjectClass:          "pedestrian",
-		ObjectConfidence:     0.85,
-		ClassificationModel:  "rule-based-v1.0",
+		TrackID: "track_1", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:           TrackConfirmed,
+			StartUnixNanos:       1000000000,
+			EndUnixNanos:         2000000000,
+			ObservationCount:     10,
+			AvgSpeedMps:          5.0,
+			MaxSpeedMps:          8.0,
+			BoundingBoxLengthAvg: 2.5,
+			BoundingBoxWidthAvg:  1.5,
+			BoundingBoxHeightAvg: 1.7,
+			HeightP95Max:         1.9,
+			IntensityMeanAvg:     120.0,
+			ObjectClass:          "pedestrian",
+			ObjectConfidence:     0.85,
+			ClassificationModel:  "rule-based-v1.0"},
 	}
 	track.SetSpeedHistory([]float32{4.0, 5.0, 6.0, 5.5, 5.0})
 
@@ -167,7 +166,7 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	if runTrack.SensorID != track.SensorID {
 		t.Errorf("SensorID mismatch")
 	}
-	if runTrack.TrackState != string(track.TrackState) {
+	if runTrack.TrackState != track.TrackState {
 		t.Errorf("TrackState mismatch")
 	}
 	if runTrack.StartUnixNanos != track.StartUnixNanos {
@@ -431,22 +430,20 @@ func TestCompareRuns_MatchedTracks(t *testing.T) {
 	// Create tracks with high temporal overlap
 	now := time.Now().UnixNano()
 	track1 := &RunTrack{
-		RunID:            run1.RunID,
-		TrackID:          "track_1",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now,
-		EndUnixNanos:     now + int64(10*time.Second),
-		ObservationCount: 100,
+		RunID:   run1.RunID,
+		TrackID: "track_1", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now,
+			EndUnixNanos:     now + int64(10*time.Second),
+			ObservationCount: 100},
 	}
 	track2 := &RunTrack{
-		RunID:            run2.RunID,
-		TrackID:          "track_1_matched",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now + int64(1*time.Second), // Slight offset
-		EndUnixNanos:     now + int64(11*time.Second),
-		ObservationCount: 100,
+		RunID:   run2.RunID,
+		TrackID: "track_1_matched", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now + int64(1*time.Second), // Slight offset
+			EndUnixNanos:     now + int64(11*time.Second),
+			ObservationCount: 100},
 	}
 
 	if err := store.InsertRunTrack(track1); err != nil {
@@ -511,22 +508,20 @@ func TestCompareRuns_NoOverlap(t *testing.T) {
 	// Create tracks with no temporal overlap
 	now := time.Now().UnixNano()
 	track1 := &RunTrack{
-		RunID:            run1.RunID,
-		TrackID:          "track_early",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now,
-		EndUnixNanos:     now + int64(5*time.Second),
-		ObservationCount: 50,
+		RunID:   run1.RunID,
+		TrackID: "track_early", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now,
+			EndUnixNanos:     now + int64(5*time.Second),
+			ObservationCount: 50},
 	}
 	track2 := &RunTrack{
-		RunID:            run2.RunID,
-		TrackID:          "track_late",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now + int64(10*time.Second), // No overlap
-		EndUnixNanos:     now + int64(15*time.Second),
-		ObservationCount: 50,
+		RunID:   run2.RunID,
+		TrackID: "track_late", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now + int64(10*time.Second), // No overlap
+			EndUnixNanos:     now + int64(15*time.Second),
+			ObservationCount: 50},
 	}
 
 	if err := store.InsertRunTrack(track1); err != nil {
@@ -588,31 +583,28 @@ func TestCompareRuns_SplitDetection(t *testing.T) {
 	// Create one track in run1 and two overlapping tracks in run2
 	now := time.Now().UnixNano()
 	track1 := &RunTrack{
-		RunID:            run1.RunID,
-		TrackID:          "track_original",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now,
-		EndUnixNanos:     now + int64(20*time.Second),
-		ObservationCount: 200,
+		RunID:   run1.RunID,
+		TrackID: "track_original", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now,
+			EndUnixNanos:     now + int64(20*time.Second),
+			ObservationCount: 200},
 	}
 	track2a := &RunTrack{
-		RunID:            run2.RunID,
-		TrackID:          "track_split_a",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now,
-		EndUnixNanos:     now + int64(10*time.Second),
-		ObservationCount: 100,
+		RunID:   run2.RunID,
+		TrackID: "track_split_a", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now,
+			EndUnixNanos:     now + int64(10*time.Second),
+			ObservationCount: 100},
 	}
 	track2b := &RunTrack{
-		RunID:            run2.RunID,
-		TrackID:          "track_split_b",
-		SensorID:         "sensor_1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   now + int64(10*time.Second),
-		EndUnixNanos:     now + int64(20*time.Second),
-		ObservationCount: 100,
+		RunID:   run2.RunID,
+		TrackID: "track_split_b", TrackMeasurement: TrackMeasurement{SensorID: "sensor_1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   now + int64(10*time.Second),
+			EndUnixNanos:     now + int64(20*time.Second),
+			ObservationCount: 100},
 	}
 
 	if err := store.InsertRunTrack(track1); err != nil {
