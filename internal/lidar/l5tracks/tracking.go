@@ -17,18 +17,14 @@ type TrackPoint struct {
 
 // TrackedObject represents a single tracked object in the tracker.
 type TrackedObject struct {
-	// Identity
-	TrackID    string
-	SensorID   string
-	TrackState TrackState
+	// Identity + shared measurement fields (persisted to both lidar_tracks
+	// and lidar_run_tracks)
+	TrackID string
+	TrackMeasurement
 
 	// Lifecycle counters
 	Hits   int // Consecutive successful associations
 	Misses int // Consecutive missed associations
-
-	// Timestamps
-	StartUnixNanos int64
-	EndUnixNanos   int64
 
 	// Kalman state (world frame): [x, y, vx, vy]
 	X  float32 // Position X
@@ -38,16 +34,6 @@ type TrackedObject struct {
 
 	// Kalman covariance (4x4, row-major)
 	P [16]float32
-
-	// Aggregated features
-	ObservationCount     int
-	BoundingBoxLengthAvg float32
-	BoundingBoxWidthAvg  float32
-	BoundingBoxHeightAvg float32
-	HeightP95Max         float32
-	IntensityMeanAvg     float32
-	AvgSpeedMps          float32
-	MaxSpeedMps          float32
 
 	// History of positions
 	History []TrackPoint
@@ -66,11 +52,6 @@ type TrackedObject struct {
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
-
-	// Classification
-	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "dynamic"
-	ObjectConfidence    float32 // Classification confidence [0, 1]
-	ClassificationModel string  // Model version used for classification
 
 	// Track quality metrics
 	TrackLengthMeters  float32 // Total distance traveled (meters)
@@ -400,14 +381,21 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	t.NextTrackID++
 
 	track := &TrackedObject{
-		TrackID:    trackID,
-		SensorID:   cluster.SensorID,
-		TrackState: TrackTentative,
-		Hits:       1,
-		Misses:     0,
-
-		StartUnixNanos: nowNanos,
-		EndUnixNanos:   nowNanos,
+		TrackID: trackID,
+		TrackMeasurement: TrackMeasurement{
+			SensorID:             cluster.SensorID,
+			TrackState:           TrackTentative,
+			StartUnixNanos:       nowNanos,
+			EndUnixNanos:         nowNanos,
+			ObservationCount:     1,
+			BoundingBoxLengthAvg: cluster.BoundingBoxLength,
+			BoundingBoxWidthAvg:  cluster.BoundingBoxWidth,
+			BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
+			HeightP95Max:         cluster.HeightP95,
+			IntensityMeanAvg:     cluster.IntensityMean,
+		},
+		Hits:   1,
+		Misses: 0,
 
 		// Initialise position from cluster centroid
 		X: cluster.CentroidX,
@@ -424,15 +412,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			0, 0, 0, 1,
 		},
 
-		// Initialise features
-		ObservationCount:     1,
-		BoundingBoxLengthAvg: cluster.BoundingBoxLength,
-		BoundingBoxWidthAvg:  cluster.BoundingBoxWidth,
-		BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
-		HeightP95Max:         cluster.HeightP95,
-		IntensityMeanAvg:     cluster.IntensityMean,
-		TrackLengthMeters:    0,
-		TrackDurationSecs:    0,
+		TrackLengthMeters: 0,
+		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
 			X:         cluster.CentroidX,

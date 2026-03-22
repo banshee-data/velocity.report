@@ -15,6 +15,10 @@ import (
 // TrackedObject represents a tracked object/vehicle from L5 (tracking layer).
 type TrackedObject = l5tracks.TrackedObject
 
+// TrackMeasurement contains the measurement fields shared between
+// TrackedObject (live tracks) and RunTrack (analysis snapshots).
+type TrackMeasurement = l5tracks.TrackMeasurement
+
 // TrackState represents the Kalman filter state of a tracked object.
 type TrackState = l5tracks.TrackState
 

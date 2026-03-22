@@ -189,8 +189,8 @@ func TestCompareParams_SeedFromFirstDifference(t *testing.T) {
 }
 
 func TestComputeTemporalIoU_FullOverlap(t *testing.T) {
-	ref := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 200}
-	cand := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 200}
+	ref := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 200}}
+	cand := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 200}}
 
 	iou := computeTemporalIoU(ref, cand)
 	if iou != 1.0 {
@@ -199,8 +199,8 @@ func TestComputeTemporalIoU_FullOverlap(t *testing.T) {
 }
 
 func TestComputeTemporalIoU_NoOverlap(t *testing.T) {
-	ref := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 200}
-	cand := &RunTrack{StartUnixNanos: 300, EndUnixNanos: 400}
+	ref := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 200}}
+	cand := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 300, EndUnixNanos: 400}}
 
 	iou := computeTemporalIoU(ref, cand)
 	if iou != 0.0 {
@@ -209,8 +209,8 @@ func TestComputeTemporalIoU_NoOverlap(t *testing.T) {
 }
 
 func TestComputeTemporalIoU_PartialOverlap(t *testing.T) {
-	ref := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 300}
-	cand := &RunTrack{StartUnixNanos: 200, EndUnixNanos: 400}
+	ref := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 300}}
+	cand := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 200, EndUnixNanos: 400}}
 
 	iou := computeTemporalIoU(ref, cand)
 	// Intersection: 200-300 = 100, Union: 100-400 = 300, IoU = 100/300 ≈ 0.333
@@ -220,8 +220,8 @@ func TestComputeTemporalIoU_PartialOverlap(t *testing.T) {
 }
 
 func TestComputeTemporalIoU_ContainedTrack(t *testing.T) {
-	ref := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 400}
-	cand := &RunTrack{StartUnixNanos: 200, EndUnixNanos: 300}
+	ref := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 400}}
+	cand := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 200, EndUnixNanos: 300}}
 
 	iou := computeTemporalIoU(ref, cand)
 	// Intersection: 200-300 = 100, Union: 100-400 = 300, IoU = 100/300 ≈ 0.333
@@ -231,8 +231,8 @@ func TestComputeTemporalIoU_ContainedTrack(t *testing.T) {
 }
 
 func TestComputeTemporalIoU_AdjacentTracks(t *testing.T) {
-	ref := &RunTrack{StartUnixNanos: 100, EndUnixNanos: 200}
-	cand := &RunTrack{StartUnixNanos: 200, EndUnixNanos: 300}
+	ref := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 100, EndUnixNanos: 200}}
+	cand := &RunTrack{TrackMeasurement: TrackMeasurement{StartUnixNanos: 200, EndUnixNanos: 300}}
 
 	iou := computeTemporalIoU(ref, cand)
 	// Edge-touching: intersection is 0 duration, IoU should be 0

@@ -267,22 +267,8 @@ type RunTrack struct {
 	RunID   string `json:"run_id"`
 	TrackID string `json:"track_id"`
 
-	// Track fields (from TrackedObject)
-	SensorID             string  `json:"sensor_id"`
-	TrackState           string  `json:"track_state"`
-	StartUnixNanos       int64   `json:"start_unix_nanos"`
-	EndUnixNanos         int64   `json:"end_unix_nanos,omitempty"`
-	ObservationCount     int     `json:"observation_count"`
-	AvgSpeedMps          float32 `json:"avg_speed_mps"`
-	MaxSpeedMps          float32 `json:"max_speed_mps"`
-	BoundingBoxLengthAvg float32 `json:"bounding_box_length_avg"`
-	BoundingBoxWidthAvg  float32 `json:"bounding_box_width_avg"`
-	BoundingBoxHeightAvg float32 `json:"bounding_box_height_avg"`
-	HeightP95Max         float32 `json:"height_p95_max"`
-	IntensityMeanAvg     float32 `json:"intensity_mean_avg"`
-	ObjectClass          string  `json:"object_class,omitempty"`
-	ObjectConfidence     float32 `json:"object_confidence,omitempty"`
-	ClassificationModel  string  `json:"classification_model,omitempty"`
+	// Shared measurement fields (same 15 columns as lidar_tracks)
+	TrackMeasurement
 
 	// User labels (for ML training)
 	UserLabel       string  `json:"user_label,omitempty"`
@@ -299,25 +285,12 @@ type RunTrack struct {
 }
 
 // RunTrackFromTrackedObject creates a RunTrack from a TrackedObject.
+// The shared TrackMeasurement is copied directly.
 func RunTrackFromTrackedObject(runID string, t *TrackedObject) *RunTrack {
 	return &RunTrack{
-		RunID:                runID,
-		TrackID:              t.TrackID,
-		SensorID:             t.SensorID,
-		TrackState:           string(t.TrackState),
-		StartUnixNanos:       t.StartUnixNanos,
-		EndUnixNanos:         t.EndUnixNanos,
-		ObservationCount:     t.ObservationCount,
-		AvgSpeedMps:          t.AvgSpeedMps,
-		MaxSpeedMps:          t.MaxSpeedMps,
-		BoundingBoxLengthAvg: t.BoundingBoxLengthAvg,
-		BoundingBoxWidthAvg:  t.BoundingBoxWidthAvg,
-		BoundingBoxHeightAvg: t.BoundingBoxHeightAvg,
-		HeightP95Max:         t.HeightP95Max,
-		IntensityMeanAvg:     t.IntensityMeanAvg,
-		ObjectClass:          t.ObjectClass,
-		ObjectConfidence:     t.ObjectConfidence,
-		ClassificationModel:  t.ClassificationModel,
+		RunID:            runID,
+		TrackID:          t.TrackID,
+		TrackMeasurement: t.TrackMeasurement,
 	}
 }
 
