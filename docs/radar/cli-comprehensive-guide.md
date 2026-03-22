@@ -54,7 +54,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 
 #### CLI Flags
 
-**Core Service Flags (5):**
+**Core Service Flags:**
 
 - `--listen :8080` - HTTP listen address for API server
 - `--db-path sensor_data.db` - Path to SQLite database file
@@ -62,7 +62,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--fixture` - Load fixture data instead of real hardware
 - `--version`, `-v` - Print version information and exit
 
-**Radar Hardware Flags (4):**
+**Radar Hardware Flags:**
 
 - `--port /dev/ttySC1` - Serial device path for radar sensor
 - `--disable-radar` - Disable radar serial I/O (serve DB/HTTP only)
@@ -86,15 +86,13 @@ velocity-report --enable-lidar --lidar-listen :8081
 [tuning config file](../../config/README.md) (`l1.sensor`, `l1.udp_port`,
 `l1.forward_port`, `l1.foreground_forward_port`), not CLI flags.
 
-**LiDAR Background Tuning Flags (5):**
+**LiDAR Background Tuning Flags:**
 
 - `--lidar-bg-flush-interval 60s` - Background grid flush interval
 - `--lidar-bg-noise-relative 0.315` - Background noise relative fraction
 - `--lidar-frame-buffer-timeout 500ms` - Frame buffer timeout
 - `--lidar-min-frame-points 1000` - Minimum points for valid frame
 - `--lidar-seed-from-first true` - Seed background from first observation
-
-**Total:** 30+ flags
 
 #### Subcommands
 
