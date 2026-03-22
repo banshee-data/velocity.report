@@ -7,19 +7,17 @@ import (
 
 // TestSetEnableDiagnostics tests toggling diagnostics
 func TestSetEnableDiagnostics(t *testing.T) {
-	bm := &BackgroundManager{
-		EnableDiagnostics: false,
-	}
+	bm := &BackgroundManager{}
 
 	// Enable diagnostics
 	bm.SetEnableDiagnostics(true)
-	if !bm.EnableDiagnostics {
+	if !bm.enableDiagnostics.Load() {
 		t.Error("SetEnableDiagnostics(true) did not enable diagnostics")
 	}
 
 	// Disable diagnostics
 	bm.SetEnableDiagnostics(false)
-	if bm.EnableDiagnostics {
+	if bm.enableDiagnostics.Load() {
 		t.Error("SetEnableDiagnostics(false) did not disable diagnostics")
 	}
 
