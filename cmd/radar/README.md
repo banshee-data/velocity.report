@@ -71,7 +71,7 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-foreground-forward` (bool) — Forward foreground-only LiDAR packets to a separate port.
 - `--lidar-foreground-forward-addr` (string) — Address to forward foreground LiDAR packets to (default: `localhost`).
 - `--lidar-grpc-listen` (string) — gRPC server listen address for visualiser streaming (default: `localhost:50051`).
-- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 **Sensor/network settings (config file only):** The following settings are
 configured via the [tuning config file](../../config/README.md), not CLI flags:

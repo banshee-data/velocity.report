@@ -184,16 +184,6 @@ func CompareRuns(store *AnalysisRunStore, run1ID, run2ID string) (*RunComparison
 	// Track how many run1 tracks are matched to each run2 track (for merge detection)
 	run2ToRun1 := make(map[string][]string)
 
-	// Build maps for efficient lookup
-	run1TrackMap := make(map[string]*RunTrack, len(run1Tracks))
-	for _, track := range run1Tracks {
-		run1TrackMap[track.TrackID] = track
-	}
-	run2TrackMap := make(map[string]*RunTrack, len(run2Tracks))
-	for _, track := range run2Tracks {
-		run2TrackMap[track.TrackID] = track
-	}
-
 	// Process assignments
 	for i, j := range assignments {
 		if j >= 0 && j < len(run2Tracks) {
