@@ -45,11 +45,11 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## Pre-1.0 Release Families
 
-- `0.5.x` — `Sunny Southeast`
-- `0.6.x` — `Ceilí Calling`
-- `0.7.x` — `Rebel Realm`
-- `0.8.x` — `Mobile Mesh`
-- `0.9.x` — `Banter Belt`
+- `0.5.x` 🌞 `Sunny Southeast`
+- `0.6.x` 🎻 `Ceilí Calling`
+- `0.7.x` ⛰️ `Rebel Realm`
+- `0.8.x` 📶 `Mobile Mesh`
+- `0.9.x` 💬 `Banter Belt`
 
 ## [0.4.0] - 2026-01-29
 
