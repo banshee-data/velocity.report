@@ -6,7 +6,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 **Formatting:** Backlog items describe outstanding work only. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline — the Complete section is the record of delivered work.
 
-## 05x Sunny Southeast
+## 05x Sunny Southeast 🌞
 
 ### v0.5.0 - Platform Hardening (050)
 
@@ -47,7 +47,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
-## 06x Ceilí Calling
+## 06x Ceilí Calling 🎻
 
 ### v0.6.0 - Deployment & Packaging (060)
 
@@ -66,7 +66,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
 - LiDAR pipeline performance measurement harness — add per-layer timing instrumentation, CI integration, and regression detection for pipeline performance. [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 
-## 07x Rebel Realm
+## 07x Rebel Realm ⛰️
 
 ### v0.7.0 - Unified Frontend (070)
 
@@ -82,7 +82,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - VelocityVisualiser light mode (3D scene) — follow system dark/light mode with tuned point cloud, trails, and box colours — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 
-## 08x Mobile Mesh
+## 08x Mobile Mesh 📶
 
 ### v0.8.0 - Radar Polish + Automation (080)
 
@@ -95,7 +95,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - GitHub Releases CI pipeline — automated binary builds and release packaging — [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - TicTacTail Phase 1 incubation (D-23) — in-repo pkg/tictactail engine + bounded cache + VRLOG thin adapter extraction — [design doc](plans/tictactail-platform-plan.md) `M`
 
-## 09x Banter Belt
+## 09x Banter Belt 💬
 
 ### v0.9.0 - Production-Ready (090)
 
