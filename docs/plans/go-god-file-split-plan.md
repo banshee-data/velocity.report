@@ -27,8 +27,8 @@ Beyond the original three, a scan of the full Go codebase reveals further files 
 | ~~`internal/lidar/l5tracks/tracking.go`~~           | ~~1,676~~ | 515 | **DONE** — split into 3 domain files (see 1D)                                                                                      |
 | ~~`internal/db/db.go`~~                             | ~~1,420~~ | 337 | **DONE** — split into 4 domain files (see 1A)                                                                                      |
 | ~~`internal/lidar/storage/sqlite/analysis_run.go`~~ | ~~1,400~~ | 391 | **DONE** — split into 4 domain files (see 1E)                                                                                      |
-| ~~`internal/lidar/l3grid/background.go`~~           | —         | 352 | **DONE** — split into `background.go` (352), `background_region.go` (474), `background_manager.go` (860) (see 1F)                  |
-| ~~`internal/config/tuning.go`~~                     | —         | 250 | **DONE** — split into `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361) (see 1G) |
+| ~~`internal/lidar/l3grid/background.go`~~           | ~~1,672~~ | 352 | **DONE** — split into `background.go` (352), `background_region.go` (474), `background_manager.go` (860) (see 1F)                  |
+| ~~`internal/config/tuning.go`~~                     | ~~1,303~~ | 250 | **DONE** — split into `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361) (see 1G) |
 
 ### Tier 2 — Large Files (700–1,100 LOC, may benefit from splitting)
 

@@ -102,7 +102,7 @@ func (ws *Server) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.Tuni
 			l3.WarmupDurationNanos = params.WarmupDurationNanos
 			l3.WarmupMinFrames = params.WarmupMinFrames
 			l3.PostSettleUpdateFraction = roundTo6(float64(params.PostSettleUpdateFraction))
-			l3.EnableDiagnostics = bm.EnableDiagnostics
+			l3.EnableDiagnostics = bm.GetEnableDiagnostics()
 			l3.FreezeThresholdMultiplier = roundTo6(float64(params.FreezeThresholdMultiplier))
 			l3.ChangeThresholdSnapshot = params.ChangeThresholdForSnapshot
 			l3.ReacquisitionBoostMultiplier = roundTo6(float64(params.ReacquisitionBoostMultiplier))

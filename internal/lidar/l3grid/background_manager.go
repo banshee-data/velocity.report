@@ -25,11 +25,12 @@ type BackgroundManager struct {
 	// When the store also implements RegionStore, regions are persisted on settling
 	// completion and can be restored on subsequent PCAP runs.
 	store BgStore
-	// EnableDiagnostics controls whether this manager emits high-frequency
+	// enableDiagnostics controls whether this manager emits high-frequency
 	// trace / monitoring diagnostics (per-frame processing logs) via the
 	// shared monitoring logger. Human-readable diagnostic logs are enabled
 	// separately via SetLogWriters on the owning manager. Default: false.
-	EnableDiagnostics bool
+	// Accessed atomically — use SetEnableDiagnostics / enableDiagnostics.Load().
+	enableDiagnostics atomic.Bool
 	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
 	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
 	frameProcessCount int64
@@ -161,11 +162,21 @@ func (bm *BackgroundManager) SetForegroundClusterParams(minPts int, eps float32)
 }
 
 // SetEnableDiagnostics toggles emission of diagnostics for this manager.
+// Safe for concurrent use.
 func (bm *BackgroundManager) SetEnableDiagnostics(v bool) {
 	if bm == nil {
 		return
 	}
-	bm.EnableDiagnostics = v
+	bm.enableDiagnostics.Store(v)
+}
+
+// GetEnableDiagnostics returns whether diagnostics are enabled for this manager.
+// Safe for concurrent use.
+func (bm *BackgroundManager) GetEnableDiagnostics() bool {
+	if bm == nil {
+		return false
+	}
+	return bm.enableDiagnostics.Load()
 }
 
 // SetSourcePath sets the current data source path (e.g., PCAP filename).
@@ -502,8 +513,11 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 		return
 	}
 
+	// Read diagnostics flag once per frame (atomic — no lock needed).
+	enableDiag := bm.enableDiagnostics.Load()
+
 	// Quick diagnostics when enabled to see what's arriving
-	if bm != nil && bm.EnableDiagnostics && len(points) > 0 {
+	if enableDiag {
 		sample := points[0]
 		tracef("[BackgroundManager] Received %d points; sample -> Channel=%d Az=%.2f Dist=%.2f", len(points), sample.Channel, sample.Azimuth, sample.Distance)
 	}
@@ -563,7 +577,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 
 	// Parameters with safe defaults
 	// Emit a single summary log if we encountered points with invalid channels
-	if skippedInvalid > 0 && bm != nil && bm.EnableDiagnostics {
+	if skippedInvalid > 0 && enableDiag {
 		opsf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
 	}
 	// Declare variables that will be populated under the grid lock.
@@ -577,7 +591,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
 
-	// Log E: Diagnostic sample counters for decision logging (gated by EnableDiagnostics)
+	// Log E: Diagnostic sample counters for decision logging (gated by enableDiag)
 	var acceptSampleCount, rejectSampleCount int
 	const maxSamplesPerType = 10
 
@@ -663,7 +677,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	seedFromFirst = g.Params.SeedFromFirstObservation
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.
-	if bm != nil && bm.EnableDiagnostics {
+	if enableDiag {
 		if float32(noiseRel) != g.LastObservedNoiseRel {
 			g.LastObservedNoiseRel = float32(noiseRel)
 			monitoring.Logf("[BackgroundManager] Observed noise_relative change for sensor=%s: %.6f", g.SensorID, noiseRel)
@@ -737,7 +751,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			}
 
 			// Log E: Sample decision details when diagnostics enabled
-			if bm != nil && bm.EnableDiagnostics {
+			if enableDiag {
 				logThis := false
 				if (isBackgroundLike || initIfEmpty) && acceptSampleCount < maxSamplesPerType {
 					acceptSampleCount++
@@ -837,8 +851,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 	bm.LastPersistTime = now
 
-	// Log F: Per-frame acceptance summary (gated by EnableDiagnostics)
-	if bm != nil && bm.EnableDiagnostics && (foregroundCount > 0 || backgroundCount > 0) {
+	// Log F: Per-frame acceptance summary (gated by enableDiag)
+	if enableDiag && (foregroundCount > 0 || backgroundCount > 0) {
 		total := foregroundCount + backgroundCount
 		acceptPct := 0.0
 		if total > 0 {

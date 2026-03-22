@@ -74,11 +74,11 @@ func (w *backgroundManagerWrapper) GetGrid() *l3grid.BackgroundGrid {
 }
 
 func (w *backgroundManagerWrapper) IsDiagnosticsEnabled() bool {
-	return w.bm.EnableDiagnostics
+	return w.bm.GetEnableDiagnostics()
 }
 
 func (w *backgroundManagerWrapper) SetDiagnosticsEnabled(enabled bool) {
-	w.bm.EnableDiagnostics = enabled
+	w.bm.SetEnableDiagnostics(enabled)
 }
 
 // MockBackgroundManager provides a testable implementation of BackgroundManagerInterface.
