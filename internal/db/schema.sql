@@ -1,4 +1,7 @@
-CREATE TABLE lidar_bg_regions (
+-- AUTO-GENERATED — do not edit by hand.
+-- Regenerate with: ./scripts/sync-schema.sh
+--
+   CREATE TABLE lidar_bg_regions (
           region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
         , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
         , sensor_id TEXT NOT NULL
