@@ -167,6 +167,13 @@ func (s *LabelStore) GetLabel(labelID string) (*LidarLabel, error) {
 
 // UpdateLabel updates explicitly provided fields on a label.
 func (s *LabelStore) UpdateLabel(labelID string, updates *LidarLabel) error {
+	if updates == nil {
+		return fmt.Errorf("update label: updates cannot be nil")
+	}
+	if updates.UpdatedAtNs == nil {
+		return fmt.Errorf("update label: UpdatedAtNs must be set")
+	}
+
 	query := "UPDATE lidar_track_annotations SET updated_at_ns = ?"
 	args := []any{updates.UpdatedAtNs}
 

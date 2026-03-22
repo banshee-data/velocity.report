@@ -14,7 +14,8 @@ import (
 func setupLabelTestDB(t *testing.T) *dbpkg.DB {
 	t.Helper()
 
-	db, _ := dbpkg.NewTestDB(t)
+	db, cleanup := dbpkg.NewTestDB(t)
+	t.Cleanup(cleanup)
 
 	_, err := db.Exec(`
 		INSERT INTO lidar_tracks (

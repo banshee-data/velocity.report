@@ -2,6 +2,7 @@ package db
 
 import (
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -20,7 +21,13 @@ func NewTestDB(tb testing.TB) (*DB, func()) {
 		tb.Fatalf("failed to enable foreign_keys for test DB: %v", err)
 	}
 
-	return opened, func() {
-		_ = opened.Close()
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			_ = opened.Close()
+		})
 	}
+	tb.Cleanup(cleanup)
+
+	return opened, cleanup
 }
