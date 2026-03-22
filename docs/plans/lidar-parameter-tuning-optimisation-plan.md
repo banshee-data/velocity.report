@@ -1,6 +1,7 @@
 # LiDAR Parameter Tuning & Optimisation
 
 - **Status:** Planned
+- **Canonical:** [auto-tuning.md](../lidar/operations/auto-tuning.md)
 
 - **Layers:** Cross-cutting (L3 Grid, L4 Perception, L5 Tracks)
 

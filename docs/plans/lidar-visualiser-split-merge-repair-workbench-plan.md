@@ -2,6 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
+- **Canonical:** [split-merge-repair.md](../lidar/operations/visualiser/split-merge-repair.md)
 
 ## Objective
 

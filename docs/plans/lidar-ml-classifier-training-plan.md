@@ -1,5 +1,7 @@
 # LiDAR Classification Benchmarking and Optional Model Training
 
+- **Canonical:** [ml-solver-expansion.md](../lidar/architecture/ml-solver-expansion.md)
+
 This document describes the optional future classification research lane for LiDAR tracks. It is intentionally downstream of the main pipeline: rule-based classification remains the deployed baseline until a candidate approach wins on reproducible benchmarks and stays explainable.
 
 **Status:** Deferred / optional research lane

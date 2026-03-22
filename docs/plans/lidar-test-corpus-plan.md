@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Layers:** Cross-cutting
 - **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/README.maths.md)
+- **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
 
 ## Goal
 

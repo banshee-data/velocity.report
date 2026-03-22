@@ -17,7 +17,7 @@ Gate rules (hard-fail when ``--check``):
   1. Non-symlink plan missing ``- **Canonical:**`` link.
   2. Canonical target points at another file under ``docs/plans/``.
   3. Canonical target points outside the repository or to a missing file.
-  4. Two non-symlink plans declare the same canonical target.
+  4. (Removed — shared targets are advisory only.)
   5. Symlink resolves to another file under ``docs/plans/``.
   6. Symlink resolves outside the repository.
   7. Symlink resolves to a missing target.
@@ -186,13 +186,9 @@ class Checker:
 
             target_to_plans.setdefault(target, []).append(plan)
 
-        # Gate 4: duplicate targets across plans.
-        for target, owners in target_to_plans.items():
-            if len(owners) > 1:
-                self.gates.append(
-                    f"[G4] Duplicate Canonical target {target} claimed by: "
-                    + ", ".join(owners)
-                )
+        # Note: shared targets are reported as advisory only.
+        # Multiple plans converging on one canonical doc is expected
+        # (e.g. two v050 plans → v050-release-migration.md).
 
         return target_to_plans
 

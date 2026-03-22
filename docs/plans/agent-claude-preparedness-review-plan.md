@@ -1,5 +1,7 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
+- **Canonical:** [agent-preparedness.md](../platform/operations/agent-preparedness.md)
+
 This plan defines a DRY, dual-tool knowledge architecture for velocity.report's AI agents, enabling shared project knowledge across Copilot and Claude while reducing duplication and supporting future expansion.
 
 **Status:** In Progress (Phase 1 complete, Phase 2 complete, Phase 3 pending)

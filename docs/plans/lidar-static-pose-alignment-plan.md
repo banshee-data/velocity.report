@@ -6,6 +6,7 @@
 - **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data
 - **Source of Truth:** See `av-lidar-integration-plan.md` for 7DOF schema specification
 - **AV Compatibility:** Aligned with AV industry standard labelling specifications
+- **Canonical:** [static-pose-alignment.md](../lidar/operations/static-pose-alignment.md)
 
 ---
 

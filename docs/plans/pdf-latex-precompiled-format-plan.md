@@ -6,6 +6,7 @@
 - **Goal:** Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
   tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB
   while preserving byte-identical PDF output.
+- **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
 
 ## Problem Summary
 

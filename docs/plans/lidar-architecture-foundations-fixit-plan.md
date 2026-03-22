@@ -1,6 +1,7 @@
 # LiDAR Foundations Fix-It Plan
 
 - **Layers:** Cross-cutting (documentation and configuration)
+- **Canonical:** [foundations-fixit-progress.md](../lidar/operations/foundations-fixit-progress.md)
 
 Planned follow-up execution to align LiDAR documentation with implementation truth and close outstanding foundation gaps.
 

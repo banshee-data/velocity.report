@@ -2,6 +2,7 @@
 
 - **Status:** Active
 - **Layers:** Cross-cutting (documentation and tooling)
+- **Canonical:** [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md)
 
 Use the existing hub structure in `docs/lidar/`, `docs/radar/`, and `docs/ui/` as the permanent home for substantial bodies of work, and treat `docs/plans/` as a temporary execution layer that eventually collapses into symlink aliases.
 
@@ -24,7 +25,10 @@ What is already in place and what remains to be done:
 - [x] `scripts/check-plan-canonical-links.py` — advisory-only mode landed
 - [x] `make check-plan-hygiene` / `make report-plan-hygiene` — Makefile targets added
 - [x] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
-- [~] `Canonical` metadata added to 3 of 68 plan files (data-\* batch)
+- [~] `Canonical` metadata added to 69 of 69 plan files
+- [x] 46 canonical doc stubs created across 4 hubs
+- [x] Gate 4 (shared targets) moved to advisory — 6 shared pairs documented
+- [x] `--check` mode passes with 0 gate violations
 - [ ] Any plan graduated to a symlink
 - [x] CI enforcement enabled (advisory-only; `.github/workflows/plan-hygiene-ci.yml`)
 

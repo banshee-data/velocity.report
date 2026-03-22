@@ -4,6 +4,7 @@
 - **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 - **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 - **Purpose:** Long-term architecture specification for motion capture scenarios
+- **Canonical:** [motion-capture.md](../lidar/operations/motion-capture.md)
 
 ---
 

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
+- **Canonical:** [performance-and-timeline-metrics.md](../lidar/operations/visualiser/performance-and-timeline-metrics.md)
 
 ## Objective
 

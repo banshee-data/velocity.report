@@ -4,6 +4,7 @@
 - **Layers:** L7 Scene
 - **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
 - **Maths index:** [data/maths/README.md](../../data/maths/README.md)
+- **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
 This plan covers two related workstreams for the L7 Scene layer:
 

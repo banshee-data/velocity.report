@@ -5,6 +5,7 @@
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Item 2,
   god files scope)
 - **Target:** v0.5.1+
+- **Canonical:** [go-package-structure.md](../platform/architecture/go-package-structure.md)
 
 ## Motivation
 

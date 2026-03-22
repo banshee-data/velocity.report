@@ -4,6 +4,7 @@
 - **Layers:** L3 Grid, L4 Perception
 - **Source Branch:** `copilot/summarize-changes-and-spec` (34 commits, 54 files, ~7,300 lines)
 - **Related:**
+- **Canonical:** [pluggable-algorithm-selection.md](../lidar/architecture/pluggable-algorithm-selection.md)
 
 - [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md) — Original design vision
 - [Backlog](../BACKLOG.md) — milestone placement

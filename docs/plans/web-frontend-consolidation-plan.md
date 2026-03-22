@@ -1,6 +1,7 @@
 # Frontend Consolidation Plan
 
 - **Status:** Draft
+- **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
 
 - **Layers:** L9 Endpoints, L10 Clients
 

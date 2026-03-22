@@ -5,6 +5,7 @@
 - **Precondition:** This plan assumes schema standardisation migrations `000030` and `000031` have already landed on `main`, including the post-31 table family names documented in commit `88ed856c5c0602af1f33d91542d3053d774a573a`.
 - **Migration slot:** This work should be introduced as migration `000032`.
 - **Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), `schema-simplification-migration-030-plan.md` on `main`, [VRLOG Wire Format Specification](../../data/structures/VRLOG_FORMAT.md), [VRLOG Analysis](../../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
+- **Canonical:** [immutable-run-config.md](../lidar/operations/immutable-run-config.md)
 
 ## Goal
 

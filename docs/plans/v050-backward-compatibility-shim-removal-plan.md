@@ -3,6 +3,7 @@
 - **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
+- **Canonical:** [v050-release-migration.md](../platform/operations/v050-release-migration.md)
 
 - **Status:** Pending shim removal — two remaining items: §14 alias map residue and §18 VRLOG fallback
 

@@ -1,5 +1,7 @@
 # Unpopulated Data Structures Remediation Plan
 
+- **Canonical:** [data-completeness-remediation.md](../lidar/operations/data-completeness-remediation.md)
+
 Phased plan to wire up data structures that are computed on the Go backend
 but never persisted, exposed via API, or consumed by any presentation
 surface — plus per-track speed percentile cleanup per the

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
+- **Canonical:** [qc-dashboard-and-audit.md](../lidar/operations/visualiser/qc-dashboard-and-audit.md)
 
 ## Objective
 

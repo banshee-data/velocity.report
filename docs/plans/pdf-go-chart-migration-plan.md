@@ -3,6 +3,7 @@
 - **Status:** Draft — awaiting review before implementation
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
+- **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
 
 - [Precompiled LaTeX plan](pdf-latex-precompiled-format-plan.md) (D-08)
 - [Distribution packaging plan](deploy-distribution-packaging-plan.md) (D-09)

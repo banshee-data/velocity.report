@@ -6,6 +6,7 @@
   (`Track.UnmarshalJSON` legacy speed-key fallback), which is deferred to
   v0.5.2 per existing plan.
 - **Timeframe:** ≤ 1 week
+- **Canonical:** [v050-release-migration.md](../platform/operations/v050-release-migration.md)
 
 ---
 

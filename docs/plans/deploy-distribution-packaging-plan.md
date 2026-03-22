@@ -3,6 +3,7 @@
 - **Document Version:** 1.0
 - **Status:** Proposed Architecture
 - **Layers:** Cross-cutting (deployment infrastructure)
+- **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 
 ---
 
