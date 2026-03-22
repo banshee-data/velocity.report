@@ -142,6 +142,7 @@ func validateSchemaSQLConsistency(migrationsFS fs.FS) (uint, error) {
 // regardless of whether they were created from scratch or via migrations.
 func applyPragmas(db *sql.DB) error {
 	pragmas := []string{
+		"PRAGMA foreign_keys = ON",
 		"PRAGMA journal_mode = WAL",
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA temp_store = MEMORY",

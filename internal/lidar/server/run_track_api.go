@@ -151,6 +151,11 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	if req.LabelConfidence < 0 || req.LabelConfidence > 1 {
+		ws.writeJSONError(w, http.StatusBadRequest, "label_confidence must be between 0 and 1")
+		return
+	}
+
 	// Default label_source to human_manual for API calls
 	labelSource := req.LabelSource
 	if labelSource == "" {

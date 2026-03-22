@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -65,9 +66,13 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 		t.Fatalf("Failed to execute schema.sql: %v", err)
 	}
 
-	// Baseline at latest migration version
-	// NOTE: Update this when new migrations are added to internal/db/migrations/
-	latestMigrationVersion := 15
+	migrationsFS := os.DirFS(filepath.Join("..", "..", "db", "migrations"))
+	latestMigrationVersion, err := dbpkg.GetLatestMigrationVersion(migrationsFS)
+	if err != nil {
+		db.Close()
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to determine latest migration version: %v", err)
+	}
 	if _, err := db.Exec(`INSERT INTO schema_migrations (version, dirty) VALUES (?, false)`, latestMigrationVersion); err != nil {
 		db.Close()
 		os.RemoveAll(tmpDir)

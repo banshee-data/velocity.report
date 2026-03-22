@@ -55,6 +55,15 @@ func TestPragmasApplied(t *testing.T) {
 	if tempStore != 2 { // 2 = MEMORY
 		t.Errorf("Expected temp_store=2 (MEMORY), got %d", tempStore)
 	}
+
+	var foreignKeys int
+	err = db.QueryRow("PRAGMA foreign_keys").Scan(&foreignKeys)
+	if err != nil {
+		t.Fatalf("Failed to query foreign_keys: %v", err)
+	}
+	if foreignKeys != 1 {
+		t.Errorf("Expected foreign_keys=1 (ON), got %d", foreignKeys)
+	}
 }
 
 // TestPragmasAppliedToExistingDB verifies PRAGMAs are set when opening existing databases
@@ -84,5 +93,14 @@ func TestPragmasAppliedToExistingDB(t *testing.T) {
 	}
 	if journalMode != "wal" {
 		t.Errorf("Expected journal_mode=wal after reopening, got %s", journalMode)
+	}
+
+	var foreignKeys int
+	err = db2.QueryRow("PRAGMA foreign_keys").Scan(&foreignKeys)
+	if err != nil {
+		t.Fatalf("Failed to query foreign_keys after reopening: %v", err)
+	}
+	if foreignKeys != 1 {
+		t.Errorf("Expected foreign_keys=1 after reopening, got %d", foreignKeys)
 	}
 }
