@@ -94,55 +94,16 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 	// (INSERT OR REPLACE would delete the row first, triggering cascade delete on lidar_track_observations)
 	query := `
 		INSERT INTO lidar_tracks (
-			track_id, sensor_id, frame_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model
+			track_id, frame_id, ` + trackMeasurementColumns + `
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(track_id) DO UPDATE SET
-			sensor_id = excluded.sensor_id,
-			frame_id = excluded.frame_id,
-			track_state = excluded.track_state,
-			start_unix_nanos = excluded.start_unix_nanos,
-			end_unix_nanos = excluded.end_unix_nanos,
-			observation_count = excluded.observation_count,
-			avg_speed_mps = excluded.avg_speed_mps,
-			max_speed_mps = excluded.max_speed_mps,
-			bounding_box_length_avg = excluded.bounding_box_length_avg,
-			bounding_box_width_avg = excluded.bounding_box_width_avg,
-			bounding_box_height_avg = excluded.bounding_box_height_avg,
-			height_p95_max = excluded.height_p95_max,
-			intensity_mean_avg = excluded.intensity_mean_avg,
-			object_class = excluded.object_class,
-			object_confidence = excluded.object_confidence,
-			classification_model = excluded.classification_model
+			frame_id = excluded.frame_id,` + trackMeasurementUpsertSet + `
 	`
 
-	// Always set end_unix_nanos to LastUnixNanos for all track states
-	// This allows accurate time range queries for track history visualization
-	endNanos := track.EndUnixNanos
+	args := []any{track.TrackID, frameID}
+	args = append(args, trackMeasurementInsertArgs(&track.TrackMeasurement)...)
 
-	_, err := exec.Exec(query,
-		track.TrackID,
-		track.SensorID,
-		frameID,
-		string(track.TrackState),
-		track.StartUnixNanos,
-		endNanos,
-		track.ObservationCount,
-		track.AvgSpeedMps,
-		track.MaxSpeedMps,
-		track.BoundingBoxLengthAvg,
-		track.BoundingBoxWidthAvg,
-		track.BoundingBoxHeightAvg,
-		track.HeightP95Max,
-		track.IntensityMeanAvg,
-		nullString(track.ObjectClass),
-		nullFloat32(track.ObjectConfidence),
-		nullString(track.ClassificationModel),
-	)
+	_, err := exec.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("insert track: %w", err)
 	}
@@ -153,43 +114,14 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 // UpdateTrack updates an existing track in the database.
 func UpdateTrack(db DBClient, track *TrackedObject) error {
 	query := `
-		UPDATE lidar_tracks SET
-			track_state = ?,
-			end_unix_nanos = ?,
-			observation_count = ?,
-			avg_speed_mps = ?,
-			max_speed_mps = ?,
-			bounding_box_length_avg = ?,
-			bounding_box_width_avg = ?,
-			bounding_box_height_avg = ?,
-			height_p95_max = ?,
-			intensity_mean_avg = ?,
-			object_class = ?,
-			object_confidence = ?,
-			classification_model = ?
+		UPDATE lidar_tracks SET` + trackMeasurementUpdateSet + `
 		WHERE track_id = ?
 	`
 
-	// Always set end_unix_nanos to LastUnixNanos for all track states
-	// This allows accurate time range queries for track history visualization
-	endNanos := track.EndUnixNanos
+	args := trackMeasurementUpdateArgs(&track.TrackMeasurement)
+	args = append(args, track.TrackID)
 
-	_, err := db.Exec(query,
-		string(track.TrackState),
-		endNanos,
-		track.ObservationCount,
-		track.AvgSpeedMps,
-		track.MaxSpeedMps,
-		track.BoundingBoxLengthAvg,
-		track.BoundingBoxWidthAvg,
-		track.BoundingBoxHeightAvg,
-		track.HeightP95Max,
-		track.IntensityMeanAvg,
-		nullString(track.ObjectClass),
-		nullFloat32(track.ObjectConfidence),
-		nullString(track.ClassificationModel),
-		track.TrackID,
-	)
+	_, err := db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("update track: %w", err)
 	}
@@ -433,28 +365,18 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 	var query string
 	var args []interface{}
 
+	selectClause := `
+			SELECT track_id, ` + trackMeasurementColumns + `
+			FROM lidar_tracks`
+
 	if state != "" {
-		query = `
-			SELECT track_id, sensor_id, track_state,
-				start_unix_nanos, end_unix_nanos, observation_count,
-				avg_speed_mps, max_speed_mps,
-				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-				height_p95_max, intensity_mean_avg,
-				object_class, object_confidence, classification_model
-			FROM lidar_tracks
+		query = selectClause + `
 			WHERE sensor_id = ? AND track_state = ?
 			ORDER BY start_unix_nanos DESC
 		`
 		args = []interface{}{sensorID, state}
 	} else {
-		query = `
-			SELECT track_id, sensor_id, track_state,
-				start_unix_nanos, end_unix_nanos, observation_count,
-				avg_speed_mps, max_speed_mps,
-				bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-				height_p95_max, intensity_mean_avg,
-				object_class, object_confidence, classification_model
-			FROM lidar_tracks
+		query = selectClause + `
 			WHERE sensor_id = ? AND track_state != 'deleted'
 			ORDER BY start_unix_nanos DESC
 		`
@@ -470,47 +392,14 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 	var tracks []*TrackedObject
 	for rows.Next() {
 		track := &TrackedObject{}
-		var stateStr string
-		var endNanos sql.NullInt64
-		var objectClass sql.NullString
-		var objectConfidence sql.NullFloat64
-		var classificationModel sql.NullString
+		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
 
-		err := rows.Scan(
-			&track.TrackID,
-			&track.SensorID,
-			&stateStr,
-			&track.StartUnixNanos,
-			&endNanos,
-			&track.ObservationCount,
-			&track.AvgSpeedMps,
-			&track.MaxSpeedMps,
-			&track.BoundingBoxLengthAvg,
-			&track.BoundingBoxWidthAvg,
-			&track.BoundingBoxHeightAvg,
-			&track.HeightP95Max,
-			&track.IntensityMeanAvg,
-			&objectClass,
-			&objectConfidence,
-			&classificationModel,
-		)
+		dests := append([]any{&track.TrackID}, measDests...)
+		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
-
-		track.TrackState = TrackState(stateStr)
-		if endNanos.Valid {
-			track.EndUnixNanos = endNanos.Int64
-		}
-		if objectClass.Valid {
-			track.ObjectClass = objectClass.String
-		}
-		if objectConfidence.Valid {
-			track.ObjectConfidence = float32(objectConfidence.Float64)
-		}
-		if classificationModel.Valid {
-			track.ClassificationModel = classificationModel.String
-		}
+		applyMeas()
 
 		tracks = append(tracks, track)
 	}
@@ -561,12 +450,7 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 	var args []interface{}
 
 	query.WriteString(`
-		SELECT track_id, sensor_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model
+		SELECT track_id, ` + trackMeasurementColumns + `
 		FROM lidar_tracks
 		WHERE sensor_id = ?
 	`)
@@ -596,47 +480,14 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 	var tracks []*TrackedObject
 	for rows.Next() {
 		track := &TrackedObject{}
-		var stateStr string
-		var end sql.NullInt64
-		var objectClass sql.NullString
-		var objectConfidence sql.NullFloat64
-		var classificationModel sql.NullString
+		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
 
-		err := rows.Scan(
-			&track.TrackID,
-			&track.SensorID,
-			&stateStr,
-			&track.StartUnixNanos,
-			&end,
-			&track.ObservationCount,
-			&track.AvgSpeedMps,
-			&track.MaxSpeedMps,
-			&track.BoundingBoxLengthAvg,
-			&track.BoundingBoxWidthAvg,
-			&track.BoundingBoxHeightAvg,
-			&track.HeightP95Max,
-			&track.IntensityMeanAvg,
-			&objectClass,
-			&objectConfidence,
-			&classificationModel,
-		)
+		dests := append([]any{&track.TrackID}, measDests...)
+		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
-
-		track.TrackState = TrackState(stateStr)
-		if end.Valid {
-			track.EndUnixNanos = end.Int64
-		}
-		if objectClass.Valid {
-			track.ObjectClass = objectClass.String
-		}
-		if objectConfidence.Valid {
-			track.ObjectConfidence = float32(objectConfidence.Float64)
-		}
-		if classificationModel.Valid {
-			track.ClassificationModel = classificationModel.String
-		}
+		applyMeas()
 
 		tracks = append(tracks, track)
 	}
