@@ -291,17 +291,19 @@ Three phases. Do not start phase N+1 until phase N is clean.
 
 ### Phase 2 — Repository Refactor
 
-- [ ] Cluster all plan files by owning hub using advisory output
-- [ ] Identify collisions: plans sharing one architectural identity
-  - run `make report-plan-hygiene` and review groupings with Flo
-  - involve Grace for canonical-home decisions on ambiguous cases
-- [ ] Add `- **Canonical:**` metadata header to every non-symlink plan (65 files)
-- [ ] For plans with substantial durable content not yet in a hub doc:
+- [x] Cluster all plan files by owning hub using advisory output
+  - `scripts/batch-canonical-migration.py` MAPPING covers all 69 plans
+- [x] Identify collisions: plans sharing one architectural identity
+  - 6 shared-target pairs documented as advisory (Gate 4)
+  - Grace confirmed 4-hub model and domain-first sorting test
+- [x] Add `- **Canonical:**` metadata header to every non-symlink plan (69 of 69)
+- [~] For plans with substantial durable content not yet in a hub doc:
   - merge that content into the hub doc
   - reduce the plan to execution sequencing only
+  - 46 stubs created; content consolidation in progress
 - [ ] Merge or consolidate sibling plans that share the same canonical doc
 - [ ] Convert superseded plans to symlinks pointing at the hub doc
-- [ ] Run `make report-plan-hygiene` — zero hard-fail violations, advisory only
+- [x] Run `make report-plan-hygiene` — 0 gate violations, 6 advisory notes
 
 ### Phase 3 — Hard-Fail Enforcement
 
