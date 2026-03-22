@@ -120,7 +120,9 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 
 		if err := ws.resetAllState(); err != nil {
 			// Try to restart live listener on failure
-			_ = ws.startLiveListenerLocked()
+			if startErr := ws.startLiveListenerLocked(); startErr != nil {
+				opsf("failed to restart live listener after reset error: %v", startErr)
+			}
 			ws.dataSourceMu.Unlock()
 			return fmt.Errorf("reset state: %w", err)
 		}
@@ -132,7 +134,9 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 
 		if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds,
 			0, 0, 0, 0, false, false); err != nil {
-			_ = ws.startLiveListenerLocked()
+			if startErr := ws.startLiveListenerLocked(); startErr != nil {
+				opsf("failed to restart live listener after PCAP start error: %v", startErr)
+			}
 			ws.dataSourceMu.Unlock()
 			return fmt.Errorf("start PCAP: %w", err)
 		}
@@ -533,8 +537,14 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 				tuned.NoiseRelativeFraction = 0.02
 				tuned.NeighbourConfirmationCount = 5
 				tuned.SafetyMarginMetres = 0.3
-				_ = bgManager.SetParams(tuned)
-				restoreParams = func() { _ = bgManager.SetParams(orig) }
+				if err := bgManager.SetParams(tuned); err != nil {
+					opsf("failed to apply PCAP-tuned background params: %v", err)
+				}
+				restoreParams = func() {
+					if err := bgManager.SetParams(orig); err != nil {
+						opsf("failed to restore original background params: %v", err)
+					}
+				}
 			}
 			if restoreParams != nil {
 				defer restoreParams()
@@ -568,7 +578,9 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 				params.DebugRingMax = debugRingMax
 				params.DebugAzMin = debugAzMin
 				params.DebugAzMax = debugAzMax
-				_ = bgManager.SetParams(params)
+				if err := bgManager.SetParams(params); err != nil {
+					opsf("failed to apply debug range params: %v", err)
+				}
 				// Enable diagnostics only if enableDebug is true
 				if enableDebug {
 					bgManager.SetEnableDiagnostics(true)

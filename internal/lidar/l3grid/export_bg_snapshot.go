@@ -42,9 +42,12 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, ringElevations []float64) (string, 
 	if snap.RingElevationsJSON != "" {
 		var elevs []float64
 		if err := json.Unmarshal([]byte(snap.RingElevationsJSON), &elevs); err == nil && len(elevs) == grid.Rings {
-			_ = mgr.SetRingElevations(elevs)
-			diagf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
-			return mgr.ExportBackgroundGridToASC()
+			if err := mgr.SetRingElevations(elevs); err != nil {
+				diagf("Export: failed to set snapshot-stored ring elevations for sensor %s: %v", snap.SensorID, err)
+			} else {
+				diagf("Export: used ring elevations embedded in snapshot for sensor %s", snap.SensorID)
+				return mgr.ExportBackgroundGridToASC()
+			}
 		}
 	}
 
@@ -58,8 +61,11 @@ func ExportBgSnapshotToASC(snap *BgSnapshot, ringElevations []float64) (string, 
 	if live := GetBackgroundManager(snap.SensorID); live != nil && live.Grid != nil && len(live.Grid.RingElevations) == grid.Rings {
 		elevCopy := make([]float64, len(live.Grid.RingElevations))
 		copy(elevCopy, live.Grid.RingElevations)
-		_ = mgr.SetRingElevations(elevCopy)
-		diagf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
+		if err := mgr.SetRingElevations(elevCopy); err != nil {
+			diagf("Export: failed to set ring elevations from live manager for sensor %s: %v", snap.SensorID, err)
+		} else {
+			diagf("Export: copied ring elevations from live BackgroundManager for sensor %s", snap.SensorID)
+		}
 	}
 
 	return mgr.ExportBackgroundGridToASC()
