@@ -47,7 +47,7 @@ conventions become contracts.
 | God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints` | High         | Continue via companion plans               |
 | Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                         | ~~High~~     | **Done**                                   |
 | Query-boundary leak        | ~~`internal/api/lidar_labels.go` raw SQL~~ — refactored into `internal/lidar/storage/sqlite/label_store.go` on this branch                             | ~~Medium~~   | **Done**                                   |
-| JSON tag inconsistency     | `EventAPI` and `RadarObjectsRollupRow` in `internal/db/db_radar.go` use PascalCase JSON tags (or none); web frontend hard-coupled to PascalCase shape  | Medium       | Must land before v0.5.0 API freeze         |
+| JSON tag inconsistency     | `EventAPI` and `RadarObjectsRollupRow` now have explicit `snake_case` JSON tags; TypeScript interfaces updated to match                                | ~~Low~~      | **Done**                                   |
 | Silent error drops         | Operational sites in `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `echarts_handlers.go` `w.Write` and `db.Close()` remain (acceptable)  | ~~Medium~~   | **Done** (operationally meaningful subset) |
 | Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                    | Low          | Worth reducing in early v0.5.x             |
 
@@ -146,20 +146,11 @@ var (
 `CurrentStateSnapshot()` (returns a shallow copy under `RLock`). Tests reset state via
 `resetCurrentState()`. Verified with `go test -race`.
 
-### 3. `EventAPI` still violates the JSON naming convention
+### 3. ~~`EventAPI` JSON naming convention~~ — Done
 
-`internal/db/db.go` still defines:
-
-```go
-type EventAPI struct {
-    Magnitude *float64 `json:"Magnitude,omitempty"`
-    Uptime    *float64 `json:"Uptime,omitempty"`
-    Speed     *float64 `json:"Speed,omitempty"`
-}
-```
-
-Everything else in the API is overwhelmingly `snake_case`. This is still the easiest
-pre-release API inconsistency to fix before it becomes permanent compatibility baggage.
+`EventAPI` now uses `snake_case` JSON tags (`"magnitude"`, `"uptime"`, `"speed"`),
+consistent with `RadarObjectsRollupRow` and the rest of the API surface.
+TypeScript `Event` interface updated to match.
 
 ### 4. Silent error drops are still concentrated in a few important paths
 
@@ -273,17 +264,20 @@ database and long-running operations.
 **Why it matters:** the import boundary is already fixed; this item keeps the internals from
 sliding back into mixed responsibilities.
 
-### Item 3: API Contract Consistency — fix `EventAPI` before release
+### Item 3: API Contract Consistency — Done
 
-**Summary:** Standardise the remaining PascalCase JSON anomalies before the API surface
-stabilises.
+**Summary:** Standardise JSON tag conventions for API-facing structs.
+
+Both `RadarObjectsRollupRow` and `EventAPI` now carry explicit `snake_case` JSON tags.
+TypeScript interfaces (`RawRadarStats` and `Event`) updated to match.
 
 **Scope:**
 
-1. ~~Change `EventAPI` tags to `snake_case`~~ — Done
+1. ~~`EventAPI` tags — `snake_case` (`"magnitude"`, `"uptime"`, `"speed"`)~~ — Done
 2. ~~Add `json` tags to `RadarObjectsRollupRow` (was relying on Go default PascalCase)~~ — Done
-3. ~~Update TypeScript `Event` / `RawRadarStats` types and tests to match~~ — Done
-4. ~~Audit exported JSON-tagged structs for any other naming outliers~~ — Audited; no further issues found
+3. ~~Update TypeScript `RawRadarStats` type and mapping to match~~ — Done
+4. ~~Update TypeScript `Event` interface to match~~ — Done
+5. ~~Audit exported JSON-tagged structs for any other naming outliers~~ — Audited; no further issues found
 
 **Milestone:** v0.5.0
 
@@ -295,7 +289,7 @@ Before v0.5.0, the most valuable structural wins are now:
 
 1. ~~merge the single-SQLite-driver cleanup from this branch~~ — Done
 2. ~~finish request-context propagation~~ — Done
-3. ~~fix `EventAPI` and `RadarObjectsRollupRow` JSON tags~~ — Done
+3. ~~fix `RadarObjectsRollupRow` and `EventAPI` JSON tags~~ — Done
 4. ~~remove the `serialmux.CurrentState` race~~ — Done
 
 Everything else is still worth doing, but those four items most directly reduce the chance
