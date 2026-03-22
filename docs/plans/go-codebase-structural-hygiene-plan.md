@@ -41,15 +41,15 @@ conventions become contracts.
 
 ## Updated Findings
 
-| Category                   | Current state                                                                                                                                                                        | Severity     | Release view                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | -------------------------------------------- |
-| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants                                            | ~~Critical~~ | **Done**                                     |
-| God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints`                               | High         | Continue via companion plans                 |
-| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                                                       | ~~High~~     | **Done**                                     |
-| Query-boundary leak        | `internal/api/lidar_labels.go` still contains raw SQL even though the import boundary is fixed                                                                                       | Medium       | Move before the API/storage boundary settles |
-| JSON tag inconsistency     | `internal/db/db.go` `EventAPI` still uses PascalCase JSON tags                                                                                                                       | Medium       | Must land before v0.5.0 API freeze           |
-| Silent error drops         | Still present in `internal/db/db.go`, `internal/lidar/l3grid/export_bg_snapshot.go`, `internal/lidar/server/datasource_handlers.go`, and `internal/lidar/server/echarts_handlers.go` | Medium       | Clean up in v0.5.0 or v0.5.1                 |
-| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                                                  | Low          | Worth reducing in early v0.5.x               |
+| Category                   | Current state                                                                                                                                          | Severity     | Release view                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | ------------------------------------------ |
+| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants              | ~~Critical~~ | **Done**                                   |
+| God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints` | High         | Continue via companion plans               |
+| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                         | ~~High~~     | **Done**                                   |
+| Query-boundary leak        | ~~`internal/api/lidar_labels.go` raw SQL~~ — refactored into `internal/lidar/storage/sqlite/label_store.go` on this branch                             | ~~Medium~~   | **Done**                                   |
+| JSON tag inconsistency     | `EventAPI` and `RadarObjectsRollupRow` in `internal/db/db_radar.go` use PascalCase JSON tags (or none); web frontend hard-coupled to PascalCase shape  | Medium       | Must land before v0.5.0 API freeze         |
+| Silent error drops         | Operational sites in `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `echarts_handlers.go` `w.Write` and `db.Close()` remain (acceptable)  | ~~Medium~~   | **Done** (operationally meaningful subset) |
+| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                    | Low          | Worth reducing in early v0.5.x             |
 
 ## What The Original Draft Got Right, And What Changed
 
@@ -257,9 +257,9 @@ database and long-running operations.
 **Scope:**
 
 1. ~~Protect `serialmux.CurrentState` with a mutex-backed accessor surface~~ — Done
-2. Move raw label SQL out of `internal/api/lidar_labels.go` into
-   `internal/lidar/storage/sqlite/label_store.go`
-3. Fix the remaining meaningful silent error drops
+2. ~~Move raw label SQL out of `internal/api/lidar_labels.go` into
+   `internal/lidar/storage/sqlite/label_store.go`~~ — Done
+3. ~~Fix the remaining meaningful silent error drops~~ — Done (operational subset)
 4. Keep the single-SQLite-driver invariant:
    - merge this branch's `modernc`-only cleanup
    - keep `scripts/check-single-sqlite-driver.sh` in `make lint-go`
@@ -275,15 +275,15 @@ sliding back into mixed responsibilities.
 
 ### Item 3: API Contract Consistency — fix `EventAPI` before release
 
-**Summary:** Standardise the remaining PascalCase JSON anomaly before the API surface
+**Summary:** Standardise the remaining PascalCase JSON anomalies before the API surface
 stabilises.
 
 **Scope:**
 
-1. Change `EventAPI` tags to `snake_case`
-2. Audit exported JSON-tagged structs for any other naming outliers
-3. Update any internal consumers that rely on the old field names
-4. Add a lightweight regression check if practical
+1. ~~Change `EventAPI` tags to `snake_case`~~ — Done
+2. ~~Add `json` tags to `RadarObjectsRollupRow` (was relying on Go default PascalCase)~~ — Done
+3. ~~Update TypeScript `Event` / `RawRadarStats` types and tests to match~~ — Done
+4. ~~Audit exported JSON-tagged structs for any other naming outliers~~ — Audited; no further issues found
 
 **Milestone:** v0.5.0
 
@@ -295,7 +295,7 @@ Before v0.5.0, the most valuable structural wins are now:
 
 1. ~~merge the single-SQLite-driver cleanup from this branch~~ — Done
 2. ~~finish request-context propagation~~ — Done
-3. fix `EventAPI` JSON tags
+3. ~~fix `EventAPI` and `RadarObjectsRollupRow` JSON tags~~ — Done
 4. ~~remove the `serialmux.CurrentState` race~~ — Done
 
 Everything else is still worth doing, but those four items most directly reduce the chance
