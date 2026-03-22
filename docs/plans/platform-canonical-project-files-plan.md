@@ -26,7 +26,7 @@ What is already in place and what remains to be done:
 - [x] `flo-planning-review.sh` updated to include symlinks and report `Canonical` targets
 - [ ] `Canonical` metadata added to any plan file (0 of 65 done)
 - [ ] Any plan graduated to a symlink
-- [ ] CI enforcement enabled
+- [x] CI enforcement enabled (advisory-only; `.github/workflows/plan-hygiene-ci.yml`)
 
 ## 1. Problem
 
@@ -282,7 +282,7 @@ Three phases. Do not start phase N+1 until phase N is clean.
   - change `find ... -type f` to include symlinks (`-type f -o -type l`)
   - report each active plan alongside its `Canonical` target
   - flag any two active plans sharing the same canonical target
-- [ ] Wire `make report-plan-hygiene` into CI as a non-fatal advisory job
+- [x] Wire `make report-plan-hygiene` into CI as a non-fatal advisory job
 - [x] Verify advisory output runs cleanly against the current 68 plans
 
 ### Phase 2 — Repository Refactor

@@ -1,0 +1,45 @@
+name: 📋 Plan Hygiene (advisory)
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "docs/plans/**"
+      - "scripts/check-plan-canonical-links.py"
+      - "scripts/flo-planning-review.sh"
+      - ".github/workflows/plan-hygiene-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/plans/**"
+
+concurrency:
+  group: plan-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan-hygiene:
+    name: "📋 Plan hygiene (advisory)"
+    runs-on: ubuntu-latest
+    continue-on-error: true # Advisory only — never blocks merges
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run plan-hygiene report
+        run: make report-plan-hygiene
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📋 Plan Hygiene Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          make report-plan-hygiene >> $GITHUB_STEP_SUMMARY 2>&1 || true
