@@ -8,78 +8,7 @@ Architectural plan for running parameter sweeps across multiple remote worker ma
 **Layers:** Cross-cutting (L3 Grid, L5 Tracks, L8 Analytics, Platform)
 **Related:** [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md), [Parameter Tuning](lidar-parameter-tuning-optimisation-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [L8/L9/L10 Layers](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Distribution Packaging](deploy-distribution-packaging-plan.md)
 
-## Problem
-
-A single velocity-report instance processes sweep combinations sequentially. A typical multi-parameter sweep with 200 combinations takes 30+ minutes on PCAP replay. With N-dimensional sweeps (noise × closeness × neighbours × tracking parameters), the parameter space grows multiplicatively and wall-clock time becomes the bottleneck.
-
-The existing `SweepBackend` interface already abstracts sensor operations behind an HTTP or in-process boundary — but there is no mechanism to distribute combinations across multiple machines, aggregate results, or manage worker lifecycle.
-
-## Goal
-
-Enable a **driver–worker** topology where:
-
-1. A **driver** (the normal velocity-report server) accepts sweep requests, partitions the parameter space, and dispatches work to N workers.
-2. Each **worker** runs the same `velocity-report` binary in `--worker` mode with access to the same PCAP files (shared filesystem), executes its assigned combinations, caches results locally, and reports them back to the driver.
-3. The driver aggregates results into a single `SweepState` with the same schema as today's single-machine output.
-4. The web dashboard lets users choose whether a sweep runs on the server host or on a specific worker from a **configured list of worker servers** managed under Settings.
-
-Target: 2 workers initially, architecture supports N.
-
-## Principles
-
-1. **Unified binary** — no separate `cmd/sweep-worker` binary. Worker mode is an execution flag (`--worker`) on the same `velocity-report` binary we already ship. This aligns with the single-binary direction in the [distribution packaging plan](deploy-distribution-packaging-plan.md).
-2. **Reduced worker surface** — a worker does NOT expose the full web API (no dashboard, no radar endpoints, no report generation). It listens on port 8082 with a minimal HTTP surface: job status, past failures, health, and result retrieval.
-3. **Local result cache** — workers cache completed results locally. The driver confirms retrieval before results are scheduled for removal (flagged as retrieved, cleaned up later or when disk space is needed).
-4. **Pre-flight validation** — the `/api/worker/jobs/check` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
-5. **Operator-configured workers** — worker hosts are defined via CRUD under the Settings page, not self-registered at runtime. The sweep UI picks from this configured list.
-
-## Current Architecture
-
-```
-┌──────────────────────────────────────────────────────┐
-│           velocity-report (single machine)           │
-│                                                      │
-│   SweepRequest                                       │
-│       │                                              │
-│       ▼                                              │
-│   sweep.Runner                                       │
-│       │  cartesianProduct(params) → combos[]         │
-│       │                                              │
-│       │  for each combo:                             │
-│       │    ├─ backend.SetTuningParams(combo)         │
-│       │    ├─ backend.StartPCAPReplayWithConfig()    │
-│       │    ├─ backend.WaitForGridSettle()            │
-│       │    ├─ sampler.Sample() × iterations          │
-│       │    ├─ computeComboResult()                   │
-│       │    └─ state.Results = append(result)         │
-│       │                                              │
-│       ▼                                              │
-│   SweepState { Results: []ComboResult }              │
-│       │                                              │
-│       ▼                                              │
-│   SweepPersister → SQLite (lidar_sweeps)             │
-└──────────────────────────────────────────────────────┘
-```
-
-**Key interfaces (already exist):**
-
-| Interface               | File                                          | Purpose                                         |
-| ----------------------- | --------------------------------------------- | ----------------------------------------------- |
-| `SweepBackend`          | `internal/lidar/sweep/backend.go`             | Abstracts sensor/grid/PCAP operations           |
-| `SweepPersister`        | `internal/lidar/sweep/runner.go:125`          | Persists sweep lifecycle to SQLite              |
-| `SweepRunner`           | `internal/lidar/monitor/sweep_handlers.go:16` | Monitor-layer abstraction (avoids import cycle) |
-| `monitor.Client`        | `internal/lidar/monitor/client.go`            | HTTP implementation of `SweepBackend`           |
-| `monitor.DirectBackend` | `internal/lidar/monitor/direct_backend.go`    | In-process implementation of `SweepBackend`     |
-
-**Key types (already exist):**
-
-| Type               | Purpose                                               |
-| ------------------ | ----------------------------------------------------- |
-| `SweepRequest`     | Defines parameters, data source, sampling config      |
-| `SweepParam`       | Single parameter dimension (name, type, values/range) |
-| `SweepState`       | Status, progress, results array                       |
-| `ComboResult`      | Metrics from one parameter combination                |
-| `PCAPReplayConfig` | PCAP file, start/duration, speed mode                 |
+> **Problem, goal, design principles, and current architecture:** see [distributed-sweep.md](../lidar/architecture/distributed-sweep.md).
 
 ## Target Architecture
 

@@ -10,61 +10,7 @@
 
 ---
 
-## ⚠️ Simplification Notice (January 2026)
-
-**This plan is DEFERRED for traffic monitoring deployments.**
-
-The 7DOF tracking features in this document are **not required** for the core traffic monitoring use case. The current implementation uses a simpler 2D+velocity model which is sufficient for:
-
-- Vehicle/pedestrian counting
-- Speed measurement
-- Traffic flow analysis
-
-**Implemented instead:** See `velocity-coherent-foreground-extraction.md` for the simplified approach.
-
-**When to implement this plan:**
-
-- AV dataset integration (importing Waymo/nuScenes data for training)
-- Research applications requiring precise 3D bounding boxes
-- Integration with AV perception pipelines
-
-**Key simplifications applied:**
-| This Plan | Current Implementation |
-|-----------|------------------------|
-| 7DOF (x,y,z,l,w,h,heading) | 2D+velocity (x,y,vx,vy) |
-| Oriented bounding boxes | Axis-aligned boxes |
-| PCA-based heading | Heading from velocity |
-| 6-state Kalman | EMA smoothing |
-| 28-class taxonomy | 4 classes |
-
-See `../lidar/operations/lidar-foreground-tracking-status.md` §4 for full simplification rationale.
-
----
-
-## Executive Summary
-
-This document outlines **Step 1** of the LIDAR ML pipeline: Reading Hesai Pandar40P PCAP files (or live streams) and producing **7-DOF 3D bounding box tracks** that conform to the AV industry standard schema defined in `av-lidar-integration-plan.md`.
-
-**7-DOF Format (from av-lidar-integration-plan.md):**
-
-- Position: center_x, center_y, center_z (meters)
-- Dimensions: length, width, height (meters)
-- Orientation: heading (radians, yaw angle around Z-axis)
-
-**AV Industry Standard Compatibility:**
-
-This implementation supports the AV industry standard labelling specification with:
-
-- 28 fine-grained semantic categories (see `av-lidar-integration-plan.md`)
-- Instance segmentation for Vehicle, Pedestrian, and Cyclist classes
-- Consistent tracking IDs across frames
-- Shape completion for occluded surfaces (see Phase 7 of `av-lidar-integration-plan.md`)
-
-**Current State:** Production-deployed Hesai PCAP processing with 2D tracking
-**Release Scope:** Extend to 7-DOF tracks and visualise in Svelte UI
-**Next Steps:** Frame sequence extraction, classifier training, integration (future phases)
-
-**Key Deliverable:** Real-time visualisation of 7-DOF bounding boxes from Hesai sensor data
+> **Simplification rationale, gap analysis, and benefits:** see [static-pose-alignment.md](../lidar/operations/static-pose-alignment.md).
 
 ---
 
@@ -212,31 +158,6 @@ type TrackedObject struct {
     ObjectClass string  // ⚠️ Only 4 classes (car, pedestrian, bird, other)
 }
 ```
-
----
-
-## Gap Analysis: Current → 7DOF
-
-### Required Changes for 7-DOF Compliance
-
-| Component            | Current State        | Required Change         | Complexity |
-| -------------------- | -------------------- | ----------------------- | ---------- |
-| **Heading angle**    | None                 | Add heading estimation  | Medium     |
-| **Z tracking**       | Assumed ground plane | Add Z to Kalman state   | Medium     |
-| **Oriented box**     | Axis-aligned         | Compute along heading   | Medium     |
-| **Database schema**  | Old format           | Add 7DOF columns        | Low        |
-| **UI visualisation** | Rectangles           | Oriented boxes + arrows | Medium     |
-| **Object classes**   | 4 classes            | Support AV class enum   | Low        |
-
-### Alignment with av-lidar-integration-plan.md
-
-**Schema Compatibility:**
-
-- ✅ Our WorldCluster maps to their BoundingBox7DOF
-- ✅ Same coordinate conventions (meters, radians)
-- ✅ Same zero pitch/roll assumption
-- ⚠️ Need to add heading field
-- ⚠️ Need oriented (not axis-aligned) dimensions
 
 ---
 
@@ -775,44 +696,6 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NO
 # - Speed statistics should match
 # - Classification should match
 ```
-
----
-
-## Benefits of This Approach
-
-### Immediate Benefits (Static Sensors)
-
-1. **Pose Versioning Support**
-   - Can update calibration without breaking historical data
-   - Pose changes tracked with timestamps (valid_from_ns, valid_to_ns)
-   - Re-transformation possible if calibration improves
-
-2. **Better Metadata**
-   - Know exactly which pose was used for each measurement
-   - Can validate consistency across time periods
-   - Audit trail for calibration changes
-
-3. **Production Safety**
-   - Zero functional changes (identity transform behaviour unchanged)
-   - All existing tests pass
-   - Rollback possible if issues found
-
-### Future Compatibility (Motion Capture)
-
-When motion capture is added later:
-
-- ✅ Data structures already support pose_id
-- ✅ Sensor-frame coordinates already stored
-- ✅ No database migration needed
-- ✅ No data loss or re-collection needed
-- ✅ Smooth transition from static to motion
-
-**What Changes for Motion:**
-
-- Pose loading: Load time-varying poses instead of static identity
-- Tracking: Add ego-motion compensation in Kalman predict step
-- Clustering: Same code, different poses referenced
-- Storage: Same schema, pose_id now varies over time
 
 ---
 

@@ -7,53 +7,7 @@
 - **Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), `schema-simplification-migration-030-plan.md` on `main`, [VRLOG Wire Format Specification](../../data/structures/VRLOG_FORMAT.md), [VRLOG Analysis](../../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
 - **Canonical:** [immutable-run-config.md](../lidar/operations/immutable-run-config.md)
 
-## Goal
-
-Replace the current scattered `params_json` model with a deterministic asset
-model that cleanly separates reusable config from per-execution metadata and
-answers:
-
-1. What exact build version produced this run?
-2. What exact effective runtime configuration did it use?
-3. Can reusable requested params be shared across replay cases and future
-   artifacts without being confused for executed configs?
-4. Can the UI diff exact configs and group related runs deterministically?
-
-The end state is:
-
-- one canonical storage location for reusable parameter sets
-- exact run-config rows deduplicated by deterministic content
-- stable hashes with no timestamps, UUIDs, or other ephemeral fields in
-  deterministic identity
-- runs referencing the exact deterministic config that was actually executed
-- replay cases and future recommendation artifacts referencing parameter sets by
-  FK instead of copying JSON
-
-## Motivation
-
-The current schema spreads parameter JSON across multiple places:
-
-- `lidar_run_records.params_json`
-- `lidar_replay_cases.optimal_params_json`
-- `lidar_replay_evaluations.params_json`
-- `lidar_bg_snapshot.params_json`
-
-That is not DRY, and more importantly it is not reliable as a reproducibility
-model:
-
-- replay/reprocess paths currently create ad hoc run rows before the actual
-  analysis run starts, so the stored params can diverge from the executed run
-- `RunParams` currently includes a timestamp, which breaks immutability and
-  stable hashing
-- run params are not a complete snapshot of the effective runtime tuning
-  surface
-- evaluations duplicate candidate-run params rather than referencing them
-- background snapshot params are currently dead schema in practice
-- replay cases store a mutable best-known params blob in a shape that is different
-  from run params and is treated as a raw string by parts of the UI
-
-This prevents deterministic grouping, exact diffing, and trustworthy replay
-provenance.
+- **Problem, goal, and motivation:** see [immutable-run-config.md](../lidar/operations/immutable-run-config.md).
 
 ## Non-goals
 
