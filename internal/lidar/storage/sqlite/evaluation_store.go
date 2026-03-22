@@ -34,11 +34,11 @@ type Evaluation struct {
 
 // EvaluationStore provides persistence for ground truth evaluation results.
 type EvaluationStore struct {
-	db *sql.DB
+	db DBClient
 }
 
 // NewEvaluationStore creates a new EvaluationStore.
-func NewEvaluationStore(db *sql.DB) *EvaluationStore {
+func NewEvaluationStore(db DBClient) *EvaluationStore {
 	return &EvaluationStore{db: db}
 }
 

@@ -15,7 +15,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## v0.5.1 (Data Contracts + Layer Foundations)
 
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
-- SQLite client standardisation — unify DB interfaces across internal/db, internal/api, and internal/lidar/storage; remove API-layer SQL — [design doc](plans/data-sqlite-client-standardisation-plan.md) `M`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
@@ -136,6 +135,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
+- SQLite client standardisation — unified DB client interfaces across `internal/db`, `internal/api`, and `internal/lidar/storage`, moved label SQL out of the API layer, and replaced duplicated SQLite test bootstraps with the shared helper — [design doc](plans/data-sqlite-client-standardisation-plan.md) [follow-up](plans/data-database-alignment-plan.md)
 - v0.5.0 tech debt removal — all Category A shim removals complete (A1–A6); `--lidar-sensor` flag removed, network port flags reclassified as active; transit tools removed; sweep dashboard aliases removed — [design doc](plans/v050-tech-debt-removal-plan.md)
 - Config restructure Phase 2 CLI flag deprecation — `--lidar-sensor` removed; network port flags (`--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) reclassified as active runtime flags — [design doc](../config/CONFIG-RESTRUCTURE.md)
 - [#411] `transit-backfill` and `scan-transits` removal — removed `cmd/transit-backfill` and `cmd/tools/scan_transits.go`; `velocity-report transits rebuild` is the replacement — [design doc](plans/platform-simplification-and-deprecation-plan.md)

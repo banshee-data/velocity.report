@@ -637,7 +637,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 		if recordingStarted && ws.onRecordingStop != nil {
 			vrlogPath := ws.onRecordingStop(runID)
 			if vrlogPath != "" && ws.db != nil {
-				store := sqlite.NewAnalysisRunStore(ws.db.DB)
+				store := sqlite.NewAnalysisRunStore(ws.db)
 				if updateErr := store.UpdateRunVRLogPath(runID, vrlogPath); updateErr != nil {
 					opsf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
 				}

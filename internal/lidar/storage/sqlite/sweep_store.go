@@ -33,11 +33,11 @@ type SweepRecord struct {
 
 // SweepStore provides persistence for sweep and auto-tune results.
 type SweepStore struct {
-	db *sql.DB
+	db DBClient
 }
 
 // NewSweepStore creates a new SweepStore.
-func NewSweepStore(db *sql.DB) *SweepStore {
+func NewSweepStore(db DBClient) *SweepStore {
 	return &SweepStore{db: db}
 }
 

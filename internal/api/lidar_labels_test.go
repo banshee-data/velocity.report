@@ -2,70 +2,29 @@ package api
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 	_ "modernc.org/sqlite"
 )
 
-func setupLabelTestDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("failed to open test database: %v", err)
-	}
+func setupLabelTestDB(t *testing.T) *dbpkg.DB {
+	t.Helper()
 
-	// Create lidar_tracks table (required for foreign key)
-	_, err = db.Exec(`
-		CREATE TABLE lidar_tracks (
-			track_id TEXT PRIMARY KEY,
-			sensor_id TEXT NOT NULL,
-			frame_id TEXT NOT NULL,
-			created_at INTEGER NOT NULL,
-			last_seen_at INTEGER NOT NULL,
-			track_state TEXT NOT NULL,
-			observation_count INTEGER NOT NULL
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to create lidar_tracks table: %v", err)
-	}
+	db, cleanup := dbpkg.NewTestDB(t)
+	t.Cleanup(cleanup)
 
-	// Insert test track
-	_, err = db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, created_at, last_seen_at, track_state, observation_count)
-		VALUES ('track-001', 'test-sensor', 'ENU', 1000000000, 2000000000, 'confirmed', 10)
+	_, err := db.Exec(`
+		INSERT INTO lidar_tracks (
+			track_id, sensor_id, frame_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count
+		) VALUES ('track-001', 'test-sensor', 'ENU', 'confirmed', 1000000000, 2000000000, 10)
 	`)
 	if err != nil {
 		t.Fatalf("failed to insert test track: %v", err)
-	}
-
-	// Create lidar_track_annotations table
-	_, err = db.Exec(`
-		CREATE TABLE lidar_track_annotations (
-			label_id TEXT PRIMARY KEY,
-			track_id TEXT NOT NULL,
-			class_label TEXT NOT NULL,
-			start_timestamp_ns INTEGER NOT NULL,
-			end_timestamp_ns INTEGER,
-			confidence REAL,
-			created_by TEXT,
-			created_at_ns INTEGER NOT NULL,
-			updated_at_ns INTEGER,
-			notes TEXT,
-			replay_case_id TEXT,
-			source_file TEXT,
-			FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id) ON DELETE CASCADE
-		);
-		CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations(track_id);
-		CREATE INDEX idx_lidar_track_annotations_time ON lidar_track_annotations(start_timestamp_ns, end_timestamp_ns);
-		CREATE INDEX idx_lidar_track_annotations_class ON lidar_track_annotations(class_label);
-		CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations(replay_case_id);
-	`)
-	if err != nil {
-		t.Fatalf("failed to create lidar_track_annotations table: %v", err)
 	}
 
 	return db
@@ -318,8 +277,10 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 
 	// Insert another track
 	_, err := db.Exec(`
-		INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, created_at, last_seen_at, track_state, observation_count)
-		VALUES ('track-002', 'test-sensor', 'ENU', 1000000000, 2000000000, 'confirmed', 5)
+		INSERT INTO lidar_tracks (
+			track_id, sensor_id, frame_id, track_state,
+			start_unix_nanos, end_unix_nanos, observation_count
+		) VALUES ('track-002', 'test-sensor', 'ENU', 'confirmed', 1000000000, 2000000000, 5)
 	`)
 	if err != nil {
 		t.Fatalf("failed to insert test track: %v", err)

@@ -304,7 +304,7 @@ func NewServer(config Config) *Server {
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
 		// Initialize AnalysisRunManager for PCAP analysis runs
-		ws.analysisRunManager = sqlite.NewAnalysisRunManager(config.DB.DB, config.SensorID)
+		ws.analysisRunManager = sqlite.NewAnalysisRunManager(config.DB, config.SensorID)
 		sqlite.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
 	}
 

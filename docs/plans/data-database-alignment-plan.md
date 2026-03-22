@@ -1,11 +1,16 @@
 # Database Alignment Plan: Two-Package SQL Boundary
 
-- **Status:** Proposed
+- **Status:** Implemented (March 21, 2026)
 - **Layers:** Cross-cutting (database infrastructure)
 - **Supersedes:** Partially replaces
   [data-sqlite-client-standardisation-plan.md](data-sqlite-client-standardisation-plan.md)
   (original plan proposed collapsing everything into `internal/db`; this plan
   evaluates a two-package model instead)
+- **Implementation note:** The branch now uses this two-package boundary as the
+  delivered model: label SQL lives in `internal/lidar/storage/sqlite`,
+  duplicated schema/bootstrap helpers were replaced with `internal/db.NewTestDB`,
+  and sqlite store constructors accept the shared `sqlite.DBClient` interface so
+  callers can pass `*db.DB` directly.
 
 ## Context
 

@@ -105,30 +105,26 @@ func ValidateQualityLabel(label string) bool {
 	return true
 }
 
-// LidarLabel represents a manual label applied to a track for training/validation.
-type LidarLabel struct {
-	LabelID          string   `json:"label_id"`
-	TrackID          string   `json:"track_id"`
-	ClassLabel       string   `json:"class_label"`
-	StartTimestampNs int64    `json:"start_timestamp_ns"`
-	EndTimestampNs   *int64   `json:"end_timestamp_ns,omitempty"`
-	Confidence       *float32 `json:"confidence,omitempty"`
-	CreatedBy        *string  `json:"created_by,omitempty"`
-	CreatedAtNs      int64    `json:"created_at_ns"`
-	UpdatedAtNs      *int64   `json:"updated_at_ns,omitempty"`
-	Notes            *string  `json:"notes,omitempty"`
-	ReplayCaseID     *string  `json:"replay_case_id,omitempty"`
-	SourceFile       *string  `json:"source_file,omitempty"`
+// LidarLabel is the storage-backed label payload exposed by the API.
+type LidarLabel = sqlite.LidarLabel
+
+type labelStore interface {
+	ListLabels(filter sqlite.LabelFilter) ([]sqlite.LidarLabel, error)
+	CreateLabel(label *sqlite.LidarLabel) error
+	GetLabel(labelID string) (*sqlite.LidarLabel, error)
+	UpdateLabel(labelID string, updates *sqlite.LidarLabel) error
+	DeleteLabel(labelID string) error
+	ExportLabels() ([]sqlite.LidarLabel, error)
 }
 
 // LidarLabelAPI provides HTTP handlers for label management.
 type LidarLabelAPI struct {
-	db *sqlite.SQLDB
+	store labelStore
 }
 
 // NewLidarLabelAPI creates a new label API instance.
-func NewLidarLabelAPI(db *sqlite.SQLDB) *LidarLabelAPI {
-	return &LidarLabelAPI{db: db}
+func NewLidarLabelAPI(db sqlite.DBClient) *LidarLabelAPI {
+	return &LidarLabelAPI{store: sqlite.NewLabelStore(db)}
 }
 
 // RegisterRoutes registers label API routes on the provided mux.
@@ -153,68 +149,16 @@ func (api *LidarLabelAPI) handleLabels(w http.ResponseWriter, r *http.Request) {
 // handleListLabels lists labels with optional filters.
 func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	trackID := query.Get("track_id")
-	classLabel := query.Get("class_label")
-	startNs := query.Get("start_ns")
-	endNs := query.Get("end_ns")
-
-	// Build query with filters
-	sqlQuery := `SELECT label_id, track_id, class_label, start_timestamp_ns,
-	               end_timestamp_ns, confidence, created_by, created_at_ns,
-	               updated_at_ns, notes, replay_case_id, source_file
-	        FROM lidar_track_annotations WHERE 1=1`
-	args := []interface{}{}
-
-	if trackID != "" {
-		sqlQuery += " AND track_id = ?"
-		args = append(args, trackID)
-	}
-
-	if classLabel != "" {
-		sqlQuery += " AND class_label = ?"
-		args = append(args, classLabel)
-	}
-
-	if startNs != "" {
-		sqlQuery += " AND start_timestamp_ns >= ?"
-		args = append(args, startNs)
-	}
-
-	if endNs != "" {
-		sqlQuery += " AND (end_timestamp_ns IS NULL OR end_timestamp_ns <= ?)"
-		args = append(args, endNs)
-	}
-
-	sqlQuery += fmt.Sprintf(" ORDER BY start_timestamp_ns DESC LIMIT %d", maxLabelsPerQuery)
-
-	rows, err := api.db.Query(sqlQuery, args...)
+	labels, err := api.store.ListLabels(sqlite.LabelFilter{
+		TrackID:          query.Get("track_id"),
+		ClassLabel:       query.Get("class_label"),
+		StartTimestampNs: query.Get("start_ns"),
+		EndTimestampNs:   query.Get("end_ns"),
+		Limit:            maxLabelsPerQuery,
+	})
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("query failed: %v", err))
 		return
-	}
-	defer rows.Close()
-
-	labels := []LidarLabel{}
-	for rows.Next() {
-		var label LidarLabel
-		if err := rows.Scan(
-			&label.LabelID,
-			&label.TrackID,
-			&label.ClassLabel,
-			&label.StartTimestampNs,
-			&label.EndTimestampNs,
-			&label.Confidence,
-			&label.CreatedBy,
-			&label.CreatedAtNs,
-			&label.UpdatedAtNs,
-			&label.Notes,
-			&label.ReplayCaseID,
-			&label.SourceFile,
-		); err != nil {
-			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("scan failed: %v", err))
-			return
-		}
-		labels = append(labels, label)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -256,27 +200,7 @@ func (api *LidarLabelAPI) handleCreateLabel(w http.ResponseWriter, r *http.Reque
 		label.CreatedAtNs = time.Now().UnixNano()
 	}
 
-	// Insert into database
-	query := `INSERT INTO lidar_track_annotations (
-		label_id, track_id, class_label, start_timestamp_ns, end_timestamp_ns,
-		confidence, created_by, created_at_ns, updated_at_ns, notes, replay_case_id, source_file
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-	_, err := api.db.Exec(query,
-		label.LabelID,
-		label.TrackID,
-		label.ClassLabel,
-		label.StartTimestampNs,
-		label.EndTimestampNs,
-		label.Confidence,
-		label.CreatedBy,
-		label.CreatedAtNs,
-		label.UpdatedAtNs,
-		label.Notes,
-		label.ReplayCaseID,
-		label.SourceFile,
-	)
-	if err != nil {
+	if err := api.store.CreateLabel(&label); err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("insert failed: %v", err))
 		return
 	}
@@ -311,26 +235,7 @@ func (api *LidarLabelAPI) handleLabelByID(w http.ResponseWriter, r *http.Request
 
 // handleGetLabel retrieves a specific label by ID.
 func (api *LidarLabelAPI) handleGetLabel(w http.ResponseWriter, r *http.Request, labelID string) {
-	query := `SELECT label_id, track_id, class_label, start_timestamp_ns,
-	                 end_timestamp_ns, confidence, created_by, created_at_ns,
-	                 updated_at_ns, notes, replay_case_id, source_file
-	          FROM lidar_track_annotations WHERE label_id = ?`
-
-	var label LidarLabel
-	err := api.db.QueryRow(query, labelID).Scan(
-		&label.LabelID,
-		&label.TrackID,
-		&label.ClassLabel,
-		&label.StartTimestampNs,
-		&label.EndTimestampNs,
-		&label.Confidence,
-		&label.CreatedBy,
-		&label.CreatedAtNs,
-		&label.UpdatedAtNs,
-		&label.Notes,
-		&label.ReplayCaseID,
-		&label.SourceFile,
-	)
+	label, err := api.store.GetLabel(labelID)
 	if err == sqlite.ErrNotFound {
 		api.writeJSONError(w, http.StatusNotFound, "label not found")
 		return
@@ -352,56 +257,15 @@ func (api *LidarLabelAPI) handleUpdateLabel(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Check if label exists
-	var exists bool
-	err := api.db.QueryRow("SELECT 1 FROM lidar_track_annotations WHERE label_id = ?", labelID).Scan(&exists)
-	if err == sqlite.ErrNotFound {
-		api.writeJSONError(w, http.StatusNotFound, "label not found")
-		return
-	}
-	if err != nil {
-		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("query failed: %v", err))
-		return
-	}
-
 	// Set updated_at_ns
 	nowNs := time.Now().UnixNano()
 	updates.UpdatedAtNs = &nowNs
 
-	// Build dynamic UPDATE query based on provided fields
-	// Only update fields that are explicitly provided (non-zero values)
-	query := "UPDATE lidar_track_annotations SET updated_at_ns = ?"
-	args := []interface{}{updates.UpdatedAtNs}
-
-	if updates.ClassLabel != "" {
-		query += ", class_label = ?"
-		args = append(args, updates.ClassLabel)
+	err := api.store.UpdateLabel(labelID, &updates)
+	if err == sqlite.ErrNotFound {
+		api.writeJSONError(w, http.StatusNotFound, "label not found")
+		return
 	}
-	if updates.EndTimestampNs != nil {
-		query += ", end_timestamp_ns = ?"
-		args = append(args, updates.EndTimestampNs)
-	}
-	if updates.Confidence != nil {
-		query += ", confidence = ?"
-		args = append(args, updates.Confidence)
-	}
-	if updates.Notes != nil {
-		query += ", notes = ?"
-		args = append(args, updates.Notes)
-	}
-	if updates.ReplayCaseID != nil {
-		query += ", replay_case_id = ?"
-		args = append(args, updates.ReplayCaseID)
-	}
-	if updates.SourceFile != nil {
-		query += ", source_file = ?"
-		args = append(args, updates.SourceFile)
-	}
-
-	query += " WHERE label_id = ?"
-	args = append(args, labelID)
-
-	_, err = api.db.Exec(query, args...)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("update failed: %v", err))
 		return
@@ -413,15 +277,13 @@ func (api *LidarLabelAPI) handleUpdateLabel(w http.ResponseWriter, r *http.Reque
 
 // handleDeleteLabel deletes a label.
 func (api *LidarLabelAPI) handleDeleteLabel(w http.ResponseWriter, r *http.Request, labelID string) {
-	result, err := api.db.Exec("DELETE FROM lidar_track_annotations WHERE label_id = ?", labelID)
-	if err != nil {
-		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("delete failed: %v", err))
+	err := api.store.DeleteLabel(labelID)
+	if err == sqlite.ErrNotFound {
+		api.writeJSONError(w, http.StatusNotFound, "label not found")
 		return
 	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		api.writeJSONError(w, http.StatusNotFound, "label not found")
+	if err != nil {
+		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("delete failed: %v", err))
 		return
 	}
 
@@ -439,40 +301,10 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT label_id, track_id, class_label, start_timestamp_ns,
-	                 end_timestamp_ns, confidence, created_by, created_at_ns,
-	                 updated_at_ns, notes, replay_case_id, source_file
-	          FROM lidar_track_annotations
-	          ORDER BY start_timestamp_ns ASC`
-
-	rows, err := api.db.Query(query)
+	labels, err := api.store.ExportLabels()
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("query failed: %v", err))
 		return
-	}
-	defer rows.Close()
-
-	labels := []LidarLabel{}
-	for rows.Next() {
-		var label LidarLabel
-		if err := rows.Scan(
-			&label.LabelID,
-			&label.TrackID,
-			&label.ClassLabel,
-			&label.StartTimestampNs,
-			&label.EndTimestampNs,
-			&label.Confidence,
-			&label.CreatedBy,
-			&label.CreatedAtNs,
-			&label.UpdatedAtNs,
-			&label.Notes,
-			&label.ReplayCaseID,
-			&label.SourceFile,
-		); err != nil {
-			api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("scan failed: %v", err))
-			return
-		}
-		labels = append(labels, label)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

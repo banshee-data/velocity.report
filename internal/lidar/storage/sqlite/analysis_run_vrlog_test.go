@@ -3,78 +3,18 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	_ "modernc.org/sqlite"
+	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 )
 
-// setupTestAnalysisDB creates a temporary SQLite database for testing.
+// setupTestAnalysisDB creates a test database via the canonical internal/db bootstrap path.
 func setupTestAnalysisDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
-	tmpDir, err := os.MkdirTemp("", "analysis-run-test")
-	if err != nil {
-		t.Fatalf("failed to create temp directory: %v", err)
-	}
-
-	dbPath := filepath.Join(tmpDir, "test.db")
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		t.Fatalf("failed to open database: %v", err)
-	}
-
-	// Apply essential PRAGMAs
-	pragmas := []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA busy_timeout=5000",
-		"PRAGMA foreign_keys=ON",
-	}
-	for _, pragma := range pragmas {
-		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
-			os.RemoveAll(tmpDir)
-			t.Fatalf("failed to execute %q: %v", pragma, err)
-		}
-	}
-
-	// Create the analysis runs table
-	schema := `
-		CREATE TABLE IF NOT EXISTS lidar_run_records (
-			run_id TEXT PRIMARY KEY,
-			created_at INTEGER NOT NULL,
-			source_type TEXT NOT NULL,
-			source_path TEXT,
-			sensor_id TEXT NOT NULL,
-			params_json TEXT NOT NULL,
-			duration_secs REAL DEFAULT 0,
-			total_frames INTEGER DEFAULT 0,
-			total_clusters INTEGER DEFAULT 0,
-			total_tracks INTEGER DEFAULT 0,
-			confirmed_tracks INTEGER DEFAULT 0,
-			processing_time_ms INTEGER DEFAULT 0,
-			status TEXT NOT NULL,
-			error_message TEXT,
-			parent_run_id TEXT,
-			notes TEXT,
-			vrlog_path TEXT
-		);
-	`
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
-		os.RemoveAll(tmpDir)
-		t.Fatalf("failed to create table: %v", err)
-	}
-
-	cleanup := func() {
-		db.Close()
-		os.RemoveAll(tmpDir)
-	}
-
-	return db, cleanup
+	db, cleanup := dbpkg.NewTestDB(t)
+	return db.DB, cleanup
 }
 
 // TestAnalysisRunStore_VRLogPath tests CRUD operations with vrlog_path.

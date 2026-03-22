@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -347,11 +346,11 @@ type TrackMatch = l8analytics.TrackMatch
 
 // AnalysisRunStore provides persistence for analysis runs.
 type AnalysisRunStore struct {
-	db *sql.DB
+	db DBClient
 }
 
 // NewAnalysisRunStore creates a new AnalysisRunStore.
-func NewAnalysisRunStore(db *sql.DB) *AnalysisRunStore {
+func NewAnalysisRunStore(db DBClient) *AnalysisRunStore {
 	return &AnalysisRunStore{db: db}
 }
 

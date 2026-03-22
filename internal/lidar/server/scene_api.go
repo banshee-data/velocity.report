@@ -111,7 +111,7 @@ func parseScenePath(path string) (sceneID string, action string) {
 func (ws *Server) handleListScenes(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 	scenes, err := store.ListScenes(sensorID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
@@ -164,7 +164,7 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		Description:      req.Description,
 	}
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 	if err := store.InsertScene(scene); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create scene: %v", err))
 		return
@@ -175,7 +175,7 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 
 // handleGetScene retrieves a scene by ID.
 func (ws *Server) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -212,7 +212,7 @@ func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, scen
 		return
 	}
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 
 	// Get existing scene
 	scene, err := store.GetScene(sceneID)
@@ -252,7 +252,7 @@ func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, scen
 
 // handleDeleteScene deletes a scene by ID.
 func (ws *Server) handleDeleteScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 	if err := store.DeleteScene(sceneID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
@@ -270,7 +270,7 @@ func (ws *Server) handleDeleteScene(w http.ResponseWriter, r *http.Request, scen
 // handleReplayScene handles PCAP replay for a scene.
 // Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
 func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewReplayCaseStore(ws.db)
 	scene, err := store.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -303,7 +303,7 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	}
 
 	// Create analysis run with UUID for uniqueness
-	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	runStore := sqlite.NewAnalysisRunStore(ws.db)
 	run := &sqlite.AnalysisRun{
 		RunID:      fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8]),
 		SourceType: "pcap",
@@ -365,7 +365,7 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 // handleListSceneEvaluations lists all persisted ground truth evaluation scores for a scene.
 // GET /api/lidar/scenes/{scene_id}/evaluations
 func (ws *Server) handleListSceneEvaluations(w http.ResponseWriter, r *http.Request, sceneID string) {
-	evalStore := sqlite.NewEvaluationStore(ws.db.DB)
+	evalStore := sqlite.NewEvaluationStore(ws.db)
 	evals, err := evalStore.ListByScene(sceneID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list evaluations: %v", err))
@@ -385,7 +385,7 @@ func (ws *Server) handleListSceneEvaluations(w http.ResponseWriter, r *http.Requ
 // POST /api/lidar/scenes/{scene_id}/evaluations
 // Request body: {"candidate_run_id": "..."}
 func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Request, sceneID string) {
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
+	sceneStore := sqlite.NewReplayCaseStore(ws.db)
 	scene, err := sceneStore.GetScene(sceneID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -414,7 +414,7 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 	}
 
 	// Run evaluation
-	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	runStore := sqlite.NewAnalysisRunStore(ws.db)
 	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
 	score, err := evaluator.Evaluate(scene.ReferenceRunID, req.CandidateRunID)
 	if err != nil {
@@ -449,7 +449,7 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 		eval.ParamsJSON = candidateRun.ParamsJSON
 	}
 
-	evalStore := sqlite.NewEvaluationStore(ws.db.DB)
+	evalStore := sqlite.NewEvaluationStore(ws.db)
 	if err := evalStore.Insert(eval); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to persist evaluation: %v", err))
 		return
