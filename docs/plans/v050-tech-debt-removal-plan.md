@@ -132,11 +132,11 @@ defer to v0.5.1 if the sprint runs short.
 
 #### B2. God file splits
 
-| Detail                | Value                                                                                                                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400)                                                               |
-| **Decision**          | **Stretch.** Mechanical refactoring that does not affect external interfaces. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Falls to v0.5.1 if not reached. |
-| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                 |
+| Detail                | Value                                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400)                                                                                                                                     |
+| **Decision**          | **Complete.** Phase 1 god file splits implemented. All five Tier 1 files split into domain-specific files. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Tier 2 and Tier 3 files tracked for v0.5.2+.                              |
+| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                                                                                        |
 
 #### B3. Context propagation in HTTP handlers
 
