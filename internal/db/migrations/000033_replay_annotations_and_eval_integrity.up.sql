@@ -2,10 +2,9 @@ PRAGMA foreign_keys = OFF;
 
    CREATE TABLE lidar_replay_annotations (
           annotation_id TEXT PRIMARY KEY
-        , replay_case_id TEXT
+        , replay_case_id TEXT NOT NULL
         , run_id TEXT
         , track_id TEXT
-        , legacy_track_id TEXT
         , class_label TEXT NOT NULL
         , start_timestamp_ns INTEGER NOT NULL
         , end_timestamp_ns INTEGER
@@ -39,46 +38,6 @@ PRAGMA foreign_keys = OFF;
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
           );
-
-   INSERT INTO lidar_replay_annotations (
-          annotation_id
-        , replay_case_id
-        , run_id
-        , track_id
-        , legacy_track_id
-        , class_label
-        , start_timestamp_ns
-        , end_timestamp_ns
-        , confidence
-        , created_by
-        , created_at_ns
-        , updated_at_ns
-        , notes
-        , source_file
-          )
-   SELECT label_id
-        , CASE
-                    WHEN replay_case_id IS NOT NULL
-                          AND EXISTS (
-                                 SELECT 1
-                                   FROM lidar_replay_cases
-                                  WHERE lidar_replay_cases.replay_case_id = lidar_track_annotations.replay_case_id
-                              ) THEN replay_case_id
-                              ELSE NULL
-          END
-        , NULL
-        , NULL
-        , track_id
-        , class_label
-        , start_timestamp_ns
-        , end_timestamp_ns
-        , confidence
-        , created_by
-        , created_at_ns
-        , updated_at_ns
-        , notes
-        , source_file
-     FROM lidar_track_annotations;
 
      DROP INDEX IF EXISTS idx_lidar_track_annotations_replay_case;
 

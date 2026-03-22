@@ -199,7 +199,7 @@ func TestReplayAnnotationsRequireRunTrackPairWhenLinked(t *testing.T) {
 	}
 }
 
-func TestMigration33PreservesLegacyTrackAnnotations(t *testing.T) {
+func TestMigration33DropsLegacyTrackAnnotations(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "migration33.db")
 
 	sqlDB, err := sql.Open("sqlite", dbPath)
@@ -235,45 +235,21 @@ func TestMigration33PreservesLegacyTrackAnnotations(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO lidar_track_annotations (
 		label_id, track_id, class_label, start_timestamp_ns, created_at_ns, notes, replay_case_id
 	) VALUES
-		('ann-preserved', 'track-legacy', 'car', ?, ?, 'kept with replay case', 'case-legacy'),
-		('ann-ownerless', 'track-legacy', 'bus', ?, ?, 'kept without replay case', NULL)
+		('ann-dropped', 'track-legacy', 'car', ?, ?, 'legacy row should be removed', 'case-legacy')
 	`, time.Now().UnixNano(), time.Now().UnixNano(), time.Now().UnixNano(), time.Now().UnixNano()); err != nil {
-		t.Fatalf("failed to insert legacy annotations: %v", err)
+		t.Fatalf("failed to insert legacy annotation: %v", err)
 	}
 
 	if err := db.MigrateUp(migrationsFS); err != nil {
 		t.Fatalf("failed to migrate up from v32: %v", err)
 	}
 
-	var (
-		replayCaseID sql.NullString
-		runID        sql.NullString
-		trackID      sql.NullString
-		legacyTrack  sql.NullString
-	)
-	if err := db.QueryRow(`SELECT replay_case_id, run_id, track_id, legacy_track_id
-		FROM lidar_replay_annotations WHERE annotation_id = 'ann-preserved'`).Scan(&replayCaseID, &runID, &trackID, &legacyTrack); err != nil {
-		t.Fatalf("failed to query migrated replay-owned annotation: %v", err)
+	var annotationCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_annotations`).Scan(&annotationCount); err != nil {
+		t.Fatalf("failed to count replay annotations after migration: %v", err)
 	}
-	if !replayCaseID.Valid || replayCaseID.String != "case-legacy" {
-		t.Fatalf("expected replay_case_id case-legacy, got %v", replayCaseID)
-	}
-	if runID.Valid || trackID.Valid {
-		t.Fatalf("expected legacy annotation durable run/track link to remain NULL, got run=%v track=%v", runID, trackID)
-	}
-	if !legacyTrack.Valid || legacyTrack.String != "track-legacy" {
-		t.Fatalf("expected legacy_track_id track-legacy, got %v", legacyTrack)
-	}
-
-	if err := db.QueryRow(`SELECT replay_case_id, run_id, track_id, legacy_track_id
-		FROM lidar_replay_annotations WHERE annotation_id = 'ann-ownerless'`).Scan(&replayCaseID, &runID, &trackID, &legacyTrack); err != nil {
-		t.Fatalf("failed to query ownerless migrated annotation: %v", err)
-	}
-	if replayCaseID.Valid {
-		t.Fatalf("expected ownerless legacy annotation replay_case_id to be NULL, got %v", replayCaseID)
-	}
-	if !legacyTrack.Valid || legacyTrack.String != "track-legacy" {
-		t.Fatalf("expected ownerless legacy_track_id track-legacy, got %v", legacyTrack)
+	if annotationCount != 0 {
+		t.Fatalf("expected migration 33 to drop legacy track annotations, found %d replay annotations", annotationCount)
 	}
 }
 

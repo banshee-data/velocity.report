@@ -190,10 +190,9 @@
 
    CREATE TABLE lidar_replay_annotations (
           annotation_id TEXT PRIMARY KEY
-        , replay_case_id TEXT
+        , replay_case_id TEXT NOT NULL
         , run_id TEXT
         , track_id TEXT
-        , legacy_track_id TEXT
         , class_label TEXT NOT NULL
         , start_timestamp_ns INTEGER NOT NULL
         , end_timestamp_ns INTEGER

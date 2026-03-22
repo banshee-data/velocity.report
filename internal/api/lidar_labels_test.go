@@ -517,46 +517,6 @@ func TestLidarLabelAPI_ListLabels_RejectsInvalidTimeFilters(t *testing.T) {
 	}
 }
 
-func TestLidarLabelAPI_GetLabel_PreservesLegacyTrackID(t *testing.T) {
-	db := setupLabelTestDB(t)
-	defer db.Close()
-
-	_, err := db.Exec(`
-		INSERT INTO lidar_replay_annotations (
-			annotation_id, replay_case_id, run_id, track_id, legacy_track_id, class_label,
-			start_timestamp_ns, created_at_ns
-		) VALUES
-			('label-legacy', NULL, NULL, NULL, 'track-legacy', 'car', 1000000000, 1000000000)
-	`)
-	if err != nil {
-		t.Fatalf("failed to insert legacy label: %v", err)
-	}
-
-	api := NewLidarLabelAPI(db)
-	mux := http.NewServeMux()
-	api.RegisterRoutes(mux)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/label-legacy", nil)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
-	}
-
-	var label LidarLabel
-	if err := json.NewDecoder(rec.Body).Decode(&label); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if label.TrackID != "" {
-		t.Fatalf("expected empty durable track_id for legacy row, got %q", label.TrackID)
-	}
-	if label.LegacyTrackID == nil || *label.LegacyTrackID != "track-legacy" {
-		t.Fatalf("expected legacy_track_id track-legacy, got %v", label.LegacyTrackID)
-	}
-}
-
 func TestLidarLabelAPI_GetLabel_NotFound(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()

@@ -104,7 +104,7 @@ CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (ref
         , source_file
           )
    SELECT annotation_id
-        , COALESCE(track_id, legacy_track_id)
+        , track_id
         , class_label
         , start_timestamp_ns
         , end_timestamp_ns
@@ -116,7 +116,7 @@ CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (ref
         , replay_case_id
         , source_file
      FROM lidar_replay_annotations
-    WHERE COALESCE(track_id, legacy_track_id) IS NOT NULL;
+    WHERE track_id IS NOT NULL;
 
 CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
 
