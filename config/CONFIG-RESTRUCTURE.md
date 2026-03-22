@@ -1,6 +1,6 @@
 # Config Restructure: Flat → Layer-Scoped
 
-- **Status:** Phase 1 complete, Phase 2 complete, Phase 2B proposed, Phase 3 pending (CLI flag deprecation pending)
+- **Status:** Phase 1 complete, Phase 2 adjusted, Phase 2B proposed, Phase 3 pending
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),
   layer-isolated evaluation, and coherent parameter grouping.
@@ -176,11 +176,7 @@ this example is for structural reference only.
   "version": 2,
   "l1": {
     "sensor": "pandar40p",
-    "data_source": "live",
-    "udp_port": 2368,
-    "udp_rcv_buf": 2097152,
-    "forward_port": 0,
-    "foreground_forward_port": 0
+    "data_source": "live"
   },
   "l2": {
     "min_azimuth_coverage_deg": 340.0,
@@ -324,17 +320,14 @@ first time.
 
 ### L1 — Packets (Sensor / Network)
 
-L1 identifies the sensor hardware and network configuration. No engine
-selection — a single sensor model is active per deployment.
+L1 identifies the sensor hardware and current data source. Per-process
+network binding and forwarding remain CLI-managed startup settings and are
+intentionally outside the hot-reload tuning schema.
 
-| Key                       | Type   | Description                     | Source                                |
-| ------------------------- | ------ | ------------------------------- | ------------------------------------- |
-| `sensor`                  | string | Sensor model identifier         | CLI `--lidar-sensor`                  |
-| `data_source`             | string | `live`, `pcap`, `pcap_analysis` | Runtime                               |
-| `udp_port`                | int    | LiDAR UDP listen port           | CLI `--lidar-udp-port`                |
-| `udp_rcv_buf`             | int    | Socket receive buffer (bytes)   | CLI                                   |
-| `forward_port`            | int    | Raw packet forward port         | CLI `--lidar-forward-port`            |
-| `foreground_forward_port` | int    | Foreground packet forward port  | CLI `--lidar-foreground-forward-port` |
+| Key           | Type   | Description                     | Source      |
+| ------------- | ------ | ------------------------------- | ----------- |
+| `sensor`      | string | Sensor model identifier         | Config file |
+| `data_source` | string | `live`, `pcap`, `pcap_analysis` | Runtime     |
 
 **Note:** L1 packet-structure constants (packet size, block layout, channel
 count, distance resolution, azimuth resolution) are protocol-level values
@@ -682,12 +675,8 @@ type TuningConfig struct {
 // --- L1 (no engine selection) ---
 
 type L1Config struct {
-    Sensor                string `json:"sensor"`
-    DataSource            string `json:"data_source"`
-    UDPPort               int    `json:"udp_port"`
-    UDPRcvBuf             int    `json:"udp_rcv_buf"`
-    ForwardPort           int    `json:"forward_port"`
-    ForegroundForwardPort int    `json:"foreground_forward_port"`
+    Sensor     string `json:"sensor"`
+    DataSource string `json:"data_source"`
 }
 
 // --- L2 (no engine selection) ---
@@ -986,7 +975,7 @@ All engine-selectable params use three-segment dot-paths through the engine
 block: `"l5.cv_kf_v1.process_noise_vel"`, `"l3.ema_baseline_v1.noise_relative"`,
 `"l6.rule_based_v1.bird_height_max"`.
 
-Non-engine layers use two-segment paths: `"l1.udp_port"`,
+Non-engine layers use two-segment paths: `"l1.sensor"`,
 `"pipeline.buffer_timeout"`.
 
 Flat key names are no longer accepted.
@@ -1083,19 +1072,13 @@ Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 | 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
 | 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
 
-### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Complete (CLI deprecation pending)
+### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Adjusted
 
-Expose the highest-impact hardcoded constants: L1 sensor/network settings and
-L3 background/foreground parameters. CLI flags for sensor/network settings
-(`--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`,
-`--lidar-foreground-forward-port`) are **deprecated** — the config file
-becomes the single source of truth (no dual sources, DRY). Deprecated flags
-log a warning and are removed in a subsequent release.
-
-Delivered alongside Phase 1 in `dd/config-restructure`. L1Config struct and
-all 16 new L3 fields are wired and validated. Deprecated CLI flags have been
-removed — the config file is now the single source of truth for LiDAR
-network settings.
+Expose the highest-impact hardcoded constants: L1 sensor identity plus L3
+background/foreground parameters. LiDAR network binding and forwarding stay
+per-process CLI settings (`--lidar-udp-port`, `--lidar-udp-rcv-buf`,
+`--lidar-forward-port`, `--lidar-foreground-forward-port`) and are not part
+of the hot-reload tuning schema on this branch.
 
 | Step | Description                                                                     | Depends on  | Status      |
 | ---- | ------------------------------------------------------------------------------- | ----------- | ----------- |

@@ -84,15 +84,6 @@ func (ws *Server) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.Tuni
 	if ws.sensorID != "" {
 		cfg.L1.Sensor = ws.sensorID
 	}
-	if ws.udpPort != 0 {
-		cfg.L1.UDPPort = ws.udpPort
-	}
-	if ws.udpListenerConfig.RcvBuf != 0 {
-		cfg.L1.UDPRcvBuf = ws.udpListenerConfig.RcvBuf
-	}
-	if ws.forwardPort != 0 {
-		cfg.L1.ForwardPort = ws.forwardPort
-	}
 	if source := ws.CurrentSource(); source != "" {
 		cfg.L1.DataSource = string(source)
 	}
@@ -333,8 +324,7 @@ func validateRuntimeTuningPath(path string) error {
 		}
 	case strings.HasPrefix(path, "l5.cv_kf_v1."):
 		return nil
-	case path == "l1.sensor", path == "l1.data_source", path == "l1.udp_port", path == "l1.udp_rcv_buf",
-		path == "l1.forward_port", path == "l1.foreground_forward_port",
+	case path == "l1.sensor", path == "l1.data_source",
 		path == "pipeline.buffer_timeout", path == "pipeline.min_frame_points",
 		path == "pipeline.flush_interval", path == "pipeline.background_flush",
 		path == "version", path == "l3.engine", path == "l4.engine", path == "l5.engine":

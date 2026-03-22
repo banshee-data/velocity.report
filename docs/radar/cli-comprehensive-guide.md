@@ -69,25 +69,24 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--units mph` - Display units (`mps`, `mph`, `kmph`)
 - `--timezone UTC` - Timezone for display
 
-**LiDAR Integration Flags (9):**
+**LiDAR Integration Flags:**
 
 - `--enable-lidar` - Enable in-process lidar components
 - `--lidar-listen :8081` - HTTP listen address for lidar monitor
 - `--lidar-udp-port 2369` - UDP port for lidar packets
+- `--lidar-udp-rcv-buf 4194304` - UDP receive buffer size in bytes
 - `--lidar-no-parse` - Disable packet parsing (forwarding only)
-- `--lidar-sensor hesai-pandar40p` - Sensor identifier
 - `--lidar-forward` - Forward UDP packets to another port
 - `--lidar-forward-port 2368` - Forwarding destination port
 - `--lidar-forward-addr localhost` - Forwarding destination address
+- `--lidar-foreground-forward` - Forward foreground-only packets
+- `--lidar-foreground-forward-port 2370` - Foreground forwarding destination port
+- `--lidar-foreground-forward-addr localhost` - Foreground forwarding destination address
 - `--lidar-pcap-dir ../sensor_data/lidar` - Safe directory for PCAP files
 
-**LiDAR Background Tuning Flags (5):**
-
-- `--lidar-bg-flush-interval 60s` - Background grid flush interval
-- `--lidar-bg-noise-relative 0.315` - Background noise relative fraction
-- `--lidar-frame-buffer-timeout 500ms` - Frame buffer timeout
-- `--lidar-min-frame-points 1000` - Minimum points for valid frame
-- `--lidar-seed-from-first true` - Seed background from first observation
+These LiDAR network flags are per-process startup settings for now. They are
+not part of the JSON tuning schema and are not hot-reloadable via config
+reloading.
 
 **Total:** 30+ flags
 
@@ -791,7 +790,6 @@ timezone = "US/Pacific"
 [lidar]
 enabled = true
 listen = ":8081"
-udp_port = 2369
 sensor_id = "hesai-pandar40p"
 
 [lidar.background]
@@ -1778,7 +1776,6 @@ port = "/dev/ttySC1"
 [lidar]
 enabled = true
 listen = ":8081"
-udp_port = 2369
 sensor = "hesai-pandar40p"
 pcap_dir = "/var/lib/velocity-report/lidar"
 

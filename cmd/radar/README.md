@@ -65,12 +65,19 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--enable-lidar` (bool) — Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
 - `--lidar-listen` (string) — HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
 - `--lidar-udp-port` (int) — UDP port to listen for LiDAR packets (default: `2369`).
+- `--lidar-udp-rcv-buf` (int) — UDP receive buffer size in bytes for the LiDAR listener (default: `4194304`).
 - `--lidar-no-parse` (bool) — Disable LiDAR packet parsing (useful when only forwarding packets).
-- `--lidar-sensor` (string) — Sensor identifier (used for BackgroundManager registration and DB records). Default: `hesai-pandar40p`.
 - `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
 - `--lidar-forward-port` (int) — Forward destination port (default: `2368`).
 - `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
+- `--lidar-foreground-forward` (bool) — Forward foreground-only LiDAR packets to a separate port.
+- `--lidar-foreground-forward-port` (int) — Foreground forwarding destination port (default: `2370`).
+- `--lidar-foreground-forward-addr` (string) — Foreground forwarding destination address (default: `localhost`).
 - `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor-data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+
+LiDAR networking remains per-process configuration for now. The listener and
+forwarding ports plus `--lidar-udp-rcv-buf` are startup-only CLI settings and
+are not hot-reloadable via the JSON tuning config.
 
 ## PCAP Replay Setup
 

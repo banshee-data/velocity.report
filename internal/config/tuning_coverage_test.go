@@ -131,34 +131,6 @@ func TestL1ConfigValidateErrors(t *testing.T) {
 			},
 			wantText: "data_source must be one of live, pcap, pcap_analysis",
 		},
-		{
-			name: "bad udp port",
-			mutate: func(cfg *L1Config) {
-				cfg.UDPPort = 70000
-			},
-			wantText: "udp_port must be in [1, 65535]",
-		},
-		{
-			name: "bad recv buffer",
-			mutate: func(cfg *L1Config) {
-				cfg.UDPRcvBuf = 0
-			},
-			wantText: "udp_rcv_buf must be positive",
-		},
-		{
-			name: "bad forward port",
-			mutate: func(cfg *L1Config) {
-				cfg.ForwardPort = -1
-			},
-			wantText: "forward_port must be in [0, 65535]",
-		},
-		{
-			name: "bad foreground forward port",
-			mutate: func(cfg *L1Config) {
-				cfg.ForegroundForwardPort = 70000
-			},
-			wantText: "foreground_forward_port must be in [0, 65535]",
-		},
 	}
 
 	for _, tc := range tests {
@@ -864,10 +836,6 @@ func TestTuningConfigGettersAndActiveConfig(t *testing.T) {
 	cfg := sampleValidConfig()
 	if cfg.GetSensor() != cfg.L1.Sensor ||
 		cfg.GetDataSource() != cfg.L1.DataSource ||
-		cfg.GetUDPPort() != cfg.L1.UDPPort ||
-		cfg.GetUDPRcvBuf() != cfg.L1.UDPRcvBuf ||
-		cfg.GetForwardPort() != cfg.L1.ForwardPort ||
-		cfg.GetForegroundForwardPort() != cfg.L1.ForegroundForwardPort ||
 		cfg.GetMinFramePoints() != cfg.Pipeline.MinFramePoints ||
 		cfg.GetBackgroundFlush() != cfg.Pipeline.BackgroundFlush ||
 		cfg.GetNoiseRelative() != cfg.L3.EmaBaselineV1.NoiseRelative ||

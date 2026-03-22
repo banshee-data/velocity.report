@@ -14,6 +14,7 @@ The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address
 
 ```
 -lidar-udp-port 2369              # Listening port
+-lidar-udp-rcv-buf 4194304        # Socket receive buffer size in bytes
 -lidar-forward                    # Enable packet forwarding
 -lidar-forward-port 2368          # Forward destination port
 -lidar-forward-addr localhost     # Forward destination address

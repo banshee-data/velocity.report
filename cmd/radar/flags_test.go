@@ -216,6 +216,41 @@ func TestEnsureSupportedTuning(t *testing.T) {
 	}
 }
 
+func TestValidateLidarNetworkingFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		udpPort int
+		rcvBuf  int
+		fwdPort int
+		fgPort  int
+		want    string
+	}{
+		{name: "valid", udpPort: 2369, rcvBuf: 4 << 20, fwdPort: 2368, fgPort: 2370},
+		{name: "bad udp port", udpPort: 0, rcvBuf: 4 << 20, fwdPort: 2368, fgPort: 2370, want: "--lidar-udp-port"},
+		{name: "bad recv buffer", udpPort: 2369, rcvBuf: 0, fwdPort: 2368, fgPort: 2370, want: "--lidar-udp-rcv-buf"},
+		{name: "bad forward port", udpPort: 2369, rcvBuf: 4 << 20, fwdPort: 70000, fgPort: 2370, want: "--lidar-forward-port"},
+		{name: "bad foreground port", udpPort: 2369, rcvBuf: 4 << 20, fwdPort: 2368, fgPort: -1, want: "--lidar-foreground-forward-port"},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateLidarNetworkingFlags(tc.udpPort, tc.rcvBuf, tc.fwdPort, tc.fgPort)
+			if tc.want == "" {
+				if err != nil {
+					t.Fatalf("validateLidarNetworkingFlags() returned error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("validateLidarNetworkingFlags() = %v, want substring %q", err, tc.want)
+			}
+		})
+	}
+}
+
 type stubRingElevationsSetter struct {
 	err      error
 	lastElev []float64

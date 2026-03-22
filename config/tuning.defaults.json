@@ -2,11 +2,7 @@
   "version": 2,
   "l1": {
     "sensor": "hesai-pandar40p",
-    "data_source": "live",
-    "udp_port": 2369,
-    "udp_rcv_buf": 4194304,
-    "forward_port": 2368,
-    "foreground_forward_port": 2370
+    "data_source": "live"
   },
   "l3": {
     "engine": "ema_baseline_v1",

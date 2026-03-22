@@ -8,7 +8,7 @@ This directory contains the canonical LiDAR tuning config files used by
 The runtime now accepts a versioned nested schema.
 
 - `version` must equal `2`
-- `l1` holds sensor and network settings
+- `l1` holds sensor identity and runtime data-source settings
 - `l3`, `l4`, and `l5` each contain:
   - `engine`
   - exactly one engine block matching that selector
@@ -31,6 +31,11 @@ make config-validate TUNING_CONFIG=config/tuning.defaults.json
 make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
 ```
 
+LiDAR networking remains process-level CLI configuration for now:
+`--lidar-udp-port`, `--lidar-udp-rcv-buf`, `--lidar-forward-port`, and
+`--lidar-foreground-forward-port` are startup-only and are not part of the
+JSON tuning schema or `/api/lidar/params` hot reload flow.
+
 ## Canonical Example
 
 ```json
@@ -38,11 +43,7 @@ make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
   "version": 2,
   "l1": {
     "sensor": "hesai-pandar40p",
-    "data_source": "live",
-    "udp_port": 2369,
-    "udp_rcv_buf": 4194304,
-    "forward_port": 2368,
-    "foreground_forward_port": 2370
+    "data_source": "live"
   },
   "l3": {
     "engine": "ema_baseline_v1",
@@ -156,6 +157,8 @@ Runtime updates are limited on this branch to:
 - `l5.cv_kf_v1.*`
 
 `l1.*`, `pipeline.*`, and engine selectors remain startup-only.
+LiDAR listener/forwarding ports and the UDP receive buffer are process-level
+CLI flags and do not appear in this schema.
 
 ## Key Order
 
@@ -174,7 +177,7 @@ make check-config-maths
 | Path       | Type   | Notes                             |
 | ---------- | ------ | --------------------------------- |
 | `version`  | int    | Must equal `2`.                   |
-| `l1`       | object | Sensor/network settings.          |
+| `l1`       | object | Sensor identity and data source.  |
 | `l3`       | object | Background/foreground extraction. |
 | `l4`       | object | Clustering and ground filtering.  |
 | `l5`       | object | Tracking.                         |
@@ -182,14 +185,10 @@ make check-config-maths
 
 ### L1
 
-| Path                         | Type   | Default           | Notes                                   |
-| ---------------------------- | ------ | ----------------- | --------------------------------------- |
-| `l1.sensor`                  | string | `hesai-pandar40p` | Sensor identifier.                      |
-| `l1.data_source`             | string | `live`            | One of `live`, `pcap`, `pcap_analysis`. |
-| `l1.udp_port`                | int    | `2369`            | LiDAR UDP listen port.                  |
-| `l1.udp_rcv_buf`             | int    | `4194304`         | Socket receive buffer in bytes.         |
-| `l1.forward_port`            | int    | `2368`            | Raw packet forward port.                |
-| `l1.foreground_forward_port` | int    | `2370`            | Foreground packet forward port.         |
+| Path             | Type   | Default           | Notes                                   |
+| ---------------- | ------ | ----------------- | --------------------------------------- |
+| `l1.sensor`      | string | `hesai-pandar40p` | Sensor identifier.                      |
+| `l1.data_source` | string | `live`            | One of `live`, `pcap`, `pcap_analysis`. |
 
 ### L3
 
