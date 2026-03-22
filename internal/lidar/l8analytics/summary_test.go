@@ -31,7 +31,7 @@ func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 			ObservationCount:  50,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.9,
-			State:             l5tracks.TrackConfirmed,
+			TrackState:        l5tracks.TrackConfirmed,
 		},
 	}
 
@@ -68,7 +68,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  20,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.9,
-			State:             l5tracks.TrackConfirmed,
+			TrackState:        l5tracks.TrackConfirmed,
 		},
 		{
 			TrackLengthMeters: 20.0,
@@ -79,7 +79,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  40,
 			ObjectClass:       "pedestrian",
 			ObjectConfidence:  0.8,
-			State:             l5tracks.TrackTentative,
+			TrackState:        l5tracks.TrackTentative,
 		},
 		{
 			TrackLengthMeters: 15.0,
@@ -90,7 +90,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  30,
 			ObjectClass:       "",
 			ObjectConfidence:  0.5,
-			State:             l5tracks.TrackConfirmed,
+			TrackState:        l5tracks.TrackConfirmed,
 		},
 	}
 

@@ -800,9 +800,9 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:          "track-empty",
 		SensorID:         "sensor-1",
-		State:            TrackConfirmed,
-		FirstUnixNanos:   1000,
-		LastUnixNanos:    2000,
+		TrackState:       TrackConfirmed,
+		StartUnixNanos:   1000,
+		EndUnixNanos:     2000,
 		ObservationCount: 5,
 		AvgSpeedMps:      5.0,
 	}

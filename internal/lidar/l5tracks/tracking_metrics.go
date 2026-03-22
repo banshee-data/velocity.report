@@ -109,7 +109,7 @@ func (t *Tracker) GetActiveTracks() []*TrackedObject {
 
 	active := make([]*TrackedObject, 0, len(t.Tracks))
 	for _, track := range t.Tracks {
-		if track.State != TrackDeleted {
+		if track.TrackState != TrackDeleted {
 			// Shallow copy the struct to snapshot scalar fields
 			copied := *track
 			// Deep copy History to avoid race with concurrent Update() appends
@@ -134,7 +134,7 @@ func (t *Tracker) GetConfirmedTracks() []*TrackedObject {
 
 	confirmed := make([]*TrackedObject, 0)
 	for _, track := range t.Tracks {
-		if track.State == TrackConfirmed {
+		if track.TrackState == TrackConfirmed {
 			// Shallow copy the struct to snapshot scalar fields
 			copied := *track
 			// Deep copy slices to avoid race with concurrent Update() appends
@@ -185,7 +185,7 @@ func (t *Tracker) GetTrackCount() (total, tentative, confirmed, deleted int) {
 
 	for _, track := range t.Tracks {
 		total++
-		switch track.State {
+		switch track.TrackState {
 		case TrackTentative:
 			tentative++
 		case TrackConfirmed:
@@ -222,8 +222,8 @@ func (t *Tracker) GetRecentlyDeletedTracks(nowNanos int64) []*TrackedObject {
 
 	deleted := make([]*TrackedObject, 0)
 	for _, track := range t.Tracks {
-		if track.State == TrackDeleted {
-			elapsed := nowNanos - track.LastUnixNanos
+		if track.TrackState == TrackDeleted {
+			elapsed := nowNanos - track.EndUnixNanos
 			if elapsed >= 0 && elapsed < gracePeriodNanos {
 				// Shallow copy + deep copy History
 				copied := *track
@@ -290,8 +290,8 @@ func (track *TrackedObject) ComputeQualityMetrics() {
 	}
 
 	// Track duration: Total lifetime in seconds
-	if track.LastUnixNanos > track.FirstUnixNanos {
-		track.TrackDurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	if track.EndUnixNanos > track.StartUnixNanos {
+		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
 
 	// Occlusion count: Count gaps in observations (>200ms = missed frame at ~10Hz)
@@ -350,7 +350,7 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 	var totalSpeedJitterCount int
 
 	for _, track := range t.Tracks {
-		if track.State == TrackDeleted {
+		if track.TrackState == TrackDeleted {
 			continue
 		}
 		metrics.ActiveTracks++
@@ -384,7 +384,7 @@ func (t *Tracker) GetTrackingMetrics() TrackingMetrics {
 
 		metrics.PerTrack = append(metrics.PerTrack, TrackAlignmentMetrics{
 			TrackID:          track.TrackID,
-			State:            string(track.State),
+			State:            string(track.TrackState),
 			SampleCount:      track.AlignmentSampleCount,
 			MeanAlignmentRad: track.AlignmentMeanRad,
 			MeanAlignmentDeg: track.AlignmentMeanRad * 180 / math.Pi,

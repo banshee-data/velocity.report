@@ -184,8 +184,8 @@ func TestExtractMetadata(t *testing.T) {
 	track := &l5tracks.TrackedObject{
 		TrackID:           "track-001",
 		SensorID:          "test-sensor",
-		FirstUnixNanos:    now.UnixNano(),
-		LastUnixNanos:     now.Add(5 * time.Second).UnixNano(),
+		StartUnixNanos:    now.UnixNano(),
+		EndUnixNanos:      now.Add(5 * time.Second).UnixNano(),
 		TrackLengthMeters: 50.0,
 		TrackDurationSecs: 5.0,
 		OcclusionCount:    2,

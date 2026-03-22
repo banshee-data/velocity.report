@@ -36,8 +36,8 @@ func TestGoldenReplay_Determinism(t *testing.T) {
 		track2 := run2Results[i]
 
 		// State should be identical
-		if track1.State != track2.State {
-			t.Errorf("track %d: state mismatch: run1=%s, run2=%s", i, track1.State, track2.State)
+		if track1.TrackState != track2.TrackState {
+			t.Errorf("track %d: state mismatch: run1=%s, run2=%s", i, track1.TrackState, track2.TrackState)
 		}
 
 		// Position should be identical (within floating point tolerance).
@@ -157,9 +157,9 @@ func TestGoldenReplay_MultiTrackDeterminism(t *testing.T) {
 	// TrackIDs are UUID-based and differ between runs — compare only
 	// deterministic properties.
 	for i := range run1 {
-		if run1[i].State != run2[i].State {
+		if run1[i].TrackState != run2[i].TrackState {
 			t.Errorf("track %d: state mismatch: run1=%s, run2=%s",
-				i, run1[i].State, run2[i].State)
+				i, run1[i].TrackState, run2[i].TrackState)
 		}
 		if !floatNearlyEqual(run1[i].X, run2[i].X, 0.02) {
 			t.Errorf("track %d: X mismatch: run1=%f, run2=%f", i, run1[i].X, run2[i].X)
@@ -299,8 +299,8 @@ func runTrackingPipeline(t *testing.T, frameData [][]WorldCluster) []*TrackedObj
 	// between runs by design.
 	tracks := tracker.GetAllTracks()
 	sort.Slice(tracks, func(i, j int) bool {
-		if tracks[i].FirstUnixNanos != tracks[j].FirstUnixNanos {
-			return tracks[i].FirstUnixNanos < tracks[j].FirstUnixNanos
+		if tracks[i].StartUnixNanos != tracks[j].StartUnixNanos {
+			return tracks[i].StartUnixNanos < tracks[j].StartUnixNanos
 		}
 		return tracks[i].X < tracks[j].X
 	})

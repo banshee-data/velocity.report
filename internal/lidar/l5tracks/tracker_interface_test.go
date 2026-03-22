@@ -77,8 +77,8 @@ func TestTrackerInterface_GetActiveTracks(t *testing.T) {
 		t.Errorf("expected 1 track, got %d", len(tracks))
 	}
 
-	if tracks[0].State != TrackTentative {
-		t.Errorf("expected tentative track, got %s", tracks[0].State)
+	if tracks[0].TrackState != TrackTentative {
+		t.Errorf("expected tentative track, got %s", tracks[0].TrackState)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestTrackerInterface_GetAllTracks(t *testing.T) {
 	if len(allTracks) != 1 {
 		t.Errorf("expected 1 track (including deleted), got %d", len(allTracks))
 	}
-	if allTracks[0].State != TrackDeleted {
-		t.Errorf("expected deleted track, got state %s", allTracks[0].State)
+	if allTracks[0].TrackState != TrackDeleted {
+		t.Errorf("expected deleted track, got state %s", allTracks[0].TrackState)
 	}
 }

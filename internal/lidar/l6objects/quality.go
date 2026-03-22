@@ -192,7 +192,7 @@ func FilterTracksForTraining(tracks []*TrackedObject, filter *TrackTrainingFilte
 		if len(filter.AllowedStates) > 0 {
 			stateAllowed := false
 			for _, allowedState := range filter.AllowedStates {
-				if track.State == allowedState {
+				if track.TrackState == allowedState {
 					stateAllowed = true
 					break
 				}

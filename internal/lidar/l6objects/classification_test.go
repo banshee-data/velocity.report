@@ -467,8 +467,8 @@ func TestExtractFeatures_ZeroDuration(t *testing.T) {
 		BoundingBoxWidthAvg:  2.0,
 		AvgSpeedMps:          8.0,
 		MaxSpeedMps:          12.0,
-		FirstUnixNanos:       1000,
-		LastUnixNanos:        1000, // equal → duration branch not taken
+		StartUnixNanos:       1000,
+		EndUnixNanos:         1000, // equal → duration branch not taken
 	}
 	result := tc.Classify(track)
 	if result.Features.DurationSecs != 0 {

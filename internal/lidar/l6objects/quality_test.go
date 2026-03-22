@@ -29,7 +29,7 @@ func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 			ObservationCount:  50,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  20,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 		{
 			TrackLengthMeters: 20.0,
@@ -86,7 +86,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  40,
 			ObjectClass:       "pedestrian",
 			ObjectConfidence:  0.8,
-			State:             TrackTentative,
+			TrackState:        TrackTentative,
 		},
 		{
 			TrackLengthMeters: 15.0,
@@ -97,7 +97,7 @@ func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 			ObservationCount:  30,
 			ObjectClass:       "", // Should be classified as "dynamic"
 			ObjectConfidence:  0.5,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 	}
 
@@ -310,7 +310,7 @@ func TestFilterTracksForTraining(t *testing.T) {
 			ObservationCount:  50,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.95,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 		{
 			// Poor quality track (too short)
@@ -323,7 +323,7 @@ func TestFilterTracksForTraining(t *testing.T) {
 			ObservationCount:  5,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 		{
 			// Tentative track (wrong state)
@@ -336,7 +336,7 @@ func TestFilterTracksForTraining(t *testing.T) {
 			ObservationCount:  20,
 			ObjectClass:       "vehicle",
 			ObjectConfidence:  0.8,
-			State:             TrackTentative,
+			TrackState:        TrackTentative,
 		},
 	}
 
@@ -364,7 +364,7 @@ func TestFilterTracksForTraining_RequireClass(t *testing.T) {
 			ObservationCount:  30,
 			ObjectClass:       "", // No class
 			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 		{
 			TrackLengthMeters: 10.0,
@@ -375,7 +375,7 @@ func TestFilterTracksForTraining_RequireClass(t *testing.T) {
 			ObservationCount:  30,
 			ObjectClass:       "vehicle", // Has class
 			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
+			TrackState:        TrackConfirmed,
 		},
 	}
 

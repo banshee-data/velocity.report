@@ -242,8 +242,8 @@ func (tc *TrackClassifier) extractFeatures(track *TrackedObject) ClassificationF
 	}
 
 	// Compute duration
-	if track.LastUnixNanos > track.FirstUnixNanos {
-		features.DurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	if track.EndUnixNanos > track.StartUnixNanos {
+		features.DurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
 
 	return features

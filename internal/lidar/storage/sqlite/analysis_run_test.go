@@ -139,9 +139,9 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:              "track_1",
 		SensorID:             "sensor_1",
-		State:                TrackConfirmed,
-		FirstUnixNanos:       1000000000,
-		LastUnixNanos:        2000000000,
+		TrackState:           TrackConfirmed,
+		StartUnixNanos:       1000000000,
+		EndUnixNanos:         2000000000,
 		ObservationCount:     10,
 		AvgSpeedMps:          5.0,
 		MaxSpeedMps:          8.0,
@@ -167,13 +167,13 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	if runTrack.SensorID != track.SensorID {
 		t.Errorf("SensorID mismatch")
 	}
-	if runTrack.TrackState != string(track.State) {
+	if runTrack.TrackState != string(track.TrackState) {
 		t.Errorf("TrackState mismatch")
 	}
-	if runTrack.StartUnixNanos != track.FirstUnixNanos {
+	if runTrack.StartUnixNanos != track.StartUnixNanos {
 		t.Errorf("StartUnixNanos mismatch")
 	}
-	if runTrack.EndUnixNanos != track.LastUnixNanos {
+	if runTrack.EndUnixNanos != track.EndUnixNanos {
 		t.Errorf("EndUnixNanos mismatch")
 	}
 	if runTrack.ObservationCount != track.ObservationCount {

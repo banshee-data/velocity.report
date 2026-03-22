@@ -122,14 +122,14 @@ func InsertTrack(exec Executor, track *TrackedObject, frameID string) error {
 
 	// Always set end_unix_nanos to LastUnixNanos for all track states
 	// This allows accurate time range queries for track history visualization
-	endNanos := track.LastUnixNanos
+	endNanos := track.EndUnixNanos
 
 	_, err := exec.Exec(query,
 		track.TrackID,
 		track.SensorID,
 		frameID,
-		string(track.State),
-		track.FirstUnixNanos,
+		string(track.TrackState),
+		track.StartUnixNanos,
 		endNanos,
 		track.ObservationCount,
 		track.AvgSpeedMps,
@@ -172,10 +172,10 @@ func UpdateTrack(db DBClient, track *TrackedObject) error {
 
 	// Always set end_unix_nanos to LastUnixNanos for all track states
 	// This allows accurate time range queries for track history visualization
-	endNanos := track.LastUnixNanos
+	endNanos := track.EndUnixNanos
 
 	_, err := db.Exec(query,
-		string(track.State),
+		string(track.TrackState),
 		endNanos,
 		track.ObservationCount,
 		track.AvgSpeedMps,
@@ -480,7 +480,7 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 			&track.TrackID,
 			&track.SensorID,
 			&stateStr,
-			&track.FirstUnixNanos,
+			&track.StartUnixNanos,
 			&endNanos,
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
@@ -498,9 +498,9 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
 
-		track.State = TrackState(stateStr)
+		track.TrackState = TrackState(stateStr)
 		if endNanos.Valid {
-			track.LastUnixNanos = endNanos.Int64
+			track.EndUnixNanos = endNanos.Int64
 		}
 		if objectClass.Valid {
 			track.ObjectClass = objectClass.String
@@ -526,8 +526,8 @@ func GetActiveTracks(db DBClient, sensorID string, state string) ([]*TrackedObje
 	for _, track := range tracks {
 		obsStart := nowNanos - recencyWindow
 		// Use the track's own lifetime if it falls within the recency window
-		if track.FirstUnixNanos > obsStart {
-			obsStart = track.FirstUnixNanos
+		if track.StartUnixNanos > obsStart {
+			obsStart = track.StartUnixNanos
 		}
 		obs, err := GetTrackObservationsInRange(db, sensorID, obsStart, nowNanos, 1000, track.TrackID)
 		if err != nil {
@@ -606,7 +606,7 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 			&track.TrackID,
 			&track.SensorID,
 			&stateStr,
-			&track.FirstUnixNanos,
+			&track.StartUnixNanos,
 			&end,
 			&track.ObservationCount,
 			&track.AvgSpeedMps,
@@ -624,9 +624,9 @@ func GetTracksInRange(db DBClient, sensorID string, state string, startNanos, en
 			return nil, fmt.Errorf("scan track: %w", err)
 		}
 
-		track.State = TrackState(stateStr)
+		track.TrackState = TrackState(stateStr)
 		if end.Valid {
-			track.LastUnixNanos = end.Int64
+			track.EndUnixNanos = end.Int64
 		}
 		if objectClass.Valid {
 			track.ObjectClass = objectClass.String

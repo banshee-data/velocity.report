@@ -43,9 +43,9 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		deletedAt := now - int64(500*time.Millisecond) // 500ms ago
 
 		track := &TrackedObject{
-			TrackID:       "track-deleted-1",
-			State:         TrackDeleted,
-			LastUnixNanos: deletedAt,
+			TrackID:      "track-deleted-1",
+			TrackState:   TrackDeleted,
+			EndUnixNanos: deletedAt,
 			History: []TrackPoint{
 				{X: 1.0, Y: 2.0, Timestamp: time.Now().UnixNano()},
 				{X: 1.5, Y: 2.5, Timestamp: time.Now().UnixNano()},
@@ -56,7 +56,7 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		deleted := tracker.GetRecentlyDeletedTracks(now)
 		require.Len(t, deleted, 1)
 		assert.Equal(t, "track-deleted-1", deleted[0].TrackID)
-		assert.Equal(t, TrackDeleted, deleted[0].State)
+		assert.Equal(t, TrackDeleted, deleted[0].TrackState)
 	})
 
 	t.Run("excludes tracks past grace period", func(t *testing.T) {
@@ -70,9 +70,9 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		deletedAt := now - int64(2*time.Second) // 2 seconds ago (past grace period)
 
 		track := &TrackedObject{
-			TrackID:       "track-old-deleted",
-			State:         TrackDeleted,
-			LastUnixNanos: deletedAt,
+			TrackID:      "track-old-deleted",
+			TrackState:   TrackDeleted,
+			EndUnixNanos: deletedAt,
 		}
 		tracker.Tracks["track-old-deleted"] = track
 
@@ -89,14 +89,14 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		now := time.Now().UnixNano()
 
 		tracker.Tracks["track-active"] = &TrackedObject{
-			TrackID:       "track-active",
-			State:         TrackConfirmed,
-			LastUnixNanos: now - int64(100*time.Millisecond),
+			TrackID:      "track-active",
+			TrackState:   TrackConfirmed,
+			EndUnixNanos: now - int64(100*time.Millisecond),
 		}
 		tracker.Tracks["track-tentative"] = &TrackedObject{
-			TrackID:       "track-tentative",
-			State:         TrackTentative,
-			LastUnixNanos: now - int64(100*time.Millisecond),
+			TrackID:      "track-tentative",
+			TrackState:   TrackTentative,
+			EndUnixNanos: now - int64(100*time.Millisecond),
 		}
 
 		deleted := tracker.GetRecentlyDeletedTracks(now)
@@ -116,10 +116,10 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		}
 
 		track := &TrackedObject{
-			TrackID:       "track-copy-test",
-			State:         TrackDeleted,
-			LastUnixNanos: now - int64(100*time.Millisecond),
-			History:       originalHistory,
+			TrackID:      "track-copy-test",
+			TrackState:   TrackDeleted,
+			EndUnixNanos: now - int64(100*time.Millisecond),
+			History:      originalHistory,
 		}
 		tracker.Tracks["track-copy-test"] = track
 
@@ -143,9 +143,9 @@ func TestGetRecentlyDeletedTracks(t *testing.T) {
 		futureTime := now + int64(10*time.Second) // Track says deleted in the future
 
 		track := &TrackedObject{
-			TrackID:       "track-future",
-			State:         TrackDeleted,
-			LastUnixNanos: futureTime,
+			TrackID:      "track-future",
+			TrackState:   TrackDeleted,
+			EndUnixNanos: futureTime,
 		}
 		tracker.Tracks["track-future"] = track
 
@@ -206,16 +206,16 @@ func TestGetTrackingMetrics(t *testing.T) {
 		tracker := NewTracker(TrackerConfig{})
 
 		tracker.Tracks["active-1"] = &TrackedObject{
-			TrackID: "active-1",
-			State:   TrackConfirmed,
+			TrackID:    "active-1",
+			TrackState: TrackConfirmed,
 		}
 		tracker.Tracks["active-2"] = &TrackedObject{
-			TrackID: "active-2",
-			State:   TrackConfirmed,
+			TrackID:    "active-2",
+			TrackState: TrackConfirmed,
 		}
 		tracker.Tracks["deleted-1"] = &TrackedObject{
-			TrackID: "deleted-1",
-			State:   TrackDeleted,
+			TrackID:    "deleted-1",
+			TrackState: TrackDeleted,
 		}
 
 		metrics := tracker.GetTrackingMetrics()
@@ -228,7 +228,7 @@ func TestGetTrackingMetrics(t *testing.T) {
 
 		tracker.Tracks["no-alignment"] = &TrackedObject{
 			TrackID:              "no-alignment",
-			State:                TrackConfirmed,
+			TrackState:           TrackConfirmed,
 			AlignmentSampleCount: 0,
 		}
 
@@ -243,7 +243,7 @@ func TestGetTrackingMetrics(t *testing.T) {
 
 		tracker.Tracks["track-1"] = &TrackedObject{
 			TrackID:              "track-1",
-			State:                TrackConfirmed,
+			TrackState:           TrackConfirmed,
 			AlignmentSampleCount: 10,
 			AlignmentSumRad:      1.0, // Sum for 10 samples
 			AlignmentMeanRad:     0.1, // 1.0/10
@@ -253,7 +253,7 @@ func TestGetTrackingMetrics(t *testing.T) {
 		}
 		tracker.Tracks["track-2"] = &TrackedObject{
 			TrackID:              "track-2",
-			State:                TrackConfirmed,
+			TrackState:           TrackConfirmed,
 			AlignmentSampleCount: 20,
 			AlignmentSumRad:      4.0, // Sum for 20 samples
 			AlignmentMeanRad:     0.2,
@@ -284,7 +284,7 @@ func TestGetTrackingMetrics(t *testing.T) {
 
 		tracker.Tracks["track-1"] = &TrackedObject{
 			TrackID:              "track-1",
-			State:                TrackConfirmed,
+			TrackState:           TrackConfirmed,
 			AlignmentSampleCount: 100,
 			AlignmentMeanRad:     0.05,
 			AlignmentMisaligned:  10,

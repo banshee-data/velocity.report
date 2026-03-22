@@ -42,8 +42,8 @@ func TestClearTracks(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:        "track-clear-1",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: 1000,
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -124,8 +124,8 @@ func TestGetTrackObservationsInRange(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:        "track-range-1",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: 1000,
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -174,8 +174,8 @@ func TestGetTrackObservationsInRange_WithTrackIDFilter(t *testing.T) {
 		track := &TrackedObject{
 			TrackID:        trackID,
 			SensorID:       sensorID,
-			State:          TrackConfirmed,
-			FirstUnixNanos: 1000,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1000,
 		}
 		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -236,9 +236,9 @@ func TestGetTracksInRange(t *testing.T) {
 		track := &TrackedObject{
 			TrackID:        tr.id,
 			SensorID:       sensorID,
-			State:          TrackConfirmed,
-			FirstUnixNanos: tr.start,
-			LastUnixNanos:  tr.end,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: tr.start,
+			EndUnixNanos:   tr.end,
 		}
 		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -356,8 +356,8 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:        "track-history",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: baseNanos,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: baseNanos,
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -414,8 +414,8 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 	recent := &TrackedObject{
 		TrackID:        "track-recent",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: recentBase,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: recentBase,
 	}
 	recent.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, recent, "site/main"); err != nil {
@@ -425,8 +425,8 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 	old := &TrackedObject{
 		TrackID:        "track-old",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: oldBase,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: oldBase,
 	}
 	old.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, old, "site/main"); err != nil {
@@ -488,9 +488,9 @@ func TestGetTracksInRange_DefaultLimit(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:        "track-1",
 		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
-		LastUnixNanos:  2000,
+		TrackState:     TrackConfirmed,
+		StartUnixNanos: 1000,
+		EndUnixNanos:   2000,
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -521,9 +521,9 @@ func TestGetTracksInRange_NullEndNanos(t *testing.T) {
 	track := &TrackedObject{
 		TrackID:        "track-ongoing",
 		SensorID:       sensorID,
-		State:          TrackTentative,
-		FirstUnixNanos: 5000,
-		LastUnixNanos:  7000, // Use a valid end time for this test
+		TrackState:     TrackTentative,
+		StartUnixNanos: 5000,
+		EndUnixNanos:   7000, // Use a valid end time for this test
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
