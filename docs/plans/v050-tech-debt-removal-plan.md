@@ -1,6 +1,6 @@
 # v0.5.0 Tech Debt Removal Plan
 
-- **Status:** Active
+- **Status:** Complete
 - **Scope mode:** REDUCTION — minimum viable cleanup before v0.5.0 ships
 - **Target:** Remove all remaining compatibility shims except VRLOG JSON
   (`Track.UnmarshalJSON` legacy speed-key fallback), which is deferred to
@@ -69,15 +69,15 @@ test coverage that can be updated in the same pass.
 
 #### A3. Deprecated CLI flag acceptance (LiDAR sensor/network flags)
 
-| Detail                | Value                                                                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Location**          | `cmd/radar/lidar_helpers.go:72–87`, `cmd/radar/radar.go` flag definitions, `cmd/radar/flags_test.go`                                                                                         |
-| **What**              | `--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port` — deprecated in favour of `l1.*` config file fields. Currently emit warnings but still work. |
-| **Why remove**        | Config restructure Phase 2 is complete. These flags create dual-source ambiguity (config file vs CLI). DRY principle demands a single source of truth. The deprecation period has elapsed.   |
-| **Blast radius**      | CLI interface change — operators using these flags must update to config file                                                                                                                |
-| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 2, Step 13](../../config/CONFIG-RESTRUCTURE.md) (status: ⏳ CLI deprecation)                                                                                    |
-| **Effort**            | 1 day                                                                                                                                                                                        |
-| **Risk**              | Medium — breaking change for operators still using CLI flags. Mitigation: clear error message directing to config file field name.                                                           |
+| Detail                | Value                                                                                                                                                                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Location**          | `cmd/radar/lidar_helpers.go:72–87`, `cmd/radar/radar.go` flag definitions, `cmd/radar/flags_test.go`                                                                                                                                                                             |
+| **What**              | `--lidar-sensor` — deprecated in favour of `l1.sensor` config file field. `--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port` — reclassified as active runtime network flags (not config-file mirrors).                                                |
+| **Why remove**        | Config restructure Phase 2 is complete. `--lidar-sensor` created dual-source ambiguity (config file vs CLI). The three network port flags were originally listed for removal but remain as active runtime network configuration — they control the network listener, not tuning. |
+| **Blast radius**      | CLI interface change (sensor flag only) — operators must use config file for sensor selection                                                                                                                                                                                    |
+| **Existing plan ref** | [CONFIG-RESTRUCTURE.md Phase 2, Step 13](../../config/CONFIG-RESTRUCTURE.md) (status: ✅ Complete)                                                                                                                                                                               |
+| **Effort**            | 1 day                                                                                                                                                                                                                                                                            |
+| **Risk**              | Low — only `--lidar-sensor` removed; network port flags remain active                                                                                                                                                                                                            |
 
 #### A4. `cmd/transit-backfill` soft-deprecated tool
 
@@ -132,11 +132,11 @@ defer to v0.5.1 if the sprint runs short.
 
 #### B2. God file splits
 
-| Detail                | Value                                                                                                                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400)                                                                                                         |
-| **Decision**          | **Complete.** Phase 1 god file splits implemented. All five Tier 1 files split into domain-specific files. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Tier 2 and Tier 3 files tracked for v0.5.2+. |
-| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                                                           |
+| Detail                | Value                                                                                                                                                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400), `background.go` (1,672), `tuning.go` (1,303)                                                                                |
+| **Decision**          | **Complete.** Phase 1 god file splits implemented. All seven Tier 1 files (1A–1G) split into domain-specific files. `background_manager.go` at 861 LOC is the only split output exceeding 600 LOC. Tier 2 and Tier 3 files tracked for v0.5.2+. |
+| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                                                                                |
 
 #### B3. Context propagation in HTTP handlers
 
@@ -259,15 +259,20 @@ Items are ordered by dependency and blast radius (safest first).
 
 #### Day 3–5: CLI flag removal (A3, A6) — ✅ Complete
 
-- [x] Remove `--lidar-sensor`, `--lidar-udp-port`, `--lidar-forward-port`,
-      `--lidar-foreground-forward-port` flag definitions from
-      `cmd/radar/radar.go`
+- [x] Remove `--lidar-sensor` flag definition from `cmd/radar/radar.go`
+- [x] Reclassify `--lidar-udp-port`, `--lidar-forward-port`,
+      `--lidar-foreground-forward-port` as active runtime network flags
+      (not deprecated; they control `network.ListenerConfig`, not tuning)
 - [x] Remove `deprecatedLidarFlagWarnings()` function from
       `cmd/radar/lidar_helpers.go`
 - [x] Update `cmd/radar/flags_test.go` — remove deprecated flag test cases
-- [x] Add clear startup error if old flags are passed:
-      Go’s `flag` package emits `flag provided but not defined` for
+- [x] Add clear startup error if old `--lidar-sensor` flag is passed:
+      Go's `flag` package emits `flag provided but not defined` for
       unknown flags, which is a clear error.
+- [x] Remove `L1Config` network fields (`UDPPort`, `UDPRcvBuf`,
+      `ForwardPort`, `ForegroundForwardPort`) from config struct; remove
+      corresponding getters and validation from split files
+      (`tuning_accessors.go`, `tuning_validate.go`)
 - [x] Update `config/CONFIG-RESTRUCTURE.md` Phase 2 Step 13 status:
       change `⏳ CLI deprecation` to `✅ Complete`
 - [x] Update `docs/plans/platform-simplification-and-deprecation-plan.md` —
@@ -323,13 +328,13 @@ Items are ordered by dependency and blast radius (safest first).
 
 ### platform-simplification-and-deprecation-plan.md
 
-| Project                    | Status              | Notes                                                                     |
-| -------------------------- | ------------------- | ------------------------------------------------------------------------- |
-| A — Deprecation signalling | ✅ Complete         |                                                                           |
-| B — Deploy retirement gate | Gated on #210       | Externally gated — see Category C (C1)                                    |
-| C — Frontend consolidation | Blocked on #252     | Not in sprint scope                                                       |
-| D — CLI simplification     | Partially addressed | A3 closes deprecated LiDAR config flags; forwarding flags remain (active) |
-| E — Compat shim removal    | ✅ Complete         | A1 closed the last gap                                                    |
+| Project                    | Status              | Notes                                                                               |
+| -------------------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| A — Deprecation signalling | ✅ Complete         |                                                                                     |
+| B — Deploy retirement gate | Gated on #210       | Externally gated — see Category C (C1)                                              |
+| C — Frontend consolidation | Blocked on #252     | Not in sprint scope                                                                 |
+| D — CLI simplification     | Partially addressed | A3 closed `--lidar-sensor`; network port flags reclassified as active runtime flags |
+| E — Compat shim removal    | ✅ Complete         | A1 closed the last gap                                                              |
 
 ### schema-simplification-migration-030-plan.md
 

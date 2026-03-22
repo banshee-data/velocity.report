@@ -28,45 +28,50 @@ Beyond the original three, a scan of the full Go codebase reveals further files 
 | ~~`internal/db/db.go`~~                             | ~~1,420~~ | 337 | **DONE** — split into 4 domain files (see 1A)                                                                                      |
 | ~~`internal/lidar/storage/sqlite/analysis_run.go`~~ | ~~1,400~~ | 391 | **DONE** — split into 4 domain files (see 1E)                                                                                      |
 | ~~`internal/lidar/l3grid/background.go`~~           | —         | 352 | **DONE** — split into `background.go` (352), `background_region.go` (474), `background_manager.go` (860) (see 1F)                  |
-| ~~`internal/config/tuning.go`~~                     | —         | 255 | **DONE** — split into `tuning.go` (255), `tuning_validate.go` (410), `tuning_codec.go` (280), `tuning_accessors.go` (373) (see 1G) |
+| ~~`internal/config/tuning.go`~~                     | —         | 250 | **DONE** — split into `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361) (see 1G) |
 
 ### Tier 2 — Large Files (700–1,100 LOC, may benefit from splitting)
 
-| File                                                    | Was   | Now | Notes                                                                       |
-| ------------------------------------------------------- | ----- | --- | --------------------------------------------------------------------------- |
-| `internal/lidar/sweep/hint.go`                          | 1,002 | 798 | HINT algorithm + state machine                                              |
-| `internal/lidar/storage/sqlite/analysis_run_queries.go` | —     | 775 | **NEW from 1E split** — exceeds 600 LOC target                              |
-| `internal/lidar/storage/sqlite/track_store.go`          | 774   | 774 | Track persistence + queries                                                 |
-| `internal/lidar/server/track_api.go`                    | 1,065 | 763 | Track query handlers + formatting (shrunk, not by split)                    |
-| `internal/lidar/sweep/auto.go`                          | 996   | 762 | Auto-tune algorithm + state machine                                         |
-| `internal/lidar/server/run_track_api.go`                | 836   | 752 | Run-level track query handlers                                              |
-| `internal/lidar/pipeline/tracking_pipeline.go`          | 734   | 733 | Pipeline orchestration + state                                              |
-| `internal/lidar/sweep/runner.go`                        | 720   | 720 | Sweep orchestration + lifecycle                                             |
-| `internal/lidar/l9endpoints/recorder/recorder.go`       | —     | 711 | **NEW** — not in original plan                                              |
-| `internal/lidar/server/datasource_handlers.go`          | 701   | 702 | Data source switching + live listener                                       |
-| `internal/lidar/l5tracks/tracking_association.go`       | —     | 662 | **NEW from 1D split** — exceeds 500 LOC target                              |
-| `internal/lidar/server/client.go`                       | 558   | 647 | HTTP client (grew past 600 threshold)                                       |
-| `internal/lidar/analysis/report.go`                     | 646   | 646 | Analysis report generation                                                  |
-| `internal/api/server_reports.go`                        | —     | 644 | **NEW from 1B split** — exceeds 600 LOC target                              |
-| `internal/lidar/l9endpoints/gridplotter.go`             | 632   | 632 | Grid visualisation                                                          |
-| `internal/lidar/l9endpoints/grpc_server.go`             | 868   | 619 | gRPC server handlers (shrunk)                                               |
-| `internal/lidar/l2frames/frame_builder.go`              | 1,021 | 448 | **Partially split** — cleanup extracted to `frame_builder_cleanup.go` (602) |
-| `internal/lidar/l9endpoints/publisher.go`               | 884   | 540 | gRPC publishing + frame conversion (shrunk)                                 |
+| File                                              | Was   | Now | Notes                                                                       |
+| ------------------------------------------------- | ----- | --- | --------------------------------------------------------------------------- |
+| `internal/lidar/l3grid/background_manager.go`     | —     | 861 | **NEW from 1F split** — exceeds 600 LOC target                              |
+| `internal/lidar/sweep/hint.go`                    | 1,002 | 798 | HINT algorithm + state machine                                              |
+| `internal/lidar/storage/sqlite/track_store.go`    | 774   | 774 | Track persistence + queries                                                 |
+| `internal/lidar/server/track_api.go`              | 1,065 | 763 | Track query handlers + formatting (shrunk, not by split)                    |
+| `internal/lidar/sweep/auto.go`                    | 996   | 762 | Auto-tune algorithm + state machine                                         |
+| `internal/lidar/server/run_track_api.go`          | 836   | 752 | Run-level track query handlers                                              |
+| `internal/lidar/pipeline/tracking_pipeline.go`    | 734   | 733 | Pipeline orchestration + state                                              |
+| `internal/lidar/sweep/runner.go`                  | 720   | 720 | Sweep orchestration + lifecycle                                             |
+| `internal/lidar/l9endpoints/recorder/recorder.go` | —     | 711 | **NEW** — not in original plan                                              |
+| `internal/lidar/server/datasource_handlers.go`    | 701   | 702 | Data source switching + live listener                                       |
+| `internal/lidar/server/client.go`                 | 558   | 647 | HTTP client (grew past 600 threshold)                                       |
+| `internal/lidar/analysis/report.go`               | 646   | 646 | Analysis report generation                                                  |
+| `internal/lidar/l9endpoints/gridplotter.go`       | 632   | 632 | Grid visualisation                                                          |
+| `internal/lidar/l9endpoints/grpc_server.go`       | 868   | 619 | gRPC server handlers (shrunk)                                               |
+| `internal/lidar/l2frames/frame_builder.go`        | 1,021 | 448 | **Partially split** — cleanup extracted to `frame_builder_cleanup.go` (602) |
+| `internal/lidar/l9endpoints/publisher.go`         | 884   | 540 | gRPC publishing + frame conversion (shrunk)                                 |
 
 ### Tier 3 — Approaching Threshold (500–700 LOC, monitor)
 
-| File                                                | LOC | Notes                                                                 |
-| --------------------------------------------------- | --- | --------------------------------------------------------------------- |
-| `internal/lidar/server/status.go`                   | 690 | Grid, status, health, acceptance, background handlers (from 1C split) |
-| `internal/lidar/server/playback_handlers.go`        | 604 | PCAP playback handlers                                                |
-| `internal/lidar/l2frames/frame_builder_cleanup.go`  | 602 | Cleanup timer, buffering, finalisation (from 2A split)                |
-| `internal/lidar/l1packets/parse/extract.go`         | 601 | Packet parsing and extraction                                         |
-| `internal/lidar/server/echarts_handlers.go`         | 580 | Chart rendering handlers                                              |
-| `internal/db/db_radar.go`                           | 562 | Radar event types and query methods (from 1A split)                   |
-| `internal/db/migrate.go`                            | 546 | Migration engine                                                      |
-| `internal/lidar/l3grid/foreground.go`               | 542 | Foreground extraction                                                 |
-| `internal/lidar/l6objects/classification.go`        | 539 | Object classification logic                                           |
-| `internal/lidar/l1packets/network/pcap_realtime.go` | 525 | PCAP real-time reader                                                 |
+| File                                                    | LOC | Notes                                                                 |
+| ------------------------------------------------------- | --- | --------------------------------------------------------------------- |
+| `internal/lidar/server/status.go`                       | 690 | Grid, status, health, acceptance, background handlers (from 1C split) |
+| `internal/lidar/server/playback_handlers.go`            | 604 | PCAP playback handlers                                                |
+| `internal/lidar/l2frames/frame_builder_cleanup.go`      | 602 | Cleanup timer, buffering, finalisation (from 2A split)                |
+| `internal/lidar/l1packets/parse/extract.go`             | 601 | Packet parsing and extraction                                         |
+| `internal/lidar/storage/sqlite/analysis_run_queries.go` | 599 | Read queries, list, get, filter, search (from 1E split; was 775)      |
+| `internal/lidar/server/tuning_runtime.go`               | 582 | Runtime tuning param handlers                                         |
+| `internal/lidar/server/echarts_handlers.go`             | 580 | Chart rendering handlers                                              |
+| `internal/db/db_radar.go`                               | 562 | Radar event types and query methods (from 1A split)                   |
+| `internal/db/migrate.go`                                | 546 | Migration engine                                                      |
+| `internal/lidar/l3grid/foreground.go`                   | 542 | Foreground extraction                                                 |
+| `internal/lidar/l9endpoints/publisher.go`               | 540 | gRPC publishing + frame conversion                                    |
+| `internal/lidar/l6objects/classification.go`            | 539 | Object classification logic                                           |
+| `internal/lidar/l4perception/cluster.go`                | 535 | Clustering logic                                                      |
+| `internal/lidar/l1packets/network/pcap_realtime.go`     | 525 | PCAP real-time reader                                                 |
+| `internal/lidar/l9endpoints/adapter.go`                 | 524 | Pipeline adapter                                                      |
+| `internal/lidar/l5tracks/tracking.go`                   | 515 | Tracker struct and orchestration (from 1D split)                      |
+| `internal/db/transit_worker.go`                         | 503 | Transit background worker                                             |
 
 ---
 
@@ -150,13 +155,14 @@ Split from 1,711 LOC into 6 domain files + core. All checklist items complete.
 
 ### 1D. ~~Split `internal/lidar/l5tracks/tracking.go`~~ — DONE
 
-Split from 1,676 LOC into 3 domain files + core. The planned `tracking_splitting.go` was
+Split from 1,676 LOC into 4 domain files + core. The planned `tracking_splitting.go` was
 not created — split/merge logic remained in `tracking_association.go`.
 
 | File                      | Contents                                         | LOC |
 | ------------------------- | ------------------------------------------------ | --- |
 | `tracking.go`             | `Tracker` struct, `NewTracker`, `Update()`       | 515 |
-| `tracking_association.go` | Association, cost matrix, split/merge            | 662 |
+| `tracking_association.go` | Association, cost matrix, split/merge            | 297 |
+| `tracking_update.go`      | Kalman update method                             | 370 |
 | `tracking_metrics.go`     | Metrics collection, speed/distance stats, export | 441 |
 | `tracking_config.go`      | `TrackerConfig`, `DefaultTrackerConfig`          | 115 |
 
@@ -183,9 +189,9 @@ Split from 1,400 LOC into 4 domain files + core. Two additional files (`_compare
 | File                        | Contents                                | LOC |
 | --------------------------- | --------------------------------------- | --- |
 | `analysis_run.go`           | Types, `AnalysisRunStore`, constructors | 391 |
-| `analysis_run_queries.go`   | Read queries, list, get, filter, search | 775 |
+| `analysis_run_queries.go`   | Read queries, list, get, filter, search | 599 |
 | `analysis_run_mutations.go` | Insert, update, complete, delete        | 246 |
-| `analysis_run_compare.go`   | Comparison queries                      | 112 |
+| `analysis_run_compare.go`   | Comparison queries                      | 282 |
 | `analysis_run_manager.go`   | Manager orchestration                   | 260 |
 
 **Checklist:**
@@ -198,46 +204,47 @@ Split from 1,400 LOC into 4 domain files + core. Two additional files (`_compare
 - [x] No file in `internal/lidar/storage/sqlite/` exceeds 600 LOC (for Phase 1 files;
       `track_store.go` at 774 is a Tier 2 file tracked separately)
 
-### 1F. Split `internal/lidar/l3grid/background.go` (1,672 LOC)
+### 1F. ~~Split `internal/lidar/l3grid/background.go` (1,672 LOC)~~ — DONE
 
-The package already has `background_*.go` naming (`background_drift.go`, `_export.go`,
-`_flusher.go`, `_persistence.go`). The core `background.go` mixes param types, grid struct,
-RegionManager, and BackgroundManager — four distinct concerns.
+Split from 1,672 LOC into 2 domain files + core. `background_manager.go` at 861 LOC
+exceeds the original 600 LOC target — tracked in Tier 2 for a follow-on split.
 
-| New file                  | Content to move                                                                              | Est. LOC |
-| ------------------------- | -------------------------------------------------------------------------------------------- | -------- |
-| `background_region.go`    | `RegionManager` struct + all methods, `Region` type, `RegionParams`                          | ~500     |
-| `background_manager.go`   | `BackgroundManager` struct + all methods, `AcceptanceMetrics`, global registry, constructors | ~520     |
-| `background.go` (remains) | `BackgroundParams`, `BackgroundCell`, `BackgroundGrid` + methods                             | ~400     |
+| File                    | Contents                                                  | LOC |
+| ----------------------- | --------------------------------------------------------- | --- |
+| `background.go`         | `BackgroundParams`, `BackgroundCell`, `BackgroundGrid`    | 352 |
+| `background_region.go`  | `RegionManager`, `Region`, `RegionParams`                 | 474 |
+| `background_manager.go` | `BackgroundManager`, `AcceptanceMetrics`, global registry | 861 |
 
 **Checklist:**
 
 - [x] Create `background_region.go` — move RegionManager and region types (474 LOC)
-- [x] Create `background_manager.go` — move BackgroundManager, registry, constructors (860 LOC)
+- [x] Create `background_manager.go` — move BackgroundManager, registry, constructors (861 LOC)
 - [x] Verify `background.go` contains only params, cell, and grid types (352 LOC)
 - [x] `go build ./... && go test ./internal/lidar/l3grid/...` passes
-- [x] No file in split exceeds 900 LOC
+- [ ] `background_manager.go` at 861 LOC exceeds 600 LOC target — candidate for follow-on split
 
-### 1G. Split `internal/config/tuning.go` (1,303 LOC)
+### 1G. ~~Split `internal/config/tuning.go` (1,303 LOC)~~ — DONE
 
-Single-file package mixing struct definitions, validation rules, JSON unmarshalling with
-engine selection, convenience getters, and codec helpers.
+Split from 1,303 LOC into 3 domain files + core. All files under 400 LOC. Tech debt
+removal (#416) subsequently removed `L1Config` network fields (`UDPPort`, `UDPRcvBuf`,
+`ForwardPort`, `ForegroundForwardPort`), reducing `tuning_validate.go` and
+`tuning_accessors.go` by ~30 LOC total.
 
-| New file              | Content to move                                                                                                                                               | Est. LOC |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `tuning_validate.go`  | All `Validate()` methods on config types                                                                                                                      | ~400     |
-| `tuning_accessors.go` | `ActiveConfig`, `ActiveCommon`, `Get*` convenience getters                                                                                                    | ~370     |
-| `tuning_codec.go`     | `UnmarshalJSON`, `parseObject`, `requiredEngine`, `ensureAllowedKeys`, `decodeSelectedEngineBlock`, `strictDecodeObject`, `expectedJSONKeys`, `jsonFieldName` | ~280     |
-| `tuning.go` (remains) | Consts, type definitions, `EngineSpec`, `LoadTuningConfig`, `MustLoadDefaultConfig`                                                                           | ~250     |
+| File                  | Contents                                       | LOC |
+| --------------------- | ---------------------------------------------- | --- |
+| `tuning.go`           | Consts, type definitions, loaders              | 250 |
+| `tuning_validate.go`  | All `Validate()` methods                       | 391 |
+| `tuning_codec.go`     | `UnmarshalJSON`, codec helpers                 | 280 |
+| `tuning_accessors.go` | `ActiveConfig`, `ActiveCommon`, `Get*` getters | 361 |
 
 **Checklist:**
 
-- [x] Create `tuning_validate.go` — move all Validate methods (410 LOC)
-- [x] Create `tuning_accessors.go` — move ActiveConfig/ActiveCommon + getters (373 LOC)
+- [x] Create `tuning_validate.go` — move all Validate methods (391 LOC)
+- [x] Create `tuning_accessors.go` — move ActiveConfig/ActiveCommon + getters (361 LOC)
 - [x] Create `tuning_codec.go` — move JSON unmarshalling + codec helpers (280 LOC)
-- [x] Verify `tuning.go` contains only types, consts, and loaders (255 LOC)
+- [x] Verify `tuning.go` contains only types, consts, and loaders (250 LOC)
 - [x] `go build ./... && go test ./internal/config/...` passes
-- [x] No file in split exceeds 450 LOC
+- [x] No file in split exceeds 400 LOC
 
 ---
 
@@ -308,6 +315,8 @@ part of that change.
 - `internal/lidar/server/playback_handlers.go` (604 LOC)
 - `internal/lidar/l2frames/frame_builder_cleanup.go` (602 LOC) — from 2A split
 - `internal/lidar/l1packets/parse/extract.go` (601 LOC)
+- `internal/lidar/storage/sqlite/analysis_run_queries.go` (599 LOC) — from 1E split; was 775, now below Tier 2
+- `internal/lidar/server/tuning_runtime.go` (582 LOC)
 - `internal/lidar/server/echarts_handlers.go` (580 LOC)
 - `internal/db/db_radar.go` (562 LOC) — from 1A split
 - `internal/db/migrate.go` (546 LOC)
