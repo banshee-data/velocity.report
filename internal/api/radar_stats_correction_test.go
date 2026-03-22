@@ -90,7 +90,7 @@ func TestShowRadarObjectStats_CosineCorrection(t *testing.T) {
 		t.Fatalf("Expected metrics data")
 	}
 	metric := metrics[0].(map[string]interface{})
-	corrected := metric["MaxSpeed"].(float64)
+	corrected := metric["max_speed"].(float64)
 	expected := 10.0 / math.Cos(60.0*math.Pi/180.0)
 	if math.Abs(corrected-expected) > 0.01 {
 		t.Fatalf("Expected corrected max speed %.2f, got %.2f", expected, corrected)
