@@ -185,9 +185,9 @@ Analysts can then:
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Split Orchestrator                       │
-│  • Manages state machine (motion/static detection)         │
-│  • Tracks segment boundaries                               │
-│  • Coordinates reader/analyser/writer                      │
+│  • Manages state machine (motion/static detection)          │
+│  • Tracks segment boundaries                                │
+│  • Coordinates reader/analyser/writer                       │
 └─────────────────────────────────────────────────────────────┘
            │                    │                    │
            ▼                    ▼                    ▼
@@ -266,14 +266,14 @@ type FrameMetrics struct {
         └─────┬────┘
               │
               ▼
-        ┌──────────┐     60s stable     ┌────────┐
+        ┌──────────┐     60s stable      ┌────────┐
    ┌────│  Motion  │─────────────────────▶ Static │───┐
    │    └──────────┘                     └────────┘   │
-   │         ▲                                 │       │
-   │         │      motion detected            │       │
-   │         └─────────────────────────────────┘       │
-   │                                                    │
-   └────────────────────────────────────────────────────┘
+   │         ▲                                │       │
+   │         │      motion detected           │       │
+   │         └────────────────────────────────┘       │
+   │                                                  │
+   └──────────────────────────────────────────────────┘
 
 Notes:
 - Transition to Static requires 60s (configurable) of sustained stability

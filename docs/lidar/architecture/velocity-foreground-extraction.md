@@ -60,7 +60,7 @@ Extended state machine:
 ```
 PRE_TAIL (≥3 pts) → TENTATIVE → CONFIRMED → POST_TAIL → DELETED
          ↑                                    │
-         └──────── recovery match ──────────┘
+         └──────── recovery match ────────────┘
 ```
 
 - **Pre-tail**: Velocity-predicted entry zone matching.

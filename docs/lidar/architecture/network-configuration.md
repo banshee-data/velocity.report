@@ -61,7 +61,7 @@ The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on i
                                      │ wlan0: 192.168.0.50/24   │
                                      │   └─ Management/API      │
                                      │                          │
-                                     │ tailscale0: 100.x.x.x   │
+                                     │ tailscale0: 100.x.x.x    │
                                      │   └─ Remote admin        │
                                      └──────────────────────────┘
 ```

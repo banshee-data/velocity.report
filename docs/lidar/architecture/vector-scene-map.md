@@ -79,7 +79,7 @@ Ground features extend the existing `GroundTile` concept but replace the fixed g
 │            │ kerb edge (narrow polygon, 0.3m wide)       │
 │  ┌─────────▼───────────────────┐                         │
 │  │ Pavement  │ Driveway ramp   │  Two smaller polygons   │
-│  │ (flat)    │ (5° slope)      │  with different normals  │
+│  │ (flat)    │ (5° slope)      │  with different normals │
 │  └───────────┴─────────────────┘                         │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -967,7 +967,7 @@ used primarily for non-OSM geometry classes.
                          └──────────┬──────────────────┘
                                     │ opt-in fetch (GPS required)
                                     ▼
-┌─────────────┐      ┌──────────────────────────┐
+┌─────────────┐      ┌───────────────────────────┐
 │ Local Prior │─────►│  Prior Loader             │
 │ File (v1.0) │      │  (reads local or remote)  │
 │ .geojson    │      │                           │

@@ -547,10 +547,10 @@ type HeightBandFilter struct {
 │  │ Ground Plane        │    │ Clustering (DBSCAN)      │  │
 │  │ Extractor           │    │                          │  │
 │  │ (tile plane fitting)│───▶│ height-above-ground      │  │
-│  │                     │    │ queries via GroundSurface │  │
+│  │                     │    │ queries via GroundSurface│  │
 │  └─────────┬───────────┘    └──────────────────────────┘  │
 │            │                                              │
-│  ┌─────────▼───────────┐   (optional, GPS additive)      │
+│  ┌─────────▼───────────┐   (optional, GPS additive)       │
 │  │ Global Grid         │                                  │
 │  │ diff/merge (Tier 2) │                                  │
 │  └─────────────────────┘                                  │

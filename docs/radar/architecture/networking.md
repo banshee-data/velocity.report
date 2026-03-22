@@ -52,7 +52,7 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 ## Route Segmentation
 
 ```
-┌─────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │                   Raspberry Pi                       │
 │                                                      │
 │  ┌──────────────┐    ┌───────────────┐               │
@@ -74,7 +74,7 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 │  │ :2369        │    │ (tsnet)       │               │
 │  │ LiDAR pkts   │    │ Admin access  │               │
 │  └──────────────┘    └───────────────┘               │
-└─────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Access Control Mechanisms

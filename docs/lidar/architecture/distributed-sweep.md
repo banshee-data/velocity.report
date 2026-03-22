@@ -16,19 +16,19 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
            Svelte Dashboard (:8080)
                    │
            ┌───────▼────────┐
-           │  DRIVER         │  velocity-report (normal mode)
-           │  Expand params  │  SQLite: lidar_sweep_jobs,
-           │  Partition       │          lidar_sweep_workers
-           │  Dispatch        │
-           └───┬───────┬────┘
-               │       │
-       ┌──────▼─┐ ┌──▼──────┐
+           │  DRIVER        │  velocity-report (normal mode)
+           │  Expand params │  SQLite: lidar_sweep_jobs,
+           │  Partition     │          lidar_sweep_workers
+           │  Dispatch      │
+           └──┬────────┬────┘
+              │        │
+       ┌──────▼─┐ ┌────▼────┐
        │WORKER A│ │WORKER B │  velocity-report --worker (:8082)
-       └───┬────┘ └──┬──────┘
+       └───┬────┘ └────┬────┘
            │           │
        ┌───▼───────────▼────┐
-       │ Shared Filesystem     │  /mnt/pcap/ (NFS/SMB)
-       └─────────────────────┘
+       │ Shared Filesystem  │  /mnt/pcap/ (NFS/SMB)
+       └────────────────────┘
 ```
 
 ## Design Principles
