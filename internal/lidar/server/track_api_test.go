@@ -1506,3 +1506,27 @@ func TestTrackToResponse_EndBeforeStart(t *testing.T) {
 		t.Errorf("expected age_seconds=0 when end < start, got %v", resp.AgeSeconds)
 	}
 }
+
+// TestTrackToResponse_EndZero covers the last == 0 fallback in
+// trackToResponse where EndUnixNanos is zero and last falls back to
+// StartUnixNanos.
+func TestTrackToResponse_EndZero(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+
+	track := &l5tracks.TrackedObject{
+		TrackID: "test-end-zero",
+		TrackMeasurement: l5tracks.TrackMeasurement{
+			SensorID:       "test-sensor",
+			TrackState:     l5tracks.TrackTentative,
+			StartUnixNanos: 1_000_000_000_000_000_000,
+			EndUnixNanos:   0,
+		},
+	}
+
+	resp := api.trackToResponse(track)
+
+	// With end == 0, last falls back to start, so span == 0.
+	if resp.AgeSeconds != 0 {
+		t.Errorf("expected age_seconds=0 when end == 0, got %v", resp.AgeSeconds)
+	}
+}
