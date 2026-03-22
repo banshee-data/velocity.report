@@ -18,6 +18,16 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
+	site := &db.Site{
+		Name:     "Download Test Site",
+		Location: "Test Location",
+		Surveyor: "Test Surveyor",
+		Contact:  "test@example.com",
+	}
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
+		t.Fatalf("failed to create site: %v", err)
+	}
+
 	// Create temporary output directory for test files
 	tmpDir := t.TempDir()
 	runID := "test-20251022-100000"
@@ -93,7 +103,7 @@ func TestDownloadReport_FilenameFormat(t *testing.T) {
 			relativeZipPath := filepath.Join("output", runID, tt.dbZipFilename)
 
 			report := &db.SiteReport{
-				SiteID:      1,
+				SiteID:      site.ID,
 				StartDate:   "2025-10-01",
 				EndDate:     "2025-10-14",
 				Filepath:    relativePdfPath,

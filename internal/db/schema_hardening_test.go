@@ -177,3 +177,40 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 		t.Fatalf("expected replay evaluation to be deleted, found %d", evaluationCount)
 	}
 }
+
+func TestTransitWorkerPersistsLinksWithForeignKeysEnabled(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	now := float64(time.Now().Unix())
+	for _, ts := range []float64{now, now + 1, now + 2} {
+		if _, err := db.Exec(
+			`INSERT INTO radar_data (write_timestamp, raw_event) VALUES (?, ?)`,
+			ts,
+			`{"speed": 12.5, "magnitude": 42}`,
+		); err != nil {
+			t.Fatalf("failed to insert radar data: %v", err)
+		}
+	}
+
+	worker := NewTransitWorker(db, 5, "test-model")
+	if err := worker.RunRange(context.Background(), now-1, now+10); err != nil {
+		t.Fatalf("RunRange failed: %v", err)
+	}
+
+	var transitCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM radar_data_transits`).Scan(&transitCount); err != nil {
+		t.Fatalf("failed to query transits: %v", err)
+	}
+	if transitCount == 0 {
+		t.Fatal("expected at least one transit")
+	}
+
+	var linkCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM radar_transit_links`).Scan(&linkCount); err != nil {
+		t.Fatalf("failed to query transit links: %v", err)
+	}
+	if linkCount == 0 {
+		t.Fatal("expected at least one transit link")
+	}
+}
