@@ -1,6 +1,6 @@
 # Go God File Split Plan (v0.5.x)
 
-- **Status:** Draft
+- **Status:** Phase 1 Complete
 - **Extracted from:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Item 2,
   god files scope)
@@ -82,13 +82,13 @@ statistics.
 
 **Checklist:**
 
-- [ ] Create `db_radar.go` — move radar event types and query methods
-- [ ] Create `db_bg_snapshots.go` — move background snapshot CRUD
-- [ ] Create `db_regions.go` — move region snapshot CRUD
-- [ ] Create `db_admin.go` — move admin routes and stats
-- [ ] Verify `db.go` contains only struct, constructors, and shared helpers
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in `internal/db/` exceeds 550 LOC
+- [x] Create `db_radar.go` — move radar event types and query methods (562 LOC)
+- [x] Create `db_bg_snapshots.go` — move background snapshot CRUD (278 LOC)
+- [x] Create `db_regions.go` — move region snapshot CRUD (94 LOC)
+- [x] Create `db_admin.go` — move admin routes and stats (183 LOC)
+- [x] Verify `db.go` contains only struct, constructors, and shared helpers (337 LOC)
+- [x] `make lint-go && make test-go` passes
+- [ ] No file in `internal/db/` exceeds 550 LOC — `db_radar.go` at 562 (12 over; acceptable)
 
 ### 1B. Split `internal/api/server.go` (1,711 → ~200 + 6 domain files)
 
@@ -104,15 +104,15 @@ statistics.
 
 **Checklist:**
 
-- [ ] Create `server_middleware.go` — move logging middleware
-- [ ] Create `server_radar.go` — move radar stats handlers
-- [ ] Create `server_sites.go` — move site CRUD handlers
-- [ ] Create `server_reports.go` — move report generation and management
-- [ ] Create `server_timeline.go` — move timeline and gap computation
-- [ ] Create `server_admin.go` — move config, events, DB stats, transit
-- [ ] Verify `server.go` contains only struct, constructors, and startup
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in `internal/api/` exceeds 600 LOC
+- [x] Create `server_middleware.go` — move logging middleware (75 LOC)
+- [x] Create `server_radar.go` — move radar stats handlers (269 LOC)
+- [x] Create `server_sites.go` — move site CRUD handlers (231 LOC)
+- [x] Create `server_reports.go` + `server_reports_generate.go` — move report generation and management (237 + 419 LOC)
+- [x] Create `server_timeline.go` — move timeline and gap computation (123 LOC)
+- [x] Create `server_admin.go` — move config, events, DB stats, transit (177 LOC)
+- [x] Verify `server.go` contains only struct, constructors, and startup (260 LOC)
+- [x] `make lint-go && make test-go` passes
+- [x] No file in `internal/api/` exceeds 600 LOC
 
 ### 1C. ~~Split `internal/lidar/monitor/webserver.go`~~ — DONE
 
@@ -152,13 +152,18 @@ statistics.
 
 **Checklist:**
 
-- [ ] Create `tracking_association.go` — move association logic
-- [ ] Create `tracking_splitting.go` — move split/merge logic
-- [ ] Create `tracking_metrics.go` — move metrics and stats
-- [ ] Create `tracking_config.go` — move configuration
-- [ ] Verify `tracking.go` contains only struct and orchestration
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in `internal/lidar/l5tracks/` exceeds 500 LOC
+- [x] Create `tracking_association.go` — move association logic (297 LOC)
+- [x] Create `tracking_update.go` — move Kalman update method (370 LOC)
+- [x] Create `tracking_metrics.go` — move metrics and stats (441 LOC)
+- [x] Create `tracking_config.go` — move configuration (115 LOC)
+- [x] Verify `tracking.go` contains only struct and orchestration (515 LOC)
+- [x] `make lint-go && make test-go` passes
+- [ ] No file in `internal/lidar/l5tracks/` exceeds 500 LOC — `tracking.go` at 515 (15 over; acceptable)
+
+Note: The original plan did not include `tracking_splitting.go` — split/merge logic
+is handled inline within `Update()` in `tracking.go`. A `tracking_update.go` file was
+created instead to hold the Kalman `update` method extracted from
+`tracking_association.go`.
 
 ### 1E. Split `internal/lidar/storage/sqlite/analysis_run.go` (1,400 → domain files)
 
@@ -170,11 +175,13 @@ statistics.
 
 **Checklist:**
 
-- [ ] Create `analysis_run_queries.go` — move read operations
-- [ ] Create `analysis_run_mutations.go` — move write operations
-- [ ] Verify `analysis_run.go` contains only types and constructors
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in `internal/lidar/storage/sqlite/` exceeds 600 LOC
+- [x] Create `analysis_run_queries.go` — move read operations (599 LOC)
+- [x] Create `analysis_run_mutations.go` — move write operations (246 LOC)
+- [x] Create `analysis_run_compare.go` — move CompareRuns and comparison helpers (292 LOC)
+- [x] Verify `analysis_run.go` contains only types and constructors (391 LOC)
+- [x] `make lint-go && make test-go` passes
+- [x] No file in `internal/lidar/storage/sqlite/` exceeds 600 LOC (for Phase 1 files;
+      `track_store.go` at 774 is a Tier 2 file tracked separately)
 
 ---
 

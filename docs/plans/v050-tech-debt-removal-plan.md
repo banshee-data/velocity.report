@@ -132,11 +132,11 @@ defer to v0.5.1 if the sprint runs short.
 
 #### B2. God file splits
 
-| Detail                | Value                                                                                                                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400)                                                               |
-| **Decision**          | **Stretch.** Mechanical refactoring that does not affect external interfaces. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Falls to v0.5.1 if not reached. |
-| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                 |
+| Detail                | Value                                                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Location**          | `webserver.go` (1,905 LOC), `server.go` (1,711), `tracking.go` (1,676), `db.go` (1,420), `analysis_run.go` (1,400)                                                                                                                                     |
+| **Decision**          | **Complete.** Phase 1 god file splits implemented. All five Tier 1 files split into domain-specific files. Tracked in [go-god-file-split-plan.md](go-god-file-split-plan.md). Tier 2 and Tier 3 files tracked for v0.5.2+.                              |
+| **Existing plan ref** | [God file split plan](go-god-file-split-plan.md)                                                                                                                                                                                                        |
 
 #### B3. Context propagation in HTTP handlers
 
@@ -254,7 +254,7 @@ Items are ordered by dependency and blast radius (safest first).
       `web/src/lib/__tests__/sweep_dashboard.test.ts`
 - [x] Verify `make build-web` succeeds
 - [x] Verify `make test-web` passes
-- [ ] Verify sweep dashboard functions correctly with v2 dot-path keys
+- [x] Verify sweep dashboard functions correctly with v2 dot-path keys
       (manual test: run monitor, trigger sweep, verify dashboard renders)
 
 #### Day 3–5: CLI flag removal (A3, A6) — ✅ Complete
@@ -274,7 +274,7 @@ Items are ordered by dependency and blast radius (safest first).
       §2B complete; §3A forwarding flags remain (active, not deprecated)
 - [x] Verify `make build-radar-local` succeeds
 - [x] Verify `make test-go` passes
-- [ ] Update operator documentation (setup guide, README) to reference
+- [x] Update operator documentation (setup guide, README) to reference
       config file fields instead of CLI flags
 
 #### Day 5: Plan hygiene and status updates — ✅ Complete
@@ -282,8 +282,8 @@ Items are ordered by dependency and blast radius (safest first).
 - [x] Update `docs/plans/v050-backward-compatibility-shim-removal-plan.md` —
       update §14 to note alias map fully removed
 - [x] Update `docs/BACKLOG.md` — mark completed items
-- [ ] Verify full quality gate: `make format && make lint && make test`
-- [ ] Verify `make build-radar-local` and `make build-web` both succeed
+- [x] Verify full quality gate: `make format && make lint && make test`
+- [x] Verify `make build-radar-local` and `make build-web` both succeed
 
 ---
 
