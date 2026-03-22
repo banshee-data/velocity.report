@@ -17,18 +17,14 @@ type TrackPoint struct {
 
 // TrackedObject represents a single tracked object in the tracker.
 type TrackedObject struct {
-	// Identity
-	TrackID  string
-	SensorID string
-	State    TrackState
+	// Identity + shared measurement fields (persisted to both lidar_tracks
+	// and lidar_run_tracks)
+	TrackID string
+	TrackMeasurement
 
 	// Lifecycle counters
 	Hits   int // Consecutive successful associations
 	Misses int // Consecutive missed associations
-
-	// Timestamps
-	FirstUnixNanos int64
-	LastUnixNanos  int64
 
 	// Kalman state (world frame): [x, y, vx, vy]
 	X  float32 // Position X
@@ -38,16 +34,6 @@ type TrackedObject struct {
 
 	// Kalman covariance (4x4, row-major)
 	P [16]float32
-
-	// Aggregated features
-	ObservationCount     int
-	BoundingBoxLengthAvg float32
-	BoundingBoxWidthAvg  float32
-	BoundingBoxHeightAvg float32
-	HeightP95Max         float32
-	IntensityMeanAvg     float32
-	AvgSpeedMps          float32
-	MaxSpeedMps          float32
 
 	// History of positions
 	History []TrackPoint
@@ -66,11 +52,6 @@ type TrackedObject struct {
 
 	// Latest Z from the associated cluster OBB (ground-level, used for rendering)
 	LatestZ float32
-
-	// Classification
-	ObjectClass         string  // Classification result: "pedestrian", "car", "bird", "dynamic"
-	ObjectConfidence    float32 // Classification confidence [0, 1]
-	ClassificationModel string  // Model version used for classification
 
 	// Track quality metrics
 	TrackLengthMeters  float32 // Total distance traveled (meters)
@@ -230,7 +211,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	if traceLogger != nil {
 		activeBefore := 0
 		for _, track := range t.Tracks {
-			if track.State != TrackDeleted {
+			if track.TrackState != TrackDeleted {
 				activeBefore++
 			}
 		}
@@ -240,7 +221,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 	// Step 1: Predict all active tracks to current time
 	for _, track := range t.Tracks {
-		if track.State != TrackDeleted {
+		if track.TrackState != TrackDeleted {
 			t.predict(track, dt)
 		}
 	}
@@ -261,8 +242,8 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			matchedTracks[trackID] = true
 
 			// Promote tentative → confirmed
-			if track.State == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
-				track.State = TrackConfirmed
+			if track.TrackState == TrackTentative && track.Hits >= t.Config.HitsToConfirm {
+				track.TrackState = TrackConfirmed
 				t.TracksConfirmed++
 				newlyConfirmed++
 				diagf("Track confirmed: track_id=%s hits=%d observations=%d cluster_id=%d",
@@ -304,7 +285,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// so re-association is easier when the object reappears.
 	deletedThisFrame := 0
 	for trackID, track := range t.Tracks {
-		if !matchedTracks[trackID] && track.State != TrackDeleted {
+		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
 			track.Misses++
 			track.Hits = 0
 			track.OcclusionCount++
@@ -342,13 +323,13 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 			// Determine miss limit based on track maturity.
 			maxMisses := t.Config.MaxMisses
-			if track.State == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
+			if track.TrackState == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
 				maxMisses = t.Config.MaxMissesConfirmed
 			}
 			if track.Misses >= maxMisses {
-				prevState := track.State
-				track.State = TrackDeleted
-				track.LastUnixNanos = nowNanos
+				prevState := track.TrackState
+				track.TrackState = TrackDeleted
+				track.EndUnixNanos = nowNanos
 				deletedThisFrame++
 				diagf("Track deleted after misses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 					track.TrackID, prevState, track.Misses, maxMisses)
@@ -360,7 +341,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// Count active tracks not matched to any cluster this frame.
 	activeCount := int64(0)
 	for _, track := range t.Tracks {
-		if track.State != TrackDeleted {
+		if track.TrackState != TrackDeleted {
 			activeCount++
 		}
 	}
@@ -383,7 +364,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	if traceLogger != nil {
 		activeAfter := 0
 		for _, track := range t.Tracks {
-			if track.State != TrackDeleted {
+			if track.TrackState != TrackDeleted {
 				activeAfter++
 			}
 		}
@@ -400,14 +381,21 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	t.NextTrackID++
 
 	track := &TrackedObject{
-		TrackID:  trackID,
-		SensorID: cluster.SensorID,
-		State:    TrackTentative,
-		Hits:     1,
-		Misses:   0,
-
-		FirstUnixNanos: nowNanos,
-		LastUnixNanos:  nowNanos,
+		TrackID: trackID,
+		TrackMeasurement: TrackMeasurement{
+			SensorID:             cluster.SensorID,
+			TrackState:           TrackTentative,
+			StartUnixNanos:       nowNanos,
+			EndUnixNanos:         nowNanos,
+			ObservationCount:     1,
+			BoundingBoxLengthAvg: cluster.BoundingBoxLength,
+			BoundingBoxWidthAvg:  cluster.BoundingBoxWidth,
+			BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
+			HeightP95Max:         cluster.HeightP95,
+			IntensityMeanAvg:     cluster.IntensityMean,
+		},
+		Hits:   1,
+		Misses: 0,
 
 		// Initialise position from cluster centroid
 		X: cluster.CentroidX,
@@ -424,15 +412,8 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 			0, 0, 0, 1,
 		},
 
-		// Initialise features
-		ObservationCount:     1,
-		BoundingBoxLengthAvg: cluster.BoundingBoxLength,
-		BoundingBoxWidthAvg:  cluster.BoundingBoxWidth,
-		BoundingBoxHeightAvg: cluster.BoundingBoxHeight,
-		HeightP95Max:         cluster.HeightP95,
-		IntensityMeanAvg:     cluster.IntensityMean,
-		TrackLengthMeters:    0,
-		TrackDurationSecs:    0,
+		TrackLengthMeters: 0,
+		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
 			X:         cluster.CentroidX,
@@ -466,8 +447,8 @@ func (t *Tracker) cleanupDeletedTracks(nowNanos int64) {
 
 	toRemove := make([]string, 0)
 	for id, track := range t.Tracks {
-		if track.State == TrackDeleted {
-			if nowNanos-track.LastUnixNanos > gracePeriodNanos {
+		if track.TrackState == TrackDeleted {
+			if nowNanos-track.EndUnixNanos > gracePeriodNanos {
 				toRemove = append(toRemove, id)
 			}
 		}
@@ -492,20 +473,20 @@ func (t *Tracker) AdvanceMisses(timestamp time.Time) {
 	deletedTracks := 0
 
 	for _, track := range t.Tracks {
-		if track.State == TrackDeleted {
+		if track.TrackState == TrackDeleted {
 			continue
 		}
 		track.Misses++
 		track.Hits = 0
 
 		maxMisses := t.Config.MaxMisses
-		if track.State == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
+		if track.TrackState == TrackConfirmed && t.Config.MaxMissesConfirmed > 0 {
 			maxMisses = t.Config.MaxMissesConfirmed
 		}
 		if track.Misses >= maxMisses {
-			prevState := track.State
-			track.State = TrackDeleted
-			track.LastUnixNanos = nowNanos
+			prevState := track.TrackState
+			track.TrackState = TrackDeleted
+			track.EndUnixNanos = nowNanos
 			deletedTracks++
 			diagf("Track deleted during AdvanceMisses: track_id=%s previous_state=%s misses=%d max_misses=%d",
 				track.TrackID, prevState, track.Misses, maxMisses)

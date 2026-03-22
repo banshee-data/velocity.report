@@ -68,22 +68,21 @@ func TestInsertAndGetTrack(t *testing.T) {
 	defer cleanup()
 
 	track := &TrackedObject{
-		TrackID:              "track-001",
-		SensorID:             "sensor-001",
-		State:                TrackConfirmed,
-		FirstUnixNanos:       1234567890000000000,
-		LastUnixNanos:        1234567900000000000,
-		ObservationCount:     10,
-		AvgSpeedMps:          8.5,
-		MaxSpeedMps:          12.0,
-		BoundingBoxLengthAvg: 4.0,
-		BoundingBoxWidthAvg:  2.0,
-		BoundingBoxHeightAvg: 1.5,
-		HeightP95Max:         1.4,
-		IntensityMeanAvg:     100.0,
-		ObjectClass:          "car",
-		ObjectConfidence:     0.85,
-		ClassificationModel:  "rule-based-v1.0",
+		TrackID: "track-001", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:           TrackConfirmed,
+			StartUnixNanos:       1234567890000000000,
+			EndUnixNanos:         1234567900000000000,
+			ObservationCount:     10,
+			AvgSpeedMps:          8.5,
+			MaxSpeedMps:          12.0,
+			BoundingBoxLengthAvg: 4.0,
+			BoundingBoxWidthAvg:  2.0,
+			BoundingBoxHeightAvg: 1.5,
+			HeightP95Max:         1.4,
+			IntensityMeanAvg:     100.0,
+			ObjectClass:          "car",
+			ObjectConfidence:     0.85,
+			ClassificationModel:  "rule-based-v1.0"},
 	}
 	track.SetSpeedHistory([]float32{7, 8, 9, 8, 9, 10, 8, 9, 8, 9})
 
@@ -106,8 +105,8 @@ func TestInsertAndGetTrack(t *testing.T) {
 	if retrieved.TrackID != "track-001" {
 		t.Errorf("Expected track_id 'track-001', got '%s'", retrieved.TrackID)
 	}
-	if retrieved.State != TrackConfirmed {
-		t.Errorf("Expected state 'confirmed', got '%s'", retrieved.State)
+	if retrieved.TrackState != TrackConfirmed {
+		t.Errorf("Expected state 'confirmed', got '%s'", retrieved.TrackState)
 	}
 	if retrieved.ObjectClass != "car" {
 		t.Errorf("Expected object_class 'car', got '%s'", retrieved.ObjectClass)
@@ -120,12 +119,11 @@ func TestUpdateTrack(t *testing.T) {
 
 	// Insert initial track
 	track := &TrackedObject{
-		TrackID:          "track-update",
-		SensorID:         "sensor-001",
-		State:            TrackTentative,
-		FirstUnixNanos:   1234567890000000000,
-		ObservationCount: 3,
-		AvgSpeedMps:      5.0,
+		TrackID: "track-update", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:       TrackTentative,
+			StartUnixNanos:   1234567890000000000,
+			ObservationCount: 3,
+			AvgSpeedMps:      5.0},
 	}
 	track.SetSpeedHistory([]float32{4, 5, 6})
 
@@ -135,9 +133,10 @@ func TestUpdateTrack(t *testing.T) {
 	}
 
 	// Update track
-	track.State = TrackConfirmed
+	track.TrackState = TrackConfirmed
 	track.ObservationCount = 10
 	track.AvgSpeedMps = 8.0
+	track.EndUnixNanos = 1234567895000000000 // +5 seconds: exercises trackMeasurementUpdateArgs endNanos branch
 	track.ObjectClass = "pedestrian"
 	track.ObjectConfidence = 0.75
 	track.SetSpeedHistory([]float32{6, 7, 8, 9, 8, 7, 8, 9, 8, 7})
@@ -158,8 +157,8 @@ func TestUpdateTrack(t *testing.T) {
 	}
 
 	updated := tracks[0]
-	if updated.State != TrackConfirmed {
-		t.Errorf("Expected state 'confirmed', got '%s'", updated.State)
+	if updated.TrackState != TrackConfirmed {
+		t.Errorf("Expected state 'confirmed', got '%s'", updated.TrackState)
 	}
 	if updated.ObservationCount != 10 {
 		t.Errorf("Expected observation_count 10, got %d", updated.ObservationCount)
@@ -175,10 +174,9 @@ func TestInsertAndGetTrackObservations(t *testing.T) {
 
 	// Insert a track first
 	track := &TrackedObject{
-		TrackID:        "track-obs-test",
-		SensorID:       "sensor-001",
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1234567890000000000,
+		TrackID: "track-obs-test", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001",
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1234567890000000000},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 
@@ -257,9 +255,9 @@ func TestGetActiveTracksFilterByState(t *testing.T) {
 
 	// Insert tracks with different states
 	tracks := []*TrackedObject{
-		{TrackID: "track-1", SensorID: "sensor-001", State: TrackTentative, FirstUnixNanos: 1},
-		{TrackID: "track-2", SensorID: "sensor-001", State: TrackConfirmed, FirstUnixNanos: 2},
-		{TrackID: "track-3", SensorID: "sensor-001", State: TrackDeleted, FirstUnixNanos: 3, LastUnixNanos: 4},
+		{TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackTentative, StartUnixNanos: 1}},
+		{TrackID: "track-2", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackConfirmed, StartUnixNanos: 2}},
+		{TrackID: "track-3", TrackMeasurement: TrackMeasurement{SensorID: "sensor-001", TrackState: TrackDeleted, StartUnixNanos: 3, EndUnixNanos: 4}},
 	}
 
 	for _, track := range tracks {

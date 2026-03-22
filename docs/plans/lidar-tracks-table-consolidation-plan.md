@@ -1,6 +1,6 @@
 # LiDAR Tracks Table Consolidation Plan
 
-- **Status:** Proposed
+- **Status:** Complete
 - **Layers:** Database, L5 Tracks, L8 Analytics, L9 Endpoints
 - **Prerequisite:** [Schema Simplification Migrations 000030–000031](schema-simplification-migration-030-plan.md)
 - **Related:** [L8/L9/L10 Refactor](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Speed Percentile Alignment](speed-percentile-aggregation-alignment-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
@@ -305,17 +305,20 @@ convenience for operators using TailSQL or direct sqlite3 access.
 
 ## Checklist
 
-- [ ] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](schema-simplification-migration-030-plan.md))
-- [ ] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
-- [ ] Phase 2: Create shared `trackMeasurementColumns` constant
-- [ ] Phase 2: Create `scanTrackMeasurement()` helper
-- [ ] Phase 2: Refactor `InsertTrack()` and `InsertRunTrack()` to use shared column list
-- [ ] Phase 2: Refactor `GetActiveTracks()` and `GetRunTracks()` to use shared scan helper
-- [ ] Phase 2: Update `RunTrackFromTrackedObject()` to copy embedded struct directly
-- [ ] Phase 2: Verify all tests pass (`make test-go`)
-- [ ] Phase 3: Create migration for `lidar_all_tracks` VIEW
-- [ ] Phase 4: Add schema.sql comment block explaining snapshot pattern
-- [ ] Phase 4: Update layer model docs
+- [x] Phase 1: Land migrations 030 + 031 (tracked separately in [LiDAR schema standardisation](schema-simplification-migration-030-plan.md))
+- [x] Phase 2: Extract `TrackMeasurement` struct and embed in `TrackedObject` + `RunTrack`
+- [x] Phase 2: Create shared `trackMeasurementColumns` constant
+- [x] Phase 2: Create `scanTrackMeasurementDests()` helper
+- [x] Phase 2: Create `trackMeasurementInsertArgs()` and `trackMeasurementUpdateArgs()` helpers
+- [x] Phase 2: Refactor `InsertTrack()` and `InsertRunTrack()` to use shared column list
+- [x] Phase 2: Refactor `GetActiveTracks()`, `GetTracksInRange()`, `GetRunTracks()`, `GetRunTrack()`, `GetUnlabeledTracks()` to use shared scan helper
+- [x] Phase 2: Refactor `UpdateTrack()` to use `trackMeasurementUpdateSet` and `trackMeasurementUpdateArgs()`
+- [x] Phase 2: Update `RunTrackFromTrackedObject()` to copy embedded struct directly
+- [x] Phase 2: Verify all tests pass (`go test ./internal/lidar/...`)
+- [x] Phase 3: Create migration 000032 for `lidar_all_tracks` VIEW
+- [x] Phase 4: Add schema.sql comment block explaining snapshot pattern
+- [x] Phase 4: Update `storage/sqlite/doc.go` with snapshot pattern documentation
+- [x] Phase 4: Update layer model docs (`lidar-data-layer-model.md`)
 
 ## Risk
 

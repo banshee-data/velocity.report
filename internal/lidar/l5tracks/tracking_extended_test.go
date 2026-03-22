@@ -76,7 +76,7 @@ func TestGetAllTracks_IncludesDeleted(t *testing.T) {
 	// Find the deleted track
 	hasDeleted := false
 	for _, tr := range allTracks {
-		if tr.State == TrackDeleted {
+		if tr.TrackState == TrackDeleted {
 			hasDeleted = true
 			break
 		}
@@ -131,11 +131,9 @@ func TestSpeedHistory_Nil(t *testing.T) {
 // TestComputeQualityMetrics tests the quality metrics computation.
 func TestComputeQualityMetrics(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:          "track-quality",
-		FirstUnixNanos:   1000000000, // 1 second
-		LastUnixNanos:    6000000000, // 6 seconds (5 second duration)
-		ObservationCount: 50,
-		History: []TrackPoint{
+		TrackID: "track-quality", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000, // 1 second
+			EndUnixNanos:     6000000000, // 6 seconds (5 second duration)
+			ObservationCount: 50}, History: []TrackPoint{
 			{X: 0.0, Y: 0.0, Timestamp: 1000000000},
 			{X: 1.0, Y: 0.0, Timestamp: 1100000000},
 			{X: 2.0, Y: 0.0, Timestamp: 1200000000},
@@ -161,11 +159,9 @@ func TestComputeQualityMetrics(t *testing.T) {
 func TestComputeQualityMetrics_WithOcclusions(t *testing.T) {
 	// Create history with gaps (>200ms = occlusion)
 	track := &TrackedObject{
-		TrackID:          "track-occlusion",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    5000000000,
-		ObservationCount: 10,
-		History: []TrackPoint{
+		TrackID: "track-occlusion", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     5000000000,
+			ObservationCount: 10}, History: []TrackPoint{
 			{X: 0.0, Y: 0.0, Timestamp: 1000000000},
 			{X: 1.0, Y: 0.0, Timestamp: 1100000000}, // Normal gap (100ms)
 			{X: 2.0, Y: 0.0, Timestamp: 1500000000}, // 400ms gap = occlusion
@@ -189,11 +185,9 @@ func TestComputeQualityMetrics_WithOcclusions(t *testing.T) {
 // TestComputeQualityMetrics_SinglePoint tests with single point history.
 func TestComputeQualityMetrics_SinglePoint(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:          "track-single",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    1000000000,
-		ObservationCount: 1,
-		History: []TrackPoint{
+		TrackID: "track-single", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     1000000000,
+			ObservationCount: 1}, History: []TrackPoint{
 			{X: 0.0, Y: 0.0, Timestamp: 1000000000},
 		},
 	}
@@ -212,11 +206,9 @@ func TestComputeQualityMetrics_SinglePoint(t *testing.T) {
 // TestComputeQualityMetrics_EmptyHistory tests with empty history.
 func TestComputeQualityMetrics_EmptyHistory(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:          "track-empty",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    2000000000,
-		ObservationCount: 0,
-		History:          []TrackPoint{},
+		TrackID: "track-empty", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     2000000000,
+			ObservationCount: 0}, History: []TrackPoint{},
 	}
 
 	// Should not panic
@@ -231,11 +223,10 @@ func TestComputeQualityMetrics_EmptyHistory(t *testing.T) {
 func TestComputeQualityMetrics_SpatialCoverage(t *testing.T) {
 	// 5 second duration at 10Hz = 50 theoretical observations
 	track := &TrackedObject{
-		TrackID:          "track-coverage",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    6000000000, // 5 seconds
-		ObservationCount: 45,         // ~90% coverage
-		History:          []TrackPoint{},
+		TrackID: "track-coverage", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     6000000000, // 5 seconds
+			ObservationCount: 45},        // ~90% coverage
+		History: []TrackPoint{},
 	}
 
 	track.ComputeQualityMetrics()
@@ -250,11 +241,10 @@ func TestComputeQualityMetrics_SpatialCoverage(t *testing.T) {
 func TestComputeQualityMetrics_SpatialCoverageClamped(t *testing.T) {
 	// More observations than theoretical max (can happen with frame rate variations)
 	track := &TrackedObject{
-		TrackID:          "track-over-coverage",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    2000000000, // 1 second = 10 theoretical at 10Hz
-		ObservationCount: 15,         // 150% theoretical
-		History:          []TrackPoint{},
+		TrackID: "track-over-coverage", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     2000000000, // 1 second = 10 theoretical at 10Hz
+			ObservationCount: 15},        // 150% theoretical
+		History: []TrackPoint{},
 	}
 
 	track.ComputeQualityMetrics()
@@ -376,11 +366,9 @@ func TestTracker_GetTrackCount_MultipleStates(t *testing.T) {
 // TestTrackedObject_DiagonalMovement tests speed with diagonal movement.
 func TestTrackedObject_DiagonalMovement(t *testing.T) {
 	track := &TrackedObject{
-		TrackID:          "track-diagonal",
-		FirstUnixNanos:   1000000000,
-		LastUnixNanos:    2000000000,
-		ObservationCount: 5,
-		History: []TrackPoint{
+		TrackID: "track-diagonal", TrackMeasurement: TrackMeasurement{StartUnixNanos: 1000000000,
+			EndUnixNanos:     2000000000,
+			ObservationCount: 5}, History: []TrackPoint{
 			{X: 0.0, Y: 0.0, Timestamp: 1000000000},
 			{X: 1.0, Y: 1.0, Timestamp: 1100000000},
 			{X: 2.0, Y: 2.0, Timestamp: 1200000000},

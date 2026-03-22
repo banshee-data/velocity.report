@@ -43,7 +43,7 @@ func ComputeTrackSummary(tracks []*l5tracks.TrackedObject) *TrackSummaryResult {
 	var speedCount int
 
 	for _, track := range tracks {
-		byState[string(track.State)]++
+		byState[string(track.TrackState)]++
 
 		class := track.ObjectClass
 		if class == "" {
@@ -58,8 +58,8 @@ func ComputeTrackSummary(tracks []*l5tracks.TrackedObject) *TrackSummaryResult {
 		if track.MaxSpeedMps > a.maxSpeed {
 			a.maxSpeed = track.MaxSpeedMps
 		}
-		if track.LastUnixNanos > 0 && track.FirstUnixNanos > 0 {
-			duration := float64(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+		if track.EndUnixNanos > 0 && track.StartUnixNanos > 0 {
+			duration := float64(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 			a.totalDuration += duration
 		}
 

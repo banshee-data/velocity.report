@@ -8,8 +8,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## v0.5.0 (Platform Hardening)
 
-- LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
+- LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
+- `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ## v0.5.1 (Data Contracts + Layer Foundations)
@@ -20,7 +21,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Canonical plan graduation — consolidate each body of work into one existing hub doc under `docs/lidar/`, `docs/radar/`, `docs/ui/`, or the current owning non-plan area; keep at most one active plan per canonical doc; graduate old plan URLs to symlinks; enforce the contract in CI without LLMs — [design doc](plans/platform-canonical-project-files-plan.md) `M`
-- Go codebase structural hygiene — address god files, DB abstraction leaks, JSON tag anomalies (`EventAPI`), silent error drops, and test infrastructure consistency. [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
+- Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.2). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go god file splitting Phase 1 complete (1A–1G) — all seven Tier 1 god files split; remaining Tier 2/3 large-file splits are Phase 2 stretch goals. [design doc](plans/go-god-file-split-plan.md) `S`
 
 ## v0.5.2 (Replay/Runtime Stabilisation)

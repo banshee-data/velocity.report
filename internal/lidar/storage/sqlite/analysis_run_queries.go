@@ -161,12 +161,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 // GetRunTracks retrieves all tracks for an analysis run.
 func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	query := `
-		SELECT run_id, track_id, sensor_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model,
+		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
@@ -184,28 +179,15 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
-		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
-		var objConf, labelConf sql.NullFloat64
+		var labeledAt sql.NullInt64
+		var userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
+		var labelConf sql.NullFloat64
 
-		err := rows.Scan(
-			&track.RunID,
-			&track.TrackID,
-			&track.SensorID,
-			&track.TrackState,
-			&track.StartUnixNanos,
-			&endNanos,
-			&track.ObservationCount,
-			&track.AvgSpeedMps,
-			&track.MaxSpeedMps,
-			&track.BoundingBoxLengthAvg,
-			&track.BoundingBoxWidthAvg,
-			&track.BoundingBoxHeightAvg,
-			&track.HeightP95Max,
-			&track.IntensityMeanAvg,
-			&objectClass,
-			&objConf,
-			&classModel,
+		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
+
+		dests := []any{&track.RunID, &track.TrackID}
+		dests = append(dests, measDests...)
+		dests = append(dests,
 			&userLabel,
 			&labelConf,
 			&labelerID,
@@ -216,22 +198,13 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 			&track.IsMergeCandidate,
 			&linkedJSON,
 		)
+
+		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan run track: %w", err)
 		}
+		applyMeas()
 
-		if endNanos.Valid {
-			track.EndUnixNanos = endNanos.Int64
-		}
-		if objectClass.Valid {
-			track.ObjectClass = objectClass.String
-		}
-		if objConf.Valid {
-			track.ObjectConfidence = float32(objConf.Float64)
-		}
-		if classModel.Valid {
-			track.ClassificationModel = classModel.String
-		}
 		if userLabel.Valid {
 			track.UserLabel = userLabel.String
 		}
@@ -267,12 +240,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 // GetRunTrack retrieves a single track for an analysis run.
 func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error) {
 	query := `
-		SELECT run_id, track_id, sensor_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model,
+		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
@@ -281,28 +249,15 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 	`
 
 	var track RunTrack
-	var endNanos, labeledAt sql.NullInt64
-	var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
-	var objConf, labelConf sql.NullFloat64
+	var labeledAt sql.NullInt64
+	var userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
+	var labelConf sql.NullFloat64
 
-	err := s.db.QueryRow(query, runID, trackID).Scan(
-		&track.RunID,
-		&track.TrackID,
-		&track.SensorID,
-		&track.TrackState,
-		&track.StartUnixNanos,
-		&endNanos,
-		&track.ObservationCount,
-		&track.AvgSpeedMps,
-		&track.MaxSpeedMps,
-		&track.BoundingBoxLengthAvg,
-		&track.BoundingBoxWidthAvg,
-		&track.BoundingBoxHeightAvg,
-		&track.HeightP95Max,
-		&track.IntensityMeanAvg,
-		&objectClass,
-		&objConf,
-		&classModel,
+	measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
+
+	dests := []any{&track.RunID, &track.TrackID}
+	dests = append(dests, measDests...)
+	dests = append(dests,
 		&userLabel,
 		&labelConf,
 		&labelerID,
@@ -313,25 +268,16 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 		&track.IsMergeCandidate,
 		&linkedJSON,
 	)
+
+	err := s.db.QueryRow(query, runID, trackID).Scan(dests...)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("track %s not found in run %s", trackID, runID)
 		}
 		return nil, fmt.Errorf("query run track: %w", err)
 	}
+	applyMeas()
 
-	if endNanos.Valid {
-		track.EndUnixNanos = endNanos.Int64
-	}
-	if objectClass.Valid {
-		track.ObjectClass = objectClass.String
-	}
-	if objConf.Valid {
-		track.ObjectConfidence = float32(objConf.Float64)
-	}
-	if classModel.Valid {
-		track.ClassificationModel = classModel.String
-	}
 	if userLabel.Valid {
 		track.UserLabel = userLabel.String
 	}
@@ -494,12 +440,7 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 // GetUnlabeledTracks returns tracks that need labeling.
 func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTrack, error) {
 	query := `
-		SELECT run_id, track_id, sensor_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model,
+		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
@@ -518,28 +459,15 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
-		var endNanos, labeledAt sql.NullInt64
-		var objectClass, classModel, userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
-		var objConf, labelConf sql.NullFloat64
+		var labeledAt sql.NullInt64
+		var userLabel, labelerID, qualityLabel, labelSource, linkedJSON sql.NullString
+		var labelConf sql.NullFloat64
 
-		err := rows.Scan(
-			&track.RunID,
-			&track.TrackID,
-			&track.SensorID,
-			&track.TrackState,
-			&track.StartUnixNanos,
-			&endNanos,
-			&track.ObservationCount,
-			&track.AvgSpeedMps,
-			&track.MaxSpeedMps,
-			&track.BoundingBoxLengthAvg,
-			&track.BoundingBoxWidthAvg,
-			&track.BoundingBoxHeightAvg,
-			&track.HeightP95Max,
-			&track.IntensityMeanAvg,
-			&objectClass,
-			&objConf,
-			&classModel,
+		measDests, applyMeas := scanTrackMeasurementDests(&track.TrackMeasurement)
+
+		dests := []any{&track.RunID, &track.TrackID}
+		dests = append(dests, measDests...)
+		dests = append(dests,
 			&userLabel,
 			&labelConf,
 			&labelerID,
@@ -550,22 +478,13 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 			&track.IsMergeCandidate,
 			&linkedJSON,
 		)
+
+		err := rows.Scan(dests...)
 		if err != nil {
 			return nil, fmt.Errorf("scan unlabeled track: %w", err)
 		}
+		applyMeas()
 
-		if endNanos.Valid {
-			track.EndUnixNanos = endNanos.Int64
-		}
-		if objectClass.Valid {
-			track.ObjectClass = objectClass.String
-		}
-		if objConf.Valid {
-			track.ObjectConfidence = float32(objConf.Float64)
-		}
-		if classModel.Valid {
-			track.ClassificationModel = classModel.String
-		}
 		if userLabel.Valid {
 			track.UserLabel = userLabel.String
 		}

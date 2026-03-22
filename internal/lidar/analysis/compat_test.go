@@ -68,14 +68,13 @@ func TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing(t *testing.T) {
 				TimestampNanos: ts,
 				Tracks: []l9endpoints.Track{
 					{
-						TrackID:          "legacy-track",
-						State:            l9endpoints.TrackStateConfirmed,
-						SpeedMps:         speed,
-						MaxSpeedMps:      0,
-						ObservationCount: i + 1,
-						Hits:             i + 1,
-						FirstSeenNanos:   baseTime,
-						LastSeenNanos:    ts,
+						TrackID: "legacy-track", MaxSpeedMps: 0,
+						ObservationCount: i + 1, State: l9endpoints.TrackStateConfirmed,
+						SpeedMps: speed,
+
+						Hits:           i + 1,
+						FirstSeenNanos: baseTime,
+						LastSeenNanos:  ts,
 					},
 				},
 			},

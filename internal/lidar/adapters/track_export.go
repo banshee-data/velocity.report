@@ -249,8 +249,8 @@ func ExtractMetadata(track *l5tracks.TrackedObject, frames []*TrackPointCloudFra
 	return &TrackPointCloudMetadata{
 		TrackID:          track.TrackID,
 		SensorID:         track.SensorID,
-		StartTime:        time.Unix(0, track.FirstUnixNanos),
-		EndTime:          time.Unix(0, track.LastUnixNanos),
+		StartTime:        time.Unix(0, track.StartUnixNanos),
+		EndTime:          time.Unix(0, track.EndUnixNanos),
 		TotalFrames:      len(frames),
 		TotalPoints:      totalPoints,
 		ObjectClass:      track.ObjectClass,

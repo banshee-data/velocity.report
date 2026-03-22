@@ -40,10 +40,9 @@ func TestClearTracks(t *testing.T) {
 
 	// Insert track
 	track := &TrackedObject{
-		TrackID:        "track-clear-1",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		TrackID: "track-clear-1", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1000},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -122,10 +121,9 @@ func TestGetTrackObservationsInRange(t *testing.T) {
 
 	// Insert track
 	track := &TrackedObject{
-		TrackID:        "track-range-1",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
+		TrackID: "track-range-1", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1000},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -172,10 +170,9 @@ func TestGetTrackObservationsInRange_WithTrackIDFilter(t *testing.T) {
 	// Insert two tracks
 	for _, trackID := range []string{"track-a", "track-b"} {
 		track := &TrackedObject{
-			TrackID:        trackID,
-			SensorID:       sensorID,
-			State:          TrackConfirmed,
-			FirstUnixNanos: 1000,
+			TrackID: trackID, TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+				TrackState:     TrackConfirmed,
+				StartUnixNanos: 1000},
 		}
 		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -234,11 +231,10 @@ func TestGetTracksInRange(t *testing.T) {
 
 	for _, tr := range tracks {
 		track := &TrackedObject{
-			TrackID:        tr.id,
-			SensorID:       sensorID,
-			State:          TrackConfirmed,
-			FirstUnixNanos: tr.start,
-			LastUnixNanos:  tr.end,
+			TrackID: tr.id, TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+				TrackState:     TrackConfirmed,
+				StartUnixNanos: tr.start,
+				EndUnixNanos:   tr.end},
 		}
 		track.SetSpeedHistory([]float32{5.0})
 		if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -354,10 +350,9 @@ func TestGetActiveTracks_WithHistory(t *testing.T) {
 
 	// Insert track
 	track := &TrackedObject{
-		TrackID:        "track-history",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: baseNanos,
+		TrackID: "track-history", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: baseNanos},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -412,10 +407,9 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 	oldBase := now.Add(-50 * time.Second).UnixNano()
 
 	recent := &TrackedObject{
-		TrackID:        "track-recent",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: recentBase,
+		TrackID: "track-recent", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: recentBase},
 	}
 	recent.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, recent, "site/main"); err != nil {
@@ -423,10 +417,9 @@ func TestGetActiveTracks_HistoryWindowPerTrack(t *testing.T) {
 	}
 
 	old := &TrackedObject{
-		TrackID:        "track-old",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: oldBase,
+		TrackID: "track-old", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: oldBase},
 	}
 	old.SetSpeedHistory([]float32{1})
 	if err := InsertTrack(db, old, "site/main"); err != nil {
@@ -486,11 +479,10 @@ func TestGetTracksInRange_DefaultLimit(t *testing.T) {
 
 	// Insert track
 	track := &TrackedObject{
-		TrackID:        "track-1",
-		SensorID:       sensorID,
-		State:          TrackConfirmed,
-		FirstUnixNanos: 1000,
-		LastUnixNanos:  2000,
+		TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackConfirmed,
+			StartUnixNanos: 1000,
+			EndUnixNanos:   2000},
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -519,11 +511,10 @@ func TestGetTracksInRange_NullEndNanos(t *testing.T) {
 	// stores 0 as 0, not NULL. The COALESCE logic uses start when end is NULL,
 	// but since we store 0, the track won't match unless range includes 0.
 	track := &TrackedObject{
-		TrackID:        "track-ongoing",
-		SensorID:       sensorID,
-		State:          TrackTentative,
-		FirstUnixNanos: 5000,
-		LastUnixNanos:  7000, // Use a valid end time for this test
+		TrackID: "track-ongoing", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:     TrackTentative,
+			StartUnixNanos: 5000,
+			EndUnixNanos:   7000}, // Use a valid end time for this test
 	}
 	track.SetSpeedHistory([]float32{5.0})
 	if err := InsertTrack(db, track, "site/main"); err != nil {
@@ -607,45 +598,42 @@ func TestClearRuns(t *testing.T) {
 
 	// Insert run tracks for all runs
 	track1 := &RunTrack{
-		RunID:            "run-001",
-		TrackID:          "track-001",
-		SensorID:         sensorID1,
-		TrackState:       "confirmed",
-		StartUnixNanos:   1000000000,
-		EndUnixNanos:     2000000000,
-		ObservationCount: 10,
-		AvgSpeedMps:      5.5,
-		MaxSpeedMps:      8.0,
+		RunID:   "run-001",
+		TrackID: "track-001", TrackMeasurement: TrackMeasurement{SensorID: sensorID1,
+			TrackState:       "confirmed",
+			StartUnixNanos:   1000000000,
+			EndUnixNanos:     2000000000,
+			ObservationCount: 10,
+			AvgSpeedMps:      5.5,
+			MaxSpeedMps:      8.0},
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
 		t.Fatalf("failed to insert track1: %v", err)
 	}
 
 	track2 := &RunTrack{
-		RunID:            "run-002",
-		TrackID:          "track-002",
-		SensorID:         sensorID1,
-		TrackState:       "confirmed",
-		StartUnixNanos:   3000000000,
-		EndUnixNanos:     4000000000,
-		ObservationCount: 15,
-		AvgSpeedMps:      6.2,
-		MaxSpeedMps:      9.0,
+		RunID:   "run-002",
+		TrackID: "track-002", TrackMeasurement: TrackMeasurement{SensorID: sensorID1,
+			TrackState:       "confirmed",
+			StartUnixNanos:   3000000000,
+			EndUnixNanos:     4000000000,
+			ObservationCount: 15,
+			AvgSpeedMps:      6.2,
+			MaxSpeedMps:      9.0},
 	}
 	if err := store.InsertRunTrack(track2); err != nil {
 		t.Fatalf("failed to insert track2: %v", err)
 	}
 
 	track3 := &RunTrack{
-		RunID:            "run-003",
-		TrackID:          "track-003",
-		SensorID:         sensorID2,
-		TrackState:       "confirmed",
-		StartUnixNanos:   5000000000,
-		EndUnixNanos:     6000000000,
-		ObservationCount: 20,
-		AvgSpeedMps:      7.0,
-		MaxSpeedMps:      10.0,
+		RunID:   "run-003",
+		TrackID: "track-003", TrackMeasurement: TrackMeasurement{SensorID: sensorID2,
+			TrackState:       "confirmed",
+			StartUnixNanos:   5000000000,
+			EndUnixNanos:     6000000000,
+			ObservationCount: 20,
+			AvgSpeedMps:      7.0,
+			MaxSpeedMps:      10.0},
 	}
 	if err := store.InsertRunTrack(track3); err != nil {
 		t.Fatalf("failed to insert track3: %v", err)
@@ -773,30 +761,28 @@ func TestDeleteRun(t *testing.T) {
 
 	// Insert run tracks
 	track1 := &RunTrack{
-		RunID:            "run-001",
-		TrackID:          "track-001",
-		SensorID:         sensorID,
-		TrackState:       "confirmed",
-		StartUnixNanos:   1000000000,
-		EndUnixNanos:     2000000000,
-		ObservationCount: 10,
-		AvgSpeedMps:      5.5,
-		MaxSpeedMps:      8.0,
+		RunID:   "run-001",
+		TrackID: "track-001", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:       "confirmed",
+			StartUnixNanos:   1000000000,
+			EndUnixNanos:     2000000000,
+			ObservationCount: 10,
+			AvgSpeedMps:      5.5,
+			MaxSpeedMps:      8.0},
 	}
 	if err := store.InsertRunTrack(track1); err != nil {
 		t.Fatalf("failed to insert track1: %v", err)
 	}
 
 	track2 := &RunTrack{
-		RunID:            "run-002",
-		TrackID:          "track-002",
-		SensorID:         sensorID,
-		TrackState:       "confirmed",
-		StartUnixNanos:   3000000000,
-		EndUnixNanos:     4000000000,
-		ObservationCount: 15,
-		AvgSpeedMps:      6.2,
-		MaxSpeedMps:      9.0,
+		RunID:   "run-002",
+		TrackID: "track-002", TrackMeasurement: TrackMeasurement{SensorID: sensorID,
+			TrackState:       "confirmed",
+			StartUnixNanos:   3000000000,
+			EndUnixNanos:     4000000000,
+			ObservationCount: 15,
+			AvgSpeedMps:      6.2,
+			MaxSpeedMps:      9.0},
 	}
 	if err := store.InsertRunTrack(track2); err != nil {
 		t.Fatalf("failed to insert track2: %v", err)

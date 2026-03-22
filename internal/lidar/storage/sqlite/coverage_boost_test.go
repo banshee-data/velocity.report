@@ -32,27 +32,25 @@ func TestGetRunTrack_HappyPath(t *testing.T) {
 
 	// Insert a track with all nullable fields populated.
 	track := &RunTrack{
-		RunID:               "run-grt-1",
-		TrackID:             "track-1",
-		SensorID:            "sensor-1",
-		TrackState:          "confirmed",
-		StartUnixNanos:      1000,
-		EndUnixNanos:        2000,
-		ObservationCount:    10,
-		AvgSpeedMps:         5.5,
-		MaxSpeedMps:         8.0,
-		ObjectClass:         "vehicle",
-		ObjectConfidence:    0.95,
-		ClassificationModel: "rule_based",
-		UserLabel:           "car",
-		LabelConfidence:     0.9,
-		LabelerID:           "user-1",
-		LabeledAt:           3000,
-		QualityLabel:        "good",
-		LabelSource:         "human_manual",
-		IsSplitCandidate:    true,
-		IsMergeCandidate:    false,
-		LinkedTrackIDs:      []string{"track-2", "track-3"},
+		RunID:   "run-grt-1",
+		TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:          "confirmed",
+			StartUnixNanos:      1000,
+			EndUnixNanos:        2000,
+			ObservationCount:    10,
+			AvgSpeedMps:         5.5,
+			MaxSpeedMps:         8.0,
+			ObjectClass:         "vehicle",
+			ObjectConfidence:    0.95,
+			ClassificationModel: "rule_based"}, UserLabel: "car",
+		LabelConfidence:  0.9,
+		LabelerID:        "user-1",
+		LabeledAt:        3000,
+		QualityLabel:     "good",
+		LabelSource:      "human_manual",
+		IsSplitCandidate: true,
+		IsMergeCandidate: false,
+		LinkedTrackIDs:   []string{"track-2", "track-3"},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack: %v", err)
@@ -369,19 +367,17 @@ func TestGetUnlabeledTracks_WithOptionalFields(t *testing.T) {
 
 	// Insert unlabeled track with all optional fields populated.
 	track := &RunTrack{
-		RunID:               "run-unlabel",
-		TrackID:             "track-opt",
-		SensorID:            "sensor-1",
-		TrackState:          "confirmed",
-		StartUnixNanos:      1000,
-		EndUnixNanos:        2000,
-		ObservationCount:    15,
-		AvgSpeedMps:         6.0,
-		MaxSpeedMps:         9.0,
-		ObjectClass:         "pedestrian",
-		ObjectConfidence:    0.88,
-		ClassificationModel: "cnn_v2",
-		// No UserLabel — makes it "unlabeled"
+		RunID:   "run-unlabel",
+		TrackID: "track-opt", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:          "confirmed",
+			StartUnixNanos:      1000,
+			EndUnixNanos:        2000,
+			ObservationCount:    15,
+			AvgSpeedMps:         6.0,
+			MaxSpeedMps:         9.0,
+			ObjectClass:         "pedestrian",
+			ObjectConfidence:    0.88,
+			ClassificationModel: "cnn_v2"}, // No UserLabel — makes it "unlabeled"
 		IsSplitCandidate: true,
 		LinkedTrackIDs:   []string{"link-1"},
 	}
@@ -391,13 +387,11 @@ func TestGetUnlabeledTracks_WithOptionalFields(t *testing.T) {
 
 	// Insert labelled track — should NOT be returned.
 	labelled := &RunTrack{
-		RunID:            "run-unlabel",
-		TrackID:          "track-labelled",
-		SensorID:         "sensor-1",
-		TrackState:       "confirmed",
-		StartUnixNanos:   1000,
-		ObservationCount: 3,
-		UserLabel:        "car",
+		RunID:   "run-unlabel",
+		TrackID: "track-labelled", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:       "confirmed",
+			StartUnixNanos:   1000,
+			ObservationCount: 3}, UserLabel: "car",
 	}
 	if err := store.InsertRunTrack(labelled); err != nil {
 		t.Fatalf("InsertRunTrack (labelled): %v", err)
@@ -443,7 +437,7 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun run1: %v", err)
 	}
-	track := &RunTrack{RunID: "cmp-r1", TrackID: "t1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 5}
+	track := &RunTrack{RunID: "cmp-r1", TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 5}}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack: %v", err)
 	}
@@ -481,7 +475,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
-	if err := store.InsertRunTrack(&RunTrack{RunID: "cmp-pd-r1", TrackID: "t1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 5}); err != nil {
+	if err := store.InsertRunTrack(&RunTrack{RunID: "cmp-pd-r1", TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 5}}); err != nil {
 		t.Fatalf("InsertRunTrack r1: %v", err)
 	}
 
@@ -490,7 +484,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
-	if err := store.InsertRunTrack(&RunTrack{RunID: "cmp-pd-r2", TrackID: "t2", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 7}); err != nil {
+	if err := store.InsertRunTrack(&RunTrack{RunID: "cmp-pd-r2", TrackID: "t2", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 7}}); err != nil {
 		t.Fatalf("InsertRunTrack r2: %v", err)
 	}
 
@@ -791,13 +785,11 @@ func TestGetLabelingProgress_WithLabels(t *testing.T) {
 		{"lp-t4", ""}, // unlabelled
 	} {
 		tr := &RunTrack{
-			RunID:            "lp-run",
-			TrackID:          tc.trackID,
-			SensorID:         "s1",
-			TrackState:       "confirmed",
-			StartUnixNanos:   1000,
-			ObservationCount: 5,
-			UserLabel:        tc.label,
+			RunID:   "lp-run",
+			TrackID: tc.trackID, TrackMeasurement: TrackMeasurement{SensorID: "s1",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000,
+				ObservationCount: 5}, UserLabel: tc.label,
 		}
 		if err := store.InsertRunTrack(tr); err != nil {
 			t.Fatalf("InsertRunTrack %s: %v", tc.trackID, err)
@@ -837,7 +829,7 @@ func TestUpdateTrackLabel_HappyPath(t *testing.T) {
 		t.Fatalf("InsertRun: %v", err)
 	}
 
-	track := &RunTrack{RunID: "utl-run", TrackID: "utl-t1", SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 5}
+	track := &RunTrack{RunID: "utl-run", TrackID: "utl-t1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000, ObservationCount: 5}}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack: %v", err)
 	}
@@ -1082,27 +1074,25 @@ func TestGetRunTracks_WithAllNullableFields(t *testing.T) {
 	// Insert a track with ALL nullable fields populated —
 	// covers classModel.Valid, qualityLabel.Valid, labelSource.Valid etc. in GetRunTracks.
 	track := &RunTrack{
-		RunID:               "run-nullable-1",
-		TrackID:             "track-n1",
-		SensorID:            "sensor-1",
-		TrackState:          "confirmed",
-		StartUnixNanos:      1000,
-		EndUnixNanos:        2000,
-		ObservationCount:    10,
-		AvgSpeedMps:         5.5,
-		MaxSpeedMps:         8.0,
-		ObjectClass:         "vehicle",
-		ObjectConfidence:    0.95,
-		ClassificationModel: "rule_based_v2",
-		UserLabel:           "car",
-		LabelConfidence:     0.9,
-		LabelerID:           "user-42",
-		LabeledAt:           3000,
-		QualityLabel:        "excellent",
-		LabelSource:         "human_review",
-		IsSplitCandidate:    true,
-		IsMergeCandidate:    false,
-		LinkedTrackIDs:      []string{"track-n2"},
+		RunID:   "run-nullable-1",
+		TrackID: "track-n1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
+			TrackState:          "confirmed",
+			StartUnixNanos:      1000,
+			EndUnixNanos:        2000,
+			ObservationCount:    10,
+			AvgSpeedMps:         5.5,
+			MaxSpeedMps:         8.0,
+			ObjectClass:         "vehicle",
+			ObjectConfidence:    0.95,
+			ClassificationModel: "rule_based_v2"}, UserLabel: "car",
+		LabelConfidence:  0.9,
+		LabelerID:        "user-42",
+		LabeledAt:        3000,
+		QualityLabel:     "excellent",
+		LabelSource:      "human_review",
+		IsSplitCandidate: true,
+		IsMergeCandidate: false,
+		LinkedTrackIDs:   []string{"track-n2"},
 	}
 	if err := store.InsertRunTrack(track); err != nil {
 		t.Fatalf("InsertRunTrack: %v", err)
@@ -1316,7 +1306,7 @@ func TestARM_RecordTrack_DBError(t *testing.T) {
 	// Close DB so InsertRunTrack fails.
 	db.Close()
 
-	track := &TrackedObject{TrackID: "track-arm-1", SensorID: "sensor-1"}
+	track := &TrackedObject{TrackID: "track-arm-1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1"}}
 	result := m.RecordTrack(track)
 	if result {
 		t.Error("expected RecordTrack to return false with closed DB")
@@ -1407,7 +1397,7 @@ func TestClosedDB_InsertTrack(t *testing.T) {
 	defer cleanup()
 	db.Close()
 
-	track := &TrackedObject{TrackID: "t1", SensorID: "sensor-1"}
+	track := &TrackedObject{TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1"}}
 	err := InsertTrack(db, track, "frame-1")
 	if err == nil {
 		t.Error("expected error from InsertTrack with closed DB")
@@ -1419,7 +1409,7 @@ func TestClosedDB_UpdateTrack(t *testing.T) {
 	defer cleanup()
 	db.Close()
 
-	track := &TrackedObject{TrackID: "t1", SensorID: "sensor-1"}
+	track := &TrackedObject{TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1"}}
 	err := UpdateTrack(db, track)
 	if err == nil {
 		t.Error("expected error from UpdateTrack with closed DB")
@@ -1629,9 +1619,8 @@ func TestClosedDB_AnalysisRunStore_InsertRunTrack(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 	track := &RunTrack{
-		RunID:    "run-1",
-		TrackID:  "t1",
-		SensorID: "sensor-1",
+		RunID:   "run-1",
+		TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1"},
 	}
 	err := store.InsertRunTrack(track)
 	if err == nil {

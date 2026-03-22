@@ -68,7 +68,7 @@ func ComputeRunStatistics(tracks []*l5tracks.TrackedObject) *RunStatistics {
 		stats.ClassConfidenceAvg[className] += track.ObjectConfidence
 
 		// Lifecycle counts
-		switch track.State {
+		switch track.TrackState {
 		case l5tracks.TrackTentative:
 			tentativeCount++
 		case l5tracks.TrackConfirmed:

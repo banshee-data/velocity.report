@@ -312,12 +312,12 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 		track := Track{
 			TrackID:           t.TrackID,
 			SensorID:          t.SensorID,
-			State:             adaptTrackState(t.State),
+			State:             adaptTrackState(t.TrackState),
 			Hits:              t.Hits,
 			Misses:            t.Misses,
 			ObservationCount:  t.ObservationCount,
-			FirstSeenNanos:    t.FirstUnixNanos,
-			LastSeenNanos:     t.LastUnixNanos,
+			FirstSeenNanos:    t.StartUnixNanos,
+			LastSeenNanos:     t.EndUnixNanos,
 			X:                 t.X,
 			Y:                 t.Y,
 			Z:                 t.LatestZ, // Ground-level Z from cluster OBB
@@ -383,7 +383,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			continue
 		}
 
-		elapsed := float64(nowNanos - t.LastUnixNanos)
+		elapsed := float64(nowNanos - t.EndUnixNanos)
 		alpha := float32(1.0 - elapsed/gracePeriodNanos)
 		if alpha < 0 {
 			alpha = 0
@@ -396,8 +396,8 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			Hits:              t.Hits,
 			Misses:            t.Misses,
 			ObservationCount:  t.ObservationCount,
-			FirstSeenNanos:    t.FirstUnixNanos,
-			LastSeenNanos:     t.LastUnixNanos,
+			FirstSeenNanos:    t.StartUnixNanos,
+			LastSeenNanos:     t.EndUnixNanos,
 			X:                 t.X,
 			Y:                 t.Y,
 			Z:                 t.LatestZ,

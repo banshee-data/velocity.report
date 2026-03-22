@@ -325,7 +325,7 @@ func (api *TrackAPI) handleActiveTracks(w http.ResponseWriter, r *http.Request) 
 		case "tentative":
 			allActive := api.tracker.GetActiveTracks()
 			for _, t := range allActive {
-				if t.State == l5tracks.TrackTentative {
+				if t.TrackState == l5tracks.TrackTentative {
 					tracks = append(tracks, t)
 				}
 			}
@@ -616,7 +616,7 @@ func (api *TrackAPI) handleTrackSummary(w http.ResponseWriter, r *http.Request) 
 		tracks = api.tracker.GetActiveTracks()
 		// Also include deleted tracks for summary
 		for _, t := range api.tracker.Tracks {
-			if t.State == l5tracks.TrackDeleted {
+			if t.TrackState == l5tracks.TrackDeleted {
 				tracks = append(tracks, t)
 			}
 		}

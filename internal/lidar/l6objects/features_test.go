@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestExtractClusterFeatures_Basic(t *testing.T) {
@@ -96,18 +98,16 @@ func TestExtractClusterFeatures_SinglePoint(t *testing.T) {
 }
 
 func TestExtractTrackFeatures_Basic(t *testing.T) {
-	track := &TrackedObject{
-		ObservationCount:     20,
+	track := &TrackedObject{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
 		BoundingBoxLengthAvg: 4.5,
 		BoundingBoxWidthAvg:  1.8,
 		BoundingBoxHeightAvg: 1.5,
 		HeightP95Max:         1.4,
 		IntensityMeanAvg:     130,
 		AvgSpeedMps:          8.5,
-		MaxSpeedMps:          12.0,
-		TrackDurationSecs:    10.0,
-		TrackLengthMeters:    85.0,
-		OcclusionCount:       2,
+		MaxSpeedMps:          12.0}, TrackDurationSecs: 10.0,
+		TrackLengthMeters: 85.0,
+		OcclusionCount:    2,
 		History: []TrackPoint{
 			{X: 0, Y: 0},
 			{X: 1, Y: 0},

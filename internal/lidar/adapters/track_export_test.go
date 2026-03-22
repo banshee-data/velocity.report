@@ -36,8 +36,7 @@ func TestDefaultPandar40PConfig(t *testing.T) {
 
 func TestExportTrackPointCloud(t *testing.T) {
 	track := &l5tracks.TrackedObject{
-		TrackID:  "track-001",
-		SensorID: "test-sensor",
+		TrackID: "track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor"},
 	}
 
 	observations := []*sqlite.TrackObservation{
@@ -66,8 +65,7 @@ func TestExportTrackPointCloud(t *testing.T) {
 
 func TestExportTrackPointCloudNoObservations(t *testing.T) {
 	track := &l5tracks.TrackedObject{
-		TrackID:  "track-001",
-		SensorID: "test-sensor",
+		TrackID: "track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor"},
 	}
 
 	_, err := ExportTrackPointCloud(track, []*sqlite.TrackObservation{})
@@ -182,15 +180,14 @@ func TestWriteNetworkStream(t *testing.T) {
 func TestExtractMetadata(t *testing.T) {
 	now := time.Now()
 	track := &l5tracks.TrackedObject{
-		TrackID:           "track-001",
-		SensorID:          "test-sensor",
-		FirstUnixNanos:    now.UnixNano(),
-		LastUnixNanos:     now.Add(5 * time.Second).UnixNano(),
-		TrackLengthMeters: 50.0,
+		TrackID: "track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+			StartUnixNanos: now.UnixNano(),
+			EndUnixNanos:   now.Add(5 * time.Second).UnixNano(),
+
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.85}, TrackLengthMeters: 50.0,
 		TrackDurationSecs: 5.0,
 		OcclusionCount:    2,
-		ObjectClass:       "vehicle",
-		ObjectConfidence:  0.85,
 	}
 
 	frames := []*TrackPointCloudFrame{

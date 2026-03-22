@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -59,72 +60,61 @@ func TestComputeTemporalIoU(t *testing.T) {
 		{
 			name: "identical ranges",
 			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   2000,
-			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   2000,
+				TrackMeasurement: l5tracks.TrackMeasurement{
+					StartUnixNanos: 1000,
+					EndUnixNanos:   2000}},
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 2000},
 			},
 			expected: 1.0,
 		},
 		{
 			name: "50% overlap",
-			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   2000,
+			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 2000},
 			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 1500,
-				EndUnixNanos:   2500,
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1500,
+				EndUnixNanos: 2500},
 			},
 			expected: 0.333333, // intersection=500, union=1500
 		},
 		{
 			name: "no overlap - separate",
-			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   2000,
+			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 2000},
 			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 3000,
-				EndUnixNanos:   4000,
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000,
+				EndUnixNanos: 4000},
 			},
 			expected: 0.0,
 		},
 		{
 			name: "no overlap - adjacent",
-			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   2000,
+			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 2000},
 			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 2000,
-				EndUnixNanos:   3000,
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 2000,
+				EndUnixNanos: 3000},
 			},
 			expected: 0.0,
 		},
 		{
 			name: "candidate contained in reference",
-			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   3000,
+			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 3000},
 			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 1500,
-				EndUnixNanos:   2500,
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1500,
+				EndUnixNanos: 2500},
 			},
 			expected: 0.5, // intersection=1000, union=2000
 		},
 		{
 			name: "reference contained in candidate",
-			ref: &sqlite.RunTrack{
-				StartUnixNanos: 1500,
-				EndUnixNanos:   2500,
+			ref: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1500,
+				EndUnixNanos: 2500},
 			},
-			cand: &sqlite.RunTrack{
-				StartUnixNanos: 1000,
-				EndUnixNanos:   3000,
+			cand: &sqlite.RunTrack{TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000,
+				EndUnixNanos: 3000},
 			},
 			expected: 0.5, // intersection=1000, union=2000
 		},
@@ -153,10 +143,10 @@ func TestMatchTracks(t *testing.T) {
 		{
 			name: "single perfect match",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
 			},
 			expectedCount: 1,
 			expectedPairs: map[string]string{"ref-1": "cand-1"},
@@ -165,12 +155,12 @@ func TestMatchTracks(t *testing.T) {
 		{
 			name: "multiple matches",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
+				{TrackID: "ref-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
-				{TrackID: "cand-2", StartUnixNanos: 3000, EndUnixNanos: 4000},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
+				{TrackID: "cand-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}},
 			},
 			expectedCount: 2,
 			expectedPairs: map[string]string{
@@ -182,10 +172,10 @@ func TestMatchTracks(t *testing.T) {
 		{
 			name: "no matches - below threshold",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 5000, EndUnixNanos: 6000},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 5000, EndUnixNanos: 6000}},
 			},
 			expectedCount: 0,
 			expectedPairs: map[string]string{},
@@ -194,10 +184,10 @@ func TestMatchTracks(t *testing.T) {
 		{
 			name: "partial overlap - above threshold",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1500, EndUnixNanos: 2500},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1500, EndUnixNanos: 2500}},
 			},
 			expectedCount: 1,
 			expectedPairs: map[string]string{"ref-1": "cand-1"},
@@ -206,14 +196,14 @@ func TestMatchTracks(t *testing.T) {
 		{
 			name:          "empty reference",
 			reference:     []*sqlite.RunTrack{},
-			candidate:     []*sqlite.RunTrack{{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000}},
+			candidate:     []*sqlite.RunTrack{{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}}},
 			expectedCount: 0,
 			expectedPairs: map[string]string{},
 			minIoU:        0.0,
 		},
 		{
 			name:          "empty candidate",
-			reference:     []*sqlite.RunTrack{{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000}},
+			reference:     []*sqlite.RunTrack{{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}}},
 			candidate:     []*sqlite.RunTrack{},
 			expectedCount: 0,
 			expectedPairs: map[string]string{},
@@ -263,12 +253,12 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "perfect detection - all matched",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
+				{TrackID: "ref-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
-				{TrackID: "cand-2", StartUnixNanos: 3000, EndUnixNanos: 4000, AvgSpeedMps: 15.0},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}},
+				{TrackID: "cand-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000, AvgSpeedMps: 15.0}},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.0,
@@ -277,11 +267,11 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "50% detection - one missed",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
+				{TrackID: "ref-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}},
 			},
 			expectedDetection: 0.5,
 			expectedFP:        0.0,
@@ -290,12 +280,12 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "false positives present",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
-				{TrackID: "cand-2", StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 5.0},
-				{TrackID: "cand-3", StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 8.0},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}},
+				{TrackID: "cand-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 5.0}},
+				{TrackID: "cand-3", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 8.0}},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.666, // 2/3 unmatched
@@ -304,10 +294,10 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "quality labels affect score",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0, QualityLabel: "good"},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}, QualityLabel: "good"},
 			},
 			expectedDetection: 1.0,
 			expectedFP:        0.0,
@@ -316,12 +306,12 @@ func TestEvaluateGroundTruth(t *testing.T) {
 		{
 			name: "noise tracks filtered from reference",
 			reference: []*sqlite.RunTrack{
-				{TrackID: "ref-1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
-				{TrackID: "ref-2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "noise"},
-				{TrackID: "ref-3", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "noise"},
+				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
+				{TrackID: "ref-2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}, UserLabel: "noise"},
+				{TrackID: "ref-3", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 5000, EndUnixNanos: 6000}, UserLabel: "noise"},
 			},
 			candidate: []*sqlite.RunTrack{
-				{TrackID: "cand-1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0},
+				{TrackID: "cand-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}},
 			},
 			expectedDetection: 1.0, // Only car counts in reference
 			expectedFP:        0.0,
@@ -361,17 +351,17 @@ func TestEvaluateGroundTruthDetectionByClass(t *testing.T) {
 	weights := DefaultGroundTruthWeights()
 
 	reference := []*sqlite.RunTrack{
-		{TrackID: "ref-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, UserLabel: "car"},
-		{TrackID: "ref-v2", StartUnixNanos: 3000, EndUnixNanos: 4000, UserLabel: "car"},
-		{TrackID: "ref-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, UserLabel: "pedestrian"},
-		{TrackID: "ref-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, UserLabel: "noise"},
+		{TrackID: "ref-v1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
+		{TrackID: "ref-v2", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 3000, EndUnixNanos: 4000}, UserLabel: "car"},
+		{TrackID: "ref-p1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 5000, EndUnixNanos: 6000}, UserLabel: "pedestrian"},
+		{TrackID: "ref-o1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 7000, EndUnixNanos: 8000}, UserLabel: "noise"},
 	}
 
 	candidate := []*sqlite.RunTrack{
-		{TrackID: "cand-v1", StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}, // Matches ref-v1
+		{TrackID: "cand-v1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000, AvgSpeedMps: 10.0}}, // Matches ref-v1
 		// ref-v2 missed
-		{TrackID: "cand-p1", StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 2.0}, // Matches ref-p1
-		{TrackID: "cand-o1", StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 5.0}, // Matches ref-o1
+		{TrackID: "cand-p1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 5000, EndUnixNanos: 6000, AvgSpeedMps: 2.0}}, // Matches ref-p1
+		{TrackID: "cand-o1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 7000, EndUnixNanos: 8000, AvgSpeedMps: 5.0}}, // Matches ref-o1
 	}
 
 	score := EvaluateGroundTruth(reference, candidate, weights)

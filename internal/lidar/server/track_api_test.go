@@ -789,24 +789,24 @@ func TestTrackAPI_TrackToResponse(t *testing.T) {
 
 	now := time.Now()
 	track := &l5tracks.TrackedObject{
-		TrackID:              "test-track-001",
-		SensorID:             "test-sensor",
-		State:                l5tracks.TrackConfirmed,
-		X:                    10.0,
-		Y:                    5.0,
-		VX:                   1.0,
-		VY:                   0.5,
-		AvgSpeedMps:          2.5,
-		MaxSpeedMps:          3.0,
-		ObservationCount:     10,
-		FirstUnixNanos:       now.Add(-time.Second).UnixNano(),
-		LastUnixNanos:        now.UnixNano(),
-		ObjectClass:          "car",
-		ObjectConfidence:     0.95,
-		ClassificationModel:  "yolo-v8",
-		BoundingBoxLengthAvg: 4.5,
-		BoundingBoxWidthAvg:  2.0,
-		BoundingBoxHeightAvg: 1.5,
+		TrackID: "test-track-001", TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
+			TrackState: l5tracks.TrackConfirmed,
+
+			AvgSpeedMps:          2.5,
+			MaxSpeedMps:          3.0,
+			ObservationCount:     10,
+			StartUnixNanos:       now.Add(-time.Second).UnixNano(),
+			EndUnixNanos:         now.UnixNano(),
+			ObjectClass:          "car",
+			ObjectConfidence:     0.95,
+			ClassificationModel:  "yolo-v8",
+			BoundingBoxLengthAvg: 4.5,
+			BoundingBoxWidthAvg:  2.0,
+			BoundingBoxHeightAvg: 1.5}, X: 10.0,
+		Y:  5.0,
+		VX: 1.0,
+		VY: 0.5,
+
 		History: []l5tracks.TrackPoint{
 			{X: 9.0, Y: 4.5, Timestamp: now.Add(-500 * time.Millisecond).UnixNano()},
 			{X: 10.0, Y: 5.0, Timestamp: now.UnixNano()},
@@ -1422,5 +1422,111 @@ func TestTrackAPI_HandleClearRuns_NoDB(t *testing.T) {
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Errorf("expected status 503, got %d", w.Code)
+	}
+}
+
+// TestTrackAPI_HandleTrackSummary_IncludesDeletedTracks covers the
+// TrackState == TrackDeleted branch when building summary from in-memory tracker.
+func TestTrackAPI_HandleTrackSummary_IncludesDeletedTracks(t *testing.T) {
+	config := l5tracks.DefaultTrackerConfig()
+	config.HitsToConfirm = 2
+	config.MaxMisses = 1
+	config.MaxMissesConfirmed = 1
+	config.DeletedTrackGracePeriod = 10 * time.Second
+	tracker := l5tracks.NewTracker(config)
+
+	cluster := l4perception.WorldCluster{
+		SensorID:  "test-sensor",
+		CentroidX: 10.0,
+		CentroidY: 5.0,
+	}
+
+	ts := time.Now()
+
+	// Frame 1+2: create and confirm
+	tracker.Update([]l4perception.WorldCluster{cluster}, ts)
+	ts = ts.Add(100 * time.Millisecond)
+	cluster.CentroidX += 0.1
+	tracker.Update([]l4perception.WorldCluster{cluster}, ts)
+
+	// Frame 3+4: miss twice to delete
+	ts = ts.Add(100 * time.Millisecond)
+	tracker.Update([]l4perception.WorldCluster{}, ts)
+	ts = ts.Add(100 * time.Millisecond)
+	tracker.Update([]l4perception.WorldCluster{}, ts)
+
+	// Verify we have a deleted track
+	_, _, _, deleted := tracker.GetTrackCount()
+	if deleted == 0 {
+		t.Fatal("expected at least 1 deleted track")
+	}
+
+	api := NewTrackAPI(nil, "test-sensor")
+	api.SetTracker(tracker)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/tracks/summary", nil)
+	w := httptest.NewRecorder()
+	api.handleTrackSummary(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var response TrackSummaryResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	deletedCount, ok := response.ByState["deleted"]
+	if !ok || deletedCount == 0 {
+		t.Errorf("expected deleted tracks in summary by_state, got %v", response.ByState)
+	}
+}
+
+// TestTrackToResponse_EndBeforeStart covers the last < first normalisation
+// branch in trackToResponse where EndUnixNanos is non-zero but earlier than
+// StartUnixNanos.
+func TestTrackToResponse_EndBeforeStart(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+
+	track := &l5tracks.TrackedObject{
+		TrackID: "test-clamp",
+		TrackMeasurement: l5tracks.TrackMeasurement{
+			SensorID:       "test-sensor",
+			TrackState:     l5tracks.TrackConfirmed,
+			StartUnixNanos: 1_000_000_000_000_000_000,
+			EndUnixNanos:   1, // non-zero but before start
+		},
+	}
+
+	resp := api.trackToResponse(track)
+
+	// When last < first, last should be clamped to first, so age == 0.
+	if resp.AgeSeconds != 0 {
+		t.Errorf("expected age_seconds=0 when end < start, got %v", resp.AgeSeconds)
+	}
+}
+
+// TestTrackToResponse_EndZero covers the last == 0 fallback in
+// trackToResponse where EndUnixNanos is zero and last falls back to
+// StartUnixNanos.
+func TestTrackToResponse_EndZero(t *testing.T) {
+	api := NewTrackAPI(nil, "test-sensor")
+
+	track := &l5tracks.TrackedObject{
+		TrackID: "test-end-zero",
+		TrackMeasurement: l5tracks.TrackMeasurement{
+			SensorID:       "test-sensor",
+			TrackState:     l5tracks.TrackTentative,
+			StartUnixNanos: 1_000_000_000_000_000_000,
+			EndUnixNanos:   0,
+		},
+	}
+
+	resp := api.trackToResponse(track)
+
+	// With end == 0, last falls back to start, so span == 0.
+	if resp.AgeSeconds != 0 {
+		t.Errorf("expected age_seconds=0 when end == 0, got %v", resp.AgeSeconds)
 	}
 }

@@ -1,4 +1,7 @@
-CREATE TABLE lidar_bg_regions (
+-- AUTO-GENERATED — do not edit by hand.
+-- Regenerate with: ./scripts/sync-schema.sh
+--
+   CREATE TABLE lidar_bg_regions (
           region_set_id INTEGER PRIMARY KEY AUTOINCREMENT
         , snapshot_id INTEGER REFERENCES lidar_bg_snapshot (snapshot_id)
         , sensor_id TEXT NOT NULL
@@ -472,3 +475,46 @@ CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (ref
 CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
 
 CREATE INDEX idx_lidar_tuning_sweeps_status ON lidar_tuning_sweeps (status);
+
+   CREATE VIEW lidar_all_tracks AS
+   SELECT track_id
+        , NULL AS run_id
+        , sensor_id
+        , track_state
+        , start_unix_nanos
+        , end_unix_nanos
+        , observation_count
+        , avg_speed_mps
+        , max_speed_mps
+        , bounding_box_length_avg
+        , bounding_box_width_avg
+        , bounding_box_height_avg
+        , height_p95_max
+        , intensity_mean_avg
+        , object_class
+        , object_confidence
+        , classification_model
+        , NULL AS user_label
+        , NULL AS quality_label
+     FROM lidar_tracks
+UNION ALL
+   SELECT track_id
+        , run_id
+        , sensor_id
+        , track_state
+        , start_unix_nanos
+        , end_unix_nanos
+        , observation_count
+        , avg_speed_mps
+        , max_speed_mps
+        , bounding_box_length_avg
+        , bounding_box_width_avg
+        , bounding_box_height_avg
+        , height_p95_max
+        , intensity_mean_avg
+        , object_class
+        , object_confidence
+        , classification_model
+        , user_label
+        , quality_label
+     FROM lidar_run_tracks

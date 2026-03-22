@@ -1,6 +1,7 @@
 package l5tracks
 
 import (
+	"io"
 	"math"
 	"testing"
 	"time"
@@ -112,8 +113,8 @@ func TestTracker_InitTrack(t *testing.T) {
 	}
 
 	track := tracks[0]
-	if track.State != TrackTentative {
-		t.Errorf("expected TrackTentative state, got %v", track.State)
+	if track.TrackState != TrackTentative {
+		t.Errorf("expected TrackTentative state, got %v", track.TrackState)
 	}
 	if track.X != 5.0 {
 		t.Errorf("expected X=5.0, got %v", track.X)
@@ -137,7 +138,7 @@ func TestTracker_Lifecycle_TentativeToConfirmed(t *testing.T) {
 	// Frame 1: Create tentative track
 	tracker.Update([]WorldCluster{cluster}, now)
 	tracks := tracker.GetActiveTracks()
-	if len(tracks) != 1 || tracks[0].State != TrackTentative {
+	if len(tracks) != 1 || tracks[0].TrackState != TrackTentative {
 		t.Errorf("frame 1: expected 1 tentative track")
 	}
 
@@ -149,7 +150,7 @@ func TestTracker_Lifecycle_TentativeToConfirmed(t *testing.T) {
 	if tracks[0].Hits != 2 {
 		t.Errorf("frame 2: expected 2 hits, got %d", tracks[0].Hits)
 	}
-	if tracks[0].State != TrackTentative {
+	if tracks[0].TrackState != TrackTentative {
 		t.Errorf("frame 2: expected tentative state")
 	}
 
@@ -161,8 +162,8 @@ func TestTracker_Lifecycle_TentativeToConfirmed(t *testing.T) {
 	if tracks[0].Hits != 3 {
 		t.Errorf("frame 3: expected 3 hits, got %d", tracks[0].Hits)
 	}
-	if tracks[0].State != TrackConfirmed {
-		t.Errorf("frame 3: expected confirmed state, got %v", tracks[0].State)
+	if tracks[0].TrackState != TrackConfirmed {
+		t.Errorf("frame 3: expected confirmed state, got %v", tracks[0].TrackState)
 	}
 }
 
@@ -179,7 +180,7 @@ func TestTracker_Lifecycle_ConfirmedToDeleted(t *testing.T) {
 	// Frame 1: Create tentative track
 	tracker.Update([]WorldCluster{cluster}, now)
 	tracks := tracker.GetActiveTracks()
-	if tracks[0].State != TrackTentative {
+	if tracks[0].TrackState != TrackTentative {
 		t.Fatalf("frame 1: expected tentative track")
 	}
 
@@ -187,8 +188,8 @@ func TestTracker_Lifecycle_ConfirmedToDeleted(t *testing.T) {
 	now = now.Add(100 * time.Millisecond)
 	tracker.Update([]WorldCluster{cluster}, now)
 	tracks = tracker.GetActiveTracks()
-	if tracks[0].State != TrackConfirmed {
-		t.Fatalf("frame 2: expected confirmed track, got %v", tracks[0].State)
+	if tracks[0].TrackState != TrackConfirmed {
+		t.Fatalf("frame 2: expected confirmed track, got %v", tracks[0].TrackState)
 	}
 
 	// Frame 3: Miss (cluster not present)
@@ -198,7 +199,7 @@ func TestTracker_Lifecycle_ConfirmedToDeleted(t *testing.T) {
 	if tracks[0].Misses != 1 {
 		t.Errorf("frame 3: expected 1 miss, got %d", tracks[0].Misses)
 	}
-	if tracks[0].State != TrackConfirmed {
+	if tracks[0].TrackState != TrackConfirmed {
 		t.Errorf("frame 3: expected confirmed state")
 	}
 
@@ -645,4 +646,33 @@ func TestMahalanobisDistanceSquared(t *testing.T) {
 			t.Error("expected valid distance with dt=0, got SingularDistanceRejection")
 		}
 	})
+}
+
+// TestTracker_Update_TraceLogging covers the two traceLogger != nil blocks
+// in Update() that log active track counts before and after the frame.
+func TestTracker_Update_TraceLogging(t *testing.T) {
+	// Enable trace logging so the traceLogger != nil blocks execute.
+	SetLogWriters(nil, nil, io.Discard)
+	defer SetLogWriters(nil, nil, nil)
+
+	config := DefaultTrackerConfig()
+	config.HitsToConfirm = 2
+	tracker := NewTracker(config)
+	now := time.Now()
+
+	cluster := WorldCluster{CentroidX: 5.0, CentroidY: 10.0, SensorID: "test"}
+
+	// Frame 1: creates a tentative track (exercises "Update start" block)
+	tracker.Update([]WorldCluster{cluster}, now)
+
+	// Frame 2: confirms the track (exercises "Update complete" block with
+	// confirmed and new track counters populated)
+	now = now.Add(100 * time.Millisecond)
+	cluster.CentroidX = 5.1
+	tracker.Update([]WorldCluster{cluster}, now)
+
+	tracks := tracker.GetActiveTracks()
+	if len(tracks) != 1 {
+		t.Fatalf("expected 1 active track, got %d", len(tracks))
+	}
 }

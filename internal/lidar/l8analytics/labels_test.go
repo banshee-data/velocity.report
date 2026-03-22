@@ -15,29 +15,27 @@ func TestComputeTrackSummary_Empty(t *testing.T) {
 
 func TestComputeTrackSummary_MultipleTracks(t *testing.T) {
 	tracks := []*l5tracks.TrackedObject{
-		{
-			ObjectClass:    "car",
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: "car",
 			AvgSpeedMps:    10.0,
 			MaxSpeedMps:    15.0,
-			State:          l5tracks.TrackConfirmed,
-			FirstUnixNanos: 1000000000,
-			LastUnixNanos:  6000000000, // 5 seconds
+			TrackState:     l5tracks.TrackConfirmed,
+			StartUnixNanos: 1000000000,
+			EndUnixNanos:   6000000000}, // 5 seconds
 		},
-		{
+		{TrackMeasurement: l5tracks.TrackMeasurement{
 			ObjectClass:    "car",
 			AvgSpeedMps:    20.0,
 			MaxSpeedMps:    25.0,
-			State:          l5tracks.TrackConfirmed,
-			FirstUnixNanos: 2000000000,
-			LastUnixNanos:  5000000000, // 3 seconds
+			TrackState:     l5tracks.TrackConfirmed,
+			StartUnixNanos: 2000000000,
+			EndUnixNanos:   5000000000}, // 3 seconds
 		},
-		{
-			ObjectClass:    "pedestrian",
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: "pedestrian",
 			AvgSpeedMps:    1.5,
 			MaxSpeedMps:    2.0,
-			State:          l5tracks.TrackTentative,
-			FirstUnixNanos: 1000000000,
-			LastUnixNanos:  4000000000, // 3 seconds
+			TrackState:     l5tracks.TrackTentative,
+			StartUnixNanos: 1000000000,
+			EndUnixNanos:   4000000000}, // 3 seconds
 		},
 	}
 
@@ -79,7 +77,7 @@ func TestComputeTrackSummary_MultipleTracks(t *testing.T) {
 
 func TestComputeTrackSummary_UnclassifiedTracks(t *testing.T) {
 	tracks := []*l5tracks.TrackedObject{
-		{ObjectClass: "", AvgSpeedMps: 5.0, State: l5tracks.TrackConfirmed},
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObjectClass: "", AvgSpeedMps: 5.0, TrackState: l5tracks.TrackConfirmed}},
 	}
 
 	result := ComputeTrackSummary(tracks)

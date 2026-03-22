@@ -150,10 +150,10 @@ func headingFromVelocity(vx, vy float32) float32 {
 }
 
 func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackResponse {
-	first := track.FirstUnixNanos
-	last := track.LastUnixNanos
+	first := track.StartUnixNanos
+	last := track.EndUnixNanos
 	if last == 0 {
-		last = track.FirstUnixNanos
+		last = track.StartUnixNanos
 	}
 	if last < first {
 		last = first
@@ -182,7 +182,7 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 	return TrackResponse{
 		TrackID:  track.TrackID,
 		SensorID: track.SensorID,
-		State:    string(track.State),
+		State:    string(track.TrackState),
 		Position: Position{
 			X: posX,
 			Y: posY,

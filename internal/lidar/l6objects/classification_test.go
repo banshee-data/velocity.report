@@ -2,6 +2,8 @@ package l6objects
 
 import (
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestTrackClassifier_Classify_Bird(t *testing.T) {
@@ -9,13 +11,12 @@ func TestTrackClassifier_Classify_Bird(t *testing.T) {
 
 	// Create a bird-like track
 	track := &TrackedObject{
-		TrackID:              "test-bird",
-		ObservationCount:     10,
-		BoundingBoxHeightAvg: 0.3, // Small height
-		BoundingBoxLengthAvg: 0.4,
-		BoundingBoxWidthAvg:  0.3,
-		AvgSpeedMps:          0.5, // Low speed
-		MaxSpeedMps:          0.8,
+		TrackID: "test-bird", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 10,
+			BoundingBoxHeightAvg: 0.3, // Small height
+			BoundingBoxLengthAvg: 0.4,
+			BoundingBoxWidthAvg:  0.3,
+			AvgSpeedMps:          0.5, // Low speed
+			MaxSpeedMps:          0.8},
 	}
 	track.SetSpeedHistory([]float32{0.3, 0.5, 0.4, 0.6, 0.5, 0.4, 0.5, 0.6, 0.5, 0.4})
 
@@ -37,13 +38,12 @@ func TestTrackClassifier_Classify_Vehicle(t *testing.T) {
 
 	// Create a vehicle-like track
 	track := &TrackedObject{
-		TrackID:              "test-car",
-		ObservationCount:     20,
-		BoundingBoxHeightAvg: 1.5,  // Typical car height
-		BoundingBoxLengthAvg: 4.5,  // Typical car length
-		BoundingBoxWidthAvg:  2.0,  // Typical car width
-		AvgSpeedMps:          10.0, // ~36 km/h
-		MaxSpeedMps:          15.0,
+		TrackID: "test-car", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			BoundingBoxHeightAvg: 1.5,  // Typical car height
+			BoundingBoxLengthAvg: 4.5,  // Typical car length
+			BoundingBoxWidthAvg:  2.0,  // Typical car width
+			AvgSpeedMps:          10.0, // ~36 km/h
+			MaxSpeedMps:          15.0},
 	}
 
 	// Fill speed history
@@ -68,13 +68,12 @@ func TestTrackClassifier_Classify_Pedestrian(t *testing.T) {
 
 	// Create a pedestrian-like track
 	track := &TrackedObject{
-		TrackID:              "test-pedestrian",
-		ObservationCount:     15,
-		BoundingBoxHeightAvg: 1.7, // Typical human height
-		BoundingBoxLengthAvg: 0.5, // Small footprint
-		BoundingBoxWidthAvg:  0.5,
-		AvgSpeedMps:          1.5, // Walking speed ~5.4 km/h
-		MaxSpeedMps:          2.5,
+		TrackID: "test-pedestrian", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 15,
+			BoundingBoxHeightAvg: 1.7, // Typical human height
+			BoundingBoxLengthAvg: 0.5, // Small footprint
+			BoundingBoxWidthAvg:  0.5,
+			AvgSpeedMps:          1.5, // Walking speed ~5.4 km/h
+			MaxSpeedMps:          2.5},
 	}
 
 	// Fill speed history
@@ -99,13 +98,12 @@ func TestTrackClassifier_Classify_Bus(t *testing.T) {
 
 	// Create a bus-like track: very long, wide, and fast.
 	track := &TrackedObject{
-		TrackID:              "test-bus",
-		ObservationCount:     25,
-		BoundingBoxHeightAvg: 3.2,  // Tall
-		BoundingBoxLengthAvg: 10.0, // Very long (bus)
-		BoundingBoxWidthAvg:  2.5,  // Wide
-		AvgSpeedMps:          8.0,  // ~29 km/h
-		MaxSpeedMps:          12.0,
+		TrackID: "test-bus", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 25,
+			BoundingBoxHeightAvg: 3.2,  // Tall
+			BoundingBoxLengthAvg: 10.0, // Very long (bus)
+			BoundingBoxWidthAvg:  2.5,  // Wide
+			AvgSpeedMps:          8.0,  // ~29 km/h
+			MaxSpeedMps:          12.0},
 	}
 
 	speeds := make([]float32, 25)
@@ -130,13 +128,12 @@ func TestTrackClassifier_Classify_Cyclist(t *testing.T) {
 	// Create a cyclist-like track: narrow, moderate speed, human height.
 	// Length must be <1.5 m to avoid matching motorcyclist rule.
 	track := &TrackedObject{
-		TrackID:              "test-cyclist",
-		ObservationCount:     15,
-		BoundingBoxHeightAvg: 1.5, // Seated cyclist
-		BoundingBoxLengthAvg: 1.4, // Short bike (below motorcyclist 1.5 m threshold)
-		BoundingBoxWidthAvg:  0.6, // Narrow
-		AvgSpeedMps:          5.0, // ~18 km/h
-		MaxSpeedMps:          7.0,
+		TrackID: "test-cyclist", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 15,
+			BoundingBoxHeightAvg: 1.5, // Seated cyclist
+			BoundingBoxLengthAvg: 1.4, // Short bike (below motorcyclist 1.5 m threshold)
+			BoundingBoxWidthAvg:  0.6, // Narrow
+			AvgSpeedMps:          5.0, // ~18 km/h
+			MaxSpeedMps:          7.0},
 	}
 
 	speeds := make([]float32, 15)
@@ -161,13 +158,12 @@ func TestTrackClassifier_Classify_Truck(t *testing.T) {
 	// Create a truck-like track: longer and taller than a car.
 	// v0.5.0: truck classification is disabled — trucks classify as cars.
 	track := &TrackedObject{
-		TrackID:              "test-truck",
-		ObservationCount:     20,
-		BoundingBoxHeightAvg: 2.5, // Taller than a car
-		BoundingBoxLengthAvg: 6.5, // Longer than a car (>5.5 m)
-		BoundingBoxWidthAvg:  2.3, // Wider than a car (>2.0 m)
-		AvgSpeedMps:          9.0, // ~32 km/h
-		MaxSpeedMps:          14.0,
+		TrackID: "test-truck", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			BoundingBoxHeightAvg: 2.5, // Taller than a car
+			BoundingBoxLengthAvg: 6.5, // Longer than a car (>5.5 m)
+			BoundingBoxWidthAvg:  2.3, // Wider than a car (>2.0 m)
+			AvgSpeedMps:          9.0, // ~32 km/h
+			MaxSpeedMps:          14.0},
 	}
 
 	speeds := make([]float32, 20)
@@ -193,13 +189,12 @@ func TestTrackClassifier_Classify_Motorcyclist(t *testing.T) {
 	// v0.5.0: motorcyclist classification is disabled — fast narrow objects
 	// that don't match cyclist speed range fall through to dynamic.
 	track := &TrackedObject{
-		TrackID:              "test-motorcyclist",
-		ObservationCount:     20,
-		BoundingBoxHeightAvg: 1.5,  // Rider height
-		BoundingBoxLengthAvg: 2.2,  // Motorcycle length (>1.5 m)
-		BoundingBoxWidthAvg:  0.8,  // Narrow (<1.2 m)
-		AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist max)
-		MaxSpeedMps:          18.0,
+		TrackID: "test-motorcyclist", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			BoundingBoxHeightAvg: 1.5,  // Rider height
+			BoundingBoxLengthAvg: 2.2,  // Motorcycle length (>1.5 m)
+			BoundingBoxWidthAvg:  0.8,  // Narrow (<1.2 m)
+			AvgSpeedMps:          12.0, // ~43 km/h (faster than cyclist max)
+			MaxSpeedMps:          18.0},
 	}
 
 	speeds := make([]float32, 20)
@@ -222,13 +217,12 @@ func TestTrackClassifier_Classify_Other(t *testing.T) {
 
 	// Create an ambiguous track
 	track := &TrackedObject{
-		TrackID:              "test-other",
-		ObservationCount:     10,
-		BoundingBoxHeightAvg: 0.8, // Between bird and pedestrian
-		BoundingBoxLengthAvg: 1.5,
-		BoundingBoxWidthAvg:  1.0,
-		AvgSpeedMps:          4.0, // Too fast for pedestrian, too slow for car
-		MaxSpeedMps:          5.0,
+		TrackID: "test-other", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 10,
+			BoundingBoxHeightAvg: 0.8, // Between bird and pedestrian
+			BoundingBoxLengthAvg: 1.5,
+			BoundingBoxWidthAvg:  1.0,
+			AvgSpeedMps:          4.0, // Too fast for pedestrian, too slow for car
+			MaxSpeedMps:          5.0},
 	}
 	track.SetSpeedHistory([]float32{3.5, 4.0, 4.2, 3.8, 4.0, 4.5, 4.0, 3.8, 4.2, 4.0})
 
@@ -244,12 +238,11 @@ func TestTrackClassifier_Classify_InsufficientObservations(t *testing.T) {
 
 	// Create a track with few observations
 	track := &TrackedObject{
-		TrackID:              "test-insufficient",
-		ObservationCount:     2, // Less than minimum
-		BoundingBoxHeightAvg: 1.7,
-		BoundingBoxLengthAvg: 0.5,
-		BoundingBoxWidthAvg:  0.5,
-		AvgSpeedMps:          1.5,
+		TrackID: "test-insufficient", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 2, // Less than minimum
+			BoundingBoxHeightAvg: 1.7,
+			BoundingBoxLengthAvg: 0.5,
+			BoundingBoxWidthAvg:  0.5,
+			AvgSpeedMps:          1.5},
 	}
 	track.SetSpeedHistory([]float32{1.5, 1.6})
 
@@ -267,13 +260,12 @@ func TestTrackClassifier_ClassifyAndUpdate(t *testing.T) {
 	classifier := NewTrackClassifier()
 
 	track := &TrackedObject{
-		TrackID:              "test-update",
-		ObservationCount:     20,
-		BoundingBoxHeightAvg: 1.5,
-		BoundingBoxLengthAvg: 4.5,
-		BoundingBoxWidthAvg:  2.0,
-		AvgSpeedMps:          12.0,
-		MaxSpeedMps:          18.0,
+		TrackID: "test-update", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.5,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          12.0,
+			MaxSpeedMps:          18.0},
 	}
 
 	speeds := make([]float32, 20)
@@ -331,13 +323,12 @@ func TestClassifyFeatures_MatchesClassify(t *testing.T) {
 	classifier := NewTrackClassifierWithMinObservations(3)
 
 	track := &TrackedObject{
-		TrackID:              "roundtrip-car",
-		ObservationCount:     20,
-		BoundingBoxHeightAvg: 1.5,
-		BoundingBoxLengthAvg: 4.5,
-		BoundingBoxWidthAvg:  2.0,
-		AvgSpeedMps:          12.0,
-		MaxSpeedMps:          15.0,
+		TrackID: "roundtrip-car", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.5,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          12.0,
+			MaxSpeedMps:          15.0},
 	}
 
 	fromTrack := classifier.Classify(track)
@@ -441,13 +432,12 @@ func TestNewTrackClassifierWithMinObservations_Negative(t *testing.T) {
 func TestExtractFeatures_NoSpeedHistory(t *testing.T) {
 	tc := NewTrackClassifierWithMinObservations(1)
 	track := &TrackedObject{
-		TrackID:              "no-speed",
-		ObservationCount:     10,
-		BoundingBoxHeightAvg: 1.5,
-		BoundingBoxLengthAvg: 4.0,
-		BoundingBoxWidthAvg:  2.0,
-		AvgSpeedMps:          8.0,
-		MaxSpeedMps:          12.0,
+		TrackID: "no-speed", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 10,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.0,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          8.0,
+			MaxSpeedMps:          12.0},
 	}
 	// Do not call SetSpeedHistory — speedHistory remains nil.
 	result := tc.Classify(track)
@@ -460,15 +450,14 @@ func TestExtractFeatures_NoSpeedHistory(t *testing.T) {
 func TestExtractFeatures_ZeroDuration(t *testing.T) {
 	tc := NewTrackClassifierWithMinObservations(1)
 	track := &TrackedObject{
-		TrackID:              "zero-dur",
-		ObservationCount:     5,
-		BoundingBoxHeightAvg: 1.5,
-		BoundingBoxLengthAvg: 4.0,
-		BoundingBoxWidthAvg:  2.0,
-		AvgSpeedMps:          8.0,
-		MaxSpeedMps:          12.0,
-		FirstUnixNanos:       1000,
-		LastUnixNanos:        1000, // equal → duration branch not taken
+		TrackID: "zero-dur", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 5,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.0,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          8.0,
+			MaxSpeedMps:          12.0,
+			StartUnixNanos:       1000,
+			EndUnixNanos:         1000}, // equal → duration branch not taken
 	}
 	result := tc.Classify(track)
 	if result.Features.DurationSecs != 0 {
@@ -576,5 +565,40 @@ func TestComputeSpeedPercentiles_SingleElement(t *testing.T) {
 	p50, p85, p95 := ComputeSpeedPercentiles([]float32{5.0})
 	if p50 != 5.0 || p85 != 5.0 || p95 != 5.0 {
 		t.Errorf("expected all 5.0 for single element, got %.2f, %.2f, %.2f", p50, p85, p95)
+	}
+}
+
+// TestTrackClassifier_Classify_WithDuration covers the duration computation
+// branch in extractFeatures when EndUnixNanos > StartUnixNanos.
+func TestTrackClassifier_Classify_WithDuration(t *testing.T) {
+	classifier := NewTrackClassifier()
+
+	startNanos := int64(1_000_000_000_000_000_000) // 1e18
+	endNanos := startNanos + 5_000_000_000         // +5 seconds
+
+	track := &TrackedObject{
+		TrackID: "test-duration", TrackMeasurement: l5tracks.TrackMeasurement{
+			ObservationCount:     20,
+			StartUnixNanos:       startNanos,
+			EndUnixNanos:         endNanos,
+			BoundingBoxHeightAvg: 1.5,
+			BoundingBoxLengthAvg: 4.5,
+			BoundingBoxWidthAvg:  2.0,
+			AvgSpeedMps:          10.0,
+			MaxSpeedMps:          15.0},
+	}
+
+	speeds := make([]float32, 20)
+	for i := range speeds {
+		speeds[i] = float32(8 + i%5)
+	}
+	track.SetSpeedHistory(speeds)
+
+	result := classifier.Classify(track)
+
+	// The track should classify (vehicle-like dimensions) and the duration
+	// path should have executed without error.
+	if result.Class == "" {
+		t.Error("expected a non-empty classification")
 	}
 }

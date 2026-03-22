@@ -131,7 +131,7 @@ func (t *Tracker) predict(track *TrackedObject, dt float32) {
 			0, 0, 1, 0,
 			0, 0, 0, 1,
 		}
-		track.State = TrackDeleted
+		track.TrackState = TrackDeleted
 		return
 	}
 
@@ -154,7 +154,7 @@ func (t *Tracker) associate(clusters []WorldCluster, dt float32) []string {
 	// Build ordered list of active tracks.
 	activeTrackIDs := make([]string, 0, len(t.Tracks))
 	for id, track := range t.Tracks {
-		if track.State != TrackDeleted {
+		if track.TrackState != TrackDeleted {
 			activeTrackIDs = append(activeTrackIDs, id)
 		}
 	}

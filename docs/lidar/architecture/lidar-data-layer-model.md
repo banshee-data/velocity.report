@@ -523,13 +523,13 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 
 Cross-cutting packages:
 
-| Package                          | Purpose                                                                      |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                             |
-| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores)       |
-| `internal/lidar/adapters/`       | Transport and IO boundaries                                                  |
-| `internal/lidar/monitor/`        | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9) |
-| `internal/lidar/sweep/`          | Parameter sweep and auto-tuning                                              |
+| Package                          | Purpose                                                                                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                                                                                                                           |
+| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks` — see `track_measurement_sql.go` for DRY |
+| `internal/lidar/adapters/`       | Transport and IO boundaries                                                                                                                                                |
+| `internal/lidar/monitor/`        | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                               |
+| `internal/lidar/sweep/`          | Parameter sweep and auto-tuning                                                                                                                                            |
 
 Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
 

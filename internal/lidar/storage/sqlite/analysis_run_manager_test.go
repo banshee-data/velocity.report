@@ -226,19 +226,18 @@ func TestRecordTrack(t *testing.T) {
 
 	// Create a test track
 	track := &TrackedObject{
-		TrackID:           "track-001",
-		SensorID:          "test-sensor",
-		State:             TrackConfirmed,
-		FirstUnixNanos:    time.Now().UnixNano(),
-		LastUnixNanos:     time.Now().Add(5 * time.Second).UnixNano(),
-		ObservationCount:  50,
-		AvgSpeedMps:       10.5,
-		MaxSpeedMps:       15.2,
-		TrackLengthMeters: 52.5,
+		TrackID: "track-001", TrackMeasurement: TrackMeasurement{SensorID: "test-sensor",
+			TrackState:       TrackConfirmed,
+			StartUnixNanos:   time.Now().UnixNano(),
+			EndUnixNanos:     time.Now().Add(5 * time.Second).UnixNano(),
+			ObservationCount: 50,
+			AvgSpeedMps:      10.5,
+			MaxSpeedMps:      15.2,
+
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.85}, TrackLengthMeters: 52.5,
 		TrackDurationSecs: 5.0,
 		OcclusionCount:    2,
-		ObjectClass:       "vehicle",
-		ObjectConfidence:  0.85,
 	}
 
 	// Record track - first time should return true
@@ -296,13 +295,11 @@ func TestCompleteRun(t *testing.T) {
 	// Record a few tracks
 	for i := 0; i < 5; i++ {
 		track := &TrackedObject{
-			TrackID:           fmt.Sprintf("track-%d", i),
-			SensorID:          "test-sensor",
-			State:             TrackConfirmed,
-			FirstUnixNanos:    time.Now().UnixNano(),
-			LastUnixNanos:     time.Now().Add(time.Second).UnixNano(),
-			ObservationCount:  10,
-			TrackLengthMeters: 10.0,
+			TrackID: fmt.Sprintf("track-%d", i), TrackMeasurement: TrackMeasurement{SensorID: "test-sensor",
+				TrackState:       TrackConfirmed,
+				StartUnixNanos:   time.Now().UnixNano(),
+				EndUnixNanos:     time.Now().Add(time.Second).UnixNano(),
+				ObservationCount: 10}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 1.0,
 		}
 		manager.RecordTrack(track)

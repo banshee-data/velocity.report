@@ -103,7 +103,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			0, 0, 1, 0,
 			0, 0, 0, 1,
 		}
-		track.State = TrackDeleted
+		track.TrackState = TrackDeleted
 		return
 	}
 
@@ -111,9 +111,9 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 	t.clampVelocity(track)
 
 	// Update timestamp
-	track.LastUnixNanos = nowNanos
-	if track.LastUnixNanos > track.FirstUnixNanos {
-		track.TrackDurationSecs = float32(track.LastUnixNanos-track.FirstUnixNanos) / 1e9
+	track.EndUnixNanos = nowNanos
+	if track.EndUnixNanos > track.StartUnixNanos {
+		track.TrackDurationSecs = float32(track.EndUnixNanos-track.StartUnixNanos) / 1e9
 	}
 
 	// Update aggregated features

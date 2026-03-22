@@ -3,6 +3,8 @@ package l6objects
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
 func TestComputeRunStatistics_Empty(t *testing.T) {
@@ -20,16 +22,14 @@ func TestComputeRunStatistics_Empty(t *testing.T) {
 
 func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 	tracks := []*TrackedObject{
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 50,
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.9,
+			TrackState:       TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 5.0,
 			OcclusionCount:    2,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  50,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
 		},
 	}
 
@@ -66,38 +66,32 @@ func TestComputeRunStatistics_SingleTrack(t *testing.T) {
 
 func TestComputeRunStatistics_MultipleTracks(t *testing.T) {
 	tracks := []*TrackedObject{
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			ObjectClass:      "vehicle",
+			ObjectConfidence: 0.9,
+			TrackState:       TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 2.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.7,
-			ObservationCount:  20,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
 		},
-		{
-			TrackLengthMeters: 20.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 40,
+			ObjectClass:      "pedestrian",
+			ObjectConfidence: 0.8,
+			TrackState:       TrackTentative}, TrackLengthMeters: 20.0,
 			TrackDurationSecs: 4.0,
 			OcclusionCount:    3,
 			NoisePointRatio:   0.2,
 			SpatialCoverage:   0.9,
-			ObservationCount:  40,
-			ObjectClass:       "pedestrian",
-			ObjectConfidence:  0.8,
-			State:             TrackTentative,
 		},
-		{
-			TrackLengthMeters: 15.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 30,
+			ObjectClass:      "", // Should be classified as "dynamic"
+			ObjectConfidence: 0.5,
+			TrackState:       TrackConfirmed}, TrackLengthMeters: 15.0,
 			TrackDurationSecs: 3.0,
 			OcclusionCount:    2,
 			NoisePointRatio:   0.15,
 			SpatialCoverage:   0.8,
-			ObservationCount:  30,
-			ObjectClass:       "", // Should be classified as "dynamic"
-			ObjectConfidence:  0.5,
-			State:             TrackConfirmed,
 		},
 	}
 
@@ -238,20 +232,24 @@ func TestComputeTrackQualityMetrics_PoorQuality(t *testing.T) {
 
 func TestComputeNoiseCoverageMetrics(t *testing.T) {
 	tracks := []*TrackedObject{
-		{
-			NoisePointRatio:  0.4, // High noise
+		{TrackMeasurement: l5tracks.TrackMeasurement{
+			// High noise
 			ObjectClass:      "dynamic",
-			ObjectConfidence: 0.5, // Low confidence
+			ObjectConfidence: 0.5}, NoisePointRatio: 0.4,
+
+		// Low confidence
 		},
-		{
-			NoisePointRatio:  0.2, // Low noise
+		{TrackMeasurement: l5tracks.TrackMeasurement{
+			// Low noise
 			ObjectClass:      "vehicle",
-			ObjectConfidence: 0.9,
+			ObjectConfidence: 0.9}, NoisePointRatio: 0.2,
 		},
-		{
-			NoisePointRatio:  0.15, // Low noise
-			ObjectClass:      "",   // Unknown
-			ObjectConfidence: 0.4,  // Low confidence
+		{TrackMeasurement: l5tracks.TrackMeasurement{
+			// Low noise
+			ObjectClass:      "",                    // Unknown
+			ObjectConfidence: 0.4}, NoisePointRatio: 0.15,
+
+		// Low confidence
 		},
 	}
 
@@ -301,42 +299,36 @@ func TestFilterTracksForTraining(t *testing.T) {
 	tracks := []*TrackedObject{
 		{
 			// High quality track
-			TrackID:           "good-track",
-			TrackLengthMeters: 50.0,
+			TrackID: "good-track", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 50,
+				ObjectClass:      "vehicle",
+				ObjectConfidence: 0.95,
+				TrackState:       TrackConfirmed}, TrackLengthMeters: 50.0,
 			TrackDurationSecs: 5.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.05,
 			SpatialCoverage:   0.9,
-			ObservationCount:  50,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.95,
-			State:             TrackConfirmed,
 		},
 		{
 			// Poor quality track (too short)
-			TrackID:           "short-track",
-			TrackLengthMeters: 2.0,
+			TrackID: "short-track", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 5,
+				ObjectClass:      "vehicle",
+				ObjectConfidence: 0.9,
+				TrackState:       TrackConfirmed}, TrackLengthMeters: 2.0,
 			TrackDurationSecs: 0.5,
 			OcclusionCount:    0,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  5,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
 		},
 		{
 			// Tentative track (wrong state)
-			TrackID:           "tentative-track",
-			TrackLengthMeters: 10.0,
+			TrackID: "tentative-track", TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+				ObjectClass:      "vehicle",
+				ObjectConfidence: 0.8,
+				TrackState:       TrackTentative}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 2.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  20,
-			ObjectClass:       "vehicle",
-			ObjectConfidence:  0.8,
-			State:             TrackTentative,
 		},
 	}
 
@@ -355,27 +347,23 @@ func TestFilterTracksForTraining(t *testing.T) {
 
 func TestFilterTracksForTraining_RequireClass(t *testing.T) {
 	tracks := []*TrackedObject{
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 30,
+			ObjectClass:      "", // No class
+			ObjectConfidence: 0.9,
+			TrackState:       TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 3.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  30,
-			ObjectClass:       "", // No class
-			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
 		},
-		{
-			TrackLengthMeters: 10.0,
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 30,
+			ObjectClass:      "vehicle", // Has class
+			ObjectConfidence: 0.9,
+			TrackState:       TrackConfirmed}, TrackLengthMeters: 10.0,
 			TrackDurationSecs: 3.0,
 			OcclusionCount:    1,
 			NoisePointRatio:   0.1,
 			SpatialCoverage:   0.8,
-			ObservationCount:  30,
-			ObjectClass:       "vehicle", // Has class
-			ObjectConfidence:  0.9,
-			State:             TrackConfirmed,
 		},
 	}
 
@@ -412,31 +400,29 @@ func TestSummarizeTrainingDataset_Empty(t *testing.T) {
 
 func TestSummarizeTrainingDataset(t *testing.T) {
 	tracks := []*TrackedObject{
-		{
-			TrackLengthMeters:  10.0,
-			TrackDurationSecs:  2.0,
-			ObservationCount:   20,
-			ObjectClass:        "vehicle",
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 20,
+			ObjectClass: "vehicle"}, TrackLengthMeters: 10.0,
+			TrackDurationSecs: 2.0,
+
 			NoisePointRatio:    0.1,
 			SpatialCoverage:    0.8,
 			OcclusionCount:     1,
 			MaxOcclusionFrames: 3,
 		},
-		{
-			TrackLengthMeters:  15.0,
-			TrackDurationSecs:  3.0,
-			ObservationCount:   30,
-			ObjectClass:        "vehicle",
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 30,
+			ObjectClass: "vehicle"}, TrackLengthMeters: 15.0,
+			TrackDurationSecs: 3.0,
+
 			NoisePointRatio:    0.05,
 			SpatialCoverage:    0.9,
 			OcclusionCount:     0,
 			MaxOcclusionFrames: 0,
 		},
-		{
-			TrackLengthMeters:  8.0,
-			TrackDurationSecs:  1.5,
-			ObservationCount:   15,
-			ObjectClass:        "", // Unlabeled
+		{TrackMeasurement: l5tracks.TrackMeasurement{ObservationCount: 15,
+			ObjectClass: ""}, TrackLengthMeters: 8.0,
+			TrackDurationSecs: 1.5,
+
+			// Unlabeled
 			NoisePointRatio:    0.15,
 			SpatialCoverage:    0.7,
 			OcclusionCount:     2,

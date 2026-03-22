@@ -118,58 +118,35 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 
 	query := `
 		INSERT INTO lidar_run_tracks (
-			run_id, track_id, sensor_id, track_state,
-			start_unix_nanos, end_unix_nanos, observation_count,
-			avg_speed_mps, max_speed_mps,
-			bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-			height_p95_max, intensity_mean_avg,
-			object_class, object_confidence, classification_model,
+			run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
 			label_source,
 			is_split_candidate, is_merge_candidate, linked_track_ids
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	var endNanos interface{}
-	if track.EndUnixNanos > 0 {
-		endNanos = track.EndUnixNanos
-	}
-
 	var labeledAt interface{}
 	if track.LabeledAt > 0 {
 		labeledAt = track.LabeledAt
 	}
 
+	args := []any{track.RunID, track.TrackID}
+	args = append(args, trackMeasurementInsertArgs(&track.TrackMeasurement)...)
+	args = append(args,
+		nullString(userLabel),
+		nullFloat32(track.LabelConfidence),
+		nullString(labelerID),
+		labeledAt,
+		nullString(qualityLabel),
+		nullString(labelSource),
+		track.IsSplitCandidate,
+		track.IsMergeCandidate,
+		linkedJSON,
+	)
+
 	// Retry on SQLITE_BUSY errors
 	return retryOnBusy(func() error {
-		_, err := s.db.Exec(query,
-			track.RunID,
-			track.TrackID,
-			track.SensorID,
-			track.TrackState,
-			track.StartUnixNanos,
-			endNanos,
-			track.ObservationCount,
-			track.AvgSpeedMps,
-			track.MaxSpeedMps,
-			track.BoundingBoxLengthAvg,
-			track.BoundingBoxWidthAvg,
-			track.BoundingBoxHeightAvg,
-			track.HeightP95Max,
-			track.IntensityMeanAvg,
-			nullString(track.ObjectClass),
-			nullFloat32(track.ObjectConfidence),
-			nullString(track.ClassificationModel),
-			nullString(userLabel),
-			nullFloat32(track.LabelConfidence),
-			nullString(labelerID),
-			labeledAt,
-			nullString(qualityLabel),
-			nullString(labelSource),
-			track.IsSplitCandidate,
-			track.IsMergeCandidate,
-			linkedJSON,
-		)
+		_, err := s.db.Exec(query, args...)
 		if err != nil {
 			return fmt.Errorf("insert run track: %w", err)
 		}
