@@ -25,8 +25,10 @@ type BackgroundManager struct {
 	// When the store also implements RegionStore, regions are persisted on settling
 	// completion and can be restored on subsequent PCAP runs.
 	store BgStore
-	// EnableDiagnostics controls whether this manager emits diagnostic messages
-	// via the shared monitoring logger. Default: false.
+	// EnableDiagnostics controls whether this manager emits high-frequency
+	// trace / monitoring diagnostics (per-frame processing logs) via the
+	// shared monitoring logger. Human-readable diagnostic logs are enabled
+	// separately via SetLogWriters on the owning manager. Default: false.
 	EnableDiagnostics bool
 	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
 	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
@@ -564,22 +566,13 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	if skippedInvalid > 0 && bm != nil && bm.EnableDiagnostics {
 		opsf("[BackgroundManager] Skipped %d invalid points due to channel out-of-range (rings=%d)", skippedInvalid, rings)
 	}
-	alpha := float64(g.Params.BackgroundUpdateFraction)
-	if alpha <= 0 || alpha > 1 {
-		alpha = 0.02
-	}
-	effectiveAlpha := alpha
-	// Defer reading runtime-tunable params that may be updated concurrently
-	// (via setters which take g.mu) until we hold the grid lock to avoid
-	// data races and inconsistent thresholds.
+	// Declare variables that will be populated under the grid lock.
+	var alpha, effectiveAlpha float64
 	var closenessMultiplier float64
 	var neighConfirm int
 	var seedFromFirst bool
-	safety := float64(g.Params.SafetyMarginMetres)
-	freezeDur := g.Params.FreezeDurationNanos
-
-	// We'll read Params under lock so updates via SetNoiseRelativeFraction
-	// and other setters are visible immediately and we can detect changes.
+	var safety float64
+	var freezeDur int64
 
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
@@ -588,8 +581,16 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	var acceptSampleCount, rejectSampleCount int
 	const maxSamplesPerType = 10
 
-	// Iterate over observed cells and update grid
+	// Read all runtime-tunable params under the grid lock to avoid data
+	// races with SetParams / tuning and to see a consistent snapshot.
 	g.mu.Lock()
+	alpha = float64(g.Params.BackgroundUpdateFraction)
+	if alpha <= 0 || alpha > 1 {
+		alpha = 0.02
+	}
+	effectiveAlpha = alpha
+	safety = float64(g.Params.SafetyMarginMetres)
+	freezeDur = g.Params.FreezeDurationNanos
 	startTimeWasZero := bm.StartTime.IsZero()
 	if startTimeWasZero {
 		bm.StartTime = now
