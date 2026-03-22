@@ -1072,7 +1072,7 @@ Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 | 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
 | 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
 
-### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Adjusted
+### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Complete
 
 Expose the highest-impact hardcoded constants: L1 sensor identity plus L3
 background/foreground parameters. LiDAR network binding and forwarding stay

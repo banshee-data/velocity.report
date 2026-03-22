@@ -73,20 +73,26 @@ velocity-report --enable-lidar --lidar-listen :8081
 
 - `--enable-lidar` - Enable in-process lidar components
 - `--lidar-listen :8081` - HTTP listen address for lidar monitor
-- `--lidar-udp-port 2369` - UDP port for lidar packets
-- `--lidar-udp-rcv-buf 4194304` - UDP receive buffer size in bytes
 - `--lidar-no-parse` - Disable packet parsing (forwarding only)
 - `--lidar-forward` - Forward UDP packets to another port
-- `--lidar-forward-port 2368` - Forwarding destination port
 - `--lidar-forward-addr localhost` - Forwarding destination address
+- `--lidar-forward-mode lidarview` - Forward mode: lidarview, grpc, or both
 - `--lidar-foreground-forward` - Forward foreground-only packets
-- `--lidar-foreground-forward-port 2370` - Foreground forwarding destination port
-- `--lidar-foreground-forward-addr localhost` - Foreground forwarding destination address
+- `--lidar-foreground-forward-addr localhost` - Foreground forwarding address
+- `--lidar-grpc-listen localhost:50051` - gRPC server listen address
 - `--lidar-pcap-dir ../sensor_data/lidar` - Safe directory for PCAP files
 
-These LiDAR network flags are per-process startup settings for now. They are
-not part of the JSON tuning schema and are not hot-reloadable via config
-reloading.
+**Sensor/network settings** are now configured via the
+[tuning config file](../../config/README.md) (`l1.sensor`, `l1.udp_port`,
+`l1.forward_port`, `l1.foreground_forward_port`), not CLI flags.
+
+**LiDAR Background Tuning Flags (5):**
+
+- `--lidar-bg-flush-interval 60s` - Background grid flush interval
+- `--lidar-bg-noise-relative 0.315` - Background noise relative fraction
+- `--lidar-frame-buffer-timeout 500ms` - Frame buffer timeout
+- `--lidar-min-frame-points 1000` - Minimum points for valid frame
+- `--lidar-seed-from-first true` - Seed background from first observation
 
 **Total:** 30+ flags
 
@@ -695,7 +701,7 @@ db-backup                 # Backup database
 
 ```bash
 # Too many flags, unclear structure
-velocity-report --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db --units mph --timezone US/Pacific --enable-lidar --lidar-listen :8081 --lidar-udp-port 2369
+velocity-report --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db --units mph --timezone US/Pacific --enable-lidar --lidar-listen :8081
 
 # Separate binaries for utilities
 sweep --mode multi --output results.csv
