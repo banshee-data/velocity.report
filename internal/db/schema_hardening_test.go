@@ -178,6 +178,26 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 	}
 }
 
+func TestReplayAnnotationsRequireRunTrackPairWhenLinked(t *testing.T) {
+	db := setupTestDB(t)
+	defer cleanupTestDB(t, db)
+
+	insertTestRunRecord(t, db, "ref-run", "sensor-1", "completed", nil)
+
+	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (
+		replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
+	) VALUES ('case-3', 'sensor-1', '/tmp/test.pcap', 'ref-run', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert replay case: %v", err)
+	}
+
+	_, err := db.Exec(`INSERT INTO lidar_replay_annotations (
+		annotation_id, replay_case_id, run_id, class_label, start_timestamp_ns, created_at_ns
+	) VALUES ('ann-invalid', 'case-3', 'ref-run', 'car', ?, ?)`, time.Now().UnixNano(), time.Now().UnixNano())
+	if err == nil {
+		t.Fatal("expected partial run/track link insert to fail")
+	}
+}
+
 func TestTransitWorkerPersistsLinksWithForeignKeysEnabled(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
