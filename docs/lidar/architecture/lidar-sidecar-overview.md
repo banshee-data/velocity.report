@@ -392,14 +392,13 @@ The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and e
 --enable-lidar                        # Enable lidar components inside radar binary
 --lidar-listen ":8081"                # HTTP listen address for lidar monitor
 --lidar-udp-port 2369                 # UDP port to listen for lidar packets
+--lidar-udp-rcv-buf 4194304           # UDP receive buffer size in bytes
 --lidar-no-parse                      # Disable lidar packet parsing
---lidar-sensor "hesai-pandar40p"      # Sensor name identifier for lidar
 --lidar-forward                       # Forward lidar UDP packets to another port
 --lidar-forward-port 2368             # Port to forward lidar UDP packets to
 --lidar-forward-addr "localhost"      # Address to forward lidar UDP packets to
-
-# Background subtraction tuning (runtime-adjustable via HTTP API)
---lidar-bg-flush-interval 10s         # Interval to flush background grid to DB (PCAP mode)
+--lidar-foreground-forward            # Forward foreground-only lidar packets
+--lidar-foreground-forward-port 2370  # Foreground forwarding destination port
 --lidar-bg-noise-relative 0.315       # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
