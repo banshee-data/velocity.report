@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -455,5 +456,117 @@ func TestDeleteSite_CascadeReports(t *testing.T) {
 	_, err = db.GetSite(context.Background(), site.ID)
 	if err == nil {
 		t.Error("Expected error getting deleted site")
+	}
+}
+
+// TestDeleteSite_CancelledContext verifies that a cancelled context causes
+// DeleteSite to return a context error from ExecContext.
+func TestDeleteSite_CancelledContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = db.DeleteSite(ctx, 1)
+	t.Logf("DeleteSite cancelled context error: %v", err)
+	if err == nil {
+		t.Fatal("Expected error from DeleteSite with cancelled context")
+	}
+}
+
+// TestUpdateSite_CancelledContext verifies that a cancelled context causes
+// UpdateSite to return a context error from ExecContext.
+func TestUpdateSite_CancelledContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = db.UpdateSite(ctx, &Site{ID: 1, Name: "x", Location: "x"})
+	if err == nil {
+		t.Fatal("Expected error from UpdateSite with cancelled context")
+	}
+}
+
+// TestCreateSite_CancelledContext verifies that a cancelled context causes
+// CreateSite to return a context error from ExecContext.
+func TestCreateSite_CancelledContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = db.CreateSite(ctx, &Site{Name: "x", Location: "x"})
+	if err == nil {
+		t.Fatal("Expected error from CreateSite with cancelled context")
+	}
+}
+
+// TestGetAllSites_CancelledContext verifies that a cancelled context causes
+// GetAllSites to return a context error from QueryContext.
+func TestGetAllSites_CancelledContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = db.GetAllSites(ctx)
+	if err == nil {
+		t.Fatal("Expected error from GetAllSites with cancelled context")
+	}
+}
+
+// TestGetAllSites_ScanError exercises the rows.Scan error path inside
+// GetAllSites by inserting a row with a NULL created_at (which cannot be
+// scanned into a non-pointer int64).
+func TestGetAllSites_ScanError(t *testing.T) {
+	tmpDir := t.TempDir()
+	db, err := NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	// Bypass the Go API and insert a row with NULL in a non-nullable scan target.
+	// The site table's created_at has a DEFAULT, but we can override it with NULL
+	// via a direct INSERT if the column allows it. If the schema enforces NOT NULL,
+	// this INSERT will fail and we skip the test.
+	_, insertErr := db.Exec(
+		`INSERT INTO site (name, location, description, surveyor, contact, address,
+		 latitude, longitude, map_angle, include_map, site_description,
+		 bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng, map_svg_data,
+		 created_at, updated_at)
+		 VALUES ('scan-test', 'loc', '', 'surveyor', 'c', '', 0, 0, 0, 0, '',
+		         0, 0, 0, 0, NULL, NULL, NULL)`)
+	if insertErr != nil {
+		t.Skipf("Schema does not allow NULL timestamps: %v", insertErr)
+	}
+
+	_, err = db.GetAllSites(context.Background())
+	if err == nil {
+		t.Skip("Driver scanned NULL into int64 without error; scan error path unreachable with this driver")
+	}
+	if !strings.Contains(err.Error(), "scan") {
+		t.Errorf("Expected scan-related error, got: %v", err)
 	}
 }

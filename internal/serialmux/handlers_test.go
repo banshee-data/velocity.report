@@ -332,3 +332,34 @@ func TestHandleConfigResponse_UpdatesExistingState(t *testing.T) {
 		t.Errorf("Expected key1 to be updated, got %v", snap["key1"])
 	}
 }
+
+// TestCurrentStateSnapshot_NilBeforeAnyConfig verifies that CurrentStateSnapshot
+// returns nil when no config has been received, exercising the nil-guard branch.
+func TestCurrentStateSnapshot_NilBeforeAnyConfig(t *testing.T) {
+	resetCurrentState()
+	snap := CurrentStateSnapshot()
+	if snap != nil {
+		t.Errorf("Expected nil snapshot before any config, got %v", snap)
+	}
+}
+
+// TestHandleEvent_RawDataDBError verifies that a database failure during
+// HandleRawData propagates through HandleEvent as a wrapped error.
+func TestHandleEvent_RawDataDBError(t *testing.T) {
+	tmp := t.TempDir()
+	d, err := db.NewDB(tmp + "/test.db")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	// Close the DB so RecordRawData fails.
+	d.Close()
+
+	raw := `{"magnitude": 5.6, "speed": 7.8}`
+	err = HandleEvent(d, raw)
+	if err == nil {
+		t.Fatal("Expected error from HandleEvent with closed DB")
+	}
+	if !strings.Contains(err.Error(), "raw data") {
+		t.Errorf("Expected error to mention 'raw data', got: %v", err)
+	}
+}

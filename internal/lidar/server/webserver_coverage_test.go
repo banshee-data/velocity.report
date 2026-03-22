@@ -6063,3 +6063,137 @@ func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// routes.go and status.go coverage — withDB, handleDataSource, handleStatus
+// ---------------------------------------------------------------------------
+
+// TestWithDB_NilDatabase verifies that the withDB middleware returns 503
+// when the Server has no database connection.
+func TestWithDB_NilDatabase(t *testing.T) {
+	ws := &Server{} // db is nil
+	called := false
+	handler := ws.withDB(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if called {
+		t.Error("inner handler should not be called when db is nil")
+	}
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
+	}
+}
+
+// TestWithDB_WithDatabase verifies that the withDB middleware calls through
+// when the Server has a database connection.
+func TestWithDB_WithDatabase(t *testing.T) {
+	tmpDir := t.TempDir()
+	testDB, err := db.NewDB(filepath.Join(tmpDir, "test.db"))
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer testDB.Close()
+
+	ws := &Server{db: testDB}
+	called := false
+	handler := ws.withDB(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if !called {
+		t.Error("inner handler should be called when db is non-nil")
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// TestHandleDataSource_WaitForDone_NotInProgress verifies that the
+// wait_for_done long-poll path falls through when no PCAP replay is active.
+func TestHandleDataSource_WaitForDone_NotInProgress(t *testing.T) {
+	ws := &Server{
+		sensorID:       "ds-test",
+		currentSource:  DataSourceLive,
+		pcapInProgress: false,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?wait_for_done=true", nil)
+	w := httptest.NewRecorder()
+	ws.handleDataSource(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// TestHandleDataSource_WaitForDone_PCapFinishes verifies that the handler
+// unblocks when the PCAP done channel closes while waiting.
+func TestHandleDataSource_WaitForDone_PCapFinishes(t *testing.T) {
+	done := make(chan struct{})
+	ws := &Server{
+		sensorID:       "ds-test",
+		currentSource:  DataSourcePCAP,
+		pcapInProgress: true,
+		pcapDone:       done,
+	}
+
+	// Close done channel immediately so the select unblocks.
+	close(done)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?wait_for_done=true", nil)
+	w := httptest.NewRecorder()
+	ws.handleDataSource(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// TestHandleDataSource_WaitForDone_ContextCancelled verifies that the handler
+// returns when the request context is cancelled while waiting for PCAP.
+func TestHandleDataSource_WaitForDone_ContextCancelled(t *testing.T) {
+	ws := &Server{
+		sensorID:       "ds-test",
+		currentSource:  DataSourcePCAP,
+		pcapInProgress: true,
+		pcapDone:       make(chan struct{}), // never closed
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?wait_for_done=true", nil)
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	ws.handleDataSource(w, req)
+
+	// Handler returns without writing a response body when context is done.
+	// Status defaults to 200 from httptest.NewRecorder.
+}
+
+// TestHandleStatus_WrongPath verifies that handleStatus returns 404 for
+// paths that don't match the known status endpoints.
+func TestHandleStatus_WrongPath(t *testing.T) {
+	ws := &Server{
+		stats:    NewPacketStats(),
+		sensorID: "status-test",
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/some/other/path", nil)
+	w := httptest.NewRecorder()
+	ws.handleStatus(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
