@@ -181,6 +181,24 @@ func TestLidarLabelAPI_ListLabels(t *testing.T) {
 	}
 }
 
+func TestLidarLabelAPI_ListLabels_RejectsSessionID(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?session_id=session-001", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
 func TestLidarLabelAPI_GetLabel(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
@@ -311,7 +329,54 @@ func TestLidarLabelAPI_Export(t *testing.T) {
 	}
 }
 
-func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
+func TestLidarLabelAPI_Export_FiltersByReplayCase(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	insertReplayAnnotation(t, db, "label-001", "case-001", "run-001", "track-001", "car", 1000000000)
+	if _, err := db.Exec(`
+		INSERT INTO lidar_run_records (
+			run_id, created_at, source_type, source_path, sensor_id, params_json, status
+		) VALUES ('run-002', 1000000001, 'pcap', '/tmp/test-2.pcap', 'test-sensor', '{}', 'completed');
+		INSERT INTO lidar_replay_cases (
+			replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
+		) VALUES ('case-002', 'test-sensor', '/tmp/test-2.pcap', 'run-002', 1000000001);
+		INSERT INTO lidar_run_tracks (
+			run_id, track_id, sensor_id, track_state, start_unix_nanos
+		) VALUES ('run-002', 'track-101', 'test-sensor', 'confirmed', 1000000001);
+		INSERT INTO lidar_replay_annotations (
+			annotation_id, replay_case_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
+		) VALUES ('label-002', 'case-002', 'run-002', 'track-101', 'bus', 2000000000, 2000000000);
+	`); err != nil {
+		t.Fatalf("failed to insert second replay case labels: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export?replay_case_id=case-001", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var labels []LidarLabel
+	if err := json.NewDecoder(rec.Body).Decode(&labels); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(labels) != 1 {
+		t.Fatalf("expected 1 label, got %d", len(labels))
+	}
+	if labels[0].ReplayCaseID == nil || *labels[0].ReplayCaseID != "case-001" {
+		t.Fatalf("expected replay_case_id case-001, got %v", labels[0].ReplayCaseID)
+	}
+}
+
+func TestLidarLabelAPI_FilterByTrackIDRequiresRunID(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -323,6 +388,27 @@ func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
 	api.RegisterRoutes(mux)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?track_id=track-001", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+func TestLidarLabelAPI_FilterByTrackID(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	insertReplayAnnotation(t, db, "label-001", "case-001", "run-001", "track-001", "car", 1000000000)
+	insertReplayAnnotation(t, db, "label-002", "case-001", "run-001", "track-002", "bus", 2000000000)
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?run_id=run-001&track_id=track-001", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -410,6 +496,64 @@ func TestLidarLabelAPI_ListLabels_WithTimeFilters(t *testing.T) {
 	}
 	if response.Count != 1 {
 		t.Fatalf("expected count 1, got %d", response.Count)
+	}
+}
+
+func TestLidarLabelAPI_ListLabels_RejectsInvalidTimeFilters(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?start_ns=not-a-number", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusBadRequest, rec.Code, rec.Body.String())
+	}
+}
+
+func TestLidarLabelAPI_GetLabel_PreservesLegacyTrackID(t *testing.T) {
+	db := setupLabelTestDB(t)
+	defer db.Close()
+
+	_, err := db.Exec(`
+		INSERT INTO lidar_replay_annotations (
+			annotation_id, replay_case_id, run_id, track_id, legacy_track_id, class_label,
+			start_timestamp_ns, created_at_ns
+		) VALUES
+			('label-legacy', NULL, NULL, NULL, 'track-legacy', 'car', 1000000000, 1000000000)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert legacy label: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/label-legacy", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var label LidarLabel
+	if err := json.NewDecoder(rec.Body).Decode(&label); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if label.TrackID != "" {
+		t.Fatalf("expected empty durable track_id for legacy row, got %q", label.TrackID)
+	}
+	if label.LegacyTrackID == nil || *label.LegacyTrackID != "track-legacy" {
+		t.Fatalf("expected legacy_track_id track-legacy, got %v", label.LegacyTrackID)
 	}
 }
 

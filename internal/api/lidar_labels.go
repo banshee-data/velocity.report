@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -112,6 +113,7 @@ type LidarLabel struct {
 	ReplayCaseID     *string  `json:"replay_case_id,omitempty"`
 	RunID            *string  `json:"run_id,omitempty"`
 	TrackID          string   `json:"track_id"`
+	LegacyTrackID    *string  `json:"legacy_track_id,omitempty"`
 	ClassLabel       string   `json:"class_label"`
 	StartTimestampNs int64    `json:"start_timestamp_ns"`
 	EndTimestampNs   *int64   `json:"end_timestamp_ns,omitempty"`
@@ -185,17 +187,29 @@ func nullableFloat32Ptr(value *float32) interface{} {
 	return *value
 }
 
+func parseOptionalInt64QueryParam(rawValue, field string) (*int64, error) {
+	if strings.TrimSpace(rawValue) == "" {
+		return nil, nil
+	}
+	value, err := strconv.ParseInt(strings.TrimSpace(rawValue), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be a valid int64", field)
+	}
+	return &value, nil
+}
+
 func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 	var (
-		replayCaseID *string
-		runID        *string
-		trackID      *string
-		endTimestamp *int64
-		confidence   *float64
-		createdBy    *string
-		updatedAtNs  *int64
-		notes        *string
-		sourceFile   *string
+		replayCaseID  *string
+		runID         *string
+		trackID       *string
+		legacyTrackID *string
+		endTimestamp  *int64
+		confidence    *float64
+		createdBy     *string
+		updatedAtNs   *int64
+		notes         *string
+		sourceFile    *string
 	)
 
 	err := scanner.Scan(
@@ -203,6 +217,7 @@ func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 		&replayCaseID,
 		&runID,
 		&trackID,
+		&legacyTrackID,
 		&label.ClassLabel,
 		&label.StartTimestampNs,
 		&endTimestamp,
@@ -222,6 +237,7 @@ func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 
 	label.ReplayCaseID = replayCaseID
 	label.RunID = runID
+	label.LegacyTrackID = legacyTrackID
 	label.TrackID = ""
 	if trackID != nil {
 		label.TrackID = *trackID
@@ -243,7 +259,7 @@ func scanLidarLabel(scanner rowScanner, label *LidarLabel) error {
 }
 
 func (api *LidarLabelAPI) getLabel(labelID string) (*LidarLabel, error) {
-	query := `SELECT annotation_id, replay_case_id, run_id, track_id, class_label,
+	query := `SELECT annotation_id, replay_case_id, run_id, track_id, legacy_track_id, class_label,
 	                 start_timestamp_ns, end_timestamp_ns, confidence, created_by,
 	                 created_at_ns, updated_at_ns, notes, source_file
 	          FROM lidar_replay_annotations WHERE annotation_id = ?`
@@ -336,14 +352,31 @@ func (api *LidarLabelAPI) handleLabels(w http.ResponseWriter, r *http.Request) {
 // handleListLabels lists labels with optional filters.
 func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	if strings.TrimSpace(query.Get("session_id")) != "" {
+		api.writeJSONError(w, http.StatusBadRequest, "session_id is no longer supported; use replay_case_id")
+		return
+	}
 	trackID := strings.TrimSpace(query.Get("track_id"))
 	runID := strings.TrimSpace(query.Get("run_id"))
 	replayCaseID := strings.TrimSpace(query.Get("replay_case_id"))
 	classLabel := strings.TrimSpace(query.Get("class_label"))
-	startNs := query.Get("start_ns")
-	endNs := query.Get("end_ns")
+	startNs, err := parseOptionalInt64QueryParam(query.Get("start_ns"), "start_ns")
+	if err != nil {
+		api.writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	endNs, err := parseOptionalInt64QueryParam(query.Get("end_ns"), "end_ns")
+	if err != nil {
+		api.writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	sqlQuery := `SELECT annotation_id, replay_case_id, run_id, track_id, class_label,
+	if trackID != "" && runID == "" {
+		api.writeJSONError(w, http.StatusBadRequest, "run_id is required when track_id is provided")
+		return
+	}
+
+	sqlQuery := `SELECT annotation_id, replay_case_id, run_id, track_id, legacy_track_id, class_label,
 	               start_timestamp_ns, end_timestamp_ns, confidence, created_by,
 	               created_at_ns, updated_at_ns, notes, source_file
 	        FROM lidar_replay_annotations WHERE 1=1`
@@ -365,13 +398,13 @@ func (api *LidarLabelAPI) handleListLabels(w http.ResponseWriter, r *http.Reques
 		sqlQuery += " AND class_label = ?"
 		args = append(args, classLabel)
 	}
-	if startNs != "" {
+	if startNs != nil {
 		sqlQuery += " AND start_timestamp_ns >= ?"
-		args = append(args, startNs)
+		args = append(args, *startNs)
 	}
-	if endNs != "" {
+	if endNs != nil {
 		sqlQuery += " AND (end_timestamp_ns IS NULL OR end_timestamp_ns <= ?)"
-		args = append(args, endNs)
+		args = append(args, *endNs)
 	}
 
 	sqlQuery += fmt.Sprintf(" ORDER BY start_timestamp_ns DESC LIMIT %d", maxLabelsPerQuery)
@@ -630,13 +663,25 @@ func (api *LidarLabelAPI) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT annotation_id, replay_case_id, run_id, track_id, class_label,
+	params := r.URL.Query()
+	if strings.TrimSpace(params.Get("session_id")) != "" {
+		api.writeJSONError(w, http.StatusBadRequest, "session_id is no longer supported; use replay_case_id")
+		return
+	}
+	replayCaseID := strings.TrimSpace(params.Get("replay_case_id"))
+
+	query := `SELECT annotation_id, replay_case_id, run_id, track_id, legacy_track_id, class_label,
 	                 start_timestamp_ns, end_timestamp_ns, confidence, created_by,
 	                 created_at_ns, updated_at_ns, notes, source_file
-	          FROM lidar_replay_annotations
-	          ORDER BY start_timestamp_ns ASC`
+	          FROM lidar_replay_annotations`
+	args := []interface{}{}
+	if replayCaseID != "" {
+		query += " WHERE replay_case_id = ?"
+		args = append(args, replayCaseID)
+	}
+	query += " ORDER BY start_timestamp_ns ASC"
 
-	rows, err := api.db.Query(query)
+	rows, err := api.db.Query(query, args...)
 	if err != nil {
 		api.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("query failed: %v", err))
 		return

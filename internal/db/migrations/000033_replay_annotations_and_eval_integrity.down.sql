@@ -73,18 +73,6 @@ RENAME TO lidar_replay_evaluations;
 
 CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (reference_run_id, candidate_run_id);
 
-     DROP INDEX IF EXISTS idx_lidar_replay_annotations_replay_case;
-
-     DROP INDEX IF EXISTS idx_lidar_replay_annotations_run_track;
-
-     DROP INDEX IF EXISTS idx_lidar_replay_annotations_track;
-
-     DROP INDEX IF EXISTS idx_lidar_replay_annotations_time;
-
-     DROP INDEX IF EXISTS idx_lidar_replay_annotations_class;
-
-     DROP TABLE IF EXISTS lidar_replay_annotations;
-
    CREATE TABLE lidar_track_annotations (
           label_id TEXT PRIMARY KEY
         , track_id TEXT NOT NULL
@@ -101,6 +89,35 @@ CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (ref
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
+   INSERT INTO lidar_track_annotations (
+          label_id
+        , track_id
+        , class_label
+        , start_timestamp_ns
+        , end_timestamp_ns
+        , confidence
+        , created_by
+        , created_at_ns
+        , updated_at_ns
+        , notes
+        , replay_case_id
+        , source_file
+          )
+   SELECT annotation_id
+        , COALESCE(track_id, legacy_track_id)
+        , class_label
+        , start_timestamp_ns
+        , end_timestamp_ns
+        , confidence
+        , created_by
+        , created_at_ns
+        , updated_at_ns
+        , notes
+        , replay_case_id
+        , source_file
+     FROM lidar_replay_annotations
+    WHERE COALESCE(track_id, legacy_track_id) IS NOT NULL;
+
 CREATE INDEX idx_lidar_track_annotations_replay_case ON lidar_track_annotations (replay_case_id);
 
 CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations (track_id);
@@ -108,5 +125,17 @@ CREATE INDEX idx_lidar_track_annotations_track ON lidar_track_annotations (track
 CREATE INDEX idx_lidar_track_annotations_time ON lidar_track_annotations (start_timestamp_ns, end_timestamp_ns);
 
 CREATE INDEX idx_lidar_track_annotations_class ON lidar_track_annotations (class_label);
+
+     DROP INDEX IF EXISTS idx_lidar_replay_annotations_replay_case;
+
+     DROP INDEX IF EXISTS idx_lidar_replay_annotations_run_track;
+
+     DROP INDEX IF EXISTS idx_lidar_replay_annotations_track;
+
+     DROP INDEX IF EXISTS idx_lidar_replay_annotations_time;
+
+     DROP INDEX IF EXISTS idx_lidar_replay_annotations_class;
+
+     DROP TABLE IF EXISTS lidar_replay_annotations;
 
 PRAGMA foreign_keys = ON;

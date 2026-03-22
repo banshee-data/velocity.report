@@ -17,9 +17,10 @@ This branch implements the core pre-`v0.5.0` schema hardening work:
 - replay evaluations are replay-case-scoped for uniqueness and use explicit run/replay-case FKs
 - `site_reports.site_id` is nullable and stores `NULL`, not `0`, when no site is attached
 - `radar_data` now has a real `data_id` PK and `radar_transit_links` references that key instead of SQLite `rowid`
+- legacy `lidar_track_annotations` rows are preserved during `000033` using `legacy_track_id` on `lidar_replay_annotations`
 - hardening regression tests cover the key delete/nullability/FK paths
 
-Important implementation detail: this branch treats legacy `lidar_track_annotations` rows as disposable debt. Migration `000033` drops that table and does not attempt row preservation, quarantine, or audit export.
+Important implementation detail: this branch preserves old `lidar_track_annotations` rows instead of dropping them. Historical rows are migrated into `lidar_replay_annotations`, keep their original live-track identifier in `legacy_track_id`, and may keep a `NULL` `replay_case_id` when no valid durable owner exists.
 
 ## Decision
 
@@ -50,7 +51,7 @@ The pre-hardening state was tolerable for development but not a good release bas
 
 1. **Recommended: replay-own free-form annotations and turn FKs on**
    - Effort: medium because it requires one migration window plus API/storage updates.
-   - Risk: moderate because it is a breaking cleanup and deliberately drops legacy `lidar_track_annotations`.
+   - Risk: moderate because it is a breaking cleanup and preserves some historical rows as ownerless or legacy-linked annotations rather than fully normalising them.
    - Downstream impact: yields one clear owner per lifecycle and makes delete semantics predictable.
 2. **Keep current annotation table and only add a replay-case FK**
    - Effort: low because it changes one table in place.
@@ -156,10 +157,11 @@ Principles:
 
 Implementation on this branch:
 
-- drop `lidar_track_annotations` in `000033`
+- replace `lidar_track_annotations` with `lidar_replay_annotations` in `000033`
 - write all new free-form annotations to `lidar_replay_annotations`
-- do not preserve, quarantine, or auto-migrate legacy annotation rows
-- if legacy annotation preservation becomes necessary later, handle it as an out-of-band export/import task rather than in the `v0.5.0` migration path
+- migrate historical rows into the new table
+- preserve unmapped historic live-track references in `legacy_track_id`
+- allow `replay_case_id` to be `NULL` for migrated legacy rows that had no valid durable owner
 
 This is the main bandaid to rip off before `v0.5.0`.
 
@@ -233,20 +235,21 @@ That keeps global FK enforcement from breaking unrelated report generation flows
 
 ## Failure Registry
 
-| Failure mode                                           | What fails                        | User-visible effect                            | Required handling                                                                        |
-| ------------------------------------------------------ | --------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Legacy `lidar_track_annotations` rows still matter     | upgrade to `000033`               | rows are dropped as part of debt cleanup       | not supported on this branch; export manually before upgrade or accept loss              |
-| FK enforcement exposes existing orphan rows            | app start or migration smoke test | upgrade blocked                                | run integrity audit before final migration, repair or quarantine violating rows          |
-| Replay case delete removes annotations unexpectedly    | replay case management            | user loses free-form notes                     | document delete contract explicitly and require migration test coverage for delete paths |
-| Run delete fails because child rows still reference it | run lifecycle APIs                | delete endpoint starts erroring after FK-on    | make all run-owned children explicit before enabling FK-on                               |
-| Report creation without site still writes `0`          | non-LiDAR reporting               | unrelated report generation breaks under FK-on | migrate `site_reports.site_id` to nullable and write `NULL` in API path                  |
-| New enum checks reject legacy values                   | create/update APIs or migration   | writes begin failing after schema change       | backfill old taxonomy values during migration before adding `CHECK`s                     |
+| Failure mode                                           | What fails                        | User-visible effect                                  | Required handling                                                                                                                                      |
+| ------------------------------------------------------ | --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Legacy `lidar_track_annotations` rows still matter     | upgrade to `000033`               | historical rows lose durable live-track FK semantics | preserve row content in `lidar_replay_annotations`, keep the old track reference in `legacy_track_id`, and accept `NULL` replay ownership where needed |
+| FK enforcement exposes existing orphan rows            | app start or migration smoke test | upgrade blocked                                      | run integrity audit before final migration, repair or quarantine violating rows                                                                        |
+| Replay case delete removes annotations unexpectedly    | replay case management            | user loses free-form notes                           | document delete contract explicitly and require migration test coverage for delete paths                                                               |
+| Run delete fails because child rows still reference it | run lifecycle APIs                | delete endpoint starts erroring after FK-on          | make all run-owned children explicit before enabling FK-on                                                                                             |
+| Report creation without site still writes `0`          | non-LiDAR reporting               | unrelated report generation breaks under FK-on       | migrate `site_reports.site_id` to nullable and write `NULL` in API path                                                                                |
+| New enum checks reject legacy values                   | create/update APIs or migration   | writes begin failing after schema change             | backfill old taxonomy values during migration before adding `CHECK`s                                                                                   |
 
 ## Implementation Status
 
 ### Shipped On This Branch
 
 - migration `000033` adds `lidar_replay_annotations`, removes `lidar_track_annotations`, and fixes replay-evaluation uniqueness/delete semantics
+- migration `000033` preserves historical annotation payloads during the table move instead of dropping them
 - migration `000034` hardens the schema for FK-on operation, including:
   - `parent_run_id` foreign keying
   - enum, range, confidence, and time-order `CHECK`s
@@ -260,7 +263,7 @@ That keeps global FK enforcement from breaking unrelated report generation flows
 
 ### Deliberately Out Of Scope On This Branch
 
-- preserving or auto-migrating legacy `lidar_track_annotations`
+- fully normalising every historical annotation onto durable `(run_id, track_id)` links
 - a generic integrity-audit CLI or HTTP endpoint
 - broader JSON-shape validation beyond the safe enum/range/time constraints already added
 

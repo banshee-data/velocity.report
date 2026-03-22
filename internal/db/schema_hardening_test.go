@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -195,6 +196,84 @@ func TestReplayAnnotationsRequireRunTrackPairWhenLinked(t *testing.T) {
 	) VALUES ('ann-invalid', 'case-3', 'ref-run', 'car', ?, ?)`, time.Now().UnixNano(), time.Now().UnixNano())
 	if err == nil {
 		t.Fatal("expected partial run/track link insert to fail")
+	}
+}
+
+func TestMigration33PreservesLegacyTrackAnnotations(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "migration33.db")
+
+	sqlDB, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test DB: %v", err)
+	}
+	db := &DB{sqlDB}
+	defer db.Close()
+
+	migrationsFS, err := getMigrationsFS()
+	if err != nil {
+		t.Fatalf("failed to load migrations: %v", err)
+	}
+	if err := db.MigrateTo(migrationsFS, 32); err != nil {
+		t.Fatalf("failed to migrate to v32: %v", err)
+	}
+
+	if _, err := db.Exec(`INSERT INTO lidar_run_records (
+		run_id, created_at, source_type, sensor_id, params_json, status
+	) VALUES ('run-legacy', ?, 'pcap', 'sensor-1', '{}', 'completed')`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert legacy run: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (
+		replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
+	) VALUES ('case-legacy', 'sensor-1', '/tmp/test.pcap', 'run-legacy', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert legacy replay case: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_tracks (
+		track_id, sensor_id, frame_id, track_state, start_unix_nanos
+	) VALUES ('track-legacy', 'sensor-1', 'frame-1', 'confirmed', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert legacy track: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_track_annotations (
+		label_id, track_id, class_label, start_timestamp_ns, created_at_ns, notes, replay_case_id
+	) VALUES
+		('ann-preserved', 'track-legacy', 'car', ?, ?, 'kept with replay case', 'case-legacy'),
+		('ann-ownerless', 'track-legacy', 'bus', ?, ?, 'kept without replay case', NULL)
+	`, time.Now().UnixNano(), time.Now().UnixNano(), time.Now().UnixNano(), time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert legacy annotations: %v", err)
+	}
+
+	if err := db.MigrateUp(migrationsFS); err != nil {
+		t.Fatalf("failed to migrate up from v32: %v", err)
+	}
+
+	var (
+		replayCaseID sql.NullString
+		runID        sql.NullString
+		trackID      sql.NullString
+		legacyTrack  sql.NullString
+	)
+	if err := db.QueryRow(`SELECT replay_case_id, run_id, track_id, legacy_track_id
+		FROM lidar_replay_annotations WHERE annotation_id = 'ann-preserved'`).Scan(&replayCaseID, &runID, &trackID, &legacyTrack); err != nil {
+		t.Fatalf("failed to query migrated replay-owned annotation: %v", err)
+	}
+	if !replayCaseID.Valid || replayCaseID.String != "case-legacy" {
+		t.Fatalf("expected replay_case_id case-legacy, got %v", replayCaseID)
+	}
+	if runID.Valid || trackID.Valid {
+		t.Fatalf("expected legacy annotation durable run/track link to remain NULL, got run=%v track=%v", runID, trackID)
+	}
+	if !legacyTrack.Valid || legacyTrack.String != "track-legacy" {
+		t.Fatalf("expected legacy_track_id track-legacy, got %v", legacyTrack)
+	}
+
+	if err := db.QueryRow(`SELECT replay_case_id, run_id, track_id, legacy_track_id
+		FROM lidar_replay_annotations WHERE annotation_id = 'ann-ownerless'`).Scan(&replayCaseID, &runID, &trackID, &legacyTrack); err != nil {
+		t.Fatalf("failed to query ownerless migrated annotation: %v", err)
+	}
+	if replayCaseID.Valid {
+		t.Fatalf("expected ownerless legacy annotation replay_case_id to be NULL, got %v", replayCaseID)
+	}
+	if !legacyTrack.Valid || legacyTrack.String != "track-legacy" {
+		t.Fatalf("expected ownerless legacy_track_id track-legacy, got %v", legacyTrack)
 	}
 }
 
