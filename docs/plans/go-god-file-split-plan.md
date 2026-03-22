@@ -20,15 +20,15 @@ Beyond the original three, a scan of the full Go codebase reveals further files 
 
 ### Tier 1 — God Files (>1,000 LOC, mixed concerns)
 
-| File                                                | Was       | Now   | Status                                                                                                                    |
-| --------------------------------------------------- | --------- | ----- | ------------------------------------------------------------------------------------------------------------------------- |
-| ~~`internal/lidar/monitor/webserver.go`~~           | ~~1,905~~ | —     | **DONE** — split into `server/server.go` (423), `state.go` (174), `routes.go` (220), `tuning.go` (122), `status.go` (690) |
-| ~~`internal/api/server.go`~~                        | ~~1,711~~ | 260   | **DONE** — split into 6 domain files (see 1B)                                                                             |
-| ~~`internal/lidar/l5tracks/tracking.go`~~           | ~~1,676~~ | 515   | **DONE** — split into 3 domain files (see 1D)                                                                             |
-| ~~`internal/db/db.go`~~                             | ~~1,420~~ | 337   | **DONE** — split into 4 domain files (see 1A)                                                                             |
-| ~~`internal/lidar/storage/sqlite/analysis_run.go`~~ | ~~1,400~~ | 391   | **DONE** — split into 4 domain files (see 1E)                                                                             |
-| `internal/lidar/l3grid/background.go`               | —         | 1,672 | **NEW** — params, grid, RegionManager, BackgroundManager (see 1F)                                                         |
-| `internal/config/tuning.go`                         | —         | 1,303 | **NEW** — types, validation, JSON, getters, helpers (see 1G)                                                              |
+| File                                                | Was       | Now | Status                                                                                                                             |
+| --------------------------------------------------- | --------- | --- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| ~~`internal/lidar/monitor/webserver.go`~~           | ~~1,905~~ | —   | **DONE** — split into `server/server.go` (423), `state.go` (174), `routes.go` (220), `tuning.go` (122), `status.go` (690)          |
+| ~~`internal/api/server.go`~~                        | ~~1,711~~ | 260 | **DONE** — split into 6 domain files (see 1B)                                                                                      |
+| ~~`internal/lidar/l5tracks/tracking.go`~~           | ~~1,676~~ | 515 | **DONE** — split into 3 domain files (see 1D)                                                                                      |
+| ~~`internal/db/db.go`~~                             | ~~1,420~~ | 337 | **DONE** — split into 4 domain files (see 1A)                                                                                      |
+| ~~`internal/lidar/storage/sqlite/analysis_run.go`~~ | ~~1,400~~ | 391 | **DONE** — split into 4 domain files (see 1E)                                                                                      |
+| ~~`internal/lidar/l3grid/background.go`~~           | —         | 352 | **DONE** — split into `background.go` (352), `background_region.go` (474), `background_manager.go` (860) (see 1F)                  |
+| ~~`internal/config/tuning.go`~~                     | —         | 255 | **DONE** — split into `tuning.go` (255), `tuning_validate.go` (410), `tuning_codec.go` (280), `tuning_accessors.go` (373) (see 1G) |
 
 ### Tier 2 — Large Files (700–1,100 LOC, may benefit from splitting)
 
@@ -212,11 +212,11 @@ RegionManager, and BackgroundManager — four distinct concerns.
 
 **Checklist:**
 
-- [ ] Create `background_region.go` — move RegionManager and region types
-- [ ] Create `background_manager.go` — move BackgroundManager, registry, constructors
-- [ ] Verify `background.go` contains only params, cell, and grid types
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in split exceeds 600 LOC
+- [x] Create `background_region.go` — move RegionManager and region types (474 LOC)
+- [x] Create `background_manager.go` — move BackgroundManager, registry, constructors (860 LOC)
+- [x] Verify `background.go` contains only params, cell, and grid types (352 LOC)
+- [x] `go build ./... && go test ./internal/lidar/l3grid/...` passes
+- [x] No file in split exceeds 900 LOC
 
 ### 1G. Split `internal/config/tuning.go` (1,303 LOC)
 
@@ -232,12 +232,12 @@ engine selection, convenience getters, and codec helpers.
 
 **Checklist:**
 
-- [ ] Create `tuning_validate.go` — move all Validate methods
-- [ ] Create `tuning_accessors.go` — move ActiveConfig/ActiveCommon + getters
-- [ ] Create `tuning_codec.go` — move JSON unmarshalling + codec helpers
-- [ ] Verify `tuning.go` contains only types, consts, and loaders
-- [ ] `make lint-go && make test-go` passes
-- [ ] No file in split exceeds 450 LOC
+- [x] Create `tuning_validate.go` — move all Validate methods (410 LOC)
+- [x] Create `tuning_accessors.go` — move ActiveConfig/ActiveCommon + getters (373 LOC)
+- [x] Create `tuning_codec.go` — move JSON unmarshalling + codec helpers (280 LOC)
+- [x] Verify `tuning.go` contains only types, consts, and loaders (255 LOC)
+- [x] `go build ./... && go test ./internal/config/...` passes
+- [x] No file in split exceeds 450 LOC
 
 ---
 
