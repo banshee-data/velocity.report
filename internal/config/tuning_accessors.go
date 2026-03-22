@@ -101,18 +101,6 @@ func (c *TuningConfig) GetSensor() string { return c.L1.Sensor }
 // GetDataSource returns the configured initial data source.
 func (c *TuningConfig) GetDataSource() string { return c.L1.DataSource }
 
-// GetUDPPort returns the configured UDP port.
-func (c *TuningConfig) GetUDPPort() int { return c.L1.UDPPort }
-
-// GetUDPRcvBuf returns the configured UDP receive buffer size.
-func (c *TuningConfig) GetUDPRcvBuf() int { return c.L1.UDPRcvBuf }
-
-// GetForwardPort returns the configured raw-packet forwarding port.
-func (c *TuningConfig) GetForwardPort() int { return c.L1.ForwardPort }
-
-// GetForegroundForwardPort returns the configured foreground forwarding port.
-func (c *TuningConfig) GetForegroundForwardPort() int { return c.L1.ForegroundForwardPort }
-
 // GetFlushInterval parses and returns the flush interval.
 func (c *TuningConfig) GetFlushInterval() time.Duration {
 	d, _ := time.ParseDuration(c.Pipeline.FlushInterval)

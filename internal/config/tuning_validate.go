@@ -44,18 +44,6 @@ func (c *L1Config) Validate() error {
 	default:
 		return fmt.Errorf("data_source must be one of live, pcap, pcap_analysis, got %q", c.DataSource)
 	}
-	if c.UDPPort <= 0 || c.UDPPort > 65535 {
-		return fmt.Errorf("udp_port must be in [1, 65535], got %d", c.UDPPort)
-	}
-	if c.UDPRcvBuf <= 0 {
-		return fmt.Errorf("udp_rcv_buf must be positive, got %d", c.UDPRcvBuf)
-	}
-	if err := validateOptionalPort("forward_port", c.ForwardPort); err != nil {
-		return err
-	}
-	if err := validateOptionalPort("foreground_forward_port", c.ForegroundForwardPort); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -398,13 +386,6 @@ func (c *L5ImmCvCaRtsEvalV2) Validate() error {
 	}
 	if c.RTSSmoothingWindow < 1 {
 		return fmt.Errorf("rts_smoothing_window must be >= 1, got %d", c.RTSSmoothingWindow)
-	}
-	return nil
-}
-
-func validateOptionalPort(name string, port int) error {
-	if port < 0 || port > 65535 {
-		return fmt.Errorf("%s must be in [0, 65535], got %d", name, port)
 	}
 	return nil
 }
