@@ -136,6 +136,38 @@ func TestPlayback_HandlePCAPStart_ReplayModeStartedCallback(t *testing.T) {
 	waitForPCAPDone(t, ws)
 }
 
+func TestPlayback_HandlePCAPStart_AnalysisModeResponse(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpDir = resolveSymlinks(t, tmpDir)
+	pcapPath := filepath.Join(tmpDir, "analysis-started.pcap")
+	if err := os.WriteFile(pcapPath, testPCAPHeader, 0o644); err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	ws := NewServer(Config{
+		Address:     ":0",
+		Stats:       NewPacketStats(),
+		SensorID:    "sensor-analysis-started",
+		PCAPSafeDir: tmpDir,
+	})
+	ws.setBaseContext(context.Background())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-analysis-started", strings.NewReader(`{"pcap_file":"analysis-started.pcap","analysis_mode":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	ws.handlePCAPStart(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"analysis_mode":true`) {
+		t.Fatalf("expected analysis mode response, got %s", w.Body.String())
+	}
+
+	waitForPCAPDone(t, ws)
+}
+
 func TestPlayback_HandlePCAPStop_ResetAllStateError(t *testing.T) {
 	sensorID := "sensor-stop-reset-error"
 	l3grid.RegisterBackgroundManager(sensorID, &l3grid.BackgroundManager{})
