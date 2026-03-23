@@ -308,9 +308,7 @@ describe('api', () => {
 				status: 503
 			});
 
-			await expect(getCapabilities()).rejects.toThrow(
-				'Failed to fetch capabilities: 503'
-			);
+			await expect(getCapabilities()).rejects.toThrow('Failed to fetch capabilities: 503');
 		});
 	});
 
