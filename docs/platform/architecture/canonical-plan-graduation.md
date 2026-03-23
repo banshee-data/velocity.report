@@ -72,7 +72,7 @@ active plan.
 Every active plan must identify its canonical hub doc in the header metadata:
 
 ```markdown
-- **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
+- **Canonical:** [foreground-tracking.md](../../lidar/architecture/foreground-tracking.md)
 ```
 
 This is the minimal contract that makes the relationship machine-checkable.

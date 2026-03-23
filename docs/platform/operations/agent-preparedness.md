@@ -133,7 +133,7 @@ The load sequence is:
 3. Load workspace instructions (`copilot-instructions.md`) as context
 4. No file traversal
 
-References like `[build-and-test.md](../../.github/knowledge/build-and-test.md)`
+References like `[build-and-test.md](../../../.github/knowledge/build-and-test.md)`
 remain literal text. The agent can read those files on demand using tools,
 but not eagerly at load time. This:
 

@@ -5,7 +5,7 @@ Active plan: [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans
 **Status:** Core phases 1–5 prototyped with simplifications; phases 0, 6–7
 pending.
 
-Mathematical model: [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+Mathematical model: [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](../../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 
 ## Problem
 
