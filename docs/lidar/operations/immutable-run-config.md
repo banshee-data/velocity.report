@@ -6,7 +6,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 
 - Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
 - Status: Draft
-- Migration slot: 000032 (assumes 000030/000031 already landed)
+- Migration slot: 000035+ (builds on landed migrations `000030`-`000034`)
 
 ## Problem
 
@@ -134,7 +134,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 
 ### P0/P1: Introduce and Adopt
 
-- P0.1: Schema additions (migration 000032) — new tables, nullable FKs on run_records and replay_cases
+- P0.1: Schema additions (migration `000035` or next free slot) — new tables, nullable FKs on run_records and replay_cases
 - P0.2: Config asset package (`internal/lidar/configasset/`)
 - P0.3: Define effective runtime surface (background, clustering, tracker, classification tunables)
 - P0.4: Remove timestamps from deterministic config identity

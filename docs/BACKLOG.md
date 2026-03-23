@@ -62,7 +62,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
 - [#382] Distributed sweep workers plan — architecture for parallel sweep execution across multiple cores or nodes `S`
-- [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
+- [#387] LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis `M`
 - LiDAR pipeline performance measurement harness — add per-layer timing instrumentation, CI integration, and regression detection for pipeline performance. [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 
 ## 07x Rebel Realm ⛰️
