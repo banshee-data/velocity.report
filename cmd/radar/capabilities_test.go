@@ -42,6 +42,9 @@ func TestCapabilitiesProvider_LidarReady(t *testing.T) {
 
 func TestCapabilitiesProvider_LidarStarting(t *testing.T) {
 	cp := newCapabilitiesProvider()
+	// Transition through ready first so lidarSweep is true, then verify
+	// that SetLidarStarting clears it.
+	cp.SetLidarReady(true)
 	cp.SetLidarStarting()
 	caps := cp.Capabilities()
 
@@ -51,11 +54,16 @@ func TestCapabilitiesProvider_LidarStarting(t *testing.T) {
 	if caps.Lidar.State != "starting" {
 		t.Errorf("Expected lidar.state 'starting', got %q", caps.Lidar.State)
 	}
+	if caps.LidarSweep {
+		t.Error("Expected lidar_sweep to be false during starting")
+	}
 }
 
 func TestCapabilitiesProvider_LidarError(t *testing.T) {
 	cp := newCapabilitiesProvider()
-	cp.SetLidarStarting()
+	// Transition through ready so lidarSweep is true, then verify
+	// that SetLidarError clears it.
+	cp.SetLidarReady(true)
 	cp.SetLidarError()
 	caps := cp.Capabilities()
 
@@ -64,6 +72,9 @@ func TestCapabilitiesProvider_LidarError(t *testing.T) {
 	}
 	if caps.Lidar.State != "error" {
 		t.Errorf("Expected lidar.state 'error', got %q", caps.Lidar.State)
+	}
+	if caps.LidarSweep {
+		t.Error("Expected lidar_sweep to be false in error state")
 	}
 }
 

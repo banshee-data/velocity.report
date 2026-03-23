@@ -887,10 +887,14 @@ func main() {
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
-		// Wire capabilities provider so /api/capabilities reports sensor state
+		// Wire capabilities provider so /api/capabilities reports sensor state.
+		// When LiDAR is enabled we report "starting" here; the subsystem should
+		// call SetLidarReady() once it has completed initialisation successfully,
+		// or SetLidarError() if startup fails. This avoids advertising "ready"
+		// before the hardware is actually operational.
 		capsProvider := newCapabilitiesProvider()
 		if lidarServer != nil {
-			capsProvider.SetLidarReady(true)
+			capsProvider.SetLidarStarting()
 		}
 		apiServer.SetCapabilitiesProvider(capsProvider)
 

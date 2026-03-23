@@ -371,12 +371,11 @@ Checklist:
   - Handler: `internal/api/server_admin.go` — `showCapabilities()`.
   - Tests: `internal/api/capabilities_test.go` — 4 test cases (default, ready, error, method-not-allowed).
 - [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
-- [x] Add `getCapabilities()` to `web/src/lib/api.ts` with retry/backoff and error handling.
+- [x] Add `getCapabilities()` to `web/src/lib/api.ts`.
   - Function: `getCapabilities()` — see `web/src/lib/api.ts`.
   - Tests: 3 test cases in `web/src/lib/api.test.ts` (ready, disabled, error).
-- [x] Update `web/src/routes/+layout.svelte` to gate LiDAR nav items, including a loading state and a fallback when the endpoint fails.
+- [x] Update `web/src/routes/+layout.svelte` to gate LiDAR nav items based on capabilities.
   - LiDAR nav items wrapped in `{#if $capabilities.lidar.enabled}`.
-  - Fallback: store defaults to `disabled` on fetch failure — nav stays radar-only.
 - [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
 - [x] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
   - Store: `web/src/lib/stores/capabilities.ts` — polls every 30 s with `startCapabilitiesPolling()`.

@@ -32,17 +32,22 @@ func (cp *capabilitiesProvider) SetLidarReady(sweepEnabled bool) {
 }
 
 // SetLidarStarting marks the LiDAR subsystem as starting up.
+// Clears lidarSweep so stale capability is not advertised during transitions.
 func (cp *capabilitiesProvider) SetLidarStarting() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.lidarState = "starting"
+	cp.lidarSweep = false
 }
 
 // SetLidarError marks the LiDAR subsystem as having encountered an error.
+// Clears lidarSweep because the subsystem cannot serve sweep requests in
+// an error state.
 func (cp *capabilitiesProvider) SetLidarError() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.lidarState = "error"
+	cp.lidarSweep = false
 }
 
 // SetLidarDisabled marks the LiDAR subsystem as disabled.
