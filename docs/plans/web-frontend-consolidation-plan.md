@@ -53,51 +53,11 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 
 ## Design Constraints
 
-- **macOS visualiser stays** — 3D Metal rendering cannot move to the browser without WebGL/WebGPU complexity that defeats the purpose
-- **Go-embedded dashboards must eventually migrate** — maintaining vanilla JS + ECharts alongside Svelte + LayerChart is unsustainable
-- **Radar-only deploys need a clean experience** — no dead LiDAR links
-- **Raspberry Pi 4 is the target** — resource-constrained; binary size matters
-- **Dynamic LiDAR lifecycle** — LiDAR can be enabled/disabled at runtime without interrupting radar logging/stream
-- **Private LAN deployment** — no auth/access control required for now (future work)
-- **Privacy-first** — no architectural changes affect data privacy
+> Constraint list: see [web-frontend-consolidation.md § Design Constraints](../ui/web-frontend-consolidation.md#design-constraints).
 
 ## Proposed End State
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                     Go Binary                            │
-│                                                          │
-│  ┌───────────────────────┐  ┌─────────────────────────┐  │
-│  │  Port 8080            │  │  Port 50051 (gRPC)      │  │
-│  │                       │  │  Frame streaming        │  │
-│  │  Embedded Svelte SPA  │  │                         │  │
-│  │  ├─ Radar section     │  └────────────┬────────────┘  │
-│  │  │  ├─ Dashboard      │               │               │
-│  │  │  ├─ Sites          │               │               │
-│  │  │  ├─ Reports        │               │               │
-│  │  │  └─ Settings       │               │               │
-│  │  │                    │               │               │
-│  │  └─ LiDAR section     │     macOS Metal Visualiser    │
-│  │     (conditional)     │     ├─ Live 3D point cloud    │
-│  │     ├─ Status         │     ├─ Track labelling        │
-│  │     ├─ Tracks         │     └─ Replay/debug overlays  │
-│  │     ├─ Scenes         │                               │
-│  │     ├─ Runs           │                               │
-│  │     ├─ Sweep          │                               │
-│  │     └─ Regions        │                               │
-│  └───────────────────────┘                               │
-│                                                          │
-│  Port 8081: retired (API endpoints moved to 8080)        │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Key Decisions in End State
-
-1. **One Svelte app** with conditional LiDAR sections (not two separate apps)
-2. **Go-embedded HTML dashboards retired** — sweep, regions, status migrated to Svelte
-3. **macOS visualiser retained** — unchanged role for 3D rendering and debugging
-4. **Port 8081 retired** — LiDAR API endpoints consolidated under 8080
-5. **LiDAR navigation hidden** when `--enable-lidar` is off
+> Architecture diagram and key decisions: see [web-frontend-consolidation.md § Proposed End State](../ui/web-frontend-consolidation.md#proposed-end-state).
 
 ## Options Evaluated
 

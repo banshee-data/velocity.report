@@ -81,20 +81,4 @@ separately. They must **not** be dropped.
 
 ## v0.5.x Follow-Through
 
-### Wire by v0.5.1
-
-- `track_length_meters`, `track_duration_secs`, `occlusion_count` — already
-  on proto/Mac; DB parity is missing.
-- `statistics_json` — wire `CompleteRun()`, `GetRun()`, `ListRuns()`.
-
-### Wire or Delete
-
-- `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` — ship
-  with HINT/run-quality work or drop.
-- `noise_points_count`, `cluster_density`, `aspect_ratio` — compute as
-  part of cluster diagnostics or remove.
-
-### Dormant ML/Vector Export Scaffolding
-
-Default v0.5.x position: **delete until funded** unless a concrete owner
-commits to shipping end-to-end training export.
+> **Wire-by and wire-or-delete checklists:** see the [active plan](../../plans/schema-simplification-migration-030-plan.md).

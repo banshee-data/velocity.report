@@ -16,18 +16,7 @@ paths, web app on `:8080`.
 **Non-core/candidates:** Legacy deployment wrappers, one-off migration binaries,
 local plotting helpers, CLI flags tied to transitional debug pathways.
 
-## Deprecation Targets (Prioritised)
-
-1. **`cmd/deploy` deprecation path** — remove after #210 image pipeline
-   milestones.
-2. **Deployment Make target cleanup** — `setup-radar`, `deploy-*`,
-   `build-deploy*`.
-3. **Data model and API compat-shim removal** — v0.5.0 breaking changes
-   (see [v050-release-migration.md](v050-release-migration.md)).
-4. **`cmd/transit-backfill` removal** — ✅ Complete. Replaced by
-   `velocity-report transits rebuild`.
-5. **LiDAR forwarding flag simplification.**
-6. **Stats/plot/API-shortcut target consolidation** after #252 parity.
+> **Deprecation targets and progress:** see the active plan above.
 
 ## Deploy Retirement Gate
 
@@ -47,13 +36,12 @@ Once met, `cmd/deploy/`, `internal/deploy/`, 8+ Makefile targets, and
 1. **Track speed contract:** `peak_speed_mps` → `max_speed_mps`; percentiles
    reserved for grouped/report aggregates only.
 2. **Deploy surface deprecated** — prints warnings; removal in v0.7.0+.
-3. **`cmd/transit-backfill` soft-deprecated.**
-4. **Sweep API:** Legacy request/result fields removed; `param_values` only.
-5. **Report download:** Query-parameter endpoint removed; path-based only.
-6. **Stats API:** Bare-array response removed; always `{ metrics, histogram }`.
-7. **Sweep handler:** Malformed JSON now returns 400.
+3. **Sweep API:** Legacy request/result fields removed; `param_values` only.
+4. **Report download:** Query-parameter endpoint removed; path-based only.
+5. **Stats API:** Bare-array response removed; always `{ metrics, histogram }`.
+6. **Sweep handler:** Malformed JSON now returns 400.
 
-## Consolidation: Option B (Recommended) ✅
+## Consolidation
 
 Consolidate on Svelte surface via
 [web-frontend-consolidation](../../ui/web-frontend-consolidation.md).
