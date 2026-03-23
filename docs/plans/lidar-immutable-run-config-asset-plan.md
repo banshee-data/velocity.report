@@ -423,26 +423,26 @@ Future entities must choose the correct level of reference:
 
 ### Outstanding implementation
 
-- [ ] Add migration `000035` (or next available slot) for
+- [x] Add migration `000035` (or next available slot) for
       `lidar_param_sets`, `lidar_run_configs`, nullable run/replay-case FKs, and
       supporting indexes.
-- [ ] Introduce `internal/lidar/storage/configasset/` for canonical JSON composition,
+- [x] Introduce `internal/lidar/storage/configasset/` for canonical JSON composition,
       validation, hashing, and deduplicated insert-or-reuse operations.
-- [ ] Define the exact effective runtime surface from current
+- [x] Define the exact effective runtime surface from current
       `config.TuningConfig` plus runtime-resolved values; do not hash partial
       request payloads.
-- [ ] Remove `RunParams.Timestamp` from deterministic identity and stop
+- [x] Remove `RunParams.Timestamp` from deterministic identity and stop
       treating persisted `params_json` as canonical run provenance.
-- [ ] Make run creation single-sourced by moving replay/reprocess launch
+- [x] Make run creation single-sourced by moving replay/reprocess launch
       metadata into one orchestration path and removing pre-inserted run rows.
-- [ ] Persist `run_config_id` for exact provenance and
+- [x] Persist `run_config_id` for exact provenance and
       `requested_param_set_id` only as optional launch-intent lineage.
-- [ ] Backfill historical run rows and replay-case recommendations into
+- [x] Backfill historical run rows and replay-case recommendations into
       `effective` / `requested` / `legacy` param sets plus exact run-config rows
-      where possible.
-- [ ] Expose config identity through Go APIs, TypeScript types, run-detail UI,
+      where possible via `cmd/tools/backfill_lidar_run_config`.
+- [x] Expose config identity through Go APIs, TypeScript types, run-detail UI,
       replay-case UI, and compare/diff surfaces.
-- [ ] Write `config_hash`, `params_hash`, and portable
+- [x] Write `config_hash`, `params_hash`, and portable
       `execution_config.json` into VRLOG metadata/export paths.
 - [ ] After adoption, drop legacy JSON columns and tighten `NOT NULL` / FK
       constraints in the cleanup migration.
