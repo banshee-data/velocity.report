@@ -2,12 +2,45 @@
 
 - **Status:** Draft
 - **Layers:** Database, L8 Analytics, L9 Endpoints, L10 Clients, Recording/Replay
-- **Precondition:** This plan assumes schema standardisation migrations `000030` and `000031` have already landed on `main`, including the post-31 table family names documented in commit `88ed856c5c0602af1f33d91542d3053d774a573a`.
-- **Migration slot:** This work should be introduced as migration `000032`.
-- **Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), `schema-simplification-migration-030-plan.md` on `main`, [VRLOG Wire Format Specification](../../data/structures/VRLOG_FORMAT.md), [VRLOG Analysis](../../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
+- **Precondition:** Schema work through `000034` is already landed on `main`: `000030` schema simplification, `000031` table naming, `000032` `lidar_all_tracks`, `000033` replay annotations + evaluation integrity, and `000034` schema hardening / FK-on cleanup.
+- **Migration slot:** The first schema step in this plan should use `000035` (or the next free slot if another migration lands first).
+- **Related:** [LiDAR Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [Track Labelling & Auto-Aware Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Config Restructure](../../config/CONFIG-RESTRUCTURE.md), [Pre-v0.5.0 LiDAR Schema Hardening Plan](lidar-schema-robustness-plan.md), [VRLOG Wire Format Specification](../../data/structures/VRLOG_FORMAT.md), [VRLOG Analysis](../../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
 - **Canonical:** [immutable-run-config.md](../lidar/operations/immutable-run-config.md)
 
-- **Problem, goal, and motivation:** see [immutable-run-config.md](../lidar/operations/immutable-run-config.md).
+## Goal
+
+Replace the current scattered `params_json` model with a deterministic asset
+model that cleanly separates reusable config from per-execution metadata and
+answers:
+
+1. What exact build version produced this run?
+2. What exact effective runtime configuration did it use?
+3. Can reusable requested params be shared across replay cases and future
+   artifacts without being confused for executed configs?
+4. Can the UI diff exact configs and group related runs deterministically?
+
+## Current Landed Reality
+
+As of March 23, 2026, the repo baseline for this work is:
+
+- migrations `000030` through `000034` are already on `main`, so this plan now
+  starts after the schema-hardening pass rather than before it
+- the nested LiDAR config restructure is already landed, so effective-config
+  capture should build on current `config.TuningConfig` / runtime getters
+  rather than the old flat config contract
+- endpoint/server code now lives under `internal/lidar/server/`, and recorder
+  export code lives under `internal/lidar/l9endpoints/recorder/`; older
+  `monitor/` and `visualiser/` path references are stale
+- replay-case terminology is landed in schema/API contracts, even though some
+  store/helper names still say `scene`
+- the persisted model is still legacy JSON:
+  `lidar_run_records.params_json`,
+  `lidar_replay_cases.optimal_params_json`, and
+  `lidar_replay_evaluations.params_json`
+- `AnalysisRunManager.StartRun` still serialises timestamp-bearing
+  `RunParams`, and `handleReprocessRun` still pre-inserts a run row before the
+  actual replay starts; both are incompatible with trustworthy immutable
+  run-config provenance
 
 ## Non-goals
 
@@ -374,13 +407,54 @@ Future entities must choose the correct level of reference:
 - use `param_set_id` for reusable tuning intent or recommendations
 - never copy canonical JSON blobs into consumer tables
 
+## Implementation Checklist
+
+### Landed baseline
+
+- [x] Nested LiDAR config restructure is landed and is now the source of
+      effective tuning values.
+- [x] Schema simplification / table naming / all-tracks view / replay-annotation
+      hardening migrations `000030`-`000034` are landed on `main`.
+- [x] Package layout has moved from `internal/lidar/monitor` /
+      `internal/lidar/visualiser` to `internal/lidar/server` /
+      `internal/lidar/l9endpoints`.
+- [x] Replay-case terminology is the external contract, even though some
+      storage helpers still use `scene` in names.
+
+### Outstanding implementation
+
+- [ ] Add migration `000035` (or next available slot) for
+      `lidar_param_sets`, `lidar_run_configs`, nullable run/replay-case FKs, and
+      supporting indexes.
+- [ ] Introduce `internal/lidar/configasset/` for canonical JSON composition,
+      validation, hashing, and deduplicated insert-or-reuse operations.
+- [ ] Define the exact effective runtime surface from current
+      `config.TuningConfig` plus runtime-resolved values; do not hash partial
+      request payloads.
+- [ ] Remove `RunParams.Timestamp` from deterministic identity and stop
+      treating persisted `params_json` as canonical run provenance.
+- [ ] Make run creation single-sourced by moving replay/reprocess launch
+      metadata into one orchestration path and removing pre-inserted run rows.
+- [ ] Persist `run_config_id` for exact provenance and
+      `requested_param_set_id` only as optional launch-intent lineage.
+- [ ] Backfill historical run rows and replay-case recommendations into
+      `effective` / `requested` / `legacy` param sets plus exact run-config rows
+      where possible.
+- [ ] Expose config identity through Go APIs, TypeScript types, run-detail UI,
+      replay-case UI, and compare/diff surfaces.
+- [ ] Write `config_hash`, `params_hash`, and portable
+      `execution_config.json` into VRLOG metadata/export paths.
+- [ ] After adoption, drop legacy JSON columns and tighten `NOT NULL` / FK
+      constraints in the cleanup migration.
+
 ## Phase Plan
 
 ## P0 / P1: Introduce and Adopt Deterministic Assets
 
 ### P0.1 Schema additions
 
-Add migration `000032` on `main` that:
+Add migration `000035` on `main` (or the next free slot if `000035` has been
+consumed) that:
 
 1. Creates `lidar_param_sets`
 2. Creates `lidar_run_configs`
@@ -500,7 +574,7 @@ Implementation guidance:
   creator
 - remove the pre-insert pattern from replay/reprocess endpoints
 - preserve endpoint-owned execution metadata such as `parent_run_id`,
-  source/replay window, and scene linkage in that orchestration path
+  source/replay window, and replay-case linkage in that orchestration path
 - return the final `run_id` from that orchestration path so endpoint API
   behaviour stays stable
 
@@ -761,16 +835,17 @@ Add cleanup-phase tests for:
 - `internal/lidar/storage/sqlite/analysis_run_manager.go`
 - `internal/lidar/storage/sqlite/scene_store.go`
 - `internal/lidar/storage/sqlite/evaluation_store.go`
-- `internal/lidar/monitor/scene_api.go`
-- `internal/lidar/monitor/run_track_api.go`
-- `internal/lidar/monitor/datasource_handlers.go`
-- `internal/lidar/monitor/webserver.go`
-- `internal/lidar/visualiser/recorder/recorder.go`
+- `internal/lidar/server/scene_api.go`
+- `internal/lidar/server/run_track_api.go`
+- `internal/lidar/server/datasource_handlers.go`
+- `internal/lidar/server/routes.go`
+- `internal/lidar/server/tuning_runtime.go`
+- `internal/lidar/l9endpoints/recorder/recorder.go`
 - `cmd/radar/radar.go`
 - `web/src/lib/types/lidar.ts`
 - `web/src/lib/api.ts`
 - `web/src/routes/lidar/runs/+page.svelte`
-- `web/src/routes/lidar/scenes/+page.svelte`
+- `web/src/routes/lidar/replay-cases/+page.svelte`
 
 ### Key guardrails
 

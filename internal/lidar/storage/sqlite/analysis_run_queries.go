@@ -9,23 +9,70 @@ import (
 	"time"
 )
 
-// GetRun retrieves an analysis run by ID.
-func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
-	query := `
-		SELECT run_id, created_at, source_type, source_path, sensor_id,
-			params_json, duration_secs, total_frames, total_clusters,
-			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
-		FROM lidar_run_records
-		WHERE run_id = ?
-	`
+type analysisRunRowScanner interface {
+	Scan(dest ...any) error
+}
 
-	var run AnalysisRun
-	var createdAt int64
-	var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
-	var paramsJSON string
+func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecordCapabilities, error) {
+	caps, err := s.runRecordCapabilities()
+	if err != nil {
+		return nil, analysisRunRecordCapabilities{}, err
+	}
 
-	err := s.db.QueryRow(query, runID).Scan(
+	columns := []string{
+		"run_id",
+		"created_at",
+		"source_type",
+		"source_path",
+		"sensor_id",
+		"params_json",
+		"duration_secs",
+		"total_frames",
+		"total_clusters",
+		"total_tracks",
+		"confirmed_tracks",
+		"processing_time_ms",
+		"status",
+		"error_message",
+		"parent_run_id",
+		"notes",
+		"vrlog_path",
+	}
+	if caps.RunConfigID {
+		columns = append(columns, "run_config_id")
+	}
+	if caps.RequestedParamSetID {
+		columns = append(columns, "requested_param_set_id")
+	}
+	if caps.ReplayCaseID {
+		columns = append(columns, "replay_case_id")
+	}
+	if caps.CompletedAt {
+		columns = append(columns, "completed_at")
+	}
+	if caps.FrameStartNs {
+		columns = append(columns, "frame_start_ns")
+	}
+	if caps.FrameEndNs {
+		columns = append(columns, "frame_end_ns")
+	}
+
+	return columns, caps, nil
+}
+
+func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
+	var (
+		run          AnalysisRun
+		createdAt    int64
+		sourcePath   sql.NullString
+		errorMessage sql.NullString
+		parentRunID  sql.NullString
+		notes        sql.NullString
+		vrlogPath    sql.NullString
+		paramsJSON   string
+	)
+
+	dests := []any{
 		&run.RunID,
 		&createdAt,
 		&run.SourceType,
@@ -43,9 +90,37 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		&parentRunID,
 		&notes,
 		&vrlogPath,
+	}
+
+	var (
+		runConfigID         sql.NullString
+		requestedParamSetID sql.NullString
+		replayCaseID        sql.NullString
+		completedAt         sql.NullInt64
+		frameStartNs        sql.NullInt64
+		frameEndNs          sql.NullInt64
 	)
-	if err != nil {
-		return nil, fmt.Errorf("get run: %w", err)
+	if caps.RunConfigID {
+		dests = append(dests, &runConfigID)
+	}
+	if caps.RequestedParamSetID {
+		dests = append(dests, &requestedParamSetID)
+	}
+	if caps.ReplayCaseID {
+		dests = append(dests, &replayCaseID)
+	}
+	if caps.CompletedAt {
+		dests = append(dests, &completedAt)
+	}
+	if caps.FrameStartNs {
+		dests = append(dests, &frameStartNs)
+	}
+	if caps.FrameEndNs {
+		dests = append(dests, &frameEndNs)
+	}
+
+	if err := scanner.Scan(dests...); err != nil {
+		return nil, err
 	}
 
 	run.CreatedAt = time.Unix(0, createdAt)
@@ -65,28 +140,71 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	if vrlogPath.Valid {
 		run.VRLogPath = vrlogPath.String
 	}
+	if runConfigID.Valid {
+		run.RunConfigID = runConfigID.String
+	}
+	if requestedParamSetID.Valid {
+		run.RequestedParamSetID = requestedParamSetID.String
+	}
+	if replayCaseID.Valid {
+		run.ReplayCaseID = replayCaseID.String
+	}
+	if completedAt.Valid {
+		value := time.Unix(0, completedAt.Int64)
+		run.CompletedAt = &value
+	}
+	if frameStartNs.Valid {
+		value := frameStartNs.Int64
+		run.FrameStartNs = &value
+	}
+	if frameEndNs.Valid {
+		value := frameEndNs.Int64
+		run.FrameEndNs = &value
+	}
 
 	run.PopulateReplayCaseName()
+	return &run, nil
+}
+
+// GetRun retrieves an analysis run by ID.
+func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
+	columns, caps, err := s.runRecordSelectColumns()
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM lidar_run_records
+		WHERE run_id = ?
+	`, strings.Join(columns, ", "))
+
+	run, err := scanAnalysisRunRecord(s.db.QueryRow(query, runID), caps)
+	if err != nil {
+		return nil, fmt.Errorf("get run: %w", err)
+	}
 	labelRollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
 		return nil, err
 	}
 	run.LabelRollup = labelRollup
 
-	return &run, nil
+	return run, nil
 }
 
 // ListRuns retrieves recent analysis runs.
 func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
-	query := `
-		SELECT run_id, created_at, source_type, source_path, sensor_id,
-			params_json, duration_secs, total_frames, total_clusters,
-			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
+	columns, caps, err := s.runRecordSelectColumns()
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM lidar_run_records
 		ORDER BY created_at DESC
 		LIMIT ?
-	`
+	`, strings.Join(columns, ", "))
 
 	rows, err := s.db.Query(query, limit)
 	if err != nil {
@@ -96,55 +214,11 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 
 	var runs []*AnalysisRun
 	for rows.Next() {
-		var run AnalysisRun
-		var createdAt int64
-		var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
-		var paramsJSON string
-
-		err := rows.Scan(
-			&run.RunID,
-			&createdAt,
-			&run.SourceType,
-			&sourcePath,
-			&run.SensorID,
-			&paramsJSON,
-			&run.DurationSecs,
-			&run.TotalFrames,
-			&run.TotalClusters,
-			&run.TotalTracks,
-			&run.ConfirmedTracks,
-			&run.ProcessingTimeMs,
-			&run.Status,
-			&errorMessage,
-			&parentRunID,
-			&notes,
-			&vrlogPath,
-		)
+		run, err := scanAnalysisRunRecord(rows, caps)
 		if err != nil {
 			return nil, fmt.Errorf("scan run: %w", err)
 		}
-
-		run.CreatedAt = time.Unix(0, createdAt)
-		run.ParamsJSON = json.RawMessage(paramsJSON)
-		if sourcePath.Valid {
-			run.SourcePath = sourcePath.String
-		}
-		if errorMessage.Valid {
-			run.ErrorMessage = errorMessage.String
-		}
-		if parentRunID.Valid {
-			run.ParentRunID = parentRunID.String
-		}
-		if notes.Valid {
-			run.Notes = notes.String
-		}
-		if vrlogPath.Valid {
-			run.VRLogPath = vrlogPath.String
-		}
-
-		run.PopulateReplayCaseName()
-
-		runs = append(runs, &run)
+		runs = append(runs, run)
 	}
 
 	if err := rows.Err(); err != nil {

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 )
@@ -18,11 +19,18 @@ const (
 
 // ReplayConfig contains configuration for PCAP replay.
 type ReplayConfig struct {
-	StartSeconds    float64 // Start offset in seconds
-	DurationSeconds float64 // Duration to replay (-1 for entire file)
-	SpeedMode       string  // "realtime", "analysis", or "scaled"
-	SpeedRatio      float64 // Speed multiplier (e.g., 2.0 = 2x speed)
-	AnalysisMode    bool    // When true, preserve grid after completion
+	StartSeconds        float64         // Start offset in seconds
+	DurationSeconds     float64         // Duration to replay (-1 for entire file)
+	SpeedMode           string          // "realtime", "analysis", or "scaled"
+	SpeedRatio          float64         // Speed multiplier (e.g., 2.0 = 2x speed)
+	AnalysisMode        bool            // When true, preserve grid after completion
+	DisableRecording    bool            // When true, skip VRLOG recording during PCAP replay
+	SensorID            string          // Optional sensor override for analysis-run provenance
+	PreferredRunID      string          // Optional caller-supplied run identifier
+	ParentRunID         string          // Optional lineage for reprocess runs
+	ReplayCaseID        string          // Optional source replay case for scene replays
+	RequestedParamSetID string          // Optional existing launch-intent lineage
+	RequestedParamsJSON json.RawMessage // Optional launch-intent parameters for provenance
 
 	// Debug parameters
 	DebugRingMin int
