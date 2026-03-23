@@ -120,6 +120,10 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
+	@echo "STICKER GENERATOR:"
+	@echo "  generate-stickers    Render built-in sticker designs as PNG (output: /tmp/stickers)"
+	@echo "  generate-stickers-svg Render built-in sticker designs as SVG (output: /tmp/stickers)"
+	@echo ""
 	@echo "DEPLOYMENT (deprecated — removal gated on #210 image pipeline + packaging + migration period; not before v0.7.0):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
 	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
@@ -1322,6 +1326,27 @@ clean-python:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
+
+STICKER_DIR = tools/sticker-generator
+STICKER_OUTDIR ?= /tmp/stickers
+
+.PHONY: generate-stickers generate-stickers-svg
+
+generate-stickers:
+	@echo "Rendering bumper sticker designs (PNG) → $(STICKER_OUTDIR)..."
+	@$(MAKE) ensure-python-tools
+	@mkdir -p $(STICKER_OUTDIR)
+	@$(VENV_PYTHON) $(STICKER_DIR)/sticker_generator.py \
+		--output png --outdir $(STICKER_OUTDIR)
+	@echo "✓ Stickers written to $(STICKER_OUTDIR)"
+
+generate-stickers-svg:
+	@echo "Rendering bumper sticker designs (SVG) → $(STICKER_OUTDIR)..."
+	@$(MAKE) ensure-python-tools
+	@mkdir -p $(STICKER_OUTDIR)
+	@$(VENV_PYTHON) $(STICKER_DIR)/sticker_generator.py \
+		--output svg --outdir $(STICKER_OUTDIR)
+	@echo "✓ Stickers written to $(STICKER_OUTDIR)"
 
 # =============================================================================
 # DEPLOYMENT

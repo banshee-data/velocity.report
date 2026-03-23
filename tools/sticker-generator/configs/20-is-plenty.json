@@ -1,0 +1,50 @@
+{
+  "name": "20-is-plenty",
+  "width_mm": 305.0,
+  "height_mm": 76.0,
+  "dpi": 150,
+  "background_colour": "#1a1a2e",
+  "border_colour": "#e8c84a",
+  "border_width_mm": 2.0,
+  "blocks": [
+    {
+      "text": "20",
+      "font_size_pt": 62,
+      "bold": true,
+      "italic": false,
+      "colour": "#e8c84a",
+      "x_frac": 0.38,
+      "y_frac": 0.38,
+      "anchor": "centre"
+    },
+    {
+      "text": "IS PLENTY",
+      "font_size_pt": 22,
+      "bold": true,
+      "italic": false,
+      "colour": "#ffffff",
+      "x_frac": 0.38,
+      "y_frac": 0.72,
+      "anchor": "centre"
+    },
+    {
+      "text": "slowdown.today",
+      "font_size_pt": 13,
+      "bold": false,
+      "italic": true,
+      "colour": "#aaaacc",
+      "x_frac": 0.74,
+      "y_frac": 0.55,
+      "anchor": "centre"
+    }
+  ],
+  "cool_s_decorations": [
+    {
+      "x_frac": 0.10,
+      "y_frac": 0.50,
+      "size_frac": 0.72,
+      "colour": "#e8c84a",
+      "stroke_width_frac": 0.048
+    }
+  ]
+}
