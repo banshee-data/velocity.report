@@ -1,8 +1,1 @@
-PR comment block:
-
-- migrate ordering fixed in runbook.
-- grep -P removed.
-- backup mkdir/cp sudo fallback added.
-- rollback cp has sudo.
-- RUN_AS used for make install-python.
-- recon status command uses correct argument order.
+Final: Comments posted to PR via issue comment.
