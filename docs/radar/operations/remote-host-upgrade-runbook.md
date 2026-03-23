@@ -128,26 +128,81 @@ Paste the output back to the agent. The agent should check for:
 ## Preflight
 
 After the agent has analysed the reconnaissance output and confirmed there are
-no guardrail violations, set these variables for the remaining steps:
+no guardrail violations, set these variables for the remaining steps.
+
+The `RUN_AS` helper avoids pointless `sudo -u` when the SSH user already is the
+service user (common on single-user Raspberry Pi installs where the service
+runs as `david` rather than the template's default `velocity`).
 
 ```bash
 export VR_BIN=/usr/local/bin/velocity-report
 export VR_SVC=/etc/systemd/system/velocity-report.service
 export VR_DB=/var/lib/velocity-report/sensor_data.db
+
+export SERVICE_USER=$(systemctl show velocity-report.service -p User --value 2>/dev/null)
+export SERVICE_USER=${SERVICE_USER:-velocity}
+
+if [ "$(id -un)" = "$SERVICE_USER" ]; then
+  RUN_AS()  { "$@"; }
+else
+  RUN_AS()  { sudo -u "$SERVICE_USER" "$@"; }
+fi
+
+echo "SERVICE_USER=$SERVICE_USER  SSH_USER=$(id -un)  sudo-u needed: $([ "$(id -un)" = "$SERVICE_USER" ] && echo no || echo yes)"
 ```
 
 If the service file shows a custom `--listen :PORT`, keep that port for the
 HTTP verification step later. If no `--listen` flag is present, assume `8080`.
 
-## Prepare the New Binary
+## Build and Transfer (on the dev machine)
 
-### Preferred: use a prebuilt artifact
+Run these on the **local Mac**, not the host. This builds the web frontend
+into the Go binary and cross-compiles for linux/arm64, then copies the
+artifact to the host.
+
+### Build
 
 ```bash
-export NEW_BIN=/tmp/velocity-report-linux-arm64
-test -x "$NEW_BIN"
+# From the repo root on the dev machine
+export TARGET_REF=<tag-or-sha>
+git checkout "$TARGET_REF"
+git status --short
+
+# Build the real web frontend (not the stub)
+make build-web
+
+# Verify a real dashboard was built
+if grep -q "Web Frontend Not Built" web/build/index.html 2>/dev/null; then
+  echo "ERROR: stub web build — do not deploy this"; exit 1
+fi
+
+# Cross-compile for Raspberry Pi
+make build-radar-linux
+
+# Sanity-check the artifact
+file velocity-report-linux-arm64
+ls -lh velocity-report-linux-arm64
+```
+
+The output binary is `velocity-report-linux-arm64` in the repo root.
+
+### Transfer to host
+
+```bash
+ssh radar.local 'mkdir -p /tmp/vr'
+scp velocity-report-linux-arm64 radar.local:/tmp/vr/
+```
+
+## Prepare the New Binary (on the host)
+
+Paste this on the host to verify the transferred artifact:
+
+```bash
+export NEW_BIN=/tmp/vr/velocity-report-linux-arm64
+chmod +x "$NEW_BIN"
 file "$NEW_BIN"
 "$NEW_BIN" --version
+echo "size: $(ls -lh "$NEW_BIN" | awk '{print $5}')"
 ```
 
 On an ARM64 host, `file "$NEW_BIN"` should report an `ELF 64-bit` `ARM aarch64`
@@ -155,9 +210,10 @@ binary.
 
 ### Fallback: build on the host
 
-Only use this path if the host already has a suitable checkout plus the build
-toolchain. A plain `make build-radar-linux` on a fresh clone can succeed with a
-stubbed dashboard, which is not a production build.
+Only use this path if no dev machine is available and the host already has a
+suitable checkout plus the build toolchain. A plain `make build-radar-linux` on
+a fresh clone can succeed with a stubbed dashboard, which is not a production
+build.
 
 ```bash
 export TARGET_REF=<tag-or-sha>
@@ -195,14 +251,14 @@ same `TARGET_REF` when the release includes PDF generator changes.
 If `/opt/velocity-report` is a clean git checkout:
 
 ```bash
-SERVICE_USER=$(sudo systemctl show velocity-report.service -p User --value)
-SERVICE_USER=${SERVICE_USER:-velocity}
 cd /opt/velocity-report
-sudo -u "$SERVICE_USER" git status --short
-sudo -u "$SERVICE_USER" git fetch --tags --prune
-sudo -u "$SERVICE_USER" git checkout "$TARGET_REF"
-sudo make install-python
-sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/velocity-report/.venv
+RUN_AS git status --short
+RUN_AS git fetch --tags --prune
+RUN_AS git checkout "$TARGET_REF"
+make install-python
+if [ "$(id -un)" != "$SERVICE_USER" ]; then
+  sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/velocity-report/.venv
+fi
 ```
 
 If that checkout is dirty, stop and ask instead of force-resetting it.
@@ -214,19 +270,17 @@ Create a rollback point before replacing anything:
 ```bash
 export TS=$(date +%Y%m%d-%H%M%S)
 export BACKUP_DIR=/var/lib/velocity-report/backups/$TS
-export SERVICE_USER=$(sudo systemctl show velocity-report.service -p User --value)
-export SERVICE_USER=${SERVICE_USER:-velocity}
 
-sudo mkdir -p "$BACKUP_DIR"
-sudo cp "$VR_SVC" "$BACKUP_DIR/velocity-report.service"
-sudo sh -c "$VR_BIN --version > '$BACKUP_DIR/version.txt' 2>&1 || true"
+mkdir -p "$BACKUP_DIR"
+cp "$VR_SVC" "$BACKUP_DIR/velocity-report.service" 2>/dev/null || sudo cp "$VR_SVC" "$BACKUP_DIR/velocity-report.service"
+"$VR_BIN" --version > "$BACKUP_DIR/version.txt" 2>&1 || true
 
 sudo systemctl stop velocity-report.service
-sudo systemctl is-active velocity-report.service || true
+systemctl is-active velocity-report.service || true
 
-sudo cp "$VR_BIN" "$BACKUP_DIR/velocity-report"
+cp "$VR_BIN" "$BACKUP_DIR/velocity-report" 2>/dev/null || sudo cp "$VR_BIN" "$BACKUP_DIR/velocity-report"
 if [ -f "$VR_DB" ]; then
-  sudo cp "$VR_DB" "$BACKUP_DIR/sensor_data.db"
+  cp "$VR_DB" "$BACKUP_DIR/sensor_data.db"
 fi
 ```
 
@@ -245,7 +299,7 @@ Check migration state before applying anything:
 
 ```bash
 if [ -f "$VR_DB" ]; then
-  sudo -u "$SERVICE_USER" "$VR_BIN" migrate status --db-path "$VR_DB"
+  RUN_AS "$VR_BIN" migrate status --db-path "$VR_DB"
 fi
 ```
 
@@ -255,13 +309,14 @@ Apply migrations only when the database exists:
 
 ```bash
 if [ -f "$VR_DB" ]; then
-  sudo -u "$SERVICE_USER" "$VR_BIN" migrate up --db-path "$VR_DB"
-  sudo -u "$SERVICE_USER" "$VR_BIN" migrate status --db-path "$VR_DB"
+  RUN_AS "$VR_BIN" migrate up --db-path "$VR_DB"
+  RUN_AS "$VR_BIN" migrate status --db-path "$VR_DB"
 fi
 ```
 
-Use `sudo -u "$SERVICE_USER"` rather than `su - velocity` because the service
-user is normally created with a non-login shell.
+`RUN_AS` is a no-op when the SSH user matches the service user, and
+`sudo -u "$SERVICE_USER"` otherwise. Prefer it over `su - velocity` because
+the service user is normally created with a non-login shell.
 
 ## Restart and Verify
 
@@ -269,9 +324,9 @@ Bring the service back and verify both systemd and HTTP health:
 
 ```bash
 sudo systemctl start velocity-report.service
-sudo systemctl is-active velocity-report.service
-sudo systemctl --no-pager --full status velocity-report.service
-sudo journalctl -u velocity-report.service -n 50 --no-pager
+systemctl is-active velocity-report.service
+systemctl --no-pager --full status velocity-report.service
+journalctl -u velocity-report.service -n 50 --no-pager
 ```
 
 If the service listens on `8080`, verify the API:
@@ -299,13 +354,15 @@ sudo systemctl stop velocity-report.service
 sudo install -o root -g root -m 0755 "$BACKUP_DIR/velocity-report" "$VR_BIN"
 sudo cp "$BACKUP_DIR/velocity-report.service" "$VR_SVC"
 if [ -f "$BACKUP_DIR/sensor_data.db" ]; then
-  sudo cp "$BACKUP_DIR/sensor_data.db" "$VR_DB"
-  sudo chown "$SERVICE_USER:$SERVICE_USER" "$VR_DB"
+  cp "$BACKUP_DIR/sensor_data.db" "$VR_DB"
+  if [ "$(id -un)" != "$SERVICE_USER" ]; then
+    sudo chown "$SERVICE_USER:$SERVICE_USER" "$VR_DB"
+  fi
 fi
 sudo systemctl daemon-reload
 sudo systemctl start velocity-report.service
-sudo systemctl is-active velocity-report.service
-sudo journalctl -u velocity-report.service -n 50 --no-pager
+systemctl is-active velocity-report.service
+journalctl -u velocity-report.service -n 50 --no-pager
 ```
 
 If `/opt/velocity-report` was also upgraded, roll that checkout back to the
