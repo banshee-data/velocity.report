@@ -34,6 +34,7 @@ LIDAR_SUBGROUP_MIN_COLUMNS = 2
 LIDAR_SUBGROUP_MAX_COLUMNS = 4
 LIDAR_SUBGROUP_TARGET_WEIGHT = 36
 
+
 def cluster_for(table_name: str) -> str:
     if table_name == "site" or table_name.startswith("site_"):
         return "site"
@@ -237,6 +238,7 @@ def balanced_partition(items, weights, column_count):
 
     partitions.reverse()
     return partitions
+
 
 def emit_table_nodes(output_lines, indent, names, table_lookup):
     for name in names:
