@@ -460,13 +460,10 @@ check that nothing interferes with the API layer reporting data:
 
 ```bash
 # Can the API serve data?
-curl -s http://127.0.0.1:8080/api/events | python3 -m json.tool | head -20
+curl -s "http://127.0.0.1:8080/api/events?start=0" | python3 -m json.tool | head -20
 
-# API data range
-curl -s http://127.0.0.1:8080/api/radar-data-range | python3 -m json.tool
-
-# Capabilities endpoint
-curl -s http://127.0.0.1:8080/api/capabilities | python3 -m json.tool
+# Current config state (includes device settings echoed from sensor)
+curl -s http://127.0.0.1:8080/api/config | python3 -m json.tool
 ```
 
 ---
