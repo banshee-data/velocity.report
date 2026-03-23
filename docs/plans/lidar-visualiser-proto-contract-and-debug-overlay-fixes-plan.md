@@ -3,8 +3,8 @@
 - **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.2
 - **Layers:** L9 Endpoints
 - **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
-- **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/visualiser/grpc_server.go`](../../internal/lidar/visualiser/grpc_server.go), [`internal/lidar/visualiser/adapter.go`](../../internal/lidar/visualiser/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 - **Canonical:** [proto-contract.md](../lidar/operations/visualiser/proto-contract.md)
+- **Related:** [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto), [`internal/lidar/l9endpoints/grpc_server.go`](../../internal/lidar/l9endpoints/grpc_server.go), [`internal/lidar/l9endpoints/adapter.go`](../../internal/lidar/l9endpoints/adapter.go), [`tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift), [`tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
 - **Update:** The track-level contract work for v0.5.0 is
   complete. Track field serialisation, `ObjectClass` enum, and the

@@ -34,30 +34,6 @@ LIDAR_SUBGROUP_MIN_COLUMNS = 2
 LIDAR_SUBGROUP_MAX_COLUMNS = 4
 LIDAR_SUBGROUP_TARGET_WEIGHT = 36
 
-# Optional manual column overrides for lidar subgroup layout. Columns are listed
-# left-to-right, and table order within each column is top-to-bottom. Keep these
-# lists in sync with the schema if you want the generated ERD to preserve a
-# hand-tuned arrangement.
-LIDAR_SUBGROUP_COLUMN_OVERRIDES = {
-    "analysis_runs": [
-        ["lidar_run_tracks"],
-        ["lidar_replay_evaluations"],
-        ["lidar_run_missed_regions", "lidar_replay_cases"],
-        ["lidar_run_records"],
-    ],
-    "tracks": [
-        ["lidar_track_observations"],
-        ["lidar_track_annotations"],
-        ["lidar_tracks"],
-    ],
-    "other": [
-        ["lidar_bg_regions"],
-        ["lidar_bg_snapshot"],
-        ["lidar_clusters"],
-        ["lidar_tuning_sweeps"],
-    ],
-}
-
 
 def cluster_for(table_name: str) -> str:
     if table_name == "site" or table_name.startswith("site_"):
@@ -83,7 +59,13 @@ def topo_order(component_names, parents, children):
 
 def topo_levels(component_names, parents, children):
     in_degree = {
-        name: len([parent for parent in parents[name] if parent in component_names])
+        name: len(
+            [
+                parent
+                for parent in parents[name]
+                if parent in component_names and parent != name
+            ]
+        )
         for name in component_names
     }
     levels = {name: 0 for name in component_names}
@@ -92,7 +74,9 @@ def topo_levels(component_names, parents, children):
     while queue:
         name = queue.popleft()
         for child in sorted(
-            child for child in children[name] if child in component_names
+            child
+            for child in children[name]
+            if child in component_names and child != name
         ):
             levels[child] = max(levels[child], levels[name] + 1)
             in_degree[child] -= 1
@@ -256,25 +240,6 @@ def balanced_partition(items, weights, column_count):
     return partitions
 
 
-def manual_lidar_subgroup_columns(subgroup_name, names):
-    override_columns = LIDAR_SUBGROUP_COLUMN_OVERRIDES.get(subgroup_name)
-    if not override_columns:
-        return None
-
-    available_names = set(names)
-    specified_names = {
-        name for column_names in override_columns for name in column_names
-    }
-    if available_names != specified_names:
-        sys.stderr.write(
-            f"Warning: ignoring lidar subgroup override '{subgroup_name}' due to "
-            "schema mismatch.\n"
-        )
-        return None
-
-    return [list(column_names) for column_names in override_columns]
-
-
 def emit_table_nodes(output_lines, indent, names, table_lookup):
     for name in names:
         for line in table_lookup[name].splitlines():
@@ -291,21 +256,19 @@ def emit_lidar_subgroup(
     output_lines.append(f"  subgraph cluster_lidar_{subgroup_name} {{")
     output_lines.append('    graph [style="invis"];')
 
-    columns = manual_lidar_subgroup_columns(subgroup_name, names)
-    if columns is None:
-        column_count = lidar_subgroup_column_count(names, table_lookup)
-        if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
-            columns = list(
-                reversed(
-                    split_level_groups_into_columns(
-                        topo_levels(names, parents, children),
-                        table_lookup,
-                        column_count,
-                    )
+    column_count = lidar_subgroup_column_count(names, table_lookup)
+    if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
+        columns = list(
+            reversed(
+                split_level_groups_into_columns(
+                    topo_levels(names, parents, children),
+                    table_lookup,
+                    column_count,
                 )
             )
-        else:
-            columns = split_names_into_columns(names, table_lookup, column_count)
+        )
+    else:
+        columns = split_names_into_columns(names, table_lookup, column_count)
     column_heads = []
 
     for index, column_names in enumerate(columns, start=1):

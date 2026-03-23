@@ -7,10 +7,7 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 DEFAULT_DOT_FILE="$REPO_ROOT/data/structures/SCHEMA.dot"
 DEFAULT_SVG_FILE="$REPO_ROOT/data/structures/SCHEMA.svg"
 
-MODE="${SCHEMA_RENDER_MODE:-current}"
 ACTION="generate"
-PACK_COLUMNS="${SCHEMA_PACK_COLUMNS:-2}"
-LAYOUT_ENGINE="${SCHEMA_LAYOUT_ENGINE:-osage}"
 DOT_FILE="$DEFAULT_DOT_FILE"
 SVG_FILE="$DEFAULT_SVG_FILE"
 INPUT_FILE=""
@@ -44,17 +41,13 @@ trap cleanup_temp_files EXIT
 usage() {
   cat <<EOF
 Usage:
-  $0 [--generate] [--mode current|minimal] [--pack-columns N] [--dot-output path] [--svg-output path] <schema.sql>
-  $0 --compile [--mode current|minimal] [--pack-columns N] [--svg-output path] [<schema.dot>]
-
-Modes:
-  current  grouped DOT rendered with the current Graphviz layout settings
-  minimal  grouped DOT rendered with plain 'dot -Tsvg' and minimal extra layout choices
+  $0 [--generate] [--svg-output path] <schema.sql>
+  $0 --generate-dot [--dot-output path] <schema.sql>
+  $0 --compile [--svg-output path] [<schema.dot>]
 
 Examples:
   $0 --generate internal/db/schema.sql
-  $0 --generate --mode minimal internal/db/schema.sql
-  $0 --compile --mode minimal
+  $0 --generate-dot --dot-output /tmp/schema.dot internal/db/schema.sql
   $0 --compile data/structures/SCHEMA.dot
 EOF
 }
@@ -76,41 +69,17 @@ require_command() {
   fi
 }
 
-ensure_positive_integer() {
-  local value="$1"
-  local label="$2"
-  if ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
-    echo "Error: $label must be a positive integer" >&2
-    exit 1
-  fi
-}
-
 render_dot() {
   local dot_input="$1"
   local svg_output="$2"
   local tmp_output
 
   tmp_output=$(make_temp_file schema_svg .svg)
-  case "$MODE" in
-    current)
-      require_command "$LAYOUT_ENGINE"
-      if ! "$LAYOUT_ENGINE" -Gpack=true "-Gpackmode=array_i${PACK_COLUMNS}" -Gsplines=curved -Tsvg "$dot_input" >"$tmp_output"; then
-        echo "Error: failed to render schema SVG with Graphviz '$LAYOUT_ENGINE'" >&2
-        exit 1
-      fi
-      ;;
-    minimal)
-      require_command dot
-      if ! dot -Tsvg "$dot_input" >"$tmp_output"; then
-        echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
-        exit 1
-      fi
-      ;;
-    *)
-      echo "Error: unsupported mode '$MODE' (expected 'current' or 'minimal')" >&2
-      exit 1
-      ;;
-  esac
+  require_command dot
+  if ! dot -Tsvg "$dot_input" >"$tmp_output"; then
+    echo "Error: failed to render schema SVG with Graphviz 'dot'" >&2
+    exit 1
+  fi
 
   mv "$tmp_output" "$svg_output"
 }
@@ -140,6 +109,16 @@ generate_dot() {
   mv "$tmp_dot_output" "$dot_output"
 }
 
+generate_svg() {
+  local schema_file="$1"
+  local svg_output="$2"
+  local temp_dot
+
+  temp_dot=$(make_temp_file schema_dot .dot)
+  generate_dot "$schema_file" "$temp_dot"
+  render_dot "$temp_dot" "$svg_output"
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --generate)
@@ -150,24 +129,8 @@ while [ $# -gt 0 ]; do
       ACTION="compile"
       shift
       ;;
-    --mode)
-      shift
-      if [ $# -eq 0 ]; then
-        echo "Error: --mode requires a value" >&2
-        usage
-        exit 1
-      fi
-      MODE="$1"
-      shift
-      ;;
-    --pack-columns)
-      shift
-      if [ $# -eq 0 ]; then
-        echo "Error: --pack-columns requires a value" >&2
-        usage
-        exit 1
-      fi
-      PACK_COLUMNS="$1"
+    --generate-dot)
+      ACTION="generate-dot"
       shift
       ;;
     --dot-output)
@@ -211,8 +174,6 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-ensure_positive_integer "$PACK_COLUMNS" "pack-columns"
-
 mkdir -p "$(dirname "$DOT_FILE")" "$(dirname "$SVG_FILE")"
 
 case "$ACTION" in
@@ -222,10 +183,17 @@ case "$ACTION" in
       usage
       exit 1
     fi
+    generate_svg "$INPUT_FILE" "$SVG_FILE"
+    echo "Schema SVG generated: $SVG_FILE"
+    ;;
+  generate-dot)
+    if [ -z "$INPUT_FILE" ]; then
+      echo "Error: generate-dot mode requires a schema.sql path" >&2
+      usage
+      exit 1
+    fi
     generate_dot "$INPUT_FILE" "$DOT_FILE"
-    render_dot "$DOT_FILE" "$SVG_FILE"
     echo "Schema DOT generated: $DOT_FILE"
-    echo "Schema SVG generated: $SVG_FILE (mode: $MODE)"
     ;;
   compile)
     if [ -n "$INPUT_FILE" ]; then
@@ -233,7 +201,7 @@ case "$ACTION" in
     fi
     require_file "$DOT_FILE" "DOT file"
     render_dot "$DOT_FILE" "$SVG_FILE"
-    echo "Schema SVG generated: $SVG_FILE (from: $DOT_FILE, mode: $MODE)"
+    echo "Schema SVG generated: $SVG_FILE (from: $DOT_FILE)"
     ;;
   *)
     echo "Error: unsupported action '$ACTION'" >&2

@@ -107,11 +107,12 @@ def topological_sort(
     adj_list = {table: [] for table in table_statements}
 
     for table, deps in dependencies.items():
-        for dep in deps:
-            # Only count dependencies that exist in our schema
-            if dep in table_statements:
-                in_degree[table] += 1
-                adj_list[dep].append(table)
+        # Self-referential foreign keys do not constrain table creation order:
+        # SQLite allows a table to reference itself within the same CREATE TABLE.
+        unique_deps = {dep for dep in deps if dep in table_statements and dep != table}
+        for dep in unique_deps:
+            in_degree[table] += 1
+            adj_list[dep].append(table)
 
     # Start with tables that have no dependencies
     queue = [table for table, degree in in_degree.items() if degree == 0]

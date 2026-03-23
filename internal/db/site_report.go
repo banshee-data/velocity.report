@@ -24,6 +24,26 @@ type SiteReport struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+func nullableSiteID(siteID int) interface{} {
+	if siteID <= 0 {
+		return nil
+	}
+	return siteID
+}
+
+func scanSiteID(_ *int) interface{} {
+	return &sql.NullInt64{}
+}
+
+func assignScannedSiteID(dst *int, src interface{}) {
+	value, ok := src.(*sql.NullInt64)
+	if !ok || value == nil || !value.Valid {
+		*dst = 0
+		return
+	}
+	*dst = int(value.Int64)
+}
+
 // CreateSiteReport creates a new report record in the database
 func (db *DB) CreateSiteReport(ctx context.Context, report *SiteReport) error {
 	query := `
@@ -36,7 +56,7 @@ func (db *DB) CreateSiteReport(ctx context.Context, report *SiteReport) error {
 	result, err := db.DB.ExecContext(
 		ctx,
 		query,
-		report.SiteID,
+		nullableSiteID(report.SiteID),
 		report.StartDate,
 		report.EndDate,
 		report.Filepath,
@@ -71,9 +91,10 @@ func (db *DB) GetSiteReport(ctx context.Context, id int) (*SiteReport, error) {
 	`
 
 	var report SiteReport
+	siteID := scanSiteID(&report.SiteID)
 	err := db.DB.QueryRowContext(ctx, query, id).Scan(
 		&report.ID,
-		&report.SiteID,
+		siteID,
 		&report.StartDate,
 		&report.EndDate,
 		&report.Filepath,
@@ -92,6 +113,7 @@ func (db *DB) GetSiteReport(ctx context.Context, id int) (*SiteReport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get site report: %w", err)
 	}
+	assignScannedSiteID(&report.SiteID, siteID)
 
 	return &report, nil
 }
@@ -116,9 +138,10 @@ func (db *DB) GetRecentReportsForSite(ctx context.Context, siteID int, limit int
 	var reports []SiteReport
 	for rows.Next() {
 		var report SiteReport
+		siteID := scanSiteID(&report.SiteID)
 		err := rows.Scan(
 			&report.ID,
-			&report.SiteID,
+			siteID,
 			&report.StartDate,
 			&report.EndDate,
 			&report.Filepath,
@@ -134,6 +157,7 @@ func (db *DB) GetRecentReportsForSite(ctx context.Context, siteID int, limit int
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan site report: %w", err)
 		}
+		assignScannedSiteID(&report.SiteID, siteID)
 		reports = append(reports, report)
 	}
 	if err := rows.Err(); err != nil {
@@ -162,9 +186,10 @@ func (db *DB) GetRecentReportsAllSites(ctx context.Context, limit int) ([]SiteRe
 	var reports []SiteReport
 	for rows.Next() {
 		var report SiteReport
+		siteID := scanSiteID(&report.SiteID)
 		err := rows.Scan(
 			&report.ID,
-			&report.SiteID,
+			siteID,
 			&report.StartDate,
 			&report.EndDate,
 			&report.Filepath,
@@ -180,6 +205,7 @@ func (db *DB) GetRecentReportsAllSites(ctx context.Context, limit int) ([]SiteRe
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan site report: %w", err)
 		}
+		assignScannedSiteID(&report.SiteID, siteID)
 		reports = append(reports, report)
 	}
 	if err := rows.Err(); err != nil {

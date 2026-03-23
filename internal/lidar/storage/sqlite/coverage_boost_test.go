@@ -1130,6 +1130,19 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
+	parent := &AnalysisRun{
+		RunID:      "run-parent-1",
+		CreatedAt:  time.Now().Add(-time.Minute),
+		SourceType: "pcap",
+		SourcePath: "/data/parent.pcap",
+		SensorID:   "sensor-1",
+		ParamsJSON: json.RawMessage(`{}`),
+		Status:     "completed",
+	}
+	if err := store.InsertRun(parent); err != nil {
+		t.Fatalf("InsertRun parent: %v", err)
+	}
+
 	run := &AnalysisRun{
 		RunID:        "run-listopt-1",
 		CreatedAt:    time.Now(),
@@ -1147,7 +1160,7 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 		t.Fatalf("InsertRun: %v", err)
 	}
 
-	runs, err := store.ListRuns(10)
+	runs, err := store.ListRuns(1)
 	if err != nil {
 		t.Fatalf("ListRuns: %v", err)
 	}

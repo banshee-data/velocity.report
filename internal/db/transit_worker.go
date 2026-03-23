@@ -131,10 +131,10 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			deleted, w.ModelVersion, start, end)
 	}
 
-	// Query individual radar_data rows in the window (no per-second rollup)
+	// Query individual radar_data rows in the window using the explicit primary key.
 	q := `
 		SELECT
-			rowid,
+			data_id,
 			write_timestamp AS ts,
 			ABS(speed) AS abs_speed,
 			magnitude
@@ -153,16 +153,16 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 	defer rows.Close()
 	type rawPoint struct {
-		Rowid int64
-		Ts    float64
-		Speed float64
-		Mag   sql.NullFloat64
+		DataID int64
+		Ts     float64
+		Speed  float64
+		Mag    sql.NullFloat64
 	}
 
 	var points []rawPoint
 	for rows.Next() {
 		var p rawPoint
-		if err := rows.Scan(&p.Rowid, &p.Ts, &p.Speed, &p.Mag); err != nil {
+		if err := rows.Scan(&p.DataID, &p.Ts, &p.Speed, &p.Mag); err != nil {
 			return err
 		}
 		points = append(points, p)
@@ -215,7 +215,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 				MinSp:  p.Speed,
 				MaxMag: 0,
 				MinMag: 0,
-				Count:  p.Rowid * 0, // placeholder; we'll count records differently below
+				Count:  0, // placeholder; we'll count records differently below
 				Points: []rawPoint{p},
 			}
 			if p.Mag.Valid {
@@ -299,7 +299,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 		return err
 	}
 
-	// Prepare upsert for links with score (data_rowid)
+	// Prepare upsert for links with score (radar_data primary key).
 	linkUpsert, err := tx.PrepareContext(ctx, `
 		INSERT INTO radar_transit_links (
 			transit_id,
@@ -368,7 +368,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			if score < minScore {
 				continue
 			}
-			if _, err := linkUpsert.ExecContext(ctx, transitID, p.Rowid, score); err != nil {
+			if _, err := linkUpsert.ExecContext(ctx, transitID, p.DataID, score); err != nil {
 				return err
 			}
 		}

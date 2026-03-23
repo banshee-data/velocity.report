@@ -18,8 +18,8 @@ It combines the original review and checklist into one maintained source.
   - [clustering.go](../../../internal/lidar/l4perception/cluster.go)
   - [track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)
   - [frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)
-  - [adapter.go](../../../internal/lidar/visualiser/adapter.go)
-  - [track_api.go](../../../internal/lidar/monitor/track_api.go)
+  - [adapter.go](../../../internal/lidar/l9endpoints/adapter.go)
+  - [track_api.go](../../../internal/lidar/server/track_api.go)
   - [MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)
   - [api.ts](../../../web/src/lib/api.ts)
 

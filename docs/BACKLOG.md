@@ -11,12 +11,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.0 - Platform Hardening (050)
 
 - LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
-- LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
 - `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
 
+- [#420] Schema integrity audit/report tooling — add a lightweight CLI or SQL report for orphan/constraint audits after the `000033`/`000034` hardening pass; the schema changes themselves are already landed on the release branch candidate — [design doc](plans/lidar-schema-robustness-plan.md) `S`
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
@@ -146,7 +146,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ## Complete
 
 - Canonical plan graduation — Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed — [design doc](plans/platform-canonical-project-files-plan.md)
-
+- [#420] Pre-v0.5.0 LiDAR schema hardening — migrations `000033`/`000034` landed; replay-owned annotations, preservation of legacy annotation rows via `legacy_track_id`, global SQLite FK enablement, `parent_run_id` and replay-evaluation FK hardening, nullable `site_reports.site_id`, `radar_data.data_id`/`radar_transit_links` integrity repair, and regression coverage are implemented — [design doc](plans/lidar-schema-robustness-plan.md)
+- [#419] LiDAR tracks table consolidation — shared `TrackMeasurement` model/SQL helpers and the `lidar_all_tracks` VIEW landed; separate live and run tables remain intentionally distinct — [design doc](plans/lidar-tracks-table-consolidation-plan.md)
 - SQLite client standardisation — unified DB client interfaces across `internal/db`, `internal/api`, and `internal/lidar/storage`, moved label SQL out of the API layer, and replaced duplicated SQLite test bootstraps with the shared helper — [design doc](plans/data-sqlite-client-standardisation-plan.md) [follow-up](plans/data-database-alignment-plan.md)
 - v0.5.0 tech debt removal — all Category A shim removals complete (A1–A6); `--lidar-sensor` flag removed, network port flags reclassified as active; transit tools removed; sweep dashboard aliases removed — [design doc](plans/v050-tech-debt-removal-plan.md)
 - Config restructure Phase 2 CLI flag deprecation — `--lidar-sensor` removed; network port flags (`--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) reclassified as active runtime flags — [design doc](../config/CONFIG-RESTRUCTURE.md)

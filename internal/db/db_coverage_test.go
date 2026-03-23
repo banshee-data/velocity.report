@@ -439,8 +439,22 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		}
 		defer db.Close()
 
+		bgID, err := db.InsertBgSnapshot(&l3grid.BgSnapshot{
+			SensorID:          "test-sensor",
+			TakenUnixNanos:    time.Now().UnixNano(),
+			Rings:             40,
+			AzimuthBins:       1800,
+			ParamsJSON:        `{}`,
+			GridBlob:          []byte("bg-blob"),
+			ChangedCellsCount: 1,
+			SnapshotReason:    "test",
+		})
+		if err != nil {
+			t.Fatalf("InsertBgSnapshot failed: %v", err)
+		}
+
 		snap := &l3grid.RegionSnapshot{
-			SnapshotID:       1,
+			SnapshotID:       bgID,
 			SensorID:         "test-sensor",
 			CreatedUnixNanos: time.Now().UnixNano(),
 			RegionCount:      2,

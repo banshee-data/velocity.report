@@ -227,10 +227,20 @@ func TestGetRecentReportsForSite_Limit(t *testing.T) {
 	db := setupSiteReportTestDB(t)
 	defer db.Close()
 
+	site := &Site{
+		Name:     "Limit Test Site",
+		Location: "Test Location",
+		Surveyor: "Tester",
+		Contact:  "test@example.com",
+	}
+	if err := db.CreateSite(context.Background(), site); err != nil {
+		t.Fatalf("CreateSite failed: %v", err)
+	}
+
 	// Create 5 reports
 	for i := 0; i < 5; i++ {
 		report := &SiteReport{
-			SiteID:    0,
+			SiteID:    site.ID,
 			StartDate: "2024-01-01",
 			EndDate:   "2024-01-07",
 			Filepath:  "output/report.pdf",
@@ -246,7 +256,7 @@ func TestGetRecentReportsForSite_Limit(t *testing.T) {
 	}
 
 	// Get only 2 reports
-	reports, err := db.GetRecentReportsForSite(context.Background(), 0, 2)
+	reports, err := db.GetRecentReportsForSite(context.Background(), site.ID, 2)
 	if err != nil {
 		t.Fatalf("GetRecentReportsForSite failed: %v", err)
 	}
@@ -261,10 +271,24 @@ func TestGetRecentReportsAllSites(t *testing.T) {
 	db := setupSiteReportTestDB(t)
 	defer db.Close()
 
-	// Create reports for different sites
+	siteIDs := make([]int, 0, 3)
 	for i := 0; i < 3; i++ {
+		site := &Site{
+			Name:     "Report Site " + string(rune('A'+i)),
+			Location: "Test Location",
+			Surveyor: "Tester",
+			Contact:  "test@example.com",
+		}
+		if err := db.CreateSite(context.Background(), site); err != nil {
+			t.Fatalf("CreateSite failed: %v", err)
+		}
+		siteIDs = append(siteIDs, site.ID)
+	}
+
+	// Create reports for different sites
+	for i := 0; i < len(siteIDs); i++ {
 		report := &SiteReport{
-			SiteID:    i,
+			SiteID:    siteIDs[i],
 			StartDate: "2024-01-01",
 			EndDate:   "2024-01-07",
 			Filepath:  "output/report.pdf",
