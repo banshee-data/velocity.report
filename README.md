@@ -409,10 +409,11 @@ sudo journalctl -u velocity-report.service -f
 
 - **[public_html/src/guides/setup.md](public_html/src/guides/setup.md)** - Complete setup and deployment guide
 - **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
+- **[docs/radar/operations/remote-host-upgrade-runbook.md](docs/radar/operations/remote-host-upgrade-runbook.md)** - Manual SSH upgrade runbook for existing hosts and VS Code Ask mode agents
 
 **Legacy deployment:**
 
-The previous `scripts/setup-radar-host.sh` script is still available but the new `velocity-deploy` tool is recommended for all deployments.
+Legacy deployment automation is deprecated. For a script-free upgrade of an existing host over SSH, use the manual runbook above.
 
 ### Python PDF Generator
 
