@@ -10,10 +10,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.0 - Platform Hardening (050)
 
-- LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
-- [#421] LiDAR tracks table consolidation — extract shared `TrackMeasurement` struct from `TrackedObject`/`RunTrack`, shared SQL column list and scan helpers, optional `lidar_all_tracks` VIEW; requires migration 030 first — [design doc](plans/lidar-tracks-table-consolidation-plan.md) `S`
+- [#429] LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - [#421] `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
-- v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
+- [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
 
@@ -21,13 +20,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
-- [#392] Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
+- Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.2). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 
 ### v0.5.2 - Replay/Runtime Stabilisation (052)
 
-- [#389] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; extends (#381) visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-- [#393] SSE buffered channels and macOS playback — Server-Sent Events backpressure handling and macOS visualiser real-time playback fixes — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
+- SSE backpressure handling — Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 - [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 - (#381) SeekToTimestamp diagnostic logging behind debug flag — guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 - (#381) VRLOG timestamp index build at load time — build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built — [design doc](../data/structures/VRLOG_FORMAT.md) `S`
@@ -60,8 +58,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Typed UUID prefixes — migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite — [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Cosine error correction remaining items — delete endpoint, report angle annotation, speed limit field migration — [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - L8/L9/L10 layer refactor Phases 4–5 — rename `visualiser/` → `l9endpoints/`, absorb chart/dashboard code from `monitor/`, decompose `monitor/` into `server/` + layered packages — [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `L`
-- [#382] Distributed sweep workers plan — architecture for parallel sweep execution across multiple cores or nodes `S`
-- [#387] LiDAR immutable run config (migration 032) — snapshot active configuration at run start for reproducible analysis `M`
+- Distributed sweep workers — architecture for parallel sweep execution across multiple cores or nodes; plan landed in #382 `S`
 - LiDAR pipeline performance measurement harness — add per-layer timing instrumentation, CI integration, and regression detection for pipeline performance. [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 
 ## 07x Rebel Realm ⛰️
@@ -191,7 +188,10 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#381] Run-list track-labelling percent icon — backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes; web runs-list parity deferred — [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
 - [#381] v0.5.0 classification label trimming — truck and motorcyclist disabled from classifier cascade, all UIs, and label validation API; proto enum values retained for v0.6+ reactivation — [design doc](plans/label-vocabulary-consolidation-plan.md)
 - [#381] VRLOG protobuf frame storage — `proto_codec.go` with protobuf serialisation for VRLOG frame storage; frame encoding detection on load; macOS replay state management updated — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#381] VRLOG replay frame coalescing — gRPC-layer frame merging for reduced per-frame overhead in VRLOG playback; landed as part of #381 visualiser contract work — [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
+- [#382] Distributed sweep workers plan — architecture doc for parallel sweep execution, covering unified binary, reduced worker HTTP surface, local result cache, and phased rollout — [design doc](plans/lidar-distributed-sweep-workers-plan.md)
 - [#383] v0.5.0 backward compatibility shim removal — all shims removed across Go, Python, Svelte, and macOS (§2–§4, §6–§7, §9–§14, §17); speed contract reset (#352); `avgSpeedMps`/`maxSpeedMps` verified; `pointBuffer` reclassified as renderer work; build validation passed — [design doc](plans/v050-backward-compatibility-shim-removal-plan.md)
+- [#387] LiDAR immutable run config plan — migration 032 plan for canonical `lidar_run_configs` asset, phased rollout, and deterministic hashable configs — [design doc](plans/lidar-immutable-run-config-asset-plan.md)
 - [#394] Surface publication matrix and dead column audit — map every DB column, proto field, and UI surface to verify no orphaned or unpublished data paths
 - [#400] Schema simplification migrations 000030 + 000031 — dropped dead per-track percentile columns (`p50/p85/p95_speed_mps`), renamed `peak_speed_mps` → `max_speed_mps`; renamed `world_frame` → `frame_id`, `scene_hash` → `grid_hash`; renamed 7 tables into coherent `track_*/run_*/replay_*/tuning_*` families; `scene_id` → `replay_case_id` on replay and annotation tables; Go stores, types, API handlers, and web TypeScript updated — [design doc](plans/schema-simplification-migration-030-plan.md)
 - [#401] LiDAR debug test coverage — added `debug_test.go` for 6 LiDAR packages, 2,900 lines of test additions
@@ -210,5 +210,5 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#419] LiDAR tracks table consolidation — shared `TrackMeasurement` model/SQL helpers and the `lidar_all_tracks` VIEW landed; separate live and run tables remain intentionally distinct — [design doc](plans/lidar-tracks-table-consolidation-plan.md)
 - [#419] Profile comparison data layer hardening — analysis-run compare APIs and contract stabilisation implemented; ongoing scope is now UI delivery — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#420] Schema integrity audit/report tooling — schema hardening migrated into main, orphan/constraint audit tooling implemented and available in release branch head — [design doc](plans/lidar-schema-robustness-plan.md)
-- [#424] Remote-host upgrade runbook and API naming consistency — runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work — [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#422] Canonical plan graduation — Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed — [design doc](plans/platform-canonical-project-files-plan.md)
+- [#424] Remote-host upgrade runbook and API naming consistency — runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work — [design doc](plans/platform-simplification-and-deprecation-plan.md)
