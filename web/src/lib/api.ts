@@ -623,7 +623,7 @@ export async function updateLidarReplayCase(
 	update: {
 		description?: string;
 		reference_run_id?: string;
-		optimal_params_json?: string;
+		optimal_params_json?: Record<string, unknown> | null;
 		pcap_start_secs?: number;
 		pcap_duration_secs?: number;
 	}

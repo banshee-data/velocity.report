@@ -272,7 +272,12 @@ export interface LidarReplayCase {
 	pcap_duration_secs?: number;
 	description?: string;
 	reference_run_id?: string;
-	optimal_params_json?: string;
+	optimal_params_json?: Record<string, unknown> | string;
+	recommended_param_set_id?: string;
+	recommended_params_hash?: string;
+	recommended_schema_version?: string;
+	recommended_param_set_type?: string;
+	recommended_params?: Record<string, unknown>;
 	created_at_ns: number;
 	updated_at_ns?: number;
 }
@@ -281,10 +286,25 @@ export interface LidarReplayCase {
 export interface AnalysisRun {
 	run_id: string;
 	created_at: string;
+	completed_at?: string;
 	source_type: string;
 	source_path?: string;
 	sensor_id: string;
+	run_config_id?: string;
+	requested_param_set_id?: string;
+	param_set_id?: string;
+	config_hash?: string;
+	params_hash?: string;
+	schema_version?: string;
+	param_set_type?: string;
+	build_version?: string;
+	build_git_sha?: string;
+	replay_case_id?: string;
 	params_json?: Record<string, unknown>;
+	statistics_json?: Record<string, unknown>;
+	execution_config?: Record<string, unknown>;
+	frame_start_ns?: number;
+	frame_end_ns?: number;
 	duration_secs?: number;
 	total_frames?: number;
 	total_clusters?: number;
