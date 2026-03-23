@@ -1,83 +1,14 @@
 # Distributed Sweep Workers
 
+- **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)
+
 Architectural plan for running parameter sweeps across multiple remote worker machines, coordinated by a single driver unit with a job-submission API and shared filesystem access. Workers run as a mode of the same unified binary — not a separate executable.
 
 **Status:** Proposed (March 2026)
 **Layers:** Cross-cutting (L3 Grid, L5 Tracks, L8 Analytics, Platform)
 **Related:** [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md), [Parameter Tuning](lidar-parameter-tuning-optimisation-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md), [L8/L9/L10 Layers](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md), [Distribution Packaging](deploy-distribution-packaging-plan.md)
 
-## Problem
-
-A single velocity-report instance processes sweep combinations sequentially. A typical multi-parameter sweep with 200 combinations takes 30+ minutes on PCAP replay. With N-dimensional sweeps (noise × closeness × neighbours × tracking parameters), the parameter space grows multiplicatively and wall-clock time becomes the bottleneck.
-
-The existing `SweepBackend` interface already abstracts sensor operations behind an HTTP or in-process boundary — but there is no mechanism to distribute combinations across multiple machines, aggregate results, or manage worker lifecycle.
-
-## Goal
-
-Enable a **driver–worker** topology where:
-
-1. A **driver** (the normal velocity-report server) accepts sweep requests, partitions the parameter space, and dispatches work to N workers.
-2. Each **worker** runs the same `velocity-report` binary in `--worker` mode with access to the same PCAP files (shared filesystem), executes its assigned combinations, caches results locally, and reports them back to the driver.
-3. The driver aggregates results into a single `SweepState` with the same schema as today's single-machine output.
-4. The web dashboard lets users choose whether a sweep runs on the server host or on a specific worker from a **configured list of worker servers** managed under Settings.
-
-Target: 2 workers initially, architecture supports N.
-
-## Principles
-
-1. **Unified binary** — no separate `cmd/sweep-worker` binary. Worker mode is an execution flag (`--worker`) on the same `velocity-report` binary we already ship. This aligns with the single-binary direction in the [distribution packaging plan](deploy-distribution-packaging-plan.md).
-2. **Reduced worker surface** — a worker does NOT expose the full web API (no dashboard, no radar endpoints, no report generation). It listens on port 8082 with a minimal HTTP surface: job status, past failures, health, and result retrieval.
-3. **Local result cache** — workers cache completed results locally. The driver confirms retrieval before results are scheduled for removal (flagged as retrieved, cleaned up later or when disk space is needed).
-4. **Pre-flight validation** — the `/api/worker/jobs/check` endpoint on the worker confirms that PCAP files are available and readable, processes one frame to validate the configuration, then stops — before the full job kicks off.
-5. **Operator-configured workers** — worker hosts are defined via CRUD under the Settings page, not self-registered at runtime. The sweep UI picks from this configured list.
-
-## Current Architecture
-
-```
-┌──────────────────────────────────────────────────────┐
-│           velocity-report (single machine)           │
-│                                                      │
-│   SweepRequest                                       │
-│       │                                              │
-│       ▼                                              │
-│   sweep.Runner                                       │
-│       │  cartesianProduct(params) → combos[]         │
-│       │                                              │
-│       │  for each combo:                             │
-│       │    ├─ backend.SetTuningParams(combo)         │
-│       │    ├─ backend.StartPCAPReplayWithConfig()    │
-│       │    ├─ backend.WaitForGridSettle()            │
-│       │    ├─ sampler.Sample() × iterations          │
-│       │    ├─ computeComboResult()                   │
-│       │    └─ state.Results = append(result)         │
-│       │                                              │
-│       ▼                                              │
-│   SweepState { Results: []ComboResult }              │
-│       │                                              │
-│       ▼                                              │
-│   SweepPersister → SQLite (lidar_sweeps)             │
-└──────────────────────────────────────────────────────┘
-```
-
-**Key interfaces (already exist):**
-
-| Interface               | File                                          | Purpose                                         |
-| ----------------------- | --------------------------------------------- | ----------------------------------------------- |
-| `SweepBackend`          | `internal/lidar/sweep/backend.go`             | Abstracts sensor/grid/PCAP operations           |
-| `SweepPersister`        | `internal/lidar/sweep/runner.go:125`          | Persists sweep lifecycle to SQLite              |
-| `SweepRunner`           | `internal/lidar/monitor/sweep_handlers.go:16` | Monitor-layer abstraction (avoids import cycle) |
-| `monitor.Client`        | `internal/lidar/monitor/client.go`            | HTTP implementation of `SweepBackend`           |
-| `monitor.DirectBackend` | `internal/lidar/monitor/direct_backend.go`    | In-process implementation of `SweepBackend`     |
-
-**Key types (already exist):**
-
-| Type               | Purpose                                               |
-| ------------------ | ----------------------------------------------------- |
-| `SweepRequest`     | Defines parameters, data source, sampling config      |
-| `SweepParam`       | Single parameter dimension (name, type, values/range) |
-| `SweepState`       | Status, progress, results array                       |
-| `ComboResult`      | Metrics from one parameter combination                |
-| `PCAPReplayConfig` | PCAP file, start/duration, speed mode                 |
+> **Problem, goal, design principles, and current architecture:** see [distributed-sweep.md](../lidar/architecture/distributed-sweep.md).
 
 ## Target Architecture
 
@@ -161,20 +92,7 @@ velocity-report --worker \
 
 ### Worker HTTP Surface (port 8082)
 
-| Method | Path                                | Purpose                                                   |
-| ------ | ----------------------------------- | --------------------------------------------------------- |
-| `GET`  | `/health`                           | Liveness check (uptime, version, disk space)              |
-| `GET`  | `/api/worker/status`                | Current state: idle, running, job ID, progress            |
-| `GET`  | `/api/worker/jobs`                  | List recent jobs (last 50) with status and timing         |
-| `GET`  | `/api/worker/jobs/{job_id}`         | Single job detail including results if complete           |
-| `GET`  | `/api/worker/jobs/{job_id}/results` | Retrieve cached results for a completed job               |
-| `POST` | `/api/worker/jobs/{job_id}/confirm` | Driver confirms result retrieval; flags for cleanup       |
-| `POST` | `/api/worker/jobs/submit`           | Driver submits a job (combos + sweep config)              |
-| `POST` | `/api/worker/jobs/check`            | Pre-flight: validate PCAP readable, process 1 frame, stop |
-| `POST` | `/api/worker/jobs/{job_id}/cancel`  | Cancel a running job                                      |
-| `GET`  | `/api/worker/failures`              | List past job failures with error details                 |
-
-`/health` is at root level, matching the existing LiDAR monitor convention. All other endpoints use the `/api/worker/` prefix, consistent with the `/api/lidar/` namespace on the main server.
+> Endpoint table: see [distributed-sweep.md § Worker HTTP Surface](../lidar/architecture/distributed-sweep.md#worker-http-surface-port-8082).
 
 ### Pre-Flight Validation (`/api/worker/jobs/check`)
 
@@ -225,46 +143,7 @@ CREATE TABLE worker_result_cache (
 
 ## Data Model
 
-### SweepJob (driver-side)
-
-New table `lidar_sweep_jobs` tracks individual work units:
-
-```sql
-CREATE TABLE lidar_sweep_jobs (
-    job_id          TEXT PRIMARY KEY,
-    sweep_id        TEXT NOT NULL,             -- parent sweep
-    worker_id       TEXT,                      -- assigned worker (NULL = unassigned)
-    status          TEXT NOT NULL DEFAULT 'pending',  -- pending, assigned, running, complete, failed
-    combo_start     INTEGER NOT NULL,          -- first combo index (inclusive)
-    combo_end       INTEGER NOT NULL,          -- last combo index (exclusive)
-    combos_json     TEXT NOT NULL,             -- JSON: the parameter combinations for this chunk
-    results_json    TEXT,                      -- JSON: []ComboResult when complete
-    error_message   TEXT,
-    assigned_at     DATETIME,
-    started_at      DATETIME,
-    completed_at    DATETIME,
-    heartbeat_at    DATETIME,                  -- last worker heartbeat
-    FOREIGN KEY (sweep_id) REFERENCES lidar_sweeps(sweep_id)
-);
-```
-
-### WorkerServer (driver-side, CRUD)
-
-New table `lidar_sweep_workers` stores configured worker hosts (managed via Settings UI):
-
-```sql
-CREATE TABLE lidar_sweep_workers (
-    worker_id   TEXT PRIMARY KEY,             -- e.g. "worker-01"
-    name        TEXT NOT NULL,                -- display name, e.g. "Lab Pi"
-    host        TEXT NOT NULL,                -- hostname or IP, e.g. "192.168.1.42"
-    port        INTEGER NOT NULL DEFAULT 8082,-- worker HTTP port
-    pcap_root   TEXT NOT NULL DEFAULT '/mnt/pcap', -- shared filesystem mount
-    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
-    notes       TEXT,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
+> SQL schema (`lidar_sweep_jobs`, `lidar_sweep_workers`): see [distributed-sweep.md § Data Model](../lidar/architecture/distributed-sweep.md#data-model).
 
 ### Go Types
 
@@ -336,16 +215,7 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
 ## Failure Registry
 
-| Component         | Failure Mode                     | Detection                                               | Recovery                                                                 |
-| ----------------- | -------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Worker process    | Crash during combo execution     | Heartbeat timeout (configurable, default 60 s)          | Driver marks job `failed`, re-queues combos                              |
-| Shared filesystem | NFS/SMB mount lost               | Worker PCAP open fails / `/api/worker/jobs/check` fails | Job fails with filesystem error; driver reports to user                  |
-| Driver process    | Crash mid-sweep                  | On restart, reads `lidar_sweep_jobs`                    | Resume: re-queue incomplete jobs, merge completed results                |
-| Network partition | Worker cannot reach driver       | Driver poll fails                                       | Driver retries; worker holds results in local cache                      |
-| Result retrieval  | Driver crashes before confirming | Worker retains cached results                           | Driver re-fetches on restart; worker does not delete unconfirmed results |
-| SQLite contention | Concurrent writes from driver    | WAL mode + retry                                        | Already handled by existing SQLite configuration                         |
-| Combo execution   | PCAP replay timeout              | Existing `WaitForPCAPComplete` timeout                  | Job marked failed with error detail; driver re-queues                    |
-| Config invalid    | Bad params or corrupt PCAP       | `/api/worker/jobs/check` pre-flight fails               | Job never starts; error shown to user immediately                        |
+> Failure mode table: see [distributed-sweep.md § Failure Registry](../lidar/architecture/distributed-sweep.md#failure-registry).
 
 ## Phased Rollout
 
@@ -591,49 +461,11 @@ Phases 1–3 are strictly sequential. Phase 4 (dashboard) and Phase 5 (hardening
 
 ## Design Constraints
 
-1. **Unified binary** — worker mode is a flag (`--worker`) on the same binary, not a separate executable. No `cmd/sweep-worker/` directory. This follows the project's [single-binary direction](deploy-distribution-packaging-plan.md).
-
-2. **Privacy preserved** — no data leaves the local network. Workers and driver communicate on the same LAN or VPN. PCAP files stay on the shared filesystem; no cloud upload.
-
-3. **SQLite remains the database** — the driver's SQLite holds all job, sweep, and worker-server state. Workers have local SQLite for operational data and result cache. No external database server required.
-
-4. **Raspberry Pi compatible** — workers can run on Raspberry Pi 4 (ARM64). The worker mode uses the same binary (≤ 30 MB) and should consume ≤ 512 MB RAM during PCAP replay.
-
-5. **Backward compatible** — the single-machine sweep path (`POST /api/lidar/sweep/start` with no `target` field) continues to work unchanged. Distributed sweep is opt-in: configure worker servers in Settings, select a worker target in the sweep UI.
-
-6. **Shared filesystem required** — workers must have read access to the same PCAP directory tree. The driver sends validated relative PCAP paths; workers resolve full paths against their configured `--pcap-root` and reject absolute or `..` paths.
-
-7. **Reduced worker surface** — the worker HTTP server (port 8082) exposes only job lifecycle and health endpoints. No dashboard, no radar, no PDF, no full LiDAR monitor UI.
+> Constraint list: see [distributed-sweep.md § Design Constraints](../lidar/architecture/distributed-sweep.md#design-constraints).
 
 ## Alternatives Considered
 
-### Separate worker binary (`cmd/sweep-worker/`)
-
-**Rejected.** The project is moving toward a single unified binary with subcommands/flags (see [distribution packaging plan](deploy-distribution-packaging-plan.md)). A separate binary adds build targets, deployment complexity, and version-skew risk. Worker mode as a flag (`--worker`) keeps the distribution surface minimal.
-
-### Worker self-registration (no Settings CRUD)
-
-**Rejected.** Self-registration adds a dynamic discovery surface that is harder to reason about and audit. Operator-configured worker servers (CRUD under Settings) are explicit, auditable, and consistent with the existing serial-config and site-config patterns.
-
-### Message queue (Redis, NATS, RabbitMQ)
-
-**Rejected.** Adds an infrastructure dependency that conflicts with the local-first, Raspberry-Pi-deployable constraint. SQLite + HTTP polling achieves the same semantics with zero additional services.
-
-### gRPC streaming (bidirectional)
-
-**Deferred.** The existing gRPC infrastructure serves the macOS visualiser (one-way stream). Bidirectional gRPC for job dispatch would be more efficient than HTTP polling but adds protobuf contract complexity. Can be introduced in a future phase if polling latency becomes a bottleneck.
-
-### SSH-based remote execution
-
-**Rejected.** Running sweep commands over SSH provides no job lifecycle management, no failure recovery, and no result aggregation. The worker agent model is more robust and observable.
-
-### Shared SQLite (multi-writer)
-
-**Rejected.** SQLite does not support concurrent writers from multiple machines. The driver-owns-state model with HTTP result submission avoids this fundamental limitation.
-
-### Full web API on worker
-
-**Rejected.** Workers do not need the dashboard, radar endpoints, or report generation. Exposing the full API surface on workers increases attack surface and resource usage. A reduced surface on port 8082 with only job lifecycle endpoints is sufficient and easier to secure.
+> Rejected/deferred alternatives: see [distributed-sweep.md § Alternatives Rejected](../lidar/architecture/distributed-sweep.md#alternatives-rejected).
 
 ## Migration Path
 

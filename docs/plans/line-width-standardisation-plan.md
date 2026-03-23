@@ -1,6 +1,7 @@
 # Line-Width Standardisation Plan
 
 - **Status:** Proposed (March 2026)
+- **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
 Plan to adopt 100 columns as the single line-width standard
 across all code and documentation, with gradual enforcement

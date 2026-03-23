@@ -128,11 +128,12 @@ When asked for plan hygiene, canonical-doc cleanup, or plan consolidation:
    - active plans missing a `Canonical` hub doc,
    - multiple active plans pointing at the same canonical hub doc,
    - graduated plans that should now be symlinks but still contain duplicated body text.
-4. For each collision, recommend exactly one action:
+4. Verify the **two-PR graduation rule**: a plan must be marked Complete on `main` before it can be replaced with a symlink. Flag any PR that both marks a plan Complete and creates its symlink on the same branch.
+5. For each collision, recommend exactly one action:
    - merge into one plan,
    - keep separate because the canonical homes differ,
    - graduate one or more plans to symlinks.
-5. End with a hygiene change list naming the hub doc, plan doc, backlog edit, and CI/tooling follow-through required.
+6. End with a hygiene change list naming the hub doc, plan doc, backlog edit, and CI/tooling follow-through required.
 
 ### Feature Planning
 

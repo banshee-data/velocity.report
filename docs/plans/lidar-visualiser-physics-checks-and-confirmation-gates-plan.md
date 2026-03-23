@@ -2,6 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
+- **Canonical:** [physics-checks.md](../lidar/operations/visualiser/physics-checks.md)
 
 ## Objective
 

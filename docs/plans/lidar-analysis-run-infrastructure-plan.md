@@ -1,6 +1,7 @@
 # LiDAR Analysis Run Infrastructure
 
-- **Status:** Implemented
+- **Status:** Complete
+- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 - **Layers:** L8 Analytics
 

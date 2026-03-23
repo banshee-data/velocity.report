@@ -1,6 +1,7 @@
 # Simplification and Deprecation Plan
 
 - **Status:** Approved (Phase 1 complete)
+- **Canonical:** [simplification-deprecation.md](../platform/operations/simplification-deprecation.md)
 
 - **Layers:** Cross-cutting (platform)
 

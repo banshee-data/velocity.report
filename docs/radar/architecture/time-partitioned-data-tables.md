@@ -327,7 +327,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  Union Views (Historical Queries)                   │  │  │
-│  │  │                                                      │  │  │
+│  │  │                                                     │  │  │
 │  │  │  CREATE VIEW radar_data_all AS                      │  │  │
 │  │  │    SELECT * FROM main.radar_data                    │  │  │
 │  │  │    UNION ALL SELECT * FROM m01.radar_data           │  │  │

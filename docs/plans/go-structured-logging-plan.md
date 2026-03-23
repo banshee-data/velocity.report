@@ -7,6 +7,7 @@
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (v0.5.x)
 - **Existing design:**
   [LiDAR logging stream split and rubric](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
+- **Canonical:** [structured-logging.md](../platform/architecture/structured-logging.md)
 
 ## Motivation
 

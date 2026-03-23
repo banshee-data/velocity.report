@@ -1,5 +1,7 @@
 # Metrics-First Data Science Plan
 
+- **Canonical:** [data-science-methodology.md](../platform/operations/data-science-methodology.md)
+
 This document defines velocity.report's repo-wide data science stance: the critical path stays transparent, tunable, and replayable, while future classification work remains optional and subordinate to reproducible scorecards.
 
 **Status:** Proposed (March 2026)

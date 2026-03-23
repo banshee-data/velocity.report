@@ -4,54 +4,11 @@
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
+- **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)
 
 ---
 
-## 1. Executive Summary
-
-Today, deploying velocity.report on a Raspberry Pi requires a multi-step manual
-process: flashing Raspberry Pi OS, SSHing in, installing Go binaries, setting up
-a Python virtual environment with LaTeX dependencies, configuring RS-232 HAT
-drivers, and enabling systemd services. This is a barrier to adoption for our
-primary audience — neighbourhood change-makers who may not be comfortable with
-Linux system administration.
-
-This document proposes a **two-tier solution**:
-
-| Tier               | Problem                                                                         | Tool                                           |
-| ------------------ | ------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **Image Building** | Create a complete `.img` file with the full velocity.report stack pre-installed | `pi-gen` or `rpi-image-gen` (CI pipeline)      |
-| **Image Flashing** | Enable end users on macOS, Windows, and Linux to write that image to an SD card | Fork of `rpi-imager` or custom repository JSON |
-
-We ship a **single image** containing the full stack — radar, LiDAR (disabled by
-default), PDF generation, and web dashboard. A dedicated work stream
-(§ 4.6) targets dramatic reduction of the LaTeX footprint that dominates image
-size. LiDAR can be enabled at runtime through the consolidated UI described in
-[frontend-consolidation.md](./web-frontend-consolidation-plan.md).
-
-The document evaluates three approaches for the flashing tier, analyses the
-trade-offs of hosting a fork inside the monorepo versus a separate repository,
-and recommends a phased implementation plan.
-
----
-
-## 2. Motivation and User Value
-
-### 2.1 Target Personas
-
-| Persona                    | Technical Level | Current Pain                            | Desired Experience                                          |
-| -------------------------- | --------------- | --------------------------------------- | ----------------------------------------------------------- |
-| **Neighbourhood Advocate** | Low             | Cannot follow SSH + apt-get workflow    | Download app → insert SD → flash → boot → monitor           |
-| **Community Group Leader** | Medium          | Wastes 2–3 hours on setup per device    | Flash image, configure Wi-Fi via imager, done in 10 minutes |
-| **Traffic Consultant**     | High            | Repeatable deployments for client sites | Automated CI images with version pinning                    |
-
-### 2.2 Success Criteria
-
-- **< 15 minutes** from download to a working velocity.report installation
-- **Zero SSH required** for basic deployment
-- **Three-platform support**: macOS (ARM64 + Intel), Windows (x64), Linux (x64 + ARM64)
-- **Reproducible builds**: every GitHub release tag produces an identical image
-- **Privacy preserved**: no telemetry, no cloud calls, no PII in the image
+> **Executive summary and motivation:** see [rpi-imager.md](../platform/operations/rpi-imager.md).
 
 ---
 

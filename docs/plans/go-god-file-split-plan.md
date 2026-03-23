@@ -1,10 +1,11 @@
 # Go God File Split Plan (v0.5.x)
 
-- **Status:** Phase 1 Complete
+- **Status:** Complete
 - **Extracted from:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Item 2,
   god files scope)
 - **Target:** v0.5.1+
+- **Canonical:** [go-package-structure.md](../platform/architecture/go-package-structure.md)
 
 ## Motivation
 

@@ -8,6 +8,7 @@
   [go-god-file-split-plan.md](go-god-file-split-plan.md),
   [data-database-alignment-plan.md](data-database-alignment-plan.md),
   [lidar-l8-analytics-l9-endpoints-l10-clients-plan.md](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
+- **Canonical:** [go-package-structure.md](../platform/architecture/go-package-structure.md)
 
 ## Motivation
 

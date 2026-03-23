@@ -2,6 +2,7 @@
 
 - **Status:** In Progress — metadata and structure rules enforced, opening paragraph gap remains
 - **Layers:** Cross-cutting (documentation)
+- **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
 Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
 

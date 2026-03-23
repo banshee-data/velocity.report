@@ -2,6 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints
+- **Canonical:** [track-event-timeline.md](../lidar/operations/visualiser/track-event-timeline.md)
 
 ## Objective
 

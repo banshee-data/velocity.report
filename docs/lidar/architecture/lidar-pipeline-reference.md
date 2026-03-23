@@ -45,9 +45,9 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Edge Node (Raspberry Pi)                   │
 │                                                                 │
-│  [UDP:2369] → [LIDAR Pipeline] → [Local SQLite] → [REST API]   │
+│  [UDP:2369] → [LIDAR Pipeline] → [Local SQLite] → [REST API]    │
 │                      ↓                   ↓                      │
-│        [Rule-Based + Tunable L6]  [Runs / Labels / Metrics]    │
+│        [Rule-Based + Tunable L6]  [Runs / Labels / Metrics]     │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                                  ↓

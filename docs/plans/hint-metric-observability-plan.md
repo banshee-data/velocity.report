@@ -7,6 +7,7 @@
   - [Unpopulated data structures remediation](unpopulated-data-structures-remediation-plan.md)
   - [Backend surface matrix](../../data/structures/MATRIX.md)
   - [Clustering observability](lidar-clustering-observability-and-benchmark-plan.md)
+- **Canonical:** [observability-surfaces.md](../lidar/operations/observability-surfaces.md)
 
 ---
 

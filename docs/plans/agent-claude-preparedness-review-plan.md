@@ -1,5 +1,7 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
+- **Canonical:** [agent-preparedness.md](../platform/operations/agent-preparedness.md)
+
 This plan defines a DRY, dual-tool knowledge architecture for velocity.report's AI agents, enabling shared project knowledge across Copilot and Claude while reducing duplication and supporting future expansion.
 
 **Status:** In Progress (Phase 1 complete, Phase 2 complete, Phase 3 pending)
@@ -8,40 +10,7 @@ This plan defines a DRY, dual-tool knowledge architecture for velocity.report's 
 
 ---
 
-## 1. Problem Statement
-
-velocity.report uses seven named AI agents defined as Copilot `.agent.md` files. The system works, but suffers from three structural problems:
-
-1. **Massive duplication** — 4,723 lines across 7 agent files (was 3,456 across 6 — agent count and content grew during persona refinement pass). Privacy principles, build commands, SQLite facts, and Python venv details still appear in multiple files. Duplication reduction is a Phase 2 objective.
-2. **Tool lock-in** — all knowledge is in Copilot-specific formats (`.agent.md`, `copilot-instructions.md`). Adding Claude Code means either duplicating everything into `CLAUDE.md` or restructuring.
-3. **Scaling problem** — planning to expand from 7 to 10–15 agents. Current approach (each agent carries its own copy of project knowledge) would mean maintaining 15+ copies of the same facts.
-
-**This is NOT a migration away from Copilot.** Both tools will be used simultaneously. The goal is a DRY knowledge architecture that serves both.
-
----
-
-## 2. Project Tenets (Global Scope)
-
-These tenets apply to **every agent, every tool, every interaction**. They are non-negotiable project-wide principles that must be enforced at the outermost scope — before any role-specific or tool-specific knowledge loads.
-
-### Data Ethics
-
-- **No PII collection** — no names, addresses, licence plates, or personally identifiable information, ever
-- **No cameras** — velocity measurements only; no image capture, no video, no optical surveillance
-- **No black-box AI** — no opaque ML models making unauditable decisions about traffic data; all algorithms must be inspectable, tuneable, and explainable
-- **Privacy by design** — local-only data storage, no cloud transmission, user owns their data
-
-### Data Integrity
-
-- **Defendable data** — every measurement must trace back to a calibrated sensor with known error bounds
-- **Provable methodology** — use traffic engineering standards (p50, p85, p98 percentiles); methodology must withstand scrutiny from municipal officials and traffic engineers
-- **Trustworthy reporting** — no cherry-picking, no statistical manipulation; reports present the full picture including limitations and confidence intervals
-
-### Enforcement
-
-These tenets belong in a single canonical file (proposed: `.github/TENETS.md`) that both `copilot-instructions.md` and `CLAUDE.md` reference. Agent files must NOT restate them — they inherit them from the global scope.
-
----
+> **Problem statement and project tenets:** see [agent-preparedness.md](../platform/operations/agent-preparedness.md).
 
 ## 3. Current State Audit
 

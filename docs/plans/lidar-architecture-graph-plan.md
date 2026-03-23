@@ -4,6 +4,7 @@
 - **Layers:** All (L1–L10)
 - **Parent:** [L8/L9/L10 refactor plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
 - **Related:** [L7 Scene plan](lidar-l7-scene-plan.md)
+- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
 
 ## Summary
 

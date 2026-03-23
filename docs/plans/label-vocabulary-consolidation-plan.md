@@ -3,6 +3,7 @@
 - **Status:** Phase 1–3.2 completed · Phase 4–5 planned
 - **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
 - **Related:** [Classification Maths](../../data/maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
+- **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
 ## Problem (resolved)
 

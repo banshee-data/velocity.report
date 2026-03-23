@@ -3,6 +3,7 @@
 - **Layers:** Cross-cutting (testing infrastructure)
 - **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
   to ≥ 95.5% line coverage.
+- **Canonical:** [quality-coverage.md](../platform/operations/quality-coverage.md)
 
 ## Scope
 

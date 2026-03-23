@@ -3,6 +3,7 @@
 - **Status:** Complete
 - **Layers:** Cross-cutting (tooling)
 - **Goal:** Consolidate from dual Python venv system to single shared repository-level venv
+- **Canonical:** [python-venv.md](../platform/operations/python-venv.md)
 
 ## Problem Summary
 

@@ -1,0 +1,76 @@
+name: 📋 Plan Hygiene
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "docs/plans/**"
+      - "scripts/check-plan-canonical-links.py"
+      - "scripts/flo-planning-review.sh"
+      - ".github/workflows/plan-hygiene-ci.yml"
+      - "Makefile"
+  push:
+    branches: [main]
+    paths:
+      - "docs/plans/**"
+      - "Makefile"
+
+concurrency:
+  group: plan-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan-hygiene:
+    name: "📋 Plan hygiene"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run plan-hygiene check
+        run: make check-plan-hygiene
+
+      - name: "G10: Two-PR graduation rule"
+        if: github.event_name == 'pull_request'
+        run: |
+          # Detect plans converted to symlinks on the PR branch without
+          # first being marked Complete on main.  The two-PR rule requires
+          # the completion commit to land on main before the symlink PR.
+          BASE="${{ github.event.pull_request.base.sha }}"
+          TYPECHANGED=$(git diff --diff-filter=T --name-only "$BASE" -- docs/plans/ || true)
+          VIOLATIONS=""
+          for f in $TYPECHANGED; do
+            # If the file does not exist on the base branch, or if it exists
+            # but was not already marked Complete, then replacing it with a
+            # symlink in this PR violates the two-PR graduation rule.
+            if ! git show "$BASE:$f" >/dev/null 2>&1; then
+              VIOLATIONS="${VIOLATIONS}  [G10] ${f}: created as a symlink without a previously completed plan on main\n"
+            elif ! git show "$BASE:$f" | grep -q '^\- \*\*Status:\*\* Complete'; then
+              VIOLATIONS="${VIOLATIONS}  [G10] ${f}: symlinked before the plan was marked Complete on main\n"
+            fi
+          done
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Two-PR graduation rule violated"
+            printf "%b" "$VIOLATIONS"
+            echo ""
+            echo "A plan must be marked Complete on main before it can be"
+            echo "replaced with a symlink. Split into two PRs."
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📋 Plan Hygiene Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          make report-plan-hygiene >> $GITHUB_STEP_SUMMARY 2>&1 || true

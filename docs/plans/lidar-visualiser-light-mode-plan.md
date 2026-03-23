@@ -1,6 +1,7 @@
 # Design: VelocityVisualiser Light Mode for 3D Scene Rendering
 
 - **Status:** Proposed (February 2026)
+- **Canonical:** [light-mode.md](../lidar/operations/visualiser/light-mode.md)
 
 ## Objective
 

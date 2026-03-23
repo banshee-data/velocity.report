@@ -3,6 +3,7 @@
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1–L6, CI infrastructure)
 - **Related:** [Clustering Observability and Benchmark Plan](lidar-clustering-observability-and-benchmark-plan.md), [Pipeline Review Q10](../../data/maths/pipeline-review-open-questions.md)
+- **Canonical:** [performance-regression-testing.md](../lidar/operations/performance-regression-testing.md)
 
 ## Goal
 

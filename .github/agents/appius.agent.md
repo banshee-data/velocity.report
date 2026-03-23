@@ -254,7 +254,7 @@ When implementing plan-hygiene or canonical-doc cleanup:
 1. Read the affected hub doc, active plan, `docs/BACKLOG.md`, and any nearby decision entries before editing.
 2. Preserve one durable source of truth in the existing hub structure; do not invent a parallel docs tree.
 3. Ensure each active non-symlink plan has exactly one `Canonical` hub-doc link.
-4. When a plan has graduated, replace it with a symlink rather than leaving a duplicated Markdown body behind.
+4. When a plan has graduated, replace it with a symlink rather than leaving a duplicated Markdown body behind. Enforce the **two-PR graduation rule**: the plan must already be marked Complete on `main` before creating the symlink. Never complete a plan and create its symlink on the same branch.
 5. Update the mechanical enforcement path together with the docs:
    - Create or update `scripts/check-plan-canonical-links.py` (when this checker exists in the repo).
    - Keep `scripts/flo-planning-review.sh` (or its successor) aligned with the current plan-hygiene rules.

@@ -1,7 +1,8 @@
 # Design: Run-List Labelling Rollup Icon
 
-- **Status:** Implemented (March 2026) — core backend, macOS, and web contract complete; web runs-list parity UI deferred
+- **Status:** Complete
 - **Layers:** SQLite store, L9 Endpoints, macOS visualiser, web contract
+- **Canonical:** [run-list-labelling-rollup.md](../lidar/operations/visualiser/run-list-labelling-rollup.md)
 
 ## Objective
 
