@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 )
 
 type analysisRunRowScanner interface {
@@ -56,20 +58,24 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 	if caps.FrameEndNs {
 		columns = append(columns, "frame_end_ns")
 	}
+	if caps.StatisticsJSON {
+		columns = append(columns, "statistics_json")
+	}
 
 	return columns, caps, nil
 }
 
 func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
 	var (
-		run          AnalysisRun
-		createdAt    int64
-		sourcePath   sql.NullString
-		errorMessage sql.NullString
-		parentRunID  sql.NullString
-		notes        sql.NullString
-		vrlogPath    sql.NullString
-		paramsJSON   string
+		run            AnalysisRun
+		createdAt      int64
+		sourcePath     sql.NullString
+		errorMessage   sql.NullString
+		parentRunID    sql.NullString
+		notes          sql.NullString
+		vrlogPath      sql.NullString
+		paramsJSON     string
+		statisticsJSON sql.NullString
 	)
 
 	dests := []any{
@@ -118,6 +124,9 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	if caps.FrameEndNs {
 		dests = append(dests, &frameEndNs)
 	}
+	if caps.StatisticsJSON {
+		dests = append(dests, &statisticsJSON)
+	}
 
 	if err := scanner.Scan(dests...); err != nil {
 		return nil, err
@@ -161,6 +170,9 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		value := frameEndNs.Int64
 		run.FrameEndNs = &value
 	}
+	if statisticsJSON.Valid && strings.TrimSpace(statisticsJSON.String) != "" {
+		run.StatisticsJSON = json.RawMessage(statisticsJSON.String)
+	}
 
 	run.PopulateReplayCaseName()
 	return &run, nil
@@ -183,6 +195,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get run: %w", err)
 	}
+	s.hydrateRunConfigAssets(run)
 	labelRollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
 		return nil, err
@@ -218,6 +231,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan run: %w", err)
 		}
+		s.hydrateRunConfigAssets(run)
 		runs = append(runs, run)
 	}
 
@@ -230,6 +244,32 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	}
 
 	return runs, nil
+}
+
+func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
+	if run == nil || strings.TrimSpace(run.RunConfigID) == "" {
+		return
+	}
+
+	configStore := configasset.NewStore(s.db)
+	runConfig, err := configStore.GetRunConfig(run.RunConfigID)
+	if err != nil {
+		if err == sql.ErrNoRows || isMissingConfigAssetSchemaErr(err) {
+			return
+		}
+		return
+	}
+
+	run.ParamSetID = runConfig.ParamSetID
+	run.ConfigHash = runConfig.ConfigHash
+	run.ParamsHash = runConfig.ParamsHash
+	run.SchemaVersion = runConfig.ParamSchemaVersion
+	run.ParamSetType = runConfig.ParamSetType
+	run.BuildVersion = runConfig.BuildVersion
+	run.BuildGitSHA = runConfig.BuildGitSHA
+	if len(runConfig.ComposedJSON) > 0 {
+		run.ExecutionConfig = append(json.RawMessage(nil), runConfig.ComposedJSON...)
+	}
 }
 
 // GetRunTracks retrieves all tracks for an analysis run.

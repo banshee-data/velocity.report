@@ -39,6 +39,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -678,7 +679,38 @@ func main() {
 						playbackRate = lidarServer.PCAPSpeedRatio()
 					}
 				}
-				rec.SetProvenance(sourceType, pcapPath, tuningHash, playbackRate)
+
+				runStore := sqlite.NewAnalysisRunStore(lidarDB)
+				run, err := runStore.GetRun(runID)
+				if err != nil {
+					log.Printf("[Visualiser] Warning: failed to load run metadata for %s: %v", runID, err)
+				}
+
+				effectiveTuningHash := tuningHash
+				if run != nil && strings.TrimSpace(run.RunConfigID) != "" {
+					configStore := configasset.NewStore(lidarDB)
+					runConfig, err := configStore.GetRunConfig(run.RunConfigID)
+					if err != nil {
+						log.Printf("[Visualiser] Warning: failed to load immutable config for run %s: %v", runID, err)
+					} else {
+						rec.SetDeterministicConfig(
+							run.RunConfigID,
+							runConfig.ParamSetID,
+							runConfig.ConfigHash,
+							runConfig.ParamsHash,
+							runConfig.ParamSchemaVersion,
+							runConfig.ParamSetType,
+							runConfig.BuildVersion,
+							runConfig.BuildGitSHA,
+							runConfig.ComposedJSON,
+						)
+						if runConfig.ParamsHash != "" {
+							effectiveTuningHash = runConfig.ParamsHash
+						}
+					}
+				}
+
+				rec.SetProvenance(sourceType, pcapPath, effectiveTuningHash, playbackRate)
 
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()

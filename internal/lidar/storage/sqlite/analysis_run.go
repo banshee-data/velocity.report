@@ -23,8 +23,17 @@ type AnalysisRun struct {
 	SensorID            string          `json:"sensor_id"`
 	RunConfigID         string          `json:"run_config_id,omitempty"`
 	RequestedParamSetID string          `json:"requested_param_set_id,omitempty"`
+	ParamSetID          string          `json:"param_set_id,omitempty"`
+	ConfigHash          string          `json:"config_hash,omitempty"`
+	ParamsHash          string          `json:"params_hash,omitempty"`
+	SchemaVersion       string          `json:"schema_version,omitempty"`
+	ParamSetType        string          `json:"param_set_type,omitempty"`
+	BuildVersion        string          `json:"build_version,omitempty"`
+	BuildGitSHA         string          `json:"build_git_sha,omitempty"`
 	ReplayCaseID        string          `json:"replay_case_id,omitempty"`
 	ParamsJSON          json.RawMessage `json:"params_json"`
+	StatisticsJSON      json.RawMessage `json:"statistics_json,omitempty"`
+	ExecutionConfig     json.RawMessage `json:"execution_config,omitempty"`
 	FrameStartNs        *int64          `json:"frame_start_ns,omitempty"`
 	FrameEndNs          *int64          `json:"frame_end_ns,omitempty"`
 	DurationSecs        float64         `json:"duration_secs"`

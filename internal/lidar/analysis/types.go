@@ -32,11 +32,18 @@ type RecordingMeta struct {
 	CoordinateFrame     string  `json:"coordinate_frame"`
 
 	// Provenance (§12.2)
-	SourceType   string  `json:"source_type,omitempty"`
-	PCAPPath     string  `json:"pcap_path,omitempty"`
-	PlaybackRate float64 `json:"playback_rate,omitempty"`
-	TuningHash   string  `json:"tuning_hash,omitempty"`
-	BuildVersion string  `json:"build_version,omitempty"`
+	SourceType    string  `json:"source_type,omitempty"`
+	PCAPPath      string  `json:"pcap_path,omitempty"`
+	PlaybackRate  float64 `json:"playback_rate,omitempty"`
+	TuningHash    string  `json:"tuning_hash,omitempty"`
+	RunConfigID   string  `json:"run_config_id,omitempty"`
+	ParamSetID    string  `json:"param_set_id,omitempty"`
+	ConfigHash    string  `json:"config_hash,omitempty"`
+	ParamsHash    string  `json:"params_hash,omitempty"`
+	SchemaVersion string  `json:"schema_version,omitempty"`
+	ParamSetType  string  `json:"param_set_type,omitempty"`
+	BuildVersion  string  `json:"build_version,omitempty"`
+	BuildGitSHA   string  `json:"build_git_sha,omitempty"`
 }
 
 // FrameSummary is §3 in the spec.

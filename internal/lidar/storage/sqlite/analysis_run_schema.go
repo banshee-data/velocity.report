@@ -12,6 +12,7 @@ type analysisRunRecordCapabilities struct {
 	CompletedAt         bool
 	FrameStartNs        bool
 	FrameEndNs          bool
+	StatisticsJSON      bool
 }
 
 func (s *AnalysisRunStore) runRecordCapabilities() (analysisRunRecordCapabilities, error) {
@@ -50,6 +51,8 @@ func (s *AnalysisRunStore) runRecordCapabilities() (analysisRunRecordCapabilitie
 				caps.FrameStartNs = true
 			case "frame_end_ns":
 				caps.FrameEndNs = true
+			case "statistics_json":
+				caps.StatisticsJSON = true
 			}
 		}
 		if err := rows.Err(); err != nil {
