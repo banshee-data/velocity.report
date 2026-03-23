@@ -179,7 +179,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 
 	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
-	if err := ws.startPCAPLocked(pcapFile, ReplayConfig{
+	if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
 		StartSeconds:    startSeconds,
 		DurationSeconds: durationSeconds,
 		SpeedMode:       speedMode,
