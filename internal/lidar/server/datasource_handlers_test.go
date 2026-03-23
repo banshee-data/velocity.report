@@ -12,6 +12,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // mockTimestampParser satisfies network.Parser and exposes SetTimestampMode so
@@ -730,6 +731,126 @@ func TestStartLiveListenerLocked_AlreadyHasListener(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected nil error when listener already exists, got: %v", err)
+	}
+}
+
+func TestResolvePCAPPath_InvalidSafeDirConfiguration(t *testing.T) {
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd(): %v", err)
+	}
+	defer func() {
+		if chdirErr := os.Chdir(originalWD); chdirErr != nil {
+			t.Fatalf("restore cwd: %v", chdirErr)
+		}
+	}()
+
+	deletedWD := t.TempDir()
+	if err := os.Chdir(deletedWD); err != nil {
+		t.Fatalf("Chdir(temp): %v", err)
+	}
+	if err := os.RemoveAll(deletedWD); err != nil {
+		t.Fatalf("RemoveAll(temp): %v", err)
+	}
+
+	ws := &Server{pcapSafeDir: "."}
+	_, err = ws.resolvePCAPPath("test.pcap")
+	if err == nil {
+		t.Skip("filepath.Abs did not surface an invalid safe directory error on this platform")
+	}
+	if !strings.Contains(err.Error(), "invalid PCAP safe directory configuration") {
+		t.Skipf("filepath.Abs returned a different error on this platform: %v", err)
+	}
+}
+
+func TestResolvePCAPPath_SymlinkLoop(t *testing.T) {
+	safeDir := t.TempDir()
+	safeDir = resolveSymlinks(t, safeDir)
+
+	loopPath := filepath.Join(safeDir, "loop.pcap")
+	if err := os.Symlink("loop.pcap", loopPath); err != nil {
+		t.Fatalf("Symlink(): %v", err)
+	}
+
+	ws := &Server{pcapSafeDir: safeDir}
+	_, err := ws.resolvePCAPPath("loop.pcap")
+	if err == nil {
+		t.Fatal("expected symlink resolution error")
+	}
+	if !strings.Contains(err.Error(), "cannot resolve PCAP file path") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestEnsureAnalysisRunManager_UsesServerSensorID(t *testing.T) {
+	dbWrapped, cleanupDB := setupTestDBWrapped(t)
+	defer cleanupDB()
+
+	ws := &Server{db: dbWrapped, sensorID: "manager-sensor-default"}
+	manager := ws.ensureAnalysisRunManager("")
+	if manager == nil {
+		t.Fatal("expected analysis run manager")
+	}
+}
+
+func TestSnapshotReplayEffectiveConfig_UsesServerSensorIDFallback(t *testing.T) {
+	ws := &Server{sensorID: "snapshot-fallback-sensor"}
+
+	cfg := ws.snapshotReplayEffectiveConfig(ReplayConfig{})
+	if cfg.L1.Sensor != "snapshot-fallback-sensor" {
+		t.Fatalf("L1.Sensor = %q, want snapshot-fallback-sensor", cfg.L1.Sensor)
+	}
+	if cfg.L1.DataSource != string(DataSourcePCAP) {
+		t.Fatalf("L1.DataSource = %q, want %q", cfg.L1.DataSource, DataSourcePCAP)
+	}
+}
+
+func TestFailReplayAnalysisRun_NoManagerNoRunID(t *testing.T) {
+	ws := &Server{}
+	ws.failReplayAnalysisRun("", "ignored")
+	ws.failReplayAnalysisRun("run-id", "ignored")
+}
+
+func TestStartPCAPLockedWithConfig_NoBaseContextMarksRunFailed(t *testing.T) {
+	sensorID := "pcap-no-basectx-with-db"
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "nobasectx.pcap"), testPCAPHeader, 0o644); err != nil {
+		t.Fatalf("WriteFile(): %v", err)
+	}
+
+	dbWrapped, cleanupDB := setupTestDBWrapped(t)
+	defer cleanupDB()
+
+	ws := NewServer(Config{
+		Address:     ":0",
+		Stats:       NewPacketStats(),
+		SensorID:    sensorID,
+		PCAPSafeDir: tmpDir,
+		DB:          dbWrapped,
+	})
+
+	err := ws.startPCAPLockedWithConfig("nobasectx.pcap", ReplayConfig{
+		AnalysisMode:   true,
+		SensorID:       sensorID,
+		PreferredRunID: "run-no-basectx",
+	})
+	if err == nil {
+		t.Fatal("expected base context error")
+	}
+	if !strings.Contains(err.Error(), "base context") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run, getErr := runStore.GetRun("run-no-basectx")
+	if getErr != nil {
+		t.Fatalf("GetRun(): %v", getErr)
+	}
+	if run.Status != "failed" {
+		t.Fatalf("status = %q, want failed", run.Status)
+	}
+	if !strings.Contains(run.ErrorMessage, "base context") {
+		t.Fatalf("ErrorMessage = %q, want base context failure", run.ErrorMessage)
 	}
 }
 
