@@ -8,7 +8,7 @@ import (
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
-	"github.com/banshee-data/velocity.report/internal/lidar/configasset"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/google/uuid"
 )
 
