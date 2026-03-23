@@ -96,9 +96,6 @@ func parseScenePath(path string) (sceneID string, action string) {
 		return "", ""
 	}
 	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
 	sceneID = parts[0]
 	if len(parts) > 1 {
 		action = parts[1]

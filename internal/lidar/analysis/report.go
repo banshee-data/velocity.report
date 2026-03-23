@@ -498,11 +498,7 @@ func computeDistStats(vals []float64) *DistStats {
 	}
 
 	percentileIdx := func(p float64) int {
-		idx := int(math.Floor(float64(n) * p))
-		if idx >= n {
-			idx = n - 1
-		}
-		return idx
+		return int(math.Floor(float64(n) * p))
 	}
 
 	ds := &DistStats{
@@ -551,9 +547,6 @@ func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
 		idx := int(float64(s) / binWidth)
 		if idx < 0 {
 			idx = 0
-		}
-		if idx >= nBins {
-			idx = nBins - 1
 		}
 		bins[idx].Count++
 	}

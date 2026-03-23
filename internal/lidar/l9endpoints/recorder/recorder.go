@@ -49,6 +49,11 @@ const (
 
 type frameDecoderFunc func([]byte) (*l9endpoints.FrameBundle, error)
 
+var (
+	frameSerializer         = serializeFrameProto
+	writeRecorderIndexEntry = writeIndexEntry
+)
+
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
 	Version         string `json:"version"`
@@ -193,13 +198,8 @@ func (r *Recorder) Record(frame *l9endpoints.FrameBundle) error {
 	}
 
 	// Write length-prefixed frame
-	lenBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))
-	if _, err := r.chunkFile.Write(lenBuf); err != nil {
-		return fmt.Errorf("failed to write frame length: %w", err)
-	}
-	if _, err := r.chunkFile.Write(data); err != nil {
-		return fmt.Errorf("failed to write frame data: %w", err)
+	if err := writeFramedPayload(r.chunkFile, data); err != nil {
+		return err
 	}
 
 	// Add to index
@@ -284,16 +284,7 @@ func (r *Recorder) Close() error {
 	defer indexFile.Close()
 
 	for _, entry := range r.index {
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.FrameID); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.TimestampNs); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.ChunkID); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.Offset); err != nil {
+		if err := writeRecorderIndexEntry(indexFile, entry); err != nil {
 			return err
 		}
 	}
@@ -347,7 +338,7 @@ func (r *Recorder) SetDeterministicConfig(runConfigID, paramSetID, configHash, p
 
 // serializeFrame serializes a FrameBundle to protobuf wire format.
 func serializeFrame(frame *l9endpoints.FrameBundle) ([]byte, error) {
-	return serializeFrameProto(frame)
+	return frameSerializer(frame)
 }
 
 // deserializeFrame deserialises bytes to a FrameBundle.
@@ -361,11 +352,8 @@ func deserializeFrame(data []byte) (*l9endpoints.FrameBundle, error) {
 	switch encoding {
 	case FrameEncodingProto:
 		return deserializeFrameProto(data)
-	case FrameEncodingJSON:
-		return deserializeFrameJSON(data)
-	default:
-		return nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
 	}
+	return deserializeFrameJSON(data)
 }
 
 func deserializeFrameJSON(data []byte) (*l9endpoints.FrameBundle, error) {
@@ -425,11 +413,8 @@ func detectReplayerFrameDecoder(basePath string, index []IndexEntry) (FrameEncod
 	switch encoding {
 	case FrameEncodingProto:
 		return encoding, deserializeFrameProto, nil
-	case FrameEncodingJSON:
-		return encoding, deserializeFrameJSON, nil
-	default:
-		return FrameEncodingUnknown, nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
 	}
+	return encoding, deserializeFrameJSON, nil
 }
 
 func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) {
@@ -471,6 +456,34 @@ func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) 
 	}
 
 	return payload, nil
+}
+
+func writeFramedPayload(w io.Writer, data []byte) error {
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))
+	if _, err := w.Write(lenBuf); err != nil {
+		return fmt.Errorf("failed to write frame length: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("failed to write frame data: %w", err)
+	}
+	return nil
+}
+
+func writeIndexEntry(w io.Writer, entry IndexEntry) error {
+	if err := binary.Write(w, binary.LittleEndian, entry.FrameID); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.TimestampNs); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.ChunkID); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.Offset); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Replayer reads FrameBundles from a log file.

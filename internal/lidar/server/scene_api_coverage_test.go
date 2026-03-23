@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +19,11 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	_ "modernc.org/sqlite"
 )
+
+type errReadCloser struct{}
+
+func (errReadCloser) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (errReadCloser) Close() error             { return nil }
 
 // --- handleUpdateScene additional coverage ---
 
@@ -475,6 +481,72 @@ func TestCov_HandleListSceneEvaluations_GET(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "scene-1") {
 		t.Errorf("expected replay_case_id in response, got: %s", w.Body.String())
+	}
+}
+
+func TestCov_HandleSceneByID_EvaluationsPostDispatch(t *testing.T) {
+	ws := setupTestSceneServer(t)
+	defer ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/nonexistent/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestCov_HandleUpdateScene_ReadBodyError(t *testing.T) {
+	ws := setupTestSceneServer(t)
+	defer ws.db.DB.Close()
+
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	scene := &sqlite.ReplayCase{SensorID: "sensor-read-err", PCAPFile: "read-error.pcap"}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, nil)
+	req.Body = errReadCloser{}
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+	if !strings.Contains(w.Body.String(), "failed to read body") {
+		t.Fatalf("expected read body error, got %s", w.Body.String())
+	}
+}
+
+func TestCov_HandleUpdateScene_UpdateError(t *testing.T) {
+	ws := setupTestSceneServer(t)
+	defer ws.db.DB.Close()
+
+	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	scene := &sqlite.ReplayCase{SensorID: "sensor-update-err", PCAPFile: "update-error.pcap"}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	if _, err := ws.db.DB.Exec(`
+		CREATE TRIGGER fail_scene_update BEFORE UPDATE ON lidar_replay_cases
+		BEGIN
+			SELECT RAISE(FAIL, 'scene update blocked');
+		END
+	`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	desc := "should fail"
+	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleSceneByID(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
@@ -1156,5 +1228,133 @@ func TestCov_HandleListSceneEvaluations_WithData(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "0.85") {
 		t.Errorf("expected composite_score 0.85 in response, got: %s", w.Body.String())
+	}
+}
+
+func TestCov_HandleListSceneEvaluations_DBError(t *testing.T) {
+	ws := setupTestSceneServer(t)
+	ws.db.DB.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/evaluations", nil)
+	w := httptest.NewRecorder()
+	ws.handleListSceneEvaluations(w, req, "scene-1")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleCreateSceneEvaluation_LoadSceneDBError(t *testing.T) {
+	testDB := setupTestSceneAPIDBWithEvaluations(t)
+	ws := &Server{db: testDB}
+	testDB.DB.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/scene-db-error/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
+	w := httptest.NewRecorder()
+	ws.handleCreateSceneEvaluation(w, req, "scene-db-error")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleCreateSceneEvaluation_EvaluateError(t *testing.T) {
+	testDB := setupTestSceneAPIDBWithEvaluations(t)
+	defer testDB.DB.Close()
+	ws := &Server{db: testDB}
+
+	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
+	refRun := &sqlite.AnalysisRun{RunID: "ref-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	if err := runStore.InsertRun(refRun); err != nil {
+		t.Fatalf("insert ref run: %v", err)
+	}
+	candRun := &sqlite.AnalysisRun{RunID: "cand-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	if err := runStore.InsertRun(candRun); err != nil {
+		t.Fatalf("insert candidate run: %v", err)
+	}
+
+	store := sqlite.NewReplayCaseStore(testDB.DB)
+	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: refRun.RunID}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert scene: %v", err)
+	}
+
+	if _, err := testDB.DB.Exec(`DROP TABLE lidar_run_tracks`); err != nil {
+		t.Fatalf("drop lidar_run_tracks: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-eval-error"}`))
+	w := httptest.NewRecorder()
+	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "evaluation failed") {
+		t.Fatalf("expected evaluation error, got %s", w.Body.String())
+	}
+}
+
+func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
+	testDB := setupTestSceneAPIDBWithEvaluations(t)
+	defer testDB.DB.Close()
+	ws := &Server{db: testDB}
+
+	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
+	refRun := &sqlite.AnalysisRun{RunID: "ref-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{}`)}
+	if err := runStore.InsertRun(refRun); err != nil {
+		t.Fatalf("insert ref run: %v", err)
+	}
+	candRun := &sqlite.AnalysisRun{RunID: "cand-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{"eps":0.5}`)}
+	if err := runStore.InsertRun(candRun); err != nil {
+		t.Fatalf("insert candidate run: %v", err)
+	}
+
+	for _, rt := range []struct{ runID, trackID string }{
+		{refRun.RunID, "ref-track-insert-error"},
+		{candRun.RunID, "cand-track-insert-error"},
+	} {
+		track := &sqlite.RunTrack{
+			RunID:   rt.runID,
+			TrackID: rt.trackID,
+			TrackMeasurement: l5tracks.TrackMeasurement{
+				SensorID:         "sensor-001",
+				TrackState:       "confirmed",
+				StartUnixNanos:   1000000000,
+				EndUnixNanos:     2000000000,
+				ObservationCount: 5,
+				AvgSpeedMps:      3.0,
+			},
+		}
+		if err := runStore.InsertRunTrack(track); err != nil {
+			t.Fatalf("insert track %s: %v", rt.trackID, err)
+		}
+	}
+
+	store := sqlite.NewReplayCaseStore(testDB.DB)
+	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: refRun.RunID}
+	if err := store.InsertScene(scene); err != nil {
+		t.Fatalf("insert scene: %v", err)
+	}
+
+	evalStore := sqlite.NewEvaluationStore(testDB.DB)
+	eval := &sqlite.Evaluation{
+		ReplayCaseID:   scene.ReplayCaseID,
+		ReferenceRunID: refRun.RunID,
+		CandidateRunID: candRun.RunID,
+	}
+	if err := evalStore.Insert(eval); err != nil {
+		t.Fatalf("seed evaluation: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-insert-error"}`))
+	w := httptest.NewRecorder()
+	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to persist evaluation") {
+		t.Fatalf("expected persist error, got %s", w.Body.String())
 	}
 }
