@@ -127,6 +127,11 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 		// visualiser-server tool), background frames from the VRLOG must be
 		// forwarded so the client can render them.
 		if frame.FrameType == FrameTypeBackground && rs.publisher.backgroundMgr != nil {
+			// Advance the rate-control baseline to the skipped frame's
+			// timestamp so the next foreground frame is not delayed by
+			// the full gap that includes this skipped frame.
+			lastFrameTime = frame.TimestampNanos
+			lastWallTime = time.Now()
 			continue
 		}
 
