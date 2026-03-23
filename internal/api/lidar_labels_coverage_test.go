@@ -829,3 +829,79 @@ func setupLabelTestDBClose(t *testing.T) *dbpkg.DB {
 	t.Cleanup(cleanup)
 	return db
 }
+
+// --- handleListLabels: scan error (corrupt data) ---
+
+func TestListLabels_ScanError(t *testing.T) {
+	db := setupLabelTestDB(t)
+	insertReplayAnnotation(t, db, "label-scan", "case-001", "run-001", "track-001", "car", 1000000000)
+
+	// Corrupt the integer column so Scan into int64 fails.
+	_, err := db.Exec("UPDATE lidar_replay_annotations SET start_timestamp_ns = 'not_a_number' WHERE annotation_id = 'label-scan'")
+	if err != nil {
+		t.Fatalf("failed to corrupt data: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for scan error, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// --- handleUpdateLabel: exec error (trigger blocks UPDATE) ---
+
+func TestUpdateLabel_ExecError(t *testing.T) {
+	db := setupLabelTestDB(t)
+	insertReplayAnnotation(t, db, "label-upd", "case-001", "run-001", "track-001", "car", 1000000000)
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	// Block UPDATE via trigger so getLabel succeeds but the UPDATE Exec fails.
+	_, err := db.Exec(`CREATE TRIGGER block_update BEFORE UPDATE ON lidar_replay_annotations BEGIN SELECT RAISE(ABORT, 'blocked'); END`)
+	if err != nil {
+		t.Fatalf("failed to create trigger: %v", err)
+	}
+
+	body, _ := json.Marshal(LidarLabel{ClassLabel: "bus"})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-upd", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for update exec error, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// --- handleExport: scan error (corrupt data) ---
+
+func TestExport_ScanError(t *testing.T) {
+	db := setupLabelTestDB(t)
+	insertReplayAnnotation(t, db, "label-exp", "case-001", "run-001", "track-001", "car", 1000000000)
+
+	// Corrupt the integer column so Scan into int64 fails.
+	_, err := db.Exec("UPDATE lidar_replay_annotations SET start_timestamp_ns = 'not_a_number' WHERE annotation_id = 'label-exp'")
+	if err != nil {
+		t.Fatalf("failed to corrupt data: %v", err)
+	}
+
+	api := NewLidarLabelAPI(db)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for scan error, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
