@@ -6,6 +6,7 @@ import {
 	generateReport,
 	getActiveTracks,
 	getBackgroundGrid,
+	getCapabilities,
 	getConfig,
 	getEvents,
 	getRadarStats,
@@ -25,6 +26,7 @@ import {
 	updateSite,
 	updateTransitWorker,
 	upsertSiteConfigPeriod,
+	type Capabilities,
 	type Config,
 	type Event,
 	type Site,
@@ -259,6 +261,56 @@ describe('api', () => {
 			});
 
 			await expect(getConfig()).rejects.toThrow('Failed to fetch config: 500');
+		});
+	});
+
+	describe('getCapabilities', () => {
+		it('should fetch capabilities with LiDAR ready', async () => {
+			const mockCaps: Capabilities = {
+				radar: true,
+				lidar: { enabled: true, state: 'ready' },
+				lidar_sweep: true
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockCaps
+			});
+
+			const result = await getCapabilities();
+
+			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
+			expect(callUrl).toContain('/api/capabilities');
+			expect(result).toEqual(mockCaps);
+		});
+
+		it('should fetch capabilities with LiDAR disabled', async () => {
+			const mockCaps: Capabilities = {
+				radar: true,
+				lidar: { enabled: false, state: 'disabled' },
+				lidar_sweep: false
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => mockCaps
+			});
+
+			const result = await getCapabilities();
+			expect(result.lidar.enabled).toBe(false);
+			expect(result.lidar.state).toBe('disabled');
+			expect(result.lidar_sweep).toBe(false);
+		});
+
+		it('should handle errors when fetching capabilities', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 503
+			});
+
+			await expect(getCapabilities()).rejects.toThrow(
+				'Failed to fetch capabilities: 503'
+			);
 		});
 	});
 

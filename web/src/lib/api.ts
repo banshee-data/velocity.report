@@ -53,6 +53,19 @@ export interface Config {
 	timezone: string;
 }
 
+// LiDAR capability state as reported by /api/capabilities.
+export interface LidarCapability {
+	enabled: boolean;
+	state: 'disabled' | 'starting' | 'ready' | 'error';
+}
+
+// Sensor capabilities reported by /api/capabilities.
+export interface Capabilities {
+	radar: boolean;
+	lidar: LidarCapability;
+	lidar_sweep: boolean;
+}
+
 const API_BASE = '/api';
 
 export async function getEvents(units?: string, timezone?: string): Promise<Event[]> {
@@ -111,6 +124,16 @@ export async function getRadarStats(
 export async function getConfig(): Promise<Config> {
 	const res = await fetch(`${API_BASE}/config`);
 	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
+	return res.json();
+}
+
+/**
+ * Fetch sensor capabilities from /api/capabilities.
+ * Returns which sensors are active and their runtime state.
+ */
+export async function getCapabilities(): Promise<Capabilities> {
+	const res = await fetch(`${API_BASE}/capabilities`);
+	if (!res.ok) throw new Error(`Failed to fetch capabilities: ${res.status}`);
 	return res.json();
 }
 
