@@ -12,6 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	startPCAPInternalForScene = func(ws *Server, pcapPath string, config ReplayConfig) error {
+		return ws.StartPCAPInternal(pcapPath, config)
+	}
+	lastAnalysisRunIDForScene = func(ws *Server) string {
+		return ws.LastAnalysisRunID()
+	}
+	getRunForSceneEvaluation = func(store *sqlite.AnalysisRunStore, runID string) (*sqlite.AnalysisRun, error) {
+		return store.GetRun(runID)
+	}
+)
+
 // REST API for replay case management
 // These handlers manage LiDAR replay cases (PCAP + sensor + params).
 //
@@ -329,11 +341,11 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		opsf("Warning: failed to reset background grid before replay: %v", err)
 	}
 
-	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
+	if err := startPCAPInternalForScene(ws, scene.PCAPFile, config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
-	runID := ws.LastAnalysisRunID()
+	runID := lastAnalysisRunIDForScene(ws)
 	if runID == "" {
 		runID = preferredRunID
 	}
@@ -407,7 +419,7 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get candidate run params for snapshot
-	candidateRun, err := runStore.GetRun(req.CandidateRunID)
+	candidateRun, err := getRunForSceneEvaluation(runStore, req.CandidateRunID)
 	if err != nil {
 		opsf("Warning: failed to get candidate run params: %v", err)
 	}
