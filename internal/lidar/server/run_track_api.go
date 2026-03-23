@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
@@ -490,13 +489,6 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 		}
 	}
 
-	// Use provided params or fall back to original run params
-	paramsJSON := req.ParamsJSON
-	if paramsJSON == nil {
-		paramsJSON = originalRun.ParamsJSON
-	}
-
-	// Create a new analysis run
 	runIDPrefix := runID
 	if len(runIDPrefix) > 8 {
 		runIDPrefix = runIDPrefix[:8]
@@ -506,22 +498,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	if len(uuidPrefix) > 8 {
 		uuidPrefix = uuidPrefix[:8]
 	}
-	newRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
-	newRun := &sqlite.AnalysisRun{
-		RunID:       newRunID,
-		SourceType:  "pcap",
-		SourcePath:  originalRun.SourcePath,
-		SensorID:    originalRun.SensorID,
-		Status:      "running",
-		CreatedAt:   time.Now(),
-		ParamsJSON:  paramsJSON,
-		ParentRunID: runID,
-	}
-
-	if err := runStore.InsertRun(newRun); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
-		return
-	}
+	preferredRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
 
 	// Reset tracker and background grid for deterministic analysis
 	if ws.tracker != nil {
@@ -532,14 +509,23 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	}
 
 	config := ReplayConfig{
-		AnalysisMode: true,
+		AnalysisMode:   true,
+		SensorID:       originalRun.SensorID,
+		PreferredRunID: preferredRunID,
+		ParentRunID:    runID,
+	}
+	if len(req.ParamsJSON) > 0 {
+		config.RequestedParamsJSON = req.ParamsJSON
+	} else if originalRun.RequestedParamSetID != "" {
+		config.RequestedParamSetID = originalRun.RequestedParamSetID
 	}
 	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
-		if updateErr := runStore.UpdateRunStatus(newRunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			opsf("failed to update run status: %v", updateErr)
-		}
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
+	}
+	newRunID := ws.LastAnalysisRunID()
+	if newRunID == "" {
+		newRunID = preferredRunID
 	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
