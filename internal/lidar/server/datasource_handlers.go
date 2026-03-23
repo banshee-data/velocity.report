@@ -539,7 +539,11 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string) {
 		defer close(finished)
 		defer cancel()
-		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)
+		sensorID := ws.replayAnalysisSensorID(replayCfg)
+		if sensorID == "" {
+			sensorID = ws.sensorID
+		}
+		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)
 
 		// Disable DB track persistence during analysis replays and sweeps that
 		// have recording disabled — prevents polluting the production track store.
@@ -608,16 +612,16 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 		// sensor rotation is processed without silent drops. This guarantees
 		// deterministic 1:1 PCAP-frame-to-VRLOG-frame mapping regardless of
 		// playback speed.
-		if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+		if fb := l2frames.GetFrameBuilder(sensorID); fb != nil {
 			fb.SetBlockOnFrameChannel(true)
 			defer fb.SetBlockOnFrameChannel(false)
 		}
-		if speedMode == "analysis" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
+		if replayCfg.SpeedMode == "analysis" {
+			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
-			if bgManager := l3grid.GetBackgroundManager(ws.sensorID); bgManager != nil {
+			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
 				orig := bgManager.GetParams()
 				tuned := orig
 				tuned.SeedFromFirstObservation = true
@@ -633,8 +637,8 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 			}
 
 			// Realtime or scaled ratio
-			multiplier := speedRatio
-			if speedMode == "realtime" {
+			multiplier := replayCfg.SpeedRatio
+			if replayCfg.SpeedMode == "realtime" {
 				multiplier = 1.0
 			}
 			if multiplier <= 0 {
@@ -651,22 +655,22 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 				defer fgForwarder.Close()
 			}
 
-			bgManager := l3grid.GetBackgroundManager(ws.sensorID)
+			bgManager := l3grid.GetBackgroundManager(sensorID)
 
 			// Apply debug range parameters to background manager if specified
-			if bgManager != nil && (debugRingMin > 0 || debugRingMax > 0 || debugAzMin > 0 || debugAzMax > 0) {
+			if bgManager != nil && (replayCfg.DebugRingMin > 0 || replayCfg.DebugRingMax > 0 || replayCfg.DebugAzMin > 0 || replayCfg.DebugAzMax > 0) {
 				params := bgManager.GetParams()
-				params.DebugRingMin = debugRingMin
-				params.DebugRingMax = debugRingMax
-				params.DebugAzMin = debugAzMin
-				params.DebugAzMax = debugAzMax
+				params.DebugRingMin = replayCfg.DebugRingMin
+				params.DebugRingMax = replayCfg.DebugRingMax
+				params.DebugAzMin = replayCfg.DebugAzMin
+				params.DebugAzMax = replayCfg.DebugAzMax
 				_ = bgManager.SetParams(params)
 				// Enable diagnostics only if enableDebug is true
-				if enableDebug {
+				if replayCfg.EnableDebug {
 					bgManager.SetEnableDiagnostics(true)
-					diagf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", replayCfg.DebugRingMin, replayCfg.DebugRingMax, replayCfg.DebugAzMin, replayCfg.DebugAzMax)
 				} else {
-					diagf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", replayCfg.DebugRingMin, replayCfg.DebugRingMax, replayCfg.DebugAzMin, replayCfg.DebugAzMax)
 				}
 			}
 
@@ -681,18 +685,18 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
-				StartSeconds:        startSeconds,
-				DurationSeconds:     durationSeconds,
+				StartSeconds:        replayCfg.StartSeconds,
+				DurationSeconds:     replayCfg.DurationSeconds,
 				PacketForwarder:     ws.packetForwarder,
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
-				SensorID:            ws.sensorID,
+				SensorID:            sensorID,
 				// Increase warmup to ~4000 packets (approx 20 frames / 2 seconds) to allow background grid to stabilize
 				WarmupPackets:   4000,
-				DebugRingMin:    debugRingMin,
-				DebugRingMax:    debugRingMax,
-				DebugAzMin:      debugAzMin,
-				DebugAzMax:      debugAzMax,
+				DebugRingMin:    replayCfg.DebugRingMin,
+				DebugRingMax:    replayCfg.DebugRingMax,
+				DebugAzMin:      replayCfg.DebugAzMin,
+				DebugAzMax:      replayCfg.DebugAzMax,
 				OnFrameCallback: onFrameCallback,
 				TotalPackets:    countResult.Count,
 				OnProgress:      onProgress,
@@ -712,7 +716,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 		} else {
 			diagf("PCAP replay completed: %s", path)
 			// Log quality summary: cumulative dropped frame count for this sensor.
-			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+			if fb := l2frames.GetFrameBuilder(sensorID); fb != nil {
 				dropped := fb.DroppedFrames()
 				if dropped > 0 {
 					opsf("[PCAP quality] %d frames dropped (callback queue full; cumulative across replays for this sensor)", dropped)
@@ -788,7 +792,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
 			}
 		}
 		ws.dataSourceMu.Unlock()
-	}(resolvedPath, ctx, cancel, done)
+	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
 
 	return nil
 }

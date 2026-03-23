@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -294,30 +293,14 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		}
 	}
 
-	// Determine which params to use
+	// Determine which params to use as launch intent lineage.
 	var paramsJSON json.RawMessage
 	if req.ParamsJSON != nil {
 		paramsJSON = req.ParamsJSON
 	} else if len(scene.OptimalParamsJSON) > 0 {
 		paramsJSON = scene.OptimalParamsJSON
 	}
-
-	// Create analysis run with UUID for uniqueness
-	runStore := sqlite.NewAnalysisRunStore(ws.db)
-	run := &sqlite.AnalysisRun{
-		RunID:      fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8]),
-		SourceType: "pcap",
-		SourcePath: scene.PCAPFile,
-		SensorID:   scene.SensorID,
-		Status:     "running",
-		CreatedAt:  time.Now(),
-		ParamsJSON: paramsJSON,
-	}
-
-	if err := runStore.InsertRun(run); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
-		return
-	}
+	preferredRunID := fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8])
 
 	// Start PCAP replay
 	// Note: The actual run completion and track insertion will be handled by AnalysisRunManager
@@ -331,9 +314,13 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	}
 
 	config := ReplayConfig{
-		StartSeconds:    startSecs,
-		DurationSeconds: durationSecs,
-		AnalysisMode:    true, // Preserve state after completion
+		StartSeconds:        startSecs,
+		DurationSeconds:     durationSecs,
+		AnalysisMode:        true, // Preserve state after completion
+		SensorID:            scene.SensorID,
+		PreferredRunID:      preferredRunID,
+		ReplayCaseID:        sceneID,
+		RequestedParamsJSON: paramsJSON,
 	}
 
 	// Reset tracker to ensure deterministic track IDs starting from track_1
@@ -346,16 +333,16 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	}
 
 	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
-		// Update run status to failed
-		if updateErr := runStore.UpdateRunStatus(run.RunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			opsf("failed to update run status: %v", updateErr)
-		}
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
+	runID := ws.LastAnalysisRunID()
+	if runID == "" {
+		runID = preferredRunID
+	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
-		"run_id":         run.RunID,
+		"run_id":         runID,
 		"replay_case_id": sceneID,
 		"status":         "running",
 		"message":        "PCAP replay initiated; analysis run created",
