@@ -547,6 +547,8 @@ func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
 		idx := int(float64(s) / binWidth)
 		if idx < 0 {
 			idx = 0
+		} else if idx >= nBins {
+			idx = nBins - 1
 		}
 		bins[idx].Count++
 	}
