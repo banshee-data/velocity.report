@@ -63,11 +63,18 @@ type LogHeader struct {
 	} `json:"coordinate_frame"`
 
 	// Provenance fields — recording context written at start time.
-	SourceType   string  `json:"source_type,omitempty"`   // "live", "pcap", or "synthetic"
-	PCAPPath     string  `json:"pcap_path,omitempty"`     // original PCAP filename (basename)
-	PlaybackRate float64 `json:"playback_rate,omitempty"` // configured replay speed multiplier
-	TuningHash   string  `json:"tuning_hash,omitempty"`   // SHA-256 of tuning config JSON
-	BuildVersion string  `json:"build_version,omitempty"` // velocity.report version that wrote this
+	SourceType    string  `json:"source_type,omitempty"`    // "live", "pcap", or "synthetic"
+	PCAPPath      string  `json:"pcap_path,omitempty"`      // original PCAP filename (basename)
+	PlaybackRate  float64 `json:"playback_rate,omitempty"`  // configured replay speed multiplier
+	TuningHash    string  `json:"tuning_hash,omitempty"`    // deprecated transition field
+	RunConfigID   string  `json:"run_config_id,omitempty"`  // immutable exact config identity
+	ParamSetID    string  `json:"param_set_id,omitempty"`   // immutable effective/requested param-set identity
+	ConfigHash    string  `json:"config_hash,omitempty"`    // SHA-256 of exact run config JSON
+	ParamsHash    string  `json:"params_hash,omitempty"`    // SHA-256 of effective param-set JSON
+	SchemaVersion string  `json:"schema_version,omitempty"` // parameter-set schema version
+	ParamSetType  string  `json:"param_set_type,omitempty"` // effective/requested/legacy
+	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report version that wrote this
+	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA that wrote this
 }
 
 // IndexEntry is an entry in the seek index.
@@ -83,12 +90,13 @@ type Recorder struct {
 	basePath string
 	sensorID string
 
-	header        LogHeader
-	index         []IndexEntry
-	currentChunk  int
-	chunkFile     *os.File
-	chunkOffset   uint32
-	framesInChunk int // frames written to the current chunk
+	header          LogHeader
+	executionConfig []byte
+	index           []IndexEntry
+	currentChunk    int
+	chunkFile       *os.File
+	chunkOffset     uint32
+	framesInChunk   int // frames written to the current chunk
 
 	frameCount uint64
 	startNs    int64
@@ -260,6 +268,13 @@ func (r *Recorder) Close() error {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
+	if len(r.executionConfig) > 0 {
+		executionConfigPath := filepath.Join(r.basePath, "execution_config.json")
+		if err := os.WriteFile(executionConfigPath, r.executionConfig, 0644); err != nil {
+			return fmt.Errorf("failed to write execution_config.json: %w", err)
+		}
+	}
+
 	// Write index
 	indexPath := filepath.Join(r.basePath, "index.bin")
 	indexFile, err := os.Create(indexPath)
@@ -307,6 +322,27 @@ func (r *Recorder) SetProvenance(sourceType, pcapPath, tuningHash string, playba
 	r.header.PCAPPath = pcapPath
 	r.header.TuningHash = tuningHash
 	r.header.PlaybackRate = playbackRate
+}
+
+// SetDeterministicConfig stores the exact immutable run configuration for the
+// recording. Must be called before Close.
+func (r *Recorder) SetDeterministicConfig(runConfigID, paramSetID, configHash, paramsHash, schemaVersion, paramSetType, buildVersion, buildGitSHA string, executionConfig []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.header.RunConfigID = runConfigID
+	r.header.ParamSetID = paramSetID
+	r.header.ConfigHash = configHash
+	r.header.ParamsHash = paramsHash
+	r.header.SchemaVersion = schemaVersion
+	r.header.ParamSetType = paramSetType
+	if buildVersion != "" {
+		r.header.BuildVersion = buildVersion
+	}
+	r.header.BuildGitSHA = buildGitSHA
+	if len(executionConfig) > 0 {
+		r.executionConfig = append([]byte(nil), executionConfig...)
+	}
 }
 
 // serializeFrame serializes a FrameBundle to protobuf wire format.

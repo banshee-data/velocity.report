@@ -47,15 +47,18 @@ type BuildIdentity struct {
 }
 
 type RunConfig struct {
-	RunConfigID   string
-	ConfigHash    string
-	ParamSetID    string
-	BuildVersion  string
-	BuildGitSHA   string
-	CreatedAt     int64
-	ComposedJSON  []byte
-	ParamSetType  string
-	SchemaVersion string
+	RunConfigID          string
+	ConfigHash           string
+	ParamSetID           string
+	BuildVersion         string
+	BuildGitSHA          string
+	CreatedAt            int64
+	ComposedJSON         []byte
+	ParamSetType         string
+	ParamSchemaVersion   string
+	ConfigSchemaVersion  string
+	ParamsHash           string
+	ParamSetEnvelopeJSON []byte
 }
 
 type Store struct {
@@ -220,15 +223,18 @@ func (s *Store) EnsureRunConfig(paramSet *ParamSet, build BuildIdentity) (*RunCo
 	}
 
 	runConfig := &RunConfig{
-		RunConfigID:   uuid.NewString(),
-		ConfigHash:    configHash,
-		ParamSetID:    ensuredParamSet.ParamSetID,
-		BuildVersion:  build.BuildVersion,
-		BuildGitSHA:   build.BuildGitSHA,
-		CreatedAt:     time.Now().UnixNano(),
-		ComposedJSON:  composedJSON,
-		ParamSetType:  ensuredParamSet.ParamSetType,
-		SchemaVersion: SchemaVersionRunConfigV1,
+		RunConfigID:          uuid.NewString(),
+		ConfigHash:           configHash,
+		ParamSetID:           ensuredParamSet.ParamSetID,
+		BuildVersion:         build.BuildVersion,
+		BuildGitSHA:          build.BuildGitSHA,
+		CreatedAt:            time.Now().UnixNano(),
+		ComposedJSON:         composedJSON,
+		ParamSetType:         ensuredParamSet.ParamSetType,
+		ParamSchemaVersion:   ensuredParamSet.SchemaVersion,
+		ConfigSchemaVersion:  SchemaVersionRunConfigV1,
+		ParamsHash:           ensuredParamSet.ParamsHash,
+		ParamSetEnvelopeJSON: append([]byte(nil), ensuredParamSet.ParamsJSON...),
 	}
 
 	if _, err := s.db.Exec(`
@@ -253,14 +259,103 @@ func (s *Store) EnsureRunConfig(paramSet *ParamSet, build BuildIdentity) (*RunCo
 	return stored, nil
 }
 
+func (s *Store) GetParamSet(paramSetID string) (*ParamSet, error) {
+	if s == nil || s.db == nil {
+		return nil, fmt.Errorf("config asset store requires a database")
+	}
+
+	var paramSet ParamSet
+	var paramsJSON string
+	err := s.db.QueryRow(`
+		SELECT param_set_id, params_hash, schema_version, param_set_type, params_json, created_at
+		FROM lidar_param_sets
+		WHERE param_set_id = ?`,
+		paramSetID,
+	).Scan(
+		&paramSet.ParamSetID,
+		&paramSet.ParamsHash,
+		&paramSet.SchemaVersion,
+		&paramSet.ParamSetType,
+		&paramsJSON,
+		&paramSet.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	paramSet.ParamsJSON = []byte(paramsJSON)
+	return &paramSet, nil
+}
+
+func (s *Store) GetRunConfig(runConfigID string) (*RunConfig, error) {
+	if s == nil || s.db == nil {
+		return nil, fmt.Errorf("config asset store requires a database")
+	}
+
+	var (
+		runConfig  RunConfig
+		paramsJSON string
+	)
+	err := s.db.QueryRow(`
+		SELECT
+			rc.run_config_id,
+			rc.config_hash,
+			rc.param_set_id,
+			rc.build_version,
+			rc.build_git_sha,
+			rc.created_at,
+			ps.params_hash,
+			ps.schema_version,
+			ps.param_set_type,
+			ps.params_json
+		FROM lidar_run_configs rc
+		JOIN lidar_param_sets ps ON ps.param_set_id = rc.param_set_id
+		WHERE rc.run_config_id = ?`,
+		runConfigID,
+	).Scan(
+		&runConfig.RunConfigID,
+		&runConfig.ConfigHash,
+		&runConfig.ParamSetID,
+		&runConfig.BuildVersion,
+		&runConfig.BuildGitSHA,
+		&runConfig.CreatedAt,
+		&runConfig.ParamsHash,
+		&runConfig.ParamSchemaVersion,
+		&runConfig.ParamSetType,
+		&paramsJSON,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	runConfig.ConfigSchemaVersion = SchemaVersionRunConfigV1
+	runConfig.ParamSetEnvelopeJSON = []byte(paramsJSON)
+
+	paramSet := &ParamSet{
+		ParamSetID:    runConfig.ParamSetID,
+		ParamsHash:    runConfig.ParamsHash,
+		SchemaVersion: runConfig.ParamSchemaVersion,
+		ParamSetType:  runConfig.ParamSetType,
+		ParamsJSON:    runConfig.ParamSetEnvelopeJSON,
+	}
+	composedJSON, err := ComposeRunConfig(paramSet, BuildIdentity{
+		BuildVersion: runConfig.BuildVersion,
+		BuildGitSHA:  runConfig.BuildGitSHA,
+	})
+	if err != nil {
+		return nil, err
+	}
+	runConfig.ComposedJSON = composedJSON
+	return &runConfig, nil
+}
+
 func makeWrappedRawParamSet(raw json.RawMessage, schemaVersion, paramSetType string) (*ParamSet, error) {
 	if len(raw) == 0 {
 		return nil, fmt.Errorf("param set JSON is required")
 	}
 
-	var params map[string]interface{}
-	if err := json.Unmarshal(raw, &params); err != nil {
-		return nil, fmt.Errorf("decode param set JSON: %w", err)
+	params, err := decodeJSONObject(raw)
+	if err != nil {
+		return nil, err
 	}
 
 	envelope := paramSetEnvelope{
@@ -269,6 +364,44 @@ func makeWrappedRawParamSet(raw json.RawMessage, schemaVersion, paramSetType str
 		Params:        params,
 	}
 	return makeParamSet(envelope)
+}
+
+func ExtractParamsPayload(data []byte) (json.RawMessage, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("param set JSON is required")
+	}
+
+	var stored storedParamSetJSON
+	if err := json.Unmarshal(data, &stored); err != nil {
+		return nil, fmt.Errorf("decode param set JSON: %w", err)
+	}
+	if len(stored.Params) == 0 {
+		return nil, fmt.Errorf("param set payload is empty")
+	}
+	return append(json.RawMessage(nil), stored.Params...), nil
+}
+
+func decodeJSONObject(raw json.RawMessage) (map[string]interface{}, error) {
+	var decoded interface{}
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, fmt.Errorf("decode param set JSON: %w", err)
+	}
+
+	if encodedString, ok := decoded.(string); ok {
+		inner := strings.TrimSpace(encodedString)
+		if inner == "" {
+			return nil, fmt.Errorf("param set JSON string is empty")
+		}
+		if err := json.Unmarshal([]byte(inner), &decoded); err != nil {
+			return nil, fmt.Errorf("decode stringified param set JSON: %w", err)
+		}
+	}
+
+	params, ok := decoded.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("param set JSON must decode to an object")
+	}
+	return params, nil
 }
 
 func makeParamSet(envelope paramSetEnvelope) (*ParamSet, error) {
@@ -326,7 +459,15 @@ func (s *Store) findRunConfigByHash(configHash string) (*RunConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	runConfig.SchemaVersion = SchemaVersionRunConfigV1
+	runConfig.ConfigSchemaVersion = SchemaVersionRunConfigV1
+
+	paramSet, err := s.GetParamSet(runConfig.ParamSetID)
+	if err == nil {
+		runConfig.ParamsHash = paramSet.ParamsHash
+		runConfig.ParamSchemaVersion = paramSet.SchemaVersion
+		runConfig.ParamSetType = paramSet.ParamSetType
+		runConfig.ParamSetEnvelopeJSON = append([]byte(nil), paramSet.ParamsJSON...)
+	}
 	return &runConfig, nil
 }
 
