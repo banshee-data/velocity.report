@@ -887,6 +887,13 @@ func main() {
 		// Set the transit controller so API can provide UI controls
 		apiServer.SetTransitController(transitController)
 
+		// Wire capabilities provider so /api/capabilities reports sensor state
+		capsProvider := newCapabilitiesProvider()
+		if lidarServer != nil {
+			capsProvider.SetLidarReady(true)
+		}
+		apiServer.SetCapabilitiesProvider(capsProvider)
+
 		// Attach admin routes that belong to other components
 		// (these modify the mux returned by apiServer.ServeMux internally)
 		mux := apiServer.ServeMux()
