@@ -580,6 +580,13 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("InsertRun(parent) failed: %v", err)
 	}
+	if _, err := db.Exec(`
+		INSERT INTO lidar_replay_cases (
+			replay_case_id, sensor_id, pcap_file, created_at_ns
+		) VALUES (?, ?, ?, ?)
+	`, "scene-42", "immutable-sensor", "/tmp/replay.pcap", time.Now().UnixNano()); err != nil {
+		t.Fatalf("insert replay case: %v", err)
+	}
 
 	runID, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
 		SourcePath:          "/tmp/replay.pcap",

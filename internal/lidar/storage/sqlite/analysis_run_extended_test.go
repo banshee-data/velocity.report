@@ -7,6 +7,7 @@ import (
 	"time"
 
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
+	_ "modernc.org/sqlite"
 )
 
 // setupAnalysisRunTestDB creates a test database via the canonical internal/db bootstrap path.
@@ -15,6 +16,45 @@ func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 
 	db, cleanup := dbpkg.NewTestDB(t)
 	return db.DB, cleanup
+}
+
+func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
+	t.Helper()
+
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open legacy analysis run test db: %v", err)
+	}
+	if _, err := db.Exec(`
+		CREATE TABLE lidar_run_records (
+			run_id TEXT PRIMARY KEY,
+			created_at INTEGER NOT NULL,
+			source_type TEXT NOT NULL,
+			source_path TEXT,
+			sensor_id TEXT NOT NULL,
+			params_json TEXT NOT NULL,
+			duration_secs REAL,
+			total_frames INTEGER,
+			total_clusters INTEGER,
+			total_tracks INTEGER,
+			confirmed_tracks INTEGER,
+			processing_time_ms INTEGER,
+			status TEXT NOT NULL DEFAULT 'running',
+			error_message TEXT,
+			parent_run_id TEXT,
+			notes TEXT,
+			vrlog_path TEXT
+		)
+	`); err != nil {
+		_ = db.Close()
+		t.Fatalf("create legacy lidar_run_records table: %v", err)
+	}
+
+	cleanup := func() {
+		_ = db.Close()
+	}
+	t.Cleanup(cleanup)
+	return db, cleanup
 }
 
 // insertTestAnalysisRun inserts a parent analysis run for foreign key compliance.
@@ -731,6 +771,51 @@ func TestAnalysisRunStore_UpdateRunStatus(t *testing.T) {
 	}
 	if retrieved.ErrorMessage != "Test error message" {
 		t.Errorf("ErrorMessage mismatch: got %s", retrieved.ErrorMessage)
+	}
+	if retrieved.CompletedAt == nil {
+		t.Fatal("expected completed_at to be set when column exists")
+	}
+}
+
+func TestAnalysisRunStore_UpdateRunStatus_WithoutCompletedAtColumn(t *testing.T) {
+	db, cleanup := setupLegacyAnalysisRunTestDB(t)
+	defer cleanup()
+
+	store := NewAnalysisRunStore(db)
+
+	params := DefaultRunParams()
+	paramsJSON, _ := params.ToJSON()
+
+	run := &AnalysisRun{
+		RunID:      "run-status-legacy",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SensorID:   "sensor-1",
+		ParamsJSON: paramsJSON,
+		Status:     "running",
+	}
+
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun failed: %v", err)
+	}
+
+	if err := store.UpdateRunStatus("run-status-legacy", "failed", "legacy error"); err != nil {
+		t.Fatalf("UpdateRunStatus failed: %v", err)
+	}
+
+	retrieved, err := store.GetRun("run-status-legacy")
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+
+	if retrieved.Status != "failed" {
+		t.Errorf("Status mismatch: got %s, want failed", retrieved.Status)
+	}
+	if retrieved.ErrorMessage != "legacy error" {
+		t.Errorf("ErrorMessage mismatch: got %s", retrieved.ErrorMessage)
+	}
+	if retrieved.CompletedAt != nil {
+		t.Fatalf("expected completed_at to remain nil when column is absent, got %v", *retrieved.CompletedAt)
 	}
 }
 
