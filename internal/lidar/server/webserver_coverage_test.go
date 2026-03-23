@@ -3589,6 +3589,10 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
+	baseCancel()
+	ws.dataSourceMu.Lock()
+	ws.stopLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
 	// Analysis mode + live listener restart — may get 200 or 500 for UDP listener
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 200 or 500; body: %s", w.Code, w.Body.String())

@@ -48,6 +48,26 @@ func (d *statefulQueryRowDB) QueryRow(query string, args ...any) *sql.Row {
 	return d.db.QueryRow(query, args...)
 }
 
+type runConfigQueryInterceptDB struct {
+	db          *sql.DB
+	runConfigDB *sql.DB
+	paramSetDB  *sql.DB
+}
+
+func (d *runConfigQueryInterceptDB) Exec(query string, args ...any) (sql.Result, error) {
+	return d.db.Exec(query, args...)
+}
+
+func (d *runConfigQueryInterceptDB) QueryRow(query string, args ...any) *sql.Row {
+	if strings.Contains(query, "FROM lidar_run_configs") && d.runConfigDB != nil {
+		return d.runConfigDB.QueryRow(query, args...)
+	}
+	if strings.Contains(query, "FROM lidar_param_sets") && d.paramSetDB != nil {
+		return d.paramSetDB.QueryRow(query, args...)
+	}
+	return d.db.QueryRow(query, args...)
+}
+
 func TestReadBuildIdentity_NormalizesValues(t *testing.T) {
 	build := ReadBuildIdentity()
 	if strings.TrimSpace(build.BuildVersion) == "" {
@@ -233,6 +253,31 @@ func TestStoreEnsureRunConfig_SecondaryLookupFailures(t *testing.T) {
 	})
 	if _, err := store.EnsureRunConfig(paramSet, BuildIdentity{BuildVersion: "v1", BuildGitSHA: "sha"}); err == nil || !strings.Contains(err.Error(), "database is closed") {
 		t.Fatalf("expected secondary run-config lookup failure, got %v", err)
+	}
+}
+
+func TestStoreEnsureRunConfig_PrimaryLookupFailure(t *testing.T) {
+	openDB, cleanup := dbpkg.NewTestDB(t)
+	defer cleanup()
+
+	closedDB, closedCleanup := dbpkg.NewTestDB(t)
+	defer closedCleanup()
+	if err := closedDB.DB.Close(); err != nil {
+		t.Fatalf("close secondary db: %v", err)
+	}
+
+	cfg := cfgpkg.MustLoadDefaultConfig()
+	paramSet, err := MakeEffectiveParamSet(cfg)
+	if err != nil {
+		t.Fatalf("MakeEffectiveParamSet failed: %v", err)
+	}
+
+	store := NewStore(&runConfigQueryInterceptDB{
+		db:          openDB.DB,
+		runConfigDB: closedDB.DB,
+	})
+	if _, err := store.EnsureRunConfig(paramSet, BuildIdentity{BuildVersion: "v1", BuildGitSHA: "sha"}); err == nil || !strings.Contains(err.Error(), "database is closed") {
+		t.Fatalf("expected primary run-config lookup failure, got %v", err)
 	}
 }
 
