@@ -43,21 +43,25 @@ jobs:
       - name: "G10: Two-PR graduation rule"
         if: github.event_name == 'pull_request'
         run: |
-          # Detect plans that are both modified (content change) and
-          # typechanged (became a symlink) on the same PR branch.
-          # The two-PR rule requires completion to land on main first.
+          # Detect plans converted to symlinks on the PR branch without
+          # first being marked Complete on main.  The two-PR rule requires
+          # the completion commit to land on main before the symlink PR.
           BASE="${{ github.event.pull_request.base.sha }}"
-          MODIFIED=$(git diff --diff-filter=M --name-only "$BASE" -- docs/plans/ || true)
           TYPECHANGED=$(git diff --diff-filter=T --name-only "$BASE" -- docs/plans/ || true)
           VIOLATIONS=""
           for f in $TYPECHANGED; do
-            if echo "$MODIFIED" | grep -qxF "$f"; then
-              VIOLATIONS="$VIOLATIONS  [G10] $f: completed and symlinked on the same branch\n"
+            # If the file does not exist on the base branch, or if it exists
+            # but was not already marked Complete, then replacing it with a
+            # symlink in this PR violates the two-PR graduation rule.
+            if ! git show "$BASE:$f" >/dev/null 2>&1; then
+              VIOLATIONS="${VIOLATIONS}  [G10] ${f}: created as a symlink without a previously completed plan on main\n"
+            elif ! git show "$BASE:$f" | grep -q '^\- \*\*Status:\*\* Complete'; then
+              VIOLATIONS="${VIOLATIONS}  [G10] ${f}: symlinked before the plan was marked Complete on main\n"
             fi
           done
           if [ -n "$VIOLATIONS" ]; then
             echo "::error::Two-PR graduation rule violated"
-            printf "$VIOLATIONS"
+            printf "%b" "$VIOLATIONS"
             echo ""
             echo "A plan must be marked Complete on main before it can be"
             echo "replaced with a symlink. Split into two PRs."
