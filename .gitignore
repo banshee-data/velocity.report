@@ -173,5 +173,6 @@ data/**/*.sqlite
 data/**/*.csv
 data/**/*.json
 data/**/results/*
+data/structures/SCHEMA.dot
 *.test
 scripts/*.cover
