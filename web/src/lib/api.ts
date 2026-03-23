@@ -48,11 +48,6 @@ export interface RadarStatsResponse {
 	};
 }
 
-export interface Config {
-	units: string;
-	timezone: string;
-}
-
 // LiDAR capability state as reported by /api/capabilities.
 export interface LidarCapability {
 	enabled: boolean;
