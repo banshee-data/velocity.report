@@ -276,7 +276,6 @@ def main() -> int:
     mode.add_argument(
         "--report",
         action="store_true",
-        default=True,
         help="Advisory mode (default). Always exits 0.",
     )
     mode.add_argument(
@@ -285,6 +284,10 @@ def main() -> int:
         help="Hard-fail mode. Exits 1 if any gate violation is found.",
     )
     args = parser.parse_args()
+
+    # Default to report mode when neither flag is specified.
+    if not args.check and not args.report:
+        args.report = True
 
     root = _repo_root()
     checker = Checker(root)

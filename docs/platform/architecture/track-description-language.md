@@ -28,4 +28,4 @@ what they want to see without learning a query language.
 
 ## History
 
-- Full specification: [track-description-language plan](../../docs/plans/data-track-description-language-plan.md)
+- Full specification: [track-description-language plan](../../plans/data-track-description-language-plan.md)

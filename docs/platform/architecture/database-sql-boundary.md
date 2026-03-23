@@ -39,6 +39,6 @@ as a stable seam rather than a defect.
 ## History
 
 - Original proposal: collapse all SQL into `internal/db/`
-  ([sqlite-client-standardisation plan](../../docs/plans/data-sqlite-client-standardisation-plan.md))
+  ([sqlite-client-standardisation plan](../../plans/data-sqlite-client-standardisation-plan.md))
 - Replaced by two-package model
-  ([database-alignment plan](../../docs/plans/data-database-alignment-plan.md))
+  ([database-alignment plan](../../plans/data-database-alignment-plan.md))
