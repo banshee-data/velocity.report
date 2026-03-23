@@ -858,6 +858,57 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 	}
 }
 
+func TestAnalysisRunQueryHelpers_IterAndPopulateErrors(t *testing.T) {
+	if _, err := readRunRecordCapabilitiesRows(&rowsStub{iterErr: errors.New("schema iter failed")}); err == nil || !strings.Contains(err.Error(), "iterate lidar_run_records schema") {
+		t.Fatalf("expected schema iteration error, got %v", err)
+	}
+
+	if _, err := collectAnalysisRunRecords(&rowsStub{iterErr: errors.New("run iter failed")}, analysisRunRecordCapabilities{}); err == nil || !strings.Contains(err.Error(), "iterate runs") {
+		t.Fatalf("expected run iteration error, got %v", err)
+	}
+
+	if _, err := finalizeAnalysisRunRecords(
+		[]*AnalysisRun{{RunID: "run-1"}},
+		func(*AnalysisRun) {},
+		func([]*AnalysisRun) error { return errors.New("populate failed") },
+	); err == nil || !strings.Contains(err.Error(), "populate failed") {
+		t.Fatalf("expected populate failure, got %v", err)
+	}
+
+	if _, err := collectRunTracks(&rowsStub{iterErr: errors.New("track iter failed")}); err == nil || !strings.Contains(err.Error(), "iterate run tracks") {
+		t.Fatalf("expected track iteration error, got %v", err)
+	}
+
+	if err := assignRunLabelRollups(&rowsStub{iterErr: errors.New("rollup iter failed")}, map[string]*AnalysisRun{
+		"run-1": {RunID: "run-1"},
+	}); err == nil || !strings.Contains(err.Error(), "iterate run label rollups") {
+		t.Fatalf("expected rollup iteration error, got %v", err)
+	}
+
+	if _, err := collectUnlabeledTracks(&rowsStub{iterErr: errors.New("unlabeled iter failed")}); err == nil || !strings.Contains(err.Error(), "iterate unlabeled tracks") {
+		t.Fatalf("expected unlabeled iteration error, got %v", err)
+	}
+}
+
+func TestAnalysisRunStore_RunRecordSelectColumnsErrors(t *testing.T) {
+	testDB, cleanup := dbpkg.NewTestDB(t)
+	defer cleanup()
+
+	if err := testDB.DB.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+
+	getStore := NewAnalysisRunStore(testDB.DB)
+	if _, err := getStore.GetRun("run-1"); err == nil || !strings.Contains(err.Error(), "inspect lidar_run_records schema") {
+		t.Fatalf("expected GetRun schema error, got %v", err)
+	}
+
+	listStore := NewAnalysisRunStore(testDB.DB)
+	if _, err := listStore.ListRuns(10); err == nil || !strings.Contains(err.Error(), "inspect lidar_run_records schema") {
+		t.Fatalf("expected ListRuns schema error, got %v", err)
+	}
+}
+
 func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 	if _, err := BackfillImmutableRunConfigReferences(nil, false); err == nil || !strings.Contains(err.Error(), "database is required") {
 		t.Fatalf("expected nil-db error, got %v", err)
