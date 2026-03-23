@@ -1,6 +1,6 @@
 # macOS Menu Layout Design
 
-Active plan: [wireshark-menu-alignment.md](../../plans/wireshark-menu-alignment.md)
+Active plan: [wireshark-menu-alignment.md](../plans/wireshark-menu-alignment.md)
 
 ## Current VelocityVisualiser Menu Bar
 

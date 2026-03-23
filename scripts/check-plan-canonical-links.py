@@ -287,10 +287,6 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Default to report mode when neither flag is specified.
-    if not args.check and not args.report:
-        args.report = True
-
     root = _repo_root()
     checker = Checker(root)
 

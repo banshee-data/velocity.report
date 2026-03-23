@@ -1,5 +1,7 @@
 # Documentation Standards
 
+Rules and conventions for Markdown documentation across the velocity.report repository, covering metadata format, structure, and prose style.
+
 Active plans:
 
 - [platform-documentation-standardisation-plan.md](../../plans/platform-documentation-standardisation-plan.md)

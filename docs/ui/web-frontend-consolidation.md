@@ -1,6 +1,6 @@
 # Web Frontend Consolidation
 
-Active plan: [web-frontend-consolidation-plan.md](../../plans/web-frontend-consolidation-plan.md)
+Active plan: [web-frontend-consolidation-plan.md](../plans/web-frontend-consolidation-plan.md)
 
 ## Problem
 

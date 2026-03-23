@@ -213,7 +213,7 @@ done <"$ALL_PLANS"
 if [[ -s "$CANONICAL_TARGETS" ]]; then
   awk -F '\t' '{print $2}' "$CANONICAL_TARGETS" | sort | uniq -d | while IFS= read -r dup; do
     [[ -z "$dup" ]] && continue
-    owners=$(awk -F '\t' -v t="$dup" '$2 == t {print $1}' "$CANONICAL_TARGETS" | paste -sd ', ' -)
+    owners=$(awk -F '\t' -v t="$dup" '$2 == t {print $1}' "$CANONICAL_TARGETS" | awk '{printf "%s%s", sep, $0; sep=", "}')
     printf "%s\t%s\n" "$dup" "$owners" >>"$CANONICAL_COLLISIONS"
   done
 fi

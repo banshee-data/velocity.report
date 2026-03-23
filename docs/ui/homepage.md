@@ -1,6 +1,6 @@
 # Homepage — Responsive GIF Strategy
 
-Active plan: [homepage-responsive-gif-strategies.md](../../plans/homepage-responsive-gif-strategies.md)
+Active plan: [homepage-responsive-gif-strategies.md](../plans/homepage-responsive-gif-strategies.md)
 
 ## Chosen Approach: Simple Responsive `<img>`
 
