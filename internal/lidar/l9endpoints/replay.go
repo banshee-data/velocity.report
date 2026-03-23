@@ -121,15 +121,16 @@ func (rs *ReplayServer) streamFromReader(ctx context.Context, req *pb.StreamRequ
 			return status.Errorf(codes.Internal, "replay error: %v", err)
 		}
 
-		// Skip background snapshot frames when a live background manager
-		// is active (e.g. cmd/radar replaying a VRLOG alongside a running
-		// pipeline).  When no background manager exists (e.g. the standalone
-		// visualiser-server tool), background frames from the VRLOG must be
-		// forwarded so the client can render them.
+		// Background snapshot frames are handled differently depending on
+		// whether a live background manager is present:
+		//   - With manager (e.g. cmd/radar): the pipeline generates its own
+		//     live backgrounds, so recorded background frames are discarded.
+		//     The rate-control baseline is still advanced to the skipped
+		//     frame's timestamp to prevent the next foreground frame from
+		//     sleeping across the full gap.
+		//   - Without manager (e.g. standalone visualiser-server): background
+		//     frames from the VRLOG are forwarded so the client can render them.
 		if frame.FrameType == FrameTypeBackground && rs.publisher.backgroundMgr != nil {
-			// Advance the rate-control baseline to the skipped frame's
-			// timestamp so the next foreground frame is not delayed by
-			// the full gap that includes this skipped frame.
 			lastFrameTime = frame.TimestampNanos
 			lastWallTime = time.Now()
 			continue
