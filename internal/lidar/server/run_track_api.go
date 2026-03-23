@@ -19,6 +19,15 @@ var deleteRunTrackRowsAffected = func(result interface{ RowsAffected() (int64, e
 	return result.RowsAffected()
 }
 
+var (
+	startPCAPInternalForReprocess = func(ws *Server, pcapPath string, config ReplayConfig) error {
+		return ws.StartPCAPInternal(pcapPath, config)
+	}
+	lastAnalysisRunIDForReprocess = func(ws *Server) string {
+		return ws.LastAnalysisRunID()
+	}
+)
+
 // handleRunTrackAPI is the main dispatcher for /api/lidar/runs/* endpoints.
 // It parses the URL path and dispatches to appropriate sub-handlers.
 func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
@@ -523,11 +532,11 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	} else if originalRun.RequestedParamSetID != "" {
 		config.RequestedParamSetID = originalRun.RequestedParamSetID
 	}
-	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
+	if err := startPCAPInternalForReprocess(ws, originalRun.SourcePath, config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
-	newRunID := ws.LastAnalysisRunID()
+	newRunID := lastAnalysisRunIDForReprocess(ws)
 	if newRunID == "" {
 		newRunID = preferredRunID
 	}
