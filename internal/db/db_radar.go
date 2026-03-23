@@ -113,13 +113,13 @@ func (db *DB) RadarObjects() ([]RadarObject, error) {
 
 // RadarObjectsRollupRow represents an aggregate row for radar object rollup.
 type RadarObjectsRollupRow struct {
-	Classifier string
-	StartTime  time.Time
-	Count      int64
-	P50Speed   float64
-	P85Speed   float64
-	P98Speed   float64
-	MaxSpeed   float64
+	Classifier string    `json:"classifier"`
+	StartTime  time.Time `json:"start_time"`
+	Count      int64     `json:"count"`
+	P50Speed   float64   `json:"p50_speed"`
+	P85Speed   float64   `json:"p85_speed"`
+	P98Speed   float64   `json:"p98_speed"`
+	MaxSpeed   float64   `json:"max_speed"`
 }
 
 func (e *RadarObjectsRollupRow) String() string {
@@ -489,9 +489,9 @@ func (e *Event) String() string {
 }
 
 type EventAPI struct {
-	Magnitude *float64 `json:"Magnitude,omitempty"`
-	Uptime    *float64 `json:"Uptime,omitempty"`
-	Speed     *float64 `json:"Speed,omitempty"`
+	Magnitude *float64 `json:"magnitude,omitempty"`
+	Uptime    *float64 `json:"uptime,omitempty"`
+	Speed     *float64 `json:"speed,omitempty"`
 }
 
 func EventToAPI(e Event) EventAPI {

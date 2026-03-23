@@ -54,9 +54,9 @@ describe('api', () => {
 		it('should fetch events without parameters', async () => {
 			const mockEvents: Event[] = [
 				{
-					Speed: 25.5,
-					Magnitude: 1.2,
-					Uptime: 100
+					speed: 25.5,
+					magnitude: 1.2,
+					uptime: 100
 				}
 			];
 
@@ -73,7 +73,7 @@ describe('api', () => {
 		});
 
 		it('should fetch events with units and timezone', async () => {
-			const mockEvents: Event[] = [{ Speed: 30 }];
+			const mockEvents: Event[] = [{ speed: 30 }];
 
 			(global.fetch as jest.Mock).mockResolvedValueOnce({
 				ok: true,
@@ -104,13 +104,13 @@ describe('api', () => {
 			const serverResponse = {
 				metrics: [
 					{
-						Classifier: 'car',
-						StartTime: '2025-01-01T00:00:00Z',
-						Count: 100,
-						P50Speed: 50,
-						P85Speed: 65,
-						P98Speed: 75,
-						MaxSpeed: 85
+						classifier: 'car',
+						start_time: '2025-01-01T00:00:00Z',
+						count: 100,
+						p50_speed: 50,
+						p85_speed: 65,
+						p98_speed: 75,
+						max_speed: 85
 					}
 				],
 				histogram: { '0-10': 5, '10-20': 15 }
