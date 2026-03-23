@@ -84,8 +84,9 @@ help:
 	@echo "  migrate-force        Force version (recovery, VERSION=N)"
 	@echo "  migrate-baseline     Set baseline version (VERSION=N)"
 	@echo "  schema-sync          Regenerate schema.sql from latest migrations"
-	@echo "  schema-erd           Regenerate grouped schema DOT and render schema SVG"
-	@echo "  schema-erd-compile   Render schema SVG from an existing SCHEMA.dot"
+	@echo "  schema-erd           Generate schema SVG from schema.sql"
+	@echo "  schema-erd-dot       Generate SCHEMA.dot from schema.sql"
+	@echo "  schema-erd-from-dot  Render schema SVG from SCHEMA.dot or DOT=/path/to/file.dot"
 	@echo ""
 	@echo "FORMATTING (mutating):"
 	@echo "  format               Format all code (Go + Python + Web + macOS + SQL + Markdown)"
@@ -883,7 +884,7 @@ test-perf:
 # DATABASE MIGRATIONS
 # =============================================================================
 
-.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd schema-erd-compile
+.PHONY: migrate-up migrate-down migrate-status migrate-detect migrate-version migrate-force migrate-baseline schema-sync schema-erd schema-erd-dot schema-erd-from-dot
 
 # Apply all pending migrations
 migrate-up:
@@ -941,13 +942,20 @@ schema-sync:
 
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
-	@echo "Generating schema ERD DOT+SVG..."
+	@echo "Generating schema ERD SVG..."
 	@bash scripts/sqlite-erd/graph.sh --generate internal/db/schema.sql
 
+# Generate schema ERD DOT from schema.sql
+schema-erd-dot:
+	@DOT_FILE="$${DOT:-data/structures/SCHEMA.dot}"; \
+		echo "Generating schema ERD DOT at $$DOT_FILE..."; \
+		bash scripts/sqlite-erd/graph.sh --generate-dot --dot-output "$$DOT_FILE" internal/db/schema.sql
+
 # Render schema ERD SVG from an existing DOT file
-schema-erd-compile:
-	@echo "Compiling schema ERD from SCHEMA.dot..."
-	@bash scripts/sqlite-erd/graph.sh --compile
+schema-erd-from-dot:
+	@DOT_FILE="$${DOT:-data/structures/SCHEMA.dot}"; \
+		echo "Compiling schema ERD from $$DOT_FILE..."; \
+		bash scripts/sqlite-erd/graph.sh --compile "$$DOT_FILE"
 
 # =============================================================================
 # FORMATTING (mutating)

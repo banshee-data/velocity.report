@@ -59,3 +59,8 @@ def test_reorder_schema_handles_current_schema() -> None:
 
     assert run_records_idx < run_tracks_idx
     assert replay_cases_idx < replay_annotations_idx
+
+
+if __name__ == "__main__":
+    test_topological_sort_ignores_self_references()
+    test_reorder_schema_handles_current_schema()
