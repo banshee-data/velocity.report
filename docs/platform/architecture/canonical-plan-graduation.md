@@ -89,9 +89,16 @@ When the work has a stable architecture or operating shape:
 
 When the plan no longer needs to be a separate execution document:
 
-1. Replace the plan file with a symlink to the canonical hub doc.
-2. The old plan path survives, preserving existing links.
-3. New backlog entries link to the canonical hub doc directly.
+1. Mark the plan status as **Complete** and merge that change to `main`.
+2. On a **separate branch** (after the completion lands on `main`), replace the plan file with a symlink to the canonical hub doc.
+3. The old plan path survives, preserving existing links.
+4. New backlog entries link to the canonical hub doc directly.
+
+**Two-PR rule:** A plan must be marked Complete on `main` before it can be
+replaced with a symlink. Never complete a plan and create its symlink on the
+same feature branch. This ensures git history on `main` contains the full
+completed plan before the file becomes a symlink — reviewers can always find
+the final plan state in the commit log.
 
 ## Enforcement
 
@@ -128,7 +135,7 @@ plan. These appear in `make report-plan-hygiene` output but do not block merges.
 
 1. **Phase 1 — Tooling:** Checker, Makefile targets, CI advisory job. _Complete._
 2. **Phase 2 — Repository refactor:** `Canonical` metadata on all plans, stub hub docs created. _Complete (69/69 plans, 46 stubs, 0 gate violations)._
-3. **Phase 3 — Hard-fail CI:** Wire `check-plan-hygiene` into `make lint-docs` and fail CI. _Not started._
+3. **Phase 3 — Hard-fail CI:** Wire `check-plan-hygiene` into `make lint-docs` and fail CI. _Complete._
 
 ## Current State
 
@@ -136,9 +143,8 @@ As of branch `dd/docs/merge-canonical`:
 
 - 69 plan files, all with `Canonical` metadata
 - 111 hub docs across 4 hubs (excluding READMEs)
-- 46 of those are stubs awaiting content consolidation
-- 0 gate violations, 6 advisory notes (all deliberate shared targets)
-- No plans graduated to symlinks yet
+- 11 plans graduated to symlinks
+- 0 gate violations, 2 advisory notes (deliberate shared targets)
 
 ## Success Criteria
 

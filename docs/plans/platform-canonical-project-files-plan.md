@@ -29,8 +29,9 @@ What is already in place and what remains to be done:
 - [x] 46 canonical doc stubs created across 4 hubs
 - [x] Gate 4 (shared targets) moved to advisory — 6 shared pairs documented
 - [x] `--check` mode passes with 0 gate violations
-- [x] Any plan graduated to a symlink (4 symlinks: av-integration, motion-capture, static-pose, tictactail)
-- [x] CI enforcement enabled (advisory-only; `.github/workflows/plan-hygiene-ci.yml`)
+- [x] Any plan graduated to a symlink (11 symlinks to date)
+- [x] CI enforcement enabled (hard-fail; `.github/workflows/plan-hygiene-ci.yml`)
+- [x] Two-PR graduation rule documented: plan marked Complete on `main` before symlink creation
 
 ## 1. Problem
 

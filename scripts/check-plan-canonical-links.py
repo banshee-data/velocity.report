@@ -23,6 +23,8 @@ Gate rules (hard-fail when ``--check``):
   7. Symlink resolves to a missing target.
   8. More than one ``- **Canonical:**`` line in the same plan header.
   9. Canonical target is not under an allowed hub-doc prefix.
+ 10. (CI-only) Plan completed and symlinked on the same branch — see
+     plan-hygiene-ci.yml graduation check.
 
 Advisory signals (always printed, never block merges):
 

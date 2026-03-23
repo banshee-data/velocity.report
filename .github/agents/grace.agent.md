@@ -139,6 +139,7 @@ When asked to resolve fragmented planning docs or choose a canonical home for a 
 4. If the split test says "same body of work", specify one canonical hub doc and require at most one active plan.
 5. If the split test says "different bodies of work", name the separate canonical homes and explain the boundary.
 6. Hand Appius a concrete consolidation rule: what moves into the hub doc, what stays in the active plan, and what graduates to a symlink.
+7. Enforce the **two-PR graduation rule**: a plan must be marked Complete on `main` before it can be replaced with a symlink. When recommending graduation, confirm the plan’s Complete status is already on `main`.
 
 ## Working with Other Agents
 
