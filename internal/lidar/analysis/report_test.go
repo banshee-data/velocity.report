@@ -1,10 +1,12 @@
 package analysis
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
@@ -360,6 +362,111 @@ func TestGenerateReport(t *testing.T) {
 	// Recording metadata from header
 	if report.Recording.SensorID == "" {
 		t.Error("sensor_id is empty")
+	}
+}
+
+func TestGenerateReport_ReadFrameError(t *testing.T) {
+	tmpDir := t.TempDir()
+	vrlogPath := createTestVrlog(t, tmpDir, 2)
+
+	indexPath := filepath.Join(vrlogPath, "index.bin")
+	indexFile, err := os.OpenFile(indexPath, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("OpenFile(index.bin): %v", err)
+	}
+	defer indexFile.Close()
+
+	var offsetBuf [4]byte
+	binary.LittleEndian.PutUint32(offsetBuf[:], 1<<31)
+	if _, err := indexFile.WriteAt(offsetBuf[:], 44); err != nil {
+		t.Fatalf("WriteAt(second offset): %v", err)
+	}
+
+	_, _, err = GenerateReport(vrlogPath)
+	if err == nil {
+		t.Fatal("expected read frame error")
+	}
+	if !strings.Contains(err.Error(), "read frame 1") {
+		t.Fatalf("expected read frame error, got %v", err)
+	}
+}
+
+func TestGenerateReport_ClampsNegativeDuration(t *testing.T) {
+	tmpDir := t.TempDir()
+	vrlogPath := createTestVrlog(t, tmpDir, 1)
+
+	headerPath := filepath.Join(vrlogPath, "header.json")
+	headerData, err := os.ReadFile(headerPath)
+	if err != nil {
+		t.Fatalf("ReadFile(header.json): %v", err)
+	}
+
+	var header recorder.LogHeader
+	if err := json.Unmarshal(headerData, &header); err != nil {
+		t.Fatalf("Unmarshal(header.json): %v", err)
+	}
+	header.StartNs = 200
+	header.EndNs = 100
+
+	headerData, err = json.Marshal(header)
+	if err != nil {
+		t.Fatalf("Marshal(header.json): %v", err)
+	}
+	if err := os.WriteFile(headerPath, headerData, 0o644); err != nil {
+		t.Fatalf("WriteFile(header.json): %v", err)
+	}
+
+	report, _, err := GenerateReport(vrlogPath)
+	if err != nil {
+		t.Fatalf("GenerateReport: %v", err)
+	}
+	if report.Recording.DurationSecs != 0 {
+		t.Fatalf("DurationSecs = %v, want 0", report.Recording.DurationSecs)
+	}
+}
+
+func TestGenerateReport_MarshalError(t *testing.T) {
+	tmpDir := t.TempDir()
+	vrlogPath := filepath.Join(tmpDir, "nan-report.vrlog")
+
+	rec, err := recorder.NewRecorder(vrlogPath, "test-sensor")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+
+	frame := &l9endpoints.FrameBundle{
+		FrameID:        1,
+		TimestampNanos: 123,
+		SensorID:       "test-sensor",
+		CoordinateFrame: l9endpoints.CoordinateFrameInfo{
+			FrameID:        "site/test-sensor",
+			ReferenceFrame: "ENU",
+		},
+		Tracks: &l9endpoints.TrackSet{
+			Tracks: []l9endpoints.Track{
+				{
+					TrackID:        "nan-track",
+					FirstSeenNanos: 123,
+					LastSeenNanos:  123,
+					SpeedMps:       float32(math.NaN()),
+					State:          l9endpoints.TrackStateConfirmed,
+				},
+			},
+		},
+	}
+	if err := rec.Record(frame); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	_, _, err = GenerateReport(vrlogPath)
+	if err == nil {
+		t.Fatal("expected marshal error")
+	}
+	if !strings.Contains(err.Error(), "marshal report") {
+		t.Fatalf("expected marshal report error, got %v", err)
 	}
 }
 

@@ -15,6 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
+var deleteRunTrackRowsAffected = func(result interface{ RowsAffected() (int64, error) }) (int64, error) {
+	return result.RowsAffected()
+}
+
 // handleRunTrackAPI is the main dispatcher for /api/lidar/runs/* endpoints.
 // It parses the URL path and dispatches to appropriate sub-handlers.
 func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +283,7 @@ func (ws *Server) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, r
 	}
 
 	// Check if any rows were affected
-	rowsAffected, err := result.RowsAffected()
+	rowsAffected, err := deleteRunTrackRowsAffected(result)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to check delete result: %v", err))
 		return
