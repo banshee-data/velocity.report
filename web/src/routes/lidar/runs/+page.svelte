@@ -142,11 +142,21 @@
 		return new Date(iso).toLocaleString();
 	}
 
+	function formatNsDate(ns?: number): string {
+		if (!ns) return '-';
+		return new Date(ns / 1e6).toLocaleString();
+	}
+
 	function formatDuration(secs: number | undefined): string {
 		if (secs == null || secs === 0) return '-';
 		if (secs < 60) return `${secs.toFixed(1)}s`;
 		if (secs < 3600) return `${Math.floor(secs / 60)}m ${Math.round(secs % 60)}s`;
 		return `${Math.floor(secs / 3600)}h ${Math.round((secs % 3600) / 60)}m`;
+	}
+
+	function shortID(value?: string): string {
+		if (!value) return '-';
+		return value.length > 16 ? value.substring(0, 16) : value;
 	}
 
 	function statusColour(status: string): string {
@@ -363,6 +373,12 @@
 							<dt class="text-surface-content/60">Duration</dt>
 							<dd class="text-surface-content">{formatDuration(selectedRun.duration_secs)}</dd>
 						</div>
+						{#if selectedRun.completed_at}
+							<div class="flex justify-between py-1">
+								<dt class="text-surface-content/60">Completed</dt>
+								<dd class="text-surface-content">{formatDate(selectedRun.completed_at)}</dd>
+							</div>
+						{/if}
 						{#if selectedRun.processing_time_ms}
 							<div class="flex justify-between py-1">
 								<dt class="text-surface-content/60">Processing</dt>
@@ -384,6 +400,22 @@
 								<dt class="text-surface-content/60">Clusters</dt>
 								<dd class="text-surface-content">
 									{selectedRun.total_clusters.toLocaleString()}
+								</dd>
+							</div>
+						{/if}
+						{#if selectedRun.frame_start_ns}
+							<div class="flex justify-between py-1">
+								<dt class="text-surface-content/60">Frame Start</dt>
+								<dd class="text-surface-content text-right">
+									{formatNsDate(selectedRun.frame_start_ns)}
+								</dd>
+							</div>
+						{/if}
+						{#if selectedRun.frame_end_ns}
+							<div class="flex justify-between py-1">
+								<dt class="text-surface-content/60">Frame End</dt>
+								<dd class="text-surface-content text-right">
+									{formatNsDate(selectedRun.frame_end_ns)}
 								</dd>
 							</div>
 						{/if}
@@ -435,6 +467,75 @@
 							<p class="text-surface-content/50 text-sm">No associated replay case found</p>
 						{/if}
 					</div>
+
+					{#if selectedRun.run_config_id || selectedRun.requested_param_set_id}
+						<div>
+							<div class="text-surface-content/70 mb-1 block text-sm font-medium">
+								Immutable Config
+							</div>
+							<dl class="text-sm">
+								{#if selectedRun.run_config_id}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Run Config</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedRun.run_config_id)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.param_set_id}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Param Set</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedRun.param_set_id)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.requested_param_set_id}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Requested</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedRun.requested_param_set_id)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.config_hash}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Config Hash</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedRun.config_hash)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.params_hash}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Params Hash</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedRun.params_hash)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.schema_version}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Schema</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{selectedRun.schema_version}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedRun.build_version}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Build</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{selectedRun.build_version}
+											{#if selectedRun.build_git_sha}
+												@{shortID(selectedRun.build_git_sha)}
+											{/if}
+										</dd>
+									</div>
+								{/if}
+							</dl>
+						</div>
+					{/if}
 
 					<!-- Track summary & labelling -->
 					<div>
@@ -534,11 +635,25 @@
 					{#if selectedRun.params_json}
 						<details>
 							<summary class="text-surface-content/70 cursor-pointer text-sm font-medium">
-								Parameters
+								Legacy Parameters
 							</summary>
 							<pre
 								class="bg-surface-200 text-surface-content mt-2 max-h-[300px] overflow-auto rounded p-3 font-mono text-xs">{JSON.stringify(
 									selectedRun.params_json,
+									null,
+									2
+								)}</pre>
+						</details>
+					{/if}
+
+					{#if selectedRun.execution_config}
+						<details>
+							<summary class="text-surface-content/70 cursor-pointer text-sm font-medium">
+								Exact Execution Config
+							</summary>
+							<pre
+								class="bg-surface-200 text-surface-content mt-2 max-h-[300px] overflow-auto rounded p-3 font-mono text-xs">{JSON.stringify(
+									selectedRun.execution_config,
 									null,
 									2
 								)}</pre>

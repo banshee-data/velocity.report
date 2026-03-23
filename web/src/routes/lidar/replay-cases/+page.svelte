@@ -82,7 +82,7 @@
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
-		editOptimalParams = scene.optimal_params_json ?? '';
+		editOptimalParams = formatJSONForEditor(scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
 	}
@@ -127,16 +127,17 @@
 		saving = true;
 		saveError = null;
 		try {
+			const optimalParams = parseJSONObject(editOptimalParams);
 			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
 				description: editDescription || undefined,
 				reference_run_id: editReferenceRunId || undefined,
-				optimal_params_json: editOptimalParams || undefined,
+				optimal_params_json: optimalParams ?? undefined,
 				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
 				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined
 			});
 			// Update in list
 			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
-			selectedScene = updated;
+			selectScene(updated);
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Failed to update replay case';
 		} finally {
@@ -160,6 +161,38 @@
 	function formatDate(ns: number): string {
 		if (!ns) return '-';
 		return new Date(ns / 1e6).toLocaleDateString();
+	}
+
+	function formatJSONForEditor(value: unknown): string {
+		if (value == null || value === '') return '';
+		if (typeof value === 'string') {
+			try {
+				return JSON.stringify(JSON.parse(value), null, 2);
+			} catch {
+				return value;
+			}
+		}
+		try {
+			return JSON.stringify(value, null, 2);
+		} catch {
+			return String(value);
+		}
+	}
+
+	function parseJSONObject(text: string): Record<string, unknown> | null {
+		const trimmed = text.trim();
+		if (trimmed === '') return null;
+
+		const parsed = JSON.parse(trimmed);
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			throw new Error('Optimal parameters must be a JSON object');
+		}
+		return parsed as Record<string, unknown>;
+	}
+
+	function shortID(value?: string): string {
+		if (!value) return '-';
+		return value.length > 12 ? value.substring(0, 12) : value;
 	}
 
 	function formatFileSize(bytes: number): string {
@@ -659,6 +692,46 @@
 							Best-known parameters for this scene, saved by auto-tuning.
 						</p>
 					</div>
+
+					{#if selectedScene.recommended_param_set_id}
+						<div>
+							<div class="text-surface-content/70 mb-2 block text-sm font-medium">
+								Recommended Param Set
+							</div>
+							<dl class="text-sm">
+								<div class="flex justify-between py-1">
+									<dt class="text-surface-content/60">Param Set</dt>
+									<dd class="text-surface-content font-mono text-xs">
+										{shortID(selectedScene.recommended_param_set_id)}
+									</dd>
+								</div>
+								{#if selectedScene.recommended_params_hash}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Params Hash</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedScene.recommended_params_hash)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedScene.recommended_schema_version}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Schema</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{selectedScene.recommended_schema_version}
+										</dd>
+									</div>
+								{/if}
+							</dl>
+							{#if selectedScene.recommended_params}
+								<pre
+									class="bg-surface-200 text-surface-content mt-2 max-h-[240px] overflow-auto rounded p-3 font-mono text-xs">{JSON.stringify(
+										selectedScene.recommended_params,
+										null,
+										2
+									)}</pre>
+							{/if}
+						</div>
+					{/if}
 
 					<div class="flex justify-end pt-2">
 						<Button variant="fill" color="primary" on:click={handleUpdate} disabled={saving}>
