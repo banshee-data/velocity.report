@@ -272,7 +272,7 @@ Create a rollback point before replacing anything:
 export TS=$(date +%Y%m%d-%H%M%S)
 export BACKUP_DIR=/var/lib/velocity-report/backups/$TS
 
-mkdir -p "$BACKUP_DIR"
+mkdir -p "$BACKUP_DIR" || sudo mkdir -p "$BACKUP_DIR"
 cp "$VR_SVC" "$BACKUP_DIR/velocity-report.service" 2>/dev/null || sudo cp "$VR_SVC" "$BACKUP_DIR/velocity-report.service"
 "$VR_BIN" --version > "$BACKUP_DIR/version.txt" 2>&1 || true
 
@@ -281,7 +281,7 @@ systemctl is-active velocity-report.service || true
 
 cp "$VR_BIN" "$BACKUP_DIR/velocity-report" 2>/dev/null || sudo cp "$VR_BIN" "$BACKUP_DIR/velocity-report"
 if [ -f "$VR_DB" ]; then
-  cp "$VR_DB" "$BACKUP_DIR/sensor_data.db"
+  cp "$VR_DB" "$BACKUP_DIR/sensor_data.db" || sudo cp "$VR_DB" "$BACKUP_DIR/sensor_data.db"
 fi
 ```
 
