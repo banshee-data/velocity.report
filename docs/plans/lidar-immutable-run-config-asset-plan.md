@@ -426,7 +426,7 @@ Future entities must choose the correct level of reference:
 - [ ] Add migration `000035` (or next available slot) for
       `lidar_param_sets`, `lidar_run_configs`, nullable run/replay-case FKs, and
       supporting indexes.
-- [ ] Introduce `internal/lidar/configasset/` for canonical JSON composition,
+- [ ] Introduce `internal/lidar/storage/configasset/` for canonical JSON composition,
       validation, hashing, and deduplicated insert-or-reuse operations.
 - [ ] Define the exact effective runtime surface from current
       `config.TuningConfig` plus runtime-resolved values; do not hash partial
@@ -480,7 +480,7 @@ Keep the legacy JSON columns during P0/P1:
 
 ### P0.2 Config asset package
 
-Add one config-asset package, likely `internal/lidar/configasset/`, that:
+Add one config-asset package, likely `internal/lidar/storage/configasset/`, that:
 
 - captures full effective runtime parameters
 - captures reusable requested params
@@ -830,7 +830,7 @@ Add cleanup-phase tests for:
 
 - `internal/db/migrations/`
 - `internal/db/schema.sql`
-- `internal/lidar/configasset/`
+- `internal/lidar/storage/configasset/`
 - `internal/lidar/storage/sqlite/analysis_run.go`
 - `internal/lidar/storage/sqlite/analysis_run_manager.go`
 - `internal/lidar/storage/sqlite/scene_store.go`

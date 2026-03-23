@@ -121,7 +121,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 
 ## Config Asset Package
 
-`internal/lidar/configasset/` — captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
+`internal/lidar/storage/configasset/` — captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
 
 ## Data Ownership After Migration
 
@@ -135,7 +135,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 ### P0/P1: Introduce and Adopt
 
 - P0.1: Schema additions (migration `000035` or next free slot) — new tables, nullable FKs on run_records and replay_cases
-- P0.2: Config asset package (`internal/lidar/configasset/`)
+- P0.2: Config asset package (`internal/lidar/storage/configasset/`)
 - P0.3: Define effective runtime surface (background, clustering, tracker, classification tunables)
 - P0.4: Remove timestamps from deterministic config identity
 - P0.5: Fix single-source run creation (eliminate duplicate run creation in replay/reprocess)
