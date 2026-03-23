@@ -3,41 +3,82 @@ package sqlite
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
 // InsertRun creates a new analysis run.
 func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
-	query := `
+	caps, err := s.runRecordCapabilities()
+	if err != nil {
+		return err
+	}
+
+	columns := []string{
+		"run_id", "created_at", "source_type", "source_path", "sensor_id",
+		"params_json", "duration_secs", "total_frames", "total_clusters",
+		"total_tracks", "confirmed_tracks", "processing_time_ms",
+		"status", "error_message", "parent_run_id", "notes", "vrlog_path",
+	}
+	args := []any{
+		run.RunID,
+		run.CreatedAt.UnixNano(),
+		run.SourceType,
+		nullString(run.SourcePath),
+		run.SensorID,
+		string(run.ParamsJSON),
+		run.DurationSecs,
+		run.TotalFrames,
+		run.TotalClusters,
+		run.TotalTracks,
+		run.ConfirmedTracks,
+		run.ProcessingTimeMs,
+		run.Status,
+		nullString(run.ErrorMessage),
+		nullString(run.ParentRunID),
+		nullString(run.Notes),
+		nullString(run.VRLogPath),
+	}
+
+	if caps.RunConfigID {
+		columns = append(columns, "run_config_id")
+		args = append(args, nullString(run.RunConfigID))
+	}
+	if caps.RequestedParamSetID {
+		columns = append(columns, "requested_param_set_id")
+		args = append(args, nullString(run.RequestedParamSetID))
+	}
+	if caps.ReplayCaseID {
+		columns = append(columns, "replay_case_id")
+		args = append(args, nullString(run.ReplayCaseID))
+	}
+	if caps.CompletedAt {
+		columns = append(columns, "completed_at")
+		args = append(args, nullableTimeUnixNano(run.CompletedAt))
+	}
+	if caps.FrameStartNs {
+		columns = append(columns, "frame_start_ns")
+		args = append(args, nullInt64(run.FrameStartNs))
+	}
+	if caps.FrameEndNs {
+		columns = append(columns, "frame_end_ns")
+		args = append(args, nullInt64(run.FrameEndNs))
+	}
+
+	placeholders := make([]string, len(columns))
+	for i := range placeholders {
+		placeholders[i] = "?"
+	}
+
+	query := fmt.Sprintf(`
 		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, source_path, sensor_id,
-			params_json, duration_secs, total_frames, total_clusters,
-			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+			%s
+		) VALUES (%s)
+	`, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
 
 	// Retry on SQLITE_BUSY errors
 	return retryOnBusy(func() error {
-		_, err := s.db.Exec(query,
-			run.RunID,
-			run.CreatedAt.UnixNano(),
-			run.SourceType,
-			nullString(run.SourcePath),
-			run.SensorID,
-			string(run.ParamsJSON),
-			run.DurationSecs,
-			run.TotalFrames,
-			run.TotalClusters,
-			run.TotalTracks,
-			run.ConfirmedTracks,
-			run.ProcessingTimeMs,
-			run.Status,
-			nullString(run.ErrorMessage),
-			nullString(run.ParentRunID),
-			nullString(run.Notes),
-			nullString(run.VRLogPath),
-		)
+		_, err := s.db.Exec(query, args...)
 		if err != nil {
 			return fmt.Errorf("insert analysis run: %w", err)
 		}
@@ -47,9 +88,25 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 
 // UpdateRunStatus updates the status of an analysis run.
 func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error {
-	query := `UPDATE lidar_run_records SET status = ?, error_message = ? WHERE run_id = ?`
+	caps, err := s.runRecordCapabilities()
+	if err != nil {
+		return err
+	}
+
+	setClauses := []string{"status = ?", "error_message = ?"}
+	args := []any{status, nullString(errorMsg)}
+	if caps.CompletedAt && status != "running" {
+		setClauses = append(setClauses, "completed_at = ?")
+		args = append(args, time.Now().UnixNano())
+	}
+	args = append(args, runID)
+
+	query := fmt.Sprintf(
+		`UPDATE lidar_run_records SET %s WHERE run_id = ?`,
+		strings.Join(setClauses, ", "),
+	)
 	return retryOnBusy(func() error {
-		_, err := s.db.Exec(query, status, nullString(errorMsg), runID)
+		_, err := s.db.Exec(query, args...)
 		if err != nil {
 			return fmt.Errorf("update run status: %w", err)
 		}
@@ -71,34 +128,75 @@ func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
 
 // CompleteRun marks a run as completed with final statistics.
 func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error {
-	query := `
+	caps, err := s.runRecordCapabilities()
+	if err != nil {
+		return err
+	}
+
+	setClauses := []string{
+		"duration_secs = ?",
+		"total_frames = ?",
+		"total_clusters = ?",
+		"total_tracks = ?",
+		"confirmed_tracks = ?",
+		"processing_time_ms = ?",
+		"status = 'completed'",
+	}
+	args := []any{
+		stats.DurationSecs,
+		stats.TotalFrames,
+		stats.TotalClusters,
+		stats.TotalTracks,
+		stats.ConfirmedTracks,
+		stats.ProcessingTimeMs,
+	}
+
+	if caps.CompletedAt {
+		completedAt := stats.CompletedAt
+		if completedAt.IsZero() {
+			completedAt = time.Now()
+		}
+		setClauses = append(setClauses, "completed_at = ?")
+		args = append(args, completedAt.UnixNano())
+	}
+	if caps.FrameStartNs {
+		setClauses = append(setClauses, "frame_start_ns = ?")
+		args = append(args, nullableInt64Value(stats.FrameStartNs))
+	}
+	if caps.FrameEndNs {
+		setClauses = append(setClauses, "frame_end_ns = ?")
+		args = append(args, nullableInt64Value(stats.FrameEndNs))
+	}
+	args = append(args, runID)
+
+	query := fmt.Sprintf(`
 		UPDATE lidar_run_records SET
-			duration_secs = ?,
-			total_frames = ?,
-			total_clusters = ?,
-			total_tracks = ?,
-			confirmed_tracks = ?,
-			processing_time_ms = ?,
-			status = 'completed'
+			%s
 		WHERE run_id = ?
-	`
+	`, strings.Join(setClauses, ",\n\t\t\t"))
 
 	// Retry on SQLITE_BUSY errors
 	return retryOnBusy(func() error {
-		_, err := s.db.Exec(query,
-			stats.DurationSecs,
-			stats.TotalFrames,
-			stats.TotalClusters,
-			stats.TotalTracks,
-			stats.ConfirmedTracks,
-			stats.ProcessingTimeMs,
-			runID,
-		)
+		_, err := s.db.Exec(query, args...)
 		if err != nil {
 			return fmt.Errorf("complete run: %w", err)
 		}
 		return nil
 	})
+}
+
+func nullableInt64Value(value int64) *int64 {
+	if value == 0 {
+		return nil
+	}
+	return &value
+}
+
+func nullableTimeUnixNano(value *time.Time) interface{} {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	return value.UnixNano()
 }
 
 // InsertRunTrack inserts a track for an analysis run.
