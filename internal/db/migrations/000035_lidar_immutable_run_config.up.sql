@@ -21,13 +21,13 @@ PRAGMA foreign_keys = OFF;
           );
 
     ALTER TABLE lidar_run_records
-      ADD COLUMN run_config_id TEXT;
+      ADD COLUMN run_config_id TEXT REFERENCES lidar_run_configs (run_config_id) ON DELETE SET NULL;
 
     ALTER TABLE lidar_run_records
-      ADD COLUMN requested_param_set_id TEXT;
+      ADD COLUMN requested_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL;
 
     ALTER TABLE lidar_run_records
-      ADD COLUMN replay_case_id TEXT;
+      ADD COLUMN replay_case_id TEXT REFERENCES lidar_replay_cases (replay_case_id) ON DELETE SET NULL;
 
     ALTER TABLE lidar_run_records
       ADD COLUMN completed_at INTEGER;
@@ -39,7 +39,7 @@ PRAGMA foreign_keys = OFF;
       ADD COLUMN frame_end_ns INTEGER;
 
     ALTER TABLE lidar_replay_cases
-      ADD COLUMN recommended_param_set_id TEXT;
+      ADD COLUMN recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL;
 
 CREATE INDEX idx_lidar_param_sets_params_hash ON lidar_param_sets (params_hash);
 

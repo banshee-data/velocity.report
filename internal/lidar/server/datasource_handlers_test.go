@@ -879,19 +879,18 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 	})
 	ws.setBaseContext(context.Background())
 
-	// Pre-set analysis mode BEFORE starting PCAP to avoid race with goroutine
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = true
-	ws.pcapDisableRecording = false
-	ws.pcapMu.Unlock()
-
 	// Set source so the goroutine cleanup enters the analysis-mode path
 	ws.dataSourceMu.Lock()
 	ws.currentSource = DataSourcePCAP
 	ws.dataSourceMu.Unlock()
 
-	err = ws.startPCAPLocked("callbacks.pcap", "analysis", 1.0, 0, 0,
-		0, 0, 0, 0, false, false)
+	err = ws.startPCAPLockedWithConfig("callbacks.pcap", ReplayConfig{
+		AnalysisMode:     true,
+		DisableRecording: false,
+		SpeedMode:        "analysis",
+		SpeedRatio:       1.0,
+		SensorID:         sensorID,
+	})
 	if err != nil {
 		t.Fatalf("startPCAPLocked error: %v", err)
 	}

@@ -403,11 +403,10 @@ func (ws *Server) snapshotReplayEffectiveConfig(config ReplayConfig) *cfgpkg.Tun
 		bgManager = l3grid.GetBackgroundManager(backgroundSensorID)
 	}
 
-	cfg := ws.runtimeTuningConfig(bgManager)
+	cfg := ws.runtimeTuningConfigForSource(bgManager, DataSourcePCAP)
 	if sensorID != "" {
 		cfg.L1.Sensor = sensorID
 	}
-	cfg.L1.DataSource = string(DataSourcePCAP)
 	return cfg
 }
 

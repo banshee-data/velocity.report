@@ -78,13 +78,21 @@ func (ws *Server) storeTuningConfig(cfg *cfgpkg.TuningConfig) {
 }
 
 func (ws *Server) runtimeTuningConfig(bm *l3grid.BackgroundManager) *cfgpkg.TuningConfig {
+	return ws.runtimeTuningConfigForSource(bm, "")
+}
+
+func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sourceOverride DataSource) *cfgpkg.TuningConfig {
 	cfg := ws.snapshotTuningConfig()
 	syncRuntimeState := ws.hasStoredTuningConfig()
 
 	if ws.sensorID != "" {
 		cfg.L1.Sensor = ws.sensorID
 	}
-	if source := ws.CurrentSource(); source != "" {
+	source := sourceOverride
+	if source == "" {
+		source = ws.CurrentSource()
+	}
+	if source != "" {
 		cfg.L1.DataSource = string(source)
 	}
 
