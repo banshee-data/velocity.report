@@ -32,7 +32,7 @@ Stop and ask before continuing if any of these are true:
   above.
 - `systemctl is-active velocity-report.service` is not `active` before the
   upgrade.
-- `velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db`
+- `velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db status`
   reports `Dirty: true`.
 - `/opt/velocity-report` exists but `git status --short` is not clean.
 - The only available build output was produced from a checkout whose
@@ -88,7 +88,7 @@ echo "=== database ==="
 ls -la "$VR_DB" 2>/dev/null || echo "no database"
 stat --printf='%s bytes\n' "$VR_DB" 2>/dev/null || stat -f '%z bytes' "$VR_DB" 2>/dev/null || true
 if [ -f "$VR_DB" ]; then
-  "$VR_BIN" migrate status --db-path "$VR_DB" 2>/dev/null || echo "migrate status unavailable"
+  "$VR_BIN" migrate --db-path "$VR_DB" status 2>/dev/null || echo "migrate status unavailable"
 fi
 
 echo "=== disk ==="
@@ -299,11 +299,16 @@ sudo install -o root -g root -m 0755 "$NEW_BIN" "$VR_BIN"
 "$VR_BIN" --version
 ```
 
-Check migration state before applying anything:
+Check migration state before applying anything.
+
+**Important:** `--db-path` must appear between `migrate` and the sub-command
+(`status` / `up`). Go's flag parser stops at the first non-flag argument, so
+`migrate status --db-path …` silently ignores `--db-path` and falls back to
+`./sensor_data.db` in the current working directory.
 
 ```bash
 if [ -f "$VR_DB" ]; then
-  RUN_AS "$VR_BIN" migrate status --db-path "$VR_DB"
+  RUN_AS "$VR_BIN" migrate --db-path "$VR_DB" status
 fi
 ```
 
@@ -313,8 +318,8 @@ Apply migrations only when the database exists:
 
 ```bash
 if [ -f "$VR_DB" ]; then
-  RUN_AS "$VR_BIN" migrate up --db-path "$VR_DB"
-  RUN_AS "$VR_BIN" migrate status --db-path "$VR_DB"
+  RUN_AS "$VR_BIN" migrate --db-path "$VR_DB" up
+  RUN_AS "$VR_BIN" migrate --db-path "$VR_DB" status
 fi
 ```
 
@@ -355,7 +360,7 @@ echo "=== config file ==="
 ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "FAIL: tuning config missing"
 
 echo "=== migration state ==="
-"$VR_BIN" migrate status --db-path "$VR_DB"
+"$VR_BIN" migrate --db-path "$VR_DB" status
 
 echo "=== binary version ==="
 "$VR_BIN" --version
@@ -396,6 +401,21 @@ Success means:
 - `systemctl is-active velocity-report.service` returns `active`
 - `journalctl` shows no crash loop or startup fatal
 - the API responds on the configured local port
+- a single transient `SQLITE_BUSY` immediately after migration is expected;
+  if it repeats continuously, stop the service and check for stale WAL files
+
+## Cleanup
+
+Remove the transferred binary and any stray database files:
+
+```bash
+rm -f /tmp/vr/velocity-report-linux-arm64
+rmdir /tmp/vr 2>/dev/null || true
+ls /opt/velocity-report/sensor_data.db* 2>/dev/null && echo "STRAY DB — delete it" || echo "clean"
+```
+
+If a stray `sensor_data.db` exists in `/opt/velocity-report/`, it was created
+by a `migrate` invocation with incorrect `--db-path` flag ordering. Delete it.
 
 ## Rollback
 
@@ -422,6 +442,41 @@ journalctl -u velocity-report.service -n 50 --no-pager
 If `/opt/velocity-report` was also upgraded, roll that checkout back to the
 previous ref before retrying report generation.
 
+## Known Pitfalls
+
+Lessons learned from real upgrades:
+
+### `migrate --db-path` flag ordering
+
+Go's `flag.FlagSet` stops parsing at the first non-flag positional argument.
+The migrate subcommand uses a secondary FlagSet, so `--db-path` must appear
+**between** `migrate` and the sub-command (`status` / `up`):
+
+```bash
+# Correct — flag is parsed:
+velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db up
+
+# WRONG — flag is silently ignored, falls back to ./sensor_data.db:
+velocity-report migrate up --db-path /var/lib/velocity-report/sensor_data.db
+```
+
+The wrong form creates a stray database in the current working directory and
+reports migrations as up-to-date while the real database remains untouched.
+
+### Tuning config required from v0.5.0
+
+From v0.5.0 the binary requires `--config` pointing at
+`config/tuning.defaults.json` (or the file must exist relative to the working
+directory). Pre-v0.5.0 binaries had no `--config` flag. Upgrades crossing this
+boundary must update the `ExecStart` line in the systemd unit.
+
+### `/opt/velocity-report` permissions
+
+If the checkout was originally cloned or updated as `root`, some files under
+`.git/` will be root-owned. This causes `git fetch` to fail with
+`Permission denied` when run as the service user. Fix with:
+`sudo chown -R david:david /opt/velocity-report`.
+
 ## Suggested Agent Prompt
 
 Use this with a VS Code SSH agent in Ask mode. The agent does not have direct
@@ -433,12 +488,13 @@ Open docs/radar/operations/remote-host-upgrade-runbook.md and follow it exactly.
 You do NOT have direct terminal access. Your job is:
 1. Give me the Reconnaissance block to paste. Analyse my output.
 2. Ask any follow-up questions before proceeding (dirty checkout, missing
-   binary, stub web build, dirty migration, etc.).
+   binary, stub web build, dirty migration, missing tuning config, etc.).
 3. For each subsequent step, give me a single copy-paste block. Wait for my
    output before moving on.
 4. Minimise sudo usage — only request it for service stop/start, file install,
    and backup/restore. Never use sudo for read-only information gathering.
 5. Stop and ask if any guardrail condition is triggered.
+6. Read the Known Pitfalls section before generating any migrate commands.
 
 Upgrade this host to TARGET_REF=<tag-or-sha> without using velocity-deploy.
 NEW_BIN is at <path-to-binary-on-host>.
