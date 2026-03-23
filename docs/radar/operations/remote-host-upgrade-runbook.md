@@ -101,6 +101,7 @@ if [ -d /opt/velocity-report ]; then
   git -C /opt/velocity-report log --oneline -1 2>/dev/null || true
   git -C /opt/velocity-report status --short 2>/dev/null && echo "(working tree clean)" || true
   ls -la /opt/velocity-report/.venv/bin/python 2>/dev/null || echo "no venv"
+  ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "tuning config MISSING"
 else
   echo "/opt/velocity-report does not exist"
 fi
@@ -120,6 +121,9 @@ Paste the output back to the agent. The agent should check for:
 - Whether `/opt/velocity-report` is present, clean, and at which commit.
   If `git status --short` printed any paths before `(working tree clean)`,
   the checkout is dirty — stop and ask.
+- Whether `config/tuning.defaults.json` exists in `/opt/velocity-report`.
+  If missing, the checkout predates the config restructure and must be
+  updated before the service can start.
 - Directory ownership of `/opt/velocity-report` — determines whether later
   `git` and `make` steps need `sudo -u`.
 - Whether `sudo` is available without a password (affects later steps).
@@ -318,12 +322,62 @@ fi
 `sudo -u "$SERVICE_USER"` otherwise. Prefer it over `su - velocity` because
 the service user is normally created with a non-login shell.
 
+## Update Service Configuration
+
+From v0.5.0 onwards the binary requires a `--config` flag pointing at the
+tuning defaults file. The old `ExecStart` line does not include this flag.
+
+Check whether the service already has `--config`:
+
+```bash
+systemctl cat velocity-report.service | grep -q -- '--config' && echo "--config already present" || echo "--config MISSING — update needed"
+```
+
+If `--config` is missing, update the service file. This is the one step where
+the systemd unit is deliberately modified:
+
+```bash
+sudo sed -i 's|ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db|ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json|' "$VR_SVC"
+sudo systemctl daemon-reload
+systemctl cat velocity-report.service | grep ExecStart
+```
+
+Verify the `ExecStart` line now includes both `--db-path` and `--config`
+before restarting.
+
+## Pre-Restart Verification
+
+Before starting the service, verify that the three common startup failures
+cannot occur. This block is read-only and safe to run at any time:
+
+```bash
+echo "=== config file ==="
+ls -la /opt/velocity-report/config/tuning.defaults.json 2>/dev/null || echo "FAIL: tuning config missing"
+
+echo "=== migration state ==="
+"$VR_BIN" migrate status --db-path "$VR_DB"
+
+echo "=== binary version ==="
+"$VR_BIN" --version
+```
+
+All three must pass before restarting:
+
+- **Config file exists** — the `--config` path in `ExecStart` must resolve.
+  If missing, the `/opt/velocity-report` checkout is stale or the
+  `git checkout` step failed (check permissions).
+- **Migrations clean** — `Dirty: false` and the current version matches the
+  latest migration the binary knows about. If the version is behind, run
+  `migrate up` again. If `Dirty: true`, stop and recover.
+- **Binary version** — confirms the installed binary is the expected release.
+
 ## Restart and Verify
 
 Bring the service back and verify both systemd and HTTP health:
 
 ```bash
 sudo systemctl start velocity-report.service
+sleep 2
 systemctl is-active velocity-report.service
 systemctl --no-pager --full status velocity-report.service
 journalctl -u velocity-report.service -n 50 --no-pager
