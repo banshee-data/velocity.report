@@ -21,12 +21,22 @@
 		settings
 	} from 'svelte-ux';
 
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { discord } from '$lib/icons';
+	import {
+		capabilities,
+		startCapabilitiesPolling,
+		stopCapabilitiesPolling
+	} from '$lib/stores/capabilities';
 
 	import './app.css';
 
 	let { children } = $props();
+
+	// Start polling for capabilities on layout mount; stop on destroy.
+	onMount(startCapabilitiesPolling);
+	onDestroy(stopCapabilitiesPolling);
 
 	settings({
 		components: {
@@ -79,30 +89,32 @@
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
-		<NavItem
-			text="Lidar Tracks"
-			icon={mdiMapMarkerPath}
-			path="/app/lidar/tracks"
-			currentUrl={page.url}
-		/>
-		<NavItem
-			text="Replay Cases"
-			icon={mdiMovieOpen}
-			path="/app/lidar/replay-cases"
-			currentUrl={page.url}
-		/>
-		<NavItem
-			text="Lidar Runs"
-			icon={mdiPlayCircleOutline}
-			path="/app/lidar/runs"
-			currentUrl={page.url}
-		/>
-		<NavItem
-			text="Lidar Sweeps"
-			icon={mdiChartBoxOutline}
-			path="/app/lidar/sweeps"
-			currentUrl={page.url}
-		/>
+		{#if $capabilities.lidar.enabled}
+			<NavItem
+				text="Lidar Tracks"
+				icon={mdiMapMarkerPath}
+				path="/app/lidar/tracks"
+				currentUrl={page.url}
+			/>
+			<NavItem
+				text="Replay Cases"
+				icon={mdiMovieOpen}
+				path="/app/lidar/replay-cases"
+				currentUrl={page.url}
+			/>
+			<NavItem
+				text="Lidar Runs"
+				icon={mdiPlayCircleOutline}
+				path="/app/lidar/runs"
+				currentUrl={page.url}
+			/>
+			<NavItem
+				text="Lidar Sweeps"
+				icon={mdiChartBoxOutline}
+				path="/app/lidar/sweeps"
+				currentUrl={page.url}
+			/>
+		{/if}
 		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={page.url} />
 	</nav>
 

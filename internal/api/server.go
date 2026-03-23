@@ -19,12 +19,13 @@ import (
 )
 
 type Server struct {
-	m                 serialmux.SerialMuxInterface
-	db                *db.DB
-	units             string
-	timezone          string
-	debugMode         bool
-	transitController TransitController // Interface for transit worker control
+	m                    serialmux.SerialMuxInterface
+	db                   *db.DB
+	units                string
+	timezone             string
+	debugMode            bool
+	transitController    TransitController    // Interface for transit worker control
+	capabilitiesProvider CapabilitiesProvider // Interface for sensor capability reporting
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -42,6 +43,26 @@ type TransitController interface {
 	GetStatus() db.TransitStatus
 }
 
+// LidarCapability describes the runtime state of the LiDAR subsystem.
+type LidarCapability struct {
+	Enabled bool   `json:"enabled"`
+	State   string `json:"state"` // "disabled", "starting", "ready", "error"
+}
+
+// Capabilities is the JSON shape returned by /api/capabilities.
+type Capabilities struct {
+	Radar      bool            `json:"radar"`
+	Lidar      LidarCapability `json:"lidar"`
+	LidarSweep bool            `json:"lidar_sweep"`
+}
+
+// CapabilitiesProvider reports sensor availability at runtime.
+// Implementations live outside the api package so the server carries
+// no direct dependency on LiDAR internals.
+type CapabilitiesProvider interface {
+	Capabilities() Capabilities
+}
+
 func NewServer(m serialmux.SerialMuxInterface, db *db.DB, units string, timezone string) *Server {
 	return &Server{
 		m:        m,
@@ -57,6 +78,13 @@ func (s *Server) SetTransitController(tc TransitController) {
 	s.transitController = tc
 }
 
+// SetCapabilitiesProvider sets the provider that reports which sensors
+// are active at runtime. When nil, the capabilities endpoint returns
+// a radar-only default.
+func (s *Server) SetCapabilitiesProvider(cp CapabilitiesProvider) {
+	s.capabilitiesProvider = cp
+}
+
 func (s *Server) ServeMux() *http.ServeMux {
 	if s.mux != nil {
 		return s.mux
@@ -70,6 +98,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/command", s.sendCommandHandler)
 	s.mux.HandleFunc("/api/radar_stats", s.showRadarObjectStats)
 	s.mux.HandleFunc("/api/config", s.showConfig)
+	s.mux.HandleFunc("/api/capabilities", s.showCapabilities)
 	s.mux.HandleFunc("/api/generate_report", s.generateReport)
 	s.mux.HandleFunc("/api/sites", s.handleSites)
 	s.mux.HandleFunc("/api/sites/", s.handleSites) // Note trailing slash to match /api/sites and /api/sites/*
