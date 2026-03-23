@@ -720,8 +720,8 @@ func TestUpdateLabel_ReplayCaseLookupDBError(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	// Drop replay cases table to force an error
-	_, _ = db.Exec("DROP TABLE lidar_replay_cases")
+	// Rename replay cases table to force a lookup error without cascade-deleting annotations
+	_, _ = db.Exec("ALTER TABLE lidar_replay_cases RENAME TO lidar_replay_cases_bak")
 
 	caseID := "case-001"
 	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &caseID})

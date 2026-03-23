@@ -2,14 +2,26 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
+
+// failWriter is an http.ResponseWriter that fails on Write after the header is written.
+type failWriter struct {
+	header http.Header
+	code   int
+}
+
+func (fw *failWriter) Header() http.Header        { return fw.header }
+func (fw *failWriter) WriteHeader(statusCode int) { fw.code = statusCode }
+func (fw *failWriter) Write([]byte) (int, error)  { return 0, errors.New("write error") }
 
 // --- Dispatcher coverage: route through handleRunTrackAPI ---
 
@@ -41,6 +53,22 @@ func TestCov2_Dispatcher_FlagsViaURL(t *testing.T) {
 	body := `{"user_label":"split","linked_track_ids":[]}`
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/runs/"+runID+"/tracks/track-dflags/flags",
 		strings.NewReader(body))
+	w := httptest.NewRecorder()
+	ws.handleRunTrackAPI(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+}
+
+func TestCov2_Dispatcher_DeleteTrackViaURL(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "disp-del-trk")
+	covInsertTrack(t, ws, runID, "track-ddel")
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/"+runID+"/tracks/track-ddel", nil)
 	w := httptest.NewRecorder()
 	ws.handleRunTrackAPI(w, req)
 
@@ -251,9 +279,13 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 
 	runID := covInsertRun(t, ws, "ins-err")
 
-	// Drop the lidar_run_records table so InsertRun fails
-	if _, err := ws.db.DB.Exec(`DROP TABLE lidar_run_records`); err != nil {
-		t.Fatalf("drop table: %v", err)
+	// Pre-insert many rows to cause the generated ID to collide seems complex.
+	// Instead, drop the lidar_run_records table after the GetRun succeeds
+	// by using a custom approach: we close the DB _after_ reading the original run.
+	// Since we can't easily intercept, we instead make the table read-only via a trigger.
+	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_insert BEFORE INSERT ON lidar_run_records BEGIN SELECT RAISE(ABORT, 'blocked by trigger'); END`)
+	if err != nil {
+		t.Fatalf("create trigger: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
@@ -261,7 +293,10 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 	ws.handleReprocessRun(w, req, runID)
 
 	if w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to create analysis run") {
+		t.Errorf("expected 'failed to create analysis run' in body, got: %s", w.Body.String())
 	}
 }
 
@@ -293,7 +328,6 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 
 	store := sqlite.NewAnalysisRunStore(ws.db.DB)
 
-	// Insert reference run with no tracks — evaluation should fail
 	refRun := &sqlite.AnalysisRun{
 		RunID:      "eval-err-ref",
 		SourceType: "pcap",
@@ -305,7 +339,6 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 		t.Fatalf("InsertRun ref: %v", err)
 	}
 
-	// Insert candidate run also with no tracks
 	candRun := &sqlite.AnalysisRun{
 		RunID:      "eval-err-cand",
 		SourceType: "pcap",
@@ -317,6 +350,11 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 		t.Fatalf("InsertRun cand: %v", err)
 	}
 
+	// Drop the lidar_run_tracks table to cause GetRunTracks to fail
+	if _, err := ws.db.DB.Exec(`DROP TABLE lidar_run_tracks`); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+
 	body := `{"reference_run_id":"eval-err-ref"}`
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/lidar/runs/eval-err-cand/evaluate",
@@ -324,10 +362,8 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleEvaluateRun(w, req, "eval-err-cand")
 
-	// Evaluation with no tracks might return 200 (empty score) or 500 depending
-	// on implementation. Check that the handler at least runs without panic.
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 200 or 500", w.Code)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
@@ -479,10 +515,100 @@ func covInsertTrackForRun(t *testing.T, ws *Server, runID, trackID, sensorID str
 	}
 }
 
-// --- handleDeleteRunTrack: RowsAffected error (L284-287) ---
-// Note: SQLite driver never returns an error from RowsAffected(), so this block
-// is practically unreachable. The test below covers the DB.Exec error path instead,
-// which is already tested in run_track_api_coverage_test.go.
+// --- handleReprocessRun: resetBackgroundGrid error ---
+
+func TestCov2_HandleReprocessRun_ResetGridError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "reset-grid-err")
+	ws.tracker = &l5tracks.Tracker{}
+
+	// Register a BackgroundManager with nil Grid for our sensor ID.
+	// ResetGrid() returns error when Grid is nil.
+	sensorID := "test-sensor-grid-err"
+	ws.sensorID = sensorID
+	mgr := &l3grid.BackgroundManager{} // Grid is nil → ResetGrid() errors
+	l3grid.RegisterBackgroundManager(sensorID, mgr)
+	defer l3grid.RegisterBackgroundManager(sensorID, nil) // cleanup won't work (nil is rejected) but test DB is cleaned up
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	// Will get 500 from StartPCAPInternal. The resetBackgroundGrid error is only logged.
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleReprocessRun: UpdateRunStatus error (L538-540) ---
+
+func TestCov2_HandleReprocessRun_UpdateRunStatusError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "upd-status-err")
+
+	// Block UPDATEs on lidar_run_records so UpdateRunStatus fails
+	// while INSERTs still work (for the new reprocess run creation).
+	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_update BEFORE UPDATE ON lidar_run_records BEGIN SELECT RAISE(ABORT, 'update blocked'); END`)
+	if err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	// StartPCAPInternal fails → handler tries UpdateRunStatus → also fails → 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+// --- handleEvaluateRun: json.Encode error (L674-676) ---
+
+func TestCov2_HandleEvaluateRun_EncodeError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+
+	refRun := &sqlite.AnalysisRun{
+		RunID:      "enc-err-ref",
+		SourceType: "pcap",
+		SourcePath: "/test/enc-err.pcap",
+		SensorID:   "sensor-enc",
+		Status:     "completed",
+	}
+	if err := store.InsertRun(refRun); err != nil {
+		t.Fatalf("InsertRun ref: %v", err)
+	}
+	covInsertTrackForRun(t, ws, "enc-err-ref", "enc-err-ref-t1", "sensor-enc")
+
+	candRun := &sqlite.AnalysisRun{
+		RunID:      "enc-err-cand",
+		SourceType: "pcap",
+		SourcePath: "/test/enc-err.pcap",
+		SensorID:   "sensor-enc",
+		Status:     "completed",
+	}
+	if err := store.InsertRun(candRun); err != nil {
+		t.Fatalf("InsertRun cand: %v", err)
+	}
+	covInsertTrackForRun(t, ws, "enc-err-cand", "enc-err-cand-t1", "sensor-enc")
+
+	body := `{"reference_run_id":"enc-err-ref"}`
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/lidar/runs/enc-err-cand/evaluate",
+		strings.NewReader(body))
+	fw := &failWriter{header: http.Header{}}
+	ws.handleEvaluateRun(fw, req, "enc-err-cand")
+
+	// The handler logs the encode error but doesn't change status code.
+	// Just verifying it doesn't panic.
+}
 
 // --- Remaining truly unreachable blocks ---
 // L545-550: reprocess success path — requires a working PCAP replay system
