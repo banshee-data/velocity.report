@@ -51,7 +51,7 @@ Conflation points:
 
 - `extract.go:226` — `bootTime: time.Now()` initialises device-internal offset from wall clock
 - `extract.go:467,498` — falls back to `packetTime = time.Now()` when sensor timestamp unavailable
-- `tracking.go:192` — `dt` computed from `timestamp.UnixNano()`, which may be sensor or wall time depending on upstream `TimestampMode`
+- `l5tracks/tracking.go:192` — `dt` computed from `timestamp.UnixNano()`, which may be sensor or wall time depending on upstream `TimestampMode`
 
 This works today because `TimestampModeSystemTime` is the default and all timestamps are effectively wall time. Under GPS/PTP modes, or in replay, the tracker's `dt` and the pipeline throttle would use different time bases.
 
@@ -189,6 +189,6 @@ The [multi-model ingestion design](../lidar/architecture/multi-model-ingestion-a
 
 ## Open Questions
 
-1. Should `frame_timer.go` accept a `Clock` or remain wall-time-only since it measures real CPU-time performance? (Recommendation: inject Clock for consistency; benchmarks can pass `RealClock`.)
+1. Should `pipeline/frame_timer.go` accept a `Clock` or remain wall-time-only since it measures real CPU-time performance? (Recommendation: inject Clock for consistency; benchmarks can pass `RealClock`.)
 2. Should `l3grid` background timestamps (17 calls) migrate to `Clock`? (Recommendation: defer — these are diagnostic/audit timestamps with low testability risk.)
 3. When multi-sensor lands, should each sensor's `FrameBuilder` have an independent `Clock` or share one? (Recommendation: independent — sensors have different spin rates.)
