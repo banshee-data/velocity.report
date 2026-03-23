@@ -11,10 +11,12 @@ on:
       - "scripts/check-plan-canonical-links.py"
       - "scripts/flo-planning-review.sh"
       - ".github/workflows/plan-hygiene-ci.yml"
+      - "Makefile"
   push:
     branches: [main]
     paths:
       - "docs/plans/**"
+      - "Makefile"
 
 concurrency:
   group: plan-hygiene-${{ github.ref }}
