@@ -62,7 +62,7 @@ func (ws *Server) StopLiveListenerInternal() {
 
 // StartPCAPInternal starts PCAP replay (called by RealDataSourceManager).
 func (ws *Server) StartPCAPInternal(pcapFile string, config ReplayConfig) error {
-	return ws.startPCAPLocked(pcapFile, config)
+	return ws.startPCAPLockedWithConfig(pcapFile, config)
 }
 
 // StopPCAPInternal stops the current PCAP replay (called by RealDataSourceManager).
@@ -121,7 +121,7 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 			mgr.SetSourcePath(pcapFile)
 		}
 
-		if err := ws.startPCAPLocked(pcapFile, ReplayConfig{
+		if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
 			StartSeconds:     startSeconds,
 			DurationSeconds:  durationSeconds,
 			SpeedMode:        speedMode,
@@ -455,7 +455,22 @@ func (ws *Server) resetFailedPCAPStartState() {
 	ws.pcapMu.Unlock()
 }
 
-func (ws *Server) startPCAPLocked(pcapFile string, config ReplayConfig) error {
+func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
+	return ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
+		StartSeconds:    startSeconds,
+		DurationSeconds: durationSeconds,
+		SpeedMode:       speedMode,
+		SpeedRatio:      speedRatio,
+		DebugRingMin:    debugRingMin,
+		DebugRingMax:    debugRingMax,
+		DebugAzMin:      debugAzMin,
+		DebugAzMax:      debugAzMax,
+		EnableDebug:     enableDebug,
+		EnablePlots:     enablePlots,
+	})
+}
+
+func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig) error {
 	replayCfg := config
 	if replayCfg.SpeedRatio <= 0 {
 		replayCfg.SpeedRatio = 1.0

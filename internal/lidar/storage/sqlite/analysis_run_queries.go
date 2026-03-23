@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type rowScanner interface {
+type analysisRunRowScanner interface {
 	Scan(dest ...any) error
 }
 
@@ -60,7 +60,7 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 	return columns, caps, nil
 }
 
-func scanAnalysisRunRecord(scanner rowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
+func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
 	var (
 		run          AnalysisRun
 		createdAt    int64
