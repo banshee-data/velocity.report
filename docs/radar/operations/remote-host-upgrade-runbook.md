@@ -52,22 +52,88 @@ Decide these before you start:
 Preferred source for `NEW_BIN`: a prebuilt `velocity-report-linux-arm64`
 artifact already copied to the host. Building on-host is a fallback only.
 
+## Reconnaissance
+
+Paste this entire block into the SSH session first. Every command is read-only
+and none require `sudo` (the final line tests whether passwordless `sudo` is
+available but will never prompt). Copy the full output back so the agent can
+analyse the current state before planning any changes.
+
+```bash
+echo "=== identity ==="
+id
+hostname
+cat /etc/os-release 2>/dev/null | head -4
+
+echo "=== platform ==="
+uname -a
+dpkg --print-architecture 2>/dev/null || arch
+
+echo "=== paths ==="
+export VR_BIN=/usr/local/bin/velocity-report
+export VR_SVC=/etc/systemd/system/velocity-report.service
+export VR_DB=/var/lib/velocity-report/sensor_data.db
+ls -la "$VR_BIN" 2>/dev/null || echo "binary missing"
+file "$VR_BIN" 2>/dev/null || true
+"$VR_BIN" --version 2>/dev/null || echo "cannot run binary"
+
+echo "=== service ==="
+systemctl is-active velocity-report.service 2>/dev/null || echo "unknown"
+systemctl is-enabled velocity-report.service 2>/dev/null || echo "unknown"
+systemctl show velocity-report.service -p ExecStart -p WorkingDirectory -p User -p Environment -p EnvironmentFile 2>/dev/null || true
+systemctl cat velocity-report.service 2>/dev/null || echo "cannot read unit"
+echo "listen port: $(systemctl show velocity-report.service -p ExecStart --value 2>/dev/null | grep -oP '(?<=--listen :)\d+' || echo '8080 (default)')"
+
+echo "=== database ==="
+ls -la "$VR_DB" 2>/dev/null || echo "no database"
+stat --printf='%s bytes\n' "$VR_DB" 2>/dev/null || stat -f '%z bytes' "$VR_DB" 2>/dev/null || true
+if [ -f "$VR_DB" ]; then
+  "$VR_BIN" migrate status --db-path "$VR_DB" 2>/dev/null || echo "migrate status unavailable"
+fi
+
+echo "=== disk ==="
+df -h /usr/local/bin /var/lib/velocity-report /opt/velocity-report /tmp 2>/dev/null || true
+
+echo "=== opt checkout ==="
+if [ -d /opt/velocity-report ]; then
+  ls -ld /opt/velocity-report 2>/dev/null
+  ls -la /opt/velocity-report/.git/HEAD 2>/dev/null || echo "not a git repo"
+  git -C /opt/velocity-report log --oneline -1 2>/dev/null || true
+  git -C /opt/velocity-report status --short 2>/dev/null && echo "(working tree clean)" || true
+  ls -la /opt/velocity-report/.venv/bin/python 2>/dev/null || echo "no venv"
+else
+  echo "/opt/velocity-report does not exist"
+fi
+
+echo "=== sudo check ==="
+sudo -n true 2>/dev/null && echo "passwordless sudo: yes" || echo "passwordless sudo: no"
+
+echo "=== done ==="
+```
+
+Paste the output back to the agent. The agent should check for:
+
+- Whether the binary exists and which version is installed.
+- Whether the service is active and which user it runs as.
+- Whether the database exists, its size, and whether migrations are clean
+  (`Dirty: false`). A dirty migration is a guardrail — stop and ask.
+- Whether `/opt/velocity-report` is present, clean, and at which commit.
+  If `git status --short` printed any paths before `(working tree clean)`,
+  the checkout is dirty — stop and ask.
+- Directory ownership of `/opt/velocity-report` — determines whether later
+  `git` and `make` steps need `sudo -u`.
+- Whether `sudo` is available without a password (affects later steps).
+- The listen port printed at the end of the service block.
+
 ## Preflight
 
-Run these commands first and keep the output in the terminal scrollback:
+After the agent has analysed the reconnaissance output and confirmed there are
+no guardrail violations, set these variables for the remaining steps:
 
 ```bash
 export VR_BIN=/usr/local/bin/velocity-report
 export VR_SVC=/etc/systemd/system/velocity-report.service
 export VR_DB=/var/lib/velocity-report/sensor_data.db
-
-uname -a
-file "$VR_BIN" || true
-"$VR_BIN" --version || true
-sudo systemctl cat velocity-report.service
-sudo systemctl show velocity-report.service -p ExecStart -p WorkingDirectory -p User
-sudo systemctl is-active velocity-report.service
-df -h /usr/local/bin /var/lib/velocity-report /opt/velocity-report 2>/dev/null || true
 ```
 
 If the service file shows a custom `--listen :PORT`, keep that port for the
@@ -247,12 +313,24 @@ previous ref before retrying report generation.
 
 ## Suggested Agent Prompt
 
-Use this with a VS Code SSH agent in Ask mode:
+Use this with a VS Code SSH agent in Ask mode. The agent does not have direct
+command access — it analyses output you paste and gives you blocks to run.
 
 ```text
 Open docs/radar/operations/remote-host-upgrade-runbook.md and follow it exactly.
+
+You do NOT have direct terminal access. Your job is:
+1. Give me the Reconnaissance block to paste. Analyse my output.
+2. Ask any follow-up questions before proceeding (dirty checkout, missing
+   binary, stub web build, dirty migration, etc.).
+3. For each subsequent step, give me a single copy-paste block. Wait for my
+   output before moving on.
+4. Minimise sudo usage — only request it for service stop/start, file install,
+   and backup/restore. Never use sudo for read-only information gathering.
+5. Stop and ask if any guardrail condition is triggered.
+
 Upgrade this host to TARGET_REF=<tag-or-sha> without using velocity-deploy.
+NEW_BIN is at <path-to-binary-on-host>.
 Preserve the existing systemd service configuration unless a mismatch forces a
-decision. Stop and ask before touching a dirty /opt/velocity-report checkout,
-continuing with a dirty migration state, or building from a stubbed web build.
+decision.
 ```
