@@ -1462,6 +1462,36 @@ func TestCov_HandleReprocessRun_UsesRequestedParamSetID(t *testing.T) {
 	}
 }
 
+func TestCov_HandleReprocessRun_FallsBackToPreferredRunID(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "reproc-fallback")
+
+	origStart := startPCAPInternalForReprocess
+	origLast := lastAnalysisRunIDForReprocess
+	startPCAPInternalForReprocess = func(_ *Server, _ string, _ ReplayConfig) error { return nil }
+	lastAnalysisRunIDForReprocess = func(_ *Server) string { return "" }
+	defer func() {
+		startPCAPInternalForReprocess = origStart
+		lastAnalysisRunIDForReprocess = origLast
+	}()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusAccepted, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"parent_run_id":"`+runID+`"`) {
+		t.Fatalf("expected parent run id in response, got %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"run_id":"reprocess-`) {
+		t.Fatalf("expected preferred run id fallback, got %s", w.Body.String())
+	}
+}
+
 // --- handleEvaluateRun additional coverage (auto-persist path) ---
 
 func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
