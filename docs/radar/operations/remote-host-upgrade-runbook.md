@@ -82,8 +82,8 @@ systemctl is-active velocity-report.service 2>/dev/null || echo "unknown"
 systemctl is-enabled velocity-report.service 2>/dev/null || echo "unknown"
 systemctl show velocity-report.service -p ExecStart -p WorkingDirectory -p User -p Environment -p EnvironmentFile 2>/dev/null || true
 systemctl cat velocity-report.service 2>/dev/null || echo "cannot read unit"
-echo "listen port: $(systemctl show velocity-report.service -p ExecStart --value 2>/dev/null | grep -oP '(?<=--listen :)\d+' || echo '8080 (default)')"
-
+VR_LISTEN_PORT="$(systemctl show velocity-report.service -p ExecStart --value 2>/dev/null | sed -n 's/.*--listen :\([0-9][0-9]*\).*/\1/p' | head -n1)"
+echo "listen port: ${VR_LISTEN_PORT:-8080 (default)}"
 echo "=== database ==="
 ls -la "$VR_DB" 2>/dev/null || echo "no database"
 stat --printf='%s bytes\n' "$VR_DB" 2>/dev/null || stat -f '%z bytes' "$VR_DB" 2>/dev/null || true
@@ -259,10 +259,7 @@ cd /opt/velocity-report
 RUN_AS git status --short
 RUN_AS git fetch --tags --prune
 RUN_AS git checkout "$TARGET_REF"
-make install-python
-if [ "$(id -un)" != "$SERVICE_USER" ]; then
-  sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/velocity-report/.venv
-fi
+RUN_AS make install-python
 ```
 
 If that checkout is dirty, stop and ask instead of force-resetting it.
@@ -428,7 +425,7 @@ sudo systemctl stop velocity-report.service
 sudo install -o root -g root -m 0755 "$BACKUP_DIR/velocity-report" "$VR_BIN"
 sudo cp "$BACKUP_DIR/velocity-report.service" "$VR_SVC"
 if [ -f "$BACKUP_DIR/sensor_data.db" ]; then
-  cp "$BACKUP_DIR/sensor_data.db" "$VR_DB"
+  sudo cp "$BACKUP_DIR/sensor_data.db" "$VR_DB"
   if [ "$(id -un)" != "$SERVICE_USER" ]; then
     sudo chown "$SERVICE_USER:$SERVICE_USER" "$VR_DB"
   fi
