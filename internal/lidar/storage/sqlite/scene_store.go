@@ -44,6 +44,12 @@ type ReplayCaseStore struct {
 	capsErr    error
 }
 
+type replayCaseRows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}
+
 // NewReplayCaseStore creates a new ReplayCaseStore.
 func NewReplayCaseStore(db DBClient) *ReplayCaseStore {
 	return &ReplayCaseStore{db: db}
@@ -58,33 +64,35 @@ func (s *ReplayCaseStore) replayCaseCapabilities() (replayCaseCapabilities, erro
 		}
 		defer rows.Close()
 
-		var caps replayCaseCapabilities
-		for rows.Next() {
-			var (
-				cid        int
-				name       string
-				typ        string
-				notNull    int
-				defaultVal any
-				pk         int
-			)
-			if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultVal, &pk); err != nil {
-				s.capsErr = fmt.Errorf("scan lidar_replay_cases schema: %w", err)
-				return
-			}
-			switch strings.ToLower(strings.TrimSpace(name)) {
-			case "recommended_param_set_id":
-				caps.RecommendedParamSetID = true
-			}
-		}
-		if err := rows.Err(); err != nil {
-			s.capsErr = fmt.Errorf("iterate lidar_replay_cases schema: %w", err)
-			return
-		}
-		s.caps = caps
+		s.caps, s.capsErr = readReplayCaseCapabilitiesRows(rows)
 	})
 
 	return s.caps, s.capsErr
+}
+
+func readReplayCaseCapabilitiesRows(rows replayCaseRows) (replayCaseCapabilities, error) {
+	var caps replayCaseCapabilities
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			typ        string
+			notNull    int
+			defaultVal any
+			pk         int
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultVal, &pk); err != nil {
+			return replayCaseCapabilities{}, fmt.Errorf("scan lidar_replay_cases schema: %w", err)
+		}
+		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "recommended_param_set_id":
+			caps.RecommendedParamSetID = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return replayCaseCapabilities{}, fmt.Errorf("iterate lidar_replay_cases schema: %w", err)
+	}
+	return caps, nil
 }
 
 func (s *ReplayCaseStore) replayCaseSelectColumns() ([]string, replayCaseCapabilities, error) {
@@ -176,6 +184,10 @@ func (s *ReplayCaseStore) normalizeRecommendedParamSet(scene *ReplayCase) error 
 	if err != nil {
 		return err
 	}
+	return s.normalizeRecommendedParamSetWithCaps(scene, caps)
+}
+
+func (s *ReplayCaseStore) normalizeRecommendedParamSetWithCaps(scene *ReplayCase, caps replayCaseCapabilities) error {
 	if !caps.RecommendedParamSetID {
 		scene.RecommendedParamSetID = ""
 		return nil
@@ -237,12 +249,11 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 	if scene.CreatedAtNs == 0 {
 		scene.CreatedAtNs = time.Now().UnixNano()
 	}
-	if err := s.normalizeRecommendedParamSet(scene); err != nil {
-		return err
-	}
-
 	caps, err := s.replayCaseCapabilities()
 	if err != nil {
+		return err
+	}
+	if err := s.normalizeRecommendedParamSetWithCaps(scene, caps); err != nil {
 		return err
 	}
 
@@ -353,13 +364,17 @@ func (s *ReplayCaseStore) ListScenes(sensorID string) ([]*ReplayCase, error) {
 	}
 	defer rows.Close()
 
+	return collectReplayCases(rows, caps, s.hydrateRecommendedParamSet)
+}
+
+func collectReplayCases(rows replayCaseRows, caps replayCaseCapabilities, hydrate func(*ReplayCase)) ([]*ReplayCase, error) {
 	var scenes []*ReplayCase
 	for rows.Next() {
 		scene, err := scanReplayCase(rows, caps)
 		if err != nil {
 			return nil, fmt.Errorf("scan scene row: %w", err)
 		}
-		s.hydrateRecommendedParamSet(scene)
+		hydrate(scene)
 		scenes = append(scenes, scene)
 	}
 
@@ -376,12 +391,11 @@ func (s *ReplayCaseStore) ListScenes(sensorID string) ([]*ReplayCase, error) {
 func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	scene.UpdatedAtNs = new(int64)
 	*scene.UpdatedAtNs = time.Now().UnixNano()
-	if err := s.normalizeRecommendedParamSet(scene); err != nil {
-		return err
-	}
-
 	caps, err := s.replayCaseCapabilities()
 	if err != nil {
+		return err
+	}
+	if err := s.normalizeRecommendedParamSetWithCaps(scene, caps); err != nil {
 		return err
 	}
 

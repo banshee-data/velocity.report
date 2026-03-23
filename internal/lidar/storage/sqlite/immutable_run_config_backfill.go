@@ -17,6 +17,12 @@ type ImmutableRunConfigBackfillResult struct {
 	ReplayCasesSkipped int
 }
 
+type backfillRows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}
+
 // BackfillImmutableRunConfigReferences repairs legacy LiDAR run and replay-case
 // rows by resolving deterministic config assets where the new reference columns
 // are still empty.
@@ -37,44 +43,8 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 		return nil, fmt.Errorf("query runs for backfill: %w", err)
 	}
 	defer runRows.Close()
-
-	for runRows.Next() {
-		var (
-			runID      string
-			paramsJSON string
-		)
-		if err := runRows.Scan(&runID, &paramsJSON); err != nil {
-			return nil, fmt.Errorf("scan run backfill row: %w", err)
-		}
-		result.RunsSeen++
-
-		if strings.TrimSpace(paramsJSON) == "" {
-			result.RunsSkipped++
-			continue
-		}
-
-		paramSet, err := configasset.MakeLegacyParamSet(json.RawMessage(paramsJSON))
-		if err != nil {
-			result.RunsSkipped++
-			continue
-		}
-		runConfig, err := configStore.EnsureRunConfig(paramSet, configasset.BuildIdentity{})
-		if err != nil {
-			return nil, fmt.Errorf("resolve run config for %s: %w", runID, err)
-		}
-		if !dryRun {
-			if _, err := db.Exec(`
-				UPDATE lidar_run_records
-				SET run_config_id = ?
-				WHERE run_id = ?
-			`, runConfig.RunConfigID, runID); err != nil {
-				return nil, fmt.Errorf("update run_config_id for %s: %w", runID, err)
-			}
-		}
-		result.RunsUpdated++
-	}
-	if err := runRows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate runs for backfill: %w", err)
+	if err := backfillRunConfigRows(runRows, result, configStore, db, dryRun); err != nil {
+		return nil, err
 	}
 
 	sceneStore := NewReplayCaseStore(db)
@@ -97,14 +67,63 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 		return nil, fmt.Errorf("query replay cases for backfill: %w", err)
 	}
 	defer sceneRows.Close()
+	if err := backfillReplayCaseRows(sceneRows, result, configStore, db, dryRun); err != nil {
+		return nil, err
+	}
 
-	for sceneRows.Next() {
+	return result, nil
+}
+
+func backfillRunConfigRows(rows backfillRows, result *ImmutableRunConfigBackfillResult, configStore *configasset.Store, db DBClient, dryRun bool) error {
+	for rows.Next() {
+		var (
+			runID      string
+			paramsJSON string
+		)
+		if err := rows.Scan(&runID, &paramsJSON); err != nil {
+			return fmt.Errorf("scan run backfill row: %w", err)
+		}
+		result.RunsSeen++
+
+		if strings.TrimSpace(paramsJSON) == "" {
+			result.RunsSkipped++
+			continue
+		}
+
+		paramSet, err := configasset.MakeLegacyParamSet(json.RawMessage(paramsJSON))
+		if err != nil {
+			result.RunsSkipped++
+			continue
+		}
+		runConfig, err := configStore.EnsureRunConfig(paramSet, configasset.BuildIdentity{})
+		if err != nil {
+			return fmt.Errorf("resolve run config for %s: %w", runID, err)
+		}
+		if !dryRun {
+			if _, err := db.Exec(`
+				UPDATE lidar_run_records
+				SET run_config_id = ?
+				WHERE run_id = ?
+			`, runConfig.RunConfigID, runID); err != nil {
+				return fmt.Errorf("update run_config_id for %s: %w", runID, err)
+			}
+		}
+		result.RunsUpdated++
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate runs for backfill: %w", err)
+	}
+	return nil
+}
+
+func backfillReplayCaseRows(rows backfillRows, result *ImmutableRunConfigBackfillResult, configStore *configasset.Store, db DBClient, dryRun bool) error {
+	for rows.Next() {
 		var (
 			replayCaseID string
 			optimalJSON  string
 		)
-		if err := sceneRows.Scan(&replayCaseID, &optimalJSON); err != nil {
-			return nil, fmt.Errorf("scan replay-case backfill row: %w", err)
+		if err := rows.Scan(&replayCaseID, &optimalJSON); err != nil {
+			return fmt.Errorf("scan replay-case backfill row: %w", err)
 		}
 		result.ReplayCasesSeen++
 
@@ -115,7 +134,7 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 		}
 		storedParamSet, err := configStore.EnsureParamSet(paramSet)
 		if err != nil {
-			return nil, fmt.Errorf("resolve recommended params for %s: %w", replayCaseID, err)
+			return fmt.Errorf("resolve recommended params for %s: %w", replayCaseID, err)
 		}
 		if !dryRun {
 			if _, err := db.Exec(`
@@ -123,14 +142,13 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 				SET recommended_param_set_id = ?
 				WHERE replay_case_id = ?
 			`, storedParamSet.ParamSetID, replayCaseID); err != nil {
-				return nil, fmt.Errorf("update recommended_param_set_id for %s: %w", replayCaseID, err)
+				return fmt.Errorf("update recommended_param_set_id for %s: %w", replayCaseID, err)
 			}
 		}
 		result.ReplayCasesUpdated++
 	}
-	if err := sceneRows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate replay cases for backfill: %w", err)
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate replay cases for backfill: %w", err)
 	}
-
-	return result, nil
+	return nil
 }
