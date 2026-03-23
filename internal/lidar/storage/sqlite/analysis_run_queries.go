@@ -15,6 +15,12 @@ type analysisRunRowScanner interface {
 	Scan(dest ...any) error
 }
 
+type analysisRunRows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}
+
 func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecordCapabilities, error) {
 	caps, err := s.runRecordCapabilities()
 	if err != nil {
@@ -178,6 +184,31 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	return &run, nil
 }
 
+func collectAnalysisRunRecords(rows analysisRunRows, caps analysisRunRecordCapabilities) ([]*AnalysisRun, error) {
+	var runs []*AnalysisRun
+	for rows.Next() {
+		run, err := scanAnalysisRunRecord(rows, caps)
+		if err != nil {
+			return nil, fmt.Errorf("scan run: %w", err)
+		}
+		runs = append(runs, run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate runs: %w", err)
+	}
+	return runs, nil
+}
+
+func finalizeAnalysisRunRecords(runs []*AnalysisRun, hydrate func(*AnalysisRun), populate func([]*AnalysisRun) error) ([]*AnalysisRun, error) {
+	for _, run := range runs {
+		hydrate(run)
+	}
+	if err := populate(runs); err != nil {
+		return nil, err
+	}
+	return runs, nil
+}
+
 // GetRun retrieves an analysis run by ID.
 func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	columns, caps, err := s.runRecordSelectColumns()
@@ -225,25 +256,12 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	}
 	defer rows.Close()
 
-	var runs []*AnalysisRun
-	for rows.Next() {
-		run, err := scanAnalysisRunRecord(rows, caps)
-		if err != nil {
-			return nil, fmt.Errorf("scan run: %w", err)
-		}
-		s.hydrateRunConfigAssets(run)
-		runs = append(runs, run)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate runs: %w", err)
-	}
-
-	if err := s.populateRunLabelRollups(runs); err != nil {
+	runs, err := collectAnalysisRunRecords(rows, caps)
+	if err != nil {
 		return nil, err
 	}
 
-	return runs, nil
+	return finalizeAnalysisRunRecords(runs, s.hydrateRunConfigAssets, s.populateRunLabelRollups)
 }
 
 func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
@@ -290,6 +308,10 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	}
 	defer rows.Close()
 
+	return collectRunTracks(rows)
+}
+
+func collectRunTracks(rows analysisRunRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
@@ -530,6 +552,10 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 		run.LabelRollup = &RunLabelRollup{}
 	}
 
+	return assignRunLabelRollups(rows, byID)
+}
+
+func assignRunLabelRollups(rows analysisRunRows, byID map[string]*AnalysisRun) error {
 	for rows.Next() {
 		var runID string
 		var rollup RunLabelRollup
@@ -570,6 +596,10 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	}
 	defer rows.Close()
 
+	return collectUnlabeledTracks(rows)
+}
+
+func collectUnlabeledTracks(rows analysisRunRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
