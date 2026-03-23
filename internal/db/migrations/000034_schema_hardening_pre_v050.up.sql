@@ -1,5 +1,24 @@
 PRAGMA foreign_keys = OFF;
 
+-- Clean up orphaned rows that would violate FK constraints.
+   DELETE FROM lidar_bg_regions
+    WHERE snapshot_id NOT IN (
+             SELECT snapshot_id
+               FROM lidar_bg_snapshot
+          );
+
+   DELETE FROM lidar_run_tracks
+    WHERE run_id NOT IN (
+             SELECT run_id
+               FROM lidar_run_records
+          );
+
+   DELETE FROM radar_transit_links
+    WHERE transit_id NOT IN (
+             SELECT transit_id
+               FROM radar_data_transits
+          );
+
      DROP VIEW IF EXISTS lidar_all_tracks;
 
      DROP TRIGGER IF EXISTS ensure_single_active_period_insert;

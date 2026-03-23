@@ -113,8 +113,12 @@ func (db *DB) newMigrate(migrationsFS fs.FS) (*migrate.Migrate, error) {
 		return nil, fmt.Errorf("failed to create iofs source driver: %w", err)
 	}
 
-	// Create sqlite driver instance
-	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{})
+	// Create sqlite driver instance.
+	// NoTxWrap is required because migrations that rebuild tables use
+	// PRAGMA foreign_keys = OFF/ON, which has no effect inside a transaction.
+	driver, err := sqlite.WithInstance(db.DB, &sqlite.Config{
+		NoTxWrap: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sqlite driver: %w", err)
 	}
