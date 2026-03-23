@@ -222,6 +222,20 @@ describe('api', () => {
 			expect(result.histogram).toBeUndefined();
 		});
 
+		it('should include cosine correction when present', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({
+					metrics: [],
+					cosine_correction: { angles: [1, 2], applied: true }
+				})
+			});
+
+			const result = await getRadarStats(1704067200, 1704153600);
+
+			expect(result.cosineCorrection).toEqual({ angles: [1, 2], applied: true });
+		});
+
 		it('should handle errors when fetching radar stats', async () => {
 			(global.fetch as jest.Mock).mockResolvedValueOnce({
 				ok: false,
@@ -328,6 +342,17 @@ describe('api', () => {
 			expect(result).toEqual(mockPeriods);
 		});
 
+		it('should handle listSiteConfigPeriods errors', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 418
+			});
+
+			await expect(listSiteConfigPeriods(42)).rejects.toThrow(
+				'Failed to fetch site config periods: 418'
+			);
+		});
+
 		it('should create or update site config period', async () => {
 			const mockPeriod: SiteConfigPeriod = {
 				site_id: 7,
@@ -397,6 +422,27 @@ describe('api', () => {
 			});
 
 			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow('HTTP 500');
+		});
+
+		it('should fall back to the status when upsertSiteConfigPeriod has no error field', async () => {
+			const mockPeriod: SiteConfigPeriod = {
+				site_id: 7,
+				effective_start_unix: 1000,
+				effective_end_unix: null,
+				is_active: true,
+				notes: null,
+				cosine_error_angle: 12
+			};
+
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 409,
+				json: async () => ({})
+			});
+
+			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
+				'Failed to save site config period: 409'
+			);
 		});
 
 		it('should fetch timeline', async () => {
@@ -492,6 +538,23 @@ describe('api', () => {
 					units: 'mph'
 				})
 			).rejects.toThrow('HTTP 500');
+		});
+
+		it('should fall back to the status text when the error payload has no message', async () => {
+			(global.fetch as jest.Mock).mockResolvedValueOnce({
+				ok: false,
+				status: 502,
+				json: async () => ({})
+			});
+
+			await expect(
+				generateReport({
+					start_date: '2025-01-01',
+					end_date: '2025-01-31',
+					timezone: 'UTC',
+					units: 'mph'
+				})
+			).rejects.toThrow('Failed to generate report: 502');
 		});
 
 		it('should include min_speed parameter when provided', async () => {
@@ -1603,6 +1666,15 @@ describe('api', () => {
 					'Failed to fetch track observations: 404'
 				);
 			});
+
+			it('should return an empty list when observations are omitted', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+
+				await expect(getTrackObservations('track-empty')).resolves.toEqual([]);
+			});
 		});
 
 		describe('getTrackObservationsRange', () => {
@@ -1740,6 +1812,18 @@ describe('api', () => {
 				await expect(getTrackHistory('hesai-pandar40p', 0, 1000000)).rejects.toThrow(
 					'Failed to fetch track history: 400'
 				);
+			});
+
+			it('should default missing history collections', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+
+				await expect(getTrackHistory('hesai-pandar40p', 0, 1000000)).resolves.toEqual({
+					tracks: [],
+					observations: {}
+				});
 			});
 		});
 
@@ -1880,6 +1964,15 @@ describe('api', () => {
 				const { getLidarReplayCases } = await import('./api');
 				await expect(getLidarReplayCases()).rejects.toThrow('Failed to fetch replay cases: 500');
 			});
+
+			it('should default to an empty replay-case list when scenes are omitted', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+				const { getLidarReplayCases } = await import('./api');
+				await expect(getLidarReplayCases()).resolves.toEqual([]);
+			});
 		});
 
 		describe('getLidarRuns', () => {
@@ -1898,6 +1991,15 @@ describe('api', () => {
 				const { getLidarRuns } = await import('./api');
 				await expect(getLidarRuns()).rejects.toThrow('Failed to fetch runs: 500');
 			});
+
+			it('should default to an empty run list when runs are omitted', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+				const { getLidarRuns } = await import('./api');
+				await expect(getLidarRuns()).resolves.toEqual([]);
+			});
 		});
 
 		describe('getRunTracks', () => {
@@ -1915,6 +2017,15 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getRunTracks } = await import('./api');
 				await expect(getRunTracks('bad-id')).rejects.toThrow('Failed to fetch tracks: 404');
+			});
+
+			it('should default to an empty run-track list when tracks are omitted', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => ({})
+				});
+				const { getRunTracks } = await import('./api');
+				await expect(getRunTracks('run-empty')).resolves.toEqual([]);
 			});
 		});
 
@@ -2443,6 +2554,134 @@ describe('api', () => {
 				await expect(applyLidarParams('sensor-01', { bad: true })).rejects.toThrow(
 					'Failed to apply params: Invalid params'
 				);
+			});
+		});
+
+		describe('getSweepExplanation', () => {
+			it('should return explanation JSON on success', async () => {
+				const explanation = {
+					sweep_id: 'sweep-1',
+					objective_name: 'f1'
+				};
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => explanation
+				});
+				const { getSweepExplanation } = await import('./api');
+				await expect(getSweepExplanation('sweep-1')).resolves.toEqual(explanation);
+			});
+
+			it('should return null for non-ok responses', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false });
+				const { getSweepExplanation } = await import('./api');
+				await expect(getSweepExplanation('missing sweep')).resolves.toBeNull();
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/explain/missing%20sweep');
+			});
+
+			it('should return null when fetch rejects', async () => {
+				(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+				const { getSweepExplanation } = await import('./api');
+				await expect(getSweepExplanation('sweep-err')).resolves.toBeNull();
+			});
+		});
+
+		describe('HINT API', () => {
+			it('should fetch HINT state', async () => {
+				const state = { status: 'running' };
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: true,
+					json: async () => state
+				});
+				const { getHINTState } = await import('./api');
+				await expect(getHINTState()).resolves.toEqual(state);
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint');
+			});
+
+			it('should handle HINT state errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 });
+				const { getHINTState } = await import('./api');
+				await expect(getHINTState()).rejects.toThrow('Failed to get HINT state: 503');
+			});
+
+			it('should start HINT sweep', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { startHINTSweep } = await import('./api');
+				await startHINTSweep({ sensor_id: 'hesai', duration_mins: 12 });
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/sweep/hint',
+					expect.objectContaining({
+						method: 'POST',
+						body: JSON.stringify({ sensor_id: 'hesai', duration_mins: 12 })
+					})
+				);
+			});
+
+			it('should surface JSON HINT start errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 400,
+					text: async () => JSON.stringify({ error: 'invalid hint request' })
+				});
+				const { startHINTSweep } = await import('./api');
+				await expect(startHINTSweep({})).rejects.toThrow('invalid hint request');
+			});
+
+			it('should surface plain-text HINT start errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					text: async () => 'hint start exploded'
+				});
+				const { startHINTSweep } = await import('./api');
+				await expect(startHINTSweep({})).rejects.toThrow('hint start exploded');
+			});
+
+			it('should continue HINT sweep', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { continueHINT } = await import('./api');
+				await continueHINT(7, true);
+				expect(global.fetch).toHaveBeenCalledWith(
+					'/api/lidar/sweep/hint/continue',
+					expect.objectContaining({
+						method: 'POST',
+						body: JSON.stringify({ next_sweep_duration_mins: 7, add_round: true })
+					})
+				);
+			});
+
+			it('should surface JSON HINT continue errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 409,
+					text: async () => JSON.stringify({ error: 'cannot continue yet' })
+				});
+				const { continueHINT } = await import('./api');
+				await expect(continueHINT()).rejects.toThrow('cannot continue yet');
+			});
+
+			it('should surface plain-text HINT continue errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({
+					ok: false,
+					status: 500,
+					text: async () => 'continue exploded'
+				});
+				const { continueHINT } = await import('./api');
+				await expect(continueHINT()).rejects.toThrow('continue exploded');
+			});
+
+			it('should stop HINT sweep', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
+				const { stopHINT } = await import('./api');
+				await stopHINT();
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/sweep/hint/stop', {
+					method: 'POST'
+				});
+			});
+
+			it('should handle HINT stop errors', async () => {
+				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 502 });
+				const { stopHINT } = await import('./api');
+				await expect(stopHINT()).rejects.toThrow('Failed to stop HINT: 502');
 			});
 		});
 	});
