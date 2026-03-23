@@ -4,6 +4,7 @@
 - **Target:** complete before the `v0.5.0` branch cut
 - **Actual landing window:** March 22, 2026
 - **Layers:** Database, LiDAR storage, API, macOS visualiser
+- **Canonical:** [schema-hardening.md](../lidar/architecture/schema-hardening.md)
 - **Related:** [Pre-v0.5.0 Schema Simplification Migration 030 Plan](schema-simplification-migration-030-plan.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [LiDAR Immutable Run Config Asset Plan](lidar-immutable-run-config-asset-plan.md)
 
 ## Branch Status

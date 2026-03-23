@@ -1028,7 +1028,7 @@ private let logger = DevLogger(category: "AppState")
                     logger.info(
                         "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
                 } else {
-                    logger.notice(
+                    logger.warning(
                         "Skipping backend save for live label '\(label)' on track \(trackID); replay-owned free-form annotations now require replay_case_id"
                     )
                 }
@@ -1055,7 +1055,7 @@ private let logger = DevLogger(category: "AppState")
                             runID: runID, trackID: track.trackID, userLabel: label)
                     } else {
                         failed += 1
-                        logger.notice(
+                        logger.warning(
                             "Skipping backend save for live bulk label '\(label)' on track \(track.trackID); replay-owned free-form annotations now require replay_case_id"
                         )
                         continue

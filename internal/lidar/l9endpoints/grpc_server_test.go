@@ -10,6 +10,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -846,20 +847,16 @@ func TestFrameBundleToProto_WithPlaybackInfo(t *testing.T) {
 
 func TestServer_RegisterService(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.ListenAddr = "localhost:0" // Use dynamic port to avoid conflicts
 	pub := NewPublisher(cfg)
 	server := NewServer(pub)
 
-	// Start publisher to initialise grpc server
-	if err := pub.Start(); err != nil {
-		t.Fatalf("failed to start publisher: %v", err)
-	}
-	defer pub.Stop()
+	// Use a standalone gRPC server so registration happens before Serve().
+	// The real publisher starts Serve() in a goroutine inside Start(), so
+	// registering on pub.GRPCServer() afterwards is a race.
+	grpcServer := grpc.NewServer()
+	RegisterService(grpcServer, server)
 
-	// Register the service using the standalone function
-	RegisterService(pub.GRPCServer(), server)
-
-	// If we get here without panic, registration succeeded
+	// If we get here without panic, registration succeeded.
 }
 
 func TestPublisher_GRPCServer(t *testing.T) {
