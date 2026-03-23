@@ -1053,7 +1053,7 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
-lint-docs: check-mermaid ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, and relative links in Markdown
+lint-docs: check-mermaid check-plan-hygiene ## Check Mermaid fences, plan hygiene, header metadata (docs/config/data), British English spelling, and relative links in Markdown
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 	@python3 scripts/check-relative-links.py

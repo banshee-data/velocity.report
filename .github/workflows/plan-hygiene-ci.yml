@@ -1,4 +1,4 @@
-name: 📋 Plan Hygiene (advisory)
+name: 📋 Plan Hygiene
 
 permissions:
   contents: read
@@ -22,9 +22,8 @@ concurrency:
 
 jobs:
   plan-hygiene:
-    name: "📋 Plan hygiene (advisory)"
+    name: "📋 Plan hygiene"
     runs-on: ubuntu-latest
-    continue-on-error: true # Advisory only — never blocks merges
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,8 +33,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run plan-hygiene report
-        run: make report-plan-hygiene
+      - name: Run plan-hygiene check
+        run: make check-plan-hygiene
 
       - name: Summary
         if: always()
