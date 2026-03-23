@@ -21,7 +21,7 @@
 		settings
 	} from 'svelte-ux';
 
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { discord } from '$lib/icons';
 	import {
@@ -35,7 +35,7 @@
 	let { children } = $props();
 
 	// Start polling for capabilities on layout mount; stop on destroy.
-	startCapabilitiesPolling();
+	onMount(startCapabilitiesPolling);
 	onDestroy(stopCapabilitiesPolling);
 
 	settings({

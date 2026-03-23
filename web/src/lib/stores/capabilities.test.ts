@@ -118,6 +118,7 @@ describe('capabilities store', () => {
 		it('should keep existing state when fetch fails', async () => {
 			const initial = get(capabilities);
 			(getCapabilities as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+			const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
 			startCapabilitiesPolling();
 			await flushPromises();
@@ -125,6 +126,8 @@ describe('capabilities store', () => {
 			// State unchanged, but loaded is set
 			expect(get(capabilities)).toEqual(initial);
 			expect(get(capabilitiesLoaded)).toBe(true);
+			expect(warnSpy).toHaveBeenCalledWith('Failed to refresh capabilities:', expect.any(Error));
+			warnSpy.mockRestore();
 		});
 	});
 

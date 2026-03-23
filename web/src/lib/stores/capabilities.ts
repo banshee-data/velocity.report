@@ -13,7 +13,12 @@ const DEFAULT_CAPABILITIES: Capabilities = {
 	lidar_sweep: false
 };
 
-/** Polling interval in milliseconds (30 seconds). */
+/**
+ * Polling interval in milliseconds (30 seconds).
+ * Chosen to balance responsiveness (detect LiDAR coming online within
+ * ~30 s) against load on the Pi 4. LiDAR state transitions are rare
+ * (typically only at startup or manual enable/disable).
+ */
 const POLL_INTERVAL_MS = 30_000;
 
 /** Writable store holding the latest capabilities snapshot. */
@@ -30,13 +35,16 @@ export const lidarState = derived(capabilities, ($caps) => $caps.lidar.state);
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-/** Fetch capabilities once and update the store. Swallows errors. */
+/** Fetch capabilities once and update the store. Logs errors but
+ *  keeps the previous state so the UI degrades gracefully. */
 async function refresh(): Promise<void> {
 	try {
 		const caps = await getCapabilities();
 		capabilities.set(caps);
-	} catch {
-		// Endpoint unreachable — keep existing state.
+	} catch (err) {
+		// Endpoint unreachable — keep existing state so radar-only
+		// navigation remains stable.
+		console.warn('Failed to refresh capabilities:', err);
 	} finally {
 		capabilitiesLoaded.set(true);
 	}
