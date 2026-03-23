@@ -408,14 +408,15 @@ func TestUpdateLabel_EmptyReplayCaseID(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
+	// Empty replay_case_id normalises to nil, meaning "don't update this field".
 	empty := ""
 	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &empty})
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

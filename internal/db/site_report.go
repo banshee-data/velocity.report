@@ -31,7 +31,7 @@ func nullableSiteID(siteID int) interface{} {
 	return siteID
 }
 
-func scanSiteID(dst *int) interface{} {
+func scanSiteID(_ *int) interface{} {
 	return &sql.NullInt64{}
 }
 

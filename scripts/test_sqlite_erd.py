@@ -1,9 +1,11 @@
 import importlib.util
+import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
 import tempfile
 
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GROUP_DOT_PATH = REPO_ROOT / "scripts/sqlite-erd/group-dot.py"
@@ -55,6 +57,7 @@ def test_topo_levels_ignore_self_referential_foreign_keys():
     ]
 
 
+@pytest.mark.skipif(shutil.which("dot") is None, reason="Graphviz dot not installed")
 def test_graph_script_generate_dot_and_compile():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)

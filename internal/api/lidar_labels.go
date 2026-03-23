@@ -150,6 +150,9 @@ func trimOptionalStringPtr(value *string) *string {
 		return nil
 	}
 	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
 	return &trimmed
 }
 
