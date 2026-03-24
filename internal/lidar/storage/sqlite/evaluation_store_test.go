@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -69,6 +70,46 @@ func setupTestEvaluationDB(t *testing.T) *sql.DB {
 	}
 
 	return db
+}
+
+type evaluationRowsAffectedErrorDB struct {
+	db  *sql.DB
+	err error
+}
+
+type evaluationRowsAffectedErrorResult struct {
+	err error
+}
+
+func (d *evaluationRowsAffectedErrorDB) Exec(query string, args ...any) (sql.Result, error) {
+	result, execErr := d.db.Exec(query, args...)
+	if execErr != nil {
+		return nil, execErr
+	}
+	if query == `DELETE FROM lidar_replay_evaluations WHERE evaluation_id = ?` {
+		return evaluationRowsAffectedErrorResult{err: d.err}, nil
+	}
+	return result, nil
+}
+
+func (d *evaluationRowsAffectedErrorDB) Query(query string, args ...any) (*sql.Rows, error) {
+	return d.db.Query(query, args...)
+}
+
+func (d *evaluationRowsAffectedErrorDB) QueryRow(query string, args ...any) *sql.Row {
+	return d.db.QueryRow(query, args...)
+}
+
+func (d *evaluationRowsAffectedErrorDB) Begin() (*sql.Tx, error) {
+	return d.db.Begin()
+}
+
+func (r evaluationRowsAffectedErrorResult) LastInsertId() (int64, error) {
+	return 0, nil
+}
+
+func (r evaluationRowsAffectedErrorResult) RowsAffected() (int64, error) {
+	return 0, r.err
 }
 
 func seedEvaluationTestData(t *testing.T, db *sql.DB) {
@@ -297,6 +338,28 @@ func TestEvaluationStore_Delete_DBError(t *testing.T) {
 	err := store.Delete("eval-1")
 	if err == nil {
 		t.Fatal("expected error from closed DB")
+	}
+}
+
+func TestEvaluationStore_Delete_RowsAffectedError(t *testing.T) {
+	db := setupTestEvaluationDB(t)
+	defer db.Close()
+	seedEvaluationTestData(t, db)
+
+	store := NewEvaluationStore(db)
+	eval := &Evaluation{
+		ReplayCaseID:   "scene-1",
+		ReferenceRunID: "ref-run-1",
+		CandidateRunID: "cand-run-1",
+	}
+	if err := store.Insert(eval); err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+
+	store = NewEvaluationStore(&evaluationRowsAffectedErrorDB{db: db, err: errors.New("rows boom")})
+	err := store.Delete(eval.EvaluationID)
+	if err == nil || err.Error() != "rows affected: rows boom" {
+		t.Fatalf("expected rows affected error, got %v", err)
 	}
 }
 

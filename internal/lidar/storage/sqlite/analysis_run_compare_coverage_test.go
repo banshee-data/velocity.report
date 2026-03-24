@@ -1,6 +1,9 @@
 package sqlite
 
 import (
+	"database/sql"
+	"fmt"
+	"strings"
 	"testing"
 
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
@@ -14,6 +17,34 @@ func setupCompareRunsDB(t *testing.T) (*AnalysisRunStore, func()) {
 	t.Helper()
 	db, cleanup := dbpkg.NewTestDB(t)
 	return NewAnalysisRunStore(db.DB), cleanup
+}
+
+type queryInterceptDB struct {
+	db                 *sql.DB
+	runTracksQueryErr  error
+	runTracksQuerySeen int
+}
+
+func (d *queryInterceptDB) Exec(query string, args ...any) (sql.Result, error) {
+	return d.db.Exec(query, args...)
+}
+
+func (d *queryInterceptDB) Query(query string, args ...any) (*sql.Rows, error) {
+	if d.runTracksQueryErr != nil && strings.Contains(query, "FROM lidar_run_tracks") {
+		d.runTracksQuerySeen++
+		if d.runTracksQuerySeen >= 2 {
+			return nil, d.runTracksQueryErr
+		}
+	}
+	return d.db.Query(query, args...)
+}
+
+func (d *queryInterceptDB) QueryRow(query string, args ...any) *sql.Row {
+	return d.db.QueryRow(query, args...)
+}
+
+func (d *queryInterceptDB) Begin() (*sql.Tx, error) {
+	return d.db.Begin()
 }
 
 func insertTestRunWithTracks(t *testing.T, store *AnalysisRunStore, runID string, tracks []RunTrack) {
@@ -228,11 +259,40 @@ func TestCov_CompareRuns_DBClosed(t *testing.T) {
 	}
 }
 
+func TestCov_CompareRuns_Run2LoadError(t *testing.T) {
+	store, cleanup := setupCompareRunsDB(t)
+	defer cleanup()
+
+	insertTestRunWithTracks(t, store, "run-a", []RunTrack{{
+		TrackID: "a-t1",
+		TrackMeasurement: l5tracks.TrackMeasurement{
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+		},
+	}})
+	insertTestRunWithTracks(t, store, "run-b", []RunTrack{{
+		TrackID: "b-t1",
+		TrackMeasurement: l5tracks.TrackMeasurement{
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+		},
+	}})
+
+	store.db = &queryInterceptDB{
+		db:                store.db.(*sql.DB),
+		runTracksQueryErr: fmt.Errorf("boom"),
+	}
+
+	_, err := CompareRuns(store, "run-a", "run-b")
+	if err == nil || !strings.Contains(err.Error(), "load run2 tracks") {
+		t.Fatalf("expected run2 load error, got %v", err)
+	}
+}
+
 // --- compareParams: additional field-level branches ---
 
 func TestCov_compareParams_SeedAndClusteringAndTracking(t *testing.T) {
 	p1 := &RunParams{
 		Background: BackgroundParamsExport{
+			NoiseRelativeFraction:    0.1,
 			SeedFromFirstObservation: true,
 		},
 		Clustering: ClusteringParamsExport{
@@ -246,6 +306,7 @@ func TestCov_compareParams_SeedAndClusteringAndTracking(t *testing.T) {
 	}
 	p2 := &RunParams{
 		Background: BackgroundParamsExport{
+			NoiseRelativeFraction:    0.2,
 			SeedFromFirstObservation: false,
 		},
 		Clustering: ClusteringParamsExport{
@@ -266,6 +327,9 @@ func TestCov_compareParams_SeedAndClusteringAndTracking(t *testing.T) {
 	}
 	if _, ok := bgDiff["seed_from_first_observation"]; !ok {
 		t.Error("expected seed_from_first_observation in diff")
+	}
+	if _, ok := bgDiff["noise_relative_fraction"]; !ok {
+		t.Error("expected noise_relative_fraction in diff")
 	}
 
 	clDiff, ok := diff["clustering"].(map[string]any)
