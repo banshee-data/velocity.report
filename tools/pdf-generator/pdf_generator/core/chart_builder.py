@@ -77,7 +77,7 @@ class TimeSeriesChartBuilder:
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
-                "matplotlib is required for chart generation. "
+                "matplotlib is needed for chart generation. "
                 "Install it with: pip install matplotlib"
             )
 
@@ -673,7 +673,7 @@ class HistogramChartBuilder:
         """
         if not HAVE_MATPLOTLIB:
             raise ImportError(
-                "matplotlib is required for chart generation. "
+                "matplotlib is needed for chart generation. "
                 "Install it with: pip install matplotlib"
             )
 

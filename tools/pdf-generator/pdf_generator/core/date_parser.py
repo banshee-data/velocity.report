@@ -34,7 +34,7 @@ def parse_date_to_unix(
         try:
             tzobj = ZoneInfo(tz_name)
         except ZoneInfoNotFoundError:
-            raise ValueError(f"unknown timezone: {tz_name}")
+            raise ValueError(f"unrecognised timezone: {tz_name}")
 
     # Try YYYY-MM-DD first
     try:
@@ -68,7 +68,7 @@ def parse_date_to_unix(
         return int(dt.timestamp())
     except Exception:
         raise ValueError(
-            f"Invalid date format, expected YYYY-MM-DD, ISO datetime, or unix seconds: {d}"
+            f"could not parse date — expected YYYY-MM-DD, ISO datetime, or unix seconds, got: {d}"
         )
 
 
