@@ -801,6 +801,11 @@ func main() {
 
 		// Set up sweep persistence
 		sweepStore := sqlite.NewSweepStore(lidarDB)
+		if n, err := sweepStore.RecoverOrphanedSweeps(); err != nil {
+			log.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
+		} else if n > 0 {
+			log.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+		}
 		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
@@ -1171,6 +1176,10 @@ type hintRunCreator struct {
 }
 
 func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+	// Stop any lingering sweep in the Runner before starting the reference run.
+	// HINT owns the orchestration at this point, so it's safe to reclaim the Runner.
+	a.runner.StopAndWait(5 * time.Second)
+
 	// For HINT reference runs, we start a single-combo sweep with the given params.
 	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
 	var sweepParams []sweep.SweepParam
