@@ -279,7 +279,15 @@ func (ws *Server) startLiveListenerLocked() error {
 		// listener.Start() blocks until context is cancelled or a fatal error occurs.
 		// It returns immediately with an error if socket binding fails.
 		err := listener.Start(ctx)
-		errCh <- err
+		select {
+		case errCh <- err:
+		default:
+			// Parent already took the timeout path (startup succeeded).
+			// Log post-startup runtime errors so they are not silently lost.
+			if err != nil && !errors.Is(err, context.Canceled) {
+				opsf("LiDAR UDP listener error: %v", err)
+			}
+		}
 	}(ws.udpListener, listenerCtx, done, startupErr)
 
 	// Wait for either:
