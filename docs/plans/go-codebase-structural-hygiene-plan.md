@@ -27,29 +27,29 @@ should say, concretely:
 The main principle remains the same: structural cleanup is cheapest before release
 conventions become contracts.
 
-## Implementation Snapshot (2026-03-21)
+## Implementation Snapshot (2026-03-23)
 
-| Area                                  | `main`          | This branch | Notes                                                                                                                                                                                     |
-| ------------------------------------- | --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database/sql` import boundary        | Implemented     | Implemented | Non-test imports are limited to `internal/db/` and `internal/lidar/storage/`; enforced by `scripts/check-db-sql-imports.sh`                                                               |
-| SQL type aliases / sentinel           | Implemented     | Implemented | `internal/lidar/storage/sqlite/dbconn.go` exports `sqlite.SQLDB`, `sqlite.SQLTx`, and `sqlite.ErrNotFound`                                                                                |
-| `cmd/tools/` boundary compliance      | Implemented     | Implemented | `cmd/tools/backfill_ring_elevations/backfill.go` no longer imports `database/sql` directly                                                                                                |
-| LiDAR server / endpoint package split | Not implemented | In progress | This branch adds `internal/lidar/server/`, `internal/lidar/l8analytics/`, and `internal/lidar/l9endpoints/`; `main` still uses `internal/lidar/monitor/` and `internal/lidar/visualiser/` |
-| Single SQLite driver policy           | Not implemented | Implemented | `main` still carries `github.com/mattn/go-sqlite3` in tests and `go.mod`; this branch standardises on `modernc.org/sqlite` and adds `scripts/check-single-sqlite-driver.sh`               |
-| Context propagation                   | Not implemented | Implemented | 8 `_ = r` placeholders removed from `internal/api/server.go`; 10 DB methods in `site.go`/`site_report.go` now accept `context.Context` and use `*Context` SQL methods                     |
-| `serialmux.CurrentState` race         | Not implemented | Implemented | Replaced unsynchronised map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()`; unexported test helper `resetCurrentState`                                       |
+| Area                                  | `main`          | This branch | Notes                                                                                                                                                                                                                                                                        |
+| ------------------------------------- | --------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database/sql` import boundary        | Implemented     | Implemented | Non-test imports are limited to `internal/db/` and `internal/lidar/storage/`; enforced by `scripts/check-db-sql-imports.sh`                                                                                                                                                  |
+| SQL type aliases / sentinel           | Implemented     | Implemented | `internal/lidar/storage/sqlite/dbconn.go` exports `sqlite.SQLDB`, `sqlite.SQLTx`, and `sqlite.ErrNotFound`                                                                                                                                                                   |
+| `cmd/tools/` boundary compliance      | Implemented     | Implemented | `cmd/tools/backfill_ring_elevations/backfill.go` no longer imports `database/sql` directly                                                                                                                                                                                   |
+| LiDAR server / endpoint package split | Not implemented | Implemented | `internal/lidar/server/`, `internal/lidar/l8analytics/`, and `internal/lidar/l9endpoints/` all exist; `internal/lidar/monitor/` and `internal/lidar/visualiser/` removed; `internal/lidar/server/` still large (53 files) — further decomposition tracked by companion plans |
+| Single SQLite driver policy           | Not implemented | Implemented | `main` still carries `github.com/mattn/go-sqlite3` in tests and `go.mod`; this branch standardises on `modernc.org/sqlite` and adds `scripts/check-single-sqlite-driver.sh`                                                                                                  |
+| Context propagation                   | Not implemented | Implemented | 8 `_ = r` placeholders removed from `internal/api/server.go`; 10 DB methods in `site.go`/`site_report.go` now accept `context.Context` and use `*Context` SQL methods                                                                                                        |
+| `serialmux.CurrentState` race         | Not implemented | Implemented | Replaced unsynchronised map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()`; unexported test helper `resetCurrentState`                                                                                                                          |
 
 ## Updated Findings
 
-| Category                   | Current state                                                                                                                                          | Severity     | Release view                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | ------------------------------------------ |
-| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants              | ~~Critical~~ | **Done**                                   |
-| God files / package sprawl | `main` still has `internal/lidar/monitor/webserver.go`; this branch is actively splitting that surface into `server`, `l8analytics`, and `l9endpoints` | High         | Continue via companion plans               |
-| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                         | ~~High~~     | **Done**                                   |
-| Query-boundary leak        | ~~`internal/api/lidar_labels.go` raw SQL~~ — refactored into `internal/lidar/storage/sqlite/label_store.go` on this branch                             | ~~Medium~~   | **Done**                                   |
-| JSON tag inconsistency     | `EventAPI` and `RadarObjectsRollupRow` now have explicit `snake_case` JSON tags; TypeScript interfaces updated to match                                | ~~Low~~      | **Done**                                   |
-| Silent error drops         | Operational sites in `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `echarts_handlers.go` `w.Write` and `db.Close()` remain (acceptable)  | ~~Medium~~   | **Done** (operationally meaningful subset) |
-| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (199 call sites); test DB setup is still inconsistent                                                    | Low          | Worth reducing in early v0.5.x             |
+| Category                   | Current state                                                                                                                                                                                               | Severity     | Release view                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------- |
+| Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants                                                                   | ~~Critical~~ | **Done**                                                    |
+| God files / package sprawl | `internal/lidar/monitor/` removed; `server/`, `l8analytics/`, `l9endpoints/` all exist; `internal/lidar/server/` remains large (53 files) and undivided — further decomposition is the live concern         | High         | Continue via companion plans                                |
+| Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                                                                              | ~~High~~     | **Done**                                                    |
+| Query-boundary leak        | `internal/api/lidar_labels.go` still holds 10 raw SQL call sites; `internal/lidar/storage/sqlite/label_store.go` exists as a parallel implementation but the API layer has not been wired to delegate to it | Medium       | Outstanding — wire `LidarLabelAPI` to `LabelStore` (v0.5.x) |
+| JSON tag inconsistency     | `EventAPI` and `RadarObjectsRollupRow` now have explicit `snake_case` JSON tags; TypeScript interfaces updated to match                                                                                     | ~~Low~~      | **Done**                                                    |
+| Silent error drops         | Operational sites in `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `echarts_handlers.go` `w.Write` and `db.Close()` remain (acceptable)                                                       | ~~Medium~~   | **Done** (operationally meaningful subset)                  |
+| Test infrastructure drift  | 40 internal test files still use `time.Sleep` (203 call sites); test DB setup is still inconsistent                                                                                                         | Low          | Worth reducing in early v0.5.x                              |
 
 ## What The Original Draft Got Right, And What Changed
 
@@ -72,15 +72,11 @@ not future work.
 
 ### 2. The remaining database issue is now query placement, not import placement
 
-`internal/api/lidar_labels.go` still executes raw SQL directly:
+`internal/api/lidar_labels.go` still executes raw SQL directly — 10 call sites via `api.db.Query/QueryRow/Exec`. The line numbers from the original draft have shifted (the file is now 716 lines), so exact references are omitted here; the pattern is visible in any grep for `api.db.Query`.
 
-- `Query` at line 190
-- `Exec` at lines 265, 404, 416
-- `QueryRow` at lines 320, 357
-- another `Query` at line 448
+`internal/lidar/storage/sqlite/label_store.go` now exists and defines a `LabelStore` struct with a `NewLabelStore(db DBClient)` constructor, its own SQL for label CRUD, and a parallel `LidarLabel` model with proper snake_case JSON tags. The two implementations are in sync at the schema level but the API layer (`LidarLabelAPI`) has not been wired to delegate to `LabelStore`. Both sides independently execute SQL against the same tables.
 
-The import boundary is respected, but the package boundary is not. The HTTP layer still owns
-SQL strings. That is now the real storage-hygiene gap.
+The import boundary is respected, but the package boundary is not. The HTTP layer still owns SQL strings, and `label_store.go` is unused dead weight until the wiring happens. Migration is the real storage-hygiene gap.
 
 ### 3. This branch is already executing part of the package-split plan
 
@@ -154,23 +150,18 @@ TypeScript `Event` interface updated to match.
 
 ### 4. Silent error drops are still concentrated in a few important paths
 
-The meaningful production sites still worth fixing are:
+Two silent error drop locations remain:
 
-- `internal/db/db.go:251` — `_ = db.Close()`
-- `internal/lidar/l3grid/export_bg_snapshot.go:45,61` —
-  `_ = mgr.SetRingElevations(...)`
-- `internal/lidar/server/datasource_handlers.go:123,135,536,537,571` —
-  ignored listener / background-manager errors
-- `internal/lidar/server/echarts_handlers.go` — 8 ignored `w.Write(...)` results
+- `internal/db/db.go:181` — `_ = db.Close()` inside the `NewDBWithMigrationCheck`
+  error-return path (line number shifted from the original 251)
+- `internal/lidar/server/echarts_handlers.go` — 8 ignored `_, _ = w.Write(...)` results
 
-These are not all equally important:
+The `export_bg_snapshot.go` (`SetRingElevations`) and `datasource_handlers.go` sites have
+been fixed since this assessment was first written — all now use `if err :=` handling or
+`opsf(...)` logging.
 
-- `w.Write` after headers are sent is mostly a log-or-ignore case
-- `SetRingElevations`, `startLiveListenerLocked`, and `SetParams` can hide real operational
-  failures
-
-This should stay in the package-hygiene backlog, but with differentiated treatment rather
-than one blanket search-and-replace.
+`w.Write` after headers are sent is a log-or-ignore case; `db.Close()` on the error-return
+path is low-consequence but slightly untidy. Neither blocks v0.5.0.
 
 ### 5. Test infrastructure has drifted more than the original draft suggested
 
@@ -179,7 +170,7 @@ The original draft cited 9 `time.Sleep` test files. That is now stale.
 Current scan:
 
 - 40 internal test files use `time.Sleep`
-- 199 `time.Sleep(...)` call sites exist under `internal/*_test.go`
+- 203 `time.Sleep(...)` call sites exist under `internal/*_test.go`
 
 That is now large enough to call a real test-infrastructure smell rather than a minor note.
 It does not block v0.5.0 by itself, but it does justify a shared polling helper and a
@@ -204,7 +195,7 @@ driver. `main` still has 15 until this cleanup is merged.
 | `github.com/tailscale/tailsql`         | `/debug/tailsql/` admin SQL surface in `internal/db/db.go`                                                                    | Production/debug   | Yes while the route exists                                        |
 | `go.bug.st/serial`                     | Physical serial-port access in `internal/serialmux/factory.go`                                                                | Production         | Yes                                                               |
 | `gonum.org/v1/gonum`                   | Statistics helpers in `internal/db/db.go`                                                                                     | Production         | Yes                                                               |
-| `gonum.org/v1/plot`                    | Plot generation in `internal/lidar/l9endpoints/gridplotter.go` (or `monitor/gridplotter.go` on `main`)                        | Production         | Yes                                                               |
+| `gonum.org/v1/plot`                    | Plot generation in `internal/lidar/l9endpoints/gridplotter.go`                                                                | Production         | Yes                                                               |
 | `google.golang.org/grpc`               | Visualiser streaming server/client surface in `internal/lidar/l9endpoints/*`                                                  | Production         | Yes                                                               |
 | `google.golang.org/protobuf`           | Generated protobuf types and recorder codec support                                                                           | Production         | Yes                                                               |
 | `modernc.org/sqlite`                   | Canonical SQLite driver for production and tests                                                                              | Production + tests | Yes                                                               |
@@ -248,9 +239,12 @@ database and long-running operations.
 **Scope:**
 
 1. ~~Protect `serialmux.CurrentState` with a mutex-backed accessor surface~~ — Done
-2. ~~Move raw label SQL out of `internal/api/lidar_labels.go` into
-   `internal/lidar/storage/sqlite/label_store.go`~~ — Done
-3. ~~Fix the remaining meaningful silent error drops~~ — Done (operational subset)
+2. Wire `LidarLabelAPI` to delegate to `LabelStore` — `label_store.go` exists as a
+   parallel implementation but `lidar_labels.go` still owns 10 raw SQL call sites;
+   API layer migration is outstanding
+3. ~~Fix the remaining meaningful silent error drops~~ — Done (operational subset;
+   export_bg_snapshot.go and datasource_handlers.go fixed; db.go:181 and echarts
+   w.Write remain as low-consequence residuals)
 4. Keep the single-SQLite-driver invariant:
    - merge this branch's `modernc`-only cleanup
    - keep `scripts/check-single-sqlite-driver.sh` in `make lint-go`
