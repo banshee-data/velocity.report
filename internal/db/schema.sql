@@ -72,7 +72,6 @@
         , source_type TEXT NOT NULL
         , source_path TEXT
         , sensor_id TEXT NOT NULL
-        , params_json TEXT NOT NULL
         , duration_secs REAL
         , total_frames INTEGER
         , total_clusters INTEGER
@@ -104,7 +103,6 @@
         , pcap_duration_secs REAL
         , description TEXT
         , reference_run_id TEXT
-        , optimal_params_json TEXT
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
         , recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
@@ -136,7 +134,6 @@
         , matched_count INTEGER
         , reference_count INTEGER
         , candidate_count INTEGER
-        , params_json TEXT
         , created_at INTEGER NOT NULL
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
         , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
