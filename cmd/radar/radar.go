@@ -39,7 +39,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
-	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -667,50 +666,7 @@ func main() {
 					return
 				}
 
-				// Set recording provenance from current webserver state.
-				sourceType := "live"
-				pcapPath := ""
-				playbackRate := 0.0
-				if lidarServer != nil {
-					src := lidarServer.CurrentSource()
-					if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
-						sourceType = "pcap"
-						pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
-						playbackRate = lidarServer.PCAPSpeedRatio()
-					}
-				}
-
-				runStore := sqlite.NewAnalysisRunStore(lidarDB)
-				run, err := runStore.GetRun(runID)
-				if err != nil {
-					log.Printf("[Visualiser] Warning: failed to load run metadata for %s: %v", runID, err)
-				}
-
-				effectiveTuningHash := tuningHash
-				if run != nil && strings.TrimSpace(run.RunConfigID) != "" {
-					configStore := configasset.NewStore(lidarDB)
-					runConfig, err := configStore.GetRunConfig(run.RunConfigID)
-					if err != nil {
-						log.Printf("[Visualiser] Warning: failed to load immutable config for run %s: %v", runID, err)
-					} else {
-						rec.SetDeterministicConfig(
-							run.RunConfigID,
-							runConfig.ParamSetID,
-							runConfig.ConfigHash,
-							runConfig.ParamsHash,
-							runConfig.ParamSchemaVersion,
-							runConfig.ParamSetType,
-							runConfig.BuildVersion,
-							runConfig.BuildGitSHA,
-							runConfig.ComposedJSON,
-						)
-						if runConfig.ParamsHash != "" {
-							effectiveTuningHash = runConfig.ParamsHash
-						}
-					}
-				}
-
-				rec.SetProvenance(sourceType, pcapPath, effectiveTuningHash, playbackRate)
+				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
 
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
@@ -801,11 +757,7 @@ func main() {
 
 		// Set up sweep persistence
 		sweepStore := sqlite.NewSweepStore(lidarDB)
-		if n, err := sweepStore.RecoverOrphanedSweeps(); err != nil {
-			log.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
-		} else if n > 0 {
-			log.Printf("Recovered %d orphaned sweep(s) from previous run", n)
-		}
+		recoverOrphanedSweepsOnStart(sweepStore, log.Default())
 		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)

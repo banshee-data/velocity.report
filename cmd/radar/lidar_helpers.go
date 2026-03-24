@@ -4,11 +4,17 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
+	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/server"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 type logfFunc func(string, ...any)
@@ -33,6 +39,21 @@ type pcapProgressSetter interface {
 
 type pcapTimestampsSetter interface {
 	SetPCAPTimestamps(int64, int64)
+}
+
+type recordingMetadataSink interface {
+	SetDeterministicConfig(runConfigID, paramSetID, configHash, paramsHash, schemaVersion, paramSetType, buildVersion, buildGitSHA string, executionConfig []byte)
+	SetProvenance(sourceType, pcapPath, tuningHash string, playbackRate float64)
+}
+
+type recordingSourceInfo interface {
+	CurrentSource() server.DataSource
+	CurrentPCAPFile() string
+	PCAPSpeedRatio() float64
+}
+
+type orphanedSweepRecoverer interface {
+	RecoverOrphanedSweeps() (int64, error)
 }
 
 var marshalTuningJSON = json.Marshal
@@ -189,4 +210,66 @@ func newVRLogRecorderOrLog(
 		return nil
 	}
 	return rec
+}
+
+func applyRecordingMetadata(rec recordingMetadataSink, lidarDB sqlite.DBClient, lidarServer recordingSourceInfo, runID, tuningHash string, logger *log.Logger) {
+	if logger == nil {
+		logger = log.Default()
+	}
+
+	sourceType := "live"
+	pcapPath := ""
+	playbackRate := 0.0
+	if lidarServer != nil {
+		src := lidarServer.CurrentSource()
+		if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
+			sourceType = "pcap"
+			pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
+			playbackRate = lidarServer.PCAPSpeedRatio()
+		}
+	}
+
+	runStore := sqlite.NewAnalysisRunStore(lidarDB)
+	run, err := runStore.GetRun(runID)
+	if err != nil {
+		logger.Printf("[Visualiser] Warning: failed to load run metadata for %s: %v", runID, err)
+	}
+
+	effectiveTuningHash := tuningHash
+	if run != nil && strings.TrimSpace(run.RunConfigID) != "" {
+		configStore := configasset.NewStore(lidarDB)
+		runConfig, err := configStore.GetRunConfig(run.RunConfigID)
+		if err != nil {
+			logger.Printf("[Visualiser] Warning: failed to load immutable config for run %s: %v", runID, err)
+		} else {
+			rec.SetDeterministicConfig(
+				run.RunConfigID,
+				runConfig.ParamSetID,
+				runConfig.ConfigHash,
+				runConfig.ParamsHash,
+				runConfig.ParamSchemaVersion,
+				runConfig.ParamSetType,
+				runConfig.BuildVersion,
+				runConfig.BuildGitSHA,
+				runConfig.ComposedJSON,
+			)
+			if runConfig.ParamsHash != "" {
+				effectiveTuningHash = runConfig.ParamsHash
+			}
+		}
+	}
+
+	rec.SetProvenance(sourceType, pcapPath, effectiveTuningHash, playbackRate)
+}
+
+func recoverOrphanedSweepsOnStart(sweepStore orphanedSweepRecoverer, logger *log.Logger) {
+	if logger == nil {
+		logger = log.Default()
+	}
+
+	if n, err := sweepStore.RecoverOrphanedSweeps(); err != nil {
+		logger.Printf("WARNING: failed to recover orphaned sweeps: %v", err)
+	} else if n > 0 {
+		logger.Printf("Recovered %d orphaned sweep(s) from previous run", n)
+	}
 }
