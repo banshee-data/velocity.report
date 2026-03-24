@@ -1,6 +1,6 @@
 # LiDAR Deterministic Run Config and Execution Metadata Plan
 
-- **Status:** Draft
+- **Status:** Complete
 - **Layers:** Database, L8 Analytics, L9 Endpoints, L10 Clients, Recording/Replay
 - **Precondition:** Schema work through `000034` is already landed on `main`: `000030` schema simplification, `000031` table naming, `000032` `lidar_all_tracks`, `000033` replay annotations + evaluation integrity, and `000034` schema hardening / FK-on cleanup.
 - **Migration slot:** The first schema step in this plan should use `000035` (or the next free slot if another migration lands first).
@@ -19,28 +19,25 @@ answers:
    artifacts without being confused for executed configs?
 4. Can the UI diff exact configs and group related runs deterministically?
 
-## Current Landed Reality
+## Final State
 
-As of March 23, 2026, the repo baseline for this work is:
+As of March 24, 2026, all phases are delivered:
 
-- migrations `000030` through `000034` are already on `main`, so this plan now
-  starts after the schema-hardening pass rather than before it
-- the nested LiDAR config restructure is already landed, so effective-config
-  capture should build on current `config.TuningConfig` / runtime getters
-  rather than the old flat config contract
-- endpoint/server code now lives under `internal/lidar/server/`, and recorder
-  export code lives under `internal/lidar/l9endpoints/recorder/`; older
-  `monitor/` and `visualiser/` path references are stale
-- replay-case terminology is landed in schema/API contracts, even though some
-  store/helper names still say `scene`
-- the persisted model is still legacy JSON:
-  `lidar_run_records.params_json`,
-  `lidar_replay_cases.optimal_params_json`, and
-  `lidar_replay_evaluations.params_json`
-- `AnalysisRunManager.StartRun` still serialises timestamp-bearing
-  `RunParams`, and `handleReprocessRun` still pre-inserts a run row before the
-  actual replay starts; both are incompatible with trustworthy immutable
-  run-config provenance
+- Migration `000035` creates `lidar_param_sets`, `lidar_run_configs`, and
+  nullable FK columns on `lidar_run_records` and `lidar_replay_cases`
+- Migration `000036` drops legacy `params_json` from `lidar_run_records` and
+  `lidar_replay_evaluations`, and `optimal_params_json` from
+  `lidar_replay_cases`
+- `internal/lidar/storage/configasset/` provides canonical JSON composition,
+  hashing, validation, and deduplicated insert-or-reuse for param sets and
+  run configs
+- `AnalysisRunManager` is the single-source run creator with deterministic
+  config asset resolution
+- Run/replay-case APIs expose config identity; UI diffs exact composed configs
+- VRLOG metadata includes `config_hash`, `params_hash`, and embedded provenance
+- Backfill tool at `cmd/tools/backfill_lidar_run_config` handles historical rows
+- `lidar_bg_snapshot.params_json` is intentionally retained (actively used for
+  background algorithm reproducibility)
 
 ## Non-goals
 

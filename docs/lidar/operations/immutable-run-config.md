@@ -5,18 +5,19 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 ## Source
 
 - Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
-- Status: Draft — P0/P1 landed (migration 000035, configasset, API, VRLOG provenance, `RunParams.Timestamp` removed); P2 legacy column removal outstanding
-- Migration slot: 000035 (landed; builds on migrations `000030`-`000034`)
+- Status: Complete — all phases delivered (P0/P1 + P2)
+- Migrations: 000035 (schema additions), 000036 (legacy column removal)
 
 ## Problem
 
-The current schema spreads parameter JSON across four places (`lidar_run_records.params_json`, `lidar_replay_cases.optimal_params_json`, `lidar_replay_evaluations.params_json`, `lidar_bg_snapshot.params_json`). This is not DRY and not reliable as a reproducibility model:
+The previous schema spread parameter JSON across four places (`lidar_run_records.params_json`, `lidar_replay_cases.optimal_params_json`, `lidar_replay_evaluations.params_json`, `lidar_bg_snapshot.params_json`). This was not DRY and not reliable as a reproducibility model:
 
-- Replay/reprocess paths create ad hoc run rows before execution, so stored params can diverge from executed run
-- `RunParams` previously included a timestamp (now removed), breaking immutability and stable hashing
-- Run params are not a complete snapshot of the effective runtime tuning surface
-- Evaluations duplicate candidate-run params rather than referencing them
-- Background snapshot params are dead schema in practice
+- Replay/reprocess paths created ad hoc run rows before execution, so stored params could diverge from the executed run
+- `RunParams` included a timestamp, breaking immutability and stable hashing
+- Run params were not a complete snapshot of the effective runtime tuning surface
+- Evaluations duplicated candidate-run params rather than referencing them
+
+All of these issues are now resolved. Legacy `params_json` columns have been dropped from `lidar_run_records`, `lidar_replay_cases` (`optimal_params_json`), and `lidar_replay_evaluations` (migration 000036). `lidar_bg_snapshot.params_json` is retained for background algorithm reproducibility.
 
 ## Target Model: Three Distinct Layers
 
@@ -130,28 +131,27 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 - **Recommendation refs:** `lidar_replay_cases.recommended_param_set_id` → reusable requested params, not executed configs
 - **Derived only:** evaluation config from `candidate_run_id → run_config_id`; diff views from `run_config_id → param_set_id + build identity`; grouping by `params_hash` from effective param sets
 
-## Phase Plan
+## Delivered Phases
 
-### P0/P1: Introduce and Adopt
+### P0/P1: Introduce and Adopt (migration 000035)
 
-- P0.1: Schema additions (migration `000035` or next free slot) — new tables, nullable FKs on run_records and replay_cases
-- P0.2: Config asset package (`internal/lidar/storage/configasset/`)
-- P0.3: Define effective runtime surface (background, clustering, tracker, classification tunables)
-- P0.4: Remove timestamps from deterministic config identity
-- P0.5: Fix single-source run creation (eliminate duplicate run creation in replay/reprocess)
-- P0.6: Distinguish requested vs effective vs execution metadata
-- P0.7: Backfill historical rows (canonicalise existing params_json, mark as effective/legacy)
-- P0.8: API changes (expose config identity on run and replay-case responses)
-- P0.9: UI changes (diff exact composed configs, group by params_hash)
-- P0.10: Recording provenance (config_hash and params_hash in VRLOG metadata)
+- Schema additions — `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
+- Config asset package (`internal/lidar/storage/configasset/`)
+- Effective runtime surface definition (background, clustering, tracker, classification tunables)
+- Timestamp removal from deterministic config identity
+- Single-source run creation (no duplicate run rows in replay/reprocess)
+- Requested vs effective vs execution metadata separation
+- Backfill tool (`cmd/tools/backfill_lidar_run_config`)
+- API exposure of config identity on run and replay-case responses
+- UI diff of exact composed configs, grouping by `params_hash`
+- Recording provenance (`config_hash` and `params_hash` in VRLOG metadata)
 
-### P2: Remove Legacy Duplication
+### P2: Remove Legacy Duplication (migration 000036)
 
-- P2.1: Drop redundant JSON columns (params_json on run_records, replay_evaluations)
-- P2.2: Tighten constraints (run_config_id NOT NULL, FK constraints)
-- P2.3: Evaluation and diff cleanup (derive all config from run FKs)
-- P2.4: UI simplification (remove legacy JSON rendering)
-- P2.5: Future artifact attachments (reference run_config_id or param_set_id, never copy JSON)
+- Dropped `params_json` from `lidar_run_records` and `lidar_replay_evaluations`
+- Dropped `optimal_params_json` from `lidar_replay_cases`
+- Evaluation and diff derive all config from run FKs
+- UI uses only immutable config references (no legacy JSON rendering)
 
 ## Key Guardrails
 

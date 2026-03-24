@@ -10,7 +10,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.0 - Platform Hardening (050)
 
-- [#429] LiDAR immutable run config — P0/P1 landed (migration 000035, configasset package, API/UI/recording provenance, `RunParams.Timestamp` removed); remaining: P2 legacy column removal and constraint tightening. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
@@ -213,3 +212,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#421] `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - [#422] Canonical plan graduation — Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed — [design doc](plans/platform-canonical-project-files-plan.md)
 - [#424] Remote-host upgrade runbook and API naming consistency — runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#429] LiDAR immutable run config (P0/P1/P2) — deterministic config asset model: `lidar_param_sets`, `lidar_run_configs`, configasset package, single-source run creation, API/UI provenance, VRLOG metadata, legacy column removal (migrations 000035–000036) — [design doc](plans/lidar-immutable-run-config-asset-plan.md)
