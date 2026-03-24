@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ type ReplayCase struct {
 }
 
 type replayCaseCapabilities struct {
+	OptimalParamsJSON     bool
 	RecommendedParamSetID bool
 }
 
@@ -85,6 +87,8 @@ func readReplayCaseCapabilitiesRows(rows replayCaseRows) (replayCaseCapabilities
 			return replayCaseCapabilities{}, fmt.Errorf("scan lidar_replay_cases schema: %w", err)
 		}
 		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "optimal_params_json":
+			caps.OptimalParamsJSON = true
 		case "recommended_param_set_id":
 			caps.RecommendedParamSetID = true
 		}
@@ -109,9 +113,11 @@ func (s *ReplayCaseStore) replayCaseSelectColumns() ([]string, replayCaseCapabil
 		"pcap_duration_secs",
 		"description",
 		"reference_run_id",
-		"optimal_params_json",
 		"created_at_ns",
 		"updated_at_ns",
+	}
+	if caps.OptimalParamsJSON {
+		columns = append(columns, "optimal_params_json")
 	}
 	if caps.RecommendedParamSetID {
 		columns = append(columns, "recommended_param_set_id")
@@ -123,8 +129,9 @@ func (s *ReplayCaseStore) replayCaseSelectColumns() ([]string, replayCaseCapabil
 func scanReplayCase(scanner interface{ Scan(dest ...any) error }, caps replayCaseCapabilities) (*ReplayCase, error) {
 	var scene ReplayCase
 	var pcapStartSecs, pcapDurationSecs sql.NullFloat64
-	var description, referenceRunID, optimalParamsJSON sql.NullString
+	var description, referenceRunID sql.NullString
 	var updatedAtNs sql.NullInt64
+	var optimalParamsJSON sql.NullString
 	var recommendedParamSetID sql.NullString
 
 	dests := []any{
@@ -135,9 +142,11 @@ func scanReplayCase(scanner interface{ Scan(dest ...any) error }, caps replayCas
 		&pcapDurationSecs,
 		&description,
 		&referenceRunID,
-		&optimalParamsJSON,
 		&scene.CreatedAtNs,
 		&updatedAtNs,
+	}
+	if caps.OptimalParamsJSON {
+		dests = append(dests, &optimalParamsJSON)
 	}
 	if caps.RecommendedParamSetID {
 		dests = append(dests, &recommendedParamSetID)
@@ -227,6 +236,7 @@ func (s *ReplayCaseStore) hydrateRecommendedParamSet(scene *ReplayCase) {
 		if err == sql.ErrNoRows || isMissingConfigAssetSchemaErr(err) {
 			return
 		}
+		log.Printf("hydrate recommended param set for scene %s: %v", scene.ReplayCaseID, err)
 		return
 	}
 
@@ -265,7 +275,6 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 		"pcap_duration_secs",
 		"description",
 		"reference_run_id",
-		"optimal_params_json",
 		"created_at_ns",
 		"updated_at_ns",
 	}
@@ -277,9 +286,12 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 		nullFloat64(scene.PCAPDurationSecs),
 		nullString(scene.Description),
 		nullString(scene.ReferenceRunID),
-		nullString(string(scene.OptimalParamsJSON)),
 		scene.CreatedAtNs,
 		nullInt64(scene.UpdatedAtNs),
+	}
+	if caps.OptimalParamsJSON {
+		columns = append(columns, "optimal_params_json")
+		args = append(args, nullString(string(scene.OptimalParamsJSON)))
 	}
 	if caps.RecommendedParamSetID {
 		columns = append(columns, "recommended_param_set_id")
@@ -386,7 +398,7 @@ func collectReplayCases(rows replayCaseRows, caps replayCaseCapabilities, hydrat
 }
 
 // UpdateScene updates an existing replay case's mutable fields for the given scene ID.
-// Updates description, reference_run_id, optimal_params_json, pcap_start_secs, and pcap_duration_secs;
+// Updates description, reference_run_id, pcap_start_secs, and pcap_duration_secs;
 // empty strings are stored as NULL, which clears those fields.
 func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	scene.UpdatedAtNs = new(int64)
@@ -402,7 +414,6 @@ func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	setClauses := []string{
 		"description = ?",
 		"reference_run_id = ?",
-		"optimal_params_json = ?",
 		"pcap_start_secs = ?",
 		"pcap_duration_secs = ?",
 		"updated_at_ns = ?",
@@ -410,10 +421,13 @@ func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	args := []any{
 		nullString(scene.Description),
 		nullString(scene.ReferenceRunID),
-		nullString(string(scene.OptimalParamsJSON)),
 		nullFloat64(scene.PCAPStartSecs),
 		nullFloat64(scene.PCAPDurationSecs),
 		scene.UpdatedAtNs,
+	}
+	if caps.OptimalParamsJSON {
+		setClauses = append(setClauses, "optimal_params_json = ?")
+		args = append(args, nullString(string(scene.OptimalParamsJSON)))
 	}
 	if caps.RecommendedParamSetID {
 		setClauses = append(setClauses, "recommended_param_set_id = ?")

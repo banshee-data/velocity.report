@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -110,7 +109,6 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 		MatchedCount:        12,
 		ReferenceCount:      13,
 		CandidateCount:      15,
-		ParamsJSON:          json.RawMessage(`{"dist": 2.5}`),
 	}
 
 	err := store.Insert(eval)
@@ -142,9 +140,6 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 	}
 	if retrieved.MatchedCount != 12 {
 		t.Errorf("matched_count mismatch: got %d, want 12", retrieved.MatchedCount)
-	}
-	if string(retrieved.ParamsJSON) != `{"dist": 2.5}` {
-		t.Errorf("params_json mismatch: got %s", string(retrieved.ParamsJSON))
 	}
 }
 

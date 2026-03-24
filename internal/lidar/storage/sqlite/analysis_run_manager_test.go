@@ -145,18 +145,6 @@ func TestStartRun(t *testing.T) {
 	if count != 1 {
 		t.Errorf("Expected 1 run in database, got %d", count)
 	}
-
-	// Verify params are stored
-	var paramsJSON string
-	err = db.QueryRow("SELECT params_json FROM lidar_run_records WHERE run_id = ?", runID).Scan(&paramsJSON)
-	if err != nil {
-		t.Fatalf("Failed to query params: %v", err)
-	}
-
-	var storedParams RunParams
-	if err := json.Unmarshal([]byte(paramsJSON), &storedParams); err != nil {
-		t.Errorf("Failed to unmarshal stored params: %v", err)
-	}
 }
 
 func TestRecordFrame(t *testing.T) {
@@ -616,9 +604,6 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 	}
 	if run.ReplayCaseID != "scene-42" {
 		t.Fatalf("ReplayCaseID = %q, want %q", run.ReplayCaseID, "scene-42")
-	}
-	if _, err := ParseRunParams(run.ParamsJSON); err != nil {
-		t.Fatalf("legacy params_json should remain parseable, got %v", err)
 	}
 
 	var paramSetCount int

@@ -303,6 +303,8 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	var paramsJSON json.RawMessage
 	if req.ParamsJSON != nil {
 		paramsJSON = req.ParamsJSON
+	} else if len(scene.RecommendedParams) > 0 {
+		paramsJSON = scene.RecommendedParams
 	} else if len(scene.OptimalParamsJSON) > 0 {
 		paramsJSON = scene.OptimalParamsJSON
 	}

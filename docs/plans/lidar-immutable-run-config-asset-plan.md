@@ -444,8 +444,8 @@ Future entities must choose the correct level of reference:
       replay-case UI, and compare/diff surfaces.
 - [x] Write `config_hash`, `params_hash`, and portable
       `execution_config.json` into VRLOG metadata/export paths.
-- [ ] After adoption, drop legacy JSON columns and tighten `NOT NULL` / FK
-      constraints in the cleanup migration.
+- [x] After adoption, drop legacy JSON columns and tighten `NOT NULL` / FK
+      constraints in the cleanup migration (migration 000036).
 
 ## Phase Plan
 

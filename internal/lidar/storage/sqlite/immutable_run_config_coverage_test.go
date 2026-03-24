@@ -444,6 +444,9 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 	if !caps.RunConfigID || !caps.RequestedParamSetID || !caps.ReplayCaseID || !caps.CompletedAt || !caps.FrameStartNs || !caps.FrameEndNs || !caps.StatisticsJSON {
 		t.Fatalf("unexpected capabilities: %+v", caps)
 	}
+	if caps.ParamsJSON {
+		t.Fatalf("expected ParamsJSON=false on migrated DB, got %+v", caps)
+	}
 
 	closedDB, closedCleanup := dbpkg.NewTestDB(t)
 	defer closedCleanup()
@@ -476,32 +479,33 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 	statsJSON := sql.NullString{String: `{"score":0.9}`, Valid: true}
 	run, err := scanAnalysisRunRecord(scannerStub{
 		values: []any{
-			"run-1",
-			time.Now().UnixNano(),
-			"pcap",
-			sql.NullString{String: "/tmp/case-1.pcap", Valid: true},
-			"sensor-1",
-			`{"version":"1.0"}`,
-			1.5,
-			10,
-			2,
-			3,
-			4,
-			int64(50),
-			"completed",
-			sql.NullString{String: "boom", Valid: true},
-			sql.NullString{String: "parent-1", Valid: true},
-			sql.NullString{String: "notes", Valid: true},
-			sql.NullString{String: "/tmp/test.vrlog", Valid: true},
-			sql.NullString{String: "run-config-1", Valid: true},
-			sql.NullString{String: "requested-set-1", Valid: true},
-			sql.NullString{String: "scene-1", Valid: true},
-			completedAt,
-			frameStart,
-			frameEnd,
-			statsJSON,
+			"run-1",               // RunID
+			time.Now().UnixNano(), // createdAt
+			"pcap",                // SourceType
+			sql.NullString{String: "/tmp/case-1.pcap", Valid: true}, // sourcePath
+			"sensor-1",  // SensorID
+			1.5,         // DurationSecs
+			10,          // TotalFrames
+			2,           // TotalClusters
+			3,           // TotalTracks
+			4,           // ConfirmedTracks
+			int64(50),   // ProcessingTimeMs
+			"completed", // Status
+			sql.NullString{String: "boom", Valid: true},              // errorMessage
+			sql.NullString{String: "parent-1", Valid: true},          // parentRunID
+			sql.NullString{String: "notes", Valid: true},             // notes
+			sql.NullString{String: "/tmp/test.vrlog", Valid: true},   // vrlogPath
+			sql.NullString{String: `{"version":"1.0"}`, Valid: true}, // paramsJSON (conditional)
+			sql.NullString{String: "run-config-1", Valid: true},      // runConfigID
+			sql.NullString{String: "requested-set-1", Valid: true},   // requestedParamSetID
+			sql.NullString{String: "scene-1", Valid: true},           // replayCaseID
+			completedAt, // completedAt
+			frameStart,  // frameStartNs
+			frameEnd,    // frameEndNs
+			statsJSON,   // statisticsJSON
 		},
 	}, analysisRunRecordCapabilities{
+		ParamsJSON:          true,
 		RunConfigID:         true,
 		RequestedParamSetID: true,
 		ReplayCaseID:        true,
@@ -647,9 +651,9 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 	defer typedCleanup()
 	if _, err := typedDB.Exec(`
 		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, sensor_id, params_json, status
-		) VALUES (?, ?, ?, ?, ?, ?)
-	`, "run-typed", "not-a-timestamp", "pcap", "sensor-1", `{}`, "completed"); err != nil {
+			run_id, created_at, source_type, sensor_id, status
+		) VALUES (?, ?, ?, ?, ?)
+	`, "run-typed", "not-a-timestamp", "pcap", "sensor-1", "completed"); err != nil {
 		t.Fatalf("insert typed run: %v", err)
 	}
 	typedStore := NewAnalysisRunStore(typedDB.DB)
@@ -914,52 +918,16 @@ func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 		t.Fatalf("expected nil-db error, got %v", err)
 	}
 
+	// After migration 000036, legacy columns are dropped, so backfill skips.
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
-
-	if _, err := testDB.Exec(`
-		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, sensor_id, params_json, status
-		) VALUES (?, ?, ?, ?, ?, ?)
-	`, "dry-run", time.Now().UnixNano(), "pcap", "sensor-1", `{"tracking":{"max_tracks":16}}`, "completed"); err != nil {
-		t.Fatalf("insert dry-run row: %v", err)
-	}
-	if _, err := testDB.Exec(`
-		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, sensor_id, params_json, status
-		) VALUES (?, ?, ?, ?, ?, ?)
-	`, "skip-run", time.Now().UnixNano(), "pcap", "sensor-1", `[]`, "completed"); err != nil {
-		t.Fatalf("insert skip-run row: %v", err)
-	}
-	if _, err := testDB.Exec(`
-		INSERT INTO lidar_replay_cases (
-			replay_case_id, sensor_id, pcap_file, optimal_params_json, created_at_ns
-		) VALUES (?, ?, ?, ?, ?)
-	`, "dry-case", "sensor-1", "dry.pcap", `{"tracking":{"max_tracks":32}}`, time.Now().UnixNano()); err != nil {
-		t.Fatalf("insert dry replay case: %v", err)
-	}
-	if _, err := testDB.Exec(`
-		INSERT INTO lidar_replay_cases (
-			replay_case_id, sensor_id, pcap_file, optimal_params_json, created_at_ns
-		) VALUES (?, ?, ?, ?, ?)
-	`, "skip-case", "sensor-1", "skip.pcap", `[]`, time.Now().UnixNano()); err != nil {
-		t.Fatalf("insert skip replay case: %v", err)
-	}
 
 	result, err := BackfillImmutableRunConfigReferences(testDB.DB, true)
 	if err != nil {
 		t.Fatalf("dry-run backfill failed: %v", err)
 	}
-	if result.RunsUpdated != 1 || result.RunsSkipped != 1 || result.ReplayCasesUpdated != 1 || result.ReplayCasesSkipped != 1 {
-		t.Fatalf("unexpected dry-run result: %+v", result)
-	}
-
-	var runConfigID sql.NullString
-	if err := testDB.QueryRow(`SELECT run_config_id FROM lidar_run_records WHERE run_id = ?`, "dry-run").Scan(&runConfigID); err != nil {
-		t.Fatalf("query dry-run run_config_id: %v", err)
-	}
-	if runConfigID.Valid {
-		t.Fatal("dry run should not persist run_config_id")
+	if result.RunsUpdated != 0 || result.ReplayCasesUpdated != 0 {
+		t.Fatalf("expected no updates (columns dropped), got: %+v", result)
 	}
 
 	closedDB, closedCleanup := dbpkg.NewTestDB(t)
@@ -974,16 +942,16 @@ func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 
 func TestBackfillImmutableRunConfigReferences_AdditionalBranches(t *testing.T) {
 	t.Run("run scan error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
+		rawDB := setupBackfillNoRecommendedDB(t)
+		defer rawDB.Close()
 
 		db := &interceptSQLiteDB{
-			db: testDB.DB,
+			db: rawDB,
 			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "FROM lidar_run_records") {
-					return testDB.DB.Query(`SELECT 'only-one-column'`)
+				if strings.Contains(query, "FROM lidar_run_records") && !strings.Contains(query, "PRAGMA") {
+					return rawDB.Query(`SELECT 'only-one-column'`)
 				}
-				return testDB.DB.Query(query, args...)
+				return rawDB.Query(query, args...)
 			},
 		}
 		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "scan run backfill row") {
@@ -1040,65 +1008,20 @@ func TestBackfillImmutableRunConfigReferences_AdditionalBranches(t *testing.T) {
 	})
 
 	t.Run("run update error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		if _, err := testDB.Exec(`
-			INSERT INTO lidar_run_records (
-				run_id, created_at, source_type, sensor_id, params_json, status
-			) VALUES (?, ?, ?, ?, ?, ?)
-		`, "run-update-error", time.Now().UnixNano(), "pcap", "sensor-1", `{"tracking":{"max_tracks":16}}`, "completed"); err != nil {
-			t.Fatalf("insert run: %v", err)
-		}
-
-		db := &interceptSQLiteDB{
-			db: testDB.DB,
-			execFn: func(query string, args []any) (sql.Result, error) {
-				if strings.Contains(query, "UPDATE lidar_run_records") {
-					return nil, errors.New("update failed")
-				}
-				return testDB.DB.Exec(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "update run_config_id for run-update-error") {
-			t.Fatalf("expected run update error, got %v", err)
-		}
+		// After migration 000036, params_json is dropped and the backfill skips.
+		// This error path is no longer reachable on a migrated database.
+		// The backfillRunConfigRows helper is separately tested via
+		// setupBackfillNoRecommendedDB and TestBackfillHelperRowIterationErrors.
 	})
 
 	t.Run("query replay cases error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		db := &interceptSQLiteDB{
-			db: testDB.DB,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "FROM lidar_replay_cases") {
-					return nil, errors.New("replay query failed")
-				}
-				return testDB.DB.Query(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "query replay cases for backfill") {
-			t.Fatalf("expected replay-case query error, got %v", err)
-		}
+		// After migration 000036, optimal_params_json is dropped and the
+		// backfill skips the replay-case phase. This error path is no longer
+		// reachable on a migrated database.
 	})
 
 	t.Run("replay case scan error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		db := &interceptSQLiteDB{
-			db: testDB.DB,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "FROM lidar_replay_cases") {
-					return testDB.DB.Query(`SELECT 'only-one-column'`)
-				}
-				return testDB.DB.Query(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "scan replay-case backfill row") {
-			t.Fatalf("expected replay-case scan error, got %v", err)
-		}
+		// After migration 000036, same as above — backfill skips.
 	})
 
 	t.Run("recommended param set resolution error", func(t *testing.T) {
@@ -1119,29 +1042,9 @@ func TestBackfillImmutableRunConfigReferences_AdditionalBranches(t *testing.T) {
 	})
 
 	t.Run("recommended param set update error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		if _, err := testDB.Exec(`
-			INSERT INTO lidar_replay_cases (
-				replay_case_id, sensor_id, pcap_file, optimal_params_json, created_at_ns
-			) VALUES (?, ?, ?, ?, ?)
-		`, "scene-update-error", "sensor-1", "scene.pcap", `{"tracking":{"max_tracks":64}}`, time.Now().UnixNano()); err != nil {
-			t.Fatalf("insert replay case: %v", err)
-		}
-
-		db := &interceptSQLiteDB{
-			db: testDB.DB,
-			execFn: func(query string, args []any) (sql.Result, error) {
-				if strings.Contains(query, "UPDATE lidar_replay_cases") {
-					return nil, errors.New("update failed")
-				}
-				return testDB.DB.Exec(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "update recommended_param_set_id for scene-update-error") {
-			t.Fatalf("expected recommended-param update error, got %v", err)
-		}
+		// After migration 000036, optimal_params_json is dropped and the
+		// backfill skips the replay-case phase. This error path is
+		// separately tested via setupReplayCaseRecommendedDB.
 	})
 }
 
@@ -1370,7 +1273,7 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		}
 
 		if _, err := collectReplayCases(&rowsStub{
-			values:  [][]any{{"scene-1", "sensor-1", "scene.pcap", nil, nil, nil, nil, nil, int64(1), nil}},
+			values:  [][]any{{"scene-1", "sensor-1", "scene.pcap", nil, nil, nil, nil, int64(1), nil}},
 			iterErr: errors.New("scene rows failed"),
 		}, replayCaseCapabilities{}, func(*ReplayCase) {}); err == nil || !strings.Contains(err.Error(), "list scenes rows") {
 			t.Fatalf("expected collectReplayCases iteration error, got %v", err)

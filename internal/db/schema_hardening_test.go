@@ -13,8 +13,8 @@ func insertTestRunRecord(t *testing.T, db *DB, runID, sensorID, status string, p
 
 	_, err := db.Exec(
 		`INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, sensor_id, params_json, status, parent_run_id
-		) VALUES (?, ?, 'pcap', ?, '{}', ?, ?)`,
+			run_id, created_at, source_type, sensor_id, status, parent_run_id
+		) VALUES (?, ?, 'pcap', ?, ?, ?)`,
 		runID,
 		time.Now().UnixNano(),
 		sensorID,

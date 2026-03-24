@@ -34,17 +34,24 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 	result := &ImmutableRunConfigBackfillResult{}
 	configStore := configasset.NewStore(db)
 
-	runRows, err := db.Query(`
-		SELECT run_id, params_json
-		FROM lidar_run_records
-		WHERE run_config_id IS NULL OR TRIM(run_config_id) = ''
-	`)
+	// Check if params_json column still exists (dropped in migration 000036).
+	runCaps, err := NewAnalysisRunStore(db).runRecordCapabilities()
 	if err != nil {
-		return nil, fmt.Errorf("query runs for backfill: %w", err)
+		return nil, fmt.Errorf("inspect run record schema: %w", err)
 	}
-	defer runRows.Close()
-	if err := backfillRunConfigRows(runRows, result, configStore, db, dryRun); err != nil {
-		return nil, err
+	if runCaps.ParamsJSON {
+		runRows, err := db.Query(`
+			SELECT run_id, params_json
+			FROM lidar_run_records
+			WHERE run_config_id IS NULL OR TRIM(run_config_id) = ''
+		`)
+		if err != nil {
+			return nil, fmt.Errorf("query runs for backfill: %w", err)
+		}
+		defer runRows.Close()
+		if err := backfillRunConfigRows(runRows, result, configStore, db, dryRun); err != nil {
+			return nil, err
+		}
 	}
 
 	sceneStore := NewReplayCaseStore(db)
@@ -52,7 +59,7 @@ func BackfillImmutableRunConfigReferences(db DBClient, dryRun bool) (*ImmutableR
 	if err != nil {
 		return nil, err
 	}
-	if !sceneCaps.RecommendedParamSetID {
+	if !sceneCaps.RecommendedParamSetID || !sceneCaps.OptimalParamsJSON {
 		return result, nil
 	}
 

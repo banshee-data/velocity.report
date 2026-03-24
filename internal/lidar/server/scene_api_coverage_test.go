@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1391,62 +1390,5 @@ func TestCov_HandleReplayScene_FallsBackToPreferredRunID(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), `"run_id":"replay-`) {
 		t.Fatalf("expected preferred run id fallback, got %s", w.Body.String())
-	}
-}
-
-func TestCov_HandleCreateSceneEvaluation_GetCandidateRunWarning(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
-	defer testDB.DB.Close()
-	ws := &Server{db: testDB}
-
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-warning", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{}`)}
-	if err := runStore.InsertRun(refRun); err != nil {
-		t.Fatalf("insert ref run: %v", err)
-	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-warning", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{"eps":0.25}`)}
-	if err := runStore.InsertRun(candRun); err != nil {
-		t.Fatalf("insert candidate run: %v", err)
-	}
-
-	for _, rt := range []struct{ runID, trackID string }{
-		{refRun.RunID, "ref-track-warning"},
-		{candRun.RunID, "cand-track-warning"},
-	} {
-		track := &sqlite.RunTrack{
-			RunID:   rt.runID,
-			TrackID: rt.trackID,
-			TrackMeasurement: l5tracks.TrackMeasurement{
-				SensorID:         "sensor-001",
-				TrackState:       "confirmed",
-				StartUnixNanos:   1000000000,
-				EndUnixNanos:     2000000000,
-				ObservationCount: 5,
-				AvgSpeedMps:      3.0,
-			},
-		}
-		if err := runStore.InsertRunTrack(track); err != nil {
-			t.Fatalf("insert track %s: %v", rt.trackID, err)
-		}
-	}
-
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: refRun.RunID}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
-	}
-
-	origGetRun := getRunForSceneEvaluation
-	getRunForSceneEvaluation = func(_ *sqlite.AnalysisRunStore, _ string) (*sqlite.AnalysisRun, error) {
-		return nil, errors.New("candidate lookup failed")
-	}
-	defer func() { getRunForSceneEvaluation = origGetRun }()
-
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-warning"}`))
-	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
 	}
 }

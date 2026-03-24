@@ -467,11 +467,8 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params1 := json.RawMessage(`{"version":"1.0","timestamp":"2025-01-01T00:00:00Z","background":{"noise_relative_fraction":0.05},"clustering":{"eps":0.8,"min_pts":5},"tracking":{"max_tracks":200,"max_misses":10,"hits_to_confirm":3}}`)
-	params2 := json.RawMessage(`{"version":"1.0","timestamp":"2025-01-01T00:00:00Z","background":{"noise_relative_fraction":0.10},"clustering":{"eps":0.8,"min_pts":5},"tracking":{"max_tracks":200,"max_misses":10,"hits_to_confirm":3}}`)
-
 	// Run 1 with a track.
-	run1 := &AnalysisRun{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params1, Status: "completed"}
+	run1 := &AnalysisRun{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -480,7 +477,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	}
 
 	// Run 2 with matching track (same time range for IoU match).
-	run2 := &AnalysisRun{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params2, Status: "completed"}
+	run2 := &AnalysisRun{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -496,8 +493,9 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	if len(cmp.MatchedTracks) != 1 {
 		t.Errorf("MatchedTracks len = %d, want 1", len(cmp.MatchedTracks))
 	}
-	if len(cmp.ParamDiff) == 0 {
-		t.Error("expected non-empty ParamDiff")
+	// After migration 000036, params_json is dropped so ParamDiff is always empty.
+	if len(cmp.ParamDiff) != 0 {
+		t.Errorf("expected empty ParamDiff after column drop, got %d entries", len(cmp.ParamDiff))
 	}
 }
 
@@ -874,7 +872,7 @@ func TestListByScene_WithParams(t *testing.T) {
 		t.Fatalf("Insert scene: %v", err)
 	}
 
-	// Insert an evaluation with paramsJSON.
+	// Insert an evaluation.
 	eval := &Evaluation{
 		EvaluationID:   "eval-1",
 		ReplayCaseID:   "scene-1",
@@ -885,7 +883,6 @@ func TestListByScene_WithParams(t *testing.T) {
 		MatchedCount:   10,
 		ReferenceCount: 12,
 		CandidateCount: 11,
-		ParamsJSON:     json.RawMessage(`{"version":"1.0"}`),
 	}
 	if err := evalStore.Insert(eval); err != nil {
 		t.Fatalf("Insert evaluation: %v", err)
@@ -897,9 +894,6 @@ func TestListByScene_WithParams(t *testing.T) {
 	}
 	if len(evals) != 1 {
 		t.Fatalf("got %d evaluations, want 1", len(evals))
-	}
-	if string(evals[0].ParamsJSON) != `{"version":"1.0"}` {
-		t.Errorf("ParamsJSON = %s, want %s", evals[0].ParamsJSON, `{"version":"1.0"}`)
 	}
 }
 

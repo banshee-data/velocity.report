@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -282,6 +283,7 @@ func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
 		if err == sql.ErrNoRows || isMissingConfigAssetSchemaErr(err) {
 			return
 		}
+		log.Printf("hydrate run config assets for %s: %v", run.RunID, err)
 		return
 	}
 

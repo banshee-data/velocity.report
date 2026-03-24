@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -62,8 +61,8 @@ func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
 	t.Helper()
 	_, err := db.Exec(`
 		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, source_path, sensor_id, params_json, status
-		) VALUES (?, ?, 'pcap', '/test.pcap', ?, '{}', 'completed')
+			run_id, created_at, source_type, source_path, sensor_id, status
+		) VALUES (?, ?, 'pcap', '/test.pcap', ?, 'completed')
 	`, runID, time.Now().UnixNano(), sensorID)
 	if err != nil {
 		t.Fatalf("Failed to insert test analysis run: %v", err)
@@ -1066,12 +1065,6 @@ func TestListRuns_WithAllFields(t *testing.T) {
 	}
 	if r.Notes != "Full test run with all fields" {
 		t.Errorf("Notes mismatch: got %s", r.Notes)
-	}
-
-	// Verify paramsJSON is valid
-	var parsedParams RunParams
-	if err := json.Unmarshal(r.ParamsJSON, &parsedParams); err != nil {
-		t.Errorf("Failed to parse ParamsJSON: %v", err)
 	}
 }
 
