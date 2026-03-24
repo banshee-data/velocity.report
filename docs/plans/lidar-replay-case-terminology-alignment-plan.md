@@ -20,28 +20,34 @@ This plan consolidates the "replay case" terminology across the system while pre
 - [x] `sweep_dashboard.html`, `sweep_dashboard.css`, `sweep_dashboard.js` — all local identifiers renamed
 - [x] Test file sweep_dashboard.test.ts — 292 tests pass, API contract refs only
 
+### Database Schema (Complete — v0.5.x)
+
+- [x] Table `lidar_replay_cases` with `replay_case_id` primary key (migration 031)
+- [x] Indexes: `idx_lidar_replay_cases_sensor`, `idx_lidar_replay_cases_pcap`, `idx_lidar_replay_cases_recommended_param_set`
+- [x] Field: `recommended_param_set_id` links to `lidar_param_sets` table
+
 ### Documentation (Complete — v0.5.0)
 
-- [x] `docs/lidar/operations/scene-management-implementation.md` → `replay-case-management-implementation.md`
-- [ ] Update stale reference in `docs/plans/platform-hub-restructure-plan.md` (line 83)
+- [x] `docs/lidar/operations/scene-management-implementation.md` → `replay-case-management-implementation.md` (content updated, rename staged in git)
+- [x] Update stale reference in `docs/plans/platform-hub-restructure-plan.md` (line 83)
 
 ### Store/API Layer (Outstanding — Rename Batch 1)
 
-Files requiring rename:
+**Completed in current codebase:**
 
-- `internal/lidar/storage/sqlite/scene_store.go` → `replay_case_store.go` (91 occurrences)
-- `internal/lidar/storage/sqlite/scene_store_test.go` → `replay_case_store_test.go` (101 occurrences)
-- `internal/lidar/storage/sqlite/scene_store_coverage_test.go` → `replay_case_store_coverage_test.go` (75 occurrences)
-- `internal/lidar/server/scene_api.go` → `replay_case_api.go` (110 occurrences)
-- `internal/lidar/server/scene_api_test.go` → `replay_case_api_test.go` (118 occurrences)
-- `internal/lidar/server/scene_api_coverage_test.go` → `replay_case_api_coverage_test.go` (315 occurrences)
+- Go struct: `ReplayCase` (already using correct name)
+- Struct fields: `ReplayCaseID`, `PCAPFile`, etc. (already using correct names)
+- Database layer: Reads/writes to `lidar_replay_cases` table ✅
 
-Breaking changes:
+**Pending:**
 
+- File names: `scene_store.go` → `replay_case_store.go`, `scene_api.go` → `replay_case_api.go`
+- Method names: `InsertScene()` → `InsertReplayCase()`, `GetScene()` → `GetReplayCase()`, etc.
 - API routes: `/api/lidar/scenes` → `/api/lidar/replay-cases`
 - Response shape: `scenes` array → `replay_cases` array
-- Method names: `InsertScene`, `GetScene`, `ListScenes`, `UpdateScene`, `DeleteScene` → `Insert`, `Get`, `List`, `Update`, `Delete` (or prefixed equivalents)
-- Request types: `CreateSceneRequest` → `CreateReplayCaseRequest`, `UpdateSceneRequest` → `UpdateReplayCaseRequest`
+- Request types: `CreateSceneRequest` → `CreateReplayCaseRequest`
+
+Breaking change: All consumers (Svelte, tests, integration) must update API URLs and response handling.
 
 ### Sweep Layer (Outstanding — Rename Batch 2)
 
@@ -59,15 +65,16 @@ Breaking changes:
 - `web/src/routes/lidar/runs/+page.svelte`: Similar updates
 - Status page HTML: Remove scene-related UI text
 
-### Database Layer (Defer — Already Renamed in v0.5.x Migrations)
+### Database Layer (Complete — Already Renamed in v0.5.x Migrations)
 
-Migration 031 already renamed:
+Migration 031 has renamed:
 
-- Table: `lidar_scenes` → `lidar_replay_cases`
-- Columns: `scene_id` → `replay_case_id`
-- Indexes: Updated to match
+- Table: `lidar_scenes` → `lidar_replay_cases` ✅
+- Columns: `scene_id` → `replay_case_id` ✅
+- Indexes: Updated to match ✅
+- Field: `optimal_params_json` → `recommended_param_set_id` (links to `lidar_param_sets`) ✅
 
-No database work required — code changes follow renamed schema.
+No further database work required — code changes follow renamed schema.
 
 ### Documentation (Batch 4 — Defer to v0.5.2+)
 
