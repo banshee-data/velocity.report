@@ -175,6 +175,7 @@
 	/** Build href for the tracks page, passing scene and run IDs as query params. */
 	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
 		const parts: string[] = [];
+		parts.push(`sensor_id=${encodeURIComponent(run.sensor_id)}`);
 		if (scene) parts.push(`replay_case_id=${encodeURIComponent(scene.replay_case_id)}`);
 		parts.push(`run_id=${encodeURIComponent(run.run_id)}`);
 		return `/app/lidar/tracks?${parts.join('&')}`;
