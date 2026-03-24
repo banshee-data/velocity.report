@@ -36,7 +36,7 @@
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load data';
+			error = e instanceof Error ? e.message : 'Could not load run data.';
 		} finally {
 			loading = false;
 		}
@@ -45,7 +45,7 @@
 	async function handleDeleteRun(run: AnalysisRun) {
 		if (
 			!confirm(
-				`Are you sure you want to delete run ${run.run_id.substring(0, 8)}? This action cannot be undone and will delete the run and all its tracks.`
+				`Delete run ${run.run_id.substring(0, 8)}? This removes the run and all its tracks. Cannot be undone.`
 			)
 		) {
 			return;
@@ -59,13 +59,13 @@
 				deselectRun();
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete run';
+			error = e instanceof Error ? e.message : 'Could not delete run.';
 		}
 	}
 
 	async function handleDeleteTrack(runId: string, trackId: string) {
 		if (
-			!confirm(`Are you sure you want to delete track ${trackId}? This action cannot be undone.`)
+			!confirm(`Delete track ${trackId}? Cannot be undone.`)
 		) {
 			return;
 		}
@@ -83,7 +83,7 @@
 				}
 			}
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Failed to delete track');
+			alert(e instanceof Error ? e.message : 'Could not delete track.');
 		}
 	}
 
@@ -216,9 +216,9 @@
 				<div class="text-surface-content/50 py-12 text-center">Loading runs...</div>
 			{:else if runs.length === 0}
 				<div class="text-surface-content/50 py-12 text-center">
-					<p>No analysis runs found.</p>
+					<p>No runs yet.</p>
 					<p class="mt-1 text-sm">
-						Runs are created when a replay case is replayed or live analysis is started.
+						Runs appear when a replay case is played back or live analysis starts.
 					</p>
 				</div>
 			{:else}

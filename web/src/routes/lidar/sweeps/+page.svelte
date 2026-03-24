@@ -63,7 +63,7 @@
 		try {
 			sweeps = await listSweeps(SENSOR_ID, 50);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load sweeps';
+			error = e instanceof Error ? e.message : 'Could not load sweeps.';
 		} finally {
 			loading = false;
 		}
@@ -108,7 +108,7 @@
 		if (!selectedSweep?.recommendation) return;
 		const params = extractTuningParams(selectedSweep.recommendation);
 		if (Object.keys(params).length === 0) {
-			applyStatus = 'No tuning parameters in recommendation';
+			applyStatus = 'No tuning parameters in this recommendation.';
 			return;
 		}
 		applyStatus = 'Applying...';
@@ -116,7 +116,7 @@
 			await applyLidarParams(SENSOR_ID, params);
 			applyStatus = `Applied ${Object.keys(params).length} params ✓`;
 		} catch (e) {
-			applyStatus = `Failed: ${e instanceof Error ? e.message : String(e)}`;
+			applyStatus = `Could not apply: ${e instanceof Error ? e.message : String(e)}`;
 		}
 	}
 
@@ -131,11 +131,11 @@
 		try {
 			parsed = JSON.parse(raw);
 		} catch (e) {
-			pasteError = `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`;
+			pasteError = `Not valid JSON: ${e instanceof Error ? e.message : String(e)}`;
 			return;
 		}
 		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-			pasteError = 'Expected a JSON object (not array or primitive).';
+			pasteError = 'Expected a JSON object, not an array or primitive.';
 			return;
 		}
 		const params = extractTuningParams(parsed);
@@ -148,9 +148,9 @@
 			await applyLidarParams(SENSOR_ID, params);
 			pasteError = null;
 			pasteJSON = '';
-			applyStatus = `Pasted & applied ${Object.keys(params).length} params ✓`;
+			applyStatus = `Pasted and applied ${Object.keys(params).length} params ✓`;
 		} catch (e) {
-			pasteError = `Apply failed: ${e instanceof Error ? e.message : String(e)}`;
+			pasteError = `Could not apply: ${e instanceof Error ? e.message : String(e)}`;
 		} finally {
 			pasteApplying = false;
 		}
@@ -167,7 +167,7 @@
 				selectedSweep = await getSweep(selectedSweep.sweep_id);
 			}
 		} catch (e) {
-			continueStatus = `Failed: ${e instanceof Error ? e.message : String(e)}`;
+			continueStatus = `Could not continue: ${e instanceof Error ? e.message : String(e)}`;
 		}
 	}
 

@@ -135,8 +135,8 @@
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
 		} catch (e) {
-			console.error('Failed to load configuration:', e);
-			message = 'Failed to load configuration';
+			console.error('Could not load configuration:', e);
+			message = 'Could not load the configuration. Check the server is running.';
 		} finally {
 			loading = false;
 		}
@@ -148,7 +148,7 @@
 			transitWorkerEnabled = state.enabled;
 			transitWorkerStatus = state;
 		} catch (e) {
-			console.error('Failed to load transit worker state:', e);
+			console.error('Could not load transit worker state:', e);
 			// Silently fail - transit worker might not be available
 		}
 	}
@@ -161,15 +161,15 @@
 			transitWorkerEnabled = response.enabled;
 			transitWorkerStatus = response;
 			scheduleTransitWorkerRefresh();
-			message = enabled ? 'Transit worker enabled and run triggered!' : 'Transit worker disabled!';
+			message = enabled ? 'Transit worker enabled — run started.' : 'Transit worker disabled.';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
 				message = '';
 			}, 3000);
 		} catch (e) {
-			console.error('Failed to update transit worker:', e);
-			message = 'Failed to update transit worker';
+			console.error('Could not update transit worker:', e);
+			message = 'Could not update the transit worker. Try again shortly.';
 			// Revert the toggle on error
 			transitWorkerEnabled = !enabled;
 		} finally {
@@ -179,7 +179,7 @@
 
 	async function handleTransitWorkerRunNow() {
 		if (!transitWorkerEnabled) {
-			message = 'Enable the transit worker to run it.';
+			message = 'Enable the transit worker first.';
 			return;
 		}
 		transitWorkerLoading = true;
@@ -187,13 +187,13 @@
 			const response = await updateTransitWorker({ trigger: true });
 			transitWorkerStatus = response;
 			scheduleTransitWorkerRefresh();
-			message = 'Transit worker run triggered.';
+			message = 'Transit worker run started.';
 			setTimeout(() => {
 				message = '';
 			}, 3000);
 		} catch (e) {
-			console.error('Failed to trigger transit worker run:', e);
-			message = 'Failed to trigger transit worker run';
+			console.error('Could not trigger transit worker run:', e);
+			message = 'Could not start the transit worker run.';
 		} finally {
 			transitWorkerLoading = false;
 		}
@@ -201,7 +201,7 @@
 
 	async function handleTransitWorkerRunFullHistory() {
 		if (!transitWorkerEnabled) {
-			message = 'Enable the transit worker to run it.';
+			message = 'Enable the transit worker first.';
 			return;
 		}
 		transitWorkerLoading = true;
@@ -209,13 +209,13 @@
 			const response = await updateTransitWorker({ trigger_full_history: true });
 			transitWorkerStatus = response;
 			scheduleTransitWorkerRefresh();
-			message = 'Full history run triggered.';
+			message = 'Full history reprocessing started.';
 			setTimeout(() => {
 				message = '';
 			}, 3000);
 		} catch (e) {
-			console.error('Failed to trigger full history run:', e);
-			message = 'Failed to trigger full history run';
+			console.error('Could not start full history run:', e);
+			message = 'Could not start full history reprocessing.';
 		} finally {
 			transitWorkerLoading = false;
 		}
@@ -224,30 +224,30 @@
 	function handleUnitsChange(newUnits: Unit) {
 		try {
 			updateUnits(newUnits);
-			message = 'Units updated automatically!';
+			message = 'Units updated.';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
 				message = '';
 			}, 3000);
 		} catch (e) {
-			console.error('Failed to update units:', e);
-			message = 'Failed to update units';
+			console.error('Could not update units:', e);
+			message = 'Could not save the units change.';
 		}
 	}
 
 	function handleTimezoneChange(newTimezone: Timezone) {
 		try {
 			updateTimezone(newTimezone);
-			message = 'Timezone updated automatically!';
+			message = 'Timezone updated.';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
 				message = '';
 			}, 3000);
 		} catch (e) {
-			console.error('Failed to update timezone:', e);
-			message = 'Failed to update timezone';
+			console.error('Could not update timezone:', e);
+			message = 'Could not save the timezone change.';
 		}
 	}
 

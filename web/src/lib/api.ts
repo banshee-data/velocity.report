@@ -72,7 +72,7 @@ export async function getEvents(units?: string, timezone?: string): Promise<Even
 		url.searchParams.append('timezone', timezone);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load events: ${res.status}`);
 	return res.json();
 }
 
@@ -95,7 +95,7 @@ export async function getRadarStats(
 	if (source) url.searchParams.append('source', source);
 	if (siteId != null) url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch radar stats: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load radar stats: ${res.status}`);
 	// Expect the server to return the new root object: { metrics: [...], histogram: {...} }
 	const payload = await res.json();
 	const rows = Array.isArray(payload.metrics) ? (payload.metrics as RawRadarStats[]) : [];
@@ -118,7 +118,7 @@ export async function getRadarStats(
 
 export async function getConfig(): Promise<Config> {
 	const res = await fetch(`${API_BASE}/config`);
-	if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load configuration: ${res.status}`);
 	return res.json();
 }
 
@@ -128,7 +128,7 @@ export async function getConfig(): Promise<Config> {
  */
 export async function getCapabilities(): Promise<Capabilities> {
 	const res = await fetch(`${API_BASE}/capabilities`);
-	if (!res.ok) throw new Error(`Failed to fetch capabilities: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load capabilities: ${res.status}`);
 	return res.json();
 }
 
@@ -180,7 +180,7 @@ export async function generateReport(request: ReportRequest): Promise<GenerateRe
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to generate report: ${res.status}`);
+		throw new Error(errorData.error || `Could not generate report: ${res.status}`);
 	}
 	return res.json();
 }
@@ -232,7 +232,7 @@ export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigP
 	const url = new URL(`${API_BASE}/site_config_periods`, window.location.origin);
 	url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch site config periods: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load site configuration periods: ${res.status}`);
 	return res.json();
 }
 
@@ -244,7 +244,7 @@ export async function upsertSiteConfigPeriod(period: SiteConfigPeriod): Promise<
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to save site config period: ${res.status}`);
+		throw new Error(errorData.error || `Could not save site configuration period: ${res.status}`);
 	}
 	return res.json();
 }
@@ -253,7 +253,7 @@ export async function getTimeline(siteId: number): Promise<TimelineResponse> {
 	const url = new URL(`${API_BASE}/timeline`, window.location.origin);
 	url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch timeline: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load timeline: ${res.status}`);
 	return res.json();
 }
 
@@ -264,7 +264,7 @@ export async function downloadReport(
 	const defaultFilename = `report.${fileType}`;
 	const res = await fetch(`${API_BASE}/reports/${reportId}/download/${defaultFilename}`);
 	if (!res.ok) {
-		throw new Error(`Failed to download report: ${res.status}`);
+		throw new Error(`Could not download report: ${res.status}`);
 	}
 
 	// Extract filename from Content-Disposition header
@@ -283,19 +283,19 @@ export async function downloadReport(
 
 export async function getRecentReports(): Promise<SiteReport[]> {
 	const res = await fetch(`${API_BASE}/reports`);
-	if (!res.ok) throw new Error(`Failed to fetch reports: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load reports: ${res.status}`);
 	return res.json();
 }
 
 export async function getReportsForSite(siteId: number): Promise<SiteReport[]> {
 	const res = await fetch(`${API_BASE}/reports/site/${siteId}`);
-	if (!res.ok) throw new Error(`Failed to fetch site reports: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load site reports: ${res.status}`);
 	return res.json();
 }
 
 export async function getReport(reportId: number): Promise<SiteReport> {
 	const res = await fetch(`${API_BASE}/reports/${reportId}`);
-	if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load report: ${res.status}`);
 	return res.json();
 }
 
@@ -303,7 +303,7 @@ export async function deleteReport(reportId: number): Promise<void> {
 	const res = await fetch(`${API_BASE}/reports/${reportId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete report: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete report: ${res.status}`);
 }
 
 // Site management interfaces and functions
@@ -339,13 +339,13 @@ export interface Site {
 
 export async function getSites(): Promise<Site[]> {
 	const res = await fetch(`${API_BASE}/sites`);
-	if (!res.ok) throw new Error(`Failed to fetch sites: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load sites: ${res.status}`);
 	return res.json();
 }
 
 export async function getSite(id: number): Promise<Site> {
 	const res = await fetch(`${API_BASE}/sites/${id}`);
-	if (!res.ok) throw new Error(`Failed to fetch site: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load site: ${res.status}`);
 	return res.json();
 }
 
@@ -359,7 +359,7 @@ export async function createSite(site: Partial<Site>): Promise<Site> {
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to create site: ${res.status}`);
+		throw new Error(errorData.error || `Could not create site: ${res.status}`);
 	}
 	return res.json();
 }
@@ -374,7 +374,7 @@ export async function updateSite(id: number, site: Partial<Site>): Promise<Site>
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to update site: ${res.status}`);
+		throw new Error(errorData.error || `Could not update site: ${res.status}`);
 	}
 	return res.json();
 }
@@ -385,7 +385,7 @@ export async function deleteSite(id: number): Promise<void> {
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to delete site: ${res.status}`);
+		throw new Error(errorData.error || `Could not delete site: ${res.status}`);
 	}
 }
 
@@ -426,7 +426,7 @@ export interface TransitWorkerUpdateResponse {
 
 export async function getTransitWorkerState(): Promise<TransitWorkerState> {
 	const res = await fetch(`${API_BASE}/transit_worker`);
-	if (!res.ok) throw new Error(`Failed to fetch transit worker state: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load transit worker state: ${res.status}`);
 	return res.json();
 }
 
@@ -442,7 +442,7 @@ export async function updateTransitWorker(
 	});
 	if (!res.ok) {
 		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Failed to update transit worker: ${res.status}`);
+		throw new Error(errorData.error || `Could not update transit worker: ${res.status}`);
 	}
 	return res.json();
 }
@@ -482,7 +482,7 @@ export async function getActiveTracks(
 		url.searchParams.append('state', state);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch active tracks: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load active tracks: ${res.status}`);
 	return res.json();
 }
 
@@ -492,7 +492,7 @@ export async function getActiveTracks(
  */
 export async function getTrackById(trackId: string): Promise<Track> {
 	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}`);
-	if (!res.ok) throw new Error(`Failed to fetch track: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load track: ${res.status}`);
 	return res.json();
 }
 
@@ -502,7 +502,7 @@ export async function getTrackById(trackId: string): Promise<Track> {
  */
 export async function getTrackObservations(trackId: string): Promise<TrackObservation[]> {
 	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}/observations`);
-	if (!res.ok) throw new Error(`Failed to fetch track observations: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load track observations: ${res.status}`);
 	const data = await res.json();
 	// Backend returns an envelope { track_id, observations, count, timestamp }.
 	// Extract the inner observations array.
@@ -528,7 +528,7 @@ export async function getTrackHistory(
 	url.searchParams.append('end_time', endTime.toString());
 	url.searchParams.append('limit', limit.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch track history: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load track history: ${res.status}`);
 	const data = await res.json();
 	return {
 		tracks: Array.isArray(data.tracks) ? data.tracks : [],
@@ -555,7 +555,7 @@ export async function getTrackObservationsRange(
 		url.searchParams.append('track_id', trackId);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch track observations range: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load track observations for range: ${res.status}`);
 	return res.json();
 }
 
@@ -567,7 +567,7 @@ export async function getTrackSummary(sensorId: string): Promise<TrackSummaryRes
 	const url = new URL(`${API_BASE}/lidar/tracks/summary`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch track summary: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load track summary: ${res.status}`);
 	return res.json();
 }
 
@@ -579,7 +579,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	const url = new URL(`${API_BASE}/lidar/background/grid`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch background grid: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load background grid: ${res.status}`);
 	return res.json();
 }
 
@@ -591,14 +591,14 @@ export async function getLidarReplayCases(sensorId?: string): Promise<LidarRepla
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch replay cases: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load replay cases: ${res.status}`);
 	const data = await res.json();
 	return data.scenes || [];
 }
 
 export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
-	if (!res.ok) throw new Error(`Failed to fetch replay case: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -614,7 +614,7 @@ export async function createLidarReplayCase(scene: {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
 	});
-	if (!res.ok) throw new Error(`Failed to create replay case: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not create replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -638,7 +638,7 @@ export async function updateLidarReplayCase(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-	if (!res.ok) throw new Error(`Failed to update replay case: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not update replay case: ${res.status}`);
 	return res.json();
 }
 
@@ -646,7 +646,7 @@ export async function deleteLidarReplayCase(replayCaseId: string): Promise<void>
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete replay case: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete replay case: ${res.status}`);
 }
 
 // PCAP file scanning API
@@ -666,7 +666,7 @@ export interface PcapFilesResponse {
 
 export async function scanPcapFiles(): Promise<PcapFilesResponse> {
 	const res = await fetch(`${API_BASE}/lidar/pcap/files`);
-	if (!res.ok) throw new Error(`Failed to scan PCAP files: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not scan PCAP files: ${res.status}`);
 	return res.json();
 }
 
@@ -681,14 +681,14 @@ export async function getLidarRuns(params?: {
 	if (params?.limit) searchParams.set('limit', String(params.limit));
 	const url = `${API_BASE}/lidar/runs${searchParams.toString() ? '?' + searchParams : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to fetch runs: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load runs: ${res.status}`);
 	const data = await res.json();
 	return data.runs || [];
 }
 
 export async function getRunTracks(runId: string): Promise<RunTrack[]> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks`);
-	if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load tracks: ${res.status}`);
 	const data = await res.json();
 	return data.tracks || [];
 }
@@ -708,7 +708,7 @@ export async function updateTrackLabel(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(label)
 	});
-	if (!res.ok) throw new Error(`Failed to update label: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not update label: ${res.status}`);
 }
 
 export async function updateTrackFlags(
@@ -724,12 +724,12 @@ export async function updateTrackFlags(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(flags)
 	});
-	if (!res.ok) throw new Error(`Failed to update flags: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not update flags: ${res.status}`);
 }
 
 export async function getLabellingProgress(runId: string): Promise<LabellingProgress> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/labelling-progress`);
-	if (!res.ok) throw new Error(`Failed to fetch progress: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load labelling progress: ${res.status}`);
 	return res.json();
 }
 
@@ -737,7 +737,7 @@ export async function getLabellingProgress(runId: string): Promise<LabellingProg
 
 export async function getMissedRegions(runId: string): Promise<MissedRegion[]> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions`);
-	if (!res.ok) throw new Error(`Failed to fetch missed regions: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load missed regions: ${res.status}`);
 	const data = await res.json();
 	return data.regions || [];
 }
@@ -759,7 +759,7 @@ export async function createMissedRegion(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(region)
 	});
-	if (!res.ok) throw new Error(`Failed to create missed region: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not create missed region: ${res.status}`);
 	return res.json();
 }
 
@@ -767,7 +767,7 @@ export async function deleteMissedRegion(runId: string, regionId: string): Promi
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/missed-regions/${regionId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete missed region: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete missed region: ${res.status}`);
 }
 
 /**
@@ -782,7 +782,7 @@ export async function deleteAllRuns(sensorId?: string): Promise<void> {
 	const res = await fetch(url, {
 		method: 'POST'
 	});
-	if (!res.ok) throw new Error(`Failed to delete all runs: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete runs: ${res.status}`);
 }
 
 /**
@@ -793,7 +793,7 @@ export async function deleteRun(runId: string): Promise<void> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete run: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete run: ${res.status}`);
 }
 
 /**
@@ -805,7 +805,7 @@ export async function deleteRunTrack(runId: string, trackId: string): Promise<vo
 	const res = await fetch(`${API_BASE}/lidar/runs/${runId}/tracks/${trackId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Failed to delete run track: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not delete track: ${res.status}`);
 }
 
 // ---- Sweep / Auto-Tune ----
@@ -820,7 +820,7 @@ export async function listSweeps(sensorId: string, limit = 20): Promise<SweepSum
 	url.searchParams.append('sensor_id', sensorId);
 	if (limit !== 20) url.searchParams.append('limit', String(limit));
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to list sweeps: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load sweeps: ${res.status}`);
 	return res.json();
 }
 
@@ -830,7 +830,7 @@ export async function listSweeps(sensorId: string, limit = 20): Promise<SweepSum
  */
 export async function getSweep(sweepId: string): Promise<SweepRecord> {
 	const res = await fetch(`${API_BASE}/lidar/sweeps/${sweepId}`);
-	if (!res.ok) throw new Error(`Failed to get sweep: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load sweep: ${res.status}`);
 	return res.json();
 }
 
@@ -866,7 +866,7 @@ export async function getLidarParams(sensorId: string): Promise<Record<string, u
 	const url = new URL(`${API_BASE}/lidar/params`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Failed to get params: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load parameters: ${res.status}`);
 	return res.json();
 }
 
@@ -888,7 +888,7 @@ export async function applyLidarParams(
 	});
 	if (!res.ok) {
 		const text = await res.text();
-		throw new Error(`Failed to apply params: ${text}`);
+		throw new Error(`Could not apply parameters: ${text}`);
 	}
 }
 
@@ -897,7 +897,7 @@ export async function applyLidarParams(
  */
 export async function getHINTState(): Promise<Record<string, unknown>> {
 	const res = await fetch(`${API_BASE}/lidar/sweep/hint`);
-	if (!res.ok) throw new Error(`Failed to get HINT state: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not load HINT state: ${res.status}`);
 	return res.json();
 }
 
@@ -913,7 +913,7 @@ export async function startHINTSweep(req: Record<string, unknown>): Promise<void
 	});
 	if (!res.ok) {
 		const text = await res.text();
-		let msg = `Failed to start HINT sweep: ${res.status}`;
+		let msg = `Could not start HINT sweep: ${res.status}`;
 		try {
 			const body = JSON.parse(text);
 			if (body.error) msg = body.error;
@@ -937,7 +937,7 @@ export async function continueHINT(nextDurationMins = 0, addRound = false): Prom
 	});
 	if (!res.ok) {
 		const text = await res.text();
-		let msg = `Failed to continue HINT: ${res.status}`;
+		let msg = `Could not continue HINT: ${res.status}`;
 		try {
 			const body = JSON.parse(text);
 			if (body.error) msg = body.error;
@@ -953,5 +953,5 @@ export async function continueHINT(nextDurationMins = 0, addRound = false): Prom
  */
 export async function stopHINT(): Promise<void> {
 	const res = await fetch(`${API_BASE}/lidar/sweep/hint/stop`, { method: 'POST' });
-	if (!res.ok) throw new Error(`Failed to stop HINT: ${res.status}`);
+	if (!res.ok) throw new Error(`Could not stop HINT: ${res.status}`);
 }

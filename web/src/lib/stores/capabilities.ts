@@ -44,7 +44,7 @@ async function refresh(): Promise<void> {
 	} catch (err) {
 		// Endpoint unreachable — keep existing state so radar-only
 		// navigation remains stable.
-		console.warn('Failed to refresh capabilities:', err);
+		console.warn('Could not refresh capabilities:', err);
 	} finally {
 		capabilitiesLoaded.set(true);
 	}

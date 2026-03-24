@@ -354,7 +354,7 @@
 			);
 
 			if (!response.ok) {
-				throw new Error('Failed to search for address');
+				throw new Error('Could not search for that address.');
 			}
 
 			searchResults = await response.json();
@@ -363,7 +363,7 @@
 				error = 'No results found. Try a different search query.';
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to search for address';
+			error = e instanceof Error ? e.message : 'Could not search for that address.';
 			console.error('Address search error:', e);
 		} finally {
 			searching = false;
@@ -827,7 +827,7 @@
 			mapJustDownloaded = true;
 			error = '';
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to download map';
+			error = e instanceof Error ? e.message : 'Could not download the map.';
 			console.error('Map download error:', e);
 		} finally {
 			downloading = false;

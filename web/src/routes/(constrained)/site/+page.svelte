@@ -24,7 +24,7 @@
 		try {
 			sites = await getSites();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load sites';
+			error = e instanceof Error ? e.message : 'Could not load sites.';
 		} finally {
 			loading = false;
 		}
@@ -52,7 +52,7 @@
 			deletingSite = null;
 			await loadSites();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete site';
+			error = e instanceof Error ? e.message : 'Could not delete site.';
 			showDeleteDialog = false;
 		}
 	}

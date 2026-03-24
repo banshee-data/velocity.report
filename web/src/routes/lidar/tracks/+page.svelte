@@ -251,7 +251,7 @@
 				loadForegroundObservations(timeRange.start, timeRange.end); // eslint-disable-line svelte/infinite-reactive-loop
 			}
 		} catch (error) {
-			console.error('[TrackHistory] Failed to load historical data:', error);
+			console.error('[TrackHistory] Could not load historical data:', error);
 			if (error instanceof Error) {
 				console.error('[TrackHistory] Error message:', error.message);
 				console.error('[TrackHistory] Error stack:', error.stack);
@@ -459,7 +459,7 @@
 		try {
 			backgroundGrid = await getBackgroundGrid(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch (error) {
-			console.error('Failed to load background grid:', error);
+			console.error('Could not load background grid:', error);
 		}
 	}
 
@@ -629,7 +629,7 @@
 				//   3. Include "Dismiss" button that clears the error
 				//   4. Auto-dismiss after 10 seconds
 				// For now, errors are logged to console for debugging.
-				console.error('[LiDAR] Failed to load track observations:', error);
+				console.error('[LiDAR] Could not load track observations:', error);
 				selectedTrackObservations = [];
 			}
 		}
@@ -665,7 +665,7 @@
 			foregroundObservations = res.observations ?? []; // eslint-disable-line svelte/infinite-reactive-loop
 		} catch (error) {
 			foregroundError =
-				error instanceof Error ? error.message : 'Failed to load foreground observations';
+				error instanceof Error ? error.message : 'Could not load foreground observations.';
 			foregroundObservations = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
 			foregroundLoading = false; // eslint-disable-line svelte/infinite-reactive-loop
@@ -726,7 +726,7 @@
 			});
 			missedRegions = [...missedRegions, region];
 		} catch (error) {
-			console.error('[MissedRegions] Failed to create missed region:', error);
+			console.error('[MissedRegions] Could not create missed region:', error);
 		}
 	}
 
@@ -737,7 +737,7 @@
 			await deleteMissedRegion(selectedRunId, regionId);
 			missedRegions = missedRegions.filter((r) => r.region_id !== regionId);
 		} catch (error) {
-			console.error('[MissedRegions] Failed to delete missed region:', error);
+			console.error('[MissedRegions] Could not delete missed region:', error);
 		}
 	}
 

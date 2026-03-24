@@ -77,7 +77,7 @@
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load config';
+			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
 		}
 	}
 
@@ -99,7 +99,7 @@
 				}
 			}
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load sites';
+			error = e instanceof Error && e.message ? e.message : 'Could not load sites.';
 		}
 	}
 
@@ -131,7 +131,7 @@
 			};
 			localStorage.setItem('reportSettings', JSON.stringify(settings));
 		} catch (e) {
-			console.warn('Failed to save report settings:', e);
+			console.warn('Could not save report settings:', e);
 		}
 	}
 
@@ -169,7 +169,7 @@
 			if (settings.maxSpeedCutoff !== undefined) maxSpeedCutoff = settings.maxSpeedCutoff;
 			if (settings.boundaryThreshold !== undefined) boundaryThreshold = settings.boundaryThreshold;
 		} catch (e) {
-			console.warn('Failed to load report settings:', e);
+			console.warn('Could not load report settings:', e);
 		}
 	}
 
@@ -189,17 +189,17 @@
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
-			reportMessage = 'Please select a date range first';
+			reportMessage = 'Select a date range first.';
 			return;
 		}
 
 		if (compareEnabled && (!compareRange.from || !compareRange.to)) {
-			reportMessage = 'Please select the comparison period dates';
+			reportMessage = 'Select the comparison period dates.';
 			return;
 		}
 
 		if (selectedSiteId == null) {
-			reportMessage = 'Please select a site first';
+			reportMessage = 'Select a site first.';
 			return;
 		}
 
@@ -235,12 +235,12 @@
 			const response = await generateReport(request);
 			lastGeneratedReportId = response.report_id;
 			reportMetadata = await getReport(response.report_id);
-			reportMessage = 'Report generated successfully! Use the links below to download.';
+			reportMessage = 'Report ready — use the links below to download.';
 
 			// Save settings for next time
 			saveReportSettings();
 		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
+			reportMessage = e instanceof Error ? e.message : 'Could not generate the report.';
 		} finally {
 			generatingReport = false;
 		}

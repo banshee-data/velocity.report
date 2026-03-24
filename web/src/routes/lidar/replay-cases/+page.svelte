@@ -64,7 +64,7 @@
 		try {
 			scenes = await getLidarReplayCases();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load replay cases';
+			error = e instanceof Error ? e.message : 'Could not load replay cases.';
 		} finally {
 			loading = false;
 		}
@@ -116,7 +116,7 @@
 			newPcapDurationSecs = '';
 			showCreateForm = false;
 		} catch (e) {
-			createError = e instanceof Error ? e.message : 'Failed to create replay case';
+			createError = e instanceof Error ? e.message : 'Could not create replay case.';
 		} finally {
 			creating = false;
 		}
@@ -139,14 +139,14 @@
 			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
 			selectScene(updated);
 		} catch (e) {
-			saveError = e instanceof Error ? e.message : 'Failed to update replay case';
+			saveError = e instanceof Error ? e.message : 'Could not update replay case.';
 		} finally {
 			saving = false;
 		}
 	}
 
 	async function handleDelete(sceneId: string) {
-		if (!confirm('Delete this replay case? This cannot be undone.')) return;
+		if (!confirm('Delete this replay case? Cannot be undone.')) return;
 		try {
 			await deleteLidarReplayCase(sceneId);
 			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
@@ -154,7 +154,7 @@
 				deselectScene();
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to delete replay case';
+			error = e instanceof Error ? e.message : 'Could not delete replay case.';
 		}
 	}
 
@@ -213,7 +213,7 @@
 			pcapDir = result.pcap_dir;
 			showScanPanel = true;
 		} catch (e) {
-			scanError = e instanceof Error ? e.message : 'Failed to scan PCAP files';
+			scanError = e instanceof Error ? e.message : 'Could not scan for PCAP files.';
 		} finally {
 			scanning = false;
 		}
