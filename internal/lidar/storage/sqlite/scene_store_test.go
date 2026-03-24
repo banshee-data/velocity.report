@@ -38,14 +38,29 @@ func setupTestSceneDB(t *testing.T) *sql.DB {
 			pcap_duration_secs REAL,
 			description TEXT,
 			reference_run_id TEXT,
-			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
+			recommended_param_set_id TEXT,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
 		)
 	`)
 	if err != nil {
 		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
+	}
+
+	// Create lidar_param_sets table (required for recommended param set normalisation)
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS lidar_param_sets (
+			param_set_id TEXT PRIMARY KEY,
+			params_hash TEXT UNIQUE NOT NULL,
+			schema_version TEXT NOT NULL,
+			param_set_type TEXT NOT NULL,
+			params_json TEXT NOT NULL,
+			created_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		t.Fatalf("failed to create lidar_param_sets table: %v", err)
 	}
 
 	return db
@@ -171,8 +186,7 @@ func TestSceneStore_UpdateScene(t *testing.T) {
 	// Update the scene
 	scene.Description = "Updated description"
 	scene.ReferenceRunID = "run-123"
-	paramsJSON := json.RawMessage(`{"eps": 1.0}`)
-	scene.OptimalParamsJSON = paramsJSON
+	scene.OptimalParamsJSON = json.RawMessage(`{"eps": 1.0}`)
 
 	if err := store.UpdateScene(scene); err != nil {
 		t.Fatalf("UpdateScene failed: %v", err)
@@ -195,8 +209,8 @@ func TestSceneStore_UpdateScene(t *testing.T) {
 	if retrieved.ReferenceRunID != "run-123" {
 		t.Errorf("reference_run_id not updated: got %s", retrieved.ReferenceRunID)
 	}
-	if string(retrieved.OptimalParamsJSON) != string(paramsJSON) {
-		t.Errorf("optimal_params_json not updated: got %s", string(retrieved.OptimalParamsJSON))
+	if retrieved.RecommendedParamSetID == "" {
+		t.Error("expected recommended_param_set_id to be set after updating with optimal params")
 	}
 	if retrieved.UpdatedAtNs == nil {
 		t.Error("updated_at_ns should be set")
@@ -314,8 +328,8 @@ func TestSceneStore_SetOptimalParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetScene failed: %v", err)
 	}
-	if string(retrieved.OptimalParamsJSON) != string(paramsJSON) {
-		t.Errorf("optimal_params_json not set: got %s", string(retrieved.OptimalParamsJSON))
+	if retrieved.RecommendedParamSetID == "" {
+		t.Error("expected recommended_param_set_id to be set after SetOptimalParams")
 	}
 	if retrieved.UpdatedAtNs == nil {
 		t.Error("updated_at_ns should be set")
@@ -355,8 +369,8 @@ func TestSceneStore_NullableFields(t *testing.T) {
 	if retrieved.ReferenceRunID != "" {
 		t.Error("expected reference_run_id to be empty")
 	}
-	if len(retrieved.OptimalParamsJSON) > 0 {
-		t.Error("expected optimal_params_json to be nil")
+	if retrieved.RecommendedParamSetID != "" {
+		t.Error("expected recommended_param_set_id to be empty")
 	}
 	if retrieved.UpdatedAtNs != nil {
 		t.Error("expected updated_at_ns to be nil")

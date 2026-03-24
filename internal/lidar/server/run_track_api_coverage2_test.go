@@ -403,14 +403,13 @@ func TestCov2_HandleEvaluateRun_AutoDetectWithParams(t *testing.T) {
 	}
 	covInsertTrackForRun(t, ws, "params-ref", "params-ref-t1", "sensor-params")
 
-	// Insert candidate run with ParamsJSON
+	// Insert candidate run
 	candRun := &sqlite.AnalysisRun{
 		RunID:      "params-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/params.pcap",
 		SensorID:   "sensor-params",
 		Status:     "completed",
-		ParamsJSON: json.RawMessage(`{"tuning":"custom"}`),
 	}
 	if err := store.InsertRun(candRun); err != nil {
 		t.Fatalf("InsertRun cand: %v", err)

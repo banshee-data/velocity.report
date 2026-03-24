@@ -559,7 +559,7 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	// Full lidar_run_records table (17 columns matching InsertRun query)
+	// Full lidar_run_records table (matching InsertRun query)
 	_, err = sqlDB.Exec(`
 		CREATE TABLE IF NOT EXISTS lidar_run_records (
 			run_id TEXT PRIMARY KEY,
@@ -567,7 +567,6 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 			source_type TEXT,
 			source_path TEXT,
 			sensor_id TEXT,
-			params_json TEXT,
 			duration_secs REAL DEFAULT 0,
 			total_frames INTEGER DEFAULT 0,
 			total_clusters INTEGER DEFAULT 0,
@@ -585,6 +584,21 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 		t.Fatalf("failed to create lidar_run_records table: %v", err)
 	}
 
+	// lidar_param_sets table (needed by normalizeRecommendedParamSet)
+	_, err = sqlDB.Exec(`
+		CREATE TABLE IF NOT EXISTS lidar_param_sets (
+			param_set_id TEXT PRIMARY KEY,
+			params_hash TEXT NOT NULL DEFAULT '',
+			schema_version TEXT NOT NULL DEFAULT '',
+			param_set_type TEXT NOT NULL DEFAULT '',
+			params_json TEXT NOT NULL,
+			created_at INTEGER NOT NULL
+		)
+	`)
+	if err != nil {
+		t.Fatalf("failed to create lidar_param_sets table: %v", err)
+	}
+
 	// lidar_replay_cases table
 	_, err = sqlDB.Exec(`
 		CREATE TABLE IF NOT EXISTS lidar_replay_cases (
@@ -595,9 +609,9 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 			pcap_duration_secs REAL,
 			description TEXT,
 			reference_run_id TEXT,
-			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
+			recommended_param_set_id TEXT,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
 		)
 	`)
@@ -960,7 +974,6 @@ func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
 			matched_count       INTEGER,
 			reference_count     INTEGER,
 			candidate_count     INTEGER,
-			params_json         TEXT,
 			created_at          INTEGER NOT NULL,
 			FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases(replay_case_id) ON DELETE CASCADE,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id),
@@ -1115,11 +1128,11 @@ func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
 
 	// Insert reference and candidate runs with tracks
 	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{}`)}
+	refRun := &sqlite.AnalysisRun{RunID: "ref-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{"eps": 0.5}`)}
+	candRun := &sqlite.AnalysisRun{RunID: "cand-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(candRun); err != nil {
 		t.Fatalf("insert cand run: %v", err)
 	}
@@ -1301,11 +1314,11 @@ func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
 	ws := &Server{db: testDB}
 
 	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{}`)}
+	refRun := &sqlite.AnalysisRun{RunID: "ref-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed", ParamsJSON: json.RawMessage(`{"eps":0.5}`)}
+	candRun := &sqlite.AnalysisRun{RunID: "cand-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(candRun); err != nil {
 		t.Fatalf("insert candidate run: %v", err)
 	}

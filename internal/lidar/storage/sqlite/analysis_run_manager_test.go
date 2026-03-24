@@ -392,38 +392,6 @@ func TestFailRun(t *testing.T) {
 	}
 }
 
-func TestGetCurrentRunParams(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
-	defer cleanup()
-
-	manager := NewAnalysisRunManager(db, "test-sensor")
-	params := DefaultRunParams()
-	params.Background.BackgroundUpdateFraction = 0.123
-
-	// Before starting run
-	_, ok := manager.GetCurrentRunParams()
-	if ok {
-		t.Error("Expected GetCurrentRunParams to return false when no run is active")
-	}
-
-	// Start run
-	_, err := manager.StartRun("/path/to/test.pcap", params)
-	if err != nil {
-		t.Fatalf("StartRun failed: %v", err)
-	}
-
-	// Get params
-	retrievedParams, ok := manager.GetCurrentRunParams()
-	if !ok {
-		t.Fatal("Expected GetCurrentRunParams to return true when run is active")
-	}
-
-	if retrievedParams.Background.BackgroundUpdateFraction != 0.123 {
-		t.Errorf("Expected BackgroundUpdateFraction 0.123, got %f",
-			retrievedParams.Background.BackgroundUpdateFraction)
-	}
-}
-
 func TestRecordTrack_NoActiveRun(t *testing.T) {
 	db, cleanup := setupAnalysisRunDB(t)
 	defer cleanup()
@@ -563,7 +531,6 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 		SourceType: "pcap",
 		SourcePath: "/tmp/parent.pcap",
 		SensorID:   "immutable-sensor",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}); err != nil {
 		t.Fatalf("InsertRun(parent) failed: %v", err)

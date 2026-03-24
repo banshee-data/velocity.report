@@ -18,7 +18,6 @@ func insertAnalysisRunForMissedRegions(t *testing.T, db *sql.DB, runID string) {
 		SourceType: "pcap",
 		SourcePath: "test.pcap",
 		SensorID:   "sensor-test",
-		ParamsJSON: []byte(`{"version":"1.0"}`),
 		Status:     "completed",
 	})
 	if err != nil {

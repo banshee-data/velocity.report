@@ -208,8 +208,8 @@ func TestSceneStore_SetOptimalParams_Success(t *testing.T) {
 		t.Fatalf("set optimal params: %v", err)
 	}
 	got, _ := store.GetScene("opt-1")
-	if string(got.OptimalParamsJSON) != string(params) {
-		t.Fatalf("params mismatch: %s", string(got.OptimalParamsJSON))
+	if got.RecommendedParamSetID == "" {
+		t.Fatalf("expected recommended_param_set_id to be set after SetOptimalParams")
 	}
 }
 

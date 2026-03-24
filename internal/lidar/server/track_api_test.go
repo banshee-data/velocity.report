@@ -1353,7 +1353,6 @@ func TestTrackAPI_HandleClearRuns_Success(t *testing.T) {
 		SensorID:     sensorID,
 		SourceType:   "pcap",
 		SourcePath:   "/test/data.pcap",
-		ParamsJSON:   []byte(`{"version":"1.0"}`),
 		DurationSecs: 10.0,
 		TotalFrames:  100,
 		Status:       "completed",

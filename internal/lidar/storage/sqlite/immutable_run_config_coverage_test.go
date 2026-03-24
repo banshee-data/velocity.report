@@ -180,7 +180,6 @@ func setupReplayCaseRecommendedDB(t *testing.T) *sql.DB {
 		CREATE TABLE lidar_run_records (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER,
-			params_json TEXT,
 			run_config_id TEXT
 		)
 	`); err != nil {
@@ -196,40 +195,9 @@ func setupReplayCaseRecommendedDB(t *testing.T) *sql.DB {
 			pcap_duration_secs REAL,
 			description TEXT,
 			reference_run_id TEXT,
-			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT
-		)
-	`); err != nil {
-		t.Fatalf("create lidar_replay_cases: %v", err)
-	}
-
-	return db
-}
-
-func setupBackfillNoRecommendedDB(t *testing.T) *sql.DB {
-	t.Helper()
-
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("failed to open backfill db: %v", err)
-	}
-
-	if _, err := db.Exec(`
-		CREATE TABLE lidar_run_records (
-			run_id TEXT PRIMARY KEY,
-			params_json TEXT,
-			run_config_id TEXT
-		)
-	`); err != nil {
-		t.Fatalf("create lidar_run_records: %v", err)
-	}
-
-	if _, err := db.Exec(`
-		CREATE TABLE lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
-			optimal_params_json TEXT
 		)
 	`); err != nil {
 		t.Fatalf("create lidar_replay_cases: %v", err)
@@ -260,11 +228,6 @@ func TestStartRunAndPreparedRun_ErrorAndDefaultPaths(t *testing.T) {
 	defer cleanup()
 
 	manager := NewAnalysisRunManager(db, "manager-sensor")
-	params := DefaultRunParams()
-	params.Background.NoiseRelativeFraction = float32(math.NaN())
-	if _, err := manager.StartRun("/tmp/bad.pcap", params); err == nil {
-		t.Fatal("expected StartRun JSON marshal error")
-	}
 
 	runID, err := manager.startPreparedRun(&AnalysisRun{})
 	if err != nil {
@@ -285,22 +248,13 @@ func TestStartRunAndPreparedRun_ErrorAndDefaultPaths(t *testing.T) {
 	}
 }
 
-func TestStartRunWithConfig_ErrorBranchesAndLegacyFallback(t *testing.T) {
+func TestStartRunWithConfig_ErrorBranches(t *testing.T) {
 	db, cleanup := setupAnalysisRunDB(t)
 	defer cleanup()
 
 	manager := NewAnalysisRunManager(db, "cfg-sensor")
 	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{}); err == nil || !strings.Contains(err.Error(), "effective config is required") {
 		t.Fatalf("expected missing effective config error, got %v", err)
-	}
-
-	badCfg := cfgpkg.MustLoadDefaultConfig()
-	badCfg.L3.EmaBaselineV1.NoiseRelative = math.NaN()
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
-		SourcePath:      "/tmp/bad.pcap",
-		EffectiveConfig: badCfg,
-	}); err == nil {
-		t.Fatal("expected StartRunWithConfig legacy params marshal error")
 	}
 
 	makeEffectiveFailCfg := cfgpkg.MustLoadDefaultConfig()
@@ -313,27 +267,6 @@ func TestStartRunWithConfig_ErrorBranchesAndLegacyFallback(t *testing.T) {
 		EffectiveConfig: makeEffectiveFailCfg,
 	}); err == nil {
 		t.Fatal("expected StartRunWithConfig effective param-set marshal error")
-	}
-
-	legacyDB, legacyCleanup := setupLegacyAnalysisRunTestDB(t)
-	defer legacyCleanup()
-
-	legacyManager := NewAnalysisRunManager(legacyDB, "legacy-sensor")
-	cfg := cfgpkg.MustLoadDefaultConfig()
-	runID, err := legacyManager.StartRunWithConfig(AnalysisRunStartOptions{
-		SourcePath:          "/tmp/legacy.pcap",
-		RequestedParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
-		EffectiveConfig:     cfg,
-	})
-	if err != nil {
-		t.Fatalf("StartRunWithConfig on legacy schema failed: %v", err)
-	}
-	run, err := legacyManager.store.GetRun(runID)
-	if err != nil {
-		t.Fatalf("GetRun failed: %v", err)
-	}
-	if run.RunConfigID != "" || run.RequestedParamSetID != "" {
-		t.Fatalf("legacy schema should not persist config asset ids: %+v", run)
 	}
 }
 
@@ -385,15 +318,6 @@ func TestStartRunWithConfig_ConfigAssetErrors(t *testing.T) {
 		t.Fatalf("expected invalid requested params error, got %v", err)
 	}
 
-	if isMissingConfigAssetSchemaErr(nil) {
-		t.Fatal("nil error should not match missing-schema helper")
-	}
-	if !isMissingConfigAssetSchemaErr(errors.New("no such table: lidar_param_sets")) {
-		t.Fatal("expected lidar_param_sets missing-schema match")
-	}
-	if !isMissingConfigAssetSchemaErr(errors.New("no such table: lidar_run_configs")) {
-		t.Fatal("expected lidar_run_configs missing-schema match")
-	}
 }
 
 func TestMutationHelpersAndClosedDBErrors(t *testing.T) {
@@ -421,7 +345,7 @@ func TestMutationHelpersAndClosedDBErrors(t *testing.T) {
 		t.Fatalf("close db: %v", err)
 	}
 
-	if err := store.InsertRun(&AnalysisRun{RunID: "closed", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "sensor", ParamsJSON: json.RawMessage(`{}`), Status: "running"}); err == nil {
+	if err := store.InsertRun(&AnalysisRun{RunID: "closed", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "sensor", Status: "running"}); err == nil {
 		t.Fatal("expected InsertRun error on closed db")
 	}
 	if err := store.UpdateTrackLabel("run", "track", "car", "good", 1, "labeler", "human_manual"); err == nil {
@@ -443,9 +367,6 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 	}
 	if !caps.RunConfigID || !caps.RequestedParamSetID || !caps.ReplayCaseID || !caps.CompletedAt || !caps.FrameStartNs || !caps.FrameEndNs || !caps.StatisticsJSON {
 		t.Fatalf("unexpected capabilities: %+v", caps)
-	}
-	if caps.ParamsJSON {
-		t.Fatalf("expected ParamsJSON=false on migrated DB, got %+v", caps)
 	}
 
 	closedDB, closedCleanup := dbpkg.NewTestDB(t)
@@ -491,21 +412,19 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 			4,           // ConfirmedTracks
 			int64(50),   // ProcessingTimeMs
 			"completed", // Status
-			sql.NullString{String: "boom", Valid: true},              // errorMessage
-			sql.NullString{String: "parent-1", Valid: true},          // parentRunID
-			sql.NullString{String: "notes", Valid: true},             // notes
-			sql.NullString{String: "/tmp/test.vrlog", Valid: true},   // vrlogPath
-			sql.NullString{String: `{"version":"1.0"}`, Valid: true}, // paramsJSON (conditional)
-			sql.NullString{String: "run-config-1", Valid: true},      // runConfigID
-			sql.NullString{String: "requested-set-1", Valid: true},   // requestedParamSetID
-			sql.NullString{String: "scene-1", Valid: true},           // replayCaseID
+			sql.NullString{String: "boom", Valid: true},            // errorMessage
+			sql.NullString{String: "parent-1", Valid: true},        // parentRunID
+			sql.NullString{String: "notes", Valid: true},           // notes
+			sql.NullString{String: "/tmp/test.vrlog", Valid: true}, // vrlogPath
+			sql.NullString{String: "run-config-1", Valid: true},    // runConfigID
+			sql.NullString{String: "requested-set-1", Valid: true}, // requestedParamSetID
+			sql.NullString{String: "scene-1", Valid: true},         // replayCaseID
 			completedAt, // completedAt
 			frameStart,  // frameStartNs
 			frameEnd,    // frameEndNs
 			statsJSON,   // statisticsJSON
 		},
 	}, analysisRunRecordCapabilities{
-		ParamsJSON:          true,
 		RunConfigID:         true,
 		RequestedParamSetID: true,
 		ReplayCaseID:        true,
@@ -557,7 +476,6 @@ func TestAnalysisRunQueryErrorBranchesAndHydration(t *testing.T) {
 		SourceType:  "pcap",
 		SourcePath:  "/tmp/hydrated-run.pcap",
 		SensorID:    "sensor-1",
-		ParamsJSON:  json.RawMessage(`{}`),
 		Status:      "completed",
 		RunConfigID: runConfig.RunConfigID,
 	}
@@ -631,7 +549,6 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}); err != nil {
 		t.Fatalf("InsertRun failed: %v", err)
@@ -669,7 +586,6 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}); err != nil {
 		t.Fatalf("InsertRun failed: %v", err)
@@ -696,7 +612,6 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}); err != nil {
 		t.Fatalf("InsertRun failed: %v", err)
@@ -732,7 +647,6 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}); err != nil {
 		t.Fatalf("InsertRun failed: %v", err)
@@ -918,7 +832,7 @@ func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 		t.Fatalf("expected nil-db error, got %v", err)
 	}
 
-	// After migration 000036, legacy columns are dropped, so backfill skips.
+	// After migration 000036, legacy columns are dropped, so backfill is a no-op.
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
@@ -928,133 +842,6 @@ func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 	}
 	if result.RunsUpdated != 0 || result.ReplayCasesUpdated != 0 {
 		t.Fatalf("expected no updates (columns dropped), got: %+v", result)
-	}
-
-	closedDB, closedCleanup := dbpkg.NewTestDB(t)
-	defer closedCleanup()
-	if err := closedDB.DB.Close(); err != nil {
-		t.Fatalf("close db: %v", err)
-	}
-	if _, err := BackfillImmutableRunConfigReferences(closedDB.DB, false); err == nil {
-		t.Fatal("expected closed-db backfill error")
-	}
-}
-
-func TestBackfillImmutableRunConfigReferences_AdditionalBranches(t *testing.T) {
-	t.Run("run scan error", func(t *testing.T) {
-		rawDB := setupBackfillNoRecommendedDB(t)
-		defer rawDB.Close()
-
-		db := &interceptSQLiteDB{
-			db: rawDB,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "FROM lidar_run_records") && !strings.Contains(query, "PRAGMA") {
-					return rawDB.Query(`SELECT 'only-one-column'`)
-				}
-				return rawDB.Query(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "scan run backfill row") {
-			t.Fatalf("expected run scan error, got %v", err)
-		}
-	})
-
-	t.Run("blank run params are skipped and missing recommended column exits cleanly", func(t *testing.T) {
-		db := setupBackfillNoRecommendedDB(t)
-		defer db.Close()
-
-		if _, err := db.Exec(`INSERT INTO lidar_run_records (run_id, params_json) VALUES (?, ?)`, "blank-run", "   "); err != nil {
-			t.Fatalf("insert blank run: %v", err)
-		}
-
-		result, err := BackfillImmutableRunConfigReferences(db, false)
-		if err != nil {
-			t.Fatalf("BackfillImmutableRunConfigReferences failed: %v", err)
-		}
-		if result.RunsSeen != 1 || result.RunsSkipped != 1 || result.ReplayCasesSeen != 0 {
-			t.Fatalf("unexpected backfill result: %+v", result)
-		}
-	})
-
-	t.Run("run config resolution error", func(t *testing.T) {
-		db := setupBackfillNoRecommendedDB(t)
-		defer db.Close()
-
-		if _, err := db.Exec(`INSERT INTO lidar_run_records (run_id, params_json) VALUES (?, ?)`, "legacy-run", `{"tracking":{"max_tracks":16}}`); err != nil {
-			t.Fatalf("insert legacy run: %v", err)
-		}
-
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "resolve run config for legacy-run") {
-			t.Fatalf("expected run config resolution error, got %v", err)
-		}
-	})
-
-	t.Run("scene capability inspection error", func(t *testing.T) {
-		db := setupBackfillNoRecommendedDB(t)
-		defer db.Close()
-
-		wrappedDB := &interceptSQLiteDB{
-			db: db,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "PRAGMA table_info(lidar_replay_cases)") {
-					return nil, errors.New("pragma failed")
-				}
-				return db.Query(query, args...)
-			},
-		}
-		if _, err := BackfillImmutableRunConfigReferences(wrappedDB, false); err == nil || !strings.Contains(err.Error(), "inspect lidar_replay_cases schema") {
-			t.Fatalf("expected scene capability error, got %v", err)
-		}
-	})
-
-	t.Run("run update error", func(t *testing.T) {
-		// After migration 000036, params_json is dropped and the backfill skips.
-		// This error path is no longer reachable on a migrated database.
-		// The backfillRunConfigRows helper is separately tested via
-		// setupBackfillNoRecommendedDB and TestBackfillHelperRowIterationErrors.
-	})
-
-	t.Run("query replay cases error", func(t *testing.T) {
-		// After migration 000036, optimal_params_json is dropped and the
-		// backfill skips the replay-case phase. This error path is no longer
-		// reachable on a migrated database.
-	})
-
-	t.Run("replay case scan error", func(t *testing.T) {
-		// After migration 000036, same as above — backfill skips.
-	})
-
-	t.Run("recommended param set resolution error", func(t *testing.T) {
-		db := setupReplayCaseRecommendedDB(t)
-		defer db.Close()
-
-		if _, err := db.Exec(`
-			INSERT INTO lidar_replay_cases (
-				replay_case_id, sensor_id, pcap_file, optimal_params_json, created_at_ns
-			) VALUES (?, ?, ?, ?, ?)
-		`, "scene-recommended-error", "sensor-1", "scene.pcap", `{"tracking":{"max_tracks":64}}`, time.Now().UnixNano()); err != nil {
-			t.Fatalf("insert replay case: %v", err)
-		}
-
-		if _, err := BackfillImmutableRunConfigReferences(db, false); err == nil || !strings.Contains(err.Error(), "resolve recommended params for scene-recommended-error") {
-			t.Fatalf("expected recommended-param resolution error, got %v", err)
-		}
-	})
-
-	t.Run("recommended param set update error", func(t *testing.T) {
-		// After migration 000036, optimal_params_json is dropped and the
-		// backfill skips the replay-case phase. This error path is
-		// separately tested via setupReplayCaseRecommendedDB.
-	})
-}
-
-func TestBackfillHelperRowIterationErrors(t *testing.T) {
-	if err := backfillRunConfigRows(&rowsStub{iterErr: errors.New("run rows failed")}, &ImmutableRunConfigBackfillResult{}, nil, nil, false); err == nil || !strings.Contains(err.Error(), "iterate runs for backfill") {
-		t.Fatalf("expected run rows iteration error, got %v", err)
-	}
-
-	if err := backfillReplayCaseRows(&rowsStub{iterErr: errors.New("scene rows failed")}, &ImmutableRunConfigBackfillResult{}, nil, nil, false); err == nil || !strings.Contains(err.Error(), "iterate replay cases for backfill") {
-		t.Fatalf("expected replay-case rows iteration error, got %v", err)
 	}
 }
 
@@ -1099,22 +886,6 @@ func TestReplayCaseStore_RecommendedParamSetPaths(t *testing.T) {
 		t.Fatalf("expected invalid optimal params error, got %v", err)
 	}
 
-	reducedDB := setupTestSceneDB(t)
-	defer reducedDB.Close()
-	reducedStore := NewReplayCaseStore(reducedDB)
-	reducedScene := &ReplayCase{
-		ReplayCaseID:      "scene-reduced",
-		SensorID:          "sensor-1",
-		PCAPFile:          "reduced.pcap",
-		OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
-	}
-	if err := reducedStore.InsertScene(reducedScene); err != nil {
-		t.Fatalf("InsertScene(reduced) failed: %v", err)
-	}
-	if reducedScene.RecommendedParamSetID != "" {
-		t.Fatalf("expected no recommended param set id on reduced schema, got %q", reducedScene.RecommendedParamSetID)
-	}
-
 	if got := nullFloat64(nil); got != nil {
 		t.Fatalf("nullFloat64(nil) = %#v, want nil", got)
 	}
@@ -1129,16 +900,6 @@ func TestReplayCaseStore_RecommendedParamSetPaths(t *testing.T) {
 	if got := nullInt64(&i); got.(int64) != 7 {
 		t.Fatalf("nullInt64(&i) = %#v", got)
 	}
-
-	closedDB, closedCleanup := dbpkg.NewTestDB(t)
-	defer closedCleanup()
-	closedStore := NewReplayCaseStore(closedDB.DB)
-	if err := closedDB.DB.Close(); err != nil {
-		t.Fatalf("close db: %v", err)
-	}
-	if _, err := closedStore.replayCaseCapabilities(); err == nil || !strings.Contains(err.Error(), "inspect lidar_replay_cases schema") {
-		t.Fatalf("expected replayCaseCapabilities error, got %v", err)
-	}
 }
 
 func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
@@ -1146,43 +907,6 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		store := NewReplayCaseStore(&interceptSQLiteDB{})
 		if err := store.normalizeRecommendedParamSet(nil); err == nil || !strings.Contains(err.Error(), "scene is required") {
 			t.Fatalf("expected nil-scene error, got %v", err)
-		}
-	})
-
-	t.Run("replay case capability scan error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		store := NewReplayCaseStore(&interceptSQLiteDB{
-			db: testDB.DB,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "PRAGMA table_info(lidar_replay_cases)") {
-					return testDB.DB.Query(`SELECT 1`)
-				}
-				return testDB.DB.Query(query, args...)
-			},
-		})
-		if _, err := store.replayCaseCapabilities(); err == nil || !strings.Contains(err.Error(), "scan lidar_replay_cases schema") {
-			t.Fatalf("expected replayCaseCapabilities scan error, got %v", err)
-		}
-	})
-
-	t.Run("normalize ignores missing config-asset schema", func(t *testing.T) {
-		db := setupReplayCaseRecommendedDB(t)
-		defer db.Close()
-
-		store := NewReplayCaseStore(db)
-		scene := &ReplayCase{
-			ReplayCaseID:      "scene-missing-assets",
-			SensorID:          "sensor-1",
-			PCAPFile:          "scene.pcap",
-			OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
-		}
-		if err := store.normalizeRecommendedParamSet(scene); err != nil {
-			t.Fatalf("normalizeRecommendedParamSet failed: %v", err)
-		}
-		if scene.RecommendedParamSetID != "" {
-			t.Fatalf("expected blank RecommendedParamSetID, got %q", scene.RecommendedParamSetID)
 		}
 	})
 
@@ -1207,30 +931,6 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		}
 		if err := store.normalizeRecommendedParamSet(scene); err == nil || !strings.Contains(err.Error(), "store recommended params") {
 			t.Fatalf("expected normalize store error, got %v", err)
-		}
-	})
-
-	t.Run("normalize capability lookup error", func(t *testing.T) {
-		testDB, cleanup := dbpkg.NewTestDB(t)
-		defer cleanup()
-
-		store := NewReplayCaseStore(&interceptSQLiteDB{
-			db: testDB.DB,
-			queryFn: func(query string, args []any) (*sql.Rows, error) {
-				if strings.Contains(query, "PRAGMA table_info(lidar_replay_cases)") {
-					return nil, errors.New("pragma failed")
-				}
-				return testDB.DB.Query(query, args...)
-			},
-		})
-		err := store.normalizeRecommendedParamSet(&ReplayCase{
-			ReplayCaseID:      "scene-cap-error",
-			SensorID:          "sensor-1",
-			PCAPFile:          "scene.pcap",
-			OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":16}}`),
-		})
-		if err == nil || !strings.Contains(err.Error(), "inspect lidar_replay_cases schema") {
-			t.Fatalf("expected normalize capability lookup error, got %v", err)
 		}
 	})
 
@@ -1261,22 +961,6 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		NewReplayCaseStore(closedDB.DB).hydrateRecommendedParamSet(scene)
 		if scene.RecommendedParamsHash != "" || len(scene.RecommendedParams) != 0 {
 			t.Fatalf("expected closed db to leave scene untouched, got %+v", scene)
-		}
-	})
-
-	t.Run("row helper iteration errors", func(t *testing.T) {
-		if _, err := readReplayCaseCapabilitiesRows(&rowsStub{
-			values:  [][]any{{0, "recommended_param_set_id", "TEXT", 0, nil, 0}},
-			iterErr: errors.New("schema rows failed"),
-		}); err == nil || !strings.Contains(err.Error(), "iterate lidar_replay_cases schema") {
-			t.Fatalf("expected replayCaseCapabilities iteration error, got %v", err)
-		}
-
-		if _, err := collectReplayCases(&rowsStub{
-			values:  [][]any{{"scene-1", "sensor-1", "scene.pcap", nil, nil, nil, nil, int64(1), nil}},
-			iterErr: errors.New("scene rows failed"),
-		}, replayCaseCapabilities{}, func(*ReplayCase) {}); err == nil || !strings.Contains(err.Error(), "list scenes rows") {
-			t.Fatalf("expected collectReplayCases iteration error, got %v", err)
 		}
 	})
 

@@ -1126,7 +1126,6 @@ func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
 		PCAPDurationSecs:  scene.PCAPDurationSecs,
 		ReferenceRunID:    scene.ReferenceRunID,
 		RecommendedParams: scene.RecommendedParams,
-		OptimalParamsJSON: scene.OptimalParamsJSON,
 	}, nil
 }
 

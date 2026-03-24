@@ -38,7 +38,7 @@ var (
 )
 
 // AnalysisRunStartOptions captures immutable run-config provenance for an
-// analysis replay while preserving legacy params_json compatibility.
+// analysis replay.
 type AnalysisRunStartOptions struct {
 	PreferredRunID      string
 	SourceType          string
@@ -87,17 +87,11 @@ func GetAnalysisRunManager(sensorID string) *AnalysisRunManager {
 
 // StartRun begins a new analysis run for PCAP processing.
 // It returns the run ID that can be used for track association.
-func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (string, error) {
-	paramsJSON, err := params.ToJSON()
-	if err != nil {
-		return "", err
-	}
-
+func (m *AnalysisRunManager) StartRun(sourcePath string, _ RunParams) (string, error) {
 	run := &AnalysisRun{
 		SourceType: "pcap",
 		SourcePath: sourcePath,
 		SensorID:   m.sensorID,
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 	}
 
@@ -141,13 +135,9 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 
 	runConfig, err := configStore.EnsureRunConfig(effectiveParamSet, buildIdentity)
 	if err != nil {
-		if !isMissingConfigAssetSchemaErr(err) {
-			return "", err
-		}
-		opsf("[AnalysisRunManager] Config asset schema unavailable; continuing without run_config_id: %v", err)
-	} else {
-		run.RunConfigID = runConfig.RunConfigID
+		return "", err
 	}
+	run.RunConfigID = runConfig.RunConfigID
 
 	if len(opts.RequestedParamsJSON) > 0 {
 		requestedParamSet, err := configasset.MakeRequestedParamSet(opts.RequestedParamsJSON)
@@ -156,13 +146,9 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 		}
 		storedRequestedParamSet, err := configStore.EnsureParamSet(requestedParamSet)
 		if err != nil {
-			if !isMissingConfigAssetSchemaErr(err) {
-				return "", err
-			}
-			opsf("[AnalysisRunManager] Config asset schema unavailable; continuing without requested_param_set_id: %v", err)
-		} else {
-			run.RequestedParamSetID = storedRequestedParamSet.ParamSetID
+			return "", err
 		}
+		run.RequestedParamSetID = storedRequestedParamSet.ParamSetID
 	}
 
 	return m.startPreparedRun(run)
@@ -342,29 +328,4 @@ func (m *AnalysisRunManager) CurrentRunID() string {
 		return ""
 	}
 	return m.currentRun.RunID
-}
-
-// GetCurrentRunParams retrieves the current run's parameters for display.
-func (m *AnalysisRunManager) GetCurrentRunParams() (RunParams, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if m.currentRun == nil {
-		return RunParams{}, false
-	}
-
-	var params RunParams
-	if err := json.Unmarshal(m.currentRun.ParamsJSON, &params); err != nil {
-		return RunParams{}, false
-	}
-	return params, true
-}
-
-func isMissingConfigAssetSchemaErr(err error) bool {
-	if err == nil {
-		return false
-	}
-	errText := err.Error()
-	return strings.Contains(errText, "no such table: lidar_param_sets") ||
-		strings.Contains(errText, "no such table: lidar_run_configs")
 }

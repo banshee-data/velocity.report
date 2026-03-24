@@ -39,11 +39,6 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 		nullString(run.VRLogPath),
 	}
 
-	if caps.ParamsJSON {
-		columns = append(columns, "params_json")
-		args = append(args, string(run.ParamsJSON))
-	}
-
 	if caps.RunConfigID {
 		columns = append(columns, "run_config_id")
 		args = append(args, nullString(run.RunConfigID))

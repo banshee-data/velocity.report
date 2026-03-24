@@ -13,7 +13,7 @@ import (
 )
 
 // AnalysisRun represents a complete analysis session with immutable run-config
-// provenance plus legacy params_json compatibility.
+// provenance.
 type AnalysisRun struct {
 	RunID               string          `json:"run_id"`
 	CreatedAt           time.Time       `json:"created_at"`
@@ -31,7 +31,6 @@ type AnalysisRun struct {
 	BuildVersion        string          `json:"build_version,omitempty"`
 	BuildGitSHA         string          `json:"build_git_sha,omitempty"`
 	ReplayCaseID        string          `json:"replay_case_id,omitempty"`
-	ParamsJSON          json.RawMessage `json:"params_json"`
 	StatisticsJSON      json.RawMessage `json:"statistics_json,omitempty"`
 	ExecutionConfig     json.RawMessage `json:"execution_config,omitempty"`
 	FrameStartNs        *int64          `json:"frame_start_ns,omitempty"`
@@ -137,7 +136,6 @@ func normaliseRunTrackLinkedIDs(linkedIDs []string) []string {
 }
 
 // RunParams captures all configurable parameters for reproducibility.
-// This is the structure serialized into AnalysisRun.ParamsJSON.
 type RunParams struct {
 	Version        string                     `json:"version"`
 	Background     BackgroundParamsExport     `json:"background"`

@@ -24,6 +24,7 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 	if err != nil {
 		t.Fatalf("open legacy analysis run test db: %v", err)
 	}
+	// Current schema WITHOUT completed_at — used to test the missing-completed_at path.
 	if _, err := db.Exec(`
 		CREATE TABLE lidar_run_records (
 			run_id TEXT PRIMARY KEY,
@@ -31,7 +32,6 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 			source_type TEXT NOT NULL,
 			source_path TEXT,
 			sensor_id TEXT NOT NULL,
-			params_json TEXT NOT NULL,
 			duration_secs REAL,
 			total_frames INTEGER,
 			total_clusters INTEGER,
@@ -42,7 +42,13 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 			error_message TEXT,
 			parent_run_id TEXT,
 			notes TEXT,
-			vrlog_path TEXT
+			vrlog_path TEXT,
+			frame_start_ns INTEGER,
+			frame_end_ns INTEGER,
+			statistics_json TEXT,
+			replay_case_id TEXT,
+			run_config_id TEXT,
+			requested_param_set_id TEXT
 		)
 	`); err != nil {
 		_ = db.Close()
@@ -77,16 +83,12 @@ func TestGetRun(t *testing.T) {
 	store := NewAnalysisRunStore(db)
 
 	// Create and insert a run
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	run := &AnalysisRun{
 		RunID:           "run-get-test",
 		CreatedAt:       time.Now(),
 		SourceType:      "pcap",
 		SourcePath:      "/path/to/test.pcap",
 		SensorID:        "sensor-1",
-		ParamsJSON:      paramsJSON,
 		DurationSecs:    120.5,
 		TotalFrames:     1000,
 		TotalClusters:   500,
@@ -143,9 +145,6 @@ func TestListRuns(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	// Insert multiple runs with different timestamps
 	for i := 0; i < 5; i++ {
 		runID := "run-list-" + string(rune('a'+i))
@@ -154,7 +153,6 @@ func TestListRuns(t *testing.T) {
 			CreatedAt:  time.Now().Add(time.Duration(i) * time.Hour),
 			SourceType: "pcap",
 			SensorID:   "sensor-1",
-			ParamsJSON: paramsJSON,
 			Status:     "completed",
 		}
 		if err := store.InsertRun(run); err != nil {
@@ -211,15 +209,12 @@ func TestListRuns_MissingRunTracksTableLeavesNilRollup(t *testing.T) {
 	defer cleanup()
 
 	store := NewAnalysisRunStore(db)
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
 
 	run := &AnalysisRun{
 		RunID:      "run-list-missing-rollup",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: paramsJSON,
 		Status:     "completed",
 	}
 	if err := store.InsertRun(run); err != nil {
@@ -738,15 +733,11 @@ func TestAnalysisRunStore_UpdateRunStatus(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	run := &AnalysisRun{
 		RunID:      "run-status-test",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 	}
 
@@ -782,15 +773,11 @@ func TestAnalysisRunStore_UpdateRunStatus_WithoutCompletedAtColumn(t *testing.T)
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	run := &AnalysisRun{
 		RunID:      "run-status-legacy",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 	}
 
@@ -825,15 +812,11 @@ func TestAnalysisRunStore_CompleteRun(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	run := &AnalysisRun{
 		RunID:      "run-complete-test",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 	}
 
@@ -898,16 +881,12 @@ func TestAnalysisRunStore_WithParentRun(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	// Insert parent run
 	parentRun := &AnalysisRun{
 		RunID:      "parent-run",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: paramsJSON,
 		Status:     "completed",
 	}
 	if err := store.InsertRun(parentRun); err != nil {
@@ -920,7 +899,6 @@ func TestAnalysisRunStore_WithParentRun(t *testing.T) {
 		CreatedAt:   time.Now(),
 		SourceType:  "pcap",
 		SensorID:    "sensor-1",
-		ParamsJSON:  paramsJSON,
 		Status:      "completed",
 		ParentRunID: "parent-run",
 	}
@@ -1023,16 +1001,12 @@ func TestListRuns_WithAllFields(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, _ := params.ToJSON()
-
 	run := &AnalysisRun{
 		RunID:            "run-full",
 		CreatedAt:        time.Now(),
 		SourceType:       "live",
 		SourcePath:       "/dev/ttyUSB0",
 		SensorID:         "sensor-full",
-		ParamsJSON:       paramsJSON,
 		DurationSecs:     600.0,
 		TotalFrames:      6000,
 		TotalClusters:    3000,

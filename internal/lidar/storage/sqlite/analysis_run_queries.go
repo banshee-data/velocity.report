@@ -46,9 +46,6 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 		"notes",
 		"vrlog_path",
 	}
-	if caps.ParamsJSON {
-		columns = append(columns, "params_json")
-	}
 	if caps.RunConfigID {
 		columns = append(columns, "run_config_id")
 	}
@@ -83,7 +80,6 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		parentRunID    sql.NullString
 		notes          sql.NullString
 		vrlogPath      sql.NullString
-		paramsJSON     sql.NullString
 		statisticsJSON sql.NullString
 	)
 
@@ -104,10 +100,6 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		&parentRunID,
 		&notes,
 		&vrlogPath,
-	}
-
-	if caps.ParamsJSON {
-		dests = append(dests, &paramsJSON)
 	}
 
 	var (
@@ -145,9 +137,6 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	}
 
 	run.CreatedAt = time.Unix(0, createdAt)
-	if paramsJSON.Valid {
-		run.ParamsJSON = json.RawMessage(paramsJSON.String)
-	}
 	if sourcePath.Valid {
 		run.SourcePath = sourcePath.String
 	}
@@ -280,7 +269,7 @@ func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
 	configStore := configasset.NewStore(s.db)
 	runConfig, err := configStore.GetRunConfig(run.RunConfigID)
 	if err != nil {
-		if err == sql.ErrNoRows || isMissingConfigAssetSchemaErr(err) {
+		if err == sql.ErrNoRows {
 			return
 		}
 		log.Printf("hydrate run config assets for %s: %v", run.RunID, err)

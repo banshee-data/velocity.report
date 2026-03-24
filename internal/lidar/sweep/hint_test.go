@@ -1012,7 +1012,6 @@ func TestRunUsesMidpointsForParams(t *testing.T) {
 			ReplayCaseID: "s1",
 			SensorID:     "sensor1",
 			PCAPFile:     "test.pcap",
-			// No OptimalParamsJSON
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run1"})
@@ -1064,15 +1063,13 @@ func TestFailWithErrorNoPersister(t *testing.T) {
 // --- Test 24: run() loads existing optimal params ---
 
 func TestRunLoadsOptimalParams(t *testing.T) {
-	optimalParams := `{"eps": 0.5, "noise": 0.02}`
 	tuner := newQuietHINTTuner(nil)
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			ReplayCaseID:      "s1",
-			SensorID:          "sensor1",
-			PCAPFile:          "test.pcap",
-			OptimalParamsJSON: json.RawMessage(optimalParams),
+			ReplayCaseID: "s1",
+			SensorID:     "sensor1",
+			PCAPFile:     "test.pcap",
 		},
 	})
 	// No run creator → will fail after loading params but exercises the path
@@ -1101,10 +1098,9 @@ func TestRunInvalidOptimalParamsJSON(t *testing.T) {
 	tuner.pollInterval = 10 * time.Millisecond
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
-			ReplayCaseID:      "s1",
-			SensorID:          "sensor1",
-			PCAPFile:          "test.pcap",
-			OptimalParamsJSON: json.RawMessage(`not json`),
+			ReplayCaseID: "s1",
+			SensorID:     "sensor1",
+			PCAPFile:     "test.pcap",
 		},
 	})
 	// No run creator → will fail after loading params but exercises the parse error path

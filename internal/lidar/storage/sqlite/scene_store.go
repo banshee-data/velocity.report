@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
@@ -33,17 +32,9 @@ type ReplayCase struct {
 	UpdatedAtNs              *int64          `json:"updated_at_ns,omitempty"`
 }
 
-type replayCaseCapabilities struct {
-	OptimalParamsJSON     bool
-	RecommendedParamSetID bool
-}
-
 // ReplayCaseStore provides persistence for LiDAR evaluation replay cases.
 type ReplayCaseStore struct {
-	db         DBClient
-	schemaOnce sync.Once
-	caps       replayCaseCapabilities
-	capsErr    error
+	db DBClient
 }
 
 type replayCaseRows interface {
@@ -57,55 +48,8 @@ func NewReplayCaseStore(db DBClient) *ReplayCaseStore {
 	return &ReplayCaseStore{db: db}
 }
 
-func (s *ReplayCaseStore) replayCaseCapabilities() (replayCaseCapabilities, error) {
-	s.schemaOnce.Do(func() {
-		rows, err := s.db.Query(`PRAGMA table_info(lidar_replay_cases)`)
-		if err != nil {
-			s.capsErr = fmt.Errorf("inspect lidar_replay_cases schema: %w", err)
-			return
-		}
-		defer rows.Close()
-
-		s.caps, s.capsErr = readReplayCaseCapabilitiesRows(rows)
-	})
-
-	return s.caps, s.capsErr
-}
-
-func readReplayCaseCapabilitiesRows(rows replayCaseRows) (replayCaseCapabilities, error) {
-	var caps replayCaseCapabilities
-	for rows.Next() {
-		var (
-			cid        int
-			name       string
-			typ        string
-			notNull    int
-			defaultVal any
-			pk         int
-		)
-		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultVal, &pk); err != nil {
-			return replayCaseCapabilities{}, fmt.Errorf("scan lidar_replay_cases schema: %w", err)
-		}
-		switch strings.ToLower(strings.TrimSpace(name)) {
-		case "optimal_params_json":
-			caps.OptimalParamsJSON = true
-		case "recommended_param_set_id":
-			caps.RecommendedParamSetID = true
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return replayCaseCapabilities{}, fmt.Errorf("iterate lidar_replay_cases schema: %w", err)
-	}
-	return caps, nil
-}
-
-func (s *ReplayCaseStore) replayCaseSelectColumns() ([]string, replayCaseCapabilities, error) {
-	caps, err := s.replayCaseCapabilities()
-	if err != nil {
-		return nil, replayCaseCapabilities{}, err
-	}
-
-	columns := []string{
+func (s *ReplayCaseStore) replayCaseSelectColumns() []string {
+	return []string{
 		"replay_case_id",
 		"sensor_id",
 		"pcap_file",
@@ -115,23 +59,15 @@ func (s *ReplayCaseStore) replayCaseSelectColumns() ([]string, replayCaseCapabil
 		"reference_run_id",
 		"created_at_ns",
 		"updated_at_ns",
+		"recommended_param_set_id",
 	}
-	if caps.OptimalParamsJSON {
-		columns = append(columns, "optimal_params_json")
-	}
-	if caps.RecommendedParamSetID {
-		columns = append(columns, "recommended_param_set_id")
-	}
-
-	return columns, caps, nil
 }
 
-func scanReplayCase(scanner interface{ Scan(dest ...any) error }, caps replayCaseCapabilities) (*ReplayCase, error) {
+func scanReplayCase(scanner interface{ Scan(dest ...any) error }) (*ReplayCase, error) {
 	var scene ReplayCase
 	var pcapStartSecs, pcapDurationSecs sql.NullFloat64
 	var description, referenceRunID sql.NullString
 	var updatedAtNs sql.NullInt64
-	var optimalParamsJSON sql.NullString
 	var recommendedParamSetID sql.NullString
 
 	dests := []any{
@@ -144,12 +80,7 @@ func scanReplayCase(scanner interface{ Scan(dest ...any) error }, caps replayCas
 		&referenceRunID,
 		&scene.CreatedAtNs,
 		&updatedAtNs,
-	}
-	if caps.OptimalParamsJSON {
-		dests = append(dests, &optimalParamsJSON)
-	}
-	if caps.RecommendedParamSetID {
-		dests = append(dests, &recommendedParamSetID)
+		&recommendedParamSetID,
 	}
 
 	if err := scanner.Scan(dests...); err != nil {
@@ -170,9 +101,6 @@ func scanReplayCase(scanner interface{ Scan(dest ...any) error }, caps replayCas
 	if referenceRunID.Valid {
 		scene.ReferenceRunID = referenceRunID.String
 	}
-	if optimalParamsJSON.Valid && strings.TrimSpace(optimalParamsJSON.String) != "" {
-		scene.OptimalParamsJSON = json.RawMessage(optimalParamsJSON.String)
-	}
 	if updatedAtNs.Valid {
 		v := updatedAtNs.Int64
 		scene.UpdatedAtNs = &v
@@ -189,19 +117,6 @@ func (s *ReplayCaseStore) normalizeRecommendedParamSet(scene *ReplayCase) error 
 		return fmt.Errorf("scene is required")
 	}
 
-	caps, err := s.replayCaseCapabilities()
-	if err != nil {
-		return err
-	}
-	return s.normalizeRecommendedParamSetWithCaps(scene, caps)
-}
-
-func (s *ReplayCaseStore) normalizeRecommendedParamSetWithCaps(scene *ReplayCase, caps replayCaseCapabilities) error {
-	if !caps.RecommendedParamSetID {
-		scene.RecommendedParamSetID = ""
-		return nil
-	}
-
 	if len(scene.OptimalParamsJSON) == 0 || strings.TrimSpace(string(scene.OptimalParamsJSON)) == "" {
 		scene.RecommendedParamSetID = ""
 		return nil
@@ -214,10 +129,6 @@ func (s *ReplayCaseStore) normalizeRecommendedParamSetWithCaps(scene *ReplayCase
 	}
 	storedParamSet, err := configStore.EnsureParamSet(paramSet)
 	if err != nil {
-		if isMissingConfigAssetSchemaErr(err) {
-			scene.RecommendedParamSetID = ""
-			return nil
-		}
 		return fmt.Errorf("store recommended params: %w", err)
 	}
 
@@ -233,7 +144,7 @@ func (s *ReplayCaseStore) hydrateRecommendedParamSet(scene *ReplayCase) {
 	configStore := configasset.NewStore(s.db)
 	paramSet, err := configStore.GetParamSet(scene.RecommendedParamSetID)
 	if err != nil {
-		if err == sql.ErrNoRows || isMissingConfigAssetSchemaErr(err) {
+		if err == sql.ErrNoRows {
 			return
 		}
 		log.Printf("hydrate recommended param set for scene %s: %v", scene.ReplayCaseID, err)
@@ -259,11 +170,7 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 	if scene.CreatedAtNs == 0 {
 		scene.CreatedAtNs = time.Now().UnixNano()
 	}
-	caps, err := s.replayCaseCapabilities()
-	if err != nil {
-		return err
-	}
-	if err := s.normalizeRecommendedParamSetWithCaps(scene, caps); err != nil {
+	if err := s.normalizeRecommendedParamSet(scene); err != nil {
 		return err
 	}
 
@@ -277,6 +184,7 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 		"reference_run_id",
 		"created_at_ns",
 		"updated_at_ns",
+		"recommended_param_set_id",
 	}
 	args := []any{
 		scene.ReplayCaseID,
@@ -288,14 +196,7 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 		nullString(scene.ReferenceRunID),
 		scene.CreatedAtNs,
 		nullInt64(scene.UpdatedAtNs),
-	}
-	if caps.OptimalParamsJSON {
-		columns = append(columns, "optimal_params_json")
-		args = append(args, nullString(string(scene.OptimalParamsJSON)))
-	}
-	if caps.RecommendedParamSetID {
-		columns = append(columns, "recommended_param_set_id")
-		args = append(args, nullString(scene.RecommendedParamSetID))
+		nullString(scene.RecommendedParamSetID),
 	}
 
 	placeholders := make([]string, len(columns))
@@ -319,10 +220,7 @@ func (s *ReplayCaseStore) InsertScene(scene *ReplayCase) error {
 
 // GetScene retrieves a replay case by ID.
 func (s *ReplayCaseStore) GetScene(sceneID string) (*ReplayCase, error) {
-	columns, caps, err := s.replayCaseSelectColumns()
-	if err != nil {
-		return nil, err
-	}
+	columns := s.replayCaseSelectColumns()
 
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -330,7 +228,7 @@ func (s *ReplayCaseStore) GetScene(sceneID string) (*ReplayCase, error) {
 		WHERE replay_case_id = ?
 	`, strings.Join(columns, ", "))
 
-	scene, err := scanReplayCase(s.db.QueryRow(query, sceneID), caps)
+	scene, err := scanReplayCase(s.db.QueryRow(query, sceneID))
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("replay case not found: %s", sceneID)
 	}
@@ -344,10 +242,7 @@ func (s *ReplayCaseStore) GetScene(sceneID string) (*ReplayCase, error) {
 
 // ListScenes retrieves all replay cases, optionally filtered by sensor_id.
 func (s *ReplayCaseStore) ListScenes(sensorID string) ([]*ReplayCase, error) {
-	columns, caps, err := s.replayCaseSelectColumns()
-	if err != nil {
-		return nil, err
-	}
+	columns := s.replayCaseSelectColumns()
 
 	var (
 		query string
@@ -376,13 +271,13 @@ func (s *ReplayCaseStore) ListScenes(sensorID string) ([]*ReplayCase, error) {
 	}
 	defer rows.Close()
 
-	return collectReplayCases(rows, caps, s.hydrateRecommendedParamSet)
+	return collectReplayCases(rows, s.hydrateRecommendedParamSet)
 }
 
-func collectReplayCases(rows replayCaseRows, caps replayCaseCapabilities, hydrate func(*ReplayCase)) ([]*ReplayCase, error) {
+func collectReplayCases(rows replayCaseRows, hydrate func(*ReplayCase)) ([]*ReplayCase, error) {
 	var scenes []*ReplayCase
 	for rows.Next() {
-		scene, err := scanReplayCase(rows, caps)
+		scene, err := scanReplayCase(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan scene row: %w", err)
 		}
@@ -403,11 +298,7 @@ func collectReplayCases(rows replayCaseRows, caps replayCaseCapabilities, hydrat
 func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 	scene.UpdatedAtNs = new(int64)
 	*scene.UpdatedAtNs = time.Now().UnixNano()
-	caps, err := s.replayCaseCapabilities()
-	if err != nil {
-		return err
-	}
-	if err := s.normalizeRecommendedParamSetWithCaps(scene, caps); err != nil {
+	if err := s.normalizeRecommendedParamSet(scene); err != nil {
 		return err
 	}
 
@@ -417,6 +308,7 @@ func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 		"pcap_start_secs = ?",
 		"pcap_duration_secs = ?",
 		"updated_at_ns = ?",
+		"recommended_param_set_id = ?",
 	}
 	args := []any{
 		nullString(scene.Description),
@@ -424,14 +316,7 @@ func (s *ReplayCaseStore) UpdateScene(scene *ReplayCase) error {
 		nullFloat64(scene.PCAPStartSecs),
 		nullFloat64(scene.PCAPDurationSecs),
 		scene.UpdatedAtNs,
-	}
-	if caps.OptimalParamsJSON {
-		setClauses = append(setClauses, "optimal_params_json = ?")
-		args = append(args, nullString(string(scene.OptimalParamsJSON)))
-	}
-	if caps.RecommendedParamSetID {
-		setClauses = append(setClauses, "recommended_param_set_id = ?")
-		args = append(args, nullString(scene.RecommendedParamSetID))
+		nullString(scene.RecommendedParamSetID),
 	}
 	args = append(args, scene.ReplayCaseID)
 

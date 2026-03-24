@@ -43,7 +43,6 @@ type HINTScene struct {
 	PCAPDurationSecs  *float64
 	ReferenceRunID    string
 	RecommendedParams json.RawMessage
-	OptimalParamsJSON json.RawMessage // legacy fallback
 }
 
 // ReferenceRunCreator creates analysis runs for HINT reference.
@@ -405,14 +404,10 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		return
 	}
 
-	// Load current parameters (prefer immutable recommended params, fall back to legacy)
+	// Load current parameters from immutable recommended params.
 	currentParams := make(map[string]float64)
-	paramsSource := scene.RecommendedParams
-	if len(paramsSource) == 0 {
-		paramsSource = scene.OptimalParamsJSON
-	}
-	if len(paramsSource) > 0 {
-		if err := json.Unmarshal(paramsSource, &currentParams); err != nil {
+	if len(scene.RecommendedParams) > 0 {
+		if err := json.Unmarshal(scene.RecommendedParams, &currentParams); err != nil {
 			rt.logger.Printf("[hint] Failed to parse recommended params, using defaults: %v", err)
 		}
 	}
