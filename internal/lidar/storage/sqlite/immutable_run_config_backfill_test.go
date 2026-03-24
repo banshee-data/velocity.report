@@ -13,8 +13,7 @@ func TestBackfillImmutableRunConfigReferences(t *testing.T) {
 	defer cleanup()
 
 	legacyParams := RunParams{
-		Version:   "1.0",
-		Timestamp: time.Date(2026, time.March, 23, 12, 0, 0, 0, time.UTC),
+		Version: "1.0",
 		Background: BackgroundParamsExport{
 			BackgroundUpdateFraction:       0.1,
 			ClosenessSensitivityMultiplier: 1.2,

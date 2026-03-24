@@ -10,7 +10,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.0 - Platform Hardening (050)
 
-- [#429] LiDAR immutable run config — P0/P1 mostly landed (migration 000035, configasset package, API/UI/recording provenance); remaining: strip `RunParams.Timestamp` from deterministic identity, then P2 legacy column removal and constraint tightening. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
+- [#429] LiDAR immutable run config — P0/P1 landed (migration 000035, configasset package, API/UI/recording provenance, `RunParams.Timestamp` removed); remaining: P2 legacy column removal and constraint tightening. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)

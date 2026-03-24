@@ -5,7 +5,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 ## Source
 
 - Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
-- Status: Draft — P0/P1 mostly landed (migration 000035, configasset, API, VRLOG provenance); `RunParams.Timestamp` cleanup and P2 legacy removal outstanding
+- Status: Draft — P0/P1 landed (migration 000035, configasset, API, VRLOG provenance, `RunParams.Timestamp` removed); P2 legacy column removal outstanding
 - Migration slot: 000035 (landed; builds on migrations `000030`-`000034`)
 
 ## Problem
@@ -13,7 +13,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 The current schema spreads parameter JSON across four places (`lidar_run_records.params_json`, `lidar_replay_cases.optimal_params_json`, `lidar_replay_evaluations.params_json`, `lidar_bg_snapshot.params_json`). This is not DRY and not reliable as a reproducibility model:
 
 - Replay/reprocess paths create ad hoc run rows before execution, so stored params can diverge from executed run
-- `RunParams` includes a timestamp, breaking immutability and stable hashing
+- `RunParams` previously included a timestamp (now removed), breaking immutability and stable hashing
 - Run params are not a complete snapshot of the effective runtime tuning surface
 - Evaluations duplicate candidate-run params rather than referencing them
 - Background snapshot params are dead schema in practice

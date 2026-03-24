@@ -431,7 +431,7 @@ Future entities must choose the correct level of reference:
 - [x] Define the exact effective runtime surface from current
       `config.TuningConfig` plus runtime-resolved values; do not hash partial
       request payloads.
-- [ ] Remove `RunParams.Timestamp` from deterministic identity and stop
+- [x] Remove `RunParams.Timestamp` from deterministic identity and stop
       treating persisted `params_json` as canonical run provenance.
 - [x] Make run creation single-sourced by moving replay/reprocess launch
       metadata into one orchestration path and removing pre-inserted run rows.

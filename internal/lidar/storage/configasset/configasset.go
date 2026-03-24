@@ -401,6 +401,9 @@ func decodeJSONObject(raw json.RawMessage) (map[string]interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("param set JSON must decode to an object")
 	}
+	// Strip non-deterministic keys so legacy blobs with timestamps
+	// hash identically to blobs without them.
+	delete(params, "timestamp")
 	return params, nil
 }
 

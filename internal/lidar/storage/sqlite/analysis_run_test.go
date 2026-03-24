@@ -10,7 +10,6 @@ import (
 
 func TestRunParams_Serialization(t *testing.T) {
 	params := DefaultRunParams()
-	params.Timestamp = time.Date(2025, 12, 1, 12, 0, 0, 0, time.UTC)
 
 	// Test ToJSON
 	jsonBytes, err := params.ToJSON()

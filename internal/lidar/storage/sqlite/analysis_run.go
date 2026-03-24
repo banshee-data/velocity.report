@@ -140,7 +140,6 @@ func normaliseRunTrackLinkedIDs(linkedIDs []string) []string {
 // This is the structure serialized into AnalysisRun.ParamsJSON.
 type RunParams struct {
 	Version        string                     `json:"version"`
-	Timestamp      time.Time                  `json:"timestamp"`
 	Background     BackgroundParamsExport     `json:"background"`
 	Clustering     ClusteringParamsExport     `json:"clustering"`
 	Tracking       TrackingParamsExport       `json:"tracking"`
@@ -195,8 +194,7 @@ func DefaultRunParams() RunParams {
 // Use this in production code where the TuningConfig is already loaded.
 func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 	return RunParams{
-		Version:   "1.0",
-		Timestamp: time.Now(),
+		Version: "1.0",
 		Background: BackgroundParamsExport{
 			BackgroundUpdateFraction:       float32(cfg.GetBackgroundUpdateFraction()),
 			ClosenessSensitivityMultiplier: float32(cfg.GetClosenessMultiplier()),
