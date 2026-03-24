@@ -2,6 +2,15 @@
 // Store for sensor capabilities — fetched from /api/capabilities and
 // refreshed periodically so the UI reflects runtime transitions
 // (e.g. LiDAR coming online after the radar process starts).
+//
+// Polling strategy:
+//   • An initial fetch always fires on startCapabilitiesPolling().
+//   • A 30 s interval timer is only started when the response contains
+//     at least one LiDAR sensor — LiDAR state transitions at runtime
+//     (starting → ready → error) and need periodic updates.
+//   • Radar-only deployments get a single static fetch; no timer.
+//   • On fetch error the timer state is preserved so transient network
+//     blips don't disrupt an already-running poll cycle.
 
 import { writable, derived } from 'svelte/store';
 import { getCapabilities, type Capabilities } from '../api';
@@ -14,11 +23,10 @@ const DEFAULT_CAPABILITIES: Capabilities = {
 
 /**
  * Polling interval in milliseconds (30 seconds).
- * Chosen to balance responsiveness (detect LiDAR coming online within
- * ~30 s) against load on the Pi 4. LiDAR state transitions are rare
- * (typically only at startup or manual enable/disable).
+ * Chosen to balance responsiveness (detect LiDAR state transitions
+ * within ~30 s) against load on the Pi 4.
  */
-const POLL_INTERVAL_MS = 30_000;
+export const POLL_INTERVAL_MS = 30_000;
 
 /** Writable store holding the latest capabilities snapshot. */
 export const capabilities = writable<Capabilities>(DEFAULT_CAPABILITIES);
@@ -38,16 +46,46 @@ export const lidarState = derived(
 );
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollingActive = false;
 
-/** Fetch capabilities once and update the store. Logs errors but
- *  keeps the previous state so the UI degrades gracefully. */
+/** True when a periodic interval timer is running. */
+export function isPolling(): boolean {
+	return pollTimer !== null;
+}
+
+/** Start the interval timer if not already running and polling is active. */
+function ensurePollTimer(): void {
+	if (pollTimer !== null || !pollingActive) return;
+	pollTimer = setInterval(refresh, POLL_INTERVAL_MS);
+}
+
+/** Clear the interval timer if one is running. */
+function clearPollTimer(): void {
+	if (pollTimer !== null) {
+		clearInterval(pollTimer);
+		pollTimer = null;
+	}
+}
+
+/** Fetch capabilities once and update the store.
+ *  After a successful fetch, starts or stops the poll timer based on
+ *  whether LiDAR hardware is present. On error the timer state is
+ *  left unchanged so transient failures don't break an active cycle. */
 async function refresh(): Promise<void> {
 	try {
 		const caps = await getCapabilities();
 		capabilities.set(caps);
+
+		// LiDAR state can change at runtime; radar is static after startup.
+		if (Object.keys(caps.lidar).length > 0) {
+			ensurePollTimer();
+		} else {
+			clearPollTimer();
+		}
 	} catch (err) {
-		// Endpoint unreachable — keep existing state so radar-only
-		// navigation remains stable.
+		// Endpoint unreachable — keep existing state and timer so
+		// radar-only navigation remains stable and an active LiDAR
+		// poll survives transient blips.
 		console.warn('Failed to refresh capabilities:', err);
 	} finally {
 		capabilitiesLoaded.set(true);
@@ -55,21 +93,20 @@ async function refresh(): Promise<void> {
 }
 
 /**
- * Start polling for capabilities. Safe to call multiple times —
- * subsequent calls are no-ops while a timer is active.
+ * Start capabilities monitoring. Safe to call multiple times —
+ * subsequent calls are no-ops while monitoring is active.
+ *
+ * Performs an immediate fetch; a periodic poll timer is only started
+ * if the response contains LiDAR hardware.
  */
 export function startCapabilitiesPolling(): void {
-	if (pollTimer !== null) return;
-
-	// Fetch immediately, then poll.
+	if (pollingActive) return;
+	pollingActive = true;
 	refresh();
-	pollTimer = setInterval(refresh, POLL_INTERVAL_MS);
 }
 
-/** Stop polling. Idempotent. */
+/** Stop monitoring. Idempotent. */
 export function stopCapabilitiesPolling(): void {
-	if (pollTimer !== null) {
-		clearInterval(pollTimer);
-		pollTimer = null;
-	}
+	pollingActive = false;
+	clearPollTimer();
 }

@@ -165,3 +165,100 @@ func TestShowCapabilities_MethodNotAllowed(t *testing.T) {
 		t.Errorf("Expected status 405, got %d", w.Code)
 	}
 }
+
+// TestShowCapabilities_EmptyMaps verifies that a provider returning empty
+// radar and lidar maps serialises to {} (not null) for both keys.
+func TestShowCapabilities_EmptyMaps(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	server.SetCapabilitiesProvider(&mockCapabilitiesProvider{
+		caps: Capabilities{
+			Radar: map[string]SensorStatus{},
+			Lidar: map[string]LidarSensorStatus{},
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/capabilities", nil)
+	w := httptest.NewRecorder()
+
+	server.showCapabilities(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	// Verify raw JSON uses {} not null for empty maps.
+	body := w.Body.String()
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		t.Fatalf("Failed to decode raw response: %v", err)
+	}
+	if string(raw["radar"]) != "{}" {
+		t.Errorf("Expected radar to be {}, got %s", raw["radar"])
+	}
+	if string(raw["lidar"]) != "{}" {
+		t.Errorf("Expected lidar to be {}, got %s", raw["lidar"])
+	}
+
+	// Also decode into typed struct.
+	var caps Capabilities
+	if err := json.Unmarshal([]byte(body), &caps); err != nil {
+		t.Fatalf("Failed to decode capabilities: %v", err)
+	}
+	if len(caps.Radar) != 0 {
+		t.Errorf("Expected empty radar map, got %d entries", len(caps.Radar))
+	}
+	if len(caps.Lidar) != 0 {
+		t.Errorf("Expected empty lidar map, got %d entries", len(caps.Lidar))
+	}
+}
+
+// TestShowCapabilities_MultiSensor verifies the handler round-trips
+// multiple named sensors per class correctly.
+func TestShowCapabilities_MultiSensor(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	server.SetCapabilitiesProvider(&mockCapabilitiesProvider{
+		caps: Capabilities{
+			Radar: map[string]SensorStatus{
+				"ops243_front": {Enabled: true, Status: "receiving"},
+				"ops243_rear":  {Enabled: true, Status: "stale"},
+			},
+			Lidar: map[string]LidarSensorStatus{
+				"hesai": {
+					SensorStatus: SensorStatus{Enabled: true, Status: "ready"},
+					Sweep:        true,
+				},
+			},
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/capabilities", nil)
+	w := httptest.NewRecorder()
+
+	server.showCapabilities(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", w.Code)
+	}
+
+	var caps Capabilities
+	if err := json.NewDecoder(w.Body).Decode(&caps); err != nil {
+		t.Fatalf("Failed to decode capabilities: %v", err)
+	}
+
+	if len(caps.Radar) != 2 {
+		t.Fatalf("Expected 2 radar entries, got %d", len(caps.Radar))
+	}
+	if caps.Radar["ops243_front"].Status != "receiving" {
+		t.Errorf("Expected ops243_front status 'receiving', got %q", caps.Radar["ops243_front"].Status)
+	}
+	if caps.Radar["ops243_rear"].Status != "stale" {
+		t.Errorf("Expected ops243_rear status 'stale', got %q", caps.Radar["ops243_rear"].Status)
+	}
+	if !caps.Lidar["hesai"].Sweep {
+		t.Error("Expected hesai lidar sweep to be true")
+	}
+}
