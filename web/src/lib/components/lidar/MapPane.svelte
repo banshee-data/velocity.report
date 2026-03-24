@@ -667,12 +667,10 @@
 		// Track classes
 		const classes: Array<{ label: string; key: keyof typeof TRACK_COLORS }> = [
 			{ label: 'Pedestrian', key: 'pedestrian' },
-			{ label: 'Car', key: 'car' },
-			{ label: 'Truck', key: 'truck' },
-			{ label: 'Bus', key: 'bus' },
 			{ label: 'Cyclist', key: 'cyclist' },
-			{ label: 'Motorcyclist', key: 'motorcyclist' },
 			{ label: 'Bird', key: 'bird' },
+			{ label: 'Bus', key: 'bus' },
+			{ label: 'Car', key: 'car' },
 			{ label: 'Dynamic', key: 'dynamic' },
 			{ label: 'Tentative', key: 'tentative' }
 		];
