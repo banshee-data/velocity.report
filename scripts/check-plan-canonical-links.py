@@ -47,6 +47,9 @@ import sys
 
 PLANS_DIR = "docs/plans"
 
+# Files excluded from checks (templates with intentional placeholder values).
+EXCLUDED_FILES = {"TEMPLATE.md"}
+
 # Allowed hub-doc prefixes (relative to repo root).  A canonical target
 # must start with one of these to pass gate 9.
 ALLOWED_HUB_PREFIXES = (
@@ -128,6 +131,8 @@ def _collect_plans(root: str) -> tuple[list[str], list[str]]:
         return regular, symlinks
     for name in sorted(os.listdir(plans_abs)):
         if not name.endswith(".md"):
+            continue
+        if name in EXCLUDED_FILES:
             continue
         rel = os.path.join(PLANS_DIR, name)
         abs_path = os.path.join(root, rel)

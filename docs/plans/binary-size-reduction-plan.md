@@ -5,7 +5,7 @@
 - **Target:** v0.5.0 — ship a binary < 40 MB, with CI enforcement to prevent regression
 - **Companion plans:**
   [web-frontend-consolidation-plan.md](web-frontend-consolidation-plan.md)
-- **Canonical:** this document
+- **Canonical:** [binary-size-reduction](../platform/operations/binary-size-reduction.md)
 
 ## Motivation
 
