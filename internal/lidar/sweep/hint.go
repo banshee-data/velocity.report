@@ -343,6 +343,11 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		return ErrSweepAlreadyRunning
 	}
 
+	// Stop any active auto-tune/sweep so the Runner is free for reference runs.
+	if rt.autoTuner != nil {
+		rt.autoTuner.Stop()
+	}
+
 	// Initialize state
 	rt.sweepID = uuid.New().String()
 	rt.state = HINTState{
