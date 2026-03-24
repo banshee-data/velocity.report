@@ -122,7 +122,7 @@
             <select id="data_source" onchange="togglePCAP()">
               <option value="live">Live</option>
               <option value="pcap">PCAP Replay</option>
-              <option value="scene">Replay Case</option>
+              <option value="replay_case">Replay Case</option>
             </select>
           </label>
         </div>
@@ -137,21 +137,21 @@
             <small class="field-desc">Seconds of recording to replay. −1 means the whole file.</small>
           </label>
         </div>
-        <div id="scene-fields" class="field-stack" style="display: none">
+        <div id="replay-case-fields" class="field-stack" style="display: none">
           <label><span>Replay Case</span>
-            <select id="scene_select" onchange="onSweepSceneSelected()">
+            <select id="replay_case_select" onchange="onReplayCaseSelected()">
               <option value="">Loading replay cases...</option>
             </select>
             <small class="field-desc">Pick a replay case. PCAP settings fill themselves in.</small>
           </label>
-          <div id="scene-info" style="
+          <div id="replay-case-info" style="
                 display: none;
                 font-size: 0.85em;
                 color: var(--fg-muted);
                 padding: 4px 0;
               "></div>
-          <div id="scene-actions" style="display: none; margin-top: 8px">
-            <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">
+          <div id="replay-case-actions" style="display: none; margin-top: 8px">
+            <button class="btn-sm btn-secondary" onclick="applyReplayCaseParams()" id="btn-apply-replay-case-params">
               Apply Replay Case Params
             </button>
           </div>
