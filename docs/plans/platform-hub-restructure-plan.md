@@ -71,23 +71,23 @@ Plans that feed multiple canonical docs are marked with `†`.
 
 #### `docs/lidar/operations/`
 
-| Canonical file                         | Status | Fed by plan(s)                                      | Notes                          |
-| -------------------------------------- | ------ | --------------------------------------------------- | ------------------------------ |
-| `auto-tuning.md`                       | EXISTS | `lidar-parameter-tuning-optimisation-plan`          | Parameter search merges        |
-| `hint-sweep-mode.md`                   | EXISTS | `lidar-sweep-hint-mode-plan`                        | Already complete               |
-| `track-labelling-auto-aware-tuning.md` | EXISTS | `lidar-track-labelling-auto-aware-tuning-plan`      | Labelling workflow merges      |
-| `performance-regression-testing.md`    | EXISTS | `lidar-performance-measurement-harness-plan`        | Timing harness merges          |
-| `pcap-analysis-mode.md`                | EXISTS | `lidar-analysis-run-infrastructure-plan`            | Run infrastructure merges      |
-| `settling-time-optimisation.md`        | EXISTS | —                                                   | Already canonical              |
-| `foundations-fixit-progress.md`        | EXISTS | `lidar-architecture-foundations-fixit-plan`         | Fixit status merges            |
-| `scene-management-implementation.md`   | EXISTS | —                                                   | Already canonical              |
-| `immutable-run-config.md`              | DONE   | `lidar-immutable-run-config-asset-plan`             | Deterministic config + lineage |
-| `clustering-diagnostics.md`            | DONE   | `lidar-clustering-observability-and-benchmark-plan` | Per-frame diagnostics          |
-| `test-corpus.md`                       | DONE   | `lidar-test-corpus-plan`                            | Five-PCAP validation dataset   |
-| `observability-surfaces.md`            | DONE   | `hint-metric-observability-plan`                    | Scoring quality for labeller   |
-| `static-pose-alignment.md`             | DONE   | `lidar-static-pose-alignment-plan`                  | Hesai 7DOF (deferred)          |
-| `motion-capture.md`                    | DONE   | `lidar-motion-capture-architecture-plan`            | Moving sensor (deferred)       |
-| `data-completeness-remediation.md`     | DONE   | `unpopulated-data-structures-remediation-plan`      | Wire computed data to storage  |
+| Canonical file                             | Status | Fed by plan(s)                                      | Notes                            |
+| ------------------------------------------ | ------ | --------------------------------------------------- | -------------------------------- |
+| `auto-tuning.md`                           | EXISTS | `lidar-parameter-tuning-optimisation-plan`          | Parameter search merges          |
+| `hint-sweep-mode.md`                       | EXISTS | `lidar-sweep-hint-mode-plan`                        | Already complete                 |
+| `track-labelling-auto-aware-tuning.md`     | EXISTS | `lidar-track-labelling-auto-aware-tuning-plan`      | Labelling workflow merges        |
+| `performance-regression-testing.md`        | EXISTS | `lidar-performance-measurement-harness-plan`        | Timing harness merges            |
+| `pcap-analysis-mode.md`                    | EXISTS | `lidar-analysis-run-infrastructure-plan`            | Run infrastructure merges        |
+| `settling-time-optimisation.md`            | EXISTS | —                                                   | Already canonical                |
+| `foundations-fixit-progress.md`            | EXISTS | `lidar-architecture-foundations-fixit-plan`         | Fixit status merges              |
+| `replay-case-management-implementation.md` | EXISTS | `lidar-replay-case-management-plan`                 | Replay case terminology + schema |
+| `immutable-run-config.md`                  | DONE   | `lidar-immutable-run-config-asset-plan`             | Deterministic config + lineage   |
+| `clustering-diagnostics.md`                | DONE   | `lidar-clustering-observability-and-benchmark-plan` | Per-frame diagnostics            |
+| `test-corpus.md`                           | DONE   | `lidar-test-corpus-plan`                            | Five-PCAP validation dataset     |
+| `observability-surfaces.md`                | DONE   | `hint-metric-observability-plan`                    | Scoring quality for labeller     |
+| `static-pose-alignment.md`                 | DONE   | `lidar-static-pose-alignment-plan`                  | Hesai 7DOF (deferred)            |
+| `motion-capture.md`                        | DONE   | `lidar-motion-capture-architecture-plan`            | Moving sensor (deferred)         |
+| `data-completeness-remediation.md`         | DONE   | `unpopulated-data-structures-remediation-plan`      | Wire computed data to storage    |
 
 #### `docs/lidar/operations/visualiser/` (new subdirectory)
 
