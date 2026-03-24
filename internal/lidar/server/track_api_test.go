@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1532,5 +1533,95 @@ func TestTrackToResponse_EndZero(t *testing.T) {
 	// With end == 0, last falls back to start, so span == 0.
 	if resp.AgeSeconds != 0 {
 		t.Errorf("expected age_seconds=0 when end == 0, got %v", resp.AgeSeconds)
+	}
+}
+
+// TestTrackAPI_HandleListTracks_History_ResponseShape asserts that
+// GET /api/lidar/tracks/history returns a well-formed JSON payload when
+// real track data exists in the database.
+//
+// This guards against regressions where the API silently returns an empty
+// "tracks" array because the time-range query parameters do not span the
+// stored PCAP-replay timestamps.
+func TestTrackAPI_HandleListTracks_History_ResponseShape(t *testing.T) {
+	rawDB, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	api := NewTrackAPI(rawDB, "test-sensor")
+
+	const sensorID = "test-sensor"
+	now := time.Now()
+	startNanos := now.Add(-10 * time.Second).UnixNano()
+	endNanos := now.UnixNano()
+
+	insertTestTrack(t, rawDB, "track-shape-1", sensorID, "confirmed", startNanos, endNanos)
+	midNanos := startNanos + (endNanos-startNanos)/2
+	insertTestObservation(t, rawDB, "track-shape-1", midNanos, 1.5, 2.5)
+
+	url := fmt.Sprintf(
+		"/api/lidar/tracks/history?sensor_id=%s&start_time=%d&end_time=%d&limit=10",
+		sensorID, startNanos, endNanos,
+	)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+	api.handleListTracks(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp TracksListResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	// Envelope shape.
+	if resp.Count == 0 {
+		t.Error("expected count > 0")
+	}
+	if len(resp.Tracks) != resp.Count {
+		t.Errorf("tracks/count mismatch: len=%d count=%d", len(resp.Tracks), resp.Count)
+	}
+	if resp.Timestamp == "" {
+		t.Error("expected non-empty timestamp")
+	}
+
+	if len(resp.Tracks) == 0 {
+		t.Fatal("no tracks in response; cannot assert track payload shape")
+	}
+	tr := resp.Tracks[0]
+
+	// Track payload shape.
+	if tr.TrackID == "" {
+		t.Error("expected non-empty track_id")
+	}
+	if tr.SensorID == "" {
+		t.Error("expected non-empty sensor_id")
+	}
+	if tr.State == "" {
+		t.Error("expected non-empty state")
+	}
+	if tr.FirstSeen == "" {
+		t.Error("expected non-empty first_seen")
+	}
+	if tr.LastSeen == "" {
+		t.Error("expected non-empty last_seen")
+	}
+	if tr.ObservationCount == 0 {
+		t.Error("expected observation_count > 0")
+	}
+	if tr.BoundingBox.Length == 0 {
+		t.Error("expected bounding_box.length > 0")
+	}
+	if len(tr.History) == 0 {
+		t.Error("expected non-empty history (observations were inserted)")
+	}
+
+	// first_seen / last_seen must be valid RFC3339Nano strings.
+	if _, err := time.Parse(time.RFC3339Nano, tr.FirstSeen); err != nil {
+		t.Errorf("first_seen not valid RFC3339Nano: %v", err)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, tr.LastSeen); err != nil {
+		t.Errorf("last_seen not valid RFC3339Nano: %v", err)
 	}
 }
