@@ -59,17 +59,28 @@ func (cp *capabilitiesProvider) SetLidarDisabled() {
 }
 
 // Capabilities returns the current sensor state snapshot.
+// Radar is always present as "default". LiDAR appears as "default"
+// when enabled (state != "disabled"), otherwise the map is empty.
 func (cp *capabilitiesProvider) Capabilities() api.Capabilities {
 	cp.mu.RLock()
 	defer cp.mu.RUnlock()
 
-	enabled := cp.lidarState != "disabled"
-	return api.Capabilities{
-		Radar: true,
-		Lidar: api.LidarCapability{
-			Enabled: enabled,
-			State:   cp.lidarState,
+	caps := api.Capabilities{
+		Radar: map[string]api.SensorStatus{
+			"default": {Enabled: true, Status: "receiving"},
 		},
-		LidarSweep: cp.lidarSweep,
+		Lidar: map[string]api.LidarSensorStatus{},
 	}
+
+	if cp.lidarState != "disabled" {
+		caps.Lidar["default"] = api.LidarSensorStatus{
+			SensorStatus: api.SensorStatus{
+				Enabled: true,
+				Status:  cp.lidarState,
+			},
+			Sweep: cp.lidarSweep,
+		}
+	}
+
+	return caps
 }
