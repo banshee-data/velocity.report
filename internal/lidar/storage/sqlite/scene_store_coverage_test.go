@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -298,5 +299,28 @@ func TestSceneStore_SetOptimalParams_DBClosed(t *testing.T) {
 	err := store.SetOptimalParams("x", nil)
 	if err == nil {
 		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- collectReplayCases: rows.Err() error path ---
+
+// ccErrorRows is a mock replayCaseRows that yields no rows but returns an
+// error from Err() to exercise the rows.Err() branch in collectReplayCases.
+type ccErrorRows struct{ err error }
+
+func (r *ccErrorRows) Next() bool          { return false }
+func (r *ccErrorRows) Scan(_ ...any) error { return nil }
+func (r *ccErrorRows) Err() error          { return r.err }
+
+func TestCollectReplayCases_RowsErr(t *testing.T) {
+	sentinel := errors.New("iteration failed")
+	rows := &ccErrorRows{err: sentinel}
+
+	_, err := collectReplayCases(rows, func(*ReplayCase) {})
+	if err == nil {
+		t.Fatal("expected error from rows.Err()")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("expected sentinel error, got: %v", err)
 	}
 }

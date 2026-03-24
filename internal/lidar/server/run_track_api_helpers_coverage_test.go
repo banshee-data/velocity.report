@@ -88,6 +88,13 @@ func TestParseRunPath_RunIDOnly(t *testing.T) {
 	}
 }
 
+func TestParseRunPath_NoPrefixMatch(t *testing.T) {
+	runID, sub := parseRunPath("/different/path")
+	if runID != "" || sub != "" {
+		t.Errorf("expected empty results for non-matching prefix, got runID=%q sub=%q", runID, sub)
+	}
+}
+
 // --- parseTrackPath additional edge cases ---
 
 func TestParseTrackPath_MultiSegmentAction(t *testing.T) {

@@ -227,3 +227,66 @@ func TestCov_CompareRuns_DBClosed(t *testing.T) {
 		t.Fatal("expected error from closed DB")
 	}
 }
+
+// --- compareParams: additional field-level branches ---
+
+func TestCov_compareParams_SeedAndClusteringAndTracking(t *testing.T) {
+	p1 := &RunParams{
+		Background: BackgroundParamsExport{
+			SeedFromFirstObservation: true,
+		},
+		Clustering: ClusteringParamsExport{
+			Eps:    0.5,
+			MinPts: 3,
+		},
+		Tracking: TrackingParamsExport{
+			MaxMisses:     5,
+			HitsToConfirm: 3,
+		},
+	}
+	p2 := &RunParams{
+		Background: BackgroundParamsExport{
+			SeedFromFirstObservation: false,
+		},
+		Clustering: ClusteringParamsExport{
+			Eps:    1.0,
+			MinPts: 5,
+		},
+		Tracking: TrackingParamsExport{
+			MaxMisses:     10,
+			HitsToConfirm: 6,
+		},
+	}
+
+	diff := compareParams(p1, p2)
+
+	bgDiff, ok := diff["background"].(map[string]any)
+	if !ok {
+		t.Fatal("expected background diff")
+	}
+	if _, ok := bgDiff["seed_from_first_observation"]; !ok {
+		t.Error("expected seed_from_first_observation in diff")
+	}
+
+	clDiff, ok := diff["clustering"].(map[string]any)
+	if !ok {
+		t.Fatal("expected clustering diff")
+	}
+	if _, ok := clDiff["eps"]; !ok {
+		t.Error("expected eps in diff")
+	}
+	if _, ok := clDiff["min_pts"]; !ok {
+		t.Error("expected min_pts in diff")
+	}
+
+	trDiff, ok := diff["tracking"].(map[string]any)
+	if !ok {
+		t.Fatal("expected tracking diff")
+	}
+	if _, ok := trDiff["max_misses"]; !ok {
+		t.Error("expected max_misses in diff")
+	}
+	if _, ok := trDiff["hits_to_confirm"]; !ok {
+		t.Error("expected hits_to_confirm in diff")
+	}
+}

@@ -1030,3 +1030,100 @@ func TestSweepStore_SaveSweepComplete(t *testing.T) {
 		t.Errorf("results mismatch")
 	}
 }
+
+// --- ListSweeps: invalid completed_at format triggers parse error ---
+
+func TestSweepStore_ListSweeps_InvalidCompletedAt(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// Insert a sweep with a valid started_at but an invalid completed_at.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at, completed_at)
+		VALUES ('sweep-bad-ca', 'sensor-1', 'auto', 'completed', '{}', '2025-01-01T00:00:00Z', 'not-a-date')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	_, err = store.ListSweeps("sensor-1", 10)
+	if err == nil {
+		t.Fatal("expected error from invalid completed_at format")
+	}
+	if !strings.Contains(err.Error(), "parsing completed_at") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- LoadSweepCheckpoint: NULL checkpoint_round ---
+
+func TestSweepStore_LoadCheckpoint_NullRound(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	// Add checkpoint columns if they don't already exist.
+	for _, col := range []string{"checkpoint_round", "checkpoint_bounds", "checkpoint_results", "checkpoint_request"} {
+		db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col + " TEXT")
+	}
+
+	// Insert a suspended sweep without a checkpoint_round value.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES ('sweep-null-ck', 'sensor-1', 'auto', 'suspended', '{}', '2025-01-01T00:00:00Z')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	store := NewSweepStore(db)
+	_, _, _, _, err = store.LoadSweepCheckpoint("sweep-null-ck")
+	if err == nil {
+		t.Fatal("expected error for NULL checkpoint_round")
+	}
+	if !strings.Contains(err.Error(), "no checkpoint found") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- GetSuspendedSweep: error propagation from GetSuspendedSweepInfo ---
+
+func TestSweepStore_GetSuspendedSweep_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	_, _, err := store.GetSuspendedSweep()
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- GetSuspendedSweepInfo: invalid started_at format ---
+
+func TestSweepStore_GetSuspendedSweepInfo_BadDate(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	// Add checkpoint columns.
+	db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN checkpoint_round INTEGER")
+
+	// Insert a suspended sweep with a non-RFC3339 started_at.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES ('sweep-bad-date', 'sensor-1', 'auto', 'suspended', '{}', 'not-a-date')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	store := NewSweepStore(db)
+	_, err = store.GetSuspendedSweepInfo()
+	if err == nil {
+		t.Fatal("expected error from invalid started_at format")
+	}
+	if !strings.Contains(err.Error(), "parsing started_at") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
