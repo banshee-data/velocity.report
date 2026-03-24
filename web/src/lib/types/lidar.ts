@@ -172,11 +172,9 @@ export interface TrackStateSummary {
 // Color scheme for track visualization
 export const TRACK_COLORS = {
 	pedestrian: '#4CAF50', // Green
-	car: '#2196F3', // Blue
-	truck: '#FF5722', // Deep Orange
+	car: '#FF5722', // Deep Orange
 	bus: '#7B1FA2', // Purple
 	cyclist: '#00BCD4', // Cyan
-	motorcyclist: '#E91E63', // Pink
 	bird: '#FFC107', // Amber
 	dynamic: '#9E9E9E', // Grey
 	tentative: '#FF9800', // Orange (unconfirmed)
