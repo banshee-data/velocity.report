@@ -223,7 +223,7 @@ build-deploy-linux:
 .PHONY: build-web
 build-web:
 	@echo "Building web frontend..."
-	@cd web && export PUBLIC_GIT_SHA="$(GIT_SHA)" && export PUBLIC_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+	@cd web && export PUBLIC_GIT_SHA="$(GIT_SHA)" && export PUBLIC_BUILD_TIME="$(BUILD_TIME)" && export PUBLIC_BUILD_VERSION="$(VERSION)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
