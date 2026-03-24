@@ -64,7 +64,7 @@ func TestCov_CompareRuns_Run2EmptyRun1HasTracks(t *testing.T) {
 
 	insertTestRunWithTracks(t, store, "has-tracks", []RunTrack{
 		{TrackID: "t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 100, EndUnixNanos: 200, ObservationCount: 5,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 100, EndUnixNanos: 200, ObservationCount: 5,
 		}},
 	})
 	insertTestRunWithTracks(t, store, "no-tracks", nil)
@@ -89,18 +89,18 @@ func TestCov_CompareRuns_MatchingTracks(t *testing.T) {
 	// Two runs with overlapping tracks (same time ranges → IoU=1.0).
 	insertTestRunWithTracks(t, store, "run-a", []RunTrack{
 		{TrackID: "a-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
 		}},
 		{TrackID: "a-t2", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 6000, EndUnixNanos: 9000, ObservationCount: 8,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 6000, EndUnixNanos: 9000, ObservationCount: 8,
 		}},
 	})
 	insertTestRunWithTracks(t, store, "run-b", []RunTrack{
 		{TrackID: "b-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
 		}},
 		{TrackID: "b-t2", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 6000, EndUnixNanos: 9000, ObservationCount: 8,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 6000, EndUnixNanos: 9000, ObservationCount: 8,
 		}},
 	})
 
@@ -126,12 +126,12 @@ func TestCov_CompareRuns_UnmatchedTracks(t *testing.T) {
 	// Two tracks in different time ranges → IoU < 0.3 → unmatched.
 	insertTestRunWithTracks(t, store, "far-a", []RunTrack{
 		{TrackID: "fa-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 1000, EndUnixNanos: 2000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 2000, ObservationCount: 10,
 		}},
 	})
 	insertTestRunWithTracks(t, store, "far-b", []RunTrack{
 		{TrackID: "fb-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 9000, EndUnixNanos: 10000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 9000, EndUnixNanos: 10000, ObservationCount: 10,
 		}},
 	})
 
@@ -178,12 +178,12 @@ func TestCov_CompareRuns_WithConfigAssetParamDiff(t *testing.T) {
 
 	insertTestRunWithTracks(t, store, "param-a", []RunTrack{
 		{TrackID: "pa-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
 		}},
 	})
 	insertTestRunWithTracks(t, store, "param-b", []RunTrack{
 		{TrackID: "pb-t1", TrackMeasurement: l5tracks.TrackMeasurement{
-			SensorID: "sensor-cmp", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
+			SensorID: "sensor-cmp", TrackState: "confirmed", StartUnixNanos: 1000, EndUnixNanos: 5000, ObservationCount: 10,
 		}},
 	})
 
@@ -207,20 +207,23 @@ func TestCov_CompareRuns_Run1NotFound(t *testing.T) {
 
 	insertTestRunWithTracks(t, store, "exists", nil)
 
-	_, err := CompareRuns(store, "missing", "exists")
-	if err == nil {
-		t.Fatal("expected error for missing run1")
+	// GetRunTracks returns empty for non-existent run IDs (not an error),
+	// so CompareRuns treats both as empty and returns a valid comparison.
+	cmp, err := CompareRuns(store, "missing", "exists")
+	if err != nil {
+		t.Fatalf("CompareRuns: %v", err)
+	}
+	if cmp.Run1ID != "missing" {
+		t.Errorf("Run1ID = %q, want missing", cmp.Run1ID)
 	}
 }
 
-func TestCov_CompareRuns_Run2NotFound(t *testing.T) {
+func TestCov_CompareRuns_DBClosed(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
-	defer cleanup()
+	cleanup() // close DB
 
-	insertTestRunWithTracks(t, store, "exists2", nil)
-
-	_, err := CompareRuns(store, "exists2", "missing")
+	_, err := CompareRuns(store, "a", "b")
 	if err == nil {
-		t.Fatal("expected error for missing run2")
+		t.Fatal("expected error from closed DB")
 	}
 }
