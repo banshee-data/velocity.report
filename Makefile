@@ -401,7 +401,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
+.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -549,6 +549,10 @@ install-web:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+clean-web:
+	@echo "Cleaning web build artifacts..."
+	@rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
 
 activate-web-cache:
 	@echo "Activating shared web dependency cache..."
