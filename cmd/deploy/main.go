@@ -21,11 +21,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stderr, "WARNING: velocity-deploy is deprecated.")
-	fmt.Fprintln(os.Stderr, "Removal is gated on: (1) #210 image pipeline operational, (2) packaging confirmed,")
-	fmt.Fprintln(os.Stderr, "(3) migration period elapsed, (4) no active deploy-tool users — not before v0.7.0.")
-	fmt.Fprintln(os.Stderr, "See https://github.com/banshee-data/velocity.report/blob/main/docs/plans/platform-simplification-and-deprecation-plan.md for details.")
-	fmt.Fprintf(os.Stderr, "Running velocity-deploy version %s (git SHA: %s).\n", appver.Version, appver.GitSHA)
+	fmt.Fprintln(os.Stderr, "velocity-deploy is deprecated and will be removed no earlier than v0.7.0.")
+	fmt.Fprintln(os.Stderr, "The image pipeline (#210) replaces it. See:")
+	fmt.Fprintln(os.Stderr, "  https://github.com/banshee-data/velocity.report/blob/main/docs/plans/platform-simplification-and-deprecation-plan.md")
+	fmt.Fprintf(os.Stderr, "Running velocity-deploy %s (SHA %s) in the meantime.\n", appver.Version, appver.GitSHA)
 	fmt.Fprintln(os.Stderr, "")
 
 	command := flag.Arg(0)
@@ -53,7 +52,7 @@ func main() {
 	case "help":
 		printUsage()
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", command)
+		fmt.Fprintf(os.Stderr, "Unknown command %q — see usage below.\n\n", command)
 		printUsage()
 		os.Exit(1)
 	}
@@ -131,7 +130,7 @@ func handleInstall(args []string) {
 	DebugMode = *debug
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./velocity-report-linux-arm64)")
+		fmt.Fprintln(os.Stderr, "Missing --binary flag. Point it at the velocity-report binary, e.g. --binary ./velocity-report-linux-arm64")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -139,7 +138,7 @@ func handleInstall(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -179,7 +178,7 @@ func handleUpgrade(args []string) {
 	DebugMode = *debug
 
 	if *binaryPath == "" {
-		fmt.Fprintln(os.Stderr, "Error: --binary flag is required. Specify the path to the velocity-report binary (e.g., --binary ./velocity-report-linux-arm64)")
+		fmt.Fprintln(os.Stderr, "Missing --binary flag. Point it at the new velocity-report binary, e.g. --binary ./velocity-report-linux-arm64")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -187,7 +186,7 @@ func handleUpgrade(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -228,7 +227,7 @@ func handleFix(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -247,7 +246,7 @@ func handleFix(args []string) {
 	}
 
 	if err := fixer.Fix(); err != nil {
-		fmt.Fprintf(os.Stderr, "\nFix completed with errors: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nFix ran but encountered problems: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -268,7 +267,7 @@ func handleStatus(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -308,7 +307,7 @@ func handleStatus(args []string) {
 	time.Sleep(100 * time.Millisecond) // Give spinner time to clean up
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get status: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Could not retrieve status: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -340,7 +339,7 @@ func handleStatus(args []string) {
 		time.Sleep(100 * time.Millisecond)
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Disk scan failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Disk scan did not complete: %v\n", err)
 		} else {
 			fmt.Print(diskScan)
 		}
@@ -361,7 +360,7 @@ func handleHealth(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -378,16 +377,16 @@ func handleHealth(args []string) {
 
 	health, err := monitor.CheckHealth()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Health check could not complete: %v\n", err)
 		os.Exit(1)
 	}
 
 	if !health.Healthy {
-		fmt.Printf("Service is UNHEALTHY: %s\n", health.Message)
+		fmt.Printf("Service is not healthy: %s\n", health.Message)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Service is HEALTHY\n%s\n", health.Details)
+	fmt.Printf("Service is healthy.\n%s\n", health.Details)
 }
 
 func handleRollback(args []string) {
@@ -404,7 +403,7 @@ func handleRollback(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -420,7 +419,7 @@ func handleRollback(args []string) {
 	}
 
 	if err := rollback.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Rollback failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Rollback did not complete: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -439,7 +438,7 @@ func handleBackup(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -455,7 +454,7 @@ func handleBackup(args []string) {
 	}
 
 	if err := backup.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Backup did not complete: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -475,7 +474,7 @@ func handleConfig(args []string) {
 	// Resolve SSH config
 	resolvedHost, resolvedUser, resolvedKey, identityAgent, err := ResolveSSHTarget(*target, *sshUser, *sshKey)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to resolve SSH config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot resolve SSH config: %v\n", err)
 		os.Exit(1)
 	}
 	if resolvedUser == "" {
@@ -491,16 +490,16 @@ func handleConfig(args []string) {
 
 	if *show {
 		if err := cfg.Show(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to show config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Could not read config: %v\n", err)
 			os.Exit(1)
 		}
 	} else if *edit {
 		if err := cfg.Edit(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to edit config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Could not edit config: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "Use --show or --edit flag")
+		fmt.Fprintln(os.Stderr, "Specify --show or --edit to do something useful.")
 		fs.Usage()
 		os.Exit(1)
 	}
