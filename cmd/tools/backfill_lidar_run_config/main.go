@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -11,27 +13,35 @@ import (
 	sqlitepkg "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-func main() {
-	dbPath := flag.String("db", "sensor_data.db", "path to sqlite DB file")
-	dryRun := flag.Bool("dry-run", false, "inspect rows and report changes without writing")
-	flag.Parse()
-
-	if _, err := os.Stat(*dbPath); err != nil {
-		log.Fatalf("DB path %s not accessible: %v", *dbPath, err)
+func run(args []string, stat func(string) (os.FileInfo, error), openDB func(string) (*dbpkg.DB, error), backfill func(sqlitepkg.DBClient, bool) (*sqlitepkg.ImmutableRunConfigBackfillResult, error), logger *log.Logger) error {
+	if logger == nil {
+		logger = log.Default()
 	}
 
-	opened, err := dbpkg.OpenDB(*dbPath)
+	flagSet := flag.NewFlagSet("backfill-lidar-run-config", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	dbPath := flagSet.String("db", "sensor_data.db", "path to sqlite DB file")
+	dryRun := flagSet.Bool("dry-run", false, "inspect rows and report changes without writing")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+
+	if _, err := stat(*dbPath); err != nil {
+		return fmt.Errorf("DB path %s not accessible: %w", *dbPath, err)
+	}
+
+	opened, err := openDB(*dbPath)
 	if err != nil {
-		log.Fatalf("open DB: %v", err)
+		return fmt.Errorf("open DB: %w", err)
 	}
 	defer opened.Close()
 
-	result, err := sqlitepkg.BackfillImmutableRunConfigReferences(opened.DB, *dryRun)
+	result, err := backfill(opened.DB, *dryRun)
 	if err != nil {
-		log.Fatalf("immutable run-config backfill failed: %v", err)
+		return fmt.Errorf("immutable run-config backfill failed: %w", err)
 	}
 
-	log.Printf(
+	logger.Printf(
 		"done: runs seen=%d updated=%d skipped=%d; replay cases seen=%d updated=%d skipped=%d",
 		result.RunsSeen,
 		result.RunsUpdated,
@@ -40,4 +50,11 @@ func main() {
 		result.ReplayCasesUpdated,
 		result.ReplayCasesSkipped,
 	)
+	return nil
+}
+
+func main() {
+	if err := run(os.Args[1:], os.Stat, dbpkg.OpenDB, sqlitepkg.BackfillImmutableRunConfigReferences, log.Default()); err != nil {
+		log.Fatal(err)
+	}
 }
