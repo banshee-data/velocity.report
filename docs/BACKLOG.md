@@ -11,7 +11,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.0 - Platform Hardening (050)
 
 - [#429] LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
-- [#421] `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
@@ -211,5 +210,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#419] LiDAR tracks table consolidation — shared `TrackMeasurement` model/SQL helpers and the `lidar_all_tracks` VIEW landed; separate live and run tables remain intentionally distinct — [design doc](plans/lidar-tracks-table-consolidation-plan.md)
 - [#419] Profile comparison data layer hardening — analysis-run compare APIs and contract stabilisation implemented; ongoing scope is now UI delivery — [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#420] Schema integrity audit/report tooling — schema hardening migrated into main, orphan/constraint audit tooling implemented and available in release branch head — [design doc](plans/lidar-schema-robustness-plan.md)
+- [#421] `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - [#422] Canonical plan graduation — Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed — [design doc](plans/platform-canonical-project-files-plan.md)
 - [#424] Remote-host upgrade runbook and API naming consistency — runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work — [design doc](plans/platform-simplification-and-deprecation-plan.md)
