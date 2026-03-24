@@ -1598,3 +1598,62 @@ func (m *runnerMockPersister) LoadSweepCheckpoint(sweepID string) (int, json.Raw
 func (m *runnerMockPersister) GetSuspendedSweep() (string, int, error) {
 	return "", 0, nil
 }
+
+// --- StopAndWait tests ---
+
+func TestRunner_StopAndWait_AlreadyIdle(t *testing.T) {
+	r := newQuietRunner(nil)
+	// Runner starts idle; StopAndWait should return immediately.
+	r.StopAndWait(50 * time.Millisecond)
+	state := r.GetSweepState()
+	if state.Status != SweepStatusIdle {
+		t.Errorf("status = %q, want idle", state.Status)
+	}
+}
+
+func TestRunner_StopAndWait_TransitionsToIdle(t *testing.T) {
+	r := newQuietRunner(nil)
+
+	// Simulate a running state that clears itself after a short delay.
+	r.mu.Lock()
+	r.state.Status = SweepStatusRunning
+	r.mu.Unlock()
+
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		r.mu.Lock()
+		r.state.Status = SweepStatusIdle
+		r.mu.Unlock()
+	}()
+
+	start := time.Now()
+	r.StopAndWait(2 * time.Second)
+	elapsed := time.Since(start)
+
+	if elapsed > time.Second {
+		t.Errorf("StopAndWait took %v, expected <1s", elapsed)
+	}
+
+	state := r.GetSweepState()
+	if state.Status != SweepStatusIdle {
+		t.Errorf("status = %q, want idle", state.Status)
+	}
+}
+
+func TestRunner_StopAndWait_Timeout(t *testing.T) {
+	r := newQuietRunner(nil)
+
+	// Set running state and never clear it.
+	r.mu.Lock()
+	r.state.Status = SweepStatusRunning
+	r.mu.Unlock()
+
+	start := time.Now()
+	r.StopAndWait(150 * time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Should return after ~150ms timeout, not block indefinitely.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("StopAndWait took %v, expected ~150ms timeout", elapsed)
+	}
+}

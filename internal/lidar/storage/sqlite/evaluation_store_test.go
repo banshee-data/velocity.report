@@ -275,3 +275,80 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 		t.Error("expected unique constraint violation, got nil")
 	}
 }
+
+// --- Error branch coverage ---
+
+func TestEvaluationStore_ListByScene_DBError(t *testing.T) {
+	db := setupTestEvaluationDB(t)
+	store := NewEvaluationStore(db)
+	db.Close()
+
+	_, err := store.ListByScene("scene-1")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+func TestEvaluationStore_Delete_DBError(t *testing.T) {
+	db := setupTestEvaluationDB(t)
+	store := NewEvaluationStore(db)
+	db.Close()
+
+	err := store.Delete("eval-1")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+func TestEvaluationStore_Insert_DBError(t *testing.T) {
+	db := setupTestEvaluationDB(t)
+	store := NewEvaluationStore(db)
+	db.Close()
+
+	err := store.Insert(&Evaluation{
+		ReplayCaseID:   "scene-1",
+		ReferenceRunID: "ref-run-1",
+		CandidateRunID: "cand-run-1",
+	})
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+func TestEvaluationStore_ListByScene_ScanError(t *testing.T) {
+	db := setupTestEvaluationDB(t)
+	defer db.Close()
+
+	// Drop and recreate the table with wrong column types to provoke a scan error.
+	// We keep the same column names but change composite_score from REAL to TEXT
+	// and insert a non-scannable value.
+	db.Exec(`DROP TABLE lidar_replay_evaluations`)
+	db.Exec(`
+		CREATE TABLE lidar_replay_evaluations (
+			evaluation_id       TEXT PRIMARY KEY,
+			replay_case_id            TEXT NOT NULL,
+			reference_run_id    TEXT NOT NULL,
+			candidate_run_id    TEXT NOT NULL,
+			detection_rate      TEXT,
+			fragmentation       TEXT,
+			false_positive_rate TEXT,
+			velocity_coverage   TEXT,
+			quality_premium     TEXT,
+			truncation_rate     TEXT,
+			velocity_noise_rate TEXT,
+			stopped_recovery_rate TEXT,
+			composite_score     TEXT,
+			matched_count       TEXT,
+			reference_count     TEXT,
+			candidate_count     TEXT,
+			created_at          INTEGER NOT NULL
+		)
+	`)
+	db.Exec(`INSERT INTO lidar_replay_evaluations VALUES ('e1','s1','r1','c1','not-a-float','x','x','x','x','x','x','x','x','x','x','x',1)`)
+
+	store := NewEvaluationStore(db)
+	_, err := store.ListByScene("s1")
+	if err == nil {
+		t.Fatal("expected scan error from malformed data")
+	}
+}
