@@ -266,6 +266,23 @@
 		}
 	}
 
+	// Reload lidar_tracks for the current run's time window.
+	// PCAP replay tracks carry the PCAP capture timestamp, not wall-clock time,
+	// so the default "last 1 hour" window misses them entirely.
+	async function loadTracksForRunWindow() {
+		if (runTracks.length === 0) return;
+		const runStartNs = Math.min(...runTracks.map((rt) => rt.start_unix_nanos));
+		const runEndNs = Math.max(...runTracks.map((rt) => rt.end_unix_nanos));
+		try {
+			const history = await getTrackHistory(sensorId, runStartNs, runEndNs, 1000);
+			tracks = Array.isArray(history.tracks) ? history.tracks : []; // eslint-disable-line svelte/infinite-reactive-loop
+			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 }; // eslint-disable-line svelte/infinite-reactive-loop
+			selectedTime = runStartNs / 1e6; // eslint-disable-line svelte/infinite-reactive-loop
+		} catch (error) {
+			console.error('[TrackHistory] Failed to load tracks for run window:', error);
+		}
+	}
+
 	// Handle scene selection change
 	// Looks up the scene directly from scenes array rather than relying on
 	// derived $: selectedScene which may not have updated yet.
@@ -290,29 +307,18 @@
 	// Handle run selection change
 	function handleRunChange() {
 		if (selectedRunId !== null) {
-			loadRunTracks().then(() => {
-				// Scope time range to this run's tracks
-				if (runTracks.length > 0) {
-					const runStart = Math.min(...runTracks.map((rt) => rt.start_unix_nanos / 1e6));
-					const runEnd = Math.max(...runTracks.map((rt) => rt.end_unix_nanos / 1e6));
-					timeRange = { start: runStart, end: runEnd };
-					selectedTime = runStart;
-				}
-			});
+			// loadTracksForRunWindow uses runTracks state, so await loadRunTracks first
+			loadRunTracks()
+				.then(() => loadTracksForRunWindow())
+				.catch((error) => console.error('[TrackHistory] handleRunChange pipeline failed:', error));
 			loadMissedRegions();
 		} else {
 			runTracks = [];
 			labellingProgress = null;
 			missedRegions = [];
 			markMissedMode = false;
-			// Restore full time range from all tracks
-			if (tracks.length > 0) {
-				timeRange = {
-					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
-					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
-				};
-				selectedTime = timeRange.start;
-			}
+			// Reload the default window — tracks may have been scoped to the run's window
+			void loadHistoricalData(); // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
@@ -624,7 +630,8 @@
 				await loadRuns(scene);
 				if (qsRunId && runs.find((r) => r.run_id === qsRunId)) {
 					selectedRunId = qsRunId;
-					loadRunTracks();
+					await loadRunTracks();
+					await loadTracksForRunWindow();
 					loadMissedRegions();
 				}
 			}
