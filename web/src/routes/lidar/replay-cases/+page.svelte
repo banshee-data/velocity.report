@@ -82,7 +82,7 @@
 		selectedScene = scene;
 		editDescription = scene.description ?? '';
 		editReferenceRunId = scene.reference_run_id ?? null;
-		editOptimalParams = formatJSONForEditor(scene.optimal_params_json);
+		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
 	}
@@ -185,7 +185,7 @@
 
 		const parsed = JSON.parse(trimmed);
 		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			throw new Error('Optimal parameters must be a JSON object');
+			throw new Error('Recommended parameters must be a JSON object');
 		}
 		return parsed as Record<string, unknown>;
 	}
@@ -679,7 +679,7 @@
 
 					<div>
 						<label for="edit-params" class="text-surface-content/70 mb-1 block text-sm font-medium"
-							>Optimal Parameters (JSON)</label
+							>Recommended Parameters (JSON)</label
 						>
 						<textarea
 							id="edit-params"

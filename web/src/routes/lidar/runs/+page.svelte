@@ -631,21 +631,6 @@
 						{/if}
 					</div>
 
-					<!-- Parameters (collapsible) -->
-					{#if selectedRun.params_json}
-						<details>
-							<summary class="text-surface-content/70 cursor-pointer text-sm font-medium">
-								Legacy Parameters
-							</summary>
-							<pre
-								class="bg-surface-200 text-surface-content mt-2 max-h-[300px] overflow-auto rounded p-3 font-mono text-xs">{JSON.stringify(
-									selectedRun.params_json,
-									null,
-									2
-								)}</pre>
-						</details>
-					{/if}
-
 					{#if selectedRun.execution_config}
 						<details>
 							<summary class="text-surface-content/70 cursor-pointer text-sm font-medium">
