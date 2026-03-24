@@ -65,12 +65,12 @@ class TestParseDateToUnix:
 
     def test_invalid_date_format(self):
         """Test that invalid date format raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid date format"):
+        with pytest.raises(ValueError, match="could not parse date"):
             parse_date_to_unix("not-a-date")
 
     def test_unknown_timezone(self):
         """Test that unknown timezone raises ValueError."""
-        with pytest.raises(ValueError, match="unknown timezone"):
+        with pytest.raises(ValueError, match="unrecognised timezone"):
             parse_date_to_unix("2024-06-05", tz_name="Invalid/Timezone")
 
 
@@ -164,6 +164,6 @@ class TestParseDateToUnixEdgeCases:
             parse_date_to_unix("not-a-date", tz_name=None)
 
         # Check that error message includes the expected format information
-        assert "Invalid date format" in str(exc_info.value)
+        assert "could not parse date" in str(exc_info.value)
         assert "YYYY-MM-DD" in str(exc_info.value)
         assert "not-a-date" in str(exc_info.value)

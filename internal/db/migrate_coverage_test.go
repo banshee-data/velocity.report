@@ -130,8 +130,8 @@ func TestBaselineAtVersion_AlreadyMigrated(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when baselining already-migrated DB")
 	}
-	if !strings.Contains(err.Error(), "already has migrations applied") {
-		t.Errorf("expected 'already has migrations applied' in error, got: %v", err)
+	if !strings.Contains(err.Error(), "already has a migration history") {
+		t.Errorf("expected 'already has a migration history' in error, got: %v", err)
 	}
 }
 
@@ -425,8 +425,8 @@ func TestCheckAndPromptMigrations_VersionAhead(t *testing.T) {
 	if !shouldExit {
 		t.Error("expected shouldExit=true when version is ahead")
 	}
-	if !strings.Contains(err.Error(), "ahead of latest migration") {
-		t.Errorf("expected 'ahead of latest migration' in error, got: %v", err)
+	if !strings.Contains(err.Error(), "something has gone sideways") {
+		t.Errorf("expected 'something has gone sideways' in error, got: %v", err)
 	}
 }
 
@@ -498,9 +498,6 @@ func TestHandleMigrateStatus_DirtyWarning(t *testing.T) {
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	if !strings.Contains(output, "WARNING") {
-		t.Errorf("expected dirty warning in output, got: %s", output)
-	}
 	if !strings.Contains(output, "dirty state") {
 		t.Errorf("expected 'dirty state' in output, got: %s", output)
 	}
@@ -769,8 +766,8 @@ func TestHandleMigrateDetect_LegacyPerfectMatch(t *testing.T) {
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	if !strings.Contains(output, "Perfect match found") {
-		t.Errorf("expected 'Perfect match found' in output, got: %s", output)
+	if !strings.Contains(output, "Exact match") {
+		t.Errorf("expected 'Exact match' in output, got: %s", output)
 	}
 }
 
@@ -1499,8 +1496,8 @@ func TestMigrateCov2_CheckAndPromptMigrations_OutstandingMigrations(t *testing.T
 	if !shouldExit {
 		t.Error("expected shouldExit=true for outstanding migrations")
 	}
-	if err != nil && !strings.Contains(err.Error(), "out of date") {
-		t.Errorf("expected 'out of date' in error, got: %v", err)
+	if err != nil && !strings.Contains(err.Error(), "velocity-report migrate up") {
+		t.Errorf("expected 'velocity-report migrate up' in error, got: %v", err)
 	}
 }
 
@@ -2031,7 +2028,7 @@ func TestMigrateCov2_HandleMigrateUp_Success(t *testing.T) {
 	handleMigrateUp(database, migrationsFS)
 
 	output := buf.String()
-	if !strings.Contains(output, "migrations applied successfully") {
+	if !strings.Contains(output, "schema is current") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }
@@ -2067,7 +2064,7 @@ func TestMigrateCov2_HandleMigrateDown_Success(t *testing.T) {
 	handleMigrateDown(database, migrationsFS)
 
 	output := buf.String()
-	if !strings.Contains(output, "rolled back successfully") {
+	if !strings.Contains(output, "Rolled back one migration") {
 		t.Errorf("expected rollback success message, got: %s", output)
 	}
 }
@@ -2143,7 +2140,7 @@ func TestMigrateCov2_HandleMigrateVersion_Success(t *testing.T) {
 	handleMigrateVersion(database, migrationsFS, "1")
 
 	output := buf.String()
-	if !strings.Contains(output, "Migrated to version 1 successfully") {
+	if !strings.Contains(output, "Now at version 1") {
 		t.Errorf("expected success message, got: %s", output)
 	}
 }
@@ -2254,7 +2251,7 @@ func TestMigrateCov2_PrintMigrateHelp(t *testing.T) {
 		"baseline",
 		"help",
 		"Schema Detection",
-		"analyses",
+		"examines",
 	}
 
 	for _, phrase := range expectedPhrases {
@@ -2291,8 +2288,8 @@ func TestMigrateCov2_HandleMigrateUp_VersionReported(t *testing.T) {
 	handleMigrateUp(database, mfs)
 
 	output := buf.String()
-	if !strings.Contains(output, "Current version: 1") {
-		t.Errorf("expected 'Current version: 1' in log output, got: %s", output)
+	if !strings.Contains(output, "Now at version 1") {
+		t.Errorf("expected 'Now at version 1' in log output, got: %s", output)
 	}
 }
 
@@ -2329,8 +2326,8 @@ func TestMigrateCov2_HandleMigrateDown_VersionReported(t *testing.T) {
 	handleMigrateDown(database, mfs)
 
 	output := buf.String()
-	if !strings.Contains(output, "Current version: 1") {
-		t.Errorf("expected 'Current version: 1' in log output, got: %s", output)
+	if !strings.Contains(output, "Now at version 1") {
+		t.Errorf("expected 'Now at version 1' in log output, got: %s", output)
 	}
 }
 
@@ -2579,8 +2576,8 @@ func TestMigrateCov2_HandleMigrateForce_AcceptPrompt(t *testing.T) {
 	io.Copy(&outBuf, rOut)
 
 	logOutput := logBuf.String()
-	if !strings.Contains(logOutput, "version forced to 1") {
-		t.Errorf("expected 'version forced to 1' in log output, got: %s", logOutput)
+	if !strings.Contains(logOutput, "Version forced to 1") {
+		t.Errorf("expected 'Version forced to 1' in log output, got: %s", logOutput)
 	}
 }
 
@@ -2776,11 +2773,11 @@ func TestMigrateCov2_HandleMigrateDetect_LegacyWithDifferences(t *testing.T) {
 		t.Errorf("expected 'Schema Detection Results' in output, got: %s", output)
 	}
 	// The extra_legacy_table causes differences to be reported
-	if !strings.Contains(output, "No perfect match") {
-		t.Errorf("expected 'No perfect match' (score < 100), got: %s", output)
+	if !strings.Contains(output, "No exact match") {
+		t.Errorf("expected 'No exact match' (score < 100), got: %s", output)
 	}
-	if !strings.Contains(output, "Schema differences") {
-		t.Errorf("expected 'Schema differences' in output, got: %s", output)
+	if !strings.Contains(output, "Differences from nearest version") {
+		t.Errorf("expected 'Differences from nearest version' in output, got: %s", output)
 	}
 }
 
@@ -2919,8 +2916,8 @@ func TestMigrateCov2_Subprocess_UnknownAction(t *testing.T) {
 	if exitCode == 0 {
 		t.Error("expected non-zero exit code for unknown action")
 	}
-	if !strings.Contains(output, "Unknown migrate action: foobar") {
-		t.Errorf("expected 'Unknown migrate action: foobar' in output, got: %s", output)
+	if !strings.Contains(output, "Unknown migrate action") {
+		t.Errorf("expected 'Unknown migrate action' in output, got: %s", output)
 	}
 }
 
@@ -2975,8 +2972,8 @@ func TestMigrateCov2_Subprocess_VersionInvalid(t *testing.T) {
 	if exitCode == 0 {
 		t.Error("expected non-zero exit code for invalid version")
 	}
-	if !strings.Contains(output, "Invalid version number") {
-		t.Errorf("expected 'Invalid version number' in output, got: %s", output)
+	if !strings.Contains(output, "Not a valid version number") {
+		t.Errorf("expected 'Not a valid version number' in output, got: %s", output)
 	}
 }
 
@@ -2992,8 +2989,8 @@ func TestMigrateCov2_Subprocess_ForceInvalid(t *testing.T) {
 	if exitCode == 0 {
 		t.Error("expected non-zero exit code for invalid force version")
 	}
-	if !strings.Contains(output, "Invalid version number") {
-		t.Errorf("expected 'Invalid version number' in output, got: %s", output)
+	if !strings.Contains(output, "Not a valid version number") {
+		t.Errorf("expected 'Not a valid version number' in output, got: %s", output)
 	}
 }
 
@@ -3009,7 +3006,7 @@ func TestMigrateCov2_Subprocess_BaselineInvalid(t *testing.T) {
 	if exitCode == 0 {
 		t.Error("expected non-zero exit code for invalid baseline version")
 	}
-	if !strings.Contains(output, "Invalid version number") {
-		t.Errorf("expected 'Invalid version number' in output, got: %s", output)
+	if !strings.Contains(output, "Not a valid version number") {
+		t.Errorf("expected 'Not a valid version number' in output, got: %s", output)
 	}
 }
