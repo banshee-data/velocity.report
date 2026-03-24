@@ -1,5 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
@@ -26,6 +28,11 @@ function svelteVirtualCssFix(): Plugin {
 
 export default defineConfig({
 	server: {
+		fs: {
+			// In git worktrees, node_modules may be symlinked to the main
+			// repo. Resolve the real path so Vite allows serving them.
+			allow: [realpathSync(resolve('node_modules'))]
+		},
 		proxy: {
 			'/api/lidar': 'http://localhost:8081',
 			'/api': 'http://localhost:8080'
