@@ -36,7 +36,7 @@ func insertTestRunWithTracks(t *testing.T, store *AnalysisRunStore, runID string
 	}
 }
 
-func TestCompareRuns_BothEmpty(t *testing.T) {
+func TestCov_CompareRuns_BothRunsEmpty(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -58,7 +58,7 @@ func TestCompareRuns_BothEmpty(t *testing.T) {
 	}
 }
 
-func TestCompareRuns_OneEmpty(t *testing.T) {
+func TestCov_CompareRuns_Run2EmptyRun1HasTracks(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -69,19 +69,20 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 	})
 	insertTestRunWithTracks(t, store, "no-tracks", nil)
 
-	cmp, err := CompareRuns(store, "has-tracks", "no-tracks")
+	// Also test the reverse direction.
+	cmp, err := CompareRuns(store, "no-tracks", "has-tracks")
 	if err != nil {
 		t.Fatalf("CompareRuns: %v", err)
 	}
-	if len(cmp.TracksOnlyRun1) != 1 {
-		t.Errorf("expected 1 run1-only track, got %d", len(cmp.TracksOnlyRun1))
+	if len(cmp.TracksOnlyRun1) != 0 {
+		t.Errorf("expected 0 run1-only tracks, got %d", len(cmp.TracksOnlyRun1))
 	}
-	if len(cmp.TracksOnlyRun2) != 0 {
-		t.Errorf("expected 0 run2-only tracks, got %d", len(cmp.TracksOnlyRun2))
+	if len(cmp.TracksOnlyRun2) != 1 {
+		t.Errorf("expected 1 run2-only track, got %d", len(cmp.TracksOnlyRun2))
 	}
 }
 
-func TestCompareRuns_MatchingTracks(t *testing.T) {
+func TestCov_CompareRuns_MatchingTracks(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -118,7 +119,7 @@ func TestCompareRuns_MatchingTracks(t *testing.T) {
 	}
 }
 
-func TestCompareRuns_UnmatchedTracks(t *testing.T) {
+func TestCov_CompareRuns_UnmatchedTracks(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -149,7 +150,7 @@ func TestCompareRuns_UnmatchedTracks(t *testing.T) {
 	}
 }
 
-func TestCompareRuns_WithParamDiff(t *testing.T) {
+func TestCov_CompareRuns_WithConfigAssetParamDiff(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -200,7 +201,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	_ = cmp.ParamDiff
 }
 
-func TestCompareRuns_Run1NotFound(t *testing.T) {
+func TestCov_CompareRuns_Run1NotFound(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
@@ -212,7 +213,7 @@ func TestCompareRuns_Run1NotFound(t *testing.T) {
 	}
 }
 
-func TestCompareRuns_Run2NotFound(t *testing.T) {
+func TestCov_CompareRuns_Run2NotFound(t *testing.T) {
 	store, cleanup := setupCompareRunsDB(t)
 	defer cleanup()
 
