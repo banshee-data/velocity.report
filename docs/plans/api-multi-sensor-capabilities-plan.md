@@ -1,6 +1,6 @@
 # Multi-Sensor Capabilities API Plan
 
-- **Status:** In Progress
+- **Status:** Complete
 - **Layers:** API, Frontend, cmd/radar
 - **Canonical architecture:** `internal/api/server.go`, `cmd/radar/capabilities.go`
 
@@ -194,25 +194,25 @@ Each class gets its own extended status type if it has class-specific fields.
 
 ### Backend (Go)
 
-- [ ] Replace `Capabilities`, `LidarCapability` structs in `internal/api/server.go`
+- [x] Replace `Capabilities`, `LidarCapability` structs in `internal/api/server.go`
       with new `SensorStatus`, `LidarSensorStatus`, `Capabilities` types
-- [ ] Update `showCapabilities` default in `internal/api/server_admin.go`
-- [ ] Rewrite `capabilitiesProvider` in `cmd/radar/capabilities.go` to populate
+- [x] Update `showCapabilities` default in `internal/api/server_admin.go`
+- [x] Rewrite `capabilitiesProvider` in `cmd/radar/capabilities.go` to populate
       `map[string]SensorStatus` / `map[string]LidarSensorStatus`
-- [ ] Update `internal/api/capabilities_test.go`
-- [ ] Update `cmd/radar/capabilities_test.go`
+- [x] Update `internal/api/capabilities_test.go`
+- [x] Update `cmd/radar/capabilities_test.go`
 
 ### Frontend (Svelte/TypeScript)
 
-- [ ] Update `Capabilities`, `LidarCapability` types in `web/src/lib/api.ts`
-- [ ] Update default capabilities and derived stores in
+- [x] Update `Capabilities`, `LidarCapability` types in `web/src/lib/api.ts`
+- [x] Update default capabilities and derived stores in
       `web/src/lib/stores/capabilities.ts`
-- [ ] Update layout gate in `web/src/routes/+layout.svelte` to use
+- [x] Update layout gate in `web/src/routes/+layout.svelte` to use
       `Object.values($capabilities.lidar).some(s => s.enabled)`
-- [ ] Update `web/src/lib/stores/capabilities.test.ts`
+- [x] Update `web/src/lib/stores/capabilities.test.ts`
 
 ### Validation
 
-- [ ] `make lint-go && make test-go`
-- [ ] `make lint-web && make test-web`
-- [ ] `make build-web`
+- [x] `make lint-go && make test-go`
+- [x] `make lint-web && make test-web`
+- [x] `make build-web`
