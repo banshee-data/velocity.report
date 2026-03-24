@@ -1,0 +1,25 @@
+{
+  "_doc": [
+    "ERD layout configuration — edit to control schema diagram grouping.",
+    "Clusters: tables matching '{name}' or '{name}_*' are grouped together.",
+    "Lidar subgroups: fine-grained layout within LIDAR (full mode only).",
+    "See group-dot.py docstring for layout mode details."
+  ],
+  "clusters": [
+    { "name": "site", "label": "SITE" },
+    { "name": "lidar", "label": "LIDAR" },
+    { "name": "radar", "label": "RADAR" }
+  ],
+  "lidar_subgroups": {
+    "roots": {
+      "analysis_runs": "lidar_run_records",
+      "tracks": "lidar_tracks"
+    },
+    "display_order": ["tracks", "analysis_runs", "other"],
+    "second_row_subgroup": "other",
+    "second_row_alignment_subgroup": "analysis_runs",
+    "min_columns": 2,
+    "max_columns": 4,
+    "target_weight": 36
+  }
+}

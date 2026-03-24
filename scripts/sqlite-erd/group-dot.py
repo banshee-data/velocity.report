@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
+"""
+Group raw Graphviz DOT output into family clusters for the schema ERD.
 
+Configuration is loaded from erd-config.json (adjacent to this script).
+Edit that file to change cluster definitions and lidar layout parameters.
+
+Layout modes (--layout flag):
+  full  — (default) clustered with lidar subgroups, balanced columns,
+          and invisible alignment edges for a structured layout.
+  auto  — tables clustered by family prefix only; Graphviz handles
+          all routing within and between clusters.
+"""
+
+import argparse
+import json
+import os
 import re
 import sys
 from collections import defaultdict, deque
@@ -8,40 +23,43 @@ NODE_BLOCK_RE = re.compile(r"(?ms)^([A-Za-z0-9_]+)\s+\[label=<.*?>\];\s*")
 GRAPH_OPEN_RE = re.compile(r"\A\s*digraph\s+[^{]+\{", re.MULTILINE)
 EDGE_PAIR_RE = re.compile(r"^([A-Za-z0-9_]+):[^\s]+ -> ([A-Za-z0-9_]+)(?::[^\s]+)?$")
 
-CLUSTERS = (
-    ("site", "SITE"),
-    ("lidar", "LIDAR"),
-    ("radar", "RADAR"),
-)
+# ---------------------------------------------------------------------------
+# Configuration — loaded from erd-config.json (see that file to edit)
+# ---------------------------------------------------------------------------
 
-# Dedicated LIDAR subgroups are driven by dependency connectivity to these roots.
-# Any lidar table in the same dependency component as one of these tables is
-# emitted into that subgroup. Remaining lidar tables go into a third "other"
-# subgroup. Adjust these anchors if the schema grows new lidar domains.
-LIDAR_SUBGROUP_ROOTS = (
-    ("analysis_runs", "lidar_run_records"),
-    ("tracks", "lidar_tracks"),
-)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "erd-config.json")
+
+
+def _load_config():
+    """Load ERD configuration from erd-config.json."""
+    with open(CONFIG_PATH) as fh:
+        return json.load(fh)
+
+
+_config = _load_config()
+
+CLUSTERS = tuple((c["name"], c["label"]) for c in _config["clusters"])
+
+_lidar = _config.get("lidar_subgroups", {})
+LIDAR_SUBGROUP_ROOTS = tuple(_lidar.get("roots", {}).items())
 ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
-LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "analysis_runs", "other")
-LIDAR_SECOND_ROW_SUBGROUP = "other"
-LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
-
-# Large lidar subgroups are packed into 2-4 inner columns so they stay wide
-# without forcing explicit node coordinates. The target weight is a rough table
-# height budget per inner column.
-LIDAR_SUBGROUP_MIN_COLUMNS = 2
-LIDAR_SUBGROUP_MAX_COLUMNS = 4
-LIDAR_SUBGROUP_TARGET_WEIGHT = 36
+LIDAR_SUBGROUP_DISPLAY_ORDER = tuple(
+    _lidar.get("display_order", ("tracks", "analysis_runs", "other"))
+)
+LIDAR_SECOND_ROW_SUBGROUP = _lidar.get("second_row_subgroup", "other")
+LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = _lidar.get(
+    "second_row_alignment_subgroup", "analysis_runs"
+)
+LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
+LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)
+LIDAR_SUBGROUP_TARGET_WEIGHT = _lidar.get("target_weight", 36)
 
 
 def cluster_for(table_name: str) -> str:
-    if table_name == "site" or table_name.startswith("site_"):
-        return "site"
-    if table_name.startswith("lidar_"):
-        return "lidar"
-    if table_name.startswith("radar_"):
-        return "radar"
+    for name, _ in CLUSTERS:
+        if table_name == name or table_name.startswith(name + "_"):
+            return name
     return "other"
 
 
@@ -291,7 +309,55 @@ def emit_lidar_subgroup(
     return column_heads[0], column_heads[-1], column_heads
 
 
+def _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines):
+    """Emit DOT with family clusters only — no forced layout."""
+    output_lines = [graph_open]
+    if header.strip():
+        output_lines.append(header.strip("\n"))
+
+    for cluster_name, label in CLUSTERS:
+        tables = grouped_nodes[cluster_name]
+        if not tables:
+            continue
+        output_lines.append(f"subgraph cluster_{cluster_name} {{")
+        output_lines.append(
+            "  graph ["
+            f'label="{label}", '
+            'labelloc="t", '
+            'labeljust="l", '
+            'style="rounded", '
+            'color="#aaaaaa"'
+            "];"
+        )
+        for _, block in sorted(tables, key=lambda item: item[0]):
+            for line in block.splitlines():
+                if line.strip():
+                    output_lines.append("  " + line)
+        output_lines.append("}")
+
+    for _, block in sorted(grouped_nodes["other"], key=lambda item: item[0]):
+        for line in block.splitlines():
+            if line.strip():
+                output_lines.append(line)
+
+    output_lines.extend(tail_lines)
+    output_lines.append("}")
+    sys.stdout.write("\n".join(output_lines) + "\n")
+    return 0
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Group DOT into family clusters for the schema ERD."
+    )
+    parser.add_argument(
+        "--layout",
+        choices=["full", "auto"],
+        default="full",
+        help="full: structured layout with subgroups; auto: family clusters only",
+    )
+    args = parser.parse_args()
+
     dot = sys.stdin.read()
     if not dot.strip():
         return 0
@@ -345,6 +411,9 @@ def main() -> int:
             continue
         parents[child].add(parent)
         children[parent].add(child)
+
+    if args.layout == "auto":
+        return _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines)
 
     output_lines = [graph_open]
     if header.strip():

@@ -11,6 +11,7 @@ ACTION="generate"
 DOT_FILE="$DEFAULT_DOT_FILE"
 SVG_FILE="$DEFAULT_SVG_FILE"
 INPUT_FILE=""
+LAYOUT_MODE="full"
 TEMP_FILES=()
 
 cleanup_temp_files() {
@@ -41,12 +42,17 @@ trap cleanup_temp_files EXIT
 usage() {
   cat <<EOF
 Usage:
-  $0 [--generate] [--svg-output path] <schema.sql>
-  $0 --generate-dot [--dot-output path] <schema.sql>
+  $0 [--generate] [--layout full|auto] [--svg-output path] <schema.sql>
+  $0 --generate-dot [--layout full|auto] [--dot-output path] <schema.sql>
   $0 --compile [--svg-output path] [<schema.dot>]
+
+Layout modes:
+  full  — (default) clustered with subgroups and alignment edges.
+  auto  — family clusters only; Graphviz handles all routing.
 
 Examples:
   $0 --generate internal/db/schema.sql
+  $0 --layout auto --generate internal/db/schema.sql
   $0 --generate-dot --dot-output /tmp/schema.dot internal/db/schema.sql
   $0 --compile data/structures/SCHEMA.dot
 EOF
@@ -102,7 +108,7 @@ generate_dot() {
     echo "Error: failed to import schema into temporary SQLite database" >&2
     exit 1
   fi
-  if ! sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" >"$tmp_dot_output"; then
+  if ! sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" --layout "$LAYOUT_MODE" >"$tmp_dot_output"; then
     echo "Error: failed to generate schema DOT" >&2
     exit 1
   fi
@@ -131,6 +137,16 @@ while [ $# -gt 0 ]; do
       ;;
     --generate-dot)
       ACTION="generate-dot"
+      shift
+      ;;
+    --layout)
+      shift
+      if [ $# -eq 0 ]; then
+        echo "Error: --layout requires a value (full or auto)" >&2
+        usage
+        exit 1
+      fi
+      LAYOUT_MODE="$1"
       shift
       ;;
     --dot-output)
