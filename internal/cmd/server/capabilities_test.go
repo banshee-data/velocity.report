@@ -43,6 +43,23 @@ func TestCapabilitiesProvider_LidarReady(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesProvider_LidarReadyNoSweep(t *testing.T) {
+	cp := newCapabilitiesProvider()
+	cp.SetLidarReady(false)
+	caps := cp.Capabilities()
+
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist after SetLidarReady(false)")
+	}
+	if lidarDefault.Status != "ready" {
+		t.Errorf("Expected lidar.default.status 'ready', got %q", lidarDefault.Status)
+	}
+	if lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be false when sweep disabled")
+	}
+}
+
 func TestCapabilitiesProvider_LidarStarting(t *testing.T) {
 	cp := newCapabilitiesProvider()
 	// Transition through ready first so lidarSweep is true, then verify
