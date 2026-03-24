@@ -88,6 +88,26 @@ func TestParseRunPath_RunIDOnly(t *testing.T) {
 	}
 }
 
+func TestParseRunPath_WithSubPath(t *testing.T) {
+	runID, sub := parseRunPath("/api/lidar/runs/my-run/tracks/track-1")
+	if runID != "my-run" {
+		t.Errorf("runID = %q, want my-run", runID)
+	}
+	if sub != "tracks/track-1" {
+		t.Errorf("sub = %q, want tracks/track-1", sub)
+	}
+}
+
+func TestParseRunPath_EmptyRunID(t *testing.T) {
+	runID, sub := parseRunPath("/api/lidar/runs/")
+	if runID != "" {
+		t.Errorf("runID = %q, want empty", runID)
+	}
+	if sub != "" {
+		t.Errorf("sub = %q, want empty", sub)
+	}
+}
+
 func TestParseRunPath_NoPrefixMatch(t *testing.T) {
 	runID, sub := parseRunPath("/different/path")
 	if runID != "" || sub != "" {
@@ -104,5 +124,25 @@ func TestParseTrackPath_MultiSegmentAction(t *testing.T) {
 	}
 	if action != "label/extra" {
 		t.Errorf("action = %q, want label/extra", action)
+	}
+}
+
+func TestParseTrackPath_TrackOnly(t *testing.T) {
+	trackID, action := parseTrackPath("track-1")
+	if trackID != "track-1" {
+		t.Errorf("trackID = %q, want track-1", trackID)
+	}
+	if action != "" {
+		t.Errorf("action = %q, want empty", action)
+	}
+}
+
+func TestParseTrackPath_Empty(t *testing.T) {
+	trackID, action := parseTrackPath("")
+	if trackID != "" {
+		t.Errorf("trackID = %q, want empty", trackID)
+	}
+	if action != "" {
+		t.Errorf("action = %q, want empty", action)
 	}
 }
