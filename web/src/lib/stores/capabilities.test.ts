@@ -143,6 +143,17 @@ describe('capabilities store', () => {
 			capabilities.set(LIDAR_ONLY); // has "hesai", not "default"
 			expect(get(lidarState)).toBe('disabled');
 		});
+
+		it('lidarState should return "default" sensor status even with multiple sensors', () => {
+			capabilities.set({
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {
+					default: { enabled: true, status: 'ready', sweep: true },
+					hesai_kerb: { enabled: true, status: 'error', sweep: false }
+				}
+			});
+			expect(get(lidarState)).toBe('ready');
+		});
 	});
 
 	// -----------------------------------------------------------------------

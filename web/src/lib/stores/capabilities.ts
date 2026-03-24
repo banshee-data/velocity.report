@@ -34,12 +34,15 @@ export const capabilities = writable<Capabilities>(DEFAULT_CAPABILITIES);
 /** Whether the initial fetch has completed (success or failure). */
 export const capabilitiesLoaded = writable<boolean>(false);
 
-/** Derived convenience: true when any LiDAR sensor is enabled. */
+/** Derived convenience: true when at least one LiDAR sensor is enabled. */
 export const lidarEnabled = derived(capabilities, ($caps) =>
 	Object.values($caps.lidar).some((s) => s.enabled)
 );
 
-/** Derived convenience: the default LiDAR runtime status string, or 'disabled'. */
+/** Derived convenience: the "default" LiDAR sensor's runtime status, or
+ *  'disabled' when no sensor named "default" exists. Single-sensor
+ *  deployments always use "default"; multi-sensor setups may need a
+ *  sensor selector in future. */
 export const lidarState = derived(
 	capabilities,
 	($caps) => $caps.lidar['default']?.status ?? 'disabled'
