@@ -407,7 +407,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			now := time.Now()
 			r.state.CompletedAt = &now
 			r.mu.Unlock()
-			r.persistComplete("error", errMsg, nil)
+			r.persistComplete("failed", errMsg, nil)
 			return
 		default:
 		}
@@ -569,7 +569,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	r.logger.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
 
 	// Persist completion to database
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 // computeComboResult computes summary statistics for a parameter combination
