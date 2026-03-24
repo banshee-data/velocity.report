@@ -5,8 +5,8 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 ## Source
 
 - Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
-- Status: Draft
-- Migration slot: 000035+ (builds on landed migrations `000030`-`000034`)
+- Status: Draft — P0/P1 mostly landed (migration 000035, configasset, API, VRLOG provenance); `RunParams.Timestamp` cleanup and P2 legacy removal outstanding
+- Migration slot: 000035 (landed; builds on migrations `000030`-`000034`)
 
 ## Problem
 
