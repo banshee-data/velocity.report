@@ -1,6 +1,6 @@
 # Error Surface Voice Audit Plan
 
-- **Status:** Complete
+- **Status:** In progress
 - **Layers:** Cross-cutting (Go server, Web frontend, Python tools, Shell scripts)
 - **Target:** v0.6.0 — consistent, humane voice across all user-facing messages
 - **Canonical:** This document
