@@ -121,12 +121,6 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 		sourceType = "pcap"
 	}
 
-	legacyParams := RunParamsFromTuning(opts.EffectiveConfig)
-	legacyParamsJSON, err := legacyParams.ToJSON()
-	if err != nil {
-		return "", err
-	}
-
 	run := &AnalysisRun{
 		RunID:               strings.TrimSpace(opts.PreferredRunID),
 		SourceType:          sourceType,
@@ -135,7 +129,6 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 		ParentRunID:         strings.TrimSpace(opts.ParentRunID),
 		ReplayCaseID:        strings.TrimSpace(opts.ReplayCaseID),
 		RequestedParamSetID: strings.TrimSpace(opts.RequestedParamSetID),
-		ParamsJSON:          legacyParamsJSON,
 		Status:              "running",
 	}
 

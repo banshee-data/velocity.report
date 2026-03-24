@@ -33,7 +33,6 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 		"source_type",
 		"source_path",
 		"sensor_id",
-		"params_json",
 		"duration_secs",
 		"total_frames",
 		"total_clusters",
@@ -45,6 +44,9 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 		"parent_run_id",
 		"notes",
 		"vrlog_path",
+	}
+	if caps.ParamsJSON {
+		columns = append(columns, "params_json")
 	}
 	if caps.RunConfigID {
 		columns = append(columns, "run_config_id")
@@ -80,7 +82,7 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		parentRunID    sql.NullString
 		notes          sql.NullString
 		vrlogPath      sql.NullString
-		paramsJSON     string
+		paramsJSON     sql.NullString
 		statisticsJSON sql.NullString
 	)
 
@@ -90,7 +92,6 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		&run.SourceType,
 		&sourcePath,
 		&run.SensorID,
-		&paramsJSON,
 		&run.DurationSecs,
 		&run.TotalFrames,
 		&run.TotalClusters,
@@ -102,6 +103,10 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		&parentRunID,
 		&notes,
 		&vrlogPath,
+	}
+
+	if caps.ParamsJSON {
+		dests = append(dests, &paramsJSON)
 	}
 
 	var (
@@ -139,7 +144,9 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	}
 
 	run.CreatedAt = time.Unix(0, createdAt)
-	run.ParamsJSON = json.RawMessage(paramsJSON)
+	if paramsJSON.Valid {
+		run.ParamsJSON = json.RawMessage(paramsJSON.String)
+	}
 	if sourcePath.Valid {
 		run.SourcePath = sourcePath.String
 	}

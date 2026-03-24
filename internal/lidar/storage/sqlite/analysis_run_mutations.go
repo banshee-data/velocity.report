@@ -16,7 +16,7 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 
 	columns := []string{
 		"run_id", "created_at", "source_type", "source_path", "sensor_id",
-		"params_json", "duration_secs", "total_frames", "total_clusters",
+		"duration_secs", "total_frames", "total_clusters",
 		"total_tracks", "confirmed_tracks", "processing_time_ms",
 		"status", "error_message", "parent_run_id", "notes", "vrlog_path",
 	}
@@ -26,7 +26,6 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 		run.SourceType,
 		nullString(run.SourcePath),
 		run.SensorID,
-		string(run.ParamsJSON),
 		run.DurationSecs,
 		run.TotalFrames,
 		run.TotalClusters,
@@ -38,6 +37,11 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 		nullString(run.ParentRunID),
 		nullString(run.Notes),
 		nullString(run.VRLogPath),
+	}
+
+	if caps.ParamsJSON {
+		columns = append(columns, "params_json")
+		args = append(args, string(run.ParamsJSON))
 	}
 
 	if caps.RunConfigID {

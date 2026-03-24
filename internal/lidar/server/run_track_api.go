@@ -630,7 +630,6 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 	// Persist evaluation result if a scene was identified
 	var evaluationID string
 	if matchedSceneID != "" {
-		candidateRun, _ := runStore.GetRun(candidateRunID)
 		eval := &sqlite.Evaluation{
 			ReplayCaseID:        matchedSceneID,
 			ReferenceRunID:      referenceRunID,
@@ -647,9 +646,6 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 			MatchedCount:        score.MatchedCount,
 			ReferenceCount:      score.ReferenceCount,
 			CandidateCount:      score.CandidateCount,
-		}
-		if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
-			eval.ParamsJSON = candidateRun.ParamsJSON
 		}
 
 		evalStore := sqlite.NewEvaluationStore(ws.db)

@@ -19,9 +19,6 @@ var (
 	lastAnalysisRunIDForScene = func(ws *Server) string {
 		return ws.LastAnalysisRunID()
 	}
-	getRunForSceneEvaluation = func(store *sqlite.AnalysisRunStore, runID string) (*sqlite.AnalysisRun, error) {
-		return store.GetRun(runID)
-	}
 )
 
 // REST API for replay case management
@@ -418,12 +415,6 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get candidate run params for snapshot
-	candidateRun, err := getRunForSceneEvaluation(runStore, req.CandidateRunID)
-	if err != nil {
-		opsf("Warning: failed to get candidate run params: %v", err)
-	}
-
 	eval := &sqlite.Evaluation{
 		ReplayCaseID:        sceneID,
 		ReferenceRunID:      scene.ReferenceRunID,
@@ -440,9 +431,6 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 		MatchedCount:        score.MatchedCount,
 		ReferenceCount:      score.ReferenceCount,
 		CandidateCount:      score.CandidateCount,
-	}
-	if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
-		eval.ParamsJSON = candidateRun.ParamsJSON
 	}
 
 	evalStore := sqlite.NewEvaluationStore(ws.db)

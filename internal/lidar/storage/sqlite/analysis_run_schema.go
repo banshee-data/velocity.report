@@ -6,6 +6,7 @@ import (
 )
 
 type analysisRunRecordCapabilities struct {
+	ParamsJSON          bool
 	RunConfigID         bool
 	RequestedParamSetID bool
 	ReplayCaseID        bool
@@ -51,6 +52,8 @@ func readRunRecordCapabilitiesRows(rows analysisRunSchemaRows) (analysisRunRecor
 			return analysisRunRecordCapabilities{}, fmt.Errorf("scan lidar_run_records schema: %w", err)
 		}
 		switch strings.ToLower(strings.TrimSpace(name)) {
+		case "params_json":
+			caps.ParamsJSON = true
 		case "run_config_id":
 			caps.RunConfigID = true
 		case "requested_param_set_id":

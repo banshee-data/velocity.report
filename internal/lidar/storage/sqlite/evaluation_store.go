@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,24 +11,23 @@ import (
 // Evaluation represents a persisted ground truth evaluation result comparing
 // a candidate analysis run against a reference run for a given scene.
 type Evaluation struct {
-	EvaluationID        string          `json:"evaluation_id"`
-	ReplayCaseID        string          `json:"replay_case_id"`
-	ReferenceRunID      string          `json:"reference_run_id"`
-	CandidateRunID      string          `json:"candidate_run_id"`
-	DetectionRate       float64         `json:"detection_rate"`
-	Fragmentation       float64         `json:"fragmentation"`
-	FalsePositiveRate   float64         `json:"false_positive_rate"`
-	VelocityCoverage    float64         `json:"velocity_coverage"`
-	QualityPremium      float64         `json:"quality_premium"`
-	TruncationRate      float64         `json:"truncation_rate"`
-	VelocityNoiseRate   float64         `json:"velocity_noise_rate"`
-	StoppedRecoveryRate float64         `json:"stopped_recovery_rate"`
-	CompositeScore      float64         `json:"composite_score"`
-	MatchedCount        int             `json:"matched_count"`
-	ReferenceCount      int             `json:"reference_count"`
-	CandidateCount      int             `json:"candidate_count"`
-	ParamsJSON          json.RawMessage `json:"params_json,omitempty"`
-	CreatedAt           int64           `json:"created_at"`
+	EvaluationID        string  `json:"evaluation_id"`
+	ReplayCaseID        string  `json:"replay_case_id"`
+	ReferenceRunID      string  `json:"reference_run_id"`
+	CandidateRunID      string  `json:"candidate_run_id"`
+	DetectionRate       float64 `json:"detection_rate"`
+	Fragmentation       float64 `json:"fragmentation"`
+	FalsePositiveRate   float64 `json:"false_positive_rate"`
+	VelocityCoverage    float64 `json:"velocity_coverage"`
+	QualityPremium      float64 `json:"quality_premium"`
+	TruncationRate      float64 `json:"truncation_rate"`
+	VelocityNoiseRate   float64 `json:"velocity_noise_rate"`
+	StoppedRecoveryRate float64 `json:"stopped_recovery_rate"`
+	CompositeScore      float64 `json:"composite_score"`
+	MatchedCount        int     `json:"matched_count"`
+	ReferenceCount      int     `json:"reference_count"`
+	CandidateCount      int     `json:"candidate_count"`
+	CreatedAt           int64   `json:"created_at"`
 }
 
 // EvaluationStore provides persistence for ground truth evaluation results.
@@ -51,11 +49,6 @@ func (s *EvaluationStore) Insert(eval *Evaluation) error {
 		eval.CreatedAt = time.Now().UnixNano()
 	}
 
-	var paramsStr interface{}
-	if len(eval.ParamsJSON) > 0 {
-		paramsStr = string(eval.ParamsJSON)
-	}
-
 	return retryOnBusy(func() error {
 		_, err := s.db.Exec(`
 			INSERT INTO lidar_replay_evaluations (
@@ -63,13 +56,13 @@ func (s *EvaluationStore) Insert(eval *Evaluation) error {
 				detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 				quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 				composite_score, matched_count, reference_count, candidate_count,
-				params_json, created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			eval.EvaluationID, eval.ReplayCaseID, eval.ReferenceRunID, eval.CandidateRunID,
 			eval.DetectionRate, eval.Fragmentation, eval.FalsePositiveRate, eval.VelocityCoverage,
 			eval.QualityPremium, eval.TruncationRate, eval.VelocityNoiseRate, eval.StoppedRecoveryRate,
 			eval.CompositeScore, eval.MatchedCount, eval.ReferenceCount, eval.CandidateCount,
-			paramsStr, eval.CreatedAt,
+			eval.CreatedAt,
 		)
 		return err
 	})
@@ -82,7 +75,7 @@ func (s *EvaluationStore) ListByScene(sceneID string) ([]*Evaluation, error) {
 		       detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 		       quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 		       composite_score, matched_count, reference_count, candidate_count,
-		       params_json, created_at
+		       created_at
 		FROM lidar_replay_evaluations
 		WHERE replay_case_id = ?
 		ORDER BY created_at DESC`, sceneID)
@@ -109,27 +102,23 @@ func (s *EvaluationStore) Get(evaluationID string) (*Evaluation, error) {
 		       detection_rate, fragmentation, false_positive_rate, velocity_coverage,
 		       quality_premium, truncation_rate, velocity_noise_rate, stopped_recovery_rate,
 		       composite_score, matched_count, reference_count, candidate_count,
-		       params_json, created_at
+		       created_at
 		FROM lidar_replay_evaluations
 		WHERE evaluation_id = ?`, evaluationID)
 
 	var e Evaluation
-	var paramsStr sql.NullString
 	err := row.Scan(
 		&e.EvaluationID, &e.ReplayCaseID, &e.ReferenceRunID, &e.CandidateRunID,
 		&e.DetectionRate, &e.Fragmentation, &e.FalsePositiveRate, &e.VelocityCoverage,
 		&e.QualityPremium, &e.TruncationRate, &e.VelocityNoiseRate, &e.StoppedRecoveryRate,
 		&e.CompositeScore, &e.MatchedCount, &e.ReferenceCount, &e.CandidateCount,
-		&paramsStr, &e.CreatedAt,
+		&e.CreatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("evaluation %s not found", evaluationID)
 		}
 		return nil, fmt.Errorf("scan evaluation: %w", err)
-	}
-	if paramsStr.Valid {
-		e.ParamsJSON = json.RawMessage(paramsStr.String)
 	}
 	return &e, nil
 }
@@ -155,19 +144,15 @@ func (s *EvaluationStore) Delete(evaluationID string) error {
 // scanEvaluation scans an evaluation row from a sql.Rows cursor.
 func scanEvaluation(rows *sql.Rows) (*Evaluation, error) {
 	var e Evaluation
-	var paramsStr sql.NullString
 	err := rows.Scan(
 		&e.EvaluationID, &e.ReplayCaseID, &e.ReferenceRunID, &e.CandidateRunID,
 		&e.DetectionRate, &e.Fragmentation, &e.FalsePositiveRate, &e.VelocityCoverage,
 		&e.QualityPremium, &e.TruncationRate, &e.VelocityNoiseRate, &e.StoppedRecoveryRate,
 		&e.CompositeScore, &e.MatchedCount, &e.ReferenceCount, &e.CandidateCount,
-		&paramsStr, &e.CreatedAt,
+		&e.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan evaluation row: %w", err)
-	}
-	if paramsStr.Valid {
-		e.ParamsJSON = json.RawMessage(paramsStr.String)
 	}
 	return &e, nil
 }
