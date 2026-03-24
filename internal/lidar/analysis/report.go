@@ -498,7 +498,13 @@ func computeDistStats(vals []float64) *DistStats {
 	}
 
 	percentileIdx := func(p float64) int {
-		return int(math.Floor(float64(n) * p))
+		idx := int(math.Floor(float64(n) * p))
+		if idx < 0 {
+			idx = 0
+		} else if idx >= n {
+			idx = n - 1
+		}
+		return idx
 	}
 
 	ds := &DistStats{

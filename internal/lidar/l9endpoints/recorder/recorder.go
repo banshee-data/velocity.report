@@ -352,8 +352,11 @@ func deserializeFrame(data []byte) (*l9endpoints.FrameBundle, error) {
 	switch encoding {
 	case FrameEncodingProto:
 		return deserializeFrameProto(data)
+	case FrameEncodingJSON:
+		return deserializeFrameJSON(data)
+	default:
+		return nil, fmt.Errorf("unsupported frame encoding: %v", encoding)
 	}
-	return deserializeFrameJSON(data)
 }
 
 func deserializeFrameJSON(data []byte) (*l9endpoints.FrameBundle, error) {
