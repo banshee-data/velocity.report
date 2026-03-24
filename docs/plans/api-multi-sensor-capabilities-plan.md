@@ -2,7 +2,7 @@
 
 - **Status:** Complete
 - **Layers:** API, Frontend, cmd/radar
-- **Canonical architecture:** `internal/api/server.go`, `cmd/radar/capabilities.go`
+- **Canonical:** `internal/api/server.go`, `cmd/radar/capabilities.go`
 
 Redesign `/api/capabilities` to support multiple named sensors per class,
 future-proofing for deployments with more than one radar or LiDAR unit.
@@ -98,8 +98,9 @@ disabled → starting → receiving ⇄ stale
 
 ### Empty map semantics
 
-`{}` = no sensors of this class configured. A disabled sensor still appears in
-the map with `"enabled": false`.
+`{}` = no sensors of this class are currently configured or active for this
+sensor class. Providers may omit disabled sensors from the map, so a missing
+entry is treated the same as a disabled or unconfigured sensor.
 
 ## 3. Go Types
 
