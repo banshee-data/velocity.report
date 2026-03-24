@@ -44,13 +44,13 @@ cleanup() {
 # Register cleanup on exit
 trap cleanup EXIT
 
-echo -e "${GREEN}Syncing schema.sql with latest migrations...${NC}"
+echo -e "${GREEN}Syncing schema.sql from migrations...${NC}"
 echo ""
 
 # Check if sqlite3 is available
 if ! command -v sqlite3 &> /dev/null; then
-    echo -e "${RED}Error: sqlite3 command not found${NC}"
-    echo "Please install SQLite3:"
+    echo -e "${RED}sqlite3 not found.${NC}"
+    echo "Install it:"
     echo "  macOS:  brew install sqlite"
     echo "  Ubuntu: sudo apt-get install sqlite3"
     exit 1
@@ -67,17 +67,17 @@ rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal"
 # The radar command with a non-existent database will trigger migration check
 # which creates the database using schema.sql, then we'll migrate it properly
 if ! go run ./cmd/radar --db-path="$TEMP_DB" migrate up 2>&1; then
-    echo -e "${RED}Error: Failed to apply migrations${NC}"
+    echo -e "${RED}Could not apply migrations.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Migrations applied successfully${NC}"
+echo -e "${GREEN}✓ Migrations applied.${NC}"
 echo ""
 
 # Step 2: Export schema from migrated database
 echo "2. Exporting schema from migrated database..."
 if ! sqlite3 "$TEMP_DB" ".schema" > "$TEMP_SCHEMA"; then
-    echo -e "${RED}Error: Failed to export schema${NC}"
+    echo -e "${RED}Could not export schema.${NC}"
     exit 1
 fi
 
@@ -89,18 +89,18 @@ if grep -q "CREATE TABLE sqlite_sequence" "$TEMP_SCHEMA"; then
     rm -f "$TEMP_SCHEMA.bak"
 fi
 
-echo -e "${GREEN}✓ Schema exported successfully${NC}"
+echo -e "${GREEN}✓ Schema exported.${NC}"
 echo ""
 
 # Step 2.5: Reorder tables by foreign key dependencies
 echo "2.5. Reordering tables by foreign key dependencies..."
 TEMP_ORDERED="$PROJECT_ROOT/.tmp_ordered_schema.sql"
 if ! python3 "$SCRIPT_DIR/order-schema-tables.py" "$TEMP_SCHEMA" > "$TEMP_ORDERED"; then
-    echo -e "${RED}Error: Failed to reorder schema tables${NC}"
+    echo -e "${RED}Could not reorder tables.${NC}"
     exit 1
 fi
 mv "$TEMP_ORDERED" "$TEMP_SCHEMA"
-echo -e "${GREEN}✓ Tables reordered successfully${NC}"
+echo -e "${GREEN}✓ Tables reordered.${NC}"
 echo ""
 
 # Step 3: Update schema.sql
@@ -159,18 +159,18 @@ TEST_OUTPUT=$(mktemp)
 if go test ./internal/db -run TestSchemaConsistency > "$TEST_OUTPUT" 2>&1; then
     # Test passed (exit code 0) - verify it's the expected output format
     if grep -qE "^ok[[:space:]]" "$TEST_OUTPUT" && grep -q "github.com/banshee-data/velocity.report/internal/db" "$TEST_OUTPUT"; then
-        echo -e "${GREEN}✓ Schema consistency test passed${NC}"
+        echo -e "${GREEN}✓ Schema consistency check passed.${NC}"
     else
         # Unexpected output format
-        echo -e "${YELLOW}⚠ Test completed but output format unexpected${NC}"
+        echo -e "${YELLOW}⚠ Test ran but output looks odd.${NC}"
         echo "   Output: $(cat "$TEST_OUTPUT")"
         echo "   Run 'make test-go' to verify all tests pass."
     fi
 else
     # Test failed (exit code non-zero)
-    echo -e "${RED}✗ Schema consistency test failed${NC}"
-    echo "   The migrated schema does not match schema.sql"
-    echo "   This indicates migrations are out of sync with schema.sql"
+    echo -e "${RED}✗ Schema consistency check failed.${NC}"
+    echo "   Migrated schema does not match schema.sql."
+    echo "   Migrations and schema.sql have diverged."
     echo ""
     echo "   Test output:"
     cat "$TEST_OUTPUT" | tail -20
@@ -180,9 +180,9 @@ fi
 rm -f "$TEST_OUTPUT"
 
 echo ""
-echo -e "${GREEN}Schema sync complete!${NC}"
+echo -e "${GREEN}Schema sync done.${NC}"
 echo ""
-echo "Next steps:"
+echo "Review and commit:"
 echo "  1. Review changes: git diff internal/db/schema.sql"
 echo "  2. Run tests: make test-go"
 echo "  3. Commit: git add internal/db/schema.sql"

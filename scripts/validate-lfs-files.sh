@@ -11,18 +11,18 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Colour
 
-echo "=== Git LFS File Validation ==="
+echo "=== LFS File Validation ==="
 echo ""
 
 # Check if git-lfs is installed
 if ! command -v git-lfs &> /dev/null; then
-    echo -e "${YELLOW}Warning: git-lfs not installed, attempting to install...${NC}"
+    echo -e "${YELLOW}git-lfs not found — attempting to install...${NC}"
     if command -v apt-get &> /dev/null; then
         sudo apt-get update && sudo apt-get install -y git-lfs
     elif command -v brew &> /dev/null; then
         brew install git-lfs
     else
-        echo -e "${RED}Error: Cannot install git-lfs automatically${NC}"
+        echo -e "${RED}Could not install git-lfs automatically.${NC}"
         exit 1
     fi
 fi
@@ -52,7 +52,7 @@ validate_file() {
     echo "Checking: $file"
 
     if [ ! -f "$file" ]; then
-        echo -e "  ${RED}✗ File does not exist${NC}"
+        echo -e "  ${RED}✗ File missing${NC}"
         return 1
     fi
 
@@ -62,7 +62,7 @@ validate_file() {
 
     # Check if it's still an LFS pointer (unfetched)
     if is_lfs_pointer "$file"; then
-        echo -e "  ${RED}✗ File is an LFS pointer (not fetched)${NC}"
+        echo -e "  ${RED}✗ LFS pointer — file content not fetched yet${NC}"
         echo "  Content preview:"
         head -5 "$file" | sed 's/^/    /'
         return 1
@@ -77,7 +77,7 @@ validate_file() {
         if echo "$file_type" | grep -qi "$expected_type"; then
             echo -e "  ${GREEN}✓ File type matches expected: $expected_type${NC}"
         else
-            echo -e "  ${RED}✗ File type mismatch. Expected: $expected_type${NC}"
+            echo -e "  ${RED}✗ Unexpected file type. Expected: $expected_type${NC}"
             return 1
         fi
     fi
@@ -117,9 +117,9 @@ echo "Errors: $ERRORS"
 
 if [ $ERRORS -gt 0 ]; then
     echo ""
-    echo -e "${RED}LFS validation failed!${NC}"
+    echo -e "${RED}LFS validation found problems.${NC}"
     echo ""
-    echo "To fix, ensure Git LFS is properly configured:"
+    echo "To fix:"
     echo "  1. Install git-lfs: https://git-lfs.github.com/"
     echo "  2. Run: git lfs install"
     echo "  3. Run: git lfs pull"
@@ -129,5 +129,5 @@ if [ $ERRORS -gt 0 ]; then
 fi
 
 echo ""
-echo -e "${GREEN}All LFS files validated successfully!${NC}"
+echo -e "${GREEN}All LFS files look correct.${NC}"
 exit 0
