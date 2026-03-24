@@ -76,6 +76,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LayerChart policy in LiDAR routes — enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps — [design doc §4.2](ui/design-review-and-improvement.md) `S`
 - VelocityVisualiser light mode (3D scene) — follow system dark/light mode with tuned point cloud, trails, and box colours — [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Profile comparison system — cross-run evaluation UI, scene evaluation APIs — [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
+- Web: display runtime version and git SHA in settings UI for admin/debug visibility `S`
 
 ## 08x Mobile Mesh 📶
 
