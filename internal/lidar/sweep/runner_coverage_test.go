@@ -370,13 +370,13 @@ func TestRunner_StartGeneric_TooManyCombos(t *testing.T) {
 
 func TestRunner_PersistComplete_NoPersister(t *testing.T) {
 	r := newQuietRunner(nil)
-	r.persistComplete("complete", "", nil) // should not panic
+	r.persistComplete("completed", "", nil) // should not panic
 }
 
 func TestRunner_PersistComplete_NoSweepID(t *testing.T) {
 	r := newQuietRunner(nil)
 	r.persister = &mockPersister{}
-	r.persistComplete("complete", "", nil) // should not panic
+	r.persistComplete("completed", "", nil) // should not panic
 }
 
 func TestRunner_PersistComplete_WithData(t *testing.T) {
@@ -388,7 +388,7 @@ func TestRunner_PersistComplete_WithData(t *testing.T) {
 	r.state.Results = []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}}
 	r.mu.Unlock()
 
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
@@ -710,12 +710,12 @@ func TestRunner_PersistComplete_WithResults(t *testing.T) {
 	r.mu.Unlock()
 
 	rec, _ := json.Marshal(map[string]interface{}{"noise": 0.01})
-	r.persistComplete("complete", "", rec)
+	r.persistComplete("completed", "", rec)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "complete" {
-		t.Errorf("status = %q, want complete", mp.completeStatus)
+	if mp.completeStatus != "completed" {
+		t.Errorf("status = %q, want completed", mp.completeStatus)
 	}
 }
 
@@ -725,12 +725,12 @@ func TestRunner_PersistComplete_WithError(t *testing.T) {
 	r.SetPersister(mp)
 	r.sweepID = "test-sweep"
 
-	r.persistComplete("error", "something failed", nil)
+	r.persistComplete("failed", "something failed", nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "error" {
-		t.Errorf("status = %q, want error", mp.completeStatus)
+	if mp.completeStatus != "failed" {
+		t.Errorf("status = %q, want failed", mp.completeStatus)
 	}
 }
 
@@ -1551,13 +1551,13 @@ func TestRunnerCov2_AddWarning(t *testing.T) {
 func TestRunnerCov2_PersistComplete_NoPersister(t *testing.T) {
 	r := &Runner{}
 	// Should not panic
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 func TestRunnerCov2_PersistComplete_NoSweepID(t *testing.T) {
 	r := &Runner{persister: &runnerMockPersister{}}
 	// Should return early - sweepID is empty
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 func TestRunnerCov2_PersistComplete_WithPersister(t *testing.T) {
@@ -1569,7 +1569,7 @@ func TestRunnerCov2_PersistComplete_WithPersister(t *testing.T) {
 			Results: []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}},
 		},
 	}
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 // --- runnerMockPersister ---

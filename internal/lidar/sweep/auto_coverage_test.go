@@ -530,8 +530,8 @@ func TestAutoTuner_SetError_WithPersister(t *testing.T) {
 	if !mp.completeCalled {
 		t.Error("expected persister.SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "error" {
-		t.Errorf("status = %q, want error", mp.completeStatus)
+	if mp.completeStatus != "failed" {
+		t.Errorf("status = %q, want failed", mp.completeStatus)
 	}
 }
 
@@ -539,13 +539,13 @@ func TestAutoTuner_SetError_WithPersister(t *testing.T) {
 
 func TestAutoTuner_PersistComplete_NoPersister(t *testing.T) {
 	at := newQuietAutoTuner(nil)
-	at.persistComplete("complete", nil, nil, nil) // should not panic
+	at.persistComplete("completed", nil, nil, nil) // should not panic
 }
 
 func TestAutoTuner_PersistComplete_NoSweepID(t *testing.T) {
 	at := newQuietAutoTuner(nil)
 	at.persister = &mockPersister{}
-	at.persistComplete("complete", nil, nil, nil) // should not panic
+	at.persistComplete("completed", nil, nil, nil) // should not panic
 }
 
 func TestAutoTuner_PersistComplete_WithData(t *testing.T) {
@@ -557,7 +557,7 @@ func TestAutoTuner_PersistComplete_WithData(t *testing.T) {
 	results := []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01, "closeness_multiplier": 3.0}}}
 	rec := map[string]interface{}{"noise": 0.01}
 	errMsg := "something went wrong"
-	at.persistComplete("error", results, rec, &errMsg)
+	at.persistComplete("failed", results, rec, &errMsg)
 
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete called")
@@ -578,7 +578,7 @@ func TestAutoTuner_PersistComplete_WithRoundResults(t *testing.T) {
 	}}
 	at.mu.Unlock()
 
-	at.persistComplete("complete", nil, nil, nil)
+	at.persistComplete("completed", nil, nil, nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete called")
 	}
@@ -1036,8 +1036,8 @@ func TestAutoCov2_RunWithPersister(t *testing.T) {
 	if !completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if completeStatus != "complete" {
-		t.Errorf("expected complete status, got %q", completeStatus)
+	if completeStatus != "completed" {
+		t.Errorf("expected completed status, got %q", completeStatus)
 	}
 }
 
@@ -1478,7 +1478,7 @@ func TestAutoCov2_PersistComplete_NilRecommendation(t *testing.T) {
 	mp := &mockPersister{}
 	at.SetPersister(mp)
 	at.sweepID = "persist-nil-rec"
-	at.persistComplete("complete", []ComboResult{}, nil, nil)
+	at.persistComplete("completed", []ComboResult{}, nil, nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete called")
 	}
@@ -1490,7 +1490,7 @@ func TestAutoCov2_PersistComplete_NilErrMsg(t *testing.T) {
 	at.SetPersister(mp)
 	at.sweepID = "persist-nil-err"
 	rec := map[string]interface{}{"p": 0.5}
-	at.persistComplete("complete", nil, rec, nil)
+	at.persistComplete("completed", nil, rec, nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete called")
 	}
