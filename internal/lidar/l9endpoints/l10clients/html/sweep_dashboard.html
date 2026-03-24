@@ -155,6 +155,26 @@
               Apply Replay Case Params
             </button>
           </div>
+          <div class="manual-only" style="margin-top: 8px">
+            <div class="setup-bar">
+              <button class="btn-sm btn-secondary" onclick="downloadSetup()">
+                Download JSON
+              </button>
+              <button class="btn-sm btn-secondary" onclick="document.getElementById('setup-upload').click()">
+                Upload JSON
+              </button>
+              <input id="setup-upload" type="file" accept=".json" style="display: none" onchange="uploadSetup(this)" />
+              <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">
+                Edit JSON
+              </button>
+              <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display: none">
+                Apply
+              </button>
+            </div>
+            <div id="json-editor-wrap" style="display: none">
+              <textarea id="scenario-json"></textarea>
+            </div>
+          </div>
         </div>
 
         <hr style="
@@ -231,6 +251,53 @@
           <div id="sweep-error" class="error-box" style="display: none"></div>
           <div id="sweep-warnings" style="display: none"></div>
         </div>
+
+        <!-- HINT Progress (shown during HINT run) -->
+        <div id="hint-progress-card" class="hint-only" style="display: none">
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--card-border);" />
+          <h3 style="margin: 0 0 8px 0; font-size: 1em">HINT Progress</h3>
+          <div id="hint-status-text" style="margin-bottom: 8px"></div>
+          <div id="hint-label-progress" style="display: none">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
+              <span id="hint-label-count">0/0 labelled</span>
+              <span id="hint-label-pct">0%%</span>
+            </div>
+            <div class="progress-bar-bg"
+              style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
+              <div id="hint-label-bar"
+                style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s">
+              </div>
+              <div id="hint-threshold-marker"
+                style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
+                title="90%% threshold"></div>
+            </div>
+            <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center">
+              <span id="hint-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
+            </div>
+            <div id="hint-gate-status"
+              style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)">
+            </div>
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+              <label style="flex: 1">
+                <span style="font-size: 12px">Next sweep duration (mins)</span>
+                <input id="hint-next-duration" type="number" value="60" min="1" style="width: 80px" />
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px">
+                <input id="hint-add-round" type="checkbox" />
+                <span style="font-size: 12px">Add extra round</span>
+              </label>
+            </div>
+            <div style="margin-top: 8px; display: flex; gap: 8px">
+              <a id="hint-tracks-link" href="" target="_blank" class="btn btn-sm">Open Tracks Page →</a>
+              <button id="hint-continue-btn" class="btn btn-primary btn-sm" onclick="handleHINTContinue()" disabled>
+                Continue to Sweep
+              </button>
+            </div>
+          </div>
+          <div id="hint-sweep-progress" style="display: none">
+            <div id="hint-sweep-info" style="font-size: 12px; color: var(--fg-muted)"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Card 2: Sweep Configuration (hidden in HINT mode via CSS) -->
@@ -265,31 +332,6 @@
             <small class="field-desc">Per Combo re-settles the grid each time. Settle Once does it
               for the first combination and reuses the result.</small>
           </label>
-        </div>
-      </div>
-
-      <!-- Card 3: Scene (manual mode only) -->
-      <div class="card scene-card manual-only">
-        <h2>Scene</h2>
-        <div class="scene-card-content">
-          <div class="scene-bar">
-            <button class="btn-sm btn-secondary" onclick="downloadScene()">
-              Download JSON
-            </button>
-            <button class="btn-sm btn-secondary" onclick="document.getElementById('scene-upload').click()">
-              Upload JSON
-            </button>
-            <input id="scene-upload" type="file" accept=".json" style="display: none" onchange="uploadScene(this)" />
-            <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">
-              Edit JSON
-            </button>
-            <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display: none">
-              Apply
-            </button>
-          </div>
-          <div id="json-editor-wrap" style="display: none">
-            <textarea id="scenario-json"></textarea>
-          </div>
         </div>
       </div>
 
@@ -409,52 +451,6 @@
             <input id="hint_temporal_spread" type="number" value="" min="0" step="1" placeholder="0" />
             <small class="field-desc">Minimum time span in seconds that labelled tracks must cover.</small>
           </label>
-        </div>
-      </div>
-
-      <!-- HINT Progress Card (shown during HINT run) -->
-      <div id="hint-progress-card" class="card hint-only" style="display: none">
-        <h2>HINT Progress</h2>
-        <div id="hint-status-text" style="margin-bottom: 8px"></div>
-        <div id="hint-label-progress" style="display: none">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
-            <span id="hint-label-count">0/0 labelled</span>
-            <span id="hint-label-pct">0%%</span>
-          </div>
-          <div class="progress-bar-bg"
-            style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
-            <div id="hint-label-bar"
-              style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s">
-            </div>
-            <div id="hint-threshold-marker"
-              style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
-              title="90%% threshold"></div>
-          </div>
-          <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center">
-            <span id="hint-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
-          </div>
-          <div id="hint-gate-status"
-            style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)">
-          </div>
-          <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
-            <label style="flex: 1">
-              <span style="font-size: 12px">Next sweep duration (mins)</span>
-              <input id="hint-next-duration" type="number" value="60" min="1" style="width: 80px" />
-            </label>
-            <label style="display: flex; align-items: center; gap: 4px">
-              <input id="hint-add-round" type="checkbox" />
-              <span style="font-size: 12px">Add extra round</span>
-            </label>
-          </div>
-          <div style="margin-top: 8px; display: flex; gap: 8px">
-            <a id="hint-tracks-link" href="" target="_blank" class="btn btn-sm">Open Tracks Page →</a>
-            <button id="hint-continue-btn" class="btn btn-primary btn-sm" onclick="handleHINTContinue()" disabled>
-              Continue to Sweep
-            </button>
-          </div>
-        </div>
-        <div id="hint-sweep-progress" style="display: none">
-          <div id="hint-sweep-info" style="font-size: 12px; color: var(--fg-muted)"></div>
         </div>
       </div>
 
