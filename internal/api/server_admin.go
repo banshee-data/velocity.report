@@ -41,12 +41,10 @@ func (s *Server) showCapabilities(w http.ResponseWriter, r *http.Request) {
 	}
 
 	caps := Capabilities{
-		Radar: true,
-		Lidar: LidarCapability{
-			Enabled: false,
-			State:   "disabled",
+		Radar: map[string]SensorStatus{
+			"default": {Enabled: true, Status: "receiving"},
 		},
-		LidarSweep: false,
+		Lidar: map[string]LidarSensorStatus{},
 	}
 
 	if s.capabilitiesProvider != nil {

@@ -35,17 +35,21 @@ func TestShowCapabilities_DefaultRadarOnly(t *testing.T) {
 		t.Fatalf("Failed to decode capabilities: %v", err)
 	}
 
-	if !caps.Radar {
-		t.Error("Expected radar to be true")
+	// Radar should have a "default" entry that is enabled.
+	radarDefault, ok := caps.Radar["default"]
+	if !ok {
+		t.Fatal("Expected radar.default to exist")
 	}
-	if caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be false when no provider set")
+	if !radarDefault.Enabled {
+		t.Error("Expected radar.default.enabled to be true")
 	}
-	if caps.Lidar.State != "disabled" {
-		t.Errorf("Expected lidar.state to be 'disabled', got %q", caps.Lidar.State)
+	if radarDefault.Status != "receiving" {
+		t.Errorf("Expected radar.default.status 'receiving', got %q", radarDefault.Status)
 	}
-	if caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be false when no provider set")
+
+	// Lidar should be an empty map when no provider is set.
+	if len(caps.Lidar) != 0 {
+		t.Errorf("Expected empty lidar map, got %d entries", len(caps.Lidar))
 	}
 }
 
@@ -55,12 +59,15 @@ func TestShowCapabilities_WithLidarReady(t *testing.T) {
 
 	server.SetCapabilitiesProvider(&mockCapabilitiesProvider{
 		caps: Capabilities{
-			Radar: true,
-			Lidar: LidarCapability{
-				Enabled: true,
-				State:   "ready",
+			Radar: map[string]SensorStatus{
+				"default": {Enabled: true, Status: "receiving"},
 			},
-			LidarSweep: true,
+			Lidar: map[string]LidarSensorStatus{
+				"default": {
+					SensorStatus: SensorStatus{Enabled: true, Status: "ready"},
+					Sweep:        true,
+				},
+			},
 		},
 	})
 
@@ -78,17 +85,26 @@ func TestShowCapabilities_WithLidarReady(t *testing.T) {
 		t.Fatalf("Failed to decode capabilities: %v", err)
 	}
 
-	if !caps.Radar {
-		t.Error("Expected radar to be true")
+	radarDefault, ok := caps.Radar["default"]
+	if !ok {
+		t.Fatal("Expected radar.default to exist")
 	}
-	if !caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be true")
+	if !radarDefault.Enabled {
+		t.Error("Expected radar.default.enabled to be true")
 	}
-	if caps.Lidar.State != "ready" {
-		t.Errorf("Expected lidar.state to be 'ready', got %q", caps.Lidar.State)
+
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist")
 	}
-	if !caps.LidarSweep {
-		t.Error("Expected lidar_sweep to be true")
+	if !lidarDefault.Enabled {
+		t.Error("Expected lidar.default.enabled to be true")
+	}
+	if lidarDefault.Status != "ready" {
+		t.Errorf("Expected lidar.default.status 'ready', got %q", lidarDefault.Status)
+	}
+	if !lidarDefault.Sweep {
+		t.Error("Expected lidar.default.sweep to be true")
 	}
 }
 
@@ -98,12 +114,15 @@ func TestShowCapabilities_LidarError(t *testing.T) {
 
 	server.SetCapabilitiesProvider(&mockCapabilitiesProvider{
 		caps: Capabilities{
-			Radar: true,
-			Lidar: LidarCapability{
-				Enabled: true,
-				State:   "error",
+			Radar: map[string]SensorStatus{
+				"default": {Enabled: true, Status: "receiving"},
 			},
-			LidarSweep: false,
+			Lidar: map[string]LidarSensorStatus{
+				"default": {
+					SensorStatus: SensorStatus{Enabled: true, Status: "error"},
+					Sweep:        false,
+				},
+			},
 		},
 	})
 
@@ -121,11 +140,15 @@ func TestShowCapabilities_LidarError(t *testing.T) {
 		t.Fatalf("Failed to decode capabilities: %v", err)
 	}
 
-	if caps.Lidar.State != "error" {
-		t.Errorf("Expected lidar.state to be 'error', got %q", caps.Lidar.State)
+	lidarDefault, ok := caps.Lidar["default"]
+	if !ok {
+		t.Fatal("Expected lidar.default to exist")
 	}
-	if !caps.Lidar.Enabled {
-		t.Error("Expected lidar.enabled to be true even in error state")
+	if lidarDefault.Status != "error" {
+		t.Errorf("Expected lidar.default.status 'error', got %q", lidarDefault.Status)
+	}
+	if !lidarDefault.Enabled {
+		t.Error("Expected lidar.default.enabled to be true even in error state")
 	}
 }
 
