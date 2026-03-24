@@ -8,9 +8,8 @@ import { getCapabilities, type Capabilities } from '../api';
 
 /** Default capabilities: radar only, LiDAR disabled. */
 const DEFAULT_CAPABILITIES: Capabilities = {
-	radar: true,
-	lidar: { enabled: false, state: 'disabled' },
-	lidar_sweep: false
+	radar: { default: { enabled: true, status: 'receiving' } },
+	lidar: {}
 };
 
 /**
@@ -27,11 +26,16 @@ export const capabilities = writable<Capabilities>(DEFAULT_CAPABILITIES);
 /** Whether the initial fetch has completed (success or failure). */
 export const capabilitiesLoaded = writable<boolean>(false);
 
-/** Derived convenience: true when the LiDAR subsystem is enabled. */
-export const lidarEnabled = derived(capabilities, ($caps) => $caps.lidar.enabled);
+/** Derived convenience: true when any LiDAR sensor is enabled. */
+export const lidarEnabled = derived(capabilities, ($caps) =>
+	Object.values($caps.lidar).some((s) => s.enabled)
+);
 
-/** Derived convenience: the LiDAR runtime state string. */
-export const lidarState = derived(capabilities, ($caps) => $caps.lidar.state);
+/** Derived convenience: the default LiDAR runtime status string, or 'disabled'. */
+export const lidarState = derived(
+	capabilities,
+	($caps) => $caps.lidar['default']?.status ?? 'disabled'
+);
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
