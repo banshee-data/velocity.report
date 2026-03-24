@@ -63,7 +63,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		req.DurationSeconds = -1
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
-				ws.writeJSONError(w, http.StatusBadRequest, "missing JSON body for PCAP request")
+				ws.writeJSONError(w, http.StatusBadRequest, "request body is missing — send JSON with pcap_file")
 				return
 			}
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
@@ -156,7 +156,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.currentSource == DataSourcePCAP {
-		ws.writeJSONError(w, http.StatusConflict, "PCAP replay already active")
+		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running")
 		return
 	}
 
@@ -253,7 +253,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
-		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode")
+		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode — stop the current source first")
 		return
 	}
 
@@ -261,7 +261,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Lock()
 	if !ws.pcapInProgress {
 		ws.pcapMu.Unlock()
-		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay in progress")
+		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running")
 		return
 	}
 	cancel := ws.pcapCancel
@@ -422,7 +422,7 @@ func (ws *Server) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/playback/pause
 func (ws *Server) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackPause == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause is not available")
 		return
 	}
 
@@ -439,7 +439,7 @@ func (ws *Server) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/playback/play
 func (ws *Server) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackPlay == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback play not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback play is not available")
 		return
 	}
 
@@ -457,7 +457,7 @@ func (ws *Server) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
 // Body: {"timestamp_ns": 1234567890}
 func (ws *Server) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackSeek == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek is not available")
 		return
 	}
 
@@ -486,7 +486,7 @@ func (ws *Server) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
 // Body: {"rate": 1.5}
 func (ws *Server) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackRate == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate control is not available")
 		return
 	}
 
@@ -518,7 +518,7 @@ func (ws *Server) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
 func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 	if ws.onVRLogLoad == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog load not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG loading is not available")
 		return
 	}
 
@@ -536,7 +536,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	// If run_id is provided, look up the vrlog_path from the database
 	if body.RunID != "" {
 		if ws.db == nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, "database not configured")
+			ws.writeJSONError(w, http.StatusInternalServerError, "database is not configured")
 			return
 		}
 		store := sqlite.NewAnalysisRunStore(ws.db)
@@ -546,14 +546,14 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if run.VRLogPath == "" {
-			ws.writeJSONError(w, http.StatusBadRequest, "run has no vrlog_path")
+			ws.writeJSONError(w, http.StatusBadRequest, "run does not have a VRLOG path")
 			return
 		}
 		vrlogPath = run.VRLogPath
 	} else if body.VRLogPath != "" {
 		vrlogPath = body.VRLogPath
 	} else {
-		ws.writeJSONError(w, http.StatusBadRequest, "run_id or vrlog_path required")
+		ws.writeJSONError(w, http.StatusBadRequest, "provide either run_id or vrlog_path")
 		return
 	}
 
@@ -566,13 +566,13 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	cleanedPath := filepath.Clean(vrlogPath)
 
 	if !filepath.IsAbs(cleanedPath) {
-		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be absolute")
+		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be an absolute path")
 		return
 	}
 
 	baseWithSep := baseVRLogDir + string(os.PathSeparator)
 	if cleanedPath != baseVRLogDir && !strings.HasPrefix(cleanedPath, baseWithSep) {
-		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be within allowed directory")
+		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be within the allowed directory")
 		return
 	}
 
@@ -599,7 +599,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/vrlog/stop
 func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
 	if ws.onVRLogStop == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "vrlog stop not configured")
+		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG stop is not available")
 		return
 	}
 

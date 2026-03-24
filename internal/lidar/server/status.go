@@ -32,7 +32,7 @@ func (ws *Server) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	status := mgr.GridStatus()
 	if status == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "failed to compute grid status")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not compute grid status")
 		return
 	}
 	resp := status
@@ -186,7 +186,7 @@ func (ws *Server) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
 	if heatmap == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "failed to generate heatmap")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not generate heatmap")
 		return
 	}
 
@@ -360,12 +360,12 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Load and parse the HTML template from embedded filesystem
 	statusFS, statusFSErr := l9endpoints.LegacyStatusFS()
 	if statusFSErr != nil {
-		http.Error(w, "Error loading status assets: "+statusFSErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "could not load status assets: "+statusFSErr.Error(), http.StatusInternalServerError)
 		return
 	}
 	tmpl, err := template.ParseFS(statusFS, "status.html")
 	if err != nil {
-		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "could not load status template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -415,7 +415,7 @@ func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
-		http.Error(w, "Error executing template: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "could not render status page: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -681,7 +681,7 @@ func (ws *Server) handleBackgroundRegions(w http.ResponseWriter, r *http.Request
 
 	info := bm.GetRegionDebugInfo(includeCells)
 	if info == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "failed to get region debug info")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not get region debug info")
 		return
 	}
 

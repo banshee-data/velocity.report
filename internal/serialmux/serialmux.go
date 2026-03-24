@@ -243,7 +243,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	debug.HandleFunc("send-command", "send a command to the serial port", func(w http.ResponseWriter, r *http.Request) {
 		buf := bytes.NewBuffer(nil)
 		if err := sendCommandTemplate.Execute(buf, nil); err != nil {
-			http.Error(w, "Failed to render template", http.StatusInternalServerError)
+			http.Error(w, "could not render template", http.StatusInternalServerError)
 			return
 		}
 		io.Copy(w, buf)
@@ -252,16 +252,16 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to write command to the serial port
 	debug.HandleSilentFunc("send-command-api", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		command := strings.TrimSpace(r.FormValue("command"))
 		if command == "" {
-			http.Error(w, "Missing command", http.StatusBadRequest)
+			http.Error(w, "no command provided", http.StatusBadRequest)
 			return
 		}
 		if err := s.SendCommand(command); err != nil {
-			http.Error(w, "Failed to write command", http.StatusInternalServerError)
+			http.Error(w, "could not write command to serial port", http.StatusInternalServerError)
 			return
 		}
 		io.WriteString(w, fmt.Sprintf("Wrote command %q to serial port", command))
@@ -269,7 +269,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to issue Server-Side Events (SSE) in response to lines coming from the serial port.
 	debug.HandleSilentFunc("tail", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -311,7 +311,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		// serve tail.js from adminTemplateFS
 		f, err := adminTemplateFS.Open("templates/tail.js")
 		if err != nil {
-			http.Error(w, "Failed to open tail.js", http.StatusInternalServerError)
+			http.Error(w, "could not open tail.js", http.StatusInternalServerError)
 			return
 		}
 		defer f.Close()
