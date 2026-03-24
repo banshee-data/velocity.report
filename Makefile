@@ -169,7 +169,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre24
+VERSION := 0.5.0-pre25
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -223,7 +223,7 @@ build-deploy-linux:
 .PHONY: build-web
 build-web:
 	@echo "Building web frontend..."
-	@cd web && export PUBLIC_GIT_SHA="$(GIT_SHA)" && export PUBLIC_BUILD_TIME="$(BUILD_TIME)" && if command -v pnpm >/dev/null 2>&1; then \
+	@cd web && export PUBLIC_GIT_SHA="$(GIT_SHA)" && export PUBLIC_BUILD_TIME="$(BUILD_TIME)" && export PUBLIC_BUILD_VERSION="$(VERSION)" && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run build; \
 	elif command -v npm >/dev/null 2>&1; then \
 		npm run build; \
@@ -401,7 +401,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
+.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -549,6 +549,10 @@ install-web:
 		else \
 			echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 		fi
+
+clean-web:
+	@echo "Cleaning web build artifacts..."
+	@rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
 
 activate-web-cache:
 	@echo "Activating shared web dependency cache..."
@@ -1400,25 +1404,28 @@ deploy-health:
 # UTILITIES
 # =============================================================================
 
-.PHONY: set-version log-go-tail log-go-cat log-go-tail-all git-fs git-files
+.PHONY: version-exact version-bump log-go-tail log-go-cat log-go-tail-all git-fs git-files
 
-set-version:
+version-exact:
 	@if [ -z "$(VER)" ]; then \
-		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
+		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
 		echo ""; \
-		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
-		echo "         make set-version VER=0.5.0 TARGETS='--makefile --deploy --pdf'"; \
+		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
+		echo "         make version-exact VER=0.5.0 TARGETS='--makefile --deploy --pdf'"; \
 		echo ""; \
 		./scripts/set-version.sh; \
 		exit 1; \
 	fi
 	@if [ -z "$(TARGETS)" ]; then \
 		echo "Error: TARGETS not specified"; \
-		echo "Usage: make set-version VER=<version> TARGETS='<targets>'"; \
-		echo "Example: make set-version VER=0.4.0-pre2 TARGETS='--all'"; \
+		echo "Usage: make version-exact VER=<version> TARGETS='<targets>'"; \
+		echo "Example: make version-exact VER=0.4.0-pre2 TARGETS='--all'"; \
 		exit 1; \
 	fi
 	@./scripts/set-version.sh $(VER) $(TARGETS)
+
+version-bump:
+	@./scripts/version-bump.sh
 
 log-go-tail:
 	@# Tail the most recent velocity log; auto-switches when the server restarts

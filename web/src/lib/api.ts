@@ -3,9 +3,9 @@
 // Add more endpoints as needed
 
 export interface Event {
-	Speed: number;
-	Magnitude?: number;
-	Uptime?: number;
+	speed: number;
+	magnitude?: number;
+	uptime?: number;
 }
 
 export interface RadarStats {
@@ -25,13 +25,13 @@ export interface Config {
 
 // Raw shape returned from the server for a single metric row
 type RawRadarStats = {
-	Classifier: string;
-	StartTime: string;
-	Count: number;
-	P50Speed: number;
-	P85Speed: number;
-	P98Speed: number;
-	MaxSpeed: number;
+	classifier: string;
+	start_time: string;
+	count: number;
+	p50_speed: number;
+	p85_speed: number;
+	p98_speed: number;
+	max_speed: number;
 };
 
 // Histogram shape: server returns a map of bucket label -> count. Keys are strings
@@ -101,13 +101,13 @@ export async function getRadarStats(
 	const rows = Array.isArray(payload.metrics) ? (payload.metrics as RawRadarStats[]) : [];
 
 	const metrics = rows.map((r) => ({
-		classifier: r.Classifier,
-		date: new Date(r.StartTime),
-		count: r.Count,
-		p50: r.P50Speed,
-		p85: r.P85Speed,
-		p98: r.P98Speed,
-		max: r.MaxSpeed
+		classifier: r.classifier,
+		date: new Date(r.start_time),
+		count: r.count,
+		p50: r.p50_speed,
+		p85: r.p85_speed,
+		p98: r.p98_speed,
+		max: r.max_speed
 	})) as RadarStats[];
 
 	const histogram = payload && payload.histogram ? (payload.histogram as Histogram) : undefined;
