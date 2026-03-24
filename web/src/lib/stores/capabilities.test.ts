@@ -27,9 +27,8 @@ describe('capabilities store', () => {
 
 		// Reset store to defaults
 		capabilities.set({
-			radar: true,
-			lidar: { enabled: false, state: 'disabled' },
-			lidar_sweep: false
+			radar: { default: { enabled: true, status: 'receiving' } },
+			lidar: {}
 		});
 		capabilitiesLoaded.set(false);
 
@@ -42,12 +41,11 @@ describe('capabilities store', () => {
 	});
 
 	describe('default state', () => {
-		it('should have radar enabled and LiDAR disabled by default', () => {
+		it('should have radar enabled and LiDAR map empty by default', () => {
 			const caps = get(capabilities);
-			expect(caps.radar).toBe(true);
-			expect(caps.lidar.enabled).toBe(false);
-			expect(caps.lidar.state).toBe('disabled');
-			expect(caps.lidar_sweep).toBe(false);
+			expect(caps.radar['default']?.enabled).toBe(true);
+			expect(caps.radar['default']?.status).toBe('receiving');
+			expect(Object.keys(caps.lidar)).toHaveLength(0);
 		});
 
 		it('should not be loaded initially', () => {
@@ -56,25 +54,31 @@ describe('capabilities store', () => {
 	});
 
 	describe('derived stores', () => {
-		it('lidarEnabled should reflect lidar.enabled', () => {
+		it('lidarEnabled should be false when lidar map is empty', () => {
 			expect(get(lidarEnabled)).toBe(false);
+		});
 
+		it('lidarEnabled should be true when any lidar sensor is enabled', () => {
 			capabilities.set({
-				radar: true,
-				lidar: { enabled: true, state: 'ready' },
-				lidar_sweep: true
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {
+					default: { enabled: true, status: 'ready', sweep: true }
+				}
 			});
 
 			expect(get(lidarEnabled)).toBe(true);
 		});
 
-		it('lidarState should reflect lidar.state', () => {
+		it('lidarState should be disabled when lidar map is empty', () => {
 			expect(get(lidarState)).toBe('disabled');
+		});
 
+		it('lidarState should reflect default lidar sensor status', () => {
 			capabilities.set({
-				radar: true,
-				lidar: { enabled: true, state: 'starting' },
-				lidar_sweep: false
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {
+					default: { enabled: true, status: 'starting', sweep: false }
+				}
 			});
 
 			expect(get(lidarState)).toBe('starting');
@@ -84,9 +88,10 @@ describe('capabilities store', () => {
 	describe('startCapabilitiesPolling', () => {
 		it('should fetch capabilities immediately on start', async () => {
 			const mockCaps: Capabilities = {
-				radar: true,
-				lidar: { enabled: true, state: 'ready' },
-				lidar_sweep: true
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {
+					default: { enabled: true, status: 'ready', sweep: true }
+				}
 			};
 
 			(getCapabilities as jest.Mock).mockResolvedValueOnce(mockCaps);
@@ -103,9 +108,8 @@ describe('capabilities store', () => {
 
 		it('should not start a second timer if already polling', () => {
 			(getCapabilities as jest.Mock).mockResolvedValue({
-				radar: true,
-				lidar: { enabled: false, state: 'disabled' },
-				lidar_sweep: false
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {}
 			});
 
 			startCapabilitiesPolling();
