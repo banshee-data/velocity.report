@@ -46,13 +46,32 @@
         , aspect_ratio REAL
           );
 
+   CREATE TABLE lidar_param_sets (
+          param_set_id TEXT PRIMARY KEY
+        , params_hash TEXT NOT NULL UNIQUE
+        , schema_version TEXT NOT NULL
+        , param_set_type TEXT NOT NULL
+        , params_json TEXT NOT NULL
+        , created_at INTEGER NOT NULL
+        , CHECK (param_set_type IN ('requested', 'effective', 'legacy'))
+          );
+
+   CREATE TABLE lidar_run_configs (
+          run_config_id TEXT PRIMARY KEY
+        , config_hash TEXT NOT NULL UNIQUE
+        , param_set_id TEXT NOT NULL REFERENCES lidar_param_sets (param_set_id)
+        , build_version TEXT NOT NULL
+        , build_git_sha TEXT NOT NULL
+        , created_at INTEGER NOT NULL
+        , UNIQUE (param_set_id, build_version, build_git_sha)
+          );
+
    CREATE TABLE IF NOT EXISTS "lidar_run_records" (
           run_id TEXT PRIMARY KEY
         , created_at INTEGER NOT NULL
         , source_type TEXT NOT NULL
         , source_path TEXT
         , sensor_id TEXT NOT NULL
-        , params_json TEXT NOT NULL
         , duration_secs REAL
         , total_frames INTEGER
         , total_clusters INTEGER
@@ -65,6 +84,12 @@
         , notes TEXT
         , statistics_json TEXT
         , vrlog_path TEXT
+        , run_config_id TEXT REFERENCES lidar_run_configs (run_config_id) ON DELETE SET NULL
+        , requested_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
+        , replay_case_id TEXT REFERENCES lidar_replay_cases (replay_case_id) ON DELETE SET NULL
+        , completed_at INTEGER
+        , frame_start_ns INTEGER
+        , frame_end_ns INTEGER
         , CHECK (source_type IN ('live', 'pcap'))
         , CHECK (status IN ('running', 'completed', 'failed'))
         , FOREIGN KEY (parent_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE SET NULL
@@ -78,9 +103,9 @@
         , pcap_duration_secs REAL
         , description TEXT
         , reference_run_id TEXT
-        , optimal_params_json TEXT
         , created_at_ns INTEGER NOT NULL
         , updated_at_ns INTEGER
+        , recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -109,7 +134,6 @@
         , matched_count INTEGER
         , reference_count INTEGER
         , candidate_count INTEGER
-        , params_json TEXT
         , created_at INTEGER NOT NULL
         , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
         , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
@@ -602,4 +626,16 @@ UNION ALL
         , classification_model
         , user_label
         , quality_label
-     FROM lidar_run_tracks
+     FROM lidar_run_tracks;
+
+CREATE INDEX idx_lidar_param_sets_params_hash ON lidar_param_sets (params_hash);
+
+CREATE INDEX idx_lidar_run_configs_config_hash ON lidar_run_configs (config_hash);
+
+CREATE INDEX idx_lidar_run_records_run_config ON lidar_run_records (run_config_id);
+
+CREATE INDEX idx_lidar_run_records_requested_param_set ON lidar_run_records (requested_param_set_id);
+
+CREATE INDEX idx_lidar_run_records_replay_case ON lidar_run_records (replay_case_id);
+
+CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases (recommended_param_set_id);

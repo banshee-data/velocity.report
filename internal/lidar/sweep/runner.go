@@ -379,6 +379,28 @@ func (r *Runner) Stop() {
 	}
 }
 
+// StopAndWait cancels a running sweep and blocks until the Runner is idle.
+// Returns after the sweep goroutine finishes or the timeout is reached.
+func (r *Runner) StopAndWait(timeout time.Duration) {
+	r.Stop()
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		r.mu.RLock()
+		idle := r.state.Status != SweepStatusRunning
+		r.mu.RUnlock()
+		if idle {
+			return
+		}
+		select {
+		case <-deadline:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 // runGeneric executes the generic N-dimensional sweep.
 func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[string]interface{}, interval, settleTime time.Duration) {
 	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
@@ -407,7 +429,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 			now := time.Now()
 			r.state.CompletedAt = &now
 			r.mu.Unlock()
-			r.persistComplete("error", errMsg, nil)
+			r.persistComplete("failed", errMsg, nil)
 			return
 		default:
 		}
@@ -569,7 +591,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 	r.logger.Printf("[sweep] Sweep complete: %d combinations evaluated", len(combos))
 
 	// Persist completion to database
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 // computeComboResult computes summary statistics for a parameter combination

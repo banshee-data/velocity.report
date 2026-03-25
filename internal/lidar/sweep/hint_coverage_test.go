@@ -2,7 +2,6 @@ package sweep
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -162,7 +161,6 @@ func TestRun_WithExistingOptimalParams(t *testing.T) {
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
 			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
-			OptimalParamsJSON: json.RawMessage(`{"eps": 0.5}`),
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{err: errForTest("expected fail")})
@@ -372,7 +370,6 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.SetSceneGetter(&mockSceneGetter{
 		scene: &HINTScene{
 			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
-			OptimalParamsJSON: json.RawMessage(`{"eps": 0.3}`),
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})

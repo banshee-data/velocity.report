@@ -7,13 +7,25 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
+)
+
+var deleteRunTrackRowsAffected = func(result interface{ RowsAffected() (int64, error) }) (int64, error) {
+	return result.RowsAffected()
+}
+
+var (
+	startPCAPInternalForReprocess = func(ws *Server, pcapPath string, config ReplayConfig) error {
+		return ws.StartPCAPInternal(pcapPath, config)
+	}
+	lastAnalysisRunIDForReprocess = func(ws *Server) string {
+		return ws.LastAnalysisRunID()
+	}
 )
 
 // handleRunTrackAPI is the main dispatcher for /api/lidar/runs/* endpoints.
@@ -280,7 +292,7 @@ func (ws *Server) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, r
 	}
 
 	// Check if any rows were affected
-	rowsAffected, err := result.RowsAffected()
+	rowsAffected, err := deleteRunTrackRowsAffected(result)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to check delete result: %v", err))
 		return
@@ -490,13 +502,6 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 		}
 	}
 
-	// Use provided params or fall back to original run params
-	paramsJSON := req.ParamsJSON
-	if paramsJSON == nil {
-		paramsJSON = originalRun.ParamsJSON
-	}
-
-	// Create a new analysis run
 	runIDPrefix := runID
 	if len(runIDPrefix) > 8 {
 		runIDPrefix = runIDPrefix[:8]
@@ -506,22 +511,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	if len(uuidPrefix) > 8 {
 		uuidPrefix = uuidPrefix[:8]
 	}
-	newRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
-	newRun := &sqlite.AnalysisRun{
-		RunID:       newRunID,
-		SourceType:  "pcap",
-		SourcePath:  originalRun.SourcePath,
-		SensorID:    originalRun.SensorID,
-		Status:      "running",
-		CreatedAt:   time.Now(),
-		ParamsJSON:  paramsJSON,
-		ParentRunID: runID,
-	}
-
-	if err := runStore.InsertRun(newRun); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
-		return
-	}
+	preferredRunID := fmt.Sprintf("reprocess-%s-%s", runIDPrefix, uuidPrefix)
 
 	// Reset tracker and background grid for deterministic analysis
 	if ws.tracker != nil {
@@ -532,14 +522,23 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	}
 
 	config := ReplayConfig{
-		AnalysisMode: true,
+		AnalysisMode:   true,
+		SensorID:       originalRun.SensorID,
+		PreferredRunID: preferredRunID,
+		ParentRunID:    runID,
 	}
-	if err := ws.StartPCAPInternal(originalRun.SourcePath, config); err != nil {
-		if updateErr := runStore.UpdateRunStatus(newRunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			opsf("failed to update run status: %v", updateErr)
-		}
+	if len(req.ParamsJSON) > 0 {
+		config.RequestedParamsJSON = req.ParamsJSON
+	} else if originalRun.RequestedParamSetID != "" {
+		config.RequestedParamSetID = originalRun.RequestedParamSetID
+	}
+	if err := startPCAPInternalForReprocess(ws, originalRun.SourcePath, config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
+	}
+	newRunID := lastAnalysisRunIDForReprocess(ws)
+	if newRunID == "" {
+		newRunID = preferredRunID
 	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
@@ -631,7 +630,6 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 	// Persist evaluation result if a scene was identified
 	var evaluationID string
 	if matchedSceneID != "" {
-		candidateRun, _ := runStore.GetRun(candidateRunID)
 		eval := &sqlite.Evaluation{
 			ReplayCaseID:        matchedSceneID,
 			ReferenceRunID:      referenceRunID,
@@ -648,9 +646,6 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 			MatchedCount:        score.MatchedCount,
 			ReferenceCount:      score.ReferenceCount,
 			CandidateCount:      score.CandidateCount,
-		}
-		if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
-			eval.ParamsJSON = candidateRun.ParamsJSON
 		}
 
 		evalStore := sqlite.NewEvaluationStore(ws.db)

@@ -419,24 +419,24 @@ function togglePCAP() {
   var ds = document.getElementById("data_source").value;
   document.getElementById("pcap-fields").style.display =
     ds === "pcap" ? "" : "none";
-  document.getElementById("scene-fields").style.display =
-    ds === "scene" ? "" : "none";
+  document.getElementById("replay-case-fields").style.display =
+    ds === "replay_case" ? "" : "none";
 }
 
-var sweepScenesData = [];
-var currentSceneHasReference = false;
+var replayCasesData = [];
+var currentCaseHasReference = false;
 
-function loadSweepScenes() {
-  var select = document.getElementById("scene_select");
+function loadReplayCases() {
+  var select = document.getElementById("replay_case_select");
   if (!select) return;
   fetch("/api/lidar/scenes?sensor_id=" + encodeURIComponent(sensorId))
     .then(function (r) {
       return r.json();
     })
     .then(function (data) {
-      sweepScenesData = data.scenes || [];
+      replayCasesData = data.replay_cases || data.scenes || [];
       select.innerHTML = '<option value="">(select a replay case)</option>';
-      sweepScenesData.forEach(function (s) {
+      replayCasesData.forEach(function (s) {
         var opt = document.createElement("option");
         opt.value = s.replay_case_id;
         var label = s.pcap_file;
@@ -451,52 +451,51 @@ function loadSweepScenes() {
     });
 }
 
-function onSweepSceneSelected() {
-  var sceneId = document.getElementById("scene_select").value;
-  var infoEl = document.getElementById("scene-info");
-  var actionsEl = document.getElementById("scene-actions");
+function onReplayCaseSelected() {
+  var caseId = document.getElementById("replay_case_select").value;
+  var infoEl = document.getElementById("replay-case-info");
+  var actionsEl = document.getElementById("replay-case-actions");
   var gtOption = document.getElementById("ground_truth_option");
 
-  if (!sceneId) {
+  if (!caseId) {
     infoEl.style.display = "none";
     actionsEl.style.display = "none";
-    currentSceneHasReference = false;
+    currentCaseHasReference = false;
     if (gtOption) gtOption.style.display = "none";
     return;
   }
 
-  var scene = sweepScenesData.find(function (s) {
-    return s.replay_case_id === sceneId;
+  var rc = replayCasesData.find(function (s) {
+    return s.replay_case_id === caseId;
   });
-  if (!scene) {
+  if (!rc) {
     infoEl.style.display = "none";
     actionsEl.style.display = "none";
-    currentSceneHasReference = false;
+    currentCaseHasReference = false;
     if (gtOption) gtOption.style.display = "none";
     return;
   }
 
-  // Populate the PCAP fields so buildSceneJSON / handleStartAutoTune can read them
-  document.getElementById("pcap_file").value = scene.pcap_file;
-  if (scene.pcap_start_secs != null) {
-    document.getElementById("pcap_start_secs").value = scene.pcap_start_secs;
+  // Populate the PCAP fields so buildSweepSetupJSON / handleStartAutoTune can read them
+  document.getElementById("pcap_file").value = rc.pcap_file;
+  if (rc.pcap_start_secs != null) {
+    document.getElementById("pcap_start_secs").value = rc.pcap_start_secs;
   }
-  if (scene.pcap_duration_secs != null) {
-    document.getElementById("pcap_duration_secs").value =
-      scene.pcap_duration_secs;
+  if (rc.pcap_duration_secs != null) {
+    document.getElementById("pcap_duration_secs").value = rc.pcap_duration_secs;
   }
 
   // Show info
-  var info = "File: " + scene.pcap_file;
-  if (scene.pcap_start_secs != null)
-    info += " | Start: " + scene.pcap_start_secs + "s";
-  if (scene.pcap_duration_secs != null)
-    info += " | Duration: " + scene.pcap_duration_secs + "s";
+  var info = "File: " + rc.pcap_file;
+  if (rc.pcap_start_secs != null)
+    info += " | Start: " + rc.pcap_start_secs + "s";
+  if (rc.pcap_duration_secs != null)
+    info += " | Duration: " + rc.pcap_duration_secs + "s";
 
-  // Check if scene has reference run (enables ground truth objective)
-  currentSceneHasReference = scene.reference_run_id ? true : false;
-  if (currentSceneHasReference) {
-    info += " | Reference: " + scene.reference_run_id;
+  // Check if replay case has reference run (enables ground truth objective)
+  currentCaseHasReference = rc.reference_run_id ? true : false;
+  if (currentCaseHasReference) {
+    info += " | Reference: " + rc.reference_run_id;
     if (gtOption) gtOption.style.display = "";
   } else {
     if (gtOption) gtOption.style.display = "none";
@@ -505,8 +504,8 @@ function onSweepSceneSelected() {
   infoEl.textContent = info;
   infoEl.style.display = "";
 
-  // Show action buttons if scene has optimal params
-  if (scene.optimal_params_json) {
+  // Show action buttons if replay case has optimal params
+  if (rc.optimal_params_json) {
     actionsEl.style.display = "";
   } else {
     actionsEl.style.display = "none";
@@ -529,14 +528,14 @@ function setMode(mode) {
   } else if (mode === "hint") {
     document.body.classList.add("hint-mode");
     requestNotificationPermission();
-    loadSweepScenes();
+    loadReplayCases();
   }
 
-  // In HINT mode, force data source to "scene" (HINT always uses scenes)
+  // In HINT mode, force data source to "replay_case" (HINT always uses replay cases)
   if (mode === "hint") {
     var dsEl = document.getElementById("data_source");
     if (dsEl) {
-      dsEl.value = "scene";
+      dsEl.value = "replay_case";
       togglePCAP();
     }
   }
@@ -884,9 +883,9 @@ function updateSweepSummary() {
   el.innerHTML = html;
 }
 
-// ---- Scene management ----
+// ---- Sweep setup management ----
 
-function buildSceneJSON() {
+function buildSweepSetupJSON() {
   var ds = val("data_source");
   var req = {
     seed: val("seed"),
@@ -894,14 +893,14 @@ function buildSceneJSON() {
     interval: val("interval"),
     settle_time: val("settle_time"),
     settle_mode: val("settle_mode"),
-    data_source: ds === "scene" ? "pcap" : ds,
+    data_source: ds === "replay_case" ? "pcap" : ds,
   };
 
-  if (ds === "scene") {
-    req.replay_case_id = val("scene_select");
+  if (ds === "replay_case") {
+    req.replay_case_id = val("replay_case_select");
   }
 
-  if (ds === "pcap" || ds === "scene") {
+  if (ds === "pcap" || ds === "replay_case") {
     req.pcap_file = val("pcap_file");
     req.pcap_start_secs = numVal("pcap_start_secs");
     req.pcap_duration_secs = numVal("pcap_duration_secs");
@@ -963,24 +962,24 @@ function buildSceneJSON() {
   return req;
 }
 
-function downloadScene() {
-  var obj = buildSceneJSON();
+function downloadSetup() {
+  var obj = buildSweepSetupJSON();
   var json = JSON.stringify(obj, null, 2);
   var blob = new Blob([json], { type: "application/json" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "sweep-scene.json";
+  a.download = "sweep-setup.json";
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
-function uploadScene(input) {
+function uploadSetup(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function (e) {
     try {
       var obj = JSON.parse(e.target.result);
-      loadScene(obj);
+      loadSetup(obj);
     } catch (err) {
       showError("Invalid JSON: " + err.message);
     }
@@ -989,7 +988,7 @@ function uploadScene(input) {
   input.value = "";
 }
 
-function loadScene(obj) {
+function loadSetup(obj) {
   if (obj.seed) document.getElementById("seed").value = obj.seed;
   if (obj.iterations)
     document.getElementById("iterations").value = obj.iterations;
@@ -999,10 +998,10 @@ function loadScene(obj) {
   if (obj.settle_mode)
     document.getElementById("settle_mode").value = obj.settle_mode;
   if (obj.replay_case_id) {
-    document.getElementById("data_source").value = "scene";
+    document.getElementById("data_source").value = "replay_case";
     togglePCAP();
-    var sceneSelect = document.getElementById("scene_select");
-    if (sceneSelect) sceneSelect.value = obj.replay_case_id;
+    var caseSelect = document.getElementById("replay_case_select");
+    if (caseSelect) caseSelect.value = obj.replay_case_id;
   } else if (obj.data_source) {
     document.getElementById("data_source").value = obj.data_source;
     togglePCAP();
@@ -1053,7 +1052,7 @@ function toggleJSONEditor() {
     wrap.style.display = "";
     applyBtn.style.display = "";
     document.getElementById("scenario-json").value = JSON.stringify(
-      buildSceneJSON(),
+      buildSweepSetupJSON(),
       null,
       2,
     );
@@ -1066,7 +1065,7 @@ function toggleJSONEditor() {
 function applyJSONEditor() {
   try {
     var obj = JSON.parse(document.getElementById("scenario-json").value);
-    loadScene(obj);
+    loadSetup(obj);
     showError("");
     // Hide the editor after successful apply
     document.getElementById("json-editor-wrap").style.display = "none";
@@ -1096,7 +1095,7 @@ function handleStart() {
 }
 
 function handleStartManualSweep() {
-  var req = buildSceneJSON();
+  var req = buildSweepSetupJSON();
   req.mode = "params";
 
   if (!req.params || req.params.length === 0) {
@@ -1157,21 +1156,21 @@ function handleStartAutoTune() {
     interval: val("interval"),
     settle_time: val("settle_time"),
     seed: val("seed"),
-    data_source: ds === "scene" ? "pcap" : ds,
+    data_source: ds === "replay_case" ? "pcap" : ds,
     settle_mode: val("settle_mode"),
   };
 
-  if (ds === "pcap" || ds === "scene") {
+  if (ds === "pcap" || ds === "replay_case") {
     req.pcap_file = val("pcap_file");
     req.pcap_start_secs = numVal("pcap_start_secs");
     req.pcap_duration_secs = numVal("pcap_duration_secs");
   }
 
   // Include replay_case_id for ground truth evaluation
-  if (ds === "scene") {
-    var sceneId = val("scene_select");
-    if (sceneId) {
-      req.replay_case_id = sceneId;
+  if (ds === "replay_case") {
+    var caseId = val("replay_case_select");
+    if (caseId) {
+      req.replay_case_id = caseId;
     }
   }
 
@@ -1785,24 +1784,24 @@ function applyRecommendation() {
     });
 }
 
-function applySceneParams() {
-  var sceneId = document.getElementById("scene_select").value;
-  if (!sceneId) {
+function applyReplayCaseParams() {
+  var caseId = document.getElementById("replay_case_select").value;
+  if (!caseId) {
     showError("No replay case selected.");
     return;
   }
 
-  var scene = sweepScenesData.find(function (s) {
-    return s.replay_case_id === sceneId;
+  var rc = replayCasesData.find(function (s) {
+    return s.replay_case_id === caseId;
   });
-  if (!scene || !scene.optimal_params_json) {
+  if (!rc || !rc.optimal_params_json) {
     showError("Selected replay case has no optimal parameters.");
     return;
   }
 
   var tuningParams;
   try {
-    tuningParams = JSON.parse(scene.optimal_params_json);
+    tuningParams = JSON.parse(rc.optimal_params_json);
   } catch (e) {
     showError("Failed to parse replay case parameters: " + e.message);
     return;
@@ -1825,10 +1824,10 @@ function applySceneParams() {
         return r.text().then(function (t) {
           throw new Error(t);
         });
-      document.getElementById("btn-apply-scene-params").textContent =
+      document.getElementById("btn-apply-replay-case-params").textContent =
         "Applied ✓";
       setTimeout(function () {
-        document.getElementById("btn-apply-scene-params").textContent =
+        document.getElementById("btn-apply-replay-case-params").textContent =
           "Apply Replay Case Params";
       }, 2000);
       fetchCurrentParams();
@@ -3173,10 +3172,10 @@ if (typeof module !== "undefined" && module.exports) {
     addParamRow: addParamRow,
     removeParamRow: removeParamRow,
     updateParamFields: updateParamFields,
-    buildSceneJSON: buildSceneJSON,
-    downloadScene: downloadScene,
-    uploadScene: uploadScene,
-    loadScene: loadScene,
+    buildSweepSetupJSON: buildSweepSetupJSON,
+    downloadSetup: downloadSetup,
+    uploadSetup: uploadSetup,
+    loadSetup: loadSetup,
     toggleJSONEditor: toggleJSONEditor,
     applyJSONEditor: applyJSONEditor,
     handleStart: handleStart,
@@ -3192,7 +3191,7 @@ if (typeof module !== "undefined" && module.exports) {
     pollAutoTuneStatus: pollAutoTuneStatus,
     renderRecommendation: renderRecommendation,
     applyRecommendation: applyRecommendation,
-    applySceneParams: applySceneParams,
+    applyReplayCaseParams: applyReplayCaseParams,
     applyPastedParams: applyPastedParams,
     loadCurrentIntoEditor: loadCurrentIntoEditor,
     downloadCSV: downloadCSV,
@@ -3219,8 +3218,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderTable: renderTable,
     fetchCurrentParams: fetchCurrentParams,
     displayCurrentParams: displayCurrentParams,
-    loadSweepScenes: loadSweepScenes,
-    onSweepSceneSelected: onSweepSceneSelected,
+    loadReplayCases: loadReplayCases,
+    onReplayCaseSelected: onReplayCaseSelected,
     setMode: setMode,
     toggleWeights: toggleWeights,
     togglePCAP: togglePCAP,
@@ -3244,8 +3243,8 @@ function init() {
   // Reset module-level state (prevents leaking between test runs)
   latestResults = null;
   stopRequested = false;
-  sweepScenesData = [];
-  currentSceneHasReference = false;
+  replayCasesData = [];
+  currentCaseHasReference = false;
   chartConfigs = [];
   chartInstances = {};
   chartConfigCounter = 0;
@@ -3352,8 +3351,8 @@ function init() {
   // Fetch and display current tuning parameters
   fetchCurrentParams();
 
-  // Load scenes for scene selector
-  loadSweepScenes();
+  // Load replay cases for replay case selector
+  loadReplayCases();
 
   // Wire up live summary updates for top-level fields
   document
@@ -3399,11 +3398,11 @@ var hintLongPollAbort = null;
 var lastHINTPhase = "";
 
 function handleStartHINT() {
-  // HINT uses the scene selector from the Data Source card
-  var sceneSelect = document.getElementById("scene_select");
-  var sceneId = sceneSelect ? sceneSelect.value : "";
-  if (!sceneId) {
-    showError("Select a scene before starting HINT sweep.");
+  // HINT uses the replay case selector from the Data Source card
+  var caseSelect = document.getElementById("replay_case_select");
+  var caseId = caseSelect ? caseSelect.value : "";
+  if (!caseId) {
+    showError("Select a replay case before starting HINT sweep.");
     return;
   }
 
@@ -3453,7 +3452,7 @@ function handleStartHINT() {
   }
 
   var req = {
-    replay_case_id: sceneId,
+    replay_case_id: caseId,
     num_rounds: parseInt(document.getElementById("hint_rounds").value, 10) || 3,
     params: params,
     values_per_param:

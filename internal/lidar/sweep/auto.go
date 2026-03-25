@@ -659,7 +659,7 @@ func (at *AutoTuner) runFromRound(
 	}
 
 	// Persist completion to database
-	at.persistComplete("complete", allResults, recommendation, nil)
+	at.persistComplete("completed", allResults, recommendation, nil)
 }
 
 // waitForSweepComplete polls the runner until the sweep completes or fails.
@@ -706,7 +706,7 @@ func (at *AutoTuner) setError(msg string) {
 	results := make([]ComboResult, len(at.state.Results))
 	copy(results, at.state.Results)
 	at.mu.Unlock()
-	at.persistComplete("error", results, nil, &msg)
+	at.persistComplete("failed", results, nil, &msg)
 }
 
 // persistComplete saves the final auto-tune state to the database.

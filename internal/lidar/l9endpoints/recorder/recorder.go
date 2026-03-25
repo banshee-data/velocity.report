@@ -49,6 +49,11 @@ const (
 
 type frameDecoderFunc func([]byte) (*l9endpoints.FrameBundle, error)
 
+var (
+	frameSerializer         = serializeFrameProto
+	writeRecorderIndexEntry = writeIndexEntry
+)
+
 // LogHeader contains metadata about a recorded log.
 type LogHeader struct {
 	Version         string `json:"version"`
@@ -63,11 +68,18 @@ type LogHeader struct {
 	} `json:"coordinate_frame"`
 
 	// Provenance fields — recording context written at start time.
-	SourceType   string  `json:"source_type,omitempty"`   // "live", "pcap", or "synthetic"
-	PCAPPath     string  `json:"pcap_path,omitempty"`     // original PCAP filename (basename)
-	PlaybackRate float64 `json:"playback_rate,omitempty"` // configured replay speed multiplier
-	TuningHash   string  `json:"tuning_hash,omitempty"`   // SHA-256 of tuning config JSON
-	BuildVersion string  `json:"build_version,omitempty"` // velocity.report version that wrote this
+	SourceType    string  `json:"source_type,omitempty"`    // "live", "pcap", or "synthetic"
+	PCAPPath      string  `json:"pcap_path,omitempty"`      // original PCAP filename (basename)
+	PlaybackRate  float64 `json:"playback_rate,omitempty"`  // configured replay speed multiplier
+	TuningHash    string  `json:"tuning_hash,omitempty"`    // deprecated transition field
+	RunConfigID   string  `json:"run_config_id,omitempty"`  // immutable exact config identity
+	ParamSetID    string  `json:"param_set_id,omitempty"`   // immutable effective/requested param-set identity
+	ConfigHash    string  `json:"config_hash,omitempty"`    // SHA-256 of exact run config JSON
+	ParamsHash    string  `json:"params_hash,omitempty"`    // SHA-256 of effective param-set JSON
+	SchemaVersion string  `json:"schema_version,omitempty"` // parameter-set schema version
+	ParamSetType  string  `json:"param_set_type,omitempty"` // effective/requested/legacy
+	BuildVersion  string  `json:"build_version,omitempty"`  // velocity.report version that wrote this
+	BuildGitSHA   string  `json:"build_git_sha,omitempty"`  // git SHA that wrote this
 }
 
 // IndexEntry is an entry in the seek index.
@@ -83,12 +95,13 @@ type Recorder struct {
 	basePath string
 	sensorID string
 
-	header        LogHeader
-	index         []IndexEntry
-	currentChunk  int
-	chunkFile     *os.File
-	chunkOffset   uint32
-	framesInChunk int // frames written to the current chunk
+	header          LogHeader
+	executionConfig []byte
+	index           []IndexEntry
+	currentChunk    int
+	chunkFile       *os.File
+	chunkOffset     uint32
+	framesInChunk   int // frames written to the current chunk
 
 	frameCount uint64
 	startNs    int64
@@ -185,13 +198,8 @@ func (r *Recorder) Record(frame *l9endpoints.FrameBundle) error {
 	}
 
 	// Write length-prefixed frame
-	lenBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))
-	if _, err := r.chunkFile.Write(lenBuf); err != nil {
-		return fmt.Errorf("failed to write frame length: %w", err)
-	}
-	if _, err := r.chunkFile.Write(data); err != nil {
-		return fmt.Errorf("failed to write frame data: %w", err)
+	if err := writeFramedPayload(r.chunkFile, data); err != nil {
+		return err
 	}
 
 	// Add to index
@@ -260,6 +268,13 @@ func (r *Recorder) Close() error {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
+	if len(r.executionConfig) > 0 {
+		executionConfigPath := filepath.Join(r.basePath, "execution_config.json")
+		if err := os.WriteFile(executionConfigPath, r.executionConfig, 0644); err != nil {
+			return fmt.Errorf("failed to write execution_config.json: %w", err)
+		}
+	}
+
 	// Write index
 	indexPath := filepath.Join(r.basePath, "index.bin")
 	indexFile, err := os.Create(indexPath)
@@ -269,16 +284,7 @@ func (r *Recorder) Close() error {
 	defer indexFile.Close()
 
 	for _, entry := range r.index {
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.FrameID); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.TimestampNs); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.ChunkID); err != nil {
-			return err
-		}
-		if err := binary.Write(indexFile, binary.LittleEndian, entry.Offset); err != nil {
+		if err := writeRecorderIndexEntry(indexFile, entry); err != nil {
 			return err
 		}
 	}
@@ -309,9 +315,30 @@ func (r *Recorder) SetProvenance(sourceType, pcapPath, tuningHash string, playba
 	r.header.PlaybackRate = playbackRate
 }
 
+// SetDeterministicConfig stores the exact immutable run configuration for the
+// recording. Must be called before Close.
+func (r *Recorder) SetDeterministicConfig(runConfigID, paramSetID, configHash, paramsHash, schemaVersion, paramSetType, buildVersion, buildGitSHA string, executionConfig []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.header.RunConfigID = runConfigID
+	r.header.ParamSetID = paramSetID
+	r.header.ConfigHash = configHash
+	r.header.ParamsHash = paramsHash
+	r.header.SchemaVersion = schemaVersion
+	r.header.ParamSetType = paramSetType
+	if buildVersion != "" {
+		r.header.BuildVersion = buildVersion
+	}
+	r.header.BuildGitSHA = buildGitSHA
+	if len(executionConfig) > 0 {
+		r.executionConfig = append([]byte(nil), executionConfig...)
+	}
+}
+
 // serializeFrame serializes a FrameBundle to protobuf wire format.
 func serializeFrame(frame *l9endpoints.FrameBundle) ([]byte, error) {
-	return serializeFrameProto(frame)
+	return frameSerializer(frame)
 }
 
 // deserializeFrame deserialises bytes to a FrameBundle.
@@ -328,7 +355,7 @@ func deserializeFrame(data []byte) (*l9endpoints.FrameBundle, error) {
 	case FrameEncodingJSON:
 		return deserializeFrameJSON(data)
 	default:
-		return nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
+		return nil, fmt.Errorf("unsupported frame encoding: %v", encoding)
 	}
 }
 
@@ -389,11 +416,8 @@ func detectReplayerFrameDecoder(basePath string, index []IndexEntry) (FrameEncod
 	switch encoding {
 	case FrameEncodingProto:
 		return encoding, deserializeFrameProto, nil
-	case FrameEncodingJSON:
-		return encoding, deserializeFrameJSON, nil
-	default:
-		return FrameEncodingUnknown, nil, fmt.Errorf("unsupported frame encoding: %q", encoding)
 	}
+	return encoding, deserializeFrameJSON, nil
 }
 
 func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) {
@@ -435,6 +459,34 @@ func readIndexedFramePayload(basePath string, entry IndexEntry) ([]byte, error) 
 	}
 
 	return payload, nil
+}
+
+func writeFramedPayload(w io.Writer, data []byte) error {
+	lenBuf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBuf, uint32(len(data)))
+	if _, err := w.Write(lenBuf); err != nil {
+		return fmt.Errorf("failed to write frame length: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("failed to write frame data: %w", err)
+	}
+	return nil
+}
+
+func writeIndexEntry(w io.Writer, entry IndexEntry) error {
+	if err := binary.Write(w, binary.LittleEndian, entry.FrameID); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.TimestampNs); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.ChunkID); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, entry.Offset); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Replayer reads FrameBundles from a log file.

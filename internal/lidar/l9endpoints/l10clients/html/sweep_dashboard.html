@@ -12,7 +12,7 @@
 <body>
   <h1>LiDAR Parameter Sweep</h1>
   <p class="sub">
-    Sweep tuning parameters and visualise results to identify optimal tuning.
+    Tune parameters, measure results, and find the settings that deserve to stay.
     Sensor: %[1]s
   </p>
 
@@ -29,11 +29,11 @@
 
   <!-- Mode Descriptions -->
   <p class="mode-description auto-only">
-    Auto-Tune iteratively narrows parameter bounds across multiple rounds, scoring each combination automatically.
+    Auto-Tune narrows parameter bounds across multiple rounds, scoring each combination so you don't have to.
   </p>
   <p class="mode-description hint-only">
-    Human-in-the-Loop runs reference replay cases, waits for you to label tracks, then sweeps using ground truth scores.
-    Repeat for each round.
+    Human-in-the-Loop replays reference cases, pauses for you to label tracks, then sweeps using ground truth scores.
+    Your eyes, the machine's patience.
   </p>
 
   <!-- Recommendation (shown when auto-tune or HINT completes) -->
@@ -122,39 +122,58 @@
             <select id="data_source" onchange="togglePCAP()">
               <option value="live">Live</option>
               <option value="pcap">PCAP Replay</option>
-              <option value="scene">Replay Case</option>
+              <option value="replay_case">Replay Case</option>
             </select>
           </label>
         </div>
         <div id="pcap-fields" class="pcap-fields field-stack" style="display: none">
           <label><span>PCAP File</span><input id="pcap_file" type="text" placeholder="static/recording.pcapng" />
-            <small class="field-desc">Relative path within the PCAP directory.</small>
+            <small class="field-desc">Path to the PCAP file, relative to the data directory.</small>
           </label>
           <label><span>Start</span><input id="pcap_start_secs" type="number" step="0.1" value="0" min="0" />
-            <small class="field-desc">Offset in seconds from the beginning of the PCAP.</small>
+            <small class="field-desc">How far into the recording to begin, in seconds.</small>
           </label>
           <label><span>Duration</span><input id="pcap_duration_secs" type="number" step="0.1" value="-1" />
-            <small class="field-desc">Seconds of PCAP to replay. -1 = entire file.</small>
+            <small class="field-desc">Seconds of recording to replay. −1 means the whole file.</small>
           </label>
         </div>
-        <div id="scene-fields" class="field-stack" style="display: none">
+        <div id="replay-case-fields" class="field-stack" style="display: none">
           <label><span>Replay Case</span>
-            <select id="scene_select" onchange="onSweepSceneSelected()">
+            <select id="replay_case_select" onchange="onReplayCaseSelected()">
               <option value="">Loading replay cases...</option>
             </select>
-            <small class="field-desc">Select a pre-configured replay case. PCAP settings will be populated
-              automatically.</small>
+            <small class="field-desc">Pick a replay case. PCAP settings fill themselves in.</small>
           </label>
-          <div id="scene-info" style="
+          <div id="replay-case-info" style="
                 display: none;
                 font-size: 0.85em;
                 color: var(--fg-muted);
                 padding: 4px 0;
               "></div>
-          <div id="scene-actions" style="display: none; margin-top: 8px">
-            <button class="btn-sm btn-secondary" onclick="applySceneParams()" id="btn-apply-scene-params">
+          <div id="replay-case-actions" style="display: none; margin-top: 8px">
+            <button class="btn-sm btn-secondary" onclick="applyReplayCaseParams()" id="btn-apply-replay-case-params">
               Apply Replay Case Params
             </button>
+          </div>
+          <div class="manual-only" style="margin-top: 8px">
+            <div class="setup-bar">
+              <button class="btn-sm btn-secondary" onclick="downloadSetup()">
+                Download JSON
+              </button>
+              <button class="btn-sm btn-secondary" onclick="document.getElementById('setup-upload').click()">
+                Upload JSON
+              </button>
+              <input id="setup-upload" type="file" accept=".json" style="display: none" onchange="uploadSetup(this)" />
+              <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">
+                Edit JSON
+              </button>
+              <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display: none">
+                Apply
+              </button>
+            </div>
+            <div id="json-editor-wrap" style="display: none">
+              <textarea id="scenario-json"></textarea>
+            </div>
           </div>
         </div>
 
@@ -232,6 +251,53 @@
           <div id="sweep-error" class="error-box" style="display: none"></div>
           <div id="sweep-warnings" style="display: none"></div>
         </div>
+
+        <!-- HINT Progress (shown during HINT run) -->
+        <div id="hint-progress-card" class="hint-only" style="display: none">
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--card-border);" />
+          <h3 style="margin: 0 0 8px 0; font-size: 1em">HINT Progress</h3>
+          <div id="hint-status-text" style="margin-bottom: 8px"></div>
+          <div id="hint-label-progress" style="display: none">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
+              <span id="hint-label-count">0/0 labelled</span>
+              <span id="hint-label-pct">0%%</span>
+            </div>
+            <div class="progress-bar-bg"
+              style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
+              <div id="hint-label-bar"
+                style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s">
+              </div>
+              <div id="hint-threshold-marker"
+                style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
+                title="90%% threshold"></div>
+            </div>
+            <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center">
+              <span id="hint-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
+            </div>
+            <div id="hint-gate-status"
+              style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)">
+            </div>
+            <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
+              <label style="flex: 1">
+                <span style="font-size: 12px">Next sweep duration (mins)</span>
+                <input id="hint-next-duration" type="number" value="60" min="1" style="width: 80px" />
+              </label>
+              <label style="display: flex; align-items: center; gap: 4px">
+                <input id="hint-add-round" type="checkbox" />
+                <span style="font-size: 12px">Add extra round</span>
+              </label>
+            </div>
+            <div style="margin-top: 8px; display: flex; gap: 8px">
+              <a id="hint-tracks-link" href="" target="_blank" class="btn btn-sm">Open Tracks Page →</a>
+              <button id="hint-continue-btn" class="btn btn-primary btn-sm" onclick="handleHINTContinue()" disabled>
+                Continue to Sweep
+              </button>
+            </div>
+          </div>
+          <div id="hint-sweep-progress" style="display: none">
+            <div id="hint-sweep-info" style="font-size: 12px; color: var(--fg-muted)"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Card 2: Sweep Configuration (hidden in HINT mode via CSS) -->
@@ -245,52 +311,27 @@
               <option value="toggle">Toggle</option>
             </select>
             <small class="field-desc">Whether the background grid seeds from the first observation.
-              "toggle" tests both true and false for each combination.</small>
+              Toggle tests both and lets the data decide.</small>
           </label>
           <label><span>Iterations</span><input id="iterations" type="number" value="10" min="1" max="500" />
-            <small class="field-desc">Number of samples per parameter combination. Higher = more
-              statistical confidence.</small>
+            <small class="field-desc">Samples per parameter combination. More iterations, more
+              confidence, more waiting.</small>
           </label>
           <label><span>Interval</span><input id="interval" type="text" value="2s" />
-            <small class="field-desc">Time between consecutive samples within one combination.</small>
+            <small class="field-desc">Pause between consecutive samples within a combination.</small>
           </label>
           <label><span>Settle Time</span><input id="settle_time" type="text" value="5s" />
-            <small class="field-desc">Wait time after changing parameters before sampling
-              begins.</small>
+            <small class="field-desc">How long to wait after changing parameters before sampling
+              starts. Patience is a tuning parameter too.</small>
           </label>
           <label><span>Region Settle</span>
             <select id="settle_mode" onchange="updateSweepSummary()">
               <option value="once" selected>Settle Once (reuse)</option>
               <option value="per_combo">Per Combo</option>
             </select>
-            <small class="field-desc">"Per Combo": full settle each combination. "Settle Once": first
-              combo settles, rest restore regions.</small>
+            <small class="field-desc">Per Combo re-settles the grid each time. Settle Once does it
+              for the first combination and reuses the result.</small>
           </label>
-        </div>
-      </div>
-
-      <!-- Card 3: Scene (manual mode only) -->
-      <div class="card scene-card manual-only">
-        <h2>Scene</h2>
-        <div class="scene-card-content">
-          <div class="scene-bar">
-            <button class="btn-sm btn-secondary" onclick="downloadScene()">
-              Download JSON
-            </button>
-            <button class="btn-sm btn-secondary" onclick="document.getElementById('scene-upload').click()">
-              Upload JSON
-            </button>
-            <input id="scene-upload" type="file" accept=".json" style="display: none" onchange="uploadScene(this)" />
-            <button class="btn-sm btn-secondary" onclick="toggleJSONEditor()">
-              Edit JSON
-            </button>
-            <button id="btn-apply-json" class="btn-sm btn-add" onclick="applyJSONEditor()" style="display: none">
-              Apply
-            </button>
-          </div>
-          <div id="json-editor-wrap" style="display: none">
-            <textarea id="scenario-json"></textarea>
-          </div>
         </div>
       </div>
 
@@ -299,15 +340,15 @@
         <h2>Auto-Tune Settings</h2>
         <div class="field-stack">
           <label><span>Max Rounds</span><input id="max_rounds" type="number" value="3" min="1" max="10" />
-            <small class="field-desc">Number of refinement rounds. Each round narrows parameter
-              bounds from the best results.</small>
+            <small class="field-desc">Refinement rounds. Each narrows bounds from the best
+              results of the previous one.</small>
           </label>
           <label><span>Values / Param</span><input id="values_per_param" type="number" value="5" min="2" max="20" />
-            <small class="field-desc">Grid points sampled per parameter per round. E.g. 5 values
-              across 2 params = 25 combos/round.</small>
+            <small class="field-desc">Grid points per parameter per round. 5 values across
+              2 parameters means 25 combinations — the maths is unforgiving.</small>
           </label>
           <label><span>Top K</span><input id="top_k" type="number" value="5" min="1" max="50" />
-            <small class="field-desc">Best results used to narrow bounds for the next round.</small>
+            <small class="field-desc">How many top results inform the next round's bounds.</small>
           </label>
           <label><span>Objective</span>
             <select id="objective" onchange="toggleWeights()">
@@ -317,45 +358,45 @@
                 Ground Truth
               </option>
             </select>
-            <small class="field-desc">Scoring function for ranking combinations. Ground Truth
-              requires a replay case with reference run.</small>
+            <small class="field-desc">How combinations are ranked. Ground Truth needs a
+              replay case with a reference run.</small>
           </label>
         </div>
         <div id="weight-fields" style="display: none; margin-top: 10px">
           <div class="field-stack">
             <label><span>Accept Weight</span><input id="w_acceptance" type="number" step="0.1" value="1.0" />
-              <small class="field-desc">Weight for acceptance rate (positive = maximise).</small>
+              <small class="field-desc">Acceptance rate. Positive values favour higher acceptance.</small>
             </label>
             <label><span>Misalign Weight</span><input id="w_misalignment" type="number" step="0.1" value="-0.5" />
-              <small class="field-desc">Weight for misalignment ratio (negative = minimise).</small>
+              <small class="field-desc">Misalignment ratio. Negative values penalise disagreement.</small>
             </label>
             <label><span>Align Weight</span><input id="w_alignment" type="number" step="0.01" value="-0.01" />
-              <small class="field-desc">Weight for alignment degrees (negative = minimise).</small>
+              <small class="field-desc">Alignment degrees. Negative values penalise angular error.</small>
             </label>
             <label><span>Cells Weight</span><input id="w_nonzero" type="number" step="0.1" value="0.1" />
-              <small class="field-desc">Weight for log(nonzero cells) (positive = maximise).</small>
+              <small class="field-desc">Nonzero cells (log-scaled). Positive values reward a livelier grid.</small>
             </label>
             <label><span>Tracks Weight</span><input id="w_active_tracks" type="number" step="0.1" value="0.3" />
-              <small class="field-desc">Weight for log(active tracks) (positive = maximise).</small>
+              <small class="field-desc">Active tracks (log-scaled). Positive values reward busier tracking.</small>
             </label>
             <label><span>Capture Weight</span><input id="w_foreground_capture" type="number" step="0.1" value="0" />
-              <small class="field-desc">Weight for foreground capture ratio (positive = maximise).</small>
+              <small class="field-desc">Foreground capture ratio. Positive values reward thoroughness.</small>
             </label>
             <label><span>Empty Box Weight</span><input id="w_empty_boxes" type="number" step="0.1" value="0" />
-              <small class="field-desc">Weight for empty box ratio (negative = minimise).</small>
+              <small class="field-desc">Empty box ratio. Negative values penalise wasted space.</small>
             </label>
             <label><span>Fragment Weight</span><input id="w_fragmentation" type="number" step="0.1" value="0" />
-              <small class="field-desc">Weight for fragmentation ratio (negative = minimise).</small>
+              <small class="field-desc">Fragmentation ratio. Negative values penalise splintered tracks.</small>
             </label>
             <label><span>Jitter Weight</span><input id="w_heading_jitter" type="number" step="0.01" value="0" />
-              <small class="field-desc">Weight for heading jitter degrees (negative = minimise).</small>
+              <small class="field-desc">Heading jitter. Negative values penalise directional indecision.</small>
             </label>
           </div>
         </div>
         <div id="acceptance-criteria-fields" style="display: none; margin-top: 10px">
           <h3 style="margin: 0 0 8px 0; font-size: 0.95em">Acceptance Criteria</h3>
-          <small class="field-desc" style="display: block; margin-bottom: 8px">Hard thresholds that reject combinations
-            before scoring. Leave blank for no constraint.</small>
+          <small class="field-desc" style="display: block; margin-bottom: 8px">Hard limits. Combinations that exceed
+            these are rejected before scoring. Leave blank for no constraint.</small>
           <div class="field-stack">
             <label><span>Max Fragmentation</span><input id="ac_max_fragmentation" type="number" step="0.01"
                 placeholder="e.g. 0.5" />
@@ -384,76 +425,32 @@
           </label>
           <label>
             <span>Label threshold (%%)</span>
-            <input id="hint_threshold" type="number" value="90" min="10" max="100" step="5" />
-            <small class="field-desc">Minimum %% of tracks labelled before sweep (default 90).</small>
+            <input id="hint_threshold" type="number" value="50" min="10" max="100" step="5" />
+            <small class="field-desc">Minimum percentage of tracks that must be labelled before the sweep
+              proceeds.</small>
           </label>
           <label>
             <span>Carry over labels</span>
             <input id="hint_carryover" type="checkbox" checked />
-            <small class="field-desc">Copy labels to next round via temporal IoU matching.</small>
+            <small class="field-desc">Carry labels forward to the next round using temporal IoU matching.
+              Saves re-labelling the obvious ones.</small>
           </label>
           <label>
             <span>Tune background</span>
             <input id="hint_tune_background" type="checkbox" />
-            <small class="field-desc">Re-settle background grid per combo. Enable when sweeping background
-              params.</small>
+            <small class="field-desc">Re-settle the background grid for each combination.
+              Turn on when sweeping background parameters.</small>
           </label>
           <label>
             <span>Min class coverage (JSON)</span>
             <input id="hint_class_coverage" type="text" placeholder='{"vehicle":3,"pedestrian":1}' />
-            <small class="field-desc">Optional: minimum labelled tracks per class before proceeding.</small>
+            <small class="field-desc">Minimum labelled tracks per class required before proceeding.</small>
           </label>
           <label>
             <span>Min temporal spread (seconds)</span>
             <input id="hint_temporal_spread" type="number" value="" min="0" step="1" placeholder="0" />
-            <small class="field-desc">Optional: minimum time span (seconds) covered by labelled tracks.</small>
+            <small class="field-desc">Minimum time span in seconds that labelled tracks must cover.</small>
           </label>
-        </div>
-      </div>
-
-      <!-- HINT Progress Card (shown during HINT run) -->
-      <div id="hint-progress-card" class="card hint-only" style="display: none">
-        <h2>HINT Progress</h2>
-        <div id="hint-status-text" style="margin-bottom: 8px"></div>
-        <div id="hint-label-progress" style="display: none">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px">
-            <span id="hint-label-count">0/0 labelled</span>
-            <span id="hint-label-pct">0%%</span>
-          </div>
-          <div class="progress-bar-bg"
-            style="height: 16px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); position: relative">
-            <div id="hint-label-bar"
-              style="height: 100%%; background: var(--accent); border-radius: 3px; width: 0; transition: width 0.3s">
-            </div>
-            <div id="hint-threshold-marker"
-              style="position: absolute; top: 0; height: 100%%; border-left: 2px dashed #cc0000; left: 90%%"
-              title="90%% threshold"></div>
-          </div>
-          <div style="margin-top: 8px; display: flex; justify-content: flex-end; align-items: center">
-            <span id="hint-carried-count" style="font-size: 12px; color: var(--fg-muted)"></span>
-          </div>
-          <div id="hint-gate-status"
-            style="display: none; margin-top: 6px; font-size: 11px; color: var(--fg-muted); background: var(--card-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--card-border)">
-          </div>
-          <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center">
-            <label style="flex: 1">
-              <span style="font-size: 12px">Next sweep duration (mins)</span>
-              <input id="hint-next-duration" type="number" value="60" min="1" style="width: 80px" />
-            </label>
-            <label style="display: flex; align-items: center; gap: 4px">
-              <input id="hint-add-round" type="checkbox" />
-              <span style="font-size: 12px">Add extra round</span>
-            </label>
-          </div>
-          <div style="margin-top: 8px; display: flex; gap: 8px">
-            <a id="hint-tracks-link" href="" target="_blank" class="btn btn-sm">Open Tracks Page →</a>
-            <button id="hint-continue-btn" class="btn btn-primary btn-sm" onclick="handleHINTContinue()" disabled>
-              Continue to Sweep
-            </button>
-          </div>
-        </div>
-        <div id="hint-sweep-progress" style="display: none">
-          <div id="hint-sweep-info" style="font-size: 12px; color: var(--fg-muted)"></div>
         </div>
       </div>
 
@@ -479,9 +476,10 @@
       <div id="paste-params-card" class="card">
         <h2>Paste &amp; Apply Params</h2>
         <small class="field-desc" style="display: block; margin-bottom: 8px">
-          Paste a full tuning config JSON (same format as tuning.defaults.json)
-          and apply to the system. Non-editable fields (version, l1.*, etc.) are
-          skipped; at least one runtime-editable field must be present.
+          Paste a tuning configuration (same format as tuning.defaults.json)
+          and apply it directly. Non-editable fields like version and l1.* are
+          quietly ignored — at least one field the system can actually change
+          must be present.
         </small>
         <textarea id="paste-params-json" rows="12"
           style="width: 100%%; font-family: monospace; font-size: 0.85em; resize: vertical" placeholder='{

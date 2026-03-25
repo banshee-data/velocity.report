@@ -1691,6 +1691,77 @@ func TestEmptyFrameRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRecorder_WritesDeterministicConfigMetadata(t *testing.T) {
+	dir := t.TempDir()
+	rec, err := NewRecorder(dir, "test-config")
+	if err != nil {
+		t.Fatalf("NewRecorder() error = %v", err)
+	}
+
+	rec.SetDeterministicConfig(
+		"run-config-1",
+		"param-set-1",
+		"sha256:config",
+		"sha256:params",
+		"effective/v1",
+		"effective",
+		"0.5.0-test",
+		"deadbeef",
+		[]byte(`{"schema_version":"run_config/v1","params":{"tracking":{"max_tracks":64}}}`),
+	)
+	rec.SetProvenance("pcap", "capture.pcap", "sha256:params", 1.25)
+
+	frame := testFrameBundle(1, time.Now().UnixNano())
+	if err := rec.Record(frame); err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	headerData, err := os.ReadFile(filepath.Join(dir, "header.json"))
+	if err != nil {
+		t.Fatalf("ReadFile(header.json) error = %v", err)
+	}
+
+	var header LogHeader
+	if err := json.Unmarshal(headerData, &header); err != nil {
+		t.Fatalf("json.Unmarshal(header) error = %v", err)
+	}
+	if header.RunConfigID != "run-config-1" {
+		t.Fatalf("header.RunConfigID = %q, want run-config-1", header.RunConfigID)
+	}
+	if header.ParamSetID != "param-set-1" {
+		t.Fatalf("header.ParamSetID = %q, want param-set-1", header.ParamSetID)
+	}
+	if header.ConfigHash != "sha256:config" {
+		t.Fatalf("header.ConfigHash = %q, want sha256:config", header.ConfigHash)
+	}
+	if header.ParamsHash != "sha256:params" {
+		t.Fatalf("header.ParamsHash = %q, want sha256:params", header.ParamsHash)
+	}
+	if header.SchemaVersion != "effective/v1" {
+		t.Fatalf("header.SchemaVersion = %q, want effective/v1", header.SchemaVersion)
+	}
+	if header.ParamSetType != "effective" {
+		t.Fatalf("header.ParamSetType = %q, want effective", header.ParamSetType)
+	}
+	if header.BuildVersion != "0.5.0-test" {
+		t.Fatalf("header.BuildVersion = %q, want 0.5.0-test", header.BuildVersion)
+	}
+	if header.BuildGitSHA != "deadbeef" {
+		t.Fatalf("header.BuildGitSHA = %q, want deadbeef", header.BuildGitSHA)
+	}
+
+	executionConfigData, err := os.ReadFile(filepath.Join(dir, "execution_config.json"))
+	if err != nil {
+		t.Fatalf("ReadFile(execution_config.json) error = %v", err)
+	}
+	if got := string(executionConfigData); got != `{"schema_version":"run_config/v1","params":{"tracking":{"max_tracks":64}}}` {
+		t.Fatalf("execution_config.json = %s", got)
+	}
+}
+
 func TestProtoRoundTrip_MaxSpeedMps(t *testing.T) {
 	frame := testFrameBundle(1, time.Now().UnixNano())
 	frame.Tracks = &l9endpoints.TrackSet{

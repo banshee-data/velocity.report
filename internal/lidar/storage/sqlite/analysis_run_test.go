@@ -10,7 +10,6 @@ import (
 
 func TestRunParams_Serialization(t *testing.T) {
 	params := DefaultRunParams()
-	params.Timestamp = time.Date(2025, 12, 1, 12, 0, 0, 0, time.UTC)
 
 	// Test ToJSON
 	jsonBytes, err := params.ToJSON()
@@ -183,40 +182,6 @@ func TestRunTrackFromTrackedObject(t *testing.T) {
 	}
 	if runTrack.ObjectClass != track.ObjectClass {
 		t.Errorf("ObjectClass mismatch")
-	}
-}
-
-func TestAnalysisRun_JSONParams(t *testing.T) {
-	params := DefaultRunParams()
-	paramsJSON, err := params.ToJSON()
-	if err != nil {
-		t.Fatalf("Failed to serialize params: %v", err)
-	}
-
-	run := &AnalysisRun{
-		RunID:            "test_run_001",
-		CreatedAt:        time.Now(),
-		SourceType:       "pcap",
-		SourcePath:       "/path/to/test.pcap",
-		SensorID:         "sensor_1",
-		ParamsJSON:       paramsJSON,
-		DurationSecs:     120.5,
-		TotalFrames:      1000,
-		TotalClusters:    500,
-		TotalTracks:      50,
-		ConfirmedTracks:  45,
-		ProcessingTimeMs: 5000,
-		Status:           "completed",
-	}
-
-	// Verify we can round-trip the params
-	parsed, err := ParseRunParams(run.ParamsJSON)
-	if err != nil {
-		t.Fatalf("Failed to parse params from run: %v", err)
-	}
-
-	if parsed.Version != params.Version {
-		t.Errorf("Version mismatch after round-trip")
 	}
 }
 

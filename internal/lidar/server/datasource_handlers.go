@@ -10,12 +10,34 @@ import (
 	"strings"
 	"time"
 
+	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+)
+
+type replayFrameBuilder interface {
+	SetBlockOnFrameChannel(block bool)
+	DroppedFrames() uint64
+}
+
+var (
+	countPCAPPackets       = network.CountPCAPPackets
+	readPCAPFile           = network.ReadPCAPFile
+	readPCAPFileRealtime   = network.ReadPCAPFileRealtime
+	newForegroundForwarder = network.NewForegroundForwarder
+	absPath                = filepath.Abs
+	statPath               = os.Stat
+	getReplayFrameBuilder  = func(sensorID string) replayFrameBuilder {
+		fb := l2frames.GetFrameBuilder(sensorID)
+		if fb == nil {
+			return nil
+		}
+		return fb
+	}
 )
 
 // StartLiveListener starts the live UDP listener via DataSourceManager.
@@ -61,19 +83,7 @@ func (ws *Server) StopLiveListenerInternal() {
 
 // StartPCAPInternal starts PCAP replay (called by RealDataSourceManager).
 func (ws *Server) StartPCAPInternal(pcapFile string, config ReplayConfig) error {
-	return ws.startPCAPLocked(
-		pcapFile,
-		config.SpeedMode,
-		config.SpeedRatio,
-		config.StartSeconds,
-		config.DurationSeconds,
-		config.DebugRingMin,
-		config.DebugRingMax,
-		config.DebugAzMin,
-		config.DebugAzMax,
-		config.EnableDebug,
-		config.EnablePlots,
-	)
+	return ws.startPCAPLockedWithConfig(pcapFile, config)
 }
 
 // StopPCAPInternal stops the current PCAP replay (called by RealDataSourceManager).
@@ -132,19 +142,19 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 			mgr.SetSourcePath(pcapFile)
 		}
 
-		if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds,
-			0, 0, 0, 0, false, false); err != nil {
-			if startErr := ws.startLiveListenerLocked(); startErr != nil {
-				opsf("failed to restart live listener after PCAP start error: %v", startErr)
-			}
+		if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
+			StartSeconds:     startSeconds,
+			DurationSeconds:  durationSeconds,
+			SpeedMode:        speedMode,
+			SpeedRatio:       speedRatio,
+			AnalysisMode:     analysisMode,
+			DisableRecording: disableRecording,
+			SensorID:         ws.sensorID,
+		}); err != nil {
+			_ = ws.startLiveListenerLocked()
 			ws.dataSourceMu.Unlock()
 			return fmt.Errorf("start PCAP: %w", err)
 		}
-
-		ws.pcapMu.Lock()
-		ws.pcapAnalysisMode = analysisMode
-		ws.pcapDisableRecording = disableRecording
-		ws.pcapMu.Unlock()
 
 		ws.currentSource = DataSourcePCAP
 		ws.dataSourceMu.Unlock()
@@ -269,15 +279,13 @@ func (ws *Server) startLiveListenerLocked() error {
 		// listener.Start() blocks until context is cancelled or a fatal error occurs.
 		// It returns immediately with an error if socket binding fails.
 		err := listener.Start(ctx)
-
-		// Try to send the error (whether nil or actual error) to the startup channel.
-		// This will succeed only if the parent is still waiting; otherwise it's buffered or ignored.
 		select {
 		case errCh <- err:
 		default:
-			// Parent already timed out or succeeded; log if there was a runtime error
+			// Parent already took the timeout path (startup succeeded).
+			// Log post-startup runtime errors so they are not silently lost.
 			if err != nil && !errors.Is(err, context.Canceled) {
-				opsf("Lidar UDP listener error: %v", err)
+				opsf("LiDAR UDP listener error: %v", err)
 			}
 		}
 	}(ws.udpListener, listenerCtx, done, startupErr)
@@ -331,16 +339,13 @@ func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
 		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory not configured")}
 	}
 
-	safeDirAbs, err := filepath.Abs(ws.pcapSafeDir)
+	safeDirAbs, err := absPath(ws.pcapSafeDir)
 	if err != nil {
 		return "", &switchError{status: http.StatusInternalServerError, err: fmt.Errorf("invalid PCAP safe directory configuration: %w", err)}
 	}
 
 	candidatePath := filepath.Join(safeDirAbs, candidate)
-	resolvedPath, err := filepath.Abs(candidatePath)
-	if err != nil {
-		return "", &switchError{status: http.StatusBadRequest, err: fmt.Errorf("invalid pcap_file path: %w", err)}
-	}
+	resolvedPath := candidatePath
 
 	canonicalPath, err := filepath.EvalSymlinks(resolvedPath)
 	if err != nil {
@@ -358,7 +363,7 @@ func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
 		}
 	}
 
-	fileInfo, err := os.Stat(canonicalPath)
+	fileInfo, err := statPath(canonicalPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", &switchError{status: http.StatusNotFound, err: errors.New("pcap file not found")}
@@ -378,15 +383,108 @@ func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
 	return canonicalPath, nil
 }
 
-func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
-	resolvedPath, err := ws.resolvePCAPPath(pcapFile)
-	if err != nil {
-		return err
+func (ws *Server) replayAnalysisSensorID(config ReplayConfig) string {
+	if sensorID := strings.TrimSpace(config.SensorID); sensorID != "" {
+		return sensorID
+	}
+	return ws.sensorID
+}
+
+func (ws *Server) ensureAnalysisRunManager(sensorID string) *sqlite.AnalysisRunManager {
+	if ws.analysisRunManager != nil {
+		return ws.analysisRunManager
+	}
+	if ws.db == nil {
+		return nil
 	}
 
-	baseCtx := ws.baseContext()
-	if baseCtx == nil {
-		return &switchError{status: http.StatusInternalServerError, err: errors.New("webserver base context not initialized")}
+	effectiveSensorID := strings.TrimSpace(sensorID)
+	if effectiveSensorID == "" {
+		effectiveSensorID = ws.sensorID
+	}
+	ws.analysisRunManager = sqlite.NewAnalysisRunManager(ws.db, effectiveSensorID)
+	if effectiveSensorID != "" {
+		sqlite.RegisterAnalysisRunManager(effectiveSensorID, ws.analysisRunManager)
+	}
+	return ws.analysisRunManager
+}
+
+func (ws *Server) snapshotReplayEffectiveConfig(config ReplayConfig) *cfgpkg.TuningConfig {
+	sensorID := ws.replayAnalysisSensorID(config)
+
+	var bgManager *l3grid.BackgroundManager
+	if sensorID != "" {
+		bgManager = l3grid.GetBackgroundManager(sensorID)
+	}
+
+	cfg := ws.runtimeTuningConfigForSource(bgManager, DataSourcePCAP)
+	if sensorID != "" {
+		cfg.L1.Sensor = sensorID
+	}
+	return cfg
+}
+
+func (ws *Server) startReplayAnalysisRun(sourcePath string, config ReplayConfig) (string, error) {
+	manager := ws.ensureAnalysisRunManager(ws.replayAnalysisSensorID(config))
+	if manager == nil {
+		return "", nil
+	}
+
+	return manager.StartRunWithConfig(sqlite.AnalysisRunStartOptions{
+		PreferredRunID:      strings.TrimSpace(config.PreferredRunID),
+		SourceType:          "pcap",
+		SourcePath:          sourcePath,
+		SensorID:            ws.replayAnalysisSensorID(config),
+		ParentRunID:         strings.TrimSpace(config.ParentRunID),
+		ReplayCaseID:        strings.TrimSpace(config.ReplayCaseID),
+		RequestedParamSetID: strings.TrimSpace(config.RequestedParamSetID),
+		RequestedParamsJSON: config.RequestedParamsJSON,
+		EffectiveConfig:     ws.snapshotReplayEffectiveConfig(config),
+	})
+}
+
+func (ws *Server) failReplayAnalysisRun(runID, errMsg string) {
+	if runID == "" || ws.analysisRunManager == nil {
+		return
+	}
+	if err := ws.analysisRunManager.FailRun(errMsg); err != nil {
+		opsf("Warning: Failed to mark analysis run %s as failed: %v", runID, err)
+	}
+}
+
+func (ws *Server) resetFailedPCAPStartState() {
+	ws.pcapMu.Lock()
+	ws.pcapInProgress = false
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
+	ws.pcapAnalysisMode = false
+	ws.pcapDisableRecording = false
+	ws.pcapSpeedMode = ""
+	ws.pcapSpeedRatio = 0
+	ws.plotsEnabled = false
+	ws.pcapLastRunID = ""
+	ws.pcapMu.Unlock()
+}
+
+func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio float64, startSeconds float64, durationSeconds float64, debugRingMin int, debugRingMax int, debugAzMin float32, debugAzMax float32, enableDebug bool, enablePlots bool) error {
+	return ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
+		StartSeconds:    startSeconds,
+		DurationSeconds: durationSeconds,
+		SpeedMode:       speedMode,
+		SpeedRatio:      speedRatio,
+		DebugRingMin:    debugRingMin,
+		DebugRingMax:    debugRingMax,
+		DebugAzMin:      debugAzMin,
+		DebugAzMax:      debugAzMax,
+		EnableDebug:     enableDebug,
+		EnablePlots:     enablePlots,
+	})
+}
+
+func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig) error {
+	replayCfg := config
+	if replayCfg.SpeedRatio <= 0 {
+		replayCfg.SpeedRatio = 1.0
 	}
 
 	ws.pcapMu.Lock()
@@ -394,19 +492,65 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 		ws.pcapMu.Unlock()
 		return &switchError{status: http.StatusConflict, err: errors.New("pcap replay already in progress")}
 	}
+	ws.pcapInProgress = true
+	ws.pcapAnalysisMode = replayCfg.AnalysisMode
+	ws.pcapDisableRecording = replayCfg.DisableRecording
+	ws.pcapCancel = nil
+	ws.pcapDone = nil
+	ws.pcapSpeedMode = ""
+	ws.pcapSpeedRatio = 0
+	ws.plotsEnabled = false
+	ws.pcapLastRunID = ""
+	ws.pcapMu.Unlock()
+
+	resolvedPath, resolveErr := ws.resolvePCAPPath(pcapFile)
+	if resolveErr != nil {
+		if replayCfg.AnalysisMode {
+			if runID, err := ws.startReplayAnalysisRun(pcapFile, replayCfg); err != nil {
+				opsf("Warning: Failed to create analysis run for failed PCAP start: %v", err)
+			} else if runID != "" {
+				ws.failReplayAnalysisRun(runID, resolveErr.Error())
+			}
+		}
+		ws.resetFailedPCAPStartState()
+		return resolveErr
+	}
+
+	runID := ""
+	if replayCfg.AnalysisMode {
+		startRunID, err := ws.startReplayAnalysisRun(resolvedPath, replayCfg)
+		if err != nil {
+			ws.resetFailedPCAPStartState()
+			return fmt.Errorf("start analysis run: %w", err)
+		}
+		runID = startRunID
+	}
+
+	baseCtx := ws.baseContext()
+	if baseCtx == nil {
+		if runID != "" {
+			ws.failReplayAnalysisRun(runID, "webserver base context not initialized")
+		}
+		ws.resetFailedPCAPStartState()
+		return &switchError{status: http.StatusInternalServerError, err: errors.New("webserver base context not initialized")}
+	}
+
 	ctx, cancel := context.WithCancel(baseCtx)
 	done := make(chan struct{})
-	ws.pcapInProgress = true
+	ws.pcapMu.Lock()
 	ws.pcapCancel = cancel
 	ws.pcapDone = done
-	ws.plotsEnabled = enablePlots
-	ws.pcapLastRunID = "" // Clear previous run ID before starting new PCAP
+	ws.pcapSpeedMode = replayCfg.SpeedMode
+	ws.pcapSpeedRatio = replayCfg.SpeedRatio
+	ws.plotsEnabled = replayCfg.EnablePlots
+	ws.pcapLastRunID = runID
 	ws.pcapMu.Unlock()
 
 	// Initialize grid plotter if enabled
-	if enablePlots && ws.plotsBaseDir != "" {
+	if replayCfg.EnablePlots && ws.plotsBaseDir != "" {
+		sensorID := ws.replayAnalysisSensorID(replayCfg)
 		outputDir := l9endpoints.MakePlotOutputDir(ws.plotsBaseDir, resolvedPath)
-		ws.gridPlotter = l9endpoints.NewGridPlotter(ws.sensorID, debugRingMin, debugRingMax, float64(debugAzMin), float64(debugAzMax))
+		ws.gridPlotter = l9endpoints.NewGridPlotter(sensorID, replayCfg.DebugRingMin, replayCfg.DebugRingMax, float64(replayCfg.DebugAzMin), float64(replayCfg.DebugAzMax))
 		if err := ws.gridPlotter.Start(outputDir); err != nil {
 			opsf("Warning: Failed to start grid plotter: %v", err)
 			ws.gridPlotter = nil
@@ -416,54 +560,24 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 	}
 
 	ws.currentPCAPFile = resolvedPath
-	// Store the requested playback mode for UI visibility
-	ws.pcapMu.Lock()
-	ws.pcapSpeedMode = speedMode
-	ws.pcapSpeedRatio = speedRatio
-	ws.pcapMu.Unlock()
 
-	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}) {
+	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string) {
 		defer close(finished)
 		defer cancel()
-		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, ws.sensorID, speedMode, speedRatio)
-
-		// Check if we should start an analysis run (only in analysis mode)
-		ws.pcapMu.Lock()
-		isAnalysisMode := ws.pcapAnalysisMode
-		disableRecording := ws.pcapDisableRecording
-		ws.pcapMu.Unlock()
+		sensorID := ws.replayAnalysisSensorID(replayCfg)
+		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)
 
 		// Disable DB track persistence during analysis replays and sweeps that
 		// have recording disabled — prevents polluting the production track store.
-		if isAnalysisMode || disableRecording {
+		if replayCfg.AnalysisMode || replayCfg.DisableRecording {
 			ws.pcapDisableTrackPersistence.Store(true)
 			defer ws.pcapDisableTrackPersistence.Store(false)
 		}
 
-		var runID string
 		var recordingStarted bool
-		if isAnalysisMode && ws.analysisRunManager != nil {
-			// Build run parameters from current background manager settings
-			runParams := sqlite.DefaultRunParams()
-			if bgManager := l3grid.GetBackgroundManager(ws.sensorID); bgManager != nil {
-				runParams.Background = sqlite.FromBackgroundParams(bgManager.GetParams())
-			}
-
-			var startErr error
-			runID, startErr = ws.analysisRunManager.StartRun(path, runParams)
-			if startErr != nil {
-				opsf("Warning: Failed to start analysis run: %v", startErr)
-			} else if runID != "" {
-				// Store the run ID so the sweep runner can retrieve it
-				ws.pcapMu.Lock()
-				ws.pcapLastRunID = runID
-				ws.pcapMu.Unlock()
-
-				if !disableRecording && ws.onRecordingStart != nil {
-					ws.onRecordingStart(runID)
-					recordingStarted = true
-				}
-			}
+		if runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
+			ws.onRecordingStart(runID)
+			recordingStarted = true
 		}
 
 		// Configure parser to use LiDAR timestamps for PCAP replay
@@ -490,7 +604,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 		}
 
 		// Pre-count packets for progress tracking and timeline display.
-		countResult, countErr := network.CountPCAPPackets(path, ws.udpPort)
+		countResult, countErr := countPCAPPackets(path, ws.udpPort)
 		if countErr != nil {
 			opsf("Warning: failed to pre-count PCAP packets: %v (progress disabled)", countErr)
 		} else {
@@ -520,16 +634,16 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 		// sensor rotation is processed without silent drops. This guarantees
 		// deterministic 1:1 PCAP-frame-to-VRLOG-frame mapping regardless of
 		// playback speed.
-		if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+		if fb := getReplayFrameBuilder(sensorID); fb != nil {
 			fb.SetBlockOnFrameChannel(true)
 			defer fb.SetBlockOnFrameChannel(false)
 		}
-		if speedMode == "analysis" {
-			err = network.ReadPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, startSeconds, durationSeconds, 0, countResult.Count, onProgress)
+		if replayCfg.SpeedMode == "analysis" {
+			err = readPCAPFile(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, ws.packetForwarder, replayCfg.StartSeconds, replayCfg.DurationSeconds, 0, countResult.Count, onProgress)
 		} else {
 			// Apply PCAP-friendly background params and restore afterward.
 			var restoreParams func()
-			if bgManager := l3grid.GetBackgroundManager(ws.sensorID); bgManager != nil {
+			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
 				orig := bgManager.GetParams()
 				tuned := orig
 				tuned.SeedFromFirstObservation = true
@@ -551,17 +665,14 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 			}
 
 			// Realtime or scaled ratio
-			multiplier := speedRatio
-			if speedMode == "realtime" {
-				multiplier = 1.0
-			}
-			if multiplier <= 0 {
+			multiplier := replayCfg.SpeedRatio
+			if replayCfg.SpeedMode == "realtime" {
 				multiplier = 1.0
 			}
 
 			// Initialise foreground forwarder
 			var fgForwarder *network.ForegroundForwarder
-			fgForwarder, err = network.NewForegroundForwarder("localhost", 2370, nil)
+			fgForwarder, err = newForegroundForwarder("localhost", 2370, nil)
 			if err != nil {
 				opsf("Warning: Failed to create foreground forwarder: %v", err)
 			} else {
@@ -569,24 +680,22 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 				defer fgForwarder.Close()
 			}
 
-			bgManager := l3grid.GetBackgroundManager(ws.sensorID)
+			bgManager := l3grid.GetBackgroundManager(sensorID)
 
 			// Apply debug range parameters to background manager if specified
-			if bgManager != nil && (debugRingMin > 0 || debugRingMax > 0 || debugAzMin > 0 || debugAzMax > 0) {
+			if bgManager != nil && (replayCfg.DebugRingMin > 0 || replayCfg.DebugRingMax > 0 || replayCfg.DebugAzMin > 0 || replayCfg.DebugAzMax > 0) {
 				params := bgManager.GetParams()
-				params.DebugRingMin = debugRingMin
-				params.DebugRingMax = debugRingMax
-				params.DebugAzMin = debugAzMin
-				params.DebugAzMax = debugAzMax
-				if err := bgManager.SetParams(params); err != nil {
-					opsf("failed to apply debug range params: %v", err)
-				}
+				params.DebugRingMin = replayCfg.DebugRingMin
+				params.DebugRingMax = replayCfg.DebugRingMax
+				params.DebugAzMin = replayCfg.DebugAzMin
+				params.DebugAzMax = replayCfg.DebugAzMax
+				_ = bgManager.SetParams(params)
 				// Enable diagnostics only if enableDebug is true
-				if enableDebug {
+				if replayCfg.EnableDebug {
 					bgManager.SetEnableDiagnostics(true)
-					diagf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: FG_DEBUG enabled for rings[%d-%d], azimuth[%.1f-%.1f]", replayCfg.DebugRingMin, replayCfg.DebugRingMax, replayCfg.DebugAzMin, replayCfg.DebugAzMax)
 				} else {
-					diagf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", debugRingMin, debugRingMax, debugAzMin, debugAzMax)
+					diagf("PCAP replay: debug range configured rings[%d-%d], azimuth[%.1f-%.1f] but FG_DEBUG is OFF", replayCfg.DebugRingMin, replayCfg.DebugRingMax, replayCfg.DebugAzMin, replayCfg.DebugAzMax)
 				}
 			}
 
@@ -601,24 +710,24 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 
 			config := network.RealtimeReplayConfig{
 				SpeedMultiplier:     multiplier,
-				StartSeconds:        startSeconds,
-				DurationSeconds:     durationSeconds,
+				StartSeconds:        replayCfg.StartSeconds,
+				DurationSeconds:     replayCfg.DurationSeconds,
 				PacketForwarder:     ws.packetForwarder,
 				ForegroundForwarder: fgForwarder,
 				BackgroundManager:   bgManager,
-				SensorID:            ws.sensorID,
+				SensorID:            sensorID,
 				// Increase warmup to ~4000 packets (approx 20 frames / 2 seconds) to allow background grid to stabilize
 				WarmupPackets:   4000,
-				DebugRingMin:    debugRingMin,
-				DebugRingMax:    debugRingMax,
-				DebugAzMin:      debugAzMin,
-				DebugAzMax:      debugAzMax,
+				DebugRingMin:    replayCfg.DebugRingMin,
+				DebugRingMax:    replayCfg.DebugRingMax,
+				DebugAzMin:      replayCfg.DebugAzMin,
+				DebugAzMax:      replayCfg.DebugAzMax,
 				OnFrameCallback: onFrameCallback,
 				TotalPackets:    countResult.Count,
 				OnProgress:      onProgress,
 			}
 
-			err = network.ReadPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
+			err = readPCAPFileRealtime(ctx, path, ws.udpPort, ws.parser, ws.frameBuilder, ws.stats, config)
 		}
 
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -632,7 +741,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 		} else {
 			diagf("PCAP replay completed: %s", path)
 			// Log quality summary: cumulative dropped frame count for this sensor.
-			if fb := l2frames.GetFrameBuilder(ws.sensorID); fb != nil {
+			if fb := getReplayFrameBuilder(sensorID); fb != nil {
 				dropped := fb.DroppedFrames()
 				if dropped > 0 {
 					opsf("[PCAP quality] %d frames dropped (callback queue full; cumulative across replays for this sensor)", dropped)
@@ -708,7 +817,7 @@ func (ws *Server) startPCAPLocked(pcapFile string, speedMode string, speedRatio 
 			}
 		}
 		ws.dataSourceMu.Unlock()
-	}(resolvedPath, ctx, cancel, done)
+	}(resolvedPath, ctx, cancel, done, replayCfg, runID)
 
 	return nil
 }

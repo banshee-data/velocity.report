@@ -268,6 +268,31 @@ func (s *SweepStore) DeleteSweep(sweepID string) error {
 	})
 }
 
+// RecoverOrphanedSweeps marks any "running" sweeps as "failed" on startup.
+// This handles the case where the server was restarted mid-sweep, leaving
+// database records stuck in "running" status with no in-memory counterpart.
+func (s *SweepStore) RecoverOrphanedSweeps() (int64, error) {
+	var affected int64
+	err := retryOnBusy(func() error {
+		res, err := s.db.Exec(`
+			UPDATE lidar_tuning_sweeps
+			SET status = 'failed',
+			    error = 'incomplete: server restarted',
+			    completed_at = datetime('now')
+			WHERE status = 'running'
+		`)
+		if err != nil {
+			return err
+		}
+		affected, _ = res.RowsAffected()
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("recovering orphaned sweeps: %w", err)
+	}
+	return affected, nil
+}
+
 // SaveSweepStart implements sweep.SweepPersister for the Runner/AutoTuner integration.
 func (s *SweepStore) SaveSweepStart(sweepID, sensorID, mode string, request json.RawMessage, startedAt time.Time, objectiveName, objectiveVersion string) error {
 	return s.InsertSweep(SweepRecord{

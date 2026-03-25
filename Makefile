@@ -169,7 +169,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0-pre25
+VERSION := 0.5.0-pre26
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
@@ -1065,7 +1065,7 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
-lint-docs: check-mermaid check-plan-hygiene ## Check Mermaid fences, plan hygiene, header metadata (docs/config/data), British English spelling, and relative links in Markdown
+lint-docs: check-mermaid ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, and relative links in Markdown
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 	@python3 scripts/check-relative-links.py

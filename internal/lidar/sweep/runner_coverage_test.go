@@ -370,13 +370,13 @@ func TestRunner_StartGeneric_TooManyCombos(t *testing.T) {
 
 func TestRunner_PersistComplete_NoPersister(t *testing.T) {
 	r := newQuietRunner(nil)
-	r.persistComplete("complete", "", nil) // should not panic
+	r.persistComplete("completed", "", nil) // should not panic
 }
 
 func TestRunner_PersistComplete_NoSweepID(t *testing.T) {
 	r := newQuietRunner(nil)
 	r.persister = &mockPersister{}
-	r.persistComplete("complete", "", nil) // should not panic
+	r.persistComplete("completed", "", nil) // should not panic
 }
 
 func TestRunner_PersistComplete_WithData(t *testing.T) {
@@ -388,7 +388,7 @@ func TestRunner_PersistComplete_WithData(t *testing.T) {
 	r.state.Results = []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}}
 	r.mu.Unlock()
 
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
@@ -710,12 +710,12 @@ func TestRunner_PersistComplete_WithResults(t *testing.T) {
 	r.mu.Unlock()
 
 	rec, _ := json.Marshal(map[string]interface{}{"noise": 0.01})
-	r.persistComplete("complete", "", rec)
+	r.persistComplete("completed", "", rec)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "complete" {
-		t.Errorf("status = %q, want complete", mp.completeStatus)
+	if mp.completeStatus != "completed" {
+		t.Errorf("status = %q, want completed", mp.completeStatus)
 	}
 }
 
@@ -725,12 +725,12 @@ func TestRunner_PersistComplete_WithError(t *testing.T) {
 	r.SetPersister(mp)
 	r.sweepID = "test-sweep"
 
-	r.persistComplete("error", "something failed", nil)
+	r.persistComplete("failed", "something failed", nil)
 	if !mp.completeCalled {
 		t.Error("expected SaveSweepComplete to be called")
 	}
-	if mp.completeStatus != "error" {
-		t.Errorf("status = %q, want error", mp.completeStatus)
+	if mp.completeStatus != "failed" {
+		t.Errorf("status = %q, want failed", mp.completeStatus)
 	}
 }
 
@@ -1551,13 +1551,13 @@ func TestRunnerCov2_AddWarning(t *testing.T) {
 func TestRunnerCov2_PersistComplete_NoPersister(t *testing.T) {
 	r := &Runner{}
 	// Should not panic
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 func TestRunnerCov2_PersistComplete_NoSweepID(t *testing.T) {
 	r := &Runner{persister: &runnerMockPersister{}}
 	// Should return early - sweepID is empty
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 func TestRunnerCov2_PersistComplete_WithPersister(t *testing.T) {
@@ -1569,7 +1569,7 @@ func TestRunnerCov2_PersistComplete_WithPersister(t *testing.T) {
 			Results: []ComboResult{{ParamValues: map[string]interface{}{"noise_relative": 0.01}}},
 		},
 	}
-	r.persistComplete("complete", "", nil)
+	r.persistComplete("completed", "", nil)
 }
 
 // --- runnerMockPersister ---
@@ -1597,4 +1597,63 @@ func (m *runnerMockPersister) LoadSweepCheckpoint(sweepID string) (int, json.Raw
 
 func (m *runnerMockPersister) GetSuspendedSweep() (string, int, error) {
 	return "", 0, nil
+}
+
+// --- StopAndWait tests ---
+
+func TestRunner_StopAndWait_AlreadyIdle(t *testing.T) {
+	r := newQuietRunner(nil)
+	// Runner starts idle; StopAndWait should return immediately.
+	r.StopAndWait(50 * time.Millisecond)
+	state := r.GetSweepState()
+	if state.Status != SweepStatusIdle {
+		t.Errorf("status = %q, want idle", state.Status)
+	}
+}
+
+func TestRunner_StopAndWait_TransitionsToIdle(t *testing.T) {
+	r := newQuietRunner(nil)
+
+	// Simulate a running state that clears itself after a short delay.
+	r.mu.Lock()
+	r.state.Status = SweepStatusRunning
+	r.mu.Unlock()
+
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		r.mu.Lock()
+		r.state.Status = SweepStatusIdle
+		r.mu.Unlock()
+	}()
+
+	start := time.Now()
+	r.StopAndWait(2 * time.Second)
+	elapsed := time.Since(start)
+
+	if elapsed > time.Second {
+		t.Errorf("StopAndWait took %v, expected <1s", elapsed)
+	}
+
+	state := r.GetSweepState()
+	if state.Status != SweepStatusIdle {
+		t.Errorf("status = %q, want idle", state.Status)
+	}
+}
+
+func TestRunner_StopAndWait_Timeout(t *testing.T) {
+	r := newQuietRunner(nil)
+
+	// Set running state and never clear it.
+	r.mu.Lock()
+	r.state.Status = SweepStatusRunning
+	r.mu.Unlock()
+
+	start := time.Now()
+	r.StopAndWait(150 * time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Should return after ~150ms timeout, not block indefinitely.
+	if elapsed > 500*time.Millisecond {
+		t.Errorf("StopAndWait took %v, expected ~150ms timeout", elapsed)
+	}
 }

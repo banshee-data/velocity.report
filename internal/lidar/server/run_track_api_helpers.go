@@ -12,9 +12,6 @@ func parseRunPath(path string) (runID string, subPath string) {
 		return "", ""
 	}
 	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
 	runID = parts[0]
 	if len(parts) > 1 {
 		subPath = parts[1]
@@ -25,9 +22,6 @@ func parseRunPath(path string) (runID string, subPath string) {
 // parseTrackPath extracts track_id and action from tracks/{track_id}/{action}
 func parseTrackPath(path string) (trackID string, action string) {
 	parts := strings.SplitN(path, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
 	trackID = parts[0]
 	if len(parts) > 1 {
 		action = parts[1]

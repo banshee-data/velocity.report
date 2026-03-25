@@ -6,11 +6,19 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/adapters"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/google/uuid"
+)
+
+var (
+	startPCAPInternalForScene = func(ws *Server, pcapPath string, config ReplayConfig) error {
+		return ws.StartPCAPInternal(pcapPath, config)
+	}
+	lastAnalysisRunIDForScene = func(ws *Server) string {
+		return ws.LastAnalysisRunID()
+	}
 )
 
 // REST API for replay case management
@@ -97,9 +105,6 @@ func parseScenePath(path string) (sceneID string, action string) {
 		return "", ""
 	}
 	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) == 0 {
-		return "", ""
-	}
 	sceneID = parts[0]
 	if len(parts) > 1 {
 		action = parts[1]
@@ -294,30 +299,16 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		}
 	}
 
-	// Determine which params to use
+	// Determine which params to use as launch intent lineage.
 	var paramsJSON json.RawMessage
 	if req.ParamsJSON != nil {
 		paramsJSON = req.ParamsJSON
+	} else if len(scene.RecommendedParams) > 0 {
+		paramsJSON = scene.RecommendedParams
 	} else if len(scene.OptimalParamsJSON) > 0 {
 		paramsJSON = scene.OptimalParamsJSON
 	}
-
-	// Create analysis run with UUID for uniqueness
-	runStore := sqlite.NewAnalysisRunStore(ws.db)
-	run := &sqlite.AnalysisRun{
-		RunID:      fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8]),
-		SourceType: "pcap",
-		SourcePath: scene.PCAPFile,
-		SensorID:   scene.SensorID,
-		Status:     "running",
-		CreatedAt:  time.Now(),
-		ParamsJSON: paramsJSON,
-	}
-
-	if err := runStore.InsertRun(run); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create analysis run: %v", err))
-		return
-	}
+	preferredRunID := fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8])
 
 	// Start PCAP replay
 	// Note: The actual run completion and track insertion will be handled by AnalysisRunManager
@@ -331,9 +322,13 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	}
 
 	config := ReplayConfig{
-		StartSeconds:    startSecs,
-		DurationSeconds: durationSecs,
-		AnalysisMode:    true, // Preserve state after completion
+		StartSeconds:        startSecs,
+		DurationSeconds:     durationSecs,
+		AnalysisMode:        true, // Preserve state after completion
+		SensorID:            scene.SensorID,
+		PreferredRunID:      preferredRunID,
+		ReplayCaseID:        sceneID,
+		RequestedParamsJSON: paramsJSON,
 	}
 
 	// Reset tracker to ensure deterministic track IDs starting from track_1
@@ -345,17 +340,17 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		opsf("Warning: failed to reset background grid before replay: %v", err)
 	}
 
-	if err := ws.StartPCAPInternal(scene.PCAPFile, config); err != nil {
-		// Update run status to failed
-		if updateErr := runStore.UpdateRunStatus(run.RunID, "failed", fmt.Sprintf("PCAP replay failed: %v", err)); updateErr != nil {
-			opsf("failed to update run status: %v", updateErr)
-		}
+	if err := startPCAPInternalForScene(ws, scene.PCAPFile, config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
+	runID := lastAnalysisRunIDForScene(ws)
+	if runID == "" {
+		runID = preferredRunID
+	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
-		"run_id":         run.RunID,
+		"run_id":         runID,
 		"replay_case_id": sceneID,
 		"status":         "running",
 		"message":        "PCAP replay initiated; analysis run created",
@@ -422,12 +417,6 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get candidate run params for snapshot
-	candidateRun, err := runStore.GetRun(req.CandidateRunID)
-	if err != nil {
-		opsf("Warning: failed to get candidate run params: %v", err)
-	}
-
 	eval := &sqlite.Evaluation{
 		ReplayCaseID:        sceneID,
 		ReferenceRunID:      scene.ReferenceRunID,
@@ -444,9 +433,6 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 		MatchedCount:        score.MatchedCount,
 		ReferenceCount:      score.ReferenceCount,
 		CandidateCount:      score.CandidateCount,
-	}
-	if candidateRun != nil && len(candidateRun.ParamsJSON) > 0 {
-		eval.ParamsJSON = candidateRun.ParamsJSON
 	}
 
 	evalStore := sqlite.NewEvaluationStore(ws.db)

@@ -336,11 +336,18 @@ func setupCov2Server(t *testing.T) *Server {
 			status TEXT NOT NULL DEFAULT 'pending',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			completed_at DATETIME,
-			params_json TEXT,
 			total_frames INTEGER DEFAULT 0,
 			total_clusters INTEGER DEFAULT 0,
 			total_tracks INTEGER DEFAULT 0,
 			error_message TEXT DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS lidar_param_sets (
+			param_set_id TEXT PRIMARY KEY,
+			params_hash TEXT NOT NULL DEFAULT '',
+			schema_version TEXT NOT NULL DEFAULT '',
+			param_set_type TEXT NOT NULL DEFAULT '',
+			params_json TEXT NOT NULL,
+			created_at INTEGER NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
 			replay_case_id TEXT PRIMARY KEY,
@@ -350,9 +357,9 @@ func setupCov2Server(t *testing.T) *Server {
 			pcap_duration_secs REAL,
 			description TEXT,
 			reference_run_id TEXT,
-			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
-			updated_at_ns INTEGER
+			updated_at_ns INTEGER,
+			recommended_param_set_id TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS lidar_bg_snapshots (
 			snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1701,7 +1708,6 @@ func setupCov3Server(t *testing.T) *Server {
 			source_type TEXT NOT NULL DEFAULT 'unknown',
 			source_path TEXT,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			params_json TEXT NOT NULL DEFAULT '{}',
 			duration_secs REAL DEFAULT 0,
 			total_frames INTEGER DEFAULT 0,
 			total_clusters INTEGER DEFAULT 0,
@@ -1714,6 +1720,14 @@ func setupCov3Server(t *testing.T) *Server {
 			notes TEXT,
 			vrlog_path TEXT
 		)`,
+		`CREATE TABLE IF NOT EXISTS lidar_param_sets (
+			param_set_id TEXT PRIMARY KEY,
+			params_hash TEXT NOT NULL DEFAULT '',
+			schema_version TEXT NOT NULL DEFAULT '',
+			param_set_type TEXT NOT NULL DEFAULT '',
+			params_json TEXT NOT NULL,
+			created_at INTEGER NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
 			replay_case_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
@@ -1722,9 +1736,9 @@ func setupCov3Server(t *testing.T) *Server {
 			pcap_duration_secs REAL,
 			description TEXT,
 			reference_run_id TEXT,
-			optimal_params_json TEXT,
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
-			updated_at_ns INTEGER
+			updated_at_ns INTEGER,
+			recommended_param_set_id TEXT
 		)`,
 	} {
 		if _, err := sqlDB.Exec(ddl); err != nil {
@@ -2704,8 +2718,8 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 
 	// Insert a run without vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, params_json, status)
-		 VALUES ('run-novr', 1000, 'pcap', 'cov3-sensor', '{}', 'completed')`,
+		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status)
+		 VALUES ('run-novr', 1000, 'pcap', 'cov3-sensor', 'completed')`,
 	)
 	if err != nil {
 		t.Fatalf("insert run: %v", err)
@@ -2729,8 +2743,8 @@ func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 
 	// Insert a run with vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, params_json, status, vrlog_path)
-		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', '{}', 'completed', '/var/lib/velocity-report/test.vrlog')`,
+		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status, vrlog_path)
+		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', 'completed', '/var/lib/velocity-report/test.vrlog')`,
 	)
 	if err != nil {
 		t.Fatalf("insert run: %v", err)
@@ -3589,6 +3603,10 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
 	w := httptest.NewRecorder()
 	ws.handlePCAPStop(w, req)
+	baseCancel()
+	ws.dataSourceMu.Lock()
+	ws.stopLiveListenerLocked()
+	ws.dataSourceMu.Unlock()
 	// Analysis mode + live listener restart — may get 200 or 500 for UDP listener
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 200 or 500; body: %s", w.Code, w.Body.String())
@@ -4012,7 +4030,6 @@ func setupCov4Server(t *testing.T) *Server {
 			source_type TEXT NOT NULL DEFAULT 'unknown',
 			source_path TEXT,
 			sensor_id TEXT NOT NULL DEFAULT '',
-			params_json TEXT NOT NULL DEFAULT '{}',
 			duration_secs REAL DEFAULT 0,
 			total_frames INTEGER DEFAULT 0,
 			total_clusters INTEGER DEFAULT 0,

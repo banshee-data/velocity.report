@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
 )
 
@@ -143,18 +144,6 @@ func TestStartRun(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("Expected 1 run in database, got %d", count)
-	}
-
-	// Verify params are stored
-	var paramsJSON string
-	err = db.QueryRow("SELECT params_json FROM lidar_run_records WHERE run_id = ?", runID).Scan(&paramsJSON)
-	if err != nil {
-		t.Fatalf("Failed to query params: %v", err)
-	}
-
-	var storedParams RunParams
-	if err := json.Unmarshal([]byte(paramsJSON), &storedParams); err != nil {
-		t.Errorf("Failed to unmarshal stored params: %v", err)
 	}
 }
 
@@ -403,38 +392,6 @@ func TestFailRun(t *testing.T) {
 	}
 }
 
-func TestGetCurrentRunParams(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
-	defer cleanup()
-
-	manager := NewAnalysisRunManager(db, "test-sensor")
-	params := DefaultRunParams()
-	params.Background.BackgroundUpdateFraction = 0.123
-
-	// Before starting run
-	_, ok := manager.GetCurrentRunParams()
-	if ok {
-		t.Error("Expected GetCurrentRunParams to return false when no run is active")
-	}
-
-	// Start run
-	_, err := manager.StartRun("/path/to/test.pcap", params)
-	if err != nil {
-		t.Fatalf("StartRun failed: %v", err)
-	}
-
-	// Get params
-	retrievedParams, ok := manager.GetCurrentRunParams()
-	if !ok {
-		t.Fatal("Expected GetCurrentRunParams to return true when run is active")
-	}
-
-	if retrievedParams.Background.BackgroundUpdateFraction != 0.123 {
-		t.Errorf("Expected BackgroundUpdateFraction 0.123, got %f",
-			retrievedParams.Background.BackgroundUpdateFraction)
-	}
-}
-
 func TestRecordTrack_NoActiveRun(t *testing.T) {
 	db, cleanup := setupAnalysisRunDB(t)
 	defer cleanup()
@@ -555,5 +512,126 @@ func TestRecordFrame_ZeroTimestampIgnored(t *testing.T) {
 	}
 	if last != 1700000000000000000 {
 		t.Errorf("Expected lastFrameNs set after valid timestamp, got %d", last)
+	}
+}
+
+func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "immutable-sensor")
+	store := NewAnalysisRunStore(db)
+
+	cfg := cfgpkg.MustLoadDefaultConfig()
+	cfg.L1.Sensor = "immutable-sensor"
+
+	if err := store.InsertRun(&AnalysisRun{
+		RunID:      "parent-run",
+		CreatedAt:  time.Now(),
+		SourceType: "pcap",
+		SourcePath: "/tmp/parent.pcap",
+		SensorID:   "immutable-sensor",
+		Status:     "completed",
+	}); err != nil {
+		t.Fatalf("InsertRun(parent) failed: %v", err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO lidar_replay_cases (
+			replay_case_id, sensor_id, pcap_file, created_at_ns
+		) VALUES (?, ?, ?, ?)
+	`, "scene-42", "immutable-sensor", "/tmp/replay.pcap", time.Now().UnixNano()); err != nil {
+		t.Fatalf("insert replay case: %v", err)
+	}
+
+	runID, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+		SourcePath:          "/tmp/replay.pcap",
+		SensorID:            "immutable-sensor",
+		ParentRunID:         "parent-run",
+		ReplayCaseID:        "scene-42",
+		RequestedParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":64}}`),
+		EffectiveConfig:     cfg,
+	})
+	if err != nil {
+		t.Fatalf("StartRunWithConfig failed: %v", err)
+	}
+
+	run, err := store.GetRun(runID)
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+
+	if run.RunConfigID == "" {
+		t.Fatal("expected run_config_id to be persisted")
+	}
+	if run.RequestedParamSetID == "" {
+		t.Fatal("expected requested_param_set_id to be persisted")
+	}
+	if run.ParentRunID != "parent-run" {
+		t.Fatalf("ParentRunID = %q, want %q", run.ParentRunID, "parent-run")
+	}
+	if run.ReplayCaseID != "scene-42" {
+		t.Fatalf("ReplayCaseID = %q, want %q", run.ReplayCaseID, "scene-42")
+	}
+
+	var paramSetCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_param_sets`).Scan(&paramSetCount); err != nil {
+		t.Fatalf("count lidar_param_sets: %v", err)
+	}
+	if paramSetCount != 2 {
+		t.Fatalf("expected requested + effective param sets, got %d", paramSetCount)
+	}
+
+	var runConfigCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_run_configs`).Scan(&runConfigCount); err != nil {
+		t.Fatalf("count lidar_run_configs: %v", err)
+	}
+	if runConfigCount != 1 {
+		t.Fatalf("expected 1 run config row, got %d", runConfigCount)
+	}
+}
+
+func TestCompleteRun_PersistsFrameBoundsWithImmutableConfig(t *testing.T) {
+	db, cleanup := setupAnalysisRunDB(t)
+	defer cleanup()
+
+	manager := NewAnalysisRunManager(db, "frame-sensor")
+	store := NewAnalysisRunStore(db)
+
+	cfg := cfgpkg.MustLoadDefaultConfig()
+	cfg.L1.Sensor = "frame-sensor"
+
+	runID, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+		SourcePath:      "/tmp/frames.pcap",
+		SensorID:        "frame-sensor",
+		EffectiveConfig: cfg,
+	})
+	if err != nil {
+		t.Fatalf("StartRunWithConfig failed: %v", err)
+	}
+
+	manager.RecordFrame(100)
+	manager.RecordFrame(250)
+	manager.RecordClusters(3)
+
+	if err := manager.CompleteRun(); err != nil {
+		t.Fatalf("CompleteRun failed: %v", err)
+	}
+
+	run, err := store.GetRun(runID)
+	if err != nil {
+		t.Fatalf("GetRun failed: %v", err)
+	}
+
+	if run.Status != "completed" {
+		t.Fatalf("Status = %q, want completed", run.Status)
+	}
+	if run.CompletedAt == nil {
+		t.Fatal("expected completed_at to be persisted")
+	}
+	if run.FrameStartNs == nil || *run.FrameStartNs != 100 {
+		t.Fatalf("FrameStartNs = %v, want 100", run.FrameStartNs)
+	}
+	if run.FrameEndNs == nil || *run.FrameEndNs != 250 {
+		t.Fatalf("FrameEndNs = %v, want 250", run.FrameEndNs)
 	}
 }

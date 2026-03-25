@@ -51,8 +51,8 @@ const {
 	updateParamFields,
 	getParamValueCount,
 	updateSweepSummary,
-	buildSceneJSON,
-	loadScene,
+	buildSweepSetupJSON,
+	loadSetup,
 	toggleJSONEditor,
 	applyJSONEditor,
 	handleStart,
@@ -71,14 +71,14 @@ const {
 	renderCharts,
 	initCharts,
 	downloadCSV,
-	downloadScene,
-	uploadScene,
+	downloadSetup,
+	uploadSetup,
 	fetchCurrentParams,
 	displayCurrentParams,
-	loadSweepScenes,
-	onSweepSceneSelected,
+	loadReplayCases,
+	onReplayCaseSelected,
 	applyRecommendation,
-	applySceneParams,
+	applyReplayCaseParams,
 	PARAM_SCHEMA,
 	escapeHTML,
 	parseDuration,
@@ -140,18 +140,18 @@ function setupDOM(): void {
 		'<select id="data_source">',
 		'  <option value="live">Live</option>',
 		'  <option value="pcap">PCAP</option>',
-		'  <option value="scene">Scene</option>',
+		'  <option value="replay_case">Replay Case</option>',
 		'</select>',
 		'<div id="pcap-fields" style="display:none">',
 		'  <input id="pcap_file" type="text" value="" />',
 		'  <input id="pcap_start_secs" type="number" value="0" />',
 		'  <input id="pcap_duration_secs" type="number" value="-1" />',
 		'</div>',
-		'<div id="scene-fields" style="display:none">',
-		'  <select id="scene_select"><option value="">Loading</option></select>',
-		'  <div id="scene-info" style="display:none"></div>',
-		'  <div id="scene-actions" style="display:none">',
-		'    <button id="btn-apply-scene-params">Apply Scene Params</button>',
+		'<div id="replay-case-fields" style="display:none">',
+		'  <select id="replay_case_select"><option value="">Loading</option></select>',
+		'  <div id="replay-case-info" style="display:none"></div>',
+		'  <div id="replay-case-actions" style="display:none">',
+		'    <button id="btn-apply-replay-case-params">Apply Replay Case Params</button>',
 		'  </div>',
 		'</div>',
 		'<button id="btn-start">Start Sweep</button>',
@@ -204,7 +204,7 @@ function setupDOM(): void {
 		'  <input id="ac_max_unbounded" type="number" value="" />',
 		'  <input id="ac_max_empty_boxes" type="number" value="" />',
 		'</div>',
-		'<input id="scene-upload" type="file" style="display:none" />',
+		'<input id="setup-upload" type="file" style="display:none" />',
 		'<div id="json-editor-wrap" style="display:none">',
 		'  <textarea id="scenario-json"></textarea>',
 		'</div>',
@@ -554,21 +554,21 @@ describe('togglePCAP', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('');
-		expect(document.getElementById('scene-fields')!.style.display).toBe('none');
+		expect(document.getElementById('replay-case-fields')!.style.display).toBe('none');
 	});
 
-	it('shows scene fields when data_source is scene', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'scene';
+	it('shows replay case fields when data_source is replay_case', () => {
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('none');
-		expect(document.getElementById('scene-fields')!.style.display).toBe('');
+		expect(document.getElementById('replay-case-fields')!.style.display).toBe('');
 	});
 
 	it('hides both when data_source is live', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'live';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('none');
-		expect(document.getElementById('scene-fields')!.style.display).toBe('none');
+		expect(document.getElementById('replay-case-fields')!.style.display).toBe('none');
 	});
 });
 
@@ -857,15 +857,15 @@ describe('updateSweepSummary', () => {
 });
 
 // ===========================================================================
-// Scene management
+// Sweep setup management
 // ===========================================================================
 
-describe('buildSceneJSON', () => {
+describe('buildSweepSetupJSON', () => {
 	beforeEach(setupDOM);
 
 	it('builds scenario with default values', () => {
 		addParamRow('l3.ema_baseline_v1.noise_relative');
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.seed).toBe('true');
 		expect(scenario.iterations).toBe(10);
 		expect(scenario.interval).toBe('2s');
@@ -878,7 +878,7 @@ describe('buildSceneJSON', () => {
 
 	it('includes start/end/step for numeric params', () => {
 		addParamRow('l3.ema_baseline_v1.noise_relative');
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params[0].start).toBe(0.01);
 		expect(scenario.params[0].end).toBe(0.2);
 		expect(scenario.params[0].step).toBe(0.001);
@@ -887,7 +887,7 @@ describe('buildSceneJSON', () => {
 	it('includes explicit values when provided', () => {
 		const id = addParamRow('l3.ema_baseline_v1.noise_relative');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '0.01, 0.05, 0.1';
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params[0].values).toEqual([0.01, 0.05, 0.1]);
 		expect(scenario.params[0].start).toBeUndefined();
 	});
@@ -896,59 +896,59 @@ describe('buildSceneJSON', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('l3.ema_baseline_v1.noise_relative');
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.data_source).toBe('pcap');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
 
-	it('handles scene data source', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'scene';
-		(document.getElementById('scene_select') as HTMLSelectElement).innerHTML =
-			'<option value="scene-1">Scene 1</option>';
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 'scene-1';
+	it('handles replay_case data source', () => {
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
+		(document.getElementById('replay_case_select') as HTMLSelectElement).innerHTML =
+			'<option value="case-1">Case 1</option>';
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'case-1';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('l3.ema_baseline_v1.noise_relative');
-		const scenario = buildSceneJSON();
-		// scene translates to pcap for data_source
+		const scenario = buildSweepSetupJSON();
+		// replay_case translates to pcap for data_source
 		expect(scenario.data_source).toBe('pcap');
-		expect(scenario.replay_case_id).toBe('scene-1');
+		expect(scenario.replay_case_id).toBe('case-1');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
 
 	it('handles bool param values', () => {
 		addParamRow('l3.ema_baseline_v1.seed_from_first');
 		// l3.ema_baseline_v1.seed_from_first is bool, default values "true, false"
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params[0].values).toEqual([true, false]);
 	});
 
 	it('handles int param values', () => {
 		const id = addParamRow('l3.ema_baseline_v1.neighbour_confirmation_count');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '1, 3, 5';
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params[0].values).toEqual([1, 3, 5]);
 	});
 
 	it('handles string param values', () => {
 		const id = addParamRow('pipeline.buffer_timeout');
 		(document.getElementById('pvals-' + id) as HTMLInputElement).value = '500ms, 1s, 2s';
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params[0].values).toEqual(['500ms', '1s', '2s']);
 	});
 
 	it('skips rows with no parameter selected', () => {
 		addParamRow(); // no name
 		addParamRow('l3.ema_baseline_v1.noise_relative');
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		expect(scenario.params).toHaveLength(1);
 	});
 });
 
-describe('loadScene', () => {
+describe('loadSetup', () => {
 	beforeEach(setupDOM);
 
 	it('loads scenario values into form fields', () => {
-		loadScene({
+		loadSetup({
 			seed: 'false',
 			iterations: 20,
 			interval: '3s',
@@ -973,7 +973,7 @@ describe('loadScene', () => {
 	});
 
 	it('loads explicit values', () => {
-		loadScene({
+		loadSetup({
 			params: [
 				{ name: 'l3.ema_baseline_v1.noise_relative', type: 'float64', values: [0.01, 0.05, 0.1] }
 			]
@@ -985,12 +985,12 @@ describe('loadScene', () => {
 	});
 
 	it('handles replay_case_id by switching data source', () => {
-		loadScene({ replay_case_id: 'my-scene', params: [] });
-		expect(val('data_source')).toBe('scene');
+		loadSetup({ replay_case_id: 'my-case', params: [] });
+		expect(val('data_source')).toBe('replay_case');
 	});
 
 	it('handles pcap data_source', () => {
-		loadScene({ data_source: 'pcap', pcap_file: 'test.pcap', params: [] });
+		loadSetup({ data_source: 'pcap', pcap_file: 'test.pcap', params: [] });
 		expect(val('data_source')).toBe('pcap');
 		expect(val('pcap_file')).toBe('test.pcap');
 	});
@@ -999,7 +999,7 @@ describe('loadScene', () => {
 		addParamRow('l3.ema_baseline_v1.noise_relative');
 		addParamRow('l3.ema_baseline_v1.closeness_multiplier');
 		expect(document.getElementById('param-rows')!.children.length).toBe(2);
-		loadScene({
+		loadSetup({
 			params: [{ name: 'l5.cv_kf_v1.hits_to_confirm', type: 'int', start: 1, end: 5, step: 1 }]
 		});
 		expect(document.getElementById('param-rows')!.children.length).toBe(1);
@@ -1054,7 +1054,7 @@ describe('applyJSONEditor', () => {
 	});
 });
 
-describe('downloadScene', () => {
+describe('downloadSetup', () => {
 	beforeEach(setupDOM);
 
 	it('creates and clicks a download link', () => {
@@ -1067,13 +1067,13 @@ describe('downloadScene', () => {
 			}
 			return document.createElement(tag);
 		});
-		downloadScene();
+		downloadSetup();
 		expect(URL.createObjectURL).toHaveBeenCalled();
 		(document.createElement as jest.Mock).mockRestore();
 	});
 });
 
-describe('uploadScene', () => {
+describe('uploadSetup', () => {
 	beforeEach(setupDOM);
 
 	it('loads scenario from file', () => {
@@ -1089,7 +1089,7 @@ describe('uploadScene', () => {
 			}
 		};
 		const input = { files: [new Blob([''])], value: 'file.json' } as any;
-		uploadScene(input);
+		uploadSetup(input);
 		expect(val('seed')).toBe('false');
 		expect(val('iterations')).toBe('3');
 		expect(input.value).toBe('');
@@ -1107,13 +1107,13 @@ describe('uploadScene', () => {
 			}
 		};
 		const input = { files: [new Blob([''])], value: 'file.json' } as any;
-		uploadScene(input);
+		uploadSetup(input);
 		expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
 		(global as any).FileReader = OrigFileReader;
 	});
 
 	it('returns early when no files', () => {
-		uploadScene({ files: null } as any);
+		uploadSetup({ files: null } as any);
 		// Should not throw
 	});
 });
@@ -1227,12 +1227,12 @@ describe('sweep control', () => {
 			expect(body.weights.acceptance).toBe(1.0);
 		});
 
-		it('includes replay_case_id when data_source is scene', () => {
+		it('includes replay_case_id when data_source is replay_case', () => {
 			setMode('auto');
-			(document.getElementById('data_source') as HTMLSelectElement).value = 'scene';
-			(document.getElementById('scene_select') as HTMLSelectElement).innerHTML =
-				'<option value="s1">Scene</option>';
-			(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
+			(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
+			(document.getElementById('replay_case_select') as HTMLSelectElement).innerHTML =
+				'<option value="s1">Case 1</option>';
+			(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
 			(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 			global.fetch = jest.fn().mockResolvedValue({ ok: true });
 			handleStartAutoTune();
@@ -1893,10 +1893,10 @@ describe('displayCurrentParams', () => {
 });
 
 // ===========================================================================
-// Scene management
+// Sweep setup management
 // ===========================================================================
 
-describe('loadSweepScenes', () => {
+describe('loadReplayCases', () => {
 	beforeEach(() => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -1910,49 +1910,49 @@ describe('loadSweepScenes', () => {
 		jest.useRealTimers();
 	});
 
-	it('populates scene select with scenes', async () => {
+	it('populates replay case select with cases', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
 				Promise.resolve({
 					scenes: [
-						{ replay_case_id: 's1', pcap_file: 'test1.pcap', description: 'Scene 1' },
+						{ replay_case_id: 's1', pcap_file: 'test1.pcap', description: 'Case 1' },
 						{ replay_case_id: 's2', pcap_file: 'test2.pcap' }
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
-		const select = document.getElementById('scene_select') as HTMLSelectElement;
-		// 1 default option + 2 scenes
+		const select = document.getElementById('replay_case_select') as HTMLSelectElement;
+		// 1 default option + 2 cases
 		expect(select.options.length).toBe(3);
-		expect(select.options[1].textContent).toContain('Scene 1');
+		expect(select.options[1].textContent).toContain('Case 1');
 	});
 
 	it('shows error on fetch failure', async () => {
 		global.fetch = jest.fn().mockRejectedValue(new Error('fail'));
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
-		const select = document.getElementById('scene_select') as HTMLSelectElement;
+		const select = document.getElementById('replay_case_select') as HTMLSelectElement;
 		expect(select.innerHTML).toContain('failed to load');
 	});
 
-	it('returns early when scene_select is missing', () => {
-		document.getElementById('scene_select')!.remove();
+	it('returns early when replay_case_select is missing', () => {
+		document.getElementById('replay_case_select')!.remove();
 		global.fetch = jest.fn();
-		loadSweepScenes();
+		loadReplayCases();
 		expect(global.fetch).not.toHaveBeenCalled();
 	});
 });
 
-describe('onSweepSceneSelected', () => {
+describe('onReplayCaseSelected', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
 		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
 		init();
 		(global.fetch as jest.Mock).mockClear();
-		// Populate scenes
+		// Populate replay cases
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -1973,7 +1973,7 @@ describe('onSweepSceneSelected', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -1983,52 +1983,52 @@ describe('onSweepSceneSelected', () => {
 		jest.useRealTimers();
 	});
 
-	it('hides info when no scene is selected', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('none');
-		expect(document.getElementById('scene-actions')!.style.display).toBe('none');
+	it('hides info when no case is selected', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
+		expect(document.getElementById('replay-case-actions')!.style.display).toBe('none');
 	});
 
-	it('shows scene info when scene is selected', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
-		const info = document.getElementById('scene-info')!;
+	it('shows replay case info when case is selected', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
+		const info = document.getElementById('replay-case-info')!;
 		expect(info.style.display).toBe('');
 		expect(info.textContent).toContain('test1.pcap');
 		expect(info.textContent).toContain('Start: 5s');
 		expect(info.textContent).toContain('Duration: 30s');
 	});
 
-	it('shows reference info and ground truth option for scene with reference', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's2';
-		onSweepSceneSelected();
-		const info = document.getElementById('scene-info')!;
+	it('shows reference info and ground truth option for case with reference', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
+		onReplayCaseSelected();
+		const info = document.getElementById('replay-case-info')!;
 		expect(info.textContent).toContain('Reference: ref-1');
 		expect(document.getElementById('ground_truth_option')!.style.display).toBe('');
 	});
 
-	it('hides ground truth option for scene without reference', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
+	it('hides ground truth option for case without reference', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
 		expect(document.getElementById('ground_truth_option')!.style.display).toBe('none');
 	});
 
-	it('shows action buttons for scene with optimal params', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's2';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-actions')!.style.display).toBe('');
+	it('shows action buttons for case with optimal params', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-actions')!.style.display).toBe('');
 	});
 
-	it('hides info for unknown scene', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 'unknown';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('none');
+	it('hides info for unknown case', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'unknown';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
 	});
 
-	it('populates pcap fields from scene', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
+	it('populates pcap fields from replay case', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
 		expect(val('pcap_file')).toBe('test1.pcap');
 		expect(val('pcap_start_secs')).toBe('5');
 		expect(val('pcap_duration_secs')).toBe('30');
@@ -2133,14 +2133,14 @@ describe('applyRecommendation', () => {
 	});
 });
 
-describe('applySceneParams', () => {
+describe('applyReplayCaseParams', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
 		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
 		init();
 		(global.fetch as jest.Mock).mockClear();
-		// Load scenes
+		// Load replay cases
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -2154,7 +2154,7 @@ describe('applySceneParams', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -2164,27 +2164,29 @@ describe('applySceneParams', () => {
 		jest.useRealTimers();
 	});
 
-	it('applies scene optimal params', async () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
+	it('applies replay case optimal params', async () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-		applySceneParams();
+		applyReplayCaseParams();
 		await flushPromises();
 		expect(global.fetch).toHaveBeenCalledWith(
 			expect.stringContaining('/api/lidar/params'),
 			expect.objectContaining({ method: 'POST' })
 		);
-		expect(document.getElementById('btn-apply-scene-params')!.textContent).toContain('Applied');
+		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toContain(
+			'Applied'
+		);
 	});
 
-	it('shows error when no scene selected', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
-		applySceneParams();
+	it('shows error when no replay case selected', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
+		applyReplayCaseParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('No replay case selected');
 	});
 
-	it('shows error for scene without optimal params', async () => {
-		// Load scene without optimal_params_json
+	it('shows error for case without optimal params', async () => {
+		// Load replay case without optimal_params_json
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -2192,34 +2194,34 @@ describe('applySceneParams', () => {
 					scenes: [{ replay_case_id: 's3', pcap_file: 'test.pcap' }]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's3';
-		onSweepSceneSelected();
-		applySceneParams();
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's3';
+		onReplayCaseSelected();
+		applyReplayCaseParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('no optimal parameters');
 	});
 
 	it('shows error on apply failure', async () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: false,
 			text: () => Promise.resolve('Apply error')
 		});
-		applySceneParams();
+		applyReplayCaseParams();
 		await flushPromises();
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
 	});
 
-	it('resolves suffix scene params before posting', async () => {
+	it('resolves suffix replay case params before posting', async () => {
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
 				Promise.resolve({
 					scenes: [
 						{
-							replay_case_id: 'legacy-scene',
+							replay_case_id: 'legacy-case',
 							pcap_file: 'test.pcap',
 							optimal_params_json:
 								'{"background_update_fraction":0.02,"neighbour_confirmation_count":3}'
@@ -2227,13 +2229,13 @@ describe('applySceneParams', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 'legacy-scene';
-		onSweepSceneSelected();
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'legacy-case';
+		onReplayCaseSelected();
 
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-		applySceneParams();
+		applyReplayCaseParams();
 		await flushPromises();
 
 		const postCall = (global.fetch as jest.Mock).mock.calls.find(
@@ -2486,11 +2488,11 @@ describe('updateSweepSummary additional branches', () => {
 	});
 });
 
-describe('loadScene additional branches', () => {
+describe('loadSetup additional branches', () => {
 	beforeEach(setupDOM);
 
 	it('loads pcap_start_secs and pcap_duration_secs', () => {
-		loadScene({
+		loadSetup({
 			data_source: 'pcap',
 			pcap_file: 'test.pcap',
 			pcap_start_secs: 10,
@@ -2567,14 +2569,14 @@ describe('applyRecommendation error on params POST', () => {
 	});
 });
 
-describe('applySceneParams invalid JSON', () => {
+describe('applyReplayCaseParams invalid JSON', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
 		global.fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
 		init();
 		(global.fetch as jest.Mock).mockClear();
-		// Load scene with invalid JSON
+		// Load replay case with invalid JSON
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -2588,7 +2590,7 @@ describe('applySceneParams invalid JSON', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -2599,9 +2601,9 @@ describe('applySceneParams invalid JSON', () => {
 	});
 
 	it('shows error when optimal_params_json is invalid', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's-bad';
-		onSweepSceneSelected();
-		applySceneParams();
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's-bad';
+		onReplayCaseSelected();
+		applyReplayCaseParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('Failed to parse');
 	});
 });
@@ -3060,7 +3062,7 @@ describe('handleStop fetch rejection', () => {
 	});
 });
 
-describe('applySceneParams setTimeout callback', () => {
+describe('applyReplayCaseParams setTimeout callback', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -3080,7 +3082,7 @@ describe('applySceneParams setTimeout callback', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -3091,23 +3093,25 @@ describe('applySceneParams setTimeout callback', () => {
 	});
 
 	it('resets button text after timeout', async () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () => Promise.resolve({})
 		});
-		applySceneParams();
+		applyReplayCaseParams();
 		await flushPromises();
-		expect(document.getElementById('btn-apply-scene-params')!.textContent).toContain('Applied');
+		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toContain(
+			'Applied'
+		);
 		jest.advanceTimersByTime(2000);
-		expect(document.getElementById('btn-apply-scene-params')!.textContent).toBe(
+		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toBe(
 			'Apply Replay Case Params'
 		);
 	});
 });
 
-describe('onSweepSceneSelected without gtOption element', () => {
+describe('onReplayCaseSelected without gtOption element', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -3130,7 +3134,7 @@ describe('onSweepSceneSelected without gtOption element', () => {
 					]
 				})
 		});
-		loadSweepScenes();
+		loadReplayCases();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -3141,28 +3145,28 @@ describe('onSweepSceneSelected without gtOption element', () => {
 	});
 
 	it('handles missing gtOption for empty selection', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = '';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('none');
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
 	});
 
-	it('handles missing gtOption for unknown scene', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 'unknown';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('none');
+	it('handles missing gtOption for unknown case', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'unknown';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
 	});
 
-	it('handles missing gtOption for scene with reference', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's2';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('');
-		expect(document.getElementById('scene-info')!.textContent).toContain('Reference: ref-1');
+	it('handles missing gtOption for case with reference', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('');
+		expect(document.getElementById('replay-case-info')!.textContent).toContain('Reference: ref-1');
 	});
 
-	it('handles missing gtOption for scene without reference', () => {
-		(document.getElementById('scene_select') as HTMLSelectElement).value = 's1';
-		onSweepSceneSelected();
-		expect(document.getElementById('scene-info')!.style.display).toBe('');
+	it('handles missing gtOption for case without reference', () => {
+		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+		onReplayCaseSelected();
+		expect(document.getElementById('replay-case-info')!.style.display).toBe('');
 	});
 });
 
@@ -3387,7 +3391,7 @@ describe('|| 0 default value fallback branches', () => {
 		expect(fields).toContain('Values');
 	});
 
-	it('buildSceneJSON with bool param values string', () => {
+	it('buildSweepSetupJSON with bool param values string', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
@@ -3395,12 +3399,12 @@ describe('|| 0 default value fallback branches', () => {
 			'l3.ema_baseline_v1.seed_from_first';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = 'true, false';
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		const param = scenario.params.find((p: any) => p.name === 'l3.ema_baseline_v1.seed_from_first');
 		expect(param.values).toEqual([true, false]);
 	});
 
-	it('buildSceneJSON with string param values', () => {
+	it('buildSweepSetupJSON with string param values', () => {
 		addParamRow();
 		const lastRow = document.getElementById('param-rows')!.lastElementChild!;
 		const rowId = lastRow.id.replace('param-row-', '');
@@ -3408,7 +3412,7 @@ describe('|| 0 default value fallback branches', () => {
 			'pipeline.buffer_timeout';
 		updateParamFields(rowId);
 		(document.getElementById('pvals-' + rowId) as HTMLInputElement).value = '500ms, 1s, 2s';
-		const scenario = buildSceneJSON();
+		const scenario = buildSweepSetupJSON();
 		const param = scenario.params.find((p: any) => p.name === 'pipeline.buffer_timeout');
 		expect(param.values).toEqual(['500ms', '1s', '2s']);
 	});
@@ -3897,18 +3901,18 @@ describe('HINT Functions', () => {
 
 	// handleStartHINT
 	describe('handleStartHINT', () => {
-		it('shows error when no scene selected', () => {
+		it('shows error when no replay case selected', () => {
 			handleStartHINT();
-			expect(document.getElementById('error-box')!.textContent).toContain('Select a scene');
+			expect(document.getElementById('error-box')!.textContent).toContain('Select a replay case');
 		});
 
 		it('auto-populates default params when none added', () => {
-			const sel = document.getElementById('scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
-			opt.value = 'scene-1';
-			opt.textContent = 'Scene 1';
+			opt.value = 'case-1';
+			opt.textContent = 'Case 1';
 			sel.appendChild(opt);
-			sel.value = 'scene-1';
+			sel.value = 'case-1';
 
 			global.fetch = jest.fn().mockResolvedValue({
 				ok: true,
@@ -3924,12 +3928,12 @@ describe('HINT Functions', () => {
 		});
 
 		it('sends POST request with correct payload', async () => {
-			// Add scene selection
-			const sel = document.getElementById('scene_select') as HTMLSelectElement;
+			// Add replay case selection
+			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
-			opt.value = 'scene-1';
+			opt.value = 'case-1';
 			sel.appendChild(opt);
-			sel.value = 'scene-1';
+			sel.value = 'case-1';
 
 			// Create a parameter row matching addParamRow() ID-based structure
 			const paramRows = document.getElementById('param-rows')!;
@@ -3960,7 +3964,7 @@ describe('HINT Functions', () => {
 			);
 
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-			expect(body.replay_case_id).toBe('scene-1');
+			expect(body.replay_case_id).toBe('case-1');
 			expect(body.params).toHaveLength(1);
 			expect(body.params[0].name).toBe('l3.ema_baseline_v1.noise_relative');
 			expect(body.num_rounds).toBe(3);
@@ -3969,11 +3973,11 @@ describe('HINT Functions', () => {
 		});
 
 		it('shows error on fetch failure', async () => {
-			const sel = document.getElementById('scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
-			opt.value = 'scene-1';
+			opt.value = 'case-1';
 			sel.appendChild(opt);
-			sel.value = 'scene-1';
+			sel.value = 'case-1';
 
 			const paramRows = document.getElementById('param-rows')!;
 			const row = document.createElement('div');
@@ -4009,12 +4013,12 @@ describe('HINT Functions', () => {
 				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
 			].join('');
 			paramRows.appendChild(paramRow);
-			const sel = document.getElementById('scene_select') as HTMLSelectElement;
+			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
-			opt.value = 'scene-1';
-			opt.text = 'Test Scene';
+			opt.value = 'case-1';
+			opt.text = 'Test Case';
 			sel.appendChild(opt);
-			sel.value = 'scene-1';
+			sel.value = 'case-1';
 			(document.getElementById('hint_class_coverage') as HTMLInputElement).value = 'not valid json';
 			handleStartHINT();
 			expect(document.getElementById('error-box')!.textContent).toContain('Invalid JSON');
@@ -4990,12 +4994,12 @@ describe('handleStartHINT class coverage JSON parse', () => {
 	});
 
 	it('shows error for invalid class coverage JSON', () => {
-		// Set scene selector so the scene check passes
-		const sel = document.getElementById('scene_select') as HTMLSelectElement;
+		// Set replay case selector so the case check passes
+		const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 		const opt = document.createElement('option');
-		opt.value = 'scene-1';
+		opt.value = 'case-1';
 		sel.appendChild(opt);
-		sel.value = 'scene-1';
+		sel.value = 'case-1';
 
 		// Set invalid JSON in class coverage
 		(document.getElementById('hint_class_coverage') as HTMLInputElement).value = 'not-valid-json';
@@ -5004,11 +5008,11 @@ describe('handleStartHINT class coverage JSON parse', () => {
 	});
 
 	it('parses valid class coverage JSON', async () => {
-		const sel = document.getElementById('scene_select') as HTMLSelectElement;
+		const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
 		const opt = document.createElement('option');
-		opt.value = 'scene-1';
+		opt.value = 'case-1';
 		sel.appendChild(opt);
-		sel.value = 'scene-1';
+		sel.value = 'case-1';
 
 		(document.getElementById('hint_class_coverage') as HTMLInputElement).value = '{"vehicle": 2}';
 		global.fetch = jest.fn().mockResolvedValue({

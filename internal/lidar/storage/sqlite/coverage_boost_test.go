@@ -23,7 +23,6 @@ func TestGetRunTrack_HappyPath(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}
 	if err := store.InsertRun(run); err != nil {
@@ -358,7 +357,6 @@ func TestGetUnlabeledTracks_WithOptionalFields(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}
 	if err := store.InsertRun(run); err != nil {
@@ -430,10 +428,8 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := json.RawMessage(`{"version":"1.0","background":{"noise_relative_fraction":0.05},"clustering":{"eps":0.8},"tracking":{"max_tracks":200}}`)
-
 	// Run 1 with one track.
-	run1 := &AnalysisRun{RunID: "cmp-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params, Status: "completed"}
+	run1 := &AnalysisRun{RunID: "cmp-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun run1: %v", err)
 	}
@@ -443,7 +439,7 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 	}
 
 	// Run 2 with no tracks.
-	run2 := &AnalysisRun{RunID: "cmp-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params, Status: "completed"}
+	run2 := &AnalysisRun{RunID: "cmp-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun run2: %v", err)
 	}
@@ -467,11 +463,8 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params1 := json.RawMessage(`{"version":"1.0","timestamp":"2025-01-01T00:00:00Z","background":{"noise_relative_fraction":0.05},"clustering":{"eps":0.8,"min_pts":5},"tracking":{"max_tracks":200,"max_misses":10,"hits_to_confirm":3}}`)
-	params2 := json.RawMessage(`{"version":"1.0","timestamp":"2025-01-01T00:00:00Z","background":{"noise_relative_fraction":0.10},"clustering":{"eps":0.8,"min_pts":5},"tracking":{"max_tracks":200,"max_misses":10,"hits_to_confirm":3}}`)
-
 	// Run 1 with a track.
-	run1 := &AnalysisRun{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params1, Status: "completed"}
+	run1 := &AnalysisRun{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -480,7 +473,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	}
 
 	// Run 2 with matching track (same time range for IoU match).
-	run2 := &AnalysisRun{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: params2, Status: "completed"}
+	run2 := &AnalysisRun{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -496,8 +489,9 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	if len(cmp.MatchedTracks) != 1 {
 		t.Errorf("MatchedTracks len = %d, want 1", len(cmp.MatchedTracks))
 	}
-	if len(cmp.ParamDiff) == 0 {
-		t.Error("expected non-empty ParamDiff")
+	// After migration 000036, params_json is dropped so ParamDiff is always empty.
+	if len(cmp.ParamDiff) != 0 {
+		t.Errorf("expected empty ParamDiff after column drop, got %d entries", len(cmp.ParamDiff))
 	}
 }
 
@@ -536,7 +530,7 @@ func TestClearRuns_HappyPath(t *testing.T) {
 	defer cleanup()
 
 	store := NewAnalysisRunStore(db)
-	run := &AnalysisRun{RunID: "cr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "cr-sensor", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	run := &AnalysisRun{RunID: "cr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "cr-sensor", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -557,7 +551,7 @@ func TestDeleteRun_HappyPath(t *testing.T) {
 	defer cleanup()
 
 	store := NewAnalysisRunStore(db)
-	run := &AnalysisRun{RunID: "dr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "dr-sensor", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	run := &AnalysisRun{RunID: "dr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "dr-sensor", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -769,7 +763,7 @@ func TestGetLabelingProgress_WithLabels(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	run := &AnalysisRun{RunID: "lp-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	run := &AnalysisRun{RunID: "lp-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -824,7 +818,7 @@ func TestUpdateTrackLabel_HappyPath(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	run := &AnalysisRun{RunID: "utl-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}
+	run := &AnalysisRun{RunID: "utl-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -853,7 +847,7 @@ func TestUpdateTrackLabel_HappyPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ListByScene with evaluations — covers scanEvaluation paramsJSON.Valid branch
+// ListByScene with evaluations — covers scanEvaluation branch
 // ---------------------------------------------------------------------------
 
 func TestListByScene_WithParams(t *testing.T) {
@@ -865,7 +859,7 @@ func TestListByScene_WithParams(t *testing.T) {
 
 	// Insert prerequisite runs.
 	for _, rid := range []string{"ref-run", "cand-run"} {
-		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}); err != nil {
+		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
 			t.Fatalf("InsertRun %s: %v", rid, err)
 		}
 	}
@@ -874,7 +868,7 @@ func TestListByScene_WithParams(t *testing.T) {
 		t.Fatalf("Insert scene: %v", err)
 	}
 
-	// Insert an evaluation with paramsJSON.
+	// Insert an evaluation.
 	eval := &Evaluation{
 		EvaluationID:   "eval-1",
 		ReplayCaseID:   "scene-1",
@@ -885,7 +879,6 @@ func TestListByScene_WithParams(t *testing.T) {
 		MatchedCount:   10,
 		ReferenceCount: 12,
 		CandidateCount: 11,
-		ParamsJSON:     json.RawMessage(`{"version":"1.0"}`),
 	}
 	if err := evalStore.Insert(eval); err != nil {
 		t.Fatalf("Insert evaluation: %v", err)
@@ -897,9 +890,6 @@ func TestListByScene_WithParams(t *testing.T) {
 	}
 	if len(evals) != 1 {
 		t.Fatalf("got %d evaluations, want 1", len(evals))
-	}
-	if string(evals[0].ParamsJSON) != `{"version":"1.0"}` {
-		t.Errorf("ParamsJSON = %s, want %s", evals[0].ParamsJSON, `{"version":"1.0"}`)
 	}
 }
 
@@ -963,7 +953,7 @@ func TestEvaluationDelete_HappyPath(t *testing.T) {
 
 	// Insert prerequisite runs.
 	for _, rid := range []string{"ref", "cand"} {
-		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", ParamsJSON: json.RawMessage(`{}`), Status: "completed"}); err != nil {
+		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
 			t.Fatalf("InsertRun %s: %v", rid, err)
 		}
 	}
@@ -1064,7 +1054,6 @@ func TestGetRunTracks_WithAllNullableFields(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}
 	if err := store.InsertRun(run); err != nil {
@@ -1136,7 +1125,6 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 		SourceType: "pcap",
 		SourcePath: "/data/parent.pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "completed",
 	}
 	if err := store.InsertRun(parent); err != nil {
@@ -1149,7 +1137,6 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 		SourceType:   "pcap",
 		SourcePath:   "/data/test.pcap",
 		SensorID:     "sensor-1",
-		ParamsJSON:   json.RawMessage(`{}`),
 		Status:       "failed",
 		ErrorMessage: "disk full",
 		ParentRunID:  "run-parent-1",
@@ -1364,26 +1351,6 @@ func TestARM_FailRun_DBError(t *testing.T) {
 	}
 }
 
-func TestARM_GetCurrentRunParams_BadJSON(t *testing.T) {
-	db, cleanup := setupTestDB(t)
-	defer cleanup()
-
-	m := NewAnalysisRunManagerDI(db, "sensor-1")
-
-	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
-	if err != nil {
-		t.Fatalf("StartRun: %v", err)
-	}
-
-	// Corrupt the ParamsJSON so Unmarshal fails.
-	m.currentRun.ParamsJSON = json.RawMessage(`{invalid json`)
-
-	_, ok := m.GetCurrentRunParams()
-	if ok {
-		t.Error("expected GetCurrentRunParams to return false with invalid JSON")
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Coverage boost: closed-DB error paths for track_store functions
 // ---------------------------------------------------------------------------
@@ -1555,7 +1522,6 @@ func TestClosedDB_AnalysisRunStore_InsertRun(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor-1",
-		ParamsJSON: json.RawMessage(`{}`),
 		Status:     "running",
 	}
 	err := store.InsertRun(run)

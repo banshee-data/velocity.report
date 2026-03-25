@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -278,6 +280,16 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 	defer cleanup()
 
 	runID := covInsertRun(t, ws, "ins-err")
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	const pcapFile = "reprocess.pcap"
+	pcapPath := filepath.Join(tmpDir, pcapFile)
+	if err := os.WriteFile(pcapPath, testPCAPHeader, 0o644); err != nil {
+		t.Fatalf("write test pcap: %v", err)
+	}
+	ws.pcapSafeDir = tmpDir
+	if _, err := ws.db.DB.Exec(`UPDATE lidar_run_records SET source_path = ? WHERE run_id = ?`, pcapFile, runID); err != nil {
+		t.Fatalf("update source_path: %v", err)
+	}
 
 	// Pre-insert many rows to cause the generated ID to collide seems complex.
 	// Instead, drop the lidar_run_records table after the GetRun succeeds
@@ -295,8 +307,11 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "failed to create analysis run") {
-		t.Errorf("expected 'failed to create analysis run' in body, got: %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), "failed to start PCAP replay") {
+		t.Errorf("expected replay start failure in body, got: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "start analysis run") {
+		t.Errorf("expected analysis-run start context in body, got: %s", w.Body.String())
 	}
 }
 
@@ -388,14 +403,13 @@ func TestCov2_HandleEvaluateRun_AutoDetectWithParams(t *testing.T) {
 	}
 	covInsertTrackForRun(t, ws, "params-ref", "params-ref-t1", "sensor-params")
 
-	// Insert candidate run with ParamsJSON
+	// Insert candidate run
 	candRun := &sqlite.AnalysisRun{
 		RunID:      "params-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/params.pcap",
 		SensorID:   "sensor-params",
 		Status:     "completed",
-		ParamsJSON: json.RawMessage(`{"tuning":"custom"}`),
 	}
 	if err := store.InsertRun(candRun); err != nil {
 		t.Fatalf("InsertRun cand: %v", err)

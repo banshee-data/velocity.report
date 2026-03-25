@@ -532,6 +532,7 @@ func TestCompactDuration(t *testing.T) {
 		{5 * time.Minute, "5m"},
 		{2 * time.Hour, "2h"},
 		{500 * time.Millisecond, "500ms"},
+		{500 * time.Microsecond, "0s"},
 		{2*time.Hour + 30*time.Minute, "2h 30m"},
 		{3*time.Hour + 15*time.Minute + 30*time.Second, "3h 15m 30s"},
 		{1*time.Minute + 500*time.Millisecond, "1m 500ms"},

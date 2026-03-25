@@ -177,14 +177,22 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		mgr.SetSourcePath(pcapFile)
 	}
 
-	// Set analysis mode and benchmark mode BEFORE startPCAPLocked so the
-	// goroutine inside can read it immediately without a race.
-	ws.pcapMu.Lock()
-	ws.pcapAnalysisMode = analysisMode
-	ws.pcapMu.Unlock()
 	ws.pcapBenchmarkMode.Store(benchmarkMode)
 
-	if err := ws.startPCAPLocked(pcapFile, speedMode, speedRatio, startSeconds, durationSeconds, debugRingMin, debugRingMax, debugAzMin, debugAzMax, enableDebug, enablePlots); err != nil {
+	if err := ws.startPCAPLockedWithConfig(pcapFile, ReplayConfig{
+		StartSeconds:    startSeconds,
+		DurationSeconds: durationSeconds,
+		SpeedMode:       speedMode,
+		SpeedRatio:      speedRatio,
+		AnalysisMode:    analysisMode,
+		SensorID:        ws.sensorID,
+		DebugRingMin:    debugRingMin,
+		DebugRingMax:    debugRingMax,
+		DebugAzMin:      debugAzMin,
+		DebugAzMax:      debugAzMax,
+		EnableDebug:     enableDebug,
+		EnablePlots:     enablePlots,
+	}); err != nil {
 		var sErr *switchError
 		if errors.As(err, &sErr) {
 			ws.writeJSONError(w, sErr.status, sErr.Error())

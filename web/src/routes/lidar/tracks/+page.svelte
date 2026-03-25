@@ -61,10 +61,49 @@
 	let labellingProgress: LabellingProgress | null = null;
 	let scenesLoading = false;
 	let runsLoading = false;
+	let mounted = false;
+	let selectionSyncInFlight = false;
+	let lastUrlSelectionKey: string | null = null;
+
+	$: querySceneId = $page.url.searchParams.get('replay_case_id');
+	$: queryRunId = $page.url.searchParams.get('run_id');
 
 	// Derived state
 	$: selectedScene = scenes.find((s) => s.replay_case_id === selectedSceneId) ?? null;
 	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
+
+	$: if (browser && mounted) {
+		void syncSelectionFromUrl(querySceneId, queryRunId); // eslint-disable-line svelte/infinite-reactive-loop
+	}
+
+	function runTrackToDisplayTrack(runTrack: RunTrack): Track {
+		const firstSeen = new Date(runTrack.start_unix_nanos / 1e6).toISOString();
+		const lastSeen = new Date(runTrack.end_unix_nanos / 1e6).toISOString();
+		return {
+			track_id: runTrack.track_id,
+			sensor_id: runTrack.sensor_id,
+			state: (runTrack.track_state as Track['state']) || 'confirmed',
+			position: { x: 0, y: 0, z: 0 },
+			velocity: { vx: 0, vy: 0 },
+			speed_mps: runTrack.max_speed_mps || runTrack.avg_speed_mps || 0,
+			heading_rad: 0,
+			object_class: runTrack.object_class as Track['object_class'],
+			object_confidence: runTrack.object_confidence,
+			observation_count: runTrack.observation_count,
+			age_seconds: Math.max(0, (runTrack.end_unix_nanos - runTrack.start_unix_nanos) / 1e9),
+			avg_speed_mps: runTrack.avg_speed_mps,
+			max_speed_mps: runTrack.max_speed_mps,
+			obb_heading_rad: 0,
+			bounding_box: {
+				length: runTrack.bounding_box_length_avg,
+				width: runTrack.bounding_box_width_avg,
+				height: runTrack.bounding_box_height_avg
+			},
+			first_seen: firstSeen,
+			last_seen: lastSeen,
+			history: []
+		};
+	}
 
 	// Data
 	let tracks: Track[] = [];
@@ -237,11 +276,37 @@
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: scene.sensor_id });
+			return runs;
 		} catch {
 			runs = [];
+			return [];
 		} finally {
 			runsLoading = false;
 		}
+	}
+
+	function clearRunSelectionState() {
+		selectedRunId = null;
+		runTracks = [];
+		labellingProgress = null;
+		selectedTrackId = null;
+		selectedTrackObservations = [];
+		missedRegions = [];
+		markMissedMode = false;
+	}
+
+	function findSceneForRun(run: AnalysisRun | null): LidarReplayCase | null {
+		if (!run) return null;
+		const byReference = scenes.find((scene) => scene.reference_run_id === run.run_id);
+		if (byReference) return byReference;
+		if (run.source_path) {
+			return (
+				scenes.find(
+					(scene) => scene.pcap_file === run.source_path && scene.sensor_id === run.sensor_id
+				) ?? null
+			);
+		}
+		return null;
 	}
 
 	// Load tracks for selected run
@@ -263,6 +328,90 @@
 		} catch {
 			runTracks = [];
 			labellingProgress = null;
+		}
+	}
+
+	// Reload lidar_tracks for the current run's time window.
+	// PCAP replay tracks carry the PCAP capture timestamp, not wall-clock time,
+	// so the default "last 1 hour" window misses them entirely.
+	async function loadTracksForRunWindow() {
+		if (runTracks.length === 0) return;
+		const runStartNs = Math.min(...runTracks.map((rt) => rt.start_unix_nanos));
+		const runEndNs = Math.max(...runTracks.map((rt) => rt.end_unix_nanos));
+		try {
+			const history = await getTrackHistory(sensorId, runStartNs, runEndNs, 1000);
+			tracks = Array.isArray(history.tracks) ? history.tracks : []; // eslint-disable-line svelte/infinite-reactive-loop
+			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 }; // eslint-disable-line svelte/infinite-reactive-loop
+			selectedTime = runStartNs / 1e6; // eslint-disable-line svelte/infinite-reactive-loop
+			loadForegroundObservations(timeRange.start, timeRange.end); // eslint-disable-line svelte/infinite-reactive-loop
+		} catch (error) {
+			console.error('[TrackHistory] Failed to load tracks for run window:', error);
+		}
+	}
+
+	async function syncSelectionFromUrl(qsSceneId: string | null, qsRunId: string | null) {
+		if (selectionSyncInFlight) return;
+		const syncKey = `${sensorId}|${qsSceneId ?? ''}|${qsRunId ?? ''}`;
+		if (syncKey === lastUrlSelectionKey) return;
+
+		selectionSyncInFlight = true;
+		try {
+			if (!qsSceneId && !qsRunId) {
+				if (selectedSceneId !== null || selectedRunId !== null || runs.length > 0) {
+					selectedSceneId = null;
+					runs = [];
+					clearRunSelectionState();
+					await loadHistoricalData();
+				}
+				return;
+			}
+
+			if (scenes.length === 0 && !scenesLoading) {
+				await loadScenes();
+			}
+
+			let resolvedScene = qsSceneId
+				? (scenes.find((scene) => scene.replay_case_id === qsSceneId) ?? null)
+				: null;
+			let resolvedRuns: AnalysisRun[] = [];
+
+			if (resolvedScene) {
+				selectedSceneId = resolvedScene.replay_case_id;
+				resolvedRuns = await loadRuns(resolvedScene);
+			} else if (qsRunId) {
+				resolvedRuns = await getLidarRuns({ sensor_id: sensorId });
+				runs = resolvedRuns;
+				const resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
+				resolvedScene = findSceneForRun(resolvedRun);
+				selectedSceneId = resolvedScene?.replay_case_id ?? null;
+				if (resolvedScene) {
+					resolvedRuns = await loadRuns(resolvedScene);
+				}
+			} else {
+				selectedSceneId = null;
+				runs = [];
+			}
+
+			if (!qsRunId) {
+				clearRunSelectionState();
+				return;
+			}
+
+			const resolvedRun = resolvedRuns.find((run) => run.run_id === qsRunId) ?? null;
+			if (!resolvedRun) {
+				clearRunSelectionState();
+				return;
+			}
+
+			selectedRunId = resolvedRun.run_id;
+			selectedTrackId = null;
+			selectedTrackObservations = [];
+			await loadRunTracks();
+			await loadTracksForRunWindow();
+			await loadMissedRegions();
+		} finally {
+			lastUrlSelectionKey = syncKey;
+			selectionSyncInFlight = false;
 		}
 	}
 
@@ -290,29 +439,18 @@
 	// Handle run selection change
 	function handleRunChange() {
 		if (selectedRunId !== null) {
-			loadRunTracks().then(() => {
-				// Scope time range to this run's tracks
-				if (runTracks.length > 0) {
-					const runStart = Math.min(...runTracks.map((rt) => rt.start_unix_nanos / 1e6));
-					const runEnd = Math.max(...runTracks.map((rt) => rt.end_unix_nanos / 1e6));
-					timeRange = { start: runStart, end: runEnd };
-					selectedTime = runStart;
-				}
-			});
+			// loadTracksForRunWindow uses runTracks state, so await loadRunTracks first
+			loadRunTracks()
+				.then(() => loadTracksForRunWindow())
+				.catch((error) => console.error('[TrackHistory] handleRunChange pipeline failed:', error));
 			loadMissedRegions();
 		} else {
 			runTracks = [];
 			labellingProgress = null;
 			missedRegions = [];
 			markMissedMode = false;
-			// Restore full time range from all tracks
-			if (tracks.length > 0) {
-				timeRange = {
-					start: Math.min(...tracks.map((t) => new Date(t.first_seen).getTime())),
-					end: Math.max(...tracks.map((t) => new Date(t.last_seen).getTime()))
-				};
-				selectedTime = timeRange.start;
-			}
+			// Reload the default window — tracks may have been scoped to the run's window
+			void loadHistoricalData(); // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
@@ -333,10 +471,19 @@
 		selectedRunId && runTracks.length > 0
 			? new Map(runTracks.map((rt) => [rt.track_id, rt]))
 			: null;
+	$: detailedTrackIds = new Set(tracks.map((track) => track.track_id));
+	$: runTrackGeometryLinked = runTracks.some((runTrack) => detailedTrackIds.has(runTrack.track_id));
+	$: runDisplayTracks = runTracks.map(runTrackToDisplayTrack);
+	$: visibleRunTracks = runDisplayTracks.filter((track) => {
+		const firstSeen = new Date(track.first_seen).getTime();
+		const lastSeen = new Date(track.last_seen).getTime();
+		return selectedTime >= firstSeen && selectedTime <= lastSeen;
+	});
+	$: displayTracks = selectedRunId ? runDisplayTracks : tracks;
 
 	// Get tracks visible at current time, filtered by run if selected
 	$: visibleTracks = tracks.filter((track) => {
-		if (runTrackMap) {
+		if (runTrackMap && runTrackGeometryLinked) {
 			const rt = runTrackMap.get(track.track_id);
 			if (!rt) return false;
 			// Use the run-track's own nanosecond time window for scoping
@@ -349,12 +496,13 @@
 	});
 
 	// Run-scoped foreground observations
-	$: visibleForeground = runTrackMap
-		? foregroundObservations.filter((obs) => runTrackMap.has(obs.track_id))
-		: foregroundObservations;
+	$: visibleForeground =
+		runTrackMap && runTrackGeometryLinked
+			? foregroundObservations.filter((obs) => runTrackMap.has(obs.track_id))
+			: foregroundObservations;
 
-	// Run-scoped tracks for TrackList sidebar
-	$: listTracks = runTrackMap ? tracks.filter((t) => runTrackMap.has(t.track_id)) : tracks;
+	// Run-selected sidebar/timeline always use run-native summary tracks.
+	$: listTracks = displayTracks;
 
 	// Debug visible tracks changes
 	let lastVisibleCount = -1;
@@ -535,11 +683,18 @@
 	}
 
 	function handleTrackSelect(trackId: string) {
+		if (selectedRunId && !displayTracks.some((track) => track.track_id === trackId)) {
+			return;
+		}
 		selectedTrackId = trackId;
 		// Jump to track start time when selected from list
-		const track = tracks.find((t) => t.track_id === trackId);
+		const track = displayTracks.find((t) => t.track_id === trackId);
 		if (track) {
 			selectedTime = new Date(track.first_seen).getTime();
+		}
+		if (selectedRunId && !detailedTrackIds.has(trackId)) {
+			selectedTrackObservations = [];
+			return;
 		}
 		loadObservationsForTrack(trackId);
 	}
@@ -609,26 +764,9 @@
 
 	onMount(async () => {
 		console.log('[Page] Component mounted, loading data...');
-		loadHistoricalData();
-		loadBackgroundGrid();
-
-		// Load scenes and optionally pre-select from URL query params
-		await loadScenes();
-		const params = $page.url.searchParams;
-		const qsSceneId = params.get('replay_case_id');
-		const qsRunId = params.get('run_id');
-		if (qsSceneId && scenes.find((s) => s.replay_case_id === qsSceneId)) {
-			selectedSceneId = qsSceneId;
-			const scene = scenes.find((s) => s.replay_case_id === qsSceneId);
-			if (scene) {
-				await loadRuns(scene);
-				if (qsRunId && runs.find((r) => r.run_id === qsRunId)) {
-					selectedRunId = qsRunId;
-					loadRunTracks();
-					loadMissedRegions();
-				}
-			}
-		}
+		await Promise.all([loadHistoricalData(), loadBackgroundGrid(), loadScenes()]);
+		mounted = true;
+		await syncSelectionFromUrl(querySceneId, queryRunId);
 	});
 
 	onDestroy(() => {
@@ -647,7 +785,8 @@
 					LiDAR Track Visualization
 				</h1>
 				<p class="text-surface-content/60 mt-1 truncate text-sm">
-					Sensor: {sensorId} • {visibleTracks.length} tracks visible
+					Sensor: {sensorId} • {selectedRunId ? visibleRunTracks.length : visibleTracks.length} tracks
+					visible
 					{#if selectedRun}
 						• Run: {selectedRun.run_id.substring(0, 8)}
 					{/if}
@@ -790,7 +929,7 @@
 			<!-- Timeline -->
 			<div class="bg-surface-100 flex-1">
 				<TimelinePane
-					tracks={paginatedTracks.length > 0 ? paginatedTracks : tracks}
+					tracks={paginatedTracks.length > 0 ? paginatedTracks : displayTracks}
 					currentTime={selectedTime}
 					{timeRange}
 					{isPlaying}

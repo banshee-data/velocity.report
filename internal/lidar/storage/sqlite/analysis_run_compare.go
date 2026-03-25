@@ -264,13 +264,13 @@ func CompareRuns(store *AnalysisRunStore, run1ID, run2ID string) (*RunComparison
 		}
 	}
 
-	// Compare parameters if both runs have param data
+	// Compare parameters if both runs have execution config data
 	run1, err := store.GetRun(run1ID)
-	if err == nil && len(run1.ParamsJSON) > 0 {
+	if err == nil && len(run1.ExecutionConfig) > 0 {
 		run2, err := store.GetRun(run2ID)
-		if err == nil && len(run2.ParamsJSON) > 0 {
-			params1, err1 := ParseRunParams(run1.ParamsJSON)
-			params2, err2 := ParseRunParams(run2.ParamsJSON)
+		if err == nil && len(run2.ExecutionConfig) > 0 {
+			params1, err1 := ParseRunParams(run1.ExecutionConfig)
+			params2, err2 := ParseRunParams(run2.ExecutionConfig)
 
 			if err1 == nil && err2 == nil {
 				comparison.ParamDiff = compareParams(params1, params2)

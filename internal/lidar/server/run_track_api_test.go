@@ -23,7 +23,6 @@ func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
 		SensorID:        "test-sensor",
 		SourceType:      "pcap",
 		SourcePath:      "/test/data.pcap",
-		ParamsJSON:      []byte(`{"version":"1.0"}`),
 		DurationSecs:    10.0,
 		TotalFrames:     100,
 		TotalClusters:   50,

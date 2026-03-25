@@ -125,8 +125,12 @@ echo "4. Formatting schema.sql..."
 if command -v sql-formatter &> /dev/null; then
     if sql-formatter --fix -l sqlite -c "$PROJECT_ROOT/.sql-formatter.json" "$SCHEMA_FILE" 2>&1 > /dev/null; then
         # sql-formatter appends /* view_name(col,...) */ hints to VIEWs — strip them.
-        # Use a distinct suffix so we don't clobber the Step 3 .bak used by Step 5's diff.
-        sed -i.sed-tmp '/\/\*.*\*\/;*$/d' "$SCHEMA_FILE"
+        # Use sed substitution (not line deletion) to preserve the semicolon
+        # when the hint appears on the same line as the final SELECT column.
+        # Then collapse any orphaned semicolon-only lines onto the previous line.
+        sed -i.sed-tmp 's| */\*[^*]*\*/||g' "$SCHEMA_FILE"
+        rm -f "$SCHEMA_FILE.sed-tmp"
+        perl -i.sed-tmp -0777 -pe 's/\n\s*;$/;/mg' "$SCHEMA_FILE"
         rm -f "$SCHEMA_FILE.sed-tmp"
         echo -e "${GREEN}✓ Schema formatted successfully${NC}"
     else

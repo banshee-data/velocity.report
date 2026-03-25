@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -24,13 +23,6 @@ func TestAnalysisRunStore_VRLogPath(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	// Create test params
-	params := DefaultRunParams()
-	paramsJSON, err := json.Marshal(params)
-	if err != nil {
-		t.Fatalf("failed to marshal params: %v", err)
-	}
-
 	// Test 1: Insert run with vrlog_path
 	run := &AnalysisRun{
 		RunID:      "test-run-1",
@@ -38,7 +30,6 @@ func TestAnalysisRunStore_VRLogPath(t *testing.T) {
 		SourceType: "pcap",
 		SourcePath: "/path/to/test.pcap",
 		SensorID:   "hesai-01",
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 		VRLogPath:  "/var/lib/velocity-report/vrlog/test-run-1",
 	}
@@ -63,7 +54,6 @@ func TestAnalysisRunStore_VRLogPath(t *testing.T) {
 		CreatedAt:  time.Now(),
 		SourceType: "live",
 		SensorID:   "hesai-01",
-		ParamsJSON: paramsJSON,
 		Status:     "running",
 	}
 
@@ -117,12 +107,6 @@ func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
 
 	store := NewAnalysisRunStore(db)
 
-	params := DefaultRunParams()
-	paramsJSON, err := json.Marshal(params)
-	if err != nil {
-		t.Fatalf("failed to marshal params: %v", err)
-	}
-
 	// Insert multiple runs
 	runs := []*AnalysisRun{
 		{
@@ -130,7 +114,6 @@ func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
 			CreatedAt:  time.Now().Add(-2 * time.Hour),
 			SourceType: "pcap",
 			SensorID:   "hesai-01",
-			ParamsJSON: paramsJSON,
 			Status:     "completed",
 			VRLogPath:  "/path/to/run-with-vrlog",
 		},
@@ -139,7 +122,6 @@ func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
 			CreatedAt:  time.Now().Add(-1 * time.Hour),
 			SourceType: "pcap",
 			SensorID:   "hesai-01",
-			ParamsJSON: paramsJSON,
 			Status:     "completed",
 		},
 		{
@@ -147,7 +129,6 @@ func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
 			CreatedAt:  time.Now(),
 			SourceType: "pcap",
 			SensorID:   "hesai-01",
-			ParamsJSON: paramsJSON,
 			Status:     "running",
 			VRLogPath:  "/path/to/recent-run",
 		},

@@ -5,33 +5,90 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 )
 
-// GetRun retrieves an analysis run by ID.
-func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
-	query := `
-		SELECT run_id, created_at, source_type, source_path, sensor_id,
-			params_json, duration_secs, total_frames, total_clusters,
-			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
-		FROM lidar_run_records
-		WHERE run_id = ?
-	`
+type analysisRunRowScanner interface {
+	Scan(dest ...any) error
+}
 
-	var run AnalysisRun
-	var createdAt int64
-	var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
-	var paramsJSON string
+type analysisRunRows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}
 
-	err := s.db.QueryRow(query, runID).Scan(
+func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecordCapabilities, error) {
+	caps, err := s.runRecordCapabilities()
+	if err != nil {
+		return nil, analysisRunRecordCapabilities{}, err
+	}
+
+	columns := []string{
+		"run_id",
+		"created_at",
+		"source_type",
+		"source_path",
+		"sensor_id",
+		"duration_secs",
+		"total_frames",
+		"total_clusters",
+		"total_tracks",
+		"confirmed_tracks",
+		"processing_time_ms",
+		"status",
+		"error_message",
+		"parent_run_id",
+		"notes",
+		"vrlog_path",
+	}
+	if caps.RunConfigID {
+		columns = append(columns, "run_config_id")
+	}
+	if caps.RequestedParamSetID {
+		columns = append(columns, "requested_param_set_id")
+	}
+	if caps.ReplayCaseID {
+		columns = append(columns, "replay_case_id")
+	}
+	if caps.CompletedAt {
+		columns = append(columns, "completed_at")
+	}
+	if caps.FrameStartNs {
+		columns = append(columns, "frame_start_ns")
+	}
+	if caps.FrameEndNs {
+		columns = append(columns, "frame_end_ns")
+	}
+	if caps.StatisticsJSON {
+		columns = append(columns, "statistics_json")
+	}
+
+	return columns, caps, nil
+}
+
+func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
+	var (
+		run            AnalysisRun
+		createdAt      int64
+		sourcePath     sql.NullString
+		errorMessage   sql.NullString
+		parentRunID    sql.NullString
+		notes          sql.NullString
+		vrlogPath      sql.NullString
+		statisticsJSON sql.NullString
+	)
+
+	dests := []any{
 		&run.RunID,
 		&createdAt,
 		&run.SourceType,
 		&sourcePath,
 		&run.SensorID,
-		&paramsJSON,
 		&run.DurationSecs,
 		&run.TotalFrames,
 		&run.TotalClusters,
@@ -43,13 +100,43 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 		&parentRunID,
 		&notes,
 		&vrlogPath,
+	}
+
+	var (
+		runConfigID         sql.NullString
+		requestedParamSetID sql.NullString
+		replayCaseID        sql.NullString
+		completedAt         sql.NullInt64
+		frameStartNs        sql.NullInt64
+		frameEndNs          sql.NullInt64
 	)
-	if err != nil {
-		return nil, fmt.Errorf("get run: %w", err)
+	if caps.RunConfigID {
+		dests = append(dests, &runConfigID)
+	}
+	if caps.RequestedParamSetID {
+		dests = append(dests, &requestedParamSetID)
+	}
+	if caps.ReplayCaseID {
+		dests = append(dests, &replayCaseID)
+	}
+	if caps.CompletedAt {
+		dests = append(dests, &completedAt)
+	}
+	if caps.FrameStartNs {
+		dests = append(dests, &frameStartNs)
+	}
+	if caps.FrameEndNs {
+		dests = append(dests, &frameEndNs)
+	}
+	if caps.StatisticsJSON {
+		dests = append(dests, &statisticsJSON)
+	}
+
+	if err := scanner.Scan(dests...); err != nil {
+		return nil, err
 	}
 
 	run.CreatedAt = time.Unix(0, createdAt)
-	run.ParamsJSON = json.RawMessage(paramsJSON)
 	if sourcePath.Valid {
 		run.SourcePath = sourcePath.String
 	}
@@ -65,28 +152,100 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 	if vrlogPath.Valid {
 		run.VRLogPath = vrlogPath.String
 	}
+	if runConfigID.Valid {
+		run.RunConfigID = runConfigID.String
+	}
+	if requestedParamSetID.Valid {
+		run.RequestedParamSetID = requestedParamSetID.String
+	}
+	if replayCaseID.Valid {
+		run.ReplayCaseID = replayCaseID.String
+	}
+	if completedAt.Valid {
+		value := time.Unix(0, completedAt.Int64)
+		run.CompletedAt = &value
+	}
+	if frameStartNs.Valid {
+		value := frameStartNs.Int64
+		run.FrameStartNs = &value
+	}
+	if frameEndNs.Valid {
+		value := frameEndNs.Int64
+		run.FrameEndNs = &value
+	}
+	if statisticsJSON.Valid && strings.TrimSpace(statisticsJSON.String) != "" {
+		run.StatisticsJSON = json.RawMessage(statisticsJSON.String)
+	}
 
 	run.PopulateReplayCaseName()
+	return &run, nil
+}
+
+func collectAnalysisRunRecords(rows analysisRunRows, caps analysisRunRecordCapabilities) ([]*AnalysisRun, error) {
+	var runs []*AnalysisRun
+	for rows.Next() {
+		run, err := scanAnalysisRunRecord(rows, caps)
+		if err != nil {
+			return nil, fmt.Errorf("scan run: %w", err)
+		}
+		runs = append(runs, run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate runs: %w", err)
+	}
+	return runs, nil
+}
+
+func finalizeAnalysisRunRecords(runs []*AnalysisRun, hydrate func(*AnalysisRun), populate func([]*AnalysisRun) error) ([]*AnalysisRun, error) {
+	for _, run := range runs {
+		hydrate(run)
+	}
+	if err := populate(runs); err != nil {
+		return nil, err
+	}
+	return runs, nil
+}
+
+// GetRun retrieves an analysis run by ID.
+func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
+	columns, caps, err := s.runRecordSelectColumns()
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM lidar_run_records
+		WHERE run_id = ?
+	`, strings.Join(columns, ", "))
+
+	run, err := scanAnalysisRunRecord(s.db.QueryRow(query, runID), caps)
+	if err != nil {
+		return nil, fmt.Errorf("get run: %w", err)
+	}
+	s.hydrateRunConfigAssets(run)
 	labelRollup, err := s.GetRunLabelRollup(runID)
 	if err != nil {
 		return nil, err
 	}
 	run.LabelRollup = labelRollup
 
-	return &run, nil
+	return run, nil
 }
 
 // ListRuns retrieves recent analysis runs.
 func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
-	query := `
-		SELECT run_id, created_at, source_type, source_path, sensor_id,
-			params_json, duration_secs, total_frames, total_clusters,
-			total_tracks, confirmed_tracks, processing_time_ms,
-			status, error_message, parent_run_id, notes, vrlog_path
+	columns, caps, err := s.runRecordSelectColumns()
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM lidar_run_records
 		ORDER BY created_at DESC
 		LIMIT ?
-	`
+	`, strings.Join(columns, ", "))
 
 	rows, err := s.db.Query(query, limit)
 	if err != nil {
@@ -94,68 +253,39 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	}
 	defer rows.Close()
 
-	var runs []*AnalysisRun
-	for rows.Next() {
-		var run AnalysisRun
-		var createdAt int64
-		var sourcePath, errorMessage, parentRunID, notes, vrlogPath sql.NullString
-		var paramsJSON string
-
-		err := rows.Scan(
-			&run.RunID,
-			&createdAt,
-			&run.SourceType,
-			&sourcePath,
-			&run.SensorID,
-			&paramsJSON,
-			&run.DurationSecs,
-			&run.TotalFrames,
-			&run.TotalClusters,
-			&run.TotalTracks,
-			&run.ConfirmedTracks,
-			&run.ProcessingTimeMs,
-			&run.Status,
-			&errorMessage,
-			&parentRunID,
-			&notes,
-			&vrlogPath,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("scan run: %w", err)
-		}
-
-		run.CreatedAt = time.Unix(0, createdAt)
-		run.ParamsJSON = json.RawMessage(paramsJSON)
-		if sourcePath.Valid {
-			run.SourcePath = sourcePath.String
-		}
-		if errorMessage.Valid {
-			run.ErrorMessage = errorMessage.String
-		}
-		if parentRunID.Valid {
-			run.ParentRunID = parentRunID.String
-		}
-		if notes.Valid {
-			run.Notes = notes.String
-		}
-		if vrlogPath.Valid {
-			run.VRLogPath = vrlogPath.String
-		}
-
-		run.PopulateReplayCaseName()
-
-		runs = append(runs, &run)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate runs: %w", err)
-	}
-
-	if err := s.populateRunLabelRollups(runs); err != nil {
+	runs, err := collectAnalysisRunRecords(rows, caps)
+	if err != nil {
 		return nil, err
 	}
 
-	return runs, nil
+	return finalizeAnalysisRunRecords(runs, s.hydrateRunConfigAssets, s.populateRunLabelRollups)
+}
+
+func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
+	if run == nil || strings.TrimSpace(run.RunConfigID) == "" {
+		return
+	}
+
+	configStore := configasset.NewStore(s.db)
+	runConfig, err := configStore.GetRunConfig(run.RunConfigID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return
+		}
+		log.Printf("hydrate run config assets for %s: %v", run.RunID, err)
+		return
+	}
+
+	run.ParamSetID = runConfig.ParamSetID
+	run.ConfigHash = runConfig.ConfigHash
+	run.ParamsHash = runConfig.ParamsHash
+	run.SchemaVersion = runConfig.ParamSchemaVersion
+	run.ParamSetType = runConfig.ParamSetType
+	run.BuildVersion = runConfig.BuildVersion
+	run.BuildGitSHA = runConfig.BuildGitSHA
+	if len(runConfig.ComposedJSON) > 0 {
+		run.ExecutionConfig = append(json.RawMessage(nil), runConfig.ComposedJSON...)
+	}
 }
 
 // GetRunTracks retrieves all tracks for an analysis run.
@@ -176,6 +306,10 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	}
 	defer rows.Close()
 
+	return collectRunTracks(rows)
+}
+
+func collectRunTracks(rows analysisRunRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
@@ -416,6 +550,10 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 		run.LabelRollup = &RunLabelRollup{}
 	}
 
+	return assignRunLabelRollups(rows, byID)
+}
+
+func assignRunLabelRollups(rows analysisRunRows, byID map[string]*AnalysisRun) error {
 	for rows.Next() {
 		var runID string
 		var rollup RunLabelRollup
@@ -456,6 +594,10 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	}
 	defer rows.Close()
 
+	return collectUnlabeledTracks(rows)
+}
+
+func collectUnlabeledTracks(rows analysisRunRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack

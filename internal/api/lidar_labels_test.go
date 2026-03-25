@@ -18,9 +18,9 @@ func setupLabelTestDB(t *testing.T) *dbpkg.DB {
 
 	_, err := db.Exec(`
 		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, source_path, sensor_id, params_json, status
+			run_id, created_at, source_type, source_path, sensor_id, status
 		) VALUES
-			('run-001', 1000000000, 'pcap', '/tmp/test.pcap', 'test-sensor', '{}', 'completed');
+			('run-001', 1000000000, 'pcap', '/tmp/test.pcap', 'test-sensor', 'completed');
 		INSERT INTO lidar_replay_cases (
 			replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
 		) VALUES ('case-001', 'test-sensor', '/tmp/test.pcap', 'run-001', 1000000000);
@@ -336,8 +336,8 @@ func TestLidarLabelAPI_Export_FiltersByReplayCase(t *testing.T) {
 	insertReplayAnnotation(t, db, "label-001", "case-001", "run-001", "track-001", "car", 1000000000)
 	if _, err := db.Exec(`
 		INSERT INTO lidar_run_records (
-			run_id, created_at, source_type, source_path, sensor_id, params_json, status
-		) VALUES ('run-002', 1000000001, 'pcap', '/tmp/test-2.pcap', 'test-sensor', '{}', 'completed');
+			run_id, created_at, source_type, source_path, sensor_id, status
+		) VALUES ('run-002', 1000000001, 'pcap', '/tmp/test-2.pcap', 'test-sensor', 'completed');
 		INSERT INTO lidar_replay_cases (
 			replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
 		) VALUES ('case-002', 'test-sensor', '/tmp/test-2.pcap', 'run-002', 1000000001);

@@ -10,7 +10,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.0 - Platform Hardening (050)
 
-- [#429] LiDAR immutable run config — snapshot active configuration at run start for reproducible analysis, deduplicate param sets, and enable deterministic grouping. [design doc](plans/lidar-immutable-run-config-asset-plan.md) `M`
 - [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
@@ -21,6 +20,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.2). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
+- LiDAR replay case terminology alignment — rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers — [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
 
 ### v0.5.2 - Replay/Runtime Stabilisation (052)
 
@@ -39,6 +39,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- LiDAR background grid display bug — `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix — `S`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
@@ -213,3 +214,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#421] `EventAPI` JSON tag fix — change PascalCase JSON tags to `snake_case` before v0.5.0 API freeze; cheap now, permanent compatibility baggage if deferred — [design doc](plans/go-codebase-structural-hygiene-plan.md) `XS`
 - [#422] Canonical plan graduation — Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed — [design doc](plans/platform-canonical-project-files-plan.md)
 - [#424] Remote-host upgrade runbook and API naming consistency — runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work — [design doc](plans/platform-simplification-and-deprecation-plan.md)
+- [#429] LiDAR immutable run config (P0/P1/P2) — deterministic config asset model: `lidar_param_sets`, `lidar_run_configs`, configasset package, single-source run creation, API/UI provenance, VRLOG metadata, legacy column removal (migrations 000035–000036) — [design doc](plans/lidar-immutable-run-config-asset-plan.md)

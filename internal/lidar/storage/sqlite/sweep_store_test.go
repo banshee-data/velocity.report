@@ -689,6 +689,304 @@ func TestSweepStore_SaveSweepStart(t *testing.T) {
 	}
 }
 
+// --- RecoverOrphanedSweeps ---
+
+func TestSweepStore_RecoverOrphanedSweeps_HappyPath(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// Insert two running sweeps and one completed sweep.
+	for _, rec := range []SweepRecord{
+		{SweepID: "run-1", SensorID: "s1", Mode: "auto", Status: "running", Request: json.RawMessage(`{}`), StartedAt: time.Now().UTC()},
+		{SweepID: "run-2", SensorID: "s1", Mode: "auto", Status: "running", Request: json.RawMessage(`{}`), StartedAt: time.Now().UTC()},
+		{SweepID: "done-1", SensorID: "s1", Mode: "auto", Status: "completed", Request: json.RawMessage(`{}`), StartedAt: time.Now().UTC()},
+	} {
+		if err := store.InsertSweep(rec); err != nil {
+			t.Fatalf("InsertSweep %s: %v", rec.SweepID, err)
+		}
+	}
+
+	affected, err := store.RecoverOrphanedSweeps()
+	if err != nil {
+		t.Fatalf("RecoverOrphanedSweeps: %v", err)
+	}
+	if affected != 2 {
+		t.Fatalf("affected = %d, want 2", affected)
+	}
+
+	for _, id := range []string{"run-1", "run-2"} {
+		got, err := store.GetSweep(id)
+		if err != nil {
+			t.Fatalf("GetSweep %s: %v", id, err)
+		}
+		if got.Status != "failed" {
+			t.Errorf("sweep %s status = %q, want failed", id, got.Status)
+		}
+		if got.Error != "incomplete: server restarted" {
+			t.Errorf("sweep %s error = %q, want 'incomplete: server restarted'", id, got.Error)
+		}
+		if got.CompletedAt == nil {
+			t.Errorf("sweep %s completed_at is nil, want non-nil", id)
+		}
+	}
+
+	// Completed sweep must be untouched.
+	done, _ := store.GetSweep("done-1")
+	if done.Status != "completed" {
+		t.Errorf("completed sweep status = %q, want completed", done.Status)
+	}
+}
+
+func TestSweepStore_RecoverOrphanedSweeps_NoneRunning(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	if err := store.InsertSweep(SweepRecord{
+		SweepID: "c1", SensorID: "s1", Mode: "manual", Status: "completed",
+		Request: json.RawMessage(`{}`), StartedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("InsertSweep: %v", err)
+	}
+
+	affected, err := store.RecoverOrphanedSweeps()
+	if err != nil {
+		t.Fatalf("RecoverOrphanedSweeps: %v", err)
+	}
+	if affected != 0 {
+		t.Fatalf("affected = %d, want 0", affected)
+	}
+}
+
+func TestSweepStore_RecoverOrphanedSweeps_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	_, err := store.RecoverOrphanedSweeps()
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+	if !strings.Contains(err.Error(), "recovering orphaned sweeps") {
+		t.Fatalf("expected wrapped error, got: %v", err)
+	}
+}
+
+// --- SaveSweepCheckpoint / LoadSweepCheckpoint ---
+
+func TestSweepStore_SaveAndLoadCheckpoint(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	// Add checkpoint columns that the prod schema has but setupTestSweepDB omits.
+	for _, col := range []string{
+		"checkpoint_round INTEGER",
+		"checkpoint_bounds TEXT",
+		"checkpoint_results TEXT",
+		"checkpoint_request TEXT",
+	} {
+		if _, err := db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col); err != nil {
+			t.Fatalf("alter table: %v", err)
+		}
+	}
+
+	store := NewSweepStore(db)
+	if err := store.InsertSweep(SweepRecord{
+		SweepID: "ckpt-1", SensorID: "s1", Mode: "auto", Status: "running",
+		Request: json.RawMessage(`{}`), StartedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("InsertSweep: %v", err)
+	}
+
+	bounds := json.RawMessage(`{"lo":1,"hi":10}`)
+	results := json.RawMessage(`[{"round":1}]`)
+	request := json.RawMessage(`{"param":"x"}`)
+	if err := store.SaveSweepCheckpoint("ckpt-1", 3, bounds, results, request); err != nil {
+		t.Fatalf("SaveSweepCheckpoint: %v", err)
+	}
+
+	gotRound, gotBounds, gotResults, gotRequest, err := store.LoadSweepCheckpoint("ckpt-1")
+	if err != nil {
+		t.Fatalf("LoadSweepCheckpoint: %v", err)
+	}
+	if gotRound != 3 {
+		t.Errorf("round = %d, want 3", gotRound)
+	}
+	if string(gotBounds) != string(bounds) {
+		t.Errorf("bounds = %s, want %s", gotBounds, bounds)
+	}
+	if string(gotResults) != string(results) {
+		t.Errorf("results = %s, want %s", gotResults, results)
+	}
+	if string(gotRequest) != string(request) {
+		t.Errorf("request = %s, want %s", gotRequest, request)
+	}
+}
+
+func TestSweepStore_LoadCheckpoint_NotFound(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	for _, col := range []string{
+		"checkpoint_round INTEGER",
+		"checkpoint_bounds TEXT",
+		"checkpoint_results TEXT",
+		"checkpoint_request TEXT",
+	} {
+		if _, err := db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col); err != nil {
+			t.Fatalf("alter table: %v", err)
+		}
+	}
+
+	store := NewSweepStore(db)
+	_, _, _, _, err := store.LoadSweepCheckpoint("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent checkpoint")
+	}
+}
+
+func TestSweepStore_SaveCheckpoint_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	err := store.SaveSweepCheckpoint("x", 1, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- GetSuspendedSweep / GetSuspendedSweepInfo ---
+
+func TestSweepStore_GetSuspendedSweep_Found(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	for _, col := range []string{
+		"checkpoint_round INTEGER",
+		"checkpoint_bounds TEXT",
+		"checkpoint_results TEXT",
+		"checkpoint_request TEXT",
+	} {
+		if _, err := db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col); err != nil {
+			t.Fatalf("alter table: %v", err)
+		}
+	}
+
+	store := NewSweepStore(db)
+
+	startedAt := time.Now().UTC().Truncate(time.Second)
+	if err := store.InsertSweep(SweepRecord{
+		SweepID: "sus-1", SensorID: "s1", Mode: "auto", Status: "running",
+		Request: json.RawMessage(`{}`), StartedAt: startedAt,
+	}); err != nil {
+		t.Fatalf("InsertSweep: %v", err)
+	}
+	if err := store.SaveSweepCheckpoint("sus-1", 5, nil, nil, nil); err != nil {
+		t.Fatalf("SaveSweepCheckpoint: %v", err)
+	}
+
+	sweepID, round, err := store.GetSuspendedSweep()
+	if err != nil {
+		t.Fatalf("GetSuspendedSweep: %v", err)
+	}
+	if sweepID != "sus-1" {
+		t.Errorf("sweepID = %q, want sus-1", sweepID)
+	}
+	if round != 5 {
+		t.Errorf("round = %d, want 5", round)
+	}
+
+	info, err := store.GetSuspendedSweepInfo()
+	if err != nil {
+		t.Fatalf("GetSuspendedSweepInfo: %v", err)
+	}
+	if info == nil {
+		t.Fatal("expected non-nil info")
+	}
+	if info.SweepID != "sus-1" {
+		t.Errorf("info.SweepID = %q, want sus-1", info.SweepID)
+	}
+}
+
+func TestSweepStore_GetSuspendedSweep_None(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	for _, col := range []string{
+		"checkpoint_round INTEGER",
+		"checkpoint_bounds TEXT",
+		"checkpoint_results TEXT",
+		"checkpoint_request TEXT",
+	} {
+		if _, err := db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col); err != nil {
+			t.Fatalf("alter table: %v", err)
+		}
+	}
+
+	store := NewSweepStore(db)
+	sweepID, round, err := store.GetSuspendedSweep()
+	if err != nil {
+		t.Fatalf("GetSuspendedSweep: %v", err)
+	}
+	if sweepID != "" || round != 0 {
+		t.Errorf("expected empty, got sweepID=%q round=%d", sweepID, round)
+	}
+}
+
+func TestSweepStore_GetSuspendedSweepInfo_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	_, err := store.GetSuspendedSweepInfo()
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- UpdateSweepCharts DB error ---
+
+func TestSweepStore_UpdateSweepCharts_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	err := store.UpdateSweepCharts("x", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- UpdateSweepResults DB error ---
+
+func TestSweepStore_UpdateSweepResults_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	err := store.UpdateSweepResults("x", "failed", nil, nil, nil, nil, "err", nil, nil, nil, "", "")
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- ListSweeps DB error ---
+
+func TestSweepStore_ListSweeps_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	_, err := store.ListSweeps("sensor-1", 10)
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
 func TestSweepStore_SaveSweepComplete(t *testing.T) {
 	db := setupTestSweepDB(t)
 	defer db.Close()
@@ -730,5 +1028,102 @@ func TestSweepStore_SaveSweepComplete(t *testing.T) {
 	}
 	if string(retrieved.Results) != string(results) {
 		t.Errorf("results mismatch")
+	}
+}
+
+// --- ListSweeps: invalid completed_at format triggers parse error ---
+
+func TestSweepStore_ListSweeps_InvalidCompletedAt(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	store := NewSweepStore(db)
+
+	// Insert a sweep with a valid started_at but an invalid completed_at.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at, completed_at)
+		VALUES ('sweep-bad-ca', 'sensor-1', 'auto', 'completed', '{}', '2025-01-01T00:00:00Z', 'not-a-date')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	_, err = store.ListSweeps("sensor-1", 10)
+	if err == nil {
+		t.Fatal("expected error from invalid completed_at format")
+	}
+	if !strings.Contains(err.Error(), "parsing completed_at") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- LoadSweepCheckpoint: NULL checkpoint_round ---
+
+func TestSweepStore_LoadCheckpoint_NullRound(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	// Add checkpoint columns if they don't already exist.
+	for _, col := range []string{"checkpoint_round", "checkpoint_bounds", "checkpoint_results", "checkpoint_request"} {
+		db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN " + col + " TEXT")
+	}
+
+	// Insert a suspended sweep without a checkpoint_round value.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES ('sweep-null-ck', 'sensor-1', 'auto', 'suspended', '{}', '2025-01-01T00:00:00Z')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	store := NewSweepStore(db)
+	_, _, _, _, err = store.LoadSweepCheckpoint("sweep-null-ck")
+	if err == nil {
+		t.Fatal("expected error for NULL checkpoint_round")
+	}
+	if !strings.Contains(err.Error(), "no checkpoint found") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --- GetSuspendedSweep: error propagation from GetSuspendedSweepInfo ---
+
+func TestSweepStore_GetSuspendedSweep_DBError(t *testing.T) {
+	db := setupTestSweepDB(t)
+	store := NewSweepStore(db)
+	db.Close()
+
+	_, _, err := store.GetSuspendedSweep()
+	if err == nil {
+		t.Fatal("expected error from closed DB")
+	}
+}
+
+// --- GetSuspendedSweepInfo: invalid started_at format ---
+
+func TestSweepStore_GetSuspendedSweepInfo_BadDate(t *testing.T) {
+	db := setupTestSweepDB(t)
+	defer db.Close()
+
+	// Add checkpoint columns.
+	db.Exec("ALTER TABLE lidar_tuning_sweeps ADD COLUMN checkpoint_round INTEGER")
+
+	// Insert a suspended sweep with a non-RFC3339 started_at.
+	_, err := db.Exec(`
+		INSERT INTO lidar_tuning_sweeps (sweep_id, sensor_id, mode, status, request, started_at)
+		VALUES ('sweep-bad-date', 'sensor-1', 'auto', 'suspended', '{}', 'not-a-date')
+	`)
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	store := NewSweepStore(db)
+	_, err = store.GetSuspendedSweepInfo()
+	if err == nil {
+		t.Fatal("expected error from invalid started_at format")
+	}
+	if !strings.Contains(err.Error(), "parsing started_at") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

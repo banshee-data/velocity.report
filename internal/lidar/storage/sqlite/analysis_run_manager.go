@@ -2,9 +2,13 @@ package sqlite
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/google/uuid"
 )
 
@@ -32,6 +36,20 @@ var (
 	armMu       sync.RWMutex
 	armRegistry = make(map[string]*AnalysisRunManager)
 )
+
+// AnalysisRunStartOptions captures immutable run-config provenance for an
+// analysis replay.
+type AnalysisRunStartOptions struct {
+	PreferredRunID      string
+	SourceType          string
+	SourcePath          string
+	SensorID            string
+	ParentRunID         string
+	ReplayCaseID        string
+	RequestedParamSetID string
+	RequestedParamsJSON json.RawMessage
+	EffectiveConfig     *cfgpkg.TuningConfig
+}
 
 // NewAnalysisRunManager creates a new manager for tracking analysis runs.
 func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
@@ -69,29 +87,94 @@ func GetAnalysisRunManager(sensorID string) *AnalysisRunManager {
 
 // StartRun begins a new analysis run for PCAP processing.
 // It returns the run ID that can be used for track association.
-func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (m *AnalysisRunManager) StartRun(sourcePath string, _ RunParams) (string, error) {
+	run := &AnalysisRun{
+		SourceType: "pcap",
+		SourcePath: sourcePath,
+		SensorID:   m.sensorID,
+		Status:     "running",
+	}
 
-	// Generate unique run ID
-	runID := uuid.New().String()
+	return m.startPreparedRun(run)
+}
 
-	// Serialize params
-	paramsJSON, err := params.ToJSON()
+// StartRunWithConfig begins a new analysis run backed by immutable run-config
+// provenance. It records the exact effective config and optional launch intent
+// before execution starts.
+func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (string, error) {
+	if opts.EffectiveConfig == nil {
+		return "", fmt.Errorf("effective config is required")
+	}
+
+	sensorID := strings.TrimSpace(opts.SensorID)
+	if sensorID == "" {
+		sensorID = m.sensorID
+	}
+	sourceType := strings.TrimSpace(opts.SourceType)
+	if sourceType == "" {
+		sourceType = "pcap"
+	}
+
+	run := &AnalysisRun{
+		RunID:               strings.TrimSpace(opts.PreferredRunID),
+		SourceType:          sourceType,
+		SourcePath:          opts.SourcePath,
+		SensorID:            sensorID,
+		ParentRunID:         strings.TrimSpace(opts.ParentRunID),
+		ReplayCaseID:        strings.TrimSpace(opts.ReplayCaseID),
+		RequestedParamSetID: strings.TrimSpace(opts.RequestedParamSetID),
+		Status:              "running",
+	}
+
+	configStore := configasset.NewStore(m.store.db)
+	buildIdentity := configasset.ReadBuildIdentity()
+	effectiveParamSet, err := configasset.MakeEffectiveParamSet(opts.EffectiveConfig)
 	if err != nil {
 		return "", err
 	}
 
-	m.currentRun = &AnalysisRun{
-		RunID:      runID,
-		CreatedAt:  time.Now(),
-		SourceType: "pcap",
-		SourcePath: sourcePath,
-		SensorID:   m.sensorID,
-		ParamsJSON: paramsJSON,
-		Status:     "running",
+	runConfig, err := configStore.EnsureRunConfig(effectiveParamSet, buildIdentity)
+	if err != nil {
+		return "", err
+	}
+	run.RunConfigID = runConfig.RunConfigID
+
+	if len(opts.RequestedParamsJSON) > 0 {
+		requestedParamSet, err := configasset.MakeRequestedParamSet(opts.RequestedParamsJSON)
+		if err != nil {
+			return "", err
+		}
+		storedRequestedParamSet, err := configStore.EnsureParamSet(requestedParamSet)
+		if err != nil {
+			return "", err
+		}
+		run.RequestedParamSetID = storedRequestedParamSet.ParamSetID
 	}
 
+	return m.startPreparedRun(run)
+}
+
+func (m *AnalysisRunManager) startPreparedRun(run *AnalysisRun) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if strings.TrimSpace(run.RunID) == "" {
+		run.RunID = uuid.NewString()
+	}
+	if run.CreatedAt.IsZero() {
+		run.CreatedAt = time.Now()
+	}
+	if strings.TrimSpace(run.SourceType) == "" {
+		run.SourceType = "pcap"
+	}
+	if strings.TrimSpace(run.SensorID) == "" {
+		run.SensorID = m.sensorID
+	}
+	if strings.TrimSpace(run.Status) == "" {
+		run.Status = "running"
+	}
+
+	m.currentRun = run
 	if err := m.store.InsertRun(m.currentRun); err != nil {
 		m.currentRun = nil
 		return "", err
@@ -104,8 +187,8 @@ func (m *AnalysisRunManager) StartRun(sourcePath string, params RunParams) (stri
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
 
-	diagf("[AnalysisRunManager] Started run %s for %s", runID, sourcePath)
-	return runID, nil
+	diagf("[AnalysisRunManager] Started run %s for %s", run.RunID, run.SourcePath)
+	return run.RunID, nil
 }
 
 // RecordFrame increments the frame count and tracks the frame timestamp.
@@ -194,6 +277,9 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		TotalTracks:      len(m.tracksSeen),
 		ConfirmedTracks:  confirmedCount,
 		ProcessingTimeMs: processingTime.Milliseconds(),
+		CompletedAt:      time.Now(),
+		FrameStartNs:     m.firstFrameNs,
+		FrameEndNs:       m.lastFrameNs,
 	}
 
 	if err := m.store.CompleteRun(m.currentRun.RunID, stats); err != nil {
@@ -216,12 +302,14 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 		return nil
 	}
 
-	if err := m.store.UpdateRunStatus(m.currentRun.RunID, "failed", errMsg); err != nil {
+	runID := m.currentRun.RunID
+	m.currentRun = nil
+
+	if err := m.store.UpdateRunStatus(runID, "failed", errMsg); err != nil {
 		return err
 	}
 
-	opsf("[AnalysisRunManager] Failed run %s: %s", m.currentRun.RunID, errMsg)
-	m.currentRun = nil
+	opsf("[AnalysisRunManager] Failed run %s: %s", runID, errMsg)
 	return nil
 }
 
@@ -240,20 +328,4 @@ func (m *AnalysisRunManager) CurrentRunID() string {
 		return ""
 	}
 	return m.currentRun.RunID
-}
-
-// GetCurrentRunParams retrieves the current run's parameters for display.
-func (m *AnalysisRunManager) GetCurrentRunParams() (RunParams, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if m.currentRun == nil {
-		return RunParams{}, false
-	}
-
-	var params RunParams
-	if err := json.Unmarshal(m.currentRun.ParamsJSON, &params); err != nil {
-		return RunParams{}, false
-	}
-	return params, true
 }

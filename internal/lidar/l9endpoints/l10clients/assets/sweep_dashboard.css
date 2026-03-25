@@ -144,17 +144,17 @@ body {
   margin-top: 4px;
 }
 
-/* Scenario card fills height */
-.scene-card {
+/* Setup card fills height */
+.setup-card {
   display: flex;
   flex-direction: column;
 }
 
-.scene-card > h2 {
+.setup-card > h2 {
   flex-shrink: 0;
 }
 
-.scene-card-content {
+.setup-card-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -238,7 +238,7 @@ body {
   margin-top: 10px;
 }
 
-.scene-bar {
+.setup-bar {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -355,8 +355,8 @@ body:not(.hint-mode) .hint-only {
 body.hint-mode #sweep-params-section,
 body.hint-mode #current-params-card,
 body.hint-mode #paste-params-card,
-body.hint-mode #scene-info,
-body.hint-mode #scene-actions,
+body.hint-mode #replay-case-info,
+body.hint-mode #replay-case-actions,
 body.hint-mode #sweep-config-card {
   display: none !important;
 }

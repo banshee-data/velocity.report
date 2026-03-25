@@ -1,5 +1,5 @@
-import { TRACK_COLORS, trackColour } from './lidar';
 import type { QualityLabel } from './lidar';
+import { TRACK_COLORS, trackColour } from './lidar';
 
 describe('lidar types', () => {
 	describe('QualityLabel type', () => {
@@ -25,7 +25,7 @@ describe('lidar types', () => {
 		});
 
 		it('should have correct colour for car', () => {
-			expect(TRACK_COLORS.car).toBe('#2196F3');
+			expect(TRACK_COLORS.car).toBe('#FF5722');
 		});
 
 		it('should have correct colour for bird', () => {
@@ -52,23 +52,13 @@ describe('lidar types', () => {
 			expect(TRACK_COLORS.cyclist).toBe('#00BCD4');
 		});
 
-		it('should have correct colour for truck', () => {
-			expect(TRACK_COLORS.truck).toBe('#FF5722');
-		});
-
-		it('should have correct colour for motorcyclist', () => {
-			expect(TRACK_COLORS.motorcyclist).toBe('#E91E63');
-		});
-
-		it('should have all 10 track colours defined', () => {
+		it('should have all 8 track colours defined', () => {
 			const keys = Object.keys(TRACK_COLORS);
-			expect(keys).toHaveLength(10);
+			expect(keys).toHaveLength(8);
 			expect(keys).toContain('pedestrian');
 			expect(keys).toContain('car');
-			expect(keys).toContain('truck');
 			expect(keys).toContain('bus');
 			expect(keys).toContain('cyclist');
-			expect(keys).toContain('motorcyclist');
 			expect(keys).toContain('bird');
 			expect(keys).toContain('dynamic');
 			expect(keys).toContain('tentative');

@@ -5,32 +5,47 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
-// AnalysisRun represents a complete analysis session with parameters.
-// All LIDAR parameters are stored in ParamsJSON for full reproducibility.
+// AnalysisRun represents a complete analysis session with immutable run-config
+// provenance.
 type AnalysisRun struct {
-	RunID            string          `json:"run_id"`
-	CreatedAt        time.Time       `json:"created_at"`
-	SourceType       string          `json:"source_type"` // "pcap" or "live"
-	SourcePath       string          `json:"source_path,omitempty"`
-	SensorID         string          `json:"sensor_id"`
-	ParamsJSON       json.RawMessage `json:"params_json"`
-	DurationSecs     float64         `json:"duration_secs"`
-	TotalFrames      int             `json:"total_frames"`
-	TotalClusters    int             `json:"total_clusters"`
-	TotalTracks      int             `json:"total_tracks"`
-	ConfirmedTracks  int             `json:"confirmed_tracks"`
-	ProcessingTimeMs int64           `json:"processing_time_ms"`
-	Status           string          `json:"status"` // "running", "completed", "failed"
-	ErrorMessage     string          `json:"error_message,omitempty"`
-	ParentRunID      string          `json:"parent_run_id,omitempty"`
-	Notes            string          `json:"notes,omitempty"`
-	VRLogPath        string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
+	RunID               string          `json:"run_id"`
+	CreatedAt           time.Time       `json:"created_at"`
+	CompletedAt         *time.Time      `json:"completed_at,omitempty"`
+	SourceType          string          `json:"source_type"` // "pcap" or "live"
+	SourcePath          string          `json:"source_path,omitempty"`
+	SensorID            string          `json:"sensor_id"`
+	RunConfigID         string          `json:"run_config_id,omitempty"`
+	RequestedParamSetID string          `json:"requested_param_set_id,omitempty"`
+	ParamSetID          string          `json:"param_set_id,omitempty"`
+	ConfigHash          string          `json:"config_hash,omitempty"`
+	ParamsHash          string          `json:"params_hash,omitempty"`
+	SchemaVersion       string          `json:"schema_version,omitempty"`
+	ParamSetType        string          `json:"param_set_type,omitempty"`
+	BuildVersion        string          `json:"build_version,omitempty"`
+	BuildGitSHA         string          `json:"build_git_sha,omitempty"`
+	ReplayCaseID        string          `json:"replay_case_id,omitempty"`
+	StatisticsJSON      json.RawMessage `json:"statistics_json,omitempty"`
+	ExecutionConfig     json.RawMessage `json:"execution_config,omitempty"`
+	FrameStartNs        *int64          `json:"frame_start_ns,omitempty"`
+	FrameEndNs          *int64          `json:"frame_end_ns,omitempty"`
+	DurationSecs        float64         `json:"duration_secs"`
+	TotalFrames         int             `json:"total_frames"`
+	TotalClusters       int             `json:"total_clusters"`
+	TotalTracks         int             `json:"total_tracks"`
+	ConfirmedTracks     int             `json:"confirmed_tracks"`
+	ProcessingTimeMs    int64           `json:"processing_time_ms"`
+	Status              string          `json:"status"` // "running", "completed", "failed"
+	ErrorMessage        string          `json:"error_message,omitempty"`
+	ParentRunID         string          `json:"parent_run_id,omitempty"`
+	Notes               string          `json:"notes,omitempty"`
+	VRLogPath           string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 
 	// Derived fields (not persisted in DB, computed on retrieval)
 	ReplayCaseName string          `json:"replay_case_name,omitempty"` // Derived from SourcePath filename
@@ -121,10 +136,8 @@ func normaliseRunTrackLinkedIDs(linkedIDs []string) []string {
 }
 
 // RunParams captures all configurable parameters for reproducibility.
-// This is the structure serialized into AnalysisRun.ParamsJSON.
 type RunParams struct {
 	Version        string                     `json:"version"`
-	Timestamp      time.Time                  `json:"timestamp"`
 	Background     BackgroundParamsExport     `json:"background"`
 	Clustering     ClusteringParamsExport     `json:"clustering"`
 	Tracking       TrackingParamsExport       `json:"tracking"`
@@ -179,8 +192,7 @@ func DefaultRunParams() RunParams {
 // Use this in production code where the TuningConfig is already loaded.
 func RunParamsFromTuning(cfg *config.TuningConfig) RunParams {
 	return RunParams{
-		Version:   "1.0",
-		Timestamp: time.Now(),
+		Version: "1.0",
 		Background: BackgroundParamsExport{
 			BackgroundUpdateFraction:       float32(cfg.GetBackgroundUpdateFraction()),
 			ClosenessSensitivityMultiplier: float32(cfg.GetClosenessMultiplier()),
@@ -302,6 +314,9 @@ type AnalysisStats struct {
 	TotalTracks      int
 	ConfirmedTracks  int
 	ProcessingTimeMs int64
+	CompletedAt      time.Time
+	FrameStartNs     int64
+	FrameEndNs       int64
 }
 
 // RunComparison shows differences between two analysis runs.
@@ -319,7 +334,10 @@ type TrackMatch = l8analytics.TrackMatch
 
 // AnalysisRunStore provides persistence for analysis runs.
 type AnalysisRunStore struct {
-	db DBClient
+	db            DBClient
+	schemaOnce    sync.Once
+	recordCaps    analysisRunRecordCapabilities
+	recordCapsErr error
 }
 
 // NewAnalysisRunStore creates a new AnalysisRunStore.

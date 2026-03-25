@@ -666,19 +666,7 @@ func main() {
 					return
 				}
 
-				// Set recording provenance from current webserver state.
-				sourceType := "live"
-				pcapPath := ""
-				playbackRate := 0.0
-				if lidarServer != nil {
-					src := lidarServer.CurrentSource()
-					if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
-						sourceType = "pcap"
-						pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
-						playbackRate = lidarServer.PCAPSpeedRatio()
-					}
-				}
-				rec.SetProvenance(sourceType, pcapPath, tuningHash, playbackRate)
+				applyRecordingMetadata(rec, lidarDB, lidarServer, runID, tuningHash, log.Default())
 
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
@@ -769,6 +757,7 @@ func main() {
 
 		// Set up sweep persistence
 		sweepStore := sqlite.NewSweepStore(lidarDB)
+		recoverOrphanedSweepsOnStart(sweepStore, log.Default())
 		lidarServer.SetSweepStore(sweepStore)
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
@@ -1093,7 +1082,7 @@ func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
 		PCAPStartSecs:     scene.PCAPStartSecs,
 		PCAPDurationSecs:  scene.PCAPDurationSecs,
 		ReferenceRunID:    scene.ReferenceRunID,
-		OptimalParamsJSON: scene.OptimalParamsJSON,
+		RecommendedParams: scene.RecommendedParams,
 	}, nil
 }
 
@@ -1139,6 +1128,10 @@ type hintRunCreator struct {
 }
 
 func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage, pcapStartSecs, pcapDurationSecs float64) (string, error) {
+	// Stop any lingering sweep in the Runner before starting the reference run.
+	// HINT owns the orchestration at this point, so it's safe to reclaim the Runner.
+	a.runner.StopAndWait(5 * time.Second)
+
 	// For HINT reference runs, we start a single-combo sweep with the given params.
 	// Parse paramsJSON into a single-combination sweep: one SweepParam per key with a single fixed value.
 	var sweepParams []sweep.SweepParam

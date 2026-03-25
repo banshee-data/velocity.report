@@ -623,15 +623,20 @@ export async function updateLidarReplayCase(
 	update: {
 		description?: string;
 		reference_run_id?: string;
-		optimal_params_json?: string;
+		optimal_params_json?: Record<string, unknown> | null;
 		pcap_start_secs?: number;
 		pcap_duration_secs?: number;
 	}
 ): Promise<LidarReplayCase> {
+	// Omit null optimal_params_json to avoid persisting the JSON literal "null";
+	// undefined keys are stripped by JSON.stringify, which the server treats as
+	// "no change".
+	const { optimal_params_json, ...rest } = update;
+	const body = optimal_params_json != null ? { ...rest, optimal_params_json } : rest;
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(update)
+		body: JSON.stringify(body)
 	});
 	if (!res.ok) throw new Error(`Failed to update replay case: ${res.status}`);
 	return res.json();

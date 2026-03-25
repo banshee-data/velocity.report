@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1051,6 +1052,31 @@ func TestCov_HandleDeleteRunTrack_DBError(t *testing.T) {
 	}
 }
 
+func TestCov_HandleDeleteRunTrack_RowsAffectedError(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "rows-affected")
+	covInsertTrack(t, ws, runID, "track-rows-affected")
+
+	orig := deleteRunTrackRowsAffected
+	deleteRunTrackRowsAffected = func(result interface{ RowsAffected() (int64, error) }) (int64, error) {
+		return 0, errors.New("rows affected failed")
+	}
+	defer func() { deleteRunTrackRowsAffected = orig }()
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/runs/"+runID+"/tracks/track-rows-affected", nil)
+	w := httptest.NewRecorder()
+	ws.handleDeleteRunTrack(w, req, runID, "track-rows-affected")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+	if !strings.Contains(w.Body.String(), "failed to check delete result") {
+		t.Fatalf("expected rows affected error, got %s", w.Body.String())
+	}
+}
+
 // --- handleDeleteRun non-existent run (direct call) ---
 
 func TestCov_HandleDeleteRun_NonExistentRun(t *testing.T) {
@@ -1393,6 +1419,76 @@ func TestCov_HandleReprocessRun_ShortRunID(t *testing.T) {
 	// Will fail at PCAP replay (500), which is expected
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d (PCAP replay unavailable, but no panic)", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleReprocessRun_UsesRequestedParamSetID(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	if _, err := ws.db.DB.Exec(`
+		INSERT INTO lidar_param_sets (
+			param_set_id, params_hash, schema_version, param_set_type, params_json, created_at
+		) VALUES (?, ?, ?, ?, ?, ?)`,
+		"param-set-123",
+		"sha256:test-requested-param-set",
+		"v1",
+		"requested",
+		`{"eps":0.5}`,
+		123,
+	); err != nil {
+		t.Fatalf("insert param set: %v", err)
+	}
+
+	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	run := &sqlite.AnalysisRun{
+		RunID:               "req-paramset",
+		SourceType:          "pcap",
+		SourcePath:          "/test/requested-paramset.pcap",
+		SensorID:            "test-sensor",
+		Status:              "completed",
+		RequestedParamSetID: "param-set-123",
+	}
+	if err := store.InsertRun(run); err != nil {
+		t.Fatalf("InsertRun: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+run.RunID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, run.RunID)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestCov_HandleReprocessRun_FallsBackToPreferredRunID(t *testing.T) {
+	ws, cleanup := covSetupWS(t)
+	defer cleanup()
+
+	runID := covInsertRun(t, ws, "reproc-fallback")
+
+	origStart := startPCAPInternalForReprocess
+	origLast := lastAnalysisRunIDForReprocess
+	startPCAPInternalForReprocess = func(_ *Server, _ string, _ ReplayConfig) error { return nil }
+	lastAnalysisRunIDForReprocess = func(_ *Server) string { return "" }
+	defer func() {
+		startPCAPInternalForReprocess = origStart
+		lastAnalysisRunIDForReprocess = origLast
+	}()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
+	w := httptest.NewRecorder()
+	ws.handleReprocessRun(w, req, runID)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusAccepted, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"parent_run_id":"`+runID+`"`) {
+		t.Fatalf("expected parent run id in response, got %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"run_id":"reprocess-`) {
+		t.Fatalf("expected preferred run id fallback, got %s", w.Body.String())
 	}
 }
 

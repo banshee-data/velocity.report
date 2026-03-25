@@ -365,7 +365,14 @@ func GenerateReport(vrlogPath string) (*AnalysisReport, string, error) {
 			PCAPPath:            header.PCAPPath,
 			PlaybackRate:        header.PlaybackRate,
 			TuningHash:          header.TuningHash,
+			RunConfigID:         header.RunConfigID,
+			ParamSetID:          header.ParamSetID,
+			ConfigHash:          header.ConfigHash,
+			ParamsHash:          header.ParamsHash,
+			SchemaVersion:       header.SchemaVersion,
+			ParamSetType:        header.ParamSetType,
 			BuildVersion:        header.BuildVersion,
+			BuildGitSHA:         header.BuildGitSHA,
 		},
 		FrameSummary: FrameSummary{
 			TotalFrames:                 frameCount,
@@ -492,7 +499,9 @@ func computeDistStats(vals []float64) *DistStats {
 
 	percentileIdx := func(p float64) int {
 		idx := int(math.Floor(float64(n) * p))
-		if idx >= n {
+		if idx < 0 {
+			idx = 0
+		} else if idx >= n {
 			idx = n - 1
 		}
 		return idx
@@ -544,8 +553,7 @@ func buildSpeedHistogram(speeds []float32, binWidth float64) []HistogramBin {
 		idx := int(float64(s) / binWidth)
 		if idx < 0 {
 			idx = 0
-		}
-		if idx >= nBins {
+		} else if idx >= nBins {
 			idx = nBins - 1
 		}
 		bins[idx].Count++
