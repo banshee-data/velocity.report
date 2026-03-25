@@ -45,6 +45,7 @@ Usage:
   $0 [--generate] [--layout full|auto] [--svg-output path] <schema.sql>
   $0 --generate-dot [--layout full|auto] [--dot-output path] <schema.sql>
   $0 --compile [--svg-output path] [<schema.dot>]
+  $0 --report <schema.sql>
 
 Layout modes:
   full  — (default) clustered with subgroups and alignment edges.
@@ -125,6 +126,27 @@ generate_svg() {
   render_dot "$temp_dot" "$svg_output"
 }
 
+generate_report() {
+  local schema_file="$1"
+
+  require_file "$schema_file" "Schema file"
+  require_file "$SCRIPT_DIR/sqlite_graph.sql" "sqlite_graph.sql"
+  require_file "$SCRIPT_DIR/group-dot.py" "group-dot.py"
+  require_command sqlite3
+  require_command python3
+
+  local temp_db
+  temp_db=$(make_temp_file schema_db .db)
+  if ! sqlite3 "$temp_db" < "$schema_file"; then
+    echo "Error: failed to import schema into temporary SQLite database" >&2
+    exit 1
+  fi
+  if ! sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" --report; then
+    echo "Error: failed to generate layout report" >&2
+    exit 1
+  fi
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --generate)
@@ -137,6 +159,10 @@ while [ $# -gt 0 ]; do
       ;;
     --generate-dot)
       ACTION="generate-dot"
+      shift
+      ;;
+    --report)
+      ACTION="report"
       shift
       ;;
     --layout)
@@ -219,6 +245,14 @@ case "$ACTION" in
     fi
     generate_dot "$INPUT_FILE" "$DOT_FILE"
     echo "Schema DOT generated: $DOT_FILE"
+    ;;
+  report)
+    if [ -z "$INPUT_FILE" ]; then
+      echo "Error: report mode requires a schema.sql path" >&2
+      usage
+      exit 1
+    fi
+    generate_report "$INPUT_FILE"
     ;;
   compile)
     if [ -n "$INPUT_FILE" ]; then

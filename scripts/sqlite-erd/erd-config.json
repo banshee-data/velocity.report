@@ -3,6 +3,8 @@
     "ERD layout configuration — edit to control schema diagram grouping.",
     "Clusters: tables matching '{name}' or '{name}_*' are grouped together.",
     "Lidar subgroups: fine-grained layout within LIDAR (full mode only).",
+    "Layout overrides: fine-tune the graph to reduce edge crossings.",
+    "Run `make schema-erd-report` for a crossing analysis with suggestions.",
     "See group-dot.py docstring for layout mode details."
   ],
   "clusters": [
@@ -21,5 +23,19 @@
     "min_columns": 2,
     "max_columns": 4,
     "target_weight": 36
+  },
+  "layout_overrides": {
+    "_doc": [
+      "rank_hints: groups of tables forced to the same Graphviz rank.",
+      "edge_weight_overrides: 'child -> parent' keys with integer weights.",
+      "  Higher weight = shorter, more vertical edge.",
+      "invisible_edges: alignment edges added between tables (not rendered).",
+      "node_order_overrides: per-cluster, per-level table ordering.",
+      "  Keys are cluster names; values map level number (string) to table list."
+    ],
+    "rank_hints": [],
+    "edge_weight_overrides": {},
+    "invisible_edges": [],
+    "node_order_overrides": {}
   }
 }
