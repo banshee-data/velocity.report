@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
+"""
+Group raw Graphviz DOT output into family clusters for the schema ERD.
 
+Configuration is loaded from erd-config.json (adjacent to this script).
+Edit that file to change cluster definitions and lidar layout parameters.
+
+Layout modes (--layout flag):
+  full  — (default) clustered with lidar subgroups, balanced columns,
+          and invisible alignment edges for a structured layout.
+  auto  — tables clustered by family prefix only; Graphviz handles
+          all routing within and between clusters.
+"""
+
+import argparse
+import json
+import os
 import re
 import sys
 from collections import defaultdict, deque
@@ -8,40 +23,100 @@ NODE_BLOCK_RE = re.compile(r"(?ms)^([A-Za-z0-9_]+)\s+\[label=<.*?>\];\s*")
 GRAPH_OPEN_RE = re.compile(r"\A\s*digraph\s+[^{]+\{", re.MULTILINE)
 EDGE_PAIR_RE = re.compile(r"^([A-Za-z0-9_]+):[^\s]+ -> ([A-Za-z0-9_]+)(?::[^\s]+)?$")
 
-CLUSTERS = (
-    ("site", "SITE"),
-    ("lidar", "LIDAR"),
-    ("radar", "RADAR"),
-)
+# ---------------------------------------------------------------------------
+# Configuration — loaded from erd-config.json (see that file to edit)
+# ---------------------------------------------------------------------------
 
-# Dedicated LIDAR subgroups are driven by dependency connectivity to these roots.
-# Any lidar table in the same dependency component as one of these tables is
-# emitted into that subgroup. Remaining lidar tables go into a third "other"
-# subgroup. Adjust these anchors if the schema grows new lidar domains.
-LIDAR_SUBGROUP_ROOTS = (
-    ("analysis_runs", "lidar_run_records"),
-    ("tracks", "lidar_tracks"),
-)
-ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "erd-config.json")
+
+
+def _load_config():
+    """Load ERD configuration from erd-config.json."""
+    try:
+        with open(CONFIG_PATH) as fh:
+            cfg = json.load(fh)
+    except FileNotFoundError:
+        sys.stderr.write(f"Error: config not found: {CONFIG_PATH}\n")
+        raise SystemExit(1)
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(f"Error: malformed JSON in {CONFIG_PATH}: {exc}\n")
+        raise SystemExit(1)
+    if "clusters" not in cfg:
+        sys.stderr.write(f"Error: missing required key 'clusters' in {CONFIG_PATH}\n")
+        raise SystemExit(1)
+    return cfg
+
+
+# Configuration is loaded lazily to avoid crashing at import time if
+# erd-config.json is missing or invalid. Call _init_config() before using
+# any of the derived constants below.
+_config = None
+_layout_overrides = {}
+CLUSTERS = ()
+_lidar = {}
+LIDAR_SUBGROUP_ROOTS = ()
+ROOTED_LIDAR_SUBGROUPS = set()
 LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "analysis_runs", "other")
 LIDAR_SECOND_ROW_SUBGROUP = "other"
 LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
-
-# Large lidar subgroups are packed into 2-4 inner columns so they stay wide
-# without forcing explicit node coordinates. The target weight is a rough table
-# height budget per inner column.
 LIDAR_SUBGROUP_MIN_COLUMNS = 2
 LIDAR_SUBGROUP_MAX_COLUMNS = 4
 LIDAR_SUBGROUP_TARGET_WEIGHT = 36
 
 
+def _init_config():
+    """Initialise configuration-derived globals on first use."""
+    global _config, CLUSTERS, _lidar
+    global LIDAR_SUBGROUP_ROOTS, ROOTED_LIDAR_SUBGROUPS
+    global LIDAR_SUBGROUP_DISPLAY_ORDER
+    global LIDAR_SECOND_ROW_SUBGROUP, LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP
+    global LIDAR_SUBGROUP_MIN_COLUMNS, LIDAR_SUBGROUP_MAX_COLUMNS
+    global LIDAR_SUBGROUP_TARGET_WEIGHT
+
+    global _layout_overrides
+
+    if _config is not None:
+        return
+
+    _config = _load_config()
+    _layout_overrides = _config.get("layout_overrides", {})
+
+    raw_clusters = _config.get("clusters", ())
+    if not isinstance(raw_clusters, list):
+        sys.stderr.write(f"Error: 'clusters' in {CONFIG_PATH} must be a list\n")
+        raise SystemExit(1)
+    for i, c in enumerate(raw_clusters):
+        for key in ("name", "label"):
+            if not isinstance(c.get(key), str):
+                sys.stderr.write(
+                    f"Error: cluster entry {i} in {CONFIG_PATH}"
+                    f" missing or non-string '{key}'\n"
+                )
+                raise SystemExit(1)
+    CLUSTERS = tuple((c["name"], c["label"]) for c in raw_clusters)
+
+    _lidar = _config.get("lidar_subgroups", {}) or {}
+
+    LIDAR_SUBGROUP_ROOTS = tuple(_lidar.get("roots", {}).items())
+    ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
+    LIDAR_SUBGROUP_DISPLAY_ORDER = tuple(
+        _lidar.get("display_order", ("tracks", "analysis_runs", "other"))
+    )
+    LIDAR_SECOND_ROW_SUBGROUP = _lidar.get("second_row_subgroup", "other")
+    LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = _lidar.get(
+        "second_row_alignment_subgroup", "analysis_runs"
+    )
+    LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
+    LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)
+    LIDAR_SUBGROUP_TARGET_WEIGHT = _lidar.get("target_weight", 36)
+
+
 def cluster_for(table_name: str) -> str:
-    if table_name == "site" or table_name.startswith("site_"):
-        return "site"
-    if table_name.startswith("lidar_"):
-        return "lidar"
-    if table_name.startswith("radar_"):
-        return "radar"
+    _init_config()
+    for name, _ in CLUSTERS:
+        if table_name == name or table_name.startswith(name + "_"):
+            return name
     return "other"
 
 
@@ -58,30 +133,82 @@ def topo_order(component_names, parents, children):
 
 
 def topo_levels(component_names, parents, children):
+    component_set = set(component_names)
     in_degree = {
         name: len(
             [
                 parent
                 for parent in parents[name]
-                if parent in component_names and parent != name
+                if parent in component_set and parent != name
             ]
         )
         for name in component_names
     }
     levels = {name: 0 for name in component_names}
     queue = deque(sorted(name for name, degree in in_degree.items() if degree == 0))
+    processed = set()
 
     while queue:
         name = queue.popleft()
+        processed.add(name)
         for child in sorted(
             child
             for child in children[name]
-            if child in component_names and child != name
+            if child in component_set and child != name
         ):
             levels[child] = max(levels[child], levels[name] + 1)
             in_degree[child] -= 1
             if in_degree[child] == 0:
                 queue.append(child)
+
+    # Handle cycles: any unprocessed node is stuck in a mutual dependency.
+    # Break by finding a node in the actual cycle (has stuck parents AND
+    # stuck children) and forcing it processed.  Repeat until all nodes
+    # are assigned levels.
+    while True:
+        stuck = [n for n in component_names if n not in processed]
+        if not stuck:
+            break
+        stuck_set = set(stuck)
+
+        # Prefer nodes that are actually in a cycle (have both stuck
+        # parents and stuck children).  Among those, pick the one whose
+        # remaining in-degree is lowest — it's closest to being unblocked
+        # naturally and causes the least disruption.
+        cycle_nodes = [
+            n
+            for n in stuck
+            if any(p in stuck_set for p in parents[n] if p in component_set and p != n)
+            and any(
+                c in stuck_set for c in children[n] if c in component_set and c != n
+            )
+        ]
+        candidates = cycle_nodes if cycle_nodes else stuck
+        best = min(candidates, key=lambda n: (in_degree[n], n))
+
+        # Assign level based on already-processed parents
+        levels[best] = (
+            max(
+                (levels[p] for p in parents[best] if p in processed),
+                default=max(levels[p] for p in processed) if processed else 0,
+            )
+            + 1
+        )
+        processed.add(best)
+        queue.append(best)
+
+        while queue:
+            name = queue.popleft()
+            for child in sorted(
+                child
+                for child in children[name]
+                if child in component_set and child != name
+            ):
+                levels[child] = max(levels[child], levels[name] + 1)
+                in_degree[child] -= 1
+                if in_degree[child] <= 0 and child not in processed:
+                    processed.add(child)
+                    queue.append(child)
 
     grouped_levels = defaultdict(list)
     for name in component_names:
@@ -240,6 +367,28 @@ def balanced_partition(items, weights, column_count):
     return partitions
 
 
+def _apply_node_order_overrides(cluster_levels, cluster_name):
+    """Reorder tables within each level using node_order_overrides from config."""
+    overrides = _layout_overrides.get("node_order_overrides", {})
+    level_overrides = overrides.get(cluster_name, {})
+    if not level_overrides:
+        return cluster_levels
+
+    result = []
+    for lv_idx, lv_names in enumerate(cluster_levels):
+        ordered = level_overrides.get(str(lv_idx))
+        if ordered:
+            lv_set = set(lv_names)
+            # Start with specified order (only tables actually in this level)
+            reordered = [t for t in ordered if t in lv_set]
+            # Append any tables not mentioned in the override
+            reordered.extend(t for t in lv_names if t not in set(reordered))
+            result.append(reordered)
+        else:
+            result.append(list(lv_names))
+    return result
+
+
 def emit_table_nodes(output_lines, indent, names, table_lookup):
     for name in names:
         for line in table_lookup[name].splitlines():
@@ -258,17 +407,27 @@ def emit_lidar_subgroup(
 
     column_count = lidar_subgroup_column_count(names, table_lookup)
     if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
+        levels = topo_levels(names, parents, children)
+        levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
+        column_count = max(column_count, len(levels))
         columns = list(
             reversed(
                 split_level_groups_into_columns(
-                    topo_levels(names, parents, children),
+                    levels,
                     table_lookup,
                     column_count,
                 )
             )
         )
     else:
-        columns = split_names_into_columns(names, table_lookup, column_count)
+        levels = topo_levels(names, parents, children)
+        levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
+        column_count = max(column_count, len(levels))
+        columns = list(
+            reversed(
+                split_level_groups_into_columns(levels, table_lookup, column_count)
+            )
+        )
     column_heads = []
 
     for index, column_names in enumerate(columns, start=1):
@@ -291,10 +450,60 @@ def emit_lidar_subgroup(
     return column_heads[0], column_heads[-1], column_heads
 
 
+def _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines):
+    """Emit DOT with family clusters only — no forced layout."""
+    output_lines = [graph_open]
+    if header.strip():
+        output_lines.append(header.strip("\n"))
+
+    for cluster_name, label in CLUSTERS:
+        tables = grouped_nodes[cluster_name]
+        if not tables:
+            continue
+        output_lines.append(f"subgraph cluster_{cluster_name} {{")
+        output_lines.append(
+            "  graph ["
+            f'label="{label}", '
+            'labelloc="t", '
+            'labeljust="l", '
+            'style="rounded", '
+            'color="#aaaaaa"'
+            "];"
+        )
+        for _, block in sorted(tables, key=lambda item: item[0]):
+            for line in block.splitlines():
+                if line.strip():
+                    output_lines.append("  " + line)
+        output_lines.append("}")
+
+    for _, block in sorted(grouped_nodes["other"], key=lambda item: item[0]):
+        for line in block.splitlines():
+            if line.strip():
+                output_lines.append(line)
+
+    output_lines.extend(tail_lines)
+    output_lines.append("}")
+    sys.stdout.write("\n".join(output_lines) + "\n")
+    return 0
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Group DOT into family clusters for the schema ERD."
+    )
+    parser.add_argument(
+        "--layout",
+        choices=["full", "auto"],
+        default="full",
+        help="full: structured layout with subgroups; auto: family clusters only",
+    )
+    args = parser.parse_args()
+
     dot = sys.stdin.read()
     if not dot.strip():
         return 0
+
+    _init_config()
 
     open_match = GRAPH_OPEN_RE.search(dot)
     if open_match is None:
@@ -346,11 +555,18 @@ def main() -> int:
         parents[child].add(parent)
         children[parent].add(child)
 
+    if args.layout == "auto":
+        return _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines)
+
     output_lines = [graph_open]
     if header.strip():
         output_lines.append(header.strip("\n"))
     if "newrank=" not in header:
         output_lines.append("newrank=true")
+    for attr_key, attr_val in _layout_overrides.get("graph_attributes", {}).items():
+        if attr_key.startswith("_"):
+            continue
+        output_lines.append(f"{attr_key}={attr_val}")
 
     cluster_bounds = {}
     radar_component_left_anchors = []
@@ -373,6 +589,7 @@ def main() -> int:
         cluster_levels = topo_levels(
             [name for name, _ in sorted_tables], parents, children
         )
+        cluster_levels = _apply_node_order_overrides(cluster_levels, cluster_name)
         ordered_tables = [
             name for level_names in cluster_levels for name in level_names
         ]
@@ -449,7 +666,25 @@ def main() -> int:
             if line.strip():
                 output_lines.append(line)
 
-    output_lines.extend(tail_lines)
+    for hint in _layout_overrides.get("rank_hints", []):
+        tables = " ".join(f"{t};" for t in hint)
+        output_lines.append(f"{{ rank=same; {tables} }}")
+
+    for ie in _layout_overrides.get("invisible_edges", []):
+        w = ie.get("weight", 50)
+        output_lines.append(f'{ie["from"]} -> {ie["to"]} [style="invis", weight={w}];')
+
+    weight_overrides = _layout_overrides.get("edge_weight_overrides", {})
+    for line in tail_lines:
+        if weight_overrides:
+            edge = EDGE_PAIR_RE.match(line.strip())
+            if edge:
+                key = f"{edge.group(1)} -> {edge.group(2)}"
+                weight = weight_overrides.get(key)
+                if weight is not None:
+                    line = f"{line.rstrip()} [weight={weight}]"
+        output_lines.append(line)
+
     output_lines.append("}")
     sys.stdout.write("\n".join(output_lines) + "\n")
     return 0

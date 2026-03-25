@@ -78,17 +78,23 @@ This plan defines a DRY, dual-tool knowledge architecture for velocity.report's 
 │                           tone, audience awareness) │
 │  ← Agents include the mixin matching their class    │
 ├─────────────────────────────────────────────────────┤
-│  Layer 3: AGENT DEFINITIONS (single source)         │
+│  Layer 3A: AGENT PERSONAS                           │
 │  .github/agents/*.agent.md                          │
-│  ← Persona + responsibilities + Layer 1/2 refs      │
-│  ← NO project facts restated here                   │
-│  ← Copilot loads natively; CLAUDE.md references     │
+│  .claude/agents/*.md                                │
+│  ← Persona + responsibilities + tool boundaries     │
+│  ← Native to each platform; drift-checked weekly    │
+├─────────────────────────────────────────────────────┤
+│  Layer 3B: SHARED WORKFLOW SKILLS                   │
+│  .claude/skills/<workflow>/SKILL.md                 │
+│  ← Reusable procedures, slash commands, scripts     │
+│  ← Canonical workflow logic shared across tools     │
 ├─────────────────────────────────────────────────────┤
 │  Layer 4: TOOL ENTRY POINTS (thin shims)            │
 │  .github/copilot-instructions.md                    │
 │  CLAUDE.md                                          │
+│  .github/prompts/*.prompt.md (optional wrappers)    │
 │  ← Import tenets + shared knowledge + tool config   │
-│  ← Minimal tool-specific glue only                  │
+│  ← Tool-specific glue and workflow dispatch only    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -107,21 +113,33 @@ This plan defines a DRY, dual-tool knowledge architecture for velocity.report's 
 
 Some agents may include both mixins (e.g. a future "DevRel" agent who writes docs but also runs code).
 
-**Layer 3 (agent files)** — slim persona definitions stored **once** in `.github/agents/`. Each agent file contains ONLY:
+**Layer 3A (agent files)** — slim persona definitions stored natively per platform in `.github/agents/` and `.claude/agents/`. Each agent file contains ONLY:
 
-- YAML frontmatter (name, description) — Copilot uses this natively; Claude Code ignores it harmlessly
+- Name, description, role, responsibilities, tool boundaries, coordination notes
 - Role and responsibilities
 - Role-specific methodology (malory's red-team playbook, Florence's sequencing rules, etc.)
 - References to Layer 1/2 knowledge: `see .github/knowledge/build-and-test.md`
 - Inter-agent coordination notes
 - Forbidden actions
 
-Both tools read from the same files. Copilot discovers them via the `.agent.md` convention. `CLAUDE.md` references them explicitly (e.g. `See .github/agents/malory.agent.md for security review persona`). No separate `.claude/agents/` directory — that would be duplication.
+Agent files define **who** is doing the work, not the reusable runbook for **how** a specific workflow runs. Persona content is duplicated across platforms to preserve native UX and tool controls, then checked by `scripts/check-agent-drift.sh`.
+
+**Layer 3B (workflow skills)** — shared, user-invocable workflows stored in `.claude/skills/`. Each workflow skill contains:
+
+- The reusable procedure for a task such as plan review, PR review, release preparation, or weekly retro
+- Slash-command metadata (`name`, `description`, `argument-hint`) and invocation controls
+- Optional supporting files: examples, templates, scripts, checklists
+- Zero persona prose beyond the minimum needed to run the workflow correctly
+
+Workflow skills define **what procedure runs**. They are the preferred home for multi-step workflows because Claude Code exposes them as native `/` commands and VS Code also discovers skills as slash commands.
 
 **Layer 4 (tool entry points)** — thin shim files:
 
 - `copilot-instructions.md` — references `TENETS.md` + `knowledge/` modules + Copilot-specific config
 - `CLAUDE.md` — references the same canonical sources + Claude-specific config
+- `.github/prompts/*.prompt.md` — optional Copilot-only wrappers when a workflow needs explicit agent/model/tool routing or a polished VS Code entry point
+
+Prompt files are not canonical workflow definitions. They are thin dispatch shims.
 
 ### 4.3 DRY Enforcement Rules
 
@@ -129,7 +147,10 @@ Both tools read from the same files. Copilot discovers them via the `.agent.md` 
 2. **Agent files reference, never restate.** Use `See [build-and-test.md](../../.github/knowledge/build-and-test.md) for make targets and venv setup.`
 3. **Tenets are inherited, never copied.** Every agent gets Layer 0 automatically through the tool entry point. Agent files must not restate privacy/ethics principles.
 4. **Role mixins are opt-in by class.** Technical agents reference `role-technical.md`. Editorial agents reference `role-editorial.md`. Cross-functional agents reference both.
-5. **Persona content is the one exception.** Agent methodology, coordination rules, and forbidden actions are duplicated across Copilot and Claude definitions to maximise each platform's native features. This bounded duplication (~40–80 lines/agent) is drift-checked weekly by `scripts/check-agent-drift.sh`. This is annoying, if platform parity allowed us to we would remove this anti-pattern.
+5. **Persona content is the one exception.** Agent methodology, coordination rules, and forbidden actions are duplicated across Copilot and Claude definitions to maximise each platform's native features. This bounded duplication (~40–80 lines/agent) is drift-checked weekly by `scripts/check-agent-drift.sh`.
+6. **Workflow logic lives in skills, not agents.** If a procedure is reusable and user-invocable, it belongs in a `SKILL.md`, not in an agent body.
+7. **Prompt files are wrappers only.** Copilot prompt files may select an agent, tools, or model for a workflow, but they must not become a second full copy of the runbook.
+8. **Handoffs are optional UX sugar.** They may suggest the next step in Copilot, but they are never the canonical definition of a workflow.
 
 ---
 
@@ -261,199 +282,135 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 ### 6.1 How Each Tool Discovers Knowledge
 
-| Mechanism           | Copilot (VS Code)                      | Claude Code                            |
-| ------------------- | -------------------------------------- | -------------------------------------- |
-| Root instructions   | `.github/copilot-instructions.md`      | `CLAUDE.md` (repo root)                |
-| Named agents        | `.github/agents/*.agent.md`            | Not natively supported                 |
-| Scoped instructions | `.instructions.md` with `applyTo`      | Subdirectory `CLAUDE.md` files         |
-| Skills              | `SKILL.md` (on-demand loading)         | Not supported                          |
-| File references     | Agent reads referenced files on demand | `CLAUDE.md` can import with file paths |
+| Mechanism              | Copilot (VS Code)                                                     | Claude Code                                                    |
+| ---------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Root instructions      | `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md`           | `CLAUDE.md`                                                    |
+| Named agents           | `.github/agents/*.agent.md`                                           | `.claude/agents/*.md`                                          |
+| Scoped instructions    | `.instructions.md` with `applyTo`; `.claude/rules/` also works        | `.claude/rules/*.md`, nested `CLAUDE.md`                       |
+| Skills / workflows     | `SKILL.md` in `.github/skills/`, `.claude/skills/`, `.agents/skills/` | `SKILL.md` in `.claude/skills/` and legacy `.claude/commands/` |
+| Prompt-style entry     | `.github/prompts/*.prompt.md`                                         | No native prompt-file equivalent                               |
+| Agent-to-agent routing | `handoffs:` in `.agent.md`                                            | Manual chaining, `@` mentions, or skill-driven dispatch        |
+| File references        | Read on demand; links can be referenced in prompts/instructions       | Read on demand; skills can bundle supporting files             |
 
-### 6.2 Agent Definition Strategy: DRY vs Native UX
+### 6.2 Persona Definition Strategy: Dual-Native Agents
 
-The central design question: should agent personas live in one place or two?
+The central persona question is no longer whether Claude supports native agents. It does. The real question is whether persona definitions should be single-source or native per platform.
 
-#### What each tool expects
+| Feature                         | Copilot expects                                                     | Claude Code expects                                                        |
+| ------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Agent discovery**             | `.github/agents/*.agent.md` — auto-populates agent picker dropdown  | `.claude/agents/*.md` — managed via `/agents`, auto-delegation, and `@`    |
+| **Structured metadata**         | YAML frontmatter: `name`, `description`, `tools`, `handoffs`        | YAML frontmatter: `name`, `description`, `tools`, `disallowedTools`, etc.  |
+| **Agent invocation**            | Agent picker, `@AgentName`, prompt file `agent:` routing            | Auto-delegation, `@` mention, `claude --agent`, project `agent` setting    |
+| **Per-agent tool restrictions** | `tools:` field in YAML limits available tools                       | `tools` / `disallowedTools` fields limit available tools                   |
+| **Per-agent scoping**           | Custom agent context with optional subagent invocation and handoffs | Separate subagent context with independent permissions and optional memory |
+| **Hooks / lifecycle control**   | Preview custom-agent hooks                                          | Native per-agent hooks and session hook events                             |
 
-| Feature                         | Copilot expects                                                    | Claude Code expects                                                      |
-| ------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| **Agent discovery**             | `.github/agents/*.agent.md` — auto-populates agent picker dropdown | No native agent concept — personas are prompt-driven                     |
-| **Structured metadata**         | YAML frontmatter: `name`, `description`, `tools`                   | No structured metadata — ignores YAML but doesn't break on it            |
-| **Agent invocation**            | `@AgentName` mention in chat                                       | User prompts "act as malory" or `CLAUDE.md` directs which persona to use |
-| **Per-agent tool restrictions** | `tools:` field in YAML limits available tools                      | No equivalent — all tools always available                               |
-| **Per-agent scoping**           | Each `.agent.md` is a separate context window                      | Must read referenced files explicitly                                    |
+#### Recommendation
 
-#### Option A: Single source in `.github/agents/` (current plan)
+Keep **dual-native persona definitions**: `.github/agents/*.agent.md` for Copilot and `.claude/agents/*.md` for Claude.
 
-One set of `.agent.md` files. Copilot discovers natively. `CLAUDE.md` references them.
+Why this remains correct:
 
-|                       | Assessment                                                                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DRY**               | ✅ Perfect — zero duplication                                                                                                                                           |
-| **Copilot UX**        | ✅ Full native experience — agent picker, @mentions, tool restrictions                                                                                                  |
-| **Claude UX**         | ⚠️ Degraded — no agent picker; user must name persona manually; Claude reads Copilot's YAML without understanding `tools:` restrictions; no per-agent context windowing |
-| **Alignment risk**    | ✅ None — single source                                                                                                                                                 |
-| **YAML harmlessness** | ✅ Claude treats YAML frontmatter as opaque text — it doesn't break, but `tools:` restrictions are silently ignored                                                     |
-| **New agent cost**    | 1 file                                                                                                                                                                  |
+1. Both tools now have first-class agent concepts, but their metadata, permission controls, and lifecycle hooks are not identical.
+2. Persona prompts are short enough that bounded duplication is acceptable.
+3. Drift is already managed by `scripts/check-agent-drift.sh`.
+4. Attempting to collapse personas into one file would save little and cost native UX on both sides.
 
-**Copilot-specific features lost by Claude:** agent picker dropdown, `@mention` invocation, `tools:` restrictions. These are UI conveniences, not knowledge gaps — Claude still gets the full persona definition.
+### 6.3 Workflow Definition Strategy: Skills First, Not Agent Bodies
 
-#### Option B: Two native sets (`.github/agents/` + `.claude/` or inline in `CLAUDE.md`)
+The more important design question for the next phase is not persona storage. It is workflow definition.
 
-Copilot gets `.agent.md` files. Claude gets its own persona definitions in whatever format it prefers.
+Current anti-pattern: embedding reusable workflows inside agent definitions.
 
-|                    | Assessment                                                                                    |
-| ------------------ | --------------------------------------------------------------------------------------------- |
-| **DRY**            | ❌ Violated — persona definitions duplicated                                                  |
-| **Copilot UX**     | ✅ Full native experience                                                                     |
-| **Claude UX**      | ✅ Could tailor persona format to Claude's strengths (no YAML noise, Claude-native prompting) |
-| **Alignment risk** | 🔴 Real — persona drift between two copies; grows linearly with agent count                   |
-| **New agent cost** | 2 files + sync obligation                                                                     |
+Why this is the wrong abstraction:
 
-**Sync overhead at scale:**
+1. It bloats persona prompts with procedural detail that only matters for some tasks.
+2. It couples user invocation to a specific persona file rather than a stable workflow name.
+3. It forces duplication when the same workflow should be reachable from both Claude and Copilot.
+4. It makes review, versioning, and future automation harder because the runbook is hidden inside role prose.
 
-| Team Size | Files to Sync | Drift Risk | Annual Maintenance      |
-| --------- | ------------- | ---------- | ----------------------- |
-| 5 agents  | 10            | Low        | ~2h/quarter             |
-| 10 agents | 20            | Medium     | ~5h/quarter             |
-| 15 agents | 30            | High       | ~8h/quarter + incidents |
+#### Recommended split
 
-At 15 agents, that's 30 persona files to keep aligned, with every methodology update requiring two edits. Drift is not hypothetical — it's the exact problem the current architecture has (§3 audit: 45 duplication instances, many already drifted).
+| Need                                                                                 | Primitive                  | Reason                                    |
+| ------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------- |
+| Persistent role, tone, tool boundary, delegation rules                               | Custom agent / subagent    | Defines **who** is doing the work         |
+| Reusable multi-step procedure, slash-invocable by users, can bundle scripts/examples | Skill (`SKILL.md`)         | Defines **what workflow runs**            |
+| Copilot-only entry point that should choose a specific agent/model/tools             | Prompt file (`.prompt.md`) | Thin VS Code wrapper, not canonical logic |
+| Guided next-step button after one agent finishes                                     | Copilot handoff            | Helpful UX, but not source of truth       |
+| Deterministic validation around tool use                                             | Hook                       | Enforcement, not invocation               |
 
-#### Option C: ~~Claude-native format as source, Copilot imports~~ (Ruled Out)
+#### Decision
 
-Define personas in a tool-agnostic format. Copilot `.agent.md` files become thin wrappers that `#include` the shared definition.
+Use **skills as the canonical workflow layer**.
 
-|                    | Assessment                                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DRY**            | ⚠️ Mostly — persona content is single-source but Copilot wrappers add ~5 lines each                                                                      |
-| **Copilot UX**     | ❌ **Copilot does NOT resolve file references at agent-load time** (see §6.4). Agent picker would show agents with empty/incomplete persona definitions. |
-| **Claude UX**      | ✅ Native format, no YAML noise                                                                                                                          |
-| **Discovery risk** | ❌ **Confirmed blocker** — agent body content is loaded verbatim; Markdown links are not dereferenced                                                    |
-| **Complexity**     | More indirection; harder to reason about what an agent "sees"                                                                                            |
+For this repo, the default pattern should be:
 
-**Verdict:** Ruled out. Empirical investigation (§6.4) confirms Copilot does not eagerly resolve file references in `.agent.md` bodies. Wrapper agents would appear empty in the agent picker. This option is architecturally unsound.
+1. Put the reusable workflow in `.claude/skills/<workflow>/SKILL.md`.
+2. Keep the agent files lean; they may mention which skills they commonly use, but they do not contain the runbook.
+3. If VS Code needs a polished entry point that pins a workflow to a persona, add a tiny `.github/prompts/<workflow>.prompt.md` wrapper.
+4. If Copilot benefits from a next-step button, add a handoff in the relevant agent file, but point it at the same workflow name.
 
-#### Recommendation: Option A (single source in `.github/agents/`)
+### 6.4 Why Skills Are the Shared Workflow Surface
 
-**Rationale:**
+Skills are the only primitive in this stack that give us all of the following at once:
 
-1. **DRY is the primary objective.** The entire plan exists to eliminate the current 60% duplication problem. Option B reintroduces it at a different layer.
-2. **Claude's UX gap is minor.** Claude lacks an agent picker regardless of file format — users will always prompt "act as malory" whether the persona lives in `.agent.md` or a Claude-native file. The reading experience is identical.
-3. **YAML frontmatter is genuinely harmless.** Claude reads it as text context. The `name:` and `description:` fields actually _help_ Claude understand the persona. Only `tools:` restrictions are silently ignored — and Claude has no equivalent mechanism anyway.
-4. **The sync cost of Option B grows with the team.** At 15 agents, maintaining two aligned copies becomes a real operational burden — exactly the class of problem this architecture is designed to prevent.
-5. **Option C is ruled out.** Copilot does not resolve file references at agent-load time (§6.4). Wrapper agents would appear empty. This removes the only alternative DRY strategy, making Option A the clear winner.
+- Native `/workflow-name` invocation in Claude Code
+- Slash-command discovery in VS Code
+- Support for bundled scripts, examples, and checklists
+- On-demand loading instead of always-on context bloat
+- A plausible single-source workflow layer across both tools
 
-**Accepted tradeoff:** Claude users don't get an agent picker dropdown or `@mention` syntax. They prompt for personas manually. This is a UI convenience gap, not a knowledge gap. Every persona's full definition is available to Claude via `CLAUDE.md` references.
+That makes them the correct home for workflows such as:
 
-**Mitigation for Claude UX:** `CLAUDE.md` includes a clear agent roster with one-line descriptions and file paths, making it easy for users to direct Claude to the right persona:
+- `plan-review`
+- `review-pr`
+- `ship-change`
+- `weekly-retro`
 
-```markdown
-## Available Agent Personas
+#### Invocation pattern by tool
 
-When you need a specialised perspective, reference the relevant agent file:
+| Tool              | Primary user trigger                              | Native execution pattern                                                  |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Claude Code       | `/workflow-name`                                  | Skill runs inline or in forked context; may target a named agent          |
+| Copilot / VS Code | `/workflow-name` skill or optional prompt wrapper | Skill loads into current chat, or prompt wrapper selects a specific agent |
 
-- **Appius** (Dev) — `.github/agents/appius.agent.md`
-- **malory** (Security) — `.github/agents/malory.agent.md`
-- ...
-```
+#### Rule of thumb
 
-### 6.3 SKILL.md Assessment
+- If the workflow must exist in both tools, start with a skill.
+- If the workflow is only lightweight prompt sugar for VS Code, use a prompt file.
+- If the workflow exists mainly to move from one persona to the next, use a handoff.
+- Do not start by editing an agent file unless the change is genuinely about persona behaviour.
 
-`SKILL.md` is a Copilot-only packaging convention for on-demand knowledge loading. In the restructured architecture, skills map naturally to **Layer 1 knowledge modules**:
+### 6.5 Platform Feature Matrix for Workflows
 
-- `build-and-test.md` ≈ a "build system" skill
-- `hardware.md` ≈ a "sensor integration" skill
-- `security-surface.md` ≈ a "security audit" skill
+| Feature                                  | Copilot (VS Code)                             | Claude Code                                         | Recommended use                               |
+| ---------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------------------------------- |
+| **Persona selection**                    | Agent picker, `@` mention, prompt `agent:`    | Auto-delegation, `@` mention, `--agent`             | Native agents per platform                    |
+| **Slash-command workflow**               | Skills and prompt files appear after `/`      | Skills appear after `/`; legacy commands still work | Prefer shared skills                          |
+| **Workflow can bundle scripts/examples** | Yes, via skills                               | Yes, via skills                                     | Put reusable runbooks in skills               |
+| **Workflow can target isolated context** | Agent/subagent context, prompt-selected agent | `context: fork` plus agent selection in skills      | Use when the workflow is noisy or high-volume |
+| **Guided next-step UX**                  | Agent `handoffs:` buttons                     | No direct equivalent                                | Optional Copilot sugar only                   |
+| **Deterministic enforcement**            | Hooks (preview)                               | Hooks                                               | Use for guardrails, not for discovery         |
+| **Cross-tool portability**               | Skills are portable; prompts are not          | Skills are native; commands are legacy              | Skills are the common denominator             |
 
-Whether to also create formal `SKILL.md` wrappers is a Copilot-specific UX decision, not an architectural one. The underlying knowledge is the same.
+### 6.6 Revised Recommendation: Dual-Native Agents + Shared Skills + Thin Shims
 
-**Recommendation:** Defer `SKILL.md` creation. The knowledge modules serve the same purpose. Revisit if Copilot's skill discovery UX proves valuable enough to justify the thin wrapper files.
+The revised architecture is:
 
-### 6.4 Finding: Copilot Agent File Reference Resolution
+1. **Dual-native agents for personas.** Keep `.github/agents/` and `.claude/agents/` paired and drift-checked.
+2. **Shared skills for workflows.** Put reusable workflows in `.claude/skills/` so Claude gets native slash commands and VS Code can discover the same skills.
+3. **Copilot prompt files only when needed.** Use `.github/prompts/` as a thin wrapper layer when a workflow should force a specific agent, model, or tool set in VS Code.
+4. **Handoffs only for ergonomics.** They may suggest the next stage of a sequence in Copilot, but they do not own the procedure.
 
-**Question:** If an `.agent.md` body contains `See [build-and-test.md](../../.github/knowledge/build-and-test.md)`, does Copilot eagerly include that file's content when the agent loads?
+This answers the immediate product question directly:
 
-**Answer: No.** Copilot does not eagerly resolve Markdown links in `.agent.md` bodies. The agent load sequence is:
-
-1. Parse YAML frontmatter (`name`, `description`, `tools`)
-2. Load body content as the agent's system prompt (verbatim text)
-3. Load workspace instructions (`copilot-instructions.md`) as additional context
-4. That's it — no file traversal
-
-Markdown links like `[build-and-test.md](../../.github/knowledge/build-and-test.md)` remain literal text in the prompt. The agent _can_ read those files at runtime using its `read` tool, but only on demand — not eagerly at load time.
-
-**What this means for the architecture:**
-
-| Concern                                  | Impact                                                                                                                                                                         | Severity                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| **Option C viability**                   | Dead — Copilot wrapper `.agent.md` files cannot `#include` shared persona content at load time                                                                                 | Resolved                                           |
-| **Layer 1/2 references in agent bodies** | References like "see build-and-test.md" are _prompting hints_, not file includes — the agent must actively decide to read those files                                          | Low — agents with `read` tool will follow the hint |
-| **Knowledge module discovery**           | Agents don't auto-ingest Layer 1/2 content — they only get it if (a) the user mentions it, (b) the agent's `read` tool fetches it, or (c) `copilot-instructions.md` inlines it | Medium                                             |
-
-**Design implication:** Layer 1/2 knowledge that agents need for _every_ interaction should be inlined in `copilot-instructions.md` (or the agent body), not just referenced. Knowledge that agents need _sometimes_ can safely live in external files as read-on-demand references.
-
-This reinforces **Option A** — keeping persona content directly in `.agent.md` bodies rather than factoring it out into separate files that won't be auto-loaded.
-
-**Contrast with SKILL.md:** Skills _do_ have progressive loading — relative file paths in `SKILL.md` body (for example, `./scripts/test.js`) cause the agent to load resources when the skill activates. But this mechanism does not extend to `.agent.md` files.
-
-**Revised Layer 1/2 strategy:** The knowledge modules in `.github/knowledge/` remain valuable for DRY authoring and human reference, but the tool entry points (`copilot-instructions.md` and `CLAUDE.md`) need to inline or summarise the most critical facts rather than just linking. This is a minor adjustment — the entry points become slightly larger (~150 lines instead of ~80) but still dramatically smaller than the current 417 + 3,040 lines.
-
-### 6.5 Full Platform Feature Matrix
-
-To make an informed architectural decision, we must enumerate _every_ feature each platform offers and assess how each option serves it. Features that only one platform supports represent native UX that can only be delivered via platform-specific definitions.
-
-| #   | Feature                         | Copilot                                      | Claude Code                                 | Option A (single source)                                 | Option B (dual native)                                     |
-| --- | ------------------------------- | -------------------------------------------- | ------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- |
-| 1   | **Agent picker UI**             | `.agent.md` auto-populates dropdown          | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
-| 2   | **`@mention` invocation**       | `@Appius` in chat triggers agent             | No equivalent                               | ✅ Copilot native                                        | ✅ Copilot native                                          |
-| 3   | **Structured YAML metadata**    | `name`, `description`, `tools` parsed        | Ignored (harmless noise)                    | ✅ / ⚠️ Claude sees YAML as text                         | ✅ / ✅ Claude gets clean prompt                           |
-| 4   | **Per-agent tool restrictions** | `tools:` limits available MCP/built-in tools | No equivalent                               | ✅ / n/a                                                 | ✅ / n/a                                                   |
-| 5   | **Root instructions**           | `copilot-instructions.md`                    | `CLAUDE.md`                                 | ✅ / ✅ separate files                                   | ✅ / ✅ separate files                                     |
-| 6   | **Scoped instructions**         | `.instructions.md` + `applyTo` glob          | Subdirectory `CLAUDE.md` files              | ✅ / ✅ independent                                      | ✅ / ✅ independent                                        |
-| 7   | **Hierarchical scoping**        | Flat (global + per-agent)                    | Nested subdirectory `CLAUDE.md` inheritance | ⚠️ Claude can't use nesting if persona is in `.agent.md` | ✅ Claude-native nesting                                   |
-| 8   | **Knowledge-on-demand**         | `SKILL.md` progressive loading               | Agent reads files explicitly                | ✅ / ⚠️ Claude has no skill system                       | ✅ / ✅ each tool uses own mechanism                       |
-| 9   | **Persona prompt format**       | Markdown body after YAML frontmatter         | Free-form Markdown (no YAML)                | ✅ / ⚠️ Claude sees YAML preamble                        | ✅ / ✅ Claude gets optimised prompt                       |
-| 10  | **Slash commands**              | Custom slash commands in `.agent.md`         | `/` commands in `CLAUDE.md`                 | ✅ / ❌ Claude can't use Copilot slash commands          | ✅ / ✅ each defines its own                               |
-| 11  | **Context window budget**       | Each agent loads in its own context          | Single context — all personas compete       | ✅ / ⚠️ Claude loads one agent at a time via reference   | ✅ / ✅ Claude file is purpose-built for its context model |
-| 12  | **Agent-specific examples**     | Inline in `.agent.md` body                   | Inline in persona definition                | ✅ shared examples                                       | ✅ / ✅ examples tailored to each tool's capabilities      |
-| 13  | **DRY compliance**              | n/a                                          | n/a                                         | ✅ zero duplication                                      | ⚠️ persona duplication (mitigated by drift detection)      |
-| 14  | **New agent cost**              | n/a                                          | n/a                                         | 1 file                                                   | 2 files + sync                                             |
-
-**Key insight from the matrix:** Features 3, 7, 9, 10, 11, and 12 represent real UX gains that Option A sacrifices for Claude users. The YAML noise (features 3/9) is minor, but hierarchical scoping (7), slash commands (10), and context-optimised persona prompts (11/12) are meaningful capability gaps.
-
-### 6.6 Revised Recommendation: Option B with Drift Detection
-
-The original analysis correctly identified sync overhead as Option B's primary risk. But the feature matrix (§6.5) reveals that Option A also has real costs — Claude users get a degraded experience across 6 features. With 5–15 agents planned, the question is: **can we afford the sync overhead of Option B, and can we make it safe?**
-
-**Answer: yes — with automated drift detection.**
-
-#### Why Option B wins
-
-1. **Maximise feature coverage.** Each platform gets purpose-built agent definitions that exploit its native capabilities. Copilot agents use `tools:` restrictions and slash commands; Claude agents use clean prompts, hierarchical scoping, and context-optimised examples.
-2. **The duplication is bounded.** Only persona definitions (name, description, methodology, coordination rules) are duplicated. Shared project knowledge (Layers 0–2) remains single-source in `.github/knowledge/`. The duplicated content is ~30–80 lines per agent — the role-specific core, not the 200+ lines of project facts currently repeated.
-3. **Drift is detectable.** A script compares the semantic content of paired agent definitions weekly. Any drift is flagged in the planning review meeting. See §6.7.
-4. **The sync cost is front-loaded.** Creating the initial Claude definitions is a one-time effort. Ongoing sync only triggers when persona methodology changes — not when project facts change (those live in shared knowledge modules).
-5. **Option A's "harmless YAML" argument understates the cost.** Claude reading `tools: [run_in_terminal, grep_search]` doesn't break anything, but it wastes context tokens on instructions Claude can't act on. At scale (15 agents, each with 5–10 tool restrictions), this noise adds up.
-
-#### What gets duplicated (bounded)
-
-| Content                    | Duplicated?        | Location (Copilot)            | Location (Claude)                          |
-| -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
-| Project tenets             | No                 | `.github/TENETS.md`           | `.github/TENETS.md` (same file)            |
-| Build/test knowledge       | No                 | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
-| Role mixins                | No                 | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
-| Persona name + description | Yes (~2 lines)     | YAML `name:`, `description:`  | Inline in `.claude/agents/*.md`            |
-| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
-| Tool restrictions          | Copilot-only       | YAML `tools:` field           | n/a                                        |
-| Slash commands             | Platform-specific  | `.agent.md` body              | `.claude/agents/*.md`                      |
-| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
-
-**Total duplication per agent:** ~40–80 lines of role-specific content. At 15 agents, ~600–1,200 lines duplicated — but drift-checked weekly and bounded to persona content only.
+- **Claude slash command:** implement the workflow as a skill.
+- **Copilot/Codex equivalent:** expose the same workflow as a skill in VS Code; if agent routing matters, add a thin prompt wrapper.
+- **What not to do:** keep writing long workflow procedures inside agent definitions.
 
 ### 6.7 Drift Detection
 
-Uncontrolled drift between Copilot and Claude agent definitions is the primary risk of Option B. The mitigation is a script that compares paired definitions and surfaces differences for human review.
+Uncontrolled drift between Copilot and Claude agent definitions is the primary risk of the dual-native persona layer. The mitigation is a script that compares paired definitions and surfaces differences for human review.
 
 **Script:** `scripts/check-agent-drift.sh`
 
@@ -465,14 +422,39 @@ The script:
 4. Compares the normalised content and reports:
    - **Missing pairs** — agent exists in one platform but not the other
    - **Content drift** — persona methodology, coordination rules, or forbidden actions differ
-   - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands) are excluded from comparison
+   - **Acceptable divergence** — platform-specific features (tool restrictions, slash commands, handoffs) are excluded from comparison
 5. Outputs a Markdown summary suitable for the weekly planning review
 
 **Integration:** Added to `scripts/flo-planning-review.sh` as a new section so drift surfaces alongside backlog health, plan coverage, and open questions in the weekly meeting.
 
 **Make target:** `make check-agent-drift` runs the script standalone.
 
-### 6.8 Adopted Patterns from External Stack Analysis
+### 6.8 Finding: Copilot Agent File Reference Resolution
+
+**Question:** If an `.agent.md` body contains `See [build-and-test.md](../../.github/knowledge/build-and-test.md)`, does Copilot eagerly include that file's content when the agent loads?
+
+**Answer: No.** Copilot does not eagerly resolve Markdown links in `.agent.md` bodies. The agent load sequence is:
+
+1. Parse YAML frontmatter (`name`, `description`, `tools`)
+2. Load body content as the agent's system prompt (verbatim text)
+3. Load workspace instructions (`copilot-instructions.md`) as additional context
+4. That's it — no file traversal
+
+Markdown links remain literal text in the prompt. The agent can read those files at runtime, but only on demand.
+
+**Design implication:** knowledge needed on every interaction belongs in the tool entry points or directly in the agent body. Knowledge needed sometimes can safely live in files that the agent reads on demand. This is another reason not to hide critical workflow logic in linked documents inside agent files.
+
+### 6.9 Notes on Shared Knowledge Loading
+
+Skills and prompts do better than agent files here because they support richer loading behaviour:
+
+- Skills progressively load their body and supporting files when invoked.
+- Prompts can act as small wrappers that select an agent and tools.
+- Agent files still do **not** eagerly dereference Markdown links at load time.
+
+This is another reason to keep reusable runbooks out of agent bodies.
+
+### 6.10 Adopted Patterns from External Stack Analysis
 
 #### Per-Agent Adopted Patterns
 
@@ -615,7 +597,7 @@ The script:
 
 ### Phase 3: Claude Code Entry Point + Native Agents `M`
 
-**Goal:** Enable Claude Code with full native UX. Create platform-optimised agent definitions.
+**Goal:** Enable Claude Code with full native UX, and introduce a cross-tool workflow layer that is not embedded in agent files.
 
 > **Status (2026-03-12):** Not started. Drift detection infrastructure (steps 9–11) already built ahead of schedule during Phase 2 work.
 >
@@ -629,32 +611,45 @@ The script:
 >
 > - [ ] Create `CLAUDE.md` at repo root
 > - [ ] Create `.claude/agents/` with 7 Claude-native persona files
-> - [ ] Test Claude Code reads knowledge modules correctly
+> - [ ] Create shared workflow skills
+> - [ ] Test Claude Code and VS Code discover the workflow layer correctly
 
 7. Create `CLAUDE.md` at repo root referencing `TENETS.md` + `knowledge/` modules
 8. Create `.claude/agents/` directory with Claude-native persona definitions for each agent:
-   - No YAML frontmatter — clean Markdown prompts
+   - Claude-native frontmatter and prompts
    - Reference shared knowledge modules (same `.github/knowledge/` files)
-   - Include Claude-specific slash commands and context-optimised examples
+   - Keep persona methodology and coordination rules only
    - Persona methodology and coordination rules mirrored from `.agent.md` (drift-checked)
-9. ~~Create `scripts/check-agent-drift.sh`~~ — ✅ already exists
-10. ~~Add `make check-agent-drift` target~~ — ✅ already exists
-11. ~~Integrate drift check into `scripts/flo-planning-review.sh`~~ — ✅ already integrated
-12. Test Claude Code reads the knowledge modules and agent files correctly
+9. Create `.claude/skills/` with shared workflow skills for the first reusable workflows:
+   - `plan-review`
+   - `review-pr`
+   - `ship-change`
+   - `weekly-retro`
+   - Mark side-effecting workflows `disable-model-invocation: true`
+   - Bundle checklists, examples, and scripts in the skill directories rather than agent files
+10. Add optional `.github/prompts/` wrappers only where VS Code needs explicit agent routing or better UX
+11. Test workflow discovery and invocation in both tools:
 
-**Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. `make check-agent-drift` reports zero unreviewed drift.
+- Claude Code: `/workflow-name`
+- VS Code: slash menu discovers the same skill, or the thin prompt wrapper
+
+12. Document when to use skill vs prompt vs handoff in `CLAUDE.md` and workspace instructions
+13. Test Claude Code reads the knowledge modules and agent files correctly
+
+**Acceptance:** Claude Code session has access to equivalent project knowledge as Copilot. Shared knowledge (Layers 0–2) is single-source. Persona definitions are platform-native in both tools. Reusable workflows are slash-invocable without living inside agent files. `make check-agent-drift` reports zero unreviewed drift.
 
 ### Phase 4: Agent Team Expansion (future cycle) `L`
 
 **Goal:** Expand from 7 to 10–15 agents using the DRY architecture.
 
-13. Scope and prioritise new agent candidates from §5.2
-14. Create new agent files in both platforms (~50–100 lines each, referencing existing knowledge modules)
-15. Validate new agents work in both Copilot and Claude Code
-16. Run `make check-agent-drift` to confirm paired definitions are aligned
-17. Add any new knowledge modules if new agents surface previously undocumented domain knowledge
+14. Scope and prioritise new agent candidates from §5.2
+15. Create new agent files in both platforms (~50–100 lines each, referencing existing knowledge modules)
+16. Add or extend shared workflow skills only when the new agent introduces a genuinely reusable procedure
+17. Validate new agents and workflows in both Copilot and Claude Code
+18. Run `make check-agent-drift` to confirm paired definitions are aligned
+19. Add any new knowledge modules if new agents surface previously undocumented domain knowledge
 
-**Acceptance:** Adding a new agent requires two new files (one per platform) + zero changes to shared knowledge (unless the project itself changed). Drift check passes.
+**Acceptance:** Adding a new agent requires two persona files (one per platform) and usually zero workflow changes unless the role introduces a new reusable procedure. Drift check passes.
 
 ---
 
@@ -682,6 +677,10 @@ The script:
 │   ├── ruth.agent.md                   #   Executive (both)
 │   └── [future-agents].agent.md        #   further expansion planned
 ├── copilot-instructions.md             # Layer 4: Copilot entry point (slim)
+├── prompts/                            # Layer 4: optional Copilot workflow shims
+│   ├── plan-review.prompt.md
+│   ├── review-pr.prompt.md
+│   └── [workflow].prompt.md
 .claude/
 ├── agents/                             # Layer 3: Claude agent definitions
 │   ├── euler.md                        #   Research / Math (technical) — Claude-native
@@ -692,6 +691,13 @@ The script:
 │   ├── terry.md                        #   Writer (editorial)
 │   ├── ruth.md                         #   Executive (both)
 │   └── [future-agents].md              #   further expansion planned
+├── skills/                             # Layer 3B: shared workflow skills
+│   ├── plan-review/
+│   │   └── SKILL.md
+│   ├── review-pr/
+│   │   └── SKILL.md
+│   └── [workflow]/
+│       └── SKILL.md
 CLAUDE.md                               # Layer 4: Claude entry point → refs .github/ + .claude/
 scripts/
 └── check-agent-drift.sh                # Drift detection between paired definitions
@@ -699,26 +705,28 @@ scripts/
 
 **Shared knowledge:** `.github/TENETS.md` and `.github/knowledge/` are the single source of truth for project facts — referenced by both Copilot and Claude agent definitions.
 **Persona duplication:** Agent methodology, coordination rules, and forbidden actions are duplicated across `.github/agents/` and `.claude/agents/`. Drift is detected weekly by `scripts/check-agent-drift.sh`.
+**Workflow single-sourcing:** Reusable procedures live in `.claude/skills/`. Copilot prompt files are optional wrappers, not second copies of the runbook.
 
 ---
 
 ## 9. Estimated Impact
 
-| Metric                                      | Original       | Post-persona (pre-work) | Current (post-Phase 2)           | Target (post-Phase 3)          | Change (original→current) |
-| ------------------------------------------- | -------------- | ----------------------- | -------------------------------- | ------------------------------ | ------------------------- |
-| Total lines (all agent/instruction files)   | 3,456          | 4,723                   | **1,953** (1,858 + 95)           | ~2,200 (+Claude shim)          | **-43%**                  |
-| _Project fact_ duplication instances        | ~45            | ~45                     | **0**                            | 0                              | **-100%**                 |
-| _Persona_ duplication instances             | 0              | 0                       | 0                                | ~7–15 (bounded, drift-checked) | —                         |
-| Agent persona completeness                  | Generic        | Full (all 7 distinct)   | **Full**                         | Full                           | ✅                        |
-| Agent voice/personality distinction         | None           | All 7 differentiated    | **Maintained**                   | Maintained                     | ✅                        |
-| Files to update when build changes          | 5              | 5                       | **1**                            | 1                              | **-80%**                  |
-| Files to update when privacy policy changes | 6              | 7                       | **1**                            | 1                              | **-86%**                  |
-| Cost to add a new agent                     | ~200–800 lines | ~200–800 lines          | **~50–100 lines** (1 file)       | ~100–160 lines (2 files)       | **-88%**                  |
-| Tools supported                             | 1 (Copilot)    | 1 (Copilot)             | **1 (Copilot)**                  | 2 (Copilot + Claude)           | —                         |
-| Platform features used                      | ~60%           | ~60%                    | **~60%**                         | ~95%                           | —                         |
-| Drift detection                             | None           | None                    | **Script ready** (no Claude yet) | Weekly automated               | ✅                        |
-| Agent portraits                             | None           | None                    | **7 × 120px** (1920px sources)   | 7 × 120px                      | ✅                        |
-| Agent README / directory                    | None           | None                    | **23 lines** (table + attrib)    | Maintained                     | ✅                        |
+| Metric                                      | Original       | Post-persona (pre-work) | Current (post-Phase 2)           | Target (post-Phase 3)                         | Change (original→current) |
+| ------------------------------------------- | -------------- | ----------------------- | -------------------------------- | --------------------------------------------- | ------------------------- |
+| Total lines (all agent/instruction files)   | 3,456          | 4,723                   | **1,953** (1,858 + 95)           | ~2,200 (+Claude shim)                         | **-43%**                  |
+| _Project fact_ duplication instances        | ~45            | ~45                     | **0**                            | 0                                             | **-100%**                 |
+| _Persona_ duplication instances             | 0              | 0                       | 0                                | ~7–15 (bounded, drift-checked)                | —                         |
+| _Workflow_ duplication instances            | n/a            | n/a                     | n/a                              | **0 canonical / optional thin wrappers only** | —                         |
+| Agent persona completeness                  | Generic        | Full (all 7 distinct)   | **Full**                         | Full                                          | ✅                        |
+| Agent voice/personality distinction         | None           | All 7 differentiated    | **Maintained**                   | Maintained                                    | ✅                        |
+| Files to update when build changes          | 5              | 5                       | **1**                            | 1                                             | **-80%**                  |
+| Files to update when privacy policy changes | 6              | 7                       | **1**                            | 1                                             | **-86%**                  |
+| Cost to add a new agent                     | ~200–800 lines | ~200–800 lines          | **~50–100 lines** (1 file)       | ~100–160 lines (2 files)                      | **-88%**                  |
+| Tools supported                             | 1 (Copilot)    | 1 (Copilot)             | **1 (Copilot)**                  | 2 (Copilot + Claude)                          | —                         |
+| Platform features used                      | ~60%           | ~60%                    | **~60%**                         | ~95%                                          | —                         |
+| Drift detection                             | None           | None                    | **Script ready** (no Claude yet) | Weekly automated                              | ✅                        |
+| Agent portraits                             | None           | None                    | **7 × 120px** (1920px sources)   | 7 × 120px                                     | ✅                        |
+| Agent README / directory                    | None           | None                    | **23 lines** (table + attrib)    | Maintained                                    | ✅                        |
 
 ---
 
@@ -728,6 +736,7 @@ scripts/
 - [x] ~~Should Claude Code agent personas be sections in `CLAUDE.md` or separate files in `.claude/`?~~ — Resolved: separate files in `.claude/agents/`. Platform-native definitions maximise feature coverage.
 - [x] ~~Single source vs dual agent definitions?~~ — Resolved: **Option B (dual native) with drift detection.** Feature matrix (§6.5) showed Option A sacrifices 6 real UX features for Claude users. Persona duplication is bounded (~40–80 lines/agent) and drift-checked weekly. See §6.6.
 - [x] ~~Does Copilot resolve `#file` references inside `.agent.md` at agent-load time?~~ — Investigated. **No, it does not eagerly resolve Markdown links.** See §6.4 for full analysis. This ruled out Option C and informed the decision to keep persona content directly in agent files rather than factoring it into shared includes.
+- [x] ~~Where should reusable workflows live?~~ — Resolved: **skills first**. Shared workflows live in `.claude/skills/` so Claude gets native slash commands and VS Code can discover the same skills. Copilot prompt files are optional thin wrappers, not the source of truth.
 - [x] ~~Which new agents to prioritise?~~ — Partially resolved: Executive and Researcher added to core roster (§5.1). Remaining candidates in §5.2 deferred to future cycle.
 - [x] ~~Should `TENETS.md` be enforced via a CI check (e.g. grep for PII-related code patterns)?~~ — Resolved: **yes.** Add CI checks that enforce core tenets (e.g. grep for PII-related code patterns, camera/licence-plate references, cloud transmission endpoints). Implement as part of Phase 1 alongside `TENETS.md` creation.
 - [x] ~~Review cadence — quarterly staleness check for knowledge modules?~~ — Resolved: weekly drift check via `scripts/check-agent-drift.sh`, integrated into `flo-planning-review.sh`. Knowledge module staleness reviewed alongside agent drift.
@@ -746,6 +755,12 @@ scripts/
 - [ ] Create `.claude/agents/flo.md`
 - [ ] Create `.claude/agents/terry.md`
 - [ ] Create `.claude/agents/ruth.md`
+- [ ] Create `.claude/skills/plan-review/SKILL.md`
+- [ ] Create `.claude/skills/review-pr/SKILL.md`
+- [ ] Create `.claude/skills/ship-change/SKILL.md`
+- [ ] Create `.claude/skills/weekly-retro/SKILL.md`
+- [ ] Add `.github/prompts/` wrappers only where VS Code needs explicit agent routing
+- [ ] Test Claude Code and VS Code discover the workflow skills correctly
 - [ ] Test Claude Code reads knowledge modules and agent files correctly
 - [ ] Run `make check-agent-drift` — confirm zero unreviewed drift
 
@@ -760,6 +775,6 @@ scripts/
 ### Deferred / Low Priority
 
 - [ ] CI check enforcing TENETS.md (grep for PII patterns, camera references, cloud endpoints)
-- [ ] Investigate `SKILL.md` wrappers for knowledge modules (§6.3)
+- [ ] Revisit whether any workflow needs Copilot-only prompt sugar after the shared skill layer lands
 - [ ] JSON snapshot persistence for Flo's weekly review trend tracking
 - [ ] Non-interactive release automation (DevOps agent prerequisite)

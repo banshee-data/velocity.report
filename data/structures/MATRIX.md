@@ -157,324 +157,338 @@ visualiser via gRPC).
 
 **Source:** `internal/db/schema.sql`
 
-| Layer  | Table                  | Web | PDF | Mac | Notes                                      |
-| ------ | ---------------------- | --- | --- | --- | ------------------------------------------ |
-| LiDAR  | `lidar_analysis_runs`  | ✅  | —   | —   | Run browser + label UI                     |
-| LiDAR  | `lidar_clusters`       | ✅  | —   | ✅  | Cluster display, gRPC                      |
-| LiDAR  | `lidar_tracks`         | ✅  | —   | ✅  | Track display, gRPC                        |
-| LiDAR  | `lidar_track_obs`      | ✅  | —   | —   | Trajectory rendering                       |
-| LiDAR  | `lidar_labels`         | ✅  | —   | —   | Training + HINT                            |
-| LiDAR  | `lidar_scenes`         | ✅  | —   | —   | HINT labelling                             |
-| LiDAR  | `lidar_evaluations`    | ✅  | —   | —   | Sweep/auto-tune                            |
-| LiDAR  | `lidar_sweeps`         | ✅  | —   | —   | Sweep history                              |
-| LiDAR  | `lidar_bg_snapshot`    | ✅  | —   | 🔶  | Grid visualisation (derived sent via gRPC) |
-| LiDAR  | `lidar_bg_regions`     | ✅  | —   | —   | Settling evaluation                        |
-| LiDAR  | `lidar_missed_regions` | ✅  | —   | —   | Detection gap annotations                  |
-| LiDAR  | `lidar_run_tracks`     | ✅  | —   | —   | Per-run track copies                       |
-| Radar  | `radar_data`           | ✅  | ✅  | —   | Raw events + alt stats source              |
-| Radar  | `radar_objects`        | ✅  | ✅  | —   | Primary report source                      |
-| Radar  | `radar_data_transits`  | ✅  | ✅  | —   | Alternative report source                  |
-| Radar  | `radar_transit_links`  | ✅  | —   | —   | Transit chain building                     |
-| Radar  | `radar_commands`       | ✅  | —   | —   | Debug history                              |
-| Radar  | `radar_command_log`    | ✅  | —   | —   | Debug output                               |
-| Site   | `site`                 | ✅  | ✅  | —   | Location, metadata                         |
-| Site   | `site_config_periods`  | ✅  | ✅  | —   | Mounting angle changes                     |
-| Site   | `site_reports`         | ✅  | ✅  | —   | Report metadata + download                 |
-| System | `schema_migrations`    | —   | —   | —   | Internal                                   |
+| Layer  | Table                      | Web | PDF | Mac | Notes                                                  |
+| ------ | -------------------------- | --- | --- | --- | ------------------------------------------------------ |
+| LiDAR  | `lidar_param_sets`         | ✅  | —   | —   | Immutable requested/effective/legacy parameter assets  |
+| LiDAR  | `lidar_run_configs`        | ✅  | —   | —   | Immutable executed config assets shown in run metadata |
+| LiDAR  | `lidar_run_records`        | ✅  | —   | ✅  | Run browser + label UI                                 |
+| LiDAR  | `lidar_clusters`           | ✅  | —   | ✅  | Cluster display, gRPC                                  |
+| LiDAR  | `lidar_tracks`             | ✅  | —   | ✅  | Track display, gRPC                                    |
+| LiDAR  | `lidar_track_observations` | ✅  | —   | —   | Trajectory rendering                                   |
+| LiDAR  | `lidar_replay_annotations` | ✅  | —   | ✅  | Replay-case labels and Mac labelling                   |
+| LiDAR  | `lidar_replay_cases`       | ✅  | —   | ✅  | Replay-case browser and Mac labelling                  |
+| LiDAR  | `lidar_replay_evaluations` | ✅  | —   | —   | Replay evaluation and compare UI                       |
+| LiDAR  | `lidar_tuning_sweeps`      | ✅  | —   | —   | Sweep history                                          |
+| LiDAR  | `lidar_bg_snapshot`        | ✅  | —   | 🔶  | Grid visualisation (derived sent via gRPC)             |
+| LiDAR  | `lidar_bg_regions`         | ✅  | —   | —   | Settling evaluation                                    |
+| LiDAR  | `lidar_run_missed_regions` | ✅  | —   | —   | Detection gap annotations                              |
+| LiDAR  | `lidar_run_tracks`         | ✅  | —   | ✅  | Per-run track copies and Mac run browser               |
+| Radar  | `radar_data`               | ✅  | ✅  | —   | Raw events + alt stats source                          |
+| Radar  | `radar_objects`            | ✅  | ✅  | —   | Primary report source                                  |
+| Radar  | `radar_data_transits`      | ✅  | ✅  | —   | Alternative report source                              |
+| Radar  | `radar_transit_links`      | ✅  | —   | —   | Transit chain building                                 |
+| Radar  | `radar_commands`           | ✅  | —   | —   | Debug history                                          |
+| Radar  | `radar_command_log`        | ✅  | —   | —   | Debug output                                           |
+| Site   | `site`                     | ✅  | ✅  | —   | Location, metadata                                     |
+| Site   | `site_config_periods`      | ✅  | ✅  | —   | Mounting angle changes                                 |
+| Site   | `site_reports`             | ✅  | ✅  | —   | Report metadata + download                             |
+| System | `schema_migrations`        | —   | —   | —   | Internal                                               |
 
 ---
 
 ## 5. Database Fields — All Columns
 
-| Table                  | Column                            | Type          | DB  | Web | PDF | Mac |
-| ---------------------- | --------------------------------- | ------------- | --- | --- | --- | --- |
-| `lidar_analysis_runs`  | `run_id`                          | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `source_type`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `source_path`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `params_json`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `duration_secs`                   | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `total_frames`                    | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `total_clusters`                  | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `total_tracks`                    | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `confirmed_tracks`                | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `processing_time_ms`              | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `status`                          | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `error_message`                   | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `parent_run_id`                   | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_analysis_runs`  | `statistics_json`                 | TEXT          | 🔶  | 📋  | —   | —   |
-| `lidar_analysis_runs`  | `vrlog_path`                      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_clusters`       | `lidar_cluster_id`                | INTEGER PK    | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `world_frame`                     | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `ts_unix_nanos`                   | INTEGER       | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `centroid_x`                      | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `centroid_y`                      | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `centroid_z`                      | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `bounding_box_length`             | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `bounding_box_width`              | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `bounding_box_height`             | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `points_count`                    | INTEGER       | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `height_p95`                      | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `intensity_mean`                  | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_clusters`       | `noise_points_count`              | INTEGER       | 🔶  | —   | —   | —   |
-| `lidar_clusters`       | `cluster_density`                 | REAL          | 🔶  | 📋  | —   | —   |
-| `lidar_clusters`       | `aspect_ratio`                    | REAL          | 🔶  | 📋  | —   | —   |
-| `lidar_tracks`         | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `world_frame`                     | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `track_state`                     | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `start_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `observation_count`               | INTEGER       | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `peak_speed_mps`                  | REAL          | 🗑️  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `p50_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_tracks`         | `p85_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_tracks`         | `p95_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_tracks`         | `bounding_box_length_avg`         | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `bounding_box_width_avg`          | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `bounding_box_height_avg`         | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `height_p95_max`                  | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `intensity_mean_avg`              | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `object_class`                    | TEXT          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `object_confidence`               | REAL          | ✅  | ✅  | —   | ✅  |
-| `lidar_tracks`         | `classification_model`            | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_tracks`         | `track_length_meters`             | REAL          | 🔶  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `track_duration_secs`             | REAL          | 🔶  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `occlusion_count`                 | INTEGER       | 🔶  | 📋  | —   | ✅  |
-| `lidar_tracks`         | `max_occlusion_frames`            | INTEGER       | 🔶  | 📋  | —   | —   |
-| `lidar_tracks`         | `spatial_coverage`                | REAL          | 🔶  | 📋  | —   | —   |
-| `lidar_tracks`         | `noise_point_ratio`               | REAL          | 🔶  | 📋  | —   | —   |
-| `lidar_track_obs`      | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `ts_unix_nanos`                   | INTEGER PK    | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `world_frame`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `x`                               | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `y`                               | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `z`                               | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `velocity_x`                      | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `velocity_y`                      | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `speed_mps`                       | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `heading_rad`                     | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `bounding_box_length`             | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `bounding_box_width`              | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `bounding_box_height`             | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `height_p95`                      | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_track_obs`      | `intensity_mean`                  | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `run_id`                          | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `track_state`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `start_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `observation_count`               | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `peak_speed_mps`                  | REAL          | 🗑️  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `p50_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_run_tracks`     | `p85_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_run_tracks`     | `p95_speed_mps`                   | REAL          | 🗑️  | —   | —   | —   |
-| `lidar_run_tracks`     | `bounding_box_length_avg`         | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `bounding_box_width_avg`          | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `bounding_box_height_avg`         | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `height_p95_max`                  | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `intensity_mean_avg`              | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `object_class`                    | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `object_confidence`               | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `classification_model`            | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `user_label`                      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `label_confidence`                | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `labeler_id`                      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `labeled_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `is_split_candidate`              | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `is_merge_candidate`              | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `linked_track_ids`                | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `quality_label`                   | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_run_tracks`     | `label_source`                    | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `label_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `track_id`                        | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `class_label`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `start_timestamp_ns`              | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `end_timestamp_ns`                | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `confidence`                      | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `created_by`                      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `created_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `updated_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `scene_id`                        | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_labels`         | `source_file`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `scene_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `pcap_file`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `pcap_start_secs`                 | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `pcap_duration_secs`              | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `description`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `reference_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `optimal_params_json`             | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `created_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_scenes`         | `updated_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `evaluation_id`                   | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `scene_id`                        | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `reference_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `candidate_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `detection_rate`                  | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `fragmentation`                   | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `false_positive_rate`             | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `velocity_coverage`               | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `quality_premium`                 | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `truncation_rate`                 | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `velocity_noise_rate`             | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `stopped_recovery_rate`           | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `composite_score`                 | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `matched_count`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `reference_count`                 | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `candidate_count`                 | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `params_json`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_evaluations`    | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `id`                              | INTEGER PK    | ✅  | —   | —   | —   |
-| `lidar_sweeps`         | `sweep_id`                        | TEXT UNIQUE   | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `mode`                            | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `status`                          | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `request`                         | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `results`                         | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `charts`                          | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `recommendation`                  | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `round_results`                   | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `error`                           | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `started_at`                      | DATETIME      | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `completed_at`                    | DATETIME      | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `created_at`                      | DATETIME      | ✅  | —   | —   | —   |
-| `lidar_sweeps`         | `objective_name`                  | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `objective_version`               | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `transform_pipeline_name`         | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `transform_pipeline_version`      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `score_components_json`           | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `recommendation_explanation_json` | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `label_provenance_summary_json`   | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `checkpoint_round`                | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `checkpoint_bounds`               | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `checkpoint_results`              | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_sweeps`         | `checkpoint_request`              | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `snapshot_id`                     | INTEGER PK    | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `taken_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `rings`                           | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `azimuth_bins`                    | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `params_json`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `ring_elevations_json`            | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `grid_blob`                       | BLOB          | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `changed_cells_count`             | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_snapshot`    | `snapshot_reason`                 | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `region_set_id`                   | INTEGER PK    | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `snapshot_id`                     | INTEGER FK    | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `created_unix_nanos`              | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `region_count`                    | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `regions_json`                    | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `variance_data_json`              | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `settling_frames`                 | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_bg_regions`     | `scene_hash`                      | TEXT          | ✅  | —   | —   | —   |
-| `lidar_bg_regions`     | `source_path`                     | TEXT          | ✅  | —   | —   | —   |
-| `lidar_missed_regions` | `region_id`                       | TEXT PK       | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `run_id`                          | TEXT FK       | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `center_x`                        | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `center_y`                        | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `radius_m`                        | REAL          | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `time_start_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `time_end_ns`                     | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `expected_label`                  | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `labeler_id`                      | TEXT          | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `labeled_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `lidar_missed_regions` | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
-| `radar_data`           | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_data`           | `raw_event`                       | JSON          | ✅  | —   | —   | —   |
-| `radar_data`           | `uptime`                          | DOUBLE STORED | ✅  | ✅  | —   | —   |
-| `radar_data`           | `magnitude`                       | DOUBLE STORED | ✅  | ✅  | —   | —   |
-| `radar_data`           | `speed`                           | DOUBLE STORED | ✅  | ✅  | ✅  | —   |
-| `radar_objects`        | `write_timestamp`                 | DOUBLE        | ✅  | ✅  | ✅  | —   |
-| `radar_objects`        | `raw_event`                       | JSON          | ✅  | —   | —   | —   |
-| `radar_objects`        | `classifier`                      | TEXT STORED   | ✅  | ✅  | ✅  | —   |
-| `radar_objects`        | `start_time`                      | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `end_time`                        | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `delta_time_ms`                   | BIGINT STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `max_speed`                       | DOUBLE STORED | ✅  | ✅  | ✅  | —   |
-| `radar_objects`        | `min_speed`                       | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `speed_change`                    | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `max_magnitude`                   | BIGINT STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `avg_magnitude`                   | BIGINT STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `total_frames`                    | BIGINT STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `frames_per_mps`                  | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_objects`        | `length_m`                        | DOUBLE STORED | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_id`                      | INTEGER PK    | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_key`                     | TEXT UNIQUE   | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `threshold_ms`                    | INTEGER       | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_start_unix`              | DOUBLE        | ✅  | ✅  | ✅  | —   |
-| `radar_data_transits`  | `transit_end_unix`                | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_max_speed`               | DOUBLE        | ✅  | ✅  | ✅  | —   |
-| `radar_data_transits`  | `transit_min_speed`               | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_max_magnitude`           | BIGINT        | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `transit_min_magnitude`           | BIGINT        | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `point_count`                     | INTEGER       | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `model_version`                   | TEXT          | ✅  | ✅  | ✅  | —   |
-| `radar_data_transits`  | `created_at`                      | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_data_transits`  | `updated_at`                      | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_transit_links`  | `link_id`                         | INTEGER PK    | ✅  | —   | —   | —   |
-| `radar_transit_links`  | `transit_id`                      | INTEGER FK    | ✅  | —   | —   | —   |
-| `radar_transit_links`  | `data_rowid`                      | INTEGER FK    | ✅  | —   | —   | —   |
-| `radar_transit_links`  | `link_score`                      | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_transit_links`  | `created_at`                      | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_commands`       | `command_id`                      | BIGINT PK     | ✅  | —   | —   | —   |
-| `radar_commands`       | `command`                         | TEXT          | ✅  | —   | —   | —   |
-| `radar_commands`       | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
-| `radar_command_log`    | `log_id`                          | BIGINT PK     | ✅  | —   | —   | —   |
-| `radar_command_log`    | `command_id`                      | BIGINT FK     | ✅  | —   | —   | —   |
-| `radar_command_log`    | `log_data`                        | TEXT          | ✅  | —   | —   | —   |
-| `radar_command_log`    | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
-| `site`                 | `id`                              | INTEGER PK    | ✅  | ✅  | ✅  | —   |
-| `site`                 | `name`                            | TEXT UNIQUE   | ✅  | ✅  | ✅  | —   |
-| `site`                 | `location`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `description`                     | TEXT          | ✅  | ✅  | —   | —   |
-| `site`                 | `surveyor`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `contact`                         | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `address`                         | TEXT          | ✅  | ✅  | —   | —   |
-| `site`                 | `latitude`                        | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `longitude`                       | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `map_angle`                       | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `include_map`                     | INTEGER       | ✅  | ✅  | ✅  | —   |
-| `site`                 | `site_description`                | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `bbox_ne_lat`                     | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `bbox_ne_lng`                     | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `bbox_sw_lat`                     | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `bbox_sw_lng`                     | REAL          | ✅  | ✅  | ✅  | —   |
-| `site`                 | `map_svg_data`                    | BLOB          | ✅  | ✅  | —   | —   |
-| `site`                 | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `site`                 | `updated_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `id`                              | INTEGER PK    | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `site_id`                         | INTEGER FK    | ✅  | ✅  | ✅  | —   |
-| `site_config_periods`  | `effective_start_unix`            | DOUBLE        | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `effective_end_unix`              | DOUBLE        | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `is_active`                       | INTEGER       | ✅  | ✅  | ✅  | —   |
-| `site_config_periods`  | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `cosine_error_angle`              | DOUBLE        | ✅  | ✅  | ✅  | —   |
-| `site_config_periods`  | `created_at`                      | DOUBLE        | ✅  | ✅  | —   | —   |
-| `site_config_periods`  | `updated_at`                      | DOUBLE        | ✅  | ✅  | —   | —   |
-| `site_reports`         | `id`                              | INTEGER PK    | ✅  | ✅  | —   | —   |
-| `site_reports`         | `site_id`                         | INTEGER FK    | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `start_date`                      | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `end_date`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `filepath`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `filename`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `zip_filepath`                    | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `zip_filename`                    | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `run_id`                          | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `timezone`                        | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `units`                           | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `source`                          | TEXT          | ✅  | ✅  | ✅  | —   |
-| `site_reports`         | `created_at`                      | DATETIME      | ✅  | ✅  | —   | —   |
-| `schema_migrations`    | `version`                         | UINT64        | ✅  | —   | —   | —   |
-| `schema_migrations`    | `dirty`                           | BOOLEAN       | ✅  | —   | —   | —   |
+| Table                      | Column                            | Type          | DB  | Web | PDF | Mac |
+| -------------------------- | --------------------------------- | ------------- | --- | --- | --- | --- |
+| `lidar_param_sets`         | `param_set_id`                    | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_param_sets`         | `params_hash`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_param_sets`         | `schema_version`                  | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_param_sets`         | `param_set_type`                  | TEXT          | ✅  | 🔶  | —   | —   |
+| `lidar_param_sets`         | `params_json`                     | TEXT          | ✅  | —   | —   | —   |
+| `lidar_param_sets`         | `created_at`                      | INTEGER       | ✅  | —   | —   | —   |
+| `lidar_run_configs`        | `run_config_id`                   | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_run_configs`        | `config_hash`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_configs`        | `param_set_id`                    | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_configs`        | `build_version`                   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_configs`        | `build_git_sha`                   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_configs`        | `created_at`                      | INTEGER       | ✅  | —   | —   | —   |
+| `lidar_run_records`        | `run_id`                          | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `source_type`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `source_path`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `duration_secs`                   | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `total_frames`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `total_clusters`                  | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `total_tracks`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `confirmed_tracks`                | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `processing_time_ms`              | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `status`                          | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `error_message`                   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `parent_run_id`                   | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `statistics_json`                 | TEXT          | 🔶  | 📋  | —   | —   |
+| `lidar_run_records`        | `vrlog_path`                      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `run_config_id`                   | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `requested_param_set_id`          | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `replay_case_id`                  | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `completed_at`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `frame_start_ns`                  | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_records`        | `frame_end_ns`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_clusters`           | `lidar_cluster_id`                | INTEGER PK    | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `frame_id`                        | TEXT          | ✅  | —   | —   | —   |
+| `lidar_clusters`           | `ts_unix_nanos`                   | INTEGER       | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `centroid_x`                      | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `centroid_y`                      | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `centroid_z`                      | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `bounding_box_length`             | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `bounding_box_width`              | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `bounding_box_height`             | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `points_count`                    | INTEGER       | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `height_p95`                      | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `intensity_mean`                  | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_clusters`           | `noise_points_count`              | INTEGER       | 🔶  | —   | —   | —   |
+| `lidar_clusters`           | `cluster_density`                 | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_clusters`           | `aspect_ratio`                    | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_tracks`             | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `frame_id`                        | TEXT          | ✅  | —   | —   | —   |
+| `lidar_tracks`             | `track_state`                     | TEXT          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `start_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `observation_count`               | INTEGER       | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `max_speed_mps`                   | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `bounding_box_length_avg`         | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `bounding_box_width_avg`          | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `bounding_box_height_avg`         | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `height_p95_max`                  | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `intensity_mean_avg`              | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `object_class`                    | TEXT          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `object_confidence`               | REAL          | ✅  | ✅  | —   | ✅  |
+| `lidar_tracks`             | `classification_model`            | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tracks`             | `track_length_meters`             | REAL          | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`             | `track_duration_secs`             | REAL          | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`             | `occlusion_count`                 | INTEGER       | 🔶  | 📋  | —   | ✅  |
+| `lidar_tracks`             | `max_occlusion_frames`            | INTEGER       | 🔶  | 📋  | —   | —   |
+| `lidar_tracks`             | `spatial_coverage`                | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_tracks`             | `noise_point_ratio`               | REAL          | 🔶  | 📋  | —   | —   |
+| `lidar_track_observations` | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `ts_unix_nanos`                   | INTEGER PK    | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `frame_id`                        | TEXT          | ✅  | —   | —   | —   |
+| `lidar_track_observations` | `x`                               | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `y`                               | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `z`                               | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `velocity_x`                      | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `velocity_y`                      | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `speed_mps`                       | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `heading_rad`                     | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `bounding_box_length`             | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `bounding_box_width`              | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `bounding_box_height`             | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `height_p95`                      | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_track_observations` | `intensity_mean`                  | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `run_id`                          | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `track_id`                        | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `track_state`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `start_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `end_unix_nanos`                  | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `observation_count`               | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `avg_speed_mps`                   | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `max_speed_mps`                   | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `bounding_box_length_avg`         | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `bounding_box_width_avg`          | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `bounding_box_height_avg`         | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `height_p95_max`                  | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `intensity_mean_avg`              | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `object_class`                    | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `object_confidence`               | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `classification_model`            | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `user_label`                      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `label_confidence`                | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `labeler_id`                      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `labeled_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `is_split_candidate`              | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `is_merge_candidate`              | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `linked_track_ids`                | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `quality_label`                   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_tracks`         | `label_source`                    | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `annotation_id`                   | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `replay_case_id`                  | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `run_id`                          | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `track_id`                        | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `class_label`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `start_timestamp_ns`              | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `end_timestamp_ns`                | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `confidence`                      | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `created_by`                      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `created_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `updated_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_annotations` | `source_file`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `replay_case_id`                  | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `pcap_file`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `pcap_start_secs`                 | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `pcap_duration_secs`              | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `description`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `reference_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `created_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `updated_at_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_cases`       | `recommended_param_set_id`        | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `evaluation_id`                   | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `replay_case_id`                  | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `reference_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `candidate_run_id`                | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `detection_rate`                  | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `fragmentation`                   | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `false_positive_rate`             | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `velocity_coverage`               | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `quality_premium`                 | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `truncation_rate`                 | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `velocity_noise_rate`             | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `stopped_recovery_rate`           | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `composite_score`                 | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `matched_count`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `reference_count`                 | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `candidate_count`                 | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_replay_evaluations` | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `id`                              | INTEGER PK    | ✅  | —   | —   | —   |
+| `lidar_tuning_sweeps`      | `sweep_id`                        | TEXT UNIQUE   | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `mode`                            | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `status`                          | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `request`                         | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `results`                         | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `charts`                          | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `recommendation`                  | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `round_results`                   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `error`                           | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `started_at`                      | DATETIME      | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `completed_at`                    | DATETIME      | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `created_at`                      | DATETIME      | ✅  | —   | —   | —   |
+| `lidar_tuning_sweeps`      | `objective_name`                  | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `objective_version`               | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `transform_pipeline_name`         | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `transform_pipeline_version`      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `score_components_json`           | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `recommendation_explanation_json` | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `label_provenance_summary_json`   | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `checkpoint_round`                | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `checkpoint_bounds`               | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `checkpoint_results`              | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_tuning_sweeps`      | `checkpoint_request`              | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `snapshot_id`                     | INTEGER PK    | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `taken_unix_nanos`                | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `rings`                           | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `azimuth_bins`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `params_json`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `ring_elevations_json`            | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `grid_blob`                       | BLOB          | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `changed_cells_count`             | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_snapshot`        | `snapshot_reason`                 | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `region_set_id`                   | INTEGER PK    | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `snapshot_id`                     | INTEGER FK    | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `sensor_id`                       | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `created_unix_nanos`              | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `region_count`                    | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `regions_json`                    | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `variance_data_json`              | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `settling_frames`                 | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_bg_regions`         | `grid_hash`                       | TEXT          | ✅  | —   | —   | —   |
+| `lidar_bg_regions`         | `source_path`                     | TEXT          | ✅  | —   | —   | —   |
+| `lidar_run_missed_regions` | `region_id`                       | TEXT PK       | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `run_id`                          | TEXT FK       | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `center_x`                        | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `center_y`                        | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `radius_m`                        | REAL          | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `time_start_ns`                   | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `time_end_ns`                     | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `expected_label`                  | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `labeler_id`                      | TEXT          | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `labeled_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `lidar_run_missed_regions` | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
+| `radar_data`               | `data_id`                         | INTEGER PK    | ✅  | —   | —   | —   |
+| `radar_data`               | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_data`               | `raw_event`                       | JSON          | ✅  | —   | —   | —   |
+| `radar_data`               | `uptime`                          | DOUBLE STORED | ✅  | ✅  | —   | —   |
+| `radar_data`               | `magnitude`                       | DOUBLE STORED | ✅  | ✅  | —   | —   |
+| `radar_data`               | `speed`                           | DOUBLE STORED | ✅  | ✅  | ✅  | —   |
+| `radar_objects`            | `write_timestamp`                 | DOUBLE        | ✅  | ✅  | ✅  | —   |
+| `radar_objects`            | `raw_event`                       | JSON          | ✅  | —   | —   | —   |
+| `radar_objects`            | `classifier`                      | TEXT STORED   | ✅  | ✅  | ✅  | —   |
+| `radar_objects`            | `start_time`                      | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `end_time`                        | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `delta_time_ms`                   | BIGINT STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `max_speed`                       | DOUBLE STORED | ✅  | ✅  | ✅  | —   |
+| `radar_objects`            | `min_speed`                       | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `speed_change`                    | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `max_magnitude`                   | BIGINT STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `avg_magnitude`                   | BIGINT STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `total_frames`                    | BIGINT STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `frames_per_mps`                  | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_objects`            | `length_m`                        | DOUBLE STORED | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_id`                      | INTEGER PK    | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_key`                     | TEXT UNIQUE   | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `threshold_ms`                    | INTEGER       | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_start_unix`              | DOUBLE        | ✅  | ✅  | ✅  | —   |
+| `radar_data_transits`      | `transit_end_unix`                | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_max_speed`               | DOUBLE        | ✅  | ✅  | ✅  | —   |
+| `radar_data_transits`      | `transit_min_speed`               | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_max_magnitude`           | BIGINT        | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `transit_min_magnitude`           | BIGINT        | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `point_count`                     | INTEGER       | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `model_version`                   | TEXT          | ✅  | ✅  | ✅  | —   |
+| `radar_data_transits`      | `created_at`                      | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_data_transits`      | `updated_at`                      | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_transit_links`      | `link_id`                         | INTEGER PK    | ✅  | —   | —   | —   |
+| `radar_transit_links`      | `transit_id`                      | INTEGER FK    | ✅  | —   | —   | —   |
+| `radar_transit_links`      | `data_rowid`                      | INTEGER FK    | ✅  | —   | —   | —   |
+| `radar_transit_links`      | `link_score`                      | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_transit_links`      | `created_at`                      | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_commands`           | `command_id`                      | BIGINT PK     | ✅  | —   | —   | —   |
+| `radar_commands`           | `command`                         | TEXT          | ✅  | —   | —   | —   |
+| `radar_commands`           | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
+| `radar_command_log`        | `log_id`                          | BIGINT PK     | ✅  | —   | —   | —   |
+| `radar_command_log`        | `command_id`                      | BIGINT FK     | ✅  | —   | —   | —   |
+| `radar_command_log`        | `log_data`                        | TEXT          | ✅  | —   | —   | —   |
+| `radar_command_log`        | `write_timestamp`                 | DOUBLE        | ✅  | —   | —   | —   |
+| `site`                     | `id`                              | INTEGER PK    | ✅  | ✅  | ✅  | —   |
+| `site`                     | `name`                            | TEXT UNIQUE   | ✅  | ✅  | ✅  | —   |
+| `site`                     | `location`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `description`                     | TEXT          | ✅  | ✅  | —   | —   |
+| `site`                     | `surveyor`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `contact`                         | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `address`                         | TEXT          | ✅  | ✅  | —   | —   |
+| `site`                     | `latitude`                        | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `longitude`                       | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `map_angle`                       | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `include_map`                     | INTEGER       | ✅  | ✅  | ✅  | —   |
+| `site`                     | `site_description`                | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `bbox_ne_lat`                     | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `bbox_ne_lng`                     | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `bbox_sw_lat`                     | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `bbox_sw_lng`                     | REAL          | ✅  | ✅  | ✅  | —   |
+| `site`                     | `map_svg_data`                    | BLOB          | ✅  | ✅  | —   | —   |
+| `site`                     | `created_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `site`                     | `updated_at`                      | INTEGER       | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `id`                              | INTEGER PK    | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `site_id`                         | INTEGER FK    | ✅  | ✅  | ✅  | —   |
+| `site_config_periods`      | `effective_start_unix`            | DOUBLE        | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `effective_end_unix`              | DOUBLE        | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `is_active`                       | INTEGER       | ✅  | ✅  | ✅  | —   |
+| `site_config_periods`      | `notes`                           | TEXT          | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `cosine_error_angle`              | DOUBLE        | ✅  | ✅  | ✅  | —   |
+| `site_config_periods`      | `created_at`                      | DOUBLE        | ✅  | ✅  | —   | —   |
+| `site_config_periods`      | `updated_at`                      | DOUBLE        | ✅  | ✅  | —   | —   |
+| `site_reports`             | `id`                              | INTEGER PK    | ✅  | ✅  | —   | —   |
+| `site_reports`             | `site_id`                         | INTEGER FK    | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `start_date`                      | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `end_date`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `filepath`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `filename`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `zip_filepath`                    | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `zip_filename`                    | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `run_id`                          | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `timezone`                        | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `units`                           | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `source`                          | TEXT          | ✅  | ✅  | ✅  | —   |
+| `site_reports`             | `created_at`                      | DATETIME      | ✅  | ✅  | —   | —   |
+| `schema_migrations`        | `version`                         | UINT64        | ✅  | —   | —   | —   |
+| `schema_migrations`        | `dirty`                           | BOOLEAN       | ✅  | —   | —   | —   |
 
 ---
 
@@ -541,7 +555,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 | `internal/lidar/l5tracks` | `tracking.go` | `heading_rad`          | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `observation_count`    | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `avg_speed_mps`        | ✅  | ✅  | —   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `peak_speed_mps`       | 🗑️  | ✅  | —   | ✅  |
+| `internal/lidar/l5tracks` | `tracking.go` | `max_speed_mps`        | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `bounding_box_*`       | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `height_p95_max`       | ✅  | ✅  | —   | ✅  |
 | `internal/lidar/l5tracks` | `tracking.go` | `intensity_mean_avg`   | ✅  | ✅  | —   | ✅  |
@@ -688,16 +702,15 @@ databases.
 
 ---
 
-## 17. Speed Percentile Columns — Design Debt
+## 17. Speed Percentile Columns — Resolved Design Debt
 
-**DB columns:** `lidar_tracks` and `lidar_run_tracks` both have
-`p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` (marked 🗑️ in §5).
+The per-track percentile columns have been removed from the active schema.
+`lidar_tracks` and `lidar_run_tracks` no longer carry `p50_speed_mps`,
+`p85_speed_mps`, or `p95_speed_mps`.
 
 Per the [speed percentile alignment plan](../../docs/plans/speed-percentile-aggregation-alignment-plan.md)
-(D-18), per-track percentiles are the **wrong abstraction** — percentiles
-are reserved for grouped/report aggregates only. These 6 columns should be
-**removed** via migration 000030. See
-[schema simplification plan](../../docs/plans/schema-simplification-migration-030-plan.md).
+(D-18), percentiles are reserved for grouped/report aggregates only. This
+design debt is now retired in the live database schema.
 
 ---
 
@@ -750,7 +763,7 @@ documented in §15. The radar server debug routes are attached via
 | HTTP endpoints (radar)  | 14    | 12  | 14  | 4   | 0   |
 | HTTP endpoints (LiDAR)  | 77    | 39  | 76  | 0   | 11  |
 | gRPC methods            | 9     | 0   | 0   | 0   | 9   |
-| DB tables               | 22    | —   | 21  | 6   | 3   |
+| DB tables               | 24    | —   | 23  | 6   | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 0   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   | 0   |
 | cmd/ entry points       | 11    | —   | —   | —   | —   |
@@ -767,4 +780,4 @@ documented in §15. The radar server debug routes are attached via
 | Transient pipeline metrics           | 2     | FrameMetrics (HINT plan C1), per-track jitter                                           |
 | Metrics with Web endpoint only       | 2     | TrackingMetrics + TrackAlignmentMetrics via `GET /api/lidar/tracks/metrics`             |
 | Logic with no triggering endpoint    | 2     | `compareParams()`, `computeTemporalIoU()`                                               |
-| Deprecated columns (removal planned) | 6     | p50/p85/p95 on lidar_tracks + lidar_run_tracks                                          |
+| Deprecated columns (removal landed)  | 0     | Per-track speed percentile columns are no longer present in the active schema           |

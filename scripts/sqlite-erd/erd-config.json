@@ -1,0 +1,75 @@
+{
+  "_doc": [
+    "ERD layout configuration — edit to control schema diagram grouping.",
+    "Clusters: tables matching '{name}' or '{name}_*' are grouped together.",
+    "Lidar subgroups: fine-grained layout within LIDAR (full mode only).",
+    "Layout overrides: fine-tune the graph to reduce edge crossings.",
+    "Run `make schema-erd-report` for a crossing analysis with suggestions.",
+    "See group-dot.py docstring for layout mode details."
+  ],
+  "clusters": [
+    { "name": "site", "label": "SITE" },
+    { "name": "lidar", "label": "LIDAR" },
+    { "name": "radar", "label": "RADAR" }
+  ],
+  "lidar_subgroups": {
+    "roots": {},
+    "display_order": ["other"],
+    "second_row_subgroup": "",
+    "second_row_alignment_subgroup": "",
+    "min_columns": 2,
+    "max_columns": 8,
+    "target_weight": 20
+  },
+  "layout_overrides": {
+    "_doc": [
+      "rank_hints: groups of tables forced to the same Graphviz rank.",
+      "edge_weight_overrides: 'child -> parent' keys with integer weights.",
+      "  Higher weight = shorter, more vertical edge.",
+      "invisible_edges: alignment edges added between tables (not rendered).",
+      "node_order_overrides: per-cluster, per-level table ordering.",
+      "  Keys are cluster names; values map level number (string) to table list.",
+      "  For LIDAR subgroups, use dotted keys: 'lidar.tracks', 'lidar.analysis_runs', etc.",
+      "  The plain 'lidar' key applies only to the crossing report, not the full layout.",
+      "graph_attributes: Graphviz graph-level attributes (ranksep, nodesep, ratio, etc)."
+    ],
+    "graph_attributes": {
+      "ranksep": "\"0.8\"",
+      "nodesep": "\"0.4\""
+    },
+    "rank_hints": [],
+    "edge_weight_overrides": {
+      "lidar_run_records -> lidar_run_configs": 100,
+      "lidar_run_records -> lidar_param_sets": 50,
+      "lidar_run_tracks -> lidar_run_records": 100,
+      "lidar_replay_annotations -> lidar_run_tracks": 100,
+      "lidar_replay_evaluations -> lidar_run_records": 80,
+      "lidar_run_missed_regions -> lidar_run_records": 80,
+      "lidar_replay_cases -> lidar_param_sets": 80
+    },
+    "invisible_edges": [],
+    "node_order_overrides": {
+      "lidar": {
+        "0": ["lidar_clusters", "lidar_tuning_sweeps"],
+        "1": ["lidar_param_sets", "lidar_bg_snapshot", "lidar_tracks"],
+        "2": [
+          "lidar_run_configs",
+          "lidar_bg_regions",
+          "lidar_track_observations"
+        ],
+        "3": ["lidar_run_records", "lidar_replay_cases"],
+        "4": ["lidar_run_missed_regions", "lidar_run_tracks"],
+        "5": ["lidar_replay_evaluations", "lidar_replay_annotations"]
+      },
+      "radar": {
+        "0": [
+          "radar_commands",
+          "radar_data",
+          "radar_data_transits",
+          "radar_objects"
+        ],
+        "1": ["radar_command_log", "radar_transit_links"]
+      }
+    }
+  }
+}
