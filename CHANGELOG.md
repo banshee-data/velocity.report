@@ -113,19 +113,12 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### macOS Visualiser
 
-- Full macOS visualiser built from scratch: SwiftUI + Metal + gRPC architecture.
-- M0–M3: Protobuf schema, gRPC server, synthetic data, SwiftUI+Metal renderer, `.vrlog` recorder/replayer, real point cloud ingestion at 70k+ points at 30fps, canonical `FrameBundle` model.
-- M3.5: Split streaming — background snapshots every 30s plus foreground-only per-frame, reducing bandwidth from 78 Mbps to 3 Mbps.
-- M4: Tracking interface refactor with golden replay tests.
-- M5: Algorithm visualisation — OBB rendering, occlusion state tracking, Hungarian association lines, ground removal overlays.
-- M6: Debug overlays — gating ellipses, association lines, and residual visualisations via gRPC. Diagnostic overlays for seeing the working, not just the answer.
-- M7: Performance — buffer management, reference counting, frame rate throttling.
-- Track labelling via label API with run browser and labelling side panel.
-- `ObjectClass` protobuf enum replacing free-form string classification; keyboard shortcuts (1–9) for label assignment.
-- Track inspector consolidation, track navigation with arrow keys, velocity arrows.
-- Ground and background grid toggles, track filtering range slider.
-- `AboutView` with licensing and build metadata; versioned DMG packaging with Finder-layout automation.
-- Replay completion handling: server pauses at EOF, client detects and supports restart.
+- **Full macOS visualiser** built from scratch: SwiftUI + Metal + gRPC, from protobuf schema to packaged DMG.
+- Real point cloud ingestion at 70k+ points/30fps; split streaming cuts bandwidth from 78 Mbps to 3 Mbps.
+- Algorithm and debug overlays: OBB rendering, gating ellipses, association lines, ground removal, occlusion state.
+- Track labelling with run browser, keyboard shortcuts (1–9), inspector, and arrow-key navigation.
+- Buffer management, reference counting, and frame rate throttling.
+- Versioned DMG packaging with Finder-layout automation; `AboutView` with licensing and build metadata.
 - 1,032 unit tests; `ContentView` coverage at 86.65%.
 
 #### PDF Generator
@@ -135,109 +128,52 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### Web Frontend
 
-- Sweep dashboard with HINT mode toggle and auto-tuning recommendation card.
-- LiDAR runs, replay-cases, and sweeps pages — three new full route pages.
-- Capability store and gating so unfinished LiDAR paths stay hidden until ready.
-- Gap detection in track visualisations to prevent spaghetti.
-- Interactive map for site visualisation.
-- Chart components rebuilt with layerchart and D3.
+- **Sweep dashboard** with HINT mode toggle and auto-tuning recommendation card.
+- LiDAR runs, replay-cases, and sweeps pages; capability gating for unfinished paths.
+- Interactive map, gap detection in track visualisations, chart rebuild with layerchart and D3.
 - Shared colour palette module and CSS utility classes.
 
 ### Platform
 
 #### CLI Tools
 
-- `config-migrate` — migrates existing configs to the new layout, with broad test coverage.
-- `config-validate` — checks migrated and runtime configs before deployment.
-- `settling-eval` — evaluates background grid convergence from PCAP files.
-- `backfill_lidar_run_config` — backfills historical rows into immutable run config tables.
-- `gen-vrlog` — synthetic `.vrlog` file generator.
-- `vrlog-analyse` — per-track VRLOG analysis metrics and comparison reports.
-- `visualiser-server` — standalone gRPC visualiser server for development.
-- `pcap-analyse` — batch track categorisation with timing traces and ML data export.
+- **Config tools** — `config-migrate` and `config-validate` for the restructured layout.
+- **Analysis tools** — `settling-eval`, `vrlog-analyse`, and `pcap-analyse` for convergence evaluation, track metrics, and batch categorisation.
+- **Dev tools** — `gen-vrlog`, `visualiser-server`, and `backfill_lidar_run_config` for synthetic data, standalone gRPC, and historical backfill.
 
 #### Scripts
 
-- `build-minimal-texlive.sh` / `install-minimal-texlive.sh` — precompiled minimal TeX tree for CI.
-- `create-dmg.sh` / `dmg-layout.applescript` — versioned DMG packaging for macOS visualiser.
-- `check-british-spelling.py` — British English lint check.
-- `check-doc-header-metadata.py` — documentation header standardisation validation.
-- `check-mermaid-blocks.py` — Mermaid diagram validation.
-- `check-plan-canonical-links.py` / `check-relative-links.py` — documentation link validation.
-- `check-prose-line-width.py` — prose line width enforcement.
-- `check-db-sql-imports.sh` / `check-single-sqlite-driver.sh` — Go import hygiene checks.
-- `list-matrix-fields.py` — 1,300-line surface inventory tool for MATRIX.md tracing.
-- `config-order-sync` — configuration key ordering standardisation.
-- `batch-canonical-migration.py` — batch documentation migration tooling.
-- `flo-planning-review.sh` / `flo-standup.sh` — PM agent planning and standup automation.
-- `check-agent-drift.sh` — agent configuration drift detection.
-- `validate-lfs-files.sh` — LFS file validation for CI.
-- `version-bump.sh` — cross-component version bumping.
-- `xcode-coverage-to-lcov.py` — Swift coverage conversion for unified reporting.
-- `macos_profile_lidar.sh` — macOS process profiling for performance analysis.
-- `sqlite-erd/` — schema ERD tooling suite: configurable layout, group graph, SQL extraction.
-- `readme-maths-check` — maths documentation cross-reference validation.
+- CI lint checks: British spelling, doc headers, Mermaid blocks, prose width, link validation, Go import hygiene.
+- Build and packaging: minimal TeX tree, DMG creation, version bumping, LFS validation.
+- Agent and PM automation: planning review, standup, drift detection.
+- Analysis and profiling: Xcode-to-lcov coverage conversion, macOS profiling, surface inventory tracing, schema ERD suite.
 
 #### Build and CI
 
-- `nightly-full-ci.yml` — end-to-end nightly CI across Go, Python, web, and macOS.
-- `mac-ci.yml` — dedicated macOS CI with build metadata generation.
-- `plan-hygiene-ci.yml` — documentation hygiene as advisory workflow.
-- `config-order-ci.yml` — configuration ordering checks.
-- Schema ERD tooling with configuration-driven layout and `--layout` flag.
-- Makefile expanded from 59 to 101 targets.
-- CI TeX packages trimmed by ~500 MB.
-- Shared web cache for worktrees (`make activate-web-cache`).
+- Four new workflows: nightly full-CI, macOS-dedicated, documentation hygiene, and config ordering.
+- Makefile expanded from 59 to 101 targets; CI TeX packages trimmed by ~500 MB.
+- Schema ERD tooling with configuration-driven layout; shared web cache for worktrees.
 
 #### Agent Personas
 
-- Appius (Dev), Euler (Research), Flo (PM), Grace (Architect), Malory (Pen Test), Ruth (Executive), Terry (Writer) — seven agent personas with portraits, knowledge modules, and role-specific instructions.
-- Matrix Tracer agent for surface inventory and documentation-to-code tracing.
-- `.github/knowledge/` — eight shared knowledge modules (architecture, build-and-test, coding-standards, hardware, role-editorial, role-technical, security-checklist, security-surface).
-- `TENETS.md` — project constitution with privacy-first principles.
+- Seven agent personas (Appius, Euler, Flo, Grace, Malory, Ruth, Terry) with Matrix Tracer for surface inventory, eight shared knowledge modules, and `TENETS.md` project constitution.
 
 #### Maths Review
 
-- Pipeline review with open questions document covering clustering, classification, tracking, and ground-plane extraction.
-- Classification maths specification.
-- Clustering maths specification.
-- Ground-plane maths specification.
-- Background grid settling maths.
-- Six maths proposals: unified L3/L4 settling, velocity-coherent foreground extraction, ground-plane vector scene maths, geometry-coherent tracking, OBB heading stability review, and reflective-sign pose-anchor maths.
-- 52-entry BibTeX bibliography covering planned and existing research references.
-- Coordinate-flow audit documenting polar/Cartesian transitions per pipeline stage.
+- Four specifications (classification, clustering, ground-plane, background settling) plus six proposals covering unified settling, foreground extraction, vector scene maths, geometry-coherent tracking, OBB heading stability, and pose-anchor maths.
+- 52-entry BibTeX bibliography; coordinate-flow audit documenting polar/Cartesian transitions per stage.
 
 #### Documentation
 
-- 10-layer data model documentation.
-- Design principles document and design review.
-- Comprehensive audit of 29 LiDAR docs — found and fixed 12 discrepancies before they could become folklore.
-- Design documents for track labelling, immutable run config, contributing guide, label vocabulary consolidation, platform simplification, documentation standardisation, and assorted future work.
-- VRLOG format specification and analysis documentation.
-- Decisions register with 16 resolved architectural decisions.
-- CONTRIBUTING guide with contributor personas and role guidance.
-- VISION statement.
-- Vector scene map architecture integrating OSM Simple 3D Buildings.
-- Site restructured to `public_html` paths with Tailwind CSS v4.
-
-#### Test Coverage
-
-- Go: ~38 % → 85.9 % on critical packages.
-- Web: 97 %.
-- HINT: 91.9 %.
-- macOS: 1,032 Swift unit tests.
+- 10-layer data model docs, design principles, VRLOG format spec, decisions register (16 resolved), CONTRIBUTING guide, and VISION statement.
+- Audit of 29 LiDAR docs — found and fixed 12 discrepancies before they could become folklore.
+- Site restructured to `public_html` with Tailwind CSS v4; vector scene map with OSM Simple 3D Buildings.
 
 #### Version Upgrades
 
-- Go 1.25.3 → 1.25.6.
-- `modernc.org/sqlite` v1.42.2 → v1.46.1.
-- `go-echarts/v2` v2.6.7 → v2.7.0.
-- `gonum` v0.16.0 → v0.17.0; `gonum/plot` v0.15.2 → v0.16.0.
-- Added `google.golang.org/grpc` v1.79.1 and `google.golang.org/protobuf` v1.36.11.
-- Added `github.com/stretchr/testify` v1.11.1.
-- `tailscale.com` v1.93.0-pre → v1.95.0-pre.
-- Python: `pandas` 2.2.3 → 3.0.1; `numpy` 2.3.3 → 2.4.2; `scipy` 1.16.3 → 1.17.1; `ruff` 0.14.10 → 0.15.4; `black` 25.12.0 → 26.1.0.
-- Web: `svelte` 5.46.1 → 5.53.6; `@sveltejs/kit` 2.49.0 → 2.53.4; `eslint` 9.39.2 → 10.0.2; `tailwindcss` 4.1.17 → 4.2.1.
+- **Go**: 1.25.3 → 1.25.6; `modernc.org/sqlite` v1.42 → v1.46; `gonum` v0.16 → v0.17; added gRPC v1.79, protobuf v1.36, testify v1.11.
+- **Python**: `pandas` 2.2 → 3.0; `numpy` 2.3 → 2.4; `scipy` 1.16 → 1.17; `ruff` 0.14 → 0.15.
+- **Web**: `svelte` 5.46 → 5.53; `eslint` 9 → 10; `tailwindcss` 4.1 → 4.2.
 
 ## [0.4.0] - 2026-01-29
 
