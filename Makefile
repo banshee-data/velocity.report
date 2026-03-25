@@ -958,10 +958,6 @@ schema-erd-dot:
 		echo "Generating schema ERD DOT at $$DOT_FILE (layout=$(LAYOUT))..."; \
 		bash scripts/sqlite-erd/graph.sh --layout '$(LAYOUT)' --generate-dot --dot-output "$$DOT_FILE" internal/db/schema.sql
 
-# Generate a markdown layout report (crossing analysis with suggestions)
-schema-erd-report:
-	@bash scripts/sqlite-erd/graph.sh --report internal/db/schema.sql
-
 # Render schema ERD SVG from an existing DOT file
 schema-erd-from-dot:
 	@DOT_FILE="$${DOT:-data/structures/SCHEMA.dot}"; \

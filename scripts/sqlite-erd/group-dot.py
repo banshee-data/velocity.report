@@ -162,23 +162,37 @@ def topo_levels(component_names, parents, children):
                 queue.append(child)
 
     # Handle cycles: any unprocessed node is stuck in a mutual dependency.
-    # Break cycles by removing the back edge with the fewest children,
-    # then resume Kahn's from the unblocked nodes.
-    stuck = [n for n in component_names if n not in processed]
-    if stuck:
-        # Find the stuck node with fewest children in the cycle — best back-edge
-        # break candidate (removing its parent edges causes least disruption).
+    # Break by finding a node in the actual cycle (has stuck parents AND
+    # stuck children) and forcing it processed.  Repeat until all nodes
+    # are assigned levels.
+    while True:
+        stuck = [n for n in component_names if n not in processed]
+        if not stuck:
+            break
         stuck_set = set(stuck)
-        best = min(
-            stuck,
-            key=lambda n: (
-                len([c for c in children[n] if c in stuck_set]),
-                n,
-            ),
-        )
-        # Treat the chosen node as if its cycle parents were removed
+
+        # Prefer nodes that are actually in a cycle (have both stuck
+        # parents and stuck children).  Among those, pick the one whose
+        # remaining in-degree is lowest — it's closest to being unblocked
+        # naturally and causes the least disruption.
+        cycle_nodes = [
+            n
+            for n in stuck
+            if any(p in stuck_set for p in parents[n] if p in component_set and p != n)
+            and any(
+                c in stuck_set for c in children[n] if c in component_set and c != n
+            )
+        ]
+        candidates = cycle_nodes if cycle_nodes else stuck
+        best = min(candidates, key=lambda n: (in_degree[n], n))
+
+        # Assign level based on already-processed parents
         levels[best] = (
-            max((levels[p] for p in parents[best] if p in processed), default=0) + 1
+            max(
+                (levels[p] for p in parents[best] if p in processed),
+                default=max(levels[p] for p in processed) if processed else 0,
+            )
+            + 1
         )
         processed.add(best)
         queue.append(best)
