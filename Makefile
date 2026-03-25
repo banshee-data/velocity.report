@@ -660,7 +660,9 @@ dev-mac:
 	@$(VISUALISER_DIR)/build/Build/Products/Debug/VelocityVisualiser.app/Contents/MacOS/VelocityVisualiser
 
 dmg-mac:
-	@$(MAKE) build-mac
+	@if [ ! -d "$(VISUALISER_APP)" ]; then \
+		$(MAKE) build-mac; \
+	fi
 	@echo "Creating DMG: $(notdir $(VISUALISER_DMG))..."
 	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(DEV_VERSION)" \
 		"$(VISUALISER_DIR)/Getting Started.txt"
