@@ -68,35 +68,74 @@ Current research areas include geometry-coherent tracking,
 velocity-coherent foreground extraction, ground-plane and
 vector-scene maths, and optional offline classification work.
 
-#### Open questions that need evidence, not opinion:
+#### Open research questions
 
-1. Whether the [2026-02-22 OBB](data/maths/proposals/20260222-obb-heading-stability-review.md) fixes hold up in replay, or
-   whether [geometry-coherent tracking](data/maths/proposals/20260222-geometry-coherent-tracking.md) is still needed to stop
-   bounding boxes rotating like weathervanes.
-1. Whether
-   [velocity-coherent extraction](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
-   beats the current baseline on fixed PCAP/VRLOG packs
-   strongly enough to justify
-   [runtime adoption](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
-1. Whether highly reflective signs can serve as stable [pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md),
-   how far the intensity gate can be relaxed without them, and
-   whether walls or road geometry provide enough fallback
-   without confusing the model.
-1. How radar + LiDAR fusion should be scored and staged:
-   existing [per-track association](data/maths/tracking-maths.md), or
-   [scene-level fusion](docs/plans/lidar-l7-scene-plan.md).
-1. When the current
+The full set of open questions with acceptance criteria
+and evidence requirements lives in
+[data/questions.md](data/questions.md). Here are the
+highlights — good starting points for a new contributor with
+a data science, ML, or perception background:
+
+1. **Bounding box geometry** — Do the reactive OBB guards
+   survive multi-site replay, or does the
+   [Bayesian geometry-coherent model](data/maths/proposals/20260222-geometry-coherent-tracking.md)
+   need to replace them? Requires dimension-stability and
+   heading-drift measurements on labelled PCAPs.
+   _(§1, Q1–Q3)_
+2. **Velocity-coherent foreground extraction** — Does
+   [track-assisted foreground promotion](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+   beat the current baseline strongly enough (≥ 10% track
+   completeness, < 1.2 fragmentation) to justify
+   [runtime adoption](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md)?
+   _(§2, Q4–Q5)_
+3. **Ground plane modelling** — When does the current
    [height-band ground filter](data/maths/ground-plane-maths.md)
-   stops being good enough, and what replay evidence justifies
-   moving to [tile-plane and vector-scene maths](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md).
-1. How [OSM/community geometry priors](docs/plans/lidar-l7-scene-plan.md)
-   should be diffed, reviewed, signed, and exported without
+   stop being good enough, and what replay evidence
+   justifies moving to
+   [tile-plane and vector-scene maths](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)?
+   _(§3, Q7–Q8)_
+4. **Radar + LiDAR fusion** — Should fusion be scored and
+   staged at L5
+   [per-track association](data/maths/tracking-maths.md) or
+   L7 [scene-level fusion](docs/plans/lidar-l7-scene-plan.md)?
+   What conflict resolution strategy produces auditable
+   confidence scores? _(§4, Q10–Q11)_
+5. **Interpretable classification** — Can a shallow,
+   explainable model (logistic regression, gradient-boosted
+   stumps) improve the rule-based classifier without
+   introducing a black box? Requires labelled tracks and
+   per-class precision/recall comparison.
+   _(§5, Q12–Q14)_
+6. **Parameter tuning and overfitting** — Most defaults were
+   tuned on a single PCAP. Which survive multi-site
+   validation, and what does the auto-tuning objective
+   function look like? Which
+   [config values](config/tuning.defaults.json) are backed
+   by repeatable
+   [scorecards](docs/plans/lidar-parameter-tuning-optimisation-plan.md)?
+   _(§6, Q15–Q17)_
+7. **Pose anchors** — Whether highly reflective signs can
+   serve as stable
+   [pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md),
+   how far the intensity gate can be relaxed without them,
+   and whether walls or road geometry provide enough
+   fallback without confusing the model.
+   _(§8, Q21–Q22)_
+8. **Speed distribution analysis** — Urban speed data is
+   often bimodal or skewed. What distribution families fit,
+   what sample sizes produce defensible p85 estimates, and
+   how should percentiles be aggregated across time bins?
+   _(§9, Q23–Q25)_
+9. **OSM geometry priors** — How should
+   [community geometry priors](docs/plans/lidar-l7-scene-plan.md)
+   be diffed, reviewed, signed, and exported without
    weakening
-   [provenance](docs/lidar/architecture/vector-scene-map.md).
-1. Which [config values](config/tuning.defaults.json) are actually
-   supported by repeatable
-   [scorecards](docs/plans/lidar-parameter-tuning-optimisation-plan.md),
-   when they were last compared, and with what artefact set.
+   [provenance](docs/lidar/architecture/vector-scene-map.md)?
+   _(§3, Q9)_
+10. **Kinematic model extensions** — Does adding
+    acceleration states or IMM blending reduce track
+    fragmentation enough to justify the CPU cost on edge
+    hardware? _(§7, Q18–Q20)_
 
 When contributing here, include the question being answered,
 the observed result, the exact parameter bundle, the
@@ -106,6 +145,9 @@ files). Claims without artefacts are anecdotes.
 
 Read next:
 
+- [data/questions.md](data/questions.md): full index of
+  open research questions across the pipeline, grouped by
+  theme with acceptance criteria and evidence requirements
 - [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
 - [data/maths/README.md](data/maths/README.md): mathematical
   foundations across settling, ground modelling, clustering,
