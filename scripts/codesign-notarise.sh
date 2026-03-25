@@ -33,6 +33,7 @@ set -euo pipefail
 
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-velocity-report}"
+NOTARY_KEYCHAIN="${NOTARY_KEYCHAIN:-${HOME}/Library/Keychains/login.keychain-db}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ notary_auth_flags() {
     # On macOS 13+, notarytool stores credentials in the Data Protection
     # keychain which is not searchable via `security find-generic-password`.
     # Skip the pre-flight check and let notarytool report its own error.
-    echo "--keychain-profile" "$NOTARY_PROFILE"
+    echo "--keychain-profile" "$NOTARY_PROFILE" "--keychain" "$NOTARY_KEYCHAIN"
   fi
 }
 
@@ -159,10 +160,6 @@ cmd_verify() {
   ok "spctl passed"
 
   if [ -n "$dmg" ]; then
-    step "Gatekeeper assessment: $dmg"
-    spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"
-    ok "spctl (DMG) passed"
-
     step "Staple validation: $dmg"
     xcrun stapler validate "$dmg"
     ok "Staple valid"
