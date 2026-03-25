@@ -68,35 +68,28 @@ Current research areas include geometry-coherent tracking,
 velocity-coherent foreground extraction, ground-plane and
 vector-scene maths, and optional offline classification work.
 
-#### Open questions that need evidence, not opinion:
+#### Open research questions
 
-1. Whether the [2026-02-22 OBB](data/maths/proposals/20260222-obb-heading-stability-review.md) fixes hold up in replay, or
-   whether [geometry-coherent tracking](data/maths/proposals/20260222-geometry-coherent-tracking.md) is still needed to stop
-   bounding boxes rotating like weathervanes.
-1. Whether
-   [velocity-coherent extraction](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
-   beats the current baseline on fixed PCAP/VRLOG packs
-   strongly enough to justify
-   [runtime adoption](docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
-1. Whether highly reflective signs can serve as stable [pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md),
-   how far the intensity gate can be relaxed without them, and
-   whether walls or road geometry provide enough fallback
-   without confusing the model.
-1. How radar + LiDAR fusion should be scored and staged:
-   existing [per-track association](data/maths/tracking-maths.md), or
-   [scene-level fusion](docs/plans/lidar-l7-scene-plan.md).
-1. When the current
-   [height-band ground filter](data/maths/ground-plane-maths.md)
-   stops being good enough, and what replay evidence justifies
-   moving to [tile-plane and vector-scene maths](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md).
-1. How [OSM/community geometry priors](docs/plans/lidar-l7-scene-plan.md)
-   should be diffed, reviewed, signed, and exported without
-   weakening
-   [provenance](docs/lidar/architecture/vector-scene-map.md).
-1. Which [config values](config/tuning.defaults.json) are actually
-   supported by repeatable
-   [scorecards](docs/plans/lidar-parameter-tuning-optimisation-plan.md),
-   when they were last compared, and with what artefact set.
+The full set of open questions with acceptance criteria
+and evidence requirements lives in
+[data/QUESTIONS.md](data/QUESTIONS.md). These four are the
+highest-impact starting points for a data scientist:
+
+1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)** —
+   Does the Bayesian geometry-coherent model reduce
+   heading drift and dimension instability enough to
+   replace the reactive OBB guards?
+2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)** —
+   Does track-assisted foreground promotion beat the
+   current baseline on track completeness and
+   fragmentation across multiple sites?
+3. **[Interpretable classification](data/maths/classification-maths.md)** —
+   Can a shallow, explainable model improve per-class
+   precision/recall without introducing a black box?
+4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)** —
+   Can reflective signs serve as reliable static pose
+   anchors, and what fallback hierarchy works in
+   sign-poor scenes?
 
 When contributing here, include the question being answered,
 the observed result, the exact parameter bundle, the
@@ -106,6 +99,9 @@ files). Claims without artefacts are anecdotes.
 
 Read next:
 
+- [data/QUESTIONS.md](data/QUESTIONS.md): full index of
+  open research questions across the pipeline, grouped by
+  theme with acceptance criteria and evidence requirements
 - [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
 - [data/maths/README.md](data/maths/README.md): mathematical
   foundations across settling, ground modelling, clustering,
@@ -136,6 +132,17 @@ visuals in generated reports should match the web dashboard in
 palette, typography, and overall visual language so every
 output looks like it came from the same project, because it
 did.
+
+#### Open questions
+
+1. **[Speed distribution visualisation](data/QUESTIONS.md)** —
+   Urban speed data is often bimodal or skewed; how
+   should charts represent non-normal distributions and
+   communicate sample-size confidence to non-technical
+   audiences?
+2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)** —
+   What visual language makes it clear that p85 values
+   across time bins cannot simply be averaged?
 
 Read next:
 
@@ -190,6 +197,21 @@ computer vision, signal processing, or applied geometry fits
 well. A tolerance for point clouds that occasionally contain a
 seagull also helps.
 
+#### Open questions
+
+1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)** —
+   When does the height-band filter stop being good
+   enough, and what replay evidence justifies tile-plane
+   fitting?
+2. **[Kinematic model extensions](data/QUESTIONS.md)** —
+   Does adding acceleration states or IMM blending
+   reduce track fragmentation enough to justify the CPU
+   cost on a Raspberry Pi?
+3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)** —
+   Should fusion be scored at L5 per-track association
+   or L7 scene-level, and how should conflicting
+   observations be resolved?
+
 Read next:
 
 - [docs/lidar/README.md](docs/lidar/README.md): entry point
@@ -217,6 +239,20 @@ This also covers operational quality: observability, logging,
 health checks, and graceful behaviour on constrained devices.
 Experience with concurrency, serial or UDP protocols, SQLite,
 shell tooling, and deployment automation is useful.
+
+#### Open questions
+
+1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)** —
+   Most defaults were tuned on a single PCAP; which
+   survive multi-site validation and what does the
+   auto-tuning objective function look like?
+2. **[Edge hardware budget](data/QUESTIONS.md)** —
+   Do all proposed algorithm improvements fit within
+   the 100 ms frame budget on a Raspberry Pi 4?
+3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)** —
+   How should observed geometry be diffed, reviewed,
+   and exported against OSM without weakening
+   provenance?
 
 Read next:
 
