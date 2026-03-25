@@ -1,35 +1,96 @@
 # Development Log
 
-## March 15, 2026 - Data Reorganisation & UK Spelling
+## March 24, 2026 - Config Consolidation, ERD Refresh & Workflow Docs
 
-- Reshaped `data/` directory structure — moved `docs/data/` to `data/structures/`, `docs/maths/` to `data/maths/`, kept proposals under `data/maths/proposals/`.
-- Corrected new maths path to British English (`data/maths/` not `data/math/`).
-- Added `data/explore/README.md` and moved exploratory VRLOG analysis outputs to `data/explore/vrlog-analysis-runs/`.
-- Simplified `data/README.md` and cleaned stale tracked noise-investigation CSV artefacts.
-- Normalised UK spelling across renamed docs/data files (`labelling`, `optimisation`, `standardisation`, `convergence-neighbour`) and refreshed cross-references in architecture, plans, backlog, and visualiser docs.
+- Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
+- Extracted testable helper paths in `cmd/radar` and added focused coverage for the run-config backfill tool.
+- Updated immutable run-config and replay-case operations docs, and replaced older scene-management implementation notes with the newer asset plan.
+- Switched plan-hygiene reporting to an advisory workflow in CI rather than a hard PR gate.
+- Refreshed schema visualisation tooling — added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
+- Expanded `MATRIX.md` and refreshed the Matrix Tracer agent around the live schema/documentation inventory workflow.
+- Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
+- Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
 
-## March 14, 2026 - VRLOG Contracts & Labelling Refresh
+## March 23, 2026 - Capabilities Gating, Stream Fix & Host Upgrade Runbook
 
-- Reworked VRLOG labelling and replay contracts across Go, Swift, and protobuf surfaces — refreshed label APIs, run-track endpoints, replay handlers, recorder proto encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` tooling.
-- Expanded macOS visualiser run-browser and labelling flows: updated `RunBrowserState`, `RunBrowserView`, `ContentView`, rendering paths, `VisualiserClient`, and related tests.
-- Added VRLOG provenance metadata tracking and clarified percentile computation policy in analysis docs.
-- Refreshed v0.5.0 backlog/plan status for shim removal, schema simplification, config restructure, and documentation standardisation.
+- Added capabilities API surfaces in radar/admin Go endpoints and covered them with new API and radar tests.
+- Wired capabilities through the web client and stores so unfinished LiDAR UI paths can stay hidden until backend support is present.
+- Updated the web frontend consolidation plan to reflect the new capability-gating approach.
+- Fixed `StreamFrames` hang conditions in replay endpoints to prevent stuck frame streams.
+- Added a remote-host upgrade runbook documenting safer deployment and upgrade flow for field systems.
 
-## March 13, 2026 - Agent Stack Overhaul, Light-mode Planning & SSE Fix
+## March 22, 2026 - Schema Hardening, Track Cleanup & Canonical Docs
 
-- Reworked AI-agent tooling from the earlier Jess PM prototype into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack, with portraits, `.github/knowledge/` modules, updated Copilot instructions, and helper scripts.
-- Standardised header metadata to bullet-list format (`- **Key:** value`) across all documentation files.
-- Added macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
-- Fixed SSE subscribers to receive test payloads end-to-end — buffered serialmux subscriber channels, added subscriber registration wait, tightened `prepareForNewReplay` resets in `AppState`.
+- Hardened the pre-v0.5.0 schema path across SQL and Go — added replay annotation/evaluation integrity migration work and strengthened label-path coverage.
+- Regenerated schema artefacts and refreshed `VRLOG_FORMAT.md`, LiDAR architecture docs, and schema-hardening documentation.
+- Added troubleshooting and planning material for schema robustness and garbage-track investigation.
+- Cleaned up LiDAR track persistence and analysis paths, including the new `lidar_all_tracks` view, schema updates, export/report changes, and related tests.
+- Made docs more canonical across Python/docs surfaces and standardised pre-v1.0 release naming.
 
-## March 12, 2026 - Shim Removal, Tagged Loggers & Codecov Flags
+## March 21, 2026 - L8-L10 Refactor, CLI Networking & Storage Cleanup
 
-- Completed v0.5.0 [backward-compatibility shim removal](plans/v050-backward-compatibility-shim-removal-plan.md) across Go sweep package (14 legacy `SweepRequest` fields), TypeScript, Python PDF generation, and Swift — coordinated removal of dual-format parsing and fallback stubs with broad test rewrites.
-- Introduced tagged diagnostic loggers across the LiDAR stack, replacing direct `log` package usage with package-scoped tagged loggers for `network` and `analysis` packages; widened `speed_ratio` instrumentation across monitor, sweep, PCAP, and VRLOG tools.
-- Updated Codecov targets — explicit 95% project/patch thresholds, component-specific 98% for radar-go, web, and Svelte.
-- Added [LiDAR tracks table consolidation plan](plans/lidar-tracks-table-consolidation-plan.md) — analysed `lidar_tracks` vs `lidar_run_tracks` duplication across schema, Go structs, and SQL.
-- Added [typed UUID prefix convention](plans/platform-typed-uuid-prefixes-plan.md) and documented VRLOG run comparison experiment with bug findings and test plan.
-- Updated [L8–L10 plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) with backlog items and phased subphase structure.
+- Landed the large L8-L10 refactor across Go packages and docs — reshaped server/package boundaries, updated routes, and continued the monitor → endpoint/client split.
+- Moved LiDAR network settings fully to CLI/runtime flags, trimming duplicated config-file state and updating radar/config docs and tests.
+- Broke up large `internal/api` server files into narrower admin, middleware, radar, reports, sites, and timeline units.
+- Broke up large `internal/db`, `internal/lidar/l2frames`, and `internal/lidar/l5tracks` files into more focused storage, frame-builder, and tracking units.
+- Split tuning/background internals into cleaner accessors, codec, validation, background-manager, and region-specific files.
+- Refactored SQLite access through shared storage interfaces for labels and server-facing codepaths.
+- Continued general tech-debt cleanup across reports, tracking update logic, transit tooling, and plan/backlog alignment.
+- Fixed context propagation and serialmux race issues.
+- Refreshed ERD column layout in generated schema docs.
+
+## March 20, 2026 - Config Refactor & Migration Tooling
+
+- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in `cmd/radar`.
+- Added `config-migrate` with broad coverage for moving existing configs onto the new layout.
+- Added `config-validate` to check migrated/runtime configs before deployment.
+- Expanded radar flag and config-path test coverage substantially.
+- Propagated config changes through PCAP and settling tooling, with matching documentation and example refreshes.
+
+## March 19, 2026 - Breaking Migration Merge & Immutable Run Config Planning
+
+- Landed the breaking schema cleanup across SQL, Go, web, and macOS surfaces.
+- Regenerated schema artefacts and aligned v0.5.0 backlog/plan updates around the migration.
+- Added the immutable run-config asset plan.
+- Added canonical project-files planning for documentation and AI/customisation structure.
+- Added Go cleanup planning covering structural hygiene, god-file splitting, and structured logging.
+- Expanded Go coverage across frame-builder, monitor, visualiser, analysis, DB, and HTTP utility codepaths.
+- Strengthened DB-boundary handling with alignment planning and import-check tooling.
+
+## March 18, 2026 - Contributor Refresh, Schema Planning & Homepage Download
+
+- Rewrote `CONTRIBUTING.md` with updated contributor guidance, personas, and workflow expectations.
+- Expanded the v0.5.0 breaking-schema update plan to cover migration sequencing and cleanup scope.
+- Added `VelocityVisualiser.app` download and promo assets to the homepage, including supporting media/conversion tooling.
+
+## March 17, 2026 - Shim Removal, MATRIX Inventory & Sweep Worker Planning
+
+- Removed remaining backward-compatibility shims across Go, macOS, and Python surfaces, with matching backlog and plan updates.
+- Added the Matrix Tracer agent and the new `list-matrix-fields.py` inventory tooling.
+- Expanded `MATRIX.md` substantially and updated supporting structure docs around live implementation inventory.
+- Added HINT metric observability planning and related data-structure remediation updates.
+- Added the distributed sweep-workers plan.
+- Added the 100-line plan and checked in experiment notes / documentation cleanup across docs and Python.
+
+## March 16, 2026 - Header Standardisation & Backlog Prune
+
+- Standardised documentation headers to bullet-list metadata format (`- **Key:** value`) across the repo and updated related tooling/docs to match.
+- Pruned backlog and decisions entries via Flo's weekly planning pass, tightening milestone scope and decision tracking.
+
+## March 14, 2026 - Data Reorganisation, VRLOG Refresh & UK Spelling
+
+- Reworked VRLOG labelling and replay contracts across Go, Swift, and tooling — refreshed label APIs, run-track endpoints, replay handlers, recorder encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` support.
+- Expanded macOS visualiser run-browser and labelling flows alongside the VRLOG changes.
+- Added and refreshed VRLOG analysis / format documentation, terminology notes, and related backlog references.
+- Reshaped the `data/` tree — moved structures and maths material into `data/structures/` and `data/maths/`, added `data/explore/`, and relocated exploratory analysis outputs.
+- Normalised British English and refreshed repo-wide cross-references, including `convergence-neighbour` naming and documentation path fixes.
+
+## March 12, 2026 - Agent Stack Refresh, Light-mode Plan & SSE Delivery Fix
+
+- Reworked AI-agent tooling into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack.
+- Added `.github/knowledge/`, `TENETS.md`, portraits, and refreshed agent/instruction docs around the new stack.
+- Added the macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
+- Fixed SSE subscribers receiving test payloads end-to-end — buffered serialmux subscriber channels, tightened subscriber registration timing, and updated replay reset handling in `AppState`.
 
 ## March 11, 2026 - Dual Frame Representation & Naming Standardisation
 
