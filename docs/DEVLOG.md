@@ -197,6 +197,7 @@
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
 - Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) documentation with visualisation details.
+
 ## February 21, 2026 - Release v0.5.0
 
 - Released version 0.5.0 with HINT tuning system, VRLog replay, 6-layer LiDAR alignment, serial port hot-reload, and macOS visualiser M5–M7.

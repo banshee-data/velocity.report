@@ -43,23 +43,20 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## [0.5.0] - 2026-03-23 🌞 `Sunny Southeast`
+## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 
 ### macOS Visualiser
 
 #### Added
 
-- **M5: Algorithm Upgrades**
-  - Hungarian association for improved track-to-detection matching
-  - Ground removal filtering for cleaner point clouds
-  - Oriented Bounding Box (OBB) estimation with per-frame dimensions
-  - Occlusion coasting for tracks temporarily hidden behind obstacles
-- **M6: Debug Overlays**
-  - Gating ellipses, association lines, and residual visualisations via gRPC
-  - Label API handlers for track annotation
-- **M7: Performance Hardening**
-  - Swift buffer pooling and `PointCloudFrame` reference counting
-  - Frame skip cooldown for sustained rendering performance
+- Hungarian association for improved track-to-detection matching
+- Ground removal filtering for cleaner point clouds
+- Oriented Bounding Box (OBB) estimation with per-frame dimensions
+- Occlusion coasting for tracks temporarily hidden behind obstacles
+- Gating ellipses, association lines, and residual visualisations via gRPC
+- Label API handlers for track annotation
+- Swift buffer pooling and `PointCloudFrame` reference counting
+- Frame skip cooldown for sustained rendering performance
 - Ground reference grid toggle and background grid points toggle
 - Track filtering with dual-handle range slider
 - Run browser and run-track labelling support with side panel for track selection
@@ -112,6 +109,19 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - Dependency injection interfaces: `CommandExecutor`, `UDPSocket`, `PCAPReader`, `DataSourceManager`
 - `DirectBackend` for sweep runner, replacing HTTP client for in-process execution
 - Schema/version stamp fields in sweep persistence
+- **Deterministic run config asset model** — separates reusable parameter sets from exact executed configs and per-execution metadata
+  - New tables `lidar_param_sets` and `lidar_run_configs` (migrations 000035–000036)
+  - Three-layer model: `requested` parameter sets, `effective` executed configs, execution records
+  - `config_hash` (SHA-256 of effective params + build identity) guarantees same build + same params = identical config
+  - `AnalysisRunManager` as single-source run creator with deduplicated config asset resolution
+  - VRLOG metadata includes `config_hash`, `params_hash`, and embedded build provenance
+  - Backfill tool at `cmd/tools/backfill_lidar_run_config` for historical rows
+  - Legacy `params_json` removed from `lidar_run_records`, `lidar_replay_cases`, and `lidar_replay_evaluations`
+- Schema simplification: dropped deprecated speed percentile columns from `lidar_tracks` (migration 000030)
+- Table naming standardisation: `lidar_track_obs` → `lidar_track_observations` and related renames (migration 000031)
+- `lidar_all_tracks` convenience view for cross-table SQL queries (migration 000032)
+- `lidar_replay_annotations` table with evaluation integrity constraints (migration 000033)
+- Schema hardening: FK constraint enforcement and orphan row cleanup (migration 000034)
 
 #### Changed
 
@@ -168,6 +178,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - LiDAR refactor plans for package restructuring
 - `BACKLOG.md` for deferred work items
 - CONTRIBUTING guide
+- Immutable run config operations guide (`docs/lidar/operations/immutable-run-config.md`)
 
 #### Changed
 
@@ -179,6 +190,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 #### Added
 
 - End-to-end test support in CI pipeline
+- Schema ERD tooling: configuration-driven layout with `erd-config.json`, `--layout` flag, and `schema-erd-report` target
 
 #### Changed
 
