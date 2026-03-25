@@ -145,7 +145,7 @@ files). Claims without artefacts are anecdotes.
 
 Read next:
 
-- [data/questions.md](data/questions.md): full index of
+- [data/QUESTIONS.md](data/QUESTIONS.md): full index of
   open research questions across the pipeline, grouped by
   theme with acceptance criteria and evidence requirements
 - [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
