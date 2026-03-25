@@ -136,7 +136,7 @@ jobs:
             > tools/visualiser-macos/VelocityVisualiser/App/BuildInfo.swift
 
       - name: Import Developer ID certificate
-        if: env.MACOS_CERTIFICATE != ''
+        if: secrets.MACOS_CERTIFICATE != ''
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -169,7 +169,7 @@ jobs:
             build
 
       - name: Codesign app
-        if: env.MACOS_CERTIFICATE != ''
+        if: secrets.MACOS_CERTIFICATE != ''
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
         run: make sign-mac
@@ -178,7 +178,7 @@ jobs:
         run: make dmg-mac-release
 
       - name: Notarise and staple DMG
-        if: env.NOTARY_KEY != ''
+        if: secrets.NOTARY_KEY != ''
         env:
           NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
@@ -186,7 +186,7 @@ jobs:
         run: make notarise-mac DMG_SUFFIX=
 
       - name: Verify signatures
-        if: env.MACOS_CERTIFICATE != ''
+        if: secrets.MACOS_CERTIFICATE != ''
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
         run: make verify-mac DMG_SUFFIX=

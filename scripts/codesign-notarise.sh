@@ -12,7 +12,7 @@
 #   verify    Run codesign, spctl, and stapler validation checks.
 #
 # Environment / Make variables:
-#   CODESIGN_IDENTITY   Developer ID Application identity (default: auto-detect).
+#   CODESIGN_IDENTITY   Developer ID Application identity (default: "Developer ID Application").
 #   NOTARY_PROFILE      Keychain notarytool profile name  (default: "velocity-report").
 #   NOTARY_KEY          App Store Connect API key path    (alternative to profile).
 #   NOTARY_KEY_ID       API key ID                        (requires NOTARY_KEY).
@@ -128,12 +128,12 @@ cmd_notarise() {
   [ -f "$dmg" ] || die "DMG not found: $dmg"
   require_macos
 
-  local auth
-  auth=$(notary_auth_flags)
+  local -a auth
+  # shellcheck disable=SC2207
+  auth=($(notary_auth_flags))
 
   step "Submitting $dmg for notarisation"
-  # shellcheck disable=SC2086
-  xcrun notarytool submit "$dmg" $auth --wait
+  xcrun notarytool submit "$dmg" "${auth[@]}" --wait
   ok "Notarisation accepted"
 
   step "Stapling notarisation ticket"
