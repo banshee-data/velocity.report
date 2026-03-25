@@ -39,6 +39,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- LiDAR background grid display bug — `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix — `S`
 - Light mode theme compliance — fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables — [design doc §12](ui/design-review-and-improvement.md) `S`
 - Agent knowledge architecture — extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection — [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
