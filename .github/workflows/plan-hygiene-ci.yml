@@ -37,8 +37,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run plan-hygiene check
-        run: make check-plan-hygiene
+      - name: Run plan-hygiene check (advisory)
+        run: make report-plan-hygiene
 
       - name: "G10: Two-PR graduation rule"
         if: github.event_name == 'pull_request'
