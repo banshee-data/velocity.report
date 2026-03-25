@@ -251,6 +251,22 @@ def split_level_groups_into_columns(level_groups, table_lookup, column_count):
     if not filtered_levels:
         return []
 
+    total_tables = sum(len(lv) for lv in filtered_levels)
+    column_count = max(1, min(column_count, total_tables))
+
+    # When more columns are requested than topo levels exist, expand
+    # large levels into single-table sub-levels so balanced_partition
+    # has enough items to distribute.
+    if column_count > len(filtered_levels):
+        expanded = []
+        for level_names in filtered_levels:
+            if len(level_names) == 1:
+                expanded.append(level_names)
+            else:
+                for name in level_names:
+                    expanded.append([name])
+        filtered_levels = expanded
+
     column_count = max(1, min(column_count, len(filtered_levels)))
     if column_count == len(filtered_levels):
         return filtered_levels
@@ -323,10 +339,12 @@ def emit_lidar_subgroup(
 
     column_count = lidar_subgroup_column_count(names, table_lookup)
     if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
+        levels = topo_levels(names, parents, children)
+        levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
         columns = list(
             reversed(
                 split_level_groups_into_columns(
-                    topo_levels(names, parents, children),
+                    levels,
                     table_lookup,
                     column_count,
                 )
@@ -373,9 +391,7 @@ def _apply_node_order_overrides(cluster_levels, cluster_name):
             override_order = noo[level_key]
             existing = set(result[level_idx])
             reordered = [t for t in override_order if t in existing]
-            reordered.extend(
-                t for t in result[level_idx] if t not in set(reordered)
-            )
+            reordered.extend(t for t in result[level_idx] if t not in set(reordered))
             result[level_idx] = reordered
     return result
 
@@ -388,9 +404,7 @@ def _compute_positions(grouped_nodes, parents, children):
         if not tables:
             continue
         sorted_tables = sorted(tables, key=lambda item: item[0])
-        levels = topo_levels(
-            [name for name, _ in sorted_tables], parents, children
-        )
+        levels = topo_levels([name for name, _ in sorted_tables], parents, children)
         levels = _apply_node_order_overrides(levels, cluster_name)
         for level_idx, level_names in enumerate(levels):
             for pos, name in enumerate(level_names):
@@ -434,9 +448,7 @@ def _detect_crossings(positions, all_edges):
             for j in range(i + 1, len(edge_list)):
                 a_lo, a_hi, a_from, a_to = edge_list[i]
                 b_lo, b_hi, b_from, b_to = edge_list[j]
-                if (a_lo < b_lo and a_hi > b_hi) or (
-                    a_lo > b_lo and a_hi < b_hi
-                ):
+                if (a_lo < b_lo and a_hi > b_hi) or (a_lo > b_lo and a_hi < b_hi):
                     crossings.append(
                         {
                             "edge_a": (a_from, a_to),
@@ -521,9 +533,7 @@ def _emit_report(grouped_nodes, all_edges, positions):
         lines.append("| Child | Parent | From cluster | To cluster |")
         lines.append("|-------|--------|-------------|-----------|")
         for child, parent, c_cl, p_cl in cross_cluster:
-            lines.append(
-                f"| `{child}` | `{parent}` | {c_cl} | {p_cl} |"
-            )
+            lines.append(f"| `{child}` | `{parent}` | {c_cl} | {p_cl} |")
         lines.append("")
     else:
         lines.append("No cross-cluster foreign keys found.")
@@ -544,9 +554,7 @@ def _emit_report(grouped_nodes, all_edges, positions):
             by_cluster[c["cluster"]].append(c)
         for cluster_name, label in CLUSTERS:
             cluster_crossings = by_cluster.get(cluster_name, [])
-            lines.append(
-                f"### {label} \u2014 {len(cluster_crossings)} crossings"
-            )
+            lines.append(f"### {label} \u2014 {len(cluster_crossings)} crossings")
             lines.append("")
             if cluster_crossings:
                 lines.append(
@@ -555,15 +563,9 @@ def _emit_report(grouped_nodes, all_edges, positions):
                 )
                 lines.append("|---|---|---|---|")
                 for idx, c in enumerate(cluster_crossings, 1):
-                    ea = (
-                        f"`{c['edge_a'][0]}` \u2192 `{c['edge_a'][1]}`"
-                    )
-                    eb = (
-                        f"`{c['edge_b'][0]}` \u2192 `{c['edge_b'][1]}`"
-                    )
-                    lines.append(
-                        f"| {idx} | {ea} | {eb} | {c['levels']} |"
-                    )
+                    ea = f"`{c['edge_a'][0]}` \u2192 `{c['edge_a'][1]}`"
+                    eb = f"`{c['edge_b'][0]}` \u2192 `{c['edge_b'][1]}`"
+                    lines.append(f"| {idx} | {ea} | {eb} | {c['levels']} |")
                 lines.append("")
     else:
         lines.append("No within-cluster crossings detected.")
@@ -580,8 +582,7 @@ def _emit_report(grouped_nodes, all_edges, positions):
         )
         lines.append("")
         lines.append(
-            "| Child \u2192 Parent | Cluster | Span"
-            " | Child level | Parent level |"
+            "| Child \u2192 Parent | Cluster | Span" " | Child level | Parent level |"
         )
         lines.append("|---|---|---|---|---|")
         for child, parent, cluster, span, c_lev, p_lev in long_edges:
@@ -612,13 +613,8 @@ def _emit_report(grouped_nodes, all_edges, positions):
             cluster = c["cluster"]
             for edge_key in ("edge_a", "edge_b"):
                 for table in c[edge_key]:
-                    if (
-                        table in positions
-                        and positions[table][0] == cluster
-                    ):
-                        reorder_targets[
-                            (cluster, positions[table][1])
-                        ].add(table)
+                    if table in positions and positions[table][0] == cluster:
+                        reorder_targets[(cluster, positions[table][1])].add(table)
 
         for (cluster, level), tables in sorted(reorder_targets.items()):
             suggestion_idx += 1
@@ -629,15 +625,11 @@ def _emit_report(grouped_nodes, all_edges, positions):
                 f" Reorder level {level} in `{cluster}` cluster"
             )
             lines.append("")
-            lines.append(
-                f"Tables involved in crossings: {table_md}"
-            )
+            lines.append(f"Tables involved in crossings: {table_md}")
             lines.append("")
             lines.append("```json")
             lines.append('"node_order_overrides": {')
-            lines.append(
-                f'  "{cluster}": {{ "{level}": [{table_json}] }}'
-            )
+            lines.append(f'  "{cluster}": {{ "{level}": [{table_json}] }}')
             lines.append("}")
             lines.append("```")
             lines.append("")
@@ -650,9 +642,7 @@ def _emit_report(grouped_nodes, all_edges, positions):
             f" (span {span})"
         )
         lines.append("")
-        lines.append(
-            "Higher weight pulls connected nodes closer together."
-        )
+        lines.append("Higher weight pulls connected nodes closer together.")
         lines.append("")
         lines.append("```json")
         lines.append('"edge_weight_overrides": {')
@@ -819,6 +809,10 @@ def main() -> int:
         output_lines.append(header.strip("\n"))
     if "newrank=" not in header:
         output_lines.append("newrank=true")
+    for attr_key, attr_val in _layout_overrides.get("graph_attributes", {}).items():
+        if attr_key.startswith("_"):
+            continue
+        output_lines.append(f"{attr_key}={attr_val}")
 
     cluster_bounds = {}
     radar_component_left_anchors = []
@@ -841,9 +835,7 @@ def main() -> int:
         cluster_levels = topo_levels(
             [name for name, _ in sorted_tables], parents, children
         )
-        cluster_levels = _apply_node_order_overrides(
-            cluster_levels, cluster_name
-        )
+        cluster_levels = _apply_node_order_overrides(cluster_levels, cluster_name)
         ordered_tables = [
             name for level_names in cluster_levels for name in level_names
         ]
@@ -926,9 +918,7 @@ def main() -> int:
 
     for ie in _layout_overrides.get("invisible_edges", []):
         w = ie.get("weight", 50)
-        output_lines.append(
-            f'{ie["from"]} -> {ie["to"]} [style="invis", weight={w}];'
-        )
+        output_lines.append(f'{ie["from"]} -> {ie["to"]} [style="invis", weight={w}];')
 
     weight_overrides = _layout_overrides.get("edge_weight_overrides", {})
     for line in tail_lines:

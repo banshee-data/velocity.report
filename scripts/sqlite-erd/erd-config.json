@@ -21,8 +21,8 @@
     "second_row_subgroup": "other",
     "second_row_alignment_subgroup": "analysis_runs",
     "min_columns": 2,
-    "max_columns": 4,
-    "target_weight": 36
+    "max_columns": 6,
+    "target_weight": 20
   },
   "layout_overrides": {
     "_doc": [
@@ -31,11 +31,55 @@
       "  Higher weight = shorter, more vertical edge.",
       "invisible_edges: alignment edges added between tables (not rendered).",
       "node_order_overrides: per-cluster, per-level table ordering.",
-      "  Keys are cluster names; values map level number (string) to table list."
+      "  Keys are cluster names; values map level number (string) to table list.",
+      "  For LIDAR subgroups, use dotted keys: 'lidar.tracks', 'lidar.analysis_runs', etc.",
+      "  The plain 'lidar' key applies only to the crossing report, not the full layout.",
+      "graph_attributes: Graphviz graph-level attributes (ranksep, nodesep, ratio, etc)."
     ],
+    "graph_attributes": {
+      "ranksep": "\"0.8\"",
+      "nodesep": "\"0.4\""
+    },
     "rank_hints": [],
-    "edge_weight_overrides": {},
+    "edge_weight_overrides": {
+      "lidar_replay_evaluations -> lidar_run_records": 100,
+      "lidar_run_missed_regions -> lidar_run_records": 100,
+      "lidar_run_records -> lidar_param_sets": 100,
+      "lidar_run_tracks -> lidar_run_records": 100
+    },
     "invisible_edges": [],
-    "node_order_overrides": {}
+    "node_order_overrides": {
+      "lidar": {
+        "0": [
+          "lidar_param_sets",
+          "lidar_replay_annotations",
+          "lidar_replay_evaluations",
+          "lidar_run_tracks",
+          "lidar_bg_snapshot",
+          "lidar_tracks",
+          "lidar_run_missed_regions",
+          "lidar_clusters",
+          "lidar_tuning_sweeps"
+        ],
+        "1": [
+          "lidar_run_configs",
+          "lidar_replay_cases",
+          "lidar_bg_regions",
+          "lidar_track_observations"
+        ]
+      },
+      "radar": {
+        "0": [
+          "radar_data",
+          "radar_data_transits",
+          "radar_commands",
+          "radar_objects"
+        ],
+        "1": [
+          "radar_transit_links",
+          "radar_command_log"
+        ]
+      }
+    }
   }
 }
