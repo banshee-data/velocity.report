@@ -351,7 +351,10 @@ def emit_lidar_subgroup(
             )
         )
     else:
-        columns = split_names_into_columns(names, table_lookup, column_count)
+        levels = topo_levels(names, parents, children)
+        levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
+        ordered_names = [n for lv in levels for n in lv]
+        columns = split_names_into_columns(ordered_names, table_lookup, column_count)
     column_heads = []
 
     for index, column_names in enumerate(columns, start=1):
@@ -593,6 +596,140 @@ def _emit_report(grouped_nodes, all_edges, positions):
         lines.append("")
     else:
         lines.append("No long edges found.")
+        lines.append("")
+
+    # DAG analysis — throughlines and per-table upstream/downstream
+    lines.append("## DAG Analysis")
+    lines.append("")
+    lines.append(
+        "FK edges form a DAG within each cluster."
+        " Throughlines are the longest dependency chains."
+        " Upstream = tables this table depends on (parents, grandparents, …)."
+        " Downstream = tables that depend on this table (children, grandchildren, …)."
+        ' With `rankdir="LR"`, downstream tables sit left, upstream tables sit right.'
+    )
+    lines.append("")
+
+    for cluster_name, label in CLUSTERS:
+        cluster_tables = {name for name, _ in grouped_nodes[cluster_name]}
+        if not cluster_tables:
+            continue
+
+        # Build cluster-local adjacency (child → parent edges)
+        c_parents = defaultdict(set)  # table → set of parents
+        c_children = defaultdict(set)  # table → set of children
+        seen_edges = set()
+        for child, parent, _raw in all_edges:
+            if child not in cluster_tables or parent not in cluster_tables:
+                continue
+            if child == parent:
+                continue
+            if (child, parent) not in seen_edges:
+                seen_edges.add((child, parent))
+                c_parents[child].add(parent)
+                c_children[parent].add(child)
+
+        # Transitive closure — upstream (all ancestors) and downstream (all descendants)
+        def _ancestors(table):
+            visited = set()
+            queue = deque(c_parents.get(table, set()))
+            while queue:
+                t = queue.popleft()
+                if t not in visited:
+                    visited.add(t)
+                    queue.extend(c_parents.get(t, set()) - visited)
+            return visited
+
+        def _descendants(table):
+            visited = set()
+            queue = deque(c_children.get(table, set()))
+            while queue:
+                t = queue.popleft()
+                if t not in visited:
+                    visited.add(t)
+                    queue.extend(c_children.get(t, set()) - visited)
+            return visited
+
+        # Longest path (critical throughlines)
+        # Walk the topo levels and find the longest chain of direct FK edges
+        levels = topo_levels(list(cluster_tables), c_parents, c_children)
+
+        # Build longest-path via DP on topo order (leaf → root direction)
+        topo_flat = [n for lv in levels for n in lv]
+        dist = {t: 0 for t in cluster_tables}
+        pred = {t: None for t in cluster_tables}
+        # Process in reverse topo order so we propagate from leaves toward roots
+        for t in reversed(topo_flat):
+            for p in c_parents.get(t, set()):
+                if p == t:
+                    continue
+                new_dist = dist[t] + 1
+                if new_dist > dist[p]:
+                    dist[p] = new_dist
+                    pred[p] = t
+
+        # Find all maximal throughlines (longest paths)
+        max_len = max(dist.values()) if dist else 0
+        throughlines = []
+        if max_len > 0:
+            for start, d in sorted(dist.items(), key=lambda x: -x[1]):
+                if d < max_len:
+                    break
+                path = [start]
+                visited_path = {start}
+                cur = start
+                while pred.get(cur) is not None and pred[cur] not in visited_path:
+                    cur = pred[cur]
+                    visited_path.add(cur)
+                    path.append(cur)
+            # path goes from rightmost (deepest parent) to leftmost (leaf)
+            # Reverse so it reads left→right (downstream → upstream)
+            path.reverse()
+            throughlines.append(path)
+
+        lines.append(f"### {label}")
+        lines.append("")
+
+        if throughlines:
+            lines.append(f"**Longest throughline** ({max_len + 1} tables):")
+            lines.append("")
+            for path in throughlines:
+                arrow = " → ".join(f"`{t}`" for t in path)
+                lines.append(f"- {arrow}")
+            lines.append("")
+
+        # Per-table upstream/downstream
+        lines.append(
+            "| Table | Level | Downstream (depends on this) | Upstream (this depends on) |"
+        )
+        lines.append(
+            "|-------|-------|------------------------------|---------------------------|"
+        )
+        for lv_idx, lv_names in enumerate(levels):
+            for name in lv_names:
+                ds = sorted(_descendants(name))
+                us = sorted(_ancestors(name))
+                ds_str = ", ".join(f"`{t}`" for t in ds) if ds else "—"
+                us_str = ", ".join(f"`{t}`" for t in us) if us else "—"
+                lines.append(f"| `{name}` | {lv_idx} | {ds_str} | {us_str} |")
+        lines.append("")
+
+        # Suggested node_order_overrides based on DAG flow
+        # Order each level so tables with shared upstream/downstream are adjacent
+        lines.append(f"**Suggested `node_order_overrides` for `{cluster_name}`:**")
+        lines.append("")
+        lines.append("```json")
+        order_json = {}
+        for lv_idx, lv_names in enumerate(levels):
+            # Sort by: (number of ancestors descending, number of descendants ascending, name)
+            # This clusters tables with similar depth together
+            sorted_lv = sorted(
+                lv_names,
+                key=lambda t: (-len(_ancestors(t)), len(_descendants(t)), t),
+            )
+            order_json[str(lv_idx)] = sorted_lv
+        lines.append(f'"{cluster_name}": ' + json.dumps(order_json, indent=2))
+        lines.append("```")
         lines.append("")
 
     # Suggestions
