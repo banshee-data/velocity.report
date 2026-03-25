@@ -113,7 +113,25 @@ cmd_notarise() {
   auth=($(notary_auth_flags))
 
   step "Submitting $dmg for notarisation"
-  xcrun notarytool submit "$dmg" "${auth[@]}" --wait
+  local output
+  output=$(xcrun notarytool submit "$dmg" "${auth[@]}" --wait 2>&1) || true
+  echo "$output"
+
+  if echo "$output" | grep -q "status: Invalid"; then
+    echo ""
+    echo "Notarisation failed. Fetching log for details..."
+    local sub_id
+    sub_id=$(echo "$output" | grep "id:" | head -1 | awk '{print $2}')
+    if [ -n "$sub_id" ]; then
+      xcrun notarytool log "${auth[@]}" "$sub_id" 2>&1 || true
+    fi
+    die "Notarisation rejected by Apple. Check the log above."
+  fi
+
+  if ! echo "$output" | grep -q "status: Accepted"; then
+    die "Unexpected notarisation status. Output:\n$output"
+  fi
+
   ok "Notarisation accepted"
 
   step "Stapling notarisation ticket"
