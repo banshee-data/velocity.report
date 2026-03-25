@@ -43,13 +43,137 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## Pre-1.0 Release Families
+## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 
-- `0.5.x` 🌞 `Sunny Southeast`
-- `0.6.x` 🎻 `Ceilí Calling`
-- `0.7.x` ⛰️ `Rebel Realm`
-- `0.8.x` 📶 `Mobile Mesh`
-- `0.9.x` 💬 `Banter Belt`
+A release principally concerned with making the LiDAR pipeline measurably correct rather than hopefully correct, giving the radar server enough structure to be maintained by someone other than the person who wrote it, and building a proper mathematical review process so the algorithms can be argued about with evidence.
+
+### LiDAR
+
+#### Added
+
+- **10-layer data model** — an OSI-style refactor from raw UDP packets (L1) through frame assembly (L2), background grid (L3), perception (L4), tracking (L5), object classification (L6), analytics (L8), HTTP/gRPC endpoints (L9), and embedded dashboard clients (L10). L7 remains planned. Each layer has a clear job and boundary, which helps when you want to change one thing without surprising nine others.
+- **Human-Involved Numerical Tuning (HINT)** — the tuning system formerly known as RLHF, now with a more honest name. Score breakdowns, coverage gates, suspend/resume with checkpoints. Long-polling so you can watch progress without wearing out the refresh button.
+- **VRLog recording and replay** for track labelling — capture live scenes, replay with seek, pause, and rate control. Safe directory validation, because letting software write to arbitrary paths ages badly.
+- **Parameter sweep dashboard** with heatmaps and results tables. Auto-tuning narrows the grid iteratively; settle modes let you choose between optimistic and thorough.
+- **Label-aware auto-tuning** — scoring incorporates human labels with IoU-based confidence, so the system can tell the difference between getting it right and getting lucky.
+- **Deterministic run config** — parameter sets separated from executed configs, with a SHA-256 hash so same build plus same params always equals identical config. Includes a backfill tool for historical data.
+- **gRPC visualiser service** — full protobuf schema for streaming point clouds, track state, and playback control to the macOS visualiser.
+- **L2 dual frame representation** — frames carry both Cartesian and polar points, removing repeated coordinate rebuilds through the pipeline.
+- L8 analytics: track comparison, label summary, and per-run reporting.
+- L9 endpoints: HTTP adapter, chart data transforms, grid plotter, debug endpoints, gRPC frame streaming, and embedded dashboard/region clients.
+- Label taxonomy simplified: `car`/`ped` replace the verbose originals; `impossible` remapped to `noise`, which is more useful to everyone.
+- Provenance tracking for labels, with match confidence.
+- Hungarian association for track-to-detection matching.
+- Ground removal filtering for cleaner point clouds.
+- OBB heading stability with 90° jump rejection guard and heading source tracking.
+- Height band filtering, per-frame OBB dimensions, cluster size filtering, and track pruning.
+- Region-adaptive parameters: per-region closeness multiplier and neighbour confirmation count.
+- Settling evaluation for background grid convergence from PCAP files.
+- PCAP performance hardening: deadlock fix, DBSCAN decimation with foreground point cap, local random generators for concurrent subsampling.
+- Defaults loaded from config file instead of hardcoded values.
+- Dependency injection for sockets, PCAP readers, and data sources.
+- In-process sweep backend, replacing the HTTP client that was phoning itself.
+- Schema migrations 000029–036: label vocabulary expansion, deprecated columns dropped, tables renamed for consistency, convenience views, replay annotations with integrity constraints, FK enforcement, orphan cleanup, and run config asset tables.
+
+#### Changed
+
+- Large file breakup across `internal/api`, `internal/db`, `l2frames`, `l3grid`, `l5tracks`, and storage packages — narrower files, shared storage interfaces, cleaner package boundaries.
+- UDP listener refactored with socket factory for testability.
+- Frame callbacks serialised to prevent data races.
+- Configuration consolidated into a single struct with fluent setters; config restructured from flat to layer-scoped nested schema.
+- Structured logging: replaced debug flags with `--log-level` flag and diagnostic/ops/trace levels.
+- Max frame rate raised to 25 to prevent drops; miss counter paused during frame throttle.
+
+#### Fixed
+
+- Route conflict from duplicate registrations.
+- Race condition in VRLog seek.
+- `finalizeFrame` deadlock in PCAP processing.
+- Integer overflow in temporal spread — the kind of bug that waits patiently for large numbers.
+- PCAP replay file path handling.
+- Out-of-bounds error in tuning parameters.
+- Context propagation and serialmux race conditions.
+
+### Radar
+
+#### Added
+
+- Interactive map component for site visualisation.
+- CLI flags for config file, log level, LiDAR forwarding, gRPC listen, and PDF paths.
+- Capability reporting for hardware features, used to gate unfinished UI paths.
+- LiDAR integration helpers for radar startup wiring.
+
+#### Changed
+
+- Server split from one large file into focused sub-files (admin, middleware, radar, reports, sites, timeline). Easier to find things, harder to cause accidental damage.
+- Serial multiplexer refactored with factory pattern and mock for testability.
+- Documentation updated to match reality: Makefile targets (59 → 101), Go 1.25+, SQLite 3.51.2.
+
+### UI
+
+#### macOS Visualiser
+
+- **Full macOS visualiser** built from scratch: SwiftUI + Metal + gRPC, from protobuf schema to packaged DMG.
+- Real point cloud ingestion at 70k+ points/30fps; split streaming cuts bandwidth from 78 Mbps to 3 Mbps.
+- Algorithm and debug overlays: OBB rendering, gating ellipses, association lines, ground removal, occlusion state.
+- Track labelling with run browser, keyboard shortcuts (1–9), inspector, and arrow-key navigation.
+- Buffer management, reference counting, and frame rate throttling.
+- Versioned DMG packaging with Finder-layout automation; `AboutView` with licensing and build metadata.
+- 1,032 unit tests; `ContentView` coverage at 86.65%.
+
+#### PDF Generator
+
+- Minimal precompiled TeX configuration.
+- CI tests use a trimmed TeX tree instead of full TeX Live, saving the kind of download time that makes you reconsider your choices.
+
+#### Web Frontend
+
+- **Sweep dashboard** with HINT mode toggle and auto-tuning recommendation card.
+- LiDAR runs, replay-cases, and sweeps pages; capability gating for unfinished paths.
+- Interactive map, gap detection in track visualisations, chart rebuild with layerchart and D3.
+- Shared colour palette module and CSS utility classes.
+
+### Platform
+
+#### CLI Tools
+
+- **Config tools** — `config-migrate` and `config-validate` for the restructured layout.
+- **Analysis tools** — `settling-eval`, `vrlog-analyse`, and `pcap-analyse` for convergence evaluation, track metrics, and batch categorisation.
+- **Dev tools** — `gen-vrlog`, `visualiser-server`, and `backfill_lidar_run_config` for synthetic data, standalone gRPC, and historical backfill.
+
+#### Scripts
+
+- CI lint checks: British spelling, doc headers, Mermaid blocks, prose width, link validation, Go import hygiene.
+- Build and packaging: minimal TeX tree, DMG creation, version bumping, LFS validation.
+- Agent and PM automation: planning review, standup, drift detection.
+- Analysis and profiling: Xcode-to-lcov coverage conversion, macOS profiling, surface inventory tracing, schema ERD suite.
+
+#### Build and CI
+
+- Four new workflows: nightly full-CI, macOS-dedicated, documentation hygiene, and config ordering.
+- Makefile expanded from 59 to 101 targets; CI TeX packages trimmed by ~500 MB.
+- Schema ERD tooling with configuration-driven layout; shared web cache for worktrees.
+
+#### Agent Personas
+
+- Seven agent personas (Appius, Euler, Flo, Grace, Malory, Ruth, Terry) with Matrix Tracer for surface inventory, eight shared knowledge modules, and `TENETS.md` project constitution.
+
+#### Maths Review
+
+- Four specifications (classification, clustering, ground-plane, background settling) plus six proposals covering unified settling, foreground extraction, vector scene maths, geometry-coherent tracking, OBB heading stability, and pose-anchor maths.
+- 52-entry BibTeX bibliography; coordinate-flow audit documenting polar/Cartesian transitions per stage.
+
+#### Documentation
+
+- 10-layer data model docs, design principles, VRLOG format spec, decisions register (16 resolved), CONTRIBUTING guide, and VISION statement.
+- Audit of 29 LiDAR docs — found and fixed 12 discrepancies before they could become folklore.
+- Site restructured to `public_html` with Tailwind CSS v4; vector scene map with OSM Simple 3D Buildings.
+
+#### Version Upgrades
+
+- **Go**: 1.25.3 → 1.25.6; `modernc.org/sqlite` v1.42 → v1.46; `gonum` v0.16 → v0.17; added gRPC v1.79, protobuf v1.36, testify v1.11.
+- **Python**: `pandas` 2.2 → 3.0; `numpy` 2.3 → 2.4; `scipy` 1.16 → 1.17; `ruff` 0.14 → 0.15.
+- **Web**: `svelte` 5.46 → 5.53; `eslint` 9 → 10; `tailwindcss` 4.1 → 4.2.
 
 ## [0.4.0] - 2026-01-29
 

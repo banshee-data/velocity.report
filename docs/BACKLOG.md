@@ -8,10 +8,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## 05x Sunny Southeast 🌞
 
-### v0.5.0 - Platform Hardening (050)
-
-- [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
-
 ### v0.5.1 - Data Contracts + Layer Foundations (051)
 
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
@@ -163,6 +159,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#286] Web palette compliance — palette.ts created with canonical DESIGN.md §3.3 values; colorMap/cRange removed — [design doc §1.1](ui/design-review-and-improvement.md)
 - [#287] LiDAR logging stream split — Opsf/Diagf/Tracef streams replacing Debugf/classifier, with ops/debug/trace routing rubric — [design doc](lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
 - [#291] PR template design checklist — add DESIGN.md §9 UI/chart checklist to .github/PULL_REQUEST_TEMPLATE.md — [design doc §8.2](ui/design-review-and-improvement.md)
+- [#297] v0.5.0 breaking changes — release notes consolidation for all breaking changes shipped since v0.4.0 — [design doc](plans/platform-simplification-and-deprecation-plan.md) `S`
 - [#298] macOS versioned DMG export — `create-dmg.sh` with Finder window layout for drag-to-install DMG, CI DMG job scoped to tag pushes — [design doc](plans/deploy-distribution-packaging-plan.md)
 - [#319] Settling optimisation Phase 3 — convergence/evaluation tooling — [design doc](lidar/operations/settling-time-optimisation.md)
 - [#320] Python venv consolidation — Makefile uses root .venv/; remove stale tools/pdf-generator/.venv — [design doc](plans/tooling-python-venv-consolidation-plan.md)
