@@ -33,8 +33,19 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, "erd-config.json")
 
 def _load_config():
     """Load ERD configuration from erd-config.json."""
-    with open(CONFIG_PATH) as fh:
-        return json.load(fh)
+    try:
+        with open(CONFIG_PATH) as fh:
+            cfg = json.load(fh)
+    except FileNotFoundError:
+        sys.stderr.write(f"Error: config not found: {CONFIG_PATH}\n")
+        raise SystemExit(1)
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(f"Error: malformed JSON in {CONFIG_PATH}: {exc}\n")
+        raise SystemExit(1)
+    if "clusters" not in cfg:
+        sys.stderr.write(f"Error: missing required key 'clusters' in {CONFIG_PATH}\n")
+        raise SystemExit(1)
+    return cfg
 
 
 # Configuration is loaded lazily to avoid crashing at import time if
@@ -387,6 +398,7 @@ def main() -> int:
         help="full: structured layout with subgroups; auto: family clusters only",
     )
     args = parser.parse_args()
+    _init_config()
 
     dot = sys.stdin.read()
     if not dot.strip():

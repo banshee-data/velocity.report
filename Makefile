@@ -950,13 +950,13 @@ LAYOUT ?= full
 # Generate schema ERD (Entity-Relationship Diagram) as SVG
 schema-erd:
 	@echo "Generating schema ERD SVG (layout=$(LAYOUT))..."
-	@bash scripts/sqlite-erd/graph.sh --layout $(LAYOUT) --generate internal/db/schema.sql
+	@bash scripts/sqlite-erd/graph.sh --layout '$(LAYOUT)' --generate internal/db/schema.sql
 
 # Generate schema ERD DOT from schema.sql
 schema-erd-dot:
 	@DOT_FILE="$${DOT:-data/structures/SCHEMA.dot}"; \
 		echo "Generating schema ERD DOT at $$DOT_FILE (layout=$(LAYOUT))..."; \
-		bash scripts/sqlite-erd/graph.sh --layout $(LAYOUT) --generate-dot --dot-output "$$DOT_FILE" internal/db/schema.sql
+		bash scripts/sqlite-erd/graph.sh --layout '$(LAYOUT)' --generate-dot --dot-output "$$DOT_FILE" internal/db/schema.sql
 
 # Render schema ERD SVG from an existing DOT file
 schema-erd-from-dot:
