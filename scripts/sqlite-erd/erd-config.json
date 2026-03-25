@@ -13,13 +13,10 @@
     { "name": "radar", "label": "RADAR" }
   ],
   "lidar_subgroups": {
-    "roots": {
-      "analysis_runs": "lidar_run_records",
-      "tracks": "lidar_tracks"
-    },
-    "display_order": ["tracks", "analysis_runs", "other"],
-    "second_row_subgroup": "other",
-    "second_row_alignment_subgroup": "analysis_runs",
+    "roots": {},
+    "display_order": ["other"],
+    "second_row_subgroup": "",
+    "second_row_alignment_subgroup": "",
     "min_columns": 2,
     "max_columns": 6,
     "target_weight": 20
@@ -41,45 +38,8 @@
       "nodesep": "\"0.4\""
     },
     "rank_hints": [],
-    "edge_weight_overrides": {
-      "lidar_replay_evaluations -> lidar_run_records": 100,
-      "lidar_run_missed_regions -> lidar_run_records": 100,
-      "lidar_run_records -> lidar_param_sets": 100,
-      "lidar_run_tracks -> lidar_run_records": 100
-    },
+    "edge_weight_overrides": {},
     "invisible_edges": [],
-    "node_order_overrides": {
-      "lidar": {
-        "0": [
-          "lidar_param_sets",
-          "lidar_replay_annotations",
-          "lidar_replay_evaluations",
-          "lidar_run_tracks",
-          "lidar_bg_snapshot",
-          "lidar_tracks",
-          "lidar_run_missed_regions",
-          "lidar_clusters",
-          "lidar_tuning_sweeps"
-        ],
-        "1": [
-          "lidar_run_configs",
-          "lidar_replay_cases",
-          "lidar_bg_regions",
-          "lidar_track_observations"
-        ]
-      },
-      "radar": {
-        "0": [
-          "radar_data",
-          "radar_data_transits",
-          "radar_commands",
-          "radar_objects"
-        ],
-        "1": [
-          "radar_transit_links",
-          "radar_command_log"
-        ]
-      }
-    }
+    "node_order_overrides": {}
   }
 }
