@@ -72,7 +72,7 @@ vector-scene maths, and optional offline classification work.
 
 The full set of open questions with acceptance criteria
 and evidence requirements lives in
-[data/questions.md](data/questions.md). Here are the
+[data/QUESTIONS.md](data/QUESTIONS.md). Here are the
 highlights — good starting points for a new contributor with
 a data science, ML, or perception background:
 
