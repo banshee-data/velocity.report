@@ -17,7 +17,7 @@ without artefacts are anecdotes.
 **Constraint:** every algorithm must remain inspectable,
 tuneable, and explainable. A model that performs well but
 cannot explain itself is not welcome on the critical path.
-See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md) and
+See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md#data-scientist) and
 [platform-data-science-metrics-first-plan.md](../docs/plans/platform-data-science-metrics-first-plan.md).
 
 ---
