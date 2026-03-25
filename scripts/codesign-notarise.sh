@@ -52,29 +52,9 @@ notary_auth_flags() {
     [ -n "${NOTARY_ISSUER:-}" ] || die "NOTARY_KEY is set but NOTARY_ISSUER is missing."
     echo "--key" "$NOTARY_KEY" "--key-id" "$NOTARY_KEY_ID" "--issuer" "$NOTARY_ISSUER"
   else
-    # Verify the keychain profile exists before we try to use it.
-    if ! security find-generic-password -s "com.apple.gke.notarytool.profile.${NOTARY_PROFILE}" >/dev/null 2>&1; then
-      cat >&2 <<EOF
-Error: Notarisation credentials not found.
-
-No keychain profile "${NOTARY_PROFILE}" and no NOTARY_KEY environment variable.
-
-To configure credentials, choose one of:
-
-  Option A — Keychain profile (recommended for local dev):
-    xcrun notarytool store-credentials "${NOTARY_PROFILE}" \\
-      --apple-id "<APPLE_ID>" --team-id "<TEAM_ID>" \\
-      --password "<APP-SPECIFIC-PASSWORD>"
-
-  Option B — App Store Connect API key (recommended for CI):
-    export NOTARY_KEY=/path/to/AuthKey_XXXX.p8
-    export NOTARY_KEY_ID=XXXXXXXXXX
-    export NOTARY_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-See tools/visualiser-macos/BUILDING.md for details.
-EOF
-      exit 1
-    fi
+    # On macOS 13+, notarytool stores credentials in the Data Protection
+    # keychain which is not searchable via `security find-generic-password`.
+    # Skip the pre-flight check and let notarytool report its own error.
     echo "--keychain-profile" "$NOTARY_PROFILE"
   fi
 }
