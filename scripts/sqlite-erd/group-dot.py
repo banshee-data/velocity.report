@@ -10,9 +10,6 @@ Layout modes (--layout flag):
           and invisible alignment edges for a structured layout.
   auto  — tables clustered by family prefix only; Graphviz handles
           all routing within and between clusters.
-
-The --report flag outputs a markdown crossing analysis instead of DOT.
-An LLM or human can read the report, update erd-config.json, and re-run.
 """
 
 import argparse
@@ -55,6 +52,7 @@ def _load_config():
 # erd-config.json is missing or invalid. Call _init_config() before using
 # any of the derived constants below.
 _config = None
+_layout_overrides = {}
 CLUSTERS = ()
 _lidar = {}
 LIDAR_SUBGROUP_ROOTS = ()
@@ -65,7 +63,6 @@ LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
 LIDAR_SUBGROUP_MIN_COLUMNS = 2
 LIDAR_SUBGROUP_MAX_COLUMNS = 4
 LIDAR_SUBGROUP_TARGET_WEIGHT = 36
-_layout_overrides = {}
 
 
 def _init_config():
@@ -75,14 +72,29 @@ def _init_config():
     global LIDAR_SUBGROUP_DISPLAY_ORDER
     global LIDAR_SECOND_ROW_SUBGROUP, LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP
     global LIDAR_SUBGROUP_MIN_COLUMNS, LIDAR_SUBGROUP_MAX_COLUMNS
-    global LIDAR_SUBGROUP_TARGET_WEIGHT, _layout_overrides
+    global LIDAR_SUBGROUP_TARGET_WEIGHT
+
+    global _layout_overrides
 
     if _config is not None:
         return
 
     _config = _load_config()
+    _layout_overrides = _config.get("layout_overrides", {})
 
-    CLUSTERS = tuple((c["name"], c["label"]) for c in _config.get("clusters", ()))
+    raw_clusters = _config.get("clusters", ())
+    if not isinstance(raw_clusters, list):
+        sys.stderr.write(f"Error: 'clusters' in {CONFIG_PATH} must be a list\n")
+        raise SystemExit(1)
+    for i, c in enumerate(raw_clusters):
+        for key in ("name", "label"):
+            if not isinstance(c.get(key), str):
+                sys.stderr.write(
+                    f"Error: cluster entry {i} in {CONFIG_PATH}"
+                    f" missing or non-string '{key}'\n"
+                )
+                raise SystemExit(1)
+    CLUSTERS = tuple((c["name"], c["label"]) for c in raw_clusters)
 
     _lidar = _config.get("lidar_subgroups", {}) or {}
 
@@ -98,8 +110,6 @@ def _init_config():
     LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
     LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)
     LIDAR_SUBGROUP_TARGET_WEIGHT = _lidar.get("target_weight", 36)
-
-    _layout_overrides = _config.get("layout_overrides", {})
 
 
 def cluster_for(table_name: str) -> str:
@@ -123,30 +133,68 @@ def topo_order(component_names, parents, children):
 
 
 def topo_levels(component_names, parents, children):
+    component_set = set(component_names)
     in_degree = {
         name: len(
             [
                 parent
                 for parent in parents[name]
-                if parent in component_names and parent != name
+                if parent in component_set and parent != name
             ]
         )
         for name in component_names
     }
     levels = {name: 0 for name in component_names}
     queue = deque(sorted(name for name, degree in in_degree.items() if degree == 0))
+    processed = set()
 
     while queue:
         name = queue.popleft()
+        processed.add(name)
         for child in sorted(
             child
             for child in children[name]
-            if child in component_names and child != name
+            if child in component_set and child != name
         ):
             levels[child] = max(levels[child], levels[name] + 1)
             in_degree[child] -= 1
             if in_degree[child] == 0:
                 queue.append(child)
+
+    # Handle cycles: any unprocessed node is stuck in a mutual dependency.
+    # Break cycles by removing the back edge with the fewest children,
+    # then resume Kahn's from the unblocked nodes.
+    stuck = [n for n in component_names if n not in processed]
+    if stuck:
+        # Find the stuck node with fewest children in the cycle — best back-edge
+        # break candidate (removing its parent edges causes least disruption).
+        stuck_set = set(stuck)
+        best = min(
+            stuck,
+            key=lambda n: (
+                len([c for c in children[n] if c in stuck_set]),
+                n,
+            ),
+        )
+        # Treat the chosen node as if its cycle parents were removed
+        levels[best] = (
+            max((levels[p] for p in parents[best] if p in processed), default=0) + 1
+        )
+        processed.add(best)
+        queue.append(best)
+
+        while queue:
+            name = queue.popleft()
+            for child in sorted(
+                child
+                for child in children[name]
+                if child in component_set and child != name
+            ):
+                levels[child] = max(levels[child], levels[name] + 1)
+                in_degree[child] -= 1
+                if in_degree[child] <= 0 and child not in processed:
+                    processed.add(child)
+                    queue.append(child)
 
     grouped_levels = defaultdict(list)
     for name in component_names:
@@ -251,22 +299,6 @@ def split_level_groups_into_columns(level_groups, table_lookup, column_count):
     if not filtered_levels:
         return []
 
-    total_tables = sum(len(lv) for lv in filtered_levels)
-    column_count = max(1, min(column_count, total_tables))
-
-    # When more columns are requested than topo levels exist, expand
-    # large levels into single-table sub-levels so balanced_partition
-    # has enough items to distribute.
-    if column_count > len(filtered_levels):
-        expanded = []
-        for level_names in filtered_levels:
-            if len(level_names) == 1:
-                expanded.append(level_names)
-            else:
-                for name in level_names:
-                    expanded.append([name])
-        filtered_levels = expanded
-
     column_count = max(1, min(column_count, len(filtered_levels)))
     if column_count == len(filtered_levels):
         return filtered_levels
@@ -321,6 +353,28 @@ def balanced_partition(items, weights, column_count):
     return partitions
 
 
+def _apply_node_order_overrides(cluster_levels, cluster_name):
+    """Reorder tables within each level using node_order_overrides from config."""
+    overrides = _layout_overrides.get("node_order_overrides", {})
+    level_overrides = overrides.get(cluster_name, {})
+    if not level_overrides:
+        return cluster_levels
+
+    result = []
+    for lv_idx, lv_names in enumerate(cluster_levels):
+        ordered = level_overrides.get(str(lv_idx))
+        if ordered:
+            lv_set = set(lv_names)
+            # Start with specified order (only tables actually in this level)
+            reordered = [t for t in ordered if t in lv_set]
+            # Append any tables not mentioned in the override
+            reordered.extend(t for t in lv_names if t not in set(reordered))
+            result.append(reordered)
+        else:
+            result.append(list(lv_names))
+    return result
+
+
 def emit_table_nodes(output_lines, indent, names, table_lookup):
     for name in names:
         for line in table_lookup[name].splitlines():
@@ -341,6 +395,7 @@ def emit_lidar_subgroup(
     if subgroup_name in ROOTED_LIDAR_SUBGROUPS:
         levels = topo_levels(names, parents, children)
         levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
+        column_count = max(column_count, len(levels))
         columns = list(
             reversed(
                 split_level_groups_into_columns(
@@ -353,8 +408,12 @@ def emit_lidar_subgroup(
     else:
         levels = topo_levels(names, parents, children)
         levels = _apply_node_order_overrides(levels, f"lidar.{subgroup_name}")
-        ordered_names = [n for lv in levels for n in lv]
-        columns = split_names_into_columns(ordered_names, table_lookup, column_count)
+        column_count = max(column_count, len(levels))
+        columns = list(
+            reversed(
+                split_level_groups_into_columns(levels, table_lookup, column_count)
+            )
+        )
     column_heads = []
 
     for index, column_names in enumerate(columns, start=1):
@@ -375,452 +434,6 @@ def emit_lidar_subgroup(
     if not column_heads:
         return None, None, []
     return column_heads[0], column_heads[-1], column_heads
-
-
-# ---------------------------------------------------------------------------
-# Layout report — crossing analysis and suggestions
-# ---------------------------------------------------------------------------
-
-
-def _apply_node_order_overrides(cluster_levels, cluster_name):
-    """Apply node_order_overrides from config to cluster levels."""
-    noo = _layout_overrides.get("node_order_overrides", {}).get(cluster_name, {})
-    if not noo:
-        return cluster_levels
-    result = [list(level) for level in cluster_levels]
-    for level_idx in range(len(result)):
-        level_key = str(level_idx)
-        if level_key in noo:
-            override_order = noo[level_key]
-            existing = set(result[level_idx])
-            reordered = [t for t in override_order if t in existing]
-            reordered.extend(t for t in result[level_idx] if t not in set(reordered))
-            result[level_idx] = reordered
-    return result
-
-
-def _compute_positions(grouped_nodes, parents, children):
-    """Assign (cluster_name, level, position) to each table."""
-    positions = {}
-    for cluster_name, _ in CLUSTERS:
-        tables = grouped_nodes[cluster_name]
-        if not tables:
-            continue
-        sorted_tables = sorted(tables, key=lambda item: item[0])
-        levels = topo_levels([name for name, _ in sorted_tables], parents, children)
-        levels = _apply_node_order_overrides(levels, cluster_name)
-        for level_idx, level_names in enumerate(levels):
-            for pos, name in enumerate(level_names):
-                positions[name] = (cluster_name, level_idx, pos)
-    for pos, (name, _) in enumerate(sorted(grouped_nodes["other"])):
-        positions[name] = ("other", 0, pos)
-    return positions
-
-
-def _detect_crossings(positions, all_edges):
-    """Detect edge crossings from the assigned positions.
-
-    Returns (crossings, cross_cluster) where crossings is a list of
-    crossing details and cross_cluster is a list of edges that span
-    cluster boundaries.
-    """
-    layer_edges = defaultdict(list)
-    cross_cluster = []
-    for child, parent, _raw in all_edges:
-        if child not in positions or parent not in positions:
-            continue
-        c_cluster, c_level, c_pos = positions[child]
-        p_cluster, p_level, p_pos = positions[parent]
-        if c_cluster != p_cluster:
-            cross_cluster.append((child, parent, c_cluster, p_cluster))
-            continue
-        lo_level = min(c_level, p_level)
-        hi_level = max(c_level, p_level)
-        if c_level <= p_level:
-            layer_edges[(c_cluster, lo_level, hi_level)].append(
-                (c_pos, p_pos, child, parent)
-            )
-        else:
-            layer_edges[(c_cluster, lo_level, hi_level)].append(
-                (p_pos, c_pos, parent, child)
-            )
-
-    crossings = []
-    for key, edge_list in sorted(layer_edges.items()):
-        for i in range(len(edge_list)):
-            for j in range(i + 1, len(edge_list)):
-                a_lo, a_hi, a_from, a_to = edge_list[i]
-                b_lo, b_hi, b_from, b_to = edge_list[j]
-                if (a_lo < b_lo and a_hi > b_hi) or (a_lo > b_lo and a_hi < b_hi):
-                    crossings.append(
-                        {
-                            "edge_a": (a_from, a_to),
-                            "edge_b": (b_from, b_to),
-                            "cluster": key[0],
-                            "levels": f"{key[1]}\u2192{key[2]}",
-                        }
-                    )
-    return crossings, cross_cluster
-
-
-def _find_long_edges(positions, all_edges):
-    """Find edges spanning more than one topological level."""
-    seen = set()
-    long = []
-    for child, parent, _raw in all_edges:
-        if (child, parent) in seen:
-            continue
-        seen.add((child, parent))
-        if child not in positions or parent not in positions:
-            continue
-        c_cluster, c_level, _ = positions[child]
-        p_cluster, p_level, _ = positions[parent]
-        if c_cluster != p_cluster:
-            continue
-        span = abs(c_level - p_level)
-        if span > 1:
-            long.append((child, parent, c_cluster, span, c_level, p_level))
-    long.sort(key=lambda x: (-x[3], x[2], x[0]))
-    return long
-
-
-def _emit_report(grouped_nodes, all_edges, positions):
-    """Emit a markdown layout report to stdout."""
-    crossings, cross_cluster = _detect_crossings(positions, all_edges)
-    long_edges = _find_long_edges(positions, all_edges)
-
-    total_tables = sum(len(v) for v in grouped_nodes.values())
-    lines = [
-        "# ERD Layout Report",
-        "",
-        f"**Config**: `{CONFIG_PATH}`  ",
-        f"**Tables**: {total_tables}  ",
-        f"**Foreign keys**: {len(all_edges)}  ",
-        f"**Estimated crossings**: {len(crossings)}  ",
-        f"**Cross-cluster edges**: {len(cross_cluster)}  ",
-        f"**Long edges** (span > 1 level): {len(long_edges)}",
-        "",
-    ]
-
-    # Cluster membership with positions
-    lines.append("## Cluster Membership")
-    lines.append("")
-    for cluster_name, label in CLUSTERS:
-        tables = grouped_nodes[cluster_name]
-        lines.append(f"### {label} ({len(tables)} tables)")
-        lines.append("")
-        for name, _ in sorted(tables, key=lambda t: t[0]):
-            pos_info = ""
-            if name in positions:
-                _, level, pos = positions[name]
-                pos_info = f" \u2014 level {level}, position {pos}"
-            lines.append(f"- `{name}`{pos_info}")
-        lines.append("")
-    other = grouped_nodes["other"]
-    if other:
-        lines.append(f"### Unclustered ({len(other)} tables)")
-        lines.append("")
-        for name, _ in sorted(other, key=lambda t: t[0]):
-            lines.append(f"- `{name}`")
-        lines.append("")
-
-    # Cross-cluster edges
-    lines.append("## Cross-Cluster Edges")
-    lines.append("")
-    if cross_cluster:
-        lines.append(
-            "Edges spanning cluster boundaries are routed around cluster boxes"
-            " and are a primary source of visual tangling."
-        )
-        lines.append("")
-        lines.append("| Child | Parent | From cluster | To cluster |")
-        lines.append("|-------|--------|-------------|-----------|")
-        for child, parent, c_cl, p_cl in cross_cluster:
-            lines.append(f"| `{child}` | `{parent}` | {c_cl} | {p_cl} |")
-        lines.append("")
-    else:
-        lines.append("No cross-cluster foreign keys found.")
-        lines.append("")
-
-    # Within-cluster crossings
-    lines.append("## Within-Cluster Crossings")
-    lines.append("")
-    if crossings:
-        lines.append(
-            "Crossings estimated from topological node ordering."
-            " Each row is a pair of edges whose paths must intersect"
-            " given the current node positions."
-        )
-        lines.append("")
-        by_cluster = defaultdict(list)
-        for c in crossings:
-            by_cluster[c["cluster"]].append(c)
-        for cluster_name, label in CLUSTERS:
-            cluster_crossings = by_cluster.get(cluster_name, [])
-            lines.append(f"### {label} \u2014 {len(cluster_crossings)} crossings")
-            lines.append("")
-            if cluster_crossings:
-                lines.append(
-                    "| # | Edge A (child \u2192 parent)"
-                    " | Edge B (child \u2192 parent) | Levels |"
-                )
-                lines.append("|---|---|---|---|")
-                for idx, c in enumerate(cluster_crossings, 1):
-                    ea = f"`{c['edge_a'][0]}` \u2192 `{c['edge_a'][1]}`"
-                    eb = f"`{c['edge_b'][0]}` \u2192 `{c['edge_b'][1]}`"
-                    lines.append(f"| {idx} | {ea} | {eb} | {c['levels']} |")
-                lines.append("")
-    else:
-        lines.append("No within-cluster crossings detected.")
-        lines.append("")
-
-    # Long edges
-    lines.append("## Long Edges")
-    lines.append("")
-    if long_edges:
-        lines.append(
-            "Edges spanning multiple topological levels increase layout"
-            " complexity and may cause crossings not detected"
-            " by the same-level-pair analysis above."
-        )
-        lines.append("")
-        lines.append(
-            "| Child \u2192 Parent | Cluster | Span" " | Child level | Parent level |"
-        )
-        lines.append("|---|---|---|---|---|")
-        for child, parent, cluster, span, c_lev, p_lev in long_edges:
-            lines.append(
-                f"| `{child}` \u2192 `{parent}`"
-                f" | {cluster} | {span} | {c_lev} | {p_lev} |"
-            )
-        lines.append("")
-    else:
-        lines.append("No long edges found.")
-        lines.append("")
-
-    # DAG analysis — throughlines and per-table upstream/downstream
-    lines.append("## DAG Analysis")
-    lines.append("")
-    lines.append(
-        "FK edges form a DAG within each cluster."
-        " Throughlines are the longest dependency chains."
-        " Upstream = tables this table depends on (parents, grandparents, …)."
-        " Downstream = tables that depend on this table (children, grandchildren, …)."
-        ' With `rankdir="LR"`, downstream tables sit left, upstream tables sit right.'
-    )
-    lines.append("")
-
-    for cluster_name, label in CLUSTERS:
-        cluster_tables = {name for name, _ in grouped_nodes[cluster_name]}
-        if not cluster_tables:
-            continue
-
-        # Build cluster-local adjacency (child → parent edges)
-        c_parents = defaultdict(set)  # table → set of parents
-        c_children = defaultdict(set)  # table → set of children
-        seen_edges = set()
-        for child, parent, _raw in all_edges:
-            if child not in cluster_tables or parent not in cluster_tables:
-                continue
-            if child == parent:
-                continue
-            if (child, parent) not in seen_edges:
-                seen_edges.add((child, parent))
-                c_parents[child].add(parent)
-                c_children[parent].add(child)
-
-        # Transitive closure — upstream (all ancestors) and downstream (all descendants)
-        def _ancestors(table):
-            visited = set()
-            queue = deque(c_parents.get(table, set()))
-            while queue:
-                t = queue.popleft()
-                if t not in visited:
-                    visited.add(t)
-                    queue.extend(c_parents.get(t, set()) - visited)
-            return visited
-
-        def _descendants(table):
-            visited = set()
-            queue = deque(c_children.get(table, set()))
-            while queue:
-                t = queue.popleft()
-                if t not in visited:
-                    visited.add(t)
-                    queue.extend(c_children.get(t, set()) - visited)
-            return visited
-
-        # Longest path (critical throughlines)
-        # Walk the topo levels and find the longest chain of direct FK edges
-        levels = topo_levels(list(cluster_tables), c_parents, c_children)
-
-        # Build longest-path via DP on topo order (leaf → root direction)
-        topo_flat = [n for lv in levels for n in lv]
-        dist = {t: 0 for t in cluster_tables}
-        pred = {t: None for t in cluster_tables}
-        # Process in reverse topo order so we propagate from leaves toward roots
-        for t in reversed(topo_flat):
-            for p in c_parents.get(t, set()):
-                if p == t:
-                    continue
-                new_dist = dist[t] + 1
-                if new_dist > dist[p]:
-                    dist[p] = new_dist
-                    pred[p] = t
-
-        # Find all maximal throughlines (longest paths)
-        max_len = max(dist.values()) if dist else 0
-        throughlines = []
-        if max_len > 0:
-            for start, d in sorted(dist.items(), key=lambda x: -x[1]):
-                if d < max_len:
-                    break
-                path = [start]
-                visited_path = {start}
-                cur = start
-                while pred.get(cur) is not None and pred[cur] not in visited_path:
-                    cur = pred[cur]
-                    visited_path.add(cur)
-                    path.append(cur)
-            # path goes from rightmost (deepest parent) to leftmost (leaf)
-            # Reverse so it reads left→right (downstream → upstream)
-            path.reverse()
-            throughlines.append(path)
-
-        lines.append(f"### {label}")
-        lines.append("")
-
-        if throughlines:
-            lines.append(f"**Longest throughline** ({max_len + 1} tables):")
-            lines.append("")
-            for path in throughlines:
-                arrow = " → ".join(f"`{t}`" for t in path)
-                lines.append(f"- {arrow}")
-            lines.append("")
-
-        # Per-table upstream/downstream
-        lines.append(
-            "| Table | Level | Downstream (depends on this) | Upstream (this depends on) |"
-        )
-        lines.append(
-            "|-------|-------|------------------------------|---------------------------|"
-        )
-        for lv_idx, lv_names in enumerate(levels):
-            for name in lv_names:
-                ds = sorted(_descendants(name))
-                us = sorted(_ancestors(name))
-                ds_str = ", ".join(f"`{t}`" for t in ds) if ds else "—"
-                us_str = ", ".join(f"`{t}`" for t in us) if us else "—"
-                lines.append(f"| `{name}` | {lv_idx} | {ds_str} | {us_str} |")
-        lines.append("")
-
-        # Suggested node_order_overrides based on DAG flow
-        # Order each level so tables with shared upstream/downstream are adjacent
-        lines.append(f"**Suggested `node_order_overrides` for `{cluster_name}`:**")
-        lines.append("")
-        lines.append("```json")
-        order_json = {}
-        for lv_idx, lv_names in enumerate(levels):
-            # Sort by: (number of ancestors descending, number of descendants ascending, name)
-            # This clusters tables with similar depth together
-            sorted_lv = sorted(
-                lv_names,
-                key=lambda t: (-len(_ancestors(t)), len(_descendants(t)), t),
-            )
-            order_json[str(lv_idx)] = sorted_lv
-        lines.append(f'"{cluster_name}": ' + json.dumps(order_json, indent=2))
-        lines.append("```")
-        lines.append("")
-
-    # Suggestions
-    lines.append("## Suggestions")
-    lines.append("")
-    lines.append(
-        "Each suggestion maps to a key in `erd-config.json`"
-        " under `layout_overrides`."
-        " Edit the config and re-run `make schema-erd` to apply."
-    )
-    lines.append("")
-
-    suggestion_idx = 0
-
-    if crossings:
-        reorder_targets = defaultdict(set)
-        for c in crossings:
-            cluster = c["cluster"]
-            for edge_key in ("edge_a", "edge_b"):
-                for table in c[edge_key]:
-                    if table in positions and positions[table][0] == cluster:
-                        reorder_targets[(cluster, positions[table][1])].add(table)
-
-        for (cluster, level), tables in sorted(reorder_targets.items()):
-            suggestion_idx += 1
-            table_json = ", ".join(f'"{t}"' for t in sorted(tables))
-            table_md = ", ".join(f"`{t}`" for t in sorted(tables))
-            lines.append(
-                f"### {suggestion_idx}."
-                f" Reorder level {level} in `{cluster}` cluster"
-            )
-            lines.append("")
-            lines.append(f"Tables involved in crossings: {table_md}")
-            lines.append("")
-            lines.append("```json")
-            lines.append('"node_order_overrides": {')
-            lines.append(f'  "{cluster}": {{ "{level}": [{table_json}] }}')
-            lines.append("}")
-            lines.append("```")
-            lines.append("")
-
-    for child, parent, _cluster, span, _c, _p in long_edges:
-        suggestion_idx += 1
-        lines.append(
-            f"### {suggestion_idx}."
-            f" Increase weight for `{child}` \u2192 `{parent}`"
-            f" (span {span})"
-        )
-        lines.append("")
-        lines.append("Higher weight pulls connected nodes closer together.")
-        lines.append("")
-        lines.append("```json")
-        lines.append('"edge_weight_overrides": {')
-        lines.append(f'  "{child} -> {parent}": 100')
-        lines.append("}")
-        lines.append("```")
-        lines.append("")
-
-    for child, parent, c_cl, p_cl in cross_cluster:
-        suggestion_idx += 1
-        lines.append(
-            f"### {suggestion_idx}."
-            f" Rank hint for cross-cluster"
-            f" `{child}` \u2192 `{parent}`"
-        )
-        lines.append("")
-        lines.append(f"Crosses from `{c_cl}` to `{p_cl}`.")
-        lines.append("")
-        lines.append("```json")
-        lines.append(f'"rank_hints": [["{child}", "{parent}"]]')
-        lines.append("```")
-        lines.append("")
-
-    if suggestion_idx == 0:
-        lines.append(
-            "No suggestions \u2014 the layout has no detected crossings"
-            " or long edges."
-        )
-        lines.append("")
-
-    # Current overrides
-    overrides = _config.get("layout_overrides", {})
-    lines.append("## Current `layout_overrides`")
-    lines.append("")
-    lines.append("```json")
-    lines.append(json.dumps(overrides, indent=2))
-    lines.append("```")
-    lines.append("")
-
-    sys.stdout.write("\n".join(lines) + "\n")
-    return 0
 
 
 def _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines):
@@ -870,17 +483,13 @@ def main() -> int:
         default="full",
         help="full: structured layout with subgroups; auto: family clusters only",
     )
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="output a markdown layout report instead of DOT",
-    )
     args = parser.parse_args()
-    _init_config()
 
     dot = sys.stdin.read()
     if not dot.strip():
         return 0
+
+    _init_config()
 
     open_match = GRAPH_OPEN_RE.search(dot)
     if open_match is None:
@@ -920,23 +529,17 @@ def main() -> int:
             if line.strip():
                 tail_lines.append(line)
 
-    all_edges = []
     parents = defaultdict(set)
     children = defaultdict(set)
     for line in tail_lines:
         edge = EDGE_PAIR_RE.match(line)
         if edge is None:
             continue
-        child_name, parent_name = edge.groups()
-        all_edges.append((child_name, parent_name, line))
-        if cluster_for(child_name) != cluster_for(parent_name):
+        child, parent = edge.groups()
+        if cluster_for(child) != cluster_for(parent):
             continue
-        parents[child_name].add(parent_name)
-        children[parent_name].add(child_name)
-
-    if args.report:
-        positions = _compute_positions(grouped_nodes, parents, children)
-        return _emit_report(grouped_nodes, all_edges, positions)
+        parents[child].add(parent)
+        children[parent].add(child)
 
     if args.layout == "auto":
         return _emit_auto_layout(graph_open, header, grouped_nodes, tail_lines)

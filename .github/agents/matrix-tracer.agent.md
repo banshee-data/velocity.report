@@ -1,7 +1,12 @@
 ---
 name: Matrix Tracer
 description: Surface-tracing agent. Generates the checklist from live code, compares against MATRIX.md, and updates surface marks with evidence.
-tools:execute/runInTerminal, read/terminalLastCommand, execute/runInTerminal, read/readFile, search/textSearch, edit/editFiles
+tools:
+  - execute/runInTerminal
+  - read/terminalLastCommand
+  - read/readFile
+  - search/textSearch
+  - edit/editFiles
 ---
 
 # Agent: Matrix Tracer
