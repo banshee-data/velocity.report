@@ -146,7 +146,16 @@ while [ $# -gt 0 ]; do
         usage
         exit 1
       fi
-      LAYOUT_MODE="$1"
+      case "$1" in
+        full|auto)
+          LAYOUT_MODE="$1"
+          ;;
+        *)
+          echo "Error: invalid layout mode '$1' (expected: full or auto)" >&2
+          usage
+          exit 1
+          ;;
+      esac
       shift
       ;;
     --dot-output)

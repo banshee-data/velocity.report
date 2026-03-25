@@ -37,26 +37,56 @@ def _load_config():
         return json.load(fh)
 
 
-_config = _load_config()
+# Configuration is loaded lazily to avoid crashing at import time if
+# erd-config.json is missing or invalid. Call _init_config() before using
+# any of the derived constants below.
+_config = None
+CLUSTERS = ()
+_lidar = {}
+LIDAR_SUBGROUP_ROOTS = ()
+ROOTED_LIDAR_SUBGROUPS = set()
+LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "analysis_runs", "other")
+LIDAR_SECOND_ROW_SUBGROUP = "other"
+LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
+LIDAR_SUBGROUP_MIN_COLUMNS = 2
+LIDAR_SUBGROUP_MAX_COLUMNS = 4
+LIDAR_SUBGROUP_TARGET_WEIGHT = 36
 
-CLUSTERS = tuple((c["name"], c["label"]) for c in _config["clusters"])
 
-_lidar = _config.get("lidar_subgroups", {})
-LIDAR_SUBGROUP_ROOTS = tuple(_lidar.get("roots", {}).items())
-ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
-LIDAR_SUBGROUP_DISPLAY_ORDER = tuple(
-    _lidar.get("display_order", ("tracks", "analysis_runs", "other"))
-)
-LIDAR_SECOND_ROW_SUBGROUP = _lidar.get("second_row_subgroup", "other")
-LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = _lidar.get(
-    "second_row_alignment_subgroup", "analysis_runs"
-)
-LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
-LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)
-LIDAR_SUBGROUP_TARGET_WEIGHT = _lidar.get("target_weight", 36)
+def _init_config():
+    """Initialise configuration-derived globals on first use."""
+    global _config, CLUSTERS, _lidar
+    global LIDAR_SUBGROUP_ROOTS, ROOTED_LIDAR_SUBGROUPS
+    global LIDAR_SUBGROUP_DISPLAY_ORDER
+    global LIDAR_SECOND_ROW_SUBGROUP, LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP
+    global LIDAR_SUBGROUP_MIN_COLUMNS, LIDAR_SUBGROUP_MAX_COLUMNS
+    global LIDAR_SUBGROUP_TARGET_WEIGHT
+
+    if _config is not None:
+        return
+
+    _config = _load_config()
+
+    CLUSTERS = tuple((c["name"], c["label"]) for c in _config.get("clusters", ()))
+
+    _lidar = _config.get("lidar_subgroups", {}) or {}
+
+    LIDAR_SUBGROUP_ROOTS = tuple(_lidar.get("roots", {}).items())
+    ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
+    LIDAR_SUBGROUP_DISPLAY_ORDER = tuple(
+        _lidar.get("display_order", ("tracks", "analysis_runs", "other"))
+    )
+    LIDAR_SECOND_ROW_SUBGROUP = _lidar.get("second_row_subgroup", "other")
+    LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = _lidar.get(
+        "second_row_alignment_subgroup", "analysis_runs"
+    )
+    LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
+    LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)
+    LIDAR_SUBGROUP_TARGET_WEIGHT = _lidar.get("target_weight", 36)
 
 
 def cluster_for(table_name: str) -> str:
+    _init_config()
     for name, _ in CLUSTERS:
         if table_name == name or table_name.startswith(name + "_"):
             return name
