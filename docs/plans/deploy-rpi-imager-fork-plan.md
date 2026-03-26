@@ -1,6 +1,6 @@
 # velocity.report Raspberry Pi Imager — Design Document
 
-- **Status:** Draft
+- **Status:** Active — Phase 1 targeting v0.5.1
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
@@ -9,6 +9,46 @@
 ---
 
 > **Executive summary and motivation:** see [rpi-imager.md](../platform/operations/rpi-imager.md).
+
+---
+
+## 2. Phased Delivery
+
+This plan is delivered in two phases, reflecting the principle of shipping
+working software before optimising.
+
+### Phase 1 — Working Image (v0.5.1)
+
+**Goal:** Produce a flashable Raspberry Pi `.img` file that contains the current
+velocity.report codebase as-is. No size optimisation, no LaTeX reduction, no
+architectural changes to the software itself.
+
+- Ships full `texlive-xetex` + font APT packages (~800 MB uncompressed)
+- Image size: ~1.5 GB uncompressed, ~600–900 MB compressed (.img.xz)
+- Build pipeline: pi-gen + GitHub Actions CI
+- Distribution: `.img.xz` GitHub Release asset + custom `os-list.json` for
+  stock rpi-imager
+- All software components bundled as they exist today — Go server, Python PDF
+  generator, web frontend, systemd service, udev rules, serial configuration
+
+**Acceptance:** A community member can download the `.img.xz`, flash it with
+rpi-imager or `dd`, boot a Raspberry Pi 4, and have velocity.report running
+with radar collection and PDF report generation functional.
+
+### Phase 2 — Image Optimisation (v0.6.0)
+
+**Goal:** Reduce the compressed image size from ~600–900 MB to ~350–500 MB
+through the LaTeX size reduction work stream (§ 4.6).
+
+- Replace full TeX Live APT packages with pre-compiled templates and vendored
+  minimal TeX tree
+- Audit template dependencies to identify exactly which `.sty`, `.cls`, and
+  font files are needed
+- Validate PDF output parity between full and minimal TeX installations
+- Measure before/after image sizes and compilation times
+
+**Prerequisite:** Phase 1 shipped and validated on real hardware. The working
+image provides the baseline against which Phase 2 size reductions are measured.
 
 ---
 
@@ -298,6 +338,10 @@ jobs:
 
 ### 4.5 Image Size Budget
 
+> **Phase 1 (v0.5.1)** ships with the full TeX Live installation. The compressed
+> image will be ~600–900 MB. Phase 2 (v0.6.0) targets the reduced sizes in the
+> final two rows below.
+
 | Component                                         | Estimated Size                         |
 | ------------------------------------------------- | -------------------------------------- |
 | Raspberry Pi OS Lite (base)                       | ~450 MB                                |
@@ -314,7 +358,7 @@ jobs:
 TeX Live is the dominant size contributor and the primary target for the LaTeX
 size reduction work stream described in § 4.6.
 
-### 4.6 LaTeX Size Reduction Work Stream
+### 4.6 LaTeX Size Reduction Work Stream (Phase 2 — v0.6.0)
 
 The full `texlive-xetex` + fonts installation adds ~800 MB to the uncompressed
 image. This is the single largest dependency and a dedicated work stream to
