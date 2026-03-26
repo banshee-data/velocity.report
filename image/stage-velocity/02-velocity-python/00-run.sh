@@ -4,6 +4,10 @@
 # Creates a shared venv at /opt/velocity-report/.venv/ and installs the
 # PDF generator package into it.
 
+# Copy PDF generator source into the image first (before chroot install)
+install -d "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator"
+cp -r files/pdf-generator/* "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator/"
+
 on_chroot << 'CHEOF'
 mkdir -p /opt/velocity-report/tools
 
@@ -15,7 +19,3 @@ python3 -m venv /opt/velocity-report/.venv
     /opt/velocity-report/tools/pdf-generator/
 
 CHEOF
-
-# Copy PDF generator source into the image
-install -d "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator"
-cp -r files/pdf-generator/* "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator/"
