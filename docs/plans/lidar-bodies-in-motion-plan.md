@@ -72,7 +72,7 @@ IMM is the recommended approach because:
 
 ### 3.4 Ground-plane constraint in L5
 
-Regardless of the kinematic model, L5 should constrain the predicted state using the L4 `GroundSurface` interface:
+Regardless of the kinematic model, L5 should constrain the predicted state using the L4 ground surface. Currently, production uses `HeightBandFilter` (fixed Z-band gating). When the planned `GroundSurface` interface is implemented (see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)), the constraint would be:
 
 ```
 predicted_z = max(kinematic_z, GroundSurface.HeightAt(predicted_x, predicted_y))

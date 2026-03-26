@@ -19,7 +19,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L1    | **Packets**    | Sensor-wire transport and capture                                                        | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented  |
 | L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                        | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented  |
 | L3    | **Grid**       | Background/foreground separation state                                                   | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented  |
-| L4    | **Perception** | Per-frame object primitives and measurements                                             | `WorldCluster`, `TrackObservation`, ground plane (`GroundSurface`), vector scene geometry | ✅ Implemented  |
+| L4    | **Perception** | Per-frame object primitives and measurements                                             | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented  |
 | L5    | **Tracks**     | Multi-frame identity and motion continuity                                               | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented  |
 | L6    | **Objects**    | Semantic object interpretation and dataset mapping                                       | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented  |
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned      |
@@ -345,7 +345,7 @@ The decision to place Scene at L7 (rather than above Analytics) reflects data fl
 - Frames and Cartesian representations → **L2 Frames**
 - Background/foreground grid → **L3 Grid**
 - Clusters and observations → **L4 Perception**
-- Ground plane surface model → **L4 Perception** (non-point-based `GroundSurface` interface)
+- Ground plane surface model → **L4 Perception** (planned; current production uses `HeightBandFilter` band gating)
 - Per-frame vector geometry extraction → **L4 Perception** (polygon features for ground, structures, volumes; see [vector-scene-map.md](vector-scene-map.md))
 - Tracks → **L5 Tracks**
 - Objects/classes → **L6 Objects**
@@ -408,7 +408,7 @@ L3  Grid ────── Background model: per-cell EMA range baseline
  │
 L4  Perception  Ground removal → voxel downsampling → DBSCAN clustering
  │               Each cluster → OBB with PCA heading
- │               Ground plane tiling → vector polygon extraction
+ │               Ground plane tiling → vector polygon extraction (planned)
  │               Per-frame, single-sensor observations only
  │
 L5  Tracks ──── Hungarian assignment: clusters → Kalman-filtered tracks
@@ -741,7 +741,7 @@ The following layer numbers and names are **permanently assigned**. Implementati
 
 2. **Extend, don't insert.** If a new processing stage is needed between existing layers, it is modelled as a sub-stage (e.g. L4a, L4b) or absorbed into the adjacent layer — never by renumbering L5+ upward.
 
-3. **Layer scope may broaden.** L4 Perception started as "DBSCAN clustering" and now includes ground plane extraction and vector geometry. This is broadening within the same concept (per-frame geometric primitives), not a layer change.
+3. **Layer scope may broaden.** L4 Perception started as "DBSCAN clustering" and now includes ground removal (height band filter) with planned ground plane extraction and vector geometry. This is broadening within the same concept (per-frame geometric primitives), not a layer change.
 
 4. **Package names track layer numbers.** `l7scene/`, `l8analytics/`, `l9endpoints/` — the numeric prefix ensures filesystem ordering matches the data flow.
 
