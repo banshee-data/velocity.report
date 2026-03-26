@@ -8,17 +8,21 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## 05x Sunny Southeast 🌞
 
-### v0.5.1 - Data Contracts + Layer Foundations (051)
+### v0.5.1 - Raspberry Pi Image (051)
+
+- (#210) Raspberry Pi image pipeline — pi-gen build, CI workflow, GitHub Release `.img.xz` asset; ships full TeX Live APT packages (no size optimisation); custom `os-list.json` for stock rpi-imager — [design doc](plans/deploy-rpi-imager-fork-plan.md) `M`
+
+### v0.5.2 - Data Contracts + Layer Foundations (052)
 
 - (#381) Classification display vs selectable enum split — keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go — [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Track speed metric redesign + aggregate-only percentiles — reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics — [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement — establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support — [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Documentation standardisation — metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending — [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Unpopulated data structure remediation Phases 1–3 — wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields — [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
-- Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.2). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
+- Go codebase structural hygiene — label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0, DB boundary in v0.5.3). [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - LiDAR replay case terminology alignment — rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers — [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
 
-### v0.5.2 - Replay/Runtime Stabilisation (052)
+### v0.5.3 - Replay/Runtime Stabilisation (053)
 
 - SSE backpressure handling — Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 - [#388] Dynamic segmentation for LiDAR background regions — adaptive background region boundaries based on scene geometry rather than fixed grid `M`
@@ -31,7 +35,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend background debug surfaces — Swift visualiser debugging outputs for background settlement — [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - Database SQL boundary consolidation — enforce two-package model for all SQL operations, document and enforce via CI; decide between two-package or single-package long-term. [design doc](plans/data-database-alignment-plan.md) `M`
 
-### v0.5.3 - Product Polish + Release Readiness (053)
+### v0.5.4 - Product Polish + Release Readiness (0504)
 
 - [#290] (#11) Serial port configuration UI — configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained — [design doc](radar/serial-config-quickref.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D) — retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
@@ -43,9 +47,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.6.0 - Deployment & Packaging (060)
 
-- (#210) Raspberry Pi imager pipeline, downloadable `vr_v0.6.0.img.gz` asset with precompiled binary + LaTeX — [design doc](plans/deploy-rpi-imager-fork-plan.md) `L`
-- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after #210 gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
-- Precompiled LaTeX — faster PDF report generation via vendored TeX tree — [design doc](plans/pdf-latex-precompiled-format-plan.md) `M`
+- RPi image Phase 2 — LaTeX size reduction via precompiled templates and vendored TeX tree; target compressed image from ~600–900 MB to ~350–500 MB — [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `M`
+- Simplification and deprecation programme (Project B execution) — remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344) — [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Single `velocity-report` binary + subcommands — unified CLI with radar/lidar/pdf subcommands — [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script — curl-based installer with automatic platform detection — [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness — prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
