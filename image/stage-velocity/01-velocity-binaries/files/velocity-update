@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# velocity-update — User-initiated update helper for velocity.report
+# velocity-update — REMOVED
 #
-# Wraps `velocity-deploy upgrade` so that updates are never automatic.
-# No unsolicited network requests are made; the user must run this
-# script explicitly.
+# This wrapper script has been replaced by velocity-ctl, a purpose-built
+# Go binary for on-device management. Run:
 #
-# Usage:
-#   sudo velocity-update          # download + install latest release
-#   sudo velocity-update --check  # print current vs. available version
+#   sudo velocity-ctl upgrade              # check + download + apply latest
+#   sudo velocity-ctl upgrade --check      # check for newer version only
+#   sudo velocity-ctl upgrade --binary /p  # apply a local binary (offline)
+#   sudo velocity-ctl rollback             # restore previous version
+#   sudo velocity-ctl backup               # snapshot binary + database
+#
+# See: docs/plans/deploy-rpi-imager-fork-plan.md § 8
 
-set -euo pipefail
-
-if [[ $EUID -ne 0 ]]; then
-    echo "Error: velocity-update must be run as root (use sudo)" >&2
-    exit 1
-fi
-
-exec /usr/local/bin/velocity-deploy upgrade "$@"
+echo "velocity-update has been replaced by velocity-ctl." >&2
+echo "Run: sudo velocity-ctl upgrade" >&2
+exit 1

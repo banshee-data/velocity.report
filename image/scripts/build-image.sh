@@ -6,7 +6,7 @@
 #
 # Prerequisites:
 #   - Docker installed and running
-#   - ARM64 Go binaries pre-built (make build-radar-linux-pcap build-deploy-linux)
+#   - ARM64 Go binaries pre-built (make build-radar-linux-pcap build-ctl-linux)
 #   - Python PDF generator source available
 #
 # Usage:
@@ -58,13 +58,13 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     cd "$REPO_ROOT"
     GOOS=linux GOARCH=arm64 CGO_ENABLED=1 make build-radar-linux-pcap 2>/dev/null || \
         make build-radar-linux
-    GOOS=linux GOARCH=arm64 make build-deploy-linux 2>/dev/null || true
+    GOOS=linux GOARCH=arm64 make build-ctl-linux 2>/dev/null || true
 
     # Copy binaries to staging area
     cp -f "$REPO_ROOT/velocity-report-linux" "$BINARIES_DIR/velocity-report" 2>/dev/null || \
         log_warn "velocity-report binary not found; supply manually"
-    cp -f "$REPO_ROOT/velocity-deploy-linux" "$BINARIES_DIR/velocity-deploy" 2>/dev/null || \
-        log_warn "velocity-deploy binary not found; supply manually"
+    cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl" 2>/dev/null || \
+        log_warn "velocity-ctl binary not found; supply manually"
 fi
 
 # ---------------------------------------------------------------------------
