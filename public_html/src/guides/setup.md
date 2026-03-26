@@ -330,12 +330,17 @@ On your Raspberry Pi:
 git clone https://github.com/banshee-data/velocity.report.git
 cd velocity.report
 
-# Build the deployment tool and server binary
-make build-deploy
+# Build the server binary
 make build-radar-linux
 
-# Install as system service
-./velocity-deploy install --binary ./velocity-report-linux-arm64
+# Install as system service (manual method — prefer RPi image for new installs)
+sudo install -m 755 velocity-report-linux-arm64 /usr/local/bin/velocity-report
+sudo useradd --system --shell /usr/sbin/nologin velocity
+sudo mkdir -p /var/lib/velocity-report
+sudo chown velocity:velocity /var/lib/velocity-report
+sudo cp cmd/deploy/velocity-report.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now velocity-report
 ```
 
 The installer will:

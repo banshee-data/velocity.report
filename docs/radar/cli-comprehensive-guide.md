@@ -222,88 +222,43 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ---
 
-### 3. Deploy Binary (`cmd/deploy`)
+### 3. Device Management Binary (`cmd/velocity-ctl`)
 
-**Description:** Deployment manager for velocity.report service on remote hosts.
+> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary (v0.5.1).
+> See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
+
+**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status — no SSH, no remote targets.
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
-**Location:** `cmd/deploy`
+**Location:** `cmd/velocity-ctl`
 
 #### Quick Start Examples
 
 ```bash
-# Install on remote Pi
-deploy install --target mypi --binary ./velocity-report-linux-arm64
-
 # Check status
-deploy status --target mypi
+sudo velocity-ctl status
 
-# Upgrade
-deploy upgrade --target mypi --binary ./new-binary
+# Upgrade to latest release
+sudo velocity-ctl upgrade
+
+# Rollback to previous version
+sudo velocity-ctl rollback
 ```
-
-#### CLI Flags (Common)
-
-- `--target localhost` - Target host (hostname, IP, or SSH config alias)
-- `--ssh-user <user>` - SSH user (defaults to `~/.ssh/config` or current user)
-- `--ssh-key <path>` - SSH private key path (defaults to `~/.ssh/config`)
-- `--debug` - Enable debug logging
-- `--dry-run` - Show what would be done without executing (some commands)
 
 #### Subcommands
 
-**`install`** - Install velocity.report service
+**`upgrade`** — Download and install latest release from GitHub
 
-- `--binary` (required) - Path to velocity-report binary
-- `--db-path` - Path to existing database to migrate
-- `--dry-run`
+**`rollback`** — Revert to previous binary version
 
-**`upgrade`** - Upgrade to newer version
+**`backup`** — Back up database and configuration
 
-- `--binary` (required) - Path to new binary
-- `--no-backup` - Skip backup before upgrade
-- `--dry-run`
+- `--output .` — Output directory for backup
 
-**`fix`** - Diagnose and repair broken installation
+**`status`** — Show service status and version info
 
-- `--binary` - Path to binary (optional, for fixing missing binary)
-- `--repo-url` - Git repo URL
-- `--build-from-source` - Build binary from source on server (requires Go)
-- `--dry-run`
-
-**`status`** - Check service status
-
-- `--api-port 8080` - API server port
-- `--timeout 30` - Timeout in seconds
-- `--scan` - Perform detailed disk scan
-
-**`health`** - Perform health check
-
-- `--api-port 8080` - API server port
-
-**`rollback`** - Rollback to previous version
-
-- `--dry-run`
-
-**`backup`** - Backup database and configuration
-
-- `--output .` - Output directory for backup
-
-**`config`** - Manage deployment configuration
-
-- `--show` - Show current configuration
-- `--edit` - Edit configuration
-
-**`version`** - Show velocity-deploy version
-
-**`help`** - Show help message
-
-**SSH Config Support:**
-
-- Reads `~/.ssh/config` automatically
-- Uses HostName, User, IdentityFile from config
-- Command-line flags override SSH config values
+**`version`** — Show velocity-ctl version
 
 ---
 
@@ -369,8 +324,8 @@ backfill_ring_elevations --db sensor_data.db
 - `build-radar-mac-intel` - Build for macOS Intel
 - `build-radar-local` - Local development build with pcap
 - `build-tools` - Build utility tools
-- `build-deploy` - Build deploy binary
-- `build-deploy-linux` - Cross-compile deploy for Linux
+- `build-ctl` - Build velocity-ctl binary
+- `build-ctl-linux` - Cross-compile velocity-ctl for Linux ARM64
 - `build-web` - Build Svelte web frontend
 - `build-docs` - Build documentation site
 

@@ -58,8 +58,8 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `build-radar-mac-intel`: Build for macOS AMD64 with pcap
 - `build-radar-local`: Build for local development with pcap
 - `build-tools`: Build sweep tool
-- `build-deploy`: Build velocity-deploy deployment manager
-- `build-deploy-linux`: Build velocity-deploy for Linux ARM64
+- `build-ctl`: Build velocity-ctl device management binary
+- `build-ctl-linux`: Build velocity-ctl for Linux ARM64
 - `build-web`: Build web frontend (SvelteKit)
 - `build-docs`: Build documentation site (Eleventy)
 
@@ -92,17 +92,17 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `proto-gen-go`: Generate Go protobuf stubs
 - `proto-gen-swift`: Generate Swift protobuf stubs (macOS visualiser)
 
-## Deployment Targets (Deprecated)
+## Deployment Targets (Removed)
 
-> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate): planned for v0.5.1.
+> These targets were removed in v0.5.1. `velocity-deploy` has been replaced by `velocity-ctl`. See [deploy-rpi-imager-fork-plan.md §8](docs/plans/deploy-rpi-imager-fork-plan.md).
 
-- `setup-radar`: Install server on this host (requires sudo, **deprecated**)
-- `deploy-install`: Install using velocity-deploy (**deprecated**)
-- `deploy-upgrade`: Upgrade using velocity-deploy (**deprecated**)
-- `deploy-status`: Check service status using velocity-deploy (**deprecated**)
-- `deploy-health`: Run health check using velocity-deploy (**deprecated**)
-- `deploy-install-latex`: Install LaTeX on remote target (**deprecated**)
-- `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**deprecated**)
+- `setup-radar`: Install server on this host (requires sudo, **removed**)
+- `deploy-install`: Removed: use RPi image or manual install
+- `deploy-upgrade`: Removed: use `sudo velocity-ctl upgrade`
+- `deploy-status`: Removed: use `sudo velocity-ctl status`
+- `deploy-health`: Removed: use `sudo velocity-ctl status`
+- `deploy-install-latex`: Install LaTeX on remote target (**removed**)
+- `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**removed**)
 
 ## Formatting Targets
 

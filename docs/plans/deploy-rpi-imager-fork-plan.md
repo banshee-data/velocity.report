@@ -371,7 +371,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cross-compile Go binaries (ARM64)
-        run: make build-radar-linux-pcap build-deploy-linux
+        run: make build-radar-linux-pcap build-ctl-linux
       - name: Build Python wheel
         run: make build-python-wheel
       - uses: actions/upload-artifact@v4

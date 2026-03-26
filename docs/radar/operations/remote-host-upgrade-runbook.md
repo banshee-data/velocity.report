@@ -1,7 +1,7 @@
 # Remote Host Upgrade Runbook
 
 This runbook upgrades an already-installed `velocity.report` host over SSH
-without using `velocity-deploy` or legacy setup scripts. It is written for an
+without using `velocity-ctl` or legacy setup scripts. It is written for an
 interactive VS Code agent running in Ask mode on the target host.
 
 ## Goal
@@ -493,7 +493,7 @@ You do NOT have direct terminal access. Your job is:
 5. Stop and ask if any guardrail condition is triggered.
 6. Read the Known Pitfalls section before generating any migrate commands.
 
-Upgrade this host to TARGET_REF=<tag-or-sha> without using velocity-deploy.
+Upgrade this host to TARGET_REF=<tag-or-sha> without using velocity-ctl.
 NEW_BIN is at <path-to-binary-on-host>.
 Preserve the existing systemd service configuration unless a mismatch forces a
 decision.

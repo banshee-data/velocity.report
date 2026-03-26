@@ -50,7 +50,7 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 
 - `setup-radar` (already labelled legacy in Make help)
 - `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`
-- `build-deploy`, `build-deploy-linux`
+- `build-deploy`, `build-deploy-linux` — replaced by `build-ctl`, `build-ctl-linux`
 - `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
 
 Rationale: these are superseded by the image-builder direction once [#210](../BACKLOG.md) lands.
@@ -131,7 +131,7 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 ## Prioritised Deprecation Targets
 
 1. **`cmd/deploy` replaced by `velocity-ctl`** (✅ v0.5.1)
-2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`)
+2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`) — replaced by `build-ctl*`
 3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)) — v0.5.0 breaking changes
 4. **`cmd/transit-backfill` and unowned tools cleanup**
 5. **LiDAR forwarding flag simplification**
@@ -144,7 +144,7 @@ The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-in
 ### Current workflow (deleted in v0.5.1)
 
 1. Cross-compile binary: `make build-radar-linux`
-2. Build deploy tool: `make build-deploy`
+2. Build deploy tool: `make build-deploy` → replaced by `make build-ctl`
 3. Copy binary and deploy tool to Pi or use SSH: `make deploy-install`
 4. Install LaTeX remotely: `make deploy-install-latex TARGET=<host>`
 5. Upgrade via SSH: `make deploy-upgrade`
@@ -213,7 +213,7 @@ Once all four conditions are met, the following will be removed:
 
 - `cmd/deploy/` directory and binary
 - `internal/deploy/` package
-- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
+- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps` — all replaced by `build-ctl`, `build-ctl-linux`
 - `scripts/setup-radar-host.sh`
 - Deployment section from `README.md` (replaced by image pipeline instructions)
 
