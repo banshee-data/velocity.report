@@ -30,10 +30,15 @@ architectural changes to the software itself.
   stock rpi-imager
 - All software components bundled as they exist today — Go server, Python PDF
   generator, web frontend, systemd service, udev rules, serial configuration
+- On-device update capability: `velocity-ctl upgrade` checks GitHub Releases,
+  downloads the latest binary, and applies the upgrade with automatic backup
+  and database migration — preserving user data across upgrades
 
 **Acceptance:** A community member can download the `.img.xz`, flash it with
 rpi-imager or `dd`, boot a Raspberry Pi 4, and have velocity.report running
-with radar collection and PDF report generation functional.
+with radar collection and PDF report generation functional. The user can
+subsequently run `sudo velocity-ctl upgrade` to upgrade to a newer release
+without losing their sensor data.
 
 ### Phase 2 — Image Optimisation (v0.6.0)
 
@@ -145,14 +150,13 @@ curl                   # health checks
 
 #### 4.2.2 velocity.report Binaries
 
-| Component                           | Source                                                                            | Install Path                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `velocity-report` (Go server)       | Cross-compiled ARM64 binary **with pcap support** (`make build-radar-linux-pcap`) | `/usr/local/bin/velocity-report`                     |
-| `velocity-deploy` (deployment tool) | Cross-compiled ARM64 binary                                                       | `/usr/local/bin/velocity-deploy`                     |
-| `velocity-update` (update script)   | Shell script wrapping `velocity-deploy upgrade`                                   | `/usr/local/bin/velocity-update`                     |
-| PDF generator (Python)              | Wheel + vendored deps in venv                                                     | `/opt/velocity-report/tools/pdf-generator/`          |
-| Python venv                         | Pre-built `.venv/`                                                                | `/opt/velocity-report/.venv/`                        |
-| Web frontend (static assets)        | Pre-built `web/build/`                                                            | Embedded in Go binary or `/opt/velocity-report/web/` |
+| Component                          | Source                                                                            | Install Path                                         |
+| ---------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `velocity-report` (Go server)      | Cross-compiled ARM64 binary **with pcap support** (`make build-radar-linux-pcap`) | `/usr/local/bin/velocity-report`                     |
+| `velocity-ctl` (device management) | Cross-compiled ARM64 binary                                                       | `/usr/local/bin/velocity-ctl`                        |
+| PDF generator (Python)             | Wheel + vendored deps in venv                                                     | `/opt/velocity-report/tools/pdf-generator/`          |
+| Python venv                        | Pre-built `.venv/`                                                                | `/opt/velocity-report/.venv/`                        |
+| Web frontend (static assets)       | Pre-built `web/build/`                                                            | Embedded in Go binary or `/opt/velocity-report/web/` |
 
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**; users
@@ -163,21 +167,94 @@ API). The `--enable-lidar` flag is off unless explicitly toggled.
 #### 4.2.2a Update Mechanism
 
 The image ships with **no automatic updates** — this preserves the privacy-first
-principle by making zero unsolicited network requests. Instead:
+principle by making zero unsolicited network requests. Instead, users
+**explicitly** run `velocity-ctl upgrade` when they choose to upgrade.
 
-1. **`velocity-update` script** — a thin wrapper around `velocity-deploy upgrade`
-   that pulls the latest release from GitHub when the user explicitly runs it:
+**Why in-place upgrade is mandatory for v0.5.1:** Users collect radar data in
+SQLite over weeks or months. Re-flashing the SD card destroys that database.
+The image must ship with a working upgrade path from day one.
 
-   ```bash
-   sudo velocity-update          # download + install latest release
-   sudo velocity-update --check  # print current vs. available version
-   ```
+##### Update workflow
 
-2. **Settings dashboard version banner** — the web UI settings page displays
-   the currently installed version. When the user clicks "Check for updates"
-   the frontend makes a single API call to the GitHub releases endpoint and
-   compares the installed version with the latest available tag, showing an
-   upgrade prompt if a newer version exists.
+```
+sudo velocity-ctl upgrade              # check + download + apply latest release
+sudo velocity-ctl upgrade --check      # print version comparison only
+sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
+```
+
+`velocity-ctl` is a purpose-built on-device management binary (no SSH, no
+remote execution). The `upgrade` subcommand performs the full sequence:
+
+1. **Check** — query GitHub Releases API (`api.github.com`) for the latest
+   release of `banshee-data/velocity.report`; compare to installed version
+2. **Download** — fetch the `velocity-report-linux-arm64` asset from the
+   GitHub Release; verify SHA-256 checksum against the published checksum file
+3. **Backup** — create timestamped backup of current binary and database to
+   `/var/lib/velocity-report/backups/`
+4. **Stop** — `systemctl stop velocity-report.service`
+5. **Install** — replace `/usr/local/bin/velocity-report` with the downloaded
+   binary
+6. **Migrate** — run `velocity-report migrate up` for any new database schema
+   changes
+7. **Start** — `systemctl start velocity-report.service`
+8. **Verify** — confirm service is active and responding
+
+If `--check` is passed, only step 1 runs and the result is printed. If
+`--binary` is passed, steps 1–2 are skipped and the local file is used
+(for offline or air-gapped upgrades).
+
+##### Implementation scope for v0.5.1
+
+New binary at `cmd/velocity-ctl/` (~500 lines). This replaces `cmd/deploy/`
+entirely — no SSH surface, no remote execution, no install/fix/config
+subcommands. Only the on-device capabilities that matter:
+
+- `upgrade` — GitHub release check + download + backup + stop + install +
+  migrate + start + verify. `--check` flag for version comparison only.
+  `--binary` flag for offline upgrades.
+- `rollback` — restore binary + database from most recent timestamped backup
+- `backup` — create manual snapshot of binary + database
+- `status` — thin wrapper around `systemctl status velocity-report`
+- `version` — print installed velocity-ctl and velocity-report versions
+
+The upgrade subcommand includes:
+
+- GitHub release checking: HTTP GET to
+  `https://api.github.com/repos/banshee-data/velocity.report/releases/latest`,
+  parse JSON for `tag_name` and asset URLs
+- Binary download: HTTP GET the `velocity-report-linux-arm64` asset URL,
+  write to temp file, verify SHA-256 against published `SHA256SUMS` asset
+- `--binary` optional: if omitted, auto-download from GitHub
+
+`cmd/deploy/` is deleted in v0.5.1. The SSH surface (`executor.go`,
+`sshconfig.go`), remote install, fix, config, and health subcommands, and the
+three legacy upgrade steps (`updateSourceCode`, `ensureLaTeX`,
+`updatePythonDependencies`) are not carried forward.
+
+##### Privacy guarantees
+
+- **No unsolicited requests** — the tool only contacts GitHub when the user
+  explicitly runs `velocity-ctl upgrade`
+- **No telemetry** — no analytics, no tracking, no phone-home
+- **No background processes** — no cron, no timer, no daemon
+- **Public API only** — GitHub Releases API for public repos requires no
+  authentication token
+- **Verifiable** — SHA-256 checksum verification ensures binary integrity
+
+##### Rollback
+
+If an upgrade fails or causes problems:
+
+```bash
+sudo velocity-ctl rollback      # restore most recent backup
+```
+
+This restores the binary and database from the timestamped backup created
+during the upgrade.
+
+2. **Settings dashboard version banner** — the web UI settings page will
+   display the currently installed version. A future "Check for updates"
+   button is planned but not yet implemented.
 
 #### 4.2.3 System Configuration
 
@@ -247,9 +324,9 @@ pi-gen/
 │   ├── 01-velocity-binaries/
 │   │   ├── 00-run.sh              # Copy pre-built Go binaries + update script
 │   │   └── files/
-│   │       ├── velocity-report     # ARM64 binary with pcap (from CI artifact)
-│   │       ├── velocity-deploy     # ARM64 binary (from CI artifact)
-│   │       └── velocity-update     # Update helper script
+│   │       ├── velocity-report     # ARM64 server binary with pcap (from CI artifact)
+│   │       ├── velocity-ctl        # ARM64 management binary (from CI artifact)
+│   │       └── velocity-update     # Redirect stub (prints "use velocity-ctl upgrade")
 │   ├── 02-velocity-python/
 │   │   ├── 00-run.sh              # Set up venv, install PDF generator
 │   │   └── files/
@@ -301,8 +378,8 @@ jobs:
         with:
           name: velocity-binaries
           path: |
-            velocity-report-linux
-            velocity-deploy-linux
+            velocity-report-linux-arm64
+            velocity-ctl-linux-arm64
             tools/pdf-generator/dist/*.whl
 
   build-image:
@@ -529,17 +606,15 @@ easily mitigated by:
 Even with the imager in a separate repository, the following **must** remain in
 the `velocity.report` monorepo:
 
-| Asset                   | Location                               | Reason                                                             |
-| ----------------------- | -------------------------------------- | ------------------------------------------------------------------ |
-| pi-gen stage scripts    | `image/` (new directory)               | Defines what goes in the image; tightly coupled to server releases |
-| OS-list repository JSON | `image/os-list-velocity.json`          | Catalogue of available images; updated by CI on release            |
-| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases <!-- link-ignore -->                |
-| systemd service file    | `cmd/deploy/velocity-report.service`   | Canonical source, copied into image                                |
-| udev rules              | `image/files/99-velocity-report.rules` | Device permission rules                                            |
-| Update script           | `image/files/velocity-update`          | User-initiated update helper                                       |
-| Minimal TeX tree        | `image/files/texlive-minimal/`         | Pre-compiled LaTeX templates + fonts (§ 4.6)                       |
-| LiDAR network config    | `image/files/lidar-network.conf`       | Static IP for 192.168.100.x subnet (disabled by default)           |
-| First-boot script       | `image/files/velocity-first-boot.sh`   | Optional setup wizard                                              |
+| Asset                   | Location                                                          | Reason                                                             |
+| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| pi-gen stage scripts    | `image/stage-velocity/`                                           | Defines what goes in the image; tightly coupled to server releases |
+| OS-list repository JSON | `image/os-list-velocity.json`                                     | Catalogue of available images; updated by CI on release            |
+| Image CI workflow       | `.github/workflows/build-image.yml`                               | Triggered by monorepo releases                                     |
+| systemd service file    | `cmd/deploy/velocity-report.service`                              | Canonical source, symlinked into image                             |
+| udev rules              | `image/stage-velocity/03-velocity-config/files/`                  | Device permission rules                                            |
+| Management binary       | `cmd/velocity-ctl/`                                               | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
+| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf` | Static IP for 192.168.100.x subnet (disabled by default)           |
 
 ---
 
@@ -581,7 +656,81 @@ the `velocity.report` monorepo:
 
 ---
 
-## 8. Implementation Phases
+## 8. Deploy Tool Replacement — `velocity-ctl`
+
+`cmd/deploy/` (the `velocity-deploy` binary) is **deleted in v0.5.1** and
+replaced by `cmd/velocity-ctl/` (the `velocity-ctl` binary). This is a clean
+break, not a gradual deprecation — there are no existing image users to
+migrate, and shipping both binaries creates a limbo state where two tools
+with overlapping names do different things.
+
+### 8.1 What Changes
+
+| Before (deleted)                           | After (new)                              |
+| ------------------------------------------ | ---------------------------------------- |
+| `velocity-deploy` (3,678 LOC, 10 Go files) | `velocity-ctl` (~500 LOC, purpose-built) |
+| `velocity-update` (21-line bash wrapper)   | _(deleted — no wrapper needed)_          |
+| 8 subcommands, SSH surface, legacy steps   | 5 subcommands, local-only, no SSH        |
+
+### 8.2 Subcommand Map
+
+```
+velocity-ctl                           # On-device management (root)
+  ├── upgrade    (from deploy)         # Check + download + apply release
+  ├── rollback   (from deploy)         # Restore previous version from backup
+  ├── backup     (from deploy)         # Manual snapshot of binary + database
+  ├── status     (new, thin)           # systemctl status wrapper
+  └── version    (new)                 # Show installed versions
+```
+
+**Not carried forward** from `cmd/deploy/`: `install`, `fix`, `config`,
+`health`, SSH execution (`executor.go`, `sshconfig.go`), legacy upgrade steps
+(`updateSourceCode`, `ensureLaTeX`, `updatePythonDependencies`).
+
+### 8.3 Why `velocity-ctl` (not `velocity-deploy`)
+
+- **No name collision** — `velocity-deploy` implied pushing code TO somewhere
+  over SSH. On-device, the tool pulls an update DOWN to itself. The name was
+  actively misleading.
+- **Unix convention** — follows `systemctl`, `apachectl`, `rabbitmqctl`.
+- **Clean privilege domain** — `velocity-ctl` always runs as root on-device.
+  `velocity-report` runs as the `velocity` service user. No mixed privilege
+  model.
+- **Smaller binary** — ~500 lines vs ~3,700. No dead code ships on the image.
+
+### 8.4 Image Binaries (v0.5.1)
+
+Two Go binaries, no wrapper scripts:
+
+| Binary            | Install Path                     | Runs as  | Purpose                     |
+| ----------------- | -------------------------------- | -------- | --------------------------- |
+| `velocity-report` | `/usr/local/bin/velocity-report` | velocity | Server (radar, API, web UI) |
+| `velocity-ctl`    | `/usr/local/bin/velocity-ctl`    | root     | Upgrade, rollback, backup   |
+
+### 8.5 Deleted Artefacts
+
+The following are removed from the repository in v0.5.1:
+
+- `cmd/deploy/` — entire directory (10 source files, 10 test files, README)
+- `image/stage-velocity/01-velocity-binaries/files/velocity-update` — bash wrapper
+- Makefile targets: `build-deploy`, `build-deploy-linux`, `deploy-install`,
+  `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`,
+  `deploy-install-latex-minimal`, `deploy-update-deps`, `setup-radar`
+- `scripts/setup-radar-host.sh`
+
+### 8.6 Future Consolidation
+
+The [distribution-packaging plan](./deploy-distribution-packaging-plan.md)
+proposes absorbing `velocity-ctl` subcommands into `velocity-report` as
+subcommands (e.g. `velocity-report upgrade`). That remains a future option
+but is **not required** — `velocity-ctl` is a stable, permanent name that
+can remain indefinitely. The consolidation only makes sense if eliminating
+one binary from the image is worth the mixed privilege model (root
+subcommands in a non-root binary).
+
+---
+
+## 9. Implementation Phases
 
 ### Phase 0 — Prerequisites (1–2 days)
 
@@ -595,7 +744,7 @@ the `velocity.report` monorepo:
 
 - [x] Create `image/` directory in monorepo
 - [x] Write pi-gen `config` file and `stage-velocity/` scripts
-- [x] Include `velocity-update` script and version metadata in image
+- [x] Include `velocity-ctl` binary and version metadata in image
 - [x] Configure US Wi-Fi regulatory domain fallback
 - [x] Include LiDAR support (libpcap, network config) disabled by default
 - [x] Create GitHub Actions workflow for image building
@@ -634,7 +783,7 @@ Note: Phase 1 ships full `texlive-xetex` APT packages. LaTeX size reduction
 
 ---
 
-## 9. Repository Layout (Monorepo Additions)
+## 10. Repository Layout (Monorepo Additions)
 
 ```
 velocity.report/
@@ -647,10 +796,9 @@ velocity.report/
 │   │   ├── 01-velocity-binaries/
 │   │   │   ├── 00-run.sh
 │   │   │   └── files/
-│   │   │       └── velocity-update     # Update helper script
+│   │   │       └── velocity-update     # Redirect stub (prints "use velocity-ctl upgrade")
 │   │   ├── 02-velocity-python/
-│   │   │   ├── 00-run.sh
-│   │   │   └── files/
+│   │   │   └── 00-run.sh
 │   │   ├── 03-velocity-config/
 │   │   │   ├── 00-run.sh
 │   │   │   └── files/
@@ -666,10 +814,6 @@ velocity.report/
 │   │   │   ├── 00-run.sh              # US Wi-Fi fallback
 │   │   │   └── files/
 │   │   │       └── wpa_supplicant.conf
-│   │   ├── 06-velocity-latex/
-│   │   │   ├── 00-run.sh              # Minimal TeX tree + pre-compiled formats
-│   │   │   └── files/
-│   │   │       └── texlive-minimal/    # Vendored minimal TeX distribution
 │   │   └── EXPORT_IMAGE
 │   └── scripts/
 │       └── build-image.sh              # Local image build helper
@@ -680,7 +824,7 @@ velocity.report/
 
 ---
 
-## 10. os-list JSON Schema (Phase 2)
+## 11. os-list JSON Schema (Phase 2)
 
 A single image entry — the full stack with radar, LiDAR (disabled), PDF
 generation, and web dashboard:
@@ -711,7 +855,7 @@ generation, and web dashboard:
 
 ---
 
-## 11. Security Considerations
+## 12. Security Considerations
 
 ### 11.1 Image Integrity
 
@@ -744,12 +888,12 @@ generation, and web dashboard:
   - Any personally identifiable information
 - The os-list JSON is fetched by rpi-imager, but this only reveals that someone
   is _looking at_ the velocity.report catalogue, not using it
-- The "Check for updates" button in the settings dashboard makes a single
-  GitHub API call only when the user explicitly clicks it
+- The "Check for updates" functionality in the settings dashboard is planned
+  but not yet implemented
 
 ---
 
-## 12. References
+## 13. References
 
 - [raspberrypi/rpi-imager](https://github.com/raspberrypi/rpi-imager) — Apache 2.0 licence, C++/Qt6/QML/CMake
 - [RPi-Distro/pi-gen](https://github.com/RPi-Distro/pi-gen) — Stage-based image builder, BSD licence
@@ -763,18 +907,18 @@ generation, and web dashboard:
 
 ---
 
-## 13. Summary of Recommendations
+## 14. Summary of Recommendations
 
-| Decision                              | Recommendation                                                               | Rationale                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Image building tool**               | Start with pi-gen, plan migration to rpi-image-gen                           | pi-gen is proven; rpi-image-gen is better long-term but newer                                                     |
-| **Image flashing (Phase 1)**          | Custom repository JSON for stock rpi-imager                                  | Zero development cost; immediate value                                                                            |
-| **Image flashing (Phase 2)**          | Fork rpi-imager into separate repo (only if needed)                          | Full branding + custom fields; only justified by user research                                                    |
-| **Repository for imager fork**        | **Separate repo** (`banshee-data/velocity.report-imager`)                    | Different tech stack (C++/Qt), release cadence, and contributor profile                                           |
-| **Image build scripts**               | **Monorepo** (`velocity.report/image/`)                                      | Tightly coupled to server releases; same CI pipeline                                                              |
-| **Image variants**                    | **Single image** with full stack                                             | LiDAR disabled by default; LaTeX footprint reduced via § 4.6                                                      |
-| **LaTeX size reduction**              | Pre-compiled templates (Option B), migrate to hybrid if needed               | Greatest savings (~750 MB) with simplest runtime                                                                  |
-| **LiDAR support**                     | Included (pcap build) but **disabled by default**                            | Users enable via settings dashboard; depends on [frontend-consolidation.md](./web-frontend-consolidation-plan.md) |
-| **Auto-update**                       | **None** — user-initiated `velocity-update` script + dashboard version check | Preserves privacy-first principle; zero unsolicited network requests                                              |
-| **Wi-Fi fallback**                    | US regulatory domain (`country=US`)                                          | Ensures wireless works out of the box if user skips country selection                                             |
-| **Custom flashing tool (Approach C)** | **Do not pursue**                                                            | Re-implementing disk I/O is high-risk and low-value                                                               |
+| Decision                              | Recommendation                                                                           | Rationale                                                                                                         |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Image building tool**               | Start with pi-gen, plan migration to rpi-image-gen                                       | pi-gen is proven; rpi-image-gen is better long-term but newer                                                     |
+| **Image flashing (Phase 1)**          | Custom repository JSON for stock rpi-imager                                              | Zero development cost; immediate value                                                                            |
+| **Image flashing (Phase 2)**          | Fork rpi-imager into separate repo (only if needed)                                      | Full branding + custom fields; only justified by user research                                                    |
+| **Repository for imager fork**        | **Separate repo** (`banshee-data/velocity.report-imager`)                                | Different tech stack (C++/Qt), release cadence, and contributor profile                                           |
+| **Image build scripts**               | **Monorepo** (`velocity.report/image/`)                                                  | Tightly coupled to server releases; same CI pipeline                                                              |
+| **Image variants**                    | **Single image** with full stack                                                         | LiDAR disabled by default; LaTeX footprint reduced via § 4.6                                                      |
+| **LaTeX size reduction**              | Pre-compiled templates (Option B), migrate to hybrid if needed                           | Greatest savings (~750 MB) with simplest runtime                                                                  |
+| **LiDAR support**                     | Included (pcap build) but **disabled by default**                                        | Users enable via settings dashboard; depends on [frontend-consolidation.md](./web-frontend-consolidation-plan.md) |
+| **Auto-update**                       | **None** — user-initiated `sudo velocity-ctl upgrade`; dashboard version display planned | Preserves privacy-first principle; zero unsolicited network requests                                              |
+| **Wi-Fi fallback**                    | US regulatory domain (`country=US`)                                                      | Ensures wireless works out of the box if user skips country selection                                             |
+| **Custom flashing tool (Approach C)** | **Do not pursue**                                                                        | Re-implementing disk I/O is high-risk and low-value                                                               |

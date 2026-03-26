@@ -1,14 +1,20 @@
-# velocity-deploy - Deployment Manager
+# velocity-deploy — DELETED
 
-> **⚠️ Deprecated:** `velocity-deploy` is deprecated. Removal is gated on the
-> retirement conditions in the
-> [platform simplification and deprecation plan](../../docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate):
-> (1) Raspberry Pi image pipeline ([#210](../../docs/BACKLOG.md)) operational,
-> (2) packaging confirmed, (3) migration period elapsed, (4) no active
-> deploy-tool users — removal planned for v0.5.1. No new features will be added; only
-> critical fixes are accepted. See the
-> [migration guidance](../../docs/plans/platform-simplification-and-deprecation-plan.md#migration-guidance-deploy-tool--image-pipeline)
-> for the replacement workflow.
+> **This directory is scheduled for deletion in v0.5.1.** `velocity-deploy` has
+> been replaced by `velocity-ctl` (`cmd/velocity-ctl/`), a purpose-built
+> on-device management binary with no SSH surface.
+>
+> See [deploy-rpi-imager-fork-plan.md § 8](../../docs/plans/deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl)
+> for the replacement design.
+>
+> **Migration:**
+>
+> - `velocity-deploy upgrade` → `velocity-ctl upgrade`
+> - `velocity-deploy rollback` → `velocity-ctl rollback`
+> - `velocity-deploy backup` → `velocity-ctl backup`
+> - `velocity-deploy status` → `velocity-ctl status`
+> - `velocity-deploy install/fix/config/health` → _(removed, not needed on image)_
+> - SSH flags (`--target`, `--ssh-user`, `--ssh-key`) → _(removed)_
 
 `velocity-deploy` is a comprehensive deployment and management tool for velocity.report installations. It handles installation, upgrades, monitoring, and maintenance of velocity.report services on both local and remote hosts.
 
@@ -190,19 +196,26 @@ velocity-deploy install --binary ./velocity-report-linux-arm64 --db-path ./senso
 
 Upgrade to a new version.
 
-**Required flags:**
-
-- `--binary`: Path to new velocity-report binary
-
 **Optional flags:**
 
+- `--binary`: Path to new velocity-report binary (if omitted, downloads latest from GitHub Releases)
+- `--check`: Check for newer version without applying
 - `--no-backup`: Skip backup before upgrade
 
-**Example:**
+**Examples:**
 
 ```bash
+# On-device: check + download + apply latest release (primary use case)
+velocity-deploy upgrade
+
+# On-device: check for updates only
+velocity-deploy upgrade --check
+
+# Offline: apply a local binary
 velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 ```
+
+On-device, users run `sudo velocity-update` which wraps this command.
 
 #### status
 

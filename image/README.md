@@ -13,8 +13,7 @@ Ships the current codebase as-is with full `texlive-xetex` APT packages
 | Component                            | Install Path                                |
 | ------------------------------------ | ------------------------------------------- |
 | `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report`            |
-| `velocity-deploy`                    | `/usr/local/bin/velocity-deploy`            |
-| `velocity-update` (shell wrapper)    | `/usr/local/bin/velocity-update`            |
+| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`               |
 | PDF generator (Python)               | `/opt/velocity-report/tools/pdf-generator/` |
 | Python venv                          | `/opt/velocity-report/.venv/`               |
 | Web frontend                         | Embedded in Go binary                       |
@@ -34,7 +33,17 @@ LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 ### No Automatic Updates
 
 The image makes zero unsolicited network requests. Updates are user-initiated
-via `sudo velocity-update` or the web dashboard "Check for updates" button.
+via `sudo velocity-ctl upgrade`, which checks GitHub Releases for a newer
+version, downloads the binary, verifies the SHA-256 checksum, and upgrades
+in-place — preserving the sensor database and all collected data.
+
+```bash
+sudo velocity-ctl upgrade              # check + download + apply latest release
+sudo velocity-ctl upgrade --check      # print version comparison only
+sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
+```
+
+Rollback: `sudo velocity-ctl rollback` restores the previous version.
 
 ## Directory Layout
 
@@ -50,10 +59,9 @@ image/
     ├── 01-velocity-binaries/       # Go binaries + update script
     │   ├── 00-run.sh
     │   └── files/
-    │       └── velocity-update
+    │       └── velocity-update              # Redirect stub (prints "use velocity-ctl upgrade")
     ├── 02-velocity-python/         # Python venv + PDF generator
-    │   ├── 00-run.sh
-    │   └── files/
+    │   └── 00-run.sh
     ├── 03-velocity-config/         # User, service, serial, udev
     │   ├── 00-run.sh
     │   └── files/
