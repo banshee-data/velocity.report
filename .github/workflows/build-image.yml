@@ -1,0 +1,175 @@
+# Build Raspberry Pi Image
+#
+# Produces a flashable .img.xz for Raspberry Pi 4/400/5 containing the
+# full velocity.report stack (radar, LiDAR disabled, PDF generation, web
+# dashboard).
+#
+# Phase 1: ships full texlive-xetex APT packages (~800 MB uncompressed).
+# Phase 2 (v0.6.0) will reduce this via pre-compiled templates.
+
+name: Build RPi Image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_version:
+        description: "Image version tag (e.g. v0.5.1)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-binaries:
+    name: Cross-compile Go binaries (ARM64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install ARM64 cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libpcap-dev
+
+      - name: Build velocity-report (ARM64, pcap-enabled)
+        run: |
+          CGO_ENABLED=1 \
+          CC=aarch64-linux-gnu-gcc \
+          GOOS=linux GOARCH=arm64 \
+          go build -tags pcap \
+            -ldflags "-X main.version=${{ github.event.release.tag_name || inputs.image_version || 'dev' }}" \
+            -o velocity-report-arm64 \
+            ./cmd/radar/
+
+      - name: Build velocity-deploy (ARM64)
+        run: |
+          CGO_ENABLED=0 \
+          GOOS=linux GOARCH=arm64 \
+          go build \
+            -ldflags "-X main.version=${{ github.event.release.tag_name || inputs.image_version || 'dev' }}" \
+            -o velocity-deploy-arm64 \
+            ./cmd/deploy/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velocity-binaries
+          path: |
+            velocity-report-arm64
+            velocity-deploy-arm64
+          retention-days: 1
+
+  build-image:
+    name: Build pi-gen image
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: velocity-binaries
+          path: image/velocity-binaries
+
+      - name: Rename binaries
+        run: |
+          mv image/velocity-binaries/velocity-report-arm64 \
+             image/velocity-binaries/velocity-report
+          mv image/velocity-binaries/velocity-deploy-arm64 \
+             image/velocity-binaries/velocity-deploy
+          chmod +x image/velocity-binaries/*
+
+      - name: Copy PDF generator source
+        run: |
+          mkdir -p image/stage-velocity/02-velocity-python/files/pdf-generator
+          cp -r tools/pdf-generator/* \
+            image/stage-velocity/02-velocity-python/files/pdf-generator/
+
+      - name: Copy tuning defaults
+        run: |
+          mkdir -p image/stage-velocity/03-velocity-config/files/config
+          cp config/tuning.defaults.json \
+            image/stage-velocity/03-velocity-config/files/config/
+
+      - name: Build image with pi-gen
+        uses: usimd/pi-gen-action@v1
+        with:
+          image-name: velocity-report
+          stage-list: "stage0 stage1 stage2 stage-velocity"
+          pi-gen-dir: image
+          verbose-output: true
+
+      - name: Compress image
+        run: |
+          IMG=$(find image/deploy -name "*.img" | head -1)
+          if [ -z "$IMG" ]; then
+            echo "::error::No .img file found in deploy directory"
+            exit 1
+          fi
+          xz -9 "$IMG"
+          COMPRESSED="${IMG}.xz"
+
+          # Generate checksums
+          sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
+
+          echo "IMAGE_PATH=$COMPRESSED" >> "$GITHUB_ENV"
+          echo "CHECKSUM_PATH=${COMPRESSED}.sha256" >> "$GITHUB_ENV"
+          echo "Image size: $(du -h "$COMPRESSED" | cut -f1)"
+
+      - name: Upload image to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.IMAGE_PATH }}
+            ${{ env.CHECKSUM_PATH }}
+
+      - name: Upload image as artifact (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-report-image
+          path: |
+            ${{ env.IMAGE_PATH }}
+            ${{ env.CHECKSUM_PATH }}
+          retention-days: 7
+
+  update-os-list:
+    name: Update os-list JSON
+    needs: build-image
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update os-list-velocity.json
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          DATE=$(date -u +%Y-%m-%d)
+
+          # Download the compressed image to compute checksums
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/velocity-report.img.xz"
+
+          # Update JSON with new version, URL, date
+          jq --arg url "$ASSET_URL" \
+             --arg date "$DATE" \
+             --arg ver "$VERSION" \
+             '.os_list[0].url = $url |
+              .os_list[0].release_date = $date' \
+            image/os-list-velocity.json > image/os-list-velocity.json.tmp
+          mv image/os-list-velocity.json.tmp image/os-list-velocity.json
+
+      - name: Commit updated os-list
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add image/os-list-velocity.json
+          git diff --cached --quiet || \
+            git commit -m "[ci] update os-list-velocity.json for ${{ github.event.release.tag_name }}"
+          git push

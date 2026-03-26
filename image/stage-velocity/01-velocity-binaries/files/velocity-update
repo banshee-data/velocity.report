@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# velocity-update — User-initiated update helper for velocity.report
+#
+# Wraps `velocity-deploy upgrade` so that updates are never automatic.
+# No unsolicited network requests are made; the user must run this
+# script explicitly.
+#
+# Usage:
+#   sudo velocity-update          # download + install latest release
+#   sudo velocity-update --check  # print current vs. available version
+
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    echo "Error: velocity-update must be run as root (use sudo)" >&2
+    exit 1
+fi
+
+exec /usr/local/bin/velocity-deploy upgrade "$@"
