@@ -12,7 +12,7 @@
 
 ---
 
-## 2. Phased Delivery
+## 1. Phased Delivery
 
 This plan is delivered in two phases, reflecting the principle of shipping
 working software before optimising.
