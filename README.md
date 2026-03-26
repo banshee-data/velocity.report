@@ -4,17 +4,14 @@
 
 <div align="center">
 
-[![🧭 Go](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
-[![🌐 Web](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/web-ci.yml)
-[![🐍 Python](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/python-ci.yml)
-[![ macOS](https://github.com/banshee-data/velocity.report/actions/workflows/mac-ci.yml/badge.svg)](https://github.com/banshee-data/velocity.report/actions/workflows/mac-ci.yml)
-
-Coverage: [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=go&label=Go&logo=go)](https://codecov.io/gh/banshee-data/velocity.report?flag=go)
-[![Web Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=web&label=Web&logo=svelte)](https://codecov.io/gh/banshee-data/velocity.report?flag=web)
-[![Python Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=python&label=Python&logo=python)](https://codecov.io/gh/banshee-data/velocity.report?flag=python)
-[![macOS Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?flag=mac&label=macOS&logo=apple)](https://codecov.io/gh/banshee-data/velocity.report?flag=mac)
-
-[![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=chat%20on%20discord)](https://discord.gg/XXh6jXVFkt)
+[![CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?label=coverage)](https://codecov.io/gh/banshee-data/velocity.report)
+[![License](https://img.shields.io/github/license/banshee-data/velocity.report)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/banshee-data/velocity.report)](https://github.com/banshee-data/velocity.report/commits/main)
+[![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](.github/TENETS.md)
+[![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=discord)](https://discord.gg/XXh6jXVFkt)
+[![Release](https://img.shields.io/github/v/release/banshee-data/velocity.report?label=release)](https://github.com/banshee-data/velocity.report/releases/latest)
+[![Sample report](https://img.shields.io/badge/sample-PDF%20report-blue)](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf)
 
 </div>
 
