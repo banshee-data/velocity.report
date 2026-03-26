@@ -1,5 +1,7 @@
 # velocity.report
 
+**Measure velocity, not identity**
+
 <div align="center">
 
 [![🧭 Go](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
@@ -16,9 +18,13 @@ Coverage: [![Go Coverage](https://img.shields.io/codecov/c/github/banshee-data/v
 
 </div>
 
-A privacy-focused traffic logging tool for neighbourhood change-makers.
+Street-level speed measurement for neighbourhood change-makers, researchers, and anyone learning what LiDAR can tell you about how traffic actually behaves. Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for safer streets; without cameras, licence plates, or any personally identifiable information.
 
-Measure vehicle speeds, make streets safer.
+- 📊 Professional PDF reports ready for council meetings
+- 🔒 No video, no plates, no PII — by design, not by promise
+- 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md))
+- 🏠 Runs on a Raspberry Pi in your neighbourhood. Offline-first
+- 🔒 Open source and auditable, because trust should be verifiable
 
 ```
                                                 ░░░░
@@ -53,621 +59,167 @@ Measure vehicle speeds, make streets safer.
      ░░░    ░░░░   ░░░░ ░░░░    ░░░    ░░░░    ░░░░░   ░░░░░   ░░░░░
 ```
 
-## Overview
+## Project Documents
 
-**velocity.report** is a complete citizen radar system for neighbourhood traffic monitoring. The system consists of four main components:
+- 🔭 [VISION.md](docs/VISION.md): where the project is heading
+- 🎨 [DESIGN.md](docs/ui/DESIGN.md): frontend and visualisation design language
+- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions for the curious
+- 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
+- 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): system design, data flow, and component relationships
+- 🧱 [COMMANDS.md](COMMANDS.md): every make target, catalogued
+- 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
+- 📋 [BACKLOG.md](docs/BACKLOG.md): work queue, prioritised and honest
+- 🪵 [CHANGELOG.md](CHANGELOG.md): what changed and when
+- 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal and working notes
+- 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
+- 🙋 [CONTRIBUTING.md](CONTRIBUTING.md): how to help
+- 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
+- ⚖️ [LICENSE](LICENSE): Apache 2.0
 
-- **Go Server** - High-performance data collection and API server
-- **Python PDF Generator** - Professional PDF report generation with LaTeX
-- **Web Frontend** - Real-time data visualisation (Svelte)
-- **macOS Visualiser** - Native 3D visualisation for LiDAR tracking (M1+ Macs)
+## Why velocity.report?
 
-The system collects vehicle speed data from radar/LIDAR sensors, stores it in SQLite, and provides multiple ways to visualise and report on the data—all while maintaining complete privacy (no license plate recognition, no video recording).
+Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, and nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road.
 
-## Privacy & Ethics
+velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-This project is designed with privacy as a core principle:
+The radar measures vehicle speeds. The LiDAR classifies and tracks objects. Both run independently today; [sensor fusion](docs/VISION.md) — combining them into a single corroborated record — is the next major milestone. No cameras, no licence plates, no surveillance infrastructure that a neighbourhood should never have to build in order to be heard. The data stays on a Raspberry Pi in someone's house. The reports are professional enough for a planning committee.
 
-- ✅ No license plate recognition
-- ✅ No video recording
-- ✅ No personally identifiable information
+Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
-The goal is to empower communities to make data-driven decisions about street safety without compromising individual privacy.
+## What's Included
+
+| Component            | Language            | What it does                                                                                                                                                                             |
+| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Go server**        | Go                  | Collects radar speed data and LiDAR point clouds independently, stores both in SQLite, serves the API. Runs as a systemd service on Raspberry Pi. → [cmd/](cmd/), [internal/](internal/) |
+| **PDF generator**    | Python + LaTeX      | Turns speed data into professional reports with charts, statistics, and proper formatting. Ready for a council submission. → [tools/pdf-generator/](tools/pdf-generator/README.md)       |
+| **Web frontend**     | Svelte + TypeScript | Data visualisation and interactive charts for recorded speed data. → [web/](web/README.md)                                                                                               |
+| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md)                        |
 
 ## Quick Start
 
-### For Go Server Development
+### Run the server and web frontend
 
 ```sh
 git clone git@github.com:banshee-data/velocity.report.git
 cd velocity.report
+make build-web
 make build-radar-local
+```
+
+If you have an existing SQLite database, place it at `./sensor_data.db`. For production, use `--db-path` to point elsewhere.
+
+Now, start the server by running:
+
+```sh
 ./velocity-report-local --disable-radar
 ```
 
-If an existing SQLite database is available, place it in `./sensor_data.db` (the default location for development). For production deployments, use the `--db-path` flag to specify a different location (see Deployment section).
+Next, open [localhost:8080](http://localhost:8080) to see the dashboard.
 
-### For PDF Report Generation
+### Launch the macOS LiDAR visualiser
 
-See **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** for detailed instructions.
-
-Quick version:
+Requires macOS 14+ and Metal support.
 
 ```sh
-cd tools/pdf-generator
-make install-python         # One-time setup
-make pdf-config             # Create config template
-make pdf-report CONFIG=config.json
+make dev-mac
 ```
 
-### For Web Frontend Development
+Then open the Lidar Dashboard on [localhost:8081](http://localhost:8081) to start PCAP replay.
 
-See **[web/README.md](web/README.md)** for detailed instructions.
+See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for replay mode, gRPC controls, and camera navigation.
 
-### For macOS Visualiser (LiDAR 3D Tracking)
+## Privacy
 
-The macOS visualiser provides real-time 3D visualisation of LiDAR point clouds, object tracking, and debug overlays. **Requires macOS 14+ and Apple Silicon (M1/M2/M3) or Intel Mac with Metal support.**
+The system records vehicle speed data. That is all it records.
 
-See **[tools/visualiser-macos/README.md](tools/visualiser-macos/README.md)** for detailed instructions.
+- No cameras
+- No licence plate recognition
+- No video
+- No personally identifiable information — by design, not by policy
 
-Quick version:
+The point is to measure traffic, not to start building a private surveillance habit. The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
+
+See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles.
+
+## Who It's For
+
+- **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
+- **Community advocates** building a case for traffic calming, with data that survives a council meeting
+- **Academics and researchers** studying street-level vehicle behaviour with LiDAR point clouds, tracking pipelines, and replayable datasets
+- **Students and engineers** learning LiDAR perception — the pipeline is transparent, tuneable, and documented from raw UDP packets through to classified tracks
+- **Before-and-after studies** showing whether traffic calming interventions actually work
+
+## Architecture
+
+```
+   ┌──────────────────┐     ┌──────────────────────────┐     ┌──────────────────┐
+   │     Sensors      │────►│  velocity.report Server  │◄───►│ SQLite Database  │
+   │ (Radar / LiDAR)  │     │        (Go)              │     │ (sensor_data.db) │
+   └──────────────────┘     └──────────────────────────┘     └──────────────────┘
+                                  │              │
+                       HTTP :8080 │              │ gRPC :50051
+                   ┌──────────────┴─┐            │
+                   │                │            │
+                   ▼                ▼            ▼
+        ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐
+        │ Web Frontend │ │ PDF Generator │ │  VelocityVisualiser │
+        │   (Svelte)   │ │  (Python/TeX) │ │ (macOS/Metal, gRPC) │
+        └──────────────┘ └───────────────┘ └─────────────────────┘
+```
+
+For the full architecture — data flow, schema, and deployment model — see
+For the full architecture — data flow, schema, and deployment model — see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
+
+## Development
+
+Every commit should pass:
 
 ```sh
-# Build the visualiser
-make build-mac
-
-# Start synthetic data server for testing
-go run ./cmd/tools/visualiser-server -rate 10 -points 5000
-
-# Launch the visualiser
-open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
-
-# Or replay recorded data
-go run ./cmd/tools/visualiser-server -mode replay -log /path/to/recording.vrlog
+make format    # auto-fix all formatting
+make lint      # check all formatting
+make test      # run all test suites
 ```
 
-**M1 Features (Milestone 1):**
+See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup, coding standards, and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
 
-- ✅ Recorder/Replayer with deterministic playback
-- ✅ Pause/Play/Seek/Rate control via gRPC
-- ✅ Frame-by-frame navigation
-- ✅ Timeline scrubbing
-- ✅ 3D camera controls (orbit, pan, zoom)
-- ✅ Mouse/trackpad gesture support
+## Deployment
+
+The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide and [cmd/deploy/README.md](cmd/deploy/README.md) for the deployment tool reference.
 
 ## Project Structure
 
 ```
 velocity.report/
-├── cmd/                      # Go CLI applications
-│   ├── radar/                # Radar/LiDAR sensor integration
-│   ├── deploy/               # Deployment management tool
-│   ├── sweep/                # Parameter sweep utilities
-│   ├── tools/                # Go utility tools
-│   │   ├── visualiser-server/ # Synthetic data generator and replay server
-│   │   ├── gen-vrlog/        # Generate sample .vrlog recordings
-│   │   ├── pcap-analyse/     # PCAP packet analysis
-│   │   └── ...               # Other utilities
-│   └── transit-backfill/     # Transit data backfill tool
-├── internal/                 # Go server internals (private packages)
-│   ├── api/                  # HTTP API endpoints
-│   ├── db/                   # SQLite database layer + migrations
-│   ├── radar/                # Radar sensor logic
-│   ├── lidar/                # LiDAR sensor logic + tracking
-│   │   └── visualiser/       # gRPC streaming for 3D visualisation
-│   │       └── recorder/     # Record/replay .vrlog files
-│   ├── monitoring/           # System monitoring
-│   ├── security/             # Path validation and security
-│   ├── serialmux/            # Serial port multiplexing
-│   ├── units/                # Unit conversion utilities
-│   └── version/              # Version information
-├── web/                      # Svelte web frontend
-│   ├── src/                  # Frontend source code
-│   └── static/               # Static assets
-├── tools/                    # Python tooling and native apps
-│   ├── pdf-generator/        # PDF report generation (Python)
-│   │   ├── pdf_generator/    # Python package
-│   │   │   ├── cli/          # CLI tools
-│   │   │   ├── core/         # Core modules
-│   │   │   └── tests/        # Test suite
-│   │   └── output/           # Generated PDFs
-│   └── visualiser-macos/     # macOS LiDAR visualiser (Swift/Metal)
-│       ├── VelocityVisualiser/       # SwiftUI app
-│       │   ├── App/          # Application entry
-│       │   ├── gRPC/         # gRPC client
-│       │   ├── Rendering/    # Metal renderer
-│       │   └── UI/           # SwiftUI views
-│       └── VelocityVisualiserTests/  # XCTest suite
-├── data/                     # Sample data and alignment utilities
-├── docs/                     # Internal project documentation
-├── public_html/              # Public documentation site (Eleventy)
-├── scripts/                  # Development shell scripts
-└── static/                   # Static server assets
+├── cmd/                  # Go CLI applications
+│   ├── radar/            # Radar/LiDAR sensor service
+│   ├── deploy/           # Deployment manager
+│   ├── sweep/            # Parameter sweep utilities
+│   └── tools/            # Utility tools (visualiser-server, gen-vrlog, pcap-analyse)
+├── internal/             # Go internals (API, database, radar, LiDAR, monitoring)
+├── web/                  # Svelte web frontend
+├── tools/
+│   ├── pdf-generator/    # Python PDF report generation
+│   └── visualiser-macos/ # macOS LiDAR visualiser (Swift/Metal)
+├── data/                 # Sample data, alignment, and analysis
+├── docs/                 # Internal project documentation
+├── public_html/          # Public documentation site (Eleventy)
+├── config/               # Tuning parameters and configuration
+├── proto/                # Protobuf definitions
+└── scripts/              # Development shell scripts
 ```
-
-## Architecture
-
-### Data Flow
-
-```
-   ┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-   │     Sensors       │────►│     Go Server     │◄───►│  SQLite Database  │
-   │ (Radar / LIDAR)   │     │ (API/Processing)  │     │ (Time-series)     │
-   └───────────────────┘     └───────────────────┘     └───────────────────┘
-                                       │
-                                       │
-                     ┌─────────────────┴──────────────────┐
-                     │                                    │
-                     ▼                                    ▼
-     ┌─────────────────────────────┐       ┌─────────────────────────────┐
-     │        Web Frontend         │       │    Python PDF Generator     │
-     │   (Real-time via Svelte)    │       │ (Offline Reports via LaTeX) │
-     └─────────────────────────────┘       └─────────────────────────────┘
-```
-
-### Components
-
-**1. Go Server** (`/cmd/`, `/internal/`)
-
-- Collects data from radar/LIDAR sensors
-- Stores time-series data in SQLite
-- Provides HTTP API for data access
-- Handles background processing tasks
-- Runs as systemd service on Raspberry Pi
-
-**2. Python PDF Generator** (`/tools/pdf-generator/`)
-
-- Generates professional PDF reports using LaTeX
-- Creates charts and visualisations with matplotlib
-- Processes statistical summaries
-- Highly configurable via JSON
-- Comprehensive test suite
-
-**3. Web Frontend** (`/web/`)
-
-- Real-time data visualisation
-- Interactive charts and graphs
-- Built with Svelte and TypeScript
-- Responsive design
-
-See **[ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architecture documentation.
-
-## Development
-
-### Prerequisites
-
-**For Go Development:**
-
-- Go 1.25+ ([installation guide](https://go.dev/doc/install))
-- SQLite3
-
-**For Python PDF Generation:**
-
-- Python 3.11+
-- LaTeX distribution (XeLaTeX)
-- See [tools/pdf-generator/README.md](tools/pdf-generator/README.md)
-
-**For Web Frontend:**
-
-- Node.js 18+
-- pnpm
-- See [web/README.md](web/README.md)
-
-### Go Server Development
-
-Build the development server:
-
-```sh
-make build-radar-local
-./velocity-report-local --disable-radar
-```
-
-Run tests:
-
-```sh
-make test
-```
-
-Build for production (Raspberry Pi):
-
-```sh
-make build-radar-linux
-# or manually:
-GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/radar
-```
-
-### Python PDF Generator Development
-
-The repository uses a **single shared Python virtual environment** for all Python tools (PDF generator, data visualisation, analysis scripts).
-
-**Setup:**
-
-```sh
-make install-python  # Creates .venv and installs all dependencies
-```
-
-**Activate manually (optional):**
-
-```sh
-source .venv/bin/activate
-```
-
-**What's installed:**
-
-- PDF generation: PyLaTeX
-- Data analysis: pandas, numpy
-- Visualisation: matplotlib, seaborn
-- Testing: pytest, pytest-cov
-- Formatting: black, ruff
-
-**Run PDF Generator:**
-
-```sh
-make pdf-test         # Run test suite
-make pdf-demo         # Run interactive demo
-make pdf-config       # Create config template
-make pdf-report CONFIG=config.json  # Generate PDF report
-```
-
-### Code Formatting
-
-**Option 1: Format on demand (recommended for new contributors)**
-
-```sh
-make format        # Format all code before commit
-make lint          # Verify formatting (what CI checks)
-```
-
-**Option 2: Editor integration**
-
-- VS Code: Install Prettier, ESLint, Go extensions
-- Format-on-save handles most cases
-
-**Option 3: Pre-commit hooks (recommended for regular contributors)**
-
-```sh
-pip install pre-commit
-pre-commit install
-```
-
-Hooks auto-format code on every commit — no manual `make format` needed.
-
-**What runs on commit (if hooks enabled):**
-
-- File hygiene (trailing whitespace, large files, etc.)
-- Go formatting (gofmt)
-- Python formatting (ruff + black) for PDF generator code
-- Web formatting (prettier)
-
-**Note:** CI lint jobs are advisory (non-blocking), so PRs can merge even without perfect formatting. A weekly automated PR cleans up any missed formatting issues. See [`CONTRIBUTING.md`](CONTRIBUTING.md#advisory-linting-non-blocking) and [`.github/workflows/lint-autofix.yml`](.github/workflows/lint-autofix.yml) for details.
-
-### Web Frontend Development
-
-```sh
-cd web
-pnpm install
-pnpm dev
-```
-
-See **[web/README.md](web/README.md)** for details.
-
-## Deployment
-
-### Go Server (Raspberry Pi)
-
-The Go server runs as a systemd service on Raspberry Pi. Use the new `velocity-deploy` tool for comprehensive deployment management.
-
-**Quick Start - Deploy to Raspberry Pi:**
-
-```sh
-# Build the binary and deployment tool
-make build-radar-linux
-make build-deploy
-
-# Deploy to remote Pi
-./velocity-deploy install \
-  --target pi@192.168.1.100 \
-  --ssh-key ~/.ssh/id_rsa \
-  --binary ./velocity-report-linux-arm64
-```
-
-**Or use Make shortcuts for local deployment:**
-
-```sh
-make build-radar-linux
-make deploy-install
-```
-
-The deployment will:
-
-- Install the binary to `/usr/local/bin/velocity-report`
-- Create a dedicated service user and working directory
-- Install and enable the systemd service
-- Optionally migrate existing database
-
-**Upgrade to new version:**
-
-```sh
-make build-radar-linux
-./velocity-deploy upgrade --target pi@192.168.1.100 --binary ./velocity-report-linux-arm64
-```
-
-**Monitor service health:**
-
-```sh
-# Comprehensive health check
-./velocity-deploy health --target pi@192.168.1.100
-
-# Check status
-./velocity-deploy status --target pi@192.168.1.100
-
-# View logs
-sudo journalctl -u velocity-report.service -f
-```
-
-**See also:**
-
-- **[public_html/src/guides/setup.md](public_html/src/guides/setup.md)** - Complete setup and deployment guide
-- **[cmd/deploy/README.md](cmd/deploy/README.md)** - velocity-deploy CLI reference
-- **[docs/radar/operations/remote-host-upgrade-runbook.md](docs/radar/operations/remote-host-upgrade-runbook.md)** - Manual SSH upgrade runbook for existing hosts and VS Code Ask mode agents
-
-**Legacy deployment:**
-
-Legacy deployment automation is deprecated. For a script-free upgrade of an existing host over SSH, use the manual runbook above.
-
-### Python PDF Generator
-
-The PDF generator is deployed as a Python package via PYTHONPATH:
-
-```sh
-cd tools/pdf-generator
-make install-python
-# PDF generator is now ready at tools/pdf-generator/pdf_generator/
-```
-
-No installation required - use PYTHONPATH method as documented in [tools/pdf-generator/README.md](tools/pdf-generator/README.md).
-
-## Documentation
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and component relationships
-- **[DESIGN.md](docs/ui/DESIGN.md)** - Frontend and visualisation design language (colour palette, chart rules, CSS standards)
-- **[docs/COVERAGE.md](docs/COVERAGE.md)** - Code coverage setup and usage guide
-- **[internal/db/migrations/README.md](internal/db/migrations/README.md)** - Database migration guide and reference
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
-- **[web/README.md](web/README.md)** - Web frontend documentation
-- **[tools/pdf-generator/README.md](tools/pdf-generator/README.md)** - PDF generator documentation
-- **[docs/README.md](docs/README.md)** - Internal project documentation
-- **[public_html/README.md](public_html/README.md)** - Public documentation site
-
-## Testing
-
-### Go Tests
-
-```sh
-make test
-```
-
-**Performance regression testing:**
-
-```sh
-make test-perf NAME=kirk0  # Run performance test against baseline
-```
-
-This compares current performance against saved baselines. If no baseline exists, it creates one.
-
-### Python Tests (PDF Generator)
-
-```sh
-cd tools/pdf-generator
-make pdf-test
-# or with coverage:
-make test-python-cov
-```
-
-## Make Targets
-
-The project uses a consistent naming scheme for all make targets: `<action>-<subsystem>[-<variant>]`
-
-- `action` should be an imperative verb (for example: `build`, `test`, `check`, `sync`).
-- `subsystem` should name the functional surface (for example: `go`, `web`, `config`).
-- `variant` is optional and narrows behaviour (for example: `strict`, `cov`, `linux`).
-
-For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`). Legacy aliases are kept for compatibility.
-
-### Core Subsystem Targets
-
-| Action             | Go                                                            | Python            | Web            | Docs           | macOS        |
-| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | -------------- | ------------ |
-| **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs` | -            |
-| **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`   | `build-mac`  |
-| **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`     | `dev-mac`    |
-| **dev (variant)**  | `dev-go-lidar`<br>`dev-go-lidar-both`<br>`dev-go-kill-server` | -                 | -              | -              | -            |
-| **run**            | -                                                             | -                 | -              | -              | `run-mac`    |
-| **test**           | `test-go`                                                     | `test-python`     | `test-web`     | -              | `test-mac`   |
-| **test (variant)** | `test-go-cov`<br>`test-go-coverage-summary`                   | `test-python-cov` | `test-web-cov` | -              | -            |
-| **format**         | `format-go`                                                   | `format-python`   | `format-web`   | `format-docs`  | `format-mac` |
-| **lint**           | `lint-go`                                                     | `lint-python`     | `lint-web`     | -              | -            |
-| **clean**          | -                                                             | `clean-python`    | -              | -              | `clean-mac`  |
-
-**Cross-cutting formatting targets:**
-
-- `format-sql` - Format SQL files (migrations and schema)
-
-### Aggregate Targets
-
-- `test` - Run all tests (Go + Python + Web + macOS)
-- `format` - Format all code (Go + Python + Web + macOS + SQL + Markdown)
-- `lint` - Lint all code (Go + Python + Web), fails if formatting needed
-- `coverage` - Generate coverage reports for all components
-
-### Build Targets (Go cross-compilation)
-
-- `build-radar-linux` - Build for Linux ARM64 (no pcap)
-- `build-radar-linux-pcap` - Build for Linux ARM64 with pcap
-- `build-radar-mac` - Build for macOS ARM64 with pcap
-- `build-radar-mac-intel` - Build for macOS AMD64 with pcap
-- `build-radar-local` - Build for local development with pcap
-- `build-tools` - Build sweep tool
-- `build-deploy` - Build velocity-deploy deployment manager
-- `build-deploy-linux` - Build velocity-deploy for Linux ARM64
-- `build-web` - Build web frontend (SvelteKit)
-- `build-docs` - Build documentation site (Eleventy)
-
-### Testing Targets
-
-- `test` - Run all tests (Go + Python + Web + macOS)
-- `test-go` - Run Go unit tests
-- `test-go-cov` - Run Go tests with coverage
-- `test-go-coverage-summary` - Show coverage summary for cmd/ and internal/
-- `test-python` - Run Python PDF generator tests
-- `test-python-cov` - Run Python tests with coverage
-- `test-web` - Run web tests (Jest)
-- `test-web-cov` - Run web tests with coverage
-- `test-mac` - Run macOS visualiser tests (XCTest)
-- `test-perf` - Run performance regression tests (NAME=kirk0)
-- `coverage` - Generate coverage reports for all components
-
-### macOS Visualiser Targets
-
-- `build-mac` - Build macOS LiDAR visualiser (Xcode)
-- `clean-mac` - Clean macOS visualiser build artifacts
-- `run-mac` - Run macOS visualiser (requires build-mac)
-- `dev-mac` - Kill, build, and run macOS visualiser
-- `test-mac` - Run macOS visualiser tests (XCTest)
-- `format-mac` - Format macOS Swift code (swift-format)
-
-### Protobuf Code Generation
-
-- `proto-gen` - Generate protobuf stubs for all languages
-- `proto-gen-go` - Generate Go protobuf stubs
-- `proto-gen-swift` - Generate Swift protobuf stubs (macOS visualiser)
-
-### Deployment Targets (deprecated)
-
-> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate) — not before v0.7.0.
-
-- `setup-radar` - Install server on this host (requires sudo, **deprecated**)
-- `deploy-install` - Install using velocity-deploy (**deprecated**)
-- `deploy-upgrade` - Upgrade using velocity-deploy (**deprecated**)
-- `deploy-status` - Check service status using velocity-deploy (**deprecated**)
-- `deploy-health` - Run health check using velocity-deploy (**deprecated**)
-- `deploy-install-latex` - Install LaTeX on remote target (**deprecated**)
-- `deploy-update-deps` - Update source, LaTeX, and Python deps on remote target (**deprecated**)
-
-### Formatting Targets
-
-- `format` - Format all code (Go + Python + Web + macOS + SQL + Markdown)
-- `format-go` - Format Go code (gofmt)
-- `format-python` - Format Python code (black + ruff)
-- `format-web` - Format web code (prettier)
-- `format-mac` - Format macOS Swift code (swift-format)
-- `format-docs` - Format Markdown files (prettier)
-- `format-sql` - Format SQL files (sql-formatter)
-
-### Linting Targets
-
-- `lint` - Lint all code (Go + Python + Web), fails if formatting needed
-- `lint-go` - Check Go formatting
-- `lint-python` - Check Python formatting
-- `lint-web` - Check web formatting
-
-### Config Schema Consistency Targets
-
-- `check-config-order` - Validate canonical tuning key order across config and docs surfaces
-- `sync-config-order` - Rewrite config/docs targets to canonical tuning key order
-- `check-config-maths` - Validate `README.maths` keys against docs JSON, `tuning*.json`, and Go schema sources
-- `check-config-maths-strict` - Strict parity mode; also requires full webserver POST schema parity
-  Current status: optional in CI until webserver schema parity backlog is complete.
-- Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`
-
-### Database Migration Targets
-
-- `migrate-up` - Apply all pending migrations
-- `migrate-down` - Rollback one migration
-- `migrate-status` - Show current migration status
-- `migrate-detect` - Detect schema version (for legacy databases)
-- `migrate-version` - Migrate to specific version (VERSION=N)
-- `migrate-force` - Force version (recovery, VERSION=N)
-- `migrate-baseline` - Set baseline version (VERSION=N)
-- `schema-sync` - Regenerate schema.sql from latest migrations
-
-### PDF Generator Targets
-
-- `pdf-report` - Generate PDF from config file
-- `pdf-config` - Create example configuration
-- `pdf-demo` - Run configuration demo
-- `pdf-test` - Run PDF tests (alias for test-python)
-- `pdf` - Convenience alias for pdf-report
-
-### Utility Targets
-
-- `set-version` - Update version across codebase (VER=0.4.0 TARGETS='--all')
-- `log-go-tail` - Tail most recent Go server log
-- `log-go-cat` - Cat most recent Go server log
-- `log-go-tail-all` - Tail most recent Go server log plus debug log
-- `git-fs` - Show the git files that differ from main
-
-### Data Visualisation Targets
-
-- `plot-noise-sweep` - Generate noise sweep line plot (FILE=data.csv)
-- `plot-multisweep` - Generate multi-parameter grid (FILE=data.csv)
-- `plot-noise-buckets` - Generate per-noise bar charts (FILE=data.csv)
-- `stats-live` - Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
-- `stats-pcap` - Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
-
-### API Shortcut Targets (LiDAR HTTP API)
-
-**Grid endpoints:**
-
-- `api-grid-status` - Get grid status
-- `api-grid-reset` - Reset background grid
-- `api-grid-heatmap` - Get grid heatmap
-
-**Snapshot endpoints:**
-
-- `api-snapshot` - Get current snapshot
-- `api-snapshots` - List all snapshots
-
-**Acceptance endpoints:**
-
-- `api-acceptance` - Get acceptance metrics
-- `api-acceptance-reset` - Reset acceptance counters
-
-**Parameter endpoints:**
-
-- `api-params` - Get algorithm parameters
-- `api-params-set` - Set parameters (PARAMS='{}')
-
-**Persistence and export endpoints:**
-
-- `api-persist` - Trigger snapshot persistence
-- `api-export-snapshot` - Export specific snapshot
-- `api-export-next-frame` - Export next LiDAR frame
-
-**Status & data source endpoints:**
-
-- `api-status` - Get server status
-- `api-start-pcap` - Start PCAP replay (PCAP=file.pcap)
-- `api-stop-pcap` - Stop PCAP replay
-- `api-switch-data-source` - Switch live/pcap (SOURCE=live|pcap)
-
-Run `make help` or `make` to see all available targets with descriptions.
 
 ## Contributing
 
-We welcome contributions! Please see **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
+Start with a small issue and read the nearby code before changing anything broad. It is the fastest route to understanding the project and the slowest route to producing an exciting new class of bug.
 
-- Development workflow (Go + Python + Web)
-- Testing requirements
-- Code style guidelines
-- Pull request process
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, testing requirements, and pull request process.
 
-## License
+## Licence
 
-Apache License 2.0 - See [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE).
 
 ## Community
 
 [![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
-Join our Discord community to discuss the project, get help, and contribute to making streets safer.
+Join the Discord to discuss the project, get help, and help make streets safer.
