@@ -1,6 +1,6 @@
 # velocity.report Raspberry Pi Imager — Design Document
 
-- **Status:** Active — Phase 1 targeting v0.5.1
+- **Status:** Active — Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
@@ -591,21 +591,24 @@ the `velocity.report` monorepo:
 - [ ] Test RS-232 HAT configuration manually on a Raspberry Pi 4
 - [ ] Verify LiDAR packet capture works on Pi 4 with pcap-enabled binary (disabled by default, enable with `--enable-lidar`)
 
-### Phase 1 — Image Building with pi-gen (1–2 weeks)
+### Phase 1 — Image Building with pi-gen (1–2 weeks) ✅ Complete
 
-- [ ] Create `image/` directory in monorepo
-- [ ] Write pi-gen `config` file and `stage-velocity/` scripts
-- [ ] Implement LaTeX size reduction (§ 4.6): audit deps → build minimal TeX tree → pre-compile formats
-- [ ] Include `velocity-update` script and version metadata in image
-- [ ] Configure US Wi-Fi regulatory domain fallback
-- [ ] Include LiDAR support (libpcap, network config) disabled by default
-- [ ] Create GitHub Actions workflow for image building
+- [x] Create `image/` directory in monorepo
+- [x] Write pi-gen `config` file and `stage-velocity/` scripts
+- [x] Include `velocity-update` script and version metadata in image
+- [x] Configure US Wi-Fi regulatory domain fallback
+- [x] Include LiDAR support (libpcap, network config) disabled by default
+- [x] Create GitHub Actions workflow for image building
+- [x] Create `image/os-list-velocity.json` with schema-compliant entries
 - [ ] Test image on physical Raspberry Pi 4 hardware
 - [ ] Produce first `.img.xz` release asset
 
+Note: Phase 1 ships full `texlive-xetex` APT packages. LaTeX size reduction
+(§ 4.6) is deferred to Phase 2 (v0.6.0).
+
 ### Phase 2 — Custom Repository JSON (2–3 days)
 
-- [ ] Create `image/os-list-velocity.json` with schema-compliant entries
+- [x] Create `image/os-list-velocity.json` with schema-compliant entries
 - [ ] Host JSON on GitHub Pages or alongside releases
 - [ ] Write end-user documentation: "How to flash velocity.report"
 - [ ] Add `--repo` instructions to main README

@@ -43,6 +43,23 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
+## [0.5.1] - 2026-03-26 🌞 `Sunny Southeast`
+
+Raspberry Pi image pipeline — the first step toward a one-flash deployment.
+
+### Deployment
+
+#### Added
+
+- **Raspberry Pi image pipeline** — `image/` directory with pi-gen stage scripts, GitHub Actions CI workflow (`build-image.yml`), and `os-list-velocity.json` catalogue for stock rpi-imager. Ships full `texlive-xetex` APT packages; LaTeX size reduction deferred to v0.6.0.
+- **`velocity-update` script** — user-initiated update helper wrapping `velocity-deploy upgrade`. No automatic updates; no unsolicited network requests.
+- **`os-list-velocity.json`** — rpi-imager custom repository catalogue pointing at GitHub Release `.img.xz` assets for Pi 4/400/5.
+- **Udev rules** for OmniPreSense OPS243 USB-Serial adapter (`/dev/velocity-radar` symlink).
+- **LiDAR network config** — pre-configured static IP for 192.168.100.x subnet (disabled by default).
+- **US Wi-Fi fallback** — regulatory domain defaults to US so wireless is functional out of the box.
+- **UART overlay** — `miniuart-bt` configured to free main UART for radar serial connection.
+- **Systemd service** symlinked from canonical `cmd/deploy/velocity-report.service`.
+
 ## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 
 A release principally concerned with making the LiDAR pipeline measurably correct rather than hopefully correct, giving the radar server enough structure to be maintained by someone other than the person who wrote it, and building a proper mathematical review process so the algorithms can be argued about with evidence.

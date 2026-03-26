@@ -99,14 +99,14 @@ downloaded from the GitHub Release.
 
 ## Image Size Budget (Phase 1)
 
-| Component                                | Estimated Size  |
-| ---------------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)              | ~450 MB         |
-| TeX Live (full, before Phase 2 reduction)| ~800 MB         |
-| Python 3 + venv + PDF deps              | ~200 MB         |
-| Go binaries (server + deploy, pcap)      | ~35 MB          |
-| LiDAR + web + system config             | ~11 MB          |
-| **Total (xz compressed)**               | **~600–900 MB** |
+| Component                                 | Estimated Size  |
+| ----------------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)               | ~450 MB         |
+| TeX Live (full, before Phase 2 reduction) | ~800 MB         |
+| Python 3 + venv + PDF deps                | ~200 MB         |
+| Go binaries (server + deploy, pcap)       | ~35 MB          |
+| LiDAR + web + system config               | ~11 MB          |
+| **Total (xz compressed)**                 | **~600–900 MB** |
 
 ## Design Document
 
