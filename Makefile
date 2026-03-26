@@ -17,8 +17,8 @@ help:
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
-	@echo "  build-deploy         Build velocity-deploy deployment manager"
-	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
+	@echo "  build-ctl            Build velocity-ctl device management binary"
+	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -120,12 +120,12 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
-	@echo "DEPLOYMENT (deprecated — removal planned for v0.5.1; see #210 image pipeline):"
-	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
-	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
-	@echo "  deploy-upgrade       Upgrade using velocity-deploy (deprecated)"
-	@echo "  deploy-status        Check service status using velocity-deploy (deprecated)"
-	@echo "  deploy-health        Run health check using velocity-deploy (deprecated)"
+	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
+	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
+	@echo "  deploy-install       Removed — use RPi image or manual install"
+	@echo "  deploy-upgrade       Removed — use velocity-ctl upgrade"
+	@echo "  deploy-status        Removed — use velocity-ctl status"
+	@echo "  deploy-health        Removed — use velocity-ctl status"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
@@ -213,12 +213,12 @@ run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
 	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
 
-# Build velocity-deploy deployment manager
-build-deploy:
-	go build -ldflags "$(LDFLAGS)" -o velocity-deploy ./cmd/deploy
+# Build velocity-ctl device management binary
+build-ctl:
+	go build -ldflags "$(LDFLAGS)" -o velocity-ctl ./cmd/velocity-ctl
 
-build-deploy-linux:
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-deploy-linux-arm64 ./cmd/deploy
+build-ctl-linux:
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-ctl-linux-arm64 ./cmd/velocity-ctl
 
 .PHONY: build-web
 build-web:
@@ -1361,54 +1361,26 @@ setup-radar:
 	@echo ""
 	@sudo ./scripts/setup-radar-host.sh
 
-# Modern deployment using velocity-deploy (deprecated — will be removed after #210 image pipeline)
+# Legacy deployment targets (removed in v0.5.1 — replaced by velocity-ctl)
 deploy-install:
-	@echo "⚠️  DEPRECATED: deploy-install — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Installing velocity.report using velocity-deploy..."
-	./velocity-deploy install --binary ./velocity-report-linux-arm64
+	@echo "❌ REMOVED: deploy-install has been removed in v0.5.1." >&2
+	@echo "   Flash the RPi image or install manually. See docs/plans/deploy-rpi-imager-fork-plan.md" >&2
+	@exit 1
 
 deploy-upgrade:
-	@echo "⚠️  DEPRECATED: deploy-upgrade — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Upgrading velocity.report using velocity-deploy..."
-	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
+	@echo "❌ REMOVED: deploy-upgrade has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl upgrade" >&2
+	@exit 1
 
 deploy-status:
-	@echo "⚠️  DEPRECATED: deploy-status — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	./velocity-deploy status
+	@echo "❌ REMOVED: deploy-status has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl status" >&2
+	@exit 1
 
 deploy-health:
-	@echo "⚠️  DEPRECATED: deploy-health — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	./velocity-deploy health
+	@echo "❌ REMOVED: deploy-health has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl status" >&2
+	@exit 1
 
 # =============================================================================
 # UTILITIES
