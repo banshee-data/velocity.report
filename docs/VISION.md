@@ -1,4 +1,12 @@
-# Product Vision
+```
+░██    ░██ ░██████  ░██████   ░██████  ░██████   ░███    ░██
+░██    ░██   ░██   ░██   ░██    ░██   ░██   ░██  ░████   ░██
+░██    ░██   ░██  ░██           ░██  ░██     ░██ ░██░██  ░██
+░██    ░██   ░██   ░████████    ░██  ░██     ░██ ░██ ░██ ░██
+ ░██  ░██    ░██          ░██   ░██  ░██     ░██ ░██  ░██░██
+  ░██░██     ░██   ░██   ░██    ░██   ░██   ░██  ░██   ░████
+   ░███    ░██████  ░██████   ░██████  ░██████   ░██    ░███
+```
 
 Long-term product direction for velocity.report, guiding backlog pruning and prioritisation decisions.
 
@@ -6,7 +14,7 @@ Long-term product direction for velocity.report, guiding backlog pruning and pri
 
 ## 1. Mission
 
-Help neighbourhood change-makers measure and report on street-level vehicle behaviour — with no cameras, no licence plates, and no personally identifiable information. Measurements stay local, the user owns the data, and reports are compelling enough to drive policy change.
+Help neighbourhood change-makers measure and report on street-level vehicle behaviour; with no cameras, no licence plates, and no personally identifiable information. Measurements stay local, the user owns the data, and reports are compelling enough to drive policy change.
 
 ### 1.1 Data Science Principle
 
@@ -65,9 +73,9 @@ A **scene** combines both sensor feeds for a given street segment:
 
 ```
 Radar feeds (speed, objects, FFT)
-        ↘
-          Fused Transit Record  →  PDF Report
-        ↗                      →  Description Interface
+    ↘
+      Fused Transit Record  → PDF Report
+    ↗              ↘ Description Interface
 LiDAR feeds (tracks, trails, classification)
 ```
 

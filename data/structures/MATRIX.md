@@ -1,4 +1,10 @@
-# Backend Surface Matrix
+```
+▄▄▄      ▄▄▄   ▄▄▄▄   ▄▄▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄   ▄▄▄▄▄ ▄▄▄   ▄▄▄
+████▄  ▄████ ▄██▀▀██▄ ▀▀▀███▀▀▀ ███▀▀███▄  ███  ████▄████
+███▀████▀███ ███  ███    ███    ███▄▄███▀  ███   ▀█████▀
+███  ▀▀  ███ ███▀▀███    ███    ███▀▀██▄   ███  ▄███████▄
+███      ███ ███  ███    ███    ███  ▀███ ▄███▄ ███▀ ▀███
+```
 
 Complete mapping of components, API endpoints, database tables, data
 structures, and pipeline stages across the velocity.report codebase. Shows
