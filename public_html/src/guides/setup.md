@@ -691,26 +691,81 @@ sudo velocity-ctl upgrade --binary /path/to/velocity-report
 
 ## Reinstalling or Starting Fresh
 
-Since velocity.report runs from a dedicated Pi image, the simplest way to start fresh is to re-flash the SD card using Step 1.
+Your sensor data is the thing that took weeks to collect. The software can be re-flashed in ten minutes. Back up the database first.
 
-If you want to remove velocity.report from a Pi that has other things on it, or just want to clean up:
+### Back Up Your Data
+
+The database lives at `/var/lib/velocity-report/sensor_data.db`. Before doing anything destructive, copy it somewhere safe:
+
+```bash
+# Use the built-in backup tool (recommended)
+sudo velocity-ctl backup
+
+# Or copy the database manually to removable storage or /tmp
+sudo cp /var/lib/velocity-report/sensor_data.db \
+  /tmp/sensor_data_$(date +%Y%m%d).db
+```
+
+`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/` — but that directory lives on the SD card, so if you are about to re-flash, copy the backup file off the Pi first (to your laptop, a USB stick, or anywhere that is not about to be overwritten):
+
+```bash
+# From your laptop — pull the backup over SSH
+scp velocity@velocity.local:/var/lib/velocity-report/sensor_data.db \
+  ~/sensor_data_backup_$(date +%Y%m%d).db
+```
+
+### Re-flash and Restore
+
+1. **Re-flash the SD card** using [Step 1](#step-1-flash-the-pi-image)
+2. **Boot the Pi** and verify the service is running (`sudo systemctl status velocity-report`)
+3. **Stop the service** before restoring:
+
+```bash
+sudo systemctl stop velocity-report
+```
+
+4. **Copy your backed-up database** to the data directory:
+
+```bash
+# From your laptop — push the backup over SSH
+scp ~/sensor_data_backup_20260326.db \
+  velocity@velocity.local:/tmp/sensor_data.db
+
+# On the Pi — move it into place with correct ownership
+sudo cp /tmp/sensor_data.db /var/lib/velocity-report/sensor_data.db
+sudo chown velocity:velocity /var/lib/velocity-report/sensor_data.db
+```
+
+5. **Start the service** — it detects the existing database and runs any pending migrations automatically:
+
+```bash
+sudo systemctl start velocity-report
+```
+
+Your historical data, sites, and configuration periods will be exactly where you left them.
+
+### Removing velocity.report Entirely
+
+If you want to remove velocity.report from a Pi that has other things on it:
 
 ```bash
 # Stop and disable the service
 sudo systemctl stop velocity-report
 sudo systemctl disable velocity-report
 
-# Remove binaries and data
+# Remove binaries and service
 sudo rm /usr/local/bin/velocity-report
 sudo rm /usr/local/bin/velocity-ctl
 sudo rm /etc/systemd/system/velocity-report.service
+
+# Remove data (back up first — see above)
 sudo rm -rf /var/lib/velocity-report/
 
 # Remove service user
 sudo userdel velocity
 ```
 
-**Warning**: This deletes all collected data. Export your PDF reports first if you want to keep them.
+**Warning**: The `rm -rf` line deletes all collected data permanently. If you skipped the backup step above, now would be an excellent time to scroll back up.
 
 ---
 
