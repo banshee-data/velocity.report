@@ -54,7 +54,6 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 │                                   │
 │                                   │
 │                                   │
-│                                   │
 └───────────────────────────────────┘
 ```
 
