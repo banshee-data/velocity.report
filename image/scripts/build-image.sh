@@ -6,8 +6,11 @@
 #
 # Prerequisites:
 #   - Docker installed and running
-#   - ARM64 Go binaries pre-built (make build-radar-linux-pcap build-ctl-linux)
-#   - Python PDF generator source available
+#   - Go toolchain (for cross-compiling ARM64 binaries)
+#
+# On macOS, pcap cross-compilation requires an ARM64 Linux cross-compiler
+# (aarch64-linux-gnu-gcc). Without it, the script falls back to a non-pcap
+# build — which is fine for testing the image pipeline.
 #
 # Usage:
 #   ./image/scripts/build-image.sh [--skip-binaries]
@@ -56,15 +59,20 @@ mkdir -p "$BINARIES_DIR"
 if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     log_info "Building ARM64 Go binaries..."
     cd "$REPO_ROOT"
-    GOOS=linux GOARCH=arm64 CGO_ENABLED=1 make build-radar-linux-pcap 2>/dev/null || \
-        make build-radar-linux
-    GOOS=linux GOARCH=arm64 make build-ctl-linux 2>/dev/null || true
 
-    # Copy binaries to staging area
-    cp -f "$REPO_ROOT/velocity-report-linux" "$BINARIES_DIR/velocity-report" 2>/dev/null || \
-        log_warn "velocity-report binary not found; supply manually"
-    cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl" 2>/dev/null || \
-        log_warn "velocity-ctl binary not found; supply manually"
+    # Try pcap build first (needs aarch64-linux-gnu-gcc); fall back to non-pcap
+    if make build-radar-linux-pcap 2>/dev/null; then
+        log_info "Built velocity-report with pcap support"
+    else
+        log_warn "pcap cross-compile unavailable; building without pcap"
+        make build-radar-linux
+    fi
+    make build-ctl-linux
+
+    # Copy binaries to staging area (Makefile outputs *-linux-arm64)
+    cp -f "$REPO_ROOT/velocity-report-linux-arm64" "$BINARIES_DIR/velocity-report"
+    cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl"
+    chmod +x "$BINARIES_DIR"/*
 fi
 
 # ---------------------------------------------------------------------------
@@ -95,14 +103,27 @@ touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 ln -sfn "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
 
 # ---------------------------------------------------------------------------
-# 5. Build the image
+# 5. Copy PDF generator and config into pi-gen stage
+# ---------------------------------------------------------------------------
+PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
+mkdir -p "$PDF_DEST"
+cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
+log_info "Copied PDF generator source"
+
+CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
+mkdir -p "$CONFIG_DEST"
+cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
+log_info "Copied tuning defaults"
+
+# ---------------------------------------------------------------------------
+# 6. Build the image
 # ---------------------------------------------------------------------------
 log_info "Building Raspberry Pi image with pi-gen..."
 cd "$PIGEN_DIR"
 ./build-docker.sh
 
 # ---------------------------------------------------------------------------
-# 6. Compress output
+# 7. Compress output
 # ---------------------------------------------------------------------------
 OUTPUT_IMG=$(find "$PIGEN_DIR/deploy" -name "*.img" | head -1)
 if [[ -n "$OUTPUT_IMG" ]]; then
@@ -112,8 +133,12 @@ if [[ -n "$OUTPUT_IMG" ]]; then
     log_info "Image ready: $COMPRESSED"
     log_info "Size: $(du -h "$COMPRESSED" | cut -f1)"
 
-    # Generate SHA-256 checksum
-    sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
+    # Generate SHA-256 checksum (shasum on macOS, sha256sum on Linux)
+    if command -v sha256sum &>/dev/null; then
+        sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
+    else
+        shasum -a 256 "$COMPRESSED" > "${COMPRESSED}.sha256"
+    fi
     log_info "Checksum: ${COMPRESSED}.sha256"
 else
     log_error "No .img file found in pi-gen deploy directory"
