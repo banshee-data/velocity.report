@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>velocity.report - Measure Speeds, Make Streets Safer</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"
+        onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+</head>
+<body class="min-h-screen page-bg">
+    <div class="flex flex-col min-h-screen">
+    <header class="fixed top-0 left-0 right-0 z-[60] bg-emerald-700 shadow-sm border-b border-emerald-800">
+    <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex items-center space-x-8">
+                
+                <button id="mobile-menu-button"
+                        class="md:hidden text-white hover:text-emerald-100 transition-colors p-2 -ml-2"
+                        aria-label="Toggle menu"
+                        aria-expanded="false">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+
+                <a href="/" class="text-xl font-bold text-white hover:text-emerald-100">
+                    velocity.report
+                </a>
+                <div class="hidden md:flex space-x-6">
+                    <a href="/guides/" class="text-white hover:text-emerald-100 transition-colors">
+                        Guides
+                    </a>
+                    <a href="/community/" class="text-white hover:text-emerald-100 transition-colors">
+                        Community
+                    </a>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="https://discord.gg/XXh6jXVFkt"
+                   class="text-white hover:text-emerald-100 transition-colors"
+                   aria-label="Join Discord">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                </a>
+                <a href="https://github.com/banshee-data/velocity.report"
+                   class="flex items-center space-x-2 text-white hover:text-emerald-100 transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg">
+    <path
+        d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+</svg>
+
+                    <span class="hidden sm:inline">GitHub</span>
+                </a>
+            </div>
+        </div>
+
+        
+        <div id="mobile-menu"
+             class="hidden md:hidden border-t border-emerald-800 py-4"
+             aria-label="Mobile navigation">
+            <div class="flex flex-col space-y-3">
+                <a href="/guides/" class="text-white hover:text-emerald-100 transition-colors px-2 py-1">
+                    Guides
+                </a>
+                <a href="/community/" class="text-white hover:text-emerald-100 transition-colors px-2 py-1">
+                    Community
+                </a>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<script>
+(function() {
+    const menuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    if (menuButton && mobileMenu) {
+        menuButton.addEventListener('click', function() {
+            const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+
+            // Toggle menu visibility
+            if (isExpanded) {
+                mobileMenu.classList.add('hidden');
+                menuButton.setAttribute('aria-expanded', 'false');
+            } else {
+                mobileMenu.classList.remove('hidden');
+                menuButton.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!menuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
+                mobileMenu.classList.add('hidden');
+                menuButton.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Close menu when window is resized to desktop view
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (window.innerWidth >= 768) { // md breakpoint
+                    mobileMenu.classList.add('hidden');
+                    menuButton.setAttribute('aria-expanded', 'false');
+                }
+            }, 250);
+        });
+    }
+})();
+</script>
+
+
+    <main class="flex-grow pt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Hero Section -->
+    <div class="flex flex-col md:flex-row items-center gap-12 mb-14 py-12">
+        <div class="flex-1">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-8 leading-tight">
+                If speeds don't drop, <br>the work can't stop.
+            </h1>
+            <p class="text-xl text-gray-700 dark:text-gray-300 mb-10 leading-relaxed">
+                <strong>velocity.report</strong> is a privacy-first, open-source traffic speed monitor. Measure vehicle speeds, produce professional reports, and make the case for safer streets with evidence rather than anecdote.
+            </p>
+
+            <div class="flex flex-wrap gap-6 mb-8">
+                <a href="/guides/setup/" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md flex items-center">
+                    Get Started
+                    <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                </a>
+                <a href="https://github.com/banshee-data/velocity.report" class="bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors">
+                    View on GitHub
+                </a>
+            </div>
+
+            <!-- Download v0.5.0 server binaries -->
+            <div class="mb-10 p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Download v0.5.0</p>
+                <div class="flex flex-col sm:flex-row gap-x-4 gap-y-3">
+                    <!-- Linux ARM64 -->
+                    <div class="flex flex-col gap-1.5">
+                        <a href="https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-linux-arm64_0.5.0"
+                           class="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm-.5 17.5l-4-4 1.41-1.41L11 14.17V6.5h2v7.67l2.09-2.08 1.41 1.41-4 4z"/></svg>
+                            Linux ARM64
+                        </a>
+                        <div class="relative flex items-center rounded overflow-hidden bg-gray-200/50 dark:bg-gray-700/40 font-mono text-xs w-full">
+                            <span class="pl-2 pr-10 py-1 text-gray-400/50 dark:text-gray-500/50 select-none tracking-wider">1e96dc</span>
+                            <button
+                                type="button"
+                                aria-label="Copy Linux ARM64 SHA256"
+                                data-sha="sha256:1e96dc4ef660f35dcbde98d3b98a7f645e3419d95f3036b029080621321faf5e"
+                                onclick="copysha(this)"
+                                class="absolute right-0 inset-y-0 px-2 text-gray-500 dark:text-gray-400 bg-gray-300/60 dark:bg-gray-600/60 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                copy
+                            </button>
+                        </div>
+                    </div>
+                    <!-- macOS ARM64 -->
+                    <div class="flex flex-col gap-1.5">
+                        <a href="https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-mac-arm64_0.5.0"
+                           class="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                            macOS ARM64
+                        </a>
+                        <div class="relative flex items-center rounded overflow-hidden bg-gray-200/50 dark:bg-gray-700/40 font-mono text-xs w-full">
+                            <span class="pl-2 pr-10 py-1 text-gray-400/50 dark:text-gray-500/50 select-none tracking-wider">b263e8</span>
+                            <button
+                                type="button"
+                                aria-label="Copy macOS ARM64 SHA256"
+                                data-sha="sha256:b263e8a108c58e71f608cb2727fde2b2fd5c3f40e38353b9ef8c2d59d1b094d4"
+                                onclick="copysha(this)"
+                                class="absolute right-0 inset-y-0 px-2 text-gray-500 dark:text-gray-400 bg-gray-300/60 dark:bg-gray-600/60 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                copy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <script>
+                    function copysha(btn) {
+                        navigator.clipboard.writeText(btn.dataset.sha).then(function() {
+                            var orig = btn.textContent;
+                            btn.textContent = '✓';
+                            setTimeout(function() { btn.textContent = orig; }, 1500);
+                        });
+                    }
+                </script>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    <a href="https://github.com/banshee-data/velocity.report/releases/tag/v0.5.0" class="hover:underline">Full release notes →</a>
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                    <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <span><strong>Before and after:</strong> Measure speeds, make changes, measure again. Evidence that travels well in a council meeting.</span>
+                </div>
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                    <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span><strong>Privacy by design:</strong> No cameras, no faces, no licence plates. Speed data only.</span>
+                </div>
+                <div class="flex items-start text-gray-700 dark:text-gray-300">
+                     <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    <span><strong>Open source:</strong> Audit the code, run it locally, own every byte of your data.</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 w-full max-w-lg">
+            <img src="/img/stack.png" alt="velocity.report PDF report stack" class="w-full h-auto drop-shadow-2xl transform hover:scale-105 transition-transform duration-500" />
+        </div>
+    </div>
+
+    <!-- VelocityVisualiser Section -->
+    <div class="mb-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 md:p-12">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">VelocityVisualiser.app</h2>
+                <p class="text-lg text-gray-700 dark:text-gray-300 max-w-lg mx-auto leading-relaxed">
+                    A native macOS app for real-time LiDAR point cloud visualisation,
+                    track inspection, and data labelling.
+                </p>
+            </div>
+
+            <div class="mx-auto max-w-3xl mb-8">
+                <video
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    controls
+                    preload="auto"
+                    class="w-full h-auto rounded-xl shadow-lg"
+                    width="1600"
+                    height="900"
+                >
+                    <source src="/video/visualiser-demo.mp4" type="video/mp4" />
+                </video>
+            </div>
+
+            <div class="text-center">
+                <a href="https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/VelocityVisualiser-0.5.0.dmg"
+                   class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                    Download for macOS
+                </a>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                    v0.5.0 · Requires macOS 15 (Sequoia) · Apple Silicon
+                </p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 font-mono mt-1 break-all">
+                    sha256:2136a5468b0db70f13812d2de8d72f6d65f85486f420fa1d332508f4d967e93d
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Section -->
+    <div class="mb-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 md:p-12">
+        <div class="max-w-3xl mx-auto text-center">
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
+            <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
+                <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/ZTJOI5gYZM4" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <figure>
+                <blockquote class="text-xl text-gray-700 dark:text-gray-300 italic mb-4 font-serif leading-relaxed">
+                    "The goal is fewer crashes, fewer injuries, and zero fatalities. <br class="hidden md:block">If the speeds don't drop, the work can't stop."
+                </blockquote>
+                <figcaption class="text-sm text-gray-500 font-semibold uppercase tracking-wide">— David Dolphin, SFMTA Board Meeting, Jan 2026</figcaption>
+            </figure>
+        </div>
+    </div>
+
+</div>
+
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 dark:bg-gray-950 text-white mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <p class="text-center text-xs mt-2">
+            velocity.report &copy; 2026 Banshee, Inc.<br>Documentation licensed under <a href="https://creativecommons.org/licenses/by/4.0/" class="underline hover:text-gray-300">CC BY 4.0</a>
+        </p>
+    </div>
+</footer>
+
+</div>
+
+</body>
+</html>
