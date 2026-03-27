@@ -12,14 +12,14 @@
       "extract_sha256": "PLACEHOLDER — replaced by CI after image build",
       "image_download_size": 838860800,
       "release_date": "2026-03-26",
-      "icon": "https://velocity.report/images/icon-256.png",
+      "icon": "https://velocity.report/img/icon-256.png",
       "init_format": "systemd",
       "devices": [
         "pi4-64bit",
         "pi400-64bit",
         "pi5-64bit"
       ],
-      "url_info": "https://velocity.report/docs/guides/setup"
+      "url_info": "https://velocity.report/guides/setup/"
     }
   ]
 }
