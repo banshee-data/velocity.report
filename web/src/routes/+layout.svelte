@@ -89,7 +89,7 @@
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={page.url} />
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={page.url} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={page.url} />
-		{#if $capabilities.lidar.enabled}
+		{#if Object.values($capabilities.lidar).some((s) => s.enabled)}
 			<NavItem
 				text="Lidar Tracks"
 				icon={mdiMapMarkerPath}

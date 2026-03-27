@@ -281,9 +281,10 @@ describe('api', () => {
 	describe('getCapabilities', () => {
 		it('should fetch capabilities with LiDAR ready', async () => {
 			const mockCaps: Capabilities = {
-				radar: true,
-				lidar: { enabled: true, state: 'ready' },
-				lidar_sweep: true
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {
+					default: { enabled: true, status: 'ready', sweep: true }
+				}
 			};
 
 			(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -300,9 +301,8 @@ describe('api', () => {
 
 		it('should fetch capabilities with LiDAR disabled', async () => {
 			const mockCaps: Capabilities = {
-				radar: true,
-				lidar: { enabled: false, state: 'disabled' },
-				lidar_sweep: false
+				radar: { default: { enabled: true, status: 'receiving' } },
+				lidar: {}
 			};
 
 			(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -311,9 +311,7 @@ describe('api', () => {
 			});
 
 			const result = await getCapabilities();
-			expect(result.lidar.enabled).toBe(false);
-			expect(result.lidar.state).toBe('disabled');
-			expect(result.lidar_sweep).toBe(false);
+			expect(Object.keys(result.lidar)).toHaveLength(0);
 		});
 
 		it('should handle errors when fetching capabilities', async () => {

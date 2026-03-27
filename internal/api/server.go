@@ -43,17 +43,26 @@ type TransitController interface {
 	GetStatus() db.TransitStatus
 }
 
-// LidarCapability describes the runtime state of the LiDAR subsystem.
-type LidarCapability struct {
+// SensorStatus is the per-sensor health snapshot included in the
+// capabilities response. Each sensor in the radar/lidar maps carries
+// one of these.
+type SensorStatus struct {
 	Enabled bool   `json:"enabled"`
-	State   string `json:"state"` // "disabled", "starting", "ready", "error"
+	Status  string `json:"status"` // "disabled", "starting", "receiving", "stale", "error"
+}
+
+// LidarSensorStatus extends SensorStatus with lidar-specific fields.
+type LidarSensorStatus struct {
+	SensorStatus
+	Sweep bool `json:"sweep"`
 }
 
 // Capabilities is the JSON shape returned by /api/capabilities.
+// Top-level keys are sensor classes; values are named-object maps
+// keyed by a stable, human-assigned sensor name (e.g. "default").
 type Capabilities struct {
-	Radar      bool            `json:"radar"`
-	Lidar      LidarCapability `json:"lidar"`
-	LidarSweep bool            `json:"lidar_sweep"`
+	Radar map[string]SensorStatus      `json:"radar"`
+	Lidar map[string]LidarSensorStatus `json:"lidar"`
 }
 
 // CapabilitiesProvider reports sensor availability at runtime.

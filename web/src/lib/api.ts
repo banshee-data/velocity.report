@@ -48,17 +48,23 @@ export interface RadarStatsResponse {
 	};
 }
 
-// LiDAR capability state as reported by /api/capabilities.
-export interface LidarCapability {
+// Per-sensor health snapshot included in the capabilities response.
+export interface SensorStatus {
 	enabled: boolean;
-	state: 'disabled' | 'starting' | 'ready' | 'error';
+	status: 'disabled' | 'starting' | 'receiving' | 'stale' | 'error';
+}
+
+// LiDAR-specific sensor status with sweep capability.
+export interface LidarSensorStatus extends SensorStatus {
+	sweep: boolean;
 }
 
 // Sensor capabilities reported by /api/capabilities.
+// Top-level keys are sensor classes; values are named-object maps
+// keyed by a stable, human-assigned sensor name (e.g. "default").
 export interface Capabilities {
-	radar: boolean;
-	lidar: LidarCapability;
-	lidar_sweep: boolean;
+	radar: Record<string, SensorStatus>;
+	lidar: Record<string, LidarSensorStatus>;
 }
 
 const API_BASE = '/api';
