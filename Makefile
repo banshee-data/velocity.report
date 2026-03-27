@@ -401,7 +401,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
+.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -437,63 +437,6 @@ install-texlive-minimal:
 	fi
 	@echo "Installing minimal TeX tree from $(TEX_MINIMAL_DIR) to /opt/velocity-report/texlive-minimal..."
 	@SOURCE_DIR="$(abspath $(TEX_MINIMAL_DIR))" ./scripts/install-minimal-texlive.sh
-
-# Deploy: Install local minimal TeX tree on remote target (deprecated)
-deploy-install-latex-minimal:
-	@echo "⚠️  DEPRECATED: deploy-install-latex-minimal — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-install-latex-minimal TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
-		echo "Run 'make build-texlive-minimal' first."; \
-		exit 1; \
-	fi
-	@echo "Deploying minimal TeX tree to $(TARGET):/opt/velocity-report/texlive-minimal..."
-	@scp -r "$(TEX_MINIMAL_DIR)" "$(TARGET):/tmp/velocity-report-texlive-minimal"
-	@ssh "$(TARGET)" "sudo mkdir -p /opt/velocity-report && sudo rm -rf /opt/velocity-report/texlive-minimal && sudo mv /tmp/velocity-report-texlive-minimal /opt/velocity-report/texlive-minimal && sudo chmod -R a+rX /opt/velocity-report/texlive-minimal"
-	@echo "✓ Minimal TeX tree deployed to $(TARGET)"
-
-# Deploy: Install LaTeX on remote target (deprecated)
-deploy-install-latex:
-	@echo "⚠️  DEPRECATED: deploy-install-latex — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@if [ -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Found local minimal TeX tree at $(TEX_MINIMAL_DIR); deploying vendored tree."; \
-		$(MAKE) deploy-install-latex-minimal TARGET="$(TARGET)"; \
-	else \
-		echo "No local minimal TeX tree found; installing TeX Live via apt on $(TARGET)..."; \
-		ssh "$(TARGET)" "if ! command -v pdflatex >/dev/null 2>&1; then \
-			sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
-		else \
-			echo 'LaTeX already installed'; \
-		fi"; \
-	fi
-
-# Deploy: Update dependencies on remote target (deprecated)
-deploy-update-deps:
-	@echo "⚠️  DEPRECATED: deploy-update-deps — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@echo "Updating dependencies on $(TARGET)..."
-	@echo "  → Updating source code..."
-	@ssh $(TARGET) "test -d /opt/velocity-report/.git && cd /opt/velocity-report && sudo git pull || echo 'No git repo found'"
-	@echo "  → Ensuring LaTeX is installed..."
-	@$(MAKE) --no-print-directory deploy-install-latex TARGET="$(TARGET)"
-	@echo "  → Updating Python dependencies..."
-	@ssh $(TARGET) "test -d /opt/velocity-report && cd /opt/velocity-report && sudo make install-python || echo 'Source not found'"
-	@echo "  → Fixing ownership..."
-	@ssh $(TARGET) "test -d /opt/velocity-report && sudo chown -R \$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'):\$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity') /opt/velocity-report || echo 'Source not found'"
-	@echo "✓ Dependencies updated on $(TARGET)"
 
 install-python:
 	@echo "Setting up Python environment..."
@@ -1339,29 +1282,12 @@ clean-python:
 	@echo "✓ Cleaned"
 
 # =============================================================================
-# DEPLOYMENT
+# DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)
 # =============================================================================
 
-.PHONY: setup-radar deploy-install deploy-upgrade deploy-status deploy-health
+.PHONY: deploy-install deploy-upgrade deploy-status deploy-health
 
-# Legacy installation script (deprecated — will be removed after #210 image pipeline)
-setup-radar:
-	@echo "⚠️  DEPRECATED: setup-radar — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Setting up velocity.report server on this host..."
-	@echo "This will:"
-	@echo "  1. Install binary to /usr/local/bin/velocity-report"
-	@echo "  2. Create service user and working directory"
-	@echo "  3. Install and start systemd service"
-	@echo ""
-	@sudo ./scripts/setup-radar-host.sh
-
-# Legacy deployment targets (removed in v0.5.1 — replaced by velocity-ctl)
+# Friendly error stubs for anyone who tries the old commands
 deploy-install:
 	@echo "❌ REMOVED: deploy-install has been removed in v0.5.1." >&2
 	@echo "   Flash the RPi image or install manually. See docs/plans/deploy-rpi-imager-fork-plan.md" >&2
