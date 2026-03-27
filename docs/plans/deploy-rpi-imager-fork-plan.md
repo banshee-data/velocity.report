@@ -598,23 +598,23 @@ easily mitigated by:
 
 - Documenting path conventions in both repos
 - Using GitHub release tags to coordinate versions
-- Referencing the main repo's `cmd/deploy/velocity-report.service` as the
-  canonical service definition
+- Referencing `image/stage-velocity/03-velocity-config/files/velocity-report.service`
+  as the canonical service definition
 
 ### 6.4 What Stays in the Monorepo
 
 Even with the imager in a separate repository, the following **must** remain in
 the `velocity.report` monorepo:
 
-| Asset                   | Location                                                          | Reason                                                             |
-| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
-| pi-gen stage scripts    | `image/stage-velocity/`                                           | Defines what goes in the image; tightly coupled to server releases |
-| OS-list repository JSON | `image/os-list-velocity.json`                                     | Catalogue of available images; updated by CI on release            |
-| Image CI workflow       | `.github/workflows/build-image.yml`                               | Triggered by monorepo releases                                     |
-| systemd service file    | `cmd/deploy/velocity-report.service`                              | Canonical source, symlinked into image                             |
-| udev rules              | `image/stage-velocity/03-velocity-config/files/`                  | Device permission rules                                            |
-| Management binary       | `cmd/velocity-ctl/`                                               | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
-| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf` | Static IP for 192.168.100.x subnet (disabled by default)           |
+| Asset                   | Location                                                                | Reason                                                             |
+| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| pi-gen stage scripts    | `image/stage-velocity/`                                                 | Defines what goes in the image; tightly coupled to server releases |
+| OS-list repository JSON | `image/os-list-velocity.json`                                           | Catalogue of available images; updated by CI on release            |
+| Image CI workflow       | `.github/workflows/build-image.yml`                                     | Triggered by monorepo releases                                     |
+| systemd service file    | `image/stage-velocity/03-velocity-config/files/velocity-report.service` | Canonical source                                                   |
+| udev rules              | `image/stage-velocity/03-velocity-config/files/`                        | Device permission rules                                            |
+| Management binary       | `cmd/velocity-ctl/`                                                     | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
+| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf`       | Static IP for 192.168.100.x subnet (disabled by default)           |
 
 ---
 
@@ -802,7 +802,7 @@ velocity.report/
 │   │   ├── 03-velocity-config/
 │   │   │   ├── 00-run.sh
 │   │   │   └── files/
-│   │   │       ├── velocity-report.service  # symlink → cmd/deploy/
+│   │   │       ├── velocity-report.service  # systemd unit file
 │   │   │       ├── 99-velocity-report.rules
 │   │   │       ├── config.txt.patch
 │   │   │       └── cmdline.txt.patch
@@ -902,7 +902,7 @@ generation, and web dashboard:
 - [How to add your own images to Imager](https://www.raspberrypi.com/news/how-to-add-your-own-images-to-imager/)
 - [velocity.report distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2
 - [velocity.report ARCHITECTURE.md](../../ARCHITECTURE.md)
-- [velocity-report.service](../../cmd/deploy/velocity-report.service) — Canonical systemd unit
+- [velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — Canonical systemd unit
 - [velocity.report frontend-consolidation.md](./web-frontend-consolidation-plan.md) — LiDAR toggle UI dependency
 
 ---

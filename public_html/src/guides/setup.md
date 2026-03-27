@@ -338,7 +338,7 @@ sudo install -m 755 velocity-report-linux-arm64 /usr/local/bin/velocity-report
 sudo useradd --system --shell /usr/sbin/nologin velocity
 sudo mkdir -p /var/lib/velocity-report
 sudo chown velocity:velocity /var/lib/velocity-report
-sudo cp cmd/deploy/velocity-report.service /etc/systemd/system/
+sudo cp image/stage-velocity/03-velocity-config/files/velocity-report.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now velocity-report
 ```

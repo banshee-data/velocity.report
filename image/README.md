@@ -66,7 +66,7 @@ image/
     │   ├── 00-run.sh
     │   └── files/
     │       ├── 99-velocity-report.rules
-    │       └── velocity-report.service → cmd/deploy/ (symlink)
+    │       └── velocity-report.service          # systemd unit file (canonical source)
     ├── 04-velocity-lidar/          # LiDAR network (disabled by default)
     │   ├── 00-run.sh
     │   └── files/
@@ -112,7 +112,7 @@ downloaded from the GitHub Release.
 | Raspberry Pi OS Lite (base)               | ~450 MB         |
 | TeX Live (full, before Phase 2 reduction) | ~800 MB         |
 | Python 3 + venv + PDF deps                | ~200 MB         |
-| Go binaries (server + deploy, pcap)       | ~35 MB          |
+| Go binaries (server + ctl, pcap)          | ~35 MB          |
 | LiDAR + web + system config               | ~11 MB          |
 | **Total (xz compressed)**                 | **~600–900 MB** |
 

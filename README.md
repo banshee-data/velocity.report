@@ -166,7 +166,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup,
 
 ## Deployment
 
-The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide and [cmd/deploy/README.md](cmd/deploy/README.md) for the deployment tool reference.
+The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
 
 ## Vision: Sensor Fusion
 

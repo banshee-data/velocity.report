@@ -77,7 +77,6 @@ Behaviour:
 | `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
 | `monitoring/` | `Logf` (function pointer)   | 1     | — (remove)     |
 | `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
-| `cmd/deploy/` | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
 | `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
 ### Stream API Location

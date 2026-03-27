@@ -38,7 +38,6 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 - Radar: `Makefile` → `VERSION := X.Y.Z` (injected via ldflags at build time)
 - PDF Generator: `tools/pdf-generator/pyproject.toml` → `version = "X.Y.Z"`
-- Deploy Tool: `cmd/deploy/main.go` → `const version = "X.Y.Z"`
 - Web Frontend: `web/package.json` → `"version": "X.Y.Z"`
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
@@ -58,7 +57,7 @@ Raspberry Pi image pipeline — the first step toward a one-flash deployment.
 - **LiDAR network config** — pre-configured static IP for 192.168.100.x subnet (disabled by default).
 - **US Wi-Fi fallback** — regulatory domain defaults to US so wireless is functional out of the box.
 - **UART overlay** — `miniuart-bt` configured to free main UART for radar serial connection.
-- **Systemd service** shipped with image (canonical source in `cmd/deploy/velocity-report.service`).
+- **Systemd service** shipped with image (canonical source in `image/stage-velocity/03-velocity-config/files/`).
 
 ## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 
