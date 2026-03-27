@@ -77,7 +77,6 @@ jobs:
       - name: Build binaries
         run: |
           go build -tags=pcap -o velocity-report-local ./cmd/radar
-          go build -o velocity-deploy ./cmd/deploy
 
   test-core:
     name: "🧪 Test Core"
@@ -112,9 +111,7 @@ jobs:
             ./internal/httputil/... \
             ./internal/testutil/... \
             ./internal/fsutil/... \
-            ./internal/monitoring/... \
-            ./internal/deploy/... \
-            ./cmd/deploy/...
+            ./internal/monitoring/...
 
       - name: Upload core coverage
         uses: actions/upload-artifact@v4

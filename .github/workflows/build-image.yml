@@ -48,21 +48,11 @@ jobs:
             -o velocity-report-arm64 \
             ./cmd/radar/
 
-      - name: Build velocity-deploy (ARM64)
-        run: |
-          CGO_ENABLED=0 \
-          GOOS=linux GOARCH=arm64 \
-          go build \
-            -ldflags "-X main.version=${{ github.event.release.tag_name || inputs.image_version || 'dev' }}" \
-            -o velocity-deploy-arm64 \
-            ./cmd/deploy/
-
       - uses: actions/upload-artifact@v4
         with:
           name: velocity-binaries
           path: |
             velocity-report-arm64
-            velocity-deploy-arm64
           retention-days: 1
 
   build-image:
@@ -81,8 +71,6 @@ jobs:
         run: |
           mv image/velocity-binaries/velocity-report-arm64 \
              image/velocity-binaries/velocity-report
-          mv image/velocity-binaries/velocity-deploy-arm64 \
-             image/velocity-binaries/velocity-deploy
           chmod +x image/velocity-binaries/*
 
       - name: Copy PDF generator source

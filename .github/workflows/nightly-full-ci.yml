@@ -49,9 +49,7 @@ jobs:
             ./internal/httputil/... \
             ./internal/testutil/... \
             ./internal/fsutil/... \
-            ./internal/monitoring/... \
-            ./internal/deploy/... \
-            ./cmd/deploy/...
+            ./internal/monitoring/...
 
   go-lidar-race:
     name: "🧪 Go LiDAR (race)"
