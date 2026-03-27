@@ -199,7 +199,12 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 					log.Printf("Security: failed to resolve build directory: %v", err)
 					return false
 				}
-				fullPath := filepath.Join(buildDir, requestedPath)
+				joinedPath := filepath.Join(buildDir, requestedPath)
+				fullPath, err := filepath.Abs(joinedPath)
+				if err != nil {
+					log.Printf("Security: failed to resolve absolute path: %v", err)
+					return false
+				}
 
 				// Security: Validate path is within build directory to prevent path traversal
 				if err := security.ValidatePathWithinDirectory(fullPath, buildDir); err != nil {
