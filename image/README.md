@@ -81,10 +81,23 @@ image/
 ## Building Locally
 
 ```bash
-./image/scripts/build-image.sh
+make build-image                   # full build (compile + image)
+make build-image SKIP_BINARIES=1   # reuse previously compiled binaries
 ```
 
-Requires Docker. See the script header for prerequisites.
+Requires Docker (Docker Desktop on macOS). The script:
+
+1. Cross-compiles ARM64 Go binaries (or skips with `SKIP_BINARIES=1`)
+2. Clones [pi-gen](https://github.com/RPi-Distro/pi-gen) into `image/.pi-gen/`
+3. Copies stage scripts and binaries into the pi-gen tree
+4. Runs pi-gen's `build-docker.sh` to produce the image
+5. Compresses the output with `xz` and generates a SHA-256 checksum
+
+On macOS without an ARM64 cross-compiler (`aarch64-linux-gnu-gcc`), pcap
+support is automatically omitted — the build falls back to a non-pcap binary.
+
+Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are
+gitignored.
 
 ## CI Pipeline
 

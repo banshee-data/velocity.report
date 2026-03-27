@@ -35,10 +35,25 @@ log_warn()  { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 
 # ---------------------------------------------------------------------------
+# 0. Cleanup handler — remove transient copies on exit
+# ---------------------------------------------------------------------------
+cleanup() {
+    log_info "Cleaning up transient build files..."
+    rm -rf "$PIGEN_DIR/stage-velocity"
+    rm -rf "$PIGEN_DIR/velocity-binaries"
+}
+PIGEN_DIR="$IMAGE_DIR/.pi-gen"
+
+# ---------------------------------------------------------------------------
 # 1. Check prerequisites
 # ---------------------------------------------------------------------------
 if ! command -v docker &>/dev/null; then
     log_error "Docker is required but not installed"
+    exit 1
+fi
+
+if ! docker info &>/dev/null; then
+    log_error "Docker daemon is not running — start Docker Desktop and try again"
     exit 1
 fi
 
@@ -78,16 +93,37 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Clone pi-gen if not already present
 # ---------------------------------------------------------------------------
-PIGEN_DIR="$IMAGE_DIR/.pi-gen"
 if [[ ! -d "$PIGEN_DIR" ]]; then
     log_info "Cloning pi-gen..."
     git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git "$PIGEN_DIR"
 fi
 
+# Register cleanup trap now that PIGEN_DIR is resolved
+trap cleanup EXIT
+
 # ---------------------------------------------------------------------------
-# 4. Link custom stage into pi-gen
+# 4. Copy PDF generator and config into stage directory
 # ---------------------------------------------------------------------------
-ln -sfn "$IMAGE_DIR/stage-velocity" "$PIGEN_DIR/stage-velocity"
+# These must be populated BEFORE we copy stage-velocity into pi-gen (step 5)
+# so the copies include the PDF generator and config files.
+PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
+mkdir -p "$PDF_DEST"
+cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
+log_info "Copied PDF generator source"
+
+CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
+mkdir -p "$CONFIG_DEST"
+cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
+log_info "Copied tuning defaults"
+
+# ---------------------------------------------------------------------------
+# 5. Copy custom stage and binaries into pi-gen
+# ---------------------------------------------------------------------------
+# We copy rather than symlink because pi-gen's build-docker.sh sends the
+# pi-gen directory as a Docker build context — symlinks pointing outside
+# the context are not followed and the files would be missing in the image.
+rm -rf "$PIGEN_DIR/stage-velocity"
+cp -r "$IMAGE_DIR/stage-velocity" "$PIGEN_DIR/stage-velocity"
 cp -f "$IMAGE_DIR/config" "$PIGEN_DIR/config"
 
 # Create SKIP files for stages 3–5
@@ -99,21 +135,9 @@ done
 # Skip images for intermediate stages
 touch "$PIGEN_DIR/stage2/SKIP_IMAGES"
 
-# Make binary artifacts available to pi-gen
-ln -sfn "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
-
-# ---------------------------------------------------------------------------
-# 5. Copy PDF generator and config into pi-gen stage
-# ---------------------------------------------------------------------------
-PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
-mkdir -p "$PDF_DEST"
-cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
-log_info "Copied PDF generator source"
-
-CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
-mkdir -p "$CONFIG_DEST"
-cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
-log_info "Copied tuning defaults"
+# Copy binary artifacts into pi-gen root
+rm -rf "$PIGEN_DIR/velocity-binaries"
+cp -r "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
 
 # ---------------------------------------------------------------------------
 # 6. Build the image

@@ -19,6 +19,7 @@ help:
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
 	@echo "  build-ctl            Build velocity-ctl device management binary"
 	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
+	@echo "  build-image          Build Raspberry Pi image with pi-gen (Docker)"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -219,6 +220,12 @@ build-ctl:
 
 build-ctl-linux:
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-ctl-linux-arm64 ./cmd/velocity-ctl
+
+# Build a Raspberry Pi image using pi-gen (requires Docker)
+# Pass SKIP_BINARIES=1 to reuse previously built binaries
+.PHONY: build-image
+build-image:
+	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries)
 
 .PHONY: build-web
 build-web:
