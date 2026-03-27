@@ -40,19 +40,30 @@ jobs:
 
       - name: Build velocity-report (ARM64, pcap-enabled)
         run: |
+          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
           CGO_ENABLED=1 \
           CC=aarch64-linux-gnu-gcc \
           GOOS=linux GOARCH=arm64 \
           go build -tags pcap \
-            -ldflags "-X main.version=${{ github.event.release.tag_name || inputs.image_version || 'dev' }}" \
+            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION#v}'" \
             -o velocity-report-arm64 \
             ./cmd/radar/
+
+      - name: Build velocity-ctl (ARM64)
+        run: |
+          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
+          GOOS=linux GOARCH=arm64 \
+          go build \
+            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION#v}'" \
+            -o velocity-ctl-arm64 \
+            ./cmd/velocity-ctl/
 
       - uses: actions/upload-artifact@v4
         with:
           name: velocity-binaries
           path: |
             velocity-report-arm64
+            velocity-ctl-arm64
           retention-days: 1
 
   build-image:
@@ -71,6 +82,8 @@ jobs:
         run: |
           mv image/velocity-binaries/velocity-report-arm64 \
              image/velocity-binaries/velocity-report
+          mv image/velocity-binaries/velocity-ctl-arm64 \
+             image/velocity-binaries/velocity-ctl
           chmod +x image/velocity-binaries/*
 
       - name: Copy PDF generator source
