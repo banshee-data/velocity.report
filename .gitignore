@@ -40,7 +40,7 @@ app-*
 /replay-server
 velocity-report-*
 velocity-deploy*
-velocity-ctl*
+/velocity-ctl*
 /visualiser-server
 /deploy
 mock_serial_port*
