@@ -18,6 +18,10 @@ chown velocity:velocity /var/lib/velocity-report
 mkdir -p /opt/velocity-report/config
 CHEOF
 
+# Install tuning defaults
+install -m 644 files/config/tuning.defaults.json \
+    "${ROOTFS_DIR}/opt/velocity-report/config/tuning.defaults.json"
+
 # Install systemd service file
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
