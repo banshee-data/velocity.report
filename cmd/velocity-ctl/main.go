@@ -77,7 +77,5 @@ func main() {
 }
 
 func runVersion() {
-	fmt.Printf("velocity-ctl v%s\n", version.Version)
-	fmt.Printf("git SHA:    %s\n", version.GitSHA)
-	fmt.Printf("built:      %s\n", version.BuildTime)
+	version.Print("velocity-ctl")
 }
