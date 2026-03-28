@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# build-image.sh — Build velocity.report RPi image with pcap-enabled binaries
+# build-image.sh — Local image build helper for velocity.report RPi images
 #
-# Compiles ARM64 Go binaries inside a Docker container (so libpcap
-# cross-compilation works on any host OS), then runs pi-gen to produce
-# a flashable .img file.
+# Wraps pi-gen to produce a flashable .img file. Designed for local
+# development and testing; CI uses the GitHub Actions workflow directly.
 #
 # Prerequisites:
 #   - Docker installed and running
+#   - Go toolchain (for cross-compiling ARM64 binaries)
+#
+# On macOS, pcap cross-compilation requires an ARM64 Linux cross-compiler
+# (aarch64-linux-gnu-gcc). Without it, the script falls back to a non-pcap
+# build — which is fine for testing the image pipeline.
 #
 # Usage:
 #   ./image/scripts/build-image.sh [--skip-binaries]
@@ -33,13 +37,12 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 # ---------------------------------------------------------------------------
 # 0. Cleanup handler — remove transient copies on exit
 # ---------------------------------------------------------------------------
-PIGEN_DIR="$IMAGE_DIR/.pi-gen"
-
 cleanup() {
     log_info "Cleaning up transient build files..."
     rm -rf "$PIGEN_DIR/stage-velocity"
     rm -rf "$PIGEN_DIR/velocity-binaries"
 }
+PIGEN_DIR="$IMAGE_DIR/.pi-gen"
 
 # ---------------------------------------------------------------------------
 # 1. Check prerequisites
@@ -55,7 +58,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Build ARM64 binaries inside Docker (with pcap support)
+# 2. Prepare binary artifacts
 # ---------------------------------------------------------------------------
 SKIP_BINARIES=0
 for arg in "$@"; do
@@ -69,36 +72,29 @@ BINARIES_DIR="$IMAGE_DIR/velocity-binaries"
 mkdir -p "$BINARIES_DIR"
 
 if [[ "$SKIP_BINARIES" -eq 0 ]]; then
-    log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
+    log_info "Building ARM64 Go binaries..."
     cd "$REPO_ROOT"
 
-    # Version metadata — same as the Makefile
-    VERSION=$(grep '^VERSION :=' Makefile | awk '{print $3}')
-    GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    # Try pcap build first (needs aarch64-linux-gnu-gcc); fall back to non-pcap
+    if make build-radar-linux-pcap 2>/dev/null; then
+        log_info "Built velocity-report with pcap support"
+    else
+        log_warn "pcap cross-compile unavailable; building without pcap"
+        make build-radar-linux
+    fi
+    make build-ctl-linux
 
-    docker build \
-        --platform linux/amd64 \
-        -f "$IMAGE_DIR/Dockerfile.build" \
-        --build-arg VERSION="$VERSION" \
-        --build-arg GIT_SHA="$GIT_SHA" \
-        --build-arg BUILD_TIME="$BUILD_TIME" \
-        -t velocity-builder \
-        .
-
-    # Extract binaries from the built image
-    CONTAINER_ID=$(docker create velocity-builder)
-    docker cp "$CONTAINER_ID:/out/velocity-report" "$BINARIES_DIR/velocity-report"
-    docker cp "$CONTAINER_ID:/out/velocity-ctl" "$BINARIES_DIR/velocity-ctl"
-    docker rm "$CONTAINER_ID" >/dev/null
+    # Copy binaries to staging area (Makefile outputs *-linux-arm64)
+    cp -f "$REPO_ROOT/velocity-report-linux-arm64" "$BINARIES_DIR/velocity-report"
+    cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl"
     chmod +x "$BINARIES_DIR"/*
-
-    log_info "Built velocity-report and velocity-ctl with pcap support"
 fi
 
 # ---------------------------------------------------------------------------
 # 3. Clone pi-gen if not already present
 # ---------------------------------------------------------------------------
+# Use the bookworm-arm64 branch — master targets armhf (32-bit) with
+# setarch linux32, which fails under Apple Silicon's QEMU emulation.
 PIGEN_BRANCH="bookworm-arm64"
 if [[ ! -d "$PIGEN_DIR" ]]; then
     log_info "Cloning pi-gen (branch: $PIGEN_BRANCH)..."
@@ -112,6 +108,8 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 # 4. Copy PDF generator and config into stage directory
 # ---------------------------------------------------------------------------
+# These must be populated BEFORE we copy stage-velocity into pi-gen (step 5)
+# so the copies include the PDF generator and config files.
 PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
 mkdir -p "$PDF_DEST"
 cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
@@ -125,6 +123,9 @@ log_info "Copied tuning defaults"
 # ---------------------------------------------------------------------------
 # 5. Copy custom stage and binaries into pi-gen
 # ---------------------------------------------------------------------------
+# We copy rather than symlink because pi-gen's build-docker.sh sends the
+# pi-gen directory as a Docker build context — symlinks pointing outside
+# the context are not followed and the files would be missing in the image.
 rm -rf "$PIGEN_DIR/stage-velocity"
 cp -r "$IMAGE_DIR/stage-velocity" "$PIGEN_DIR/stage-velocity"
 cp -f "$IMAGE_DIR/config" "$PIGEN_DIR/config"
@@ -145,6 +146,14 @@ cp -r "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
 # ---------------------------------------------------------------------------
 # 5b. Patch pi-gen for Docker Desktop DNS compatibility
 # ---------------------------------------------------------------------------
+# pi-gen's on_chroot() mounts a fresh tmpfs over ${ROOTFS_DIR}/run.
+# On Bookworm, /etc/resolv.conf inside the debootstrapped rootfs may be
+# a symlink into /run/systemd/resolve/, so mounting tmpfs over /run
+# destroys the resolver config. This causes apt inside the chroot to
+# fail resolving archive.raspberrypi.com (or any non-cached host).
+#
+# Fix: insert a line in on_chroot() that copies the container's
+# resolv.conf into the rootfs before entering the chroot.
 COMMON_FILE="$PIGEN_DIR/scripts/common"
 if ! grep -q "resolv.conf" "$COMMON_FILE" 2>/dev/null; then
     python3 - "$COMMON_FILE" << 'PYEOF'
@@ -164,6 +173,7 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Build the image
 # ---------------------------------------------------------------------------
+# Remove any stale pi-gen container from a previous failed build
 if docker inspect pigen_work &>/dev/null; then
     log_warn "Removing stale pigen_work container from previous build..."
     docker rm -v pigen_work >/dev/null
@@ -178,6 +188,7 @@ cd "$PIGEN_DIR"
 # ---------------------------------------------------------------------------
 DEPLOY_DIR="$PIGEN_DIR/deploy"
 
+# pi-gen may output a raw .img or a .zip containing the .img
 OUTPUT_IMG=$(find "$DEPLOY_DIR" -name "*.img" | head -1)
 if [[ -z "$OUTPUT_IMG" ]]; then
     OUTPUT_ZIP=$(find "$DEPLOY_DIR" -name "*.zip" | head -1)
@@ -195,6 +206,7 @@ if [[ -n "$OUTPUT_IMG" ]]; then
     log_info "Image ready: $COMPRESSED"
     log_info "Size: $(du -h "$COMPRESSED" | cut -f1)"
 
+    # Generate SHA-256 checksum (shasum on macOS, sha256sum on Linux)
     if command -v sha256sum &>/dev/null; then
         sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
     else

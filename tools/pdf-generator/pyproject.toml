@@ -15,7 +15,7 @@ dependencies = [
   "pandas>=2.3.2",
   "pylatex>=1.4.2",
   "requests>=2.32.3",
-  "seaborn>=0.13.3",
+  "seaborn>=0.13.2",
 ]
 
 [project.optional-dependencies]

@@ -10,6 +10,6 @@
 
 BINARIES_DIR="${BASE_DIR}/velocity-binaries"
 
-install -m 755 "${BINARIES_DIR}/velocity-report" "${ROOTFS_DIR}/usr/local/bin/velocity-report"
-install -m 755 "${BINARIES_DIR}/velocity-ctl" "${ROOTFS_DIR}/usr/local/bin/velocity-ctl"
-install -m 755 files/velocity-update "${ROOTFS_DIR}/usr/local/bin/velocity-update"
+install -D -m 755 "${BINARIES_DIR}/velocity-report" "${ROOTFS_DIR}/usr/local/bin/velocity-report"
+install -D -m 755 "${BINARIES_DIR}/velocity-ctl" "${ROOTFS_DIR}/usr/local/bin/velocity-ctl"
+install -D -m 755 files/velocity-update "${ROOTFS_DIR}/usr/local/bin/velocity-update"
