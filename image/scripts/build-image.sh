@@ -172,6 +172,11 @@ rm -rf "$PIGEN_DIR/stage-velocity"
 cp -r "$IMAGE_DIR/stage-velocity" "$PIGEN_DIR/stage-velocity"
 cp -f "$IMAGE_DIR/config" "$PIGEN_DIR/config"
 
+# Include time with seconds in the image filename to avoid collisions
+# when rebuilding on the same day. pi-gen sources this config inside Docker
+# so the variable must be in the file, not just the host environment.
+echo "IMG_DATE=$(date +%Y-%m-%d-%H%M%S)" >> "$PIGEN_DIR/config"
+
 for stage in stage3 stage4 stage5; do
     mkdir -p "$PIGEN_DIR/$stage"
     touch "$PIGEN_DIR/$stage/SKIP"
@@ -220,11 +225,6 @@ if docker inspect pigen_work &>/dev/null; then
     log_warn "Removing stale pigen_work container from previous build..."
     docker rm -v pigen_work >/dev/null
 fi
-
-# Include time with seconds in the image filename to avoid collisions
-# when rebuilding on the same day. pi-gen defaults to date-only.
-export IMG_DATE
-IMG_DATE="$(date +%Y-%m-%d-%H%M%S)"
 
 log_info "Building Raspberry Pi image with pi-gen..."
 cd "$PIGEN_DIR"
