@@ -19,8 +19,7 @@ help:
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
 	@echo "  build-ctl            Build velocity-ctl device management binary"
 	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
-	@echo "  build-image          Build RPi image (pcap binaries built in Docker)"
-	@echo "  build-image-macos    Build RPi image (macOS host, no pcap)"
+	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -226,14 +225,11 @@ build-ctl-linux:
 # Compiles ARM64 Go binaries with pcap support inside a Docker container,
 # then runs pi-gen to produce the flashable .img file.
 # Pass SKIP_BINARIES=1 to reuse previously built binaries.
+# Pass HOST_BUILD=1 to use the host Go toolchain instead of Docker for compilation.
+# Pass SSH_KEY=~/.ssh/id_ed25519.pub to install an SSH key for the velocity user.
 .PHONY: build-image
 build-image:
-	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries)
-
-# Build image using macOS host toolchain (falls back to non-pcap if cross-compiler absent)
-.PHONY: build-image-macos
-build-image-macos:
-	@./image/scripts/build-image-macos.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries)
+	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
 
 .PHONY: build-web
 build-web:

@@ -81,8 +81,10 @@ image/
 ## Building Locally
 
 ```bash
-make build-image                   # full build (compile + image)
-make build-image SKIP_BINARIES=1   # reuse previously compiled binaries
+make build-image                           # full build (Docker compile + image)
+make build-image HOST_BUILD=1              # use host Go toolchain (faster iteration)
+make build-image SKIP_BINARIES=1           # reuse previously compiled binaries
+make build-image SSH_KEY=~/.ssh/id_ed25519.pub  # install SSH key for velocity user
 ```
 
 Requires Docker (Docker Desktop on macOS). The script:
@@ -93,8 +95,10 @@ Requires Docker (Docker Desktop on macOS). The script:
 4. Runs pi-gen's `build-docker.sh` to produce the image
 5. Compresses the output with `xz` and generates a SHA-256 checksum
 
-On macOS without an ARM64 cross-compiler (`aarch64-linux-gnu-gcc`), pcap
-support is automatically omitted — the build falls back to a non-pcap binary.
+With `HOST_BUILD=1`, binaries are compiled using the host Go toolchain
+instead of Docker. This is faster for iteration but requires
+`aarch64-linux-gnu-gcc` for pcap support — without it, pcap is
+automatically omitted.
 
 Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are
 gitignored.
