@@ -32,6 +32,11 @@ COPY . .
 # Ensure web stub exists for Go embed
 RUN ./scripts/ensure-web-stub.sh
 
+# Version metadata passed at build time
+ARG VERSION=dev
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+
 # Build ARM64 binaries with pcap support
 ENV CGO_ENABLED=1 \
     GOOS=linux \
@@ -40,15 +45,13 @@ ENV CGO_ENABLED=1 \
     PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
 
 RUN go build -tags=pcap -ldflags " \
-        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION:-dev}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA:-unknown}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME:-unknown}'" \
+        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
     -o /out/velocity-report ./cmd/radar
 
 RUN go build -ldflags " \
-        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION:-dev}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA:-unknown}' \
-        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME:-unknown}'" \
+        -X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' \
+        -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
     -o /out/velocity-ctl ./cmd/velocity-ctl
-
-CMD ["cp", "/out/velocity-report", "/out/velocity-ctl", "/output/"]
