@@ -20,6 +20,7 @@ help:
 	@echo "  build-ctl            Build velocity-ctl device management binary"
 	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
+	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -230,6 +231,35 @@ build-ctl-linux:
 .PHONY: build-image
 build-image:
 	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
+
+# Flash the most recent .img.xz from deploy/ to an SD card (macOS only).
+# Requires DISK= to be set explicitly to prevent accidents.
+# Usage: make flash-image DISK=/dev/disk4
+.PHONY: flash-image
+flash-image:
+ifeq ($(DISK),)
+	$(error DISK is required — e.g. make flash-image DISK=/dev/disk4)
+endif
+	@IMG=$$(find image/.pi-gen/deploy -name '*.img.xz' -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1); \
+	if [ -z "$$IMG" ]; then \
+		echo "No .img.xz found in image/.pi-gen/deploy/ — run make build-image first"; exit 1; \
+	fi; \
+	echo "Image: $$IMG"; \
+	echo "Target: $(DISK)"; \
+	echo ""; \
+	diskutil list $(DISK); \
+	echo ""; \
+	printf 'This will ERASE $(DISK). Continue? [y/N] '; \
+	read ans; \
+	if [ "$$ans" != "y" ] && [ "$$ans" != "Y" ]; then echo "Aborted."; exit 1; fi; \
+	echo "Unmounting $(DISK)..."; \
+	diskutil unmountDisk $(DISK) || exit 1; \
+	RAW=$$(echo $(DISK) | sed 's|/dev/disk|/dev/rdisk|'); \
+	echo "Flashing to $$RAW (raw device for speed)..."; \
+	xzcat "$$IMG" | sudo dd of=$$RAW bs=1m; \
+	echo "Ejecting $(DISK)..."; \
+	sudo diskutil eject $(DISK); \
+	echo "Done."
 
 .PHONY: build-web
 build-web:
