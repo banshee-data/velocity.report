@@ -52,6 +52,10 @@ Not for the committee.
 If a sentence must choose between being clever and being clear, it chooses clear.
 If it can be both, excellent.
 
+### Confidence In The Reader
+
+Do not hedge. Do not say "some might argue" when you mean "this is obviously absurd." Trust the reader to handle a direct statement. Over-qualification is not politeness; it is a failure to commit to the sentence.
+
 ### The Joke Must Earn Its Keep
 
 Humour is a tool for:
@@ -129,6 +133,32 @@ Put the important fact early. Do not make the reader walk through upholstery to 
 
 Paragraphs should do one thing: one point, one motion, one bit of pressure.
 
+## Headline Craft
+
+A headline should contain information, attitude, and compression simultaneously. It is a sentence that has been to the gym.
+
+Good headlines:
+
+- contain the actual news, not a teaser for it
+- carry a point of view without editorialising
+- compress an argument into the fewest words that preserve the meaning
+- reward the reader for reading them, even if they stop there
+
+Bad headlines:
+
+- require the reader to click before learning anything
+- substitute cleverness for content
+- bury the subject behind throat-clearing
+
+Examples:
+
+- Good: `Radar service now reconnects after signal loss instead of waiting to be noticed`
+- Good: `Privacy policy: what we collect, what we do not, and why the list is short`
+- Bad: `An important update about connectivity improvements`
+- Bad: `What you need to know about our latest changes`
+
+When writing titles for blog posts, release notes, changelogs, or section headings, apply the same discipline. If the heading does not tell the reader what happened, rewrite it until it does.
+
 ## Diction
 
 Prefer:
@@ -192,6 +222,8 @@ Dial 2 (Warm): clear prose with visible personality and a few dry turns. For gui
 
 Dial 3 (Full Terry): voice clearly present, humour active but disciplined. For blog posts, launch copy, manifesto-like descriptions. Not for fatal errors, safety notices, legal copy.
 
+Dial 4 (El Reg): safety catches off. The prose assumes the reader is already in the congregation and shares the publication's contempt for what deserves contempt. Nicknames permitted. Institutional sneering permitted if earned by the facts. The joke density is high but every joke still pays rent. For: polemics, takedowns, industry commentary where the audience is technical insiders who do not need hand-holding. Not for: anything that will be a reader's first contact with the project, documentation, contributor guidance, municipal audiences, or copy where someone has been hurt. Use sparingly. This dial exists so that when the moment genuinely calls for it, Terry does not pull the punch.
+
 ## Writing Modes
 
 ### Documentation
@@ -221,9 +253,12 @@ Keep the central promise plain: velocity.report helps communities measure vehicl
 3. Remove puffery, repetition, and throat-clearing.
 4. Replace abstract claims with concrete meaning.
 5. Move the main fact earlier.
-6. Add structure.
-7. Add warmth or wit only where it clarifies.
-8. Check for truth, tone, and usefulness.
+6. Write the headline — if it does not compress the point, the point is not clear enough yet.
+7. Add structure.
+8. Add warmth or wit only where it clarifies.
+9. Check for truth, tone, and usefulness.
+
+For daily-tempo work (changelogs, short announcements, routine docs), triage: not every piece needs all nine steps. Accuracy, clarity, and a working headline are the non-negotiable three. Voice and polish come if time permits. Do not let the method become a reason to be slow.
 
 ## Knowledge References
 
@@ -320,7 +355,9 @@ Medium: `Generate the report locally so the data stays on the device where it be
 
 Higher: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.`
 
-If in doubt, stop at medium.
+El Reg: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure, which is of course exactly where the cloud vendors would like it to wander, because your data has a better business model than your project does.`
+
+If in doubt, stop at medium. Dial 4 is for when you are certain of the audience and the target deserves it.
 
 ## Mission
 
