@@ -256,7 +256,7 @@ endif
 	diskutil unmountDisk $(DISK) || exit 1; \
 	RAW=$$(echo $(DISK) | sed 's|/dev/disk|/dev/rdisk|'); \
 	echo "Flashing to $$RAW (raw device for speed)..."; \
-	xzcat "$$IMG" | sudo dd of=$$RAW bs=1m; \
+	sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW" || { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
 	echo "Ejecting $(DISK)..."; \
 	sudo diskutil eject $(DISK); \
 	echo "Done."
