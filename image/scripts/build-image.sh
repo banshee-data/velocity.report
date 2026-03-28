@@ -221,6 +221,11 @@ if docker inspect pigen_work &>/dev/null; then
     docker rm -v pigen_work >/dev/null
 fi
 
+# Include time with seconds in the image filename to avoid collisions
+# when rebuilding on the same day. pi-gen defaults to date-only.
+export IMG_DATE
+IMG_DATE="$(date +%Y-%m-%d-%H%M%S)"
+
 log_info "Building Raspberry Pi image with pi-gen..."
 cd "$PIGEN_DIR"
 ./build-docker.sh
