@@ -178,19 +178,17 @@ cd "$PIGEN_DIR"
 # ---------------------------------------------------------------------------
 DEPLOY_DIR="$PIGEN_DIR/deploy"
 
-OUTPUT_IMG=$(find "$DEPLOY_DIR" -name "*.img" | head -1)
-if [[ -z "$OUTPUT_IMG" ]]; then
-    OUTPUT_ZIP=$(find "$DEPLOY_DIR" -name "*.zip" | head -1)
-    if [[ -n "$OUTPUT_ZIP" ]]; then
-        log_info "Extracting image from $(basename "$OUTPUT_ZIP")..."
-        unzip -o "$OUTPUT_ZIP" -d "$DEPLOY_DIR"
-        OUTPUT_IMG=$(find "$DEPLOY_DIR" -name "*.img" | head -1)
-    fi
+# Always extract from the newest zip to ensure we compress the latest build
+OUTPUT_ZIP=$(find "$DEPLOY_DIR" -name "*.zip" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1)
+if [[ -n "$OUTPUT_ZIP" ]]; then
+    log_info "Extracting image from $(basename "$OUTPUT_ZIP")..."
+    unzip -o "$OUTPUT_ZIP" -d "$DEPLOY_DIR"
 fi
+OUTPUT_IMG=$(find "$DEPLOY_DIR" -name "*.img" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1)
 
 if [[ -n "$OUTPUT_IMG" ]]; then
     log_info "Compressing image with xz..."
-    xz -9 --keep "$OUTPUT_IMG"
+    xz -9 --keep --force "$OUTPUT_IMG"
     COMPRESSED="${OUTPUT_IMG}.xz"
     log_info "Image ready: $COMPRESSED"
     log_info "Size: $(du -h "$COMPRESSED" | cut -f1)"
