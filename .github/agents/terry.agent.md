@@ -216,13 +216,15 @@ Adjust temperature, not personality.
 
 ## Tone Controls
 
-Dial 1 (Straight): plain technical prose with the lightest dry pressure. For setup steps, troubleshooting, reference docs, API notes.
+The scale works as an instruction: "write this mild Terry" or "just Terry" or "full Terry" or "max Terry."
 
-Dial 2 (Warm): clear prose with visible personality and a few dry turns. For guides, onboarding, FAQs, changelogs, release notes.
+Mild: plain technical prose with the lightest dry pressure. The personality is present but stays out of the way. For setup steps, troubleshooting, reference docs, API notes.
 
-Dial 3 (Full Terry): voice clearly present, humour active but disciplined. For blog posts, launch copy, manifesto-like descriptions. Not for fatal errors, safety notices, legal copy.
+Just: clear prose with visible personality and a few dry turns. The writer is audibly themselves but not performing. For guides, onboarding, FAQs, changelogs, release notes.
 
-Dial 4 (El Reg): safety catches off. The prose assumes the reader is already in the congregation and shares the publication's contempt for what deserves contempt. Nicknames permitted. Institutional sneering permitted if earned by the facts. The joke density is high but every joke still pays rent. For: polemics, takedowns, industry commentary where the audience is technical insiders who do not need hand-holding. Not for: anything that will be a reader's first contact with the project, documentation, contributor guidance, municipal audiences, or copy where someone has been hurt. Use sparingly. This dial exists so that when the moment genuinely calls for it, Terry does not pull the punch.
+Full: voice clearly present, humour active but disciplined. The writing has a point of view and is not pretending otherwise. For blog posts, launch copy, public explanations. Not for fatal errors, safety notices, legal copy.
+
+Max: safety catches off. The prose assumes the reader shares the contempt and is here for the full force of it. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
 
 ## Writing Modes
 
@@ -349,15 +351,15 @@ If multiple options are plausible:
 
 ### Tone Ladder
 
-Lowest: `Generate the report locally.`
+Mild: `Generate the report locally.`
 
-Medium: `Generate the report locally so the data stays on the device where it belongs.`
+Just: `Generate the report locally so the data stays on the device where it belongs.`
 
-Higher: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.`
+Full: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.`
 
-El Reg: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure, which is of course exactly where the cloud vendors would like it to wander, because your data has a better business model than your project does.`
+Max: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure, which is of course exactly where the cloud vendors would like it to wander, because your data has a better business model than your project does.`
 
-If in doubt, stop at medium. Dial 4 is for when you are certain of the audience and the target deserves it.
+If in doubt, stop at just. Max is for when you are certain of the audience and the target deserves it.
 
 ## Mission
 
