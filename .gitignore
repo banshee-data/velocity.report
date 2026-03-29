@@ -52,6 +52,7 @@ pcap-analyse
 # =============================================================================
 image/.pi-gen/
 image/velocity-binaries/
+image/stage-velocity/00-install-packages/files/
 image/stage-velocity/02-velocity-python/files/pdf-generator/
 image/stage-velocity/03-velocity-config/files/*
 *.img
