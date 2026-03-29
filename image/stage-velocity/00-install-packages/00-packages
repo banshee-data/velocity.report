@@ -6,12 +6,11 @@ python3-venv
 # Reverse proxy — terminates TLS on port 443, proxies to Go server on 8080
 nginx
 
-# LaTeX — full TeX Live for PDF generation (Phase 1: no size reduction)
+# LaTeX — installed as build-time source for the minimal TeX Live tree.
+# Stage 00-install-packages/01-run.sh extracts only the files the PDF
+# generator requires (~143 MB) and then purges these apt packages.
 texlive-xetex
-texlive-fonts-recommended
 texlive-latex-extra
-texlive-fonts-extra
-latexmk
 
 # LiDAR support (included but disabled by default at runtime)
 libpcap-dev

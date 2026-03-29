@@ -47,6 +47,7 @@ cleanup() {
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
+    rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     # Remove staged root documents
     local stage_files="$IMAGE_DIR/stage-velocity/03-velocity-config/files"
     for f in README.md ARCHITECTURE.md CHANGELOG.md CODE_OF_CONDUCT.md \
@@ -180,6 +181,15 @@ PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
 mkdir -p "$PDF_DEST"
 cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
 log_info "Copied PDF generator source"
+
+# Copy minimal TeX Live build script and dependencies into the packages
+# stage so 01-run.sh can build the vendored tree inside the chroot.
+TEXLIVE_DEST="$IMAGE_DIR/stage-velocity/00-install-packages/files"
+mkdir -p "$TEXLIVE_DEST"
+cp "$REPO_ROOT/scripts/build-minimal-texlive.sh" "$TEXLIVE_DEST/"
+cp "$REPO_ROOT/tools/pdf-generator/tex/dependency-manifest.txt" "$TEXLIVE_DEST/"
+cp "$REPO_ROOT/tools/pdf-generator/tex/velocity-report.ini" "$TEXLIVE_DEST/"
+log_info "Copied minimal TeX Live build files"
 
 CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
 mkdir -p "$CONFIG_DEST"

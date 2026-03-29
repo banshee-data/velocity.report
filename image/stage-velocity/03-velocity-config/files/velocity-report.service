@@ -14,6 +14,7 @@ ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sens
 WorkingDirectory=/var/lib/velocity-report
 Environment="PDF_GENERATOR_DIR=/opt/velocity-report/tools/pdf-generator"
 Environment="PDF_GENERATOR_PYTHON=/opt/velocity-report/.venv/bin/python"
+Environment="VELOCITY_TEX_ROOT=/opt/velocity-report/texlive"
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
