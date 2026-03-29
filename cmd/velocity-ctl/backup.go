@@ -5,7 +5,7 @@ import (
 )
 
 func runBackup(args []string) error {
-	fs := flag.NewFlagSet("backup", flag.ExitOnError)
+	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
 	outputDir := fs.String("output", "", "Directory to store backups")
 	if err := fs.Parse(args); err != nil {
 		return err

@@ -5,7 +5,7 @@ import (
 )
 
 func runStatus(args []string) error {
-	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	fs := flag.NewFlagSet("status", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

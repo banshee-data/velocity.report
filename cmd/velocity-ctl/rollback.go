@@ -5,7 +5,7 @@ import (
 )
 
 func runRollback(args []string) error {
-	fs := flag.NewFlagSet("rollback", flag.ExitOnError)
+	fs := flag.NewFlagSet("rollback", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
