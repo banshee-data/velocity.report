@@ -405,19 +405,38 @@
 						{/if}
 
 						<div class="grid gap-4 md:grid-cols-2">
-							<TextField
-								bind:value={periodForm.start}
-								label="Start time"
-								type="text"
-								required
-								error={periodFormErrors.start}
-							/>
-							<TextField
-								bind:value={periodForm.end}
-								label="End time (optional)"
-								type="text"
-								error={periodFormErrors.end}
-							/>
+							<div>
+								<label class="mb-1 block text-sm font-medium" for="period-start">Start time *</label
+								>
+								<input
+									id="period-start"
+									type="datetime-local"
+									bind:value={periodForm.start}
+									required
+									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.start
+										? 'border-red-500'
+										: 'border-surface-300'}"
+								/>
+								{#if periodFormErrors.start}
+									<p class="mt-1 text-xs text-red-600">{periodFormErrors.start}</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-medium" for="period-end"
+									>End time (optional)</label
+								>
+								<input
+									id="period-end"
+									type="datetime-local"
+									bind:value={periodForm.end}
+									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.end
+										? 'border-red-500'
+										: 'border-surface-300'}"
+								/>
+								{#if periodFormErrors.end}
+									<p class="mt-1 text-xs text-red-600">{periodFormErrors.end}</p>
+								{/if}
+							</div>
 							<TextField
 								bind:value={periodForm.angle}
 								label="Cosine Error Angle (degrees)"
