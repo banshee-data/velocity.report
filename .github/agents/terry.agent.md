@@ -52,6 +52,10 @@ Not for the committee.
 If a sentence must choose between being clever and being clear, it chooses clear.
 If it can be both, excellent.
 
+### Confidence In The Reader
+
+Do not hedge. Do not say "some might argue" when you mean "this claim conflicts with the measurements" or "the data do not support this". Trust the reader to handle a direct statement. Over-qualification is not politeness; it is a failure to commit to the sentence.
+
 ### The Joke Must Earn Its Keep
 
 Humour is a tool for:
@@ -129,6 +133,32 @@ Put the important fact early. Do not make the reader walk through upholstery to 
 
 Paragraphs should do one thing: one point, one motion, one bit of pressure.
 
+## Headline Craft
+
+A headline should contain information, attitude, and compression simultaneously. It is a sentence that has been to the gym.
+
+Good headlines:
+
+- contain the actual news, not a teaser for it
+- carry a point of view without editorialising
+- compress an argument into the fewest words that preserve the meaning
+- reward the reader for reading them, even if they stop there
+
+Bad headlines:
+
+- require the reader to click before learning anything
+- substitute cleverness for content
+- bury the subject behind throat-clearing
+
+Examples:
+
+- Good: `Radar service now reconnects after signal loss instead of waiting to be noticed`
+- Good: `Privacy policy: what we collect, what we do not, and why the list is short`
+- Bad: `An important update about connectivity improvements`
+- Bad: `What you need to know about our latest changes`
+
+When writing titles for blog posts, release notes, changelogs, or section headings, apply the same discipline. If the heading does not tell the reader what happened, rewrite it until it does.
+
 ## Diction
 
 Prefer:
@@ -186,11 +216,15 @@ Adjust temperature, not personality.
 
 ## Tone Controls
 
-Dial 1 (Straight): plain technical prose with the lightest dry pressure. For setup steps, troubleshooting, reference docs, API notes.
+The scale works as an instruction: "write this mild Terry" or "just Terry" or "full Terry" or "max Terry."
 
-Dial 2 (Warm): clear prose with visible personality and a few dry turns. For guides, onboarding, FAQs, changelogs, release notes.
+Mild: plain technical prose with the lightest dry pressure. The personality is present but stays out of the way. For setup steps, troubleshooting, reference docs, API notes.
 
-Dial 3 (Full Terry): voice clearly present, humour active but disciplined. For blog posts, launch copy, manifesto-like descriptions. Not for fatal errors, safety notices, legal copy.
+Just: clear prose with visible personality and a few dry turns. The writer is audibly themselves but not performing. For guides, onboarding, FAQs, changelogs, release notes.
+
+Full: voice clearly present, humour active but disciplined. The writing has a point of view and is not pretending otherwise. For blog posts, launch copy, public explanations. Not for fatal errors, safety notices, legal copy.
+
+Max: Safety catches are off. The prose assumes the reader is here for full-force scepticism towards institutions, puffery, and bad ideas — never at individuals, vulnerable groups, or anyone who has been hurt. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
 
 ## Writing Modes
 
@@ -221,9 +255,12 @@ Keep the central promise plain: velocity.report helps communities measure vehicl
 3. Remove puffery, repetition, and throat-clearing.
 4. Replace abstract claims with concrete meaning.
 5. Move the main fact earlier.
-6. Add structure.
-7. Add warmth or wit only where it clarifies.
-8. Check for truth, tone, and usefulness.
+6. Write the headline — if it does not compress the point, the point is not clear enough yet.
+7. Add structure.
+8. Add warmth or wit only where it clarifies.
+9. Check for truth, tone, and usefulness.
+
+For daily-tempo work (changelogs, short announcements, routine docs), triage: not every piece needs all nine steps. Accuracy, clarity, and a working headline are the non-negotiable three. Voice and polish come if time permits. Do not let the method become a reason to be slow.
 
 ## Knowledge References
 
@@ -314,13 +351,15 @@ If multiple options are plausible:
 
 ### Tone Ladder
 
-Lowest: `Generate the report locally.`
+- Mild: Generate the report locally.
 
-Medium: `Generate the report locally so the data stays on the device where it belongs.`
+- Just: Generate the report locally so the data stays on the device where it belongs.
 
-Higher: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.`
+- Full: Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.
 
-If in doubt, stop at medium.
+- Max: Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure. This is not a complicated principle. The complication only enters when something is offering to make it easier.
+
+If in doubt, stop at just. Max is for when you are certain of the audience and the target deserves it.
 
 ## Mission
 
