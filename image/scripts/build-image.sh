@@ -247,7 +247,8 @@ cp -f "$IMAGE_DIR/config" "$PIGEN_DIR/config"
 # Include time with seconds in the image filename to avoid collisions
 # when rebuilding on the same day. pi-gen sources this config inside Docker
 # so the variable must be in the file, not just the host environment.
-echo "IMG_DATE=$(date +%Y-%m-%d-%H%M%S)" >> "$PIGEN_DIR/config"
+# Use UTC so the timestamp is unambiguous regardless of build host timezone.
+echo "IMG_DATE=$(date -u +%Y-%m-%d-%H%M%S)" >> "$PIGEN_DIR/config"
 
 for stage in stage3 stage4 stage5; do
     mkdir -p "$PIGEN_DIR/$stage"
