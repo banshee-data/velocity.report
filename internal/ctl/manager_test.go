@@ -20,6 +20,14 @@ type fakeRunner struct {
 	fails map[string]error
 }
 
+type errorGetter struct {
+	err error
+}
+
+func (g errorGetter) Get(_ string) (*http.Response, error) {
+	return nil, g.err
+}
+
 func (f *fakeRunner) Run(name string, args ...string) error {
 	call := name + " " + strings.Join(args, " ")
 	f.calls = append(f.calls, call)
@@ -273,6 +281,17 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 	}
 }
 
+func TestFetchLatestReleaseGetError(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.fetchLatestRelease(false)
+	if err == nil || !strings.Contains(err.Error(), "network down") {
+		t.Fatalf("expected getter error, got: %v", err)
+	}
+}
+
 func TestFindAssetURLFallbackArm64(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
@@ -444,6 +463,100 @@ func TestFetchLatestReleaseIncludingPrereleasesUsesListEndpoint(t *testing.T) {
 	}
 	if got.TagName != "v0.6.0-rc1" {
 		t.Fatalf("expected prerelease from list endpoint, got: %+v", got)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesSkipsDrafts(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":true,"assets":[]},
+			{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}
+		]`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesListAPI = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	got, err := m.fetchLatestRelease(true)
+	if err != nil {
+		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
+	}
+	if got.TagName != "v0.5.2" {
+		t.Fatalf("expected first non-draft release, got: %+v", got)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesNoNonDraft(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":true,"assets":[]}
+		]`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesListAPI = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.fetchLatestRelease(true)
+	if err == nil || !strings.Contains(err.Error(), "no non-draft releases found") {
+		t.Fatalf("expected no-non-draft error, got: %v", err)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesBadJSON(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesListAPI = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.fetchLatestRelease(true)
+	if err == nil || !strings.Contains(err.Error(), "parsing release JSON") {
+		t.Fatalf("expected JSON parse error, got: %v", err)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesHTTPError(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	cfg.ReleasesListAPI = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.fetchLatestRelease(true)
+	if err == nil || !strings.Contains(err.Error(), "GitHub API returned") {
+		t.Fatalf("expected HTTP status error, got: %v", err)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesGetError(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.fetchLatestRelease(true)
+	if err == nil || !strings.Contains(err.Error(), "network down") {
+		t.Fatalf("expected getter error, got: %v", err)
 	}
 }
 

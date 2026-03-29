@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -15,10 +16,12 @@ type upgradeDotConfig struct {
 	IncludePrereleases bool `json:"include_prereleases"`
 }
 
+var userHomeDir = os.UserHomeDir
+
 func loadIncludePrereleases(configPath string) (bool, error) {
 	path := configPath
 	if path == "" {
-		home, err := os.UserHomeDir()
+		home, err := userHomeDir()
 		if err != nil {
 			// No home directory available (rare in service contexts):
 			// treat as no config rather than failing upgrades.
@@ -44,7 +47,8 @@ func loadIncludePrereleases(configPath string) (bool, error) {
 }
 
 func runUpgrade(args []string) error {
-	fs := flag.NewFlagSet("upgrade", flag.ExitOnError)
+	fs := flag.NewFlagSet("upgrade", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
 	checkOnly := fs.Bool("check", false, "Check for updates without applying")
 	binaryFile := fs.String("binary", "", "Apply a local binary file (offline upgrade)")
 	includePrereleases := fs.Bool("include-prereleases", false, "Allow upgrade to pre-release tags")
