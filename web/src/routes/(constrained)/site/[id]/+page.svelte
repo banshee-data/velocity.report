@@ -51,7 +51,7 @@
 		id: null as number | null,
 		start: '',
 		end: '',
-		angle: 0,
+		angle: 5,
 		notes: '',
 		is_active: false
 	};
@@ -150,7 +150,7 @@
 			id: null,
 			start: '',
 			end: '',
-			angle: 0,
+			angle: 5,
 			notes: '',
 			is_active: false
 		};
