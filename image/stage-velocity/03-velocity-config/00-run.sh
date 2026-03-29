@@ -26,10 +26,10 @@ install -m 644 files/config/tuning.defaults.json \
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
 
-# Enable service for auto-start on boot
-on_chroot << 'CHEOF'
-systemctl enable velocity-report.service
-CHEOF
+# Do NOT systemctl-enable the service — it is started by the udev rule
+# (SYSTEMD_WANTS) when the radar USB device is connected, and stopped by
+# BindsTo= when the device is removed.  Enabling it in multi-user.target
+# would cause a crash-loop on every boot without a radar attached.
 
 # Install udev rules for USB-Serial radar devices
 install -m 644 files/99-velocity-report.rules \

@@ -1,20 +1,19 @@
 [Unit]
 Description=Velocity.report radar monitor service
 After=network.target
+# Only start when the radar USB device is connected.
+# The udev rule (99-velocity-report.rules) triggers this service via
+# SYSTEMD_WANTS when the device appears. BindsTo stops the service
+# cleanly when the device is removed.
+BindsTo=dev-velocity\x2dradar.device
+After=dev-velocity\x2dradar.device
 
 [Service]
-# Run as a dedicated, non-privileged user created during deployment (see README)
 User=velocity
 Group=velocity
 Type=simple
-# The deployed binary (rename/copy from build output to this path)
-# Pass explicit DB path so the process finds the SQLite DB in a stable location
-# (the binary still defaults to ./sensor_data.db when no flag/env is provided)
-# The --config flag points at the tuning defaults in the /opt checkout.
-ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
-# A stable working directory for runtime files; owned by the `velocity` user
+ExecStart=/usr/local/bin/velocity-report --port /dev/velocity-radar --db-path /var/lib/velocity-report/sensor_data.db --config /opt/velocity-report/config/tuning.defaults.json
 WorkingDirectory=/var/lib/velocity-report
-# PDF generator configuration
 Environment="PDF_GENERATOR_DIR=/opt/velocity-report/tools/pdf-generator"
 Environment="PDF_GENERATOR_PYTHON=/opt/velocity-report/.venv/bin/python"
 Restart=on-failure
