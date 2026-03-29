@@ -38,7 +38,7 @@ Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-
 
 ### D-08 — LaTeX footprint reduction
 
-Vendored TeX tree + precompiled `.fmt` — [precompiled LaTeX plan](plans/pdf-latex-precompiled-format-plan.md), [RPi imager §4.6](plans/deploy-rpi-imager-fork-plan.md)
+Vendored minimal TeX tree shipped in v0.5.1 (~143 MB, ~1 GB saved). Precompiled `.fmt` remains planned — [precompiled LaTeX plan](plans/pdf-latex-precompiled-format-plan.md), [RPi imager §4.6](plans/deploy-rpi-imager-fork-plan.md)
 
 ### D-09 — Single binary architecture
 

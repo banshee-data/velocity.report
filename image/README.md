@@ -7,8 +7,7 @@ velocity.report for Raspberry Pi 4/400/5.
 
 Installs `texlive-xetex` APT packages at build time, extracts a minimal
 TeX Live tree (~143 MB) containing only the files the PDF generator needs,
-then purges the APT packages (~1 GB saved). No further LaTeX reduction;
-that is Phase 2 (v0.6.0).
+then purges the APT packages (~1 GB saved).
 
 ### What the Image Contains
 
@@ -57,7 +56,9 @@ image/
 ├── scripts/
 │   └── build-image.sh              # Local build helper
 └── stage-velocity/                 # pi-gen custom stage
-    ├── 00-packages                 # APT package list
+    ├── 00-install-packages/        # APT packages + minimal TeX tree build
+    │   ├── 00-packages             # APT package list (texlive-xetex, fonts, etc.)
+    │   └── 01-run.sh               # Builds minimal TeX tree, purges APT texlive
     ├── 01-velocity-binaries/       # Go binaries + update script
     │   ├── 00-run.sh
     │   └── files/
@@ -126,14 +127,14 @@ downloaded from the GitHub Release.
 
 ## Image Size Budget (Phase 1)
 
-| Component                                 | Estimated Size  |
-| ----------------------------------------- | --------------- |
-| Raspberry Pi OS Lite (base)               | ~450 MB         |
-| TeX Live (full, before Phase 2 reduction) | ~800 MB         |
-| Python 3 + venv + PDF deps                | ~200 MB         |
-| Go binaries (server + ctl, pcap)          | ~35 MB          |
-| LiDAR + web + system config               | ~11 MB          |
-| **Total (xz compressed)**                 | **~600–900 MB** |
+| Component                        | Estimated Size  |
+| -------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)      | ~450 MB         |
+| TeX Live (minimal vendored tree) | ~143 MB         |
+| Python 3 + venv + PDF deps       | ~200 MB         |
+| Go binaries (server + ctl, pcap) | ~35 MB          |
+| LiDAR + web + system config      | ~11 MB          |
+| **Total (xz compressed)**        | **~350–500 MB** |
 
 ## Design Document
 

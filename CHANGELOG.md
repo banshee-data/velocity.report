@@ -50,7 +50,7 @@ Raspberry Pi image pipeline — the first step toward a one-flash deployment.
 
 #### Added
 
-- **Raspberry Pi image pipeline** — `image/` directory with pi-gen stage scripts, GitHub Actions CI workflow (`build-image.yml`), and `os-list-velocity.json` catalogue for stock rpi-imager. Installs `texlive-xetex` at build time and extracts a minimal TeX Live tree for the PDF generator; LaTeX APT packages are purged from the final image. Further size reduction deferred to v0.6.0.
+- **Raspberry Pi image pipeline** — `image/` directory with pi-gen stage scripts, GitHub Actions CI workflow (`build-image.yml`), and `os-list-velocity.json` catalogue for stock rpi-imager. Installs `texlive-xetex` at build time and extracts a minimal TeX Live tree (~143 MB) for the PDF generator; LaTeX APT packages are purged from the final image (~1 GB saved).
 - **`velocity-ctl` binary** — on-device management tool (`upgrade`, `rollback`, `backup`, `status`, `version`). Replaces `velocity-deploy` and `velocity-update` script. No automatic updates; no unsolicited network requests.
 - **`os-list-velocity.json`** — rpi-imager custom repository catalogue pointing at GitHub Release `.img.xz` assets for Pi 4/400/5.
 - **Udev rules** for OmniPreSense OPS243 USB-Serial adapter (`/dev/velocity-radar` symlink).

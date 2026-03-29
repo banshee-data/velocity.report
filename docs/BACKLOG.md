@@ -10,7 +10,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.1 - Raspberry Pi Image (051)
 
-- (#210) Raspberry Pi image pipeline: pi-gen build, CI workflow, GitHub Release `.img.xz` asset; minimal TeX Live tree extracted at build time (no size optimisation); custom `os-list.json` for stock rpi-imager: [design doc](plans/deploy-rpi-imager-fork-plan.md) `M`
+- (#210) Raspberry Pi image pipeline: test image on physical Raspberry Pi 4 hardware, produce first `.img.xz` release asset, host os-list JSON, write end-user flashing docs: [design doc](plans/deploy-rpi-imager-fork-plan.md) `S`
 
 ### v0.5.2 - Data Contracts + Layer Foundations (052)
 
@@ -46,7 +46,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.6.0 - Deployment & Packaging (060)
 
-- RPi image Phase 2: LaTeX size reduction via precompiled templates and vendored TeX tree; target compressed image from ~600–900 MB to ~350–500 MB: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `M`
+- RPi image Phase 2: precompiled LaTeX `.fmt` for faster PDF generation; vendored TeX tree already shipped in v0.5.1: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `S`
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Single `velocity-report` binary + subcommands: unified CLI with radar/lidar/pdf subcommands: [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
@@ -118,9 +118,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - (#325) Ground-plane vector-scene maths (P3, D-05): 3D scene reconstruction with ground-plane constraints: [proposal](../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10): comprehensive quality control tooling for LiDAR data: [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - Metrics-first data science programme: benchmark packs, scorecards, explicit specs, and reproducible experiment bundles: [plan](plans/platform-data-science-metrics-first-plan.md) `M`
-- Optional classification benchmarking lane: transparent feature-based models compared against the rule-based baseline; not on the critical path: [plan](plans/lidar-ml-classifier-training-plan.md) `L`
+- Optional classification benchmarking lane (Phase 4.1): transparent feature-based models compared against the rule-based baseline; not on the critical path: [plan](plans/lidar-ml-classifier-training-plan.md) `L`
 - Config restructure Phase 3: expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled: [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
-- Automated hyperparameter search: systematic parameter-space exploration beyond existing HINT tuner: [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
+- Parameter tuning optimisation (Phase 4.2): automated hyperparameter search and optimisation: [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
 - [#390] Dynamic algorithm selection: runtime algorithm switching based on scene conditions: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Bodies in motion: L5 IMM kinematic extensions (CV/CA/CTRV), L7 scene-constrained path prediction, sparse-cluster track linking at range, and scene-graph geometric relations: [design doc](plans/lidar-bodies-in-motion-plan.md) `L`
 - Peak-hour and seasonal trend analysis: temporal pattern detection and analysis: [design doc](plans/platform-data-science-metrics-first-plan.md) `M`
