@@ -7,12 +7,6 @@ User=velocity
 Group=velocity
 Type=simple
 
-# Generate TLS certificates on first boot (idempotent — skips if valid cert exists)
-ExecStartPre=/usr/local/bin/velocity-generate-tls.sh /var/lib/velocity-report/tls
-
-# Allow binding to port 443 without running as root
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-
 # Radar is active on /dev/ttySC1 (Waveshare SC16IS752 HAT, channel B).
 # The --port default matches the binary default so it is not specified
 # explicitly here.  Override with --port if the device path differs.

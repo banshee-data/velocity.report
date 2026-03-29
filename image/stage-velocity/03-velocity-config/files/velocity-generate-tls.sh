@@ -1,6 +1,7 @@
 #!/bin/bash
 # velocity-generate-tls.sh — Generate a local CA and server certificate
-# for velocity.local. Runs as ExecStartPre in the systemd service.
+# for velocity.local. Runs via a systemd oneshot service before nginx
+# starts on first boot.
 #
 # Creates:
 #   $TLS_DIR/ca.key       — CA private key (root of trust)

@@ -18,4 +18,8 @@ python3 -m venv /opt/velocity-report/.venv
 /opt/velocity-report/.venv/bin/pip install --no-cache-dir \
     /opt/velocity-report/tools/pdf-generator/
 
+# Create writable output directory for generated reports.
+# Owned by the velocity service user so the Go server can write here.
+mkdir -p /opt/velocity-report/tools/pdf-generator/output
+chown velocity:velocity /opt/velocity-report/tools/pdf-generator/output
 CHEOF

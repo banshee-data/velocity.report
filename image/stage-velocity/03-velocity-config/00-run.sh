@@ -52,14 +52,29 @@ done
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
 
-# Install TLS certificate generation script (runs as ExecStartPre)
+# Install TLS certificate generation script and its systemd oneshot service.
+# The oneshot runs before nginx on first boot (when no cert exists yet).
 install -m 755 files/velocity-generate-tls.sh \
     "${ROOTFS_DIR}/usr/local/bin/velocity-generate-tls.sh"
+install -m 644 files/velocity-generate-tls.service \
+    "${ROOTFS_DIR}/etc/systemd/system/velocity-generate-tls.service"
+
+# Install nginx reverse-proxy site config.
+# nginx terminates TLS on port 443 and proxies to the Go server on 8080.
+install -d "${ROOTFS_DIR}/etc/nginx/sites-available"
+install -m 644 files/velocity-nginx.conf \
+    "${ROOTFS_DIR}/etc/nginx/sites-available/velocity.conf"
 
 # Enable the service for auto-start on boot.  The service starts with
 # the radar active on /dev/ttySC1 (Waveshare SC16IS752 HAT channel B).
 on_chroot << 'CHEOF'
 systemctl enable velocity-report.service
+systemctl enable velocity-generate-tls.service
+
+# Wire nginx: remove default site, symlink velocity config
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/velocity.conf /etc/nginx/sites-enabled/velocity.conf
+systemctl enable nginx.service
 CHEOF
 
 # Install udev rules for USB-Serial radar devices

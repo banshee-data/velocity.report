@@ -3,6 +3,9 @@ python3
 python3-pip
 python3-venv
 
+# Reverse proxy — terminates TLS on port 443, proxies to Go server on 8080
+nginx
+
 # LaTeX — full TeX Live for PDF generation (Phase 1: no size reduction)
 texlive-xetex
 texlive-fonts-recommended

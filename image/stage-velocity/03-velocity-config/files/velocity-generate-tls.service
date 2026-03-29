@@ -1,0 +1,12 @@
+[Unit]
+Description=Generate TLS certificates for velocity.local
+Before=nginx.service
+ConditionPathExists=!/var/lib/velocity-report/tls/server.crt
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/velocity-generate-tls.sh /var/lib/velocity-report/tls
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
