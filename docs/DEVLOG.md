@@ -5,10 +5,9 @@
 _Branch: `copilot/complete-phase-1-image` (not yet on main)_
 
 - Fixed "Web Frontend Not Built" in the RPi image. The `.dockerignore` excluded `web/build/`, so the Docker Go compilation only embedded the stub page. Whitelisted `web/build/` in `.dockerignore` and added a web frontend build step (`pnpm run build`) before Go binary compilation in `build-image.sh`.
-- Changed default listen port from `:8080` to `:443`. The systemd unit grants `CAP_NET_BIND_SERVICE` via `AmbientCapabilities` so the `velocity` user can bind port 443 without root.
-- Added TLS support to the Go server. `internal/api/server.go` accepts `--tls-cert` and `--tls-key` flags. When both exist, serves HTTPS with TLS 1.2 minimum. Falls back to plain HTTP when absent (local dev path).
-- Added first-boot TLS certificate generation (`velocity-generate-tls.sh`). Runs as `ExecStartPre` in the systemd service. Generates a per-device ECDSA P-256 local CA (10-year validity) and server certificate (825-day validity, Apple limit). Idempotent — skips if cert is still valid, regenerates on expiry. Each device gets a unique CA so compromising one does not affect others.
-- Serves the CA certificate at `GET /ca.crt` so users can download and trust it in their OS/browser. After trusting the CA once, all future server certificate renewals are accepted silently.
+- Moved TLS termination from Go server to nginx reverse proxy. Go server stays on `:8080` (plain HTTP), nginx handles HTTPS on port 443. This keeps the server directly accessible on localhost:8080 for local processes (PDF generator, diagnostics) and separates TLS concerns from the application.
+- Added first-boot TLS certificate generation (`velocity-generate-tls.sh`). Runs as a systemd oneshot before nginx starts. Generates a per-device ECDSA P-256 local CA (10-year validity) and server certificate (825-day validity, Apple limit). Idempotent — skips if cert is still valid, regenerates on expiry. Each device gets a unique CA so compromising one does not affect others.
+- nginx serves the CA certificate at `GET /ca.crt` for browser trust installation. After trusting the CA once, all future server certificate renewals are accepted silently.
 - Installed root-level project documents (`TENETS.md`, `CODE_OF_CONDUCT`, `CONTRIBUTING`, `LICENSE`) into the image for on-device reference.
 - Documented the TLS strategy in `docs/platform/operations/tls-local-certificates.md`: covers the `.local` domain constraint, why a local CA instead of a bare self-signed cert, why ECDSA P-256, renewal mechanics, alternatives considered, and user trust setup instructions.
 

@@ -140,6 +140,7 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
    └──────────────────┘     └──────────────────────────┘     └──────────────────┘
                                   │              │
                        HTTPS :443 │              │ gRPC :50051
+                    (nginx proxy) │              │
                    ┌──────────────┴─┐            │
                    │                │            │
                    ▼                ▼            ▼

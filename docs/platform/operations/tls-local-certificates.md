@@ -19,14 +19,13 @@ Web PKI trust model (CA/Browser Forum Baseline Requirements § 7.1.4.2).
 
 ## Constraints
 
-| Constraint                | Reason                                                     |
-| ------------------------- | ---------------------------------------------------------- |
-| No public CA for `.local` | `.local` is reserved for mDNS, excluded from public PKI    |
-| No internet required      | Local-first appliance; may never see the public internet   |
-| No reverse proxy          | Single-binary deployment; adding nginx is avoidable burden |
-| No user SSH setup         | Target audience is neighbourhood advocates, not sysadmins  |
-| Apple 825-day cert limit  | macOS/iOS reject server certs valid longer than 825 days   |
-| Unique per device         | Compromising one device must not affect others             |
+| Constraint                | Reason                                                    |
+| ------------------------- | --------------------------------------------------------- |
+| No public CA for `.local` | `.local` is reserved for mDNS, excluded from public PKI   |
+| No internet required      | Local-first appliance; may never see the public internet  |
+| No user SSH setup         | Target audience is neighbourhood advocates, not sysadmins |
+| Apple 825-day cert limit  | macOS/iOS reject server certs valid longer than 825 days  |
+| Unique per device         | Compromising one device must not affect others            |
 
 ## Chosen Approach: First-Boot Local CA
 
@@ -64,8 +63,9 @@ A bare self-signed server certificate would technically work, but:
 
 ### Certificate Generation
 
-`velocity-generate-tls.sh` runs as `ExecStartPre` in the systemd
-service unit. It is idempotent:
+`velocity-generate-tls.sh` runs as a systemd oneshot service
+(`velocity-generate-tls.service`) before nginx starts on first boot.
+It is idempotent:
 
 1. If `server.crt` exists and is valid for at least 24 hours → exit.
 2. Otherwise, generate CA key + cert, server key + cert, clean up CSR.
@@ -79,29 +79,25 @@ Files are written to `/var/lib/velocity-report/tls/`:
 | `server.key` | 600         | Server private key                |
 | `server.crt` | 644         | Server certificate                |
 
+### nginx Reverse Proxy
+
+nginx terminates TLS on port 443 and proxies all requests to the Go
+server on `localhost:8080`. This keeps TLS concerns out of the
+application, lets the Go server remain a plain HTTP server, and
+preserves direct access on port 8080 for local processes (PDF
+generator, diagnostics).
+
+nginx serves the CA certificate at `GET /ca.crt` for browser trust
+setup. After trusting the CA once, all future server certificate
+renewals are accepted silently.
+
 ### Go Server
 
-`internal/api/server.go` accepts `--tls-cert` and `--tls-key` flags.
-When both files exist and load successfully:
+The Go server listens on `:8080` (plain HTTP). It has no TLS
+awareness — all HTTPS is handled by nginx.
 
-- Serves HTTPS via `ListenAndServeTLS` with TLS 1.2 minimum.
-- Serves the CA certificate at `GET /ca.crt` for browser trust setup.
-
-When certificates are absent or fail to load:
-
-- Falls back to plain HTTP. The server logs the reason.
-
-This ensures the binary works in both production (RPi with certs) and
-development (laptop, no certs, `--listen :8080`).
-
-### Port
-
-Default listen address changed from `:8080` to `:443`. The systemd
-unit grants `CAP_NET_BIND_SERVICE` via `AmbientCapabilities` so the
-`velocity` user can bind privileged ports without running as root.
-
-For local development, pass `--listen :8080` to avoid needing
-privilege.
+When running in development (no nginx), the server is accessed
+directly at `http://localhost:8080`.
 
 ### Renewal
 
