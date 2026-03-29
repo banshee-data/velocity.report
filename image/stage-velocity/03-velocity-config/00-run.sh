@@ -39,6 +39,13 @@ install -m 644 files/99-velocity-report.rules \
 install -m 644 files/velocity-aliases.sh \
     "${ROOTFS_DIR}/etc/profile.d/velocity-aliases.sh"
 
+# Install login MOTD banner (warns about default password, shows help commands)
+install -m 644 files/velocity-motd.sh \
+    "${ROOTFS_DIR}/etc/profile.d/velocity-motd.sh"
+
+# Suppress the default Debian MOTD so ours is the only one shown.
+: > "${ROOTFS_DIR}/etc/motd"
+
 # Install SSH authorized_keys for velocity user (if provided via --ssh-key)
 if [ -f files/authorized_keys ]; then
     install -d -m 700 "${ROOTFS_DIR}/home/velocity/.ssh"
