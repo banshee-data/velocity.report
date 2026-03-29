@@ -1,13 +1,45 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"errors"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
 
-func TestRunStatusNoSystemd(t *testing.T) {
-	// On macOS/CI where systemctl is not available, runStatus should
-	// return an error rather than panic.
-	err := runStatus([]string{})
-	if err == nil {
-		t.Skip("systemctl available — test passed on Linux")
+	"github.com/banshee-data/velocity.report/internal/ctl"
+)
+
+type cmdFailRunner struct {
+	err error
+}
+
+func (r cmdFailRunner) Run(string, ...string) error {
+	return r.err
+}
+
+func TestRunStatusReturnsRunnerError(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := ctl.Config{
+		BinaryName:      "velocity-report",
+		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
+		BackupDir:       filepath.Join(tmp, "backups"),
+		DBPath:          filepath.Join(tmp, "sensor_data.db"),
+		CurrentVersion:  "0.5.1",
+		GOOS:            "linux",
+		GOARCH:          "arm64",
+		RequestTimeout:  time.Second,
+		DownloadTimeout: time.Second,
 	}
-	// Expected: "running systemctl" error on non-Linux.
+
+	var out bytes.Buffer
+	old := ctlManager
+	ctlManager = ctl.NewManager(cfg, nil, cmdFailRunner{err: errors.New("boom")}, &out, &out)
+	defer func() { ctlManager = old }()
+
+	err := runStatus([]string{})
+	if err == nil || !strings.Contains(err.Error(), "running systemctl") {
+		t.Fatalf("expected wrapped error, got: %v", err)
+	}
 }

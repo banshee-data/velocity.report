@@ -1,0 +1,537 @@
+package ctl
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/version"
+)
+
+const (
+	defaultGitHubRepo  = "banshee-data/velocity.report"
+	defaultReleasesAPI = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases/latest"
+	defaultBinaryName  = "velocity-report"
+	defaultBinaryPath  = "/usr/local/bin/" + defaultBinaryName
+	defaultServiceName = "velocity-report.service"
+	defaultBackupDir   = "/var/lib/velocity-report/backups"
+	defaultDBPath      = "/var/lib/velocity-report/sensor_data.db"
+)
+
+type Config struct {
+	ReleasesAPI     string
+	BinaryName      string
+	BinaryPath      string
+	ServiceName     string
+	BackupDir       string
+	DBPath          string
+	RequestTimeout  time.Duration
+	DownloadTimeout time.Duration
+	VerifyDelay     time.Duration
+	CurrentVersion  string
+	GOOS            string
+	GOARCH          string
+}
+
+func DefaultConfig() Config {
+	return Config{
+		ReleasesAPI:     defaultReleasesAPI,
+		BinaryName:      defaultBinaryName,
+		BinaryPath:      defaultBinaryPath,
+		ServiceName:     defaultServiceName,
+		BackupDir:       defaultBackupDir,
+		DBPath:          defaultDBPath,
+		RequestTimeout:  30 * time.Second,
+		DownloadTimeout: 5 * time.Minute,
+		VerifyDelay:     2 * time.Second,
+		CurrentVersion:  version.Version,
+		GOOS:            runtime.GOOS,
+		GOARCH:          runtime.GOARCH,
+	}
+}
+
+type HTTPGetter interface {
+	Get(url string) (*http.Response, error)
+}
+
+type CommandRunner interface {
+	Run(name string, args ...string) error
+}
+
+type ExecRunner struct {
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
+func (r ExecRunner) Run(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = r.Stdout
+	cmd.Stderr = r.Stderr
+	return cmd.Run()
+}
+
+type Manager struct {
+	cfg        Config
+	httpClient HTTPGetter
+	runner     CommandRunner
+	out        io.Writer
+	err        io.Writer
+	now        func() time.Time
+	sleep      func(time.Duration)
+}
+
+func NewDefaultManager() *Manager {
+	cfg := DefaultConfig()
+	return &Manager{
+		cfg:        cfg,
+		httpClient: &http.Client{Timeout: cfg.RequestTimeout},
+		runner:     ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr},
+		out:        os.Stdout,
+		err:        os.Stderr,
+		now:        time.Now,
+		sleep:      time.Sleep,
+	}
+}
+
+func NewManager(cfg Config, httpClient HTTPGetter, runner CommandRunner, out io.Writer, err io.Writer) *Manager {
+	if cfg.ReleasesAPI == "" {
+		cfg.ReleasesAPI = defaultReleasesAPI
+	}
+	if cfg.BinaryName == "" {
+		cfg.BinaryName = defaultBinaryName
+	}
+	if cfg.BinaryPath == "" {
+		cfg.BinaryPath = defaultBinaryPath
+	}
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = defaultServiceName
+	}
+	if cfg.BackupDir == "" {
+		cfg.BackupDir = defaultBackupDir
+	}
+	if cfg.DBPath == "" {
+		cfg.DBPath = defaultDBPath
+	}
+	if cfg.RequestTimeout == 0 {
+		cfg.RequestTimeout = 30 * time.Second
+	}
+	if cfg.DownloadTimeout == 0 {
+		cfg.DownloadTimeout = 5 * time.Minute
+	}
+	if cfg.VerifyDelay == 0 {
+		cfg.VerifyDelay = 2 * time.Second
+	}
+	if cfg.CurrentVersion == "" {
+		cfg.CurrentVersion = version.Version
+	}
+	if cfg.GOOS == "" {
+		cfg.GOOS = runtime.GOOS
+	}
+	if cfg.GOARCH == "" {
+		cfg.GOARCH = runtime.GOARCH
+	}
+
+	if out == nil {
+		out = io.Discard
+	}
+	if err == nil {
+		err = io.Discard
+	}
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: cfg.RequestTimeout}
+	}
+	if runner == nil {
+		runner = ExecRunner{Stdout: out, Stderr: err}
+	}
+
+	return &Manager{
+		cfg:        cfg,
+		httpClient: httpClient,
+		runner:     runner,
+		out:        out,
+		err:        err,
+		now:        time.Now,
+		sleep:      time.Sleep,
+	}
+}
+
+func (m *Manager) ServiceName() string {
+	return m.cfg.ServiceName
+}
+
+func (m *Manager) RunUpgrade(checkOnly bool, binaryFile string) error {
+	if binaryFile != "" {
+		return m.applyLocalBinary(binaryFile)
+	}
+
+	release, err := m.fetchLatestRelease()
+	if err != nil {
+		return fmt.Errorf("checking for updates: %w", err)
+	}
+
+	latest := strings.TrimPrefix(release.TagName, "v")
+	current := m.cfg.CurrentVersion
+
+	if latest == current {
+		fmt.Fprintf(m.out, "Already up to date (v%s).\n", current)
+		return nil
+	}
+
+	fmt.Fprintf(m.out, "Current: v%s\n", current)
+	fmt.Fprintf(m.out, "Latest:  v%s\n", latest)
+
+	if checkOnly {
+		fmt.Fprintln(m.out, "\nRun 'sudo velocity-ctl upgrade' to apply.")
+		return nil
+	}
+
+	assetURL, err := m.findAssetURL(release)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(m.out, "Downloading %s...\n", assetURL)
+	tmpFile, err := m.downloadToTemp(assetURL)
+	if err != nil {
+		return fmt.Errorf("downloading release: %w", err)
+	}
+	defer os.Remove(tmpFile)
+
+	return m.applyUpgrade(tmpFile)
+}
+
+func (m *Manager) RunBackup(outputDir string) (string, error) {
+	if outputDir == "" {
+		outputDir = m.cfg.BackupDir
+	}
+	return m.createBackupTo(outputDir)
+}
+
+func (m *Manager) RunRollback() error {
+	entries, err := os.ReadDir(m.cfg.BackupDir)
+	if err != nil {
+		return fmt.Errorf("reading backup directory %s: %w", m.cfg.BackupDir, err)
+	}
+
+	var backups []string
+	for _, e := range entries {
+		if e.IsDir() && strings.HasPrefix(e.Name(), "20") {
+			backups = append(backups, e.Name())
+		}
+	}
+
+	if len(backups) == 0 {
+		return fmt.Errorf("no backups found in %s", m.cfg.BackupDir)
+	}
+
+	sort.Strings(backups)
+	latest := backups[len(backups)-1]
+	backupPath := filepath.Join(m.cfg.BackupDir, latest)
+
+	fmt.Fprintf(m.out, "Rolling back to backup: %s\n", latest)
+	return m.restoreBackup(backupPath)
+}
+
+func (m *Manager) RunStatus() error {
+	err := m.runner.Run("systemctl", "status", m.cfg.ServiceName)
+	if err == nil {
+		return nil
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		fmt.Fprintf(m.err, "\nService is not running (exit code %d).\n", exitErr.ExitCode())
+		return nil
+	}
+
+	type exitCoder interface {
+		ExitCode() int
+	}
+	var codedErr exitCoder
+	if errors.As(err, &codedErr) {
+		fmt.Fprintf(m.err, "\nService is not running (exit code %d).\n", codedErr.ExitCode())
+		return nil
+	}
+
+	return fmt.Errorf("running systemctl: %w", err)
+}
+
+type githubRelease struct {
+	TagName string        `json:"tag_name"`
+	Assets  []githubAsset `json:"assets"`
+}
+
+type githubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+func (m *Manager) findAssetURL(release *githubRelease) (string, error) {
+	assetName := fmt.Sprintf("velocity-report-%s-%s", m.cfg.GOOS, m.cfg.GOARCH)
+	for _, a := range release.Assets {
+		if a.Name == assetName {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	for _, a := range release.Assets {
+		if a.Name == "velocity-report-arm64" {
+			return a.BrowserDownloadURL, nil
+		}
+	}
+
+	return "", fmt.Errorf("no binary asset found for %s/%s in release %s", m.cfg.GOOS, m.cfg.GOARCH, release.TagName)
+}
+
+func (m *Manager) applyLocalBinary(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("binary file: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("expected a file, got directory: %s", path)
+	}
+
+	fmt.Fprintf(m.out, "Applying local binary: %s\n", path)
+	return m.applyUpgrade(path)
+}
+
+func (m *Manager) applyUpgrade(newBinaryPath string) error {
+	fmt.Fprintln(m.out, "Creating backup...")
+	backupPath, err := m.createBackupTo(m.cfg.BackupDir)
+	if err != nil {
+		return fmt.Errorf("backup failed: %w", err)
+	}
+	fmt.Fprintf(m.out, "Backup saved to %s\n", backupPath)
+
+	fmt.Fprintln(m.out, "Stopping velocity-report...")
+	if err := m.systemctl("stop", m.cfg.ServiceName); err != nil {
+		return fmt.Errorf("stopping service: %w", err)
+	}
+
+	fmt.Fprintln(m.out, "Installing new binary...")
+	if err := m.installBinary(newBinaryPath, m.cfg.BinaryPath); err != nil {
+		fmt.Fprintf(m.err, "install failed: %v - attempting rollback\n", err)
+		_ = m.restoreBackup(backupPath)
+		_ = m.systemctl("start", m.cfg.ServiceName)
+		return fmt.Errorf("installing binary: %w", err)
+	}
+
+	fmt.Fprintln(m.out, "Running database migrations...")
+	if err := m.runMigrations(); err != nil {
+		fmt.Fprintf(m.err, "warning: migration failed: %v\n", err)
+	}
+
+	fmt.Fprintln(m.out, "Starting velocity-report...")
+	if err := m.systemctl("start", m.cfg.ServiceName); err != nil {
+		return fmt.Errorf("starting service: %w", err)
+	}
+
+	fmt.Fprintln(m.out, "Verifying service status...")
+	m.sleep(m.cfg.VerifyDelay)
+	if err := m.systemctl("is-active", m.cfg.ServiceName); err != nil {
+		fmt.Fprintln(m.err, "warning: service may not be running - check 'velocity-ctl status'")
+	} else {
+		fmt.Fprintln(m.out, "Upgrade complete. Service is active.")
+	}
+
+	return nil
+}
+
+func (m *Manager) fetchLatestRelease() (*githubRelease, error) {
+	resp, err := m.httpClient.Get(m.cfg.ReleasesAPI)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
+	}
+
+	var release githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return nil, fmt.Errorf("parsing release JSON: %w", err)
+	}
+
+	return &release, nil
+}
+
+func (m *Manager) downloadToTemp(url string) (string, error) {
+	client := &http.Client{Timeout: m.cfg.DownloadTimeout}
+	resp, err := client.Get(url) //nolint:gosec // URL comes from release metadata
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("download returned %s", resp.Status)
+	}
+
+	tmp, err := os.CreateTemp("", "velocity-ctl-upgrade-*")
+	if err != nil {
+		return "", err
+	}
+
+	h := sha256.New()
+	written, err := io.Copy(tmp, io.TeeReader(resp.Body, h))
+	if err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return "", err
+	}
+
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return "", err
+	}
+
+	checksum := hex.EncodeToString(h.Sum(nil))
+	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, checksum)
+
+	return tmp.Name(), nil
+}
+
+func (m *Manager) createBackupTo(baseDir string) (string, error) {
+	ts := m.now().UTC().Format("20060102-150405")
+	dest := filepath.Join(baseDir, ts)
+
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		return "", fmt.Errorf("creating backup directory: %w", err)
+	}
+
+	if err := copyFile(m.cfg.BinaryPath, filepath.Join(dest, m.cfg.BinaryName)); err != nil {
+		return "", fmt.Errorf("backing up binary: %w", err)
+	}
+
+	if _, err := os.Stat(m.cfg.DBPath); err == nil {
+		if err := copyFile(m.cfg.DBPath, filepath.Join(dest, "sensor_data.db")); err != nil {
+			return "", fmt.Errorf("backing up database: %w", err)
+		}
+	}
+
+	fmt.Fprintf(m.out, "Backup created: %s\n", dest)
+	return dest, nil
+}
+
+func (m *Manager) restoreBackup(backupPath string) error {
+	binaryBackup := filepath.Join(backupPath, m.cfg.BinaryName)
+	if _, err := os.Stat(binaryBackup); err != nil {
+		return fmt.Errorf("backup binary not found at %s: %w", binaryBackup, err)
+	}
+
+	fmt.Fprintln(m.out, "Stopping velocity-report...")
+	if err := m.systemctl("stop", m.cfg.ServiceName); err != nil {
+		return fmt.Errorf("stopping service: %w", err)
+	}
+
+	fmt.Fprintln(m.out, "Restoring binary...")
+	if err := m.installBinary(binaryBackup, m.cfg.BinaryPath); err != nil {
+		return fmt.Errorf("restoring binary: %w", err)
+	}
+
+	dbBackup := filepath.Join(backupPath, "sensor_data.db")
+	if _, err := os.Stat(dbBackup); err == nil {
+		fmt.Fprintln(m.out, "Restoring database...")
+		if err := m.installBinary(dbBackup, m.cfg.DBPath); err != nil {
+			fmt.Fprintf(m.err, "warning: database restore failed: %v\n", err)
+		}
+	}
+
+	fmt.Fprintln(m.out, "Starting velocity-report...")
+	if err := m.systemctl("start", m.cfg.ServiceName); err != nil {
+		return fmt.Errorf("starting service: %w", err)
+	}
+
+	fmt.Fprintf(m.out, "Rollback complete (restored from %s).\n", filepath.Base(backupPath))
+	return nil
+}
+
+func (m *Manager) installBinary(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, ".velocity-ctl-install-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+
+	if _, err := io.Copy(tmp, srcFile); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+
+	if err := os.Chmod(tmpName, 0o755); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+
+	if err := os.Rename(tmpName, dst); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+
+	return out.Close()
+}
+
+func (m *Manager) runMigrations() error {
+	return m.runner.Run(m.cfg.BinaryPath, "migrate", "up", "--db-path", m.cfg.DBPath)
+}
+
+func (m *Manager) systemctl(action, unit string) error {
+	return m.runner.Run("systemctl", action, unit)
+}

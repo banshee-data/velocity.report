@@ -1,58 +1,55 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/ctl"
 )
 
-func TestCreateBackupTo(t *testing.T) {
-	// Set up a fake binary to back up.
-	tmpDir := t.TempDir()
-	fakeBinary := filepath.Join(tmpDir, "velocity-report")
-	if err := os.WriteFile(fakeBinary, []byte("fake-binary"), 0755); err != nil {
+type cmdFakeRunner struct{}
+
+func (cmdFakeRunner) Run(string, ...string) error { return nil }
+
+func TestRunBackupDelegatesToManager(t *testing.T) {
+	tmp := t.TempDir()
+	binaryPath := filepath.Join(tmp, "bin", "velocity-report")
+	if err := os.MkdirAll(filepath.Dir(binaryPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(binaryPath, []byte("bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	// We need to temporarily override the package-level constants for testing.
-	// Since they are const, we test createBackupTo indirectly by testing copyFile.
-}
-
-func TestCopyFile(t *testing.T) {
-	srcDir := t.TempDir()
-	srcPath := filepath.Join(srcDir, "source")
-	content := []byte("test file content for backup")
-	if err := os.WriteFile(srcPath, content, 0644); err != nil {
-		t.Fatal(err)
+	cfg := ctl.Config{
+		BinaryName:      "velocity-report",
+		BinaryPath:      binaryPath,
+		BackupDir:       filepath.Join(tmp, "backups"),
+		DBPath:          filepath.Join(tmp, "sensor_data.db"),
+		CurrentVersion:  "0.5.1",
+		GOOS:            "linux",
+		GOARCH:          "arm64",
+		RequestTimeout:  time.Second,
+		DownloadTimeout: time.Second,
 	}
 
-	dstDir := t.TempDir()
-	dstPath := filepath.Join(dstDir, "destination")
+	var out bytes.Buffer
+	old := ctlManager
+	ctlManager = ctl.NewManager(cfg, nil, cmdFakeRunner{}, &out, &out)
+	defer func() { ctlManager = old }()
 
-	if err := copyFile(srcPath, dstPath); err != nil {
-		t.Fatalf("copyFile failed: %v", err)
+	if err := runBackup([]string{"--output", cfg.BackupDir}); err != nil {
+		t.Fatalf("runBackup failed: %v", err)
 	}
 
-	got, err := os.ReadFile(dstPath)
+	entries, err := os.ReadDir(cfg.BackupDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != string(content) {
-		t.Errorf("content mismatch: got %q, want %q", got, content)
-	}
-
-	// Verify permissions are preserved.
-	srcInfo, _ := os.Stat(srcPath)
-	dstInfo, _ := os.Stat(dstPath)
-	if srcInfo.Mode().Perm() != dstInfo.Mode().Perm() {
-		t.Errorf("mode mismatch: src %o, dst %o", srcInfo.Mode().Perm(), dstInfo.Mode().Perm())
-	}
-}
-
-func TestCopyFileNonexistent(t *testing.T) {
-	dstDir := t.TempDir()
-	err := copyFile("/nonexistent/path", filepath.Join(dstDir, "out"))
-	if err == nil {
-		t.Fatal("expected error for nonexistent source")
+	if len(entries) != 1 {
+		t.Fatalf("expected one backup directory, got %d", len(entries))
 	}
 }
