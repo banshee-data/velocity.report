@@ -48,8 +48,10 @@ The radar binary exposes several CLI flags (see `cmd/radar/radar.go` for exact d
 - `--fixture` (bool) — Load fixture data into the local DB instead of opening a serial port.
 - `--debug` (bool) — Run in debug mode (uses a mock serial mux and enables extra debug logging).
 - `--db-path` (string) — Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services).
-- `--listen` (string) — HTTP listen address for the central API (default: `:8080`).
+- `--listen` (string) — HTTP/HTTPS listen address for the central API (default: `:443`).
   - `--port` (string) — Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--debug` or `--disable-radar`.
+- `--tls-cert` (string) — Path to TLS certificate file (default: `/var/lib/velocity-report/tls/server.crt`). Falls back to plain HTTP if absent.
+- `--tls-key` (string) — Path to TLS private key file (default: `/var/lib/velocity-report/tls/server.key`). Falls back to plain HTTP if absent.
 - `--units` (string) — Display units (mps, mph, kmph). Default: `mph`.
 - `--timezone` (string) — Timezone for display (default: `UTC`).
 - `--disable-radar` (bool) — Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.

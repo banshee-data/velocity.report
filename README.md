@@ -126,7 +126,7 @@ make build-radar-local
 The build produces `velocity-report-local`. Start it without a connected sensor:
 
 ```sh
-./velocity-report-local --disable-radar
+./velocity-report-local --disable-radar --listen :8080
 ```
 
 The server creates a new SQLite database if one does not exist. Open [localhost:8080](http://localhost:8080) to see the dashboard. Use `--db-path` to point at an existing database elsewhere.
@@ -139,7 +139,7 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
    │ (Radar / LiDAR)  │     │        (Go)              │     │ (sensor_data.db) │
    └──────────────────┘     └──────────────────────────┘     └──────────────────┘
                                   │              │
-                       HTTP :8080 │              │ gRPC :50051
+                       HTTPS :443 │              │ gRPC :50051
                    ┌──────────────┴─┐            │
                    │                │            │
                    ▼                ▼            ▼

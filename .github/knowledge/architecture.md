@@ -68,14 +68,14 @@ Transit Worker (background)
 
 ## Integration Points
 
-| From → To              | Interface      | Port/Path      |
-| ---------------------- | -------------- | -------------- |
-| Radar → Go server      | Serial (USB)   | `/dev/ttyUSB0` |
-| LIDAR → Go server      | UDP            | 192.168.100.x  |
-| Go server → SQLite     | database/sql   | File I/O       |
-| Go server → Web/Python | HTTP REST JSON | `:8080`        |
-| Go server → Visualiser | gRPC streaming | `:50051`       |
-| Python → PDF           | XeLaTeX        | subprocess     |
+| From → To              | Interface       | Port/Path      |
+| ---------------------- | --------------- | -------------- |
+| Radar → Go server      | Serial (USB)    | `/dev/ttyUSB0` |
+| LIDAR → Go server      | UDP             | 192.168.100.x  |
+| Go server → SQLite     | database/sql    | File I/O       |
+| Go server → Web/Python | HTTPS REST JSON | `:443`         |
+| Go server → Visualiser | gRPC streaming  | `:50051`       |
+| Python → PDF           | XeLaTeX         | subprocess     |
 
 ## API Endpoints
 
