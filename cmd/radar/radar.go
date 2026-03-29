@@ -47,7 +47,7 @@ import (
 var (
 	fixtureMode  = flag.Bool("fixture", false, "Load fixture to local database")
 	debugMode    = flag.Bool("debug", false, "Run in debug mode (enables debug output in reports)")
-	listen       = flag.String("listen", ":443", "Listen address")
+	listen       = flag.String("listen", ":8080", "Listen address")
 	port         = flag.String("port", "/dev/ttySC1", "Serial port to use")
 	unitsFlag    = flag.String("units", "mph", "Speed units for display (mps, mph, kmph)")
 	timezoneFlag = flag.String("timezone", "UTC", "Timezone for display (UTC, US/Eastern, US/Pacific, etc.)")
@@ -59,8 +59,6 @@ var (
 	versionShort = flag.Bool("v", false, "Print version information and exit (shorthand)")
 	configFile   = flag.String("config", config.DefaultConfigPath, "Path to JSON tuning configuration file")
 	logLevel     = flag.String("log-level", "ops", "LiDAR log verbosity: ops, diag, or trace")
-	tlsCert      = flag.String("tls-cert", "/var/lib/velocity-report/tls/server.crt", "Path to TLS certificate file")
-	tlsKey       = flag.String("tls-key", "/var/lib/velocity-report/tls/server.key", "Path to TLS private key file")
 )
 
 // Lidar options (when enabling lidar via -enable-lidar)
@@ -899,7 +897,7 @@ func main() {
 			lidarServer.RegisterRoutes(mux)
 		}
 
-		if err := apiServer.Start(ctx, *listen, *debugMode, *tlsCert, *tlsKey); err != nil {
+		if err := apiServer.Start(ctx, *listen, *debugMode); err != nil {
 			// If ctx was canceled we expect nil or context.Canceled; log other errors
 			if err != context.Canceled {
 				log.Printf("HTTP server error: %v", err)

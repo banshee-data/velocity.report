@@ -151,6 +151,18 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
 	outputDir := fmt.Sprintf("output/%s", runID)
 
+	// Pre-create the output directory relative to the PDF generator dir.
+	// The Python subprocess also calls os.makedirs, but creating it here
+	// with the Go process's permissions avoids PermissionError when the
+	// pdf-generator tree is owned by root on deployed systems.
+	pdfDirEarly, err := getPDFGeneratorDir()
+	if err == nil {
+		absOutputDir := filepath.Join(pdfDirEarly, outputDir)
+		if mkErr := os.MkdirAll(absOutputDir, 0755); mkErr != nil {
+			log.Printf("Warning: could not pre-create output directory %s: %v", absOutputDir, mkErr)
+		}
+	}
+
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
 	queryConfig := map[string]interface{}{

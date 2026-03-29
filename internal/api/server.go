@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -141,10 +140,7 @@ func (s *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
 // additional admin/diagnostic routes before invoking Start — those routes
 // will be preserved and served. This avoids losing preconfigured routes when
 // starting the server.
-//
-// TLS: when tlsCert and tlsKey point to valid PEM files, the server
-// listens with HTTPS. Otherwise it falls back to plain HTTP.
-func (s *Server) Start(ctx context.Context, listen string, devMode bool, tlsCert, tlsKey string) error {
+func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 	// Store debug mode for use in handlers
 	s.debugMode = devMode
 
@@ -270,58 +266,17 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool, tlsCert
 		http.NotFound(w, r)
 	})
 
-	// Serve the CA certificate for download so users can trust it.
-	// This avoids browser warnings for the self-signed TLS certificate.
-	if tlsCert != "" {
-		caPath := filepath.Join(filepath.Dir(tlsCert), "ca.crt")
-		if _, err := os.Stat(caPath); err == nil {
-			mux.HandleFunc("/ca.crt", func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/x-x509-ca-cert")
-				w.Header().Set("Content-Disposition", "attachment; filename=\"velocity-ca.crt\"")
-				http.ServeFile(w, r, caPath)
-			})
-		}
-	}
-
 	server := &http.Server{
 		Addr:    listen,
 		Handler: LoggingMiddleware(mux),
 	}
 
-	// Use TLS when certificate and key are provided and exist on disk
-	useTLS := false
-	if tlsCert != "" && tlsKey != "" {
-		if _, err := os.Stat(tlsCert); err == nil {
-			if _, err := os.Stat(tlsKey); err == nil {
-				cert, err := tls.LoadX509KeyPair(tlsCert, tlsKey)
-				if err != nil {
-					return fmt.Errorf("failed to load TLS certificate: %w", err)
-				}
-				server.TLSConfig = &tls.Config{
-					Certificates: []tls.Certificate{cert},
-					MinVersion:   tls.VersionTLS12,
-				}
-				useTLS = true
-			}
-		}
-	}
-	if useTLS {
-		log.Printf("HTTPS server listening on %s", listen)
-	} else {
-		log.Printf("HTTP server listening on %s (no TLS certificate configured)", listen)
-	}
+	log.Printf("HTTP server listening on %s", listen)
 
 	// Run server in background and wait for either context cancellation or error
 	errCh := make(chan error, 1)
 	go func() {
-		var err error
-		if useTLS {
-			// cert/key already loaded into TLSConfig above
-			err = server.ListenAndServeTLS("", "")
-		} else {
-			err = server.ListenAndServe()
-		}
-		if err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
 		}
