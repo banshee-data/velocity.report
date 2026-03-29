@@ -13,12 +13,16 @@ VELOCITY_USER="velocity"
 # --- Check whether the default password is still in use ----------------------
 #
 # Read the stored hash from shadow via sudo (the velocity user has
-# passwordless sudo).  Compare it against the default password hashed with
-# the same salt using Python's crypt module.
+# passwordless sudo via pi-gen stage2's 010_pi-nopasswd).  Compare it
+# against the default password hashed with the same salt using Python's
+# crypt module.
+#
+# If sudo or getent fails (e.g. sudoers removed), assume the password has
+# been changed and show the welcome banner — fail safe, not fail loud.
 
 password_is_default() {
     local stored
-    stored=$(sudo getent shadow "$VELOCITY_USER" 2>/dev/null | cut -d: -f2)
+    stored=$(sudo -n getent shadow "$VELOCITY_USER" 2>/dev/null | cut -d: -f2)
     [ -z "$stored" ] && return 1
 
     python3 -c "
