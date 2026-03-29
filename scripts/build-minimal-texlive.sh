@@ -177,11 +177,25 @@ copy_xelatex_binary() {
     return
   fi
 
+  # Collect shared library dependencies from all staged binaries
+  # (xelatex + helpers like xdvipdfmx) so no runtime deps are missed.
+  local all_bins="${XELATEX_BIN}"
+  for helper in xdvipdfmx; do
+    local helper_path
+    helper_path="$(command -v "${helper}" 2>/dev/null || true)"
+    [[ -n "${helper_path}" && -x "${helper_path}" ]] && all_bins="${all_bins}"$'\n'"${helper_path}"
+  done
+
   local dep
   while IFS= read -r dep; do
     [[ -f "${dep}" ]] || continue
-    cp -a "${dep}" "${OUTPUT_DIR}/lib/" || true
-  done < <(ldd "${XELATEX_BIN}" | awk '/=> \// {print $3} /^\/[^ ]+/ {print $1}')
+    # Dereference symlinks — Debian .so files are typically symlinks
+    # (e.g. libharfbuzz.so.0 -> libharfbuzz.so.0.60100.0) and cp -a
+    # would copy a dangling symlink into lib/.
+    cp -aL "${dep}" "${OUTPUT_DIR}/lib/" || true
+  done < <(echo "${all_bins}" | while IFS= read -r bin; do
+    ldd "${bin}" 2>/dev/null
+  done | awk '/=> \// {print $3} /^\/[^ ]+/ {print $1}' | sort -u)
 
   log "copied shared libraries to ${OUTPUT_DIR}/lib (best-effort)"
 }
