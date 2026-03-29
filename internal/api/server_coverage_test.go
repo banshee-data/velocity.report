@@ -781,7 +781,7 @@ func TestStart_DevModeNoBuildDir(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := server.Start(ctx, "127.0.0.1:0", true)
+	err := server.Start(ctx, "127.0.0.1:0", true, "", "")
 	if err == nil {
 		t.Fatal("Expected error when build directory does not exist")
 	}
@@ -807,7 +807,7 @@ func TestStart_ProductionModeListenAndShutdown(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.Start(ctx, addr, false)
+		errCh <- server.Start(ctx, addr, false, "", "")
 	}()
 
 	// Give server time to start
@@ -904,7 +904,7 @@ func TestStart_DevModeWithBuildDir(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- server.Start(ctx, addr, true)
+		errCh <- server.Start(ctx, addr, true, "", "")
 	}()
 
 	// Give server time to start
@@ -957,7 +957,7 @@ func TestStart_InvalidListenAddress(t *testing.T) {
 	defer cancel()
 
 	// Use an invalid listen address
-	err := server.Start(ctx, "invalid-address-no-port", false)
+	err := server.Start(ctx, "invalid-address-no-port", false, "", "")
 	if err == nil {
 		t.Fatal("Expected error for invalid listen address")
 	}
