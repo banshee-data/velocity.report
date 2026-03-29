@@ -41,12 +41,16 @@ def resolve_tex_environment() -> TexEnvironment:
 
     current_path = os.environ.get("PATH", "")
     lib_dir = os.path.join(tex_root, "lib")
+    web2c_dir = os.path.join(texmf_dist, "web2c")
     env_vars = {
         "TEXMFHOME": texmf_home,
         "TEXMFDIST": texmf_dist,
         "TEXMFVAR": texmf_var,
+        "TEXMFCNF": f"{web2c_dir}{os.pathsep}",
         "TEXINPUTS": f"{os.path.join(texmf_dist, 'tex')}//{os.pathsep}",
         "TFMFONTS": f"{os.path.join(texmf_dist, 'fonts', 'tfm')}//{os.pathsep}",
+        "OPENTYPEFONTS": f"{os.path.join(texmf_dist, 'fonts', 'opentype')}//{os.pathsep}",
+        "OSFONTDIR": f"{os.path.join(texmf_dist, 'fonts')}//{os.pathsep}",
         "PATH": (f"{bin_dir}{os.pathsep}{current_path}" if current_path else bin_dir),
     }
 

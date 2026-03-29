@@ -57,6 +57,12 @@ class TestTexEnvironment(unittest.TestCase):
             self.assertEqual(env.env_vars["TEXMFHOME"], texmf_home)
             self.assertEqual(env.env_vars["TEXMFDIST"], texmf_dist)
             self.assertEqual(env.env_vars["TEXMFVAR"], texmf_var)
+            web2c_dir = os.path.join(texmf_dist, "web2c")
+            self.assertEqual(env.env_vars["TEXMFCNF"], f"{web2c_dir}{os.pathsep}")
+            self.assertEqual(
+                env.env_vars["OPENTYPEFONTS"],
+                f"{os.path.join(texmf_dist, 'fonts', 'opentype')}//{os.pathsep}",
+            )
             self.assertTrue(env.env_vars["PATH"].startswith(f"{bin_dir}{os.pathsep}"))
 
     def test_resolve_production_mode_with_fmt_opt_in(self):

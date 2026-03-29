@@ -230,12 +230,22 @@ EOF
 }
 
 build_ls_r() {
-  if ! command -v mktexlsr >/dev/null 2>&1; then
-    log "mktexlsr not available; skipping ls-R index"
+  if command -v mktexlsr >/dev/null 2>&1; then
+    mktexlsr "${OUTPUT_DIR}/texmf-dist" >/dev/null 2>&1 || true
+    log "generated ls-R index via mktexlsr"
     return
   fi
-  mktexlsr "${OUTPUT_DIR}/texmf-dist" >/dev/null 2>&1 || true
-  log "generated ls-R index"
+
+  # Fallback: generate ls-R manually when mktexlsr is unavailable
+  # (e.g. during pi-gen chroot after APT texlive packages are purged).
+  local lsr="${OUTPUT_DIR}/texmf-dist/ls-R"
+  {
+    echo "% ls-R -- filename database for kpathsea; do not change this line."
+    echo "% Created by velocity-report build-minimal-texlive.sh."
+    echo ""
+    (cd "${OUTPUT_DIR}/texmf-dist" && ls -R .)
+  } > "${lsr}"
+  log "generated ls-R index via ls -R fallback"
 }
 
 build_format() {
