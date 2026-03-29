@@ -94,7 +94,21 @@ if ! docker info &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Build ARM64 binaries
+# 3. Build web frontend
+# ---------------------------------------------------------------------------
+log_info "Building web frontend..."
+if command -v pnpm &>/dev/null; then
+    (cd "$REPO_ROOT/web" && pnpm run build)
+elif command -v npm &>/dev/null; then
+    (cd "$REPO_ROOT/web" && npm run build)
+else
+    log_error "pnpm or npm is required to build the web frontend"
+    exit 1
+fi
+log_info "Web frontend built"
+
+# ---------------------------------------------------------------------------
+# 4. Build ARM64 binaries
 # ---------------------------------------------------------------------------
 BINARIES_DIR="$IMAGE_DIR/velocity-binaries"
 mkdir -p "$BINARIES_DIR"
@@ -144,7 +158,7 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Clone pi-gen if not already present
+# 5. Clone pi-gen if not already present
 # ---------------------------------------------------------------------------
 # Use the bookworm-arm64 branch — master targets armhf (32-bit) with
 # setarch linux32, which fails under Apple Silicon's QEMU emulation.
@@ -158,7 +172,7 @@ fi
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
-# 5. Copy PDF generator and config into stage directory
+# 6. Copy PDF generator and config into stage directory
 # ---------------------------------------------------------------------------
 # These must be populated BEFORE we copy stage-velocity into pi-gen (step 6)
 # so the copies include the PDF generator and config files.
@@ -211,7 +225,7 @@ done
 log_info "Copied root project documents"
 
 # ---------------------------------------------------------------------------
-# 6. Copy custom stage and binaries into pi-gen
+# 7. Copy custom stage and binaries into pi-gen
 # ---------------------------------------------------------------------------
 # We copy rather than symlink because pi-gen's build-docker.sh sends the
 # pi-gen directory as a Docker build context — symlinks pointing outside
@@ -267,7 +281,7 @@ PYEOF
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Build the image
+# 8. Build the image
 # ---------------------------------------------------------------------------
 if docker inspect pigen_work &>/dev/null; then
     log_warn "Removing stale pigen_work container from previous build..."
@@ -279,7 +293,7 @@ cd "$PIGEN_DIR"
 ./build-docker.sh
 
 # ---------------------------------------------------------------------------
-# 8. Locate and compress output
+# 9. Locate and compress output
 # ---------------------------------------------------------------------------
 DEPLOY_DIR="$PIGEN_DIR/deploy"
 
