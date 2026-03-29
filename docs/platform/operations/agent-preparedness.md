@@ -18,8 +18,8 @@ All three problems are resolved. The architecture is now live across both Copilo
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Layer 0: PROJECT TENETS                            │
-│  .github/TENETS.md                                  │
-│  Privacy · No PII · No cameras · No black-box AI    │
+│  TENETS.md                                          │
+│  Privacy · No PII · No cameras · No black-box AI   │
 │  ← Every agent, every tool inherits this            │
 ├─────────────────────────────────────────────────────┤
 │  Layer 1: SHARED PROJECT KNOWLEDGE                  │
@@ -111,15 +111,15 @@ Agent personas are defined natively for each platform. Shared project knowledge 
 
 ### What Gets Duplicated (Bounded)
 
-| Content                    | Duplicated?        | Copilot                        | Claude                                     |
-| -------------------------- | ------------------ | ------------------------------ | ------------------------------------------ |
-| Project tenets             | No                 | `TENETS.md`                    | `TENETS.md` (same file)                    |
-| Build/test knowledge       | No                 | `.github/knowledge/`           | `.github/knowledge/` (same files)          |
-| Role mixins                | No                 | `.github/knowledge/role-*.md`  | `.github/knowledge/role-*.md` (same files) |
-| Workflow skills            | No                 | `.claude/skills/` (discovered) | `.claude/skills/` (native)                 |
-| Persona name + description | Yes (~2 lines)     | YAML frontmatter               | YAML frontmatter in `.claude/agents/`      |
-| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body               | `.claude/agents/*.md` body                 |
-| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body               | `.claude/agents/*.md` body                 |
+| Content                    | Duplicated?        | Copilot                       | Claude                                     |
+| -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
+| Project tenets             | No                 | `TENETS.md`                   | `TENETS.md` (same file)                    |
+| Build/test knowledge       | No                 | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
+| Role mixins                | No                 | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
+| Persona name + description | Yes (~2 lines)     | YAML frontmatter              | Inline in `.claude/agents/*.md`            |
+| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Tool restrictions          | Copilot-only       | YAML `tools:` field           | n/a                                        |
+| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
 
 Total bounded duplication per agent: ~40–80 lines.
 

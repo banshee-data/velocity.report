@@ -6,7 +6,7 @@ Shared mixin for agents in editorial roles (Florence, Terry, Ruth). Read this fi
 
 These files contain canonical project facts. Read them when needed rather than relying on memorised details:
 
-- [TENETS.md](../TENETS.md) — project constitution (Layer 0)
+- [TENETS.md](../../TENETS.md) — project constitution (Layer 0)
 - [architecture.md](architecture.md) — tech stack, components, deployment
 - [coding-standards.md](coding-standards.md) — British English, commit format, documentation rules
 

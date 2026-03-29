@@ -4,7 +4,7 @@
 
 ## Tenets
 
-See [TENETS.md](TENETS.md) for the full project constitution. The short version:
+See [TENETS.md](../TENETS.md) for the full project constitution. The short version:
 
 1. **Privacy above all** — no cameras, no licence plates, no PII, local-only data
 2. **Protect the vulnerable** — safety for people who walk, cycle, and play
@@ -77,7 +77,7 @@ Read these on demand when you need deeper context:
 
 | Module                                                             | Content                                        |
 | ------------------------------------------------------------------ | ---------------------------------------------- |
-| [TENETS.md](TENETS.md)                                             | Project constitution                           |
+| [TENETS.md](../TENETS.md)                                          | Project constitution                           |
 | [knowledge/architecture.md](knowledge/architecture.md)             | Tech stack, data flow, schema, deployment      |
 | [knowledge/build-and-test.md](knowledge/build-and-test.md)         | Make targets, dev servers, testing, setup      |
 | [STYLE.md](STYLE.md)                                               | British English, punctuation, prose mechanics  |

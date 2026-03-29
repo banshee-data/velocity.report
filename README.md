@@ -8,7 +8,7 @@
 [![Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?label=coverage)](https://codecov.io/gh/banshee-data/velocity.report)
 [![License](https://img.shields.io/github/license/banshee-data/velocity.report)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/banshee-data/velocity.report)](https://github.com/banshee-data/velocity.report/commits/main)
-[![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](.github/TENETS.md)
+[![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](TENETS.md)
 [![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=discord)](https://discord.gg/XXh6jXVFkt)
 [![Release](https://img.shields.io/github/v/release/banshee-data/velocity.report?label=release)](https://github.com/banshee-data/velocity.report/releases/latest)
 [![Sample report](https://img.shields.io/badge/sample-PDF%20report-blue)](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf)
@@ -53,6 +53,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ██▀  ▄█████▀   ▄█████    ▄████     █████    ██████   ▀████▄ ▀█████  ▀█████▄  ▀
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
+
 
 ## Why velocity.report?
 

@@ -43,7 +43,7 @@ DEFAULT_SCAN_PATHS = [
     "tools",
     "scripts",
     ".github/knowledge",
-    ".github/TENETS.md",
+    "TENETS.md",
     "README.md",
     "ARCHITECTURE.md",
     "CHANGELOG.md",
