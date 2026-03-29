@@ -6,6 +6,9 @@ python3-venv
 # Reverse proxy — terminates TLS on port 443, proxies to Go server on 8080
 nginx
 
+# SVG to PDF conversion for map inclusion in reports
+librsvg2-bin
+
 # LaTeX — installed as build-time source for the minimal TeX Live tree.
 # Stage 00-install-packages/01-run.sh extracts only the files the PDF
 # generator requires (~143 MB) and then purges these apt packages.
