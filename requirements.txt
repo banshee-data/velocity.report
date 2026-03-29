@@ -82,7 +82,7 @@ python-dateutil==2.9.0.post0
     #   matplotlib
     #   pandas
 pytokens==0.4.1
-    # via black
+    # via black (transitive dependency, updated with black 26.3.1)
 pyyaml==6.0.3
     # via responses
 requests==2.33.0

@@ -25,6 +25,6 @@ responses
 # Development tools (formatting/linting)
 black>=26.3.1  # CVE-2026-32274 fix
 ruff
-fonttools>=4.60.2  # CVE-2025-66034 fix
+fonttools>=4.62.1  # CVE-2025-66034 fix
 
 # Add any other top-level tools that should be available to all data projects here.
