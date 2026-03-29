@@ -52,6 +52,10 @@ done
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
 
+# Install TLS certificate generation script (runs as ExecStartPre)
+install -m 755 files/velocity-generate-tls.sh \
+    "${ROOTFS_DIR}/usr/local/bin/velocity-generate-tls.sh"
+
 # Enable the service for auto-start on boot.  The service starts with
 # the radar active on /dev/ttySC1 (Waveshare SC16IS752 HAT channel B).
 on_chroot << 'CHEOF'
