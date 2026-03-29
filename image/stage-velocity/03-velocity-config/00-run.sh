@@ -32,6 +32,22 @@ if [ -d files/data ]; then
     cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"
 fi
 
+# Install root-level project documents (README, ARCHITECTURE, CHANGELOG, etc.)
+for f in \
+    README.md \
+    ARCHITECTURE.md \
+    CHANGELOG.md \
+    CODE_OF_CONDUCT.md \
+    COMMANDS.md \
+    CONTRIBUTING.md \
+    TROUBLESHOOTING.md \
+    TENETS.md \
+    LICENSE; do
+    if [ -f "files/$f" ]; then
+        install -m 644 "files/$f" "${ROOTFS_DIR}/opt/velocity-report/$f"
+    fi
+done
+
 # Install systemd service file
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
