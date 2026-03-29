@@ -1,5 +1,64 @@
 # Development Log
 
+- **March 29, 2026 — RPi Image:** Web Build, HTTPS & TLS, Image Cleanup
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Fixed "Web Frontend Not Built" in the RPi image. The `.dockerignore` excluded `web/build/`, so the Docker Go compilation only embedded the stub page. Whitelisted `web/build/` in `.dockerignore` and added a web frontend build step (`pnpm run build`) before Go binary compilation in `build-image.sh`.
+- Changed default listen port from `:8080` to `:443`. The systemd unit grants `CAP_NET_BIND_SERVICE` via `AmbientCapabilities` so the `velocity` user can bind port 443 without root.
+- Added TLS support to the Go server. `internal/api/server.go` accepts `--tls-cert` and `--tls-key` flags. When both exist, serves HTTPS with TLS 1.2 minimum. Falls back to plain HTTP when absent (local dev path).
+- Added first-boot TLS certificate generation (`velocity-generate-tls.sh`). Runs as `ExecStartPre` in the systemd service. Generates a per-device ECDSA P-256 local CA (10-year validity) and server certificate (825-day validity, Apple limit). Idempotent — skips if cert is still valid, regenerates on expiry. Each device gets a unique CA so compromising one does not affect others.
+- Serves the CA certificate at `GET /ca.crt` so users can download and trust it in their OS/browser. After trusting the CA once, all future server certificate renewals are accepted silently.
+- Installed root-level project documents (`TENETS.md`, `CODE_OF_CONDUCT`, `CONTRIBUTING`, `LICENSE`) into the image for on-device reference.
+- Documented the TLS strategy in `docs/platform/operations/tls-local-certificates.md`: covers the `.local` domain constraint, why a local CA instead of a bare self-signed cert, why ECDSA P-256, renewal mechanics, alternatives considered, and user trust setup instructions.
+
+## March 28, 2026 — RPi Image: Build Pipeline, Flash Target & First-Boot Polish
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Consolidated Go version information printing into a single function across `cmd/radar` and `cmd/velocity-ctl`.
+- Updated build process and documentation for RPi images — clarified build-image.sh sections and improved error handling.
+- Added timestamps to image filenames to prevent collisions during rebuilds.
+- Added installation step for `tuning.defaults.json` in the pi-gen run script so the service starts with a valid config.
+- Added `make flash-image` target for flashing images to SD card on macOS, with device detection and safety prompts.
+- Added `DISABLE_FIRST_BOOT_USER_RENAME` to pi-gen config to prevent the boot wizard overwriting the `velocity` user.
+- Refactored systemd service management to prevent crash-loop on boot — the service now waits for the database directory and starts cleanly even on first boot before the sensor is connected.
+- Added login MOTD banners warning about the default password and providing help commands (`velocity-ctl status`, `velocity-ctl upgrade`).
+- Suppressed the first-boot user-creation wizard and cancelled pending user renames during image export.
+- Moved `data/align/` to its proper location within the reference data structure.
+- Enhanced the image build with reference data installation (alignment CSVs, sample VRLOGs) so the appliance ships with test datasets.
+- Added `make clean-images` to remove old `.img`, `.zip`, and older `.xz`/`.sha256`/`.info` files from the deploy directory, keeping only the latest build. Recovered 18 GB → 529 MB on first run.
+- Updated `.dockerignore` to clarify web frontend asset inclusion.
+- Moved `TENETS.md` to the repository root and updated all cross-references in `.github/copilot-instructions.md`, agent files, and documentation.
+
+## March 27, 2026 — RPi Image: Pi-gen Integration & ARM64 Cross-Compilation
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Added Raspberry Pi image build support using pi-gen (bookworm-arm64 fork). The `image/` directory now contains pi-gen stage definitions, configuration, and the unified `build-image.sh` script.
+- Added `Dockerfile.build` for ARM64 cross-compilation of the Go binary on macOS (Apple Silicon). The Docker build compiles `velocity-report` and `velocity-ctl` for `linux/arm64` with CGO enabled via `zig cc`.
+- Added `.dockerignore` to control the Docker build context — whitelists only Go sources, web build output, static assets, and build scripts.
+- Improved image extraction and compression logic — the output pipeline now produces `.img.xz` with SHA-256 checksum and `.info` metadata files.
+
+## March 26, 2026 — velocity-ctl, Setup Guide & Architecture Docs
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Created `velocity-ctl` as the on-device management tool, replacing the remote `velocity-deploy` script. Implements `backup`, `rollback`, `status`, and `upgrade` subcommands. Designed to run _on_ the Raspberry Pi, not from a development machine.
+- Removed `velocity-update` shell script (superseded by `velocity-ctl upgrade`).
+- Removed `velocity-deploy` references from CI workflows, Makefile, and documentation. Removed SSH configuration parsing code and associated tests from the Go codebase.
+- Updated CI ARM64 binary build process to produce both `velocity-report` and `velocity-ctl`.
+- Added setup guide publication plan with content placeholders and release checklist.
+- Added `os-list.json` for the Raspberry Pi Imager catalogue so users can flash images from the official Imager tool.
+- Enhanced the setup guide with backup and restore instructions for sensor data.
+- Updated architecture documents for ground plane extraction and GPS parsing.
+
+## March 25, 2026 - Documentation Refresh & RPi Image Planning
+
+- Added `data/QUESTIONS.md` with open research questions about hourly comparison data and speed distributions.
+- Refactored `README.md` structure and added `COMMANDS.md` with make targets reference and ASCII art headers.
+- Split the Raspberry Pi image plan into phased delivery (Phase 1 bootable image, Phase 2 OTA, Phase 3 fleet management).
+
 ## March 24, 2026 - Config Consolidation, ERD Refresh & Workflow Docs
 
 - Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
@@ -10,6 +69,7 @@
 - Expanded `MATRIX.md` and refreshed the Matrix Tracer agent around the live schema/documentation inventory workflow.
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
+- Released 0.5.0 🌞 "Sunny Southeast" — version set across Go/Python/web/macOS with expanded CHANGELOG.
 
 ## March 23, 2026 - Capabilities Gating, Stream Fix & Host Upgrade Runbook
 
@@ -26,6 +86,7 @@
 - Added troubleshooting and planning material for schema robustness and garbage-track investigation.
 - Cleaned up LiDAR track persistence and analysis paths, including the new `lidar_all_tracks` view, schema updates, export/report changes, and related tests.
 - Made docs more canonical across Python/docs surfaces and standardised pre-v1.0 release naming.
+- Added canonical docs plan-hygiene CI, 4-hub structure, and Canonical metadata to all 69 plan files with 45 populated hub doc stubs.
 
 ## March 21, 2026 - L8-L10 Refactor, CLI Networking & Storage Cleanup
 
@@ -46,6 +107,8 @@
 - Added `config-validate` to check migrated/runtime configs before deployment.
 - Expanded radar flag and config-path test coverage substantially.
 - Propagated config changes through PCAP and settling tooling, with matching documentation and example refreshes.
+- Converted tuning API from flat dot-path keys to nested JSON format across Go and web surfaces.
+- Normalised American→British English: `neighbor` → `neighbour`, `meters` → `metres` across code, comments, and test names.
 
 ## March 19, 2026 - Breaking Migration Merge & Immutable Run Config Planning
 
