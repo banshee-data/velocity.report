@@ -27,6 +27,11 @@ if [ -d files/docs ]; then
     cp -r files/docs "${ROOTFS_DIR}/opt/velocity-report/docs"
 fi
 
+# Install reference data (maths, structures, experiments)
+if [ -d files/data ]; then
+    cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"
+fi
+
 # Install systemd service file
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"

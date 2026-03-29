@@ -45,6 +45,7 @@ cleanup() {
     rm -rf "$PIGEN_DIR/velocity-binaries"
     # Remove transient copies staged from the repo into the working tree
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
     rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
 }
 
@@ -169,9 +170,21 @@ log_info "Copied tuning defaults"
 DOCS_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
 rm -rf "$DOCS_DEST"
 cp -r "$REPO_ROOT/docs" "$DOCS_DEST"
-# Remove macOS metadata and other non-documentation artefacts
 find "$DOCS_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied docs"
+
+# Copy reference data (maths, structures, experiments) — excludes explore/
+DATA_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
+rm -rf "$DATA_DEST"
+mkdir -p "$DATA_DEST"
+for subdir in maths structures experiments; do
+    [ -d "$REPO_ROOT/data/$subdir" ] && cp -r "$REPO_ROOT/data/$subdir" "$DATA_DEST/"
+done
+for f in README.md QUESTIONS.md; do
+    [ -f "$REPO_ROOT/data/$f" ] && cp "$REPO_ROOT/data/$f" "$DATA_DEST/"
+done
+find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
+log_info "Copied data reference files"
 
 # ---------------------------------------------------------------------------
 # 6. Copy custom stage and binaries into pi-gen
