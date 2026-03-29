@@ -307,14 +307,14 @@ func TestSite_GetAllSitesWithData(t *testing.T) {
 		}
 	}
 
-	// Get all sites
+	// Get all sites (includes 1 seeded site from schema.sql)
 	sites, err := db.GetAllSites(context.Background())
 	if err != nil {
 		t.Fatalf("GetAllSites failed: %v", err)
 	}
 
-	if len(sites) != 5 {
-		t.Errorf("Expected 5 sites, got %d", len(sites))
+	if len(sites) != 6 {
+		t.Errorf("Expected 6 sites (5 created + 1 seeded), got %d", len(sites))
 	}
 }
 

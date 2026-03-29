@@ -256,14 +256,14 @@ func TestListSiteConfigPeriods_All(t *testing.T) {
 		t.Fatalf("CreateSiteConfigPeriod failed: %v", err)
 	}
 
-	// List all periods
+	// List all periods (includes 1 seeded period from schema.sql)
 	allPeriods, err := db.ListSiteConfigPeriods(nil)
 	if err != nil {
 		t.Fatalf("ListSiteConfigPeriods failed: %v", err)
 	}
 
-	if len(allPeriods) != 3 {
-		t.Errorf("Expected 3 periods, got %d", len(allPeriods))
+	if len(allPeriods) != 4 {
+		t.Errorf("Expected 4 periods (3 created + 1 seeded), got %d", len(allPeriods))
 	}
 
 	// Verify they're sorted by effective_start_unix
@@ -337,7 +337,7 @@ func TestListSiteConfigPeriods_FilteredBySite(t *testing.T) {
 	}
 }
 
-// TestListSiteConfigPeriods_Empty tests listing when no periods exist
+// TestListSiteConfigPeriods_Empty tests listing when no user-created periods exist
 func TestListSiteConfigPeriods_Empty(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
@@ -347,8 +347,9 @@ func TestListSiteConfigPeriods_Empty(t *testing.T) {
 		t.Fatalf("ListSiteConfigPeriods failed: %v", err)
 	}
 
-	if len(periods) != 0 {
-		t.Errorf("Expected 0 periods, got %d", len(periods))
+	// Fresh database has 1 seeded period from schema.sql
+	if len(periods) != 1 {
+		t.Errorf("Expected 1 seeded period, got %d", len(periods))
 	}
 }
 
