@@ -69,3 +69,14 @@ fi
 if [ -f "${ROOTFS_DIR}/boot/firmware/cmdline.txt" ]; then
     sed -i 's/ console=serial0,[0-9]*//g' "${ROOTFS_DIR}/boot/firmware/cmdline.txt"
 fi
+
+# --- First-boot wizard suppression ------------------------------------------
+# DISABLE_FIRST_BOOT_USER_RENAME=1 in image/config tells pi-gen to skip the
+# rename-user step during export-image.  As a belt-and-suspenders measure, we
+# also cancel any pending rename and remove the getty override that the
+# userconf-pi package may install.  This runs before export-image, so
+# export-image's own cleanup (removing piwiz.desktop) still applies.
+on_chroot << 'CHEOF'
+cancel-rename velocity 2>/dev/null || true
+CHEOF
+rm -f "${ROOTFS_DIR}/etc/systemd/system/getty@tty1.service.d/userconf.conf"
