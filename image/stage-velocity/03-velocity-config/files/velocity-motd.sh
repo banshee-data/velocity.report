@@ -42,14 +42,11 @@ warning_banner() {
   ║   ██ ███ ██ ██   ██ ██   ██ ██  ██ ██ ██ ██  ██ ██ ██   ██   ║
   ║    ███ ███  ██   ██ ██   ██ ██   ████ ██ ██   ████  ██████   ║
   ║                                                              ║
-  ║            DEFAULT PASSWORD HAS NOT BEEN CHANGED             ║
+  ║   This device is still using the default password.           ║
+  ║   Anyone on your network can log in and muck around.         ║
+  ║   That is the sort of arrangement that ends badly.           ║
   ║                                                              ║
-  ║   This device is using the factory default password.         ║
-  ║   Anyone on your network can log in with:                    ║
-  ║                                                              ║
-  ║       ssh velocity@$(hostname) / password: report            ║
-  ║                                                              ║
-  ║   Change it now:                                             ║
+  ║   Please change it now:                                      ║
   ║                                                              ║
   ║       passwd                                                 ║
   ║                                                              ║
@@ -61,19 +58,19 @@ EOF
 welcome_banner() {
     cat << 'EOF'
 
-  ┌──────────────────────────────────────────┐
-  │  velocity.report                         │
-  └──────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  velocity.report — measuring traffic, not people         │
+  └──────────────────────────────────────────────────────────┘
 
-  Quick reference:
-    velocity-log              Follow service logs
-    velocity-status           Check service status
+  Useful commands:
+    velocity-status           Is the service running?
+    velocity-log              Follow the live service log
     velocity-restart          Restart the service
-    velocity-stop             Stop the service
-    velocity-start            Start the service
-
-    velocity-report version   Show version info
+    velocity-report version   Version and build info
     sudo velocity-ctl         Device management
+
+  The service starts automatically when a radar sensor
+  is connected. No sensor, no service, no fuss.
 
 EOF
 }
