@@ -83,6 +83,32 @@ def _read_latex_log_excerpt(base_path: Path) -> list[str]:
     return excerpt
 
 
+def _detect_fatal_latex_signature(base_path: Path) -> Optional[str]:
+    """Return the first fatal LaTeX signature found in the log, if any."""
+
+    log_path = base_path.with_suffix(".log")
+    if not log_path.exists():
+        return None
+
+    try:
+        lines = log_path.read_text(errors="ignore").splitlines()
+    except Exception:
+        return None
+
+    signatures = (
+        "metric (tfm) file or installed font not found",
+        "font tu/lmr",
+        "nullfont",
+    )
+
+    for idx, raw_line in enumerate(lines, start=1):
+        lowered = raw_line.lower()
+        if any(signature in lowered for signature in signatures):
+            return f"line {idx}: {raw_line.strip()}"
+
+    return None
+
+
 def _suggest_latex_fixes(engine: str, message: str, excerpt: list[str]) -> list[str]:
     """Derive actionable hints based on the error message and log excerpt."""
 
@@ -703,6 +729,12 @@ def generate_pdf_report(
                     clean_tex=False,
                     compiler=engine,
                     compiler_args=compiler_args,
+                )
+            fatal_signature = _detect_fatal_latex_signature(base_prefix_path)
+            if fatal_signature:
+                raise RuntimeError(
+                    "Detected fatal LaTeX log signature after compilation: "
+                    f"{fatal_signature}"
                 )
             print(f"Generated PDF: {output_path} (engine={engine})")
             generated = True

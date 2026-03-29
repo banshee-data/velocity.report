@@ -232,10 +232,20 @@ class StatsTableBuilder:
         # Build header cells
         header_cells = self.build_header(include_start_time=True, units=units)
 
-        # Column spec
-        body_spec = ">{\\AtkinsonMono}l" + (">{\\AtkinsonMono}r" * 5)
+        # Use fixed-width paragraph columns so the table cannot exceed column width.
+        body_spec = (
+            r">{\AtkinsonMono\raggedright\arraybackslash}p{0.32\linewidth}"
+            r">{\AtkinsonMono\raggedleft\arraybackslash}p{0.10\linewidth}"
+            r">{\AtkinsonMono\raggedleft\arraybackslash}p{0.10\linewidth}"
+            r">{\AtkinsonMono\raggedleft\arraybackslash}p{0.10\linewidth}"
+            r">{\AtkinsonMono\raggedleft\arraybackslash}p{0.10\linewidth}"
+            r">{\AtkinsonMono\raggedleft\arraybackslash}p{0.10\linewidth}"
+        )
 
         # Start supertabular environment manually
+        doc.append(NoEscape("\\begingroup"))
+        doc.append(NoEscape("\\setlength{\\tabcolsep}{2pt}"))
+        doc.append(NoEscape("\\footnotesize"))
         doc.append(NoEscape(f"\\begin{{supertabular}}{{{body_spec}}}"))
 
         # Add header row
@@ -250,6 +260,7 @@ class StatsTableBuilder:
 
         doc.append(NoEscape("\\hline"))
         doc.append(NoEscape("\\end{supertabular}"))
+        doc.append(NoEscape("\\endgroup"))
 
         # Add caption
         if caption:
@@ -277,6 +288,18 @@ class ParameterTableBuilder:
         """Initialise parameter table builder."""
         pass
 
+    def _format_wrapped_mono(self, value: str) -> NoEscape:
+        """Add explicit breakpoints for long technical tokens."""
+
+        escaped_value = escape_latex(str(value))
+        wrapped = escaped_value
+        wrapped = wrapped.replace(r"\\_", r"\\_\\allowbreak")
+        wrapped = wrapped.replace("/", r"/\\allowbreak")
+        wrapped = wrapped.replace("-", r"-\\allowbreak")
+        wrapped = wrapped.replace(":", r":\\allowbreak")
+        wrapped = wrapped.replace("T", r"T\\allowbreak")
+        return NoEscape(r"\\AtkinsonMono " + wrapped)
+
     def build(self, entries: List[Dict[str, str]]) -> Tabular:
         """Build parameter table from key-value pairs.
 
@@ -286,15 +309,18 @@ class ParameterTableBuilder:
         Returns:
             PyLaTeX Tabular object
         """
-        table = Tabular("ll")
+        table = Tabular(
+            r">{\raggedright\arraybackslash\bfseries}p{0.44\linewidth}"
+            r">{\raggedright\arraybackslash}p{0.52\linewidth}"
+        )
 
         for e in entries:
             k = e.get("key", "")
             v = e.get("value", "")
             table.add_row(
                 [
-                    NoEscape(r"\textbf{" + escape_latex(k) + r":}"),
-                    NoEscape(r"\AtkinsonMono{" + escape_latex(str(v)) + r"}"),
+                    NoEscape(escape_latex(k) + r":"),
+                    self._format_wrapped_mono(str(v)),
                 ]
             )
 

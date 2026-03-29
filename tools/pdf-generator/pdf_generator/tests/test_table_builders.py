@@ -174,8 +174,10 @@ class TestParameterTableBuilder(unittest.TestCase):
 
         _ = self.builder.build(self.sample_entries)
 
-        # Should create table with "ll" spec (two left-aligned columns)
-        mock_tabular.assert_called_once_with("ll")
+        # Should create table with fixed-width wrapping columns
+        called_spec = mock_tabular.call_args[0][0]
+        self.assertIn("p{0.44\\linewidth}", called_spec)
+        self.assertIn("p{0.52\\linewidth}", called_spec)
         # Should add 3 rows
         self.assertEqual(mock_table.add_row.call_count, 3)
 
@@ -205,10 +207,18 @@ class TestParameterTableBuilder(unittest.TestCase):
         # Check that add_row was called with formatted cells
         for call_args in mock_table.add_row.call_args_list:
             row = call_args[0][0]
-            # Key should be bold
-            self.assertIn("textbf", str(row[0]))
+            # Key should include trailing label colon
+            self.assertIn(":", str(row[0]))
             # Value should be monospace
             self.assertIn("AtkinsonMono", str(row[1]))
+
+    def test_format_wrapped_mono_adds_breakpoints(self):
+        rendered = self.builder._format_wrapped_mono(
+            "2026-03-27T00:00:00-07:00 America/Los_Angeles"
+        )
+        rendered_text = str(rendered)
+        self.assertIn("allowbreak", rendered_text)
+        self.assertIn("AtkinsonMono", rendered_text)
 
 
 class TestComparisonSummaryTableBuilder(unittest.TestCase):

@@ -130,6 +130,9 @@ class DocumentBuilder:
             colsep_str = f"{colsep_str}pt"
         doc.preamble.append(NoEscape(f"\\setlength{{\\columnsep}}{{{colsep_str}}}"))
 
+        # Reduce overfull lines in narrow two-column layout.
+        doc.preamble.append(NoEscape(r"\setlength{\emergencystretch}{2em}"))
+
         # Header spacing
         headheight = self.config.headheight
         headsep = self.config.headsep

@@ -1112,7 +1112,7 @@ def generate_all_charts(
 
 def process_date_range(
     start_date: str, end_date: str, config: ReportConfig, client: RadarStatsClient
-) -> None:
+) -> bool:
     """Process a single date range: fetch data, generate charts, create PDF.
 
     This is the main orchestrator that coordinates all steps for one date range.
@@ -1122,6 +1122,9 @@ def process_date_range(
         end_date: End date string
         config: Report configuration
         client: API client instance
+
+    Returns:
+        True when report generation succeeds for this date range
     """
     _print_info(
         f"=== Processing {start_date} -> {end_date} (group={config.query.group}, source={config.query.source}) ==="
@@ -1138,7 +1141,7 @@ def process_date_range(
         start_date, end_date, config.query.timezone or None
     )
     if start_ts is None or end_ts is None:
-        return  # Error already printed
+        return False  # Error already printed
 
     compare_start_date = config.query.compare_start_date
     compare_end_date = config.query.compare_end_date
@@ -1163,7 +1166,7 @@ def process_date_range(
             compare_start_date, compare_end_date, config.query.timezone or None
         )
         if compare_start_ts is None or compare_end_ts is None:
-            return
+            return False
 
     # Determine model version and file prefix
     model_version = get_model_version(config)
@@ -1219,7 +1222,7 @@ def process_date_range(
             f"No data returned for {start_date} - {end_date}. "
             "Check the date range, min_speed filter, and data source."
         )
-        return
+        return False
 
     # Fetch overall summary from API (proper percentile calculation from raw data)
     overall_metrics = fetch_overall_summary(
@@ -1371,12 +1374,15 @@ def process_date_range(
         _print_error(
             f"Failed to complete report for {start_date} -> {end_date}. See errors above."
         )
+        return False
+
+    return True
 
 
 # === Main Entry Point ===
 
 
-def main(date_ranges: List[Tuple[str, str]], config: ReportConfig):
+def main(date_ranges: List[Tuple[str, str]], config: ReportConfig) -> bool:
     """Main orchestrator: iterate over date ranges.
 
     Simplified to just client creation and iteration.
@@ -1401,8 +1407,18 @@ def main(date_ranges: List[Tuple[str, str]], config: ReportConfig):
         f"Processing {len(date_ranges)} date range(s) with output.dir={config.output.output_dir}"
     )
 
+    all_succeeded = True
     for start_date, end_date in date_ranges:
-        process_date_range(start_date, end_date, config, client)
+        range_succeeded = process_date_range(start_date, end_date, config, client)
+        if not range_succeeded:
+            all_succeeded = False
+
+    if not all_succeeded:
+        _print_error(
+            "One or more date ranges failed to generate a complete PDF report."
+        )
+
+    return all_succeeded
 
 
 if __name__ == "__main__":
@@ -1459,4 +1475,5 @@ if __name__ == "__main__":
         parser.error("hist_bucket_size is required in config when histogram is true")
 
     date_ranges = [(config.query.start_date, config.query.end_date)]
-    main(date_ranges, config)
+    succeeded = main(date_ranges, config)
+    sys.exit(0 if succeeded else 1)
