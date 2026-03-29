@@ -98,5 +98,4 @@ texmf-dist/fonts/tfm/public/amsfonts
 texmf-dist/fonts/tfm/adobe
 texmf-dist/fonts/map/dvips/psnfss
 texmf-dist/fonts/map/dvipdfmx
-texmf-dist/fonts/opentype/public/lm
 texmf-dist/fonts/type1/public/amsfonts
