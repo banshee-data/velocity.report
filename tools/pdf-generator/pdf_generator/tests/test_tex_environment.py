@@ -124,6 +124,46 @@ class TestTexEnvironment(unittest.TestCase):
             self.assertIsNone(env.fmt_name)
             self.assertNotIn("TEXFORMATS", env.env_vars)
 
+    def test_resolve_production_mode_sets_ld_library_path_when_lib_dir_exists(self):
+        """LD_LIBRARY_PATH should include lib/ when the directory exists."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            for subdir in ("bin", "texmf-dist", "texmf", "texmf-var", "lib"):
+                os.makedirs(os.path.join(tmp_dir, subdir), exist_ok=True)
+            compiler_path = os.path.join(tmp_dir, "bin", "xelatex")
+            with open(compiler_path, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\nexit 0\n")
+            os.chmod(compiler_path, stat.S_IRWXU)
+
+            with patch.dict(
+                os.environ,
+                {"VELOCITY_TEX_ROOT": tmp_dir, "PATH": "/usr/bin"},
+                clear=False,
+            ):
+                env = resolve_tex_environment()
+
+            lib_dir = os.path.join(tmp_dir, "lib")
+            self.assertIn("LD_LIBRARY_PATH", env.env_vars)
+            self.assertTrue(env.env_vars["LD_LIBRARY_PATH"].startswith(lib_dir))
+
+    def test_resolve_production_mode_omits_ld_library_path_when_no_lib_dir(self):
+        """LD_LIBRARY_PATH should not be set if lib/ does not exist."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            for subdir in ("bin", "texmf-dist", "texmf", "texmf-var"):
+                os.makedirs(os.path.join(tmp_dir, subdir), exist_ok=True)
+            compiler_path = os.path.join(tmp_dir, "bin", "xelatex")
+            with open(compiler_path, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\nexit 0\n")
+            os.chmod(compiler_path, stat.S_IRWXU)
+
+            with patch.dict(
+                os.environ,
+                {"VELOCITY_TEX_ROOT": tmp_dir, "PATH": "/usr/bin"},
+                clear=False,
+            ):
+                env = resolve_tex_environment()
+
+            self.assertNotIn("LD_LIBRARY_PATH", env.env_vars)
+
 
 if __name__ == "__main__":
     unittest.main()
