@@ -35,14 +35,20 @@ jobs:
 
       - name: Install ARM64 cross-compilation tools
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libpcap-dev
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            libpcap-dev:arm64 \
+            pkg-config
 
       - name: Build velocity-report (ARM64, pcap-enabled)
         run: |
           VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
           CGO_ENABLED=1 \
           CC=aarch64-linux-gnu-gcc \
+          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
           GOOS=linux GOARCH=arm64 \
           go build -tags pcap \
             -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION#v}'" \
@@ -113,8 +119,12 @@ jobs:
             echo "::error::No .img file found in deploy directory"
             exit 1
           fi
-          xz -9 "$IMG"
-          COMPRESSED="${IMG}.xz"
+
+          # Rename to stable name before compressing so release asset URL is predictable.
+          STABLE_IMG="$(dirname "$IMG")/velocity-report.img"
+          mv "$IMG" "$STABLE_IMG"
+          xz -9 "$STABLE_IMG"
+          COMPRESSED="${STABLE_IMG}.xz"
 
           # Generate checksums
           sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
@@ -153,16 +163,19 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           DATE=$(date -u +%Y-%m-%d)
-
-          # Download the compressed image to compute checksums
           ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/velocity-report.img.xz"
 
-          # Update JSON with new version, URL, date
+          # Download the compressed image to compute SHA-256 for rpi-imager verification.
+          curl -L --fail -o velocity-report.img.xz "$ASSET_URL"
+          SHA256=$(sha256sum velocity-report.img.xz | awk '{print $1}')
+
+          # Update JSON with URL, date, and verified checksum.
           jq --arg url "$ASSET_URL" \
              --arg date "$DATE" \
-             --arg ver "$VERSION" \
+             --arg sha256 "$SHA256" \
              '.os_list[0].url = $url |
-              .os_list[0].release_date = $date' \
+              .os_list[0].release_date = $date |
+              .os_list[0].extract_sha256 = $sha256' \
             image/os-list-velocity.json > image/os-list-velocity.json.tmp
           mv image/os-list-velocity.json.tmp image/os-list-velocity.json
 
