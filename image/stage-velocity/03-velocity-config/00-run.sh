@@ -22,14 +22,20 @@ CHEOF
 install -m 644 files/config/tuning.defaults.json \
     "${ROOTFS_DIR}/opt/velocity-report/config/tuning.defaults.json"
 
+# Install project documentation
+if [ -d files/docs ]; then
+    cp -r files/docs "${ROOTFS_DIR}/opt/velocity-report/docs"
+fi
+
 # Install systemd service file
 install -m 644 files/velocity-report.service \
     "${ROOTFS_DIR}/etc/systemd/system/velocity-report.service"
 
-# Do NOT systemctl-enable the service — it is started by the udev rule
-# (SYSTEMD_WANTS) when the radar USB device is connected, and stopped by
-# BindsTo= when the device is removed.  Enabling it in multi-user.target
-# would cause a crash-loop on every boot without a radar attached.
+# Enable the service for auto-start on boot.  The service starts with
+# the radar active on /dev/ttySC1 (Waveshare SC16IS752 HAT channel B).
+on_chroot << 'CHEOF'
+systemctl enable velocity-report.service
+CHEOF
 
 # Install udev rules for USB-Serial radar devices
 install -m 644 files/99-velocity-report.rules \
@@ -56,13 +62,18 @@ chown -R velocity:velocity /home/velocity/.ssh
 CHEOF
 fi
 
-# Configure UART overlay — enable hardware UART and move Bluetooth to mini-UART
+# Configure UART and SPI overlays for Waveshare RS232/485 HAT (SC16IS752)
 if [ -f "${ROOTFS_DIR}/boot/firmware/config.txt" ]; then
-    # Append UART configuration if not already present
+    # Enable hardware UART and move Bluetooth to mini-UART
     grep -q 'enable_uart=1' "${ROOTFS_DIR}/boot/firmware/config.txt" || \
         echo 'enable_uart=1' >> "${ROOTFS_DIR}/boot/firmware/config.txt"
     grep -q 'dtoverlay=miniuart-bt' "${ROOTFS_DIR}/boot/firmware/config.txt" || \
         echo 'dtoverlay=miniuart-bt' >> "${ROOTFS_DIR}/boot/firmware/config.txt"
+    # Enable SPI bus and SC16IS752 dual-UART overlay (creates /dev/ttySC0, /dev/ttySC1)
+    grep -q 'dtparam=spi=on' "${ROOTFS_DIR}/boot/firmware/config.txt" || \
+        echo 'dtparam=spi=on' >> "${ROOTFS_DIR}/boot/firmware/config.txt"
+    grep -q 'dtoverlay=sc16is752-spi1,int_pin=24' "${ROOTFS_DIR}/boot/firmware/config.txt" || \
+        echo 'dtoverlay=sc16is752-spi1,int_pin=24' >> "${ROOTFS_DIR}/boot/firmware/config.txt"
 fi
 
 # Remove serial console from kernel command line (frees /dev/ttyAMA0 for radar)

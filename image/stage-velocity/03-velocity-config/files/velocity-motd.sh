@@ -65,7 +65,7 @@ welcome_banner() {
   Useful commands:
     velocity-status           Is the service running?
     velocity-log              Follow the live service log
-    velocity-restart          Restart the service
+    velocity-bounce           Restart the service
     velocity-report version   Version and build info
     sudo velocity-ctl         Device management
 

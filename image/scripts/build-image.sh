@@ -43,6 +43,9 @@ cleanup() {
     log_info "Cleaning up transient build files..."
     rm -rf "$PIGEN_DIR/stage-velocity"
     rm -rf "$PIGEN_DIR/velocity-binaries"
+    # Remove transient copies staged from the repo into the working tree
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
+    rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
 }
 
 # ---------------------------------------------------------------------------
@@ -161,6 +164,14 @@ CONFIG_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/config"
 mkdir -p "$CONFIG_DEST"
 cp "$REPO_ROOT/config/tuning.defaults.json" "$CONFIG_DEST/"
 log_info "Copied tuning defaults"
+
+# Copy project documentation into the stage for installation to /opt
+DOCS_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
+rm -rf "$DOCS_DEST"
+cp -r "$REPO_ROOT/docs" "$DOCS_DEST"
+# Remove macOS metadata and other non-documentation artefacts
+find "$DOCS_DEST" -name '.DS_Store' -delete 2>/dev/null || true
+log_info "Copied docs"
 
 # ---------------------------------------------------------------------------
 # 6. Copy custom stage and binaries into pi-gen

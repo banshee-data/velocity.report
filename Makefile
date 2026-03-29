@@ -255,8 +255,20 @@ endif
 	echo "Unmounting $(DISK)..."; \
 	diskutil unmountDisk $(DISK) || exit 1; \
 	RAW=$$(echo $(DISK) | sed 's|/dev/disk|/dev/rdisk|'); \
+	SIZE=$$(xz --list --robot "$$IMG" | tail -1 | awk '{print $$5}'); \
+	SIZE_MB=$$(( SIZE / 1024 / 1024 )); \
 	echo "Flashing to $$RAW (raw device for speed)..."; \
-	sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW" || { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+	echo "Uncompressed size: $${SIZE_MB} MB"; \
+	echo ""; \
+	if command -v pv >/dev/null 2>&1; then \
+		sudo sh -c 'xzcat "$$1" | pv -s "$$2" -i 5 -e -r -p | dd of="$$3" bs=1m 2>/dev/null' _ "$$IMG" "$$SIZE" "$$RAW" \
+			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+	else \
+		echo "(install pv for progress: brew install pv)"; \
+		sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW" \
+			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+	fi; \
+	echo ""; \
 	echo "Ejecting $(DISK)..."; \
 	sudo diskutil eject $(DISK); \
 	echo "Done."
