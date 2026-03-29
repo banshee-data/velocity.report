@@ -16,6 +16,7 @@
 # Exclude test pcap/data from internal (large binary files)
 internal/lidar/perf/pcap/
 
-# Web stub (needed for Go embed)
+# Web frontend (built assets embedded via //go:embed web/build/*)
+!web/build/
 !web/stub-index.html
 !scripts/ensure-web-stub.sh
