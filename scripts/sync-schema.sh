@@ -3,17 +3,19 @@
 # sync-schema.sh - Regenerate schema.sql from latest migrations
 #
 # This script creates a temporary database, applies all migrations,
-# exports the schema, and updates internal/db/schema.sql.
+# exports the schema and fixture data, and updates internal/db/schema.sql.
 #
 # Usage:
 #   ./scripts/sync-schema.sh
 #
 # The script automatically:
-# 1. Creates a temporary database
-# 2. Applies all migrations using the Go migration system
-# 3. Exports the schema using SQLite's .schema command
-# 4. Updates internal/db/schema.sql with the new schema
+# 1. Creates a temporary database by applying all migrations via sqlite3
+# 2. Exports the DDL using SQLite's .schema command
+# 3. Extracts fixture data (INSERT rows) from non-empty tables
+# 4. Combines DDL + fixtures into internal/db/schema.sql
 # 5. Cleans up temporary files
+#
+# Migrations are the single source of truth for both schema and seed data.
 #
 # Exit codes:
 #   0 - Success
@@ -35,10 +37,12 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCHEMA_FILE="$PROJECT_ROOT/internal/db/schema.sql"
 TEMP_DB="$PROJECT_ROOT/.tmp_schema_sync.db"
 TEMP_SCHEMA="$PROJECT_ROOT/.tmp_schema.sql"
+TEMP_FIXTURES="$PROJECT_ROOT/.tmp_fixtures.sql"
 
 # Cleanup function
 cleanup() {
-    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA" "$PROJECT_ROOT/.tmp_ordered_schema.sql"
+    rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal" "$TEMP_SCHEMA" \
+          "$PROJECT_ROOT/.tmp_ordered_schema.sql" "$TEMP_FIXTURES"
 }
 
 # Register cleanup on exit
@@ -56,22 +60,36 @@ if ! command -v sqlite3 &> /dev/null; then
     exit 1
 fi
 
-# Step 1: Create temporary database and apply migrations
+# Step 1: Create temporary database and apply migrations via sqlite3
 echo "1. Creating temporary database and applying migrations..."
 cd "$PROJECT_ROOT"
 
 # Remove old temp db if it exists
 rm -f "$TEMP_DB" "$TEMP_DB-shm" "$TEMP_DB-wal"
 
-# Use the Go migration system to create a fresh database with all migrations
-# The radar command with a non-existent database will trigger migration check
-# which creates the database using schema.sql, then we'll migrate it properly
-if ! go run ./cmd/radar --db-path="$TEMP_DB" migrate up 2>&1; then
-    echo -e "${RED}Could not apply migrations.${NC}"
-    exit 1
-fi
+# Apply migrations directly via sqlite3 — the single source of truth for both
+# DDL and fixture data. This bypasses the Go binary (which uses schema.sql for
+# fresh databases, creating a circular dependency).
 
-echo -e "${GREEN}✓ Migrations applied.${NC}"
+# Create schema_migrations table first (golang-migrate creates this; including it
+# keeps schema.sql consistent with a Go-initialised database).
+sqlite3 "$TEMP_DB" "CREATE TABLE schema_migrations (version uint64 NOT NULL, dirty bool NOT NULL); CREATE UNIQUE INDEX version_unique ON schema_migrations (version);"
+
+# Apply all up-migrations in order
+# PRAGMA legacy_alter_table = OFF matches the default for modernc.org/sqlite (and the
+# C API generally). Without it the sqlite3 CLI does not update FK references in other
+# tables during ALTER TABLE RENAME, producing a schema that diverges from the Go path.
+MIGRATION_COUNT=0
+for migration in $(find "$PROJECT_ROOT/internal/db/migrations" -name "*.up.sql" | sort); do
+    if ! { echo "PRAGMA legacy_alter_table = OFF;"; cat "$migration"; } | sqlite3 "$TEMP_DB" 2>&1; then
+        echo -e "${RED}Error: Failed to apply migration: $(basename "$migration")${NC}"
+        exit 1
+    fi
+    MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+done
+
+echo "   Applied $MIGRATION_COUNT migrations (sqlite3 $(sqlite3 ':memory:' 'SELECT sqlite_version();'))"
+echo -e "${GREEN}✓ Migrations applied successfully${NC}"
 echo ""
 
 # Step 2: Export schema from migrated database
@@ -103,6 +121,42 @@ mv "$TEMP_ORDERED" "$TEMP_SCHEMA"
 echo -e "${GREEN}✓ Tables reordered.${NC}"
 echo ""
 
+# Step 2.6: Extract fixture data from migration-derived database
+echo "2.6. Extracting fixture data from migrations..."
+: > "$TEMP_FIXTURES"  # truncate
+
+# Find non-empty user tables (excluding sqlite internals and migration tracking)
+FIXTURE_COUNT=0
+for table in $(sqlite3 "$TEMP_DB" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations' ORDER BY name;"); do
+    count=$(sqlite3 "$TEMP_DB" "SELECT COUNT(*) FROM \"$table\";")
+    if [ "$count" -gt 0 ]; then
+        echo "   Found $count row(s) in $table"
+
+        # Build column list excluding time-generating defaults — those columns should be
+        # filled at runtime so the fixture data is deterministic across sync runs.
+        # Covers both UNIXEPOCH('subsec') and STRFTIME('%s', 'now') patterns.
+        COLS=$(sqlite3 "$TEMP_DB" "SELECT group_concat('\"' || name || '\"', ', ') FROM pragma_table_info('$table') WHERE dflt_value IS NULL OR (UPPER(dflt_value) NOT LIKE '%UNIXEPOCH%' AND UPPER(dflt_value) NOT LIKE '%STRFTIME%');")
+
+        if [ -z "$COLS" ]; then
+            echo "   Skipping $table (all columns have time-generating defaults)"
+            continue
+        fi
+
+        # Generate INSERT OR IGNORE with explicit columns (so time defaults apply at runtime).
+        # sqlite3 .mode insert omits quotes around the table name, so match unquoted.
+        sqlite3 "$TEMP_DB" ".mode insert $table" "SELECT $COLS FROM \"$table\"" |
+            sed "s/INSERT INTO $table VALUES/INSERT OR IGNORE INTO \"$table\" ($COLS) VALUES/" >> "$TEMP_FIXTURES"
+        FIXTURE_COUNT=$((FIXTURE_COUNT + 1))
+    fi
+done
+
+if [ "$FIXTURE_COUNT" -gt 0 ]; then
+    echo -e "${GREEN}✓ Extracted fixture data from $FIXTURE_COUNT table(s)${NC}"
+else
+    echo -e "${YELLOW}⚠ No fixture data found in migrations${NC}"
+fi
+echo ""
+
 # Step 3: Update schema.sql
 echo "3. Updating internal/db/schema.sql..."
 
@@ -112,11 +166,22 @@ if [ -f "$SCHEMA_FILE" ]; then
     echo "   Backup created: $SCHEMA_FILE.bak"
 fi
 
-# Prepend auto-generated header
+# Combine header + DDL + fixture data
 HEADER="-- AUTO-GENERATED — do not edit by hand.
 -- Regenerate with: ./scripts/sync-schema.sh
 --"
 { echo "$HEADER"; cat "$TEMP_SCHEMA"; } > "$SCHEMA_FILE"
+
+if [ -s "$TEMP_FIXTURES" ]; then
+    {
+        echo ""
+        echo "-- Fixture data derived from migrations (do not edit — regenerate with make schema-sync)."
+        echo ""
+        cat "$TEMP_FIXTURES"
+    } >> "$SCHEMA_FILE"
+    echo "   Appended fixture data derived from migrations"
+fi
+
 echo -e "${GREEN}✓ schema.sql updated successfully${NC}"
 echo ""
 
