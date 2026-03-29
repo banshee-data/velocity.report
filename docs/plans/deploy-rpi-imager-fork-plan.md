@@ -17,14 +17,15 @@
 This plan is delivered in two phases, reflecting the principle of shipping
 working software before optimising.
 
-### Phase 1 — Working Image (v0.5.1)
+### Phase 1 — Working Image (v0.5.1) ✅
 
-**Goal:** Produce a flashable Raspberry Pi `.img` file that contains the current
-velocity.report codebase as-is. No size optimisation, no LaTeX reduction, no
-architectural changes to the software itself.
+**Goal:** Produce a flashable Raspberry Pi `.img` file that contains the
+velocity.report stack with a minimal vendored TeX tree.
 
-- Ships full `texlive-xetex` + font APT packages (~800 MB uncompressed)
-- Image size: ~1.5 GB uncompressed, ~600–900 MB compressed (.img.xz)
+- Installs `texlive-xetex` at build time, extracts a minimal TeX Live tree
+  (~143 MB) into `/opt/velocity-report/texlive/`, then purges the APT packages
+  (~1 GB saved)
+- Image size: ~350–500 MB compressed (.img.xz)
 - Build pipeline: pi-gen + GitHub Actions CI
 - Distribution: `.img.xz` GitHub Release asset + custom `os-list.json` for
   stock rpi-imager
@@ -40,14 +41,13 @@ with radar collection and PDF report generation functional. The user can
 subsequently run `sudo velocity-ctl upgrade` to upgrade to a newer release
 without losing their sensor data.
 
-### Phase 2 — Image Optimisation (v0.6.0)
+### Phase 2 — Format Pre-compilation (v0.6.0)
 
-**Goal:** Reduce the compressed image size from ~600–900 MB to ~350–500 MB
-through the LaTeX size reduction work stream (§ 4.6).
+**Goal:** Reduce PDF compilation time by shipping pre-compiled `.fmt` format
+files alongside the minimal TeX tree shipped in Phase 1.
 
-- Replace full TeX Live APT packages with pre-compiled templates and vendored
-  minimal TeX tree
-- Audit template dependencies to identify exactly which `.sty`, `.cls`, and
+- Pre-compile `xelatex -ini` format files for each report template
+- Audit template dependencies to confirm which `.sty`, `.cls`, and
   font files are needed
 - Validate PDF output parity between full and minimal TeX installations
 - Measure before/after image sizes and compilation times
@@ -320,13 +320,18 @@ pi-gen/
 ├── stage2/                         # Lite system (upstream, untouched)
 │   └── SKIP_IMAGES                 # Don't produce image at stage2
 ├── stage-velocity/                 # ★ Custom stage
-│   ├── 00-packages                 # APT packages (texlive, libpcap-dev, etc.)
+│   ├── 00-install-packages/
+│   │   ├── 00-packages             # APT packages (texlive, libpcap-dev, etc.)
+│   │   ├── 01-run.sh              # Build minimal TeX tree, purge APT TeX packages
+│   │   └── files/                  # Populated at build time by build-image.sh / CI
+│   │       ├── build-minimal-texlive.sh
+│   │       ├── dependency-manifest.txt
+│   │       └── velocity-report.ini
 │   ├── 01-velocity-binaries/
-│   │   ├── 00-run.sh              # Copy pre-built Go binaries + update script
+│   │   ├── 00-run.sh              # Copy pre-built Go binaries
 │   │   └── files/
 │   │       ├── velocity-report     # ARM64 server binary with pcap (from CI artifact)
-│   │       ├── velocity-ctl        # ARM64 management binary (from CI artifact)
-│   │       └── velocity-update     # Redirect stub (prints "use velocity-ctl upgrade")
+│   │       └── velocity-ctl        # ARM64 management binary (from CI artifact)
 │   ├── 02-velocity-python/
 │   │   ├── 00-run.sh              # Set up venv, install PDF generator
 │   │   └── files/
@@ -415,31 +420,30 @@ jobs:
 
 ### 4.5 Image Size Budget
 
-> **Phase 1 (v0.5.1)** ships with the full TeX Live installation. The compressed
-> image will be ~600–900 MB. Phase 2 (v0.6.0) targets the reduced sizes in the
-> final two rows below.
+> **Phase 1 (v0.5.1)** ships with a minimal vendored TeX tree (~143 MB),
+> built from full `texlive-xetex` at image build time.
 
-| Component                                         | Estimated Size                         |
-| ------------------------------------------------- | -------------------------------------- |
-| Raspberry Pi OS Lite (base)                       | ~450 MB                                |
-| TeX Live (xetex + fonts)                          | ~800 MB (target: < 200 MB — see § 4.6) |
-| Python 3 + venv + PDF deps                        | ~200 MB                                |
-| Go binary (server + deploy, pcap-enabled)         | ~35 MB                                 |
-| LiDAR support (libpcap + network config)          | ~5 MB                                  |
-| Web frontend (static)                             | ~5 MB                                  |
-| System config + udev rules + update script        | < 1 MB                                 |
-| **Total (uncompressed, before LaTeX reduction)**  | **~1.5 GB**                            |
-| **Total (xz compressed, before LaTeX reduction)** | **~600–900 MB**                        |
-| **Target (after LaTeX reduction, compressed)**    | **~350–500 MB**                        |
+| Component                                 | Estimated Size  |
+| ----------------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)               | ~450 MB         |
+| Minimal TeX tree (vendored, see § 4.6)    | ~143 MB         |
+| Python 3 + venv + PDF deps                | ~200 MB         |
+| Go binaries (velocity-report + ctl, pcap) | ~35 MB          |
+| LiDAR support (libpcap + network config)  | ~5 MB           |
+| Web frontend (static)                     | ~5 MB           |
+| System config + udev rules                | < 1 MB          |
+| **Total (uncompressed)**                  | **~840 MB**     |
+| **Total (xz compressed)**                 | **~350–500 MB** |
 
-TeX Live is the dominant size contributor and the primary target for the LaTeX
-size reduction work stream described in § 4.6.
+TeX Live was the dominant size contributor; the minimal vendored tree (§ 4.6)
+reduced it from ~800 MB to ~143 MB in Phase 1.
 
-### 4.6 LaTeX Size Reduction Work Stream (Phase 2 — v0.6.0)
+### 4.6 LaTeX Size Reduction Work Stream
 
-The full `texlive-xetex` + fonts installation adds ~800 MB to the uncompressed
-image. This is the single largest dependency and a dedicated work stream to
-reduce it dramatically.
+The full `texlive-xetex` + fonts installation would add ~800 MB to the
+uncompressed image. Phase 1 (v0.5.1) already ships a minimal vendored TeX
+tree (~143 MB), saving ~1 GB. Phase 2 (v0.6.0) adds pre-compiled `.fmt`
+format files for faster PDF generation.
 
 #### 4.6.1 Options
 
@@ -465,11 +469,10 @@ reduce it dramatically.
 
 #### 4.6.3 Recommendation
 
-**Start with Option B (pre-compiled templates)** for the initial image. ✅ Confirmed by D-08. This
-yields the greatest size savings (~750 MB) with the simplest runtime: the image
-ships only the `.fmt` format files, the specific fonts used by our report
-templates, and a minimal XeTeX binary. No package manager, no `tlmgr`, no
-network fetches.
+**Option B (pre-compiled templates)** selected. ✅ Confirmed by D-08. Phase 1
+shipped the minimal vendored TeX tree (steps 1–2 below). Phase 2 adds
+pre-compiled `.fmt` format files (step 3) to eliminate per-run format-loading
+overhead. No package manager, no `tlmgr`, no network fetches.
 
 **Plan migration to Option C (hybrid)** if user feedback indicates demand for
 custom LaTeX templates. TinyTeX can be installed on top of the pre-compiled base
@@ -477,19 +480,21 @@ without changing the image build pipeline.
 
 #### 4.6.4 Implementation Steps
 
-1. **Audit template dependencies** — run `velocity-report` PDF generation on a
-   clean Pi OS Lite install and capture every `.sty`, `.cls`, and font file
-   accessed during compilation
-2. **Build a minimal TeX tree** — extract only the required files from the full
-   TeX Live distribution into a vendored directory
-   (`/opt/velocity-report/texlive-minimal/`)
-3. **Pre-compile format files** — run `xelatex -ini` to produce `.fmt` files for
-   each report template; these eliminate the per-run format-loading overhead
-4. **Update pi-gen stage** — replace the `texlive-*` APT packages with the
-   vendored tree and format files
-5. **Validate output** — diff PDF output byte-for-byte between the full TeX Live
-   build and the minimal build to ensure no rendering regressions
-6. **Measure** — record before/after image sizes and PDF compilation times
+1. ✅ **Audit template dependencies** — `dependency-manifest.txt` lists every
+   `.sty`, `.cls`, font, and binary the PDF generator uses
+2. ✅ **Build a minimal TeX tree** — `scripts/build-minimal-texlive.sh` extracts
+   only the required files from the full TeX Live distribution into
+   `/opt/velocity-report/texlive/` (~143 MB). Pi-gen stage
+   `00-install-packages/01-run.sh` runs this at image build time and purges
+   the APT packages afterward
+3. **Pre-compile format files** (Phase 2) — run `xelatex -ini` to produce
+   `.fmt` files for each report template; eliminates per-run format-loading
+   overhead
+4. ✅ **Update pi-gen stage** — `00-install-packages` installs `texlive-xetex`
+   APT packages, builds the minimal tree, and purges the APT packages
+5. ✅ **Validate output** — PDF output validated between full TeX Live and
+   minimal builds with no rendering regressions
+6. ✅ **Measure** — minimal tree: ~143 MB vs full TeX Live: ~800 MB (~1 GB saved)
 
 ---
 
