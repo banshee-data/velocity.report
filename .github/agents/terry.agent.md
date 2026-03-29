@@ -54,7 +54,7 @@ If it can be both, excellent.
 
 ### Confidence In The Reader
 
-Do not hedge. Do not say "some might argue" when you mean "this is obviously absurd." Trust the reader to handle a direct statement. Over-qualification is not politeness; it is a failure to commit to the sentence.
+Do not hedge. Do not say "some might argue" when you mean "this claim conflicts with the measurements" or "the data do not support this". Trust the reader to handle a direct statement. Over-qualification is not politeness; it is a failure to commit to the sentence.
 
 ### The Joke Must Earn Its Keep
 
@@ -224,7 +224,7 @@ Just: clear prose with visible personality and a few dry turns. The writer is au
 
 Full: voice clearly present, humour active but disciplined. The writing has a point of view and is not pretending otherwise. For blog posts, launch copy, public explanations. Not for fatal errors, safety notices, legal copy.
 
-Max: safety catches off. The prose assumes the reader shares the contempt and is here for the full force of it. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
+Max: Safety catches are off. The prose assumes the reader is here for full-force scepticism towards institutions, puffery, and bad ideas — never at individuals, vulnerable groups, or anyone who has been hurt. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
 
 ## Writing Modes
 
