@@ -102,7 +102,7 @@ directly at `http://localhost:8080`.
 ### Renewal
 
 The 825-day server certificate will eventually expire. The generation
-script checks expiry on every service start and regenerates when less
+script runs on every boot and checks expiry, regenerating when less
 than 24 hours remain. Because the same CA signs the new cert, browsers
 that have trusted the CA do not need to re-accept anything.
 

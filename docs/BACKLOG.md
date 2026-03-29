@@ -10,7 +10,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.1 - Raspberry Pi Image (051)
 
-- (#210) Raspberry Pi image pipeline: pi-gen build, CI workflow, GitHub Release `.img.xz` asset; ships full TeX Live APT packages (no size optimisation); custom `os-list.json` for stock rpi-imager: [design doc](plans/deploy-rpi-imager-fork-plan.md) `M`
+- (#210) Raspberry Pi image pipeline: pi-gen build, CI workflow, GitHub Release `.img.xz` asset; minimal TeX Live tree extracted at build time (no size optimisation); custom `os-list.json` for stock rpi-imager: [design doc](plans/deploy-rpi-imager-fork-plan.md) `M`
 
 ### v0.5.2 - Data Contracts + Layer Foundations (052)
 

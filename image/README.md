@@ -5,8 +5,10 @@ velocity.report for Raspberry Pi 4/400/5.
 
 ## Phase 1 — Working Image (v0.5.1)
 
-Ships the current codebase as-is with full `texlive-xetex` APT packages
-(~800 MB uncompressed). No LaTeX size reduction; that is Phase 2 (v0.6.0).
+Installs `texlive-xetex` APT packages at build time, extracts a minimal
+TeX Live tree (~143 MB) containing only the files the PDF generator needs,
+then purges the APT packages (~1 GB saved). No further LaTeX reduction;
+that is Phase 2 (v0.6.0).
 
 ### What the Image Contains
 
