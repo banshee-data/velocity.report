@@ -10,6 +10,7 @@
 		upsertSiteConfigPeriod,
 		type SiteConfigPeriod
 	} from '$lib/api';
+	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
 	import { onMount } from 'svelte';
@@ -124,23 +125,14 @@
 	}
 
 	function toUnixSeconds(value: string): number | null {
-		if (!value) return null;
-		const parsed = new Date(value).getTime();
-		if (Number.isNaN(parsed)) return null;
-		return Math.floor(parsed / 1000);
-	}
-
-	function toLocalDatetimeString(unixSeconds: number): string {
-		const d = new Date(unixSeconds * 1000);
-		const pad = (n: number) => String(n).padStart(2, '0');
-		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+		return fromDatetimeLocalToUnixSeconds(value);
 	}
 
 	function editPeriod(period: SiteConfigPeriod) {
 		periodForm = {
 			id: period.id ?? null,
-			start: period.effective_start_unix ? toLocalDatetimeString(period.effective_start_unix) : '',
-			end: period.effective_end_unix ? toLocalDatetimeString(period.effective_end_unix) : '',
+			start: period.effective_start_unix ? toDatetimeLocalValue(period.effective_start_unix) : '',
+			end: period.effective_end_unix ? toDatetimeLocalValue(period.effective_end_unix) : '',
 			angle: period.cosine_error_angle ?? 0,
 			notes: period.notes ?? '',
 			is_active: period.is_active
