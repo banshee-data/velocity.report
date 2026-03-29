@@ -300,8 +300,13 @@ if docker inspect pigen_work &>/dev/null; then
 fi
 
 log_info "Building Raspberry Pi image with pi-gen..."
-cd "$PIGEN_DIR"
-./build-docker.sh
+# Run in a subshell so the cd does not change the parent script's working
+# directory.  When bash is invoked via a relative path (e.g.
+# ./image/scripts/build-image.sh from make), it may reopen the script file
+# to seek forward; if CWD has changed, the relative path resolves to the
+# wrong location and bash hits EOF mid-parse, emitting a spurious
+# "unexpected EOF while looking for matching '\"'" error.
+(cd "$PIGEN_DIR" && ./build-docker.sh)
 
 # ---------------------------------------------------------------------------
 # 9. Locate and compress output
