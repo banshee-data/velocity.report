@@ -128,12 +128,14 @@
 		return fromDatetimeLocalToUnixSeconds(value);
 	}
 
+	const DEFAULT_COSINE_ERROR_ANGLE_DEG = 5;
+
 	function editPeriod(period: SiteConfigPeriod) {
 		periodForm = {
 			id: period.id ?? null,
 			start: period.effective_start_unix ? toDatetimeLocalValue(period.effective_start_unix) : '',
 			end: period.effective_end_unix ? toDatetimeLocalValue(period.effective_end_unix) : '',
-			angle: period.cosine_error_angle ?? 0,
+			angle: period.cosine_error_angle ?? DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: period.notes ?? '',
 			is_active: period.is_active
 		};
@@ -144,7 +146,7 @@
 			id: null,
 			start: '',
 			end: '',
-			angle: 5,
+			angle: DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: '',
 			is_active: false
 		};
@@ -407,12 +409,16 @@
 									type="datetime-local"
 									bind:value={periodForm.start}
 									required
+									aria-invalid={periodFormErrors.start ? 'true' : undefined}
+									aria-describedby={periodFormErrors.start ? 'period-start-error' : undefined}
 									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.start
 										? 'border-red-500'
 										: 'border-surface-300'}"
 								/>
 								{#if periodFormErrors.start}
-									<p class="mt-1 text-xs text-red-600">{periodFormErrors.start}</p>
+									<p id="period-start-error" class="mt-1 text-xs text-red-600">
+										{periodFormErrors.start}
+									</p>
 								{/if}
 							</div>
 							<div>
@@ -423,12 +429,16 @@
 									id="period-end"
 									type="datetime-local"
 									bind:value={periodForm.end}
+									aria-invalid={periodFormErrors.end ? 'true' : undefined}
+									aria-describedby={periodFormErrors.end ? 'period-end-error' : undefined}
 									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.end
 										? 'border-red-500'
 										: 'border-surface-300'}"
 								/>
 								{#if periodFormErrors.end}
-									<p class="mt-1 text-xs text-red-600">{periodFormErrors.end}</p>
+									<p id="period-end-error" class="mt-1 text-xs text-red-600">
+										{periodFormErrors.end}
+									</p>
 								{/if}
 							</div>
 							<TextField
