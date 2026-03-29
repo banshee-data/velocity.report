@@ -250,7 +250,7 @@ func TestFetchLatestReleaseBadJSON(t *testing.T) {
 
 	cfg.ReleasesAPI = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, err := m.fetchLatestRelease()
+	_, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "parsing release JSON") {
 		t.Fatalf("expected JSON parse error, got: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 
 	cfg.ReleasesAPI = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, err := m.fetchLatestRelease()
+	_, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "GitHub API returned") {
 		t.Fatalf("expected HTTP status error, got: %v", err)
 	}
@@ -408,12 +408,42 @@ func TestFetchLatestReleaseDecodeRoundTrip(t *testing.T) {
 
 	cfg.ReleasesAPI = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	got, err := m.fetchLatestRelease()
+	got, err := m.fetchLatestRelease(false)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease failed: %v", err)
 	}
 	if got.TagName != want.TagName || len(got.Assets) != 1 {
 		t.Fatalf("unexpected release payload: %+v", got)
+	}
+}
+
+func TestFetchLatestReleaseIncludingPrereleasesUsesListEndpoint(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/releases":
+			_, _ = w.Write([]byte(`[
+				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/rc"}]},
+				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}
+			]`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	cfg.ReleasesListAPI = server.URL + "/releases"
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	got, err := m.fetchLatestRelease(true)
+	if err != nil {
+		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
+	}
+	if got.TagName != "v0.6.0-rc1" {
+		t.Fatalf("expected prerelease from list endpoint, got: %+v", got)
 	}
 }
 

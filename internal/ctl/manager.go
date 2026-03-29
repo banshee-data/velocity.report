@@ -20,17 +20,19 @@ import (
 )
 
 const (
-	defaultGitHubRepo  = "banshee-data/velocity.report"
-	defaultReleasesAPI = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases/latest"
-	defaultBinaryName  = "velocity-report"
-	defaultBinaryPath  = "/usr/local/bin/" + defaultBinaryName
-	defaultServiceName = "velocity-report.service"
-	defaultBackupDir   = "/var/lib/velocity-report/backups"
-	defaultDBPath      = "/var/lib/velocity-report/sensor_data.db"
+	defaultGitHubRepo      = "banshee-data/velocity.report"
+	defaultReleasesAPI     = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases/latest"
+	defaultReleasesListAPI = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases"
+	defaultBinaryName      = "velocity-report"
+	defaultBinaryPath      = "/usr/local/bin/" + defaultBinaryName
+	defaultServiceName     = "velocity-report.service"
+	defaultBackupDir       = "/var/lib/velocity-report/backups"
+	defaultDBPath          = "/var/lib/velocity-report/sensor_data.db"
 )
 
 type Config struct {
 	ReleasesAPI     string
+	ReleasesListAPI string
 	BinaryName      string
 	BinaryPath      string
 	ServiceName     string
@@ -44,9 +46,14 @@ type Config struct {
 	GOARCH          string
 }
 
+type UpgradeOptions struct {
+	IncludePrereleases bool
+}
+
 func DefaultConfig() Config {
 	return Config{
 		ReleasesAPI:     defaultReleasesAPI,
+		ReleasesListAPI: defaultReleasesListAPI,
 		BinaryName:      defaultBinaryName,
 		BinaryPath:      defaultBinaryPath,
 		ServiceName:     defaultServiceName,
@@ -107,6 +114,9 @@ func NewDefaultManager() *Manager {
 func NewManager(cfg Config, httpClient HTTPGetter, runner CommandRunner, out io.Writer, err io.Writer) *Manager {
 	if cfg.ReleasesAPI == "" {
 		cfg.ReleasesAPI = defaultReleasesAPI
+	}
+	if cfg.ReleasesListAPI == "" {
+		cfg.ReleasesListAPI = defaultReleasesListAPI
 	}
 	if cfg.BinaryName == "" {
 		cfg.BinaryName = defaultBinaryName
@@ -171,11 +181,15 @@ func (m *Manager) ServiceName() string {
 }
 
 func (m *Manager) RunUpgrade(checkOnly bool, binaryFile string) error {
+	return m.RunUpgradeWithOptions(checkOnly, binaryFile, UpgradeOptions{})
+}
+
+func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts UpgradeOptions) error {
 	if binaryFile != "" {
 		return m.applyLocalBinary(binaryFile)
 	}
 
-	release, err := m.fetchLatestRelease()
+	release, err := m.fetchLatestRelease(opts.IncludePrereleases)
 	if err != nil {
 		return fmt.Errorf("checking for updates: %w", err)
 	}
@@ -268,8 +282,10 @@ func (m *Manager) RunStatus() error {
 }
 
 type githubRelease struct {
-	TagName string        `json:"tag_name"`
-	Assets  []githubAsset `json:"assets"`
+	TagName    string        `json:"tag_name"`
+	Prerelease bool          `json:"prerelease"`
+	Draft      bool          `json:"draft"`
+	Assets     []githubAsset `json:"assets"`
 }
 
 type githubAsset struct {
@@ -349,7 +365,11 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 	return nil
 }
 
-func (m *Manager) fetchLatestRelease() (*githubRelease, error) {
+func (m *Manager) fetchLatestRelease(includePrereleases bool) (*githubRelease, error) {
+	if includePrereleases {
+		return m.fetchLatestReleaseIncludingPrereleases()
+	}
+
 	resp, err := m.httpClient.Get(m.cfg.ReleasesAPI)
 	if err != nil {
 		return nil, err
@@ -366,6 +386,32 @@ func (m *Manager) fetchLatestRelease() (*githubRelease, error) {
 	}
 
 	return &release, nil
+}
+
+func (m *Manager) fetchLatestReleaseIncludingPrereleases() (*githubRelease, error) {
+	resp, err := m.httpClient.Get(m.cfg.ReleasesListAPI)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
+	}
+
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return nil, fmt.Errorf("parsing release JSON: %w", err)
+	}
+
+	for _, release := range releases {
+		if release.Draft {
+			continue
+		}
+		return &release, nil
+	}
+
+	return nil, fmt.Errorf("no non-draft releases found")
 }
 
 func (m *Manager) downloadToTemp(url string) (string, error) {
