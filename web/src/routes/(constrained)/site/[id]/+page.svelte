@@ -130,15 +130,17 @@
 		return Math.floor(parsed / 1000);
 	}
 
+	function toLocalDatetimeString(unixSeconds: number): string {
+		const d = new Date(unixSeconds * 1000);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
+
 	function editPeriod(period: SiteConfigPeriod) {
 		periodForm = {
 			id: period.id ?? null,
-			start: period.effective_start_unix
-				? new Date(period.effective_start_unix * 1000).toISOString().slice(0, 16)
-				: '',
-			end: period.effective_end_unix
-				? new Date(period.effective_end_unix * 1000).toISOString().slice(0, 16)
-				: '',
+			start: period.effective_start_unix ? toLocalDatetimeString(period.effective_start_unix) : '',
+			end: period.effective_end_unix ? toLocalDatetimeString(period.effective_end_unix) : '',
 			angle: period.cosine_error_angle ?? 0,
 			notes: period.notes ?? '',
 			is_active: period.is_active
