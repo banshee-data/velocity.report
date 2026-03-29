@@ -45,12 +45,12 @@ END;
         , site_description
           )
    VALUES (
-          'Default Location'
-        , 'Survey Location'
-        , 'Default site configuration'
+          'Sample Site — Update Me'
+        , 'A Street Near You'
+        , 'A placeholder site with very real speeds'
         , 0.5
         , 25
         , 'Sir Veyor'
-        , 'example@velocity.report'
-        , 'Default site for radar velocity surveys'
+        , 'veyor@example.com'
+        , 'This is a sample site. It exists because every system needs a starting point, and someone has to go first. Replace these details with your actual survey location, your actual surveyor name, and a description of where the radar is pointed and why. The data is real even if this description is not.'
           );

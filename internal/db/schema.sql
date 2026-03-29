@@ -404,7 +404,7 @@
         , UNIQUE (transit_id, data_rowid)
           );
 
-   CREATE TABLE schema_migrations (version uint64, dirty bool);
+   CREATE TABLE schema_migrations (version uint64 NOT NULL, dirty bool NOT NULL);
 
    CREATE TABLE IF NOT EXISTS "site" (
           id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -639,3 +639,62 @@ CREATE INDEX idx_lidar_run_records_requested_param_set ON lidar_run_records (req
 CREATE INDEX idx_lidar_run_records_replay_case ON lidar_run_records (replay_case_id);
 
 CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases (recommended_param_set_id);
+
+-- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
+   INSERT OR IGNORE INTO "site" (
+          "id"
+        , "name"
+        , "location"
+        , "description"
+        , "surveyor"
+        , "contact"
+        , "address"
+        , "latitude"
+        , "longitude"
+        , "map_angle"
+        , "include_map"
+        , "site_description"
+        , "bbox_ne_lat"
+        , "bbox_ne_lng"
+        , "bbox_sw_lat"
+        , "bbox_sw_lng"
+        , "map_svg_data"
+          )
+   VALUES (
+          1
+        , 'Sample Site — Update Me'
+        , 'A Street Near You'
+        , 'A placeholder site with very real speeds'
+        , 'Sir Veyor'
+        , 'veyor@example.com'
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , 0
+        , 'This is a sample site. It exists because every system needs a starting point, and someone has to go first. Replace these details with your actual survey location, your actual surveyor name, and a description of where the radar is pointed and why. The data is real even if this description is not.'
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+        , NULL
+          );
+
+   INSERT OR IGNORE INTO "site_config_periods" (
+          "id"
+        , "site_id"
+        , "effective_start_unix"
+        , "effective_end_unix"
+        , "is_active"
+        , "notes"
+        , "cosine_error_angle"
+          )
+   VALUES (
+          1
+        , 1
+        , 1773500966.53589797
+        , NULL
+        , 1
+        , 'Sample configuration — update the cosine error angle for your installation'
+        , 0.5
+          );
