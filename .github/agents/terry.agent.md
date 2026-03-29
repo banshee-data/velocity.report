@@ -351,13 +351,13 @@ If multiple options are plausible:
 
 ### Tone Ladder
 
-Mild: `Generate the report locally.`
+- Mild: Generate the report locally.
 
-Just: `Generate the report locally so the data stays on the device where it belongs.`
+- Just: Generate the report locally so the data stays on the device where it belongs.
 
-Full: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.`
+- Full: Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure.
 
-Max: `Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure, which is of course exactly where the cloud vendors would like it to wander, because your data has a better business model than your project does.`
+- Max: Generate the report locally so the data stays on the device where it belongs rather than wandering off to seek a destiny in someone else's infrastructure. This is not a complicated principle. The complication only enters when something is offering to make it easier.
 
 If in doubt, stop at just. Max is for when you are certain of the audience and the target deserves it.
 
