@@ -5,16 +5,16 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Hero Section -->
-    <div class="flex flex-col md:flex-row items-center gap-12 mb-14 py-12">
-        <div class="flex-1">
-            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-8 leading-tight">
+    <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12 mb-14 py-8 md:py-12">
+        <div class="flex-1 w-full">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-8 leading-tight text-center md:text-left">
                 If speeds don't drop, <br>the work can't stop.
             </h1>
-            <p class="text-xl text-gray-700 dark:text-gray-300 mb-10 leading-relaxed">
+            <p class="text-xl text-gray-700 dark:text-gray-300 mb-10 leading-relaxed text-center md:text-left">
                 <strong>velocity.report</strong> is a privacy-first, open-source traffic speed monitor. Measure vehicle speeds, produce professional reports, and make the case for safer streets with evidence rather than anecdote.
             </p>
 
-            <div class="max-w-[24rem] mx-auto">
+            <div class="max-w-[24rem] mx-auto md:mx-0">
             <div class="flex gap-4 mb-8">
                 <a href="/guides/setup/" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md flex items-center justify-center">
                     Get Started
@@ -69,48 +69,6 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                         </div>
                     </div>
                 </div>
-                <script>
-                (function() {
-                    function fallbackCopy(text) {
-                        try {
-                            var textarea = document.createElement('textarea');
-                            textarea.value = text;
-                            textarea.setAttribute('readonly', '');
-                            textarea.style.position = 'absolute';
-                            textarea.style.left = '-9999px';
-                            document.body.appendChild(textarea);
-                            textarea.select();
-                            var ok = document.execCommand('copy');
-                            document.body.removeChild(textarea);
-                            return ok;
-                        } catch (e) {
-                            return false;
-                        }
-                    }
-
-                    document.querySelectorAll('.copy-sha-btn').forEach(function(btn) {
-                        btn.addEventListener('click', function() {
-                            var text = btn.dataset.sha;
-                            var orig = btn.textContent;
-
-                            function showStatus(msg) {
-                                btn.textContent = msg;
-                                setTimeout(function() { btn.textContent = orig; }, 1500);
-                            }
-
-                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(text).then(function() {
-                                    showStatus('✓ copied');
-                                }).catch(function() {
-                                    showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
-                                });
-                            } else {
-                                showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
-                            }
-                        });
-                    });
-                })();
-                </script>
             </div>
             </div>
 
@@ -140,7 +98,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
     <div class="mb-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 md:p-12">
         <div class="max-w-5xl mx-auto">
             <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">VelocityVisualiser.app</h2>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">VelocityVisualiser.app</h2>
                 <p class="text-lg text-gray-700 dark:text-gray-300 max-w-lg mx-auto leading-relaxed">
                     A native macOS app for real-time LiDAR point cloud visualisation,
                     track inspection, and data labelling.
@@ -172,9 +130,16 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">
                     v{{ release.version }} · Requires macOS 15 (Sequoia) · Apple Silicon
                 </p>
-                <p class="text-xs text-gray-400 dark:text-gray-500 font-mono mt-1 break-all">
-                    sha256:{{ release.visualiser_sha256 }}
-                </p>
+                <div class="relative flex items-center rounded overflow-hidden bg-gray-200/50 dark:bg-gray-700/40 font-mono text-xs max-w-xs mx-auto mt-2">
+                    <span class="block w-full pl-2 pr-20 py-1.5 text-gray-500 dark:text-gray-400 overflow-hidden whitespace-nowrap select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
+                    <button
+                        type="button"
+                        aria-label="Copy VelocityVisualiser SHA256"
+                        data-sha="sha256:{{ release.visualiser_sha256 }}"
+                        class="copy-sha-btn absolute right-0 inset-y-0 px-2.5 min-w-[5rem] text-center text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors">
+                        copy SHA
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -196,3 +161,45 @@ title: velocity.report - Measure Speeds, Make Streets Safer
     </div>
 
 </div>
+<script>
+(function() {
+    function fallbackCopy(text) {
+        try {
+            var textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'absolute';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            return ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    document.querySelectorAll('.copy-sha-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var text = btn.dataset.sha;
+            var orig = btn.textContent;
+
+            function showStatus(msg) {
+                btn.textContent = msg;
+                setTimeout(function() { btn.textContent = orig; }, 1500);
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showStatus('✓ copied');
+                }).catch(function() {
+                    showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
+                });
+            } else {
+                showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
+            }
+        });
+    });
+})();
+</script>
