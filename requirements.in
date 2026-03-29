@@ -8,9 +8,11 @@ matplotlib
 numpy<2.5.0  # Pin to avoid yanked 2.4.0
 seaborn
 scipy
+pillow>=12.1.1  # CVE-2026-25990 fix
 
 # HTTP + utilities used by various scripts
-requests
+requests>=2.33.0  # CVE-2026-25645 fix
+urllib3>=2.6.3    # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixes
 
 # LaTeX/PDF generation
 PyLaTeX
@@ -21,7 +23,8 @@ pytest-cov
 responses
 
 # Development tools (formatting/linting)
-black
+black>=26.3.1  # CVE-2026-32274 fix
 ruff
+fonttools>=4.60.2  # CVE-2025-66034 fix
 
 # Add any other top-level tools that should be available to all data projects here.
