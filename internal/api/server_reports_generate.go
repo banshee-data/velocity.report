@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -326,6 +327,13 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		log.Printf("PDF generator output:\n%s", string(output))
 	}
 
+	if outputIndicatesReportFailure(string(output)) {
+		log.Printf("PDF generation output contained failure markers despite zero exit status")
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "PDF generation failed: report compiler indicated failure")
+		return
+	}
+
 	// Sanitize user-provided values to prevent path traversal attacks
 	safeEndDate := security.SanitizeFilename(req.EndDate)
 	safeLocation := security.SanitizeFilename(location)
@@ -428,4 +436,25 @@ func getPDFGeneratorDir() (string, error) {
 		return "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 	return filepath.Join(repoRoot, "tools", "pdf-generator"), nil
+}
+
+func outputIndicatesReportFailure(output string) bool {
+	if output == "" {
+		return false
+	}
+
+	lowerOutput := strings.ToLower(output)
+	failureMarkers := []string{
+		"failed to complete report for",
+		"error: failed to generate pdf report",
+		"one or more date ranges failed to generate a complete pdf report",
+	}
+
+	for _, marker := range failureMarkers {
+		if strings.Contains(lowerOutput, marker) {
+			return true
+		}
+	}
+
+	return false
 }
