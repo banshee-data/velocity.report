@@ -225,11 +225,11 @@ func downloadToTemp(url string) (string, error) {
 }
 
 func installBinary(src, dst string) error {
-	// Read the new binary.
-	data, err := os.ReadFile(src)
+	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
+	defer srcFile.Close()
 
 	// Write atomically via temp file in the same directory.
 	dir := filepath.Dir(dst)
@@ -239,7 +239,14 @@ func installBinary(src, dst string) error {
 	}
 	tmpName := tmp.Name()
 
-	if _, err := tmp.Write(data); err != nil {
+	if _, err := io.Copy(tmp, srcFile); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+
+	// Ensure data is flushed to disk before rename.
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
 		return err
