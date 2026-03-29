@@ -21,6 +21,7 @@ help:
 	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
 	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
 	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
+	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -272,6 +273,30 @@ endif
 	echo "Ejecting $(DISK)..."; \
 	sudo diskutil eject $(DISK); \
 	echo "Done."
+
+# Remove old images from deploy/, keeping only the latest .img.xz, .sha256,
+# .info, and build logs. Removes all .zip and raw .img files (intermediates)
+# and older builds entirely.
+.PHONY: clean-images
+clean-images:
+	@DEPLOY="image/.pi-gen/deploy"; \
+	if [ ! -d "$$DEPLOY" ]; then \
+		echo "No deploy directory found."; exit 0; \
+	fi; \
+	echo "Before: $$(du -sh "$$DEPLOY" | cut -f1)"; \
+	LATEST=$$(find "$$DEPLOY" -name '*.img.xz' -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "No .img.xz found — nothing to keep."; exit 0; \
+	fi; \
+	BASE=$$(basename "$$LATEST" .img.xz); \
+	echo "Keeping: $$BASE"; \
+	rm -f "$$DEPLOY"/*.zip; \
+	rm -f "$$DEPLOY"/*.img; \
+	for f in "$$DEPLOY"/*.img.xz "$$DEPLOY"/*.img.xz.sha256 "$$DEPLOY"/*.info; do \
+		case "$$f" in *"$$BASE"*) continue ;; esac; \
+		[ -f "$$f" ] && rm -f "$$f" && echo "  removed: $$(basename "$$f")"; \
+	done; \
+	echo "After:  $$(du -sh "$$DEPLOY" | cut -f1)"
 
 .PHONY: build-web
 build-web:
