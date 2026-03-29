@@ -4,8 +4,8 @@
 # full velocity.report stack (radar, LiDAR disabled, PDF generation, web
 # dashboard).
 #
-# Phase 1: ships full texlive-xetex APT packages (~800 MB uncompressed).
-# Phase 2 (v0.6.0) will reduce this via pre-compiled templates.
+# TeX Live: builds minimal vendored tree (~143 MB) and purges APT packages.
+# Pre-compiled .fmt for faster PDF generation planned as future optimisation.
 
 name: Build RPi Image
 
@@ -103,6 +103,16 @@ jobs:
           mkdir -p image/stage-velocity/03-velocity-config/files/config
           cp config/tuning.defaults.json \
             image/stage-velocity/03-velocity-config/files/config/
+
+      - name: Copy TeX Live build files
+        run: |
+          mkdir -p image/stage-velocity/00-install-packages/files
+          cp scripts/build-minimal-texlive.sh \
+            image/stage-velocity/00-install-packages/files/
+          cp tools/pdf-generator/tex/dependency-manifest.txt \
+            image/stage-velocity/00-install-packages/files/
+          cp tools/pdf-generator/tex/velocity-report.ini \
+            image/stage-velocity/00-install-packages/files/
 
       - name: Build image with pi-gen
         uses: usimd/pi-gen-action@v1
