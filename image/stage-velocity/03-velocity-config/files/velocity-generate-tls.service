@@ -1,7 +1,6 @@
 [Unit]
 Description=Generate TLS certificates for velocity.local
 Before=nginx.service
-ConditionPathExists=!/var/lib/velocity-report/tls/server.crt
 
 [Service]
 Type=oneshot
