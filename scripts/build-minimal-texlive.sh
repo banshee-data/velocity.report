@@ -95,6 +95,14 @@ copy_manifest_files() {
   local copied=0
   local missing=0
 
+  # Debian splits texmf-var out of the TeX Live root (typically /var/lib/texmf).
+  # Resolve the actual location so manifest entries starting with texmf-var/
+  # can be found regardless of distribution layout.
+  local sys_texmf_var="${TEXLIVE_ROOT}/texmf-var"
+  if [[ ! -d "${sys_texmf_var}" ]] && command -v kpsewhich >/dev/null 2>&1; then
+    sys_texmf_var="$(kpsewhich -var-value=TEXMFSYSVAR 2>/dev/null || echo "${TEXLIVE_ROOT}/texmf-var")"
+  fi
+
   while IFS= read -r rel_path || [[ -n "${rel_path}" ]]; do
     rel_path="${rel_path#"${rel_path%%[![:space:]]*}"}"
     rel_path="${rel_path%"${rel_path##*[![:space:]]}"}"
@@ -103,6 +111,25 @@ copy_manifest_files() {
 
     local src="${TEXLIVE_ROOT}/${rel_path}"
     local dst="${OUTPUT_DIR}/${rel_path}"
+
+    # Fallback 1: texmf-var entries may live outside TEXLIVE_ROOT on Debian.
+    if [[ ! -e "${src}" && "${rel_path}" == texmf-var/* ]]; then
+      local var_rel="${rel_path#texmf-var/}"
+      local alt="${sys_texmf_var}/${var_rel}"
+      [[ -e "${alt}" ]] && src="${alt}"
+    fi
+
+    # Fallback 2: individual files may be at a different TDS path on some
+    # distributions (e.g. tex/generic/ vs tex/latex/).  Ask kpsewhich.
+    if [[ ! -e "${src}" && ! -d "${src}" ]] && command -v kpsewhich >/dev/null 2>&1; then
+      local basename="${rel_path##*/}"
+      if [[ -n "${basename}" && "${basename}" == *.* ]]; then
+        local found
+        found="$(kpsewhich "${basename}" 2>/dev/null || true)"
+        [[ -n "${found}" && -f "${found}" ]] && src="${found}"
+      fi
+    fi
+
     if [[ -f "${src}" ]]; then
       mkdir -p "$(dirname "${dst}")"
       cp -a "${src}" "${dst}"
@@ -205,8 +232,12 @@ build_format() {
 
   [[ -x "${OUTPUT_DIR}/bin/xelatex" ]] || die "Expected compiler at ${OUTPUT_DIR}/bin/xelatex"
   [[ -f "${INI_FILE}" ]] || die "Format source not found: ${INI_FILE}"
-  local xelatex_ini="${OUTPUT_DIR}/texmf-dist/tex/latex/tex-ini-files/xelatex.ini"
-  [[ -f "${xelatex_ini}" ]] || die "Base XeLaTeX ini file not found: ${xelatex_ini}"
+
+  # xelatex.ini may be under tex/latex/ (macOS/upstream) or tex/generic/ (Debian).
+  local xelatex_ini
+  xelatex_ini="$(find "${OUTPUT_DIR}/texmf-dist" -name xelatex.ini -type f 2>/dev/null | head -1)"
+  [[ -n "${xelatex_ini}" && -f "${xelatex_ini}" ]] \
+    || die "Base XeLaTeX ini file not found under ${OUTPUT_DIR}/texmf-dist"
 
   local fmt_out_dir="${OUTPUT_DIR}/texmf-dist/web2c/xelatex"
   mkdir -p "${fmt_out_dir}"
