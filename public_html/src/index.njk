@@ -10,11 +10,12 @@ title: velocity.report - Measure Speeds, Make Streets Safer
             <h1 class="text-4xl md:text-5xl font-bold text-gray-100 mb-8 leading-tight text-center md:text-left">
                 If speeds don't drop, <br class="hidden md:block">the work can't stop.
             </h1>
-            <p class="text-xl text-gray-300 mb-10 leading-relaxed text-center md:text-left">
+
+            <div class="max-w-[24rem] mx-auto md:mx-0">
+            <p class="text-lg text-gray-300 mb-10 leading-relaxed text-center md:text-left">
                 <strong>velocity.report</strong> is a privacy-first, open-source traffic speed monitor. Measure vehicle speeds, produce professional reports, and make the case for safer streets with evidence rather than anecdote.
             </p>
 
-            <div class="max-w-[24rem] mx-auto md:mx-0">
             <div class="flex gap-4 mb-8">
                 <a href="/guides/setup/" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md flex items-center justify-center">
                     Get Started
@@ -78,7 +79,6 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </div>
                 </div>
             </div>
-            </div>
 
             <div class="space-y-4">
                 <div class="flex items-start text-gray-300">
@@ -94,6 +94,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     <span><strong>Open source:</strong> Audit the code, run it locally, own every byte of your data.</span>
                 </div>
             </div>
+            </div>
         </div>
         <div class="flex-1 w-full max-w-lg">
             <a href="http://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" target="_blank" rel="noopener noreferrer">
@@ -107,8 +108,8 @@ title: velocity.report - Measure Speeds, Make Streets Safer
         <div class="max-w-5xl mx-auto">
             <div class="text-center mb-8">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-100 mb-4">VelocityVisualiser.app</h2>
-                <p class="text-lg text-gray-300 max-w-lg mx-auto leading-relaxed">
-                    A native macOS app for real-time LiDAR point cloud visualisation,
+                <p class="text-lg text-gray-300 max-w-md mx-auto leading-relaxed">
+                    A native macOS app for LiDAR point cloud visualisation,
                     track inspection, and data labelling.
                 </p>
             </div>
@@ -129,16 +130,16 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 </video>
             </div>
 
-            <div class="text-center">
-                <a href="https://github.com/banshee-data/velocity.report/releases/download/v{{ release.version }}/VelocityVisualiser-{{ release.version }}.dmg"
-                   class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-                    Download for macOS
-                </a>
-                <div class="mt-3 mx-auto max-w-md rounded-xl border border-slate-700 bg-slate-950/70 p-4">
-                    <div class="flex items-center justify-center gap-3 text-xs text-gray-400 font-mono">
+            <div class="max-w-[24rem] mx-auto">
+                <div class="mt-3 flex flex-col gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+                    <a href="https://github.com/banshee-data/velocity.report/releases/download/v{{ release.version }}/VelocityVisualiser-{{ release.version }}.dmg"
+                       class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                        Download for macOS
+                    </a>
+                    <div class="flex items-center justify-between gap-3 text-xs text-gray-400 font-mono">
                         <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
-                        <div class="relative w-full max-w-[13rem] rounded overflow-hidden bg-slate-900/90 border border-slate-700">
+                        <div class="relative flex-1 max-w-[13rem] rounded overflow-hidden bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
                             <button
                                 type="button"
@@ -149,9 +150,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                             </button>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-3">
-                        Requires macOS 15 · Apple Silicon
-                    </p>
+                    <p class="text-xs text-gray-400">Requires macOS 15 · Apple Silicon</p>
                 </div>
             </div>
         </div>
@@ -162,7 +161,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
         <div class="max-w-3xl mx-auto text-center">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
             <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
-                <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/ZTJOI5gYZM4?rel=0" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/ZTJOI5gYZM4?rel=0&modestbranding=1" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
             <figure>
                 <blockquote class="text-xl text-gray-300 italic mb-4 font-serif leading-relaxed">
