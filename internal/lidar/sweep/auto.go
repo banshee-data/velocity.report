@@ -628,14 +628,6 @@ func (at *AutoTuner) runFromRound(
 		recommendation["speed_jitter_mps"] = overallBest.SpeedJitterMpsMean
 	}
 
-	now := time.Now()
-	at.mu.Lock()
-	at.state.Status = SweepStatusComplete
-	at.state.CompletedAt = &now
-	at.state.Recommendation = recommendation
-	at.state.Results = allResults
-	at.mu.Unlock()
-
 	at.logger.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
 	// Save optimal params to scene when ground truth mode is enabled
@@ -658,8 +650,19 @@ func (at *AutoTuner) runFromRound(
 		}
 	}
 
-	// Persist completion to database
+	// Persist completion to database before setting observable status.
+	// Observers poll status and expect persistence to be done when they
+	// see SweepStatusComplete; placing the persist call first closes the
+	// race window.
 	at.persistComplete("completed", allResults, recommendation, nil)
+
+	now := time.Now()
+	at.mu.Lock()
+	at.state.Status = SweepStatusComplete
+	at.state.CompletedAt = &now
+	at.state.Recommendation = recommendation
+	at.state.Results = allResults
+	at.mu.Unlock()
 }
 
 // waitForSweepComplete polls the runner until the sweep completes or fails.
