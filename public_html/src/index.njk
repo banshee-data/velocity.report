@@ -74,7 +74,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                                 </button>
                             </div>
                         </div>
-                        <p class="text-xs text-gray-400">Requires macOS 15 (Sequoia) · Apple Silicon</p>
+                        <p class="text-xs text-gray-400">Requires macOS 15 · Apple Silicon</p>
                     </div>
                 </div>
             </div>
@@ -103,10 +103,10 @@ title: velocity.report - Measure Speeds, Make Streets Safer
     </div>
 
     <!-- VelocityVisualiser Section -->
-    <div class="mb-20 rounded-2xl p-6 md:p-12 bg-slate-900/45 border border-slate-800/80 shadow-[0_12px_28px_rgba(2,6,23,0.35)] backdrop-blur-[1px]">
+    <div class="mb-20 rounded-2xl p-6 md:p-12 bg-slate-900 border border-slate-800">
         <div class="max-w-5xl mx-auto">
             <div class="text-center mb-8">
-                <h2 class="text-xl font-bold text-gray-100 mb-4">VelocityVisualiser.app</h2>
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-100 mb-4">VelocityVisualiser.app</h2>
                 <p class="text-lg text-gray-300 max-w-lg mx-auto leading-relaxed">
                     A native macOS app for real-time LiDAR point cloud visualisation,
                     track inspection, and data labelling.
@@ -135,30 +135,32 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
                     Download for macOS
                 </a>
-                <div class="flex items-center justify-center gap-3 text-xs text-gray-400 font-mono mt-3">
-                    <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
-                    <div class="relative w-full max-w-[14rem] rounded overflow-hidden bg-slate-800/80">
-                        <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
-                        <button
-                            type="button"
-                            aria-label="Copy VelocityVisualiser SHA256"
-                            data-sha="sha256:{{ release.visualiser_sha256 }}"
-                            class="copy-sha-btn absolute right-0 inset-y-0 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
-                            copy
-                        </button>
+                <div class="mt-3 mx-auto max-w-md rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+                    <div class="flex items-center justify-center gap-3 text-xs text-gray-400 font-mono">
+                        <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
+                        <div class="relative w-full max-w-[13rem] rounded overflow-hidden bg-slate-900/90 border border-slate-700">
+                            <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
+                            <button
+                                type="button"
+                                aria-label="Copy VelocityVisualiser SHA256"
+                                data-sha="sha256:{{ release.visualiser_sha256 }}"
+                                class="copy-sha-btn absolute right-0 inset-y-0 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
+                                copy
+                            </button>
+                        </div>
                     </div>
+                    <p class="text-xs text-gray-400 mt-3">
+                        Requires macOS 15 · Apple Silicon
+                    </p>
                 </div>
-                <p class="text-sm text-gray-400 mt-3">
-                    Requires macOS 15 (Sequoia) · Apple Silicon
-                </p>
             </div>
         </div>
     </div>
 
     <!-- Video Section -->
-    <div class="mb-20 rounded-2xl p-6 md:p-12 bg-slate-900/45 border border-slate-800/80 shadow-[0_12px_28px_rgba(2,6,23,0.35)] backdrop-blur-[1px]">
+    <div class="mb-20 rounded-2xl p-6 md:p-12 bg-slate-900 border border-slate-800">
         <div class="max-w-3xl mx-auto text-center">
-            <h2 class="text-3xl font-bold text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
             <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
                 <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/ZTJOI5gYZM4?rel=0" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
