@@ -193,13 +193,14 @@ title: velocity.report - Measure Speeds, Make Streets Safer
     }
 
     document.querySelectorAll('.copy-sha-btn').forEach(function(btn) {
+        var origLabel = (btn.textContent || '').trim();
+
         btn.addEventListener('click', function() {
             var text = btn.dataset.sha;
-            var orig = btn.textContent;
 
             function showStatus(msg) {
                 btn.textContent = msg;
-                setTimeout(function() { btn.textContent = orig; }, 1500);
+                setTimeout(function() { btn.textContent = origLabel; }, 1500);
             }
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
