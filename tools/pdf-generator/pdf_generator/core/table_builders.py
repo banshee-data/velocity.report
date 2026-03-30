@@ -289,16 +289,10 @@ class ParameterTableBuilder:
         pass
 
     def _format_wrapped_mono(self, value: str) -> NoEscape:
-        """Add explicit breakpoints for long technical tokens."""
+        """Render values in monospace with safe LaTeX escaping."""
 
         escaped_value = escape_latex(str(value))
-        wrapped = escaped_value
-        wrapped = wrapped.replace(r"\\_", r"\\_\\allowbreak")
-        wrapped = wrapped.replace("/", r"/\\allowbreak")
-        wrapped = wrapped.replace("-", r"-\\allowbreak")
-        wrapped = wrapped.replace(":", r":\\allowbreak")
-        wrapped = wrapped.replace("T", r"T\\allowbreak")
-        return NoEscape(r"\\AtkinsonMono " + wrapped)
+        return NoEscape(r"\AtkinsonMono " + escaped_value)
 
     def build(self, entries: List[Dict[str, str]]) -> Tabular:
         """Build parameter table from key-value pairs.

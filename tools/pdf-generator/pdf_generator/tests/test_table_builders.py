@@ -212,13 +212,13 @@ class TestParameterTableBuilder(unittest.TestCase):
             # Value should be monospace
             self.assertIn("AtkinsonMono", str(row[1]))
 
-    def test_format_wrapped_mono_adds_breakpoints(self):
+    def test_format_wrapped_mono_escapes_value(self):
         rendered = self.builder._format_wrapped_mono(
             "2026-03-27T00:00:00-07:00 America/Los_Angeles"
         )
         rendered_text = str(rendered)
-        self.assertIn("allowbreak", rendered_text)
         self.assertIn("AtkinsonMono", rendered_text)
+        self.assertIn(r"America/Los\_Angeles", rendered_text)
 
 
 class TestComparisonSummaryTableBuilder(unittest.TestCase):

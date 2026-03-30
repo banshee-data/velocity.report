@@ -230,7 +230,10 @@ class TestPDFIntegrationConsolidated(unittest.TestCase):
             )
             self.assertIn("1h", content, "Roll-up period missing")
             self.assertIn("mph", content, "Units missing")
-            self.assertIn("US/Pacific", content, "Timezone missing")
+            # The renderer may insert discretionary TeX breakpoints
+            # (\allowbreak) inside technical tokens.
+            normalised_content = content.replace(r"\allowbreak", "")
+            self.assertIn("US/Pacific", normalised_content, "Timezone missing")
 
     @patch("pdf_generator.core.pdf_generator.MapProcessor")
     @patch("pdf_generator.core.pdf_generator.chart_exists")
