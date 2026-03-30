@@ -42,7 +42,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                         </a>
                         <div class="flex items-center justify-between gap-3 text-xs text-gray-400 font-mono">
                             <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
-                            <div class="relative flex-1 max-w-[13rem] rounded overflow-hidden bg-slate-900/90">
+                            <div class="relative flex-1 max-w-[14rem] rounded overflow-hidden bg-slate-900/90">
                                 <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.linux_arm64_sha256 }}">sha256:{{ release.linux_arm64_sha256 }}</span>
                                 <button
                                     type="button"
@@ -64,13 +64,13 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                         </a>
                         <div class="flex items-center justify-between gap-3 text-xs text-gray-400 font-mono">
                             <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
-                            <div class="relative flex-1 max-w-[13rem] rounded overflow-hidden bg-slate-900/90">
+                            <div class="relative flex-1 max-w-[14rem] rounded overflow-hidden bg-slate-900/90">
                                 <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.mac_arm64_sha256 }}">sha256:{{ release.mac_arm64_sha256 }}</span>
                                 <button
                                     type="button"
                                     aria-label="Copy macOS ARM64 SHA256"
                                     data-sha="sha256:{{ release.mac_arm64_sha256 }}"
-                                    class="copy-sha-btn absolute right-0 inset-y-0 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
+                                    class="copy-sha-btn absolute right-0 inset-y-0 w-16 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
                                     copy
                                 </button>
                             </div>
@@ -139,13 +139,13 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </a>
                     <div class="flex items-center justify-between gap-3 text-xs text-gray-400 font-mono">
                         <span class="font-semibold text-gray-300 shrink-0">v{{ release.version }}</span>
-                        <div class="relative flex-1 max-w-[13rem] rounded overflow-hidden bg-slate-900/90">
+                        <div class="relative flex-1 max-w-[15rem] rounded overflow-hidden bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
                             <button
                                 type="button"
                                 aria-label="Copy VelocityVisualiser SHA256"
                                 data-sha="sha256:{{ release.visualiser_sha256 }}"
-                                class="copy-sha-btn absolute right-0 inset-y-0 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
+                                class="copy-sha-btn absolute right-0 inset-y-0 w-16 px-2 text-[11px] font-medium text-gray-300 bg-slate-700 hover:bg-slate-600 transition-colors">
                                 copy
                             </button>
                         </div>
@@ -205,12 +205,12 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function() {
-                    showStatus('✓ copied');
+                    showStatus('copied');
                 }).catch(function() {
-                    showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
+                    showStatus(fallbackCopy(text) ? 'copied' : 'copy failed');
                 });
             } else {
-                showStatus(fallbackCopy(text) ? '✓ copied' : 'copy failed');
+                showStatus(fallbackCopy(text) ? 'copied' : 'copy failed');
             }
         });
     });
