@@ -21,7 +21,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stderr, "velocity-deploy is deprecated and will be removed no earlier than v0.7.0.")
+	fmt.Fprintln(os.Stderr, "velocity-deploy is deprecated and will be removed in v0.5.1.")
 	fmt.Fprintln(os.Stderr, "The image pipeline (#210) replaces it. See:")
 	fmt.Fprintln(os.Stderr, "  https://github.com/banshee-data/velocity.report/blob/main/docs/plans/platform-simplification-and-deprecation-plan.md")
 	fmt.Fprintf(os.Stderr, "Running velocity-deploy %s (SHA %s) in the meantime.\n", appver.Version, appver.GitSHA)

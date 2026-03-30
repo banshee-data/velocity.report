@@ -5,7 +5,7 @@
 > [platform simplification and deprecation plan](../../docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate):
 > (1) Raspberry Pi image pipeline ([#210](../../docs/BACKLOG.md)) operational,
 > (2) packaging confirmed, (3) migration period elapsed, (4) no active
-> deploy-tool users — not before v0.7.0. No new features will be added; only
+> deploy-tool users — removal planned for v0.5.1. No new features will be added; only
 > critical fixes are accepted. See the
 > [migration guidance](../../docs/plans/platform-simplification-and-deprecation-plan.md#migration-guidance-deploy-tool--image-pipeline)
 > for the replacement workflow.

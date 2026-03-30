@@ -399,7 +399,7 @@ describe('api', () => {
 			});
 
 			await expect(listSiteConfigPeriods(42)).rejects.toThrow(
-				'Failed to fetch site config periods: 418'
+				'Could not load site configuration periods: 418'
 			);
 		});
 
@@ -491,7 +491,7 @@ describe('api', () => {
 			});
 
 			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
-				'Failed to save site config period: 409'
+				'Could not save site configuration period: 409'
 			);
 		});
 
@@ -604,7 +604,7 @@ describe('api', () => {
 					timezone: 'UTC',
 					units: 'mph'
 				})
-			).rejects.toThrow('Failed to generate report: 502');
+			).rejects.toThrow('Could not generate report: 502');
 		});
 
 		it('should include min_speed parameter when provided', async () => {
@@ -2452,9 +2452,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { deleteAllRuns } = await import('./api');
-				await expect(deleteAllRuns('test-sensor')).rejects.toThrow(
-					'Could not delete runs: 500'
-				);
+				await expect(deleteAllRuns('test-sensor')).rejects.toThrow('Could not delete runs: 500');
 			});
 		});
 
@@ -2650,7 +2648,7 @@ describe('api', () => {
 			it('should handle HINT state errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 });
 				const { getHINTState } = await import('./api');
-				await expect(getHINTState()).rejects.toThrow('Failed to get HINT state: 503');
+				await expect(getHINTState()).rejects.toThrow('Could not load HINT state: 503');
 			});
 
 			it('should start HINT sweep', async () => {
@@ -2731,7 +2729,7 @@ describe('api', () => {
 			it('should handle HINT stop errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 502 });
 				const { stopHINT } = await import('./api');
-				await expect(stopHINT()).rejects.toThrow('Failed to stop HINT: 502');
+				await expect(stopHINT()).rejects.toThrow('Could not stop HINT: 502');
 			});
 		});
 	});

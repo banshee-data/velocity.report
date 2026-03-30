@@ -196,7 +196,7 @@ Removal of `cmd/deploy`, its associated Make targets, and legacy deployment docu
 
 1. **#210 image pipeline operational:** A working `make build-image` (or equivalent) target produces a bootable Raspberry Pi image with `velocity-report` binary, systemd service, database, and LaTeX pre-installed. The image must boot on a Raspberry Pi 4 and pass an integration check: service starts, API responds on `:8080`, and database is accessible.
 2. **Packaging path confirmed:** At least one successful end-to-end deployment has been performed using the image pipeline (flash → boot → service running → API responding).
-3. **Migration period elapsed:** At least one minor release (e.g. v0.7.0) has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate.
+3. **Migration period elapsed:** v0.5.0 has shipped with both the image pipeline and the deprecated deploy tool available, giving users time to migrate. Removal is planned for v0.5.1.
 4. **No active deploy-tool users:** No known deployments rely exclusively on `cmd/deploy` for upgrades (confirmed via release notes or user communication).
 
 Once all four conditions are met, the following will be removed:
@@ -225,7 +225,7 @@ sub-plan:
 
 ### 2. Deployment surface deprecated
 
-- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.7.0 or later, once the retirement gate is satisfied.
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets now print deprecation warnings. No functionality is removed in v0.5.0 but users should plan for removal in v0.5.1.
 - **Impact:** Operators who rely on `make deploy-install` or `velocity-deploy` will see deprecation warnings on stderr. Scripts that parse stderr, or that treat any output as machine-readable, may need to be updated to ignore or handle these warning lines.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.
 
@@ -315,5 +315,5 @@ Intersections with other projects:
 - No privacy model changes are proposed: local-only storage and no PII remain unchanged.
 - Removal milestones are dependency-gated to avoid breaking existing deployments.
 - Phase 1 (Project A signalling + Project B gate definition) completed in v0.5.0.
-- Actual removal of deprecated deployment surfaces is deferred to v0.7.0 after the retirement gate is satisfied.
+- Actual removal of deprecated deployment surfaces is planned for v0.5.1.
 - v0.5.0 also ships data model and API compat-shim removals (Project E). These are breaking changes coordinated as a single batch to avoid prolonged dual-format maintenance.

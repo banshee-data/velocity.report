@@ -64,9 +64,7 @@
 	}
 
 	async function handleDeleteTrack(runId: string, trackId: string) {
-		if (
-			!confirm(`Delete track ${trackId}? Cannot be undone.`)
-		) {
+		if (!confirm(`Delete track ${trackId}? Cannot be undone.`)) {
 			return;
 		}
 

@@ -94,7 +94,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 ## Deployment Targets (Deprecated)
 
-> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate) — not before v0.7.0.
+> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate) — planned for v0.5.1.
 
 - `setup-radar` — Install server on this host (requires sudo, **deprecated**)
 - `deploy-install` — Install using velocity-deploy (**deprecated**)

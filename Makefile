@@ -120,7 +120,7 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
-	@echo "DEPLOYMENT (deprecated — removal gated on #210 image pipeline + packaging + migration period; not before v0.7.0):"
+	@echo "DEPLOYMENT (deprecated — removal planned for v0.5.1; see #210 image pipeline):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
 	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
 	@echo "  deploy-upgrade       Upgrade using velocity-deploy (deprecated)"
@@ -1338,8 +1338,7 @@ clean-python:
 
 # Legacy installation script (deprecated — will be removed after #210 image pipeline)
 setup-radar:
-	@echo "⚠️  DEPRECATED: setup-radar — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
-	@echo "   See docs/plans/platform-simplification-and-deprecation-plan.md for migration guidance." >&2
+	@echo "⚠️  DEPRECATED: setup-radar — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
 	@echo "" >&2
 	@if [ ! -f "velocity-report-linux-arm64" ]; then \
 		echo "Error: velocity-report-linux-arm64 not found!"; \
@@ -1356,7 +1355,7 @@ setup-radar:
 
 # Modern deployment using velocity-deploy (deprecated — will be removed after #210 image pipeline)
 deploy-install:
-	@echo "⚠️  DEPRECATED: deploy-install — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "⚠️  DEPRECATED: deploy-install — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
 	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
@@ -1371,7 +1370,7 @@ deploy-install:
 	./velocity-deploy install --binary ./velocity-report-linux-arm64
 
 deploy-upgrade:
-	@echo "⚠️  DEPRECATED: deploy-upgrade — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "⚠️  DEPRECATED: deploy-upgrade — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
 	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
@@ -1386,7 +1385,7 @@ deploy-upgrade:
 	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
 
 deploy-status:
-	@echo "⚠️  DEPRECATED: deploy-status — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "⚠️  DEPRECATED: deploy-status — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
 	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
@@ -1395,7 +1394,7 @@ deploy-status:
 	./velocity-deploy status
 
 deploy-health:
-	@echo "⚠️  DEPRECATED: deploy-health — removal gated on #210 image pipeline + retirement conditions; not before v0.7.0." >&2
+	@echo "⚠️  DEPRECATED: deploy-health — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
 	@echo "" >&2
 	@if [ ! -f "velocity-deploy" ]; then \
 		echo "Building velocity-deploy..."; \
