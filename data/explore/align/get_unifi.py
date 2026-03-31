@@ -54,7 +54,7 @@ async def load_config(
         )
         raise
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode JSON from config file: {e}")
+        logger.error(f"Could not parse config file as JSON: {e}. Check for syntax errors.")
         raise
 
 
@@ -134,7 +134,7 @@ class UIProtectLogger:
             )
 
         except Exception as e:
-            logger.error(f"Failed to log notification: {e}")
+            logger.error(f"Could not log notification to database: {e}")
             logger.debug(f"Event details: {vars(event)}")
 
     async def connect_to_controller(self):
@@ -163,7 +163,7 @@ class UIProtectLogger:
                 logger.warning("No bootstrap data available")
 
         except Exception as e:
-            logger.error(f"Failed to connect to controller: {e}")
+            logger.error(f"Could not connect to the UIProtect controller: {e}. Check the IP address and credentials in config_unifi.json.")
             raise
 
     async def monitor_events(self):
@@ -219,7 +219,7 @@ class UIProtectLogger:
         try:
             if not self.client:
                 logger.error(
-                    "Client not connected. Call connect_to_controller() first."
+                    "Client is not connected. Call connect_to_controller() first."
                 )
                 return
 
@@ -241,7 +241,7 @@ class UIProtectLogger:
                     self.log_notification(event)
 
         except Exception as e:
-            logger.error(f"Failed to get events: {e}")
+            logger.error(f"Could not retrieve events from the controller: {e}")
 
     def get_date_range(self) -> tuple[datetime, datetime]:
         """Get date range for fetching events. Start from 2025-04-01 or latest DB entry, end at now."""
@@ -264,7 +264,7 @@ class UIProtectLogger:
                 start_date = default_start
 
         except Exception as e:
-            logger.warning(f"Failed to get latest timestamp from database: {e}")
+            logger.warning(f"Could not read latest timestamp from database: {e}. Using default start date.")
             start_date = default_start
 
         # Ensure start_date is not after end_date
@@ -294,7 +294,7 @@ class UIProtectLogger:
                 current_start = current_end
 
         except Exception as e:
-            logger.error(f"Application error: {e}")
+            logger.error(f"Application could not continue: {e}")
         finally:
             if self.client:
                 # Proper cleanup - the client doesn't have a close method
@@ -318,7 +318,7 @@ async def main():
             db_connection.close()
 
     except Exception as e:
-        logger.error(f"Failed to start application: {e}")
+        logger.error(f"Could not start the application: {e}. Check config_unifi.json and database access.")
 
 
 if __name__ == "__main__":
