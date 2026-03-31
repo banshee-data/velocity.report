@@ -59,6 +59,7 @@ struct APIErrorTests {
         switch error {
         case .requestFailed(let resp): #expect((resp as? HTTPURLResponse)?.statusCode == 500)
         case .decodingFailed: Issue.record("Expected requestFailed error")
+        case .invalidConfiguration: Issue.record("Expected requestFailed error")
         }
     }
 
@@ -71,6 +72,7 @@ struct APIErrorTests {
         case .decodingFailed:
             // Success - correct error type
             break
+        case .invalidConfiguration: Issue.record("Expected decodingFailed error")
         }
     }
 }
