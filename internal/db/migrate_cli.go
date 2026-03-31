@@ -19,14 +19,14 @@ func RunMigrateCommand(args []string, dbPath string) {
 	// Get migrations filesystem (uses embedded FS in production, local files in dev)
 	migrationsFS, err := getMigrationsFS()
 	if err != nil {
-		log.Fatalf("Cannot load migrations: %v", err)
+		log.Fatalf("Cannot load migrations: %v — check the binary was built correctly with embedded migrations", err)
 	}
 
 	// Open database connection without running schema initialisation
 	// (migrations will manage the schema)
 	database, err := OpenDB(dbPath)
 	if err != nil {
-		log.Fatalf("Cannot open database at %s: %v", dbPath, err)
+		log.Fatalf("Cannot open database at %s: %v — check path exists and directory is writable", dbPath, err)
 	}
 	defer database.Close()
 
@@ -75,7 +75,7 @@ func RunMigrateCommand(args []string, dbPath string) {
 func handleMigrateUp(database *DB, migrationsFS fs.FS) {
 	log.Printf("Applying pending migrations...")
 	if err := database.MigrateUp(migrationsFS); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+		log.Fatalf("Migration failed: %v\nTry: run 'velocity-report migrate status' to inspect the current state.", err)
 	}
 	log.Println("✓ Migrations applied — schema is current")
 
@@ -88,7 +88,7 @@ func handleMigrateUp(database *DB, migrationsFS fs.FS) {
 func handleMigrateDown(database *DB, migrationsFS fs.FS) {
 	log.Printf("Rolling back one migration...")
 	if err := database.MigrateDown(migrationsFS); err != nil {
-		log.Fatalf("Rollback failed: %v", err)
+		log.Fatalf("Rollback failed: %v\nTry: run 'velocity-report migrate status' to check if the database is in a dirty state.", err)
 	}
 	log.Println("✓ Rolled back one migration")
 
@@ -101,12 +101,12 @@ func handleMigrateDown(database *DB, migrationsFS fs.FS) {
 func handleMigrateStatus(database *DB, migrationsFS fs.FS) {
 	version, dirty, err := database.MigrateVersion(migrationsFS)
 	if err != nil {
-		log.Fatalf("Cannot read migration status: %v", err)
+		log.Fatalf("Cannot read migration status: %v — check the database is accessible and not locked by another process", err)
 	}
 
 	status, err := database.GetMigrationStatus(migrationsFS)
 	if err != nil {
-		log.Fatalf("Cannot read migration status: %v", err)
+		log.Fatalf("Cannot read migration status: %v — check the database is accessible and not locked by another process", err)
 	}
 
 	fmt.Println("=== Migration Status ===")
@@ -127,12 +127,12 @@ func handleMigrateStatus(database *DB, migrationsFS fs.FS) {
 func handleMigrateVersion(database *DB, migrationsFS fs.FS, versionStr string) {
 	var targetVersion uint
 	if _, err := fmt.Sscanf(versionStr, "%d", &targetVersion); err != nil {
-		log.Fatalf("Not a valid version number: %s", versionStr)
+		log.Fatalf("Not a valid version number: %s — provide a numeric version, e.g. 'velocity-report migrate version 6'", versionStr)
 	}
 
 	log.Printf("Migrating to version %d...", targetVersion)
 	if err := database.MigrateTo(migrationsFS, targetVersion); err != nil {
-		log.Fatalf("Migration to version %d failed: %v", targetVersion, err)
+		log.Fatalf("Migration to version %d failed: %v\nTry: run 'velocity-report migrate status' to check current state.", targetVersion, err)
 	}
 	log.Printf("✓ Now at version %d", targetVersion)
 }
@@ -156,7 +156,7 @@ func handleMigrateForce(database *DB, migrationsFS fs.FS, versionStr string) {
 	}
 
 	if err := database.MigrateForce(migrationsFS, forceVersion); err != nil {
-		log.Fatalf("Force failed: %v", err)
+		log.Fatalf("Force failed: %v — check the database is writable and the version number is valid", err)
 	}
 	log.Printf("✓ Version forced to %d", forceVersion)
 }
@@ -170,7 +170,7 @@ func handleMigrateBaseline(database *DB, versionStr string) {
 
 	log.Printf("Setting baseline to version %d...", baselineVersion)
 	if err := database.BaselineAtVersion(baselineVersion); err != nil {
-		log.Fatalf("Baseline failed: %v", err)
+		log.Fatalf("Baseline failed: %v — try 'velocity-report migrate detect' to find the correct version", err)
 	}
 	log.Printf("✓ Baselined at version %d", baselineVersion)
 }
@@ -189,7 +189,7 @@ func handleMigrateDetect(database *DB, migrationsFS fs.FS) {
 	`).Scan(&schemaMigrationsExists)
 
 	if err != nil {
-		log.Fatalf("Cannot check schema_migrations table: %v", err)
+		log.Fatalf("Cannot check schema_migrations table: %v — the database may be corrupted or locked", err)
 	}
 
 	if schemaMigrationsExists {
@@ -224,7 +224,7 @@ func handleMigrateDetect(database *DB, migrationsFS fs.FS) {
 
 		detectedVersion, matchScore, differences, err := database.DetectSchemaVersion(migrationsFS)
 		if err != nil {
-			log.Fatalf("Schema detection failed: %v", err)
+			log.Fatalf("Schema detection failed: %v — check the database file is readable", err)
 		}
 
 		latestVersion, err := GetLatestMigrationVersion(migrationsFS)

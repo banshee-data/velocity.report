@@ -108,14 +108,14 @@ func (s *SerialMux[T]) Initialise() error {
 	// sync the clock to the current UNIX time
 	command := fmt.Sprintf("C=%d", time.Now().Unix())
 	if err := s.SendCommand(command); err != nil {
-		return fmt.Errorf("failed to synchronize clock: %w", err)
+		return fmt.Errorf("failed to synchronize clock: %w — check device is connected and responding on the serial port", err)
 	}
 
 	// set the TZ name and offset based on current local to format timestamps
 	tzName, tsOffsetSeconds := time.Now().Local().Zone()
 	command = fmt.Sprintf("CZ%s%d", tzName, tsOffsetSeconds/60/60)
 	if err := s.SendCommand(command); err != nil {
-		return fmt.Errorf("failed to set timezone: %w", err)
+		return fmt.Errorf("failed to set timezone: %w — check device is accepting commands", err)
 	}
 
 	for _, command := range []string{
@@ -129,7 +129,7 @@ func (s *SerialMux[T]) Initialise() error {
 		"OC", // enable object detection
 	} {
 		if err := s.SendCommand(command); err != nil {
-			return fmt.Errorf("failed to send start command %q: %w", command, err)
+			return fmt.Errorf("failed to send start command %q: %w — check device is responding and is the correct model (OPS243)", command, err)
 		}
 	}
 
@@ -252,16 +252,16 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to write command to the serial port
 	debug.HandleSilentFunc("send-command-api", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		command := strings.TrimSpace(r.FormValue("command"))
 		if command == "" {
-			http.Error(w, "no command provided", http.StatusBadRequest)
+			http.Error(w, "Missing command — provide a 'command' form field", http.StatusBadRequest)
 			return
 		}
 		if err := s.SendCommand(command); err != nil {
-			http.Error(w, "could not write command to serial port", http.StatusInternalServerError)
+			http.Error(w, "Could not write command to serial port — check device is connected and port permissions allow access", http.StatusInternalServerError)
 			return
 		}
 		io.WriteString(w, fmt.Sprintf("Wrote command %q to serial port", command))
@@ -269,7 +269,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to issue Server-Side Events (SSE) in response to lines coming from the serial port.
 	debug.HandleSilentFunc("tail", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 

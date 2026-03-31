@@ -419,7 +419,7 @@
 			// Fetch report metadata to get filenames
 			reportMetadata = await getReport(response.report_id);
 
-			reportMessage = `Report generated successfully! Use the links below to download.`;
+			reportMessage = `Report generated. Use the links below to download.`;
 		} catch (e) {
 			reportMessage = e instanceof Error ? e.message : 'Could not generate the report.';
 		} finally {

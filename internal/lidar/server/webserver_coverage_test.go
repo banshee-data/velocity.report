@@ -5565,7 +5565,7 @@ func TestCov6_HandleBackgroundRegions_NilRegionInfo(t *testing.T) {
 	ws.handleBackgroundRegions(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "failed to get region debug info")
+	assert.Contains(t, rr.Body.String(), "could not get region debug info")
 }
 
 // ---------- 14. handleLidarPersist method not allowed ----------

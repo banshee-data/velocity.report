@@ -101,7 +101,7 @@ const (
 func resolvePrecompiledTeXRoot(rawRoot string) (string, error) {
 	texRoot := strings.TrimSpace(rawRoot)
 	if texRoot == "" {
-		return "", fmt.Errorf("empty TeX root")
+		return "", fmt.Errorf("empty TeX root — set --pdf-tex-root or VELOCITY_TEX_ROOT")
 	}
 
 	absRoot, err := filepath.Abs(texRoot)
@@ -111,7 +111,7 @@ func resolvePrecompiledTeXRoot(rawRoot string) (string, error) {
 
 	rootInfo, err := os.Stat(absRoot)
 	if err != nil {
-		return "", fmt.Errorf("stat TeX root %q: %w", absRoot, err)
+		return "", fmt.Errorf("stat TeX root %q: %w — check path exists and is readable", absRoot, err)
 	}
 	if !rootInfo.IsDir() {
 		return "", fmt.Errorf("TeX root %q is not a directory", absRoot)
@@ -120,13 +120,13 @@ func resolvePrecompiledTeXRoot(rawRoot string) (string, error) {
 	compilerPath := filepath.Join(absRoot, "bin", "xelatex")
 	compilerInfo, err := os.Stat(compilerPath)
 	if err != nil {
-		return "", fmt.Errorf("missing compiler at %q: %w", compilerPath, err)
+		return "", fmt.Errorf("missing compiler at %q: %w — try installing texlive-xetex", compilerPath, err)
 	}
 	if compilerInfo.IsDir() {
 		return "", fmt.Errorf("compiler path %q is a directory", compilerPath)
 	}
 	if compilerInfo.Mode()&0o111 == 0 {
-		return "", fmt.Errorf("compiler not executable at %q", compilerPath)
+		return "", fmt.Errorf("compiler not executable at %q — try chmod +x", compilerPath)
 	}
 
 	return absRoot, nil
@@ -212,11 +212,11 @@ func main() {
 	var debugLogFile *os.File
 	if p := os.Getenv("VELOCITY_DEBUG_LOG"); p != "" {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			log.Fatalf("create directory for %s: %v", p, err)
+			log.Fatalf("create directory for %s: %v — check parent path exists and permissions allow writing", p, err)
 		}
 		f, err := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
-			log.Fatalf("open debug log %s: %v", p, err)
+			log.Fatalf("open debug log %s: %v — check directory exists and file permissions", p, err)
 		}
 		debugLogFile = f
 	}
@@ -297,7 +297,7 @@ func main() {
 			runTransitsCommand(flag.Args()[1:])
 			return
 		}
-		log.Fatalf("Unknown subcommand: %s", subcommand)
+		log.Fatalf("Unknown subcommand: %s — try 'velocity-report --help' for available commands", subcommand)
 	}
 
 	if err := configurePDFLaTeXFlow(*pdfLatexFlow, *pdfTexRoot); err != nil {
@@ -305,10 +305,10 @@ func main() {
 	}
 
 	if *listen == "" {
-		log.Fatal("Listen address is required")
+		log.Fatal("Listen address is required — use --listen, e.g. --listen 0.0.0.0:8080")
 	}
 	if *port == "" {
-		log.Fatal("Serial port is required")
+		log.Fatal("Serial port is required — use --port, e.g. --port /dev/ttySC1")
 	}
 	if !units.IsValid(*unitsFlag) {
 		log.Printf("Error: Invalid units '%s'. Valid options are: %s", *unitsFlag, units.GetValidUnitsString())
@@ -324,7 +324,7 @@ func main() {
 	// don't require a valid tuning config.
 	tuningCfg, err := config.LoadTuningConfig(*configFile)
 	if err != nil {
-		log.Fatalf("Failed to load tuning config from %s: %v", *configFile, err)
+		log.Fatalf("Failed to load tuning config from %s: %v — check file exists and TOML syntax is valid", *configFile, err)
 	}
 	log.Printf("Loaded tuning configuration from %s", *configFile)
 	ensureSupportedTuning(tuningCfg, log.Fatalf)
@@ -363,13 +363,13 @@ func main() {
 		var err error
 		radarSerial, err = serialmux.NewRealSerialMux(*port)
 		if err != nil {
-			log.Fatalf("failed to create radar port: %v", err)
+			log.Fatalf("failed to create radar port: %v — check device is connected and port path is correct (default /dev/ttySC1)", err)
 		}
 	}
 	defer radarSerial.Close()
 
 	if err := radarSerial.Initialise(); err != nil {
-		log.Fatalf("failed to initialise device: %v", err)
+		log.Fatalf("failed to initialise device: %v — check device is powered on and responding", err)
 	} else {
 		log.Printf("initialised device %s", radarSerial)
 	}
@@ -381,7 +381,7 @@ func main() {
 	// avoid relying on environment variables for configuration unless needed.
 	database, err := db.NewDB(*dbPathFlag)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database: %v — check file path is correct and directory is writable", err)
 	}
 	defer database.Close()
 
@@ -455,7 +455,7 @@ func main() {
 		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
 			fg, err := network.NewForegroundForwarder(*lidarFGFwdAddr, lidarFGForwardPortCfg, nil)
 			if err != nil {
-				log.Printf("failed to create foreground forwarder: %v", err)
+				log.Printf("failed to create foreground forwarder: %v — check address and port are not already in use", err)
 			} else {
 				foregroundForwarder = fg
 				foregroundForwarder.Start(ctx)
