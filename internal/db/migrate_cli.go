@@ -141,7 +141,7 @@ func handleMigrateVersion(database *DB, migrationsFS fs.FS, versionStr string) {
 func handleMigrateForce(database *DB, migrationsFS fs.FS, versionStr string) {
 	var forceVersion int
 	if _, err := fmt.Sscanf(versionStr, "%d", &forceVersion); err != nil {
-		log.Fatalf("Not a valid version number: %s", versionStr)
+		log.Fatalf("Not a valid version number: %s — e.g. 'velocity-report migrate force 5'", versionStr)
 	}
 
 	fmt.Printf("⚠️  This will force the migration version to %d.\n", forceVersion)
@@ -165,7 +165,7 @@ func handleMigrateForce(database *DB, migrationsFS fs.FS, versionStr string) {
 func handleMigrateBaseline(database *DB, versionStr string) {
 	var baselineVersion uint
 	if _, err := fmt.Sscanf(versionStr, "%d", &baselineVersion); err != nil {
-		log.Fatalf("Not a valid version number: %s", versionStr)
+		log.Fatalf("Not a valid version number: %s — e.g. 'velocity-report migrate baseline 4'", versionStr)
 	}
 
 	log.Printf("Setting baseline to version %d...", baselineVersion)
@@ -196,12 +196,12 @@ func handleMigrateDetect(database *DB, migrationsFS fs.FS) {
 		// Database has schema_migrations - show current version
 		version, dirty, err := database.MigrateVersion(migrationsFS)
 		if err != nil {
-			log.Fatalf("Cannot read migration version: %v", err)
+			log.Fatalf("Unable to read migration version: %v — check that the database file is accessible and not locked", err)
 		}
 
 		latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 		if err != nil {
-			log.Fatalf("Cannot determine latest migration version: %v", err)
+			log.Fatalf("Unable to determine latest migration version: %v — check that the binary includes embedded migration files", err)
 		}
 
 		fmt.Println("=== Schema Migration Status ===")
@@ -229,7 +229,7 @@ func handleMigrateDetect(database *DB, migrationsFS fs.FS) {
 
 		latestVersion, err := GetLatestMigrationVersion(migrationsFS)
 		if err != nil {
-			log.Fatalf("Cannot determine latest migration version: %v", err)
+			log.Fatalf("Unable to determine latest migration version: %v — check that the binary includes embedded migration files", err)
 		}
 
 		fmt.Println("=== Schema Detection Results ===")
