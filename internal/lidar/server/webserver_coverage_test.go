@@ -5360,7 +5360,7 @@ func TestCov6_HandleBackgroundGridHeatmapChart_NoManager(t *testing.T) {
 	ws.handleBackgroundGridHeatmapChart(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "no background manager for sensor")
+	assert.Contains(t, rr.Body.String(), "no background data available")
 }
 
 // ---------- 6b. handleBackgroundGridHeatmapChart azimuth_bucket_deg + settled_threshold params ----------
@@ -5634,7 +5634,7 @@ func TestCov6_HandleLidarPersist_CallbackError(t *testing.T) {
 	ws.handleLidarPersist(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "persist error")
+	assert.Contains(t, rr.Body.String(), "could not persist snapshot")
 }
 
 // ---------- 18. handleAcceptanceMetrics with populated acceptance data (lines 2842-2844, 1 stmt) ----------

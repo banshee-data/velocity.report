@@ -82,8 +82,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			formData:       nil,
 			expectedStatus: http.StatusMethodNotAllowed,
 			checkBody: func(t *testing.T, body string) {
-				if !strings.Contains(body, "Method not allowed") {
-					t.Errorf("Expected 'Method not allowed' error, got: %s", body)
+				if !strings.Contains(body, "this endpoint only accepts POST requests") {
+					t.Errorf("Expected 'this endpoint only accepts POST requests' error, got: %s", body)
 				}
 			},
 		},

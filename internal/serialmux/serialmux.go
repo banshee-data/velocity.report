@@ -21,7 +21,7 @@ import (
 	"tailscale.com/tsweb"
 )
 
-var ErrWriteFailed = fmt.Errorf("failed to write to serial port")
+var ErrWriteFailed = fmt.Errorf("could not write to serial port")
 
 //go:embed templates/*
 var adminTemplateFS embed.FS
@@ -244,7 +244,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	debug.HandleFunc("send-command", "send a command to the serial port", func(w http.ResponseWriter, r *http.Request) {
 		buf := bytes.NewBuffer(nil)
 		if err := sendCommandTemplate.Execute(buf, nil); err != nil {
-			http.Error(w, "could not render template", http.StatusInternalServerError)
+			http.Error(w, "could not render the command page — check template files are embedded correctly", http.StatusInternalServerError)
 			return
 		}
 		io.Copy(w, buf)
@@ -253,7 +253,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to write command to the serial port
 	debug.HandleSilentFunc("send-command-api", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "this endpoint only accepts POST requests", http.StatusMethodNotAllowed)
 			return
 		}
 		command := strings.TrimSpace(r.FormValue("command"))
@@ -270,7 +270,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	// API endpoint to issue Server-Side Events (SSE) in response to lines coming from the serial port.
 	debug.HandleSilentFunc("tail", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "this endpoint only accepts GET requests", http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -312,7 +312,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		// serve tail.js from adminTemplateFS
 		f, err := adminTemplateFS.Open("templates/tail.js")
 		if err != nil {
-			http.Error(w, "could not open tail.js", http.StatusInternalServerError)
+			http.Error(w, "could not open tail.js — check embedded assets are built correctly", http.StatusInternalServerError)
 			return
 		}
 		defer f.Close()

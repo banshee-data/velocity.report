@@ -307,7 +307,7 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "failed to start PCAP replay") {
+	if !strings.Contains(w.Body.String(), "could not start PCAP replay") {
 		t.Errorf("expected replay start failure in body, got: %s", w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "start analysis run") {

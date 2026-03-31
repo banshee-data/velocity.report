@@ -261,7 +261,7 @@ func (ws *Server) startLiveListenerLocked() error {
 	}
 	baseCtx := ws.baseContext()
 	if baseCtx == nil {
-		return errors.New("webserver base context not initialized")
+		return errors.New("web server base context is not initialised — check server startup sequence")
 	}
 
 	ws.udpListener = network.NewUDPListener(ws.udpListenerConfig)
@@ -333,10 +333,10 @@ func (ws *Server) stopLiveListenerLocked() {
 
 func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
 	if candidate == "" {
-		return "", &switchError{status: http.StatusBadRequest, err: errors.New("missing 'pcap_file' parameter")}
+		return "", &switchError{status: http.StatusBadRequest, err: errors.New("the pcap_file parameter is required")}
 	}
 	if ws.pcapSafeDir == "" {
-		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory not configured")}
+		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory is not configured — check server startup configuration")}
 	}
 
 	safeDirAbs, err := absPath(ws.pcapSafeDir)
@@ -490,7 +490,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	ws.pcapMu.Lock()
 	if ws.pcapInProgress {
 		ws.pcapMu.Unlock()
-		return &switchError{status: http.StatusConflict, err: errors.New("pcap replay already in progress")}
+		return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress — stop it first via POST /pcap/stop")}
 	}
 	ws.pcapInProgress = true
 	ws.pcapAnalysisMode = replayCfg.AnalysisMode

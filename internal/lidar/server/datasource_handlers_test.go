@@ -709,7 +709,7 @@ func TestStartLiveListenerLocked_NilBaseContext(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for nil base context")
 	}
-	if err.Error() != "webserver base context not initialized" {
+	if err.Error() != "web server base context is not initialised — check server startup sequence" {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
