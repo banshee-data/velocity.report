@@ -96,7 +96,7 @@
 				map_svg_data: site.map_svg_data || null
 			};
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load site';
+			error = e instanceof Error ? e.message : 'Could not load site details.';
 		} finally {
 			loading = false;
 		}
@@ -111,7 +111,7 @@
 			const timeline = await getTimeline(siteNumericId);
 			unconfiguredPeriods = timeline.unconfigured_periods ?? [];
 		} catch (e) {
-			periodsError = e instanceof Error ? e.message : 'Failed to load site configuration periods';
+			periodsError = e instanceof Error ? e.message : 'Could not load site configuration periods.';
 		}
 	}
 
@@ -206,7 +206,7 @@
 			resetPeriodForm();
 			await loadConfigPeriods();
 		} catch (e) {
-			periodsError = e instanceof Error ? e.message : 'Failed to save site configuration period';
+			periodsError = e instanceof Error ? e.message : 'Could not save the configuration period.';
 		} finally {
 			savingPeriod = false;
 		}
@@ -265,7 +265,7 @@
 
 			goto(resolve('/site'));
 		} catch (e) {
-			saveError = e instanceof Error ? e.message : 'Failed to save site';
+			saveError = e instanceof Error ? e.message : 'Could not save site changes.';
 		}
 	}
 

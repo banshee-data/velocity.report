@@ -97,7 +97,7 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getEvents()).rejects.toThrow('Failed to fetch events: 500');
+			await expect(getEvents()).rejects.toThrow('Could not load events: 500');
 		});
 	});
 
@@ -245,7 +245,7 @@ describe('api', () => {
 			});
 
 			await expect(getRadarStats(1704067200, 1704153600)).rejects.toThrow(
-				'Failed to fetch radar stats: 503'
+				'Could not load radar stats: 503'
 			);
 		});
 	});
@@ -274,7 +274,7 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getConfig()).rejects.toThrow('Failed to fetch config: 500');
+			await expect(getConfig()).rejects.toThrow('Could not load configuration: 500');
 		});
 	});
 
@@ -322,7 +322,7 @@ describe('api', () => {
 				status: 503
 			});
 
-			await expect(getCapabilities()).rejects.toThrow('Failed to fetch capabilities: 503');
+			await expect(getCapabilities()).rejects.toThrow('Could not load capabilities: 503');
 		});
 	});
 
@@ -360,7 +360,7 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getSites()).rejects.toThrow('Failed to fetch sites: 500');
+			await expect(getSites()).rejects.toThrow('Could not load sites: 500');
 		});
 	});
 
@@ -399,7 +399,7 @@ describe('api', () => {
 			});
 
 			await expect(listSiteConfigPeriods(42)).rejects.toThrow(
-				'Failed to fetch site config periods: 418'
+				'Could not load site configuration periods: 418'
 			);
 		});
 
@@ -491,7 +491,7 @@ describe('api', () => {
 			});
 
 			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
-				'Failed to save site config period: 409'
+				'Could not save site configuration period: 409'
 			);
 		});
 
@@ -522,7 +522,7 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getTimeline(999)).rejects.toThrow('Failed to fetch timeline: 404');
+			await expect(getTimeline(999)).rejects.toThrow('Could not load timeline: 404');
 		});
 	});
 
@@ -604,7 +604,7 @@ describe('api', () => {
 					timezone: 'UTC',
 					units: 'mph'
 				})
-			).rejects.toThrow('Failed to generate report: 502');
+			).rejects.toThrow('Could not generate report: 502');
 		});
 
 		it('should include min_speed parameter when provided', async () => {
@@ -783,7 +783,7 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getReport(999)).rejects.toThrow('Failed to fetch report: 404');
+			await expect(getReport(999)).rejects.toThrow('Could not load report: 404');
 		});
 	});
 
@@ -873,7 +873,7 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(downloadReport(999, 'pdf')).rejects.toThrow('Failed to download report: 404');
+			await expect(downloadReport(999, 'pdf')).rejects.toThrow('Could not download report: 404');
 		});
 	});
 
@@ -925,7 +925,7 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getRecentReports()).rejects.toThrow('Failed to fetch reports: 500');
+			await expect(getRecentReports()).rejects.toThrow('Could not load reports: 500');
 		});
 	});
 
@@ -964,7 +964,7 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getReportsForSite(999)).rejects.toThrow('Failed to fetch site reports: 404');
+			await expect(getReportsForSite(999)).rejects.toThrow('Could not load site reports: 404');
 		});
 	});
 
@@ -985,7 +985,7 @@ describe('api', () => {
 				status: 403
 			});
 
-			await expect(deleteReport(123)).rejects.toThrow('Failed to delete report: 403');
+			await expect(deleteReport(123)).rejects.toThrow('Could not delete report: 403');
 		});
 	});
 
@@ -1028,7 +1028,7 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getSite(999)).rejects.toThrow('Failed to fetch site: 404');
+			await expect(getSite(999)).rejects.toThrow('Could not load site: 404');
 		});
 	});
 
@@ -1101,7 +1101,7 @@ describe('api', () => {
 				json: async () => ({ error: '' })
 			});
 
-			await expect(createSite({ name: 'Site' })).rejects.toThrow('Failed to create site: 400');
+			await expect(createSite({ name: 'Site' })).rejects.toThrow('Could not create site: 400');
 		});
 
 		it('should handle errors when creating a site with null error field', async () => {
@@ -1111,7 +1111,7 @@ describe('api', () => {
 				json: async () => ({ error: null })
 			});
 
-			await expect(createSite({ name: 'Site' })).rejects.toThrow('Failed to create site: 400');
+			await expect(createSite({ name: 'Site' })).rejects.toThrow('Could not create site: 400');
 		});
 	});
 
@@ -1186,7 +1186,7 @@ describe('api', () => {
 			});
 
 			await expect(updateSite(999, { name: 'Updated' })).rejects.toThrow(
-				'Failed to update site: 404'
+				'Could not update site: 404'
 			);
 		});
 	});
@@ -1360,7 +1360,7 @@ describe('api', () => {
 				json: async () => ({ error: '' })
 			});
 
-			await expect(deleteSite(123)).rejects.toThrow('Failed to delete site: 409');
+			await expect(deleteSite(123)).rejects.toThrow('Could not delete site: 409');
 		});
 	});
 
@@ -1401,7 +1401,7 @@ describe('api', () => {
 			});
 
 			await expect(getTransitWorkerState()).rejects.toThrow(
-				'Failed to fetch transit worker state: 503'
+				'Could not load transit worker state: 503'
 			);
 		});
 	});
@@ -1506,7 +1506,7 @@ describe('api', () => {
 			});
 
 			await expect(updateTransitWorker({ trigger: true })).rejects.toThrow(
-				'Failed to update transit worker: 503'
+				'Could not update transit worker: 503'
 			);
 		});
 	});
@@ -1613,7 +1613,7 @@ describe('api', () => {
 				});
 
 				await expect(getActiveTracks('hesai-pandar40p')).rejects.toThrow(
-					'Failed to fetch active tracks: 500'
+					'Could not load active tracks: 500'
 				);
 			});
 		});
@@ -1660,7 +1660,7 @@ describe('api', () => {
 					status: 404
 				});
 
-				await expect(getTrackById('nonexistent')).rejects.toThrow('Failed to fetch track: 404');
+				await expect(getTrackById('nonexistent')).rejects.toThrow('Could not load track: 404');
 			});
 		});
 
@@ -1713,7 +1713,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackObservations('nonexistent')).rejects.toThrow(
-					'Failed to fetch track observations: 404'
+					'Could not load track observations: 404'
 				);
 			});
 
@@ -1785,7 +1785,7 @@ describe('api', () => {
 
 				await expect(
 					getTrackObservationsRange('hesai-pandar40p', 1000000, 2000000)
-				).rejects.toThrow('Failed to fetch track observations range: 500');
+				).rejects.toThrow('Could not load track observations for range: 500');
 			});
 		});
 
@@ -1860,7 +1860,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackHistory('hesai-pandar40p', 0, 1000000)).rejects.toThrow(
-					'Failed to fetch track history: 400'
+					'Could not load track history: 400'
 				);
 			});
 
@@ -1929,7 +1929,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackSummary('hesai-pandar40p')).rejects.toThrow(
-					'Failed to fetch track summary: 503'
+					'Could not load track summary: 503'
 				);
 			});
 		});
@@ -1978,7 +1978,7 @@ describe('api', () => {
 				});
 
 				await expect(getBackgroundGrid('hesai-pandar40p')).rejects.toThrow(
-					'Failed to fetch background grid: 500'
+					'Could not load background grid: 500'
 				);
 			});
 		});
@@ -2012,7 +2012,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarReplayCases } = await import('./api');
-				await expect(getLidarReplayCases()).rejects.toThrow('Failed to fetch replay cases: 500');
+				await expect(getLidarReplayCases()).rejects.toThrow('Could not load replay cases: 500');
 			});
 
 			it('should default to an empty replay-case list when scenes are omitted', async () => {
@@ -2039,7 +2039,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarRuns } = await import('./api');
-				await expect(getLidarRuns()).rejects.toThrow('Failed to fetch runs: 500');
+				await expect(getLidarRuns()).rejects.toThrow('Could not load runs: 500');
 			});
 
 			it('should default to an empty run list when runs are omitted', async () => {
@@ -2066,7 +2066,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getRunTracks } = await import('./api');
-				await expect(getRunTracks('bad-id')).rejects.toThrow('Failed to fetch tracks: 404');
+				await expect(getRunTracks('bad-id')).rejects.toThrow('Could not load tracks: 404');
 			});
 
 			it('should default to an empty run-track list when tracks are omitted', async () => {
@@ -2099,7 +2099,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
 				const { updateTrackLabel } = await import('./api');
 				await expect(updateTrackLabel('r', 't', { user_label: 'invalid' })).rejects.toThrow(
-					'Failed to update label: 400'
+					'Could not update label: 400'
 				);
 			});
 		});
@@ -2120,7 +2120,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateTrackFlags } = await import('./api');
 				await expect(updateTrackFlags('r', 't', { linked_track_ids: [] })).rejects.toThrow(
-					'Failed to update flags: 500'
+					'Could not update flags: 500'
 				);
 			});
 		});
@@ -2141,7 +2141,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLabellingProgress } = await import('./api');
 				await expect(getLabellingProgress('bad-id')).rejects.toThrow(
-					'Failed to fetch progress: 404'
+					'Could not load labelling progress: 404'
 				);
 			});
 		});
@@ -2171,7 +2171,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLidarReplayCase } = await import('./api');
 				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
-					'Failed to fetch replay case: 404'
+					'Could not load replay case: 404'
 				);
 			});
 		});
@@ -2213,7 +2213,7 @@ describe('api', () => {
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
-				).rejects.toThrow('Failed to create replay case: 400');
+				).rejects.toThrow('Could not create replay case: 400');
 			});
 		});
 
@@ -2251,7 +2251,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateLidarReplayCase } = await import('./api');
 				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
-					'Failed to update replay case: 500'
+					'Could not update replay case: 500'
 				);
 			});
 		});
@@ -2273,7 +2273,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteLidarReplayCase } = await import('./api');
 				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
-					'Failed to delete replay case: 404'
+					'Could not delete replay case: 404'
 				);
 			});
 		});
@@ -2301,7 +2301,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { scanPcapFiles } = await import('./api');
-				await expect(scanPcapFiles()).rejects.toThrow('Failed to scan PCAP files: 500');
+				await expect(scanPcapFiles()).rejects.toThrow('Could not scan PCAP files: 500');
 			});
 		});
 	});
@@ -2346,7 +2346,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getMissedRegions } = await import('./api');
 				await expect(getMissedRegions('run-001')).rejects.toThrow(
-					'Failed to fetch missed regions: 404'
+					'Could not load missed regions: 404'
 				);
 			});
 		});
@@ -2394,7 +2394,7 @@ describe('api', () => {
 						time_start_ns: 1000000000,
 						time_end_ns: 2000000000
 					})
-				).rejects.toThrow('Failed to create missed region: 400');
+				).rejects.toThrow('Could not create missed region: 400');
 			});
 		});
 
@@ -2415,7 +2415,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteMissedRegion } = await import('./api');
 				await expect(deleteMissedRegion('run-001', 'region-001')).rejects.toThrow(
-					'Failed to delete missed region: 404'
+					'Could not delete missed region: 404'
 				);
 			});
 		});
@@ -2452,9 +2452,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { deleteAllRuns } = await import('./api');
-				await expect(deleteAllRuns('test-sensor')).rejects.toThrow(
-					'Failed to delete all runs: 500'
-				);
+				await expect(deleteAllRuns('test-sensor')).rejects.toThrow('Could not delete runs: 500');
 			});
 		});
 
@@ -2474,7 +2472,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteRun } = await import('./api');
-				await expect(deleteRun('run-001')).rejects.toThrow('Failed to delete run: 404');
+				await expect(deleteRun('run-001')).rejects.toThrow('Could not delete run: 404');
 			});
 		});
 
@@ -2495,7 +2493,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteRunTrack } = await import('./api');
 				await expect(deleteRunTrack('run-001', 'track-001')).rejects.toThrow(
-					'Failed to delete run track: 404'
+					'Could not delete track: 404'
 				);
 			});
 		});
@@ -2531,7 +2529,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { listSweeps } = await import('./api');
-				await expect(listSweeps('sensor-01')).rejects.toThrow('Failed to list sweeps: 500');
+				await expect(listSweeps('sensor-01')).rejects.toThrow('Could not load sweeps: 500');
 			});
 		});
 
@@ -2551,7 +2549,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getSweep } = await import('./api');
-				await expect(getSweep('sw-1')).rejects.toThrow('Failed to get sweep: 404');
+				await expect(getSweep('sw-1')).rejects.toThrow('Could not load sweep: 404');
 			});
 		});
 
@@ -2575,7 +2573,7 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarParams } = await import('./api');
-				await expect(getLidarParams('sensor-01')).rejects.toThrow('Failed to get params: 500');
+				await expect(getLidarParams('sensor-01')).rejects.toThrow('Could not load parameters: 500');
 			});
 		});
 
@@ -2602,7 +2600,7 @@ describe('api', () => {
 				});
 				const { applyLidarParams } = await import('./api');
 				await expect(applyLidarParams('sensor-01', { bad: true })).rejects.toThrow(
-					'Failed to apply params: Invalid params'
+					'Could not apply parameters: Invalid params'
 				);
 			});
 		});
@@ -2650,7 +2648,7 @@ describe('api', () => {
 			it('should handle HINT state errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 503 });
 				const { getHINTState } = await import('./api');
-				await expect(getHINTState()).rejects.toThrow('Failed to get HINT state: 503');
+				await expect(getHINTState()).rejects.toThrow('Could not load HINT state: 503');
 			});
 
 			it('should start HINT sweep', async () => {
@@ -2731,7 +2729,7 @@ describe('api', () => {
 			it('should handle HINT stop errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 502 });
 				const { stopHINT } = await import('./api');
-				await expect(stopHINT()).rejects.toThrow('Failed to stop HINT: 502');
+				await expect(stopHINT()).rejects.toThrow('Could not stop HINT: 502');
 			});
 		});
 	});

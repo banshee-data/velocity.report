@@ -175,7 +175,7 @@ func (db *DB) BaselineAtVersion(version uint) error {
 	}
 
 	if count > 0 {
-		return fmt.Errorf("database already has migrations applied, cannot baseline")
+		return fmt.Errorf("database already has a migration history — baseline is only for fresh or legacy databases")
 	}
 
 	// Insert the baseline version
@@ -524,27 +524,24 @@ func (db *DB) CheckAndPromptMigrations(migrationsFS fs.FS) (bool, error) {
 
 	// If database is dirty, report error
 	if dirty {
-		return true, fmt.Errorf("database is in a dirty state (version %d). Run 'velocity-report migrate status' to diagnose", currentVersion)
+		return true, fmt.Errorf("database is in a dirty state at version %d — run 'velocity-report migrate status' to investigate", currentVersion)
 	}
 
 	// If current version is ahead, that's an error
 	if currentVersion > latestVersion {
-		return true, fmt.Errorf("database version (%d) is ahead of latest migration (%d). This should not happen", currentVersion, latestVersion)
+		return true, fmt.Errorf("database is at version %d but the latest known migration is %d — something has gone sideways", currentVersion, latestVersion)
 	}
 
 	// Migrations are available but not applied
-	log.Printf("⚠️  Database schema version mismatch detected!")
-	log.Printf("   Current database version: %d", currentVersion)
-	log.Printf("   Latest available version: %d", latestVersion)
-	log.Printf("   Outstanding migrations: %d", latestVersion-currentVersion)
+	log.Printf("⚠️  Schema is behind: version %d, latest is %d (%d pending).",
+		currentVersion, latestVersion, latestVersion-currentVersion)
 	log.Printf("")
-	log.Printf("This database appears to be from a prior installation.")
-	log.Printf("To apply the outstanding migrations, run:")
+	log.Printf("Apply outstanding migrations with:")
 	log.Printf("   velocity-report migrate up")
 	log.Printf("")
-	log.Printf("To see migration status, run:")
+	log.Printf("Check status with:")
 	log.Printf("   velocity-report migrate status")
 	log.Printf("")
 
-	return true, fmt.Errorf("database schema is out of date (version %d, need %d). Please run migrations", currentVersion, latestVersion)
+	return true, fmt.Errorf("schema is at version %d but version %d is available — run 'velocity-report migrate up'", currentVersion, latestVersion)
 }

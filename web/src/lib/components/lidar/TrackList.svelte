@@ -147,8 +147,8 @@
 
 			console.log('[Label] Applied detection label', label, 'to track', trackId);
 		} catch (error) {
-			console.error('[Label] Failed to apply detection label:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to apply label';
+			console.error('[Label] Could not apply detection label:', error);
+			labelError = error instanceof Error ? error.message : 'Could not apply label.';
 		} finally {
 			isSavingLabel = false;
 		}
@@ -192,8 +192,8 @@
 
 			console.log('[Label] Toggled quality flag', label, 'on track', trackId, '→', newFlagsStr);
 		} catch (error) {
-			console.error('[Label] Failed to apply quality label:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to apply label';
+			console.error('[Label] Could not apply quality label:', error);
+			labelError = error instanceof Error ? error.message : 'Could not apply label.';
 		} finally {
 			isSavingLabel = false;
 		}
@@ -235,8 +235,8 @@
 			);
 			bulkSelectedTrackIds.clear();
 		} catch (error) {
-			console.error('[Label] Failed to apply bulk detection label:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
+			console.error('[Label] Could not apply bulk detection label:', error);
+			labelError = error instanceof Error ? error.message : 'Could not apply bulk label.';
 		} finally {
 			isSavingLabel = false;
 		}
@@ -278,8 +278,8 @@
 			);
 			bulkSelectedTrackIds.clear();
 		} catch (error) {
-			console.error('[Label] Failed to apply bulk quality label:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to apply bulk label';
+			console.error('[Label] Could not apply bulk quality label:', error);
+			labelError = error instanceof Error ? error.message : 'Could not apply bulk label.';
 		} finally {
 			isSavingLabel = false;
 		}
@@ -320,8 +320,8 @@
 
 			console.log('[Link] Linked tracks', trackId1, 'and', trackId2);
 		} catch (error) {
-			console.error('[Link] Failed to link tracks:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to link tracks';
+			console.error('[Link] Could not link tracks:', error);
+			labelError = error instanceof Error ? error.message : 'Could not link tracks';
 		} finally {
 			isSavingLabel = false;
 		}
@@ -367,8 +367,8 @@
 
 			console.log('[Link] Unlinked track', trackId);
 		} catch (error) {
-			console.error('[Link] Failed to unlink track:', error);
-			labelError = error instanceof Error ? error.message : 'Failed to unlink track';
+			console.error('[Link] Could not unlink track:', error);
+			labelError = error instanceof Error ? error.message : 'Could not unlink track';
 		} finally {
 			isSavingLabel = false;
 		}

@@ -452,12 +452,12 @@ def load_config(
     """
     if config_file:
         if not os.path.exists(config_file):
-            raise ValueError(f"Config file not found: {config_file}")
+            raise ValueError(f"config file not found: {config_file}")
         return ReportConfig.from_json(config_file)
     elif config_dict:
         return ReportConfig.from_dict(config_dict)
     else:
-        raise ValueError("Must provide either config_file or config_dict")
+        raise ValueError("provide either config_file or config_dict")
 
 
 # Example usage and template generation

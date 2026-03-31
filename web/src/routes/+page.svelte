@@ -156,7 +156,7 @@
 			initializeTimezone(config.timezone);
 			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load config';
+			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
 		}
 	}
 
@@ -180,7 +180,7 @@
 				}
 			}
 		} catch (e) {
-			console.error('Failed to load sites:', e);
+			console.error('Could not load sites:', e);
 			// Don't set error here, sites are optional for viewing stats
 		}
 	}
@@ -207,7 +207,7 @@
 				periodType: settings?.dateRange?.periodType ?? PeriodType.Day
 			};
 		} catch (e) {
-			console.warn('Failed to load report date range settings:', e);
+			console.warn('Could not load saved report settings:', e);
 		}
 	}
 
@@ -231,7 +231,7 @@
 
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
-			console.warn('Failed to save report date range settings:', e);
+			console.warn('Could not save report settings:', e);
 		}
 	}
 
@@ -287,7 +287,7 @@
 				);
 			}
 		} catch (e) {
-			error = e instanceof Error && e.message ? e.message : 'Failed to load stats'; // eslint-disable-line svelte/infinite-reactive-loop
+			error = e instanceof Error && e.message ? e.message : 'Could not load stats.'; // eslint-disable-line svelte/infinite-reactive-loop
 		}
 	}
 
@@ -419,9 +419,9 @@
 			// Fetch report metadata to get filenames
 			reportMetadata = await getReport(response.report_id);
 
-			reportMessage = `Report generated successfully! Use the links below to download.`;
+			reportMessage = `Report generated. Use the links below to download.`;
 		} catch (e) {
-			reportMessage = e instanceof Error ? e.message : 'Failed to generate report';
+			reportMessage = e instanceof Error ? e.message : 'Could not generate the report.';
 		} finally {
 			generatingReport = false;
 		}

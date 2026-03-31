@@ -392,7 +392,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
             # Should print warnings message and return True
             self.assertTrue(result)
             self.assertIn("optional dependencies missing", output)
-            self.assertIn("System is ready", output)
+            self.assertIn("Ready", output)
         finally:
             sys.stdout = old_stdout
 
@@ -422,7 +422,7 @@ class TestDependencyCheckerSuccessPaths(unittest.TestCase):
             output = sys.stdout.getvalue()
             # Should print all-ok message and return True
             self.assertTrue(result)
-            self.assertIn("All dependencies available", output)
+            self.assertIn("All dependencies present", output)
         finally:
             sys.stdout = old_stdout
 

@@ -121,17 +121,16 @@ func validateSchemaSQLConsistency(migrationsFS fs.FS) (uint, error) {
 
 	score, differences := CompareSchemas(schemaFromSQL, schemaFromMigrations)
 	if score != 100 {
-		log.Printf("⚠️  WARNING: schema.sql is out of sync with migrations!")
-		log.Printf("   Schema from schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
+		log.Printf("⚠️  schema.sql is out of sync with migrations.")
+		log.Printf("   schema.sql differs from migration v%d (similarity: %d%%)", latestVersion, score)
 		log.Printf("   Differences:")
 		for _, diff := range differences {
 			log.Printf("     %s", diff)
 		}
 		log.Printf("")
-		log.Printf("   This indicates that schema.sql needs to be updated to match the latest migrations.")
-		log.Printf("   Please run the schema consistency test or regenerate schema.sql from migrations.")
+		log.Printf("   Regenerate schema.sql from the latest migration or run the schema consistency test.")
 		log.Printf("")
-		return 0, fmt.Errorf("schema.sql is out of sync with migration v%d (similarity: %d%%). Cannot baseline safely", latestVersion, score)
+		return 0, fmt.Errorf("schema.sql diverges from migration v%d (%d%% match) — cannot baseline safely", latestVersion, score)
 	}
 
 	return latestVersion, nil
@@ -239,20 +238,20 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 	// Case 2a: Legacy database without migration history - detect and baseline
 	if isLegacyDB && checkMigrations {
-		log.Printf("⚠️  Database exists but has no schema_migrations table!")
-		log.Printf("   Attempting to detect schema version...")
+		log.Printf("⚠️  Database has tables but no schema_migrations table.")
+		log.Printf("   Detecting schema version...")
 
 		detectedVersion, matchScore, differences, err := dbWrapper.DetectSchemaVersion(migrationsFS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect schema version: %w", err)
 		}
 
-		log.Printf("   Schema detection results:")
-		log.Printf("   - Best match: version %d (score: %d%%)", detectedVersion, matchScore)
+		log.Printf("   Detection results:")
+		log.Printf("   - Closest match: version %d (%d%% similarity)", detectedVersion, matchScore)
 
 		if matchScore == 100 {
 			// Perfect match - baseline at this version
-			log.Printf("   - Perfect match! Baselining at version %d", detectedVersion)
+			log.Printf("   - Exact match. Setting baseline to version %d", detectedVersion)
 			if err := dbWrapper.BaselineAtVersion(detectedVersion); err != nil {
 				return nil, fmt.Errorf("failed to baseline at version %d: %w", detectedVersion, err)
 			}
@@ -265,40 +264,39 @@ func NewDBWithMigrationCheck(path string, checkMigrations bool) (*DB, error) {
 
 			if detectedVersion < latestVersion {
 				log.Printf("")
-				log.Printf("   Database has been baselined at version %d", detectedVersion)
-				log.Printf("   There are %d additional migrations available (up to version %d)",
-					latestVersion-detectedVersion, latestVersion)
+				log.Printf("   Baselined at version %d, but %d more migration(s) available (up to v%d).",
+					detectedVersion, latestVersion-detectedVersion, latestVersion)
 				log.Printf("")
-				log.Printf("   To apply remaining migrations, run:")
+				log.Printf("   Apply them with:")
 				log.Printf("      velocity-report migrate up")
 				log.Printf("")
-				return nil, fmt.Errorf("database baselined at version %d, but migrations to version %d are available. Please run migrations", detectedVersion, latestVersion)
+				return nil, fmt.Errorf("baselined at version %d — run 'velocity-report migrate up' to reach version %d", detectedVersion, latestVersion)
 			}
 
-			log.Printf("   Database is up to date!")
+			log.Printf("   Schema is current.")
 			closeOnError = false
 			return dbWrapper, nil
 		}
 
 		// Not a perfect match - show differences and ask user
-		log.Printf("   - No perfect match found (best: %d%%)", matchScore)
+		log.Printf("   - No exact match (best: %d%%)", matchScore)
 		log.Printf("")
-		log.Printf("   Schema differences from version %d:", detectedVersion)
+		log.Printf("   Differences from version %d:", detectedVersion)
 		for _, diff := range differences {
 			log.Printf("     %s", diff)
 		}
 		log.Printf("")
-		log.Printf("   The current schema does not exactly match any known migration version.")
-		log.Printf("   Closest match is version %d with %d%% similarity.", detectedVersion, matchScore)
+		log.Printf("   The schema does not exactly match any known migration version.")
+		log.Printf("   Nearest is v%d at %d%% similarity.", detectedVersion, matchScore)
 		log.Printf("")
 		log.Printf("   Options:")
-		log.Printf("   1. Baseline at version %d and apply remaining migrations:", detectedVersion)
+		log.Printf("   1. Baseline at v%d and apply remaining migrations:", detectedVersion)
 		log.Printf("      velocity-report migrate baseline %d", detectedVersion)
 		log.Printf("      velocity-report migrate up")
 		log.Printf("")
-		log.Printf("   2. Manually inspect the differences and adjust your schema")
+		log.Printf("   2. Inspect the differences and adjust the schema first")
 		log.Printf("")
-		return nil, fmt.Errorf("schema does not match any known version (best match: v%d at %d%%). Manual intervention required", detectedVersion, matchScore)
+		return nil, fmt.Errorf("schema does not match any known version (nearest: v%d at %d%%) — manual intervention needed", detectedVersion, matchScore)
 	}
 
 	// Case 2b: Fresh database - initialize with schema.sql and baseline at latest version

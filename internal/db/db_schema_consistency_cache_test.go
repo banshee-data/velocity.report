@@ -195,7 +195,7 @@ func TestValidateSchemaSQLConsistency_MismatchError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected schema mismatch error")
 	}
-	if !strings.Contains(err.Error(), "schema.sql is out of sync with migration v1") {
+	if !strings.Contains(err.Error(), "schema.sql diverges from migration v1") {
 		t.Fatalf("expected out-of-sync error, got: %v", err)
 	}
 }
@@ -231,7 +231,7 @@ func TestNewDBWithMigrationCheck_SchemaConsistencyErrorPath(t *testing.T) {
 		}
 		t.Fatal("expected schema consistency error from NewDBWithMigrationCheck")
 	}
-	if !strings.Contains(err.Error(), "schema.sql is out of sync") {
+	if !strings.Contains(err.Error(), "schema.sql diverges") {
 		t.Fatalf("expected out-of-sync error, got: %v", err)
 	}
 }

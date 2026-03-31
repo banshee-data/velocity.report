@@ -1600,7 +1600,7 @@ class TestMatplotlibImportError(unittest.TestCase):
             with self.assertRaises(ImportError) as context:
                 TimeSeriesChartBuilder()
 
-            self.assertIn("matplotlib is required", str(context.exception))
+            self.assertIn("matplotlib is needed", str(context.exception))
             self.assertIn("pip install matplotlib", str(context.exception))
         finally:
             # Restore original value

@@ -406,10 +406,10 @@ create_example_configs() {
 print_next_steps() {
     echo ""
     echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}✓ Development environment setup complete!${NC}"
+    echo -e "${GREEN}✓ Development environment ready.${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
-    echo "Next steps:"
+    echo "What now:"
     echo ""
 
     if [ "$SKIP_GO" = false ]; then
@@ -458,8 +458,8 @@ print_next_steps() {
     echo ""
 
     if ! command_exists xelatex; then
-        echo -e "${YELLOW}Note:${NC} XeLaTeX is not installed. PDF generation will not work."
-        echo "See setup output above for installation instructions."
+        echo -e "${YELLOW}Note:${NC} XeLaTeX is not installed — PDF generation will not be available."
+        echo "See the setup output above for installation instructions."
         echo ""
     fi
 

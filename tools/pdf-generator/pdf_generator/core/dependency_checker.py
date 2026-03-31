@@ -313,7 +313,7 @@ class DependencyChecker:
             results = self.results
 
         print("\n" + "=" * 70)
-        print("DEPENDENCY CHECK RESULTS")
+        print("Dependency Check")
         print("=" * 70 + "\n")
 
         critical_failures = []
@@ -330,7 +330,7 @@ class DependencyChecker:
 
         # Print successes
         if successes:
-            print("✓ Available Dependencies:")
+            print("✓ Available:")
             print("-" * 70)
             for result in successes:
                 print(f"  {result}")
@@ -338,7 +338,7 @@ class DependencyChecker:
 
         # Print warnings
         if warnings:
-            print("⚠ Optional Dependencies (missing but not critical):")
+            print("⚠ Optional (missing, but not essential):")
             print("-" * 70)
             for result in warnings:
                 print(f"  {result}")
@@ -346,7 +346,7 @@ class DependencyChecker:
 
         # Print critical failures
         if critical_failures:
-            print("✗ CRITICAL MISSING DEPENDENCIES:")
+            print("✗ Missing (required):")
             print("-" * 70)
             for result in critical_failures:
                 print(f"  {result}")
@@ -358,18 +358,18 @@ class DependencyChecker:
         available = sum(1 for r in results if r.available)
         critical_missing = len(critical_failures)
 
-        print(f"Summary: {available}/{total} dependencies available")
+        print(f"Summary: {available}/{total} dependencies found")
 
         if critical_missing > 0:
-            print(f"         {critical_missing} CRITICAL dependencies missing")
-            print("\n⚠ System is NOT ready. Install missing dependencies above.")
+            print(f"         {critical_missing} required dependencies missing")
+            print("\n⚠ Not ready. Install the missing dependencies listed above.")
             return False
         elif warnings:
             print(f"         {len(warnings)} optional dependencies missing")
-            print("\n✓ System is ready (some optional features may be unavailable)")
+            print("\n✓ Ready (some optional features will be unavailable)")
             return True
         else:
-            print("\n✓ All dependencies available! System is ready.")
+            print("\n✓ All dependencies present. Ready to go.")
             return True
 
 

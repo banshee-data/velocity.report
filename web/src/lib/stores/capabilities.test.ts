@@ -126,7 +126,7 @@ describe('capabilities store', () => {
 			// State unchanged, but loaded is set
 			expect(get(capabilities)).toEqual(initial);
 			expect(get(capabilitiesLoaded)).toBe(true);
-			expect(warnSpy).toHaveBeenCalledWith('Failed to refresh capabilities:', expect.any(Error));
+			expect(warnSpy).toHaveBeenCalledWith('Could not refresh capabilities:', expect.any(Error));
 			warnSpy.mockRestore();
 		});
 	});
