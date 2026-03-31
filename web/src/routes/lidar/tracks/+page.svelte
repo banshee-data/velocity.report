@@ -345,7 +345,7 @@
 			selectedTime = runStartNs / 1e6;
 			loadForegroundObservations(timeRange.start, timeRange.end);
 		} catch (error) {
-			console.error('[TrackHistory] Failed to load tracks for run window:', error);
+			console.error('[TrackHistory] Could not load tracks for run window:', error);
 		}
 	}
 
