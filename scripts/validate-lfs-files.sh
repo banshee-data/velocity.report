@@ -22,7 +22,11 @@ if ! command -v git-lfs &> /dev/null; then
     elif command -v brew &> /dev/null; then
         brew install git-lfs
     else
-        echo -e "${RED}Could not install git-lfs automatically.${NC}"
+        echo -e "${RED}Automatic git-lfs installation not available.${NC}"
+        echo "Install it manually:"
+        echo "  macOS:  brew install git-lfs"
+        echo "  Ubuntu: sudo apt-get install git-lfs"
+        echo "  Other:  https://git-lfs.github.com/"
         exit 1
     fi
 fi
