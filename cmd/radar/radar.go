@@ -241,7 +241,7 @@ func main() {
 	case "ops":
 		// ops-only: diag and trace stay nil (disabled)
 	default:
-		log.Fatalf("invalid --log-level=%q (valid: ops, diag, trace)", *logLevel)
+		log.Fatalf("Unrecognised --log-level=%q — valid values are ops, diag, trace (e.g. --log-level=diag)", *logLevel)
 	}
 	lidar.SetLogWriters(writers)
 	network.SetLogWriters(writers.Ops, writers.Diag, writers.Trace)
@@ -285,7 +285,7 @@ func main() {
 			// Parse flags from args after "migrate"
 			remainingArgs := flag.Args()[1:] // Everything after "migrate"
 			if err := migrateFlags.Parse(remainingArgs); err != nil {
-				log.Fatalf("Failed to parse migrate flags: %v", err)
+				log.Fatalf("Could not parse migrate flags: %v — run 'velocity-report migrate --help' for usage", err)
 			}
 
 			// Pass positional args (non-flag args after parsing) to migrate command
@@ -300,7 +300,7 @@ func main() {
 	}
 
 	if err := configurePDFLaTeXFlow(*pdfLatexFlow, *pdfTexRoot); err != nil {
-		log.Fatalf("Failed to configure PDF LaTeX flow: %v", err)
+		log.Fatalf("Could not configure PDF LaTeX flow: %v — valid values are inherit, precompiled, or full", err)
 	}
 
 	if *listen == "" {
@@ -310,11 +310,11 @@ func main() {
 		log.Fatal("Serial port is required — use --port, e.g. --port /dev/ttySC1")
 	}
 	if !units.IsValid(*unitsFlag) {
-		log.Printf("Error: Invalid units '%s'. Valid options are: %s", *unitsFlag, units.GetValidUnitsString())
+		log.Printf("Invalid units %q — valid options are: %s", *unitsFlag, units.GetValidUnitsString())
 		os.Exit(1)
 	}
 	if !units.IsTimezoneValid(*timezoneFlag) {
-		log.Printf("Error: Invalid timezone '%s'. Valid options are: %s", *timezoneFlag, units.GetValidTimezonesString())
+		log.Printf("Invalid timezone %q — valid options are: %s", *timezoneFlag, units.GetValidTimezonesString())
 		os.Exit(1)
 	}
 
@@ -355,7 +355,7 @@ func main() {
 		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 		firstLine := lines[0]
 		if err != nil {
-			log.Fatalf("failed to open fixtures file: %v", err)
+			log.Fatalf("Could not open fixtures file: %v — ensure fixtures.txt exists in the working directory", err)
 		}
 		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
 	} else {
@@ -433,7 +433,7 @@ func main() {
 			go func() {
 				defer wg.Done()
 				if err := bgFlusher.Run(ctx); err != nil {
-					log.Printf("Background flusher error: %v", err)
+					log.Printf("Background flusher stopped unexpectedly: %v — buffered data may not have been written to disk", err)
 				}
 			}()
 		}
@@ -505,7 +505,7 @@ func main() {
 				visualiserServer = l9endpoints.NewServer(visualiserPublisher)
 
 				if err := visualiserPublisher.Start(); err != nil {
-					log.Fatalf("Failed to start visualiser publisher: %v", err)
+					log.Fatalf("Could not start visualiser publisher: %v — check the gRPC listen address is free and not already in use", err)
 				}
 				defer visualiserPublisher.Stop()
 
@@ -922,13 +922,13 @@ func runTransitsCommand(args []string) {
 	transitThreshold := transitFlags.Int("threshold", 1, "gap threshold in seconds for sessionizing transits")
 
 	if err := transitFlags.Parse(args); err != nil {
-		log.Fatalf("Failed to parse transits flags: %v", err)
+		log.Fatalf("Could not parse transits flags: %v — run 'velocity-report transits --help' for usage", err)
 	}
 
 	// Open database without migration check for CLI commands
 	database, err := db.OpenDB(*transitDBPath)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatalf("Could not open database: %v — check --db-path points to a valid SQLite file", err)
 	}
 	defer database.Close()
 
@@ -948,7 +948,7 @@ func runTransitsCommand(args []string) {
 	switch subCmd {
 	case "analyse", "analyze":
 		if _, err := cli.Analyse(ctx); err != nil {
-			log.Fatalf("Failed to analyse transits: %v", err)
+			log.Fatalf("Could not analyse transits: %v — check the database is not locked by another process", err)
 		}
 
 	case "delete":
@@ -971,7 +971,7 @@ func runTransitsCommand(args []string) {
 		}
 
 		if _, err := cli.Delete(ctx, modelVersion); err != nil {
-			log.Fatalf("Failed to delete transits: %v", err)
+			log.Fatalf("Could not delete transits: %v — check the database is not locked by another process", err)
 		}
 
 	case "migrate":
@@ -996,7 +996,7 @@ func runTransitsCommand(args []string) {
 		}
 
 		if err := cli.Migrate(ctx, fromVersion, toVersion); err != nil {
-			log.Fatalf("Failed to migrate transits: %v", err)
+			log.Fatalf("Could not migrate transits: %v — check the database is not locked by another process", err)
 		}
 
 	case "rebuild":
@@ -1015,11 +1015,11 @@ func runTransitsCommand(args []string) {
 		}
 
 		if err := cli.Rebuild(ctx); err != nil {
-			log.Fatalf("Failed to rebuild transits: %v", err)
+			log.Fatalf("Could not rebuild transits: %v — check the database is not locked by another process", err)
 		}
 
 	default:
-		log.Fatalf("Unknown transits subcommand: %s", subCmd)
+		log.Fatalf("Unknown transits subcommand: %s — run 'velocity-report transits --help' for available commands", subCmd)
 	}
 }
 
