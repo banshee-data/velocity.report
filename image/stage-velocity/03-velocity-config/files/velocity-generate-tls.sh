@@ -1,7 +1,7 @@
 #!/bin/bash
 # velocity-generate-tls.sh — Generate a local CA and server certificate
 # for velocity.local. Runs via a systemd oneshot service before nginx
-# starts on first boot.
+# starts on every boot.
 #
 # Creates:
 #   $TLS_DIR/ca.key       — CA private key (root of trust)
@@ -10,6 +10,8 @@
 #   $TLS_DIR/server.crt   — Server certificate (signed by CA)
 #
 # Idempotent: does nothing if server.crt already exists and is valid.
+# On server cert renewal, the existing CA is reused so users do not
+# need to re-trust the CA in their browser.
 
 set -euo pipefail
 
@@ -28,15 +30,26 @@ if [ -f "$TLS_DIR/server.crt" ]; then
     echo "velocity-tls: server certificate expired or expiring — regenerating"
 fi
 
-echo "velocity-tls: generating TLS certificates for $HOSTNAME"
+# --- CA: create only if missing or itself expiring ---
+generate_ca=false
+if [ ! -f "$TLS_DIR/ca.key" ] || [ ! -f "$TLS_DIR/ca.crt" ]; then
+    generate_ca=true
+elif ! openssl x509 -in "$TLS_DIR/ca.crt" -checkend 86400 -noout 2>/dev/null; then
+    echo "velocity-tls: CA certificate expired or expiring — regenerating CA"
+    generate_ca=true
+fi
 
-# Generate CA key and self-signed CA certificate
-openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/ca.key" 2>/dev/null
-openssl req -new -x509 -key "$TLS_DIR/ca.key" \
-    -out "$TLS_DIR/ca.crt" \
-    -days "$CA_DAYS" \
-    -subj "/CN=velocity.report Local CA" \
-    -sha256 2>/dev/null
+if [ "$generate_ca" = true ]; then
+    echo "velocity-tls: generating CA for $HOSTNAME"
+    openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/ca.key" 2>/dev/null
+    openssl req -new -x509 -key "$TLS_DIR/ca.key" \
+        -out "$TLS_DIR/ca.crt" \
+        -days "$CA_DAYS" \
+        -subj "/CN=velocity.report Local CA" \
+        -sha256 2>/dev/null
+fi
+
+echo "velocity-tls: generating server certificate for $HOSTNAME"
 
 # Generate server key
 openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/server.key" 2>/dev/null

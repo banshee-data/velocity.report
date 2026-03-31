@@ -68,7 +68,8 @@ A bare self-signed server certificate would technically work, but:
 It is idempotent:
 
 1. If `server.crt` exists and is valid for at least 24 hours → exit.
-2. Otherwise, generate CA key + cert, server key + cert, clean up CSR.
+2. If `ca.key`/`ca.crt` are missing or the CA is expiring → generate new CA.
+3. Generate server key + cert signed by the (existing or new) CA, clean up CSR.
 
 Files are written to `/var/lib/velocity-report/tls/`:
 
