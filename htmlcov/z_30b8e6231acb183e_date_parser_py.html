@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_30b8e6231acb183e_dependency_checker_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-26 01:44 +0000
+            created at 2026-03-31 01:50 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -116,7 +116,7 @@
     <p class="run"><span class="n"><a id="t34" href="#t34">34</a></span><span class="t">        <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t35" href="#t35">35</a></span><span class="t">            <span class="nam">tzobj</span> <span class="op">=</span> <span class="nam">ZoneInfo</span><span class="op">(</span><span class="nam">tz_name</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t">        <span class="key">except</span> <span class="nam">ZoneInfoNotFoundError</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t37" href="#t37">37</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span><span class="fst">f"</span><span class="fst">unknown timezone: </span><span class="op">{</span><span class="nam">tz_name</span><span class="op">}</span><span class="fst">"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t37" href="#t37">37</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span><span class="fst">f"</span><span class="fst">unrecognised timezone: </span><span class="op">{</span><span class="nam">tz_name</span><span class="op">}</span><span class="fst">"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t38" href="#t38">38</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t39" href="#t39">39</a></span><span class="t">    <span class="com"># Try YYYY-MM-DD first</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t40" href="#t40">40</a></span><span class="t">    <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -150,7 +150,7 @@
     <p class="run"><span class="n"><a id="t68" href="#t68">68</a></span><span class="t">        <span class="key">return</span> <span class="nam">int</span><span class="op">(</span><span class="nam">dt</span><span class="op">.</span><span class="nam">timestamp</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t69" href="#t69">69</a></span><span class="t">    <span class="key">except</span> <span class="nam">Exception</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t70" href="#t70">70</a></span><span class="t">        <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t71" href="#t71">71</a></span><span class="t">            <span class="fst">f"</span><span class="fst">Invalid date format, expected YYYY-MM-DD, ISO datetime, or unix seconds: </span><span class="op">{</span><span class="nam">d</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t71" href="#t71">71</a></span><span class="t">            <span class="fst">f"</span><span class="fst">could not parse date &#8212; expected YYYY-MM-DD, ISO datetime, or unix seconds, got: </span><span class="op">{</span><span class="nam">d</span><span class="op">}</span><span class="fst">"</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t72" href="#t72">72</a></span><span class="t">        <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t73" href="#t73">73</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t74" href="#t74">74</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -199,7 +199,7 @@
             <a class="nav" href="z_30b8e6231acb183e_dependency_checker_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.1">coverage.py v7.13.1</a>,
-            created at 2026-03-26 01:44 +0000
+            created at 2026-03-31 01:50 +0000
         </p>
     </div>
 </footer>
