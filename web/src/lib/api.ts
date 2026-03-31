@@ -63,6 +63,23 @@ export interface Capabilities {
 
 const API_BASE = '/api';
 
+/**
+ * Build a human-readable API error with status-code context.
+ * Used across all fetch wrappers so failure messages sound consistent and
+ * give the reader a hint about what went wrong beyond the number.
+ */
+function apiError(action: string, status: number): Error {
+	const hint =
+		status === 401 || status === 403
+			? ' — not authorised'
+			: status === 404
+				? ' — not found on server'
+				: status >= 500
+					? ' — server error, check the service is running'
+					: '';
+	return new Error(`${action} (HTTP ${status}${hint})`);
+}
+
 export async function getEvents(units?: string, timezone?: string): Promise<Event[]> {
 	const url = new URL(`${API_BASE}/events`, window.location.origin);
 	if (units) {
@@ -72,7 +89,7 @@ export async function getEvents(units?: string, timezone?: string): Promise<Even
 		url.searchParams.append('timezone', timezone);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load events: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load events', res.status);
 	return res.json();
 }
 
@@ -95,7 +112,7 @@ export async function getRadarStats(
 	if (source) url.searchParams.append('source', source);
 	if (siteId != null) url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load radar stats: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load radar stats', res.status);
 	// Expect the server to return the new root object: { metrics: [...], histogram: {...} }
 	const payload = await res.json();
 	const rows = Array.isArray(payload.metrics) ? (payload.metrics as RawRadarStats[]) : [];
@@ -118,7 +135,7 @@ export async function getRadarStats(
 
 export async function getConfig(): Promise<Config> {
 	const res = await fetch(`${API_BASE}/config`);
-	if (!res.ok) throw new Error(`Could not load configuration: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load configuration', res.status);
 	return res.json();
 }
 
@@ -128,7 +145,7 @@ export async function getConfig(): Promise<Config> {
  */
 export async function getCapabilities(): Promise<Capabilities> {
 	const res = await fetch(`${API_BASE}/capabilities`);
-	if (!res.ok) throw new Error(`Could not load capabilities: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load capabilities', res.status);
 	return res.json();
 }
 
@@ -232,7 +249,7 @@ export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigP
 	const url = new URL(`${API_BASE}/site_config_periods`, window.location.origin);
 	url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load site configuration periods: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load site configuration periods', res.status);
 	return res.json();
 }
 
@@ -253,7 +270,7 @@ export async function getTimeline(siteId: number): Promise<TimelineResponse> {
 	const url = new URL(`${API_BASE}/timeline`, window.location.origin);
 	url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load timeline: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load timeline', res.status);
 	return res.json();
 }
 
@@ -264,7 +281,7 @@ export async function downloadReport(
 	const defaultFilename = `report.${fileType}`;
 	const res = await fetch(`${API_BASE}/reports/${reportId}/download/${defaultFilename}`);
 	if (!res.ok) {
-		throw new Error(`Could not download report: ${res.status}`);
+		throw apiError('Could not download report', res.status);
 	}
 
 	// Extract filename from Content-Disposition header
@@ -283,19 +300,19 @@ export async function downloadReport(
 
 export async function getRecentReports(): Promise<SiteReport[]> {
 	const res = await fetch(`${API_BASE}/reports`);
-	if (!res.ok) throw new Error(`Could not load reports: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load reports', res.status);
 	return res.json();
 }
 
 export async function getReportsForSite(siteId: number): Promise<SiteReport[]> {
 	const res = await fetch(`${API_BASE}/reports/site/${siteId}`);
-	if (!res.ok) throw new Error(`Could not load site reports: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load site reports', res.status);
 	return res.json();
 }
 
 export async function getReport(reportId: number): Promise<SiteReport> {
 	const res = await fetch(`${API_BASE}/reports/${reportId}`);
-	if (!res.ok) throw new Error(`Could not load report: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load report', res.status);
 	return res.json();
 }
 
@@ -303,7 +320,7 @@ export async function deleteReport(reportId: number): Promise<void> {
 	const res = await fetch(`${API_BASE}/reports/${reportId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Could not delete report: ${res.status}`);
+	if (!res.ok) throw apiError('Could not delete report', res.status);
 }
 
 // Site management interfaces and functions
@@ -339,13 +356,13 @@ export interface Site {
 
 export async function getSites(): Promise<Site[]> {
 	const res = await fetch(`${API_BASE}/sites`);
-	if (!res.ok) throw new Error(`Could not load sites: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load sites', res.status);
 	return res.json();
 }
 
 export async function getSite(id: number): Promise<Site> {
 	const res = await fetch(`${API_BASE}/sites/${id}`);
-	if (!res.ok) throw new Error(`Could not load site: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load site', res.status);
 	return res.json();
 }
 
@@ -426,7 +443,7 @@ export interface TransitWorkerUpdateResponse {
 
 export async function getTransitWorkerState(): Promise<TransitWorkerState> {
 	const res = await fetch(`${API_BASE}/transit_worker`);
-	if (!res.ok) throw new Error(`Could not load transit worker state: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load transit worker state', res.status);
 	return res.json();
 }
 
@@ -482,7 +499,7 @@ export async function getActiveTracks(
 		url.searchParams.append('state', state);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load active tracks: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load active tracks', res.status);
 	return res.json();
 }
 
@@ -492,7 +509,7 @@ export async function getActiveTracks(
  */
 export async function getTrackById(trackId: string): Promise<Track> {
 	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}`);
-	if (!res.ok) throw new Error(`Could not load track: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load track', res.status);
 	return res.json();
 }
 
@@ -502,7 +519,7 @@ export async function getTrackById(trackId: string): Promise<Track> {
  */
 export async function getTrackObservations(trackId: string): Promise<TrackObservation[]> {
 	const res = await fetch(`${API_BASE}/lidar/tracks/${trackId}/observations`);
-	if (!res.ok) throw new Error(`Could not load track observations: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load track observations', res.status);
 	const data = await res.json();
 	// Backend returns an envelope { track_id, observations, count, timestamp }.
 	// Extract the inner observations array.
@@ -528,7 +545,7 @@ export async function getTrackHistory(
 	url.searchParams.append('end_time', endTime.toString());
 	url.searchParams.append('limit', limit.toString());
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load track history: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load track history', res.status);
 	const data = await res.json();
 	return {
 		tracks: Array.isArray(data.tracks) ? data.tracks : [],
@@ -555,7 +572,7 @@ export async function getTrackObservationsRange(
 		url.searchParams.append('track_id', trackId);
 	}
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load track observations for range: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load track observations for range', res.status);
 	return res.json();
 }
 
@@ -567,7 +584,7 @@ export async function getTrackSummary(sensorId: string): Promise<TrackSummaryRes
 	const url = new URL(`${API_BASE}/lidar/tracks/summary`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load track summary: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load track summary', res.status);
 	return res.json();
 }
 
@@ -579,7 +596,7 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 	const url = new URL(`${API_BASE}/lidar/background/grid`, window.location.origin);
 	url.searchParams.append('sensor_id', sensorId);
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load background grid: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load background grid', res.status);
 	return res.json();
 }
 
@@ -591,14 +608,14 @@ export async function getLidarReplayCases(sensorId?: string): Promise<LidarRepla
 	if (sensorId) params.set('sensor_id', sensorId);
 	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
-	if (!res.ok) throw new Error(`Could not load replay cases: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load replay cases', res.status);
 	const data = await res.json();
 	return data.scenes || [];
 }
 
 export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
-	if (!res.ok) throw new Error(`Could not load replay case: ${res.status}`);
+	if (!res.ok) throw apiError('Could not load replay case', res.status);
 	return res.json();
 }
 
@@ -614,7 +631,7 @@ export async function createLidarReplayCase(scene: {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
 	});
-	if (!res.ok) throw new Error(`Could not create replay case: ${res.status}`);
+	if (!res.ok) throw apiError('Could not create replay case', res.status);
 	return res.json();
 }
 
@@ -638,7 +655,7 @@ export async function updateLidarReplayCase(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-	if (!res.ok) throw new Error(`Could not update replay case: ${res.status}`);
+	if (!res.ok) throw apiError('Could not update replay case', res.status);
 	return res.json();
 }
 
@@ -646,7 +663,7 @@ export async function deleteLidarReplayCase(replayCaseId: string): Promise<void>
 	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw new Error(`Could not delete replay case: ${res.status}`);
+	if (!res.ok) throw apiError('Could not delete replay case', res.status);
 }
 
 // PCAP file scanning API
