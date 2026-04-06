@@ -1074,13 +1074,17 @@ lint-docs: check-mermaid ## Check Mermaid fences, header metadata (docs/config/d
 	@python3 scripts/check-relative-links.py
 	@python3 scripts/check-backtick-paths.py
 
+check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
+	@python3 scripts/check-relative-links.py
+	@python3 scripts/check-backtick-paths.py
+
 report-backtick-paths: ## Advisory: report stale backtick-quoted paths in Markdown (never fails CI)
 	@python3 scripts/check-backtick-paths.py --report
 
 check-agent-drift: ## Compare agent definitions between Copilot and Claude for drift
 	@scripts/check-agent-drift.sh
 
-.PHONY: check-agent-drift report-backtick-paths
+.PHONY: check-agent-drift report-backtick-paths check-md-links
 
 .PHONY: check-config-order sync-config-order config-order-check config-order-sync
 
