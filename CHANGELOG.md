@@ -51,14 +51,14 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### Added
 
-- **10-layer data model** — an OSI-style refactor from raw UDP packets (L1) through frame assembly (L2), background grid (L3), perception (L4), tracking (L5), object classification (L6), analytics (L8), HTTP/gRPC endpoints (L9), and embedded dashboard clients (L10). L7 remains planned. Each layer has a clear job and boundary, which helps when you want to change one thing without surprising nine others.
-- **Human-Involved Numerical Tuning (HINT)** — the tuning system formerly known as RLHF, now with a more honest name. Score breakdowns, coverage gates, suspend/resume with checkpoints. Long-polling so you can watch progress without wearing out the refresh button.
-- **VRLog recording and replay** for track labelling — capture live scenes, replay with seek, pause, and rate control. Safe directory validation, because letting software write to arbitrary paths ages badly.
+- **10-layer data model**: an OSI-style refactor from raw UDP packets (L1) through frame assembly (L2), background grid (L3), perception (L4), tracking (L5), object classification (L6), analytics (L8), HTTP/gRPC endpoints (L9), and embedded dashboard clients (L10). L7 remains planned. Each layer has a clear job and boundary, which helps when you want to change one thing without surprising nine others.
+- **Human-Involved Numerical Tuning (HINT)**: the tuning system formerly known as RLHF, now with a more honest name. Score breakdowns, coverage gates, suspend/resume with checkpoints. Long-polling so you can watch progress without wearing out the refresh button.
+- **VRLog recording and replay** for track labelling: capture live scenes, replay with seek, pause, and rate control. Safe directory validation, because letting software write to arbitrary paths ages badly.
 - **Parameter sweep dashboard** with heatmaps and results tables. Auto-tuning narrows the grid iteratively; settle modes let you choose between optimistic and thorough.
-- **Label-aware auto-tuning** — scoring incorporates human labels with IoU-based confidence, so the system can tell the difference between getting it right and getting lucky.
-- **Deterministic run config** — parameter sets separated from executed configs, with a SHA-256 hash so same build plus same params always equals identical config. Includes a backfill tool for historical data.
-- **gRPC visualiser service** — full protobuf schema for streaming point clouds, track state, and playback control to the macOS visualiser.
-- **L2 dual frame representation** — frames carry both Cartesian and polar points, removing repeated coordinate rebuilds through the pipeline.
+- **Label-aware auto-tuning**: scoring incorporates human labels with IoU-based confidence, so the system can tell the difference between getting it right and getting lucky.
+- **Deterministic run config**: parameter sets separated from executed configs, with a SHA-256 hash so same build plus same params always equals identical config. Includes a backfill tool for historical data.
+- **gRPC visualiser service**: full protobuf schema for streaming point clouds, track state, and playback control to the macOS visualiser.
+- **L2 dual frame representation**: frames carry both Cartesian and polar points, removing repeated coordinate rebuilds through the pipeline.
 - L8 analytics: track comparison, label summary, and per-run reporting.
 - L9 endpoints: HTTP adapter, chart data transforms, grid plotter, debug endpoints, gRPC frame streaming, and embedded dashboard/region clients.
 - Label taxonomy simplified: `car`/`ped` replace the verbose originals; `impossible` remapped to `noise`, which is more useful to everyone.
@@ -77,7 +77,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### Changed
 
-- Large file breakup across `internal/api`, `internal/db`, `l2frames`, `l3grid`, `l5tracks`, and storage packages — narrower files, shared storage interfaces, cleaner package boundaries.
+- Large file breakup across `internal/api`, `internal/db`, `l2frames`, `l3grid`, `l5tracks`, and storage packages: narrower files, shared storage interfaces, cleaner package boundaries.
 - UDP listener refactored with socket factory for testability.
 - Frame callbacks serialised to prevent data races.
 - Configuration consolidated into a single struct with fluent setters; config restructured from flat to layer-scoped nested schema.
@@ -89,7 +89,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 - Route conflict from duplicate registrations.
 - Race condition in VRLog seek.
 - `finalizeFrame` deadlock in PCAP processing.
-- Integer overflow in temporal spread — the kind of bug that waits patiently for large numbers.
+- Integer overflow in temporal spread: the kind of bug that waits patiently for large numbers.
 - PCAP replay file path handling.
 - Out-of-bounds error in tuning parameters.
 - Context propagation and serialmux race conditions.
@@ -137,9 +137,9 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 
 #### CLI Tools
 
-- **Config tools** — `config-migrate` and `config-validate` for the restructured layout.
-- **Analysis tools** — `settling-eval`, `vrlog-analyse`, and `pcap-analyse` for convergence evaluation, track metrics, and batch categorisation.
-- **Dev tools** — `gen-vrlog`, `visualiser-server`, and `backfill_lidar_run_config` for synthetic data, standalone gRPC, and historical backfill.
+- **Config tools**: `config-migrate` and `config-validate` for the restructured layout.
+- **Analysis tools**: `settling-eval`, `vrlog-analyse`, and `pcap-analyse` for convergence evaluation, track metrics, and batch categorisation.
+- **Dev tools**: `gen-vrlog`, `visualiser-server`, and `backfill_lidar_run_config` for synthetic data, standalone gRPC, and historical backfill.
 
 #### Scripts
 
@@ -166,7 +166,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 #### Documentation
 
 - 10-layer data model docs, design principles, VRLOG format spec, decisions register (16 resolved), CONTRIBUTING guide, and VISION statement.
-- Audit of 29 LiDAR docs — found and fixed 12 discrepancies before they could become folklore.
+- Audit of 29 LiDAR docs: found and fixed 12 discrepancies before they could become folklore.
 - Site restructured to `public_html` with Tailwind CSS v4; vector scene map with OSM Simple 3D Buildings.
 
 #### Version Upgrades

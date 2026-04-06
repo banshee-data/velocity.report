@@ -18,7 +18,7 @@
 Street-level speed measurement for neighbourhood change-makers, researchers, and anyone learning what LiDAR can tell you about how traffic actually behaves. Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for safer streets; without cameras, licence plates, or any personally identifiable information.
 
 - 📊 Professional PDF reports ready for council meetings
-- 🔒 No video, no plates, no PII — by design, not by promise
+- 🔒 No video, no plates, no PII, by design, not by promise
 - 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md))
 - 🏠 Runs on a Raspberry Pi in your neighbourhood. Offline-first
 - 🔒 Open source and auditable, because trust should be verifiable
@@ -85,7 +85,7 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 - **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
 - **Community advocates** building a case for traffic calming, with data that survives a council meeting
 - **Academics and researchers** studying street-level vehicle behaviour with LiDAR point clouds, tracking pipelines, and replayable datasets
-- **Students and engineers** learning LiDAR perception — the pipeline is transparent, tuneable, and documented from raw UDP packets through to classified tracks
+- **Students and engineers** learning LiDAR perception: the pipeline is transparent, tuneable, and documented from raw UDP packets through to classified tracks
 - **Before-and-after studies** showing whether traffic calming interventions actually work
 
 ## Privacy
@@ -95,7 +95,7 @@ The system records vehicle speed data. That is all it records.
 - No cameras
 - No licence plate recognition
 - No video
-- No personally identifiable information — by design, not by policy
+- No personally identifiable information, by design, not by policy
 
 The point is to measure traffic, not to start building a private surveillance habit. The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
 
@@ -173,7 +173,7 @@ See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for rep
         └──────────────┘ └───────────────┘ └─────────────────────┘
 ```
 
-For the full architecture — data flow, schema, and deployment model — see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
+For the full architecture (data flow, schema, and deployment model) see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
 
 ## Development
 
@@ -227,4 +227,4 @@ Join the Discord to discuss the project, get help, and help make streets safer.
 
 ## Licence
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

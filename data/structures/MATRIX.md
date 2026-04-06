@@ -13,7 +13,7 @@ which surfaces consume each item: **DB** (SQLite persistence), **Web**
 visualiser via gRPC).
 
 - **Source:** Full-codebase audit (March 2026)
-- **Inventory script:** `scripts/list-matrix-fields.py` — `--checklist` generates the LLM-consumable tracing checklist
+- **Inventory script:** `scripts/list-matrix-fields.py`: `--checklist` generates the LLM-consumable tracing checklist
 - **Update workflow:** `@matrix-tracer` agent (`../../.github/agents/matrix-tracer.agent.md`)
 - **Related:** [Remediation plan](../../docs/plans/unpopulated-data-structures-remediation-plan.md) · [Clustering observability](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) · [HINT metric observability](../../docs/plans/hint-metric-observability-plan.md)
 
@@ -24,14 +24,14 @@ visualiser via gRPC).
 | Symbol | Meaning                               |
 | ------ | ------------------------------------- |
 | ✅     | Implemented and wired to this surface |
-| 📋     | Planned — not yet implemented         |
+| 📋     | Planned: not yet implemented          |
 | 🔶     | Partially wired (see notes)           |
-| 🗑️     | Deprecated — to be removed            |
+| 🗑️     | Deprecated: to be removed             |
 | —      | Not applicable to this surface        |
 
 ---
 
-## 1. HTTP API Endpoints — Radar / Main Server
+## 1. HTTP API Endpoints: Radar / Main Server
 
 **Source:** `cmd/radar/radar.go`, `internal/api/server.go`
 
@@ -54,7 +54,7 @@ visualiser via gRPC).
 
 ---
 
-## 2. HTTP API Endpoints — LiDAR Monitor
+## 2. HTTP API Endpoints: LiDAR Monitor
 
 **Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, `internal/api/lidar_labels.go`\
 **Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
@@ -141,7 +141,7 @@ visualiser via gRPC).
 
 ---
 
-## 3. gRPC Service — macOS Visualiser
+## 3. gRPC Service: macOS Visualiser
 
 **Source:** `proto/velocity_visualiser/v1/visualiser.proto`
 
@@ -192,7 +192,7 @@ visualiser via gRPC).
 
 ---
 
-## 5. Database Fields — All Columns
+## 5. Database Fields: All Columns
 
 | Table                      | Column                            | Type          | DB  | Web | PDF | Mac |
 | -------------------------- | --------------------------------- | ------------- | --- | --- | --- | --- |
@@ -518,7 +518,7 @@ visualiser via gRPC).
 
 ---
 
-## 7. Go Data Structures — Computed but Not Persisted
+## 7. Go Data Structures: Computed but Not Persisted
 
 These structs are computed in-memory but have no persistence layer, no API
 endpoint, and no export path.
@@ -535,7 +535,7 @@ endpoint, and no export path.
 
 ---
 
-## 8. Go Data Structures — Comparison Logic (No Triggering Endpoint)
+## 8. Go Data Structures: Comparison Logic (No Triggering Endpoint)
 
 | Folder                          | File                      | Function                  | DB  | Web | PDF | Mac | Notes                       |
 | ------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --- | --------------------------- |
@@ -546,7 +546,7 @@ endpoint, and no export path.
 
 ---
 
-## 9. Live Track Fields — Fully Wired (Reference)
+## 9. Live Track Fields: Fully Wired (Reference)
 
 Fields that flow correctly from pipeline through all applicable surfaces.
 
@@ -589,7 +589,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 11. PDF Generator — Python Surfaces
+## 11. PDF Generator: Python Surfaces
 
 **Source:** `tools/pdf-generator/pdf_generator/core/api_client.py`
 
@@ -604,7 +604,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 12. macOS Visualiser — Swift Surfaces
+## 12. macOS Visualiser: Swift Surfaces
 
 **Source:** `tools/visualiser-macos/VelocityVisualiser/`
 
@@ -619,9 +619,9 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 13. Classification Pipeline — Fully Wired (Reference)
+## 13. Classification Pipeline: Fully Wired (Reference)
 
-**Go source:** `internal/lidar/l6objects/classification.go` — `TrackClassifier` (27 usages)
+**Go source:** `internal/lidar/l6objects/classification.go`: `TrackClassifier` (27 usages)
 
 | Folder                     | File                | Component                 | DB  | Web | PDF | Mac |
 | -------------------------- | ------------------- | ------------------------- | --- | --- | --- | --- |
@@ -633,15 +633,15 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 **Notes:** `ObjectClass` + `ClassificationResult` (class + confidence) flow
 through the full pipeline: tracker → DB → Web API → gRPC → Mac.
 `ClassificationFeatures` (9 inputs) are only exposed via the gRPC
-`classifyOrConvert()` replay path — visible to Mac during VRLOG playback
+`classifyOrConvert()` replay path: visible to Mac during VRLOG playback
 but never persisted. `TrackClassifier` is set on both WebServer and gRPC
 server as a service object, not persisted data.
 
 ---
 
-## 14. FrameBundle — macOS-Only Proto Fields
+## 14. FrameBundle: macOS-Only Proto Fields
 
-**Proto:** `proto/velocity_visualiser/v1/visualiser.proto` — `FrameBundle`
+**Proto:** `proto/velocity_visualiser/v1/visualiser.proto`: `FrameBundle`
 **Consumer:** macOS Metal visualiser via `StreamFrames` gRPC stream (~30 fps)
 
 These fields are **only** consumed by the macOS visualiser. They are not
@@ -663,7 +663,7 @@ generator.
 | Playback info              | 9           | ✅    | —   | —   | —   |
 | Coordinate frame           | 6           | ✅    | —   | —   | —   |
 
-**Status:** These are intentionally Mac-only — they serve real-time
+**Status:** These are intentionally Mac-only: they serve real-time
 visualisation and debugging, not analysis or reporting. No wiring gap.
 
 ---
@@ -708,7 +708,7 @@ databases.
 
 ---
 
-## 17. Speed Percentile Columns — Resolved Design Debt
+## 17. Speed Percentile Columns: Resolved Design Debt
 
 The per-track percentile columns have been removed from the active schema.
 `lidar_tracks` and `lidar_run_tracks` no longer carry `p50_speed_mps`,

@@ -18,9 +18,9 @@ Run `make help` or `make` to see all available targets with descriptions.
 
 The project uses a consistent naming scheme: `<action>-<subsystem>[-<variant>]`
 
-- `action` — imperative verb (e.g. `build`, `test`, `check`, `sync`)
-- `subsystem` — functional surface (e.g. `go`, `web`, `config`)
-- `variant` — optional narrowing (e.g. `strict`, `cov`, `linux`)
+- `action`: imperative verb (e.g. `build`, `test`, `check`, `sync`)
+- `subsystem`: functional surface (e.g. `go`, `web`, `config`)
+- `variant`: optional narrowing (e.g. `strict`, `cov`, `linux`)
 
 For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`). Legacy aliases are kept for compatibility.
 
@@ -41,162 +41,162 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 **Cross-cutting formatting targets:**
 
-- `format-sql` — Format SQL files (migrations and schema)
+- `format-sql`: Format SQL files (migrations and schema)
 
 ## Aggregate Targets
 
-- `test` — Run all tests (Go + Python + Web + macOS)
-- `format` — Format all code (Go + Python + Web + macOS + SQL + Markdown)
-- `lint` — Lint all code (Go + Python + Web); fails if formatting needed
-- `coverage` — Generate coverage reports for all components
+- `test`: Run all tests (Go + Python + Web + macOS)
+- `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
+- `lint`: Lint all code (Go + Python + Web); fails if formatting needed
+- `coverage`: Generate coverage reports for all components
 
 ## Build Targets (Go Cross-Compilation)
 
-- `build-radar-linux` — Build for Linux ARM64 (no pcap)
-- `build-radar-linux-pcap` — Build for Linux ARM64 with pcap
-- `build-radar-mac` — Build for macOS ARM64 with pcap
-- `build-radar-mac-intel` — Build for macOS AMD64 with pcap
-- `build-radar-local` — Build for local development with pcap
-- `build-tools` — Build sweep tool
-- `build-deploy` — Build velocity-deploy deployment manager
-- `build-deploy-linux` — Build velocity-deploy for Linux ARM64
-- `build-web` — Build web frontend (SvelteKit)
-- `build-docs` — Build documentation site (Eleventy)
+- `build-radar-linux`: Build for Linux ARM64 (no pcap)
+- `build-radar-linux-pcap`: Build for Linux ARM64 with pcap
+- `build-radar-mac`: Build for macOS ARM64 with pcap
+- `build-radar-mac-intel`: Build for macOS AMD64 with pcap
+- `build-radar-local`: Build for local development with pcap
+- `build-tools`: Build sweep tool
+- `build-deploy`: Build velocity-deploy deployment manager
+- `build-deploy-linux`: Build velocity-deploy for Linux ARM64
+- `build-web`: Build web frontend (SvelteKit)
+- `build-docs`: Build documentation site (Eleventy)
 
 ## Testing Targets
 
-- `test` — Run all tests (Go + Python + Web + macOS)
-- `test-go` — Run Go unit tests
-- `test-go-cov` — Run Go tests with coverage
-- `test-go-coverage-summary` — Show coverage summary for cmd/ and internal/
-- `test-python` — Run Python PDF generator tests
-- `test-python-cov` — Run Python tests with coverage
-- `test-web` — Run web tests (Jest)
-- `test-web-cov` — Run web tests with coverage
-- `test-mac` — Run macOS visualiser tests (XCTest)
-- `test-perf` — Run performance regression tests (NAME=kirk0)
-- `coverage` — Generate coverage reports for all components
+- `test`: Run all tests (Go + Python + Web + macOS)
+- `test-go`: Run Go unit tests
+- `test-go-cov`: Run Go tests with coverage
+- `test-go-coverage-summary`: Show coverage summary for cmd/ and internal/
+- `test-python`: Run Python PDF generator tests
+- `test-python-cov`: Run Python tests with coverage
+- `test-web`: Run web tests (Jest)
+- `test-web-cov`: Run web tests with coverage
+- `test-mac`: Run macOS visualiser tests (XCTest)
+- `test-perf`: Run performance regression tests (NAME=kirk0)
+- `coverage`: Generate coverage reports for all components
 
 ## macOS Visualiser Targets
 
-- `build-mac` — Build macOS LiDAR visualiser (Xcode)
-- `clean-mac` — Clean macOS visualiser build artifacts
-- `run-mac` — Run macOS visualiser (requires build-mac)
-- `dev-mac` — Kill, build, and run macOS visualiser
-- `test-mac` — Run macOS visualiser tests (XCTest)
-- `format-mac` — Format macOS Swift code (swift-format)
+- `build-mac`: Build macOS LiDAR visualiser (Xcode)
+- `clean-mac`: Clean macOS visualiser build artifacts
+- `run-mac`: Run macOS visualiser (requires build-mac)
+- `dev-mac`: Kill, build, and run macOS visualiser
+- `test-mac`: Run macOS visualiser tests (XCTest)
+- `format-mac`: Format macOS Swift code (swift-format)
 
 ## Protobuf Code Generation
 
-- `proto-gen` — Generate protobuf stubs for all languages
-- `proto-gen-go` — Generate Go protobuf stubs
-- `proto-gen-swift` — Generate Swift protobuf stubs (macOS visualiser)
+- `proto-gen`: Generate protobuf stubs for all languages
+- `proto-gen-go`: Generate Go protobuf stubs
+- `proto-gen-swift`: Generate Swift protobuf stubs (macOS visualiser)
 
 ## Deployment Targets (Deprecated)
 
-> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate) — planned for v0.5.1.
+> These targets are deprecated. Removal is gated on the [retirement conditions](docs/plans/platform-simplification-and-deprecation-plan.md#deploy-retirement-gate): planned for v0.5.1.
 
-- `setup-radar` — Install server on this host (requires sudo, **deprecated**)
-- `deploy-install` — Install using velocity-deploy (**deprecated**)
-- `deploy-upgrade` — Upgrade using velocity-deploy (**deprecated**)
-- `deploy-status` — Check service status using velocity-deploy (**deprecated**)
-- `deploy-health` — Run health check using velocity-deploy (**deprecated**)
-- `deploy-install-latex` — Install LaTeX on remote target (**deprecated**)
-- `deploy-update-deps` — Update source, LaTeX, and Python deps on remote target (**deprecated**)
+- `setup-radar`: Install server on this host (requires sudo, **deprecated**)
+- `deploy-install`: Install using velocity-deploy (**deprecated**)
+- `deploy-upgrade`: Upgrade using velocity-deploy (**deprecated**)
+- `deploy-status`: Check service status using velocity-deploy (**deprecated**)
+- `deploy-health`: Run health check using velocity-deploy (**deprecated**)
+- `deploy-install-latex`: Install LaTeX on remote target (**deprecated**)
+- `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**deprecated**)
 
 ## Formatting Targets
 
-- `format` — Format all code (Go + Python + Web + macOS + SQL + Markdown)
-- `format-go` — Format Go code (gofmt)
-- `format-python` — Format Python code (black + ruff)
-- `format-web` — Format web code (prettier)
-- `format-mac` — Format macOS Swift code (swift-format)
-- `format-docs` — Format Markdown files (prettier)
-- `format-sql` — Format SQL files (sql-formatter)
+- `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
+- `format-go`: Format Go code (gofmt)
+- `format-python`: Format Python code (black + ruff)
+- `format-web`: Format web code (prettier)
+- `format-mac`: Format macOS Swift code (swift-format)
+- `format-docs`: Format Markdown files (prettier)
+- `format-sql`: Format SQL files (sql-formatter)
 
 ## Linting Targets
 
-- `lint` — Lint all code (Go + Python + Web); fails if formatting needed
-- `lint-go` — Check Go formatting
-- `lint-python` — Check Python formatting
-- `lint-web` — Check web formatting
+- `lint`: Lint all code (Go + Python + Web); fails if formatting needed
+- `lint-go`: Check Go formatting
+- `lint-python`: Check Python formatting
+- `lint-web`: Check web formatting
 
 ## Config Schema Consistency Targets
 
-- `check-config-order` — Validate canonical tuning key order across config and docs surfaces
-- `sync-config-order` — Rewrite config/docs targets to canonical tuning key order
-- `check-config-maths` — Validate `README.maths` keys against docs JSON, `tuning*.json`, and Go schema sources
-- `check-config-maths-strict` — Strict parity mode; also requires full webserver POST schema parity
+- `check-config-order`: Validate canonical tuning key order across config and docs surfaces
+- `sync-config-order`: Rewrite config/docs targets to canonical tuning key order
+- `check-config-maths`: Validate `README.maths` keys against docs JSON, `tuning*.json`, and Go schema sources
+- `check-config-maths-strict`: Strict parity mode; also requires full webserver POST schema parity
   Current status: optional in CI until webserver schema parity backlog is complete.
 - Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`
 
 ## Database Migration Targets
 
-- `migrate-up` — Apply all pending migrations
-- `migrate-down` — Rollback one migration
-- `migrate-status` — Show current migration status
-- `migrate-detect` — Detect schema version (for legacy databases)
-- `migrate-version` — Migrate to specific version (VERSION=N)
-- `migrate-force` — Force version (recovery, VERSION=N)
-- `migrate-baseline` — Set baseline version (VERSION=N)
-- `schema-sync` — Regenerate schema.sql from latest migrations
+- `migrate-up`: Apply all pending migrations
+- `migrate-down`: Rollback one migration
+- `migrate-status`: Show current migration status
+- `migrate-detect`: Detect schema version (for legacy databases)
+- `migrate-version`: Migrate to specific version (VERSION=N)
+- `migrate-force`: Force version (recovery, VERSION=N)
+- `migrate-baseline`: Set baseline version (VERSION=N)
+- `schema-sync`: Regenerate schema.sql from latest migrations
 
 ## PDF Generator Targets
 
-- `pdf-report` — Generate PDF from config file
-- `pdf-config` — Create example configuration
-- `pdf-demo` — Run configuration demo
-- `pdf-test` — Run PDF tests (alias for test-python)
-- `pdf` — Convenience alias for pdf-report
+- `pdf-report`: Generate PDF from config file
+- `pdf-config`: Create example configuration
+- `pdf-demo`: Run configuration demo
+- `pdf-test`: Run PDF tests (alias for test-python)
+- `pdf`: Convenience alias for pdf-report
 
 ## Utility Targets
 
-- `set-version` — Update version across codebase (VER=0.4.0 TARGETS='--all')
-- `log-go-tail` — Tail most recent Go server log
-- `log-go-cat` — Cat most recent Go server log
-- `log-go-tail-all` — Tail most recent Go server log plus debug log
-- `git-fs` — Show the git files that differ from main
+- `set-version`: Update version across codebase (VER=0.4.0 TARGETS='--all')
+- `log-go-tail`: Tail most recent Go server log
+- `log-go-cat`: Cat most recent Go server log
+- `log-go-tail-all`: Tail most recent Go server log plus debug log
+- `git-fs`: Show the git files that differ from main
 
 ## Data Visualisation Targets
 
-- `plot-noise-sweep` — Generate noise sweep line plot (FILE=data.csv)
-- `plot-multisweep` — Generate multi-parameter grid (FILE=data.csv)
-- `plot-noise-buckets` — Generate per-noise bar charts (FILE=data.csv)
-- `stats-live` — Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
-- `stats-pcap` — Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
+- `plot-noise-sweep`: Generate noise sweep line plot (FILE=data.csv)
+- `plot-multisweep`: Generate multi-parameter grid (FILE=data.csv)
+- `plot-noise-buckets`: Generate per-noise bar charts (FILE=data.csv)
+- `stats-live`: Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
+- `stats-pcap`: Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
 
 ## API Shortcut Targets (LiDAR HTTP API)
 
 **Grid endpoints:**
 
-- `api-grid-status` — Get grid status
-- `api-grid-reset` — Reset background grid
-- `api-grid-heatmap` — Get grid heatmap
+- `api-grid-status`: Get grid status
+- `api-grid-reset`: Reset background grid
+- `api-grid-heatmap`: Get grid heatmap
 
 **Snapshot endpoints:**
 
-- `api-snapshot` — Get current snapshot
-- `api-snapshots` — List all snapshots
+- `api-snapshot`: Get current snapshot
+- `api-snapshots`: List all snapshots
 
 **Acceptance endpoints:**
 
-- `api-acceptance` — Get acceptance metrics
-- `api-acceptance-reset` — Reset acceptance counters
+- `api-acceptance`: Get acceptance metrics
+- `api-acceptance-reset`: Reset acceptance counters
 
 **Parameter endpoints:**
 
-- `api-params` — Get algorithm parameters
-- `api-params-set` — Set parameters (PARAMS='{}')
+- `api-params`: Get algorithm parameters
+- `api-params-set`: Set parameters (PARAMS='{}')
 
 **Persistence and export endpoints:**
 
-- `api-persist` — Trigger snapshot persistence
-- `api-export-snapshot` — Export specific snapshot
-- `api-export-next-frame` — Export next LiDAR frame
+- `api-persist`: Trigger snapshot persistence
+- `api-export-snapshot`: Export specific snapshot
+- `api-export-next-frame`: Export next LiDAR frame
 
 **Status & data source endpoints:**
 
-- `api-status` — Get server status
-- `api-start-pcap` — Start PCAP replay (PCAP=file.pcap)
-- `api-stop-pcap` — Stop PCAP replay
-- `api-switch-data-source` — Switch live/pcap (SOURCE=live|pcap)
+- `api-status`: Get server status
+- `api-start-pcap`: Start PCAP replay (PCAP=file.pcap)
+- `api-stop-pcap`: Stop PCAP replay
+- `api-switch-data-source`: Switch live/pcap (SOURCE=live|pcap)

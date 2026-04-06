@@ -240,9 +240,9 @@ All components share a common SQLite database as the single source of truth, wit
   - Tooling for ASC export, pose transforms, and background tuning APIs
 
 - **`internal/lidar/sweep/`** - Parameter sweep and tuning
-  - `Runner` — runs combinatorial parameter sweeps (manual mode)
-  - `AutoTuner` — iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
-  - `HINTTuner` — human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
+  - `Runner`: runs combinatorial parameter sweeps (manual mode)
+  - `AutoTuner`: iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
+  - `HINTTuner`: human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
 
 - **`internal/monitoring/`** - System monitoring
   - Health checks
@@ -668,8 +668,8 @@ Response: {
 **Percentile policy**: `p50_speed`, `p85_speed`, and `p98_speed` are
 **aggregate** percentiles computed over a population of vehicle max speeds
 within each time bucket. Speed percentiles are never computed on a single
-track's observations. The core high-speed metric is **p98** — the speed
-exceeded by only 2% of observed vehicles — which requires at least 50
+track's observations. The core high-speed metric is **p98**: the speed
+exceeded by only 2% of observed vehicles: which requires at least 50
 observations to be statistically meaningful.
 
 GET /api/config
@@ -916,12 +916,12 @@ Web Development:
 | Phase | Description                                        | Status         | Plan                                                               |
 | ----- | -------------------------------------------------- | -------------- | ------------------------------------------------------------------ |
 | 3.7   | Analysis Run Infrastructure                        | ✅ Implemented | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)       |
-| 3.8   | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | —                                                                  |
+| 3.8   | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | :                                                                  |
 | 3.9   | Adaptive Regions & Sweep System                    | ✅ Implemented | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                   |
 | 4.0   | Track Labelling UI                                 | Planned        | [plan](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) |
 | 4.1   | ML Classifier Training                             | Planned        | [plan](docs/plans/lidar-ml-classifier-training-plan.md)            |
 | 4.2   | Parameter Tuning & Optimisation                    | Planned        | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
-| 4.3   | Production Deployment                              | Planned        | —                                                                  |
+| 4.3   | Production Deployment                              | Planned        | :                                                                  |
 
 ## Performance Characteristics
 
