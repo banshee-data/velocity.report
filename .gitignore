@@ -47,6 +47,17 @@ mock_serial_port*
 pcap-analyse
 
 # =============================================================================
+# Pi Image Build (pi-gen)
+# =============================================================================
+image/.pi-gen/
+image/velocity-binaries/
+image/stage-velocity/02-velocity-python/files/pdf-generator/
+image/stage-velocity/03-velocity-config/files/config/
+*.img
+*.img.xz
+*.img.xz.sha256
+
+# =============================================================================
 # Database Files
 # =============================================================================
 *.db

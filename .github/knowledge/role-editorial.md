@@ -25,23 +25,9 @@ These files contain canonical project facts. Read them when needed rather than r
 | `config/README.md`              | Developers   | Tuning parameter documentation  |
 | `config/README.maths.md`        | Researchers  | Mathematical foundations        |
 
-## British English Enforcement
+## Writing Style
 
-British English is mandatory across all documentation, comments, and user-facing text:
-
-| Use            | Not            |
-| -------------- | -------------- |
-| analyse        | analyze        |
-| colour         | color          |
-| centre         | center         |
-| neighbour      | neighbor       |
-| organisation   | organization   |
-| licence (noun) | license (noun) |
-| travelled      | traveled       |
-| behaviour      | behavior       |
-| visualisation  | visualization  |
-
-**Exception:** External dependencies, API names, or standards that require American spelling.
+See [STYLE.md](../STYLE.md) for British English spelling, punctuation conventions, and prose mechanics.
 
 ## Voice And Tone
 

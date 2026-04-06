@@ -2,13 +2,9 @@
 
 Canonical reference for code style, commit conventions, formatting, and documentation rules.
 
-## British English (Mandatory)
+## Writing Style
 
-Use British English spelling and terminology throughout the repository:
-
-- Symbols, filenames, comments, and commit messages
-- Examples: `analyse` not `analyze`, `colour` not `color`, `centre` not `center`, `neighbour` not `neighbor`
-- **Exception:** External dependencies or rigid standards that require American spelling
+See [STYLE.md](../STYLE.md) for British English spelling, punctuation conventions, and prose mechanics.
 
 ## Git Commit Messages
 
@@ -91,3 +87,11 @@ Code formatting is automated. Run `make format` before committing. Per-language:
 | Go          | `gofmt`          | `make format-go`     |
 | Python      | `black` + `ruff` | `make format-python` |
 | Web (JS/TS) | `prettier`       | `make format-web`    |
+
+## Configuration
+
+Configuration is JSON, version-tagged (`v2`), and validated at load time. See `config/README.md` for the schema. Do not add CLI flags for values that belong in the tuning file.
+
+## Images and Media
+
+Canonical image assets live in `public_html/src/images/`. The path `docs/images/` is a symlink to that directory, so documentation can reference `docs/images/` for shorter paths. Add new images to `public_html/src/images/`. Use descriptive filenames with hyphens. Keep file sizes under 1 MB where possible. Use SVG for diagrams, PNG for screenshots, GIF for short animations.

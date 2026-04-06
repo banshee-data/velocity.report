@@ -16,10 +16,10 @@ working on, read on.
 
 [![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=chat%20on%20discord)](https://discord.gg/XXh6jXVFkt)
 
-- **Discord** — [Join the server](https://discord.gg/XXh6jXVFkt)
+- **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt)
   for real-time conversation, questions, and the occasional
   digression about sensor calibration
-- **GitHub Issues** — Bugs, feature requests, and the project
+- **GitHub Issues**: Bugs, feature requests, and the project
   roadmap
 
 ## Principles
@@ -230,7 +230,7 @@ Read next:
 Platform engineers work on the Go server and everything around
 it: sensor ingestion, APIs, database work, configuration,
 deployment, packaging, CI, and release workflows. The aim is
-simple, reliable deployment on low-cost hardware — especially
+simple, reliable deployment on low-cost hardware: especially
 Raspberry Pi systems used by community advocates who have
 better things to do than diagnose why a service failed to start
 at three in the morning.
@@ -282,7 +282,7 @@ data clearly, consistently, and accessibly.
 
 Web contributors build real-time dashboards, charts, and
 configuration flows in Svelte. macOS contributors work on the
-native visualiser — rendering, playback, and overlays. PDF
+native visualiser: rendering, playback, and overlays. PDF
 chart work uses Python and matplotlib to produce report-ready
 visuals that match the project's design system. Experience in
 any one area is welcome; nobody is expected to cover all three.
@@ -376,22 +376,22 @@ The project roadmap lives in
 [GitHub Issues](https://github.com/banshee-data/velocity.report/issues).
 Useful labels:
 
-- `enhancement` — New features and improvements
-- `bug` — Known problems awaiting attention
-- `good first issue` — Manageable starting points that will
+- `enhancement`: New features and improvements
+- `bug`: Known problems awaiting attention
+- `good first issue`: Manageable starting points that will
   not leave you staring at a screen wondering what just
   happened
-- `help wanted` — Issues where extra hands would make a real
+- `help wanted`: Issues where extra hands would make a real
   difference
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Go 1.25+** — server development
-- **Python 3.11+** — PDF generator
-- **Node.js 18+** with pnpm — web frontend
-- **SQLite3** — database (also the entire database strategy,
+- **Go 1.25+**: server development
+- **Python 3.11+**: PDF generator
+- **Node.js 18+** with pnpm: web frontend
+- **SQLite3**: database (also the entire database strategy,
   which is one of the nicer things about the project)
 
 ### Initial Setup
@@ -443,20 +443,20 @@ pre-commit install
 
 ### Advisory Linting (Non-Blocking)
 
-Some lint checks are **advisory** — they report issues without
+Some lint checks are **advisory**: they report issues without
 blocking your PR. This is a deliberate low-friction workflow:
 
-1. **Local check** — Run `make lint` to see all warnings
+1. **Local check**: Run `make lint` to see all warnings
    including line-width reports.
-2. **Pre-commit hook** — Auto-formats code on commit if you
+2. **Pre-commit hook**: Auto-formats code on commit if you
    have `pre-commit install` enabled. Width-related prose
    checks are opt-in and advisory.
-3. **CI check** — PR checks include an advisory line-width
+3. **CI check**: PR checks include an advisory line-width
    job (`continue-on-error: true`). It shows a yellow tick,
    not a red cross. Your PR can merge regardless.
-4. **Weekly nag PR** — A scheduled workflow opens a standing
+4. **Weekly nag PR**: A scheduled workflow opens a standing
    PR each week with any remaining style fixes. Easy to
-   review and merge — no manual effort required.
+   review and merge: no manual effort required.
 
 This means you never need to stop work for a style issue.
 Fix what you can locally, let CI flag the rest, and the
@@ -475,10 +475,10 @@ Markdown. For details see
 
 Name branches so a stranger can guess the contents:
 
-- `feature/` — New features (e.g., `feature/lidar-tracking`)
-- `fix/` — Bug fixes (e.g., `fix/api-timeout`)
-- `docs/` — Documentation (e.g., `docs/update-setup-guide`)
-- `refactor/` — Tidying (e.g., `refactor/db-layer`)
+- `feature/`: New features (e.g., `feature/lidar-tracking`)
+- `fix/`: Bug fixes (e.g., `fix/api-timeout`)
+- `docs/`: Documentation (e.g., `docs/update-setup-guide`)
+- `refactor/`: Tidying (e.g., `refactor/db-layer`)
 
 ### Commit Messages
 
@@ -490,24 +490,24 @@ yet machines.
 [prefix] Description of change
 ```
 
-| Prefix   | Use                                                                     |
-| -------- | ----------------------------------------------------------------------- |
-| `[go]`   | Go code, server, APIs                                                   |
-| `[py]`   | Python (PDF generator, tools)                                           |
-| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)                                 |
-| `[mac]`  | macOS files (Swift, Xcode)                                              |
-| `[docs]` | Documentation (Markdown, READMEs)                                       |
-| `[sh]`   | Shell scripts (Makefile, bash)                                          |
-| `[sql]`  | Database schema or migrations                                           |
-| `[fs]`   | Filesystem operations (moves, renames)                                  |
-| `[tex]`  | LaTeX/template changes                                                  |
-| `[ci]`   | CI/CD configuration (GitHub Actions)                                    |
-| `[make]` | Makefile changes                                                        |
-| `[git]`  | Git configuration or hooks                                              |
-| `[sed]`  | Find-and-replace across multiple files                                  |
-| `[cfg]`  | Configuration files (tsconfig, package.json, etc.)                      |
-| `[exe]`  | Machine-generated edits (e.g., npm install)                             |
-| `[ai]`   | AI-authored edits (Copilot/Codex) — required alongside the language tag |
+| Prefix   | Use                                                                    |
+| -------- | ---------------------------------------------------------------------- |
+| `[go]`   | Go code, server, APIs                                                  |
+| `[py]`   | Python (PDF generator, tools)                                          |
+| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)                                |
+| `[mac]`  | macOS files (Swift, Xcode)                                             |
+| `[docs]` | Documentation (Markdown, READMEs)                                      |
+| `[sh]`   | Shell scripts (Makefile, bash)                                         |
+| `[sql]`  | Database schema or migrations                                          |
+| `[fs]`   | Filesystem operations (moves, renames)                                 |
+| `[tex]`  | LaTeX/template changes                                                 |
+| `[ci]`   | CI/CD configuration (GitHub Actions)                                   |
+| `[make]` | Makefile changes                                                       |
+| `[git]`  | Git configuration or hooks                                             |
+| `[sed]`  | Find-and-replace across multiple files                                 |
+| `[cfg]`  | Configuration files (tsconfig, package.json, etc.)                     |
+| `[exe]`  | Machine-generated edits (e.g., npm install)                            |
+| `[ai]`   | AI-authored edits (Copilot/Codex): required alongside the language tag |
 
 Examples:
 
@@ -542,15 +542,15 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
 
 ## Pull Requests
 
-1. **Fork & branch** — Create a feature branch from `main`.
-2. **Make changes** — Follow the code style conventions above.
-3. **Test locally** — `make format && make lint && make test`.
-4. **Update docs** — If your change affects behaviour, update
+1. **Fork & branch**: Create a feature branch from `main`.
+2. **Make changes**: Follow the code style conventions above.
+3. **Test locally**: `make format && make lint && make test`.
+4. **Update docs**: If your change affects behaviour, update
    the relevant documentation. Future-you will be grateful.
-5. **Submit PR** — Describe what changed and why. The "why"
+5. **Submit PR**: Describe what changed and why. The "why"
    matters more than the "what"; the diff already shows the
    what.
-6. **Review** — Address feedback from maintainers.
+6. **Review**: Address feedback from maintainers.
 
 ### PR Checklist
 
@@ -572,9 +572,9 @@ make test-web          # Web tests (Jest)
 
 ### Writing Tests
 
-- **Go** — `*_test.go` files alongside the code they test.
-- **Python** — `tools/pdf-generator/pdf_generator/tests/`.
-- **Web** — Jest, with test files matching
+- **Go**: `*_test.go` files alongside the code they test.
+- **Python**: `tools/pdf-generator/pdf_generator/tests/`.
+- **Web**: Jest, with test files matching
   `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`.
 
 If you change behaviour, write a test that would have caught
@@ -615,10 +615,10 @@ documentation at all, because at least an absence is honest.
 
 ## Getting Help
 
-- **Discord** — Best for quick questions:
+- **Discord**: Best for quick questions:
   [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-- **GitHub Issues** — For bugs and feature requests
-- **Code Review** — We are happy to guide you through a PR.
+- **GitHub Issues**: For bugs and feature requests
+- **Code Review**: We are happy to guide you through a PR.
   Ask early rather than late; it saves everyone time.
 
 ## Licence

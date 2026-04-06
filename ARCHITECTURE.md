@@ -2,36 +2,62 @@
 
 This document describes the system architecture, component relationships, data flow, and integration points for the velocity.report traffic monitoring system.
 
+### How to Read This Document
+
+- **Perception / ML engineers:** Start with [Perception Pipeline](#perception-pipeline) and [Data & Evaluation](#data--evaluation), then [Component Status](#component-status) for the layer table.
+- **Deploying the system:** Start with [Deployment Architecture](#deployment-architecture), then [Quick Start](README.md#quick-start).
+- **Contributing code:** Start with [Components](#components) and [Integration Points](#integration-points).
+
 ## Table of Contents
 
 - [System Overview](#system-overview)
+- [Sensor Hardware](#sensor-hardware)
 - [Architecture Diagram](#architecture-diagram)
 - [Components](#components)
+- [Perception Pipeline](#perception-pipeline)
 - [Data Flow](#data-flow)
 - [Technology Stack](#technology-stack)
 - [Integration Points](#integration-points)
+- [Data & Evaluation](#data--evaluation)
 - [Deployment Architecture](#deployment-architecture)
 - [Security & Privacy](#security--privacy)
 - [Component Status](#component-status)
+- [Roadmap](#roadmap)
+- [Mathematical References](#mathematical-references)
 
 ## System Overview
 
-**velocity.report** is a distributed system for neighborhood traffic monitoring with four main components:
+**velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and the PDF generator produces professional reports ready for a city engineer's desk or a planning committee hearing. No cameras, no licence plates, no personally identifiable information — by architecture, not by policy.
 
-1. **Go Server** - Real-time data collection and HTTP API
-2. **Python PDF Generator** - Professional report generation with LaTeX
-3. **Web Frontend** - Real-time visualisation (Svelte/TypeScript)
-4. **macOS Visualiser** - Native 3D LiDAR visualisation (Swift/Metal)
+The LiDAR pipeline extends the picture. Where radar sees a vehicle's speed through a narrow field of view, LiDAR sees the full scene: every object's shape, trajectory, and classification across the entire road. A car that enters at 25 mph, slows for a pedestrian, and exits at 35 mph is one speed reading to radar but a complete behavioural record to LiDAR. The perception stack — DBSCAN clustering, Kalman-filtered tracking, rule-based classification — runs on the same Raspberry Pi, processing 70,000 points per frame at 10 Hz with no cloud dependency.
 
-All components share a common SQLite database as the single source of truth, with the macOS visualiser receiving real-time data via gRPC streaming.
+The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR provides geometry, object identity, and track continuity. Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
+
+| Component            | Language            | Purpose                                                            |
+| -------------------- | ------------------- | ------------------------------------------------------------------ |
+| **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
+| **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting |
+| **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
+| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
 ### Design Principles
 
-- **Privacy First**: No license plates, no video, no PII
+- **Privacy First**: No licence plates, no video, no PII
 - **Simplicity**: SQLite as the only database, minimal dependencies
 - **Offline-First**: Works without internet connectivity
 - **Modular**: Each component operates independently
 - **Well-Tested**: Comprehensive test coverage across all components
+
+## Sensor Hardware
+
+| Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                     |
+| ------ | --------------------- | -------------- | ------------------- | -------------------------------------------------------------------------------------- |
+| Radar  | OmniPreSense OPS243-A | Doppler speed  | USB-Serial (RS-232) | K-band (24 GHz), ±0.1 mph accuracy, FFT-based, configurable speed/magnitude thresholds |
+| LiDAR  | Hesai Pandar40P       | 3D point cloud | Ethernet/UDP (PoE)  | 40 beams, 200 m range, 10 Hz rotation, 0.2° azimuth resolution, ~70,000 points/frame   |
+
+Radar delivers Doppler-accurate speed through a narrow field of view. LiDAR delivers full-scene geometry: shape, trajectory, and classification across the entire road. The two sensors run independently today; sensor fusion via cross-sensor track handoff is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
+
+For detailed sensor specifications, wiring, and calibration: see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
 
 ## Architecture Diagram
 
@@ -240,9 +266,9 @@ All components share a common SQLite database as the single source of truth, wit
   - Tooling for ASC export, pose transforms, and background tuning APIs
 
 - **`internal/lidar/sweep/`** - Parameter sweep and tuning
-  - `Runner` — runs combinatorial parameter sweeps (manual mode)
-  - `AutoTuner` — iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
-  - `HINTTuner` — human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
+  - `Runner`: runs combinatorial parameter sweeps (manual mode)
+  - `AutoTuner`: iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
+  - `HINTTuner`: human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
 
 - **`internal/monitoring/`** - System monitoring
   - Health checks
@@ -491,6 +517,42 @@ The `site_config_periods` table implements a Type 6 SCD pattern for tracking sen
 - **Web Frontend**: Read-only (via HTTP API)
   - Real-time dashboard showing all 3 transit sources
 
+## Perception Pipeline
+
+The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame: background subtraction, clustering, tracking, and classification. Each layer is a separate Go package under `internal/lidar/`, with its own parameters, tests, and maths reference. The pipeline processes ~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
+
+### L3: Background Model
+
+The background model separates static scene (road surface, buildings, vegetation) from moving objects. It maintains a 40 × 3,600 polar grid — one row per LiDAR beam, one column per 0.1° azimuth bin — where each cell tracks an exponentially weighted moving average of range values and a Welford online variance estimate.
+
+Cells are classified into three adaptive region types: **stable** (pavement, walls — low variance, tight foreground threshold), **variable** (parked cars, street furniture — moderate variance, relaxed threshold), and **volatile** (trees, reflective surfaces — high variance, wide threshold). The classification adapts per cell, so a parking space that empties mid-session reclassifies automatically. A point counts as foreground when its range deviates from the cell's background mean by more than a threshold scaled to the cell's region type.
+
+The grid settles over a configurable number of frames. Until a cell has seen enough observations, it remains unsettled and does not contribute to foreground extraction — which prevents the first vehicle through the scene from becoming part of the background.
+
+### L4: Clustering and Geometry
+
+Foreground points are grouped into spatial clusters using DBSCAN with a grid-accelerated spatial index. The index maps each point to a cell via a Szudzik pairing function on signed grid coordinates, making neighbourhood queries O(1) per point instead of O(n). Clusters are filtered by size, aspect ratio, and point count to reject noise and scene artefacts.
+
+Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground-plane projection. PCA alone is ambiguous — the eigenvectors can flip 180° or swap axes between frames — so the pipeline applies heading disambiguation guards: aspect-ratio locking for near-square clusters, 90° jump rejection against the previous frame's heading, and EMA temporal smoothing (α = 0.08) to absorb jitter without lagging real turns.
+
+Ground-plane points within each cluster are removed using a local height threshold relative to the cluster's lowest points.
+
+### L5: Multi-Object Tracking
+
+Tracking follows the predict–associate–update loop. Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 × 4 covariance matrix. The motion model assumes constant velocity between frames — simple enough to run at 10 Hz on constrained hardware, accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
+
+Association uses the Hungarian algorithm (Kuhn–Munkres) with Mahalanobis distance as the cost metric. Three gating guards reject implausible assignments before they reach the solver: a Euclidean position jump limit (5 m), an implied speed limit (30 m/s), and a Mahalanobis distance² threshold (36). Unmatched detections spawn tentative tracks; unmatched tracks enter a coasting window where the Kalman prediction runs without measurement updates.
+
+Track lifecycle: a new track is **tentative** until it accumulates 4 consecutive hits, then **confirmed**. A confirmed track tolerates up to 15 consecutive misses (coasting through brief occlusions) before deletion. Tentative tracks are deleted after 3 misses. Covariance inflates progressively during coasting, so a coasted track's association gate widens naturally — it accepts a returning detection at greater distance but with lower confidence.
+
+### L6: Classification
+
+Each confirmed track is classified using a rule-based system (v1.2) that evaluates spatial and kinematic features: bounding box dimensions, aspect ratio, speed, point count, and height profile. The classifier assigns one of eight object types — car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and dynamic (unclassified moving object) — with confidence levels at three tiers: high (0.85), medium (0.70), and low (0.50).
+
+The rule set uses threshold ranges derived from measured vehicle dimensions and typical urban speeds. Truck and motorcyclist labels are currently display-only: visible in the visualiser and VRLOG replay but not selectable in the labelling UI, pending wider validation data. The `ClassDynamic` label catches moving objects that do not match any specific profile — useful for flagging edge cases rather than forcing a wrong classification.
+
+The classification is deliberately rule-based rather than learned. With single-digit labelled sessions, a trained classifier would overfit; the rule set is transparent, tuneable, and correct enough to structure the data for future ML work when the ground truth corpus is larger.
+
 ## Data Flow
 
 ### Real-Time Data Collection
@@ -668,8 +730,8 @@ Response: {
 **Percentile policy**: `p50_speed`, `p85_speed`, and `p98_speed` are
 **aggregate** percentiles computed over a population of vehicle max speeds
 within each time bucket. Speed percentiles are never computed on a single
-track's observations. The core high-speed metric is **p98** — the speed
-exceeded by only 2% of observed vehicles — which requires at least 50
+track's observations. The core high-speed metric is **p98**: the speed
+exceeded by only 2% of observed vehicles, which requires at least 50
 observations to be statistically meaningful.
 
 GET /api/config
@@ -785,6 +847,35 @@ rpc StopRecording(RecordingRequest) returns (RecordingStatus);
 2. `subprocess.run(['xelatex', ...])` compiles
 3. Retry logic for LaTeX errors
 4. Cleanup of intermediate files (`.aux`, `.log`)
+
+## Data & Evaluation
+
+### VRLOG Recording Format
+
+LiDAR sessions are recorded in the VRLOG format (v0.5), a seekable binary container for point clouds, tracks, and metadata. A recording is a directory containing chunked data files and a binary index.
+
+Each index entry is 24 bytes: an 8-byte frame ID, an 8-byte nanosecond timestamp, a 4-byte chunk ID, and a 4-byte offset within the chunk. The index is sorted by frame ID, enabling binary search for random access — the visualiser can seek to any frame in a multi-hour recording without scanning the data files. Chunks rotate at 1,000 frames or 150 MB, whichever comes first.
+
+VRLOG recordings are the primary unit of reproducible work. Every parameter sweep, every labelling session, and every evaluation run operates on a VRLOG file, so results are deterministic and reviewable.
+
+### Track Labelling and Ground Truth
+
+The labelling workflow produces ground truth for parameter evaluation. A human reviewer watches a VRLOG replay in the macOS visualiser or Svelte frontend, marks each track as correctly detected, fragmented, false positive, or missed, and annotates the object type. Labels are stored alongside the recording and versioned with the run that produced them.
+
+The label vocabulary distinguishes selectable labels (what a reviewer can assign) from display labels (what the classifier can output). This separation lets the classifier report fine-grained types like truck and motorcyclist without requiring reviewers to distinguish them reliably at LiDAR resolution — an honest acknowledgement that some categories are easier to classify than to label.
+
+### HINT Parameter Tuner
+
+HINT (Human-Involved Numerical Tuning) closes the loop between perception quality and parameter selection. The workflow:
+
+1. **Reference run** — process a VRLOG recording with current parameters to produce tracks.
+2. **Label** — a human labels the tracks (correct, fragmented, false positive, missed).
+3. **Sweep** — the tuner replays the same recording across a grid of parameter combinations, scoring each against the labelled ground truth.
+4. **Select** — the combination with the best composite score becomes the new parameter set.
+
+The scoring function is a weighted linear combination of detection quality metrics: acceptance rate, track fragmentation, false positive rate, heading jitter, speed jitter, and foreground capture ratio, among others. Weights are configurable; the defaults penalise fragmentation heavily (a vehicle that splits into three tracks is worse than one that is slightly misaligned) and reward detection rate.
+
+HINT is not automated optimisation — the human labelling step is deliberate. At the current data scale, a reviewer who watches the replay catches failure modes that no metric captures: a track that technically scores well but visually drifts through a wall, or a cluster that fragments because the parameters are tuned for a different scene geometry. The human stays in the loop until the ground truth corpus is large enough to trust automated evaluation.
 
 ## Deployment Architecture
 
@@ -911,17 +1002,36 @@ Web Development:
 | macOS 3D visualiser (Metal)       | Experimental | Swift app    |
 | Track labelling + VRLOG replay    | Experimental | Swift + Go   |
 
-### LiDAR Pipeline Status
+### LiDAR Pipeline Layers
 
-| Phase | Description                                        | Status         | Plan                                                               |
-| ----- | -------------------------------------------------- | -------------- | ------------------------------------------------------------------ |
-| 3.7   | Analysis Run Infrastructure                        | ✅ Implemented | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)       |
-| 3.8   | Tracking Upgrades (Hungarian, OBB, ground removal) | ✅ Implemented | —                                                                  |
-| 3.9   | Adaptive Regions & Sweep System                    | ✅ Implemented | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                   |
-| 4.0   | Track Labelling UI                                 | Planned        | [plan](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) |
-| 4.1   | ML Classifier Training                             | Planned        | [plan](docs/plans/lidar-ml-classifier-training-plan.md)            |
-| 4.2   | Parameter Tuning & Optimisation                    | Planned        | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
-| 4.3   | Production Deployment                              | Planned        | —                                                                  |
+The perception pipeline is organised as ten layers (L1–L10), each a distinct Go package under `internal/lidar/`. Layers L1–L6 form a complete stack from raw UDP frames to classified objects — DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment, and rule-based classification, all tuneable and inspectable end to end.
+
+| Layer | Package         | Capability                                                                      | Status         |
+| ----- | --------------- | ------------------------------------------------------------------------------- | -------------- |
+| L1    | `l1packets/`    | Sensor ingest (Hesai Pandar40P UDP, PCAP replay)                                | ✅ Implemented |
+| L2    | `l2frames/`     | Frame assembly, rotation geometry, coordinate transforms                        | ✅ Implemented |
+| L3    | `l3grid/`       | Background/foreground separation (EMA grid, Welford variance, adaptive regions) | ✅ Implemented |
+| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal        | ✅ Implemented |
+| L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting | ✅ Implemented |
+| L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                  | ✅ Implemented |
+| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
+| L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
+| L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF                           | ✅ Implemented |
+
+Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
+
+### LiDAR Capability Roadmap
+
+| Capability                                               | Status         | Target | Plan                                                               |
+| -------------------------------------------------------- | -------------- | ------ | ------------------------------------------------------------------ |
+| Analysis run infrastructure (versioned runs, comparison) | ✅ Implemented | v0.5.0 | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)       |
+| Tracking upgrades (Hungarian, OBB, ground removal)       | ✅ Implemented | v0.5.0 | —                                                                  |
+| Adaptive regions & HINT parameter tuner                  | ✅ Implemented | v0.5.0 | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                   |
+| Track labelling (backend, API, Svelte + macOS UI)        | Experimental   | v0.5.2 | [plan](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) |
+| ML classifier benchmarking (optional research lane)      | Deferred       | v2.0   | [plan](docs/plans/lidar-ml-classifier-training-plan.md)            |
+| Automated hyperparameter search                          | Planned        | v2.0   | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
+| Production LiDAR deployment                              | Planned        | —      | —                                                                  |
 
 ## Performance Characteristics
 
@@ -948,59 +1058,38 @@ Web Development:
 - **API Latency**: <100ms typical
 - **Rendering**: 60fps on modern browsers
 
-## Future Improvements
+## Roadmap
 
-### Planned Enhancements
+Development is tracked in the [backlog](docs/BACKLOG.md), organised by version. The versions most relevant to system architecture:
 
-1. **Real-time WebSocket Updates** (Web Frontend)
-   - Push new readings to browser
-   - Live chart updates without polling
+| Version | Theme                  | Key Capabilities                                                                                             |
+| ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| v0.5.2  | Data Contracts         | Track speed metric redesign, metric registry, data structure remediation, replay case terminology            |
+| v0.5.3  | Replay Stabilisation   | VRLOG timestamp index, SSE backpressure, visualiser debug overlays, dynamic background segmentation          |
+| v0.5.4  | Product Polish         | Serial port configuration UI, frontend theme compliance, metrics consolidation                               |
+| v0.6.0  | Deployment & Packaging | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking |
+| v0.7.0  | United Frontend        | Svelte migration (retire Go-embedded dashboards), ECharts → LayerChart, track labelling UI in Swift          |
+| v1.0    | Scene Layer            | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                    |
+| v2.0    | ML & Automation        | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction         |
 
-2. **Multi-Location Support** (All Components)
-   - Support multiple sensor deployments
-   - Aggregate across locations
+The project ships incrementally. Each version has a design document per work item; the backlog links to all of them.
 
-3. **Advanced Analytics** (Python + Go)
-   - Traffic pattern detection
-   - Anomaly detection (speeding clusters)
-   - Predictive modeling
+## Mathematical References
 
-4. **Mobile App** (New Component)
-   - iOS/Android apps
-   - Push notifications for events
-   - Mobile-optimised dashboards
+The perception algorithms are documented in standalone mathematical references under `data/maths/`. Each document covers the theory, parameter choices, and implementation mapping for one pipeline stage.
 
-5. **Export Formats** (Python)
-   - CSV exports
-   - Excel reports
-   - JSON data dumps
+| Document                                                                          | Pipeline Layer | Content                                                                                    |
+| --------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------ |
+| [background-grid-settling-maths.md](data/maths/background-grid-settling-maths.md) | L3 Grid        | EMA/EWA update equations, settling state machine, freeze logic                             |
+| [ground-plane-maths.md](data/maths/ground-plane-maths.md)                         | L3–L4          | Tile-based ground plane estimation, confidence scoring, curvature handling                 |
+| [clustering-maths.md](data/maths/clustering-maths.md)                             | L4 Perception  | DBSCAN parameters, OBB via PCA, geometry extraction                                        |
+| [tracking-maths.md](data/maths/tracking-maths.md)                                 | L5 Tracks      | Constant-velocity Kalman filter, Mahalanobis gating, Hungarian assignment, track stability |
+| [classification-maths.md](data/maths/classification-maths.md)                     | L6 Objects     | Rule-based classifier thresholds, feature definitions                                      |
+| [pipeline-review-open-questions.md](data/maths/pipeline-review-open-questions.md) | L1–L6          | Cross-layer dependency audit, open design questions                                        |
 
-6. **Authentication & Authorization** (Go Server)
-   - API key authentication
-   - Role-based access control
-   - Audit logging
+The parameter configuration reference ([config/README.maths.md](config/README.maths.md)) maps every leaf path in `tuning.defaults.json` to the mathematical document that explains it.
 
-### Architectural Considerations
-
-**Scalability**:
-
-- Current design supports single deployment
-- For multi-location, consider:
-  - PostgreSQL instead of SQLite
-  - Message queue for sensor data
-  - Distributed tracing
-
-**Reliability**:
-
-- Add health check endpoints
-- Implement circuit breakers for external dependencies
-- Add retry logic with exponential backoff
-
-**Observability**:
-
-- Structured logging (JSON)
-- Prometheus metrics export
-- Distributed tracing (OpenTelemetry)
+Key references from the literature: Kalman (1960), Munkres (1957), Ester et al. DBSCAN (1996), Bewley et al. SORT (2016), Weng et al. AB3DMOT (2020). Full citations in [references.bib](data/maths/references.bib).
 
 ## Contributing
 

@@ -69,7 +69,7 @@ pedestrian classes.
 
 ## 2. Foreground Extraction and Motion Models
 
-Separating moving objects from the static scene — the
+Separating moving objects from the static scene: the
 foundation that clustering and tracking depend on.
 
 ### Q4. Does velocity-coherent extraction beat the baseline?
@@ -116,7 +116,7 @@ but may be slower.
 
 ## 3. Ground Plane and Scene Geometry
 
-The terrain under the sensor — getting this right means better
+The terrain under the sensor: getting this right means better
 foreground separation, fewer phantom objects, and the
 foundation for corridor-aware tracking.
 
@@ -161,7 +161,7 @@ rotation) with feature-matched confidence.
 
 ## 4. Sensor Fusion and Multi-Sensor Architecture
 
-Combining radar velocity with LiDAR spatial data — and
+Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
 
 ### Q10. Should radar + LiDAR fusion happen at L5 or L7?
@@ -192,7 +192,7 @@ principled and produce auditable confidence scores.
 
 ## 5. Classification and Labelling
 
-Turning tracked objects into named categories — currently a
+Turning tracked objects into named categories: currently a
 rule-based cascade, with explicit questions about whether
 interpretable ML could do better.
 
@@ -238,7 +238,7 @@ that auto-tuning can optimise against.
 
 ## 6. Parameter Tuning and Benchmark Coverage
 
-Every default has provenance — or it should. Roughly eight
+Every default has provenance: or it should. Roughly eight
 config keys are provisional (tuned on kirk0 only).
 
 ### Q15. Which defaults survive multi-site validation?
@@ -320,7 +320,7 @@ occlusion more robustly.
 
 ## 8. Pose Stability and Static Anchors
 
-The sensor is stationary but not perfectly still — thermal
+The sensor is stationary but not perfectly still: thermal
 expansion, wind, and mast flexion produce micro-movements
 that degrade long-running accuracy.
 
@@ -352,7 +352,7 @@ and council chambers. They must withstand scrutiny.
 
 ### Q23. How should speed percentiles be aggregated?
 
-Percentiles do not aggregate — you cannot average p85 values
+Percentiles do not aggregate: you cannot average p85 values
 across time bins. The [speed-percentile plan](../docs/plans/speed-percentile-aggregation-alignment-plan.md)
 reserves p50/p85/p98 for grouped/report metrics.
 

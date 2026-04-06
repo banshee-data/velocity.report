@@ -6,7 +6,7 @@
 - Extracted testable helper paths in `cmd/radar` and added focused coverage for the run-config backfill tool.
 - Updated immutable run-config and replay-case operations docs, and replaced older scene-management implementation notes with the newer asset plan.
 - Switched plan-hygiene reporting to an advisory workflow in CI rather than a hard PR gate.
-- Refreshed schema visualisation tooling — added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
+- Refreshed schema visualisation tooling: added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
 - Expanded `MATRIX.md` and refreshed the Matrix Tracer agent around the live schema/documentation inventory workflow.
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
@@ -21,7 +21,7 @@
 
 ## March 22, 2026 - Schema Hardening, Track Cleanup & Canonical Docs
 
-- Hardened the pre-v0.5.0 schema path across SQL and Go — added replay annotation/evaluation integrity migration work and strengthened label-path coverage.
+- Hardened the pre-v0.5.0 schema path across SQL and Go: added replay annotation/evaluation integrity migration work and strengthened label-path coverage.
 - Regenerated schema artefacts and refreshed `VRLOG_FORMAT.md`, LiDAR architecture docs, and schema-hardening documentation.
 - Added troubleshooting and planning material for schema robustness and garbage-track investigation.
 - Cleaned up LiDAR track persistence and analysis paths, including the new `lidar_all_tracks` view, schema updates, export/report changes, and related tests.
@@ -29,7 +29,7 @@
 
 ## March 21, 2026 - L8-L10 Refactor, CLI Networking & Storage Cleanup
 
-- Landed the large L8-L10 refactor across Go packages and docs — reshaped server/package boundaries, updated routes, and continued the monitor → endpoint/client split.
+- Landed the large L8-L10 refactor across Go packages and docs: reshaped server/package boundaries, updated routes, and continued the monitor → endpoint/client split.
 - Moved LiDAR network settings fully to CLI/runtime flags, trimming duplicated config-file state and updating radar/config docs and tests.
 - Broke up large `internal/api` server files into narrower admin, middleware, radar, reports, sites, and timeline units.
 - Broke up large `internal/db`, `internal/lidar/l2frames`, and `internal/lidar/l5tracks` files into more focused storage, frame-builder, and tracking units.
@@ -79,10 +79,10 @@
 
 ## March 14, 2026 - Data Reorganisation, VRLOG Refresh & UK Spelling
 
-- Reworked VRLOG labelling and replay contracts across Go, Swift, and tooling — refreshed label APIs, run-track endpoints, replay handlers, recorder encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` support.
+- Reworked VRLOG labelling and replay contracts across Go, Swift, and tooling: refreshed label APIs, run-track endpoints, replay handlers, recorder encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` support.
 - Expanded macOS visualiser run-browser and labelling flows alongside the VRLOG changes.
 - Added and refreshed VRLOG analysis / format documentation, terminology notes, and related backlog references.
-- Reshaped the `data/` tree — moved structures and maths material into `data/structures/` and `data/maths/`, added `data/explore/`, and relocated exploratory analysis outputs.
+- Reshaped the `data/` tree: moved structures and maths material into `data/structures/` and `data/maths/`, added `data/explore/`, and relocated exploratory analysis outputs.
 - Normalised British English and refreshed repo-wide cross-references, including `convergence-neighbour` naming and documentation path fixes.
 
 ## March 12, 2026 - Agent Stack Refresh, Light-mode Plan & SSE Delivery Fix
@@ -90,42 +90,42 @@
 - Reworked AI-agent tooling into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack.
 - Added `.github/knowledge/`, `TENETS.md`, portraits, and refreshed agent/instruction docs around the new stack.
 - Added the macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
-- Fixed SSE subscribers receiving test payloads end-to-end — buffered serialmux subscriber channels, tightened subscriber registration timing, and updated replay reset handling in `AppState`.
+- Fixed SSE subscribers receiving test payloads end-to-end: buffered serialmux subscriber channels, tightened subscriber registration timing, and updated replay reset handling in `AppState`.
 
 ## March 11, 2026 - Dual Frame Representation & Naming Standardisation
 
 - Added [L2 dual representation](plans/lidar-l2-dual-representation-plan.md) in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
 - Renamed `PeakSpeedMps` to `MaxSpeedMps` across analysis/reporting, classification, proto, Swift visualiser, and tests; CI fix for remaining references missed in the initial rename.
-- Standardised docs naming conventions — all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
+- Standardised docs naming conventions: all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
 - Overhauled LiDAR architecture Mermaid layer diagram with enhanced documentation and added Mermaid flowchart readability utility script.
 - Added [coordinate-flow audit](lidar/architecture/coordinate-flow-audit.md) documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
 - Added 52-entry BibTeX bibliography (`docs/references.bib`) covering L3f, L5h, L6e planned work and existing references.
 - Updated BACKLOG with v0.5.0 breaking-change/proto work split and shipped component status.
-- Activated shared web cache for worktrees — `make activate-web-cache` for Codex environment setup, reusable Make targets.
+- Activated shared web cache for worktrees: `make activate-web-cache` for Codex environment setup, reusable Make targets.
 
 ## March 10, 2026 - PCAP Playback Fix & VRLOG Analysis Metrics
 
-- Hardened PCAP playback and analysis paths — replay timing fixes, speed-ratio controls, datasource/monitor/dashboard updates, database write cleanup, per-frame timing traces in `pcap-analyse`, and matching macOS visualiser model/client changes.
-- Implemented all §12.1 "implementable now" VRLOG analysis metrics — per-track detail fields, comparison report, and supporting `vrlog-analyse` code and tests.
+- Hardened PCAP playback and analysis paths: replay timing fixes, speed-ratio controls, datasource/monitor/dashboard updates, database write cleanup, per-frame timing traces in `pcap-analyse`, and matching macOS visualiser model/client changes.
+- Implemented all §12.1 "implementable now" VRLOG analysis metrics: per-track detail fields, comparison report, and supporting `vrlog-analyse` code and tests.
 - Documented outstanding data-science questions in `CONTRIBUTING.md`, linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
 
 ## March 9, 2026 - LiDAR L7-L10 & Metrics-first Documentation
 
-- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture — added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
+- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
 - Rewrote contributor personas in `CONTRIBUTING.md`, expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
-- Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification — CLI shape, package layout, modes, metrics, and aggregation windows.
+- Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification: CLI shape, package layout, modes, metrics, and aggregation windows.
 - Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
-- Updated 0.5.0 proto plan — [percentile aggregation](plans/speed-percentile-aggregation-alignment-plan.md) decisions, [metrics registry](plans/metrics-registry-and-observability-plan.md) strategy, tagging guidance, and observability/export mapping.
+- Updated 0.5.0 proto plan: [percentile aggregation](plans/speed-percentile-aggregation-alignment-plan.md) decisions, [metrics registry](plans/metrics-registry-and-observability-plan.md) strategy, tagging guidance, and observability/export mapping.
 - Added Jess agent standup and planning behaviours.
 - British English spelling lint check, backlog decision updates, Python CI bump.
 
 ## March 8, 2026 - L7/L8/L9 Client Planning
 
-- Added LiDAR [L7 analytics and L8 visualisation refactor plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) — phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
+- Added LiDAR [L7 analytics and L8 visualisation refactor plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md): phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
 
 ## March 7, 2026 - Platform Simplification Phase 1
 
-- Implemented Phase 1 of [platform simplification](plans/platform-simplification-and-deprecation-plan.md) — added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
+- Implemented Phase 1 of [platform simplification](plans/platform-simplification-and-deprecation-plan.md): added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
 
 ## March 6, 2026 - Compatibility Plans
 
@@ -134,9 +134,9 @@
 ## March 5, 2026 - Contributor Guidance, Agent Prototyping & Cleanup
 
 - Added contributor personas and general work themes to `CONTRIBUTING.md`.
-- Added Jess (PM) agent; renamed existing agents with role context — Hadaly→Hadaly (Dev), Ictinus→Ictinus (Architect), Malory→Malory (Pen Test), Thompson→Thompson (Writer).
+- Added Jess (PM) agent; renamed existing agents with role context: Hadaly→Hadaly (Dev), Ictinus→Ictinus (Architect), Malory→Malory (Pen Test), Thompson→Thompson (Writer).
 - Removed tracked binaries (`gen-vrlog`, `replay-server`, `visualiser-server`), added to `.gitignore`, cleaned misplaced scripts.
-- Bumped application dependency group — `go-echarts/v2`, `go-sqlite3`, `google.golang.org/grpc`, `modernc.org/sqlite`.
+- Bumped application dependency group: `go-echarts/v2`, `go-sqlite3`, `google.golang.org/grpc`, `modernc.org/sqlite`.
 
 ## March 1, 2026 - Config Restructure & Maths Refresh
 
@@ -150,8 +150,8 @@
 
 ## February 27, 2026 - DMG Packaging & UI Polish
 
-- Added versioned DMG export for VelocityVisualiser — automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
-- Second round of macOS UI polish — label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
+- Added versioned DMG export for VelocityVisualiser: automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
+- Second round of macOS UI polish: label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
 - Bumped version to `0.5.0-pre14`.
 
 ## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
@@ -383,20 +383,20 @@
 
 ## February 5-6, 2026 - macOS Visualiser M3.5–M7
 
-- M3.5: Split streaming — background snapshots every 30s + foreground-only per-frame (78→3 Mbps).
-- M4: Tracking interface refactor — `TrackerInterface`, `ClustererInterface`, golden replay tests.
-- M5: Algorithm upgrades — Hungarian association, ground removal, OBB estimation, occlusion coasting.
-- M6: Debug overlays — gating ellipses, association lines, residuals via gRPC; label API handlers.
-- M7: Performance hardening — Swift buffer pooling, PointCloudFrame reference counting, frame skip cooldown.
+- M3.5: Split streaming: background snapshots every 30s + foreground-only per-frame (78→3 Mbps).
+- M4: Tracking interface refactor: `TrackerInterface`, `ClustererInterface`, golden replay tests.
+- M5: Algorithm upgrades: Hungarian association, ground removal, OBB estimation, occlusion coasting.
+- M6: Debug overlays: gating ellipses, association lines, residuals via gRPC; label API handlers.
+- M7: Performance hardening: Swift buffer pooling, PointCloudFrame reference counting, frame skip cooldown.
 - Added [LiDAR settling time optimisation](lidar/operations/settling-time-optimisation.md) design document.
 
 ## February 3-4, 2026 - macOS Visualiser M0–M3
 
 - Designed macOS visualiser architecture (SwiftUI + Metal + gRPC).
-- M0: Schema + synthetic — protobuf schema, gRPC server, synthetic data generator, SwiftUI+Metal renderer.
-- M1: Recorder/replayer — `.vrlog` format, seek/pause/rate control, deterministic playback.
-- M2: Real point clouds — `FrameAdapter`, decimation modes, 70k+ points at 30fps.
-- M3: Canonical model — `FrameBundle` as single source of truth, LidarView + gRPC from same model.
+- M0: Schema + synthetic: protobuf schema, gRPC server, synthetic data generator, SwiftUI+Metal renderer.
+- M1: Recorder/replayer: `.vrlog` format, seek/pause/rate control, deterministic playback.
+- M2: Real point clouds: `FrameAdapter`, decimation modes, 70k+ points at 30fps.
+- M3: Canonical model: `FrameBundle` as single source of truth, LidarView + gRPC from same model.
 - Added app icon assets.
 
 ## February 2, 2026 - Map Feature & CI Refactor
