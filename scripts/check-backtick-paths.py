@@ -133,11 +133,17 @@ def check_file(
         print(f"warning: could not read {filepath}: {exc}", file=sys.stderr)
         return findings
 
+    in_fence = False
     for lineno, line in enumerate(text.splitlines(), start=1):
-        # Skip fenced code blocks — they contain illustrative paths.
-        # (Simple heuristic: lines indented with 4 spaces or inside ``` fences
-        # are skipped by not matching BACKTICK_PATH_RE's backtick delimiters,
-        # since those are interior text, not inline code.)
+        # Track fenced code blocks (``` or ~~~) — skip their contents entirely.
+        # Paths inside fences are illustrative examples, not live references.
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+
         for match in BACKTICK_PATH_RE.finditer(line):
             token = match.group(1)
             if _is_placeholder(token):
