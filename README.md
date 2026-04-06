@@ -57,27 +57,26 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ## Project Documents
 
 - 🔭 [VISION.md](docs/VISION.md): where the project is heading
-- 🎨 [DESIGN.md](docs/ui/DESIGN.md): frontend and visualisation design language
-- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions for the curious
+- 🎨 [DESIGN.md](docs/ui/DESIGN.md): visual design language
+- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions
 - 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): system design, data flow, and component relationships
 - 🧱 [COMMANDS.md](COMMANDS.md): every make target, catalogued
 - 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
-- 📋 [BACKLOG.md](docs/BACKLOG.md): work queue, prioritised and honest
+- 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
 - 🪵 [CHANGELOG.md](CHANGELOG.md): what changed and when
-- 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal and working notes
+- 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal
 - 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
 - 🙋 [CONTRIBUTING.md](CONTRIBUTING.md): how to help
 - 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
-- ⚖️ [LICENSE](LICENSE): Apache 2.0
 
 ## Why velocity.report?
 
-Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, and nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road.
+Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, but nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road while the motorist zips by.
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-The radar measures vehicle speeds. The LiDAR classifies and tracks objects. Both run independently today; [sensor fusion](docs/VISION.md) — combining them into a single corroborated record — is the next major milestone. No cameras, no licence plates, no surveillance infrastructure that a neighbourhood should never have to build in order to be heard. The data stays on a Raspberry Pi in someone's house. The reports are professional enough for a planning committee.
+The radar measures vehicle speeds. No cameras, no licence plates, no surveillance infrastructure that a neighbourhood should never have to build in order to be heard. The data stays on a Raspberry Pi in someone's house. The reports are professional enough for a planning committee.
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
