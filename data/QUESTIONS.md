@@ -161,7 +161,7 @@ rotation) with feature-matched confidence.
 
 ## 4. Sensor Fusion and Multi-Sensor Architecture
 
-Combining radar velocity with LiDAR spatial data: and
+Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
 
 ### Q10. Should radar + LiDAR fusion happen at L5 or L7?

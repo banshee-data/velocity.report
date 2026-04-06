@@ -669,7 +669,7 @@ Response: {
 **aggregate** percentiles computed over a population of vehicle max speeds
 within each time bucket. Speed percentiles are never computed on a single
 track's observations. The core high-speed metric is **p98**: the speed
-exceeded by only 2% of observed vehicles: which requires at least 50
+exceeded by only 2% of observed vehicles, which requires at least 50
 observations to be statistically meaningful.
 
 GET /api/config
