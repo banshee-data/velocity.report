@@ -529,7 +529,7 @@ make plot-multisweep INPUT=sweep-results.csv
 **Database Management:**
 
 - **Production:** Use `--db-path /var/lib/velocity-report/sensor_data.db`
-- **Development:** Default `./sensor_data.db` is fine
+- **Development:** Default `./sensor_data.db` is fine <!-- link-ignore -->
 - **Backup:** Use `/admin/db/backup` endpoint or `deploy backup` command
 - **Migrations:** Always run `migrate status` before upgrading
 
