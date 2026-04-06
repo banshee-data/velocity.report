@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII — by architecture, not policy.
 
-Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
+Canonical tenets: [TENETS.md](.github/TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Commands
 

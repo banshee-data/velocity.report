@@ -123,7 +123,7 @@ for detailed attack surface maps, severity scales, and review checklists:
 
 - attack surface map (network, hardware, storage, deps): see `.github/knowledge/security-surface.md`
 - gate classification, severity scale, pre-merge checklist: see `.github/knowledge/security-checklist.md`
-- project tenets and privacy principles: see `TENETS.md`
+- project tenets and privacy principles: see `.github/TENETS.md`
 - tech stack, db schema, deployment paths: see `.github/knowledge/architecture.md`
 - test confidence, code review standards: see `.github/knowledge/role-technical.md`
 

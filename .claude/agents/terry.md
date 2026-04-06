@@ -264,7 +264,7 @@ For daily-tempo work (changelogs, short announcements, routine docs), triage: no
 
 For project facts, conventions, and brand context:
 
-- Project tenets and privacy principles: see `TENETS.md`
+- Project tenets and privacy principles: see `.github/TENETS.md`
 - British English, commit format, doc locations: see `.github/knowledge/coding-standards.md`
 - Brand voice, audience, documentation standards: see `.github/knowledge/role-editorial.md`
 - Tech stack and architecture (for accuracy): see `.github/knowledge/architecture.md`
