@@ -111,7 +111,7 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 
 ### LiDAR perception pipeline (`internal/lidar/l*`)
 
-Ten-layer pipeline, L1–L6 implemented:
+Ten-layer pipeline, L1–L6 implemented; L8 and L9 present as analytics and endpoint packages:
 
 | Layer | Package         | Purpose                                                               |
 | ----- | --------------- | --------------------------------------------------------------------- |
