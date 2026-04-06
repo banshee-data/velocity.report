@@ -166,8 +166,10 @@ for eliminating `time.Sleep` in tests across the codebase.
 
 **Estimated effort:** 2–3 days. Incremental, no functional changes.
 
-**Dependencies:** Clock abstraction plan Phase A should land first so that `MockClock`-based
-replacements are available for test files that interact with clock-injected subsystems.
+**Dependencies:** Clock abstraction plan Phase A is beneficial, but not a hard prerequisite,
+for Item 3. The work can start with polling helpers and DB test helper standardisation, then
+adopt `MockClock`-based replacements for tests that interact with clock-injected subsystems
+once Phase A lands.
 
 ---
 
