@@ -18,7 +18,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Layer 0: PROJECT TENETS                            │
-│  TENETS.md                                          │
+│  .github/TENETS.md                                  │
 │  Privacy · No PII · No cameras · No black-box AI    │
 │  ← Every agent, every tool inherits this            │
 ├─────────────────────────────────────────────────────┤
