@@ -530,10 +530,10 @@ Even with the imager in a separate repository, the following **must** remain in
 the `velocity.report` monorepo:
 
 | Asset                   | Location                               | Reason                                                             |
-| ----------------------- | -------------------------------------- | ------------------------------------------------------------------ | -------------------- |
+| ----------------------- | -------------------------------------- | ------------------------------------------------------------------ |
 | pi-gen stage scripts    | `image/` (new directory)               | Defines what goes in the image; tightly coupled to server releases |
 | OS-list repository JSON | `image/os-list-velocity.json`          | Catalogue of available images; updated by CI on release            |
-| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases                                     | <!-- link-ignore --> |
+| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases <!-- link-ignore -->                |
 | systemd service file    | `cmd/deploy/velocity-report.service`   | Canonical source, copied into image                                |
 | udev rules              | `image/files/99-velocity-report.rules` | Device permission rules                                            |
 | Update script           | `image/files/velocity-update`          | User-initiated update helper                                       |
