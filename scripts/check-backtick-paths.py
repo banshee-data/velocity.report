@@ -144,6 +144,12 @@ def check_file(
         if in_fence:
             continue
 
+        # Lines annotated with <!-- link-ignore --> are intentionally stale
+        # (e.g. references to planned-but-not-yet-created files, or historical
+        # paths in completed plan docs).  Skip them entirely.
+        if "<!-- link-ignore -->" in line:
+            continue
+
         for match in BACKTICK_PATH_RE.finditer(line):
             token = match.group(1)
             if _is_placeholder(token):

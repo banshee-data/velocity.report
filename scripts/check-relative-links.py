@@ -60,6 +60,12 @@ def check_file(filepath: Path, root: Path) -> list[tuple[int, str, str]]:
         return dead
 
     for lineno, line in enumerate(text.splitlines(), start=1):
+        # Lines annotated with <!-- link-ignore --> are intentionally stale
+        # (e.g. references to planned-but-not-yet-created files, or historical
+        # paths in completed plan docs).  Skip them entirely.
+        if "<!-- link-ignore -->" in line:
+            continue
+
         for match in LINK_PATTERN.finditer(line):
             target = match.group(1)
 
