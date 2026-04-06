@@ -54,7 +54,6 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
-
 ## Why velocity.report?
 
 Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, but nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road while motorists zip by.
