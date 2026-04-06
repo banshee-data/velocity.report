@@ -119,9 +119,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - (#325) Ground-plane vector-scene maths (P3, D-05): 3D scene reconstruction with ground-plane constraints: [proposal](../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10): comprehensive quality control tooling for LiDAR data: [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
 - Metrics-first data science programme: benchmark packs, scorecards, explicit specs, and reproducible experiment bundles: [plan](plans/platform-data-science-metrics-first-plan.md) `M`
-- Optional classification benchmarking lane (Phase 4.1): transparent feature-based models compared against the rule-based baseline; not on the critical path: [plan](plans/lidar-ml-classifier-training-plan.md) `L`
+- Optional classification benchmarking lane: transparent feature-based models compared against the rule-based baseline; not on the critical path: [plan](plans/lidar-ml-classifier-training-plan.md) `L`
 - Config restructure Phase 3: expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled: [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
-- Parameter tuning optimisation (Phase 4.2): automated hyperparameter search and optimisation: [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
+- Automated hyperparameter search: systematic parameter-space exploration beyond existing HINT tuner: [plan](plans/lidar-parameter-tuning-optimisation-plan.md) `L`
 - [#390] Dynamic algorithm selection: runtime algorithm switching based on scene conditions: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Bodies in motion: L5 IMM kinematic extensions (CV/CA/CTRV), L7 scene-constrained path prediction, sparse-cluster track linking at range, and scene-graph geometric relations: [design doc](plans/lidar-bodies-in-motion-plan.md) `L`
 - Peak-hour and seasonal trend analysis: temporal pattern detection and analysis: [design doc](plans/platform-data-science-metrics-first-plan.md) `M`
@@ -141,7 +141,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
-- [#144] LiDAR analysis-run infrastructure (Phase 3.7): versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
+- [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
 - [#280] Arena.go deprecation: [design doc](lidar/architecture/arena-go-deprecation-and-layered-type-layout-design.md)
