@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Download PDFs for all entries in references.bib.
+"""Download PDFs for all entries in data/maths/references.bib.
 
 Resolves papers via:
   1. arXiv eprint  → https://arxiv.org/pdf/{eprint}.pdf  (direct)
-  2. Direct URL    → download as-is
+  2. Direct URL    → url field or howpublished URL ending in .pdf
   3. DOI           → Unpaywall API for open-access PDF link
-  4. DOI fallback  → Sci-Hub style redirect (disabled by default)
 
 Usage:
-    python data/maths/download-papers.py [--bib FILE] [--out DIR] [--report FILE]
+    python scripts/download-papers.py [--bib FILE] [--out DIR] [--report FILE]
 
 Outputs:
     - PDFs saved to data/maths/papers/
-    - Status report written to stdout and optionally to --report file
+    - Status report written to data/maths/papers/download-status.md
 """
 
 from __future__ import annotations
@@ -112,8 +111,17 @@ def try_arxiv(entry: dict[str, Any], out_dir: Path) -> tuple[bool, str]:
 
 
 def try_direct_url(entry: dict[str, Any], out_dir: Path) -> tuple[bool, str]:
-    """Try downloading from a direct URL field ending in .pdf."""
+    """Try downloading from a direct URL field ending in .pdf.
+
+    Checks both 'url' and 'howpublished' fields for PDF links.
+    """
     url = entry.get("url", "")
+    if not url:
+        # Extract URL from howpublished field: \url{...}
+        hp = entry.get("howpublished", "")
+        m = re.search(r"\\url\{([^}]+)\}", hp)
+        if m:
+            url = m.group(1)
     if not url or not url.lower().endswith(".pdf"):
         return False, ""
     dest = out_dir / f"{entry['key']}.pdf"
@@ -167,6 +175,11 @@ def _classify_entry(entry: dict[str, Any]) -> tuple[str, str]:
         return "arxiv", f"https://arxiv.org/pdf/{eprint}.pdf"
 
     url = entry.get("url", "")
+    if not url:
+        hp = entry.get("howpublished", "")
+        m = re.search(r"\\url\{([^}]+)\}", hp)
+        if m:
+            url = m.group(1)
     if url and url.lower().endswith(".pdf"):
         return "direct_url", url
 
@@ -315,24 +328,30 @@ def write_report(results: list[dict[str, Any]], report_path: Path) -> None:
     print(f"\nReport written to {report_path}")
 
 
+def _repo_root() -> Path:
+    """Return the repository root (parent of scripts/)."""
+    return Path(__file__).resolve().parent.parent
+
+
 def main() -> None:
+    root = _repo_root()
     parser = argparse.ArgumentParser(description="Download PDFs from references.bib")
     parser.add_argument(
         "--bib",
         type=Path,
-        default=Path(__file__).parent / "references.bib",
-        help="Path to BibTeX file (default: references.bib alongside this script)",
+        default=root / "data" / "maths" / "references.bib",
+        help="Path to BibTeX file (default: data/maths/references.bib)",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path(__file__).parent / "papers",
-        help="Output directory for PDFs (default: papers/ alongside this script)",
+        default=root / "data" / "maths" / "papers",
+        help="Output directory for PDFs (default: data/maths/papers/)",
     )
     parser.add_argument(
         "--report",
         type=Path,
-        default=Path(__file__).parent / "papers" / "download-status.md",
+        default=root / "data" / "maths" / "papers" / "download-status.md",
         help="Path for the status report markdown file",
     )
     parser.add_argument(
