@@ -170,7 +170,7 @@ Each agent references the shared knowledge modules in `.github/knowledge/` rathe
 
 ## Skills
 
-Seven workflow skills are available as slash commands:
+The following workflow skills are available as slash commands:
 
 | Skill           | Command                      | Purpose                                                  |
 | --------------- | ---------------------------- | -------------------------------------------------------- |
@@ -181,6 +181,7 @@ Seven workflow skills are available as slash commands:
 | standup         | `/standup`                   | Daily repo and worktree standup with priorities          |
 | security-review | `/security-review [path]`    | Security audit: static analysis, fuzz targets, checklist |
 | trace-matrix    | `/trace-matrix [task-group]` | Trace backend surfaces against MATRIX.md                 |
+| fix-links       | `/fix-links [path]`          | Fix dead links and stale backtick paths in Markdown      |
 
 Skill definitions: `.claude/skills/*/SKILL.md`.
 
