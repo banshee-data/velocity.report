@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -77,15 +77,22 @@ HEADERS = {
 # Unpaywall requires an email for their API
 UNPAYWALL_EMAIL = "dev@velocity.report"
 
+# A valid PDF is at least this many bytes (header + minimal structure)
+_MIN_PDF_BYTES = 1024
+
+# Allowed URL schemes to prevent SSRF via file:// or other protocols
+_ALLOWED_SCHEMES = ("https://", "http://")
+
 
 def _download(url: str, dest: Path, *, timeout: int = 30) -> bool:
     """Download url to dest. Return True on success."""
+    if not any(url.startswith(s) for s in _ALLOWED_SCHEMES):
+        return False
     req = Request(url, headers=HEADERS)
     try:
         with urlopen(req, timeout=timeout) as resp:  # noqa: S310
             content = resp.read()
-            if len(content) < 1024:
-                # Too small to be a real PDF
+            if len(content) < _MIN_PDF_BYTES:
                 return False
             dest.write_bytes(content)
             return True
@@ -149,9 +156,32 @@ def try_unpaywall(entry: dict[str, Any], out_dir: Path) -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 
+def _classify_entry(entry: dict[str, Any]) -> tuple[str, str]:
+    """Classify an entry's best download strategy and expected URL.
+
+    Returns (strategy, url) where strategy is one of:
+      arxiv, direct_url, unpaywall, none
+    """
+    eprint = entry.get("eprint", "")
+    if eprint:
+        return "arxiv", f"https://arxiv.org/pdf/{eprint}.pdf"
+
+    url = entry.get("url", "")
+    if url and url.lower().endswith(".pdf"):
+        return "direct_url", url
+
+    doi = entry.get("doi", "")
+    if doi:
+        return "unpaywall", f"https://doi.org/{doi}"
+
+    return "none", ""
+
+
 def download_all(
     bib_path: Path,
     out_dir: Path,
+    *,
+    dry_run: bool = False,
 ) -> list[dict[str, Any]]:
     """Download all papers. Return list of result dicts."""
     entries = parse_bibtex(bib_path)
@@ -165,6 +195,8 @@ def download_all(
         title = entry.get("title", "(no title)")
         print(f"[{i}/{total}] {key}: {title[:70]}...")
 
+        strategy, expected_url = _classify_entry(entry)
+
         result: dict[str, Any] = {
             "key": key,
             "title": title,
@@ -175,7 +207,20 @@ def download_all(
             "downloaded": False,
             "source": "",
             "reason": "",
+            "strategy": strategy,
+            "expected_url": expected_url,
         }
+
+        if dry_run:
+            if strategy == "none":
+                result["reason"] = "No DOI, eprint, or URL in bibtex entry"
+                print(f"  ⊘ DRY RUN: no download path available")
+            else:
+                result["downloaded"] = True
+                result["source"] = f"{strategy}:{expected_url}"
+                print(f"  ⊘ DRY RUN: would try {strategy} → {expected_url}")
+            results.append(result)
+            continue
 
         # Strategy 1: arXiv
         ok, src = try_arxiv(entry, out_dir)
@@ -208,12 +253,12 @@ def download_all(
             continue
 
         # Could not download
-        if not entry.get("doi") and not entry.get("eprint") and not entry.get("url"):
+        if strategy == "none":
             result["reason"] = "No DOI, eprint, or URL in bibtex entry"
-        elif entry.get("doi") and not entry.get("eprint"):
-            result["reason"] = "DOI-only; no open-access PDF found via Unpaywall"
-        elif entry.get("eprint"):
+        elif strategy == "arxiv":
             result["reason"] = "arXiv download failed"
+        elif strategy == "unpaywall":
+            result["reason"] = "DOI-only; no open-access PDF found via Unpaywall"
         else:
             result["reason"] = "Download failed from all sources"
 
@@ -237,6 +282,14 @@ def write_report(results: list[dict[str, Any]], report_path: Path) -> None:
     lines.append(f"**Failed:** {len(failed)}")
     lines.append("")
 
+    # Strategy breakdown
+    strats = Counter(r.get("strategy", "unknown") for r in results)
+    lines.append("### Download Strategy Breakdown")
+    lines.append("")
+    for s, c in sorted(strats.items()):
+        lines.append(f"- **{s}:** {c} entries")
+    lines.append("")
+
     if downloaded:
         lines.append("## Successfully Downloaded")
         lines.append("")
@@ -244,7 +297,8 @@ def write_report(results: list[dict[str, Any]], report_path: Path) -> None:
         lines.append("|-----|-------|--------|")
         for r in downloaded:
             title = r["title"][:60] + ("…" if len(r["title"]) > 60 else "")
-            lines.append(f"| {r['key']} | {title} | {r['source'][:50]} |")
+            src = r["source"][:60]
+            lines.append(f"| {r['key']} | {title} | {src} |")
         lines.append("")
 
     if failed:
@@ -281,6 +335,11 @@ def main() -> None:
         default=Path(__file__).parent / "papers" / "download-status.md",
         help="Path for the status report markdown file",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Classify entries and report expected sources without downloading",
+    )
     args = parser.parse_args()
 
     if not args.bib.exists():
@@ -290,9 +349,11 @@ def main() -> None:
     print(f"BibTeX file: {args.bib}")
     print(f"Output dir:  {args.out}")
     print(f"Report file: {args.report}")
+    if args.dry_run:
+        print("Mode:        DRY RUN (no downloads)")
     print()
 
-    results = download_all(args.bib, args.out)
+    results = download_all(args.bib, args.out, dry_run=args.dry_run)
     write_report(results, args.report)
 
     # Exit with non-zero if any downloads failed
