@@ -80,6 +80,27 @@ The radar measures vehicle speeds. No cameras, no licence plates, no surveillanc
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
+## Who It's For
+
+- **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
+- **Community advocates** building a case for traffic calming, with data that survives a council meeting
+- **Academics and researchers** studying street-level vehicle behaviour with LiDAR point clouds, tracking pipelines, and replayable datasets
+- **Students and engineers** learning LiDAR perception — the pipeline is transparent, tuneable, and documented from raw UDP packets through to classified tracks
+- **Before-and-after studies** showing whether traffic calming interventions actually work
+
+## Privacy
+
+The system records vehicle speed data. That is all it records.
+
+- No cameras
+- No licence plate recognition
+- No video
+- No personally identifiable information — by design, not by policy
+
+The point is to measure traffic, not to start building a private surveillance habit. The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
+
+See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles.
+
 ## What's Included
 
 | Component            | Language            | What it does                                                                                                                                                                             |
@@ -122,27 +143,6 @@ Then open the Lidar Dashboard on [localhost:8081](http://localhost:8081) to star
 
 See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for replay mode, gRPC controls, and camera navigation.
 
-## Privacy
-
-The system records vehicle speed data. That is all it records.
-
-- No cameras
-- No licence plate recognition
-- No video
-- No personally identifiable information — by design, not by policy
-
-The point is to measure traffic, not to start building a private surveillance habit. The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
-
-See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles.
-
-## Who It's For
-
-- **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
-- **Community advocates** building a case for traffic calming, with data that survives a council meeting
-- **Academics and researchers** studying street-level vehicle behaviour with LiDAR point clouds, tracking pipelines, and replayable datasets
-- **Students and engineers** learning LiDAR perception — the pipeline is transparent, tuneable, and documented from raw UDP packets through to classified tracks
-- **Before-and-after studies** showing whether traffic calming interventions actually work
-
 ## Architecture
 
 ```
@@ -161,7 +161,6 @@ See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles
         └──────────────┘ └───────────────┘ └─────────────────────┘
 ```
 
-For the full architecture — data flow, schema, and deployment model — see
 For the full architecture — data flow, schema, and deployment model — see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
 
 ## Development
@@ -208,12 +207,12 @@ Start with a small issue and read the nearby code before changing anything broad
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow, testing requirements, and pull request process.
 
-## Licence
-
-Apache License 2.0 — see [LICENSE](LICENSE).
-
 ## Community
 
 [![join-us-on-discord](https://github.com/user-attachments/assets/fa329256-aee7-4751-b3c4-d35bdf9287f5)](https://discord.gg/XXh6jXVFkt)
 
 Join the Discord to discuss the project, get help, and help make streets safer.
+
+## Licence
+
+Apache License 2.0 — see [LICENSE](LICENSE).
