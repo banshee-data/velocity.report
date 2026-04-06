@@ -292,7 +292,7 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 
 ### "Invalid JSON response"
 
-- Verify API endpoint is working: `./tools/test_grid_heatmap.sh`
+- Verify API endpoint is working: `./test_grid_heatmap.sh`
 - Check server logs for errors
 - Ensure sensor ID exists
 

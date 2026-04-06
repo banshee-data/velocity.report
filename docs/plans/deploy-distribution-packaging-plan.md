@@ -154,7 +154,7 @@
 
 1. **Create GitHub Actions release workflow**
 
-   File: `.github/workflows/release.yml`
+   File: `.github/workflows/release.yml` <!-- link-ignore -->
 
    ````yaml
    name: Release

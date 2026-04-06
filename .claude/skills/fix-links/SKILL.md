@@ -127,8 +127,24 @@ Run `make lint-docs` to confirm the full quality gate passes.
 
 ## What is never auto-fixed
 
-- Files in `docs/plans/TEMPLATE.md` (intentional placeholders)
 - Any reference where two or more candidate files exist
 - References to files that do not exist anywhere in the repo
 - Any edit that would change semantic meaning (e.g. a link pointing to a
   different concept just because the filename is similar)
+
+## Suppressing known-stale references
+
+Add `<!-- link-ignore -->` at the end of any line to permanently suppress it
+from both `check-relative-links.py` and `check-backtick-paths.py`.
+
+Use this for:
+
+- Intentional template placeholders (e.g. `docs/plans/TEMPLATE.md`)
+- Planned-but-not-yet-created files referenced in plan docs
+- Historical paths in completed plan docs that describe what was moved
+- References to the other platform's file layout conventions
+
+```
+| Image CI workflow | `.github/workflows/build-image.yml` | Planned | <!-- link-ignore -->
+3. [x] Migrated from `../server/` → `../platform/` <!-- link-ignore -->
+```

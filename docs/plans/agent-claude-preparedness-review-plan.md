@@ -284,15 +284,15 @@ These are **candidates only** — to be scoped and prioritised in a future plann
 
 ### 6.1 How Each Tool Discovers Knowledge
 
-| Mechanism              | Copilot (VS Code)                                                     | Claude Code                                                    |
-| ---------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Root instructions      | `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md`           | `CLAUDE.md`                                                    |
-| Named agents           | `.github/agents/*.agent.md`                                           | `.claude/agents/*.md`                                          |
-| Scoped instructions    | `.instructions.md` with `applyTo`; `.claude/rules/` also works        | `.claude/rules/*.md`, nested `CLAUDE.md`                       |
-| Skills / workflows     | `SKILL.md` in `.github/skills/`, `.claude/skills/`, `.agents/skills/` | `SKILL.md` in `.claude/skills/` and legacy `.claude/commands/` |
-| Prompt-style entry     | `.github/prompts/*.prompt.md`                                         | No native prompt-file equivalent                               |
-| Agent-to-agent routing | `handoffs:` in `.agent.md`                                            | Manual chaining, `@` mentions, or skill-driven dispatch        |
-| File references        | Read on demand; links can be referenced in prompts/instructions       | Read on demand; skills can bundle supporting files             |
+| Mechanism              | Copilot (VS Code)                                                     | Claude Code                                             |
+| ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------- | -------------------- |
+| Root instructions      | `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md`           | `CLAUDE.md`                                             |
+| Named agents           | `.github/agents/*.agent.md`                                           | `.claude/agents/*.md`                                   |
+| Scoped instructions    | `.instructions.md` with `applyTo`; `.claude/rules/` also works        | `.claude/agents/*.md`, nested `CLAUDE.md`               | <!-- link-ignore --> |
+| Skills / workflows     | `SKILL.md` in `.github/skills/`, `.claude/skills/`, `.agents/skills/` | `SKILL.md` in `.claude/skills/`                         | <!-- link-ignore --> |
+| Prompt-style entry     | `.github/prompts/*.prompt.md`                                         | No native prompt-file equivalent                        |
+| Agent-to-agent routing | `handoffs:` in `.agent.md`                                            | Manual chaining, `@` mentions, or skill-driven dispatch |
+| File references        | Read on demand; links can be referenced in prompts/instructions       | Read on demand; skills can bundle supporting files      |
 
 ### 6.2 Persona Definition Strategy: Dual-Native Agents
 

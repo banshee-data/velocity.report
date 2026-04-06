@@ -105,7 +105,7 @@ Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handl
 | DELETE | `/api/lidar/scenes/{replay_case_id}`        | Delete replay case                       |
 | POST   | `/api/lidar/scenes/{replay_case_id}/replay` | Replay PCAP, creating analysis run (202) |
 
-> **Pending rename (v0.5.1+):** API paths will change from `/api/lidar/scenes` to `/api/lidar/replay-cases`. This is a breaking change planned for the v0.5.1 code rename. See [lidar-replay-case-terminology-alignment-plan.md](../plans/lidar-replay-case-terminology-alignment-plan.md).
+> **Pending rename (v0.5.1+):** API paths will change from `/api/lidar/scenes` to `/api/lidar/replay-cases`. This is a breaking change planned for the v0.5.1 code rename. See [lidar-replay-case-terminology-alignment-plan.md](../../plans/lidar-replay-case-terminology-alignment-plan.md).
 
 **Request/Response Types:**
 
