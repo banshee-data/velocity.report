@@ -301,7 +301,7 @@ Check migration state before applying anything.
 **Important:** `--db-path` must appear between `migrate` and the sub-command
 (`status` / `up`). Go's flag parser stops at the first non-flag argument, so
 `migrate status --db-path …` silently ignores `--db-path` and falls back to
-`./sensor_data.db` in the current working directory.
+`./sensor_data.db` in the current working directory. <!-- link-ignore -->
 
 ```bash
 if [ -f "$VR_DB" ]; then

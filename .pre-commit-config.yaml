@@ -61,6 +61,14 @@ repos:
         pass_filenames: false
         files: \.sql$
         stages: [pre-commit]
+
+      - id: check-md-links
+        name: check-md-links (dead links and stale backtick paths)
+        entry: make check-md-links
+        language: system
+        pass_filenames: false
+        files: \.md$
+        stages: [pre-commit]
 # Note: Go formatting and linting handled by your editor/IDE
 # Note: Web linting (pnpm) handled by CI on PRs
 # This keeps pre-commit fast and reliable!

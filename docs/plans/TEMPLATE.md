@@ -3,8 +3,8 @@
 - **Status:** Draft | Active | Complete
 - **Layers:** e.g. Cross-cutting (Go server, API, database) | LiDAR pipeline | Web frontend
 - **Target:** e.g. v0.5.x — reason the work is tied to this release
-- **Companion plans:** [linked-plan-name](linked-plan-name.md) (if any)
-- **Canonical:** [hub-doc-name](../platform/path/hub-doc.md) (single source of truth)
+- **Companion plans:** [linked-plan-name](linked-plan-name.md) (if any) <!-- link-ignore -->
+- **Canonical:** [hub-doc-name](../platform/path/hub-doc.md) (single source of truth) <!-- link-ignore -->
 
 ## Motivation
 
@@ -74,7 +74,7 @@ External or internal dependencies that gate or sequence this work.
 
 ### Deferred
 
-- [ ] Example deferred item — reason for deferral, tracked by [other-plan](other-plan.md)
+- [ ] Example deferred item — reason for deferral, tracked by [other-plan](other-plan.md) <!-- link-ignore -->
 
 ### Accepted residuals (no action planned)
 

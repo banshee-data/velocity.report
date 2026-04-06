@@ -141,17 +141,17 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 
 ## What Stays in the Monorepo
 
-| Asset                   | Location                               | Reason                             |
-| ----------------------- | -------------------------------------- | ---------------------------------- |
-| pi-gen stage scripts    | `image/`                               | Tightly coupled to server releases |
-| OS-list repository JSON | `image/os-list-velocity.json`          | Updated by CI on release           |
-| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases     |
-| systemd service         | `cmd/deploy/velocity-report.service`   | Canonical source                   |
-| udev rules              | `image/files/99-velocity-report.rules` | Device permissions                 |
-| Update script           | `image/files/velocity-update`          | User-initiated updates             |
-| Minimal TeX tree        | `image/files/texlive-minimal/`         | Pre-compiled templates + fonts     |
-| LiDAR network config    | `image/files/lidar-network.conf`       | Static IP for 192.168.100.x        |
-| First-boot script       | `image/files/velocity-first-boot.sh`   | Optional setup wizard              |
+| Asset                   | Location                               | Reason                                              |
+| ----------------------- | -------------------------------------- | --------------------------------------------------- |
+| pi-gen stage scripts    | `image/`                               | Tightly coupled to server releases                  |
+| OS-list repository JSON | `image/os-list-velocity.json`          | Updated by CI on release                            |
+| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases <!-- link-ignore --> |
+| systemd service         | `cmd/deploy/velocity-report.service`   | Canonical source                                    |
+| udev rules              | `image/files/99-velocity-report.rules` | Device permissions                                  |
+| Update script           | `image/files/velocity-update`          | User-initiated updates                              |
+| Minimal TeX tree        | `image/files/texlive-minimal/`         | Pre-compiled templates + fonts                      |
+| LiDAR network config    | `image/files/lidar-network.conf`       | Static IP for 192.168.100.x                         |
+| First-boot script       | `image/files/velocity-first-boot.sh`   | Optional setup wizard                               |
 
 ## Security
 

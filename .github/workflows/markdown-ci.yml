@@ -1,0 +1,60 @@
+name: 📝 Markdown CI
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "**/*.md"
+      - "scripts/check-relative-links.py"
+      - "scripts/check-backtick-paths.py"
+      - ".github/workflows/markdown-ci.yml"
+      - "Makefile"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - "scripts/check-relative-links.py"
+      - "scripts/check-backtick-paths.py"
+
+concurrency:
+  group: markdown-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  md-links:
+    name: "🔗 Dead links and stale paths"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check relative Markdown links
+        run: python3 scripts/check-relative-links.py
+
+      - name: Check backtick-quoted paths
+        run: python3 scripts/check-backtick-paths.py
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📝 Markdown Link Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Relative links" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python3 scripts/check-relative-links.py --report >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Backtick paths" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python3 scripts/check-backtick-paths.py --report >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Suppress known-stale references with \`<!-- link-ignore -->\`." >> $GITHUB_STEP_SUMMARY

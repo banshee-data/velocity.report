@@ -180,7 +180,7 @@ All completed on branch `dd/docs/merge-canonical`:
 
 1. [x] Rename `docs/server/` → moved contents to `docs/platform/`
 2. [x] Update `docs/platform/README.md` — expanded scope
-3. [x] Update `Canonical:` links in 3 data-\* plans from `../server/` → `../platform/`
+3. [x] Update `Canonical:` links in 3 data-\* plans from `../server/` → `../platform/` <!-- link-ignore -->
 4. [x] Update `ALLOWED_HUB_PREFIXES` — removed `docs/server/`
 5. [x] Verified `make report-plan-hygiene` — 0 gate violations, 6 advisory notes
 

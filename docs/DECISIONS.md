@@ -104,6 +104,10 @@ Generic cadenced aggregation + live surface + aligned history engine, extracted 
 
 Adopt Option A: remove persisted per-track speed percentiles from migration 030 and keep no DB-backed fallback path; revisit offline-only export computation later only if explicitly needed — [schema simplification plan](plans/schema-simplification-migration-030-plan.md)
 
+### D-25 — Agent platform strategy: dual-native personas + shared skills
+
+Use dual-native agent definitions (`.github/agents/` for Copilot, `.claude/agents/` for Claude Code) with persona methodology bounded to ~40–80 lines per agent and drift-checked weekly. Shared project knowledge (Layers 0–2) stays single-source in `.github/knowledge/`. Reusable workflows live in `.claude/skills/` as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |

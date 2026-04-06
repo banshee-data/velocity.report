@@ -1,4 +1,4 @@
-name: 📚 Docs CI
+name: 🌐 public_html CI
 
 permissions:
   contents: read
@@ -7,19 +7,22 @@ permissions:
   issues: write
 
 on:
-  # Run only on PRs that change public_html files
   pull_request:
     types: [opened, reopened, synchronize]
     paths:
       - "public_html/**"
-      - ".github/workflows/docs-ci.yml"
+      - ".github/workflows/public-html-ci.yml"
       - ".github/actions/setup-node-pnpm/**"
+
+concurrency:
+  group: public-html-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     name: "🔍 Lint (advisory)"
     runs-on: ubuntu-latest
-    continue-on-error: true # Advisory - allows PR to merge even if linting fails
+    continue-on-error: true
     defaults:
       run:
         working-directory: public_html

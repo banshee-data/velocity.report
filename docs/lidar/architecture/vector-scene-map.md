@@ -10,7 +10,7 @@
 
 ### From Tiled Grid to Vector Polygons
 
-The existing ground plane specification (`../lidar/architecture/ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
+The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
 
 1. **Tile uniformity wastes storage on homogeneous regions** — A straight, flat stretch of road produces hundreds of nearly-identical 1 m tiles where a single polygon would suffice.
 2. **Buildings and walls are vertical surfaces** — Tiles are inherently horizontal (Z-up plane fits). Vertical structures require a fundamentally different representation: wall-plane parameters or bounding polygons with corner coordinates.
@@ -858,7 +858,7 @@ Implementation notes:
 
 #### Scan-Derived OSM Update Proposal Tooling (Contribute Back Upstream)
 
-The V2 OSM write-back workflow from `../lidar/architecture/ground-plane-extraction.md`
+The V2 OSM write-back workflow from `ground-plane-extraction.md`
 should be extended for S3DB-aware building updates. The key design requirement
 is **human-reviewed proposals by default** (not autonomous uploads).
 
