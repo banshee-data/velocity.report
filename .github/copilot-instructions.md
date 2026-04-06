@@ -11,8 +11,7 @@ See [TENETS.md](TENETS.md) for the full project constitution. The short version:
 3. **Evidence over opinion** — measured data, not anecdote
 4. **Local-first** — Raspberry Pi, SQLite, offline-capable
 5. **Simplicity and durability** — smallest change that solves the problem
-6. **British English** — all code, comments, docs, symbols, commit messages
-7. **DRY** — every fact has one canonical source
+6. **DRY** — every fact has one canonical source
 
 ## Project Overview
 
@@ -81,7 +80,8 @@ Read these on demand when you need deeper context:
 | [TENETS.md](TENETS.md)                                             | Project constitution                           |
 | [knowledge/architecture.md](knowledge/architecture.md)             | Tech stack, data flow, schema, deployment      |
 | [knowledge/build-and-test.md](knowledge/build-and-test.md)         | Make targets, dev servers, testing, setup      |
-| [knowledge/coding-standards.md](knowledge/coding-standards.md)     | British English, commits, paths, formatting    |
+| [STYLE.md](STYLE.md)                                               | British English, punctuation, prose mechanics  |
+| [knowledge/coding-standards.md](knowledge/coding-standards.md)     | Commits, paths, formatting                     |
 | [knowledge/hardware.md](knowledge/hardware.md)                     | Radar/LIDAR specs, serial/UDP, Raspberry Pi    |
 | [knowledge/security-surface.md](knowledge/security-surface.md)     | Attack surface map, vulnerability patterns     |
 | [knowledge/security-checklist.md](knowledge/security-checklist.md) | Review criteria, severity, gate classification |

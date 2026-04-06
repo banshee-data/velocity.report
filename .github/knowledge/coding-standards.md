@@ -2,13 +2,9 @@
 
 Canonical reference for code style, commit conventions, formatting, and documentation rules.
 
-## British English (Mandatory)
+## Writing Style
 
-Use British English spelling and terminology throughout the repository:
-
-- Symbols, filenames, comments, and commit messages
-- Examples: `analyse` not `analyze`, `colour` not `color`, `centre` not `center`, `neighbour` not `neighbor`
-- **Exception:** External dependencies or rigid standards that require American spelling
+See [STYLE.md](../STYLE.md) for British English spelling, punctuation conventions, and prose mechanics.
 
 ## Git Commit Messages
 

@@ -34,7 +34,3 @@ Prefer the smallest change that solves the problem durably. Avoid speculative ab
 ## 6. DRY
 
 Every project fact has one canonical source. Reference it; do not copy it. When functionality changes, update all relevant documentation.
-
-## 7. British English
-
-All code, comments, documentation, symbols, filenames, and commit messages use British English spelling. Exception: external dependencies or rigid standards that require American spelling.
