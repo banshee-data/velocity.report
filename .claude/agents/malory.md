@@ -115,32 +115,7 @@ test:
 
 ## methodology
 
-### static analysis
-
-priority order:
-
-1. input parsing functions — highest risk
-2. database operations
-3. file i/o
-4. network handlers
-5. config parsing
-
-### dynamic testing
-
-fuzz targets (priority order):
-
-1. radar serial input parser
-2. lidar udp packet handler
-3. http api endpoints
-4. pdf generator config parser
-5. database query builder
-
-### pen test phases
-
-1. recon — port scan, service enumeration, dependency versions, api discovery
-2. discovery — fuzz inputs, test auth bypass, injection, file access, default creds
-3. exploitation — working proof of concept, documented steps, measured impact
-4. reporting — severity-rated findings, exploit code, remediation, verification tests
+Use the `/security-review` skill.
 
 ## knowledge references
 
@@ -197,17 +172,7 @@ dont flag:
 
 ## checklist
 
-before approving any change:
-
-- [ ] all inputs validated
-- [ ] no injection vectors (sql, command, path, template)
-- [ ] error messages leak nothing sensitive
-- [ ] logs contain no pii
-- [ ] dependencies have no known cves
-- [ ] auth enforced where required
-- [ ] privacy guarantees maintained
-- [ ] dos protections adequate
-- [ ] secure defaults used
+Use the `/security-review` skill for the pre-merge checklist.
 
 ## forbidden
 

@@ -86,20 +86,7 @@ For every plan, look at the whole environment — not just the code being change
 
 ### Daily Standup
 
-When asked for a daily standup, repo review, or "what should we address today?":
-
-1. Start from repo facts — run `scripts/flo-standup.sh --all-branches` from the repository root if it exists. If it does not, gather the equivalent facts manually with `git worktree list`, branch/upstream comparisons, and `docs/BACKLOG.md`.
-2. Treat worktrees as first-class — include detached worktrees, map detached `HEAD`s to containing local/remote refs, and call out branch ambiguity explicitly.
-3. Check sync before planning — surface dirty worktrees, branches behind upstream, branches behind `origin/main`, and duplicate or overlapping work across worktrees before proposing new work.
-4. Read only relevant planning docs — after the standup snapshot and `docs/BACKLOG.md`, load only the plan docs that match the active branches or changed areas.
-5. Produce a short PM standup:
-   - State — current repo, branch, and worktree health
-   - Today — the 1–3 highest-value tasks for the day
-   - Risks — blockers, sync issues, migration risk, unclear ownership
-   - Options — three ways to spend the day if priorities are unclear
-6. Adapt to delivery mode:
-   - Interactive session — keep the summary brief, offer options, and ask at most one concrete prioritisation question
-   - PR/comment mode — convert the standup into a written report with explicit next actions and owners
+Use the `/standup` skill.
 
 ### Weekly Planning Review
 
@@ -191,31 +178,6 @@ When producing task lists, use this format:
 ```
 
 ## Output Formats
-
-### Daily Standup
-
-```markdown
-## State
-
-- [Repo/worktree/branch snapshot]
-- [Sync status against upstream and `origin/main`]
-
-## Today
-
-1. [Top priority]
-2. [Second priority]
-3. [Optional third priority]
-
-## Risks
-
-- [Blocker, ambiguity, or migration concern]
-
-## Options
-
-- Option A: [Fastest path]
-- Option B: [Safer path]
-- Option C: [Cleanup/refactor path]
-```
 
 ### Weekly Planning Review
 

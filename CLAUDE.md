@@ -154,15 +154,15 @@ Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` pr
 
 Seven named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
 
-| Agent      | Domain                                     | Class     | File                       |
-| ---------- | ------------------------------------------ | --------- | -------------------------- |
-| **Appius** | Implementation, code review, migrations    | Technical | `.claude/agents/appius.md` |
-| **Euler**  | Algorithms, maths, statistical validation  | Technical | `.claude/agents/euler.md`  |
-| **Grace**  | Architecture, design docs, feature specs   | Technical | `.claude/agents/grace.md`  |
-| **Malory** | Security, pen test, privacy verification   | Technical | `.claude/agents/malory.md` |
-| **Flo**    | Planning, sequencing, risk, daily standups | Editorial | `.claude/agents/flo.md`    |
-| **Terry**  | Documentation, UX copy, release notes      | Editorial | `.claude/agents/terry.md`  |
-| **Ruth**   | Scope decisions, tradeoffs, arbitration    | Both      | `.claude/agents/ruth.md`   |
+| Agent      | Domain                                    | Class     | File                       |
+| ---------- | ----------------------------------------- | --------- | -------------------------- |
+| **Appius** | Implementation, code review, migrations   | Technical | `.claude/agents/appius.md` |
+| **Euler**  | Algorithms, maths, statistical validation | Technical | `.claude/agents/euler.md`  |
+| **Grace**  | Architecture, design docs, feature specs  | Technical | `.claude/agents/grace.md`  |
+| **Malory** | Security, pen test, privacy verification  | Technical | `.claude/agents/malory.md` |
+| **Flo**    | Planning, sequencing, risk, coordination  | Editorial | `.claude/agents/flo.md`    |
+| **Terry**  | Documentation, UX copy, release notes     | Editorial | `.claude/agents/terry.md`  |
+| **Ruth**   | Scope decisions, tradeoffs, arbitration   | Both      | `.claude/agents/ruth.md`   |
 
 Paired Copilot definitions live in `.github/agents/`. Check drift with `make check-agent-drift`.
 
@@ -170,14 +170,17 @@ Each agent references the shared knowledge modules in `.github/knowledge/` rathe
 
 ## Skills
 
-Four workflow skills are available as slash commands:
+Seven workflow skills are available as slash commands:
 
-| Skill        | Command                  | Purpose                                                  |
-| ------------ | ------------------------ | -------------------------------------------------------- |
-| plan-review  | `/plan-review [plan]`    | Scope, technical, and risk review of a design plan       |
-| review-pr    | `/review-pr [PR/branch]` | Security, correctness, and maintainability review        |
-| ship-change  | `/ship-change`           | Format → lint → test → build → commit                    |
-| weekly-retro | `/weekly-retro`          | Weekly backlog health, plan consistency, and drift check |
+| Skill           | Command                      | Purpose                                                  |
+| --------------- | ---------------------------- | -------------------------------------------------------- |
+| plan-review     | `/plan-review [plan]`        | Scope, technical, and risk review of a design plan       |
+| review-pr       | `/review-pr [PR/branch]`     | Security, correctness, and maintainability review        |
+| ship-change     | `/ship-change`               | Format → lint → test → build → commit                    |
+| weekly-retro    | `/weekly-retro`              | Weekly backlog health, plan consistency, and drift check |
+| standup         | `/standup`                   | Daily repo and worktree standup with priorities          |
+| security-review | `/security-review [path]`    | Security audit: static analysis, fuzz targets, checklist |
+| trace-matrix    | `/trace-matrix [task-group]` | Trace backend surfaces against MATRIX.md                 |
 
 Skill definitions: `.claude/skills/*/SKILL.md`.
 
