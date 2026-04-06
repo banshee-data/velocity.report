@@ -152,16 +152,24 @@ the wiring to the rest of the process.
 **Summary:** Replace `time.Sleep` synchronisation in test files with deterministic polling
 helpers.
 
+**Related:**
+[lidar-clock-abstraction-and-time-domain-model-plan.md](lidar-clock-abstraction-and-time-domain-model-plan.md)
+Phase B provides the `Clock`-based mechanism (`MockClock.Advance()` and `WaitFor` helper)
+for eliminating `time.Sleep` in tests across the codebase.
+
 **Scope:**
 
 1. Add `WaitFor(t, condition func() bool, timeout)` to `internal/testutil/`
-2. Migrate the 9 `time.Sleep` test files to use polling helpers
+2. Migrate the 9 `time.Sleep` test files to use polling helpers or `MockClock.Advance()`
 3. Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical DB test helpers
 4. Standardise database test setup — deprecate raw `sql.Open` patterns
 
 **Estimated effort:** 2–3 days. Incremental, no functional changes.
 
-**Dependencies:** None. Can proceed independently of Items 1–2.
+**Dependencies:** Clock abstraction plan Phase A is beneficial, but not a hard prerequisite,
+for Item 3. The work can start with polling helpers and DB test helper standardisation, then
+adopt `MockClock`-based replacements for tests that interact with clock-injected subsystems
+once Phase A lands.
 
 ---
 
