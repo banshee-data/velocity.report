@@ -1,0 +1,55 @@
+# Wiring: OPS7243 radar sensor to Raspberry Pi via RS-232
+#
+# Cable: OPS700-CBL-M1-PT-1.8 (M12 to pigtail, 1.8m)
+# HAT:   Waveshare RS232/485 HAT on Raspberry Pi 4 GPIO
+# Interface: RS-232 serial, 19200 baud, 8N1
+#
+# Generate diagram:
+#   wireviz docs/hardware/radar-wiring.yml
+#
+# Output: radar-wiring.svg, radar-wiring.png, radar-wiring.html (BOM)
+
+connectors:
+  OPS7243:
+    type: M12 4-pin
+    subtype: female
+    pinlabels: [VCC, TX, RX, GND]
+    notes: OPS7243-A-CW-R2 radar sensor
+
+  pigtail:
+    type: pigtail
+    pinlabels: [Red, Green, White, Black]
+    notes: Bare wire ends of OPS700-CBL-M1-PT-1.8
+
+  HAT:
+    type: DE-9
+    subtype: male
+    pinlabels: [DCD, RX, TX, DTR, GND, DSR, RTS, CTS, RI]
+    notes: Waveshare RS232/485 HAT (on Raspberry Pi 4)
+
+cables:
+  M12 cable:
+    wirecount: 4
+    length: 1.8 m
+    pn: OPS700-CBL-M1-PT-1.8
+    colors: [RD, GN, WH, BK]
+    notes: M12 to pigtail
+
+  Serial:
+    wirecount: 3
+    gauge: 28 AWG
+    notes: >-
+      Pigtail soldered to DE-9 female connector,
+      plugged into HAT DB-9 (TX/RX crossover)
+    colors: [GN, WH, BK]
+
+connections:
+  - # M12 cable from sensor to pigtail
+    - OPS7243: [1, 2, 3, 4]
+    - M12 cable: [1, 2, 3, 4]
+    - pigtail: [1, 2, 3, 4]
+
+  - # Pigtail to HAT via DE-9 (TX/RX crossover)
+    - pigtail: [2, 3, 4]
+    - Serial: [1, 2, 3]
+    - HAT: [2, 3, 5]

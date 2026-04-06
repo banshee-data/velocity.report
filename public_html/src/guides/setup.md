@@ -240,7 +240,7 @@ The OPS7243-A-CW-R2 sensor (RS232 interface) connects to the Raspberry Pi via a 
 
 3. **Wire the sensor to the HAT**:
 
-**[PLACEHOLDER: Diagram showing RS232 wiring connections between OPS7243 sensor and Waveshare HAT, with colour-coded wires and pin labels]**
+![Radar wiring diagram showing M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/docs/hardware/radar-wiring.svg)
 
 | Sensor Pin (RS232) | HAT Terminal           | Wire Colour (typical) |
 | ------------------ | ---------------------- | --------------------- |
