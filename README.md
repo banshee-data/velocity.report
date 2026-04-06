@@ -82,11 +82,11 @@ See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles
 
 ### In Practice: Clarendon Avenue School Zone
 
-Clarendon Avenue runs past an elementary school in San Francisco. When the city repaved the road, the new surface was smoother, the sightlines felt more open, and drivers responded the way drivers always do: they sped up. Parents noticed. The school noticed. Nobody had numbers.
+Clarendon Avenue runs past an elementary school in San Francisco. The city designated it a high injury road years ago. Parents were worried about how fast cars were going and whether the city's planned improvements would actually help.
 
-The Banshee team deployed a radar sensor on the street and ran speed surveys over two separate periods to capture the pattern. The data confirmed what residents already suspected: the 85th-percentile speed had climbed after repaving. A road improvement, paid for to make the street better, had made the school run more dangerous.
+When the city announced a quick-build project to repave Clarendon, the Banshee team deployed a radar sensor and ran a baseline speed survey in June 2025. The results went to the city engineering team at their October planning meeting for the quick-build. The city repaved in December 2025. Banshee ran a second survey in January 2026. The data showed what parents feared: speeds had climbed after repaving, not fallen. A road improvement, paid for to make the street safer, had made the school run more dangerous.
 
-The team generated comparison reports from both survey periods and [presented the findings at San Francisco City Hall](https://www.youtube.com/watch?v=ZTJOI5gYZM4). The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
+The team generated comparison reports from both periods and [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
 
 | Metric        | Period 1  | Period 2  | Change |
 | ------------- | --------- | --------- | ------ |
