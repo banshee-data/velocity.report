@@ -1,4 +1,11 @@
-# STYLE
+```
+  _________________________ ________   ___________
+ /   _____/\__    ___/\__  |   |    |  \_   _____/
+ \_____  \   |    |    \   |   |    |   |    __/_
+ /        \  |    |     \___   |    |___|        \
+/ ________/  |____|    / ______|_______ \______  /
+\/                     \/              \/      \/
+```
 
 Writing conventions for velocity.report. The single canonical reference for spelling, punctuation, and prose mechanics across all code, comments, documentation, and commit messages.
 
