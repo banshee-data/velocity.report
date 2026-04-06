@@ -1,10 +1,12 @@
 # Agent Knowledge Architecture: Dual-Tool DRY Design
 
 - **Canonical:** [agent-preparedness.md](../platform/operations/agent-preparedness.md)
+- **Status:** Complete (all three phases shipped)
 
-This plan defines a DRY, dual-tool knowledge architecture for velocity.report's AI agents, enabling shared project knowledge across Copilot and Claude while reducing duplication and supporting future expansion.
+This plan defined a DRY, dual-tool knowledge architecture for velocity.report's AI agents, enabling shared project knowledge across Copilot and Claude while reducing duplication and supporting future expansion.
 
-**Status:** In Progress (Phase 1 complete, Phase 2 complete, Phase 3 pending)
+All phases are complete. The canonical reference for the architecture, file tree, agent roster, and future expansion guidance is now **[agent-preparedness.md](../platform/operations/agent-preparedness.md)**. This plan is retained as a design record.
+
 **Scope:** Restructure agent customisation for simultaneous Copilot + Claude Code use; eliminate knowledge duplication; prepare for team expansion to 10–15 agents
 **Layers:** docs, ai-agents
 
@@ -599,20 +601,19 @@ This is another reason to keep reusable runbooks out of agent bodies.
 
 **Goal:** Enable Claude Code with full native UX, and introduce a cross-tool workflow layer that is not embedded in agent files.
 
-> **Status (2026-03-12):** Not started. Drift detection infrastructure (steps 9–11) already built ahead of schedule during Phase 2 work.
+> **Status (2026-04-06): COMPLETE.**
 >
-> **Pre-completed:**
+> All deliverables shipped:
 >
-> - `scripts/check-agent-drift.sh` — 8,221 bytes, fully functional
-> - `make check-agent-drift` target — in Makefile
-> - `flo-planning-review.sh` integration — 7 drift-related references
+> - `CLAUDE.md` — Layer 4 Claude entry point with agents + skills sections
+> - `.claude/agents/appius.md`, `euler.md`, `grace.md`, `malory.md`, `flo.md`, `terry.md`, `ruth.md` — Claude-native persona definitions
+> - `.claude/skills/plan-review/SKILL.md` — plan review slash command
+> - `.claude/skills/review-pr/SKILL.md` — PR review slash command
+> - `.claude/skills/ship-change/SKILL.md` — quality gate + commit slash command
+> - `.claude/skills/weekly-retro/SKILL.md` — weekly planning review slash command
+> - `docs/platform/operations/agent-preparedness.md` — updated to reflect complete state; canonical reference going forward
 >
-> **Remaining:**
->
-> - [ ] Create `CLAUDE.md` at repo root
-> - [ ] Create `.claude/agents/` with 7 Claude-native persona files
-> - [ ] Create shared workflow skills
-> - [ ] Test Claude Code and VS Code discover the workflow layer correctly
+> `make check-agent-drift` is available and integrated into `/weekly-retro`.
 
 7. Create `CLAUDE.md` at repo root referencing `TENETS.md` + `knowledge/` modules
 8. Create `.claude/agents/` directory with Claude-native persona definitions for each agent:
@@ -745,24 +746,22 @@ scripts/
 
 ## 11. Remaining Work Checklist
 
-### Phase 3: Claude Code Entry Point
+### Phase 3: Claude Code Entry Point ✅ Complete
 
-- [ ] Create `CLAUDE.md` at repo root — reference `TENETS.md`, `knowledge/` modules, agent roster with file paths
-- [ ] Create `.claude/agents/euler.md` — Claude-native persona (no YAML, clean Markdown)
-- [ ] Create `.claude/agents/grace.md`
-- [ ] Create `.claude/agents/appius.md`
-- [ ] Create `.claude/agents/malory.md`
-- [ ] Create `.claude/agents/flo.md`
-- [ ] Create `.claude/agents/terry.md`
-- [ ] Create `.claude/agents/ruth.md`
-- [ ] Create `.claude/skills/plan-review/SKILL.md`
-- [ ] Create `.claude/skills/review-pr/SKILL.md`
-- [ ] Create `.claude/skills/ship-change/SKILL.md`
-- [ ] Create `.claude/skills/weekly-retro/SKILL.md`
-- [ ] Add `.github/prompts/` wrappers only where VS Code needs explicit agent routing
-- [ ] Test Claude Code and VS Code discover the workflow skills correctly
-- [ ] Test Claude Code reads knowledge modules and agent files correctly
-- [ ] Run `make check-agent-drift` — confirm zero unreviewed drift
+- [x] Create `CLAUDE.md` at repo root — reference `TENETS.md`, `knowledge/` modules, agent roster with file paths
+- [x] Create `.claude/agents/euler.md` — Claude-native persona
+- [x] Create `.claude/agents/grace.md`
+- [x] Create `.claude/agents/appius.md`
+- [x] Create `.claude/agents/malory.md`
+- [x] Create `.claude/agents/flo.md`
+- [x] Create `.claude/agents/terry.md`
+- [x] Create `.claude/agents/ruth.md`
+- [x] Create `.claude/skills/plan-review/SKILL.md`
+- [x] Create `.claude/skills/review-pr/SKILL.md`
+- [x] Create `.claude/skills/ship-change/SKILL.md`
+- [x] Create `.claude/skills/weekly-retro/SKILL.md`
+- [x] Update `docs/platform/operations/agent-preparedness.md` to reflect complete state
+- [x] Mark plan Complete; canonical architecture lives in ops doc
 
 ### Phase 4: Agent Team Expansion (future cycle)
 

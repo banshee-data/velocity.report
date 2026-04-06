@@ -41,7 +41,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix: `S`
 - Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
-- Agent knowledge architecture: extract shared knowledge into `.github/knowledge/` modules, create `TENETS.md`, condense agent files to role-specific content; Phase 3 (pending): create platform-native Claude agent definitions with automated drift detection: [design doc](plans/agent-claude-preparedness-review-plan.md) `L`
 
 ## 06x Ceilí Calling 🎻
 
@@ -141,6 +140,8 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
+- Agent knowledge architecture (all phases): `TENETS.md`, `.github/knowledge/` shared modules, condensed Copilot agent files, `CLAUDE.md`, `.claude/agents/` (7 Claude-native personas), `.claude/skills/` (4 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
+- (#210) RPi image Phase 1: `image/` directory with pi-gen stages, `build-image.yml` CI workflow, `os-list-velocity.json`, `velocity-ctl` binary; minimal TeX Live tree extracted at build time: [design doc](plans/deploy-rpi-imager-fork-plan.md)
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
