@@ -52,20 +52,26 @@ from pathlib import Path
 # Groups: (1) the raw path token.
 BACKTICK_PATH_RE = re.compile(
     r"`("
-    # Explicitly repo-root-relative prefixes (.github/, .claude/, ./)
+    # Explicitly repo-root-relative prefixes (.github/, .claude/)
     r"(?:\.github|\.claude)/[^`\s]+"
     r"|"
-    # Relative paths with a file extension (e.g. ../reference/schema.sql)
+    # Same-directory relative paths with a file extension (e.g. ./foo.sh, ./test.py)
+    r"\./[^`\s/]+\.[a-zA-Z0-9]{1,10}"
+    r"|"
+    # Deeper relative paths with a file extension (e.g. ../reference/schema.sql)
     r"\.[./][^`\s]*/[^`\s]*\.[a-zA-Z0-9]{1,10}"
     r"|"
-    # Relative paths ending in "/" (e.g. ./scripts/)
+    # Relative paths ending in "/" (e.g. ./scripts/, ../data/)
     r"\.[./][^`\s]*/"
     r")`"
 )
 
-# Skip these extensions/suffixes — they are file-type placeholders, not paths.
+# Skip tokens that are purely a file-type placeholder with no path component —
+# e.g. a bare `.img.xz` or `.vti` suffix used as a type label in prose.
+# Do NOT skip these when they appear as suffixes of a real path like
+# `internal/db/migrations/000031_table_naming.down.sql`.
 PLACEHOLDER_SUFFIXES = {
-    ".img.xz", ".img.gz", ".down.sql", ".up.sql",
+    ".img.xz", ".img.gz",
     ".vti", ".vts", ".vtp",
 }
 
