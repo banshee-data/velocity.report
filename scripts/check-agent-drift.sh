@@ -68,8 +68,30 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 # --- Extract persona content ---
 
 # Strip YAML frontmatter and platform-specific lines from a Copilot .agent.md
-# Removes: YAML frontmatter block and lines starting with "tools:"
+# Removes: YAML frontmatter block, lines starting with "tools:", and portrait
+# comment blocks (<!-- portrait: ... --> ... <!-- end portrait -->).
 extract_copilot_persona() {
+  local file="$1"
+  awk '
+    BEGIN { in_yaml = 0; yaml_done = 0; in_portrait = 0 }
+    /^---[[:space:]]*$/ {
+      if (!yaml_done) {
+        if (in_yaml) { yaml_done = 1 }
+        else         { in_yaml = 1 }
+        next
+      }
+    }
+    in_yaml && !yaml_done { next }
+    /^[[:space:]]*tools:[[:space:]]*/ { next }
+    /<!--[[:space:]]*portrait:/ { in_portrait = 1; next }
+    in_portrait && /<!--[[:space:]]*end portrait[[:space:]]*-->/ { in_portrait = 0; next }
+    in_portrait { next }
+    { print }
+  ' "$file"
+}
+
+# Strip YAML frontmatter from Claude agent files (same treatment as Copilot)
+extract_claude_persona() {
   local file="$1"
   awk '
     BEGIN { in_yaml = 0; yaml_done = 0 }
@@ -81,15 +103,8 @@ extract_copilot_persona() {
       }
     }
     in_yaml && !yaml_done { next }
-    /^[[:space:]]*tools:[[:space:]]*/ { next }
     { print }
   ' "$file"
-}
-
-# Strip platform-specific Claude directives (if any emerge in future)
-extract_claude_persona() {
-  local file="$1"
-  cat "$file"
 }
 
 # Normalise text for comparison: lowercase, collapse whitespace, strip blank lines
