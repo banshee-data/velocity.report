@@ -97,7 +97,7 @@ The team generated comparison reports from both periods and [presented the findi
 | Vehicle count | 3,460     | 2,455     |        |
 
 <div align="center">
-  <img src="docs/images/stack.png" alt="PDF speed reports from the Clarendon Avenue school zone, showing speed distributions, site map, percentile statistics, and before-and-after comparisons" width="700">
+  <img src="public_html/src/images/stack.png" alt="PDF speed reports from the Clarendon Avenue school zone, showing speed distributions, site map, percentile statistics, and before-and-after comparisons" width="700">
   <br>
   <em>Clarendon Avenue school zone survey: speed distributions, percentile statistics, and period-over-period comparison</em>
 </div>
@@ -177,7 +177,7 @@ The next stage fuses them into a single scene model: cross-sensor track handoff 
 The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and [VISION.md](docs/VISION.md).
 
 <div align="center">
-  <img src="docs/images/visualiser-demo.gif" alt="LiDAR point cloud visualiser showing real-time object tracking with bounding boxes and velocity vectors" width="700">
+  <img src="public_html/src/images/visualiser-demo.gif" alt="LiDAR point cloud visualiser showing real-time object tracking with bounding boxes and velocity vectors" width="700">
   <br>
   <em>LiDAR point cloud visualiser: real-time multi-object tracking with bounding boxes and velocity vectors</em>
 </div>
