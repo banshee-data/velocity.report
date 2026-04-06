@@ -185,5 +185,7 @@ data/**/*.csv
 data/**/*.json
 data/**/results/*
 data/structures/SCHEMA.dot
+data/maths/papers/*.pdf
+data/maths/papers/download-status.md
 *.test
 scripts/*.cover
