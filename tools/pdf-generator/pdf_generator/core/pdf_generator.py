@@ -658,6 +658,17 @@ def generate_pdf_report(
                 if extract_svg_from_site_data(site_data, map_svg_path):
                     db_svg_extracted = True
                     print(f"  [MAP] ✓ Using map from database (site_id={site_id})")
+                    # If the user placed a radar marker on a custom uploaded SVG,
+                    # radar_svg_x/y (0-100 percent) override the GPS-based calculation.
+                    radar_svg_x = site_data.get("radar_svg_x")
+                    radar_svg_y = site_data.get("radar_svg_y")
+                    if radar_svg_x is not None and radar_svg_y is not None:
+                        map_config.triangle_cx = float(radar_svg_x) / 100.0
+                        map_config.triangle_cy = float(radar_svg_y) / 100.0
+                        print(
+                            f"  [MAP] Using radar_svg_x/y from site data: "
+                            f"cx={map_config.triangle_cx:.4f}, cy={map_config.triangle_cy:.4f}"
+                        )
                 else:
                     print("  [MAP] No map_svg_data in site record, map will be skipped")
             except Exception as e:

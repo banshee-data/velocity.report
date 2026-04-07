@@ -1192,3 +1192,74 @@ class TestPDFWithComparisonData(unittest.TestCase):
 
             tex_path = output_path.replace(".pdf", ".tex")
             self.assertTrue(os.path.exists(tex_path))
+
+    @patch("pdf_generator.core.pdf_generator.RadarStatsClient")
+    @patch("pdf_generator.core.pdf_generator.extract_svg_from_site_data")
+    @patch("pdf_generator.core.pdf_generator.create_marker_from_config")
+    @patch("pdf_generator.core.pdf_generator.MapProcessor")
+    @patch("pdf_generator.core.pdf_generator.chart_exists")
+    def test_radar_svg_xy_overrides_triangle_position(
+        self,
+        mock_chart_exists,
+        mock_map_processor,
+        mock_create_marker,
+        mock_extract_svg,
+        mock_client_class,
+    ):
+        """radar_svg_x/y from site data should override the GPS-calculated triangle position."""
+        mock_chart_exists.return_value = False
+
+        mock_client = MagicMock()
+        mock_client.get_site.return_value = (
+            {
+                "id": 1,
+                "name": "Test Site",
+                "map_svg_data": "PHN2Zy8+",
+                "radar_svg_x": 65.0,
+                "radar_svg_y": 40.0,
+            },
+            MagicMock(),
+        )
+        mock_client_class.return_value = mock_client
+
+        mock_extract_svg.return_value = True
+
+        mock_processor = MagicMock()
+        mock_processor.process_map.return_value = (False, None)
+        mock_map_processor.return_value = mock_processor
+
+        mock_create_marker.return_value = None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "radar_svg_xy.pdf")
+
+            try:
+                generate_pdf_report(
+                    output_path=output_path,
+                    start_iso="2025-06-02T00:00:00-07:00",
+                    end_iso="2025-06-04T23:59:59-07:00",
+                    group="1h",
+                    units="mph",
+                    timezone_display="US/Pacific",
+                    min_speed_str="5.0 mph",
+                    location="Test Location",
+                    overall_metrics=self.overall_metrics,
+                    daily_metrics=self.daily_metrics,
+                    granular_metrics=self.granular_metrics,
+                    histogram=self.histogram,
+                    tz_name="US/Pacific",
+                    charts_prefix="radar_svg_xy",
+                    speed_limit=25,
+                    start_date="2025-06-02",
+                    end_date="2025-06-04",
+                    include_map=True,
+                    site_id=1,
+                )
+            except Exception:
+                pass
+
+        # create_marker_from_config must have been called with the overridden position.
+        self.assertTrue(mock_create_marker.called)
+        call_config = mock_create_marker.call_args[0][0]
+        self.assertAlmostEqual(call_config["triangle_cx"], 0.65, places=4)
+        self.assertAlmostEqual(call_config["triangle_cy"], 0.40, places=4)
