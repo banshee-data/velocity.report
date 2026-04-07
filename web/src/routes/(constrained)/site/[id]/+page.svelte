@@ -315,20 +315,21 @@
 			<Card>
 				<div class="space-y-4 p-6">
 					<h3 class="text-lg font-semibold">Basic Information</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<TextField
+							bind:value={formData.name}
+							label="Site Name"
+							required
+							error={formErrors.name}
+						/>
 
-					<TextField
-						bind:value={formData.name}
-						label="Site Name"
-						required
-						error={formErrors.name}
-					/>
-
-					<TextField
-						bind:value={formData.location}
-						label="Location"
-						required
-						error={formErrors.location}
-					/>
+						<TextField
+							bind:value={formData.location}
+							label="Location"
+							required
+							error={formErrors.location}
+						/>
+					</div>
 				</div>
 			</Card>
 
@@ -336,20 +337,21 @@
 			<Card>
 				<div class="space-y-4 p-6">
 					<h3 class="text-lg font-semibold">Contact Information</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<TextField
+							bind:value={formData.surveyor}
+							label="Surveyor"
+							required
+							error={formErrors.surveyor}
+						/>
 
-					<TextField
-						bind:value={formData.surveyor}
-						label="Surveyor"
-						required
-						error={formErrors.surveyor}
-					/>
-
-					<TextField
-						bind:value={formData.contact}
-						label="Contact"
-						required
-						error={formErrors.contact}
-					/>
+						<TextField
+							bind:value={formData.contact}
+							label="Contact"
+							required
+							error={formErrors.contact}
+						/>
+					</div>
 				</div>
 			</Card>
 
