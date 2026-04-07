@@ -146,6 +146,21 @@ copy_manifest_files() {
 
   [[ "${copied}" -gt 0 ]] || die "No TeX files copied from manifest."
   log "copied ${copied} manifest files (${missing} missing)"
+
+  # Debian's fonts-lmodern package installs to /usr/share/texmf/ rather than
+  # the TeX Live root (/usr/share/texlive/texmf-dist/).  If the manifest copy
+  # missed the Latin Modern OTF directory, try the Debian location as a
+  # fallback so the build doesn't silently produce a tree that fails at
+  # runtime.
+  local lm_otf_dir="${OUTPUT_DIR}/texmf-dist/fonts/opentype/public/lm"
+  if [[ ! -d "${lm_otf_dir}" ]] || [[ -z "$(ls -A "${lm_otf_dir}" 2>/dev/null)" ]]; then
+    local debian_lm="/usr/share/texmf/fonts/opentype/public/lm"
+    if [[ -d "${debian_lm}" ]]; then
+      mkdir -p "${lm_otf_dir}"
+      cp -a "${debian_lm}/." "${lm_otf_dir}/"
+      log "copied Latin Modern OTF fonts from Debian path ${debian_lm}"
+    fi
+  fi
 }
 
 copy_xelatex_binary() {
@@ -354,6 +369,16 @@ main() {
   write_texmf_cnf
   build_ls_r
   build_format
+
+  # Verify critical font files are present.  Without Latin Modern OTF fonts,
+  # XeTeX will fail at the very first \normalsize in the document class.
+  local lm_otf_dir="${OUTPUT_DIR}/texmf-dist/fonts/opentype/public/lm"
+  local lm_count=0
+  [[ -d "${lm_otf_dir}" ]] && lm_count="$(find "${lm_otf_dir}" -name '*.otf' | wc -l)"
+  if [[ "${lm_count}" -lt 1 ]]; then
+    die "Latin Modern OTF fonts missing from output tree (${lm_otf_dir}). Install fonts-lmodern (Debian) or ensure the lm font package is available under TEXLIVE_ROOT."
+  fi
+  log "verified ${lm_count} Latin Modern OTF files in output tree"
 
   local size_mb
   size_mb="$(du -sm "${OUTPUT_DIR}" | awk '{print $1}')"
