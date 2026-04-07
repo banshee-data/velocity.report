@@ -58,6 +58,7 @@
   pages     = {226--231},
   publisher = {{AAAI} Press},
   year      = {1996},
+  url       = {https://www.dbs.ifi.lmu.de/Publikationen/Papers/KDD-96.final.frame.pdf},
   note      = {{DBSCAN} --- the foundational density-based clustering algorithm},
 }
 
@@ -83,6 +84,7 @@
   address   = {New York},
   year      = {2002},
   isbn      = {978-0-387-95442-4},
+  doi       = {10.1007/b98835},
   note      = {{PCA} eigenvector decomposition; used in {L4} {OBB} heading estimation},
 }
 
@@ -120,6 +122,7 @@
   number  = {1},
   pages   = {49--55},
   year    = {1936},
+  url     = {https://insa.nic.in/writereaddata/UpLoadedFiles/PINSA/Vol02_1936_1_Art05.pdf},
   note    = {Mahalanobis distance used in {L5} tracker gating},
 }
 
@@ -645,6 +648,7 @@
   pages     = {3773--3779},
   publisher = {{IEEE}},
   year      = {2017},
+  doi       = {10.1109/IROS.2017.8206225},
   note      = {Decentralised track fusion across sensor nodes; relevant to
                distributed edge architecture in {L7} multi-sensor design},
 }
@@ -767,4 +771,287 @@
   year         = {2023},
   note         = {Modern multi-vendor {L1} abstraction supporting {Hesai},
                   {Velodyne}, {Ouster}, and {Robosense} sensors},
+}
+
+
+% =============================================================================
+% Additional highly-cited references
+% =============================================================================
+% Papers below are widely cited by existing references and fill gaps in the
+% bibliography's coverage of foundational and adjacent topics.
+
+@inproceedings{Qi2017PointNet,
+  author    = {Qi, Charles R. and Su, Hao and Mo, Kaichun and Guibas, Leonidas J.},
+  title     = {{PointNet}: Deep Learning on Point Sets for {3D} Classification
+               and Segmentation},
+  booktitle = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and
+               Pattern Recognition ({CVPR} 2017)},
+  pages     = {652--660},
+  publisher = {{IEEE}},
+  year      = {2017},
+  eprint    = {1612.00593},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/CVPR.2017.16},
+  note      = {Foundational point-cloud deep learning; cited by {PointPillars},
+               {RangeNet}++, and {CenterPoint} as the basis for learned
+               point-cloud representations},
+}
+
+@inproceedings{Qi2017PointNetPP,
+  author    = {Qi, Charles R. and Yi, Li and Su, Hao and Guibas, Leonidas J.},
+  title     = {{PointNet}++: Deep Hierarchical Feature Learning on Point Sets
+               in a Metric Space},
+  booktitle = {Advances in Neural Information Processing Systems ({NeurIPS} 2017)},
+  pages     = {5099--5108},
+  publisher = {Curran Associates},
+  year      = {2017},
+  eprint    = {1706.02413},
+  archivePrefix = {arXiv},
+  note      = {Hierarchical local feature learning on point clouds; extends
+               {PointNet} with local grouping; widely cited in {3D} detection
+               and segmentation literature},
+}
+
+@inproceedings{Shi2019PointRCNN,
+  author    = {Shi, Shaoshuai and Wang, Xiaogang and Li, Hongsheng},
+  title     = {{PointRCNN}: {3D} Object Proposal Generation and Detection from
+               Point Cloud},
+  booktitle = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and
+               Pattern Recognition ({CVPR} 2019)},
+  pages     = {770--779},
+  publisher = {{IEEE}},
+  year      = {2019},
+  eprint    = {1812.04244},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/CVPR.2019.00086},
+  note      = {Two-stage {3D} object detection from raw point cloud; influential
+               alternative to pillar/voxel-based methods like {PointPillars}},
+}
+
+@inproceedings{Zhou2018VoxelNet,
+  author    = {Zhou, Yin and Tuzel, Oncel},
+  title     = {{VoxelNet}: End-to-End Learning for Point Cloud Based {3D}
+               Object Detection},
+  booktitle = {Proceedings of the {IEEE/CVF} Conference on Computer Vision and
+               Pattern Recognition ({CVPR} 2018)},
+  pages     = {4490--4499},
+  publisher = {{IEEE}},
+  year      = {2018},
+  eprint    = {1711.06396},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/CVPR.2018.00472},
+  note      = {Voxel-based end-to-end {3D} detection; predecessor to
+               {PointPillars} with full {3D} voxelisation},
+}
+
+@article{Yan2018SECOND,
+  author  = {Yan, Yan and Mao, Yuxing and Li, Bo},
+  title   = {{SECOND}: Sparsely Embedded Convolutional Detection},
+  journal = {Sensors},
+  volume  = {18},
+  number  = {10},
+  pages   = {3337},
+  year    = {2018},
+  doi     = {10.3390/s18103337},
+  note    = {Sparse {3D} convolutions for voxel-based detection; backbone used
+             by {CenterPoint} and many {nuScenes} leaderboard entries},
+}
+
+@inproceedings{Wojke2017DeepSORT,
+  author    = {Wojke, Nicolai and Bewley, Alex and Paulus, Dietrich},
+  title     = {Simple Online and Realtime Tracking with a Deep Association Metric},
+  booktitle = {Proceedings of the {IEEE} International Conference on Image
+               Processing ({ICIP} 2017)},
+  pages     = {3645--3649},
+  publisher = {{IEEE}},
+  year      = {2017},
+  eprint    = {1703.07402},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/ICIP.2017.8296962},
+  note      = {{Deep SORT} --- extends {SORT} ({Bewley2016}) with appearance
+               features for re-identification; widely cited {MOT} baseline},
+}
+
+@inproceedings{Milan2016MOTBenchmark,
+  author    = {Milan, Anton and Leal-Taix{\'e}, Laura and Reid, Ian and
+               Roth, Stefan and Schindler, Konrad},
+  title     = {{MOT16}: A Benchmark for Multi-Object Tracking},
+  booktitle = {arXiv preprint},
+  year      = {2016},
+  eprint    = {1603.00831},
+  archivePrefix = {arXiv},
+  note      = {Standard {MOT} benchmark and evaluation protocol; extends
+               {CLEAR MOT} metrics with identity-aware measures ({IDF1})},
+}
+
+@article{Luiten2021HOTA,
+  author  = {Luiten, Jonathon and Os{\v{e}}p, Aljosa and Dendorfer, Patrick
+             and Torr, Philip and Geiger, Andreas and Leal-Taix{\'e}, Laura},
+  title   = {{HOTA}: A Higher Order Metric for Evaluating Multi-Object
+             Tracking},
+  journal = {International Journal of Computer Vision},
+  volume  = {129},
+  number  = {2},
+  pages   = {548--578},
+  year    = {2021},
+  eprint  = {2009.07736},
+  archivePrefix = {arXiv},
+  doi     = {10.1007/s11263-020-01375-2},
+  note    = {Unified {MOT} evaluation metric balancing detection, association,
+             and localisation; successor to {CLEAR MOT} and {IDF1}},
+}
+
+@article{Besl1992ICP,
+  author  = {Besl, Paul J. and McKay, Neil D.},
+  title   = {A Method for Registration of {3-D} Shapes},
+  journal = {{IEEE} Transactions on Pattern Analysis and Machine Intelligence},
+  volume  = {14},
+  number  = {2},
+  pages   = {239--256},
+  year    = {1992},
+  doi     = {10.1109/34.121791},
+  note    = {Iterative Closest Point ({ICP}) --- foundational point-set
+             registration algorithm; context for {L7} scan alignment and
+             {Procrustes}-based registration},
+}
+
+@article{Zhang1994ICP,
+  author  = {Zhang, Zhengyou},
+  title   = {Iterative Point Matching for Registration of Free-Form Curves
+             and Surfaces},
+  journal = {International Journal of Computer Vision},
+  volume  = {13},
+  number  = {2},
+  pages   = {119--152},
+  year    = {1994},
+  doi     = {10.1007/BF01427149},
+  note    = {Robust variant of {ICP} with trimming and outlier rejection;
+             relevant to noisy {LiDAR} scan-to-map alignment in {L7}},
+}
+
+@inproceedings{Biber2003NDT,
+  author    = {Biber, Peter and Stra{\ss}er, Wolfgang},
+  title     = {The Normal Distributions Transform: A New Approach to Laser
+               Scan Matching},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2003)},
+  volume    = {3},
+  pages     = {2743--2748},
+  publisher = {{IEEE}},
+  year      = {2003},
+  doi       = {10.1109/IROS.2003.1249285},
+  note      = {{NDT} --- alternative to {ICP} for scan matching using normal
+               distributions; more robust to initial pose errors},
+}
+
+@inproceedings{Blackman2004MHT,
+  author    = {Blackman, Samuel S.},
+  title     = {Multiple Hypothesis Tracking for Multiple Target Tracking},
+  booktitle = {{IEEE} Aerospace and Electronic Systems Magazine},
+  volume    = {19},
+  number    = {1},
+  pages     = {5--18},
+  publisher = {{IEEE}},
+  year      = {2004},
+  doi       = {10.1109/MAES.2004.1263228},
+  note      = {Tutorial on {MHT}; extends {Reid1979} with practical
+               implementation guidance for multi-target tracking},
+}
+
+@article{Mahler2003PHD,
+  author  = {Mahler, Ronald P. S.},
+  title   = {Multitarget {Bayes} Filtering via First-Order Multitarget
+             Moments},
+  journal = {{IEEE} Transactions on Aerospace and Electronic Systems},
+  volume  = {39},
+  number  = {4},
+  pages   = {1152--1178},
+  year    = {2003},
+  doi     = {10.1109/TAES.2003.1261119},
+  note    = {Probability Hypothesis Density ({PHD}) filter for unknown and
+             varying target count; theoretical basis for {Dames2017} and
+             advanced multi-sensor tracking in {L7}},
+}
+
+@article{Vo2006GMPHD,
+  author  = {Vo, Ba-Ngu and Ma, Wing-Kin},
+  title   = {The {Gaussian} Mixture Probability Hypothesis Density Filter},
+  journal = {{IEEE} Transactions on Signal Processing},
+  volume  = {54},
+  number  = {11},
+  pages   = {4091--4104},
+  year    = {2006},
+  doi     = {10.1109/TSP.2006.881190},
+  note    = {{GM-PHD} --- closed-form {Gaussian} mixture implementation of the
+             {PHD} filter ({Mahler2003}); tractable multi-target tracker for
+             unknown target count},
+}
+
+@article{Li2003IMMSurvey,
+  author  = {Li, X. Rong and Jilkov, Vesselin P.},
+  title   = {Survey of Maneuvering Target Tracking. {Part V}: Multiple-Model
+             Methods},
+  journal = {{IEEE} Transactions on Aerospace and Electronic Systems},
+  volume  = {41},
+  number  = {4},
+  pages   = {1255--1321},
+  year    = {2005},
+  doi     = {10.1109/TAES.2005.1561886},
+  note    = {Comprehensive {IMM} survey including {CV}/{CA}/{CTRV} model sets;
+             reference for motion-model selection in {L5h}},
+}
+
+@inproceedings{Chiu2021PolarStream,
+  author    = {Chiu, Hsu-kuang and Li, Jie and Ambru{\c{s}}, Rare{\c{s}} and
+               Bohg, Jeannette},
+  title     = {Probabilistic {3D} Multi-Modal Multi-Object Tracking for
+               Autonomous Driving},
+  booktitle = {Proceedings of the {IEEE} International Conference on Robotics
+               and Automation ({ICRA} 2021)},
+  pages     = {14227--14233},
+  publisher = {{IEEE}},
+  year      = {2021},
+  eprint    = {2012.13755},
+  archivePrefix = {arXiv},
+  doi       = {10.1109/ICRA48506.2021.9561754},
+  note      = {Probabilistic multi-modal {3D} {MOT} using {EKF} with {3D}
+               bounding boxes; extends {AB3DMOT} with probabilistic association},
+}
+
+@article{Sun2020Waymo,
+  author  = {Sun, Pei and Kretzschmar, Henrik and Dotiwalla, Xerxes and
+             Chouard, Aurelien and Patnaik, Vijaysai and Tsui, Paul and
+             Guo, James and Zhou, Yin and Chai, Yuning and Caine, Benjamin
+             and Vasudevan, Vijay and Han, Wei and Ngiam, Jiquan and Zhao,
+             Hang and Timofeev, Aleksei and Ettinger, Scott and Krivokon,
+             Maxim and Gao, Amy and Joshi, Aditya and Zhang, Yu and Shlens,
+             Jonathon and Chen, Zhifeng and Anguelov, Dragomir},
+  title   = {Scalability in Perception for Autonomous Driving: {Waymo} Open
+             Dataset},
+  journal = {Proceedings of the {IEEE/CVF} Conference on Computer Vision
+             and Pattern Recognition ({CVPR} 2020)},
+  pages   = {2443--2451},
+  year    = {2020},
+  eprint  = {1912.04838},
+  archivePrefix = {arXiv},
+  doi     = {10.1109/CVPR42600.2020.00252},
+  note    = {{Waymo} Open Dataset --- large-scale {LiDAR} + camera benchmark;
+             complements {KITTI} and {nuScenes} for {3D} detection and tracking
+             evaluation},
+}
+
+@article{Schubert2017DBSCANR,
+  author  = {Schubert, Erich and Sander, J{\"o}rg and Ester, Martin and
+             Kriegel, Hans-Peter and Xu, Xiaowei},
+  title   = {{DBSCAN} Revisited, Revisited: Why and How You Should (Still)
+             Use {DBSCAN}},
+  journal = {{ACM} Transactions on Database Systems},
+  volume  = {42},
+  number  = {3},
+  pages   = {19:1--19:21},
+  year    = {2017},
+  doi     = {10.1145/3068335},
+  note    = {Modern analysis of {DBSCAN} including index-accelerated variants
+             and parameter sensitivity; practical guidance for our {L4}
+             {DBSCAN} tuning},
 }

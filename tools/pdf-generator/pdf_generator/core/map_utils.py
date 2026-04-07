@@ -168,7 +168,9 @@ class SVGMarkerInjector:
         if w_match and h_match:
             return 0.0, 0.0, float(w_match.group(1)), float(h_match.group(1))
 
-        raise RuntimeError("could not determine SVG viewBox or size — marker placement requires explicit dimensions")
+        raise RuntimeError(
+            "could not determine SVG viewBox or size — marker placement requires explicit dimensions"
+        )
 
     def _compute_triangle_points(
         self,
