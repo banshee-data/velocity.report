@@ -3,4 +3,5 @@
       SET effective_start_unix = 0
         , notes = 'Migrated from site.cosine_error_angle'
     WHERE site_id = 1
-      AND notes = 'Sample configuration — update the cosine error angle for your installation';
+      AND notes = 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
+      AND effective_end_unix IS NULL;

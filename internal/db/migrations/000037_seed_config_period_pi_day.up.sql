@@ -7,6 +7,7 @@
 --   installations will have already replaced or updated the sample site.
    UPDATE site_config_periods
       SET effective_start_unix = 1773500966.5358979
-        , notes = 'Sample configuration — update the cosine error angle for your installation'
+        , notes = 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
     WHERE site_id = 1
-      AND notes = 'Migrated from site.cosine_error_angle';
+      AND notes = 'Migrated from site.cosine_error_angle'
+      AND effective_end_unix IS NULL;
