@@ -18,46 +18,176 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 # ---------------------------------------------------------------------------
 # BibTeX parser (minimal, no external deps)
 # ---------------------------------------------------------------------------
+# Uses a brace-balanced parser rather than regex so it handles:
+#   - entries whose closing } is indented (common in references.bib)
+#   - nested braces in field values (e.g., {{DBSCAN}}, title={{Long Title}})
+# ---------------------------------------------------------------------------
 
-_ENTRY_RE = re.compile(
-    r"@(\w+)\s*\{([^,]+),\s*\n(.*?)\n\}",
-    re.DOTALL,
-)
-_FIELD_RE = re.compile(
-    r"^\s*(\w+)\s*=\s*\{(.*?)\}\s*,?\s*$",
-    re.MULTILINE | re.DOTALL,
-)
+
+def _skip_whitespace(text: str, index: int) -> int:
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
+
+
+def _read_balanced_braces(text: str, index: int) -> tuple[str, int]:
+    """Read a BibTeX braced value starting at ``index``."""
+    if index >= len(text) or text[index] != "{":
+        raise ValueError("expected '{' at start of braced value")
+
+    depth = 0
+    start = index + 1
+    i = index
+    while i < len(text):
+        char = text[i]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i], i + 1
+        i += 1
+
+    raise ValueError("unterminated braced value in BibTeX")
+
+
+def _read_quoted_value(text: str, index: int) -> tuple[str, int]:
+    """Read a BibTeX quoted value starting at ``index``."""
+    if index >= len(text) or text[index] != '"':
+        raise ValueError("expected '\"' at start of quoted value")
+
+    chars: list[str] = []
+    i = index + 1
+    while i < len(text):
+        char = text[i]
+        if char == "\\" and i + 1 < len(text):
+            chars.append(text[i : i + 2])
+            i += 2
+            continue
+        if char == '"':
+            return "".join(chars), i + 1
+        chars.append(char)
+        i += 1
+
+    raise ValueError("unterminated quoted value in BibTeX")
+
+
+def _read_simple_value(text: str, index: int) -> tuple[str, int]:
+    """Read a simple BibTeX value until the next comma or line ending."""
+    start = index
+    while index < len(text) and text[index] not in ",\r\n":
+        index += 1
+    return text[start:index].strip(), index
+
+
+def _parse_fields(body: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    index = 0
+    length = len(body)
+
+    while index < length:
+        while index < length and (body[index].isspace() or body[index] == ","):
+            index += 1
+        if index >= length:
+            break
+
+        field_start = index
+        while index < length and (body[index].isalnum() or body[index] in "_-"):
+            index += 1
+        if field_start == index:
+            index += 1
+            continue
+
+        field = body[field_start:index].lower()
+        index = _skip_whitespace(body, index)
+        if index >= length or body[index] != "=":
+            continue
+
+        index += 1
+        index = _skip_whitespace(body, index)
+        if index >= length:
+            break
+
+        if body[index] == "{":
+            value, index = _read_balanced_braces(body, index)
+        elif body[index] == '"':
+            value, index = _read_quoted_value(body, index)
+        else:
+            value, index = _read_simple_value(body, index)
+
+        fields[field] = re.sub(r"\s+", " ", value.strip())
+
+        while index < length and body[index].isspace():
+            index += 1
+        if index < length and body[index] == ",":
+            index += 1
+
+    return fields
 
 
 def parse_bibtex(path: Path) -> list[dict[str, Any]]:
     """Return a list of dicts, each with 'key', 'type', and field values."""
     text = path.read_text(encoding="utf-8")
     entries: list[dict[str, Any]] = []
-    for m in _ENTRY_RE.finditer(text):
+    index = 0
+    length = len(text)
+
+    while index < length:
+        at_index = text.find("@", index)
+        if at_index == -1:
+            break
+
+        type_start = at_index + 1
+        type_end = type_start
+        while type_end < length and (text[type_end].isalnum() or text[type_end] == "_"):
+            type_end += 1
+        if type_end == type_start:
+            index = at_index + 1
+            continue
+
+        entry_type = text[type_start:type_end].lower()
+        cursor = _skip_whitespace(text, type_end)
+        if cursor >= length or text[cursor] != "{":
+            index = at_index + 1
+            continue
+
+        try:
+            entry_content, entry_end = _read_balanced_braces(text, cursor)
+        except ValueError:
+            index = at_index + 1
+            continue
+
+        comma_index = entry_content.find(",")
+        if comma_index == -1:
+            index = entry_end
+            continue
+
+        key = entry_content[:comma_index].strip()
+        body = entry_content[comma_index + 1 :]
+
         entry: dict[str, Any] = {
-            "type": m.group(1).lower(),
-            "key": m.group(2).strip(),
+            "type": entry_type,
+            "key": key,
         }
-        body = m.group(3)
-        for fm in _FIELD_RE.finditer(body):
-            field = fm.group(1).lower()
-            value = fm.group(2).strip()
-            # Collapse internal whitespace
-            value = re.sub(r"\s+", " ", value)
-            entry[field] = value
+        entry.update(_parse_fields(body))
         entries.append(entry)
+        index = entry_end
+
     return entries
 
 
@@ -79,24 +209,65 @@ UNPAYWALL_EMAIL = "dev@velocity.report"
 # A valid PDF is at least this many bytes (header + minimal structure)
 _MIN_PDF_BYTES = 1024
 
+# Maximum PDF download size (50 MB — academic papers are never larger)
+_MAX_PDF_BYTES = 50 * 1024 * 1024
+
 # Allowed URL schemes to prevent SSRF via file:// or other protocols
 _ALLOWED_SCHEMES = ("https://", "http://")
 
 
 def _download(url: str, dest: Path, *, timeout: int = 30) -> bool:
-    """Download url to dest. Return True on success."""
+    """Download url to dest atomically.
+
+    Streams to a temporary file in 64 KB chunks, validates the PDF magic
+    bytes in the first chunk, enforces a size cap, then renames into place.
+    Returns True only if a valid PDF was saved.
+    """
     if not any(url.startswith(s) for s in _ALLOWED_SCHEMES):
         return False
     req = Request(url, headers=HEADERS)
+    tmp_path: Path | None = None
     try:
         with urlopen(req, timeout=timeout) as resp:  # noqa: S310
-            content = resp.read()
-            if len(content) < _MIN_PDF_BYTES:
+            content_type = resp.headers.get("Content-Type", "")
+            # Reject clearly non-PDF responses early (allow octet-stream as
+            # some servers serve PDFs without a specific content type)
+            if content_type and not any(
+                t in content_type.lower() for t in ("pdf", "octet-stream")
+            ):
                 return False
-            dest.write_bytes(content)
-            return True
+
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp_str = tempfile.mkstemp(dir=dest.parent, suffix=".tmp")
+            tmp_path = Path(tmp_str)
+            total = 0
+            first_chunk = True
+            with os.fdopen(fd, "wb") as fh:
+                while True:
+                    chunk = resp.read(65536)  # 64 KB chunks
+                    if not chunk:
+                        break
+                    if first_chunk:
+                        # Validate PDF magic bytes before writing anything
+                        if len(chunk) < 5 or chunk[:5] != b"%PDF-":
+                            return False
+                        first_chunk = False
+                    total += len(chunk)
+                    if total > _MAX_PDF_BYTES:
+                        return False
+                    fh.write(chunk)
+
+        if total < _MIN_PDF_BYTES:
+            return False
+
+        tmp_path.replace(dest)  # atomic rename
+        tmp_path = None  # ownership transferred to dest
+        return True
     except (HTTPError, URLError, TimeoutError, OSError):
         return False
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 def try_arxiv(entry: dict[str, Any], out_dir: Path) -> tuple[bool, str]:
@@ -134,7 +305,10 @@ def try_unpaywall(entry: dict[str, Any], out_dir: Path) -> tuple[bool, str]:
     doi = entry.get("doi", "")
     if not doi:
         return False, ""
-    api_url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
+    # URL-encode the DOI path segment and email — some DOIs contain characters
+    # such as parentheses (e.g., 10.1016/S1474-6670(17)31906-7) that must be
+    # percent-encoded to form a valid URL.
+    api_url = f"https://api.unpaywall.org/v2/{quote(doi, safe='')}?email={quote(UNPAYWALL_EMAIL, safe='')}"
     req = Request(api_url, headers=HEADERS)
     try:
         with urlopen(req, timeout=15) as resp:  # noqa: S310
@@ -229,7 +403,9 @@ def download_all(
                 result["reason"] = "No DOI, eprint, or URL in bibtex entry"
                 print("  ⊘ DRY RUN: no download path available")
             else:
-                result["downloaded"] = True
+                # Use a separate flag so the report accurately reflects that
+                # nothing was actually downloaded in dry-run mode.
+                result["would_download"] = True
                 result["source"] = f"{strategy}:{expected_url}"
                 print(f"  ⊘ DRY RUN: would try {strategy} → {expected_url}")
             results.append(result)
@@ -290,8 +466,12 @@ def write_report(results: list[dict[str, Any]], report_path: Path) -> None:
     lines: list[str] = []
     lines.append("# Paper Download Status Report")
     lines.append("")
+    would_download = [r for r in results if r.get("would_download")]
+
     lines.append(f"**Total entries:** {len(results)}")
     lines.append(f"**Downloaded:** {len(downloaded)}")
+    if would_download:
+        lines.append(f"**Would download (dry run):** {len(would_download)}")
     lines.append(f"**Failed:** {len(failed)}")
     lines.append("")
 
@@ -309,6 +489,17 @@ def write_report(results: list[dict[str, Any]], report_path: Path) -> None:
         lines.append("| Key | Title | Source |")
         lines.append("|-----|-------|--------|")
         for r in downloaded:
+            title = r["title"][:60] + ("…" if len(r["title"]) > 60 else "")
+            src = r["source"][:60]
+            lines.append(f"| {r['key']} | {title} | {src} |")
+        lines.append("")
+
+    if would_download:
+        lines.append("## Would Download (dry run)")
+        lines.append("")
+        lines.append("| Key | Title | Planned source |")
+        lines.append("|-----|-------|----------------|")
+        for r in would_download:
             title = r["title"][:60] + ("…" if len(r["title"]) > 60 else "")
             src = r["source"][:60]
             lines.append(f"| {r['key']} | {title} | {src} |")
@@ -375,11 +566,20 @@ def main() -> None:
     results = download_all(args.bib, args.out, dry_run=args.dry_run)
     write_report(results, args.report)
 
-    # Exit with non-zero if any downloads failed
-    failed = sum(1 for r in results if not r["downloaded"])
+    # Many entries will be paywalled and will not download — that is expected.
+    # Only treat it as a non-zero exit when at least one entry had a known
+    # download source but the download itself failed (i.e., strategy != none
+    # and downloaded is still False).
+    failed = sum(
+        1
+        for r in results
+        if not r["downloaded"]
+        and not r.get("would_download")
+        and r.get("strategy") != "none"
+    )
     if failed:
-        print(f"\n⚠ {failed} entries could not be downloaded.")
-        sys.exit(0)  # Not an error — some papers are paywalled
+        print(f"\n⚠ {failed} entries had a download source but could not be fetched.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
