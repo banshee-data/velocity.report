@@ -134,8 +134,9 @@ for table in $(sqlite3 "$TEMP_DB" "SELECT name FROM sqlite_master WHERE type='ta
 
         # Build column list excluding time-generating defaults — those columns should be
         # filled at runtime so the fixture data is deterministic across sync runs.
-        # Covers both UNIXEPOCH('subsec') and STRFTIME('%s', 'now') patterns.
-        COLS=$(sqlite3 "$TEMP_DB" "SELECT group_concat('\"' || name || '\"', ', ') FROM pragma_table_info('$table') WHERE dflt_value IS NULL OR (UPPER(dflt_value) NOT LIKE '%UNIXEPOCH%' AND UPPER(dflt_value) NOT LIKE '%STRFTIME%');")
+        # Covers UNIXEPOCH('subsec'), STRFTIME('%s', 'now'), and the SQLite keywords
+        # CURRENT_TIMESTAMP, CURRENT_DATE, and CURRENT_TIME.
+        COLS=$(sqlite3 "$TEMP_DB" "SELECT group_concat('\"' || name || '\"', ', ') FROM pragma_table_info('$table') WHERE dflt_value IS NULL OR (UPPER(dflt_value) NOT LIKE '%UNIXEPOCH%' AND UPPER(dflt_value) NOT LIKE '%STRFTIME%' AND UPPER(dflt_value) NOT LIKE 'CURRENT_%');")
 
         if [ -z "$COLS" ]; then
             echo "   Skipping $table (all columns have time-generating defaults)"

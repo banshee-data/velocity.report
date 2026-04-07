@@ -48,6 +48,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.6.0 - Deployment & Packaging (060)
 
 - RPi image Phase 2: precompiled LaTeX `.fmt` for faster PDF generation; vendored TeX tree already shipped in v0.5.1: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `S`
+- `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see `internal/ctl/manager.go` TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Single `velocity-report` binary + subcommands: unified CLI with radar/lidar/pdf subcommands: [design doc](plans/deploy-distribution-packaging-plan.md) `L`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
