@@ -90,21 +90,20 @@ def _detect_fatal_latex_signature(base_path: Path) -> Optional[str]:
     if not log_path.exists():
         return None
 
-    try:
-        lines = log_path.read_text(errors="ignore").splitlines()
-    except Exception:
-        return None
-
     signatures = (
         "metric (tfm) file or installed font not found",
         "font tu/lmr",
         "nullfont",
     )
 
-    for idx, raw_line in enumerate(lines, start=1):
-        lowered = raw_line.lower()
-        if any(signature in lowered for signature in signatures):
-            return f"line {idx}: {raw_line.strip()}"
+    try:
+        with log_path.open("r", errors="ignore") as log_file:
+            for idx, raw_line in enumerate(log_file, start=1):
+                lowered = raw_line.lower()
+                if any(signature in lowered for signature in signatures):
+                    return f"line {idx}: {raw_line.strip()}"
+    except Exception:
+        return None
 
     return None
 
@@ -663,8 +662,12 @@ def generate_pdf_report(
                     radar_svg_x = site_data.get("radar_svg_x")
                     radar_svg_y = site_data.get("radar_svg_y")
                     if radar_svg_x is not None and radar_svg_y is not None:
-                        map_config.triangle_cx = float(radar_svg_x) / 100.0
-                        map_config.triangle_cy = float(radar_svg_y) / 100.0
+                        map_config.triangle_cx = max(
+                            0.0, min(1.0, float(radar_svg_x) / 100.0)
+                        )
+                        map_config.triangle_cy = max(
+                            0.0, min(1.0, float(radar_svg_y) / 100.0)
+                        )
                         print(
                             f"  [MAP] Using radar_svg_x/y from site data: "
                             f"cx={map_config.triangle_cx:.4f}, cy={map_config.triangle_cy:.4f}"

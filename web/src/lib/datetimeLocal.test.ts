@@ -10,7 +10,8 @@ describe('datetimeLocal helpers', () => {
 	it('parses datetime-local string to unix seconds', () => {
 		const value = '2026-03-29T14:05';
 		const unix = fromDatetimeLocalToUnixSeconds(value);
-		expect(unix).toBe(Math.floor(new Date(value).getTime() / 1000));
+		const expected = Math.floor(new Date(2026, 2, 29, 14, 5, 0).getTime() / 1000);
+		expect(unix).toBe(expected);
 	});
 
 	it('returns null for empty or invalid input', () => {
