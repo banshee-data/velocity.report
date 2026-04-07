@@ -1198,8 +1198,10 @@ class TestPDFWithComparisonData(unittest.TestCase):
     @patch("pdf_generator.core.pdf_generator.create_marker_from_config")
     @patch("pdf_generator.core.pdf_generator.MapProcessor")
     @patch("pdf_generator.core.pdf_generator.chart_exists")
+    @patch("pdf_generator.core.pdf_generator.DocumentBuilder")
     def test_radar_svg_xy_overrides_triangle_position(
         self,
+        mock_doc_builder,
         mock_chart_exists,
         mock_map_processor,
         mock_create_marker,
@@ -1208,6 +1210,10 @@ class TestPDFWithComparisonData(unittest.TestCase):
     ):
         """radar_svg_x/y from site data should override the GPS-calculated triangle position."""
         mock_chart_exists.return_value = False
+
+        # Stub DocumentBuilder so LaTeX compilation is never attempted
+        mock_doc = MagicMock()
+        mock_doc_builder.return_value.build.return_value = mock_doc
 
         mock_client = MagicMock()
         mock_client.get_site.return_value = (
@@ -1233,30 +1239,27 @@ class TestPDFWithComparisonData(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "radar_svg_xy.pdf")
 
-            try:
-                generate_pdf_report(
-                    output_path=output_path,
-                    start_iso="2025-06-02T00:00:00-07:00",
-                    end_iso="2025-06-04T23:59:59-07:00",
-                    group="1h",
-                    units="mph",
-                    timezone_display="US/Pacific",
-                    min_speed_str="5.0 mph",
-                    location="Test Location",
-                    overall_metrics=self.overall_metrics,
-                    daily_metrics=self.daily_metrics,
-                    granular_metrics=self.granular_metrics,
-                    histogram=self.histogram,
-                    tz_name="US/Pacific",
-                    charts_prefix="radar_svg_xy",
-                    speed_limit=25,
-                    start_date="2025-06-02",
-                    end_date="2025-06-04",
-                    include_map=True,
-                    site_id=1,
-                )
-            except Exception:
-                pass
+            generate_pdf_report(
+                output_path=output_path,
+                start_iso="2025-06-02T00:00:00-07:00",
+                end_iso="2025-06-04T23:59:59-07:00",
+                group="1h",
+                units="mph",
+                timezone_display="US/Pacific",
+                min_speed_str="5.0 mph",
+                location="Test Location",
+                overall_metrics=self.overall_metrics,
+                daily_metrics=self.daily_metrics,
+                granular_metrics=self.granular_metrics,
+                histogram=self.histogram,
+                tz_name="US/Pacific",
+                charts_prefix="radar_svg_xy",
+                speed_limit=25,
+                start_date="2025-06-02",
+                end_date="2025-06-04",
+                include_map=True,
+                site_id=1,
+            )
 
         # create_marker_from_config must have been called with the overridden position.
         self.assertTrue(mock_create_marker.called)
