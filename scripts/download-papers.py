@@ -227,7 +227,7 @@ def download_all(
         if dry_run:
             if strategy == "none":
                 result["reason"] = "No DOI, eprint, or URL in bibtex entry"
-                print(f"  ⊘ DRY RUN: no download path available")
+                print("  ⊘ DRY RUN: no download path available")
             else:
                 result["downloaded"] = True
                 result["source"] = f"{strategy}:{expected_url}"
@@ -240,7 +240,7 @@ def download_all(
         if ok:
             result["downloaded"] = True
             result["source"] = f"arxiv:{src}"
-            print(f"  ✓ Downloaded from arXiv")
+            print("  ✓ Downloaded from arXiv")
             results.append(result)
             time.sleep(1)  # Be polite to arXiv
             continue
@@ -250,7 +250,7 @@ def download_all(
         if ok:
             result["downloaded"] = True
             result["source"] = f"url:{src}"
-            print(f"  ✓ Downloaded from direct URL")
+            print("  ✓ Downloaded from direct URL")
             results.append(result)
             time.sleep(0.5)
             continue
@@ -260,7 +260,7 @@ def download_all(
         if ok:
             result["downloaded"] = True
             result["source"] = f"unpaywall:{src}"
-            print(f"  ✓ Downloaded via Unpaywall")
+            print("  ✓ Downloaded via Unpaywall")
             results.append(result)
             time.sleep(1)
             continue
