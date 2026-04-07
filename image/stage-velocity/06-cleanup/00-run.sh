@@ -106,7 +106,35 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 8. Miscellaneous dev/convenience tools
+# 8. Python dev headers and install tools
+#    python3-dev/libpython3-dev only needed to compile native wheels.
+#    pip/setuptools/wheel only needed during venv creation.
+#    ~70 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    python3-dev libpython3-dev 'libpython3.*-dev' \
+    python3-pip python3-pip-whl \
+    python3-setuptools python3-setuptools-whl \
+    python3-wheel \
+    python3-lib2to3 python3-distutils \
+    python3-lgpio python3-rpi-lgpio \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 9. X11, Wayland, Qt — headless appliance, no display
+#    ~15 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    x11-common \
+    libx11-6 libx11-data libx11-xcb1 \
+    libxau6 libxcb1 libxdmcp6 libxext6 libxpm4 \
+    libwayland-client0 libwayland-server0 \
+    libqt5core5a \
+    libjs-sphinxdoc \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 10. Miscellaneous dev/convenience tools
 # -------------------------------------------------------------------
 apt-get purge -y \
     ssh-import-id \
@@ -118,7 +146,7 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 9. Cascade removal and cache clean
+# 11. Cascade removal and cache clean
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
