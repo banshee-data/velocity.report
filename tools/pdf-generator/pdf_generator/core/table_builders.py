@@ -292,7 +292,7 @@ class ParameterTableBuilder:
         """Render values in monospace with safe LaTeX escaping."""
 
         escaped_value = escape_latex(str(value))
-        return NoEscape(r"\AtkinsonMono " + escaped_value)
+        return NoEscape(r"{\AtkinsonMono " + escaped_value + "}")
 
     def build(self, entries: List[Dict[str, str]]) -> Tabular:
         """Build parameter table from key-value pairs.
