@@ -16,8 +16,8 @@ texlive-xetex
 texlive-latex-extra
 fonts-lmodern
 
-# LiDAR support (included but disabled by default at runtime)
-libpcap-dev
+# LiDAR support (runtime library only; headers not needed on the Pi)
+libpcap0.8
 
 # RS-232 HAT support
 raspi-config
