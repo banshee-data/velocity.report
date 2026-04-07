@@ -54,6 +54,7 @@ cleanup() {
              COMMANDS.md CONTRIBUTING.md TROUBLESHOOTING.md TENETS.md LICENSE; do
         rm -f "$stage_files/$f"
     done
+    rm -f "$stage_files/velocity-report-build"
 }
 
 # ---------------------------------------------------------------------------
@@ -160,6 +161,19 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     chmod +x "$BINARIES_DIR"/*
     log_info "Binaries staged in $BINARIES_DIR"
 fi
+
+# Write build metadata for the login MOTD and on-device diagnostics.
+# The stage script installs this to /etc/velocity-report-build.
+VERSION=$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')
+GIT_SHA_SHORT=$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME_STAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+cat > "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build" << BUILDEOF
+# velocity.report image build metadata — stamped at image creation time.
+VR_VERSION="$VERSION"
+VR_BUILD_TIME="$BUILD_TIME_STAMP"
+VR_GIT_SHA="$GIT_SHA_SHORT"
+BUILDEOF
+log_info "Build metadata stamped (v${VERSION}, ${GIT_SHA_SHORT})"
 
 # ---------------------------------------------------------------------------
 # 5. Clone pi-gen if not already present
@@ -313,6 +327,21 @@ with open(path, 'w') as f:
     f.write(content)
 PYEOF
     log_info "Patched on_chroot for Docker Desktop DNS compatibility"
+fi
+
+# ---------------------------------------------------------------------------
+# 6c. Increase export-image root partition margin
+# ---------------------------------------------------------------------------
+# pi-gen sizes the exported image as rootfs*1.2 + 200 MB.  After our
+# 06-cleanup stage purges dev packages, the rootfs is significantly smaller
+# and the default margin leaves insufficient headroom for ext4 metadata
+# overhead + the ~130 MB of uncompressed apt indices that export-image's
+# 02-set-sources re-downloads.  Double the fixed component to 400 MB.
+PRERUN="$PIGEN_DIR/export-image/prerun.sh"
+if [ -f "$PRERUN" ]; then
+    sed -i.bak 's/200 \* 1024 \* 1024/400 * 1024 * 1024/' "$PRERUN"
+    rm -f "$PRERUN.bak"
+    log_info "Increased export-image root partition margin to 400 MB"
 fi
 
 # ---------------------------------------------------------------------------
