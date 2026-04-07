@@ -66,8 +66,15 @@
 	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
-	// Custom SVG upload — restore mode if radar position was previously set on a custom SVG
-	let useCustomSvg = radarSvgX !== null && radarSvgY !== null;
+	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
+	// Generated SVGs always have bbox set; custom uploads clear bbox in handleSvgUpload.
+	let useCustomSvg =
+		(radarSvgX !== null && radarSvgY !== null) ||
+		(mapSvgData !== null &&
+			bboxNELat === null &&
+			bboxNELng === null &&
+			bboxSWLat === null &&
+			bboxSWLng === null);
 	let fileInput: HTMLInputElement;
 	let svgPreviewContainer: HTMLDivElement;
 	let isDraggingSvgDot = false;
@@ -130,6 +137,12 @@
 			useCustomSvg = true;
 			error = '';
 			mapJustDownloaded = true;
+			// Clear geographic bounds — custom SVGs have no bbox.
+			// This ensures the page correctly restores custom SVG mode on reload.
+			bboxNELat = null;
+			bboxNELng = null;
+			bboxSWLat = null;
+			bboxSWLng = null;
 		};
 		reader.onerror = () => {
 			error = 'Failed to read file.';
@@ -712,6 +725,7 @@
 						useCustomSvg = false;
 						radarSvgX = null;
 						radarSvgY = null;
+						mapSvgData = null;
 					}}
 				>
 					Use Interactive Map
