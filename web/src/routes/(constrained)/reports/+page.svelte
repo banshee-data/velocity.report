@@ -189,16 +189,19 @@
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select a date range first.';
 			return;
 		}
 
 		if (compareEnabled && (!compareRange.from || !compareRange.to)) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select the comparison period dates.';
 			return;
 		}
 
 		if (selectedSiteId == null) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select a site first.';
 			return;
 		}
@@ -405,11 +408,11 @@
 
 		{#if reportMessage}
 			<div
-				role={reportMessage.includes('success') ? 'status' : 'alert'}
+				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
 				aria-live="polite"
-				class="rounded border p-3 {reportMessage.includes('success')
-					? 'border-green-300 bg-green-50 text-green-800'
-					: 'border-red-300 bg-red-50 text-red-800'}"
+				class="rounded border p-3 {lastGeneratedReportId !== null
+					? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+					: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
 			>
 				{reportMessage}
 			</div>
