@@ -199,7 +199,23 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 					log.Printf("Security: failed to resolve build directory: %v", err)
 					return false
 				}
-				fullPath := filepath.Join(buildDir, requestedPath)
+				// Normalise requestedPath to a relative, cleaned path to ensure buildDir is honoured.
+				// Use TrimLeft (not TrimPrefix) to strip all leading separators: a double-slash
+				// path such as "//assets/x.js" would survive TrimPrefix and filepath.Clean would
+				// preserve the leading separator, making filepath.Join discard buildDir entirely.
+				relPath := strings.TrimLeft(requestedPath, "/")
+				relPath = filepath.Clean(relPath)
+				if filepath.IsAbs(relPath) {
+					log.Printf("Security: rejected absolute relPath: %s", relPath)
+					return false
+				}
+
+				joinedPath := filepath.Join(buildDir, relPath)
+				fullPath, err := filepath.Abs(joinedPath)
+				if err != nil {
+					log.Printf("Security: failed to resolve absolute path: %v", err)
+					return false
+				}
 
 				// Security: Validate path is within build directory to prevent path traversal
 				if err := security.ValidatePathWithinDirectory(fullPath, buildDir); err != nil {

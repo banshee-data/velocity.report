@@ -13,7 +13,7 @@ require (
 	go.bug.st/serial v1.6.4
 	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.16.0
-	google.golang.org/grpc v1.79.1
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.46.1
 	tailscale.com v1.95.0-pre
