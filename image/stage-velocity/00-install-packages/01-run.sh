@@ -38,7 +38,7 @@ CHEOF
 on_chroot << 'CHEOF'
 DEBIAN_FRONTEND=noninteractive apt-get purge -y \
     'texlive*' 'preview-latex*' 'cm-super*' 'tex-gyre*' 'tex-common*' \
-    'lmodern' 'tipa' 't1utils' 2>/dev/null || true
+    'lmodern' 'fonts-lmodern' 'tipa' 't1utils' 2>/dev/null || true
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
 CHEOF

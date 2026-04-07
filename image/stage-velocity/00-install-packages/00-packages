@@ -14,6 +14,7 @@ librsvg2-bin
 # generator requires (~143 MB) and then purges these apt packages.
 texlive-xetex
 texlive-latex-extra
+fonts-lmodern
 
 # LiDAR support (included but disabled by default at runtime)
 libpcap-dev
