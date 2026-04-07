@@ -20,14 +20,21 @@ HOSTNAME="velocity.local"
 CA_DAYS=3650    # 10 years
 CERT_DAYS=825   # ~2.25 years (Apple max)
 
-mkdir -p "$TLS_DIR"
+# Create TLS directory with restricted permissions from the start
+(umask 077; mkdir -p "$TLS_DIR")
 
-# Skip if server certificate already exists and has not expired
+# Skip if server certificate already exists and has not expired,
+# AND the CA key+cert are present and readable (preserves trust-once model)
 if [ -f "$TLS_DIR/server.crt" ]; then
     if openssl x509 -in "$TLS_DIR/server.crt" -checkend 86400 -noout 2>/dev/null; then
-        exit 0
+        if [ -f "$TLS_DIR/ca.key" ] && [ -f "$TLS_DIR/ca.crt" ] \
+            && [ -r "$TLS_DIR/ca.key" ] && [ -r "$TLS_DIR/ca.crt" ]; then
+            exit 0
+        fi
+        echo "velocity-tls: CA key or cert missing — regenerating to preserve trust chain"
+    else
+        echo "velocity-tls: server certificate expired or expiring — regenerating"
     fi
-    echo "velocity-tls: server certificate expired or expiring — regenerating"
 fi
 
 # --- CA: create only if missing or itself expiring ---
@@ -41,18 +48,21 @@ fi
 
 if [ "$generate_ca" = true ]; then
     echo "velocity-tls: generating CA for $HOSTNAME"
-    openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/ca.key" 2>/dev/null
+    (umask 077; openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/ca.key" 2>/dev/null)
     openssl req -new -x509 -key "$TLS_DIR/ca.key" \
         -out "$TLS_DIR/ca.crt" \
         -days "$CA_DAYS" \
         -subj "/CN=velocity.report Local CA" \
-        -sha256 2>/dev/null
+        -sha256 \
+        -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+        -addext "keyUsage=critical,keyCertSign,cRLSign" \
+        2>/dev/null
 fi
 
 echo "velocity-tls: generating server certificate for $HOSTNAME"
 
-# Generate server key
-openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/server.key" 2>/dev/null
+# Generate server key with restrictive umask
+(umask 077; openssl ecparam -genkey -name prime256v1 -out "$TLS_DIR/server.key" 2>/dev/null)
 
 # Generate server CSR and sign with CA
 openssl req -new -key "$TLS_DIR/server.key" \
