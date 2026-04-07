@@ -345,6 +345,20 @@ if [ -f "$PRERUN" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 6d. Skip userconf-pi in export-image
+# ---------------------------------------------------------------------------
+# pi-gen's export-image/01-user-rename unconditionally installs userconf-pi,
+# which depends on raspi-config → binutils, lua5.1, alsa-utils, triggerhappy,
+# ssh-import-id, dos2unix, rpi-eeprom, and many Python packages (~80 MB).
+# Our config sets DISABLE_FIRST_BOOT_USER_RENAME=1 so userconf-pi is unused.
+# Empty the package list to prevent it re-installing everything we just purged.
+USERCONF_PKG="$PIGEN_DIR/export-image/01-user-rename/00-packages"
+if [ -f "$USERCONF_PKG" ]; then
+    : > "$USERCONF_PKG"
+    log_info "Cleared userconf-pi from export-image (DISABLE_FIRST_BOOT_USER_RENAME=1)"
+fi
+
+# ---------------------------------------------------------------------------
 # 8. Build the image
 # ---------------------------------------------------------------------------
 if docker inspect pigen_work &>/dev/null; then

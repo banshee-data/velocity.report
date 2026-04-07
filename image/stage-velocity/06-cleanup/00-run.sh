@@ -134,7 +134,20 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 10. Miscellaneous dev/convenience tools
+# 10. Camera stack — rpicam, libcamera, libboost, libpisp
+#     No camera sensor on a traffic monitoring appliance.
+#     ~60 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    rpicam-apps-lite rpicam-apps-core librpicam-app1 \
+    'libcamera*' \
+    'libpisp*' \
+    'libboost*' \
+    kms++-utils libkms++0 \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 11. Miscellaneous dev/convenience tools and desktop remnants
 # -------------------------------------------------------------------
 apt-get purge -y \
     ssh-import-id \
@@ -143,10 +156,22 @@ apt-get purge -y \
     ed \
     dc \
     dos2unix \
+    minicom lrzsz \
+    pastebinit \
+    fbset \
+    triggerhappy \
+    rpi-keyboard-config rpi-keyboard-fw-update \
+    xdg-user-dirs xkb-data \
+    dconf-cli libdconf1 \
+    shared-mime-info sgml-base xml-core \
+    libmtp-common libmtp-runtime libmtp9 \
+    ncurses-term \
+    usb-modeswitch usb-modeswitch-data \
+    iso-codes \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 11. Cascade removal and cache clean
+# 12. Cascade removal and cache clean
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
