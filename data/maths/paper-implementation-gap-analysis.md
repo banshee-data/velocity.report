@@ -28,13 +28,13 @@ DBSCAN defines three point categories: **core**, **border**, and **noise**. Bord
 
 ### Gaps
 
-| ID  | Type                  | Description                                                                                                                                                                                                                                                                                                           | Impact                                              | Test needed                                                                                                       |
-| --- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| D1  | **Missing edge case** | Border point assignment is order-dependent in the original DBSCAN — the paper acknowledges this. The implementation sorts output clusters by centroid for reproducibility, but has no test for border points at cluster boundaries when two clusters share a border region.                                           | Low (deterministic sorting mitigates)               | Test: two adjacent clusters sharing a border point; verify stable assignment across permutations of input order.  |
-| D2  | **Missing test**      | The paper's MinPts definition counts the query point itself. Verify our `MinPts` semantics match — a core point requires ≥ MinPts neighbours _including itself_. If the implementation excludes self, the effective density threshold is off by one.                                                                  | Medium — affects cluster formation at low densities | Test: construct exactly `MinPts` points within ε; verify one cluster forms. Construct `MinPts - 1`; verify noise. |
-| D3  | **Missing edge case** | "Thin" clusters where ε is too large relative to cluster width can merge what should be two distinct clusters. The implementation has `MaxClusterDiameter` and `MaxClusterAspectRatio` post-filters, but no test for the merge pathology itself.                                                                      | Medium                                              | Test: two parallel lines of points separated by < 2ε; verify they produce 2 clusters, not 1.                      |
-| D4  | **Future work**       | Schubert et al. (2017) — `Schubert2017DBSCANR` — revisits DBSCAN with formal analysis of parameter selection heuristics. **Paper not downloaded.** Could inform adaptive ε selection. See [lidar-clustering-observability-and-benchmark-plan.md](../docs/plans/lidar-clustering-observability-and-benchmark-plan.md). | —                                                   | Blocked on paper download                                                                                         |
-| D5  | **Future work**       | Campello et al. (2013) — `Campello2013` — HDBSCAN for variable-density scenes. **Paper not downloaded.** The current fixed-ε approach struggles at long range where point density drops.                                                                                                                              | —                                                   | Blocked on paper download                                                                                         |
+| ID  | Type                  | Description                                                                                                                                                                                                                                                                                                              | Impact                                              | Test needed                                                                                                       |
+| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| D1  | **Missing edge case** | Border point assignment is order-dependent in the original DBSCAN — the paper acknowledges this. The implementation sorts output clusters by centroid for reproducibility, but has no test for border points at cluster boundaries when two clusters share a border region.                                              | Low (deterministic sorting mitigates)               | Test: two adjacent clusters sharing a border point; verify stable assignment across permutations of input order.  |
+| D2  | **Missing test**      | The paper's MinPts definition counts the query point itself. Verify our `MinPts` semantics match — a core point requires ≥ MinPts neighbours _including itself_. If the implementation excludes self, the effective density threshold is off by one.                                                                     | Medium — affects cluster formation at low densities | Test: construct exactly `MinPts` points within ε; verify one cluster forms. Construct `MinPts - 1`; verify noise. |
+| D3  | **Missing edge case** | "Thin" clusters where ε is too large relative to cluster width can merge what should be two distinct clusters. The implementation has `MaxClusterDiameter` and `MaxClusterAspectRatio` post-filters, but no test for the merge pathology itself.                                                                         | Medium                                              | Test: two parallel lines of points separated by < 2ε; verify they produce 2 clusters, not 1.                      |
+| D4  | **Future work**       | Schubert et al. (2017) — `Schubert2017DBSCANR` — revisits DBSCAN with formal analysis of parameter selection heuristics. **Paper not downloaded.** Could inform adaptive ε selection. See [lidar-clustering-observability-and-benchmark-plan.md](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md). | —                                                   | Blocked on paper download                                                                                         |
+| D5  | **Future work**       | Campello et al. (2013) — `Campello2013` — HDBSCAN for variable-density scenes. **Paper not downloaded.** The current fixed-ε approach struggles at long range where point density drops.                                                                                                                                 | —                                                   | Blocked on paper download                                                                                         |
 
 ---
 
@@ -162,7 +162,7 @@ The tracker follows the SORT architecture but differs in three respects: world-f
 
 ### Implementation status
 
-`l8analytics/comparison.go` computes temporal IoU between track pairs across runs. `l8analytics/summary.go` computes aggregate run statistics. No MOTA, MOTP, or HOTA. See the [lidar-l8-analytics plan](../docs/plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) for the planned analytics extension.
+`l8analytics/comparison.go` computes temporal IoU between track pairs across runs. `l8analytics/summary.go` computes aggregate run statistics. No MOTA, MOTP, or HOTA. See the [lidar-l8-analytics plan](../../docs/plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) for the planned analytics extension.
 
 ### Gaps
 
@@ -183,7 +183,7 @@ Concentric zone-based ground segmentation that handles uneven terrain, curbs, an
 
 ### Implementation status
 
-`l4perception/ground.go`: Height-band filter with floor/ceiling thresholds. No plane fitting, no zone segmentation, no slope awareness. See [ground-plane-maths.md](ground-plane-maths.md) and [docs/lidar/architecture/ground-plane-extraction.md](../docs/lidar/architecture/ground-plane-extraction.md) for context. The [ground plane vector-scene proposal](proposals/20260221-ground-plane-vector-scene-maths.md) captures the planned improvement.
+`l4perception/ground.go`: Height-band filter with floor/ceiling thresholds. No plane fitting, no zone segmentation, no slope awareness. See [ground-plane-maths.md](ground-plane-maths.md) and [docs/lidar/architecture/ground-plane-extraction.md](../../docs/lidar/architecture/ground-plane-extraction.md) for context. The [ground plane vector-scene proposal](proposals/20260221-ground-plane-vector-scene-maths.md) captures the planned improvement.
 
 ### Gaps
 
@@ -276,29 +276,29 @@ These papers are in [references.bib](references.bib) and were reviewed. The impl
 
 All of these can be written now against the current codebase.
 
-| Priority | ID    | Action                                                                                 | Effort |
-| -------- | ----- | -------------------------------------------------------------------------------------- | ------ |
-| P1       | K1    | Test diagonal-Q versus full-Q process noise; document sensitivity                      | M      |
-| P1       | K2    | Implement Joseph-form covariance update as option; test symmetry                       | M      |
-| P1       | B1    | Test MAD-versus-σ convergence; document the relationship                               | S      |
-| P1       | M1    | Implement MOTA/MOTP computation in [l8analytics](../internal/lidar/l8analytics/doc.go) | L      |
-| P2       | D2    | Test MinPts self-inclusion semantics                                                   | S      |
-| P2       | D3    | Test near-merge cluster separation                                                     | S      |
-| P2       | S2/S3 | Test confirmed-versus-tentative association priority                                   | M      |
-| P2       | P3    | Test end-to-end heading disambiguation chain                                           | M      |
-| P2       | C2    | Test classification boundary conditions                                                | S      |
-| P2       | V1    | Test coasting prediction error growth                                                  | M      |
-| P3       | K3    | Instrument covariance symmetry monitoring                                              | S      |
-| P3       | K4    | Test identity preservation for adjacent unlike-class objects                           | M      |
-| P3       | B3    | Test bimodal background cell behaviour                                                 | S      |
-| P3       | B4    | Test reacquisition boost convergence speed                                             | S      |
-| P3       | B5    | Test locked baseline transit resistance                                                | S      |
-| P3       | H1    | Test extreme cost range numerical stability                                            | S      |
-| P3       | H2    | Test all-forbidden assignment matrix                                                   | S      |
-| P3       | M3    | Test temporal IoU edge cases                                                           | S      |
-| P3       | G1    | Test sloped-road height-band failure modes                                             | S      |
-| P3       | HW1   | Test noise model against sensor spec                                                   | S      |
-| P3       | P1    | Test degenerate identical-point OBB                                                    | S      |
+| Priority | ID    | Action                                                                                    | Effort |
+| -------- | ----- | ----------------------------------------------------------------------------------------- | ------ |
+| P1       | K1    | Test diagonal-Q versus full-Q process noise; document sensitivity                         | M      |
+| P1       | K2    | Implement Joseph-form covariance update as option; test symmetry                          | M      |
+| P1       | B1    | Test MAD-versus-σ convergence; document the relationship                                  | S      |
+| P1       | M1    | Implement MOTA/MOTP computation in [l8analytics](../../internal/lidar/l8analytics/doc.go) | L      |
+| P2       | D2    | Test MinPts self-inclusion semantics                                                      | S      |
+| P2       | D3    | Test near-merge cluster separation                                                        | S      |
+| P2       | S2/S3 | Test confirmed-versus-tentative association priority                                      | M      |
+| P2       | P3    | Test end-to-end heading disambiguation chain                                              | M      |
+| P2       | C2    | Test classification boundary conditions                                                   | S      |
+| P2       | V1    | Test coasting prediction error growth                                                     | M      |
+| P3       | K3    | Instrument covariance symmetry monitoring                                                 | S      |
+| P3       | K4    | Test identity preservation for adjacent unlike-class objects                              | M      |
+| P3       | B3    | Test bimodal background cell behaviour                                                    | S      |
+| P3       | B4    | Test reacquisition boost convergence speed                                                | S      |
+| P3       | B5    | Test locked baseline transit resistance                                                   | S      |
+| P3       | H1    | Test extreme cost range numerical stability                                               | S      |
+| P3       | H2    | Test all-forbidden assignment matrix                                                      | S      |
+| P3       | M3    | Test temporal IoU edge cases                                                              | S      |
+| P3       | G1    | Test sloped-road height-band failure modes                                                | S      |
+| P3       | HW1   | Test noise model against sensor spec                                                      | S      |
+| P3       | P1    | Test degenerate identical-point OBB                                                       | S      |
 
 **Effort key:** S = small (< 1 hour), M = medium (1–4 hours), L = large (4+ hours)
 
