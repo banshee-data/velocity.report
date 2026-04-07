@@ -352,6 +352,8 @@ export interface Site {
 	 * This must be a base64 string (matching the Go BLOB field), not raw SVG XML/text.
 	 */
 	map_svg_data?: string | null;
+	radar_svg_x?: number | null;
+	radar_svg_y?: number | null;
 	created_at: string;
 	updated_at: string;
 }

@@ -38,6 +38,8 @@
 	export let bboxSWLng: number | null = null;
 	export let mapSvgData: string | null = null;
 	export let includeMap: boolean = true;
+	export let radarSvgX: number | null = null;
+	export let radarSvgY: number | null = null;
 
 	// Local state
 	let map: LeafletMap | null = null;
@@ -64,9 +66,45 @@
 	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
-	// Custom SVG upload
-	let useCustomSvg = false;
+	// Custom SVG upload — restore mode if radar position was previously set on a custom SVG
+	let useCustomSvg = radarSvgX !== null && radarSvgY !== null;
 	let fileInput: HTMLInputElement;
+	let svgPreviewContainer: HTMLDivElement;
+	let isDraggingSvgDot = false;
+
+	function handleSvgPreviewClick(event: MouseEvent) {
+		if (!svgPreviewContainer) return;
+		const rect = svgPreviewContainer.getBoundingClientRect();
+		const x = ((event.clientX - rect.left) / rect.width) * 100;
+		const y = ((event.clientY - rect.top) / rect.height) * 100;
+		// Clamp to 10–90% (10% border)
+		radarSvgX = Math.max(10, Math.min(90, x));
+		radarSvgY = Math.max(10, Math.min(90, y));
+	}
+
+	function handleSvgDotDrag(event: MouseEvent) {
+		if (!isDraggingSvgDot || !svgPreviewContainer) return;
+		event.preventDefault();
+		const rect = svgPreviewContainer.getBoundingClientRect();
+		const x = ((event.clientX - rect.left) / rect.width) * 100;
+		const y = ((event.clientY - rect.top) / rect.height) * 100;
+		radarSvgX = Math.max(10, Math.min(90, x));
+		radarSvgY = Math.max(10, Math.min(90, y));
+	}
+
+	function stopSvgDotDrag() {
+		isDraggingSvgDot = false;
+		window.removeEventListener('mousemove', handleSvgDotDrag);
+		window.removeEventListener('mouseup', stopSvgDotDrag);
+	}
+
+	function startSvgDotDrag(event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+		isDraggingSvgDot = true;
+		window.addEventListener('mousemove', handleSvgDotDrag);
+		window.addEventListener('mouseup', stopSvgDotDrag);
+	}
 
 	function handleSvgUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -663,8 +701,8 @@
 	</div>
 
 	{#if useCustomSvg && mapSvgData}
-		<!-- Static SVG preview (custom upload) -->
-		<div class="space-y-2">
+		<!-- Interactive SVG preview (custom upload) -->
+		<div class="space-y-4">
 			<div class="flex items-center justify-between">
 				<h4 class="font-medium">Uploaded Map Preview</h4>
 				<Button
@@ -672,17 +710,81 @@
 					variant="outline"
 					on:click={() => {
 						useCustomSvg = false;
+						radarSvgX = null;
+						radarSvgY = null;
 					}}
 				>
 					Use Interactive Map
 				</Button>
 			</div>
-			<div class="rounded border border-gray-300 bg-white p-2">
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div
+				bind:this={svgPreviewContainer}
+				class="relative cursor-crosshair overflow-hidden rounded border border-gray-300 bg-white p-2"
+				on:click={handleSvgPreviewClick}
+			>
 				<img
 					src="data:image/svg+xml;base64,{mapSvgData}"
 					alt="Uploaded map SVG"
 					class="h-auto max-h-[500px] w-full object-contain"
+					draggable="false"
 				/>
+				{#if radarSvgX !== null && radarSvgY !== null}
+					<!-- FOV triangle overlay -->
+					{@const angle = ((radarAngle ?? 0) * Math.PI) / 180}
+					{@const fovHalf = (10 * Math.PI) / 180}
+					{@const tipLen = 15}
+					{@const leftAngle = angle - fovHalf}
+					{@const rightAngle = angle + fovHalf}
+					{@const tipX = radarSvgX + Math.sin(angle) * tipLen}
+					{@const tipY = radarSvgY - Math.cos(angle) * tipLen}
+					{@const leftX = radarSvgX + Math.sin(leftAngle) * tipLen}
+					{@const leftY = radarSvgY - Math.cos(leftAngle) * tipLen}
+					{@const rightX = radarSvgX + Math.sin(rightAngle) * tipLen}
+					{@const rightY = radarSvgY - Math.cos(rightAngle) * tipLen}
+					<svg
+						class="pointer-events-none absolute inset-0 h-full w-full"
+						preserveAspectRatio="none"
+						viewBox="0 0 100 100"
+					>
+						<polygon
+							points="{radarSvgX},{radarSvgY} {leftX},{leftY} {rightX},{rightY}"
+							fill="rgba(59,130,246,0.25)"
+							stroke="#3b82f6"
+							stroke-width="0.4"
+						/>
+						<!-- Tip dot (red, draggable) -->
+						<circle cx={tipX} cy={tipY} r="1.2" fill="#ef4444" stroke="white" stroke-width="0.3" />
+					</svg>
+					<!-- Radar dot (blue, draggable) -->
+					<!-- svelte-ignore a11y-no-static-element-interactions -->
+					<div
+						class="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-white bg-blue-500 shadow-md"
+						style="left: {radarSvgX}%; top: {radarSvgY}%;"
+						on:mousedown={startSvgDotDrag}
+					/>
+				{/if}
+			</div>
+			<p class="text-surface-600-300-token text-xs">
+				{#if radarSvgX === null}
+					Click on the map to place the radar position.
+				{:else}
+					Click to reposition. Drag the blue dot to adjust. Use the angle stepper below.
+				{/if}
+			</p>
+
+			<!-- Angle stepper for custom SVG mode -->
+			<div class="flex items-center gap-4">
+				<p class="text-surface-600-300-token text-sm">Map Angle</p>
+				<NumberStepper
+					bind:value={localAngle}
+					step={1}
+					class="w-32"
+					on:change={(e) => setAngle(e.detail.value)}
+				>
+					<span slot="suffix">°</span>
+				</NumberStepper>
 			</div>
 		</div>
 	{:else}
@@ -786,89 +888,91 @@
 		</div>
 	{/if}
 
-	<!-- Download SVG -->
-	<div class="space-y-2">
-		<div class="flex items-center justify-between">
-			<h4 class="font-medium">Download Map for Reports</h4>
-			<div class="flex items-center gap-3">
-				<div class="flex items-center gap-1.5">
-					<SelectField
-						bind:value={selectedMirror}
-						options={[
-							{ value: '', label: '🌐 Auto' },
-							...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
-						]}
-						clearable={false}
-						classes={{ root: 'w-48' }}
-						dense
-						placeholder="Mirror"
-					/>
-					{#if activeMirrorId}
-						{@const active = OVERPASS_MIRRORS.find((m) => m.id === activeMirrorId)}
-						{#if active}
-							<span class="text-surface-500-400-token text-xs" title="Last successful mirror"
-								>→ {active.flag}</span
-							>
+	{#if !useCustomSvg}
+		<!-- Download SVG -->
+		<div class="space-y-2">
+			<div class="flex items-center justify-between">
+				<h4 class="font-medium">Download Map for Reports</h4>
+				<div class="flex items-center gap-3">
+					<div class="flex items-center gap-1.5">
+						<SelectField
+							bind:value={selectedMirror}
+							options={[
+								{ value: '', label: '🌐 Auto' },
+								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
+							]}
+							clearable={false}
+							classes={{ root: 'w-48' }}
+							dense
+							placeholder="Mirror"
+						/>
+						{#if activeMirrorId}
+							{@const active = OVERPASS_MIRRORS.find((m) => m.id === activeMirrorId)}
+							{#if active}
+								<span class="text-surface-500-400-token text-xs" title="Last successful mirror"
+									>→ {active.flag}</span
+								>
+							{/if}
 						{/if}
+					</div>
+					{#if downloading}
+						<span class="text-primary-500 flex items-center gap-1.5 text-sm">
+							{downloadStep}
+							<ProgressCircle size={20} width={2} />
+						</span>
+						<Button on:click={cancelDownload} variant="outline" color="danger" size="sm">
+							Cancel
+						</Button>
+					{:else}
+						<Button
+							on:click={downloadMapSVG}
+							disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng}
+							icon={mdiDownload}
+							variant="fill"
+							color="primary"
+							size="sm"
+						>
+							Download Map SVG
+						</Button>
 					{/if}
 				</div>
-				{#if downloading}
-					<span class="text-primary-500 flex items-center gap-1.5 text-sm">
-						{downloadStep}
-						<ProgressCircle size={20} width={2} />
-					</span>
-					<Button on:click={cancelDownload} variant="outline" color="danger" size="sm">
-						Cancel
-					</Button>
-				{:else}
-					<Button
-						on:click={downloadMapSVG}
-						disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng}
-						icon={mdiDownload}
-						variant="fill"
-						color="primary"
-						size="sm"
-					>
-						Download Map SVG
-					</Button>
-				{/if}
 			</div>
 		</div>
+	{/if}
 
-		{#if error}
-			<Notification
-				color="danger"
-				open
-				icon={mdiAlert}
-				classes={{
-					root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
-					title: 'text-red-800 dark:text-red-200',
-					description: 'text-red-700 dark:text-red-300'
-				}}
-			>
-				<span slot="title">Download Error</span>
-				<span slot="description">{error}</span>
-			</Notification>
-		{/if}
+	{#if error}
+		<Notification
+			color="danger"
+			open
+			icon={mdiAlert}
+			classes={{
+				root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+				title: 'text-red-800 dark:text-red-200',
+				description: 'text-red-700 dark:text-red-300'
+			}}
+		>
+			<span slot="title">Error</span>
+			<span slot="description">{error}</span>
+		</Notification>
+	{/if}
 
-		{#if mapJustDownloaded}
-			<Notification
-				color="success"
-				open
-				icon={mdiCheckCircle}
-				classes={{
-					root: 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800',
-					title: 'text-green-800 dark:text-green-200',
-					description: 'text-green-700 dark:text-green-300'
-				}}
+	{#if mapJustDownloaded}
+		<Notification
+			color="success"
+			open
+			icon={mdiCheckCircle}
+			classes={{
+				root: 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800',
+				title: 'text-green-800 dark:text-green-200',
+				description: 'text-green-700 dark:text-green-300'
+			}}
+		>
+			<span slot="title">Map Ready</span>
+			<span slot="description"
+				>Click <strong>Save Changes</strong> below to persist to the database.</span
 			>
-				<span slot="title">Map Ready</span>
-				<span slot="description"
-					>SVG downloaded. Click <strong>Save Changes</strong> below to persist to the database.</span
-				>
-			</Notification>
-		{/if}
-	</div>
+		</Notification>
+	{/if}
 </div>
 
 <style>

@@ -42,7 +42,9 @@
 		bbox_ne_lng: null as number | null,
 		bbox_sw_lat: null as number | null,
 		bbox_sw_lng: null as number | null,
-		map_svg_data: null as string | null
+		map_svg_data: null as string | null,
+		radar_svg_x: null as number | null,
+		radar_svg_y: null as number | null
 	};
 
 	let formErrors: Record<string, string> = {};
@@ -94,7 +96,9 @@
 				bbox_ne_lng: site.bbox_ne_lng || null,
 				bbox_sw_lat: site.bbox_sw_lat || null,
 				bbox_sw_lng: site.bbox_sw_lng || null,
-				map_svg_data: site.map_svg_data || null
+				map_svg_data: site.map_svg_data || null,
+				radar_svg_x: site.radar_svg_x ?? null,
+				radar_svg_y: site.radar_svg_y ?? null
 			};
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load site details.';
@@ -383,6 +387,8 @@
 						bind:bboxSWLng={formData.bbox_sw_lng}
 						bind:mapSvgData={formData.map_svg_data}
 						bind:includeMap={formData.include_map}
+						bind:radarSvgX={formData.radar_svg_x}
+						bind:radarSvgY={formData.radar_svg_y}
 					/>
 				</div>
 			</Card>
