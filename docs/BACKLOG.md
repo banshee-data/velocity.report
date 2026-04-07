@@ -11,7 +11,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.1 - Raspberry Pi Image (051)
 
 - Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
-- Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, DMG rename to `velocity-visualiser-*`, CI workflow updates, and docs: [design doc](plans/asset-naming-plan.md) `M`
+- Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 
 ### v0.5.2 - Data Contracts + Metrics (052)
 
@@ -23,6 +23,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: `S`
+- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
 ### v0.5.3 - Perception Pipeline + Algorithm Foundations (053)
 
