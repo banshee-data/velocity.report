@@ -180,6 +180,19 @@ trap cleanup EXIT
 PDF_DEST="$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
 mkdir -p "$PDF_DEST"
 cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
+# Remove build artefacts that must not bloat the Docker build context or
+# the installed image.  These accumulate during local development:
+#   output/      — generated PDFs from test/dev runs   (~150 MB)
+#   htmlcov/     — pytest-cov HTML reports             (  ~3 MB)
+#   __pycache__/ — Python bytecode                     (  ~1 MB)
+#   *.egg-info/  — editable-install metadata           (  <1 MB)
+# .venv/ and .pytest_cache/ are hidden and excluded by the shell glob.
+rm -rf \
+    "$PDF_DEST/output" \
+    "$PDF_DEST/htmlcov" \
+    "$PDF_DEST/__pycache__"
+find "$PDF_DEST" -name '*.egg-info' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$PDF_DEST" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 log_info "Copied PDF generator source"
 
 # Copy minimal TeX Live build script and dependencies into the packages
@@ -208,8 +221,13 @@ DATA_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
 rm -rf "$DATA_DEST"
 mkdir -p "$DATA_DEST"
 for subdir in maths structures experiments; do
-    [ -d "$REPO_ROOT/data/$subdir" ] && cp -r "$REPO_ROOT/data/$subdir" "$DATA_DEST/"
+    if [ -d "$REPO_ROOT/data/$subdir" ]; then
+        cp -r "$REPO_ROOT/data/$subdir" "$DATA_DEST/"
+    fi
 done
+# Research papers are not needed at runtime — exclude to avoid ~110 MB
+# of academic PDFs being installed on every device.
+rm -rf "$DATA_DEST/maths/papers"
 for f in README.md QUESTIONS.md; do
     [ -f "$REPO_ROOT/data/$f" ] && cp "$REPO_ROOT/data/$f" "$DATA_DEST/"
 done
