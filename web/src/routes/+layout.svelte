@@ -63,9 +63,7 @@
 				}
 			},
 			Field: {
-				defaults: {
-					labelPlacement: 'top'
-				}
+				labelPlacement: 'top'
 			},
 			Table: {
 				classes: {
