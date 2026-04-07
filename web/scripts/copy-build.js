@@ -8,8 +8,16 @@ const projectRoot = join(__dirname, '..');
 const staticDir = join(projectRoot, '..', 'static');
 const buildDir = join(projectRoot, 'build');
 const appStaticDir = join(staticDir, 'app');
+const svelteKitDir = join(staticDir, '_app');
 
 console.log('Copying build to static directory...');
+
+// Remove old SvelteKit immutable directory — content-hashed files accumulate across
+// builds and bloat the Go binary (which embeds static/* via go:embed).
+if (existsSync(svelteKitDir)) {
+	console.log('Removing old static/_app directory...');
+	rmSync(svelteKitDir, { recursive: true, force: true });
+}
 
 // Remove old app directory if it exists
 if (existsSync(appStaticDir)) {
