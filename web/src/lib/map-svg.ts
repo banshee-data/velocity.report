@@ -729,7 +729,7 @@ export function generateMapSvg(params: SvgParams): string {
 
 		const fontSize = getLabelFontSize(way.highway);
 		labelledNames.add(way.name);
-		labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="2" paint-order="stroke">${escapeXml(way.name)}</text>`;
+		labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="4" paint-order="stroke">${escapeXml(way.name)}</text>`;
 	}
 
 	// Railway paths
