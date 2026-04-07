@@ -2,6 +2,11 @@
 	import { browser } from '$app/environment';
 	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
 	import { isoDate } from '$lib/dateUtils';
+	import {
+		isDateRangeStale,
+		REPORT_SETTINGS_KEY,
+		type StoredReportSettings
+	} from '$lib/reportSettings';
 	import { PeriodType } from '@layerstack/utils';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -43,15 +48,6 @@
 	let group: string = '4h';
 	let graphData: RadarStats[] = [];
 	let selectedSource: string = 'radar_objects';
-	const REPORT_SETTINGS_KEY = 'reportSettings';
-	type StoredReportSettings = {
-		dateRange?: {
-			from?: string;
-			to?: string;
-			periodType?: PeriodType;
-		};
-		[key: string]: unknown;
-	};
 
 	const groupOptions = [
 		'1h',
@@ -197,6 +193,8 @@
 			if (!saved) return;
 
 			const settings = JSON.parse(saved) as StoredReportSettings;
+			if (isDateRangeStale(settings?.dateRange?.savedAt)) return;
+
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
 			if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
@@ -226,7 +224,8 @@
 			settings.dateRange = {
 				from: dateRange.from.toISOString(),
 				to: dateRange.to.toISOString(),
-				periodType: dateRange.periodType
+				periodType: dateRange.periodType,
+				savedAt: new Date().toISOString()
 			};
 
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
