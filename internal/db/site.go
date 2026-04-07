@@ -26,8 +26,8 @@ type Site struct {
 	BBoxSWLat       *float64  `json:"bbox_sw_lat"`
 	BBoxSWLng       *float64  `json:"bbox_sw_lng"`
 	MapSVGData      *[]byte   `json:"map_svg_data,omitempty"`
-	RadarSvgX       *float64  `json:"radar_svg_x"`
-	RadarSvgY       *float64  `json:"radar_svg_y"`
+	RadarSVGX       *float64  `json:"radar_svg_x"`
+	RadarSVGY       *float64  `json:"radar_svg_y"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
@@ -73,8 +73,8 @@ func (db *DB) CreateSite(ctx context.Context, site *Site) error {
 		site.BBoxSWLat,
 		site.BBoxSWLng,
 		mapSVGData,
-		site.RadarSvgX,
-		site.RadarSvgY,
+		site.RadarSVGX,
+		site.RadarSVGY,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create site: %w", err)
@@ -126,8 +126,8 @@ func (db *DB) GetSite(ctx context.Context, id int) (*Site, error) {
 		&site.BBoxSWLat,
 		&site.BBoxSWLng,
 		&mapSVGData,
-		&site.RadarSvgX,
-		&site.RadarSvgY,
+		&site.RadarSVGX,
+		&site.RadarSVGY,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -194,8 +194,8 @@ func (db *DB) GetAllSites(ctx context.Context) ([]Site, error) {
 			&site.BBoxSWLat,
 			&site.BBoxSWLng,
 			&mapSVGData,
-			&site.RadarSvgX,
-			&site.RadarSvgY,
+			&site.RadarSVGX,
+			&site.RadarSVGY,
 			&createdAtUnix,
 			&updatedAtUnix,
 		)
@@ -274,8 +274,8 @@ func (db *DB) UpdateSite(ctx context.Context, site *Site) error {
 		site.BBoxSWLat,
 		site.BBoxSWLng,
 		mapSVGData,
-		site.RadarSvgX,
-		site.RadarSvgY,
+		site.RadarSVGX,
+		site.RadarSVGY,
 		site.ID,
 	)
 	if err != nil {
