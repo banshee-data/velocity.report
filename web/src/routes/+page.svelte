@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { isoDate } from '$lib/dateUtils';
 	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
+	import { isoDate } from '$lib/dateUtils';
 	import { PeriodType } from '@layerstack/utils';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -501,7 +501,7 @@
 					class="whitespace-normal"
 					aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
 				>
-					{generatingReport ? 'Generating...' : 'Generate Report'}
+					{generatingReport ? 'Generating...' : 'Generate'}
 				</Button>
 			</div>
 		</div>
@@ -530,7 +530,7 @@
 							download
 							aria-label="Download PDF report"
 						>
-							📄 Download PDF
+							📄 Download Report
 						</a>
 						{#if reportMetadata.zip_filename}
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
@@ -540,7 +540,7 @@
 								download
 								aria-label="Download source files as ZIP archive"
 							>
-								📦 Download Sources (ZIP)
+								📦 Download ZIP
 							</a>
 						{/if}
 					</div>
