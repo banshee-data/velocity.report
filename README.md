@@ -18,7 +18,7 @@
 | pdf\_generator/core/date\_parser.py        |       53 |        0 |    100% |           |
 | pdf\_generator/core/dependency\_checker.py |      167 |       10 |     94% |103, 128, 159-160, 204-210, 244, 266-267 |
 | pdf\_generator/core/document\_builder.py   |       95 |        5 |     95% |     73-81 |
-| pdf\_generator/core/map\_utils.py          |      183 |       10 |     95% |288-299, 308-310 |
+| pdf\_generator/core/map\_utils.py          |      183 |       10 |     95% |290-301, 310-312 |
 | pdf\_generator/core/pdf\_generator.py      |      331 |       19 |     94% |82, 180-191, 427-428, 588, 637-638, 660, 723-724 |
 | pdf\_generator/core/report\_sections.py    |      153 |        9 |     94% |113-114, 140-142, 150-151, 165-166 |
 | pdf\_generator/core/stats\_utils.py        |      133 |       13 |     90% |24-26, 194, 239, 253, 258-259, 284, 300-304 |
