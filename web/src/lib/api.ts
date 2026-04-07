@@ -196,8 +196,10 @@ export async function generateReport(request: ReportRequest): Promise<GenerateRe
 		body: JSON.stringify(request)
 	});
 	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-		throw new Error(errorData.error || `Could not generate report: ${res.status}`);
+		const errorData = await res.json().catch(() => null);
+		throw errorData?.error
+			? new Error(errorData.error)
+			: apiError('Could not generate report', res.status);
 	}
 	return res.json();
 }
