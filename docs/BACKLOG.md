@@ -11,6 +11,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.1 - Raspberry Pi Image (051)
 
 - (#210) Raspberry Pi image pipeline: test image on physical Raspberry Pi 4 hardware and produce first `.img.xz` release asset: [design doc](plans/deploy-rpi-imager-fork-plan.md) `XS`
+- Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 - PDF map quality parity with web: the SVG map stored in `site.map_svg_data` is rendered at a fixed 600×400 viewBox from Overpass API vector data, but the web UI shows raster tiles from OSM at zoom 15 with far more detail; raise SVG viewBox to 1200×800, increase road stroke widths proportionally, add Overpass queries for missing feature types (amenity labels, place names, POI markers), and match tile-layer detail at the configured zoom level; the marker overlay and SVG→PDF conversion path are already vector-clean: `S`
 - Stale localStorage date range: `reportSettings` persists absolute `dateRange.from`/`dateRange.to` ISO strings with no TTL; returning after days shows old dates; add freshness check or persist relative period instead of absolute timestamps: `S`
 
@@ -22,6 +23,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: `S`
 
 ### v0.5.3 - Structural Hygiene + Layer Foundations (053)
 
