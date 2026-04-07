@@ -25,35 +25,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: `S`
 
-### v0.5.3 - Structural Hygiene + Layer Foundations (053)
-
-- Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
-- Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
-- Absorb chart/dashboard code from `monitor/` into `l9endpoints/` (L8/L9/L10 Phase 4b): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `M`
-- Decompose `monitor/` into `server/` + layered packages (L8/L9/L10 Phase 5): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `M`
-- LiDAR replay case terminology alignment: rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers: [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
-- Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
-- Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
-
-### v0.5.4 - Replay/Runtime Stabilisation (0504)
-
-- Visualiser debug overlay + cluster proto follow-through: finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
-- Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
-- Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
-- [#381] VRLOG timestamp index build at load time: build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built: [design doc](../data/structures/VRLOG_FORMAT.md) `S`
-- Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
-- SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
-- [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
-
-### v0.5.5 - Product Polish + Release Readiness (0505)
-
-- [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
-- Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
-- Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
-- LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix: `S`
-- Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
-
-### v0.5.6 - Perception Pipeline + Algorithm Foundations (056)
+### v0.5.3 - Perception Pipeline + Algorithm Foundations (053)
 
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
@@ -63,12 +35,40 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 
-### v0.5.7 - Algorithm Correctness + Gap Remediation (057)
+### v0.5.4 - Algorithm Correctness + Gap Remediation (0504)
 
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
 - Paper-implementation gap remediation P1 (critical tests + fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update), B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `L`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+
+### v0.5.5 - Structural Hygiene + Layer Foundations (0505)
+
+- Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
+- Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
+- Absorb chart/dashboard code from `monitor/` into `l9endpoints/` (L8/L9/L10 Phase 4b): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `M`
+- Decompose `monitor/` into `server/` + layered packages (L8/L9/L10 Phase 5): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `M`
+- LiDAR replay case terminology alignment: rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers: [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
+- Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
+- Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
+
+### v0.5.6 - Replay/Runtime Stabilisation (056)
+
+- Visualiser debug overlay + cluster proto follow-through: finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
+- Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
+- Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
+- [#381] VRLOG timestamp index build at load time: build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built: [design doc](../data/structures/VRLOG_FORMAT.md) `S`
+- Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
+- SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
+- [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
+
+### v0.5.7 - Product Polish + Release Readiness (057)
+
+- [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
+- Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
+- Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix: `S`
+- Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
 
 ### v0.5.8 - Sweep & Experimentation Infrastructure (058)
 
