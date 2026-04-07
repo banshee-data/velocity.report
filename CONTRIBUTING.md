@@ -260,8 +260,6 @@ Read next:
   data flow, and deployment shape
 - [cmd/radar/README.md](cmd/radar/README.md): the main
   binary, runtime flags, and service model
-- [cmd/deploy/README.md](cmd/deploy/README.md): deployment
-  workflows, upgrade flow, rollback, and health checks
 - [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md):
   current CLI surface and planned consolidation
 - [internal/db/migrations/README.md](internal/db/migrations/README.md):

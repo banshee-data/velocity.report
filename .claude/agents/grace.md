@@ -101,7 +101,7 @@ These are Grace's domain — product directions to evaluate:
 
 For project facts, conventions, and technical detail:
 
-- Project tenets and privacy principles: see `.github/TENETS.md`
+- Project tenets and privacy principles: see `../../TENETS.md`
 - Tech stack, data flow, DB schema, deployment: see `.github/knowledge/architecture.md`
 - Make targets, quality gate, venv, test commands: see `.github/knowledge/build-and-test.md`
 - British English, commit format: see `.github/knowledge/coding-standards.md`

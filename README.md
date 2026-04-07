@@ -78,7 +78,7 @@ The system records vehicle speed data. That is all it records. No cameras, no li
 
 The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
 
-See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles.
+See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
 ### In Practice: Clarendon Avenue School Zone
 

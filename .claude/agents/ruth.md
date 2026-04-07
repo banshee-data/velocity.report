@@ -174,7 +174,7 @@ Sentence style: precise declarative sentences, modest transitions, careful quali
 
 For project facts and conventions:
 
-- Project tenets: see `.github/TENETS.md`
+- Project tenets: see `../../TENETS.md`
 - Architecture, data flow, schema: see `.github/knowledge/architecture.md`
 - Build, test, quality gate: see `.github/knowledge/build-and-test.md`
 - Coding standards, British English: see `.github/knowledge/coding-standards.md`

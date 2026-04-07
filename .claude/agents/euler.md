@@ -142,7 +142,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 
 ## Knowledge References
 
-- Project tenets: see `.github/TENETS.md`
+- Project tenets: see `../../TENETS.md`
 - Tech stack, DB schema, data flow: see `.github/knowledge/architecture.md`
 - Build, test, quality gate: see `.github/knowledge/build-and-test.md`
 - Radar/LIDAR specs: see `.github/knowledge/hardware.md`
