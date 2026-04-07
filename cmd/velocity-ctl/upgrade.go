@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -48,7 +47,6 @@ func loadIncludePrereleases(configPath string) (bool, error) {
 
 func runUpgrade(args []string) error {
 	fs := flag.NewFlagSet("upgrade", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
 	checkOnly := fs.Bool("check", false, "Check for updates without applying")
 	binaryFile := fs.String("binary", "", "Apply a local binary file (offline upgrade)")
 	includePrereleases := fs.Bool("include-prereleases", false, "Allow upgrade to pre-release tags")
