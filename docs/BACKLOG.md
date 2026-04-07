@@ -11,6 +11,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.1 - Raspberry Pi Image (051)
 
 - Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
+- Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, DMG rename to `velocity-visualiser-*`, CI workflow updates, and docs: [design doc](plans/asset-naming-plan.md) `M`
 
 ### v0.5.2 - Data Contracts + Metrics (052)
 
