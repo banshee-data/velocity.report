@@ -1,0 +1,137 @@
+#!/bin/bash -e
+# 06-cleanup/00-run.sh — Purge build-time and developer packages
+#
+# pi-gen's stage0 and stage2 install packages aimed at a general-purpose
+# Raspberry Pi desktop/developer image. velocity.report is a headless
+# appliance: it needs none of the compiler toolchain, kernel headers,
+# GPIO libraries, Lua runtimes, video utilities, or interactive debugging
+# tools that ship with Pi OS Lite.
+#
+# This step runs last in stage-velocity so all prior steps can still use
+# Python pip (which depends on build-essential to compile native wheels).
+# After this step, only runtime packages remain.
+
+on_chroot << 'CHEOF'
+export DEBIAN_FRONTEND=noninteractive
+
+# -------------------------------------------------------------------
+# 1. Compiler toolchain and kernel headers
+#    Installed by stage0 (linux-headers) and stage2 (build-essential).
+#    ~300 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    build-essential \
+    dpkg-dev \
+    g++ g++-12 \
+    gcc gcc-12 \
+    cpp cpp-12 \
+    make \
+    gdb \
+    pkg-config \
+    manpages-dev \
+    libc-dev-bin libc-devtools libc6-dev \
+    libstdc++-12-dev \
+    libgcc-12-dev \
+    linux-libc-dev \
+    linux-headers-rpi-v8 \
+    linux-headers-rpi-2712 \
+    'linux-headers-*' \
+    binutils binutils-aarch64-linux-gnu binutils-common libbinutils \
+    fakeroot libfakeroot \
+    libcrypt-dev \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 2. GPIO / hardware-hacking libraries
+#    Installed by stage2 for maker projects. The velocity binary
+#    accesses hardware directly; these Python/C libraries are unused.
+#    ~30 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    pigpio pigpio-tools pigpiod \
+    libpigpio-dev libpigpio1 libpigpiod-if-dev libpigpiod-if1 libpigpiod-if2-1 \
+    python3-pigpio \
+    python3-gpiozero \
+    gpiod libgpiod2 python3-libgpiod \
+    python3-spidev \
+    python3-smbus2 \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 3. Lua runtimes — installed by stage2, not used
+#    ~5 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    lua5.1 \
+    luajit libluajit-5.1-2 libluajit-5.1-common \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 4. Video4Linux — USB camera utilities, not needed
+#    ~5 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    v4l-utils libv4l-0 libv4l2rds0 libv4lconvert0 \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 5. Filesystem and network extras
+#    NTFS, NFS, CIFS, SAMBA, UDisks — headless appliance uses ext4 only.
+#    ~15 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    ntfs-3g libntfs-3g89 \
+    nfs-common \
+    cifs-utils \
+    udisks2 libudisks2-0 \
+    exfatprogs \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 6. Bluetooth and ALSA audio — headless, no audio output
+#    ~20 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    bluez bluez-firmware pi-bluetooth libbluetooth3 \
+    alsa-utils alsa-topology-conf alsa-ucm-conf \
+    libasound2 libasound2-data \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 7. Man pages — useful in dev, waste of space on appliance
+#    ~15 MB on disk.
+# -------------------------------------------------------------------
+apt-get purge -y \
+    man-db manpages \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 8. Miscellaneous dev/convenience tools
+# -------------------------------------------------------------------
+apt-get purge -y \
+    ssh-import-id \
+    p7zip p7zip-full \
+    strace \
+    ed \
+    dc \
+    dos2unix \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 9. Cascade removal and cache clean
+# -------------------------------------------------------------------
+apt-get autoremove --purge -y 2>/dev/null || true
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+rm -rf /var/cache/apt/archives/*
+
+# Remove leftover doc/man/locale bloat
+rm -rf /usr/share/man/*
+rm -rf /usr/share/doc/*
+rm -rf /usr/share/info/*
+# Keep only en_US and en_GB locales
+find /usr/share/locale -mindepth 1 -maxdepth 1 \
+    ! -name 'en_US' ! -name 'en_GB' ! -name 'locale.alias' \
+    -exec rm -rf {} + 2>/dev/null || true
+
+CHEOF

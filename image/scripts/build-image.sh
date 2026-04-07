@@ -120,7 +120,9 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
     if [[ "$HOST_BUILD" -eq 1 ]]; then
         # Host toolchain — fast path for local iteration.
         # Needs aarch64-linux-gnu-gcc for pcap; falls back to non-pcap.
+        # EXTRA_LDFLAGS strips debug symbols for smaller image binaries.
         log_info "Building ARM64 Go binaries (host toolchain)..."
+        export EXTRA_LDFLAGS="-s -w"
         if make build-radar-linux-pcap 2>/dev/null; then
             log_info "Built velocity-report with pcap support"
         else
@@ -128,6 +130,7 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
             make build-radar-linux
         fi
         make build-ctl-linux
+        unset EXTRA_LDFLAGS
 
         cp -f "$REPO_ROOT/velocity-report-linux-arm64" "$BINARIES_DIR/velocity-report"
         cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl"
@@ -190,9 +193,12 @@ cp -r "$REPO_ROOT/tools/pdf-generator/"* "$PDF_DEST/"
 rm -rf \
     "$PDF_DEST/output" \
     "$PDF_DEST/htmlcov" \
-    "$PDF_DEST/__pycache__"
+    "$PDF_DEST/__pycache__" \
+    "$PDF_DEST/scripts"
 find "$PDF_DEST" -name '*.egg-info' -type d -exec rm -rf {} + 2>/dev/null || true
 find "$PDF_DEST" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$PDF_DEST" -name 'tests' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$PDF_DEST" -name '*.pyc' -delete 2>/dev/null || true
 log_info "Copied PDF generator source"
 
 # Copy minimal TeX Live build script and dependencies into the packages
