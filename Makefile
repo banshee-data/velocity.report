@@ -58,6 +58,8 @@ help:
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
 	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
+	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
+	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
 	@echo "                       VIS_MODE: synthetic, replay (requires VIS_LOG), live"
 	@echo ""
 	@echo "VISUALISER TOOLS:"
@@ -604,7 +606,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -665,6 +667,12 @@ endef
 
 DEV_GO_LATEX_PRECOMPILED_FLAGS := --pdf-latex-flow=precompiled --pdf-tex-root="$(abspath $(TEX_MINIMAL_DIR))"
 DEV_GO_LATEX_FULL_FLAGS := --pdf-latex-flow=full
+
+dev-ssh:
+	@./scripts/dev-ssh.sh
+
+dev-ssh-audit:
+	@./scripts/dev-ssh-audit.sh
 
 dev-go:
 	@$(call run_dev_go_require_precompiled_root)
