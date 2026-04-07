@@ -89,6 +89,13 @@ install -m 644 files/velocity-aliases.sh \
 install -m 644 files/velocity-motd.sh \
     "${ROOTFS_DIR}/etc/profile.d/velocity-motd.sh"
 
+# Install build metadata for MOTD and on-device diagnostics.
+# Stamped by build-image.sh; sourced by velocity-motd.sh at login.
+if [ -f files/velocity-report-build ]; then
+    install -m 644 files/velocity-report-build \
+        "${ROOTFS_DIR}/etc/velocity-report-build"
+fi
+
 # Suppress the default Debian MOTD so ours is the only one shown.
 : > "${ROOTFS_DIR}/etc/motd"
 
