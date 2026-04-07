@@ -8,7 +8,14 @@
 		OVERPASS_MIRRORS,
 		svgToBase64
 	} from '$lib/map-svg';
-	import { mdiAlert, mdiCheckCircle, mdiCrosshairsGps, mdiDownload, mdiMagnify } from '@mdi/js';
+	import {
+		mdiAlert,
+		mdiCheckCircle,
+		mdiCrosshairsGps,
+		mdiDownload,
+		mdiMagnify,
+		mdiUpload
+	} from '@mdi/js';
 	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
 	import { onDestroy, onMount } from 'svelte';
 	import {
@@ -56,6 +63,43 @@
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
+
+	// Custom SVG upload
+	let useCustomSvg = false;
+	let fileInput: HTMLInputElement;
+
+	function handleSvgUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		if (!file.name.toLowerCase().endsWith('.svg') && file.type !== 'image/svg+xml') {
+			error = 'Please select an SVG file.';
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			const text = reader.result as string;
+			// Encode to base64
+			const encoder = new TextEncoder();
+			const bytes = encoder.encode(text);
+			const chunkSize = 8192;
+			let binaryString = '';
+			for (let i = 0; i < bytes.length; i += chunkSize) {
+				const chunk = bytes.slice(i, i + chunkSize);
+				binaryString += String.fromCharCode(...chunk);
+			}
+			mapSvgData = btoa(binaryString);
+			useCustomSvg = true;
+			error = '';
+			mapJustDownloaded = true;
+		};
+		reader.onerror = () => {
+			error = 'Failed to read file.';
+		};
+		reader.readAsText(file);
+		// Reset input so the same file can be re-selected
+		input.value = '';
+	}
 
 	// NumberStepper needs number, but radarAngle prop is number|null.
 	// localAngle is the display value; setAngle() syncs both and redraws FOV.
@@ -603,109 +647,144 @@
 			Search for an address, then adjust the radar position and map area visually.
 		</p>
 		<div class="flex items-center gap-3">
+			<input
+				bind:this={fileInput}
+				type="file"
+				accept=".svg,image/svg+xml"
+				class="hidden"
+				on:change={handleSvgUpload}
+			/>
+			<Button size="sm" variant="outline" icon={mdiUpload} on:click={() => fileInput.click()}>
+				Upload SVG
+			</Button>
 			<span class="text-sm font-medium">Include map in reports</span>
 			<Switch bind:checked={includeMap} />
 		</div>
 	</div>
 
-	<!-- Address Search -->
-	<div class="space-y-2">
-		<h4 class="flex items-center gap-2 font-medium">
-			<span class="text-primary-500">
-				<svg class="h-5 w-5" viewBox="0 0 24 24">
-					<path fill="currentColor" d={mdiMagnify} />
-				</svg>
-			</span>
-			Address Search
-		</h4>
-		<div class="flex gap-2">
-			<div class="flex-1">
-				<TextField
-					bind:value={searchQuery}
-					placeholder="Enter address or location..."
-					on:keydown={handleKeydown}
+	{#if useCustomSvg && mapSvgData}
+		<!-- Static SVG preview (custom upload) -->
+		<div class="space-y-2">
+			<div class="flex items-center justify-between">
+				<h4 class="font-medium">Uploaded Map Preview</h4>
+				<Button
+					size="sm"
+					variant="outline"
+					on:click={() => {
+						useCustomSvg = false;
+					}}
+				>
+					Use Interactive Map
+				</Button>
+			</div>
+			<div class="rounded border border-gray-300 bg-white p-2">
+				<img
+					src="data:image/svg+xml;base64,{mapSvgData}"
+					alt="Uploaded map SVG"
+					class="h-auto max-h-[500px] w-full object-contain"
 				/>
 			</div>
-			<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
-				{searching ? 'Searching...' : 'Search'}
-			</Button>
 		</div>
-
-		{#if searchResults.length > 0}
-			<div class="mt-2 rounded border border-gray-300 bg-white">
-				{#each searchResults as result (result.place_id)}
-					<button
-						class="block w-full px-4 py-2 text-left hover:bg-gray-100"
-						on:click={() => selectLocation(result)}
-					>
-						{result.display_name}
-					</button>
-				{/each}
-			</div>
-		{/if}
-	</div>
-
-	<!-- Interactive Map -->
-	<div class="space-y-2">
-		<div class="flex items-center justify-between">
-			<h4 class="font-medium">Interactive Map</h4>
-			<div class="flex gap-2">
-				<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
-					<svg class="h-4 w-4" viewBox="0 0 24 24">
-						<path fill="currentColor" d={mdiCrosshairsGps} />
+	{:else}
+		<!-- Address Search -->
+		<div class="space-y-2">
+			<h4 class="flex items-center gap-2 font-medium">
+				<span class="text-primary-500">
+					<svg class="h-5 w-5" viewBox="0 0 24 24">
+						<path fill="currentColor" d={mdiMagnify} />
 					</svg>
-					Center
+				</span>
+				Address Search
+			</h4>
+			<div class="flex gap-2">
+				<div class="flex-1">
+					<TextField
+						bind:value={searchQuery}
+						placeholder="Enter address or location..."
+						on:keydown={handleKeydown}
+					/>
+				</div>
+				<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
+					{searching ? 'Searching...' : 'Search'}
 				</Button>
-				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
-				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
 			</div>
+
+			{#if searchResults.length > 0}
+				<div class="mt-2 rounded border border-gray-300 bg-white">
+					{#each searchResults as result (result.place_id)}
+						<button
+							class="block w-full px-4 py-2 text-left hover:bg-gray-100"
+							on:click={() => selectLocation(result)}
+						>
+							{result.display_name}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
-		<div
-			bind:this={mapContainer}
-			class="h-96 w-full rounded border border-gray-300"
-			style="min-height: 400px;"
-		></div>
-
-		<p class="text-surface-600-300-token text-xs">
-			Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
-			radar angle. The orange rectangle shows the map area for reports.
-		</p>
-	</div>
-
-	<!-- Coordinate Display (Read-only) -->
-	<div class="space-y-4">
-		<h4 class="font-medium">Current Coordinates</h4>
-		<div class="grid grid-cols-[auto_1fr] gap-4">
-			<div class="max-w-xs">
-				<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
-				</div>
-				<div class="mt-2">
-					<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
-					<NumberStepper
-						bind:value={localAngle}
-						step={1}
-						class="w-32"
-						on:change={(e) => setAngle(e.detail.value)}
-					>
-						<span slot="suffix">°</span>
-					</NumberStepper>
+		<!-- Interactive Map -->
+		<div class="space-y-2">
+			<div class="flex items-center justify-between">
+				<h4 class="font-medium">Interactive Map</h4>
+				<div class="flex gap-2">
+					<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
+						<svg class="h-4 w-4" viewBox="0 0 24 24">
+							<path fill="currentColor" d={mdiCrosshairsGps} />
+						</svg>
+						Center
+					</Button>
+					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
+					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
 				</div>
 			</div>
-			<div>
-				<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+
+			<div
+				bind:this={mapContainer}
+				class="h-96 w-full rounded border border-gray-300"
+				style="min-height: 400px;"
+			></div>
+
+			<p class="text-surface-600-300-token text-xs">
+				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+				radar angle. The orange rectangle shows the map area for reports.
+			</p>
+		</div>
+
+		<!-- Coordinate Display (Read-only) -->
+		<div class="space-y-4">
+			<h4 class="font-medium">Current Coordinates</h4>
+			<div class="grid grid-cols-[auto_1fr] gap-4">
+				<div class="max-w-xs">
+					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
+					</div>
+					<div class="mt-2">
+						<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
+						<NumberStepper
+							bind:value={localAngle}
+							step={1}
+							class="w-32"
+							on:change={(e) => setAngle(e.detail.value)}
+						>
+							<span slot="suffix">°</span>
+						</NumberStepper>
+					</div>
+				</div>
+				<div>
+					<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
+	{/if}
 
 	<!-- Download SVG -->
 	<div class="space-y-2">
