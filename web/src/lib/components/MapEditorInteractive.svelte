@@ -84,8 +84,8 @@
 		const rect = svgPreviewContainer.getBoundingClientRect();
 		const x = ((event.clientX - rect.left) / rect.width) * 100;
 		const y = ((event.clientY - rect.top) / rect.height) * 100;
-		// Clamp to 10–90% (10% border)
-		radarSvgX = Math.max(10, Math.min(90, x));
+		// Clamp: 5% border left/right, 10% border top/bottom
+		radarSvgX = Math.max(5, Math.min(95, x));
 		radarSvgY = Math.max(10, Math.min(90, y));
 	}
 
@@ -95,7 +95,8 @@
 		const rect = svgPreviewContainer.getBoundingClientRect();
 		const x = ((event.clientX - rect.left) / rect.width) * 100;
 		const y = ((event.clientY - rect.top) / rect.height) * 100;
-		radarSvgX = Math.max(10, Math.min(90, x));
+		// Clamp: 5% border left/right, 10% border top/bottom
+		radarSvgX = Math.max(5, Math.min(95, x));
 		radarSvgY = Math.max(10, Math.min(90, y));
 	}
 
