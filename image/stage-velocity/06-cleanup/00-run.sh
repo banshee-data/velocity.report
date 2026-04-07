@@ -58,11 +58,9 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 3. Lua runtimes — installed by stage2, not used
-#    ~5 MB on disk.
+# 3. Lua extras — luajit not used (keep lua5.1 for raspi-config)
 # -------------------------------------------------------------------
 apt-get purge -y \
-    lua5.1 \
     luajit libluajit-5.1-2 libluajit-5.1-common \
     2>/dev/null || true
 
@@ -88,13 +86,11 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 6. Bluetooth and ALSA audio — headless, no audio output
-#    ~20 MB on disk.
+# 6. Bluetooth — headless, no Bluetooth peripherals
+#    (Keep ALSA — raspi-config depends on alsa-utils)
 # -------------------------------------------------------------------
 apt-get purge -y \
     bluez bluez-firmware pi-bluetooth libbluetooth3 \
-    alsa-utils alsa-topology-conf alsa-ucm-conf \
-    libasound2 libasound2-data \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
@@ -171,7 +167,44 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 12. Cascade removal and cache clean
+# 12. Protect runtime packages from autoremove cascade
+# -------------------------------------------------------------------
+# Many packages needed at runtime were originally auto-installed by
+# pi-gen's stage0–stage2.  Purging dev packages above orphans their
+# dependency chains, causing autoremove to sweep out critical runtime
+# libraries.  Mark them manual so they survive.
+apt-mark manual \
+    python3 python3-minimal python3.11 python3.11-minimal \
+    libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
+    libpython3-stdlib python3-venv \
+    python3-serial \
+    python3-apt python3-debconf python-apt-common \
+    nginx nginx-common \
+    curl libcurl4 \
+    sqlite3 libsqlite3-0 \
+    openssl libssl3 libcrypt1 \
+    ca-certificates \
+    libpcap0.8 \
+    openssh-server openssh-client openssh-sftp-server ssh \
+    systemd systemd-sysv systemd-timesyncd \
+    isc-dhcp-client isc-dhcp-common \
+    iproute2 iputils-ping \
+    wpasupplicant iw rfkill wireless-regdb \
+    raspi-config raspberrypi-sys-mods \
+    raspi-firmware raspi-gpio \
+    avahi-daemon \
+    dbus dbus-daemon dbus-bin \
+    polkitd policykit-1 \
+    udev \
+    init initramfs-tools initramfs-tools-core \
+    libglib2.0-0 \
+    libxml2 libpng16-16 \
+    jq librsvg2-bin \
+    console-setup keyboard-configuration \
+    2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 13. Cascade removal and cache clean
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
