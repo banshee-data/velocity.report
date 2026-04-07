@@ -119,9 +119,9 @@ Run `make lint-docs` to confirm the full quality gate passes.
 ## What counts as fixable automatically
 
 | Pattern                                                                     | Action                                             |
-| --------------------------------------------------------------------------- | -------------------------------------------------- |
+| --------------------------------------------------------------------------- | -------------------------------------------------- | -------------------- |
 | File moved, unique match                                                    | Update path to new location                        |
-| Path root is wrong (e.g. `.github/TENETS.md` exists but ref uses bare name) | Update to the location that exists                 |
+| Path root is wrong (e.g. `.github/TENETS.md` exists but ref uses bare name) | Update to the location that exists                 | <!-- link-ignore --> |
 | Backtick path uses wrong prefix depth                                       | Recompute correct relative path from file location |
 | Markdown link and backtick reference to same dead target in same file       | Fix both in one edit                               |
 
