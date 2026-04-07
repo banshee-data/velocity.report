@@ -188,7 +188,9 @@ remote execution). The `upgrade` subcommand performs the full sequence:
 1. **Check** — query GitHub Releases API (`api.github.com`) for the latest
    release of `banshee-data/velocity.report`; compare to installed version
 2. **Download** — fetch the `velocity-report-linux-arm64` asset from the
-   GitHub Release; verify SHA-256 checksum against the published checksum file
+   GitHub Release; compute SHA-256 of downloaded bytes and print it for
+   operator verification (automatic checksum verification against a published
+   `SHA256SUMS` file is deferred to v0.6.0)
 3. **Backup** — create timestamped backup of current binary and database to
    `/var/lib/velocity-report/backups/`
 4. **Stop** — `systemctl stop velocity-report.service`
@@ -223,7 +225,8 @@ The upgrade subcommand includes:
   `https://api.github.com/repos/banshee-data/velocity.report/releases/latest`,
   parse JSON for `tag_name` and asset URLs
 - Binary download: HTTP GET the `velocity-report-linux-arm64` asset URL,
-  write to temp file, verify SHA-256 against published `SHA256SUMS` asset
+  write to temp file, compute and print SHA-256 (automatic verification
+  against a published `SHA256SUMS` asset is deferred to v0.6.0)
 - `--binary` optional: if omitted, auto-download from GitHub
 
 `cmd/deploy/` is deleted in v0.5.1. The SSH surface (`executor.go`,
@@ -757,8 +760,10 @@ subcommands in a non-root binary).
 - [ ] Test image on physical Raspberry Pi 4 hardware
 - [ ] Produce first `.img.xz` release asset
 
-Note: Phase 1 ships full `texlive-xetex` APT packages. LaTeX size reduction
-(§ 4.6) is deferred to Phase 2 (v0.6.0).
+Note: Phase 1 installs `texlive-xetex` at build time, extracts a minimal
+vendored TeX tree (~143 MB), then purges the APT packages from the final
+image. Further size reduction via pre-compiled `.fmt` files (§ 4.6) is
+deferred to Phase 2 (v0.6.0).
 
 ### Phase 2 — Custom Repository JSON (2–3 days)
 

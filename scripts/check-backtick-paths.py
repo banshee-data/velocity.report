@@ -71,14 +71,28 @@ BACKTICK_PATH_RE = re.compile(
 # Do NOT skip these when they appear as suffixes of a real path like
 # `internal/db/migrations/000031_table_naming.down.sql`.
 PLACEHOLDER_SUFFIXES = {
-    ".img.xz", ".img.gz",
-    ".vti", ".vts", ".vtp",
+    ".img.xz",
+    ".img.gz",
+    ".vti",
+    ".vts",
+    ".vtp",
 }
 
 # Directories to skip when walking the repo.
 SKIP_DIRS = {
-    ".git", "node_modules", ".venv", "__pycache__",
-    "vendor", ".build", "DerivedData", "build",
+    ".git",
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    "vendor",
+    ".build",
+    "DerivedData",
+    "build",
+    # pi-gen stage package dirs: contain bundled copies of repo files whose
+    # backtick paths resolve against the repo root, not the stage directory.
+    "files",
+    # pi-gen build output and the upstream pi-gen submodule.
+    ".pi-gen",
 }
 
 
@@ -128,9 +142,7 @@ def find_markdown_files(root: Path) -> list[Path]:
     return results
 
 
-def check_file(
-    filepath: Path, repo_root: Path
-) -> list[tuple[int, str]]:
+def check_file(filepath: Path, repo_root: Path) -> list[tuple[int, str]]:
     """Return (line_number, token) pairs for stale backtick paths."""
     findings: list[tuple[int, str]] = []
     try:

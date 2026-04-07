@@ -35,6 +35,11 @@ SKIP_DIRS = {
     ".build",
     "DerivedData",
     "build",
+    # pi-gen stage package dirs: contain bundled copies of repo files whose
+    # relative links resolve against the repo root, not the stage directory.
+    "files",
+    # pi-gen build output and the upstream pi-gen submodule.
+    ".pi-gen",
 }
 
 

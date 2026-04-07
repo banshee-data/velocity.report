@@ -446,6 +446,8 @@ func (m *Manager) downloadToTemp(url string) (string, error) {
 
 	checksum := hex.EncodeToString(h.Sum(nil))
 	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, checksum)
+	// TODO(v0.6.0): fetch SHA256SUMS release asset and verify checksum;
+	// see docs/plans/deploy-rpi-imager-fork-plan.md §4 step 2.
 
 	return tmp.Name(), nil
 }
