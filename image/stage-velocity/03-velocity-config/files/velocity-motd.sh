@@ -3,12 +3,23 @@
 #
 # Shows a warning when the default password is still active.
 # Shows a welcome banner with helpful commands once the password is changed.
+# Both banners display the image build version, time, and git SHA.
 
 # Only show on interactive terminals.
 [ -t 0 ] || return 0
 
 DEFAULT_PASS="report"
 VELOCITY_USER="velocity"
+
+# Build metadata stamped at image creation time.
+BUILD_INFO_FILE="/etc/velocity-report-build"
+if [ -f "$BUILD_INFO_FILE" ]; then
+    # shellcheck source=/dev/null
+    . "$BUILD_INFO_FILE"
+fi
+VR_VERSION="${VR_VERSION:-unknown}"
+VR_BUILD_TIME="${VR_BUILD_TIME:-unknown}"
+VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
 
 # --- Check whether the default password is still in use ----------------------
 #
@@ -38,10 +49,6 @@ sys.exit(0 if result == stored else 1)
 warning_banner() {
     cat << EOF
 
-
-
-
-
  ╔══════════════════════════════════════════════════════╗
  ║                                                      ║
  ║        ▄   ▄                 ▄            ▗▖         ║
@@ -69,11 +76,22 @@ EOF
 }
 
 welcome_banner() {
-    cat << 'EOF'
-
+    cat << EOF
   ┌──────────────────────────────────────────────────────────┐
-  │  velocity.report — measuring traffic, not people         │
+  │                                                          │
+  │          ▝▜           ▝  ▗                          ▗    │
+  │   ▗ ▗  ▄▖ ▐   ▄▖  ▄▖ ▗▄ ▗▟▄ ▗ ▗  ▖▄  ▄▖ ▗▄▖  ▄▖ ▖▄ ▗▟▄   │
+  │   ▝▖▞ ▐▘▐ ▐  ▐▘▜ ▐▘▝  ▐  ▐  ▝▖▞  ▛ ▘▐▘▐ ▐▘▜ ▐▘▜ ▛ ▘ ▐    │
+  │    ▙▌ ▐▀▀ ▐  ▐ ▐ ▐    ▐  ▐   ▙▌  ▌  ▐▀▀ ▐ ▐ ▐ ▐ ▌   ▐    │
+  │    ▐  ▝▙▞ ▝▄ ▝▙▛ ▝▙▞ ▗▟▄ ▝▄  ▜ ▐ ▌  ▝▙▞ ▐▙▛ ▝▙▛ ▌   ▝▄   │
+  │                              ▞          ▐                │
+  │                             ▝▘          ▝                │
+  │                                                          │
+  │              measure traffic, not identity               │
+  │                                                          │
   └──────────────────────────────────────────────────────────┘
+
+  Image: v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
 
   Useful commands:
     velocity-status           Is the service running?
