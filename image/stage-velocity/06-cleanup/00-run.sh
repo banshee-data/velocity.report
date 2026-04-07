@@ -150,7 +150,8 @@ apt-get purge -y \
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
-rm -rf /var/lib/apt/lists/*
+# Do NOT remove /var/lib/apt/lists/ — pi-gen's export-image stage
+# installs userconf-pi after this and needs the package index.
 rm -rf /var/cache/apt/archives/*
 
 # Remove leftover doc/man/locale bloat
