@@ -1,3 +1,9 @@
+ALTER TABLE site
+     DROP COLUMN radar_svg_y;
+
+    ALTER TABLE site
+     DROP COLUMN radar_svg_x;
+
 -- Revert: restore migration 13's original backfill values
    UPDATE site_config_periods
       SET effective_start_unix = 0

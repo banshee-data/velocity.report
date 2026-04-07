@@ -11,3 +11,10 @@
     WHERE site_id = 1
       AND notes = 'Migrated from site.cosine_error_angle'
       AND effective_end_unix IS NULL;
+
+-- Add radar marker position for custom SVG uploads (percentage coordinates 0-100)
+    ALTER TABLE site
+      ADD COLUMN radar_svg_x REAL;
+
+    ALTER TABLE site
+      ADD COLUMN radar_svg_y REAL;

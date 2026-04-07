@@ -426,6 +426,8 @@
         , bbox_sw_lat REAL
         , bbox_sw_lng REAL
         , map_svg_data BLOB
+        , radar_svg_x REAL
+        , radar_svg_y REAL
         , CHECK (include_map IN (0, 1))
           );
 
