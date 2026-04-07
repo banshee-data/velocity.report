@@ -141,8 +141,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ## Complete
 
-- Agent knowledge architecture (all phases): `../TENETS.md`, `.github/knowledge/` shared modules, condensed Copilot agent files, `CLAUDE.md`, `.claude/agents/` (7 Claude-native personas), `.claude/skills/` (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
-- (#210) RPi image Phase 1: `image/` directory with pi-gen stages, `build-image.yml` CI workflow, `os-list-velocity.json`, `velocity-ctl` binary; minimal TeX Live tree extracted at build time: [design doc](plans/deploy-rpi-imager-fork-plan.md)
 - [#144] LiDAR analysis-run infrastructure: versioned run storage + comparison/split/merge scaffolding implemented: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#240] Visualiser background snapshot serialisation: `frameBundleToProto` serialises `FrameBundle.background`, `frame_type`, `background_seq`: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#280] 501 stub replacement (evaluation and reprocess endpoints): review doc item 4: [review doc](lidar/architecture/lidar-layer-alignment-refactor-review.md)
@@ -217,3 +215,5 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#422] Canonical plan graduation: Phase 3 complete: plan-hygiene CI gate enforced, `check-plan-hygiene` wired into `lint-docs`, 69 plans with canonical metadata, 45 hub docs populated, 4 plans graduated to symlinks, 10 plans DRY-trimmed: [design doc](plans/platform-canonical-project-files-plan.md)
 - [#424] Remote-host upgrade runbook and API naming consistency: runbook merged and applied to deployment documentation, API field naming aligned as part of hygiene work: [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#429] LiDAR immutable run config (P0/P1/P2): deterministic config asset model: `lidar_param_sets`, `lidar_run_configs`, configasset package, single-source run creation, API/UI provenance, VRLOG metadata, legacy column removal (migrations 000035–000036): [design doc](plans/lidar-immutable-run-config-asset-plan.md)
+- [#436] (#210) RPi image Phase 1: `image/` directory with pi-gen stages, `build-image.yml` CI workflow, `os-list-velocity.json`, `velocity-ctl` binary; minimal TeX Live tree extracted at build time: [design doc](plans/deploy-rpi-imager-fork-plan.md)
+- [#447] Agent knowledge architecture (all phases): `../TENETS.md`, `.github/knowledge/` shared modules, condensed Copilot agent files, `CLAUDE.md`, `.claude/agents/` (7 Claude-native personas), `.claude/skills/` (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
