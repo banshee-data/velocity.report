@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { isoDate } from '$lib/dateUtils';
 	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
+	import { isoDate } from '$lib/dateUtils';
+	import {
+		isDateRangeStale,
+		REPORT_SETTINGS_KEY,
+		type StoredReportSettings
+	} from '$lib/reportSettings';
 	import { PeriodType } from '@layerstack/utils';
 	import { format } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -43,15 +48,6 @@
 	let group: string = '4h';
 	let graphData: RadarStats[] = [];
 	let selectedSource: string = 'radar_objects';
-	const REPORT_SETTINGS_KEY = 'reportSettings';
-	type StoredReportSettings = {
-		dateRange?: {
-			from?: string;
-			to?: string;
-			periodType?: PeriodType;
-		};
-		[key: string]: unknown;
-	};
 
 	const groupOptions = [
 		'1h',
@@ -197,6 +193,8 @@
 			if (!saved) return;
 
 			const settings = JSON.parse(saved) as StoredReportSettings;
+			if (isDateRangeStale(settings?.dateRange?.savedAt)) return;
+
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
 			if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
@@ -226,7 +224,8 @@
 			settings.dateRange = {
 				from: dateRange.from.toISOString(),
 				to: dateRange.to.toISOString(),
-				periodType: dateRange.periodType
+				periodType: dateRange.periodType,
+				savedAt: new Date().toISOString()
 			};
 
 			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
@@ -386,11 +385,13 @@
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Please select a date range first';
 			return;
 		}
 
 		if (selectedSiteId == null) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Please select a site first';
 			return;
 		}
@@ -501,18 +502,18 @@
 					class="whitespace-normal"
 					aria-label={generatingReport ? 'Generating report, please wait' : 'Generate report'}
 				>
-					{generatingReport ? 'Generating...' : 'Generate Report'}
+					{generatingReport ? 'Generating...' : 'Generate'}
 				</Button>
 			</div>
 		</div>
 
 		{#if reportMessage}
 			<div
-				role={reportMessage.includes('success') ? 'status' : 'alert'}
+				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
 				aria-live="polite"
-				class="rounded border p-3 {reportMessage.includes('success')
-					? 'border-green-300 bg-green-50 text-green-800'
-					: 'border-red-300 bg-red-50 text-red-800'}"
+				class="rounded border p-3 {lastGeneratedReportId !== null
+					? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+					: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
 			>
 				{reportMessage}
 			</div>
@@ -530,7 +531,7 @@
 							download
 							aria-label="Download PDF report"
 						>
-							📄 Download PDF
+							📄 Download Report
 						</a>
 						{#if reportMetadata.zip_filename}
 							<!-- eslint-disable svelte/no-navigation-without-resolve -->
@@ -540,7 +541,7 @@
 								download
 								aria-label="Download source files as ZIP archive"
 							>
-								📦 Download Sources (ZIP)
+								📦 Download ZIP
 							</a>
 						{/if}
 					</div>

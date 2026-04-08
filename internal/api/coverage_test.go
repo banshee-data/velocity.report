@@ -1219,8 +1219,9 @@ func TestListSites_SuccessfulList(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &sites); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
-	if len(sites) != 3 {
-		t.Errorf("Expected 3 sites, got %d", len(sites))
+	// 3 created + 1 seeded from schema.sql
+	if len(sites) != 4 {
+		t.Errorf("Expected 4 sites (3 created + 1 seeded), got %d", len(sites))
 	}
 }
 

@@ -1,0 +1,33 @@
+# Core runtime
+python3
+python3-pip
+python3-venv
+
+# Reverse proxy — terminates TLS on port 443, proxies to Go server on 8080
+nginx
+
+# SVG to PDF conversion for map inclusion in reports
+librsvg2-bin
+
+# Emoji glyphs for map labels rendered via rsvg-convert / Pango
+fonts-noto-color-emoji
+
+# LaTeX — installed as build-time source for the minimal TeX Live tree.
+# Stage 00-install-packages/01-run.sh extracts only the files the PDF
+# generator requires (~143 MB) and then purges these apt packages.
+texlive-xetex
+texlive-latex-extra
+fonts-lmodern
+
+# LiDAR support (runtime library only; headers not needed on the Pi)
+libpcap0.8
+
+# RS-232 HAT support
+raspi-config
+python3-serial
+minicom
+
+# System utilities
+sqlite3
+jq
+curl

@@ -97,7 +97,9 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getEvents()).rejects.toThrow('Could not load events: 500');
+			await expect(getEvents()).rejects.toThrow(
+				'Could not load events (HTTP 500 — server error, check the service is running)'
+			);
 		});
 	});
 
@@ -245,7 +247,7 @@ describe('api', () => {
 			});
 
 			await expect(getRadarStats(1704067200, 1704153600)).rejects.toThrow(
-				'Could not load radar stats: 503'
+				'Could not load radar stats (HTTP 503 — server error, check the service is running)'
 			);
 		});
 	});
@@ -274,7 +276,9 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getConfig()).rejects.toThrow('Could not load configuration: 500');
+			await expect(getConfig()).rejects.toThrow(
+				'Could not load configuration (HTTP 500 — server error, check the service is running)'
+			);
 		});
 	});
 
@@ -322,7 +326,9 @@ describe('api', () => {
 				status: 503
 			});
 
-			await expect(getCapabilities()).rejects.toThrow('Could not load capabilities: 503');
+			await expect(getCapabilities()).rejects.toThrow(
+				'Could not load capabilities (HTTP 503 — server error, check the service is running)'
+			);
 		});
 	});
 
@@ -360,7 +366,9 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getSites()).rejects.toThrow('Could not load sites: 500');
+			await expect(getSites()).rejects.toThrow(
+				'Could not load sites (HTTP 500 — server error, check the service is running)'
+			);
 		});
 	});
 
@@ -399,7 +407,7 @@ describe('api', () => {
 			});
 
 			await expect(listSiteConfigPeriods(42)).rejects.toThrow(
-				'Could not load site configuration periods: 418'
+				'Could not load site configuration periods (HTTP 418)'
 			);
 		});
 
@@ -522,7 +530,9 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getTimeline(999)).rejects.toThrow('Could not load timeline: 404');
+			await expect(getTimeline(999)).rejects.toThrow(
+				'Could not load timeline (HTTP 404 — not found on server)'
+			);
 		});
 	});
 
@@ -604,7 +614,9 @@ describe('api', () => {
 					timezone: 'UTC',
 					units: 'mph'
 				})
-			).rejects.toThrow('Could not generate report: 502');
+			).rejects.toThrow(
+				'Could not generate report (HTTP 502 — server error, check the service is running)'
+			);
 		});
 
 		it('should include min_speed parameter when provided', async () => {
@@ -783,7 +795,9 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getReport(999)).rejects.toThrow('Could not load report: 404');
+			await expect(getReport(999)).rejects.toThrow(
+				'Could not load report (HTTP 404 — not found on server)'
+			);
 		});
 	});
 
@@ -873,7 +887,9 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(downloadReport(999, 'pdf')).rejects.toThrow('Could not download report: 404');
+			await expect(downloadReport(999, 'pdf')).rejects.toThrow(
+				'Could not download report (HTTP 404 — not found on server)'
+			);
 		});
 	});
 
@@ -925,7 +941,9 @@ describe('api', () => {
 				status: 500
 			});
 
-			await expect(getRecentReports()).rejects.toThrow('Could not load reports: 500');
+			await expect(getRecentReports()).rejects.toThrow(
+				'Could not load reports (HTTP 500 — server error, check the service is running)'
+			);
 		});
 	});
 
@@ -964,7 +982,9 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getReportsForSite(999)).rejects.toThrow('Could not load site reports: 404');
+			await expect(getReportsForSite(999)).rejects.toThrow(
+				'Could not load site reports (HTTP 404 — not found on server)'
+			);
 		});
 	});
 
@@ -985,7 +1005,9 @@ describe('api', () => {
 				status: 403
 			});
 
-			await expect(deleteReport(123)).rejects.toThrow('Could not delete report: 403');
+			await expect(deleteReport(123)).rejects.toThrow(
+				'Could not delete report (HTTP 403 — not authorised)'
+			);
 		});
 	});
 
@@ -1028,7 +1050,9 @@ describe('api', () => {
 				status: 404
 			});
 
-			await expect(getSite(999)).rejects.toThrow('Could not load site: 404');
+			await expect(getSite(999)).rejects.toThrow(
+				'Could not load site (HTTP 404 — not found on server)'
+			);
 		});
 	});
 
@@ -1401,7 +1425,7 @@ describe('api', () => {
 			});
 
 			await expect(getTransitWorkerState()).rejects.toThrow(
-				'Could not load transit worker state: 503'
+				'Could not load transit worker state (HTTP 503 — server error, check the service is running)'
 			);
 		});
 	});
@@ -1613,7 +1637,7 @@ describe('api', () => {
 				});
 
 				await expect(getActiveTracks('hesai-pandar40p')).rejects.toThrow(
-					'Could not load active tracks: 500'
+					'Could not load active tracks (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
@@ -1660,7 +1684,9 @@ describe('api', () => {
 					status: 404
 				});
 
-				await expect(getTrackById('nonexistent')).rejects.toThrow('Could not load track: 404');
+				await expect(getTrackById('nonexistent')).rejects.toThrow(
+					'Could not load track (HTTP 404 — not found on server)'
+				);
 			});
 		});
 
@@ -1713,7 +1739,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackObservations('nonexistent')).rejects.toThrow(
-					'Could not load track observations: 404'
+					'Could not load track observations (HTTP 404 — not found on server)'
 				);
 			});
 
@@ -1785,7 +1811,9 @@ describe('api', () => {
 
 				await expect(
 					getTrackObservationsRange('hesai-pandar40p', 1000000, 2000000)
-				).rejects.toThrow('Could not load track observations for range: 500');
+				).rejects.toThrow(
+					'Could not load track observations for range (HTTP 500 — server error, check the service is running)'
+				);
 			});
 		});
 
@@ -1860,7 +1888,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackHistory('hesai-pandar40p', 0, 1000000)).rejects.toThrow(
-					'Could not load track history: 400'
+					'Could not load track history (HTTP 400)'
 				);
 			});
 
@@ -1929,7 +1957,7 @@ describe('api', () => {
 				});
 
 				await expect(getTrackSummary('hesai-pandar40p')).rejects.toThrow(
-					'Could not load track summary: 503'
+					'Could not load track summary (HTTP 503 — server error, check the service is running)'
 				);
 			});
 		});
@@ -1978,7 +2006,7 @@ describe('api', () => {
 				});
 
 				await expect(getBackgroundGrid('hesai-pandar40p')).rejects.toThrow(
-					'Could not load background grid: 500'
+					'Could not load background grid (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
@@ -2012,7 +2040,9 @@ describe('api', () => {
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { getLidarReplayCases } = await import('./api');
-				await expect(getLidarReplayCases()).rejects.toThrow('Could not load replay cases: 500');
+				await expect(getLidarReplayCases()).rejects.toThrow(
+					'Could not load replay cases (HTTP 500 — server error, check the service is running)'
+				);
 			});
 
 			it('should default to an empty replay-case list when scenes are omitted', async () => {
@@ -2171,7 +2201,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { getLidarReplayCase } = await import('./api');
 				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
-					'Could not load replay case: 404'
+					'Could not load replay case (HTTP 404 — not found on server)'
 				);
 			});
 		});
@@ -2213,7 +2243,7 @@ describe('api', () => {
 						sensor_id: 'hesai-pandar40p',
 						pcap_file: 'test.pcap'
 					})
-				).rejects.toThrow('Could not create replay case: 400');
+				).rejects.toThrow('Could not create replay case (HTTP 400)');
 			});
 		});
 
@@ -2251,7 +2281,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 				const { updateLidarReplayCase } = await import('./api');
 				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
-					'Could not update replay case: 500'
+					'Could not update replay case (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
@@ -2273,7 +2303,7 @@ describe('api', () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
 				const { deleteLidarReplayCase } = await import('./api');
 				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
-					'Could not delete replay case: 404'
+					'Could not delete replay case (HTTP 404 — not found on server)'
 				);
 			});
 		});

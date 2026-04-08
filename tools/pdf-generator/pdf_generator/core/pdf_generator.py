@@ -83,6 +83,51 @@ def _read_latex_log_excerpt(base_path: Path) -> list[str]:
     return excerpt
 
 
+def _detect_fatal_latex_signature(base_path: Path) -> Optional[str]:
+    """Return the first fatal LaTeX signature found in the log, if any."""
+
+    log_path = base_path.with_suffix(".log")
+    if not log_path.exists():
+        return None
+
+    signatures = (
+        "metric (tfm) file or installed font not found",
+        "tu/lmr",
+        "nullfont",
+    )
+    # Explicit fatal lines that indicate total compilation failure.
+    explicit_fatal_lines = {
+        "fatal error occurred, no output pdf file produced!",
+    }
+
+    try:
+        with log_path.open("r", errors="ignore") as log_file:
+            for idx, raw_line in enumerate(log_file, start=1):
+                stripped = raw_line.strip()
+                lowered = stripped.lower()
+
+                # Normalise for explicit-fatal matching: strip leading "!",
+                # "==>", and whitespace so prefixed lines like
+                # "!  ==> Fatal error occurred..." still match.
+                normalised = lowered.lstrip("!").strip().lstrip("=").lstrip(">").strip()
+
+                # Check for explicit fatal output lines regardless of prefix.
+                if normalised in explicit_fatal_lines:
+                    return f"line {idx}: {stripped}"
+
+                # Only treat TeX error lines (prefixed with "!") as fatal
+                # signatures to avoid false positives from informational log
+                # entries that happen to contain these substrings.
+                if stripped.startswith("!") and any(
+                    sig in lowered for sig in signatures
+                ):
+                    return f"line {idx}: {stripped}"
+    except Exception:
+        return None
+
+    return None
+
+
 def _suggest_latex_fixes(engine: str, message: str, excerpt: list[str]) -> list[str]:
     """Derive actionable hints based on the error message and log excerpt."""
 
@@ -632,6 +677,21 @@ def generate_pdf_report(
                 if extract_svg_from_site_data(site_data, map_svg_path):
                     db_svg_extracted = True
                     print(f"  [MAP] ✓ Using map from database (site_id={site_id})")
+                    # If the user placed a radar marker on a custom uploaded SVG,
+                    # radar_svg_x/y (0-100 percent) override the GPS-based calculation.
+                    radar_svg_x = site_data.get("radar_svg_x")
+                    radar_svg_y = site_data.get("radar_svg_y")
+                    if radar_svg_x is not None and radar_svg_y is not None:
+                        map_config.triangle_cx = max(
+                            0.0, min(1.0, float(radar_svg_x) / 100.0)
+                        )
+                        map_config.triangle_cy = max(
+                            0.0, min(1.0, float(radar_svg_y) / 100.0)
+                        )
+                        print(
+                            f"  [MAP] Using radar_svg_x/y from site data: "
+                            f"cx={map_config.triangle_cx:.4f}, cy={map_config.triangle_cy:.4f}"
+                        )
                 else:
                     print("  [MAP] No map_svg_data in site record, map will be skipped")
             except Exception as e:
@@ -703,6 +763,12 @@ def generate_pdf_report(
                     clean_tex=False,
                     compiler=engine,
                     compiler_args=compiler_args,
+                )
+            fatal_signature = _detect_fatal_latex_signature(base_prefix_path)
+            if fatal_signature:
+                raise RuntimeError(
+                    "Detected fatal LaTeX log signature after compilation: "
+                    f"{fatal_signature}"
                 )
             print(f"Generated PDF: {output_path} (engine={engine})")
             generated = True

@@ -1,0 +1,6 @@
+# /etc/udev/rules.d/99-velocity-report.rules
+# USB-Serial adapter for OmniPreSense OPS243 radar
+# Creates /dev/velocity-radar symlink when the device is connected.
+# The serial configuration UI (#290) will use this symlink for device
+# discovery and port activation.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", GROUP="dialout", MODE="0660", SYMLINK+="velocity-radar"

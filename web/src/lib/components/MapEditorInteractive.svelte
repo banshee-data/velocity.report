@@ -1,8 +1,36 @@
 <script lang="ts">
-	import { mdiCrosshairsGps, mdiDownload, mdiMagnify } from '@mdi/js';
+	import {
+		buildNodeLookup,
+		buildOverpassQueries,
+		categoriseElements,
+		generateMapSvg,
+		orderedEndpoints,
+		OVERPASS_MIRRORS,
+		svgToBase64
+	} from '$lib/map-svg';
+	import {
+		mdiAlert,
+		mdiCheckCircle,
+		mdiClose,
+		mdiCrosshairsGps,
+		mdiDelete,
+		mdiDownload,
+		mdiMagnify
+	} from '@mdi/js';
 	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
-	import { onDestroy, onMount } from 'svelte';
-	import { Button, Switch, TextField } from 'svelte-ux';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import {
+		Button,
+		Dialog,
+		Notification,
+		NumberStepper,
+		ProgressCircle,
+		SelectField,
+		Switch,
+		TextField,
+		ToggleGroup,
+		ToggleOption
+	} from 'svelte-ux';
 
 	// Props
 	export let latitude: number | null = null;
@@ -14,6 +42,8 @@
 	export let bboxSWLng: number | null = null;
 	export let mapSvgData: string | null = null;
 	export let includeMap: boolean = true;
+	export let radarSvgX: number | null = null;
+	export let radarSvgY: number | null = null;
 
 	// Local state
 	let map: LeafletMap | null = null;
@@ -31,11 +61,193 @@
 	}> = [];
 	let searching = false;
 	let downloading = false;
+	let downloadStep = ''; // e.g. '1/2 Roads…', '2/2 Detail…'
 	let error = '';
+	let selectedMirror = '';
+	let abortController: AbortController | null = null;
 	let L: typeof import('leaflet') | null = null;
 	let isDraggingFovTip = false; // Flag to prevent reactive updates during drag
 	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
+
+	// Confirmation modal state for mode switching
+	let showDeleteMapModal = false;
+	let pendingModeSwitch: 'interactive' | 'upload' | null = null;
+	let toggleResetKey = 0;
+
+	// Confirmation modal state for replacing an uploaded SVG
+	let showReplaceMapModal = false;
+
+	/** Request a mode switch. If existing map data would be lost, show confirmation. */
+	function requestModeSwitch(target: 'interactive' | 'upload') {
+		if (mapSvgData) {
+			pendingModeSwitch = target;
+			showDeleteMapModal = true;
+		} else {
+			applyModeSwitch(target);
+		}
+	}
+
+	/** Apply the mode switch, clearing existing map data. */
+	async function applyModeSwitch(target: 'interactive' | 'upload') {
+		showDeleteMapModal = false;
+		pendingModeSwitch = null;
+		if (target === 'interactive') {
+			useCustomSvg = false;
+			radarSvgX = null;
+			radarSvgY = null;
+			mapSvgData = null;
+			mapJustDownloaded = false;
+			await tick();
+			if (!map) initializeMap();
+		} else {
+			useCustomSvg = true;
+			mapSvgData = null;
+			mapJustDownloaded = false;
+			fileInput.click();
+		}
+	}
+
+	function cancelModeSwitch() {
+		showDeleteMapModal = false;
+		pendingModeSwitch = null;
+		mapMode = useCustomSvg ? 'upload' : 'interactive';
+		toggleResetKey++;
+	}
+
+	// Auto-enable the "Include map in reports" toggle when the user actively
+	// configures the map — interacting with any placement, angle, download, or
+	// upload control signals intent to include a map.
+	function activateIncludeMap() {
+		if (!includeMap) includeMap = true;
+	}
+
+	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
+	// Generated SVGs always have bbox set; custom uploads clear bbox in handleSvgUpload.
+	let useCustomSvg =
+		(radarSvgX !== null && radarSvgY !== null) ||
+		(mapSvgData !== null &&
+			bboxNELat === null &&
+			bboxNELng === null &&
+			bboxSWLat === null &&
+			bboxSWLng === null);
+	let mapMode: 'interactive' | 'upload' = useCustomSvg ? 'upload' : 'interactive';
+	let fileInput: HTMLInputElement;
+	let svgPreviewContainer: HTMLDivElement;
+	let isDraggingSvgDot = false;
+
+	function handleSvgPreviewClick(event: MouseEvent) {
+		if (!svgPreviewContainer) return;
+		const rect = svgPreviewContainer.getBoundingClientRect();
+		const x = ((event.clientX - rect.left) / rect.width) * 100;
+		const y = ((event.clientY - rect.top) / rect.height) * 100;
+		// Clamp: 5% border left/right, 10% border top/bottom
+		radarSvgX = Math.max(5, Math.min(95, x));
+		radarSvgY = Math.max(10, Math.min(90, y));
+		activateIncludeMap();
+	}
+
+	function handleSvgDotDrag(event: MouseEvent) {
+		if (!isDraggingSvgDot || !svgPreviewContainer) return;
+		event.preventDefault();
+		const rect = svgPreviewContainer.getBoundingClientRect();
+		const x = ((event.clientX - rect.left) / rect.width) * 100;
+		const y = ((event.clientY - rect.top) / rect.height) * 100;
+		// Clamp: 5% border left/right, 10% border top/bottom
+		radarSvgX = Math.max(5, Math.min(95, x));
+		radarSvgY = Math.max(10, Math.min(90, y));
+	}
+
+	function stopSvgDotDrag() {
+		isDraggingSvgDot = false;
+		window.removeEventListener('mousemove', handleSvgDotDrag);
+		window.removeEventListener('mouseup', stopSvgDotDrag);
+	}
+
+	function startSvgDotDrag(event: MouseEvent) {
+		event.stopPropagation();
+		event.preventDefault();
+		isDraggingSvgDot = true;
+		window.addEventListener('mousemove', handleSvgDotDrag);
+		window.addEventListener('mouseup', stopSvgDotDrag);
+	}
+
+	/** Handle file-picker cancel: revert to interactive if no SVG was loaded. */
+	function handleFileInputCancel() {
+		if (!mapSvgData) {
+			useCustomSvg = false;
+			mapMode = 'interactive';
+			toggleResetKey++;
+			tick().then(() => {
+				if (!map) initializeMap();
+			});
+		}
+	}
+
+	/** Confirm removal of uploaded SVG, then open the file picker for a replacement. */
+	function confirmReplaceMap() {
+		showReplaceMapModal = false;
+		mapSvgData = null;
+		radarSvgX = null;
+		radarSvgY = null;
+		mapJustDownloaded = false;
+		fileInput.click();
+	}
+
+	function handleSvgUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		if (!file.name.toLowerCase().endsWith('.svg') && file.type !== 'image/svg+xml') {
+			error = 'Please select an SVG file.';
+			return;
+		}
+		const reader = new FileReader();
+		reader.onload = () => {
+			const text = reader.result as string;
+			// Encode to base64
+			const encoder = new TextEncoder();
+			const bytes = encoder.encode(text);
+			const chunkSize = 8192;
+			let binaryString = '';
+			for (let i = 0; i < bytes.length; i += chunkSize) {
+				const chunk = bytes.slice(i, i + chunkSize);
+				binaryString += String.fromCharCode(...chunk);
+			}
+			mapSvgData = btoa(binaryString);
+			useCustomSvg = true;
+			error = '';
+			mapJustDownloaded = true;
+			// Clear geographic bounds — custom SVGs have no bbox.
+			// This ensures the page correctly restores custom SVG mode on reload.
+			bboxNELat = null;
+			bboxNELng = null;
+			bboxSWLat = null;
+			bboxSWLng = null;
+			activateIncludeMap();
+		};
+		reader.onerror = () => {
+			error = 'Failed to read file.';
+		};
+		reader.readAsText(file);
+		// Reset input so the same file can be re-selected
+		input.value = '';
+	}
+
+	// NumberStepper needs number, but radarAngle prop is number|null.
+	// localAngle is the display value; setAngle() syncs both and redraws FOV.
+	let localAngle: number = radarAngle ?? 0;
+
+	function setAngle(deg: number) {
+		// Wrap to 0–359 so stepping past either end loops around
+		const wrapped = ((deg % 360) + 360) % 360;
+		localAngle = wrapped;
+		radarAngle = wrapped;
+		activateIncludeMap();
+		if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
+			updateFOVTriangle();
+		}
+	}
 
 	// Default location (San Francisco, USA)
 	const defaultLat = 37.7749;
@@ -103,7 +315,7 @@
 		// Initialize coordinates if not set
 		if (latitude === null) latitude = centerLat;
 		if (longitude === null) longitude = centerLng;
-		if (radarAngle === null) radarAngle = 0; // Default to north
+		if (radarAngle === null) setAngle(0); // Default to north
 
 		radarMarker.on('dragend', () => {
 			if (!radarMarker) return;
@@ -111,11 +323,15 @@
 			latitude = pos.lat;
 			longitude = pos.lng;
 			updateBBoxAroundRadar(true); // true = maintain size
+			activateIncludeMap();
 		});
 
 		// Add bounding box if it exists
 		if (bboxNELat && bboxNELng && bboxSWLat && bboxSWLng) {
-			addBoundingBox(L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]));
+			const bboxBounds = L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]);
+			addBoundingBox(bboxBounds);
+			// Fit the viewport to the bounding box so the map area is visible on load
+			map.fitBounds(bboxBounds.pad(0.15));
 		} else {
 			// Create default bounding box around radar
 			updateBBoxAroundRadar();
@@ -230,11 +446,12 @@
 			// Normalize to 0-360
 			if (angle < 0) angle += 360;
 
-			radarAngle = Math.round(angle);
+			localAngle = Math.round(angle);
+			radarAngle = localAngle;
 
 			// Update just the polygon shape without recreating marker
-			const newLeftBearingRad = ((radarAngle - fovWidthDegrees / 2) * Math.PI) / 180;
-			const newRightBearingRad = ((radarAngle + fovWidthDegrees / 2) * Math.PI) / 180;
+			const newLeftBearingRad = ((localAngle - fovWidthDegrees / 2) * Math.PI) / 180;
+			const newRightBearingRad = ((localAngle + fovWidthDegrees / 2) * Math.PI) / 180;
 
 			const newLeftLat = latitude + Math.cos(newLeftBearingRad) * fovDistanceLat;
 			const newLeftLng = longitude + Math.sin(newLeftBearingRad) * fovDistanceLng;
@@ -252,6 +469,7 @@
 		// Clear flag when drag ends
 		fovTipMarker.on('dragend', () => {
 			isDraggingFovTip = false;
+			activateIncludeMap();
 		});
 	}
 
@@ -377,7 +595,13 @@
 		latitude = lat;
 		longitude = lng;
 
+		searchResults = [];
+		searchQuery = '';
+
 		if (map && radarMarker && L) {
+			// Invalidate first — clearing searchResults above changes layout, so
+			// Leaflet needs to recalculate its container size before panning.
+			map.invalidateSize();
 			radarMarker.setLatLng([lat, lng]);
 			map.setView([lat, lng], 15);
 			// Only update bbox if it doesn't exist yet
@@ -388,8 +612,7 @@
 			}
 		}
 
-		searchResults = [];
-		searchQuery = '';
+		activateIncludeMap();
 	}
 
 	function adjustBBoxSize(increase: boolean) {
@@ -406,91 +629,98 @@
 		addBoundingBox(bounds);
 	}
 
-	// Road styling by type - width and colour
-	function getRoadStyle(highway: string): { width: number; color: string } {
-		const styles: Record<string, { width: number; color: string }> = {
-			motorway: { width: 4, color: '#e892a2' },
-			motorway_link: { width: 3, color: '#e892a2' },
-			trunk: { width: 3.5, color: '#f9b29c' },
-			trunk_link: { width: 2.5, color: '#f9b29c' },
-			primary: { width: 3, color: '#fcd6a4' },
-			primary_link: { width: 2, color: '#fcd6a4' },
-			secondary: { width: 2.5, color: '#f7fabf' },
-			secondary_link: { width: 2, color: '#f7fabf' },
-			tertiary: { width: 2, color: '#ffffff' },
-			tertiary_link: { width: 1.5, color: '#ffffff' },
-			residential: { width: 1.5, color: '#ffffff' },
-			unclassified: { width: 1.5, color: '#ffffff' },
-			living_street: { width: 1.5, color: '#ededed' },
-			service: { width: 1, color: '#ffffff' },
-			pedestrian: { width: 1.5, color: '#dddde8' },
-			footway: { width: 0.5, color: '#fa8072' },
-			cycleway: { width: 0.5, color: '#0000ff' },
-			path: { width: 0.5, color: '#fa8072' },
-			track: { width: 1, color: '#996600' }
-		};
-		return styles[highway] || { width: 1, color: '#cccccc' };
-	}
+	// Last mirror that successfully returned data.
+	let activeMirrorId = '';
 
-	// Font size for labels based on road type
-	function getLabelFontSize(highway: string): number {
-		const sizes: Record<string, number> = {
-			motorway: 10,
-			motorway_link: 8,
-			trunk: 10,
-			trunk_link: 8,
-			primary: 9,
-			primary_link: 7,
-			secondary: 8,
-			secondary_link: 7,
-			tertiary: 7,
-			residential: 6,
-			unclassified: 6
-		};
-		return sizes[highway] || 5;
-	}
+	// Fetch from Overpass with retry across mirror endpoints.
+	// Tries mirrors in declaration order (selected mirror first).
+	// A short connection timeout (8 s) moves quickly to the next mirror when
+	// a server is unresponsive, but once response headers arrive the body
+	// stream is read without a timeout so large payloads complete.
+	async function fetchOverpassWithRetry(
+		query: string,
+		maxRetries: number = 1,
+		signal?: AbortSignal
+	): Promise<{ elements: Array<Record<string, unknown>> }> {
+		const CONNECTION_TIMEOUT_MS = 8_000;
+		const endpoints = orderedEndpoints(selectedMirror);
+		let lastError: Error | null = null;
 
-	// Calculate midpoint and angle of a path for label placement
-	function getPathMidpoint(
-		nodes: Array<{ lat: number; lon: number }>,
-		latToY: (lat: number) => number,
-		lngToX: (lng: number) => number
-	): { x: number; y: number; angle: number } | null {
-		if (nodes.length < 2) return null;
+		for (const ep of endpoints) {
+			for (let attempt = 0; attempt <= maxRetries; attempt++) {
+				if (attempt > 0) {
+					const delay = 2000 * attempt;
+					console.log(`Retrying ${ep.url} in ${delay / 1000}s (attempt ${attempt + 1})...`);
+					await new Promise((resolve) => setTimeout(resolve, delay));
+				}
 
-		// Find total length and midpoint
-		let totalLength = 0;
-		const segments: Array<{ x1: number; y1: number; x2: number; y2: number; length: number }> = [];
+				// Per-request abort: fires after CONNECTION_TIMEOUT_MS unless
+				// the caller's signal fires first.
+				const timeoutCtrl = new AbortController();
+				const timeoutId = setTimeout(() => timeoutCtrl.abort(), CONNECTION_TIMEOUT_MS);
+				// If the caller aborts, forward to our per-request controller.
+				const onCallerAbort = () => timeoutCtrl.abort();
+				signal?.addEventListener('abort', onCallerAbort, { once: true });
 
-		for (let i = 0; i < nodes.length - 1; i++) {
-			const x1 = lngToX(nodes[i].lon);
-			const y1 = latToY(nodes[i].lat);
-			const x2 = lngToX(nodes[i + 1].lon);
-			const y2 = latToY(nodes[i + 1].lat);
-			const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-			segments.push({ x1, y1, x2, y2, length });
-			totalLength += length;
-		}
+				try {
+					const response = await fetch(ep.url, {
+						method: 'POST',
+						body: `data=${encodeURIComponent(query)}`,
+						signal: timeoutCtrl.signal
+					});
 
-		// Find the segment containing the midpoint
-		let runningLength = 0;
-		const midLength = totalLength / 2;
+					// Headers arrived — cancel the connection timeout so the
+					// body stream can complete without being killed.
+					clearTimeout(timeoutId);
 
-		for (const seg of segments) {
-			if (runningLength + seg.length >= midLength) {
-				const t = (midLength - runningLength) / seg.length;
-				const x = seg.x1 + t * (seg.x2 - seg.x1);
-				const y = seg.y1 + t * (seg.y2 - seg.y1);
-				let angle = (Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1) * 180) / Math.PI;
-				// Flip text if it would be upside down
-				if (angle > 90) angle -= 180;
-				if (angle < -90) angle += 180;
-				return { x, y, angle };
+					if (response.ok) {
+						const contentType = response.headers.get('content-type') || '';
+						if (contentType.includes('text/html')) {
+							const body = await response.text();
+							throw new Error(
+								body.includes('timeout')
+									? 'Server too busy (timeout). Trying next endpoint...'
+									: `Unexpected HTML response from ${ep.url}`
+							);
+						}
+						activeMirrorId = ep.id;
+						return await response.json();
+					}
+
+					// 429 (rate limit) or 504 (gateway timeout) — worth retrying
+					if (response.status === 429 || response.status === 504) {
+						lastError = new Error(`${ep.url}: HTTP ${response.status}`);
+						continue;
+					}
+
+					// Other errors — skip to next endpoint
+					lastError = new Error(`${ep.url}: HTTP ${response.status}`);
+					break;
+				} catch (e) {
+					clearTimeout(timeoutId);
+					lastError = e instanceof Error ? e : new Error(String(e));
+					// Caller cancelled — propagate immediately.
+					if (signal?.aborted) throw lastError;
+					if (
+						lastError.name === 'AbortError' ||
+						lastError.message.includes('timeout') ||
+						lastError.message.includes('fetch') ||
+						lastError.message.includes('HTTP 429') ||
+						lastError.message.includes('HTTP 504')
+					) {
+						continue;
+					}
+					break;
+				} finally {
+					signal?.removeEventListener('abort', onCallerAbort);
+				}
 			}
-			runningLength += seg.length;
+			console.warn(`Overpass endpoint ${ep.url} failed, trying next...`);
 		}
 
-		return null;
+		throw new Error(
+			lastError?.message || 'All Overpass API endpoints failed. Please try again later.'
+		);
 	}
 
 	async function downloadMapSVG() {
@@ -501,347 +731,74 @@
 
 		downloading = true;
 		error = '';
+		abortController = new AbortController();
+		const { signal } = abortController;
 
 		try {
-			// Fetch map data from Overpass API - roads, buildings, landuse, water
-			const overpassQuery = `
-				[out:json][timeout:30];
-				(
-					// Landuse areas (parks, forests, grass, etc.)
-					way["landuse"~"^(grass|forest|meadow|recreation_ground|village_green|orchard|vineyard|farmland|farmyard|allotments|cemetery)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					relation["landuse"~"^(grass|forest|meadow|recreation_ground|village_green|orchard|vineyard|farmland|farmyard|allotments|cemetery)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					// Leisure areas (parks, gardens, pitches)
-					way["leisure"~"^(park|garden|playground|pitch|golf_course|nature_reserve|common)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					relation["leisure"~"^(park|garden|playground|pitch|golf_course|nature_reserve|common)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					// Natural areas
-					way["natural"~"^(wood|scrub|heath|grassland|wetland|water)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					relation["natural"~"^(wood|scrub|heath|grassland|wetland|water)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					// Water bodies
-					way["water"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					way["waterway"~"^(river|stream|canal|drain|ditch)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					// Buildings
-					way["building"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
-					// Roads
-					way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|unclassified|living_street|service|pedestrian|footway|path)$"](${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng});
+			const bbox = `${bboxSWLat},${bboxSWLng},${bboxNELat},${bboxNELng}`;
+
+			const { essentialQuery, enrichmentQuery } = buildOverpassQueries(bbox);
+
+			console.log('Fetching essential map data (roads + buildings)...');
+			downloadStep = '1 🛣️ Roads…';
+			const essentialData = await fetchOverpassWithRetry(essentialQuery, 1, signal);
+
+			// Enrichment is best-effort: failures produce a sparser but still useful map.
+			let enrichmentData: { elements: Array<Record<string, unknown>> } = { elements: [] };
+			try {
+				console.log('Fetching enrichment data (landuse, water, railways)...');
+				downloadStep = '2 ⛰️ Detail…';
+				enrichmentData = await fetchOverpassWithRetry(enrichmentQuery, 1, signal);
+			} catch (enrichErr) {
+				console.warn(
+					'Enrichment query failed — proceeding with roads and buildings only.',
+					enrichErr
 				);
-				out body;
-				>;
-				out skel qt;
-			`;
-
-			console.log('Fetching map data from Overpass API...');
-			const response = await fetch('https://overpass-api.de/api/interpreter', {
-				method: 'POST',
-				body: `data=${encodeURIComponent(overpassQuery)}`
-			});
-
-			if (!response.ok) {
-				throw new Error(`Overpass API error: ${response.status}`);
 			}
 
-			const data = await response.json();
+			downloadStep = '3 ⚙️ Render…';
 
-			// Build node lookup
-			const nodes: Record<number, { lat: number; lon: number }> = {};
-			for (const element of data.elements) {
-				if (element.type === 'node') {
-					nodes[element.id] = { lat: element.lat, lon: element.lon };
-				}
-			}
-
-			// Categorise ways
-			const buildings: Array<{ nodes: Array<{ lat: number; lon: number }> }> = [];
-			const landuse: Array<{
-				type: string;
-				nodes: Array<{ lat: number; lon: number }>;
-			}> = [];
-			const water: Array<{
-				isLine: boolean;
-				nodes: Array<{ lat: number; lon: number }>;
-			}> = [];
-			const roads: Array<{
-				highway: string;
-				name?: string;
-				nodes: Array<{ lat: number; lon: number }>;
-			}> = [];
-
-			for (const element of data.elements) {
-				if (element.type !== 'way') continue;
-
-				const wayNodes = element.nodes
-					?.map((id: number) => nodes[id])
-					.filter((n: { lat: number; lon: number } | undefined) => n);
-
-				if (!wayNodes || wayNodes.length < 2) continue;
-
-				const tags = element.tags || {};
-
-				if (tags.building) {
-					buildings.push({ nodes: wayNodes });
-				} else if (tags.natural === 'water' || tags.water) {
-					water.push({ isLine: false, nodes: wayNodes });
-				} else if (tags.waterway) {
-					water.push({ isLine: true, nodes: wayNodes });
-				} else if (tags.landuse || tags.leisure || tags.natural) {
-					const type = tags.landuse || tags.leisure || tags.natural;
-					landuse.push({ type, nodes: wayNodes });
-				} else if (tags.highway) {
-					roads.push({
-						highway: tags.highway,
-						name: tags.name,
-						nodes: wayNodes
-					});
-				}
-			}
+			const allElements = [...essentialData.elements, ...enrichmentData.elements];
+			const nodeLookup = buildNodeLookup(allElements);
+			const categorised = categoriseElements(allElements, nodeLookup);
 
 			console.log(
-				`Found: ${roads.length} roads, ${buildings.length} buildings, ${landuse.length} landuse, ${water.length} water`
+				`Found: ${categorised.roads.length} roads, ${categorised.buildings.length} buildings, ${categorised.landuse.length} landuse, ${categorised.water.length} water, ${categorised.railways.length} railways, ${categorised.poiLabels.length} POIs`
 			);
 
-			// SVG dimensions (3:2 aspect ratio)
-			const svgWidth = 600;
-			const svgHeight = 400;
+			const svgText = generateMapSvg({
+				...categorised,
+				bboxNELat: bboxNELat!,
+				bboxNELng: bboxNELng!,
+				bboxSWLat: bboxSWLat!,
+				bboxSWLng: bboxSWLng!,
+				latitude,
+				longitude,
+				radarAngle
+			});
 
-			// Coordinate conversion functions
-			const latRange = bboxNELat! - bboxSWLat!;
-			const lngRange = bboxNELng! - bboxSWLng!;
-			const latToY = (lat: number) => ((bboxNELat! - lat) / latRange) * svgHeight;
-			const lngToX = (lng: number) => ((lng - bboxSWLng!) / lngRange) * svgWidth;
-
-			// Calculate map scale (metres per pixel) for scaling elements
-			const centerLat = (bboxNELat! + bboxSWLat!) / 2;
-			const metersPerDegreeLng = 111320 * Math.cos((centerLat * Math.PI) / 180);
-			const mapWidthMeters = lngRange * metersPerDegreeLng;
-			const metersPerPixel = mapWidthMeters / svgWidth;
-
-			// Helper to create polygon path
-			const toPolygonPath = (nodeList: Array<{ lat: number; lon: number }>) => {
-				return (
-					nodeList
-						.map(
-							(n, i) =>
-								`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
-						)
-						.join(' ') + ' Z'
-				);
-			};
-
-			// Helper to create line path
-			const toLinePath = (nodeList: Array<{ lat: number; lon: number }>) => {
-				return nodeList
-					.map(
-						(n, i) =>
-							`${i === 0 ? 'M' : 'L'} ${lngToX(n.lon).toFixed(1)} ${latToY(n.lat).toFixed(1)}`
-					)
-					.join(' ');
-			};
-
-			// Landuse colours (OSM-style)
-			const getLanduseColor = (type: string): string => {
-				const colors: Record<string, string> = {
-					// Green areas
-					grass: '#cdebb0',
-					forest: '#add19e',
-					wood: '#add19e',
-					park: '#c8facc',
-					garden: '#cdebb0',
-					meadow: '#cdebb0',
-					recreation_ground: '#c8facc',
-					village_green: '#c8facc',
-					playground: '#c8facc',
-					pitch: '#aae0cb',
-					golf_course: '#b5e3b5',
-					nature_reserve: '#c8facc',
-					common: '#c8facc',
-					scrub: '#c8d7ab',
-					heath: '#d6d99f',
-					grassland: '#cdebb0',
-					// Brown/tan areas
-					farmland: '#eef0d5',
-					farmyard: '#f5dcba',
-					orchard: '#aedfa3',
-					vineyard: '#b3e2a8',
-					allotments: '#c9e1bf',
-					cemetery: '#aacbaf',
-					// Wetland
-					wetland: '#b5d0d0'
-				};
-				return colors[type] || '#e0e0e0';
-			};
-
-			// Generate landuse polygons
-			let landusePaths = '';
-			for (const area of landuse) {
-				const color = getLanduseColor(area.type);
-				landusePaths += `<path d="${toPolygonPath(area.nodes)}" fill="${color}" stroke="none"/>`;
-			}
-
-			// Generate water
-			let waterPaths = '';
-			for (const w of water) {
-				if (w.isLine) {
-					waterPaths += `<path d="${toLinePath(w.nodes)}" stroke="#aad3df" stroke-width="2" fill="none"/>`;
-				} else {
-					waterPaths += `<path d="${toPolygonPath(w.nodes)}" fill="#aad3df" stroke="#6699cc" stroke-width="0.5"/>`;
-				}
-			}
-
-			// Generate buildings
-			let buildingPaths = '';
-			for (const bldg of buildings) {
-				buildingPaths += `<path d="${toPolygonPath(bldg.nodes)}" fill="#d9d0c9" stroke="#bbb5b0" stroke-width="0.3"/>`;
-			}
-
-			// Sort roads by importance (draw minor roads first, major roads on top)
-			const roadOrder = [
-				'footway',
-				'path',
-				'service',
-				'pedestrian',
-				'living_street',
-				'unclassified',
-				'residential',
-				'tertiary_link',
-				'tertiary',
-				'secondary_link',
-				'secondary',
-				'primary_link',
-				'primary',
-				'trunk_link',
-				'trunk',
-				'motorway_link',
-				'motorway'
-			];
-			roads.sort((a, b) => roadOrder.indexOf(a.highway) - roadOrder.indexOf(b.highway));
-
-			// Generate road paths
-			let roadPaths = '';
-			for (const way of roads) {
-				const style = getRoadStyle(way.highway);
-				const pathData = toLinePath(way.nodes);
-
-				// Draw road outline (casing) then fill
-				roadPaths += `<path d="${pathData}" stroke="#666666" stroke-width="${style.width + 1}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-				roadPaths += `<path d="${pathData}" stroke="${style.color}" stroke-width="${style.width}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-			}
-
-			// Generate street name labels (deduplicated)
-			// eslint-disable-next-line svelte/prefer-svelte-reactivity
-			const labelledNames = new Set<string>();
-			let labels = '';
-
-			for (const way of roads) {
-				if (!way.name || labelledNames.has(way.name)) continue;
-
-				// Only label significant roads
-				const labelRoads = [
-					'motorway',
-					'trunk',
-					'primary',
-					'secondary',
-					'tertiary',
-					'residential',
-					'unclassified'
-				];
-				if (!labelRoads.includes(way.highway)) continue;
-
-				const midpoint = getPathMidpoint(way.nodes, latToY, lngToX);
-				if (!midpoint) continue;
-
-				// Skip if midpoint is outside the visible area (with padding)
-				if (
-					midpoint.x < 10 ||
-					midpoint.x > svgWidth - 10 ||
-					midpoint.y < 10 ||
-					midpoint.y > svgHeight - 10
-				) {
-					continue;
-				}
-
-				const fontSize = getLabelFontSize(way.highway);
-				labelledNames.add(way.name);
-
-				// Text with white halo for readability
-				labels += `<text x="${midpoint.x.toFixed(1)}" y="${midpoint.y.toFixed(1)}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="#333333" text-anchor="middle" dominant-baseline="middle" transform="rotate(${midpoint.angle.toFixed(1)}, ${midpoint.x.toFixed(1)}, ${midpoint.y.toFixed(1)})" stroke="white" stroke-width="2" paint-order="stroke">${escapeXml(way.name)}</text>`;
-			}
-
-			// Radar position and FOV triangle - scale based on map size
-			const radarX = latitude !== null ? lngToX(longitude!) : svgWidth / 2;
-			const radarY = latitude !== null ? latToY(latitude!) : svgHeight / 2;
-
-			// Triangle size: 100 metres in real world, scaled to pixels
-			const triangleLengthMeters = 100;
-			const triangleLengthPixels = triangleLengthMeters / metersPerPixel;
-
-			// FOV triangle (20 degree width)
-			const angle = radarAngle || 0;
-			const fovWidthDegrees = 20;
-			const leftAngleRad = ((angle - fovWidthDegrees / 2) * Math.PI) / 180;
-			const rightAngleRad = ((angle + fovWidthDegrees / 2) * Math.PI) / 180;
-
-			// Triangle points (note: SVG y increases downward, so we flip sin)
-			const leftX = radarX + Math.sin(leftAngleRad) * triangleLengthPixels;
-			const leftY = radarY - Math.cos(leftAngleRad) * triangleLengthPixels;
-			const rightX = radarX + Math.sin(rightAngleRad) * triangleLengthPixels;
-			const rightY = radarY - Math.cos(rightAngleRad) * triangleLengthPixels;
-
-			// Marker size also scales with map
-			const markerRadius = Math.max(4, Math.min(10, 20 / metersPerPixel));
-
-			// Create complete SVG
-			const svgText = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
-	<title>Map Export - velocity.report</title>
-	<desc>Data © OpenStreetMap contributors</desc>
-	<!-- Background -->
-	<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="#f2efe9"/>
-	<!-- Landuse (parks, forests, etc.) -->
-	${landusePaths}
-	<!-- Water -->
-	${waterPaths}
-	<!-- Buildings -->
-	${buildingPaths}
-	<!-- Roads -->
-	${roadPaths}
-	<!-- Street names -->
-	${labels}
-	<!-- Radar FOV triangle -->
-	<polygon points="${radarX.toFixed(1)},${radarY.toFixed(1)} ${leftX.toFixed(1)},${leftY.toFixed(1)} ${rightX.toFixed(1)},${rightY.toFixed(1)}" fill="#ef4444" fill-opacity="0.4" stroke="#ef4444" stroke-width="1"/>
-	<!-- Radar position marker -->
-	<circle cx="${radarX.toFixed(1)}" cy="${radarY.toFixed(1)}" r="${markerRadius.toFixed(1)}" fill="#3b82f6" stroke="white" stroke-width="2"/>
-</svg>`;
-
-			// Store as base64 (UTF-8 safe)
-			// Convert to base64 in chunks to avoid stack overflow on large SVGs
-			const encoder = new TextEncoder();
-			const bytes = encoder.encode(svgText);
-
-			// Process in chunks to avoid "Maximum call stack size exceeded"
-			const chunkSize = 8192;
-			let binaryString = '';
-			for (let i = 0; i < bytes.length; i += chunkSize) {
-				const chunk = bytes.slice(i, i + chunkSize);
-				binaryString += String.fromCharCode(...chunk);
-			}
-			mapSvgData = btoa(binaryString);
+			mapSvgData = svgToBase64(svgText);
 			mapJustDownloaded = true;
 			error = '';
+			activateIncludeMap();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not download the map.';
-			console.error('Map download error:', e);
+			if (e instanceof DOMException && e.name === 'AbortError') {
+				console.log('Download cancelled by user.');
+			} else {
+				error = e instanceof Error ? e.message : 'Could not download the map.';
+				console.error('Map download error:', e);
+			}
 		} finally {
 			downloading = false;
+			downloadStep = '';
+			abortController = null;
 		}
 	}
 
-	// Escape special XML characters
-	function escapeXml(str: string): string {
-		return str
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;')
-			.replace(/'/g, '&#39;');
+	function cancelDownload() {
+		if (abortController) {
+			abortController.abort();
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -854,136 +811,388 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<p class="text-surface-600-300-token text-sm">
-			Search for an address, then adjust the radar position and map area visually.
+			Search for an address, or upload your own SVG map, then visually adjust the radar position.
 		</p>
 		<div class="flex items-center gap-3">
-			<span class="text-sm font-medium">Include map in reports</span>
+			<input
+				bind:this={fileInput}
+				type="file"
+				accept=".svg,image/svg+xml"
+				class="hidden"
+				on:change={handleSvgUpload}
+				on:cancel={handleFileInputCancel}
+			/>
+			{#key toggleResetKey}
+				<ToggleGroup
+					bind:value={mapMode}
+					on:change={(e) => {
+						const target = e.detail.value;
+						if ((target === 'upload') === useCustomSvg) return;
+						requestModeSwitch(target);
+					}}
+					variant="outline"
+					rounded="full"
+					inset
+					classes={{
+						indicator: 'h-full w-full bg-primary rounded-full [grid-column:1] [grid-row:1]',
+						option: '[grid-column:1] [grid-row:1] z-[1]',
+						label: '[&.selected]:text-white'
+					}}
+				>
+					<ToggleOption value="interactive">Interactive</ToggleOption>
+					<ToggleOption value="upload">Upload</ToggleOption>
+				</ToggleGroup>
+			{/key}
+			<span class="text-sm font-medium">Include</span>
 			<Switch bind:checked={includeMap} />
 		</div>
 	</div>
 
-	<!-- Address Search -->
-	<div class="space-y-2">
-		<h4 class="flex items-center gap-2 font-medium">
-			<span class="text-primary-500">
-				<svg class="h-5 w-5" viewBox="0 0 24 24">
-					<path fill="currentColor" d={mdiMagnify} />
-				</svg>
-			</span>
-			Address Search
-		</h4>
-		<div class="flex gap-2">
-			<div class="flex-1">
-				<TextField
-					bind:value={searchQuery}
-					placeholder="Enter address or location..."
-					on:keydown={handleKeydown}
-				/>
-			</div>
-			<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
-				{searching ? 'Searching...' : 'Search'}
-			</Button>
-		</div>
-
-		{#if searchResults.length > 0}
-			<div class="mt-2 rounded border border-gray-300 bg-white">
-				{#each searchResults as result (result.place_id)}
-					<button
-						class="block w-full px-4 py-2 text-left hover:bg-gray-100"
-						on:click={() => selectLocation(result)}
-					>
-						{result.display_name}
-					</button>
-				{/each}
-			</div>
-		{/if}
-	</div>
-
-	<!-- Interactive Map -->
-	<div class="space-y-2">
-		<div class="flex items-center justify-between">
-			<h4 class="font-medium">Interactive Map</h4>
-			<div class="flex gap-2">
-				<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
-					<svg class="h-4 w-4" viewBox="0 0 24 24">
-						<path fill="currentColor" d={mdiCrosshairsGps} />
-					</svg>
-					Center
-				</Button>
-				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
-				<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
-			</div>
-		</div>
-
-		<div
-			bind:this={mapContainer}
-			class="h-96 w-full rounded border border-gray-300"
-			style="min-height: 400px;"
-		></div>
-
-		<p class="text-surface-600-300-token text-xs">
-			Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
-			radar angle. The orange rectangle shows the map area for reports.
-		</p>
-	</div>
-
-	<!-- Coordinate Display (Read-only) -->
-	<div class="space-y-4">
-		<h4 class="font-medium">Current Coordinates</h4>
-		<div class="grid gap-4 md:grid-cols-2">
-			<div>
-				<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="Latitude" value={latitude?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="Longitude" value={longitude?.toFixed(6) || ''} disabled size="sm" />
-				</div>
-			</div>
-			<div>
-				<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
-				<div class="grid grid-cols-2 gap-2">
-					<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
-					<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Radar Angle -->
-	<TextField bind:value={radarAngle} label="Radar Angle (degrees)" type="number" placeholder="0" />
-
-	<!-- Download SVG -->
-	<div class="space-y-2">
-		<div class="flex items-center justify-between">
-			<h4 class="font-medium">Download Map for Reports</h4>
-			<Button
-				on:click={downloadMapSVG}
-				disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng || downloading}
-				icon={mdiDownload}
-				variant="fill"
-				color="primary"
-				size="sm"
+	{#if useCustomSvg && mapSvgData}
+		<!-- Interactive SVG preview (custom upload) -->
+		<div class="space-y-4">
+			<h4 class="font-medium">Uploaded Map Preview</h4>
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div
+				bind:this={svgPreviewContainer}
+				class="relative cursor-crosshair overflow-hidden rounded border border-gray-300 bg-white p-2"
+				on:click={handleSvgPreviewClick}
 			>
-				{downloading ? 'Downloading...' : 'Download Map SVG'}
-			</Button>
+				<img
+					src="data:image/svg+xml;base64,{mapSvgData}"
+					alt="Uploaded map SVG"
+					class="h-auto max-h-[500px] w-full object-contain"
+					draggable="false"
+				/>
+				{#if radarSvgX !== null && radarSvgY !== null}
+					<!-- FOV triangle overlay -->
+					{@const angle = ((radarAngle ?? 0) * Math.PI) / 180}
+					{@const fovHalf = (10 * Math.PI) / 180}
+					{@const tipLen = 15}
+					{@const leftAngle = angle - fovHalf}
+					{@const rightAngle = angle + fovHalf}
+					{@const tipX = radarSvgX + Math.sin(angle) * tipLen}
+					{@const tipY = radarSvgY - Math.cos(angle) * tipLen}
+					{@const leftX = radarSvgX + Math.sin(leftAngle) * tipLen}
+					{@const leftY = radarSvgY - Math.cos(leftAngle) * tipLen}
+					{@const rightX = radarSvgX + Math.sin(rightAngle) * tipLen}
+					{@const rightY = radarSvgY - Math.cos(rightAngle) * tipLen}
+					<svg
+						class="pointer-events-none absolute inset-0 h-full w-full"
+						preserveAspectRatio="none"
+						viewBox="0 0 100 100"
+					>
+						<polygon
+							points="{radarSvgX},{radarSvgY} {leftX},{leftY} {rightX},{rightY}"
+							fill="rgba(59,130,246,0.25)"
+							stroke="#3b82f6"
+							stroke-width="0.4"
+						/>
+						<!-- Tip dot (red, draggable) -->
+						<circle cx={tipX} cy={tipY} r="1.2" fill="#ef4444" stroke="white" stroke-width="0.3" />
+					</svg>
+					<!-- Radar dot (blue, draggable) -->
+					<!-- svelte-ignore a11y-no-static-element-interactions -->
+					<div
+						class="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-white bg-blue-500 shadow-md"
+						style="left: {radarSvgX}%; top: {radarSvgY}%;"
+						on:mousedown={startSvgDotDrag}
+					/>
+				{/if}
+			</div>
+			<p class="text-surface-600-300-token text-xs">
+				{#if radarSvgX === null}
+					Click on the map to place the radar position.
+				{:else}
+					Click to reposition. Drag the blue dot to adjust. Use the angle stepper below.
+				{/if}
+			</p>
+
+			<!-- Angle stepper and remove button for custom SVG mode -->
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-4">
+					<p class="text-surface-600-300-token text-sm">Angle</p>
+					<NumberStepper
+						bind:value={localAngle}
+						step={1}
+						class="w-32"
+						on:change={(e) => setAngle(e.detail.value)}
+					>
+						<span slot="suffix">°</span>
+					</NumberStepper>
+				</div>
+				<Button
+					variant="outline"
+					color="danger"
+					icon={mdiDelete}
+					on:click={() => (showReplaceMapModal = true)}
+				>
+					Remove Map
+				</Button>
+			</div>
+		</div>
+	{:else}
+		<!-- Address Search -->
+		<div class="space-y-2">
+			<h4 class="flex items-center gap-2 font-medium">
+				<span class="text-primary-500">
+					<svg class="h-5 w-5" viewBox="0 0 24 24">
+						<path fill="currentColor" d={mdiMagnify} />
+					</svg>
+				</span>
+				Address Search
+			</h4>
+			<div class="flex gap-2">
+				<div class="flex-1">
+					<TextField
+						bind:value={searchQuery}
+						placeholder="Enter address or location..."
+						on:keydown={handleKeydown}
+					/>
+				</div>
+				<Button on:click={searchAddress} disabled={searching || !searchQuery.trim()}>
+					{searching ? 'Searching...' : 'Search'}
+				</Button>
+			</div>
+
+			{#if searchResults.length > 0}
+				<div class="bg-surface-100 border-surface-content/10 mt-2 rounded border">
+					{#each searchResults as result (result.place_id)}
+						<button
+							class="text-surface-content hover:bg-surface-content/5 border-surface-content/10 block w-full border-b px-4 py-2 text-left text-sm last:border-b-0"
+							on:click={() => selectLocation(result)}
+						>
+							{result.display_name}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 
-		{#if error}
-			<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-				<strong>Error:</strong>
-				{error}
+		<!-- Interactive Map -->
+		<div class="space-y-2">
+			<div class="flex items-center justify-between">
+				<h4 class="font-medium">Interactive Map</h4>
+				<div class="flex gap-2">
+					<Button size="sm" variant="outline" on:click={centerOnRadar} disabled={!latitude}>
+						<svg class="h-4 w-4" viewBox="0 0 24 24">
+							<path fill="currentColor" d={mdiCrosshairsGps} />
+						</svg>
+						Center
+					</Button>
+					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(false)}>- Area</Button>
+					<Button size="sm" variant="outline" on:click={() => adjustBBoxSize(true)}>+ Area</Button>
+				</div>
 			</div>
-		{/if}
 
-		{#if mapJustDownloaded}
-			<div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-				<strong>Map Ready:</strong>
-				SVG downloaded. Click <strong>"Save Changes"</strong> below to persist to the database.
+			<div
+				bind:this={mapContainer}
+				class="h-96 w-full rounded border border-gray-300"
+				style="min-height: 400px;"
+			></div>
+
+			<p class="text-surface-600-300-token text-xs">
+				Drag the blue marker to set radar position. Drag the red dot at the triangle tip to adjust
+				radar angle. The orange rectangle shows the map area for reports.
+			</p>
+		</div>
+
+		<!-- Coordinate Display (Read-only) -->
+		<div class="space-y-4">
+			<h4 class="font-medium">Current Coordinates</h4>
+			<div class="grid grid-cols-[auto_1fr] gap-4">
+				<div class="max-w-xs">
+					<p class="text-surface-600-300-token mb-1 text-sm">Radar Position</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="Lat" value={latitude?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="Lng" value={longitude?.toFixed(6) || ''} disabled size="sm" />
+					</div>
+					<div class="mt-2">
+						<p class="text-surface-600-300-token mb-1 text-sm">Map Angle</p>
+						<NumberStepper
+							bind:value={localAngle}
+							step={1}
+							class="w-32"
+							on:change={(e) => setAngle(e.detail.value)}
+						>
+							<span slot="suffix">°</span>
+						</NumberStepper>
+					</div>
+				</div>
+				<div>
+					<p class="text-surface-600-300-token mb-1 text-sm">Bounding Box</p>
+					<div class="grid grid-cols-2 gap-2">
+						<TextField label="NE Lat" value={bboxNELat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="NE Lng" value={bboxNELng?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lat" value={bboxSWLat?.toFixed(6) || ''} disabled size="sm" />
+						<TextField label="SW Lng" value={bboxSWLng?.toFixed(6) || ''} disabled size="sm" />
+					</div>
+				</div>
 			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
+
+	{#if !useCustomSvg}
+		<!-- Download SVG -->
+		<div class="space-y-2">
+			<div class="flex items-center justify-between">
+				<h4 class="font-medium">Download Map for Reports</h4>
+				<div class="flex items-center gap-3">
+					<div class="flex items-center gap-1.5">
+						<SelectField
+							bind:value={selectedMirror}
+							options={[
+								{ value: '', label: '🌐 Auto' },
+								...OVERPASS_MIRRORS.map((m) => ({ value: m.id, label: `${m.flag} ${m.name}` }))
+							]}
+							clearable={false}
+							classes={{ root: 'w-48' }}
+							dense
+							placeholder="Mirror"
+						/>
+						{#if activeMirrorId}
+							{@const active = OVERPASS_MIRRORS.find((m) => m.id === activeMirrorId)}
+							{#if active}
+								<span class="text-surface-500-400-token text-xs" title="Last successful mirror"
+									>→ {active.flag}</span
+								>
+							{/if}
+						{/if}
+					</div>
+					{#if downloading}
+						<span class="text-primary-500 flex items-center gap-1.5 text-sm">
+							{downloadStep}
+							<ProgressCircle size={20} width={2} />
+						</span>
+						<Button on:click={cancelDownload} variant="outline" color="danger" size="sm">
+							Cancel
+						</Button>
+					{:else}
+						<Button
+							on:click={downloadMapSVG}
+							disabled={!bboxNELat || !bboxNELng || !bboxSWLat || !bboxSWLng}
+							icon={mdiDownload}
+							variant="fill"
+							color="primary"
+							size="sm"
+						>
+							Download Map SVG
+						</Button>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if error}
+		<Notification
+			color="danger"
+			open
+			icon={mdiAlert}
+			classes={{
+				root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+				title: 'text-red-800 dark:text-red-200',
+				description: 'text-red-700 dark:text-red-300'
+			}}
+		>
+			<span slot="title">Error</span>
+			<span slot="description">{error}</span>
+		</Notification>
+	{/if}
+
+	{#if mapJustDownloaded}
+		<Notification
+			color="success"
+			open
+			icon={mdiCheckCircle}
+			classes={{
+				root: 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800',
+				title: 'text-green-800 dark:text-green-200',
+				description: 'text-green-700 dark:text-green-300'
+			}}
+		>
+			<span slot="title">Map Ready</span>
+			<span slot="description"
+				>Click <strong>Save Changes</strong> below to persist to the database.</span
+			>
+		</Notification>
+	{/if}
 </div>
+
+<!-- Confirmation modal: warn before discarding existing map data -->
+<Dialog
+	bind:open={showDeleteMapModal}
+	on:close={cancelModeSwitch}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-sm' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Replace Existing Map?</span>
+		<button
+			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
+			on:click={cancelModeSwitch}
+			aria-label="Close"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
+	</div>
+
+	<div class="space-y-3 px-6 pb-2">
+		<p>
+			This site already has map data. Switching modes will <strong>permanently delete</strong> the existing
+			map image when you save.
+		</p>
+		<p class="text-surface-content/60 text-sm">This cannot be undone.</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={cancelModeSwitch} variant="outline">Cancel</Button>
+		<Button
+			on:click={() => {
+				if (pendingModeSwitch) applyModeSwitch(pendingModeSwitch);
+			}}
+			variant="fill"
+			color="danger"
+		>
+			Delete Map
+		</Button>
+	</div>
+</Dialog>
+
+<!-- Confirmation modal: warn before removing uploaded SVG -->
+<Dialog
+	bind:open={showReplaceMapModal}
+	on:close={() => (showReplaceMapModal = false)}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-sm' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Remove Uploaded Map?</span>
+		<button
+			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
+			on:click={() => (showReplaceMapModal = false)}
+			aria-label="Close"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
+	</div>
+
+	<div class="space-y-3 px-6 pb-2">
+		<p>
+			This will <strong>permanently delete</strong> the current uploaded map image. You will be prompted
+			to upload a replacement.
+		</p>
+		<p class="text-surface-content/60 text-sm">This cannot be undone.</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={() => (showReplaceMapModal = false)} variant="outline">Cancel</Button>
+		<Button on:click={confirmReplaceMap} variant="fill" color="danger">Remove Map</Button>
+	</div>
+</Dialog>
 
 <style>
 	:global(.leaflet-container) {

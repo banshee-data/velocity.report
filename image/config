@@ -1,0 +1,15 @@
+IMG_NAME=velocity-report
+RELEASE=bookworm
+TARGET_HOSTNAME=velocity
+FIRST_USER_NAME=velocity
+FIRST_USER_PASS=report
+DISABLE_FIRST_BOOT_USER_RENAME=1
+# SSH enabled for initial setup. The device is local-network-only (no
+# internet-facing ports). The MOTD warns the user to change the default
+# password on first login. Key-only auth available via velocity-ctl.
+ENABLE_SSH=1
+LOCALE_DEFAULT=en_US.UTF-8
+KEYBOARD_KEYMAP=us
+KEYBOARD_LAYOUT="English (US)"
+TIMEZONE_DEFAULT=America/Los_Angeles
+STAGE_LIST="stage0 stage1 stage2 stage-velocity"

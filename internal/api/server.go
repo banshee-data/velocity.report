@@ -271,6 +271,8 @@ func (s *Server) Start(ctx context.Context, listen string, devMode bool) error {
 		Handler: LoggingMiddleware(mux),
 	}
 
+	log.Printf("HTTP server listening on %s", listen)
+
 	// Run server in background and wait for either context cancellation or error
 	errCh := make(chan error, 1)
 	go func() {

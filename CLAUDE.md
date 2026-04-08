@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII — by architecture, not policy.
 
-Canonical tenets: [TENETS.md](.github/TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
+Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Commands
 
@@ -172,34 +172,27 @@ Each agent references the shared knowledge modules in `.github/knowledge/` rathe
 
 The following workflow skills are available as slash commands:
 
-| Skill           | Command                      | Purpose                                                  |
-| --------------- | ---------------------------- | -------------------------------------------------------- |
-| plan-review     | `/plan-review [plan]`        | Scope, technical, and risk review of a design plan       |
-| review-pr       | `/review-pr [PR/branch]`     | Security, correctness, and maintainability review        |
-| ship-change     | `/ship-change`               | Format → lint → test → build → commit                    |
-| weekly-retro    | `/weekly-retro`              | Weekly backlog health, plan consistency, and drift check |
-| standup         | `/standup`                   | Daily repo and worktree standup with priorities          |
-| security-review | `/security-review [path]`    | Security audit: static analysis, fuzz targets, checklist |
-| trace-matrix    | `/trace-matrix [task-group]` | Trace backend surfaces against MATRIX.md                 |
-| fix-links       | `/fix-links [path]`          | Fix dead links and stale backtick paths in Markdown      |
+| Skill           | Command                           | Purpose                                                       |
+| --------------- | --------------------------------- | ------------------------------------------------------------- |
+| plan-review     | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan            |
+| review-pr       | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review             |
+| ship-change     | `/ship-change`                    | Format → lint → test → build → commit                         |
+| weekly-retro    | `/weekly-retro`                   | Weekly backlog health, plan consistency, and drift check      |
+| standup         | `/standup`                        | Daily repo and worktree standup with priorities               |
+| security-review | `/security-review [path]`         | Security audit: static analysis, fuzz targets, checklist      |
+| trace-matrix    | `/trace-matrix [task-group]`      | Trace backend surfaces against MATRIX.md                      |
+| fix-links       | `/fix-links [path]`               | Fix dead links and stale backtick paths in Markdown           |
+| devlog-update   | `/devlog-update`                  | Update devlog from git history since last entry               |
+| backlog-prune   | `/backlog-prune [--scan-all-prs]` | Groom backlog: PR audit, release theme coherence, L/XL splits |
 
 Skill definitions: `.claude/skills/*/SKILL.md`.
 
 ## Commit format
 
-```
-[prefix] Description of change
-```
-
-Prefixes: `[go]`, `[py]`, `[js]`, `[mac]`, `[docs]`, `[sh]`, `[sql]`, `[fs]`, `[tex]`, `[ci]`, `[make]`, `[cfg]`, `[ai]`
-
-AI-authored edits must include `[ai]` plus the language tag, e.g. `[ai][go]`.
+See `.github/knowledge/coding-standards.md` for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.
 
 ## Key conventions
 
-- **Production paths** use hyphens: `/var/lib/velocity-report/sensor_data.db`, `/usr/local/bin/velocity-report`
-- **Python venv**: single shared `.venv/` at repo root — no per-tool venvs
-- **Documentation**: when changing functionality, update `README.md`, component READMEs, `ARCHITECTURE.md`, and `public_html/src/guides/setup.md` as relevant
-- **Doc metadata**: use bullet-list format (`- **Key:** value`); no date fields — they are linted and auto-removed
-- **Writing style**: British English (see `.github/STYLE.md`)
+See `.github/knowledge/coding-standards.md` for production paths, product names, version format, formatting rules, and documentation update policy.
+
 - **Speed percentiles** (`p85`, `p98`) are aggregate over a population of vehicle max speeds, not per-track observations

@@ -12,7 +12,7 @@
 	import { AVAILABLE_TIMEZONES, getTimezoneLabel, type Timezone } from '$lib/timezone';
 	import { AVAILABLE_UNITS, getUnitLabel, type Unit } from '$lib/units';
 	import { onMount } from 'svelte';
-	import { Button, Card, Header, SelectField, Switch, Table } from 'svelte-ux';
+	import { Button, Card, Header, SelectField, Switch } from 'svelte-ux';
 
 	let config: Config = { units: 'mph', timezone: 'UTC' };
 	let selectedUnits: Unit = 'mph';
@@ -276,36 +276,88 @@
 			</div>
 		</Card>
 	{:else}
-		<Card title="Display Units">
-			<div class="space-y-4 p-4">
-				<p class="text-surface-content/70 text-sm">
-					Choose your preferred units for displaying speed values. Changes are saved automatically
-					and will override the server default ({getUnitLabel(config.units as Unit)}).
-				</p>
+		<div class="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
+			<Card title="Display Units" class="h-full">
+				<div class="space-y-4 p-4">
+					<p class="text-surface-content/70 text-sm">
+						Choose your preferred units for displaying speed values. Changes are saved automatically
+						and will override the server default ({getUnitLabel(config.units as Unit)}).
+					</p>
 
-				<SelectField
-					label="Speed Units"
-					bind:value={selectedUnits}
-					options={AVAILABLE_UNITS}
-					clearable={false}
-				/>
-			</div>
-		</Card>
+					<SelectField
+						label="Speed Units"
+						bind:value={selectedUnits}
+						options={AVAILABLE_UNITS}
+						clearable={false}
+					/>
+				</div>
+			</Card>
 
-		<Card title="Display Timezone">
-			<div class="space-y-4 p-4">
-				<p class="text-surface-content/70 text-sm">
-					Choose your preferred timezone for displaying timestamps. Changes are saved automatically
-					and will override the server default ({getTimezoneLabel(config.timezone as Timezone)}).
-					Daylight saving time (DST) is handled automatically.
-				</p>
+			<Card title="Display Timezone" class="h-full">
+				<div class="space-y-4 p-4">
+					<p class="text-surface-content/70 text-sm">
+						Choose your preferred timezone for displaying timestamps. Changes are saved
+						automatically and will override the server default ({getTimezoneLabel(
+							config.timezone as Timezone
+						)}).
+					</p>
 
-				<SelectField
-					label="Timezone"
-					bind:value={selectedTimezone}
-					options={AVAILABLE_TIMEZONES}
-					clearable={false}
-				/>
+					<SelectField
+						label="Timezone"
+						bind:value={selectedTimezone}
+						options={AVAILABLE_TIMEZONES}
+						clearable={false}
+					/>
+				</div>
+			</Card>
+		</div>
+
+		{#if message}
+			<Card>
+				<div class="p-4" role={message.includes('Failed') ? 'alert' : 'status'} aria-live="polite">
+					<p
+						class="text-sm"
+						class:text-green-600={message.includes('automatically')}
+						class:text-red-600={message.includes('Failed')}
+					>
+						{message}
+					</p>
+				</div>
+			</Card>
+		{/if}
+
+		<Card title="Current Configuration">
+			<div class="grid grid-cols-1 gap-6 px-4 pb-4 md:grid-cols-2">
+				<div>
+					<p class="text-surface-content/60 mb-2 text-xs font-medium tracking-wide uppercase">
+						Display Units
+					</p>
+					<div class="text-sm">
+						<div class="flex justify-between gap-4 py-1">
+							<span class="text-surface-content/60">Server default</span>
+							<span>{getUnitLabel(config.units as Unit)}</span>
+						</div>
+						<div class="flex justify-between gap-4 py-1">
+							<span class="text-surface-content/60">Your setting</span>
+							<span class="font-medium">{getUnitLabel($displayUnits)}</span>
+						</div>
+					</div>
+				</div>
+				<div>
+					<p class="text-surface-content/60 mb-2 text-xs font-medium tracking-wide uppercase">
+						Display Timezone
+					</p>
+					<div class="text-sm">
+						<div class="flex justify-between gap-4 py-1">
+							<span class="text-surface-content/60">Server default</span>
+							<span>{getTimezoneLabel(config.timezone as Timezone)}</span>
+						</div>
+						<div class="flex justify-between gap-4 py-1">
+							<span class="text-surface-content/60">Your setting</span>
+							<span class="font-medium">{getTimezoneLabel($displayTimezone)}</span>
+						</div>
+					</div>
+				</div>
 			</div>
 		</Card>
 
@@ -389,44 +441,6 @@
 						{/if}
 					</div>
 				</div>
-			</div>
-		</Card>
-
-		{#if message}
-			<Card>
-				<div class="p-4" role={message.includes('Failed') ? 'alert' : 'status'} aria-live="polite">
-					<p
-						class="text-sm"
-						class:text-green-600={message.includes('automatically')}
-						class:text-red-600={message.includes('Failed')}
-					>
-						{message}
-					</p>
-				</div>
-			</Card>
-		{/if}
-
-		<Card title="Current Configuration">
-			<div class="px-4 pb-4">
-				<Table
-					data={[
-						{
-							setting: 'Timezone',
-							serverDefault: getTimezoneLabel(config.timezone as Timezone),
-							yourSetting: getTimezoneLabel($displayTimezone)
-						},
-						{
-							setting: 'Units',
-							serverDefault: getUnitLabel(config.units as Unit),
-							yourSetting: getUnitLabel($displayUnits)
-						}
-					]}
-					columns={[
-						{ name: 'setting', header: '' },
-						{ name: 'serverDefault', header: 'Server Default' },
-						{ name: 'yourSetting', header: 'Your Setting' }
-					]}
-				/>
 			</div>
 		</Card>
 	{/if}

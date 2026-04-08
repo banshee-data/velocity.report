@@ -30,6 +30,7 @@ UI surface is being changed:
 - Raspberry Pi imager
 - Schema migrations
 - Release lifecycle and backward-compatibility management
+- TLS certificate strategy for local appliances
 
 ### Development methodology
 

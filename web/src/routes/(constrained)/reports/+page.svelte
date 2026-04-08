@@ -11,6 +11,7 @@
 	} from '$lib/api';
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
+	import { isDateRangeStale, REPORT_SETTINGS_KEY } from '$lib/reportSettings';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
@@ -110,16 +111,19 @@
 	function saveReportSettings() {
 		if (!browser) return;
 		try {
+			const now = new Date().toISOString();
 			const settings = {
 				dateRange: {
 					from: dateRange.from?.toISOString(),
 					to: dateRange.to?.toISOString(),
-					periodType: dateRange.periodType
+					periodType: dateRange.periodType,
+					savedAt: now
 				},
 				compareRange: {
 					from: compareRange.from?.toISOString(),
 					to: compareRange.to?.toISOString(),
-					periodType: compareRange.periodType
+					periodType: compareRange.periodType,
+					savedAt: now
 				},
 				compareEnabled,
 				compareSource,
@@ -129,7 +133,7 @@
 				maxSpeedCutoff,
 				boundaryThreshold
 			};
-			localStorage.setItem('reportSettings', JSON.stringify(settings));
+			localStorage.setItem(REPORT_SETTINGS_KEY, JSON.stringify(settings));
 		} catch (e) {
 			console.warn('Could not save report settings:', e);
 		}
@@ -138,13 +142,14 @@
 	function loadReportSettings() {
 		if (!browser) return;
 		try {
-			const saved = localStorage.getItem('reportSettings');
+			const saved = localStorage.getItem(REPORT_SETTINGS_KEY);
 			if (!saved) return;
 
 			const settings = JSON.parse(saved);
+			const stale = isDateRangeStale(settings.dateRange?.savedAt);
 
-			// Restore date ranges
-			if (settings.dateRange?.from && settings.dateRange?.to) {
+			// Restore date ranges only when fresh
+			if (!stale && settings.dateRange?.from && settings.dateRange?.to) {
 				dateRange = {
 					from: new Date(settings.dateRange.from),
 					to: new Date(settings.dateRange.to),
@@ -152,7 +157,7 @@
 				};
 			}
 
-			if (settings.compareRange?.from && settings.compareRange?.to) {
+			if (!stale && settings.compareRange?.from && settings.compareRange?.to) {
 				compareRange = {
 					from: new Date(settings.compareRange.from),
 					to: new Date(settings.compareRange.to),
@@ -160,7 +165,7 @@
 				};
 			}
 
-			// Restore other settings
+			// Restore other settings regardless of date staleness
 			if (settings.compareEnabled !== undefined) compareEnabled = settings.compareEnabled;
 			if (settings.compareSource) compareSource = settings.compareSource;
 			if (settings.group) group = settings.group;
@@ -189,16 +194,19 @@
 
 	async function handleGenerateReport() {
 		if (!dateRange.from || !dateRange.to) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select a date range first.';
 			return;
 		}
 
 		if (compareEnabled && (!compareRange.from || !compareRange.to)) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select the comparison period dates.';
 			return;
 		}
 
 		if (selectedSiteId == null) {
+			lastGeneratedReportId = null;
 			reportMessage = 'Select a site first.';
 			return;
 		}
@@ -405,11 +413,11 @@
 
 		{#if reportMessage}
 			<div
-				role={reportMessage.includes('success') ? 'status' : 'alert'}
+				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
 				aria-live="polite"
-				class="rounded border p-3 {reportMessage.includes('success')
-					? 'border-green-300 bg-green-50 text-green-800'
-					: 'border-red-300 bg-red-50 text-red-800'}"
+				class="rounded border p-3 {lastGeneratedReportId !== null
+					? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200'
+					: 'border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200'}"
 			>
 				{reportMessage}
 			</div>

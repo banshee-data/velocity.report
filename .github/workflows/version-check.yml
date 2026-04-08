@@ -115,29 +115,6 @@ jobs:
             echo "pdf_changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Check deploy tool version
-        id: deploy_version
-        run: |
-          echo "Checking deploy tool changes..."
-          if git diff ${{ steps.base.outputs.ref }}...HEAD --name-only | grep 'cmd/deploy/' | grep -v -E '_test\.go$' | grep -q .; then
-            echo "deploy_changed=true" >> $GITHUB_OUTPUT
-
-            OLD_VERSION=$(git show ${{ steps.base.outputs.ref }}:cmd/deploy/main.go 2>/dev/null | grep 'const version =' | cut -d'"' -f2 || echo "unknown")
-            NEW_VERSION=$(grep 'const version =' cmd/deploy/main.go | cut -d'"' -f2)
-
-            echo "old=$OLD_VERSION" >> $GITHUB_OUTPUT
-            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-            if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
-              echo "deploy_version_unchanged=true" >> $GITHUB_OUTPUT
-              echo "::warning::Deploy tool code changed but version unchanged: $NEW_VERSION"
-            else
-              echo "::notice::Deploy tool version updated: $OLD_VERSION → $NEW_VERSION"
-            fi
-          else
-            echo "deploy_changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Check web frontend version
         id: web_version
         run: |
@@ -239,18 +216,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ steps.deploy_version.outputs.deploy_changed }}" = "true" ]; then
-            echo "## 🚀 Deploy Tool" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ steps.deploy_version.outputs.deploy_version_unchanged }}" = "true" ]; then
-              echo "⚠️ **Code changed but version unchanged:** ${{ steps.deploy_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-              echo "- Review changes and update `cmd/deploy/main.go` if needed" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ **Version Updated:** ${{ steps.deploy_version.outputs.old }} → ${{ steps.deploy_version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-
           if [ "${{ steps.web_version.outputs.web_changed }}" = "true" ]; then
             echo "## 🌐 Web Frontend" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -277,7 +242,6 @@ jobs:
           steps.cli.outputs.cli_breaking == 'true' ||
           steps.cli.outputs.cli_added == 'true' ||
           steps.pdf_version.outputs.pdf_version_unchanged == 'true' ||
-          steps.deploy_version.outputs.deploy_version_unchanged == 'true' ||
           steps.web_version.outputs.web_version_unchanged == 'true' ||
           (steps.radar_version.outputs.radar_version_unchanged == 'true' &&
            (steps.migrations.outputs.migration_added == 'true' ||
@@ -291,7 +255,6 @@ jobs:
             const cliAdded = '${{ steps.cli.outputs.cli_added }}' === 'true';
             const radarUnchanged = '${{ steps.radar_version.outputs.radar_version_unchanged }}' === 'true';
             const pdfUnchanged = '${{ steps.pdf_version.outputs.pdf_version_unchanged }}' === 'true';
-            const deployUnchanged = '${{ steps.deploy_version.outputs.deploy_version_unchanged }}' === 'true';
             const webUnchanged = '${{ steps.web_version.outputs.web_version_unchanged }}' === 'true';
 
             let breaking = [];
@@ -327,10 +290,6 @@ jobs:
               warnings.push('❌ **PDF Generator code changed but version unchanged** - update `tools/pdf-generator/pyproject.toml`');
             }
 
-            if (deployUnchanged) {
-              warnings.push('❌ **Deploy Tool code changed but version unchanged** - update `cmd/deploy/main.go`');
-            }
-
             if (webUnchanged) {
               warnings.push('❌ **Web Frontend code changed but version unchanged** - update `web/package.json`');
             }
@@ -341,9 +300,6 @@ jobs:
             }
             if ('${{ steps.pdf_version.outputs.pdf_changed }}' === 'true' && !pdfUnchanged) {
               componentVersions.push('PDF Generator: ${{ steps.pdf_version.outputs.old }} → ${{ steps.pdf_version.outputs.new }}');
-            }
-            if ('${{ steps.deploy_version.outputs.deploy_changed }}' === 'true' && !deployUnchanged) {
-              componentVersions.push('Deploy Tool: ${{ steps.deploy_version.outputs.old }} → ${{ steps.deploy_version.outputs.new }}');
             }
             if ('${{ steps.web_version.outputs.web_changed }}' === 'true' && !webUnchanged) {
               componentVersions.push('Web Frontend: ${{ steps.web_version.outputs.old }} → ${{ steps.web_version.outputs.new }}');

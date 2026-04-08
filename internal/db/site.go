@@ -26,6 +26,8 @@ type Site struct {
 	BBoxSWLat       *float64  `json:"bbox_sw_lat"`
 	BBoxSWLng       *float64  `json:"bbox_sw_lng"`
 	MapSVGData      *[]byte   `json:"map_svg_data,omitempty"`
+	RadarSVGX       *float64  `json:"radar_svg_x"`
+	RadarSVGY       *float64  `json:"radar_svg_y"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
@@ -38,8 +40,8 @@ func (db *DB) CreateSite(ctx context.Context, site *Site) error {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_svg_data
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			map_svg_data, radar_svg_x, radar_svg_y
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	includeMapInt := 0
@@ -71,6 +73,8 @@ func (db *DB) CreateSite(ctx context.Context, site *Site) error {
 		site.BBoxSWLat,
 		site.BBoxSWLng,
 		mapSVGData,
+		site.RadarSVGX,
+		site.RadarSVGY,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create site: %w", err)
@@ -93,7 +97,7 @@ func (db *DB) GetSite(ctx context.Context, id int) (*Site, error) {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_svg_data,
+			map_svg_data, radar_svg_x, radar_svg_y,
 			created_at, updated_at
 		FROM site
 		WHERE id = ?
@@ -122,6 +126,8 @@ func (db *DB) GetSite(ctx context.Context, id int) (*Site, error) {
 		&site.BBoxSWLat,
 		&site.BBoxSWLng,
 		&mapSVGData,
+		&site.RadarSVGX,
+		&site.RadarSVGY,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -151,7 +157,7 @@ func (db *DB) GetAllSites(ctx context.Context) ([]Site, error) {
 			surveyor, contact, address, latitude, longitude, map_angle,
 			include_map, site_description,
 			bbox_ne_lat, bbox_ne_lng, bbox_sw_lat, bbox_sw_lng,
-			map_svg_data,
+			map_svg_data, radar_svg_x, radar_svg_y,
 			created_at, updated_at
 		FROM site
 		ORDER BY name ASC
@@ -188,6 +194,8 @@ func (db *DB) GetAllSites(ctx context.Context) ([]Site, error) {
 			&site.BBoxSWLat,
 			&site.BBoxSWLng,
 			&mapSVGData,
+			&site.RadarSVGX,
+			&site.RadarSVGY,
 			&createdAtUnix,
 			&updatedAtUnix,
 		)
@@ -231,7 +239,9 @@ func (db *DB) UpdateSite(ctx context.Context, site *Site) error {
 			bbox_ne_lng = ?,
 			bbox_sw_lat = ?,
 			bbox_sw_lng = ?,
-			map_svg_data = ?
+			map_svg_data = ?,
+			radar_svg_x = ?,
+			radar_svg_y = ?
 		WHERE id = ?
 	`
 
@@ -264,6 +274,8 @@ func (db *DB) UpdateSite(ctx context.Context, site *Site) error {
 		site.BBoxSWLat,
 		site.BBoxSWLng,
 		mapSVGData,
+		site.RadarSVGX,
+		site.RadarSVGY,
 		site.ID,
 	)
 	if err != nil {

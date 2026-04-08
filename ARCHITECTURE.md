@@ -166,7 +166,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 │  │                │                                               │  │
 │  │  ┌─────────────▼────────────────────────────────────────────┐  │  │
 │  │  │         HTTP API Server (internal/api/)                  │  │  │
-│  │  │         Listen: 0.0.0.0:8080                             │  │  │
+│  │  │         Listen: 0.0.0.0:8080                              │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Endpoints:                                              │  │  │
 │  │  │  • GET  /api/radar_stats (aggregated transit stats)      │  │  │
@@ -197,8 +197,8 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
                                  │
            ┌─────────────────────┴─────────────────────────────┐
            │                                                   │
-           │ HTTP API (JSON)                   gRPC (protobuf) │
-           │ Port 8080                              Port 50051 │
+           │ HTTPS via nginx (port 443 → 8080)    gRPC (protobuf) │
+           │                                          Port 50051 │
            │                                                   │
            ├───────────────────────┐                           │
            │                       │                           │
@@ -288,7 +288,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
   - Radar: Serial port data (/dev/ttyUSB0, USB connection)
   - LIDAR: Network/UDP packets (Ethernet connection, verified with LidarView/CloudCompare)
 - **Output**:
-  - HTTP API (JSON over port 8080)
+  - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
   - SQLite database writes
 
 ### Python PDF Generator
@@ -893,7 +893,7 @@ HINT is not automated optimisation — the human labelling step is deliberate. A
 │  │  (Go Server Binary)                      │  │
 │  │                                          │  │
 │  │  Configuration:                          │  │
-│  │  • --listen :8080                        │  │
+│  │  • --listen :8080                         │  │
 │  │  • --db-path (explicit SQLite location)  │  │
 │  │  • WorkingDirectory=/var/lib/velocity... │  │
 │  └──────────────────────────────────────────┘  │

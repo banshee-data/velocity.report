@@ -40,14 +40,28 @@ def resolve_tex_environment() -> TexEnvironment:
     texmf_var = os.path.join(tex_root, "texmf-var")
 
     current_path = os.environ.get("PATH", "")
+    lib_dir = os.path.join(tex_root, "lib")
+    web2c_dir = os.path.join(texmf_dist, "web2c")
     env_vars = {
         "TEXMFHOME": texmf_home,
         "TEXMFDIST": texmf_dist,
         "TEXMFVAR": texmf_var,
+        "TEXMFCNF": f"{web2c_dir}{os.pathsep}",
         "TEXINPUTS": f"{os.path.join(texmf_dist, 'tex')}//{os.pathsep}",
         "TFMFONTS": f"{os.path.join(texmf_dist, 'fonts', 'tfm')}//{os.pathsep}",
+        "OPENTYPEFONTS": f"{os.path.join(texmf_dist, 'fonts', 'opentype')}//{os.pathsep}",
+        "OSFONTDIR": f"{os.path.join(texmf_dist, 'fonts')}//{os.pathsep}",
         "PATH": (f"{bin_dir}{os.pathsep}{current_path}" if current_path else bin_dir),
     }
+
+    # The vendored TeX Live tree ships its own shared libraries
+    # (libkpathsea, libsynctex, etc.) so the binary can run after
+    # the apt texlive packages have been purged from the image.
+    if os.path.isdir(lib_dir):
+        existing_ld = os.environ.get("LD_LIBRARY_PATH", "")
+        env_vars["LD_LIBRARY_PATH"] = (
+            f"{lib_dir}{os.pathsep}{existing_ld}" if existing_ld else lib_dir
+        )
 
     fmt_dir = os.path.join(texmf_dist, "web2c", "xelatex")
     base_fmt_path = os.path.join(fmt_dir, "xelatex.fmt")

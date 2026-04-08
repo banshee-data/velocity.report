@@ -8,7 +8,7 @@
 [![Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?label=coverage)](https://codecov.io/gh/banshee-data/velocity.report)
 [![License](https://img.shields.io/github/license/banshee-data/velocity.report)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/banshee-data/velocity.report)](https://github.com/banshee-data/velocity.report/commits/main)
-[![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](.github/TENETS.md)
+[![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](TENETS.md)
 [![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=discord)](https://discord.gg/XXh6jXVFkt)
 [![Release](https://img.shields.io/github/v/release/banshee-data/velocity.report?label=release)](https://github.com/banshee-data/velocity.report/releases/latest)
 [![Sample report](https://img.shields.io/badge/sample-PDF%20report-blue)](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf)
@@ -78,7 +78,7 @@ The system records vehicle speed data. That is all it records. No cameras, no li
 
 The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
 
-See [TENETS.md](.github/TENETS.md) for the full set of non-negotiable principles.
+See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
 ### In Practice: Clarendon Avenue School Zone
 
@@ -125,7 +125,7 @@ make build-radar-local
 The build produces `velocity-report-local`. Start it without a connected sensor:
 
 ```sh
-./velocity-report-local --disable-radar
+./velocity-report-local --disable-radar --listen :8080
 ```
 
 The server creates a new SQLite database if one does not exist. Open [localhost:8080](http://localhost:8080) to see the dashboard. Use `--db-path` to point at an existing database elsewhere.
@@ -138,7 +138,8 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
    │ (Radar / LiDAR)  │     │        (Go)              │     │ (sensor_data.db) │
    └──────────────────┘     └──────────────────────────┘     └──────────────────┘
                                   │              │
-                       HTTP :8080 │              │ gRPC :50051
+                       HTTPS :443 │              │ gRPC :50051
+                    (nginx proxy) │              │
                    ┌──────────────┴─┐            │
                    │                │            │
                    ▼                ▼            ▼
@@ -166,7 +167,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup,
 
 ## Deployment
 
-The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide and [cmd/deploy/README.md](cmd/deploy/README.md) for the deployment tool reference.
+The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
 
 ## Vision: Sensor Fusion
 

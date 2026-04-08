@@ -1,5 +1,134 @@
 # Development Log
 
+## April 8, 2026 - Map Editor Polish, Backlog Grooming & Tooling Fixes
+
+- {copilot/complete-phase-1-image} Added confirmation modal for mode switching in `MapEditorInteractive` to prevent accidental data loss. Combined angle stepper and remove button into a single row for custom SVG mode.
+- {copilot/complete-phase-1-image} Enhanced save error handling on the site settings page with user-visible feedback on failure.
+- {copilot/complete-phase-1-image} Groomed the backlog (v0.5.1–v0.5.4): migrated Capabilities API to v0.5.3, Classification enum split to v0.5.8, Clock abstraction to v0.5.2, and PCAP motion tooling to v0.5.6. Reordered fix-it phases within v0.5.4.
+- {copilot/complete-phase-1-image} Fixed `orderedEndpoints` to use stable declaration order instead of shuffling.
+- {copilot/complete-phase-1-image} Improved LaTeX log fatal error detection: normalised prefixed lines (`!` and `LaTeX Error:`) and added corresponding test cases.
+- {copilot/complete-phase-1-image} Standardised `effective_start` timestamp format in migration 000034 and `schema.sql`.
+- {copilot/complete-phase-1-image} Refactored `sync-schema.sh` to use awk for generating `INSERT OR IGNORE` fixture statements.
+- {copilot/complete-phase-1-image} Refactored `dev-ssh.sh` to cleanly separate SSH options from remote command arguments.
+- {copilot/complete-phase-1-image} Tightened link-checker skip predicate to match only `image/stage-*/files/` paths.
+- {copilot/complete-phase-1-image} Updated `devlog-update` skill procedure: added `git fetch` step, gap-fill logic for incomplete existing entries, and broadened amend rules.
+
+## April 7, 2026 - RPi Image Hardening, Web Map Editor & Backlog Grooming
+
+- {copilot/complete-phase-1-image} Hardened the RPi image cleanup script: `dpkg --purge` of the camera stack triggered an `apt-get autoremove` cascade that removed `librsvg2-bin`, `network-manager`, and other runtime packages. Added `apt-mark manual` protection and a post-purge verification step.
+- {copilot/complete-phase-1-image} Added build metadata stamping to the RPi image: `VR_VERSION`, `VR_BUILD_TIME`, and `VR_GIT_SHA` written to `/etc/velocity-report-build` and displayed in the MOTD login banners.
+- {copilot/complete-phase-1-image} Refined MOTD Unicode art banners and added `check-quarter-blocks.sh` lint script to detect block-element characters that render incorrectly in some terminal fonts.
+- {copilot/complete-phase-1-image} Enhanced TLS certificate generation (`velocity-generate-tls.sh`): improved directory permissions, certificate validity checks, and error diagnostics.
+- {copilot/complete-phase-1-image} Built radar SVG map position override feature end-to-end: new `radar_svg_x`/`radar_svg_y` columns in the `site` table (migration 000033), Go model updates, Svelte `MapEditorInteractive` component with SVG upload and draggable position controls, PDF generator support, and clamping logic with 5% border margins.
+- {copilot/complete-phase-1-image} Added `map-svg.ts` utility module with SVG rendering types and helper functions for the web frontend.
+- {copilot/complete-phase-1-image} Refactored the web settings page layout for better responsiveness. Simplified `Field` component defaults and improved number input styling.
+- {copilot/complete-phase-1-image} Added `isDateRangeStale` freshness check for `reportSettings` localStorage: dates older than 18 hours fall back to the default 14-day range. Non-date settings always restore. Shared helper in `$lib/reportSettings.ts` with Jest test coverage.
+- {copilot/complete-phase-1-image} Groomed the backlog: split v0.5.6, added paper-implementation gap remediation items (P1/P2/P3), priority-sorted all milestones, performed domain analysis, moved items between milestones, and split v0.6.0 into Deployment & Packaging and macOS Local Server.
+- {copilot/complete-phase-1-image} Added four new plan documents: [domain tag vocabulary](plans/domain-tag-vocabulary-plan.md), [asset naming standardisation](plans/asset-naming-plan.md), [PCAP motion detection and scene split](plans/pcap-motion-detection-and-split-plan.md), and [macOS local server](plans/macos-local-server-plan.md).
+- {copilot/complete-phase-1-image} Added `dev-ssh` and `dev-ssh-audit.sh` scripts for SSH access and remote RPi health checks.
+- {copilot/complete-phase-1-image} Fixed LaTeX escaping in `ParameterTableBuilder` for monospace rendering. Fixed `fromDatetimeLocalToUnixSeconds` to manually parse datetime strings for consistent cross-browser behaviour.
+- {copilot/complete-phase-1-image} Added `devlog-update` skill for automated development log updates from git history.
+- {copilot/complete-phase-1-image} Improved LaTeX log error detection: added explicit fatal line signatures and refined pattern matching.
+- {copilot/complete-phase-1-image} Hardened shell scripts: refactored `sync-schema.sh` migration logic to use null-delimited reads, enhanced `dev-ssh.sh` host key management with explicit confirmation, and switched `dev-ssh-audit.sh` to UTC timestamps.
+- {copilot/complete-phase-1-image} Refined Markdown link checker to skip `image/stage-*/files/` directories. Clarified `velocity-deploy` removal in the remote host upgrade runbook.
+- {copilot/complete-phase-1-image} Installed `fonts-noto-color-emoji` in the RPi image for map label rendering. Updated sudoers configuration for specific commands.
+- {copilot/complete-phase-1-image} Added UTC timestamp guidelines to `STYLE.md` and `coding-standards.md`.
+
+## April 6, 2026 - Claude Code Init, Security Fixes, Paper Gap Analysis & CI Linting
+
+- Initialised Claude Code configuration (#447): `CLAUDE.md`, `.claude/agents/` (7 personas), `.claude/skills/` (8 workflow slash commands), and shared knowledge modules in `.github/knowledge/`.
+- Updated vulnerable dependencies across Go, npm, and Python ecosystems (#441). Fixed a dev-mode path traversal vulnerability by normalising `requestedPath` before joining with `buildDir`.
+- Added paper-vs-implementation gap analysis (`data/maths/paper-implementation-gap-analysis.md`): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers.
+- Added `download-papers.py` script with DOI/URL resolution, SSRF guards, and dry-run mode (#446).
+- Merged Go clock abstraction plan (#428): `timeutil.Clock` interface for pipeline timing, replay pacing, and benchmark instrumentation.
+- Added Markdown CI workflows: `check-md-links` for dead link detection, `check-backtick-paths.py` for stale file path references, `public_html` CI for docs site linting. Wired into `make lint-docs`.
+- Refreshed `README.md` with sample PDF report and visualiser demo images (#443, #444). Added `STYLE.md` with writing conventions and British English guidelines.
+- Added wiring diagrams and YAML configuration for OPS243-A radar sensor (`docs/hw/`).
+- Updated agent preparedness documentation, added `fix-links` skill, and expanded coding standards with configuration and media guidelines.
+- Added `age-color` terminal script and new Makefile log convenience targets.
+
+## April 5, 2026 - README & ASCII Art Refresh
+
+- Refreshed `README.md` structure: reorganised sections, updated project description and feature list.
+- Iterated on ASCII art header designs across documentation files.
+
+## April 1, 2026 - ASCII Art Update
+
+- Updated ASCII art crosswalk and banner designs in documentation (#442).
+
+## March 31, 2026 - Voice Quality Audit & Error Message Rewrite
+
+- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, `cmd/radar` CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
+- {copilot/update-error-surface-voice-audit-plan} Rewrote shell script messages and marked the voice audit plan complete.
+- {copilot/complete-phase-1-image} Centralised API error handling in the web frontend for consistent error message display.
+- {copilot/complete-phase-1-image} Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
+- {copilot/complete-phase-1-image} Updated MOTD ASCII art drafts for the RPi login banners.
+- {copilot/complete-phase-1-image} Fixed missing `.invalidConfiguration` case in Swift `APIError` switch statements.
+
+## March 30, 2026 - Deprecation Signalling, AutoTuner Fix & Homepage
+
+- Fixed macOS `APIError` handling in `LabelAPIClientTests` (#440).
+- Updated project-wide copy across JS, Go, and Python surfaces (#431): refreshed deprecation messages for legacy deployment targets.
+- {copilot/complete-phase-1-image} Fixed a race condition in `AutoTuner` completion persistence: reordered operations to prevent concurrent write conflicts.
+- {copilot/complete-phase-1-image} Added Raspberry Pi image section to the homepage with download link and SHA256 checksum (commented out pending first release).
+
+## March 29, 2026 - RPi Image: Web Build, HTTPS & TLS, Image Cleanup
+
+- Added Raspberry Pi download section to the homepage (#437): `release.json` data source, per-platform SHA256 hashes, clipboard fallback for copy buttons.
+- Fixed homepage mobile layout (#439): resolved light/dark theming split and download card spacing.
+- Refined Terry agent coaching workshop documentation (#438).
+- {copilot/complete-phase-1-image} Fixed "Web Frontend Not Built" in the RPi image: whitelisted `web/build/` in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`.
+- {copilot/complete-phase-1-image} Moved TLS termination from Go server to nginx reverse proxy. Go server stays on `:8080` (plain HTTP), nginx handles HTTPS on port 443.
+- {copilot/complete-phase-1-image} Added first-boot TLS certificate generation (`velocity-generate-tls.sh`): per-device ECDSA P-256 local CA (10-year) and server cert (825-day). Idempotent, regenerates on expiry.
+- {copilot/complete-phase-1-image} Exposed CA certificate at `GET /ca.crt` via nginx for browser trust installation.
+- {copilot/complete-phase-1-image} Installed root-level project documents into the image for on-device reference.
+- {copilot/complete-phase-1-image} Documented the TLS strategy in `docs/platform/operations/tls-local-certificates.md`.
+
+## March 28, 2026 - RPi Image: Build Pipeline, Flash Target & First-Boot Polish
+
+- {copilot/complete-phase-1-image} Consolidated Go version information printing into a single function across `cmd/radar` and `cmd/velocity-ctl`.
+- {copilot/complete-phase-1-image} Updated build process and documentation for RPi images: clarified `build-image.sh` sections and improved error handling.
+- {copilot/complete-phase-1-image} Added timestamps to image filenames to prevent collisions during rebuilds.
+- {copilot/complete-phase-1-image} Added installation step for `tuning.defaults.json` in the pi-gen run script so the service starts with a valid config.
+- {copilot/complete-phase-1-image} Added `make flash-image` target for flashing images to SD card on macOS, with device detection and safety prompts.
+- {copilot/complete-phase-1-image} Added `DISABLE_FIRST_BOOT_USER_RENAME` to pi-gen config to prevent the boot wizard overwriting the `velocity` user.
+- {copilot/complete-phase-1-image} Refactored systemd service management to prevent crash-loop on boot: the service now waits for the database directory and starts cleanly even on first boot before the sensor is connected.
+- {copilot/complete-phase-1-image} Added login MOTD banners warning about the default password and providing help commands (`velocity-ctl status`, `velocity-ctl upgrade`).
+- {copilot/complete-phase-1-image} Suppressed the first-boot user-creation wizard and cancelled pending user renames during image export.
+- {copilot/complete-phase-1-image} Moved `data/align/` to its proper location within the reference data structure.
+- {copilot/complete-phase-1-image} Enhanced the image build with reference data installation (alignment CSVs, sample VRLOGs) so the appliance ships with test datasets.
+- {copilot/complete-phase-1-image} Added `make clean-images` to remove old `.img`, `.zip`, and older `.xz`/`.sha256`/`.info` files from the deploy directory, keeping only the latest build. Recovered 18 GB → 529 MB on first run.
+- {copilot/complete-phase-1-image} Updated `.dockerignore` to clarify web frontend asset inclusion.
+- {copilot/complete-phase-1-image} Moved `TENETS.md` to the repository root and updated all cross-references in `.github/copilot-instructions.md`, agent files, and documentation.
+
+## March 27, 2026 - RPi Image: Pi-gen Integration & ARM64 Cross-Compilation
+
+- {copilot/complete-phase-1-image} Added Raspberry Pi image build support using pi-gen (bookworm-arm64 fork). The `image/` directory now contains pi-gen stage definitions, configuration, and the unified `build-image.sh` script.
+- {copilot/complete-phase-1-image} Added `Dockerfile.build` for ARM64 cross-compilation of the Go binary on macOS (Apple Silicon). The Docker build compiles `velocity-report` and `velocity-ctl` for `linux/arm64` with CGO enabled via `zig cc`.
+- {copilot/complete-phase-1-image} Added `.dockerignore` to control the Docker build context: whitelists only Go sources, web build output, static assets, and build scripts.
+- {copilot/complete-phase-1-image} Improved image extraction and compression logic: the output pipeline now produces `.img.xz` with SHA-256 checksum and `.info` metadata files.
+
+## March 26, 2026 - velocity-ctl, Setup Guide & Architecture Docs
+
+- {copilot/complete-phase-1-image} Created `velocity-ctl` as the on-device management tool, replacing the remote `velocity-deploy` script. Implements `backup`, `rollback`, `status`, and `upgrade` subcommands. Designed to run _on_ the Raspberry Pi, not from a development machine.
+- {copilot/complete-phase-1-image} Removed `velocity-update` shell script (superseded by `velocity-ctl upgrade`).
+- {copilot/complete-phase-1-image} Removed `velocity-deploy` references from CI workflows, Makefile, and documentation. Removed SSH configuration parsing code and associated tests from the Go codebase.
+- {copilot/complete-phase-1-image} Updated CI ARM64 binary build process to produce both `velocity-report` and `velocity-ctl`.
+- {copilot/complete-phase-1-image} Added setup guide publication plan with content placeholders and release checklist.
+- {copilot/complete-phase-1-image} Added `os-list.json` for the Raspberry Pi Imager catalogue so users can flash images from the official Imager tool.
+- Enhanced the setup guide with backup and restore instructions for sensor data.
+- Updated architecture documents for ground plane extraction and GPS parsing.
+
+## March 25, 2026 - Documentation Refresh & RPi Image Planning
+
+- Added `data/QUESTIONS.md` with open research questions about hourly comparison data and speed distributions.
+- Refactored `README.md` structure and added `COMMANDS.md` with make targets reference and ASCII art headers.
+- Split the Raspberry Pi image plan into phased delivery (Phase 1 bootable image, Phase 2 OTA, Phase 3 fleet management).
+- {dd/mac/dmg-signing} Added macOS code-signing and notarisation to the CI workflow and Makefile (#425): `codesign --deep`, `notarytool`, and `stapler`.
+- {dd/mac/dmg-signing} Fixed notarisation auth handling for macOS 13+ keychain profiles and removed the unreliable `spctl` DMG check.
+- {dd/mac/dmg-signing} Added a pre-build guard to verify the visualiser `.app` bundle exists before attempting DMG creation.
+- {dd/mac/dmg-signing} Enhanced notarisation error handling with detailed logging and keychain path resolution.
+
 ## March 24, 2026 - Config Consolidation, ERD Refresh & Workflow Docs
 
 - Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
@@ -10,6 +139,11 @@
 - Expanded `MATRIX.md` and refreshed the Matrix Tracer agent around the live schema/documentation inventory workflow.
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata.
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture.
+- Released 0.5.0 🌞 "Sunny Southeast": version set across Go/Python/web/macOS with expanded CHANGELOG.
+- {copilot/update-capabilities-check-radar-mode} Refactored the capabilities API to a multi-sensor named-object format (#430): per-sensor named objects in Go handlers and web stores.
+- {copilot/update-capabilities-check-radar-mode} Added smart LiDAR polling: web frontend polls LiDAR endpoints only when capabilities indicates hardware is present.
+- {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked it complete after implementation.
+- {copilot/update-capabilities-check-radar-mode} Expanded web test coverage with a multi-sensor `lidarState` derived store test.
 
 ## March 23, 2026 - Capabilities Gating, Stream Fix & Host Upgrade Runbook
 
@@ -26,6 +160,7 @@
 - Added troubleshooting and planning material for schema robustness and garbage-track investigation.
 - Cleaned up LiDAR track persistence and analysis paths, including the new `lidar_all_tracks` view, schema updates, export/report changes, and related tests.
 - Made docs more canonical across Python/docs surfaces and standardised pre-v1.0 release naming.
+- Added canonical docs plan-hygiene CI, 4-hub structure, and Canonical metadata to all 69 plan files with 45 populated hub doc stubs.
 
 ## March 21, 2026 - L8-L10 Refactor, CLI Networking & Storage Cleanup
 
@@ -46,6 +181,8 @@
 - Added `config-validate` to check migrated/runtime configs before deployment.
 - Expanded radar flag and config-path test coverage substantially.
 - Propagated config changes through PCAP and settling tooling, with matching documentation and example refreshes.
+- Converted tuning API from flat dot-path keys to nested JSON format across Go and web surfaces.
+- Normalised American→British English: `neighbor` → `neighbour`, `meters` → `metres` across code, comments, and test names.
 
 ## March 19, 2026 - Breaking Migration Merge & Immutable Run Config Planning
 
@@ -62,6 +199,8 @@
 - Rewrote `CONTRIBUTING.md` with updated contributor guidance, personas, and workflow expectations.
 - Expanded the v0.5.0 breaking-schema update plan to cover migration sequencing and cleanup scope.
 - Added `VelocityVisualiser.app` download and promo assets to the homepage, including supporting media/conversion tooling.
+- {copilot/add-bumper-sticker-designs} Added a Cairo-based bumper sticker generator tool (#403): Python CLI producing SVG/PNG stickers with configurable text and gradient backgrounds.
+- {copilot/add-bumper-sticker-designs} Addressed code review feedback on `y_frac` semantics, Cool-S proportions, and step divisor clarity.
 
 ## March 17, 2026 - Shim Removal, MATRIX Inventory & Sweep Worker Planning
 
@@ -71,6 +210,7 @@
 - Added HINT metric observability planning and related data-structure remediation updates.
 - Added the distributed sweep-workers plan.
 - Added the 100-line plan and checked in experiment notes / documentation cleanup across docs and Python.
+- {codex/plan-remaining-obb-heading-stability} Added OBB heading stability plan (#397): documented remaining work for oriented bounding box heading estimation, covering temporal smoothing, velocity-aligned correction, and evaluation metrics.
 
 ## March 16, 2026 - Header Standardisation & Backlog Prune
 
@@ -153,6 +293,7 @@
 - Added versioned DMG export for VelocityVisualiser: automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
 - Second round of macOS UI polish: label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
 - Bumped version to `0.5.0-pre14`.
+- {dd/mac/dmg-signing} Added initial code-signing and notarisation pipeline (#425): Makefile targets for `codesign`, `notarytool`, and `stapler`, wired into the CI release workflow.
 
 ## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
 
@@ -258,6 +399,9 @@
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
 - Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) documentation with visualisation details.
+- {copilot/update-serial-configuration-ui} Added serial configuration backend (#290): DB layer with `serial_configs` table, API CRUD handlers, and a reload manager that hot-swaps serial port bindings without restarting the service.
+- {copilot/update-serial-configuration-ui} Added serial configuration web UI: settings page with create/edit/delete dialogs, port test dialog, and `uniquePortPaths` deduplication.
+- {copilot/update-serial-configuration-ui} Expanded Go test coverage for serial config reload and added Jest threshold enforcement for the web frontend.
 
 ## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
 

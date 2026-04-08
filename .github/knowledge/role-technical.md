@@ -6,7 +6,7 @@ Shared mixin for agents in technical roles (Appius, Grace, Euler, Malory). Read 
 
 These files contain canonical project facts. Read them when needed rather than relying on memorised details:
 
-- [TENETS.md](../TENETS.md) — project constitution (Layer 0)
+- [TENETS.md](../../TENETS.md) — project constitution (Layer 0)
 - [architecture.md](architecture.md) — tech stack, data flow, deployment
 - [build-and-test.md](build-and-test.md) — make targets, testing, dev servers
 - [hardware.md](hardware.md) — radar/LIDAR specs, serial/UDP interfaces

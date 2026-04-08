@@ -694,7 +694,7 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 | --------------------- | ------------------------------------- | -------------------------------------------- |
 | `velocity-report`     | `cmd/radar/radar.go`                  | Full server: API, DB, serial, LiDAR pipeline |
 | `velocity-sweep`      | `cmd/sweep/main.go`                   | LiDAR monitor, sweep engine, PCAP replay     |
-| `velocity-deploy`     | `cmd/deploy/main.go`                  | Deployment: install, upgrade, backup         |
+| `velocity-ctl`        | `cmd/velocity-ctl/main.go`            | Device management: upgrade, rollback, backup |
 | `gen-vrlog`           | `cmd/tools/gen-vrlog/main.go`         | Synthetic VRLOG generation (no DB)           |
 | `vrlog-analyse`       | `cmd/tools/vrlog-analyse/main.go`     | VRLOG file analysis and comparison           |
 | `visualiser-server`   | `cmd/tools/visualiser-server/main.go` | Standalone gRPC (synthetic/replay/live)      |

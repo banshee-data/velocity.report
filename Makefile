@@ -17,8 +17,11 @@ help:
 	@echo "  build-radar-local    Build for local development with pcap"
 	@echo "  build-tools          Build sweep tool"
 	@echo "  run-settling-eval    Run settling convergence evaluation (default: kirk0.pcapng)"
-	@echo "  build-deploy         Build velocity-deploy deployment manager"
-	@echo "  build-deploy-linux   Build velocity-deploy for Linux ARM64"
+	@echo "  build-ctl            Build velocity-ctl device management binary"
+	@echo "  build-ctl-linux      Build velocity-ctl for Linux ARM64"
+	@echo "  build-image          Build RPi image (HOST_BUILD=1 for local toolchain)"
+	@echo "  flash-image          Flash latest image to SD card (DISK=/dev/diskN, macOS)"
+	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
@@ -55,6 +58,8 @@ help:
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
 	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
+	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
+	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
 	@echo "                       VIS_MODE: synthetic, replay (requires VIS_LOG), live"
 	@echo ""
 	@echo "VISUALISER TOOLS:"
@@ -120,12 +125,12 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
-	@echo "DEPLOYMENT (deprecated — removal planned for v0.5.1; see #210 image pipeline):"
-	@echo "  setup-radar          Install server on this host (requires sudo, legacy, deprecated)"
-	@echo "  deploy-install       Install using velocity-deploy (deprecated)"
-	@echo "  deploy-upgrade       Upgrade using velocity-deploy (deprecated)"
-	@echo "  deploy-status        Check service status using velocity-deploy (deprecated)"
-	@echo "  deploy-health        Run health check using velocity-deploy (deprecated)"
+	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
+	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
+	@echo "  deploy-install       Removed — use RPi image or manual install"
+	@echo "  deploy-upgrade       Removed — use velocity-ctl upgrade"
+	@echo "  deploy-status        Removed — use velocity-ctl status"
+	@echo "  deploy-health        Removed — use velocity-ctl status"
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
@@ -169,10 +174,10 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.0
+VERSION := 0.5.1-pre1
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
+LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
 WEB_DIR = web
 WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
@@ -213,12 +218,87 @@ run-settling-eval: PORT ?= $(SETTLING_EVAL_PORT)
 run-settling-eval:
 	go run -tags=pcap ./cmd/tools/settling-eval --port $(PORT) $(if $(TUNING),--tuning $(TUNING)) $(if $(OUTPUT),--output $(OUTPUT)) $(PCAP)
 
-# Build velocity-deploy deployment manager
-build-deploy:
-	go build -ldflags "$(LDFLAGS)" -o velocity-deploy ./cmd/deploy
+# Build velocity-ctl device management binary
+build-ctl:
+	go build -ldflags "$(LDFLAGS)" -o velocity-ctl ./cmd/velocity-ctl
 
-build-deploy-linux:
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-deploy-linux-arm64 ./cmd/deploy
+build-ctl-linux:
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-ctl-linux-arm64 ./cmd/velocity-ctl
+
+# Build a Raspberry Pi image using pi-gen (requires Docker)
+# Compiles ARM64 Go binaries with pcap support inside a Docker container,
+# then runs pi-gen to produce the flashable .img file.
+# Pass SKIP_BINARIES=1 to reuse previously built binaries.
+# Pass HOST_BUILD=1 to use the host Go toolchain instead of Docker for compilation.
+# Pass SSH_KEY=~/.ssh/id_ed25519.pub to install an SSH key for the velocity user.
+.PHONY: build-image
+build-image:
+	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
+
+# Flash the most recent .img.xz from deploy/ to an SD card (macOS only).
+# Requires DISK= to be set explicitly to prevent accidents.
+# Usage: make flash-image DISK=/dev/disk4
+.PHONY: flash-image
+flash-image:
+ifeq ($(DISK),)
+	$(error DISK is required — e.g. make flash-image DISK=/dev/disk4)
+endif
+	@IMG=$$(find image/.pi-gen/deploy -name '*.img.xz' -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1); \
+	if [ -z "$$IMG" ]; then \
+		echo "No .img.xz found in image/.pi-gen/deploy/ — run make build-image first"; exit 1; \
+	fi; \
+	echo "Image: $$IMG"; \
+	echo "Target: $(DISK)"; \
+	echo ""; \
+	diskutil list $(DISK); \
+	echo ""; \
+	printf 'This will ERASE $(DISK). Continue? [y/N] '; \
+	read ans; \
+	if [ "$$ans" != "y" ] && [ "$$ans" != "Y" ]; then echo "Aborted."; exit 1; fi; \
+	echo "Unmounting $(DISK)..."; \
+	diskutil unmountDisk $(DISK) || exit 1; \
+	RAW=$$(echo $(DISK) | sed 's|/dev/disk|/dev/rdisk|'); \
+	SIZE=$$(xz --list --robot "$$IMG" | tail -1 | awk '{print $$5}'); \
+	SIZE_MB=$$(( SIZE / 1024 / 1024 )); \
+	echo "Flashing to $$RAW (raw device for speed)..."; \
+	echo "Uncompressed size: $${SIZE_MB} MB"; \
+	echo ""; \
+	if command -v pv >/dev/null 2>&1; then \
+		sudo sh -c 'xzcat "$$1" | pv -s "$$2" -i 5 -e -r -p | dd of="$$3" bs=1m 2>/dev/null' _ "$$IMG" "$$SIZE" "$$RAW" \
+			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+	else \
+		echo "(install pv for progress: brew install pv)"; \
+		sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW" \
+			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+	fi; \
+	echo ""; \
+	echo "Ejecting $(DISK)..."; \
+	sudo diskutil eject $(DISK); \
+	echo "Done."
+
+# Remove old images from deploy/, keeping only the latest .img.xz, .sha256,
+# .info, and build logs. Removes all .zip and raw .img files (intermediates)
+# and older builds entirely.
+.PHONY: clean-images
+clean-images:
+	@DEPLOY="image/.pi-gen/deploy"; \
+	if [ ! -d "$$DEPLOY" ]; then \
+		echo "No deploy directory found."; exit 0; \
+	fi; \
+	echo "Before: $$(du -sh "$$DEPLOY" | cut -f1)"; \
+	LATEST=$$(find "$$DEPLOY" -name '*.img.xz' -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "No .img.xz found — nothing to keep."; exit 0; \
+	fi; \
+	BASE=$$(basename "$$LATEST" .img.xz); \
+	echo "Keeping: $$BASE"; \
+	rm -f "$$DEPLOY"/*.zip; \
+	rm -f "$$DEPLOY"/*.img; \
+	for f in "$$DEPLOY"/*.img.xz "$$DEPLOY"/*.img.xz.sha256 "$$DEPLOY"/*.info; do \
+		case "$$f" in *"$$BASE"*) continue ;; esac; \
+		[ -f "$$f" ] && rm -f "$$f" && echo "  removed: $$(basename "$$f")"; \
+	done; \
+	echo "After:  $$(du -sh "$$DEPLOY" | cut -f1)"
 
 .PHONY: build-web
 build-web:
@@ -401,7 +481,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal deploy-install-latex deploy-install-latex-minimal deploy-update-deps validate-tex-minimal
+.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -437,63 +517,6 @@ install-texlive-minimal:
 	fi
 	@echo "Installing minimal TeX tree from $(TEX_MINIMAL_DIR) to /opt/velocity-report/texlive-minimal..."
 	@SOURCE_DIR="$(abspath $(TEX_MINIMAL_DIR))" ./scripts/install-minimal-texlive.sh
-
-# Deploy: Install local minimal TeX tree on remote target (deprecated)
-deploy-install-latex-minimal:
-	@echo "⚠️  DEPRECATED: deploy-install-latex-minimal — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-install-latex-minimal TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Error: Minimal TeX tree not found at $(TEX_MINIMAL_DIR)"; \
-		echo "Run 'make build-texlive-minimal' first."; \
-		exit 1; \
-	fi
-	@echo "Deploying minimal TeX tree to $(TARGET):/opt/velocity-report/texlive-minimal..."
-	@scp -r "$(TEX_MINIMAL_DIR)" "$(TARGET):/tmp/velocity-report-texlive-minimal"
-	@ssh "$(TARGET)" "sudo mkdir -p /opt/velocity-report && sudo rm -rf /opt/velocity-report/texlive-minimal && sudo mv /tmp/velocity-report-texlive-minimal /opt/velocity-report/texlive-minimal && sudo chmod -R a+rX /opt/velocity-report/texlive-minimal"
-	@echo "✓ Minimal TeX tree deployed to $(TARGET)"
-
-# Deploy: Install LaTeX on remote target (deprecated)
-deploy-install-latex:
-	@echo "⚠️  DEPRECATED: deploy-install-latex — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-install-latex TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@if [ -d "$(TEX_MINIMAL_DIR)" ]; then \
-		echo "Found local minimal TeX tree at $(TEX_MINIMAL_DIR); deploying vendored tree."; \
-		$(MAKE) deploy-install-latex-minimal TARGET="$(TARGET)"; \
-	else \
-		echo "No local minimal TeX tree found; installing TeX Live via apt on $(TARGET)..."; \
-		ssh "$(TARGET)" "if ! command -v pdflatex >/dev/null 2>&1; then \
-			sudo apt-get update && sudo apt-get install -y texlive-xetex texlive-fonts-recommended texlive-latex-extra; \
-		else \
-			echo 'LaTeX already installed'; \
-		fi"; \
-	fi
-
-# Deploy: Update dependencies on remote target (deprecated)
-deploy-update-deps:
-	@echo "⚠️  DEPRECATED: deploy-update-deps — removal gated on #210 image pipeline + retirement conditions (see docs/plans/platform-simplification-and-deprecation-plan.md)" >&2
-	@echo "" >&2
-	@if [ -z "$(TARGET)" ]; then \
-		echo "Error: TARGET not set. Usage: make deploy-update-deps TARGET=radar-ts"; \
-		exit 1; \
-	fi
-	@echo "Updating dependencies on $(TARGET)..."
-	@echo "  → Updating source code..."
-	@ssh $(TARGET) "test -d /opt/velocity-report/.git && cd /opt/velocity-report && sudo git pull || echo 'No git repo found'"
-	@echo "  → Ensuring LaTeX is installed..."
-	@$(MAKE) --no-print-directory deploy-install-latex TARGET="$(TARGET)"
-	@echo "  → Updating Python dependencies..."
-	@ssh $(TARGET) "test -d /opt/velocity-report && cd /opt/velocity-report && sudo make install-python || echo 'Source not found'"
-	@echo "  → Fixing ownership..."
-	@ssh $(TARGET) "test -d /opt/velocity-report && sudo chown -R \$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity'):\$$(sudo systemctl show velocity-report.service -p User --value 2>/dev/null || echo 'velocity') /opt/velocity-report || echo 'Source not found'"
-	@echo "✓ Dependencies updated on $(TARGET)"
 
 install-python:
 	@echo "Setting up Python environment..."
@@ -583,7 +606,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -602,7 +625,7 @@ define run_dev_go
 	go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-local ./cmd/radar; \
 	mkdir -p "$$piddir"; \
 	echo "Starting velocity-report-local (background) with DB=$$DB_PATH -> $$logfile (debug -> $$debuglog)"; \
-	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
+	VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 VELOCITY_DEBUG_LOG="$$debuglog" nohup ./velocity-report-local --disable-radar --listen :8080 $(1) --db-path="$$DB_PATH" >> "$$logfile" 2>&1 & echo $$! > "$$pidfile"; \
 	echo "Started; PID $$(cat $$pidfile)"
 endef
 
@@ -644,6 +667,12 @@ endef
 
 DEV_GO_LATEX_PRECOMPILED_FLAGS := --pdf-latex-flow=precompiled --pdf-tex-root="$(abspath $(TEX_MINIMAL_DIR))"
 DEV_GO_LATEX_FULL_FLAGS := --pdf-latex-flow=full
+
+dev-ssh:
+	@./scripts/dev-ssh.sh
+
+dev-ssh-audit:
+	@./scripts/dev-ssh-audit.sh
 
 dev-go:
 	@$(call run_dev_go_require_precompiled_root)
@@ -1051,10 +1080,13 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
+
+check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
+	@scripts/check-quarter-blocks.sh
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
@@ -1068,7 +1100,7 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
-lint-docs: check-mermaid ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, relative links, and backtick paths in Markdown
+lint-docs: check-mermaid check-quarter-blocks ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, relative links, backtick paths, and quarter-block chars
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 	@python3 scripts/check-relative-links.py
@@ -1339,76 +1371,31 @@ clean-python:
 	@echo "✓ Cleaned"
 
 # =============================================================================
-# DEPLOYMENT
+# DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)
 # =============================================================================
 
-.PHONY: setup-radar deploy-install deploy-upgrade deploy-status deploy-health
+.PHONY: deploy-install deploy-upgrade deploy-status deploy-health
 
-# Legacy installation script (deprecated — will be removed after #210 image pipeline)
-setup-radar:
-	@echo "⚠️  DEPRECATED: setup-radar — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Setting up velocity.report server on this host..."
-	@echo "This will:"
-	@echo "  1. Install binary to /usr/local/bin/velocity-report"
-	@echo "  2. Create service user and working directory"
-	@echo "  3. Install and start systemd service"
-	@echo ""
-	@sudo ./scripts/setup-radar-host.sh
-
-# Modern deployment using velocity-deploy (deprecated — will be removed after #210 image pipeline)
+# Friendly error stubs for anyone who tries the old commands
 deploy-install:
-	@echo "⚠️  DEPRECATED: deploy-install — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Installing velocity.report using velocity-deploy..."
-	./velocity-deploy install --binary ./velocity-report-linux-arm64
+	@echo "❌ REMOVED: deploy-install has been removed in v0.5.1." >&2
+	@echo "   Flash the RPi image or install manually. See docs/plans/deploy-rpi-imager-fork-plan.md" >&2
+	@exit 1
 
 deploy-upgrade:
-	@echo "⚠️  DEPRECATED: deploy-upgrade — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	@if [ ! -f "velocity-report-linux-arm64" ]; then \
-		echo "Error: velocity-report-linux-arm64 not found!"; \
-		echo "Run 'make build-radar-linux' first."; \
-		exit 1; \
-	fi
-	@echo "Upgrading velocity.report using velocity-deploy..."
-	./velocity-deploy upgrade --binary ./velocity-report-linux-arm64
+	@echo "❌ REMOVED: deploy-upgrade has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl upgrade" >&2
+	@exit 1
 
 deploy-status:
-	@echo "⚠️  DEPRECATED: deploy-status — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	./velocity-deploy status
+	@echo "❌ REMOVED: deploy-status has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl status" >&2
+	@exit 1
 
 deploy-health:
-	@echo "⚠️  DEPRECATED: deploy-health — removal planned for v0.5.1. See docs/plans/platform-simplification-and-deprecation-plan.md" >&2
-	@echo "" >&2
-	@if [ ! -f "velocity-deploy" ]; then \
-		echo "Building velocity-deploy..."; \
-		make build-deploy; \
-	fi
-	./velocity-deploy health
+	@echo "❌ REMOVED: deploy-health has been removed in v0.5.1." >&2
+	@echo "   Use: sudo velocity-ctl status" >&2
+	@exit 1
 
 # =============================================================================
 # UTILITIES

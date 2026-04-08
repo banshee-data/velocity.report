@@ -45,8 +45,7 @@ The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 | Component                            | Install Path                                |
 | ------------------------------------ | ------------------------------------------- |
 | `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report`            |
-| `velocity-deploy`                    | `/usr/local/bin/velocity-deploy`            |
-| `velocity-update` (shell wrapper)    | `/usr/local/bin/velocity-update`            |
+| `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`               |
 | PDF generator (Python)               | `/opt/velocity-report/tools/pdf-generator/` |
 | Python venv                          | `/opt/velocity-report/.venv/`               |
 | Web frontend                         | Embedded in Go binary                       |
@@ -69,12 +68,30 @@ users enable it through the web settings dashboard.
 ### Update Mechanism
 
 No automatic updates — preserves privacy-first principle (zero unsolicited
-network requests).
+network requests). Users upgrade in-place to preserve their sensor data.
 
-- `velocity-update` script: thin wrapper around `velocity-deploy upgrade`,
-  user runs explicitly
-- Settings dashboard: displays installed version, "Check for updates" makes
-  a single GitHub API call when user clicks it
+```bash
+sudo velocity-ctl upgrade              # check + download + apply latest release
+sudo velocity-ctl upgrade --check      # print version comparison only
+sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
+```
+
+`velocity-ctl` is a purpose-built on-device management binary (no SSH, no
+remote execution). The `upgrade` subcommand:
+
+1. Queries GitHub Releases API for the latest version
+2. Downloads the `velocity-report-linux-arm64` asset
+3. Verifies SHA-256 checksum
+4. Backs up current binary and database
+5. Stops the service, installs the new binary, runs DB migrations
+6. Starts the service and verifies it is responding
+
+Rollback: `sudo velocity-ctl rollback` restores the most recent backup.
+
+Settings dashboard: displays installed version ("Check for updates" button
+planned but not yet implemented).
+
+Design detail: [deploy-rpi-imager-fork-plan.md § 4.2.2a](../../plans/deploy-rpi-imager-fork-plan.md#422a-update-mechanism)
 
 ## Image Building: pi-gen Integration
 
@@ -141,17 +158,15 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 
 ## What Stays in the Monorepo
 
-| Asset                   | Location                               | Reason                                              |
-| ----------------------- | -------------------------------------- | --------------------------------------------------- |
-| pi-gen stage scripts    | `image/`                               | Tightly coupled to server releases                  |
-| OS-list repository JSON | `image/os-list-velocity.json`          | Updated by CI on release                            |
-| Image CI workflow       | `.github/workflows/build-image.yml`    | Triggered by monorepo releases <!-- link-ignore --> |
-| systemd service         | `cmd/deploy/velocity-report.service`   | Canonical source                                    |
-| udev rules              | `image/files/99-velocity-report.rules` | Device permissions                                  |
-| Update script           | `image/files/velocity-update`          | User-initiated updates                              |
-| Minimal TeX tree        | `image/files/texlive-minimal/`         | Pre-compiled templates + fonts                      |
-| LiDAR network config    | `image/files/lidar-network.conf`       | Static IP for 192.168.100.x                         |
-| First-boot script       | `image/files/velocity-first-boot.sh`   | Optional setup wizard                               |
+| Asset                   | Location                                                                | Reason                                                            |
+| ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| pi-gen stage scripts    | `image/stage-velocity/`                                                 | Tightly coupled to server releases                                |
+| OS-list repository JSON | `image/os-list-velocity.json`                                           | Updated by CI on release                                          |
+| Image CI workflow       | `.github/workflows/build-image.yml`                                     | Triggered by monorepo releases                                    |
+| systemd service         | `image/stage-velocity/03-velocity-config/files/velocity-report.service` | Canonical source                                                  |
+| udev rules              | `image/stage-velocity/03-velocity-config/files/`                        | Device permissions                                                |
+| Management binary       | `cmd/velocity-ctl/`                                                     | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version` |
+| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf`       | Static IP for 192.168.100.x                                       |
 
 ## Security
 
@@ -175,5 +190,5 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 | Python venv portability    | Build inside ARM64 chroot or use platform-specific wheels |
 | GitHub 2 GB asset limit    | xz compression (3:1 ratio); CDN for larger images         |
 | Serial port conflicts      | `miniuart-bt` overlay moves Bluetooth to mini-UART        |
-| "It didn't boot" support   | First-boot diagnostics, LED status, web setup wizard      |
+| "It didn't boot" support   | Troubleshooting docs, systemd journal, web UI status page |
 | Scope creep                | Strict phased approach; Phase 1 delivers value in days    |

@@ -73,7 +73,7 @@
 	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
 
 	$: if (browser && mounted) {
-		void syncSelectionFromUrl(querySceneId, queryRunId); // eslint-disable-line svelte/infinite-reactive-loop
+		void syncSelectionFromUrl(querySceneId, queryRunId);
 	}
 
 	function runTrackToDisplayTrack(runTrack: RunTrack): Track {
@@ -340,10 +340,10 @@
 		const runEndNs = Math.max(...runTracks.map((rt) => rt.end_unix_nanos));
 		try {
 			const history = await getTrackHistory(sensorId, runStartNs, runEndNs, 1000);
-			tracks = Array.isArray(history.tracks) ? history.tracks : []; // eslint-disable-line svelte/infinite-reactive-loop
-			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 }; // eslint-disable-line svelte/infinite-reactive-loop
-			selectedTime = runStartNs / 1e6; // eslint-disable-line svelte/infinite-reactive-loop
-			loadForegroundObservations(timeRange.start, timeRange.end); // eslint-disable-line svelte/infinite-reactive-loop
+			tracks = Array.isArray(history.tracks) ? history.tracks : [];
+			timeRange = { start: runStartNs / 1e6, end: runEndNs / 1e6 };
+			selectedTime = runStartNs / 1e6;
+			loadForegroundObservations(timeRange.start, timeRange.end);
 		} catch (error) {
 			console.error('[TrackHistory] Failed to load tracks for run window:', error);
 		}
@@ -450,7 +450,7 @@
 			missedRegions = [];
 			markMissedMode = false;
 			// Reload the default window — tracks may have been scoped to the run's window
-			void loadHistoricalData(); // eslint-disable-line svelte/infinite-reactive-loop
+			void loadHistoricalData();
 		}
 	}
 

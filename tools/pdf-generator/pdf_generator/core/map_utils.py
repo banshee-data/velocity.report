@@ -298,6 +298,12 @@ class SVGToPDFConverter:
         if SVGToPDFConverter._try_rsvg_convert(svg_path, pdf_path):
             return True
 
+        print(
+            "  [SVGToPDFConverter] ✗ All converters failed "
+            "(cairosvg, inkscape, rsvg-convert). "
+            "Install librsvg2-bin or cairosvg."
+        )
+
         return False
 
     @staticmethod

@@ -172,8 +172,8 @@ func TestDeleteSite_NonexistentID(t *testing.T) {
 	t.Logf("DeleteSite for non-existent ID result: %v", err)
 }
 
-// TestGetAllSites_EmptyDatabase tests listing sites when none exist
-func TestGetAllSites_EmptyDatabase(t *testing.T) {
+// TestGetAllSites_FreshDatabase tests listing sites on a fresh database
+func TestGetAllSites_FreshDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
@@ -185,11 +185,12 @@ func TestGetAllSites_EmptyDatabase(t *testing.T) {
 
 	sites, err := db.GetAllSites(context.Background())
 	if err != nil {
-		t.Fatalf("GetAllSites on empty database failed: %v", err)
+		t.Fatalf("GetAllSites on fresh database failed: %v", err)
 	}
 
-	if len(sites) != 0 {
-		t.Errorf("Expected empty list, got %d sites", len(sites))
+	// Fresh database has 1 seeded site from schema.sql
+	if len(sites) != 1 {
+		t.Errorf("Expected 1 seeded site, got %d sites", len(sites))
 	}
 }
 

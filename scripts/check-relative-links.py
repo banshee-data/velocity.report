@@ -35,6 +35,8 @@ SKIP_DIRS = {
     ".build",
     "DerivedData",
     "build",
+    # pi-gen build output and the upstream pi-gen submodule.
+    ".pi-gen",
 }
 
 
@@ -42,7 +44,20 @@ def find_markdown_files(root: Path) -> list[Path]:
     """Walk *root* and return all .md files, skipping SKIP_DIRS."""
     results: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in SKIP_DIRS
+            # pi-gen stage package dirs contain bundled copies of repo files
+            # whose relative links resolve against the repo root, not the
+            # stage directory.  Only skip 'files/' under image/stage-*.
+            and not (
+                d == "files"
+                and len(Path(dirpath).relative_to(root).parts) >= 2
+                and Path(dirpath).relative_to(root).parts[0] == "image"
+                and Path(dirpath).relative_to(root).parts[1].startswith("stage-")
+            )
+        ]
         for fname in filenames:
             if fname.endswith(".md"):
                 results.append(Path(dirpath) / fname)

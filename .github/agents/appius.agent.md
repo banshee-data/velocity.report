@@ -265,7 +265,7 @@ When implementing plan-hygiene or canonical-doc cleanup:
 
 For project facts, conventions, and technical detail, see these canonical sources rather than restating them here:
 
-- Project tenets and privacy principles: see `.github/TENETS.md`
+- Project tenets and privacy principles: see `TENETS.md`
 - Tech stack, data flow, DB schema, deployment paths: see `.github/knowledge/architecture.md`
 - Make targets, quality gate, venv, test commands: see `.github/knowledge/build-and-test.md`
 - British English, commit format, doc update rules: see `.github/knowledge/coding-standards.md`

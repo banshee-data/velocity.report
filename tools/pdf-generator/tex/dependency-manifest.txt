@@ -91,12 +91,15 @@ texmf-dist/tex/latex/float
 texmf-dist/tex/latex/tools
 texmf-dist/tex/latex/geometry
 
-# Computer Modern metrics used while building the format.
+# Computer Modern and Latin Modern metrics and outlines.
+# Latin Modern is the default XeLaTeX font family.
 texmf-dist/fonts/tfm/public/cm
+texmf-dist/fonts/tfm/public/lm
 texmf-dist/fonts/tfm/public/latex-fonts
 texmf-dist/fonts/tfm/public/amsfonts
 texmf-dist/fonts/tfm/adobe
+texmf-dist/fonts/opentype/public/lm
 texmf-dist/fonts/map/dvips/psnfss
 texmf-dist/fonts/map/dvipdfmx
-texmf-dist/fonts/opentype/public/lm
 texmf-dist/fonts/type1/public/amsfonts
+texmf-dist/fonts/type1/public/lm

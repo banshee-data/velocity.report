@@ -35,6 +35,11 @@
    - `velocity-report version` - Show version/build info
    - `velocity-report help` - Unified help system
 
+   Note: upgrade/rollback/backup are handled by `velocity-ctl`
+   (`cmd/velocity-ctl/`) which ships as a separate binary. These may be
+   absorbed into `velocity-report` in a future release if eliminating one
+   binary is worth the mixed privilege model.
+
 4. **Update build targets in Makefile**
 
    ```makefile

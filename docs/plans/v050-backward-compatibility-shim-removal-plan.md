@@ -5,6 +5,8 @@
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 - **Canonical:** [v050-release-migration.md](../platform/operations/v050-release-migration.md)
 
+The v0.5.0 release redesigned the speed contract, protobuf schema, and database columns. Backward-compatibility shims were added across Go, Python, Svelte, and macOS to keep older clients and VRLOG files working during the migration window. This plan tracked their systematic removal; all shims are now removed except the VRLOG `Track.UnmarshalJSON` legacy speed-key fallback (§18), deferred to v0.5.2.
+
 - **Status:** Pending shim removal — two remaining items: §14 alias map residue and §18 VRLOG fallback
 
 - **Update:** All v0.5.0 shim removal work across Go, Python, Svelte, and macOS is

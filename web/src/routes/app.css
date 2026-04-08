@@ -18,6 +18,16 @@
 	display: block;
 }
 
+/* Hide native number input spinners — NumberStepper provides its own +/- buttons */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+input[type='number'] {
+	-moz-appearance: textfield;
+}
+
 /*
  * velocity.report shared standard classes — DESIGN.md §5.5
  *

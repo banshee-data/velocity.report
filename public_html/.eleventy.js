@@ -35,6 +35,11 @@ module.exports = function (eleventyConfig) {
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
 
+  // Copy os-list JSON for Raspberry Pi Imager catalogue
+  eleventyConfig.addPassthroughCopy({
+    "../image/os-list-velocity.json": "images/os-list.json",
+  });
+
   // Watch CSS files for changes
   eleventyConfig.addWatchTarget("./src/css/");
 

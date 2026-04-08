@@ -95,6 +95,14 @@ copy_manifest_files() {
   local copied=0
   local missing=0
 
+  # Debian splits texmf-var out of the TeX Live root (typically /var/lib/texmf).
+  # Resolve the actual location so manifest entries starting with texmf-var/
+  # can be found regardless of distribution layout.
+  local sys_texmf_var="${TEXLIVE_ROOT}/texmf-var"
+  if [[ ! -d "${sys_texmf_var}" ]] && command -v kpsewhich >/dev/null 2>&1; then
+    sys_texmf_var="$(kpsewhich -var-value=TEXMFSYSVAR 2>/dev/null || echo "${TEXLIVE_ROOT}/texmf-var")"
+  fi
+
   while IFS= read -r rel_path || [[ -n "${rel_path}" ]]; do
     rel_path="${rel_path#"${rel_path%%[![:space:]]*}"}"
     rel_path="${rel_path%"${rel_path##*[![:space:]]}"}"
@@ -103,6 +111,25 @@ copy_manifest_files() {
 
     local src="${TEXLIVE_ROOT}/${rel_path}"
     local dst="${OUTPUT_DIR}/${rel_path}"
+
+    # Fallback 1: texmf-var entries may live outside TEXLIVE_ROOT on Debian.
+    if [[ ! -e "${src}" && "${rel_path}" == texmf-var/* ]]; then
+      local var_rel="${rel_path#texmf-var/}"
+      local alt="${sys_texmf_var}/${var_rel}"
+      [[ -e "${alt}" ]] && src="${alt}"
+    fi
+
+    # Fallback 2: individual files may be at a different TDS path on some
+    # distributions (e.g. tex/generic/ vs tex/latex/).  Ask kpsewhich.
+    if [[ ! -e "${src}" && ! -d "${src}" ]] && command -v kpsewhich >/dev/null 2>&1; then
+      local basename="${rel_path##*/}"
+      if [[ -n "${basename}" && "${basename}" == *.* ]]; then
+        local found
+        found="$(kpsewhich "${basename}" 2>/dev/null || true)"
+        [[ -n "${found}" && -f "${found}" ]] && src="${found}"
+      fi
+    fi
+
     if [[ -f "${src}" ]]; then
       mkdir -p "$(dirname "${dst}")"
       cp -a "${src}" "${dst}"
@@ -119,6 +146,21 @@ copy_manifest_files() {
 
   [[ "${copied}" -gt 0 ]] || die "No TeX files copied from manifest."
   log "copied ${copied} manifest files (${missing} missing)"
+
+  # Debian's fonts-lmodern package installs to /usr/share/texmf/ rather than
+  # the TeX Live root (/usr/share/texlive/texmf-dist/).  If the manifest copy
+  # missed the Latin Modern OTF directory, try the Debian location as a
+  # fallback so the build doesn't silently produce a tree that fails at
+  # runtime.
+  local lm_otf_dir="${OUTPUT_DIR}/texmf-dist/fonts/opentype/public/lm"
+  if [[ ! -d "${lm_otf_dir}" ]] || [[ -z "$(ls -A "${lm_otf_dir}" 2>/dev/null)" ]]; then
+    local debian_lm="/usr/share/texmf/fonts/opentype/public/lm"
+    if [[ -d "${debian_lm}" ]]; then
+      mkdir -p "${lm_otf_dir}"
+      cp -a "${debian_lm}/." "${lm_otf_dir}/"
+      log "copied Latin Modern OTF fonts from Debian path ${debian_lm}"
+    fi
+  fi
 }
 
 copy_xelatex_binary() {
@@ -150,11 +192,25 @@ copy_xelatex_binary() {
     return
   fi
 
+  # Collect shared library dependencies from all staged binaries
+  # (xelatex + helpers like xdvipdfmx) so no runtime deps are missed.
+  local all_bins="${XELATEX_BIN}"
+  for helper in xdvipdfmx; do
+    local helper_path
+    helper_path="$(command -v "${helper}" 2>/dev/null || true)"
+    [[ -n "${helper_path}" && -x "${helper_path}" ]] && all_bins="${all_bins}"$'\n'"${helper_path}"
+  done
+
   local dep
   while IFS= read -r dep; do
     [[ -f "${dep}" ]] || continue
-    cp -a "${dep}" "${OUTPUT_DIR}/lib/" || true
-  done < <(ldd "${XELATEX_BIN}" | awk '/=> \// {print $3} /^\/[^ ]+/ {print $1}')
+    # Dereference symlinks — Debian .so files are typically symlinks
+    # (e.g. libharfbuzz.so.0 -> libharfbuzz.so.0.60100.0) and cp -a
+    # would copy a dangling symlink into lib/.
+    cp -aL "${dep}" "${OUTPUT_DIR}/lib/" || true
+  done < <(echo "${all_bins}" | while IFS= read -r bin; do
+    ldd "${bin}" 2>/dev/null
+  done | awk '/=> \// {print $3} /^\/[^ ]+/ {print $1}' | sort -u)
 
   log "copied shared libraries to ${OUTPUT_DIR}/lib (best-effort)"
 }
@@ -189,12 +245,22 @@ EOF
 }
 
 build_ls_r() {
-  if ! command -v mktexlsr >/dev/null 2>&1; then
-    log "mktexlsr not available; skipping ls-R index"
+  if command -v mktexlsr >/dev/null 2>&1; then
+    mktexlsr "${OUTPUT_DIR}/texmf-dist" >/dev/null 2>&1 || true
+    log "generated ls-R index via mktexlsr"
     return
   fi
-  mktexlsr "${OUTPUT_DIR}/texmf-dist" >/dev/null 2>&1 || true
-  log "generated ls-R index"
+
+  # Fallback: generate ls-R manually when mktexlsr is unavailable
+  # (e.g. during pi-gen chroot after APT texlive packages are purged).
+  local lsr="${OUTPUT_DIR}/texmf-dist/ls-R"
+  {
+    echo "% ls-R -- filename database for kpathsea; do not change this line."
+    echo "% Created by velocity-report build-minimal-texlive.sh."
+    echo ""
+    (cd "${OUTPUT_DIR}/texmf-dist" && ls -R .)
+  } > "${lsr}"
+  log "generated ls-R index via ls -R fallback"
 }
 
 build_format() {
@@ -205,8 +271,12 @@ build_format() {
 
   [[ -x "${OUTPUT_DIR}/bin/xelatex" ]] || die "Expected compiler at ${OUTPUT_DIR}/bin/xelatex"
   [[ -f "${INI_FILE}" ]] || die "Format source not found: ${INI_FILE}"
-  local xelatex_ini="${OUTPUT_DIR}/texmf-dist/tex/latex/tex-ini-files/xelatex.ini"
-  [[ -f "${xelatex_ini}" ]] || die "Base XeLaTeX ini file not found: ${xelatex_ini}"
+
+  # xelatex.ini may be under tex/latex/ (macOS/upstream) or tex/generic/ (Debian).
+  local xelatex_ini
+  xelatex_ini="$(find "${OUTPUT_DIR}/texmf-dist" -name xelatex.ini -type f 2>/dev/null | head -1)"
+  [[ -n "${xelatex_ini}" && -f "${xelatex_ini}" ]] \
+    || die "Base XeLaTeX ini file not found under ${OUTPUT_DIR}/texmf-dist"
 
   local fmt_out_dir="${OUTPUT_DIR}/texmf-dist/web2c/xelatex"
   mkdir -p "${fmt_out_dir}"
@@ -299,6 +369,16 @@ main() {
   write_texmf_cnf
   build_ls_r
   build_format
+
+  # Verify critical font files are present.  Without Latin Modern OTF fonts,
+  # XeTeX will fail at the very first \normalsize in the document class.
+  local lm_otf_dir="${OUTPUT_DIR}/texmf-dist/fonts/opentype/public/lm"
+  local lm_count=0
+  [[ -d "${lm_otf_dir}" ]] && lm_count="$(find "${lm_otf_dir}" -name '*.otf' | wc -l)"
+  if [[ "${lm_count}" -lt 1 ]]; then
+    die "Latin Modern OTF fonts missing from output tree (${lm_otf_dir}). Install fonts-lmodern (Debian) or ensure the lm font package is available under TEXLIVE_ROOT."
+  fi
+  log "verified ${lm_count} Latin Modern OTF files in output tree"
 
   local size_mb
   size_mb="$(du -sm "${OUTPUT_DIR}" | awk '{print $1}')"

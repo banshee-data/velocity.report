@@ -34,8 +34,8 @@ Geographic referencing of LiDAR data is **optional but valuable** for:
 Without GPS, the system operates normally in sensor-local coordinates:
 
 - **L3 Background Grid**: Foreground/background separation — no GPS needed
-- **L4 Ground Plane (Tier 1)**: Local scene tiles settle from LiDAR returns in sensor frame — no GPS needed
-- **L4 Clustering**: Height-above-ground queries via `GroundSurface` interface — no GPS needed
+- **L4 Ground Removal**: `HeightBandFilter` removes ground returns via Z-band gating — no GPS needed
+- **L4 Clustering**: DBSCAN clustering and OBB extraction — no GPS needed
 - **L5 Tracking / L6 Classification**: Multi-frame identity and object classes — no GPS needed
 - **All PCAP analysis**: Full pipeline replay with CSV/JSON/training exports — no GPS needed
 

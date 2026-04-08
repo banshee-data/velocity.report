@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -150,6 +151,18 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
 	outputDir := fmt.Sprintf("output/%s", runID)
+
+	// Pre-create the output directory relative to the PDF generator dir.
+	// The Python subprocess also calls os.makedirs, but creating it here
+	// with the Go process's permissions avoids PermissionError when the
+	// pdf-generator tree is owned by root on deployed systems.
+	pdfDirEarly, err := getPDFGeneratorDir()
+	if err == nil {
+		absOutputDir := filepath.Join(pdfDirEarly, outputDir)
+		if mkErr := os.MkdirAll(absOutputDir, 0755); mkErr != nil {
+			log.Printf("Warning: could not pre-create output directory %s: %v", absOutputDir, mkErr)
+		}
+	}
 
 	// Create a config JSON for the PDF generator
 	// Note: Not setting file_prefix - let Python auto-generate from source + date range
@@ -314,6 +327,13 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 		log.Printf("PDF generator output:\n%s", string(output))
 	}
 
+	if outputIndicatesReportFailure(string(output)) {
+		log.Printf("PDF generation output contained failure markers despite zero exit status")
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "PDF generation failed: report compiler indicated failure")
+		return
+	}
+
 	// Sanitize user-provided values to prevent path traversal attacks
 	safeEndDate := security.SanitizeFilename(req.EndDate)
 	safeLocation := security.SanitizeFilename(location)
@@ -416,4 +436,25 @@ func getPDFGeneratorDir() (string, error) {
 		return "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 	return filepath.Join(repoRoot, "tools", "pdf-generator"), nil
+}
+
+func outputIndicatesReportFailure(output string) bool {
+	if output == "" {
+		return false
+	}
+
+	lowerOutput := strings.ToLower(output)
+	failureMarkers := []string{
+		"failed to complete report for",
+		"error: failed to generate pdf report",
+		"one or more date ranges failed to generate a complete pdf report",
+	}
+
+	for _, marker := range failureMarkers {
+		if strings.Contains(lowerOutput, marker) {
+			return true
+		}
+	}
+
+	return false
 }

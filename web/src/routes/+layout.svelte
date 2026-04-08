@@ -21,7 +21,6 @@
 		settings
 	} from 'svelte-ux';
 
-	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { discord } from '$lib/icons';
 	import {
@@ -29,6 +28,7 @@
 		startCapabilitiesPolling,
 		stopCapabilitiesPolling
 	} from '$lib/stores/capabilities';
+	import { onDestroy, onMount } from 'svelte';
 
 	import './app.css';
 
@@ -61,6 +61,9 @@
 						before:absolute before:bg-primary before:rounded-full \
 						before:w-1 before:h-2/3 before:left-[6px]'
 				}
+			},
+			Field: {
+				labelPlacement: 'top'
 			},
 			Table: {
 				classes: {

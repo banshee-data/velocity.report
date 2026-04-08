@@ -674,7 +674,9 @@ class TestProcessDateRange(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config.output.output_dir = tmpdir
-            process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+            result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+
+        self.assertTrue(result)
 
         mock_assemble.assert_called_once()
 
@@ -694,7 +696,8 @@ class TestProcessDateRange(unittest.TestCase):
         mock_client = MagicMock()
         mock_fetch.return_value = ([], None, None, None)
 
-        process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+        result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+        self.assertFalse(result)
 
     @patch("pdf_generator.cli.main.assemble_pdf_report")
     @patch("pdf_generator.cli.main.generate_all_charts")
@@ -736,7 +739,9 @@ class TestProcessDateRange(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config.output.output_dir = tmpdir
-            process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+            result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+
+        self.assertTrue(result)
 
     @patch("pdf_generator.cli.main.assemble_pdf_report")
     @patch("pdf_generator.cli.main.generate_all_charts")
@@ -778,7 +783,9 @@ class TestProcessDateRange(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config.output.output_dir = tmpdir
-            process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+            result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+
+        self.assertTrue(result)
 
 
 class TestMainEntrypoint(unittest.TestCase):
@@ -823,7 +830,9 @@ class TestMainEntrypoint(unittest.TestCase):
         # parse_date_range with None timezone should still work
         with patch("pdf_generator.cli.main.fetch_granular_metrics") as mock_fetch:
             mock_fetch.return_value = ([], None, None, None)
-            process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+            result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+
+        self.assertFalse(result)
 
 
 class TestComputeIsoTimestampsExtended(unittest.TestCase):
@@ -854,9 +863,11 @@ class TestMainFunction(unittest.TestCase):
         config = ReportConfig()
         config.query.units = "kph"
         config.query.timezone = "US/Pacific"
+        mock_process.return_value = True
 
-        main([("2025-01-01", "2025-01-31")], config)
+        result = main([("2025-01-01", "2025-01-31")], config)
         mock_process.assert_called_once()
+        self.assertTrue(result)
 
     @patch("pdf_generator.cli.main.process_date_range")
     @patch("pdf_generator.cli.main.RadarStatsClient")
@@ -866,8 +877,13 @@ class TestMainFunction(unittest.TestCase):
 
         config = ReportConfig()
         config.query.units = "mph"
-        main([("2025-01-01", "2025-01-31"), ("2025-02-01", "2025-02-28")], config)
+        mock_process.side_effect = [True, False]
+        result = main(
+            [("2025-01-01", "2025-01-31"), ("2025-02-01", "2025-02-28")],
+            config,
+        )
         self.assertEqual(mock_process.call_count, 2)
+        self.assertFalse(result)
 
 
 class TestDeriveFromGranularEdgeCases(unittest.TestCase):
@@ -1017,7 +1033,9 @@ class TestProcessDateRangeDebugPaths(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config.output.output_dir = tmpdir
-            process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+            result = process_date_range("2025-01-01", "2025-01-31", config, mock_client)
+
+        self.assertTrue(result)
 
     def test_invalid_dates(self):
         """Test process_date_range with invalid dates."""
@@ -1029,7 +1047,8 @@ class TestProcessDateRangeDebugPaths(unittest.TestCase):
         mock_client = MagicMock()
 
         # Invalid date format should return early
-        process_date_range("not-a-date", "also-not", config, mock_client)
+        result = process_date_range("not-a-date", "also-not", config, mock_client)
+        self.assertFalse(result)
 
 
 class TestNextSequencedPrefixEdge(unittest.TestCase):

@@ -47,11 +47,10 @@ Python: `tex_environment.py` (87.5%), `zip_utils.py` (86.4%).
 
 ## cmd/ Logic Extraction Strategy
 
-| Package      | Testable LOC | Target `internal/` | Priority |
-| ------------ | ------------ | ------------------ | -------- |
-| `cmd/deploy` | ~2,500       | `internal/deploy`  | HIGH     |
-| `cmd/radar`  | ~200         | `internal/config`  | MEDIUM   |
-| `cmd/tools`  | ~65          | `internal/db`      | MEDIUM   |
+| Package     | Testable LOC | Target `internal/` | Priority |
+| ----------- | ------------ | ------------------ | -------- |
+| `cmd/radar` | ~200         | `internal/config`  | MEDIUM   |
+| `cmd/tools` | ~65          | `internal/db`      | MEDIUM   |
 
 Extraction: Move business-logic types into `internal/`, keep only flag
 parsing and `main()` in `cmd/`. Write unit tests against extracted code.
@@ -87,5 +86,5 @@ parsing and `main()` in `cmd/`. Write unit tests against extracted code.
 1. **Phase 1 (weeks 1–2):** `internal/config` accessors + all Tier 1.
 2. **Phase 2 (weeks 2–4):** `internal/db`, `internal/api`, lidar
    sub-packages, Python Tier 2.
-3. **Phase 3 (weeks 4–8):** `cmd/deploy` extraction, `cmd/radar`
+3. **Phase 3 (weeks 4–8):** `cmd/radar`
    extraction, macOS Swift, Python Tier 3.

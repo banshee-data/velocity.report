@@ -5,6 +5,8 @@
 - **Related:** [Classification Maths](../../data/maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 - **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
+The codebase carried two overlapping enum-like vocabularies for track classification — one from the classifier, one from the labelling UI — with inconsistent string values that broke comparison logic. This plan unified them under a single proto3 `ObjectClass` enum and now tracks the remaining split: separating display-only labels (truck, motorcyclist) from user-selectable labels in the labelling UI.
+
 ## Problem (resolved)
 
 The codebase had **two independent enum-like vocabularies** for track

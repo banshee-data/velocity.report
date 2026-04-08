@@ -171,11 +171,11 @@ $$L(f \mid z_{1:t}) = L(f \mid z_{1:t-1}) + \log\frac{P(z_t \mid f)}{P(z_t \mid 
 
 This is the same occupancy-grid update used in OctoMap (Hornung et al., 2013) but applied to vector features rather than voxels. Each feature carries an observation count $N$ and accumulated log-odds confidence $L$.
 
-**Related maths docs:** [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) (L4 surface estimation).
+**Related maths docs:** [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) (L4 ground removal — production uses `HeightBandFilter`; tile-based surface estimation is planned, see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)).
 
 ### 3.2 Canonical object refinement — running sufficient statistics
 
-When L5 tracks are promoted to L7 canonical objects, their geometry is refined using streaming Welford updates (identical to the L4 ground-plane estimator):
+When L5 tracks are promoted to L7 canonical objects, their geometry is refined using streaming Welford updates (same Welford algorithm proposed for the planned L4 ground-plane estimator):
 
 $$\mu_{n+1} = \mu_n + \frac{\delta}{n+1}, \quad C_{n+1} = C_n + \delta \cdot (x_{n+1} - \mu_{n+1})^T$$
 
@@ -240,15 +240,15 @@ L7 constrained path probability distribution
 
 "Cluster expected to touch ground plane" and "height above ground / base clamped" are instances of typed spatial relationships between features of different classes. The set of these relationships forms a scene graph.
 
-**Per-frame queries (L4 — stateless):**
+**Per-frame queries (L4 — stateless, planned):**
 
-L4 owns the primitive geometric queries that run every frame:
+L4 would own the primitive geometric queries that run every frame. Currently, ground removal uses a simple `HeightBandFilter` (fixed Z-band gating). The queries below require the planned `GroundSurface` interface (see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)):
 
 - `GroundSurface.QueryHeightAboveGround(x, y, z)` — point height relative to local ground
 - Per-frame ground-contact check: "is this cluster's lowest point within 20 cm of the ground surface?"
 - Base-Z clamping during cluster extraction: `cluster.BaseZ = max(clusterMinZ, groundZ)`
 
-These are stateless and do not require accumulated geometry or cross-frame state.
+These would be stateless and would not require accumulated geometry or cross-frame state.
 
 **Accumulated relationships (L7 — stateful):**
 

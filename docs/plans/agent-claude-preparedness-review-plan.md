@@ -57,7 +57,7 @@ All phases are complete. The canonical reference for the architecture, file tree
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Layer 0: PROJECT TENETS                            │
-│  .github/TENETS.md                                  │
+│  TENETS.md                                          │
 │  Privacy · No PII · No cameras · No black-box AI   │
 │  Defendable · Provable · Trustworthy                │
 │  ← Every agent, every tool inherits this            │
@@ -524,7 +524,7 @@ This is another reason to keep reusable runbooks out of agent bodies.
 >
 > All deliverables created:
 >
-> - `.github/TENETS.md` — 34 lines, 7 tenets ranked by precedence
+> - `TENETS.md` — 34 lines, 7 tenets ranked by precedence
 > - `.github/knowledge/architecture.md` — 125 lines (tech stack, data flow, schema, repo structure)
 > - `.github/knowledge/build-and-test.md` — 94 lines (setup, quality gate, testing, dev servers)
 > - `.github/knowledge/coding-standards.md` — 81 lines (British English, commit prefixes, paths, formatting)
@@ -537,7 +537,7 @@ This is another reason to keep reusable runbooks out of agent bodies.
 >
 > **Total:** 832 lines across 10 files. `copilot-instructions.md` reduced by 68%.
 
-1. Create `.github/TENETS.md` — project constitution (~30 lines)
+1. Create `TENETS.md` — project constitution (~30 lines)
 2. Create `.github/knowledge/` directory with extracted modules:
    - `build-and-test.md` — make targets, dev servers, venv, test commands
    - `architecture.md` — tech stack, DB, data flow, deployment target
@@ -704,7 +704,7 @@ scripts/
 └── check-agent-drift.sh                # Drift detection between paired definitions
 ```
 
-**Shared knowledge:** `.github/TENETS.md` and `.github/knowledge/` are the single source of truth for project facts — referenced by both Copilot and Claude agent definitions.
+**Shared knowledge:** `TENETS.md` and `.github/knowledge/` are the single source of truth for project facts — referenced by both Copilot and Claude agent definitions.
 **Persona duplication:** Agent methodology, coordination rules, and forbidden actions are duplicated across `.github/agents/` and `.claude/agents/`. Drift is detected weekly by `scripts/check-agent-drift.sh`.
 **Workflow single-sourcing:** Reusable procedures live in `.claude/skills/`. Copilot prompt files are optional wrappers, not second copies of the runbook.
 

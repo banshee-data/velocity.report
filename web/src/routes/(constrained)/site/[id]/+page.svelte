@@ -11,19 +11,22 @@
 		type SiteConfigPeriod
 	} from '$lib/api';
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
-	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
-	import { onMount } from 'svelte';
-	import { Button, Card, Header, TextField } from 'svelte-ux';
+	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
+	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
+	import { onMount, tick } from 'svelte';
+	import { Button, Card, Header, Notification, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
 	let loading = true;
 	let error = '';
 	let saveError = '';
+	let saving = false;
 	let periodsError = '';
 	let savingPeriod = false;
 	let configPeriods: SiteConfigPeriod[] = [];
 	let unconfiguredPeriods: Array<{ start_unix: number; end_unix: number }> = [];
+	let saveErrorEl: HTMLDivElement;
 
 	// Form fields
 	let formData = {
@@ -41,7 +44,9 @@
 		bbox_ne_lng: null as number | null,
 		bbox_sw_lat: null as number | null,
 		bbox_sw_lng: null as number | null,
-		map_svg_data: null as string | null
+		map_svg_data: null as string | null,
+		radar_svg_x: null as number | null,
+		radar_svg_y: null as number | null
 	};
 
 	let formErrors: Record<string, string> = {};
@@ -51,7 +56,7 @@
 		id: null as number | null,
 		start: '',
 		end: '',
-		angle: 0,
+		angle: 5,
 		notes: '',
 		is_active: false
 	};
@@ -93,7 +98,9 @@
 				bbox_ne_lng: site.bbox_ne_lng || null,
 				bbox_sw_lat: site.bbox_sw_lat || null,
 				bbox_sw_lng: site.bbox_sw_lng || null,
-				map_svg_data: site.map_svg_data || null
+				map_svg_data: site.map_svg_data || null,
+				radar_svg_x: site.radar_svg_x ?? null,
+				radar_svg_y: site.radar_svg_y ?? null
 			};
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load site details.';
@@ -124,22 +131,17 @@
 	}
 
 	function toUnixSeconds(value: string): number | null {
-		if (!value) return null;
-		const parsed = new Date(value).getTime();
-		if (Number.isNaN(parsed)) return null;
-		return Math.floor(parsed / 1000);
+		return fromDatetimeLocalToUnixSeconds(value);
 	}
+
+	const DEFAULT_COSINE_ERROR_ANGLE_DEG = 5;
 
 	function editPeriod(period: SiteConfigPeriod) {
 		periodForm = {
 			id: period.id ?? null,
-			start: period.effective_start_unix
-				? new Date(period.effective_start_unix * 1000).toISOString().slice(0, 16)
-				: '',
-			end: period.effective_end_unix
-				? new Date(period.effective_end_unix * 1000).toISOString().slice(0, 16)
-				: '',
-			angle: period.cosine_error_angle ?? 0,
+			start: period.effective_start_unix ? toDatetimeLocalValue(period.effective_start_unix) : '',
+			end: period.effective_end_unix ? toDatetimeLocalValue(period.effective_end_unix) : '',
+			angle: period.cosine_error_angle ?? DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: period.notes ?? '',
 			is_active: period.is_active
 		};
@@ -150,7 +152,7 @@
 			id: null,
 			start: '',
 			end: '',
-			angle: 0,
+			angle: DEFAULT_COSINE_ERROR_ANGLE_DEG,
 			notes: '',
 			is_active: false
 		};
@@ -237,6 +239,7 @@
 		}
 
 		saveError = '';
+		saving = true;
 
 		try {
 			const siteData = {
@@ -254,7 +257,9 @@
 				bbox_ne_lng: formData.bbox_ne_lng,
 				bbox_sw_lat: formData.bbox_sw_lat,
 				bbox_sw_lng: formData.bbox_sw_lng,
-				map_svg_data: formData.map_svg_data
+				map_svg_data: formData.map_svg_data,
+				radar_svg_x: formData.radar_svg_x,
+				radar_svg_y: formData.radar_svg_y
 			};
 
 			if (isNewSite) {
@@ -266,6 +271,11 @@
 			goto(resolve('/site'));
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Could not save site changes.';
+			// Scroll the error into view after the DOM updates
+			await tick();
+			saveErrorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		} finally {
+			saving = false;
 		}
 	}
 
@@ -309,9 +319,20 @@
 	{:else}
 		<div class="max-w-3xl space-y-6">
 			{#if saveError}
-				<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
-					<strong>Save Error:</strong>
-					{saveError}
+				<div bind:this={saveErrorEl}>
+					<Notification
+						color="danger"
+						open
+						icon={mdiAlert}
+						classes={{
+							root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+							title: 'text-red-800 dark:text-red-200',
+							description: 'text-red-700 dark:text-red-300'
+						}}
+					>
+						<span slot="title">Save Failed</span>
+						<span slot="description">{saveError}</span>
+					</Notification>
 				</div>
 			{/if}
 
@@ -319,20 +340,21 @@
 			<Card>
 				<div class="space-y-4 p-6">
 					<h3 class="text-lg font-semibold">Basic Information</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<TextField
+							bind:value={formData.name}
+							label="Site Name"
+							required
+							error={formErrors.name}
+						/>
 
-					<TextField
-						bind:value={formData.name}
-						label="Site Name"
-						required
-						error={formErrors.name}
-					/>
-
-					<TextField
-						bind:value={formData.location}
-						label="Location"
-						required
-						error={formErrors.location}
-					/>
+						<TextField
+							bind:value={formData.location}
+							label="Location"
+							required
+							error={formErrors.location}
+						/>
+					</div>
 				</div>
 			</Card>
 
@@ -340,20 +362,21 @@
 			<Card>
 				<div class="space-y-4 p-6">
 					<h3 class="text-lg font-semibold">Contact Information</h3>
+					<div class="grid grid-cols-2 gap-4">
+						<TextField
+							bind:value={formData.surveyor}
+							label="Surveyor"
+							required
+							error={formErrors.surveyor}
+						/>
 
-					<TextField
-						bind:value={formData.surveyor}
-						label="Surveyor"
-						required
-						error={formErrors.surveyor}
-					/>
-
-					<TextField
-						bind:value={formData.contact}
-						label="Contact"
-						required
-						error={formErrors.contact}
-					/>
+						<TextField
+							bind:value={formData.contact}
+							label="Contact"
+							required
+							error={formErrors.contact}
+						/>
+					</div>
 				</div>
 			</Card>
 
@@ -385,6 +408,8 @@
 						bind:bboxSWLng={formData.bbox_sw_lng}
 						bind:mapSvgData={formData.map_svg_data}
 						bind:includeMap={formData.include_map}
+						bind:radarSvgX={formData.radar_svg_x}
+						bind:radarSvgY={formData.radar_svg_y}
 					/>
 				</div>
 			</Card>
@@ -405,19 +430,46 @@
 						{/if}
 
 						<div class="grid gap-4 md:grid-cols-2">
-							<TextField
-								bind:value={periodForm.start}
-								label="Start time"
-								type="text"
-								required
-								error={periodFormErrors.start}
-							/>
-							<TextField
-								bind:value={periodForm.end}
-								label="End time (optional)"
-								type="text"
-								error={periodFormErrors.end}
-							/>
+							<div>
+								<label class="mb-1 block text-sm font-medium" for="period-start">Start time *</label
+								>
+								<input
+									id="period-start"
+									type="datetime-local"
+									bind:value={periodForm.start}
+									required
+									aria-invalid={periodFormErrors.start ? 'true' : undefined}
+									aria-describedby={periodFormErrors.start ? 'period-start-error' : undefined}
+									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.start
+										? 'border-red-500'
+										: 'border-surface-300'}"
+								/>
+								{#if periodFormErrors.start}
+									<p id="period-start-error" class="mt-1 text-xs text-red-600">
+										{periodFormErrors.start}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-medium" for="period-end"
+									>End time (optional)</label
+								>
+								<input
+									id="period-end"
+									type="datetime-local"
+									bind:value={periodForm.end}
+									aria-invalid={periodFormErrors.end ? 'true' : undefined}
+									aria-describedby={periodFormErrors.end ? 'period-end-error' : undefined}
+									class="w-full rounded border px-3 py-2 text-sm {periodFormErrors.end
+										? 'border-red-500'
+										: 'border-surface-300'}"
+								/>
+								{#if periodFormErrors.end}
+									<p id="period-end-error" class="mt-1 text-xs text-red-600">
+										{periodFormErrors.end}
+									</p>
+								{/if}
+							</div>
 							<TextField
 								bind:value={periodForm.angle}
 								label="Cosine Error Angle (degrees)"
@@ -497,9 +549,15 @@
 
 			<!-- Actions -->
 			<div class="flex justify-end gap-2">
-				<Button on:click={handleCancel} variant="outline">Cancel</Button>
-				<Button on:click={handleSave} icon={mdiContentSave} variant="fill" color="primary">
-					{isNewSite ? 'Create Site' : 'Save Changes'}
+				<Button on:click={handleCancel} variant="outline" disabled={saving}>Cancel</Button>
+				<Button
+					on:click={handleSave}
+					icon={mdiContentSave}
+					variant="fill"
+					color="primary"
+					disabled={saving}
+				>
+					{saving ? 'Saving…' : isNewSite ? 'Create Site' : 'Save Changes'}
 				</Button>
 			</div>
 		</div>
