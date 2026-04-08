@@ -19,12 +19,21 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Quarter-block characters: ▖▗▘▙▚▛▜▝▞▟ (U+2596 through U+259F)
+# Quarter-block characters: U+2596 through U+259F
+# (The pattern itself is built from a literal character class so grep
+# can match without needing \u escapes.  The lint correctly skips this
+# script via the self-exclusion below.)
 QUARTER_BLOCKS='[▖▗▘▙▚▛▜▝▞▟]'
+
+SELF="scripts/check-quarter-blocks.sh"
 
 found=0
 
 while IFS= read -r file; do
+    rel="${file#"$REPO_ROOT"/}"
+    # Skip this script — it necessarily contains the characters it checks for.
+    [[ "$rel" == "$SELF" ]] && continue
+
     # Search for quarter-block characters with line numbers
     if grep -n "$QUARTER_BLOCKS" "$file" > /dev/null 2>&1; then
         grep -n "$QUARTER_BLOCKS" "$file" | while IFS= read -r match; do
@@ -43,9 +52,9 @@ done < <(
 
 if [[ "$found" -eq 1 ]]; then
     echo ""
-    echo "Quarter-block characters (▖▗▘▙▚▛▜▝▞▟) do not render on the"
-    echo "Raspberry Pi console font.  Use only full blocks (█), half"
-    echo "blocks (▀ ▄ ▌ ▐), shade blocks (░ ▒ ▓), or box-drawing instead."
+    echo "Quarter-block characters (U+2596-U+259F) do not render on the"
+    echo "Raspberry Pi console font.  Use only full blocks, half blocks,"
+    echo "shade blocks, or box-drawing characters instead."
     if [[ "$REPORT_MODE" == true ]]; then
         exit 0
     fi
