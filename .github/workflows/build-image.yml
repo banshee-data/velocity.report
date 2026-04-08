@@ -29,40 +29,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install ARM64 cross-compilation tools
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            libpcap-dev:arm64 \
-            pkg-config
-
-      - name: Build velocity-report (ARM64, pcap-enabled)
+      - name: Build ARM64 binaries via Docker
+        # Uses image/Dockerfile.build (Debian bookworm + multiarch) to avoid
+        # the Ubuntu 24.04 apt-sources gap where libpcap-dev:arm64 is not
+        # available without manually adding ports.ubuntu.com/ubuntu-ports.
         run: |
           VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
-          CGO_ENABLED=1 \
-          CC=aarch64-linux-gnu-gcc \
-          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
-          GOOS=linux GOARCH=arm64 \
-          go build -tags pcap \
-            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION#v}'" \
-            -o velocity-report-arm64 \
-            ./cmd/radar/
+          VERSION="${VERSION#v}"
+          GIT_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-      - name: Build velocity-ctl (ARM64)
-        run: |
-          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
-          GOOS=linux GOARCH=arm64 \
-          go build \
-            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION#v}'" \
-            -o velocity-ctl-arm64 \
-            ./cmd/velocity-ctl/
+          docker build \
+            --platform linux/amd64 \
+            -f image/Dockerfile.build \
+            --build-arg VERSION="$VERSION" \
+            --build-arg GIT_SHA="$GIT_SHA" \
+            --build-arg BUILD_TIME="$BUILD_TIME" \
+            -t velocity-builder \
+            .
+
+          CONTAINER_ID=$(docker create velocity-builder)
+          docker cp "$CONTAINER_ID:/out/velocity-report" velocity-report-arm64
+          docker cp "$CONTAINER_ID:/out/velocity-ctl"    velocity-ctl-arm64
+          docker rm "$CONTAINER_ID"
+          chmod +x velocity-report-arm64 velocity-ctl-arm64
 
       - uses: actions/upload-artifact@v4
         with:
