@@ -65,3 +65,11 @@ Avoid. When tempted, reach for:
 - **Active voice:** prefer it. `The service records speeds` not `Speeds are recorded by the service`.
 - **Sentence length:** short sentences do the work. Medium sentences explain. Long sentences earn their keep or get split.
 - **Hedging:** do not. Say what is true. `The data do not support this` not `some might argue the data could potentially suggest otherwise`.
+
+## Dates and Timestamps
+
+**Machine timestamps:** UTC ISO 8601 with trailing `Z`. Example: `2026-04-07T14:32:08Z`. Applies to build metadata, log output, generated files, persisted JSON, and git date attribution. Never use local time for machine-written timestamps.
+
+**Human-readable dates:** `Month DD, YYYY` (e.g. `April 7, 2026`). Used in devlog headers and release notes. Derived from the UTC date of the event.
+
+See `coding-standards.md` for the full rule.

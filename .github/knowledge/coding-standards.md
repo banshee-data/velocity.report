@@ -104,6 +104,28 @@ Code formatting is automated. Run `make format` before committing. Per-language:
 | Python      | `black` + `ruff` | `make format-python` |
 | Web (JS/TS) | `prettier`       | `make format-web`    |
 
+## Timestamps
+
+All machine-generated timestamps must be **UTC ISO 8601** with a trailing `Z`:
+
+```
+2026-04-07T14:32:08Z
+```
+
+This applies to:
+
+- Build metadata (`VR_BUILD_TIME` in `/etc/velocity-report-build`)
+- Log output, CI artefacts, and generated reports
+- `savedAt` fields in persisted JSON (localStorage, config snapshots)
+- Git date attribution when assigning commits to devlog calendar days
+- Any tooling or script that stamps a time into a file or output
+
+**Do not use local time for machine timestamps.** Local time introduces ambiguity: a PR merged at `2026-03-31T02:01:38Z` is March 30 in Pacific time but March 31 in UTC. The devlog, build stamps, and all tooling use UTC to avoid this confusion.
+
+**Human-readable dates** in prose (devlog headers, release notes) use `Month DD, YYYY` (e.g. `April 7, 2026`) and are derived from the UTC date of the commit or merge event.
+
+**Internal API timestamps** use Unix nanoseconds (`int64`) as documented in the visualiser API contracts. This is a separate convention for wire formats, not for human-readable or file-stamped timestamps.
+
 ## Configuration
 
 Configuration is JSON, version-tagged (`v2`), and validated at load time. See `config/README.md` for the schema. Do not add CLI flags for values that belong in the tuning file.
