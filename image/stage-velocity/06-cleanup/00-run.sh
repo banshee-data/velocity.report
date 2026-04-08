@@ -229,7 +229,7 @@ apt-get autoremove --purge -y 2>/dev/null || true
 # have been swept despite our section-0 protection.  Detect and
 # reinstall anything that went missing.  The apt lists are still
 # present so apt-get install can fetch packages.
-CRITICAL_PKGS="network-manager raspberrypi-sys-mods raspi-config"
+CRITICAL_PKGS="network-manager raspberrypi-sys-mods raspi-config librsvg2-bin"
 MISSING=""
 for pkg in $CRITICAL_PKGS; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
