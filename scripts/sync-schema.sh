@@ -145,8 +145,15 @@ for table in $(sqlite3 "$TEMP_DB" "SELECT name FROM sqlite_master WHERE type='ta
 
         # Generate INSERT OR IGNORE with explicit columns (so time defaults apply at runtime).
         # sqlite3 .mode insert omits quotes around the table name, so match unquoted.
+        # Use awk for the substitution to avoid regex-escaping issues with sed.
         sqlite3 "$TEMP_DB" ".mode insert $table" "SELECT $COLS FROM \"$table\"" |
-            sed "s/INSERT INTO $table VALUES/INSERT OR IGNORE INTO \"$table\" ($COLS) VALUES/" >> "$TEMP_FIXTURES"
+            awk -v tbl="$table" -v cols="$COLS" '{
+                old = "INSERT INTO " tbl " VALUES"
+                new = "INSERT OR IGNORE INTO \"" tbl "\" (" cols ") VALUES"
+                idx = index($0, old)
+                if (idx) print substr($0, 1, idx-1) new substr($0, idx+length(old))
+                else print
+            }' >> "$TEMP_FIXTURES"
         FIXTURE_COUNT=$((FIXTURE_COUNT + 1))
     fi
 done
