@@ -909,28 +909,27 @@
 				{/if}
 			</p>
 
-			<!-- Replace uploaded SVG -->
-			<Button
-				variant="fill"
-				color="danger"
-				icon={mdiDelete}
-				on:click={() => (showReplaceMapModal = true)}
-				classes={{ root: 'w-full' }}
-			>
-				Remove Map
-			</Button>
-
-			<!-- Angle stepper for custom SVG mode -->
-			<div class="flex items-center gap-4">
-				<p class="text-surface-600-300-token text-sm">Map Angle</p>
-				<NumberStepper
-					bind:value={localAngle}
-					step={1}
-					class="w-32"
-					on:change={(e) => setAngle(e.detail.value)}
+			<!-- Angle stepper and remove button for custom SVG mode -->
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-4">
+					<p class="text-surface-600-300-token text-sm">Angle</p>
+					<NumberStepper
+						bind:value={localAngle}
+						step={1}
+						class="w-32"
+						on:change={(e) => setAngle(e.detail.value)}
+					>
+						<span slot="suffix">°</span>
+					</NumberStepper>
+				</div>
+				<Button
+					variant="outline"
+					color="danger"
+					icon={mdiDelete}
+					on:click={() => (showReplaceMapModal = true)}
 				>
-					<span slot="suffix">°</span>
-				</NumberStepper>
+					Remove Map
+				</Button>
 			</div>
 		</div>
 	{:else}
