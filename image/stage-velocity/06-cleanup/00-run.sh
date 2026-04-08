@@ -42,7 +42,7 @@ apt-mark manual \
     libpcap0.8 \
     openssh-server openssh-client openssh-sftp-server ssh \
     systemd systemd-sysv systemd-timesyncd \
-    network-manager libbluetooth3 \
+    network-manager libnm0 libndp0 libbluetooth3 \
     isc-dhcp-client isc-dhcp-common \
     iproute2 iputils-ping net-tools \
     wpasupplicant iw rfkill wireless-regdb \
@@ -220,6 +220,28 @@ apt-get purge -y \
 # 12. Cascade removal and cache clean
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
+
+# -------------------------------------------------------------------
+# 13. Verify critical runtime packages survived the purge cascade
+# -------------------------------------------------------------------
+# apt-get purge -y cascades through Depends regardless of apt-mark
+# manual.  If an indirect dependency was purged, NM (or others) may
+# have been swept despite our section-0 protection.  Detect and
+# reinstall anything that went missing.  The apt lists are still
+# present so apt-get install can fetch packages.
+CRITICAL_PKGS="network-manager raspberrypi-sys-mods raspi-config"
+MISSING=""
+for pkg in $CRITICAL_PKGS; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+        MISSING="$MISSING $pkg"
+    fi
+done
+if [ -n "$MISSING" ]; then
+    echo ">>> Critical packages removed by cascade — reinstalling:$MISSING"
+    apt-get update -qq
+    apt-get install -y $MISSING
+fi
+
 apt-get clean
 # Do NOT remove /var/lib/apt/lists/ — pi-gen's export-image stage
 # installs userconf-pi after this and needs the package index.
