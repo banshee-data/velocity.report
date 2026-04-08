@@ -1080,7 +1080,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
@@ -1100,7 +1100,10 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
-lint-docs: check-mermaid check-quarter-blocks ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, relative links, backtick paths, and quarter-block chars
+check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSON files against download URLs
+	@python3 scripts/check-release-hashes.py --check
+
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, relative links, backtick paths, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 	@python3 scripts/check-relative-links.py
