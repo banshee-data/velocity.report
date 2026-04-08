@@ -94,21 +94,29 @@ All devlog text must follow the project writing conventions in `.github/STYLE.md
 
 ## Procedure
 
-### 1. Read the current devlog
+### 1. Fetch remote refs
+
+Always fetch before scanning so that branch tips are current:
 
 ```bash
-head -20 docs/DEVLOG.md
+git fetch --quiet --all
 ```
 
-Identify the date of the most recent entry. This is the **anchor date**.
+### 2. Read the current devlog
 
-### 2. Determine the scan window
+```bash
+head -80 docs/DEVLOG.md
+```
+
+Identify the date and full bullet list of the most recent entry. This is the **anchor entry**. Its date is the **anchor date**. Read enough of the file to capture at least the 3 most recent entries (they are needed for gap-fill in step 6).
+
+### 3. Determine the scan window
 
 Calculate `start_date` = anchor date minus 3 days (to catch any commits that landed just before or on the same day as the last entry but weren't captured).
 
 Calculate `end_date` = today.
 
-### 3. Gather git history
+### 4. Gather git history
 
 Fetch commits across **all branches** in the scan window:
 
@@ -131,22 +139,35 @@ git log origin/$branch --not origin/main --oneline --format="%h %ad %s" --date=s
 
 **Date attribution:** use the **UTC date** from `git log --date=iso-strict` or GitHub's `mergedAt` field. Do not convert to the author's local timezone. A commit at `2026-03-31T02:01:38Z` belongs to the March 31 entry, regardless of the author's local time. This matches the repo-wide timestamp convention in `coding-standards.md`.
 
-When scanning open PR branches, compare each branch's commits against the devlog to find uncaptured work. Add branch subsections to existing daily entries (see "Branch sections within a daily entry" above).
+When scanning open PR branches, compare each branch's commits against the devlog to find uncaptured work.
 
 When scanning merged PRs, verify each `(#NNN)` reference appears in the correct day's entry (by UTC date). A PR recorded under the wrong UTC date should be moved.
 
-### 4. Group commits by calendar day
+### 5. Group commits by calendar day
 
 For each day in the scan window that has commits:
 
 1. Identify which branches the commits are on (`main`, `copilot/*`, `codex/*`, etc.)
 2. Group related commits into themes (e.g. "RPi image hardening", "web frontend fixes", "documentation updates")
 3. For merged PRs on main, note the PR number
-4. Skip days that are already covered by existing devlog entries (compare against anchor date and prior entries)
 
-### 5. Synthesise entries
+### 6. Gap-fill existing entries
 
-For each new day (not already in the devlog), write an entry following the format reference above:
+For each day that **already has a devlog entry**, compare the full commit list for that day against the bullets already written. Look for commits whose work is not represented by any existing bullet.
+
+Common causes of gaps:
+
+- The entry was written mid-day and more commits landed later the same UTC day.
+- Commits on open PR branches were not scanned when the entry was first written.
+- A late-night session produced commits attributed to the same UTC date.
+
+For each uncovered commit (or group of related commits), synthesise new bullets following the format reference. **Append** these bullets to the end of the existing day's entry, before the next `## ` header. Preserve all existing bullets unchanged.
+
+If the gap-fill adds enough new content to make the theme title inaccurate, update the theme title to reflect the broader scope (e.g. `## April 7 - RPi Image` becomes `## April 7 - RPi Image, Shell Hardening & Map Editor`).
+
+### 7. Synthesise new-day entries
+
+For each day **not already in the devlog**, write an entry following the format reference above:
 
 - **Choose a theme title** that captures the day's primary focus area(s)
 - **Write 3-12 bullets** summarising the day's work, merging related commits into single bullets
@@ -156,29 +177,30 @@ For each new day (not already in the devlog), write an entry following the forma
 
 Do NOT copy commit messages verbatim. Synthesise them into coherent, human-readable summaries that describe _what was accomplished_ rather than _what was typed into git_.
 
-### 6. Check for overlap
+### 8. Check for overlap
 
-Before inserting new entries, verify they don't duplicate information already in the devlog. If the anchor entry partially covers a day, only add bullets for work not already documented.
+Before inserting or appending, verify the new bullets don't duplicate information already in the devlog. A commit is "covered" if an existing bullet describes the same change, even if the wording differs. When in doubt, skip the bullet rather than risk a duplicate.
 
-### 7. Insert entries
+### 9. Insert and amend
 
-Prepend new entries to `docs/DEVLOG.md` immediately after the `# Development Log` title line, in reverse chronological order (newest first). Do not modify existing entries.
+- **New-day entries:** prepend to `docs/DEVLOG.md` immediately after the `# Development Log` title line, in reverse chronological order (newest first).
+- **Gap-fill bullets:** append to the relevant existing entry, immediately before the blank line that precedes the next `## ` header. Do not reorder or rewrite existing bullets.
 
-### 8. Verify
+### 10. Verify
 
 ```bash
 # Check the file looks right
 head -80 docs/DEVLOG.md
 
 # Verify no duplicate date headers
-grep -E "^## |^- \*\*" docs/DEVLOG.md | head -20
+grep -c "^## " docs/DEVLOG.md
+grep "^## " docs/DEVLOG.md | sort | uniq -d
 ```
 
 ## Notes
 
 - This skill **writes** to `docs/DEVLOG.md`. It does not modify any other files.
-- Existing entries are never modified or deleted. New entries are prepended only.
-- If the scan window overlaps with existing entries, only add genuinely new information.
+- Existing bullets within an entry are never modified or deleted. New bullets may be **appended** to an existing entry to fill gaps, and the theme title may be broadened to reflect added content.
 - Commits on `backup/*` branches should be ignored (these are rescue snapshots, not development work).
 - Coverage-update commits (`Update coverage data`) should be ignored — they are automated.
 - When multiple branches have work on the same day, group by theme rather than by branch. Mention the branch in the metadata line.
