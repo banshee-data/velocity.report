@@ -72,7 +72,7 @@ def check_entry(
     if expected_size is not None:
         actual = head_size(url)
         if actual is None:
-            print(f"    size: SKIP (HEAD returned no Content-Length)")
+            print("    size: SKIP (HEAD returned no Content-Length)")
         elif actual != expected_size:
             msg = f"    size: FAIL (expected {expected_size}, got {actual})"
             print(msg)
@@ -84,7 +84,7 @@ def check_entry(
 
     # --- SHA256 ---
     if expected_sha and verify_sha:
-        print(f"    sha256: downloading …", end="", flush=True)
+        print("    sha256: downloading …", end="", flush=True)
         try:
             actual_sha = stream_sha256(url)
         except Exception as exc:
@@ -92,16 +92,16 @@ def check_entry(
             failures.append(f"{label}: download failed: {exc}")
             return failures
         if actual_sha != expected_sha:
-            print(f" FAIL")
+            print(" FAIL")
             print(f"      expected: {expected_sha}")
             print(f"      actual:   {actual_sha}")
             failures.append(f"{label}: SHA256 mismatch")
         else:
-            print(f" OK")
+            print(" OK")
     elif expected_sha:
-        print(f"    sha256: SKIP (pass --verify-sha to download and check)")
+        print("    sha256: SKIP (pass --verify-sha to download and check)")
     else:
-        print(f"    sha256: SKIP (no expected hash)")
+        print("    sha256: SKIP (no expected hash)")
 
     return failures
 
@@ -205,7 +205,7 @@ def main() -> int:
             all_failures.extend(failures)
 
     # --- cross-check: RPi image URL and size must agree between the two files ---
-    print(f"\n── cross-check: release.json ↔ os-list-velocity.json")
+    print("\n── cross-check: release.json ↔ os-list-velocity.json")
     if RELEASE_JSON.exists() and OS_LIST_JSON.exists():
         release = load_json(RELEASE_JSON)
         os_list = load_json(OS_LIST_JSON)
