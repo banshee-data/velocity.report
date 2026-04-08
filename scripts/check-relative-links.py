@@ -52,8 +52,7 @@ def find_markdown_files(root: Path) -> list[Path]:
             # whose relative links resolve against the repo root, not the
             # stage directory.  Only skip 'files/' under image/stage-*.
             and not (
-                d == "files"
-                and Path(dirpath).relative_to(root).parts[:1] == ("image",)
+                d == "files" and Path(dirpath).relative_to(root).parts[:1] == ("image",)
             )
         ]
         for fname in filenames:
