@@ -9,6 +9,9 @@ nginx
 # SVG to PDF conversion for map inclusion in reports
 librsvg2-bin
 
+# Emoji glyphs for map labels rendered via rsvg-convert / Pango
+fonts-noto-color-emoji
+
 # LaTeX — installed as build-time source for the minimal TeX Live tree.
 # Stage 00-install-packages/01-run.sh extracts only the files the PDF
 # generator requires (~143 MB) and then purges these apt packages.
