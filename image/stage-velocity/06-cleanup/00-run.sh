@@ -187,9 +187,11 @@ apt-mark manual \
     libpcap0.8 \
     openssh-server openssh-client openssh-sftp-server ssh \
     systemd systemd-sysv systemd-timesyncd \
+    network-manager \
     isc-dhcp-client isc-dhcp-common \
-    iproute2 iputils-ping \
+    iproute2 iputils-ping net-tools \
     wpasupplicant iw rfkill wireless-regdb \
+    firmware-brcm80211 raspberrypi-net-mods \
     raspi-config raspberrypi-sys-mods \
     raspi-firmware raspi-gpio \
     avahi-daemon \
