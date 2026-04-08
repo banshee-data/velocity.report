@@ -9,16 +9,12 @@
       "description": "Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit).",
       "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre1/2026-04-08-093248-velocity-report.img.xz",
       "extract_size": 2625634304,
-      "extract_sha256": "f6355be83d780be546d1d69e8d13c10ec3c79d0b5210de31116873f880ba812a",
+      "extract_sha256": "d2969f2d361fad20b04dbf33729f99b26d19d22d093850e96438829eeb1bcd73",
       "image_download_size": 402626132,
       "release_date": "2026-04-08",
       "icon": "https://velocity.report/img/icon-256.png",
       "init_format": "systemd",
-      "devices": [
-        "pi4-64bit",
-        "pi400-64bit",
-        "pi5-64bit"
-      ],
+      "devices": ["pi4-64bit", "pi400-64bit", "pi5-64bit"],
       "url_info": "https://velocity.report/guides/setup/"
     }
   ]
