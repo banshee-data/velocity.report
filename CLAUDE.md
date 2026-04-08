@@ -188,19 +188,10 @@ Skill definitions: `.claude/skills/*/SKILL.md`.
 
 ## Commit format
 
-```
-[prefix] Description of change
-```
-
-Prefixes: `[go]`, `[py]`, `[js]`, `[mac]`, `[docs]`, `[sh]`, `[sql]`, `[fs]`, `[tex]`, `[ci]`, `[make]`, `[cfg]`, `[ai]`
-
-AI-authored edits must include `[ai]` plus the language tag, e.g. `[ai][go]`.
+See `.github/knowledge/coding-standards.md` for the full prefix table and rules. AI edits always include `[ai]` plus the language tag.
 
 ## Key conventions
 
-- **Production paths** use hyphens: `/var/lib/velocity-report/sensor_data.db`, `/usr/local/bin/velocity-report`
-- **Python venv**: single shared `.venv/` at repo root — no per-tool venvs
-- **Documentation**: when changing functionality, update `README.md`, component READMEs, `ARCHITECTURE.md`, and `public_html/src/guides/setup.md` as relevant
-- **Doc metadata**: use bullet-list format (`- **Key:** value`); no date fields — they are linted and auto-removed
-- **Writing style**: British English (see `.github/STYLE.md`)
+See `.github/knowledge/coding-standards.md` for production paths, product names, version format, formatting rules, and documentation update policy.
+
 - **Speed percentiles** (`p85`, `p98`) are aggregate over a population of vehicle max speeds, not per-track observations

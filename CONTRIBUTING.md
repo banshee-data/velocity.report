@@ -409,15 +409,10 @@ See the [README](README.md) for the full story.
 
 ### Formatting
 
-Each language has a formatter. The formatters are not optional.
-
-| Language   | Formatter           |
-| ---------- | ------------------- |
-| Go         | `gofmt`             |
-| Python     | `black` + `ruff`    |
-| JavaScript | `prettier` + ESLint |
-
-Before committing, run all three:
+Each language has a formatter. The formatters are not
+optional. See
+[.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md#formatting)
+for the per-language table. Before committing, run all three:
 
 ```bash
 make format    # Auto-format everything
@@ -487,24 +482,12 @@ yet machines.
 [prefix] Description of change
 ```
 
-| Prefix   | Use                                                                    |
-| -------- | ---------------------------------------------------------------------- |
-| `[go]`   | Go code, server, APIs                                                  |
-| `[py]`   | Python (PDF generator, tools)                                          |
-| `[js]`   | JavaScript/TypeScript (SvelteKit, Vite)                                |
-| `[mac]`  | macOS files (Swift, Xcode)                                             |
-| `[docs]` | Documentation (Markdown, READMEs)                                      |
-| `[sh]`   | Shell scripts (Makefile, bash)                                         |
-| `[sql]`  | Database schema or migrations                                          |
-| `[fs]`   | Filesystem operations (moves, renames)                                 |
-| `[tex]`  | LaTeX/template changes                                                 |
-| `[ci]`   | CI/CD configuration (GitHub Actions)                                   |
-| `[make]` | Makefile changes                                                       |
-| `[git]`  | Git configuration or hooks                                             |
-| `[sed]`  | Find-and-replace across multiple files                                 |
-| `[cfg]`  | Configuration files (tsconfig, package.json, etc.)                     |
-| `[exe]`  | Machine-generated edits (e.g., npm install)                            |
-| `[ai]`   | AI-authored edits (Copilot/Codex): required alongside the language tag |
+The full prefix table lives in
+[.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md#allowed-prefixes).
+The short version: `[go]`, `[py]`, `[js]`, `[mac]`, `[docs]`,
+`[sh]`, `[sql]`, `[fs]`, `[tex]`, `[ci]`, `[make]`, `[git]`,
+`[sed]`, `[cfg]`, `[exe]`, `[ai]`. AI-authored edits always
+include `[ai]` alongside the language tag.
 
 Examples:
 
