@@ -22,7 +22,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
-- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: `S`
+- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
 
 ### v0.5.3 - Perception Pipeline + Algorithm Foundations (053)
 
