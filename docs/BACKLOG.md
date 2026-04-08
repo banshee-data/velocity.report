@@ -87,6 +87,11 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see `internal/ctl/manager.go` TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
+- macOS local server Phases 1–3: embed Go server binary in VelocityVisualiser.app bundle, add ServerProcessManager (start/stop/restart lifecycle), Server menu with status and keyboard shortcuts, build pipeline integration (`build-server-for-mac` Makefile target, Xcode bundled resource): [design doc](plans/macos-local-server-plan.md) `M`
+- macOS local server Phase 4: Login Item via `SMAppService.mainApp` for optional start-at-login with headless mode; "Start at Login" menu toggle; easy disable from System Settings: [design doc](plans/macos-local-server-plan.md) `S`
+- macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
+- VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
+- VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
 ## 07x Rebel Realm ⛰️
 
