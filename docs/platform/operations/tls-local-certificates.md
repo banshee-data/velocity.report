@@ -113,14 +113,14 @@ than the expected field life of a Raspberry Pi 4.
 
 ## Alternatives Considered
 
-| Alternative           | Rejected because                                                      |
-| --------------------- | --------------------------------------------------------------------- |
-| Let's Encrypt / ACME  | Requires a public domain and internet access. Violates local-first.   |
-| Tailscale HTTPS       | Adds a dependency and requires Tailscale account. Not for all users.  |
-| mkcert at build time  | Bakes a shared CA into every image. One leak compromises all devices. |
-| Reverse proxy (nginx) | Extra binary, extra config, extra failure mode. Avoidable burden.     |
-| Stay on plain HTTP    | Browser warnings erode trust and block modern web APIs.               |
-| Bare self-signed cert | Renewal forces user to re-accept. CA approach is strictly better.     |
+| Option                                 | Decision                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| Let's Encrypt / ACME                   | Rejected: requires a public domain and internet access. Violates local-first.   |
+| Tailscale HTTPS                        | Rejected: adds a dependency and requires Tailscale account. Not for all users.  |
+| mkcert at build time                   | Rejected: bakes a shared CA into every image. One leak compromises all devices. |
+| Reverse proxy (nginx, chosen approach) | Tradeoff: extra binary, extra config, extra failure mode.                       |
+| Stay on plain HTTP                     | Rejected: browser warnings erode trust and block modern web APIs.               |
+| Bare self-signed cert                  | Rejected: renewal forces user to re-accept. CA approach is strictly better.     |
 
 ## User Trust Setup
 
