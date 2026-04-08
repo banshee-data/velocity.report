@@ -31,9 +31,6 @@ permissions:
   contents: read
   pull-requests: write
 
-env:
-  GO_VERSION: "1.25"
-
 jobs:
   lint:
     name: "🔍 Lint"
@@ -45,7 +42,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: false # lint only runs gofmt — no modules needed
 
       - name: Run make lint-go
@@ -62,7 +59,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Install system dependencies (libpcap)
@@ -91,7 +88,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Download Go modules
@@ -138,7 +135,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Install system dependencies (libpcap)
@@ -178,7 +175,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Install system dependencies (libpcap)
