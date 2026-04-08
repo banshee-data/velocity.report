@@ -694,7 +694,7 @@ CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases 
    VALUES (
           1
         , 1
-        , 1773500966.53589797
+        , 1773500966
         , NULL
         , 1
         , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
