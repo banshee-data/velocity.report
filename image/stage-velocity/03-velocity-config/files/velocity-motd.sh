@@ -65,7 +65,6 @@ warning_banner() {
  ║                                                                ║
  ║      passwd                                                    ║
  ║                                                                ║
- ║                                                                ║
  ╚════════════════════════════════════════════════════════════════╝
 
   Image: v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
