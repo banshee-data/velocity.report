@@ -42,6 +42,30 @@ _Branch: `branch-name` (not yet on main)_
 - **Version bumps:** include only for actual releases. Omit pre-release bump bullets.
 - **Tone:** factual, developer-journal style. No marketing language. Record decisions and rationale when non-obvious.
 
+### Branch sections within a daily entry
+
+When a calendar day has both main-landed work **and** unlanded branch work, the entry uses subsections to distinguish them:
+
+```markdown
+## April 7, 2026 - Short Theme Title
+
+- Bullet about work landed on main.
+- Another main bullet.
+
+_Branch: `branch-name` (not yet on main)_
+
+- Bullet about unlanded branch work.
+- Another branch bullet.
+```
+
+Rules:
+
+- Main-landed bullets come first, with no subheading (they are the default).
+- Each branch gets an italic `_Branch: \`name\` (not yet on main)\_` line followed by its bullets.
+- If a day has **only** branch work and nothing on main, use the branch metadata line at the top of the entry (existing convention).
+- Multiple branches on the same day each get their own italic subheading, ordered by most-active-first.
+- Do not duplicate bullets: if a commit appears on both main and a branch (e.g. a cherry-pick), record it under main only.
+
 ### STYLE.md compliance
 
 All devlog text must follow the project writing conventions in `.github/STYLE.md`:
@@ -83,7 +107,14 @@ git log main --oneline --since="$start_date" --format="%h %ad %s" --date=short
 
 # Feature branches with recent work
 git log --all --oneline --since="$start_date" --format="%h %ad %D %s" --date=short | grep -v "^$"
+
+# Open PR branches — list branch-only commits (not on main)
+gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"'
+# For each open PR branch:
+git log origin/$branch --not origin/main --oneline --format="%h %ad %s" --date=short
 ```
+
+When scanning open PR branches, compare each branch's commits against the devlog to find uncaptured work. Add branch subsections to existing daily entries (see "Branch sections within a daily entry" above).
 
 ### 4. Group commits by calendar day
 
