@@ -26,20 +26,39 @@ probe_ok() {
 refresh_host_key() {
     echo "Host key mismatch or not yet known — refreshing known_hosts for ${HOST}..."
 
-    # Remove every existing entry for this host (IP or mDNS name)
-    # ssh-keygen -R is the safe, portable way to do this.
-    ssh-keygen -R "${HOST}" -f "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+    mkdir -p "${HOME}/.ssh"
+    chmod 700 "${HOME}/.ssh"
+    touch "${HOME}/.ssh/known_hosts"
+    chmod 600 "${HOME}/.ssh/known_hosts"
 
-    # Re-scan the current key
-    NEW_KEY=$(ssh-keyscan -T 10 "${HOST}" 2>/dev/null)
+    # Re-scan the current key (constrained to common types)
+    NEW_KEY=$(ssh-keyscan -T 10 -t ed25519,ecdsa,rsa "${HOST}" 2>/dev/null)
     if [ -z "$NEW_KEY" ]; then
         echo "Error: could not reach ${HOST}. Is the Pi on the network?" >&2
         exit 1
     fi
 
-    mkdir -p "${HOME}/.ssh"
-    chmod 700 "${HOME}/.ssh"
-    echo "$NEW_KEY" >> "${HOME}/.ssh/known_hosts"
+    # Show the fingerprint and require explicit confirmation before trusting.
+    # ssh-keyscan does not authenticate — the key could be from a MITM.
+    echo "Scanned host key fingerprint(s) for ${HOST}:"
+    printf '%s\n' "$NEW_KEY" | ssh-keygen -lf /dev/stdin 2>/dev/null || \
+        printf '%s\n' "$NEW_KEY" | ssh-keygen -lf - 2>/dev/null || \
+        echo "(could not compute fingerprint — review manually)"
+    echo ""
+    printf 'Trust this host key and update known_hosts? [y/N] '
+    read -r CONFIRM
+    case "$CONFIRM" in
+        [yY])
+            ;;
+        *)
+            echo "Aborted: known_hosts was not changed." >&2
+            exit 1
+            ;;
+    esac
+
+    # Remove every existing entry for this host, then append the confirmed key.
+    ssh-keygen -R "${HOST}" -f "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+    printf '%s\n' "$NEW_KEY" >> "${HOME}/.ssh/known_hosts"
     echo "Known-hosts entry updated."
 }
 
