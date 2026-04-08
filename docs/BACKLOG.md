@@ -22,25 +22,24 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#449] Error surface voice audit: rewrite ~250 user-facing error and status messages across Go, Python, TypeScript, and shell to use consistent, human voice; string-content-only changes: [design doc](plans/error-surface-voice-audit-plan.md) `M`
 - [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
-- [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
+- Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M`
+- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
 ### v0.5.3 - Data Contracts + Metrics (053)
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
-- [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
+- [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
 
 ### v0.5.4 - Perception Pipeline + Algorithm Foundations (054)
 
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
+- LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - Velocity-coherent extractor (dynamic algorithm selection Phases 2–3): per-point velocity estimation, frame history, and opt-in `VelocityCoherentExtractor` behind runtime flag: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - [#388] Dynamic segmentation for LiDAR background regions: adaptive background region boundaries based on scene geometry rather than fixed grid `M`
-- Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M`
-- LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
-- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
 ### v0.5.5 - Algorithm Correctness + Gap Remediation (055)
 
@@ -78,6 +77,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
 - Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
+- [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
 - Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
