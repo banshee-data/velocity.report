@@ -182,6 +182,7 @@ The following workflow skills are available as slash commands:
 | security-review | `/security-review [path]`         | Security audit: static analysis, fuzz targets, checklist      |
 | trace-matrix    | `/trace-matrix [task-group]`      | Trace backend surfaces against MATRIX.md                      |
 | fix-links       | `/fix-links [path]`               | Fix dead links and stale backtick paths in Markdown           |
+| devlog-update   | `/devlog-update`                  | Update devlog from git history since last entry               |
 | backlog-prune   | `/backlog-prune [--scan-all-prs]` | Groom backlog: PR audit, release theme coherence, L/XL splits |
 
 Skill definitions: `.claude/skills/*/SKILL.md`.
