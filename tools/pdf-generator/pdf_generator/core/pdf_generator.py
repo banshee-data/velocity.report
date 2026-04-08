@@ -106,8 +106,13 @@ def _detect_fatal_latex_signature(base_path: Path) -> Optional[str]:
                 stripped = raw_line.strip()
                 lowered = stripped.lower()
 
+                # Normalise for explicit-fatal matching: strip leading "!"
+                # and whitespace so prefixed lines like
+                # "!  ==> Fatal error occurred..." still match.
+                normalised = lowered.lstrip("!").strip()
+
                 # Check for explicit fatal output lines regardless of prefix.
-                if lowered in explicit_fatal_lines:
+                if normalised in explicit_fatal_lines:
                     return f"line {idx}: {stripped}"
 
                 # Only treat TeX error lines (prefixed with "!") as fatal
