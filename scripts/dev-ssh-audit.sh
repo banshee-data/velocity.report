@@ -274,14 +274,16 @@ VALUES
   ('audit-t2', 500, $((NOW-3600)), $((NOW-3592)), 12.5, 10.3, 9, 'hourly-cron');
 SQL
 
-YESTERDAY=$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)
-TODAY=$(date +%Y-%m-%d)
+# Use UTC dates so seeded NOW-relative timestamps always fall within the window,
+# regardless of the Pi's local timezone.
+YESTERDAY=$(date -u -d "yesterday" +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)
+TODAY=$(date -u +%Y-%m-%d)
 
 HTTP=$(curl -s -o /tmp/pdf-audit-response.json \
   -w '%{http_code}' \
   -X POST http://localhost:8080/api/generate_report \
   -H "Content-Type: application/json" \
-  -d "{\"site_id\":1,\"start_date\":\"$YESTERDAY\",\"end_date\":\"$TODAY\",\"source\":\"radar_data_transits\",\"histogram\":true}" \
+  -d "{\"site_id\":1,\"start_date\":\"$YESTERDAY\",\"end_date\":\"$TODAY\",\"timezone\":\"UTC\",\"source\":\"radar_data_transits\",\"histogram\":true}" \
   --max-time 120 2>/dev/null || echo "000")
 
 echo "http:${HTTP}"
@@ -304,13 +306,6 @@ if [ "$PDF_HTTP" = "200" ]; then
 else
     fail "PDF generation: HTTP ${PDF_HTTP}"
     [ -n "$PDF_MSG" ] && echo "   ${PDF_MSG}"
-    # Capture the last few lines of service log for the actual Python error.
-    PDF_LOG=$(ssh_run journalctl -u velocity-report.service --no-pager -n 30 --since '-2min' 2>/dev/null \
-        | grep -i 'pdf\|error\|traceback\|ModuleNot\|FileNot\|exit' | tail -8 || echo "")
-    if [ -n "$PDF_LOG" ]; then
-        echo "   Recent journal entries:"
-        echo "$PDF_LOG" | sed 's/^/       /'
-    fi
 fi
 
 if echo "$PDF_CLEANUP" | grep -q "ok"; then
