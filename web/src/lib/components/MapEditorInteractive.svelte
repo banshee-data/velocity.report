@@ -11,21 +11,25 @@
 	import {
 		mdiAlert,
 		mdiCheckCircle,
+		mdiClose,
 		mdiCrosshairsGps,
+		mdiDelete,
 		mdiDownload,
-		mdiMagnify,
-		mdiUpload
+		mdiMagnify
 	} from '@mdi/js';
 	import type { LatLngBounds, Map as LeafletMap, Marker, Rectangle } from 'leaflet';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		Button,
+		Dialog,
 		Notification,
 		NumberStepper,
 		ProgressCircle,
 		SelectField,
 		Switch,
-		TextField
+		TextField,
+		ToggleGroup,
+		ToggleOption
 	} from 'svelte-ux';
 
 	// Props
@@ -66,6 +70,58 @@
 	let lastSearchTime = 0; // Track last API call for rate limiting
 	let mapJustDownloaded = false; // Track if map was just downloaded (not loaded from DB)
 
+	// Confirmation modal state for mode switching
+	let showDeleteMapModal = false;
+	let pendingModeSwitch: 'interactive' | 'upload' | null = null;
+	let toggleResetKey = 0;
+
+	// Confirmation modal state for replacing an uploaded SVG
+	let showReplaceMapModal = false;
+
+	/** Request a mode switch. If existing map data would be lost, show confirmation. */
+	function requestModeSwitch(target: 'interactive' | 'upload') {
+		if (mapSvgData) {
+			pendingModeSwitch = target;
+			showDeleteMapModal = true;
+		} else {
+			applyModeSwitch(target);
+		}
+	}
+
+	/** Apply the mode switch, clearing existing map data. */
+	async function applyModeSwitch(target: 'interactive' | 'upload') {
+		showDeleteMapModal = false;
+		pendingModeSwitch = null;
+		if (target === 'interactive') {
+			useCustomSvg = false;
+			radarSvgX = null;
+			radarSvgY = null;
+			mapSvgData = null;
+			mapJustDownloaded = false;
+			await tick();
+			if (!map) initializeMap();
+		} else {
+			useCustomSvg = true;
+			mapSvgData = null;
+			mapJustDownloaded = false;
+			fileInput.click();
+		}
+	}
+
+	function cancelModeSwitch() {
+		showDeleteMapModal = false;
+		pendingModeSwitch = null;
+		mapMode = useCustomSvg ? 'upload' : 'interactive';
+		toggleResetKey++;
+	}
+
+	// Auto-enable the "Include map in reports" toggle when the user actively
+	// configures the map — interacting with any placement, angle, download, or
+	// upload control signals intent to include a map.
+	function activateIncludeMap() {
+		if (!includeMap) includeMap = true;
+	}
+
 	// Custom SVG upload — restore mode when a custom SVG is stored without geographic bounds.
 	// Generated SVGs always have bbox set; custom uploads clear bbox in handleSvgUpload.
 	let useCustomSvg =
@@ -75,6 +131,7 @@
 			bboxNELng === null &&
 			bboxSWLat === null &&
 			bboxSWLng === null);
+	let mapMode: 'interactive' | 'upload' = useCustomSvg ? 'upload' : 'interactive';
 	let fileInput: HTMLInputElement;
 	let svgPreviewContainer: HTMLDivElement;
 	let isDraggingSvgDot = false;
@@ -87,6 +144,7 @@
 		// Clamp: 5% border left/right, 10% border top/bottom
 		radarSvgX = Math.max(5, Math.min(95, x));
 		radarSvgY = Math.max(10, Math.min(90, y));
+		activateIncludeMap();
 	}
 
 	function handleSvgDotDrag(event: MouseEvent) {
@@ -112,6 +170,28 @@
 		isDraggingSvgDot = true;
 		window.addEventListener('mousemove', handleSvgDotDrag);
 		window.addEventListener('mouseup', stopSvgDotDrag);
+	}
+
+	/** Handle file-picker cancel: revert to interactive if no SVG was loaded. */
+	function handleFileInputCancel() {
+		if (!mapSvgData) {
+			useCustomSvg = false;
+			mapMode = 'interactive';
+			toggleResetKey++;
+			tick().then(() => {
+				if (!map) initializeMap();
+			});
+		}
+	}
+
+	/** Confirm removal of uploaded SVG, then open the file picker for a replacement. */
+	function confirmReplaceMap() {
+		showReplaceMapModal = false;
+		mapSvgData = null;
+		radarSvgX = null;
+		radarSvgY = null;
+		mapJustDownloaded = false;
+		fileInput.click();
 	}
 
 	function handleSvgUpload(event: Event) {
@@ -144,6 +224,7 @@
 			bboxNELng = null;
 			bboxSWLat = null;
 			bboxSWLng = null;
+			activateIncludeMap();
 		};
 		reader.onerror = () => {
 			error = 'Failed to read file.';
@@ -162,6 +243,7 @@
 		const wrapped = ((deg % 360) + 360) % 360;
 		localAngle = wrapped;
 		radarAngle = wrapped;
+		activateIncludeMap();
 		if (map && latitude !== null && longitude !== null && !isDraggingFovTip) {
 			updateFOVTriangle();
 		}
@@ -241,11 +323,15 @@
 			latitude = pos.lat;
 			longitude = pos.lng;
 			updateBBoxAroundRadar(true); // true = maintain size
+			activateIncludeMap();
 		});
 
 		// Add bounding box if it exists
 		if (bboxNELat && bboxNELng && bboxSWLat && bboxSWLng) {
-			addBoundingBox(L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]));
+			const bboxBounds = L.latLngBounds([bboxSWLat, bboxSWLng], [bboxNELat, bboxNELng]);
+			addBoundingBox(bboxBounds);
+			// Fit the viewport to the bounding box so the map area is visible on load
+			map.fitBounds(bboxBounds.pad(0.15));
 		} else {
 			// Create default bounding box around radar
 			updateBBoxAroundRadar();
@@ -383,6 +469,7 @@
 		// Clear flag when drag ends
 		fovTipMarker.on('dragend', () => {
 			isDraggingFovTip = false;
+			activateIncludeMap();
 		});
 	}
 
@@ -508,7 +595,13 @@
 		latitude = lat;
 		longitude = lng;
 
+		searchResults = [];
+		searchQuery = '';
+
 		if (map && radarMarker && L) {
+			// Invalidate first — clearing searchResults above changes layout, so
+			// Leaflet needs to recalculate its container size before panning.
+			map.invalidateSize();
 			radarMarker.setLatLng([lat, lng]);
 			map.setView([lat, lng], 15);
 			// Only update bbox if it doesn't exist yet
@@ -519,8 +612,7 @@
 			}
 		}
 
-		searchResults = [];
-		searchQuery = '';
+		activateIncludeMap();
 	}
 
 	function adjustBBoxSize(increase: boolean) {
@@ -541,12 +633,16 @@
 	let activeMirrorId = '';
 
 	// Fetch from Overpass with retry across mirror endpoints.
-	// If user has selected a mirror, try it first; otherwise shuffle.
+	// Tries mirrors in declaration order (selected mirror first).
+	// A short connection timeout (8 s) moves quickly to the next mirror when
+	// a server is unresponsive, but once response headers arrive the body
+	// stream is read without a timeout so large payloads complete.
 	async function fetchOverpassWithRetry(
 		query: string,
 		maxRetries: number = 1,
 		signal?: AbortSignal
 	): Promise<{ elements: Array<Record<string, unknown>> }> {
+		const CONNECTION_TIMEOUT_MS = 8_000;
 		const endpoints = orderedEndpoints(selectedMirror);
 		let lastError: Error | null = null;
 
@@ -558,12 +654,24 @@
 					await new Promise((resolve) => setTimeout(resolve, delay));
 				}
 
+				// Per-request abort: fires after CONNECTION_TIMEOUT_MS unless
+				// the caller's signal fires first.
+				const timeoutCtrl = new AbortController();
+				const timeoutId = setTimeout(() => timeoutCtrl.abort(), CONNECTION_TIMEOUT_MS);
+				// If the caller aborts, forward to our per-request controller.
+				const onCallerAbort = () => timeoutCtrl.abort();
+				signal?.addEventListener('abort', onCallerAbort, { once: true });
+
 				try {
 					const response = await fetch(ep.url, {
 						method: 'POST',
 						body: `data=${encodeURIComponent(query)}`,
-						signal
+						signal: timeoutCtrl.signal
 					});
+
+					// Headers arrived — cancel the connection timeout so the
+					// body stream can complete without being killed.
+					clearTimeout(timeoutId);
 
 					if (response.ok) {
 						const contentType = response.headers.get('content-type') || '';
@@ -589,8 +697,12 @@
 					lastError = new Error(`${ep.url}: HTTP ${response.status}`);
 					break;
 				} catch (e) {
+					clearTimeout(timeoutId);
 					lastError = e instanceof Error ? e : new Error(String(e));
+					// Caller cancelled — propagate immediately.
+					if (signal?.aborted) throw lastError;
 					if (
+						lastError.name === 'AbortError' ||
 						lastError.message.includes('timeout') ||
 						lastError.message.includes('fetch') ||
 						lastError.message.includes('HTTP 429') ||
@@ -599,6 +711,8 @@
 						continue;
 					}
 					break;
+				} finally {
+					signal?.removeEventListener('abort', onCallerAbort);
 				}
 			}
 			console.warn(`Overpass endpoint ${ep.url} failed, trying next...`);
@@ -666,6 +780,7 @@
 			mapSvgData = svgToBase64(svgText);
 			mapJustDownloaded = true;
 			error = '';
+			activateIncludeMap();
 		} catch (e) {
 			if (e instanceof DOMException && e.name === 'AbortError') {
 				console.log('Download cancelled by user.');
@@ -696,7 +811,7 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<p class="text-surface-600-300-token text-sm">
-			Search for an address, then adjust the radar position and map area visually.
+			Search for an address, or upload your own SVG map, then visually adjust the radar position.
 		</p>
 		<div class="flex items-center gap-3">
 			<input
@@ -705,11 +820,30 @@
 				accept=".svg,image/svg+xml"
 				class="hidden"
 				on:change={handleSvgUpload}
+				on:cancel={handleFileInputCancel}
 			/>
-			<Button size="sm" variant="outline" icon={mdiUpload} on:click={() => fileInput.click()}>
-				Upload SVG
-			</Button>
-			<span class="text-sm font-medium">Include map in reports</span>
+			{#key toggleResetKey}
+				<ToggleGroup
+					bind:value={mapMode}
+					on:change={(e) => {
+						const target = e.detail.value;
+						if ((target === 'upload') === useCustomSvg) return;
+						requestModeSwitch(target);
+					}}
+					variant="outline"
+					rounded="full"
+					inset
+					classes={{
+						indicator: 'h-full w-full bg-primary rounded-full [grid-column:1] [grid-row:1]',
+						option: '[grid-column:1] [grid-row:1] z-[1]',
+						label: '[&.selected]:text-white'
+					}}
+				>
+					<ToggleOption value="interactive">Interactive</ToggleOption>
+					<ToggleOption value="upload">Upload</ToggleOption>
+				</ToggleGroup>
+			{/key}
+			<span class="text-sm font-medium">Include</span>
 			<Switch bind:checked={includeMap} />
 		</div>
 	</div>
@@ -717,21 +851,7 @@
 	{#if useCustomSvg && mapSvgData}
 		<!-- Interactive SVG preview (custom upload) -->
 		<div class="space-y-4">
-			<div class="flex items-center justify-between">
-				<h4 class="font-medium">Uploaded Map Preview</h4>
-				<Button
-					size="sm"
-					variant="outline"
-					on:click={() => {
-						useCustomSvg = false;
-						radarSvgX = null;
-						radarSvgY = null;
-						mapSvgData = null;
-					}}
-				>
-					Use Interactive Map
-				</Button>
-			</div>
+			<h4 class="font-medium">Uploaded Map Preview</h4>
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
@@ -789,6 +909,17 @@
 				{/if}
 			</p>
 
+			<!-- Replace uploaded SVG -->
+			<Button
+				variant="fill"
+				color="danger"
+				icon={mdiDelete}
+				on:click={() => (showReplaceMapModal = true)}
+				classes={{ root: 'w-full' }}
+			>
+				Remove Map
+			</Button>
+
 			<!-- Angle stepper for custom SVG mode -->
 			<div class="flex items-center gap-4">
 				<p class="text-surface-600-300-token text-sm">Map Angle</p>
@@ -827,10 +958,10 @@
 			</div>
 
 			{#if searchResults.length > 0}
-				<div class="mt-2 rounded border border-gray-300 bg-white">
+				<div class="bg-surface-100 border-surface-content/10 mt-2 rounded border">
 					{#each searchResults as result (result.place_id)}
 						<button
-							class="block w-full px-4 py-2 text-left hover:bg-gray-100"
+							class="text-surface-content hover:bg-surface-content/5 border-surface-content/10 block w-full border-b px-4 py-2 text-left text-sm last:border-b-0"
 							on:click={() => selectLocation(result)}
 						>
 							{result.display_name}
@@ -989,6 +1120,80 @@
 		</Notification>
 	{/if}
 </div>
+
+<!-- Confirmation modal: warn before discarding existing map data -->
+<Dialog
+	bind:open={showDeleteMapModal}
+	on:close={cancelModeSwitch}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-sm' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Replace Existing Map?</span>
+		<button
+			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
+			on:click={cancelModeSwitch}
+			aria-label="Close"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
+	</div>
+
+	<div class="space-y-3 px-6 pb-2">
+		<p>
+			This site already has map data. Switching modes will <strong>permanently delete</strong> the existing
+			map image when you save.
+		</p>
+		<p class="text-surface-content/60 text-sm">This cannot be undone.</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={cancelModeSwitch} variant="outline">Cancel</Button>
+		<Button
+			on:click={() => {
+				if (pendingModeSwitch) applyModeSwitch(pendingModeSwitch);
+			}}
+			variant="fill"
+			color="danger"
+		>
+			Delete Map
+		</Button>
+	</div>
+</Dialog>
+
+<!-- Confirmation modal: warn before removing uploaded SVG -->
+<Dialog
+	bind:open={showReplaceMapModal}
+	on:close={() => (showReplaceMapModal = false)}
+	aria-modal="true"
+	role="alertdialog"
+	classes={{ dialog: 'max-w-sm' }}
+>
+	<div slot="title" class="flex items-center justify-between">
+		<span>Remove Uploaded Map?</span>
+		<button
+			class="text-surface-500 hover:text-surface-700 -mt-1 -mr-2 p-1"
+			on:click={() => (showReplaceMapModal = false)}
+			aria-label="Close"
+		>
+			<svg class="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d={mdiClose} /></svg>
+		</button>
+	</div>
+
+	<div class="space-y-3 px-6 pb-2">
+		<p>
+			This will <strong>permanently delete</strong> the current uploaded map image. You will be prompted
+			to upload a replacement.
+		</p>
+		<p class="text-surface-content/60 text-sm">This cannot be undone.</p>
+	</div>
+
+	<div slot="actions">
+		<Button on:click={() => (showReplaceMapModal = false)} variant="outline">Cancel</Button>
+		<Button on:click={confirmReplaceMap} variant="fill" color="danger">Remove Map</Button>
+	</div>
+</Dialog>
 
 <style>
 	:global(.leaflet-container) {

@@ -12,19 +12,21 @@
 	} from '$lib/api';
 	import MapEditorInteractive from '$lib/components/MapEditorInteractive.svelte';
 	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '$lib/datetimeLocal';
-	import { mdiArrowLeft, mdiContentSave } from '@mdi/js';
-	import { onMount } from 'svelte';
-	import { Button, Card, Header, TextField } from 'svelte-ux';
+	import { mdiAlert, mdiArrowLeft, mdiContentSave } from '@mdi/js';
+	import { onMount, tick } from 'svelte';
+	import { Button, Card, Header, Notification, TextField } from 'svelte-ux';
 
 	let siteId: string | null = null;
 	let isNewSite = false;
 	let loading = true;
 	let error = '';
 	let saveError = '';
+	let saving = false;
 	let periodsError = '';
 	let savingPeriod = false;
 	let configPeriods: SiteConfigPeriod[] = [];
 	let unconfiguredPeriods: Array<{ start_unix: number; end_unix: number }> = [];
+	let saveErrorEl: HTMLDivElement;
 
 	// Form fields
 	let formData = {
@@ -237,6 +239,7 @@
 		}
 
 		saveError = '';
+		saving = true;
 
 		try {
 			const siteData = {
@@ -268,6 +271,11 @@
 			goto(resolve('/site'));
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Could not save site changes.';
+			// Scroll the error into view after the DOM updates
+			await tick();
+			saveErrorEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		} finally {
+			saving = false;
 		}
 	}
 
@@ -311,9 +319,20 @@
 	{:else}
 		<div class="max-w-3xl space-y-6">
 			{#if saveError}
-				<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
-					<strong>Save Error:</strong>
-					{saveError}
+				<div bind:this={saveErrorEl}>
+					<Notification
+						color="danger"
+						open
+						icon={mdiAlert}
+						classes={{
+							root: 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800',
+							title: 'text-red-800 dark:text-red-200',
+							description: 'text-red-700 dark:text-red-300'
+						}}
+					>
+						<span slot="title">Save Failed</span>
+						<span slot="description">{saveError}</span>
+					</Notification>
 				</div>
 			{/if}
 
@@ -530,9 +549,15 @@
 
 			<!-- Actions -->
 			<div class="flex justify-end gap-2">
-				<Button on:click={handleCancel} variant="outline">Cancel</Button>
-				<Button on:click={handleSave} icon={mdiContentSave} variant="fill" color="primary">
-					{isNewSite ? 'Create Site' : 'Save Changes'}
+				<Button on:click={handleCancel} variant="outline" disabled={saving}>Cancel</Button>
+				<Button
+					on:click={handleSave}
+					icon={mdiContentSave}
+					variant="fill"
+					color="primary"
+					disabled={saving}
+				>
+					{saving ? 'Saving…' : isNewSite ? 'Create Site' : 'Save Changes'}
 				</Button>
 			</div>
 		</div>
