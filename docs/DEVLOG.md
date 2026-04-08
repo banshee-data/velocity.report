@@ -1,5 +1,62 @@
 # Development Log
 
+## April 7, 2026 - RPi Image Hardening, Web Map Editor & Backlog Grooming
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Hardened the RPi image cleanup script through multiple iterations: a `dpkg --purge` of the camera stack (`libcamera`, `rpicam-apps`) triggered an `apt-get autoremove` cascade that removed `librsvg2-bin`, `network-manager`, and other runtime packages. Added explicit `apt-mark manual` protection for critical packages and a post-purge verification/reinstall step. Root cause: metapackage dependency chains in Bookworm pull in more than expected.
+- Added build metadata stamping to the RPi image: `VR_VERSION`, `VR_BUILD_TIME`, and `VR_GIT_SHA` are now written to `/etc/velocity-report-build` during image creation and displayed in the MOTD login banners. Updated `build-image.sh` to pass build info through pi-gen stages.
+- Refined MOTD Unicode art banners: fixed warning banner layout, improved quarter-block character rendering. Added `check-quarter-blocks.sh` lint script to detect block-element characters (U+2580–U+259F) that render incorrectly in some terminal fonts.
+- Enhanced TLS certificate generation (`velocity-generate-tls.sh`): improved directory permission handling, certificate validity checks, and error diagnostics.
+- Built radar SVG map position override feature end-to-end: new `radar_svg_x`/`radar_svg_y` columns in the `site` table (migration 000033), Go `Site` model updates, Svelte `MapEditorInteractive` component with SVG upload/preview and draggable position controls, PDF generator support for position overrides, and clamping logic with 5% border margins.
+- Added `map-svg.ts` utility module with SVG rendering types and helper functions for the web frontend.
+- Refactored the web settings page layout for better responsiveness; simplified `Field` component defaults; improved number input styling.
+- Added `isDateRangeStale` freshness check for `reportSettings` localStorage: dates older than 18 hours are discarded on page load, falling back to the default 14-day range. Non-date settings (group, source, speed filters) always restore. Shared helper in `$lib/reportSettings.ts` with Jest test coverage.
+- Groomed the backlog extensively: split v0.5.6 into two milestones, added paper-implementation gap remediation items (P1/P2/P3) to v0.5.4, priority-sorted all pending milestone sections, added setup guide refresh, Tailscale guide, domain tag vocabulary, and PCAP motion detection items. Performed domain analysis and moved PCAP motion detection to v0.5.3, SSE backpressure to v0.5.5, split v0.6.0 into Deployment & Packaging (060) and macOS Local Server (061).
+- Added four new plan documents: [domain tag vocabulary](plans/domain-tag-vocabulary-plan.md), [asset naming standardisation](plans/asset-naming-plan.md), [PCAP motion detection and scene split](plans/pcap-motion-detection-and-split-plan.md), and [macOS local server](plans/macos-local-server-plan.md).
+- Added `dev-ssh` and `dev-ssh-audit.sh` scripts for SSH access and remote RPi health checks.
+- Corrected LaTeX escaping in `ParameterTableBuilder` for monospace rendering; fixed `fromDatetimeLocalToUnixSeconds` to manually parse datetime strings for consistent cross-browser behaviour.
+
+## April 6, 2026 - Claude Code Init, Security Fixes, Paper Gap Analysis & CI Linting
+
+- Initialised Claude Code configuration: added `CLAUDE.md`, `.claude/agents/` (7 personas: Appius, Euler, Flo, Grace, Malory, Ruth, Terry), `.claude/skills/` (8 workflow slash commands), and shared knowledge modules in `.github/knowledge/`. Merged as #447.
+- Updated vulnerable dependencies across Go, npm, and Python ecosystems (#441). Fixed a dev-mode path traversal vulnerability: normalised `requestedPath` before joining with `buildDir` to prevent directory escape via leading separators.
+- Added comprehensive paper-vs-implementation gap analysis (`data/maths/paper-implementation-gap-analysis.md`): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers and effort estimates.
+- Added `download-papers.py` script with DOI/URL resolution, SSRF guards, dry-run mode, and knowledge-base summary generation. Merged as #446.
+- Merged Go clock abstraction plan (#428): `timeutil.Clock` interface for pipeline timing, replay pacing, and benchmark instrumentation.
+- Added Markdown CI workflows: `check-md-links` for dead link detection, `check-backtick-paths.py` for stale file path references in backtick-quoted paths, `public_html` CI for docs site linting/building. Wired into `make lint-docs`.
+- Refreshed `README.md` with sample PDF report and visualiser demo images, added `STYLE.md` with writing conventions and British English guidelines (#443, #444).
+- Added wiring diagrams and YAML configuration for OPS243-A radar sensor (`docs/hw/`).
+- Updated agent preparedness documentation, added `fix-links` skill definition, expanded coding standards with configuration and media guidelines.
+- Added `age-color` terminal script and new Makefile log convenience targets.
+
+## April 5, 2026 - README & ASCII Art Refresh
+
+- Refreshed `README.md` structure: reorganised sections, updated project description and feature list.
+- Iterated on ASCII art header designs across documentation files.
+
+## April 1, 2026 - ASCII Art Update
+
+- Updated ASCII art crosswalk and banner designs in documentation (#442 merged to main).
+
+## March 31, 2026 - Voice Quality Audit & Error Message Rewrite
+
+_Branch: `copilot/complete-phase-1-image` (not yet on main)_
+
+- Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, `cmd/radar` CLI, Python PDF tools, and Svelte web frontend to match the project voice — concise, helpful, no blame, diagnostic hints where useful.
+- Centralised API error handling in the web frontend for consistent error message display.
+- Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
+- Updated MOTD ASCII art drafts for the RPi login banners.
+- Fixed missing `.invalidConfiguration` case in Swift `APIError` switch statements.
+
+## March 30, 2026 - Deprecation Signalling, AutoTuner Fix & Homepage
+
+- Updated deprecation messages for legacy deployment targets across Go, JS, and documentation.
+- Fixed a race condition in `AutoTuner` completion persistence: reordered operations to prevent concurrent write conflicts.
+- Added Raspberry Pi image section to the homepage with download link and SHA256 checksum (commented out pending first release).
+- Merged macOS `APIError` fix in `LabelAPIClientTests` (#440).
+- Merged project-wide copy updates across JS, Go, and Python surfaces (#431).
+
 - **March 29, 2026 — RPi Image:** Web Build, HTTPS & TLS, Image Cleanup
 
 _Branch: `copilot/complete-phase-1-image` (not yet on main)_
