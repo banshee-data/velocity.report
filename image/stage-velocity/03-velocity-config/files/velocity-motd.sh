@@ -49,26 +49,24 @@ sys.exit(0 if result == stored else 1)
 warning_banner() {
     cat << EOF
 
- ╔══════════════════════════════════════════════════════╗
- ║                                                      ║
- ║        ▄   ▄                 ▄            ▗▖         ║
- ║        █   █                 ▀            ▐▌         ║
- ║        ▜▖█▗▛ ▟██▖ █▟█▌▐▙██▖ ██  ▐▙██▖ ▟█▟▌▐▌         ║
- ║        ▐▌█▐▌ ▘▄▟▌ █▘  ▐▛ ▐▌  █  ▐▛ ▐▌▐▛ ▜▌▐▌         ║
- ║        ▐█▀█▌▗█▀▜▌ █   ▐▌ ▐▌  █  ▐▌ ▐▌▐▌ ▐▌▝▘         ║
- ║        ▐█ █▌▐▙▄█▌ █   ▐▌ ▐▌▗▄█▄▖▐▌ ▐▌▝█▄█▌▗▖         ║
- ║        ▝▀ ▀▘ ▀▀▝▘ ▀   ▝▘ ▝▘▝▀▀▀▘▝▘ ▝▘ ▞▀▐▌▝▘         ║
- ║                                       ▜█▛▘           ║
- ║                                                      ║
- ║  This device is still using the default password.    ║
- ║  Anyone on your network can log in and muck around.  ║
- ║  That is the sort of arrangement that ends badly.    ║
- ║                                                      ║
- ║  Please change the password now, type:               ║
- ║                                                      ║
- ║      passwd                                          ║
- ║                                                      ║
- ╚══════════════════════════════════════════════════════╝
+ ╔════════════════════════════════════════════════════════════════╗
+ ║                                                                ║
+ ║  ██     ██  █████  ██████  ███    ██ ██ ███    ██  ██████  ██  ║
+ ║  ██     ██ ██   ██ ██   ██ ████   ██ ██ ████   ██ ██       ██  ║
+ ║  ██  █  ██ ███████ ██████  ██ ██  ██ ██ ██ ██  ██ ██   ███ ██  ║
+ ║  ██ ███ ██ ██   ██ ██   ██ ██  ██ ██ ██ ██  ██ ██ ██    ██     ║
+ ║   ███ ███  ██   ██ ██   ██ ██   ████ ██ ██   ████  ██████  ██  ║
+ ║                                                                ║
+ ║  This device is still using the default password.              ║
+ ║  Anyone on your network can log in and muck around.            ║
+ ║  That is the sort of arrangement that ends badly.              ║
+ ║                                                                ║
+ ║  Please change the password now, type:                         ║
+ ║                                                                ║
+ ║      passwd                                                    ║
+ ║                                                                ║
+ ║                                                                ║
+ ╚════════════════════════════════════════════════════════════════╝
 
   Image: v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
 
@@ -79,19 +77,14 @@ welcome_banner() {
     cat << EOF
   ┌──────────────────────────────────────────────────────────┐
   │                                                          │
-  │          ▝▜           ▝  ▗                          ▗    │
-  │   ▗ ▗  ▄▖ ▐   ▄▖  ▄▖ ▗▄ ▗▟▄ ▗ ▗  ▖▄  ▄▖ ▗▄▖  ▄▖ ▖▄ ▗▟▄   │
-  │   ▝▖▞ ▐▘▐ ▐  ▐▘▜ ▐▘▝  ▐  ▐  ▝▖▞  ▛ ▘▐▘▐ ▐▘▜ ▐▘▜ ▛ ▘ ▐    │
-  │    ▙▌ ▐▀▀ ▐  ▐ ▐ ▐    ▐  ▐   ▙▌  ▌  ▐▀▀ ▐ ▐ ▐ ▐ ▌   ▐    │
-  │    ▐  ▝▙▞ ▝▄ ▝▙▛ ▝▙▞ ▗▟▄ ▝▄  ▜ ▐ ▌  ▝▙▞ ▐▙▛ ▝▙▛ ▌   ▝▄   │
-  │                              ▞          ▐                │
-  │                             ▝▘          ▝                │
+  │  █ █ ██▀ █  ▄▀▄ ▄▀▀ ▀ ▄█▄ ▀▄▀   █▀▄ ██▀ █▀▄ ▄▀▄ █▀▄ ▄█▄  │
+  │  ▀▄▀ █▄▄ █▄ ▀▄▀ ▀▄▄ █  █▄  █  ▄ █▀▄ █▄▄ █▀  ▀▄▀ █▀▄  █▄  │
   │                                                          │
   │              measure traffic, not identity               │
   │                                                          │
   └──────────────────────────────────────────────────────────┘
 
-  Image: v${VR_VERSION}  Built: ${VR_BUILD_TIME}  SHA: ${VR_GIT_SHA}
+  v${VR_VERSION} SHA: ${VR_GIT_SHA} Built: ${VR_BUILD_TIME}
 
   Useful commands:
     velocity-status           Is the service running?
@@ -100,8 +93,8 @@ welcome_banner() {
     velocity-report version   Version and build info
     sudo velocity-ctl         Device management
 
-  The service starts automatically when a radar sensor
-  is connected. No sensor, no service, no fuss.
+  The service starts automatically at boot.
+  Connect a sensor and the data starts flowing.
 
 EOF
 }
