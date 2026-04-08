@@ -32,7 +32,7 @@ _Branch: `branch-name` (not yet on main)_
 
 - **Date format:** `Month DD, YYYY` (e.g. `April 7, 2026`).
 - **Separator:** `-` (hyphen) between date and theme. Never use em-dashes in headers.
-- **Branch metadata:** italic line `_Branch: \`name\` (not yet on main)\_`when work is on a feature branch. Omit for commits already on`main`.
+- **Branch metadata:** italic line _Branch: `name` (not yet on main)_ when work is on a feature branch. Omit for commits already on `main`.
 - **Bullet style:** each bullet is a single `- ` line; concise, action-focused, past tense.
 - **Content per bullet:** what changed, which files/packages/layers, why, and references to design docs or PRs where relevant.
 - **Ordering:** newest entry first (prepend to the file, after the `# Development Log` title).
