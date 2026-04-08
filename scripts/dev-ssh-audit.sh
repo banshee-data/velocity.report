@@ -304,6 +304,13 @@ if [ "$PDF_HTTP" = "200" ]; then
 else
     fail "PDF generation: HTTP ${PDF_HTTP}"
     [ -n "$PDF_MSG" ] && echo "   ${PDF_MSG}"
+    # Capture the last few lines of service log for the actual Python error.
+    PDF_LOG=$(ssh_run journalctl -u velocity-report.service --no-pager -n 30 --since '-2min' 2>/dev/null \
+        | grep -i 'pdf\|error\|traceback\|ModuleNot\|FileNot\|exit' | tail -8 || echo "")
+    if [ -n "$PDF_LOG" ]; then
+        echo "   Recent journal entries:"
+        echo "$PDF_LOG" | sed 's/^/       /'
+    fi
 fi
 
 if echo "$PDF_CLEANUP" | grep -q "ok"; then

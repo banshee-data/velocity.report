@@ -20,8 +20,11 @@ HOSTNAME="velocity.local"
 CA_DAYS=3650    # 10 years
 CERT_DAYS=825   # ~2.25 years (Apple max)
 
-# Create TLS directory with restricted permissions from the start
-(umask 077; mkdir -p "$TLS_DIR")
+# Create TLS directory — keys are protected by file permissions (600),
+# so the directory itself can be world-readable (755) to allow the
+# audit script and users to verify cert presence.
+mkdir -p "$TLS_DIR"
+chmod 755 "$TLS_DIR"
 
 # Skip if server certificate already exists and has not expired,
 # AND the CA key+cert are present and readable (preserves trust-once model)

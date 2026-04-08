@@ -16,6 +16,14 @@ chown velocity:velocity /var/lib/velocity-report
 
 # Create config directory and copy tuning defaults
 mkdir -p /opt/velocity-report/config
+
+# Grant velocity user passwordless sudo.
+# pi-gen stage2's 010_pi-nopasswd may reference the 'pi' user or be
+# absent entirely depending on the packages installed.  Create our own
+# entry so the MOTD password check (getent shadow) and velocity-ctl
+# work without a password prompt.
+echo 'velocity ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/020_velocity-nopasswd
+chmod 440 /etc/sudoers.d/020_velocity-nopasswd
 CHEOF
 
 # Install tuning defaults

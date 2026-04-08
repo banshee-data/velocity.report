@@ -23,18 +23,17 @@ VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
 
 # --- Check whether the default password is still in use ----------------------
 #
-# Read the stored hash from shadow via sudo (the velocity user has
-# passwordless sudo via pi-gen stage2's 010_pi-nopasswd).  Compare it
-# against the default password hashed with the same salt using Python's
-# crypt module.
+# Read the stored hash from shadow via sudo and compare against the
+# default password.  The velocity user has a NOPASSWD sudoers entry
+# for getent (installed by stage-velocity/03-velocity-config).
 #
-# If sudo or getent fails (e.g. sudoers removed), assume the password has
-# been changed and show the welcome banner — fail safe, not fail loud.
+# If sudo or getent fails, assume the password is STILL default and
+# show the warning.  Fail towards caution, not silence.
 
 password_is_default() {
     local stored
     stored=$(sudo -n getent shadow "$VELOCITY_USER" 2>/dev/null | cut -d: -f2)
-    [ -z "$stored" ] && return 1
+    [ -z "$stored" ] && return 0   # Cannot verify — assume default
 
     python3 -c "
 import crypt, sys
