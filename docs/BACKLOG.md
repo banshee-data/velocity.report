@@ -23,7 +23,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: `S`
-- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
 ### v0.5.3 - Perception Pipeline + Algorithm Foundations (053)
 
@@ -34,6 +33,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Clock abstraction adoption (Phases A–B): inject `timeutil.Clock` into pipeline throttle, frame cleanup, replay pacing, and benchmark timing; eliminate `time.Sleep` in tests; formalise sensor-time vs wall-time boundary: [design doc](plans/lidar-clock-abstraction-and-time-domain-model-plan.md) `M`
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
+- PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
 ### v0.5.4 - Algorithm Correctness + Gap Remediation (0504)
 
@@ -51,6 +51,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - LiDAR replay case terminology alignment: rename "scene" → "replay case" in Go store/API layer, sweep interfaces, and Web components; preserve "scene" in L3 grid geometric context; consolidates 1,200+ code identifiers: [design doc](plans/lidar-replay-case-terminology-alignment-plan.md) `M`
 - Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M`
 - Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
+- SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 
 ### v0.5.6 - Replay/Runtime Stabilisation (056)
 
@@ -59,7 +60,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
 - [#381] VRLOG timestamp index build at load time: build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built: [design doc](../data/structures/VRLOG_FORMAT.md) `S`
 - Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
-- SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
 ### v0.5.7 - Product Polish + Release Readiness (057)
@@ -87,10 +87,13 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see `internal/ctl/manager.go` TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
+
+### v0.6.1 - macOS Local Server (061)
+
 - macOS local server Phases 1–3: embed Go server binary in VelocityVisualiser.app bundle, add ServerProcessManager (start/stop/restart lifecycle), Server menu with status and keyboard shortcuts, build pipeline integration (`build-server-for-mac` Makefile target, Xcode bundled resource): [design doc](plans/macos-local-server-plan.md) `M`
+- VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
 - macOS local server Phase 4: Login Item via `SMAppService.mainApp` for optional start-at-login with headless mode; "Start at Login" menu toggle; easy disable from System Settings: [design doc](plans/macos-local-server-plan.md) `S`
 - macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
-- VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
 ## 07x Rebel Realm ⛰️
