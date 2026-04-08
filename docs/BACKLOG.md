@@ -13,21 +13,24 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#445] Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 - Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 
-### v0.5.2 - Data Contracts + Metrics (052)
+### v0.5.2 - Housekeeping + Cleanup (052)
+
+- Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
+- Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
+- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
+- [#449] Error surface voice audit: rewrite ~250 user-facing error and status messages across Go, Python, TypeScript, and shell to use consistent, human voice; string-content-only changes: [design doc](plans/error-surface-voice-audit-plan.md) `M`
+- [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
+- Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
+- [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
+
+### v0.5.3 - Data Contracts + Metrics (053)
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#381] Classification display vs selectable enum split: keep truck and motorcyclist as display-only labels (visible in track inspector, colour palette, VRLOG replay) but not user-selectable in labelling UI; requires separate `DisplayLabel` and `SelectableLabel` types in Swift/TS/Go: [design doc](plans/label-vocabulary-consolidation-plan.md) `S`
-- Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
-- Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
-- Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
-- Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
-- [#449] Error surface voice audit: rewrite ~250 user-facing error and status messages across Go, Python, TypeScript, and shell to use consistent, human voice; string-content-only changes: [design doc](plans/error-surface-voice-audit-plan.md) `M`
-- [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
-- [#450] VRLOG age-colour terminal script: Python script for colour-coding VRLOG log lines by age; Makefile log-viewing targets: `S`
 
-### v0.5.3 - Perception Pipeline + Algorithm Foundations (053)
+### v0.5.4 - Perception Pipeline + Algorithm Foundations (054)
 
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - LiDAR foundations fix-it Phases 4–5: side-by-side replay evaluation harness and adoption decision gate; depends on perf harness: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
@@ -38,16 +41,17 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 - PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](lidar/operations/pcap-split-tool.md) `M`
 
-### v0.5.4 - Algorithm Correctness + Gap Remediation (0504)
+### v0.5.5 - Algorithm Correctness + Gap Remediation (055)
 
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Paper-implementation gap remediation P1 (critical tests + fixes): K1 (full-Q process noise test), K2 (Joseph-form covariance update), B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `L`
+- Paper-implementation gap remediation P1a — Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1b — background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
 - [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391 — close without merge if those branches land first: `S`
 
-### v0.5.5 - Structural Hygiene + Layer Foundations (0505)
+### v0.5.6 - Structural Hygiene + Layer Foundations (056)
 
 - Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
@@ -58,25 +62,25 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
 - SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 
-### v0.5.6 - Replay/Runtime Stabilisation (056)
+### v0.5.7 - Replay/Runtime Stabilisation (057)
 
 - Visualiser debug overlay + cluster proto follow-through: finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
 - Frontend background debug surfaces: Swift visualiser debugging outputs for background settlement: [design doc](plans/web-frontend-background-debug-surfaces-plan.md) `M`
+- LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix: `S`
 - [#381] VRLOG timestamp index build at load time: build a sorted timestamp→frame lookup at `NewReplayer` time; replace O(n) linear scan in `SeekToTimestamp` with binary search; add spinner/loading state in macOS UI while index is built: [design doc](../data/structures/VRLOG_FORMAT.md) `S`
-- Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
+- Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1 (v0.5.3): [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
-### v0.5.7 - Product Polish + Release Readiness (057)
+### v0.5.8 - Product Polish + Release Readiness (058)
 
 - [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
 - Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
 - Metrics/stats/frontend consolidation follow-through (Project C/D): retire duplicate stats surfaces, simplify CLI flags, and prune Make wrappers after parity: [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
-- LiDAR background grid display bug: `GET /api/lidar/background/grid` returns zero cells for live sensor data despite background snapshots existing with non-zero cell counts; map canvas shows no background point cloud; investigate and fix: `S`
 - Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
-### v0.5.8 - Sweep & Experimentation Infrastructure (058)
+### v0.5.9 - Sweep & Experimentation Infrastructure (059)
 
 - Distributed sweep workers: implement parallel sweep execution across multiple cores or nodes; plan landed in #382: [design doc](plans/lidar-distributed-sweep-workers-plan.md) `S`
 - HINT metric observability (Batch A): surface per-track and per-run diagnostics to labellers and HINT history; combo breakdowns and ComboResult persistence: [design doc](plans/hint-metric-observability-plan.md) `S`
