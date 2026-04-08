@@ -68,5 +68,22 @@ if ! probe_ok; then
     refresh_host_key
 fi
 
+# Split arguments on "--": everything before is SSH options, everything after
+# (if present) is passed as the remote command.
+SSH_OPTS=()
+REMOTE_CMD=()
+seen_separator=false
+for arg in "$@"; do
+    if [ "$arg" = "--" ] && ! $seen_separator; then
+        seen_separator=true
+        continue
+    fi
+    if $seen_separator; then
+        REMOTE_CMD+=("$arg")
+    else
+        SSH_OPTS+=("$arg")
+    fi
+done
+
 echo "Connecting to ${TARGET}..."
-exec ssh "$TARGET" "$@"
+exec ssh "${SSH_OPTS[@]}" "$TARGET" "${REMOTE_CMD[@]}"
