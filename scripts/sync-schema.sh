@@ -80,13 +80,13 @@ sqlite3 "$TEMP_DB" "CREATE TABLE schema_migrations (version uint64 NOT NULL, dir
 # C API generally). Without it the sqlite3 CLI does not update FK references in other
 # tables during ALTER TABLE RENAME, producing a schema that diverges from the Go path.
 MIGRATION_COUNT=0
-for migration in $(find "$PROJECT_ROOT/internal/db/migrations" -name "*.up.sql" | sort); do
+while IFS= read -r -d '' migration; do
     if ! { echo "PRAGMA legacy_alter_table = OFF;"; cat "$migration"; } | sqlite3 "$TEMP_DB" 2>&1; then
         echo -e "${RED}Error: Failed to apply migration: $(basename "$migration")${NC}"
         exit 1
     fi
     MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
-done
+done < <(find "$PROJECT_ROOT/internal/db/migrations" -name "*.up.sql" -print0 | sort -z)
 
 echo "   Applied $MIGRATION_COUNT migrations (sqlite3 $(sqlite3 ':memory:' 'SELECT sqlite_version();'))"
 echo -e "${GREEN}✓ Migrations applied successfully${NC}"
