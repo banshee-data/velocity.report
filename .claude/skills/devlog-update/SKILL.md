@@ -105,8 +105,9 @@ git log --all --oneline --since="$start_date" --format="%h %ad %an %s" --date=sh
 # Main branch specifically (to identify merged PRs)
 git log main --oneline --since="$start_date" --format="%h %ad %s" --date=short
 
-# Feature branches with recent work
-git log --all --oneline --since="$start_date" --format="%h %ad %D %s" --date=short | grep -v "^$"
+# Merged PRs — cross-check that every landed PR appears in the devlog
+gh pr list --state merged --limit 100 --json number,title,mergedAt,headRefName \
+  --jq '.[] | "\(.mergedAt | split("T")[0]) #\(.number) \(.title)"' | sort -r
 
 # Open PR branches — list branch-only commits (not on main)
 gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"'
@@ -114,7 +115,11 @@ gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.hea
 git log origin/$branch --not origin/main --oneline --format="%h %ad %s" --date=short
 ```
 
+**Date attribution:** use the **UTC date** from `git log --date=iso-strict` or GitHub's `mergedAt` field. Do not convert to the author's local timezone. A commit at `2026-03-31T02:01:38Z` belongs to the March 31 entry, regardless of the author's local time. This matches the repo-wide timestamp convention in `coding-standards.md`.
+
 When scanning open PR branches, compare each branch's commits against the devlog to find uncaptured work. Add branch subsections to existing daily entries (see "Branch sections within a daily entry" above).
+
+When scanning merged PRs, verify each `(#NNN)` reference appears in the correct day's entry (by UTC date). A PR recorded under the wrong UTC date should be moved.
 
 ### 4. Group commits by calendar day
 
