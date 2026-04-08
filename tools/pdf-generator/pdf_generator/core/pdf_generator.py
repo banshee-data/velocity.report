@@ -92,16 +92,31 @@ def _detect_fatal_latex_signature(base_path: Path) -> Optional[str]:
 
     signatures = (
         "metric (tfm) file or installed font not found",
-        "font tu/lmr",
+        "tu/lmr",
         "nullfont",
     )
+    # Explicit fatal lines that indicate total compilation failure.
+    explicit_fatal_lines = {
+        "fatal error occurred, no output pdf file produced!",
+    }
 
     try:
         with log_path.open("r", errors="ignore") as log_file:
             for idx, raw_line in enumerate(log_file, start=1):
-                lowered = raw_line.lower()
-                if any(signature in lowered for signature in signatures):
-                    return f"line {idx}: {raw_line.strip()}"
+                stripped = raw_line.strip()
+                lowered = stripped.lower()
+
+                # Check for explicit fatal output lines regardless of prefix.
+                if lowered in explicit_fatal_lines:
+                    return f"line {idx}: {stripped}"
+
+                # Only treat TeX error lines (prefixed with "!") as fatal
+                # signatures to avoid false positives from informational log
+                # entries that happen to contain these substrings.
+                if stripped.startswith("!") and any(
+                    sig in lowered for sig in signatures
+                ):
+                    return f"line {idx}: {stripped}"
     except Exception:
         return None
 
