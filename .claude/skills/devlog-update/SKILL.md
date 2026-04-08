@@ -32,7 +32,7 @@ _Branch: `branch-name` (not yet on main)_
 
 - **Date format:** `Month DD, YYYY` (e.g. `April 7, 2026`).
 - **Separator:** `-` (hyphen) between date and theme. Never use em-dashes in headers.
-- **Branch metadata:** italic line _Branch: `name` (not yet on main)_ when work is on a feature branch. Omit for commits already on `main`.
+- **Branch metadata:** when a day has **only** branch work, use an italic line _Branch: `name` (not yet on main)_ at the top. When a day mixes main-landed and branch work, tag each unlanded bullet with `{branch-name}` at the end (see below).
 - **Bullet style:** each bullet is a single `- ` line; concise, action-focused, past tense.
 - **Content per bullet:** what changed, which files/packages/layers, why, and references to design docs or PRs where relevant.
 - **Ordering:** newest entry first (prepend to the file, after the `# Development Log` title).
@@ -42,29 +42,37 @@ _Branch: `branch-name` (not yet on main)_
 - **Version bumps:** include only for actual releases. Omit pre-release bump bullets.
 - **Tone:** factual, developer-journal style. No marketing language. Record decisions and rationale when non-obvious.
 
-### Branch sections within a daily entry
+### Unlanded branch work within a daily entry
 
-When a calendar day has both main-landed work **and** unlanded branch work, the entry uses subsections to distinguish them:
+When a calendar day has both main-landed work **and** unlanded branch work, the unlanded bullets go at the end of the entry with a `{branch-name}` tag appended:
 
 ```markdown
 ## April 7, 2026 - Short Theme Title
 
 - Bullet about work landed on main.
 - Another main bullet.
-
-_Branch: `branch-name` (not yet on main)_
-
-- Bullet about unlanded branch work.
-- Another branch bullet.
+- Unlanded bullet about branch work. {copilot/complete-phase-1-image}
+- Another unlanded bullet. {copilot/complete-phase-1-image}
+- Work on a different branch. {dd/mac/dmg-signing}
 ```
 
 Rules:
 
-- Main-landed bullets come first, with no subheading (they are the default).
-- Each branch gets an italic `_Branch: \`name\` (not yet on main)\_` line followed by its bullets.
-- If a day has **only** branch work and nothing on main, use the branch metadata line at the top of the entry (existing convention).
-- Multiple branches on the same day each get their own italic subheading, ordered by most-active-first.
-- Do not duplicate bullets: if a commit appears on both main and a branch (e.g. a cherry-pick), record it under main only.
+- Main-landed bullets come first (no tag).
+- Unlanded bullets follow, each ending with `{branch-name}` (the branch slug in curly braces).
+- If a day has **only** branch work and nothing on main, use the italic `_Branch: \`name\` (not yet on main)\_` line at the top instead of tagging every bullet.
+- Do not duplicate bullets: if a commit appears on both main and a branch, record it under main only.
+
+### Cleaning up landed branch tags
+
+As part of each devlog update run, scan existing entries for `{branch-name}` tags and check whether that branch has since merged to main:
+
+```bash
+# For each {branch-name} found in the devlog:
+gh pr list --state merged --head "$branch" --json number --jq '.[0].number'
+```
+
+If the branch has merged, remove the `{branch-name}` tag from the bullet (the work is now on main). If the bullet has no other distinguishing content, leave it as-is with the tag removed.
 
 ### STYLE.md compliance
 
