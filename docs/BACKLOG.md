@@ -10,11 +10,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.1 - Raspberry Pi Image (051)
 
-- [#445] Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 - Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
+- [#445] Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 
 ### v0.5.2 - Housekeeping + Cleanup (052)
 
+- PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - Documentation standardisation: metadata format and date enforcement complete with CI linter; ~40 docs still missing opening paragraphs, 3 of 4 validation gates pending: [design doc](plans/platform-documentation-standardisation-plan.md) `S`
 - Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
@@ -129,7 +130,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 - (#323) Speed limit schedules (D-16): time-based speed limits for school zones and weekday/weekend variation: [design doc](radar/architecture/speed-limit-schedules.md) `L`
 - Unpopulated data structure remediation Phases 5–6, 8: training data export endpoint, run comparison API, and scaffolding struct cleanup; schedule when ML classifier training and comparison UI are active: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `L`
-- PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - (#4) Radar configuration via UI: read and send radar config commands through the web interface: [design doc](radar/architecture/serial-configuration-ui.md) `M`
 - Profile comparison UI delivery: cross-run compare workflow + scene evaluation UX: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
 - GitHub Releases CI pipeline: automated binary builds and release packaging: [design doc](plans/deploy-distribution-packaging-plan.md) `M`
