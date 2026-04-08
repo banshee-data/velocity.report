@@ -32,7 +32,7 @@ class TestDetectFatalLatexSignature(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             base_path = Path(tmpdir) / "report"
             log_path = base_path.with_suffix(".log")
-            log_path.write_text("This line references nullfont fallback\n")
+            log_path.write_text("! Font nullfont fallback triggered\n")
 
             failure = _detect_fatal_latex_signature(base_path)
             self.assertIsNotNone(failure)
