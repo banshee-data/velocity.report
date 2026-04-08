@@ -359,6 +359,22 @@ if [ -f "$USERCONF_PKG" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 6e. Disable autoremove in export-image dist-upgrade
+# ---------------------------------------------------------------------------
+# pi-gen's export-image/02-set-sources runs:
+#   apt-get -y dist-upgrade --auto-remove --purge
+# This sweeps auto-installed packages that lost their dependents during
+# our 06-cleanup stage, including runtime packages we need (e.g.
+# raspberrypi-sys-mods, console-setup).  Remove the --auto-remove flag
+# so dist-upgrade only upgrades without removing anything.
+SETSRC="$PIGEN_DIR/export-image/02-set-sources/01-run.sh"
+if [ -f "$SETSRC" ]; then
+    sed -i.bak 's/--auto-remove --purge//' "$SETSRC"
+    rm -f "$SETSRC.bak"
+    log_info "Disabled --auto-remove in export-image dist-upgrade"
+fi
+
+# ---------------------------------------------------------------------------
 # 8. Build the image
 # ---------------------------------------------------------------------------
 if docker inspect pigen_work &>/dev/null; then

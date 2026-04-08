@@ -14,6 +14,55 @@
 on_chroot << 'CHEOF'
 export DEBIAN_FRONTEND=noninteractive
 
+# ===================================================================
+# 0. Protect runtime packages BEFORE any purge operations
+# ===================================================================
+# apt-get purge -y cascades: if we purge package B and package A
+# depends on B, apt removes A too (even if A is marked manual,
+# because -y auto-confirms).  Additionally, pi-gen's export-image
+# runs `apt-get dist-upgrade --auto-remove --purge` AFTER our stage,
+# sweeping any auto-installed orphans.
+#
+# Defence:
+#   (a) Mark all runtime packages manual here, before any purge.
+#   (b) Never purge a package that is a dependency of something we
+#       keep (e.g. libbluetooth3 → network-manager, triggerhappy →
+#       raspi-config, xkb-data → console-setup).
+apt-mark manual \
+    python3 python3-minimal python3.11 python3.11-minimal \
+    libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
+    libpython3-stdlib python3-venv \
+    python3-serial \
+    python3-apt python3-debconf python-apt-common \
+    nginx nginx-common \
+    curl libcurl4 \
+    sqlite3 libsqlite3-0 \
+    openssl libssl3 libcrypt1 \
+    ca-certificates \
+    libpcap0.8 \
+    openssh-server openssh-client openssh-sftp-server ssh \
+    systemd systemd-sysv systemd-timesyncd \
+    network-manager libbluetooth3 \
+    isc-dhcp-client isc-dhcp-common \
+    iproute2 iputils-ping net-tools \
+    wpasupplicant iw rfkill wireless-regdb \
+    firmware-brcm80211 raspberrypi-net-mods \
+    raspi-config raspberrypi-sys-mods \
+    raspi-firmware raspi-gpio \
+    triggerhappy \
+    alsa-utils \
+    avahi-daemon \
+    dbus dbus-daemon dbus-bin \
+    polkitd policykit-1 \
+    udev \
+    init initramfs-tools initramfs-tools-core \
+    libglib2.0-0 \
+    libxml2 libpng16-16 \
+    jq librsvg2-bin \
+    console-setup keyboard-configuration xkb-data \
+    parted \
+    2>/dev/null || true
+
 # -------------------------------------------------------------------
 # 1. Compiler toolchain and kernel headers
 #    Installed by stage0 (linux-headers) and stage2 (build-essential).
@@ -87,10 +136,11 @@ apt-get purge -y \
 
 # -------------------------------------------------------------------
 # 6. Bluetooth — headless, no Bluetooth peripherals
-#    (Keep ALSA — raspi-config depends on alsa-utils)
+#    (Keep libbluetooth3 — network-manager has a hard dep on it.)
+#    (Keep ALSA — raspi-config depends on alsa-utils.)
 # -------------------------------------------------------------------
 apt-get purge -y \
-    bluez bluez-firmware pi-bluetooth libbluetooth3 \
+    bluez bluez-firmware pi-bluetooth \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
@@ -144,6 +194,7 @@ apt-get purge -y \
 
 # -------------------------------------------------------------------
 # 11. Miscellaneous dev/convenience tools and desktop remnants
+#     Keep triggerhappy (raspi-config dep) and xkb-data (console-setup dep).
 # -------------------------------------------------------------------
 apt-get purge -y \
     ssh-import-id \
@@ -155,9 +206,8 @@ apt-get purge -y \
     minicom lrzsz \
     pastebinit \
     fbset \
-    triggerhappy \
     rpi-keyboard-config rpi-keyboard-fw-update \
-    xdg-user-dirs xkb-data \
+    xdg-user-dirs \
     dconf-cli libdconf1 \
     shared-mime-info sgml-base xml-core \
     libmtp-common libmtp-runtime libmtp9 \
@@ -167,46 +217,7 @@ apt-get purge -y \
     2>/dev/null || true
 
 # -------------------------------------------------------------------
-# 12. Protect runtime packages from autoremove cascade
-# -------------------------------------------------------------------
-# Many packages needed at runtime were originally auto-installed by
-# pi-gen's stage0–stage2.  Purging dev packages above orphans their
-# dependency chains, causing autoremove to sweep out critical runtime
-# libraries.  Mark them manual so they survive.
-apt-mark manual \
-    python3 python3-minimal python3.11 python3.11-minimal \
-    libpython3.11 libpython3.11-minimal libpython3.11-stdlib \
-    libpython3-stdlib python3-venv \
-    python3-serial \
-    python3-apt python3-debconf python-apt-common \
-    nginx nginx-common \
-    curl libcurl4 \
-    sqlite3 libsqlite3-0 \
-    openssl libssl3 libcrypt1 \
-    ca-certificates \
-    libpcap0.8 \
-    openssh-server openssh-client openssh-sftp-server ssh \
-    systemd systemd-sysv systemd-timesyncd \
-    network-manager \
-    isc-dhcp-client isc-dhcp-common \
-    iproute2 iputils-ping net-tools \
-    wpasupplicant iw rfkill wireless-regdb \
-    firmware-brcm80211 raspberrypi-net-mods \
-    raspi-config raspberrypi-sys-mods \
-    raspi-firmware raspi-gpio \
-    avahi-daemon \
-    dbus dbus-daemon dbus-bin \
-    polkitd policykit-1 \
-    udev \
-    init initramfs-tools initramfs-tools-core \
-    libglib2.0-0 \
-    libxml2 libpng16-16 \
-    jq librsvg2-bin \
-    console-setup keyboard-configuration \
-    2>/dev/null || true
-
-# -------------------------------------------------------------------
-# 13. Cascade removal and cache clean
+# 12. Cascade removal and cache clean
 # -------------------------------------------------------------------
 apt-get autoremove --purge -y 2>/dev/null || true
 apt-get clean
