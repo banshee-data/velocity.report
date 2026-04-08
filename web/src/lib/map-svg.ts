@@ -537,11 +537,7 @@ export function orderedEndpoints(
 ): Array<{ id: string; url: string }> {
 	const selected = selectedMirror ? mirrors.find((m) => m.id === selectedMirror) : null;
 	const rest = mirrors.filter((m) => m.id !== selectedMirror);
-	// Shuffle the non-selected mirrors
-	for (let i = rest.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[rest[i], rest[j]] = [rest[j], rest[i]];
-	}
+	// Keep declaration order as priority — no shuffle.
 	const ordered = selected ? [selected, ...rest] : rest;
 	return ordered.map((m) => ({ id: m.id, url: m.url }));
 }
