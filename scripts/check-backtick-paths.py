@@ -88,9 +88,6 @@ SKIP_DIRS = {
     ".build",
     "DerivedData",
     "build",
-    # pi-gen stage package dirs: contain bundled copies of repo files whose
-    # backtick paths resolve against the repo root, not the stage directory.
-    "files",
     # pi-gen build output and the upstream pi-gen submodule.
     ".pi-gen",
 }
@@ -134,7 +131,18 @@ def _resolve(token: str, source_file: Path, repo_root: Path) -> bool:
 def find_markdown_files(root: Path) -> list[Path]:
     results: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in SKIP_DIRS
+            # pi-gen stage package dirs contain bundled copies of repo files
+            # whose backtick paths resolve against the repo root, not the
+            # stage directory.  Only skip 'files/' under image/stage-*.
+            and not (
+                d == "files"
+                and Path(dirpath).relative_to(root).parts[:1] == ("image",)
+            )
+        ]
         for fname in filenames:
             if fname.endswith(".md"):
                 results.append(Path(dirpath) / fname)
