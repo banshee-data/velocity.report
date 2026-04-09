@@ -1,0 +1,29 @@
+<<define "chart_section">>
+\onecolumn
+
+<<if .TimeSeriesChart>>
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{<<.TimeSeriesChart>>}
+\caption{Speed percentiles and observation counts over time}
+\end{figure}
+<<end>>
+
+<<if .CompareChart>>
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{<<.CompareChart>>}
+\caption{Speed distribution comparison}
+\end{figure}
+<<end>>
+
+<<if .MapChart>>
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{<<.MapChart>>}
+\caption{Site map with radar coverage}
+\end{figure}
+<<end>>
+
+\twocolumn
+<<end>>

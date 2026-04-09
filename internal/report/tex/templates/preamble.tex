@@ -1,0 +1,61 @@
+<<define "preamble">>
+\documentclass[11pt,a4paper]{article}
+
+% Geometry
+\usepackage[top=1.8cm, bottom=1.0cm, left=1.0cm, right=1.0cm]{geometry}
+
+% Packages
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{supertabular}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{amsmath}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{multicol}
+\usepackage{float}
+\usepackage{array}
+
+% Column separator
+\setlength{\columnsep}{14pt}
+\setlength{\emergencystretch}{2em}
+
+% Fonts
+\setmainfont{AtkinsonHyperlegible}[
+  Path = <<.FontDir>>/,
+  Extension = .ttf,
+  UprightFont = *-Regular,
+  BoldFont = *-Bold,
+  ItalicFont = *-Italic,
+  BoldItalicFont = *-BoldItalic
+]
+
+% Colours (matching web palette)
+\definecolor{vrP50}{HTML}{fbd92f}
+\definecolor{vrP85}{HTML}{f7b32b}
+\definecolor{vrP98}{HTML}{f25f5c}
+\definecolor{vrMax}{HTML}{2d1e2f}
+
+% Caption styling
+\captionsetup{labelfont=bf,textfont=bf}
+
+% Section title styling
+\titleformat{\section}{\bfseries\Large}{}{0em}{}
+\titleformat{\subsection}{\bfseries\large}{}{0em}{}
+
+% Header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{\protect\href{https://velocity.report}{velocity.report}}}
+\fancyhead[R]{\textit{<<.Location>>}}
+\fancyfoot[L]{\small <<.StartDate>> -- <<.EndDate>>}
+\fancyfoot[R]{\small Page \thepage}
+\renewcommand{\headrulewidth}{0.8pt}
+\renewcommand{\footrulewidth}{0.8pt}
+\setlength{\headheight}{12pt}
+\setlength{\headsep}{10pt}
+<<end>>

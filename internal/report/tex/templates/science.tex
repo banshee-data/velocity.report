@@ -1,0 +1,27 @@
+<<define "science">>
+\subsection*{Citizen Radar Science}
+
+Speed data is collected using a Doppler radar sensor (OmniPreSense OPS243-A)
+mounted at the roadside. The radar measures the radial component of each
+vehicle's velocity. When the sensor is mounted at an angle $\theta$ to the
+traffic flow, the measured speed $v_m$ relates to the true speed $v$ by:
+\[
+  v = \frac{v_m}{\cos(\theta)}
+\]
+
+\textbf{Aggregation method:} observations are grouped into <<.Group>>
+intervals. Within each interval, percentile speeds (P50, P85, P98) are
+calculated over the population of individual vehicle maximum speeds.
+
+\begin{itemize}
+  \item \textbf{P50} (median): half of vehicles travel slower than this speed.
+  \item \textbf{P85}: 85\% of vehicles travel slower. Used by traffic
+        engineers as the ``design speed'' for road safety.
+  \item \textbf{P98}: 98\% of vehicles travel slower. Identifies habitual
+        speeders.
+\end{itemize}
+
+\textbf{Kinetic energy:} a vehicle's kinetic energy is $KE = \frac{1}{2}mv^2$.
+Pedestrian fatality risk rises steeply with impact speed: at 30~mph the risk
+is approximately 10\%; at 40~mph it exceeds 50\%.
+<<end>>

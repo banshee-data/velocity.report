@@ -1,0 +1,37 @@
+<<define "overview">>
+\section*{Velocity Overview}
+
+\begin{itemize}
+  \item \textbf{Location:} <<.Location>>
+  \item \textbf{Period:} <<.StartDate>> -- <<.EndDate>>
+  \item \textbf{Total observations:} <<.TotalCount>>
+  \item \textbf{Speed limit:} <<.SpeedLimit>> <<.Units>>
+\end{itemize}
+
+\subsection*{Key Metrics}
+\begin{tabular}{lr}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+P50 (median) & <<.P50>> <<.Units>> \\
+P85 & <<.P85>> <<.Units>> \\
+P98 & <<.P98>> <<.Units>> \\
+Maximum & <<.MaxSpeed>> <<.Units>> \\
+\hline
+\end{tabular}
+
+<<if .CompareStartDate>>
+\subsection*{Comparison Summary}
+\begin{tabular}{lrr}
+\hline
+\textbf{Metric} & \textbf{Primary} & \textbf{Comparison} \\
+\hline
+P50 & <<.P50>> & <<.CompareP50>> \\
+P85 & <<.P85>> & <<.CompareP85>> \\
+P98 & <<.P98>> & <<.CompareP98>> \\
+Max & <<.MaxSpeed>> & <<.CompareMax>> \\
+Count & <<.TotalCount>> & <<.CompareCount>> \\
+\hline
+\end{tabular}
+<<end>>
+<<end>>

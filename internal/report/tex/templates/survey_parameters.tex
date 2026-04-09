@@ -1,0 +1,21 @@
+<<define "survey_parameters">>
+\subsection*{Survey Parameters}
+
+\begin{tabular}{p{0.44\linewidth}p{0.52\linewidth}}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Start date & <<.StartDate>> \\
+End date & <<.EndDate>> \\
+Timezone & <<.Timezone>> \\
+Grouping & <<.Group>> \\
+Units & <<.Units>> \\
+Min speed & <<printf "%.1f" .MinSpeed>> <<.Units>> \\
+Source & <<.Source>> \\
+<<if gt .CosineAngle 0.0>>
+Cosine angle & <<printf "%.1f" .CosineAngle>>° \\
+Cosine factor & <<printf "%.4f" .CosineFactor>>\\
+<<end>>
+\hline
+\end{tabular}
+<<end>>
