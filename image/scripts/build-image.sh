@@ -410,9 +410,19 @@ fi
 OUTPUT_IMG=$(find "$DEPLOY_DIR" -name "*.img" -type f -print0 | xargs -0 ls -t 2>/dev/null | head -1)
 
 if [[ -n "$OUTPUT_IMG" ]]; then
+    # Rename to match the asset naming convention before compressing.
+    # Dev:     {datetime}-velocity-report-{devversion}-{sha7}.img.xz
+    # The VERSION and GIT_SHA_SHORT variables were set earlier in the script.
+    IMG_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    IMG_BUILD_TS_COMPACT="${IMG_BUILD_TIME//[-:]/}"
+    IMG_DEV_VERSION="${VERSION//-/.}"
+    IMG_GIT_SHA_SHORT=$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
+    NAMED_IMG="$DEPLOY_DIR/${IMG_BUILD_TS_COMPACT}-velocity-report-${IMG_DEV_VERSION}-${IMG_GIT_SHA_SHORT}.img"
+    mv "$OUTPUT_IMG" "$NAMED_IMG"
+
     log_info "Compressing image with xz..."
-    xz -9 --keep --force "$OUTPUT_IMG"
-    COMPRESSED="${OUTPUT_IMG}.xz"
+    xz -9 --keep --force "$NAMED_IMG"
+    COMPRESSED="${NAMED_IMG}.xz"
     log_info "Image ready: $COMPRESSED"
     log_info "Size: $(du -h "$COMPRESSED" | cut -f1)"
 
