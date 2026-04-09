@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/security"
 )
 
@@ -144,6 +145,13 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if speedLimit == 0 {
 		speedLimit = 25
+	}
+
+	// Go backend path: when VELOCITY_PDF_BACKEND=go, use the pure-Go report
+	// pipeline instead of shelling out to the Python PDF generator.
+	if os.Getenv("VELOCITY_PDF_BACKEND") == "go" {
+		s.generateReportGo(w, r, req, site, cosineErrorAngle, location, surveyor, contact, speedLimit, siteDescription, speedLimitNote)
+		return
 	}
 
 	// Create unique run ID for organized output folders
@@ -412,6 +420,127 @@ func (s *Server) generateReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Successfully generated PDF report (ID: %d): %s", report.ID, pdfFilename)
+}
+
+// generateReportGo handles report generation using the pure-Go report pipeline.
+// Called when VELOCITY_PDF_BACKEND=go is set.
+func (s *Server) generateReportGo(
+	w http.ResponseWriter, r *http.Request,
+	req ReportRequest, site *db.Site,
+	cosineErrorAngle float64,
+	location, surveyor, contact string,
+	speedLimit int,
+	siteDescription, speedLimitNote string,
+) {
+	// Build report.Config from resolved request + site fields.
+	cfg := report.Config{
+		SiteID:            *req.SiteID,
+		Location:          location,
+		Surveyor:          surveyor,
+		Contact:           contact,
+		SpeedLimit:        speedLimit,
+		SiteDescription:   siteDescription,
+		SpeedLimitNote:    speedLimitNote,
+		StartDate:         req.StartDate,
+		EndDate:           req.EndDate,
+		Timezone:          req.Timezone,
+		Units:             req.Units,
+		Group:             req.Group,
+		Source:            req.Source,
+		MinSpeed:          req.MinSpeed,
+		BoundaryThreshold: req.BoundaryThreshold,
+		Histogram:         req.Histogram,
+		HistBucketSize:    req.HistBucketSize,
+		HistMax:           req.HistMax,
+		CompareStart:      req.CompareStart,
+		CompareEnd:        req.CompareEnd,
+		CompareSource:     req.CompareSource,
+		CosineAngle:       cosineErrorAngle,
+	}
+
+	// Determine output directory.
+	pdfDir, err := getPDFGeneratorDir()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to determine output directory: %v", err))
+		return
+	}
+
+	now := time.Now()
+	runID := fmt.Sprintf("%s-%d", now.Format("20060102-150405"), now.Nanosecond())
+	cfg.OutputDir = filepath.Join(pdfDir, "output", runID)
+
+	result, err := report.Generate(r.Context(), s.db, cfg)
+	if err != nil {
+		log.Printf("Go PDF generation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("PDF generation failed: %v", err))
+		return
+	}
+
+	// Security: validate output paths are within the expected directory.
+	if err := security.ValidatePathWithinDirectory(result.PDFPath, pdfDir); err != nil {
+		log.Printf("Security: rejected Go PDF path %s: %v", result.PDFPath, err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
+		return
+	}
+
+	// Build relative paths matching the Python path convention.
+	relativePdfPath, err := filepath.Rel(pdfDir, result.PDFPath)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to compute relative PDF path")
+		return
+	}
+	relativeZipPath, err := filepath.Rel(pdfDir, result.ZIPPath)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to compute relative ZIP path")
+		return
+	}
+
+	pdfFilename := filepath.Base(result.PDFPath)
+	zipFilename := filepath.Base(result.ZIPPath)
+
+	// Create report record in database (same as Python path).
+	siteReport := &db.SiteReport{
+		SiteID:      *req.SiteID,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
+		Filepath:    relativePdfPath,
+		Filename:    pdfFilename,
+		ZipFilepath: &relativeZipPath,
+		ZipFilename: &zipFilename,
+		RunID:       runID,
+		Timezone:    req.Timezone,
+		Units:       req.Units,
+		Source:      req.Source,
+	}
+
+	if err := s.db.CreateSiteReport(r.Context(), siteReport); err != nil {
+		log.Printf("Failed to create report record: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to create report record")
+		return
+	}
+
+	// Return same JSON response shape as the Python path.
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"success":   true,
+		"report_id": siteReport.ID,
+		"message":   "Report generated successfully",
+		"pdf_path":  relativePdfPath,
+		"zip_path":  relativeZipPath,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
+
+	log.Printf("Successfully generated Go PDF report (ID: %d): %s", siteReport.ID, pdfFilename)
 }
 
 // getPDFGeneratorDir determines the PDF generator directory.
