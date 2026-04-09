@@ -5,13 +5,13 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-gray-900 dark:text-gray-100">
     <!-- Hero Section -->
-    <div class="flex flex-col md:flex-row items-center gap-8 mb-14 py-8 md:py-12">
+    <div class="flex flex-col md:flex-row items-center gap-8 mb-2 py-8 md:py-12">
         <div class="w-full md:w-auto md:shrink-0">
             <h1 class="text-6xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-8 leading-tight text-center md:text-left">
                 If speeds don't drop, <br class="hidden md:block">the work can't stop.
             </h1>
 
-            <div class="max-w-[24rem] mx-auto md:mx-0">
+            <div class="max-w-[28rem] mx-auto md:mx-0">
             <p class="text-lg text-gray-600 dark:text-gray-300 mb-10 leading-relaxed text-center md:text-left">
                 <strong>velocity.report</strong> is a privacy-first, open-source traffic speed monitor. Measure vehicle speeds, produce professional reports, and make the case for safer streets with evidence rather than anecdote.
             </p>
@@ -58,7 +58,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 <p class="text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300">Raspberry Pi image</p>
                 <a href="{{ release.rpi_image_release_url }}" class="text-xs text-gray-500 dark:text-gray-400 hover:underline ml-4">Release notes →</a>
             </div>
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4 max-w-[28rem] mx-auto">
                 <!-- Download -->
                 <div class="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-950/70">
                     <a href="{{ release.rpi_image_url }}"
@@ -68,7 +68,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </a>
                     <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400 font-mono">
                         <span class="font-semibold text-gray-700 dark:text-gray-300 shrink-0">v{{ release.rpi_image_version }}</span>
-                        <div class="relative flex-1 rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
+                        <div class="relative flex-1 max-w-[20em] rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.rpi_image_sha256 }}">sha256:{{ release.rpi_image_sha256 }}</span>
                             <button
                                 type="button"
@@ -85,7 +85,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 <div class="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-950/70">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">Raspberry Pi Imager custom repo</p>
                     <div class="flex items-center gap-2">
-                        <div class="relative flex-1 rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90 text-xs font-mono text-gray-600 dark:text-gray-300">
+                        <div class="relative flex-1 w-full rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90 text-xs font-mono text-gray-600 dark:text-gray-300">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="{{ release.rpi_imager_repo_url }}">{{ release.rpi_imager_repo_url }}</span>
                             <button
                                 type="button"
@@ -96,7 +96,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                             </button>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Paste into Raspberry Pi Imager under <em>Use custom</em>.</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Paste into <a href="https://www.raspberrypi.com/software/" class="text-blue-600 hover:underline">Raspberry Pi Imager</a> under <em>Use custom</em>.</p>
                 </div>
             </div>
         </div>
@@ -107,7 +107,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 <p class="text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300">Server downloads</p>
                 <a href="https://github.com/banshee-data/velocity.report/releases/tag/v{{ release.version }}" class="text-xs text-gray-500 dark:text-gray-400 hover:underline ml-4">Full release notes →</a>
             </div>
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4 max-w-[28rem] mx-auto">
                 <!-- Linux ARM64 -->
                 <div class="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-slate-700 p-4 bg-white dark:bg-slate-950/70">
                     <a href="https://github.com/banshee-data/velocity.report/releases/download/v{{ release.version }}/velocity-report-linux-arm64_{{ release.version }}"
@@ -117,7 +117,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </a>
                     <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400 font-mono">
                         <span class="font-semibold text-gray-700 dark:text-gray-300 shrink-0">v{{ release.version }}</span>
-                        <div class="relative flex-1 rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
+                        <div class="relative flex-1 max-w-[20em] rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.linux_arm64_sha256 }}">sha256:{{ release.linux_arm64_sha256 }}</span>
                             <button
                                 type="button"
@@ -139,7 +139,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </a>
                     <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400 font-mono">
                         <span class="font-semibold text-gray-700 dark:text-gray-300 shrink-0">v{{ release.version }}</span>
-                        <div class="relative flex-1 rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
+                        <div class="relative flex-1 max-w-[20em] rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.mac_arm64_sha256 }}">sha256:{{ release.mac_arm64_sha256 }}</span>
                             <button
                                 type="button"
@@ -184,7 +184,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 </video>
             </div>
 
-            <div class="max-w-[24rem] mx-auto">
+            <div class="max-w-[28rem] mx-auto">
                 <div class="mt-3 flex flex-col gap-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-950/70 p-4">
                     <a href="https://github.com/banshee-data/velocity.report/releases/download/v{{ release.version }}/VelocityVisualiser-{{ release.version }}.dmg"
                        class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md">
@@ -193,7 +193,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                     </a>
                     <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400 font-mono">
                         <span class="font-semibold text-gray-700 dark:text-gray-300 shrink-0">v{{ release.version }}</span>
-                        <div class="relative flex-1 rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
+                        <div class="relative flex-1 max-w-[20em] rounded overflow-hidden bg-gray-100 dark:bg-slate-900/90">
                             <span class="block w-full pl-2 pr-16 py-1.5 truncate select-all cursor-text" title="sha256:{{ release.visualiser_sha256 }}">sha256:{{ release.visualiser_sha256 }}</span>
                             <button
                                 type="button"
