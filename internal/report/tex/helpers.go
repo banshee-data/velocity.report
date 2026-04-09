@@ -85,21 +85,45 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	b.WriteString(`\textbf{` + EscapeTeX(units) + `} & \textbf{Count} & \textbf{\%} \\` + "\n")
 	b.WriteString(`\hline` + "\n")
 
+	// Pre-aggregate below-cutoff and above-max buckets.
+	var belowCount, aboveCount int64
+	type displayRow struct {
+		label string
+		count int64
+	}
+	var rows []displayRow
+
 	for _, k := range keys {
 		count := buckets[k]
-		pct := float64(count) / float64(total) * 100.0
-
-		var label string
 		switch {
 		case k < cutoff:
-			label = fmt.Sprintf("$<$%.0f", cutoff)
+			belowCount += count
 		case k >= maxBucket:
-			label = fmt.Sprintf("%.0f+", maxBucket)
+			aboveCount += count
 		default:
-			label = fmt.Sprintf("%.0f--%.0f", k, k+bucketSz)
+			rows = append(rows, displayRow{
+				label: fmt.Sprintf("%.0f--%.0f", k, k+bucketSz),
+				count: count,
+			})
 		}
+	}
 
-		b.WriteString(fmt.Sprintf("%s & %d & %.1f\\%% \\\\\n", label, count, pct))
+	// Emit aggregated below-cutoff row first.
+	if belowCount > 0 {
+		pct := float64(belowCount) / float64(total) * 100.0
+		b.WriteString(fmt.Sprintf("$<$%.0f & %d & %.1f\\%% \\\\\n", cutoff, belowCount, pct))
+	}
+
+	// Emit normal range rows.
+	for _, row := range rows {
+		pct := float64(row.count) / float64(total) * 100.0
+		b.WriteString(fmt.Sprintf("%s & %d & %.1f\\%% \\\\\n", row.label, row.count, pct))
+	}
+
+	// Emit aggregated above-max row last.
+	if aboveCount > 0 {
+		pct := float64(aboveCount) / float64(total) * 100.0
+		b.WriteString(fmt.Sprintf("%.0f+ & %d & %.1f\\%% \\\\\n", maxBucket, aboveCount, pct))
 	}
 
 	b.WriteString(`\hline` + "\n")

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 const pxPerMM = 96.0 / 25.4
@@ -21,13 +22,16 @@ var atkinsonItalicTTF []byte
 //go:embed assets/AtkinsonHyperlegible-BoldItalic.ttf
 var atkinsonBoldItalicTTF []byte
 
-var atkinsonRegularB64 string
+var (
+	atkinsonRegularB64  string
+	atkinsonRegularOnce sync.Once
+)
 
 // AtkinsonRegularBase64 returns the base64-encoded Atkinson Hyperlegible Regular font.
 func AtkinsonRegularBase64() string {
-	if atkinsonRegularB64 == "" {
+	atkinsonRegularOnce.Do(func() {
 		atkinsonRegularB64 = base64.StdEncoding.EncodeToString(atkinsonRegularTTF)
-	}
+	})
 	return atkinsonRegularB64
 }
 

@@ -30,7 +30,7 @@ var fontItalic []byte
 var fontBoldItalic []byte
 
 // Generate produces a PDF report and source ZIP for the given configuration.
-func Generate(ctx context.Context, database DB, cfg Config) (Result, error) {
+func Generate(ctx context.Context, database DB, cfg Config) (result Result, err error) {
 	// Validate group.
 	groupSeconds, ok := supportedGroups[cfg.Group]
 	if !ok {
@@ -132,7 +132,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (Result, error) {
 	}
 
 	// Convert DB rows to chart data.
-	tsPoints := convertToTimeSeriesPoints(tsResult.Metrics, cfg.Units)
+	tsPoints := convertToTimeSeriesPoints(tsResult.Metrics, cfg.Units, loc)
 	tsData := chart.TimeSeriesData{
 		Points: tsPoints,
 		Units:  cfg.Units,
@@ -409,12 +409,12 @@ func fetchComparison(ctx context.Context, database DB, cfg Config, loc *time.Loc
 }
 
 // convertToTimeSeriesPoints converts DB rollup rows to chart points,
-// converting speeds from mps to display units.
-func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string) []chart.TimeSeriesPoint {
+// converting speeds from mps to display units and times to loc.
+func convertToTimeSeriesPoints(rows []db.RadarObjectsRollupRow, displayUnits string, loc *time.Location) []chart.TimeSeriesPoint {
 	pts := make([]chart.TimeSeriesPoint, len(rows))
 	for i, r := range rows {
 		pts[i] = chart.TimeSeriesPoint{
-			StartTime: r.StartTime,
+			StartTime: r.StartTime.In(loc),
 			P50Speed:  units.ConvertSpeed(r.P50Speed, displayUnits),
 			P85Speed:  units.ConvertSpeed(r.P85Speed, displayUnits),
 			P98Speed:  units.ConvertSpeed(r.P98Speed, displayUnits),

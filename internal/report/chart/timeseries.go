@@ -30,19 +30,20 @@ type XTick struct {
 	Label string
 }
 
-// DayBoundaries returns indices where the date changes.
-// Index 0 is always included.
+// DayBoundaries returns indices where the calendar date changes.
+// Index 0 is always included. Uses Year/Month/Day comparison rather
+// than Truncate, so it respects the timezone embedded in each point.
 func DayBoundaries(pts []TimeSeriesPoint) []int {
 	if len(pts) == 0 {
 		return nil
 	}
 	boundaries := []int{0}
-	prevDay := pts[0].StartTime.Truncate(24 * time.Hour)
+	py, pm, pd := pts[0].StartTime.Date()
 	for i := 1; i < len(pts); i++ {
-		day := pts[i].StartTime.Truncate(24 * time.Hour)
-		if !day.Equal(prevDay) {
+		y, m, d := pts[i].StartTime.Date()
+		if y != py || m != pm || d != pd {
 			boundaries = append(boundaries, i)
-			prevDay = day
+			py, pm, pd = y, m, d
 		}
 	}
 	return boundaries
