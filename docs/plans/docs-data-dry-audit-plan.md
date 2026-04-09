@@ -42,7 +42,8 @@ Running `make report-plan-hygiene` as of audit date produces:
 14 gate violation(s), 7 advisory note(s)
 ```
 
-The `make check-plan-hygiene` CI gate is wired; these violations are a live CI failure risk.
+CI currently runs `make report-plan-hygiene`, so these violations are being reported but are
+not yet enforced by a hard-fail `make check-plan-hygiene` gate.
 
 ## Findings
 
