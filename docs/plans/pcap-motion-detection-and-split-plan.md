@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
 - **Scope:** add a `--motion` analysis mode to pcap-analyse and implement the pcap-split tool from existing design, shipping movement detection as a two-phase capability
-- **Related:** [pcap-split design doc](pcap-split-tool-plan.md), [settling time optimisation](../lidar/operations/settling-time-optimisation.md), [adaptive region parameters](../lidar/operations/adaptive-region-parameters.md)
+- **Related:** [pcap-split design doc](../lidar/operations/pcap-split-tool.md), [settling time optimisation](../lidar/operations/settling-time-optimisation.md), [adaptive region parameters](../lidar/operations/adaptive-region-parameters.md)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 ## 1. Problem
