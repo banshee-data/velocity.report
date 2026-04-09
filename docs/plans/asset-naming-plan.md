@@ -3,6 +3,7 @@
 - **Status:** Complete
 - **Owner:** Grace (Architect)
 - **Scope mode:** HOLD — the architecture is sound; this standardises naming across existing assets
+- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)
 
 ## Problem
 

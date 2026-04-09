@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (documentation, backlog, CI)
-- **Canonical:** [BACKLOG.md](../BACKLOG.md)
+- **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
 Introduce a closed vocabulary of domain tags for classifying backlog items and plan documents. Tags appear inline in backlog entries and as metadata in plan doc headers, enabling automated theme coherence checks and per-domain filtering.
 

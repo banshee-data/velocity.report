@@ -3,6 +3,7 @@
 - **Status:** Planned for v0.5.1 or v0.5.2
 - **Design Phase:** Nomenclature standardisation
 - **Scope:** Rename "scene" → "replay case" across Go API, store layer, sweep interfaces, Web routes, and Svelte components.
+- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
 
 ## Overview
 

@@ -1,7 +1,7 @@
 # macOS Local Server — Plan
 
 - **Layers:** L10 Clients (macOS visualiser), Platform (deployment)
-- **Canonical:** This document
+- **Canonical:** [velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)
 - **Feature:** Embed Go server binary in VelocityVisualiser.app with local server management and login-item boot hooks
 
 ---

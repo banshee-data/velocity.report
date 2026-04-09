@@ -1,15 +1,17 @@
-# Tailscale Remote Access Setup Guide
+# Tailscale Remote Access
 
-- **Status:** Complete
-- **Layers:** Platform (Raspberry Pi deployment)
-- **Related:** [Networking Design Principles](../radar/architecture/networking.md), [Setup Guide — Remote Access](../../public_html/src/guides/setup.md)
-- **Canonical:** [tailscale-remote-access.md](../platform/operations/tailscale-remote-access.md)
-
-Raspberry Pi deployments sit behind home routers with no public IP, making remote access awkward. Tailscale creates a WireGuard mesh VPN that gives every enrolled device a stable `100.x.y.z` address — no port forwarding, no dynamic DNS, no exposure to public internet scanners. This guide covers the RPi-specific installation, recommended `tailscale up` flags, ACL policy for a velocity-report deployment, and SSH access.
+Tailscale creates a WireGuard mesh VPN that gives every enrolled device a
+stable `100.x.y.z` address — no port forwarding, no dynamic DNS, no exposure
+to public internet scanners. This guide covers RPi-specific installation,
+recommended `tailscale up` flags, ACL policy for a velocity-report deployment,
+and SSH access.
 
 ## Scope
 
-RPi only. The [setup guide](../../public_html/src/guides/setup.md#remote-access-with-tailscale-optional) already covers the 5-minute quickstart; this document goes deeper with production flags, access control, and integration with the server's existing [listener architecture](../radar/architecture/networking.md).
+RPi only. The [setup guide](../../public_html/src/guides/setup.md#remote-access-with-tailscale-optional)
+covers the 5-minute quickstart; this document goes deeper with production
+flags, access control, and integration with the server's existing
+[listener architecture](../radar/architecture/networking.md).
 
 ## 1. Install Tailscale on the Raspberry Pi
 
@@ -17,7 +19,9 @@ RPi only. The [setup guide](../../public_html/src/guides/setup.md#remote-access-
 curl -fsSL https://tailscale.com/install.sh | sh
 ```
 
-This installs the `tailscaled` daemon and the `tailscale` CLI. On Raspberry Pi OS (Debian-based), the installer adds the apt repository and starts the service automatically.
+This installs the `tailscaled` daemon and the `tailscale` CLI. On
+Raspberry Pi OS (Debian-based), the installer adds the apt repository and
+starts the service automatically.
 
 Verify:
 
@@ -34,11 +38,13 @@ systemctl status tailscaled
 sudo tailscale up
 ```
 
-Follow the printed URL to authenticate in a browser. Suitable for a Pi with a keyboard/monitor attached, or when SSH'd in.
+Follow the printed URL to authenticate in a browser. Suitable for a Pi
+with a keyboard/monitor attached, or when SSH'd in.
 
 ### Headless (recommended for RPi)
 
-Generate an auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys):
+Generate an auth key from the
+[Tailscale admin console](https://login.tailscale.com/admin/settings/keys):
 
 - **Reusable:** No (single-use is safer for a fixed device)
 - **Ephemeral:** No (the Pi is a permanent node)
@@ -82,11 +88,17 @@ The LiDAR monitor is on `:8081`:
 http://velocity-pi:8081
 ```
 
-Tailscale-protected debug endpoints (serial commands, DB backup, tailsql, pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger` — these are accessible only from loopback or authenticated Tailscale peers. See [networking.md](../radar/architecture/networking.md) for the full listener segmentation.
+Tailscale-protected debug endpoints (serial commands, DB backup, tailsql,
+pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger` — these
+are accessible only from loopback or authenticated Tailscale peers. See
+[networking.md](../radar/architecture/networking.md) for the full listener
+segmentation.
 
 ## 4. ACL policy recommendations
 
-Tailscale ACLs live in the [admin console](https://login.tailscale.com/admin/acls/file). Below is a minimal policy for a velocity-report deployment.
+Tailscale ACLs live in the
+[admin console](https://login.tailscale.com/admin/acls/file). Below is a
+minimal policy for a velocity-report deployment.
 
 ### Tags
 
@@ -115,7 +127,9 @@ Tailscale ACLs live in the [admin console](https://login.tailscale.com/admin/acl
 ]
 ```
 
-This grants all Tailscale members access to the Pi's web UI, SSH, and debug endpoints. The Pi itself can only talk to other velocity-report nodes (useful if you add a second Pi).
+This grants all Tailscale members access to the Pi's web UI, SSH, and
+debug endpoints. The Pi itself can only talk to other velocity-report
+nodes (useful if you add a second Pi).
 
 ### Restricting port access
 
@@ -131,14 +145,16 @@ For tighter control, replace `*` with specific ports:
 
 ## 5. SSH access via Tailscale
 
-With `--ssh` enabled at bring-up, Tailscale provides SSH access without managing host keys or opening port 22 on the LAN:
+With `--ssh` enabled at bring-up, Tailscale provides SSH access without
+managing host keys or opening port 22 on the LAN:
 
 ```bash
 ssh velocity-pi              # MagicDNS
 ssh 100.x.y.z               # Tailscale IP
 ```
 
-Tailscale SSH authenticates via the Tailscale identity, not SSH keys. The SSH ACL in the admin console controls who can connect:
+Tailscale SSH authenticates via the Tailscale identity, not SSH keys. The
+SSH ACL in the admin console controls who can connect:
 
 ```jsonc
 "ssh": [
@@ -151,7 +167,9 @@ Tailscale SSH authenticates via the Tailscale identity, not SSH keys. The SSH AC
 ]
 ```
 
-**Benefit:** No need to distribute SSH keys or manage `authorized_keys`. Revoking a team member's Tailscale access immediately revokes their SSH access.
+**Benefit:** No need to distribute SSH keys or manage `authorized_keys`.
+Revoking a team member's Tailscale access immediately revokes their SSH
+access.
 
 ## 6. Verifying the setup
 
@@ -200,6 +218,9 @@ sudo tailscale set --auto-update
 
 ## Non-goals
 
-- **Tailscale on macOS visualiser**: covered separately if needed; the visualiser connects to the Pi's gRPC endpoint, which is reachable over Tailscale without additional configuration.
-- **Tailscale Funnel**: exposes services to the public internet — directly conflicts with the privacy-first deployment model.
+- **Tailscale on macOS visualiser**: covered separately if needed; the
+  visualiser connects to the Pi's gRPC endpoint, which is reachable over
+  Tailscale without additional configuration.
+- **Tailscale Funnel**: exposes services to the public internet — directly
+  conflicts with the privacy-first deployment model.
 - **Multi-site mesh**: coordinating multiple Pis is a v0.6.0+ concern.
