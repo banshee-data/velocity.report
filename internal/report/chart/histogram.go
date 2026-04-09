@@ -11,7 +11,7 @@ type HistogramData struct {
 	Units     string            // "mph" or "kph"
 	BucketSz  float64           // e.g. 5.0
 	MaxBucket float64           // values >= this merge into "N+" bucket
-	Cutoff    float64           // values below this are ignored in display
+	Cutoff    float64           // minimum speed threshold (used by tex table, not chart rendering)
 }
 
 // NormaliseHistogram returns sorted bucket keys, corresponding counts,
