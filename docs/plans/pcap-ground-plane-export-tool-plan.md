@@ -2,6 +2,7 @@
 
 - **Status:** Planning
 - **Target:** `cmd/tools/pcap-analyse`
+- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 - **Related:**
 
 - `docs/lidar/architecture/ground-plane-extraction.md`
