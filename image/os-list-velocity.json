@@ -1,20 +1,50 @@
 {
   "imager": {
     "latest_version": "1.0.0",
-    "url": "https://github.com/banshee-data/velocity.report/releases"
+    "url": "https://github.com/banshee-data/velocity.report/releases",
+    "devices": [
+      {
+        "name": "Raspberry Pi 5",
+        "tags": ["pi5-64bit"],
+        "icon": "https://velocity.report/img/RPi_5.png",
+        "description": "Raspberry Pi 5 and 500",
+        "matching_type": "exclusive",
+        "default": true,
+        "capabilities": []
+      },
+      {
+        "name": "Raspberry Pi 4",
+        "tags": ["pi4-64bit"],
+        "icon": "https://velocity.report/img/RPi_4.png",
+        "description": "Raspberry Pi 4 Model B, 400, and Compute Module 4",
+        "matching_type": "inclusive",
+        "capabilities": []
+      },
+      {
+        "name": "Raspberry Pi 3",
+        "tags": ["pi3-64bit"],
+        "icon": "https://velocity.report/img/RPi_3.png",
+        "description": "Raspberry Pi 3 Model A+ / B / B+",
+        "matching_type": "inclusive",
+        "capabilities": []
+      }
+    ]
   },
   "os_list": [
     {
       "name": "velocity.report",
-      "description": "Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit).",
+      "description": "Privacy-first traffic monitoring for neighbourhood change-makers. Radar, PDF reporting, and web dashboard. Important: in Raspberry Pi Imager OS Customisation, leave the username as 'velocity' (default), the system service runs under this account.",
       "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre1/2026-04-08-093248-velocity-report.img.xz",
       "extract_size": 2625634304,
       "extract_sha256": "f6355be83d780be546d1d69e8d13c10ec3c79d0b5210de31116873f880ba812a",
       "image_download_size": 402626132,
       "release_date": "2026-04-08",
       "icon": "https://velocity.report/img/icon-256.png",
+      "website": "https://velocity.report",
       "init_format": "systemd",
-      "devices": ["pi4-64bit", "pi400-64bit", "pi5-64bit"],
+      "architecture": "arm64",
+      "devices": ["pi3-64bit", "pi4-64bit", "pi5-64bit"],
+      "capabilities": [],
       "url_info": "https://velocity.report/guides/setup/"
     }
   ]
