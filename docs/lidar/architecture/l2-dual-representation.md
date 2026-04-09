@@ -1,6 +1,6 @@
 # L2 Dual Representation (Polar and Cartesian)
 
-Active plan: [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md)
+Graduated plan: [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md)
 
 **Status:** Implemented
 

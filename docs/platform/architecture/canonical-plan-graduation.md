@@ -3,7 +3,7 @@
 How `docs/plans/` relates to the hub documentation tree, and the lifecycle by which
 plan files graduate into stable hub docs.
 
-Active plan: [platform-canonical-project-files-plan.md](../../plans/platform-canonical-project-files-plan.md)
+Graduated plan: [platform-canonical-project-files-plan.md](../../plans/platform-canonical-project-files-plan.md)
 
 ## Problem
 
@@ -143,8 +143,8 @@ As of branch `dd/docs/merge-canonical`:
 
 - 69 plan files, all with `Canonical` metadata
 - 111 hub docs across 4 hubs (excluding READMEs)
-- 11 plans graduated to symlinks
-- 0 gate violations, 2 advisory notes (deliberate shared targets)
+- 26 plans graduated to symlinks
+- 0 gate violations, 6 advisory notes (deliberate shared targets)
 
 ## Success Criteria
 
