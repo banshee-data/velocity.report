@@ -312,7 +312,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.Line(leftPx-3, y, leftPx, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(leftPx-5, y+style.AxisTickFontPx/3,
 			fmt.Sprintf("%.0f", val),
-			fmt.Sprintf(`font-size="%.1f" text-anchor="end"`, style.AxisTickFontPx))
+			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="end"`, style.AxisTickFontPx))
 	}
 
 	// Count Y-axis ticks (right side).
@@ -323,7 +323,7 @@ func RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error) {
 		c.Line(rightPx, y, rightPx+3, y, `stroke="black" stroke-width="0.5"`)
 		c.Text(rightPx+5, y+style.AxisTickFontPx/3,
 			fmt.Sprintf("%.0f", val),
-			fmt.Sprintf(`font-size="%.1f" text-anchor="start"`, style.AxisTickFontPx))
+			fmt.Sprintf(`font-size="%.1f" font-family="Atkinson Hyperlegible" text-anchor="start"`, style.AxisTickFontPx))
 	}
 
 	// Plot border.
