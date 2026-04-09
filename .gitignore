@@ -12,6 +12,7 @@ Thumbs.db
 # Build Outputs & Caches
 # =============================================================================
 _site/
+public_html/dist/
 .build/
 /build/
 .cache/

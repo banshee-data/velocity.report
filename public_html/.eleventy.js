@@ -37,11 +37,18 @@ module.exports = function (eleventyConfig) {
 
   // Copy os-list JSON for Raspberry Pi Imager catalogue
   eleventyConfig.addPassthroughCopy({
-    "../image/os-list-velocity.json": "images/os-list.json",
+    "../image/os-list-velocity.json": "rpi.json",
   });
 
-  // Watch CSS files for changes
+  // Watch CSS source files for changes (triggers Eleventy rebuild)
   eleventyConfig.addWatchTarget("./src/css/");
+
+  // Tell the dev server to reload when Tailwind writes compiled CSS to _site/
+  eleventyConfig.setServerOptions({
+    liveReload: true,
+    domDiff: true,
+    watch: ["_site/css/**"],
+  });
 
   // Add collection for guides
   eleventyConfig.addCollection("guides", function (collectionApi) {
