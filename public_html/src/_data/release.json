@@ -10,5 +10,5 @@
   "rpi_image_release_url": "https://github.com/banshee-data/velocity.report/releases/tag/v0.5.1-pre1",
   "rpi_image_download_size": 402626132,
   "rpi_image_extract_size": 2625634304,
-  "rpi_imager_repo_url": "https://velocity.report/images/os-list.json"
+  "rpi_imager_repo_url": "https://velocity.report/rpi.json"
 }

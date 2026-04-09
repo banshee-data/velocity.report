@@ -37,7 +37,7 @@ module.exports = function (eleventyConfig) {
 
   // Copy os-list JSON for Raspberry Pi Imager catalogue
   eleventyConfig.addPassthroughCopy({
-    "../image/os-list-velocity.json": "images/os-list.json",
+    "../image/os-list-velocity.json": "rpi.json",
   });
 
   // Watch CSS source files for changes (triggers Eleventy rebuild)
