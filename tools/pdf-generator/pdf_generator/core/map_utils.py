@@ -169,7 +169,7 @@ class SVGMarkerInjector:
             return 0.0, 0.0, float(w_match.group(1)), float(h_match.group(1))
 
         raise RuntimeError(
-            "could not determine SVG viewBox or size — marker placement requires explicit dimensions"
+            "could not determine SVG viewBox or size: marker placement requires explicit dimensions"
         )
 
     def _compute_triangle_points(
@@ -441,7 +441,7 @@ class MapProcessor:
 
         # Check if source SVG exists
         if not os.path.exists(map_svg):
-            print("  [MapProcessor] ✗ map.svg NOT FOUND - map will be skipped")
+            print("  [MapProcessor] map.svg not found: the map page will be skipped")
             return False, None
 
         print("  [MapProcessor] ✓ map.svg found")
@@ -645,5 +645,5 @@ def extract_svg_from_site_data(
         return True
 
     except Exception as e:
-        print(f"  [extract_svg] ✗ Failed to extract SVG data: {e}")
+        print(f"  [extract_svg] Could not extract SVG data: {e}")
         return False

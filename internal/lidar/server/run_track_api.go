@@ -113,15 +113,15 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 			case http.MethodDelete:
 				ws.handleDeleteRunTrack(w, r, runID, trackID)
 			default:
-				ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+				ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET or DELETE requests")
 			}
 		default:
-			ws.writeJSONError(w, http.StatusNotFound, "unknown track action")
+			ws.writeJSONError(w, http.StatusNotFound, "unknown track action: check the URL path is correct")
 		}
 		return
 	}
 
-	ws.writeJSONError(w, http.StatusNotFound, "endpoint not found")
+	ws.writeJSONError(w, http.StatusNotFound, "endpoint not found: check the URL path is correct")
 }
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
@@ -129,7 +129,7 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 // Request body: {"user_label": "car", "quality_label": "good,truncated", "label_confidence": 0.95, "labeler_id": "user1"}
 func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if r.Method != http.MethodPut {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use PUT")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts PUT requests")
 		return
 	}
 
@@ -142,7 +142,7 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", err))
 		return
 	}
 
@@ -153,13 +153,13 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 
 	// Validate user_label (allow empty to clear)
 	if req.UserLabel != "" && !api.ValidateUserLabel(req.UserLabel) {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid user_label: %s", req.UserLabel))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised user label: see documentation for valid values", req.UserLabel))
 		return
 	}
 
 	// Validate quality_label (allow empty to clear)
 	if req.QualityLabel != "" && !api.ValidateQualityLabel(req.QualityLabel) {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid quality_label: %s", req.QualityLabel))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised quality label: see documentation for valid values", req.QualityLabel))
 		return
 	}
 
@@ -178,7 +178,7 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 	store := sqlite.NewAnalysisRunStore(ws.db)
 	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID, labelSource)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track label: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not update track label: %v", err))
 		return
 	}
 
@@ -205,7 +205,7 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 // Request body: {"linked_track_ids": ["track-002", "track-003"], "user_label": "split"}
 func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if r.Method != http.MethodPut {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use PUT")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts PUT requests")
 		return
 	}
 
@@ -215,7 +215,7 @@ func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request,
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", err))
 		return
 	}
 	req.LinkedTrackIDs = normaliseLinkedTrackIDsForRequest(req.LinkedTrackIDs)
@@ -237,7 +237,7 @@ func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request,
 	store := sqlite.NewAnalysisRunStore(ws.db)
 	err := store.UpdateTrackQualityFlags(runID, trackID, isSplit, isMerge, req.LinkedTrackIDs)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update track flags: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not update track flags: %v", err))
 		return
 	}
 
@@ -256,7 +256,7 @@ func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request,
 // GET /api/lidar/runs/{run_id}/tracks/{track_id}
 func (ws *Server) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if ws.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured: check server startup includes --db-path")
 		return
 	}
 
@@ -267,7 +267,7 @@ func (ws *Server) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runI
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get track: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve track: %v", err))
 		return
 	}
 
@@ -279,7 +279,7 @@ func (ws *Server) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runI
 // DELETE /api/lidar/runs/{run_id}/tracks/{track_id}
 func (ws *Server) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if r.Method != http.MethodDelete {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use DELETE")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts DELETE requests")
 		return
 	}
 
@@ -287,14 +287,14 @@ func (ws *Server) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, r
 	query := `DELETE FROM lidar_run_tracks WHERE run_id = ? AND track_id = ?`
 	result, err := ws.db.DB.Exec(query, runID, trackID)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete track: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not delete track: %v", err))
 		return
 	}
 
 	// Check if any rows were affected
 	rowsAffected, err := deleteRunTrackRowsAffected(result)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to check delete result: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not verify deletion: %v", err))
 		return
 	}
 
@@ -315,12 +315,12 @@ func (ws *Server) handleDeleteRunTrack(w http.ResponseWriter, r *http.Request, r
 // DELETE /api/lidar/runs/{run_id}
 func (ws *Server) handleDeleteRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodDelete {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use DELETE")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts DELETE requests")
 		return
 	}
 
 	if ws.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured: check server startup includes --db-path")
 		return
 	}
 
@@ -330,7 +330,7 @@ func (ws *Server) handleDeleteRun(w http.ResponseWriter, r *http.Request, runID 
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete run: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not delete run: %v", err))
 		return
 	}
 
@@ -345,14 +345,14 @@ func (ws *Server) handleDeleteRun(w http.ResponseWriter, r *http.Request, runID 
 // GET /api/lidar/runs/{run_id}/tracks
 func (ws *Server) handleListRunTracks(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
 		return
 	}
 
 	store := sqlite.NewAnalysisRunStore(ws.db)
 	tracks, err := store.GetRunTracks(runID)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run tracks: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run tracks: %v", err))
 		return
 	}
 
@@ -368,14 +368,14 @@ func (ws *Server) handleListRunTracks(w http.ResponseWriter, r *http.Request, ru
 // GET /api/lidar/runs/{run_id}/labelling-progress
 func (ws *Server) handleLabellingProgress(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
 		return
 	}
 
 	store := sqlite.NewAnalysisRunStore(ws.db)
 	total, labelled, byClass, labelRollup, err := store.GetLabelingProgressWithRollup(runID)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get labelling progress: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve labelling progress: %v", err))
 		return
 	}
 
@@ -396,7 +396,7 @@ func (ws *Server) handleLabellingProgress(w http.ResponseWriter, r *http.Request
 // GET /api/lidar/runs?limit=50&sensor_id=sensor1&status=completed
 func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
 		return
 	}
 
@@ -418,7 +418,7 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	store := sqlite.NewAnalysisRunStore(ws.db)
 	runs, err := store.ListRuns(limit)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list runs: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list runs: %v", err))
 		return
 	}
 
@@ -445,7 +445,7 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 // GET /api/lidar/runs/{run_id}
 func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodGet {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
 		return
 	}
 
@@ -456,7 +456,7 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 		return
 	}
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run: %v", err))
 		return
 	}
 
@@ -466,10 +466,10 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 
 // handleReprocessRun re-runs analysis on a PCAP file with optional parameter overrides.
 // POST /api/lidar/runs/{run_id}/reprocess
-// Request body: {"params_json": {...}} (optional — uses original run params if omitted)
+// Request body: {"params_json": {...}} (optional: uses original run params if omitted)
 func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts POST requests")
 		return
 	}
 
@@ -480,7 +480,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 		if errors.Is(err, sqlite.ErrNotFound) {
 			ws.writeJSONError(w, http.StatusNotFound, "run not found")
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get run: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run: %v", err))
 		}
 		return
 	}
@@ -497,7 +497,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	if r.Body != nil {
 		defer r.Body.Close()
 		if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil && decErr.Error() != "EOF" {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", decErr))
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", decErr))
 			return
 		}
 	}
@@ -533,7 +533,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 		config.RequestedParamSetID = originalRun.RequestedParamSetID
 	}
 	if err := startPCAPInternalForReprocess(ws, originalRun.SourcePath, config); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not start PCAP replay: %v", err))
 		return
 	}
 	newRunID := lastAnalysisRunIDForReprocess(ws)
@@ -555,7 +555,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 // Request body: {"reference_run_id": "..."} or auto-detect from scene
 func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
 	if r.Method != http.MethodPost {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use POST")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts POST requests")
 		return
 	}
 
@@ -564,7 +564,7 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", err))
 		return
 	}
 
@@ -577,7 +577,7 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 		store := sqlite.NewAnalysisRunStore(ws.db)
 		candidateRun, err := store.GetRun(candidateRunID)
 		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get candidate run: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve candidate run: %v", err))
 			return
 		}
 
@@ -585,7 +585,7 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 		sceneStore := sqlite.NewReplayCaseStore(ws.db)
 		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
 		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list scenes: %v", err))
 			return
 		}
 
@@ -680,7 +680,7 @@ func (ws *Server) handleMissedRegions(w http.ResponseWriter, r *http.Request, ru
 	case http.MethodGet:
 		regions, err := store.ListByRun(runID)
 		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list missed regions: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list missed regions: %v", err))
 			return
 		}
 		if regions == nil {
@@ -696,7 +696,7 @@ func (ws *Server) handleMissedRegions(w http.ResponseWriter, r *http.Request, ru
 	case http.MethodPost:
 		var req sqlite.MissedRegion
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", err))
 			return
 		}
 		req.RunID = runID
@@ -715,7 +715,7 @@ func (ws *Server) handleMissedRegions(w http.ResponseWriter, r *http.Request, ru
 		}
 
 		if err := store.Insert(&req); err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create missed region: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not create missed region: %v", err))
 			return
 		}
 
@@ -724,7 +724,7 @@ func (ws *Server) handleMissedRegions(w http.ResponseWriter, r *http.Request, ru
 		json.NewEncoder(w).Encode(req)
 
 	default:
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use GET or POST")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET or POST requests")
 	}
 }
 
@@ -732,7 +732,7 @@ func (ws *Server) handleMissedRegions(w http.ResponseWriter, r *http.Request, ru
 // DELETE /api/lidar/runs/{run_id}/missed-regions/{region_id}
 func (ws *Server) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Request, regionID string) {
 	if r.Method != http.MethodDelete {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed; use DELETE")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts DELETE requests")
 		return
 	}
 
@@ -743,7 +743,7 @@ func (ws *Server) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete missed region: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not delete missed region: %v", err))
 		return
 	}
 

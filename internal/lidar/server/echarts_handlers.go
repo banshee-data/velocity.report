@@ -30,7 +30,7 @@ func (ws *Server) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Reque
 
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -108,7 +108,7 @@ func (ws *Server) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Reque
 
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render chart: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render chart: %v", err))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (ws *Server) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
 		sensorID = ws.sensorID
 	}
 	// Use html.EscapeString because the value is interpolated into an HTML
-	// attribute (meta tag) in sweep_dashboard.html — the JS now reads
+	// attribute (meta tag) in sweep_dashboard.html: the JS now reads
 	// sensorId from the DOM instead of a string literal.
 	safeSensorID := html.EscapeString(sensorID)
 
@@ -155,7 +155,7 @@ func (ws *Server) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
 // handleTrafficChart renders a simple bar chart of packet/point throughput.
 func (ws *Server) handleTrafficChart(w http.ResponseWriter, r *http.Request) {
 	if ws.stats == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available")
+		ws.writeJSONError(w, http.StatusNotFound, "no packet statistics available: check the sensor is sending data")
 		return
 	}
 
@@ -189,7 +189,7 @@ func (ws *Server) handleTrafficChart(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
 	if err := page.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("render error: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render chart: %v", err))
 		return
 	}
 
@@ -207,7 +207,7 @@ func (ws *Server) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *htt
 
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no background manager for sensor")
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -306,7 +306,7 @@ func (ws *Server) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *htt
 
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render heatmap chart: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render heatmap chart: %v", err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -316,7 +316,7 @@ func (ws *Server) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *htt
 // handleClustersChart renders recent clusters as scatter points (color by point count).
 func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 	if ws.trackAPI == nil || ws.trackAPI.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured: check server startup includes --db-path")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")
@@ -351,7 +351,7 @@ func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 
 	clusters, err := sqlite.GetRecentClusters(ws.trackAPI.db, sensorID, startNanos, endNanos, limit)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clusters: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve clusters: %v", err))
 		return
 	}
 
@@ -399,7 +399,7 @@ func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 	scatter.AddSeries("clusters", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 10}))
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render clusters chart: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render clusters chart: %v", err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -409,7 +409,7 @@ func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 // handleTracksChart renders current track positions (and optionally recent observations) as a scatter overlay.
 func (ws *Server) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	if ws.trackAPI == nil || ws.trackAPI.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "track DB not configured")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured: check server startup includes --db-path")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")
@@ -420,7 +420,7 @@ func (ws *Server) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	tracks, err := sqlite.GetActiveTracks(ws.trackAPI.db, sensorID, state)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get tracks: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve tracks: %v", err))
 		return
 	}
 
@@ -469,7 +469,7 @@ func (ws *Server) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	scatter.AddSeries("tracks", pts, charts.WithScatterChartOpts(opts.ScatterChart{SymbolSize: 8}))
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render tracks chart: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render tracks chart: %v", err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -554,7 +554,7 @@ func (ws *Server) handleForegroundFrameChart(w http.ResponseWriter, r *http.Requ
 
 	var buf bytes.Buffer
 	if err := scatter.Render(&buf); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to render foreground chart: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not render foreground chart: %v", err))
 		return
 	}
 

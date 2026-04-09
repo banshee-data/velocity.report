@@ -49,8 +49,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			formData:       url.Values{"command": {""}},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body string) {
-				if !strings.Contains(body, "Missing command") {
-					t.Errorf("Expected 'Missing command' error, got: %s", body)
+				if !strings.Contains(body, "missing command") {
+					t.Errorf("Expected 'missing command' error, got: %s", body)
 				}
 			},
 		},
@@ -60,8 +60,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			formData:       url.Values{"command": {"   "}},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body string) {
-				if !strings.Contains(body, "Missing command") {
-					t.Errorf("Expected 'Missing command' error, got: %s", body)
+				if !strings.Contains(body, "missing command") {
+					t.Errorf("Expected 'missing command' error, got: %s", body)
 				}
 			},
 		},
@@ -71,8 +71,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			formData:       url.Values{},
 			expectedStatus: http.StatusBadRequest,
 			checkBody: func(t *testing.T, body string) {
-				if !strings.Contains(body, "Missing command") {
-					t.Errorf("Expected 'Missing command' error, got: %s", body)
+				if !strings.Contains(body, "missing command") {
+					t.Errorf("Expected 'missing command' error, got: %s", body)
 				}
 			},
 		},
@@ -82,8 +82,8 @@ func TestAttachAdminRoutes_SendCommandAPI(t *testing.T) {
 			formData:       nil,
 			expectedStatus: http.StatusMethodNotAllowed,
 			checkBody: func(t *testing.T, body string) {
-				if !strings.Contains(body, "Method not allowed") {
-					t.Errorf("Expected 'Method not allowed' error, got: %s", body)
+				if !strings.Contains(body, "this endpoint only accepts POST requests") {
+					t.Errorf("Expected 'this endpoint only accepts POST requests' error, got: %s", body)
 				}
 			},
 		},

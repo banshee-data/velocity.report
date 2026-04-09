@@ -52,7 +52,9 @@ async def load_config(
         )
         raise
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode JSON from config file: {e}")
+        logger.error(
+            f"Could not parse config file as JSON: {e}. Check for syntax errors."
+        )
         raise
 
 
@@ -160,7 +162,9 @@ class TelraamLogger:
                 return self.config["start_date"]
 
         except sqlite3.Error as e:
-            logger.error(f"Database error getting latest date: {e}")
+            logger.error(
+                f"Could not read latest date from database: {e}. Using configured start date instead."
+            )
             return self.config["start_date"]
 
     async def insert_traffic_data(self, traffic_data: List[Dict]) -> int:
@@ -277,7 +281,9 @@ class TelraamLogger:
             return inserted_count
 
         except sqlite3.Error as e:
-            logger.error(f"Database error inserting traffic data: {e}")
+            logger.error(
+                f"Could not insert traffic data into database: {e}. Check that align.db is not locked."
+            )
             self.db_connection.rollback()
             return 0
 
@@ -298,19 +304,23 @@ class TelraamLogger:
                         )
                         return True
                     elif response.status == 401:
-                        logger.error("API authorization failed: Invalid API key")
+                        logger.error(
+                            "API authorisation denied: check your API key in config_telraam.json."
+                        )
                         return False
                     else:
                         logger.error(
-                            f"API authorization failed: HTTP {response.status}"
+                            f"API authorisation returned HTTP {response.status}. Verify your credentials."
                         )
                         return False
 
         except aiohttp.ClientError as e:
-            logger.error(f"Network error during API check: {e}")
+            logger.error(
+                f"Could not reach the Telraam API: {e}. Check your network connection."
+            )
             return False
         except Exception as e:
-            logger.error(f"Unexpected error during API check: {e}")
+            logger.error(f"Something went wrong during the API check: {e}")
             return False
 
     async def fetch_traffic_data(
@@ -453,11 +463,13 @@ class TelraamLogger:
                                 )
                             else:
                                 logger.warning(
-                                    f"No data returned for {current_date.strftime('%Y-%m-%d')}: {data.get('message', 'Unknown error')}"
+                                    f"No data returned for {current_date.strftime('%Y-%m-%d')}: {data.get('message', 'no details available')}"
                                 )
 
                         elif response.status == 401:
-                            logger.error("API authentication failed")
+                            logger.error(
+                                "API authentication was rejected. Check your API key."
+                            )
                             break
                         elif response.status == 429:
                             logger.warning("Rate limit hit, waiting 10 seconds...")
@@ -465,18 +477,18 @@ class TelraamLogger:
                             continue  # Retry the same date
                         else:
                             logger.error(
-                                f"API request failed with status {response.status}"
+                                f"API returned HTTP {response.status}: the request could not be completed."
                             )
                             response_text = await response.text()
                             logger.error(f"Response: {response_text}")
 
                 except aiohttp.ClientError as e:
                     logger.error(
-                        f"Network error for {current_date.strftime('%Y-%m-%d')}: {e}"
+                        f"Network issue fetching {current_date.strftime('%Y-%m-%d')}: {e}. Will continue with remaining dates."
                     )
                 except Exception as e:
                     logger.error(
-                        f"Unexpected error for {current_date.strftime('%Y-%m-%d')}: {e}"
+                        f"Something went wrong for {current_date.strftime('%Y-%m-%d')}: {e}"
                     )
 
                 # Move to next day
@@ -493,7 +505,9 @@ class TelraamLogger:
         try:
             # Check API authorization first
             if not await self.check_api_authorization():
-                logger.error("API authorization check failed. Exiting.")
+                logger.error(
+                    "API authorisation check did not pass. Please verify your credentials and try again."
+                )
                 return
 
             logger.info(
@@ -535,10 +549,12 @@ class TelraamLogger:
                     f"Data collection complete. Total inserted: {total_inserted} records."
                 )
             else:
-                logger.warning("No records were inserted into the database")
+                logger.warning(
+                    "No records were inserted: the API may have returned empty results for this period."
+                )
 
         except Exception as e:
-            logger.error(f"Application error: {e}")
+            logger.error(f"Application could not continue: {e}")
         finally:
             if self.client:
                 # Proper cleanup - the client doesn't have a close method
@@ -562,7 +578,9 @@ async def main():
             db_connection.close()
 
     except Exception as e:
-        logger.error(f"Failed to start application: {e}")
+        logger.error(
+            f"Could not start the application: {e}. Check config_telraam.json and database access."
+        )
 
 
 if __name__ == "__main__":

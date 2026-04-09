@@ -117,7 +117,7 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		RoutePrefix: "/debug/tailsql/",
 	})
 	if err != nil {
-		log.Fatalf("failed to create tailsql server: %v", err)
+		log.Fatalf("could not create tailsql server: %v", err)
 	}
 	tsql.SetDB("sqlite://radar.db", db.DB, &tailsql.DBOptions{
 		Label: "Radar DB",
@@ -130,11 +130,11 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "application/json")
 		stats, err := db.GetDatabaseStats()
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not read database stats: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not read database statistics: %v", err), http.StatusInternalServerError)
 			return
 		}
 		if err := json.NewEncoder(w).Encode(stats); err != nil {
-			http.Error(w, fmt.Sprintf("Could not encode stats: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not encode statistics: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}))
@@ -143,7 +143,7 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		unixTime := time.Now().Unix()
 		backupPath := fmt.Sprintf("backup-%d.db", unixTime)
 		if _, err := db.DB.Exec("VACUUM INTO ?", backupPath); err != nil {
-			http.Error(w, fmt.Sprintf("Could not create backup: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not create backup: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", backupPath))
@@ -153,7 +153,7 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		// Send the backup file to the client
 		backupFile, err := os.Open(backupPath)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Could not open backup file: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not open backup file: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -170,13 +170,13 @@ func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 		defer gzipWriter.Close()
 		if _, err := gzipWriter.Write([]byte{}); err != nil {
 			// Need to write something to initialize the gzip header
-			http.Error(w, fmt.Sprintf("Could not start gzip compression: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not start gzip compression: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		// Copy the backup file content to the gzip writer
 		if _, err := io.Copy(gzipWriter, backupFile); err != nil {
-			http.Error(w, fmt.Sprintf("Could not write backup file: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not write backup data: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}))

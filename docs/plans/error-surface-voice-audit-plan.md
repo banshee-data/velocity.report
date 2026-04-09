@@ -1,6 +1,6 @@
 # Error Surface Voice Audit Plan
 
-- **Status:** In progress
+- **Status:** Complete
 - **Layers:** Cross-cutting (Go server, Web frontend, Python tools, Shell scripts)
 - **Target:** v0.6.0 — consistent, humane voice across all user-facing messages
 - **Canonical:** This document
@@ -164,11 +164,11 @@ genuinely broken.
 
 ## Completion Criteria
 
-- [ ] Batch 1: Go CLI & startup messages rewritten
-- [ ] Batch 2: Go database & migration errors rewritten
-- [ ] Batch 3: Go HTTP API errors rewritten
-- [ ] Batch 4: Web frontend messages rewritten
-- [ ] Batch 5: Python tool messages rewritten
-- [ ] Batch 6: Shell script messages rewritten
-- [ ] All tests pass after each batch
-- [ ] No existing error-handling logic changed (only string content)
+- [x] Batch 1: Go CLI & startup messages rewritten
+- [x] Batch 2: Go database & migration errors rewritten
+- [x] Batch 3: Go HTTP API errors rewritten
+- [x] Batch 4: Web frontend messages rewritten
+- [x] Batch 5: Python tool messages rewritten
+- [x] Batch 6: Shell script messages rewritten
+- [x] All tests pass after each batch
+- [x] No existing error-handling logic changed (only string content)

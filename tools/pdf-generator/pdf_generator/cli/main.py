@@ -753,7 +753,7 @@ def generate_histogram_chart(
             return True
         else:
             _print_error(
-                "Error: unable to write histogram PDF. Check disk space and permissions."
+                "Could not write histogram PDF. Check disk space and file permissions."
             )
             return False
     except ImportError as ie:
@@ -764,7 +764,7 @@ def generate_histogram_chart(
         _maybe_print_debug(ie, config.output.debug)
         return False
     except Exception as exc:
-        message = "Error: failed to generate histogram PDF. Verify matplotlib setup and report data."
+        message = "Could not generate histogram PDF. Verify matplotlib is working and the report data is valid."
         message = f"{message}\n  - Details: {exc}"
         message = _append_debug_hint(message, config.output.debug)
         _print_error(message)
@@ -802,11 +802,11 @@ def generate_timeseries_chart(
             return True
         else:
             _print_error(
-                f"Error: unable to write {title} PDF. Check disk space and permissions."
+                f"Could not write {title} PDF. Check disk space and file permissions."
             )
             return False
     except Exception as exc:
-        message = f"Error: failed to generate {title} PDF. Ensure matplotlib is installed and input data is valid."
+        message = f"Could not generate {title} PDF. Ensure matplotlib is installed and the input data is valid."
         message = f"{message}\n  - Details: {exc}"
         message = _append_debug_hint(message, config.output.debug)
         _print_error(message)
@@ -938,7 +938,7 @@ def assemble_pdf_report(
         print(f"Generated PDF report: {pdf_path}")
         return True
     except Exception as exc:
-        message = "Error: failed to generate PDF report. Ensure XeLaTeX is installed and the output directory is writable."
+        message = "Could not generate PDF report. Ensure XeLaTeX is installed and the output directory is writable."
         message = f"{message}\n  - Details: {exc}"
         message = _append_debug_hint(message, config.output.debug)
         _print_error(message)
@@ -1364,7 +1364,7 @@ def process_date_range(
             zip_path = create_sources_zip(prefix)
             _print_info(f"Created sources ZIP: {zip_path}")
         except Exception as exc:
-            _print_error(f"Warning: failed to create sources ZIP: {exc}")
+            _print_error(f"Warning: could not create sources ZIP: {exc}")
             # Don't fail the whole process if ZIP creation fails
 
         _print_info(
@@ -1372,7 +1372,7 @@ def process_date_range(
         )
     else:
         _print_error(
-            f"Failed to complete report for {start_date} -> {end_date}. See errors above."
+            f"Report for {start_date} to {end_date} could not be completed. See the messages above for details."
         )
         return False
 
@@ -1467,7 +1467,7 @@ if __name__ == "__main__":
     is_valid, errors = config.validate()
     if not is_valid:
         parser.error(
-            "Configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            "Configuration is not valid:\n" + "\n".join(f"  - {e}" for e in errors)
         )
 
     # Validate histogram requirements

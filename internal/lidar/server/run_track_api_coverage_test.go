@@ -1072,7 +1072,7 @@ func TestCov_HandleDeleteRunTrack_RowsAffectedError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
-	if !strings.Contains(w.Body.String(), "failed to check delete result") {
+	if !strings.Contains(w.Body.String(), "could not verify deletion") {
 		t.Fatalf("expected rows affected error, got %s", w.Body.String())
 	}
 }

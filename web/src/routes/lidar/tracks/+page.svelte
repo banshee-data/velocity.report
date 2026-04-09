@@ -345,7 +345,7 @@
 			selectedTime = runStartNs / 1e6;
 			loadForegroundObservations(timeRange.start, timeRange.end);
 		} catch (error) {
-			console.error('[TrackHistory] Failed to load tracks for run window:', error);
+			console.error('[TrackHistory] Could not load tracks for run window:', error);
 		}
 	}
 
@@ -449,7 +449,7 @@
 			labellingProgress = null;
 			missedRegions = [];
 			markMissedMode = false;
-			// Reload the default window — tracks may have been scoped to the run's window
+			// Reload the default window: tracks may have been scoped to the run's window
 			void loadHistoricalData();
 		}
 	}

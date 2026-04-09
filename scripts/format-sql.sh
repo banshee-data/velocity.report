@@ -33,8 +33,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Check if sql-formatter is available
 if ! command -v sql-formatter &> /dev/null; then
-    echo -e "${RED}Error: sql-formatter command not found${NC}"
-    echo "Please install sql-formatter v12.2.4:"
+    echo -e "${RED}sql-formatter is not installed.${NC}"
+    echo "Install v12.2.4:"
     echo "  npm install -g sql-formatter@12.2.4"
     echo ""
     echo "Note: We use v12.2.4 because newer versions (15+) removed commaPosition support"
@@ -90,7 +90,7 @@ for file in "${FILES[@]}"; do
     fi
 
     if [ ! -f "$file" ]; then
-        echo -e "${RED}Error: File not found: $file${NC}"
+        echo -e "${RED}File not found: $file${NC}"
         continue
     fi
 
@@ -100,7 +100,7 @@ for file in "${FILES[@]}"; do
     if sql-formatter --fix -l sqlite -c "$PROJECT_ROOT/.sql-formatter.json" "$file" 2>&1; then
         echo -e "    ${GREEN}✓ Formatted${NC}"
     else
-        echo -e "    ${RED}✗ Failed${NC}"
+        echo -e "    ${RED}✗ Formatting did not succeed${NC}"
     fi
 done
 

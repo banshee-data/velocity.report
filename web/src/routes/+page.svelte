@@ -443,8 +443,11 @@
 			<span class="sr-only">Please wait while we fetch your traffic data</span>
 		</div>
 	{:else if error}
-		<div role="alert" aria-live="assertive" class="text-red-600">
-			<strong>Error:</strong>
+		<div
+			role="alert"
+			aria-live="assertive"
+			class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+		>
 			{error}
 		</div>
 	{:else}

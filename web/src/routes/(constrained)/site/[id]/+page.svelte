@@ -313,7 +313,6 @@
 			aria-live="assertive"
 			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
 		>
-			<strong>Error:</strong>
 			{error}
 		</div>
 	{:else}
@@ -330,7 +329,7 @@
 							description: 'text-red-700 dark:text-red-300'
 						}}
 					>
-						<span slot="title">Save Failed</span>
+						<span slot="title">Could not save</span>
 						<span slot="description">{saveError}</span>
 					</Notification>
 				</div>
@@ -424,7 +423,6 @@
 
 						{#if periodsError}
 							<div role="alert" class="rounded border border-red-300 bg-red-50 p-3 text-red-800">
-								<strong>Error:</strong>
 								{periodsError}
 							</div>
 						{/if}
