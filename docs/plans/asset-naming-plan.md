@@ -217,7 +217,6 @@ Every file that references old binary filenames, grouped by impact class:
 | File                                                                     | Lines    | What changes                                                                          |
 | ------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------- |
 | [public_html/src/index.njk](../../public_html/src/index.njk)             | 97, 119  | Download URLs → `velocity-report-{v}-linux-arm64`, `velocity-report-{v}-darwin-arm64` |
-| [public_html/dist/index.html](../../public_html/dist/index.html)         | 216, 238 | Regenerate from njk                                                                   |
 | [scripts/check-release-hashes.py](../../scripts/check-release-hashes.py) | 116, 122 | URL construction → new pattern                                                        |
 
 **Documentation (Phase 6, but listed here for completeness):**
@@ -232,7 +231,6 @@ Every file that references old binary filenames, grouped by impact class:
 | [docs/plans/deploy-rpi-imager-fork-plan.md](../../docs/plans/deploy-rpi-imager-fork-plan.md)                       | 3 refs  | Future plan — references to binary/ctl names                  |
 | [docs/plans/binary-size-reduction-plan.md](../../docs/plans/binary-size-reduction-plan.md)                         | 1 ref   | GSA analysis command                                          |
 | [tools/visualiser-macos/BUILDING.md](../../tools/visualiser-macos/BUILDING.md)                                     | 4 refs  | DMG naming examples (Phase 3)                                 |
-| [public_html/dist/guides/setup/index.html](../../public_html/dist/guides/setup/index.html)                         | 1 ref   | Built output — regenerate from source                         |
 
 **Not affected:**
 
