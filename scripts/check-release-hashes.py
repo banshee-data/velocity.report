@@ -113,13 +113,13 @@ def entries_from_release_json(data: dict) -> list[dict]:
     entries = [
         {
             "label": f"Linux ARM64 server v{v}",
-            "url": f"{base}/velocity-report-linux-arm64_{v}",
+            "url": f"{base}/velocity-report-{v}-linux-arm64",
             "sha": data.get("linux_arm64_sha256"),
             "size": None,
         },
         {
             "label": f"macOS ARM64 server v{v}",
-            "url": f"{base}/velocity-report-mac-arm64_{v}",
+            "url": f"{base}/velocity-report-{v}-darwin-arm64",
             "sha": data.get("mac_arm64_sha256"),
             "size": None,
         },

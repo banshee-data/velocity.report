@@ -174,7 +174,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
 	}))
 	defer server.Close()
 
@@ -292,7 +292,7 @@ func TestFetchLatestReleaseGetError(t *testing.T) {
 	}
 }
 
-func TestFindAssetURLFallbackArm64(t *testing.T) {
+func TestFindAssetURLVersionedName(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
@@ -300,14 +300,30 @@ func TestFindAssetURLFallbackArm64(t *testing.T) {
 	url, err := m.findAssetURL(&githubRelease{
 		TagName: "v0.5.2",
 		Assets: []githubAsset{
-			{Name: "velocity-report-arm64", BrowserDownloadURL: "https://example.com/arm64"},
+			{Name: "velocity-report-0.5.2-linux-arm64", BrowserDownloadURL: "https://example.com/versioned"},
 		},
 	})
 	if err != nil {
 		t.Fatalf("findAssetURL failed: %v", err)
 	}
-	if url != "https://example.com/arm64" {
+	if url != "https://example.com/versioned" {
 		t.Fatalf("unexpected asset URL: %s", url)
+	}
+}
+
+func TestFindAssetURLNoMatchForUnversioned(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+
+	_, err := m.findAssetURL(&githubRelease{
+		TagName: "v0.5.2",
+		Assets: []githubAsset{
+			{Name: "velocity-report-linux-arm64", BrowserDownloadURL: "https://example.com/old"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for unversioned asset name")
 	}
 }
 
@@ -417,7 +433,7 @@ func TestFetchLatestReleaseDecodeRoundTrip(t *testing.T) {
 
 	want := githubRelease{
 		TagName: "v0.5.2",
-		Assets:  []githubAsset{{Name: "velocity-report-linux-arm64", BrowserDownloadURL: "https://example.com/bin"}},
+		Assets:  []githubAsset{{Name: "velocity-report-0.5.2-linux-arm64", BrowserDownloadURL: "https://example.com/bin"}},
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -445,8 +461,8 @@ func TestFetchLatestReleaseIncludingPrereleasesUsesListEndpoint(t *testing.T) {
 		switch r.URL.Path {
 		case "/releases":
 			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/rc"}]},
-				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}
+				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]},
+				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
 			]`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -474,7 +490,7 @@ func TestFetchLatestReleaseIncludingPrereleasesSkipsDrafts(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`[
 			{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":true,"assets":[]},
-			{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}
+			{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
 		]`))
 	}))
 	defer server.Close()

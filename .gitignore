@@ -40,8 +40,10 @@ app-*
 /settling-eval
 /replay-server
 velocity-report-*
+[0-9]*-velocity-report-*
 velocity-deploy*
 /velocity-ctl*
+[0-9]*-velocity-ctl-*
 /visualiser-server
 /deploy
 mock_serial_port*

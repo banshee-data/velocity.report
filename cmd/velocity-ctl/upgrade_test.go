@@ -17,7 +17,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	tmp := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
 	}))
 	defer server.Close()
 
@@ -140,11 +140,11 @@ func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
+			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
 		case "/releases":
 			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/rc"}]},
-				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}
+				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]},
+				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
 			]`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -191,10 +191,10 @@ func TestRunUpgradeCheckOnlyIncludePrereleasesFromConfig(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
+			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
 		case "/releases":
 			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-linux-arm64","browser_download_url":"https://example.com/rc"}]}
+				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]}
 			]`))
 		default:
 			w.WriteHeader(http.StatusNotFound)

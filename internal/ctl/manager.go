@@ -294,15 +294,11 @@ type githubAsset struct {
 }
 
 func (m *Manager) findAssetURL(release *githubRelease) (string, error) {
-	assetName := fmt.Sprintf("velocity-report-%s-%s", m.cfg.GOOS, m.cfg.GOARCH)
+	// Strip the "v" prefix from the tag to get the version.
+	version := strings.TrimPrefix(release.TagName, "v")
+	assetName := fmt.Sprintf("velocity-report-%s-%s-%s", version, m.cfg.GOOS, m.cfg.GOARCH)
 	for _, a := range release.Assets {
 		if a.Name == assetName {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	for _, a := range release.Assets {
-		if a.Name == "velocity-report-arm64" {
 			return a.BrowserDownloadURL, nil
 		}
 	}

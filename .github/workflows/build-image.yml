@@ -130,8 +130,20 @@ jobs:
             exit 1
           fi
 
-          # Rename to stable name before compressing so release asset URL is predictable.
-          STABLE_IMG="$(dirname "$IMG")/velocity-report.img"
+          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
+          VERSION="${VERSION#v}"
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Release: velocity-report-{version}.img.xz
+            STABLE_IMG="$(dirname "$IMG")/velocity-report-${VERSION}.img"
+          else
+            # Dev: {datetime}-velocity-report-{version}-{sha7}.img.xz
+            BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
+            GIT_SHA_SHORT="$(git rev-parse --short=7 HEAD)"
+            DEV_VERSION="${VERSION//-/.}"
+            STABLE_IMG="$(dirname "$IMG")/${BUILD_TS_COMPACT}-velocity-report-${DEV_VERSION}-${GIT_SHA_SHORT}.img"
+          fi
           mv "$IMG" "$STABLE_IMG"
           xz -9 "$STABLE_IMG"
           COMPRESSED="${STABLE_IMG}.xz"
@@ -172,8 +184,9 @@ jobs:
       - name: Update os-list-velocity.json
         run: |
           VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NUM="${VERSION#v}"
           DATE=$(date -u +%Y-%m-%d)
-          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/velocity-report.img.xz"
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/velocity-report-${VERSION_NUM}.img.xz"
 
           # Download the compressed image to compute SHA-256 for rpi-imager verification.
           curl -L --fail -o velocity-report.img.xz "$ASSET_URL"

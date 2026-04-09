@@ -133,8 +133,8 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         make build-ctl-linux
         unset EXTRA_LDFLAGS
 
-        cp -f "$REPO_ROOT/velocity-report-linux-arm64" "$BINARIES_DIR/velocity-report"
-        cp -f "$REPO_ROOT/velocity-ctl-linux-arm64" "$BINARIES_DIR/velocity-ctl"
+        cp -f "$REPO_ROOT"/*-velocity-report-*-linux-arm64-* "$BINARIES_DIR/velocity-report"
+        cp -f "$REPO_ROOT"/*-velocity-ctl-*-linux-arm64-* "$BINARIES_DIR/velocity-ctl"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
