@@ -8,10 +8,10 @@ and SSH access.
 
 ## Scope
 
-RPi only. The [setup guide](../../public_html/src/guides/setup.md#remote-access-with-tailscale-optional)
+RPi only. The [setup guide](../../../public_html/src/guides/setup.md#remote-access-with-tailscale-optional)
 covers the 5-minute quickstart; this document goes deeper with production
 flags, access control, and integration with the server's existing
-[listener architecture](../radar/architecture/networking.md).
+[listener architecture](../../radar/architecture/networking.md).
 
 ## 1. Install Tailscale on the Raspberry Pi
 
@@ -91,7 +91,7 @@ http://velocity-pi:8081
 Tailscale-protected debug endpoints (serial commands, DB backup, tailsql,
 pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger` — these
 are accessible only from loopback or authenticated Tailscale peers. See
-[networking.md](../radar/architecture/networking.md) for the full listener
+[networking.md](../../radar/architecture/networking.md) for the full listener
 segmentation.
 
 ## 4. ACL policy recommendations
