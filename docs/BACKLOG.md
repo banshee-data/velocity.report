@@ -111,7 +111,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.7.0 - United frontend (070)
 
 - (#252) Frontend unification (Phases 0–5): migrate status/regions/sweep to Svelte, retire port 8081: [design doc](plans/web-frontend-consolidation-plan.md) `L`
-- ECharts → LayerChart rewrite (8 charts, D-11): migrate all radar/lidar charts to Svelte LayerChart: [design doc](ui/DESIGN.md) `L`
+- ECharts → LayerChart rewrite (non-report charts, D-11): migrate live dashboard and real-time stats charts to Svelte LayerChart; report-view charts (time-series, histogram, comparison) are served as SVG by Go and consumed directly: [design doc](ui/DESIGN.md) `L`
+- Frontend SVG chart consumption (D-11, D-17): wire Svelte frontend to consume Go-generated SVG charts from `/api/charts/*` for report views; retire ECharts for those views; `ChartStyle` control knobs already designed for dual-surface use: [design doc](plans/pdf-go-chart-migration-plan.md) `M`
 - Retire Go-embedded dashboards: ~2,000 lines removed from monitor once Svelte dashboards replace ECharts: [review doc §7](lidar/architecture/lidar-layer-alignment-refactor-review.md) `L`
 - VelocityVisualiser light mode (3D scene): follow system dark/light mode with tuned point cloud, trails, and box colours: [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Track labelling Phase 9 UI (Swift, D-07): seekable replay, Swift-native labelling: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `M`
@@ -122,6 +123,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Widescreen content containment (D-13): add vr-page max-width centring at ≥3000px: [design doc §2.2](ui/design-review-and-improvement.md) `S`
 - macOS palette constants: prepare shared palette definition when metric charts added to visualiser: [design doc §1.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes: enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps: [design doc §4.2](ui/design-review-and-improvement.md) `S`
+- ChartStyle frontend/backend coherence: design mechanism for Svelte frontend and Go report package to consume `ChartStyle` control knobs consistently (palette tokens, font size, layout constants) across both rendering surfaces; ensures PDF and web charts stay visually aligned: [design doc](plans/pdf-go-chart-migration-plan.md) `S`
 
 ## 08x Mobile mesh 📶
 

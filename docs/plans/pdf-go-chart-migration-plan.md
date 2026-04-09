@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Draft; awaiting review before implementation
+- **Status:** Ready for implementation — all open questions resolved except Q6 (pre-Phase 1 research)
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -13,7 +13,12 @@
 **Goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy,
 pandas, seaborn: 45 transitive packages) with native Go SVG charting and Go
 `text/template`-based LaTeX assembly, retaining XeTeX for typesetting and
-producing SVG charts equivalent to the current matplotlib output.
+producing SVG charts equivalent to the current matplotlib output. The same Go
+chart package also serves SVG to the web frontend, replacing ECharts for
+report views and aligning the charting engine across both surfaces. The
+`grid-heatmap` tool is also migrated in scope. The Python `pdf-generator`
+subcommand is deprecated; report generation becomes the `pdf` subcommand of
+the unified `velocity-report` binary.
 
 ---
 
@@ -127,9 +132,11 @@ internal/report/
 │   ├── histogram_test.go
 │   ├── comparison.go   # RenderComparison(a, b, style) → []byte (SVG)
 │   ├── comparison_test.go
+│   ├── heatmap.go      # RenderGridHeatmap(data, style) → []byte (SVG)
+│   ├── heatmap_test.go
 │   ├── palette.go      # Percentile colour constants, matching web palette
 │   ├── palette_test.go
-│   └── svg.go          # Low-level SVG element helpers
+│   └── svg.go          # Low-level SVG element helpers (rect, polyline, text…)
 ├── tex/
 │   ├── render.go       # RenderTeX(cfg, charts, tables) → []byte (.tex)
 │   ├── render_test.go
@@ -145,6 +152,15 @@ internal/report/
 │       └── science.tex
 ├── archive.go          # BuildZip(texDir) → []byte
 └── archive_test.go
+
+cmd/velocity-report/
+└── pdf/                # `velocity-report pdf` subcommand
+    └── main.go
+    └── grid_heatmap/   # `velocity-report grid-heatmap` subcommand
+
+internal/api/
+└── chart_handler.go    # HTTP SVG endpoints for web frontend consumption
+                        # GET /api/charts/timeseries, /histogram, /comparison
 ```
 
 ---
@@ -162,40 +178,33 @@ internal/report/
 - Custom X-axis: `HH:MM` with `Mon DD` at day starts
 - Legend below chart
 
-**Go equivalent (gonum/plot):**
+**Go approach: direct SVG generation** ✅
 
-`gonum/plot` supports all required primitives:
-
-- `plotter.Line` for percentile lines with custom `draw.LineStyle`
-- `plotter.BarChart` for count bars
-- Custom `plot.Ticker` for X-axis time formatting
-- Dual Y-axes via two overlaid `plot.Plot` instances sharing an X-axis
-- SVG output via `vg/vgsvg` backend
+gonum/plot does not have built-in dual-axis support and would require fighting
+its layout engine for this chart's dual-axis, day-boundary-gap, and
+low-sample-shading requirements. Direct SVG generation via Go's
+`encoding/xml` is chosen instead. This gives pixel-precise control and
+produces an SVG that is both the PDF source and the web-embeddable artefact.
 
 **Styling map:**
 
-| matplotlib                     | gonum/plot equivalent                  |
-| ------------------------------ | -------------------------------------- |
-| `fig, ax = plt.subplots()`     | `p := plot.New()`                      |
-| `ax.plot(x, y, marker, color)` | `plotter.NewLine(xy)` + `LineStyle`    |
-| `ax.bar(x, heights)`           | `plotter.NewBarChart(vals, width)`     |
-| `ax.twinx()`                   | Second `plot.Plot` with shared X-axis  |
-| `fig.legend()`                 | `p.Legend` configuration               |
-| `ax.axvline()`                 | `plotter.NewLine` (vertical segment)   |
-| `fig.savefig(path)`            | `p.Save(w, h, "chart.svg")`            |
-| `Patch(facecolor, alpha)`      | Custom `plotter.Function` or rectangle |
-| `ticker.FixedLocator`          | Custom `plot.Ticker` implementation    |
-| Masked arrays (NaN gaps)       | Separate line segments per day         |
+| matplotlib element             | Direct SVG equivalent                            |
+| ------------------------------ | ------------------------------------------------ |
+| `fig, ax = plt.subplots()`     | `<svg viewBox="...">` with computed layout rects |
+| `ax.plot(x, y, marker, color)` | `<polyline>` + `<circle>` per data point         |
+| `ax.bar(x, heights)`           | `<rect>` per bar, right-axis scale               |
+| `ax.twinx()`                   | Two independent Y-scale functions, one viewBox   |
+| `fig.legend()`                 | `<text>` + `<line>` legend group below chart     |
+| `ax.axvline()`                 | `<line>` at computed X position                  |
+| `Patch(facecolor, alpha)`      | `<rect fill-opacity="0.15">`                     |
+| Masked arrays (NaN gaps)       | Multiple `<polyline>` segments, one per day      |
+| `ticker.FixedLocator`          | Computed tick positions from time range          |
 
-**Key implementation detail:** gonum/plot does not have built-in dual-axis
-support. The recommended approach is to render two plots to the same SVG
-canvas, one for speed (left axis) and one for counts (right axis), sharing
-the X dimension. This matches how matplotlib's `twinx()` works internally.
-
-Alternatively, generate the SVG directly using Go's `encoding/xml` or the
-`ajstarks/svgo` package (already an indirect dependency via gonum) for full
-control over the dual-axis layout. This avoids gonum/plot's single-axis
-limitation and gives pixel-precise control over element placement.
+The chart package exposes a `ChartStyle` struct with explicit control knobs
+for dimensions, colours, font size, bar opacity, marker size, and axis
+padding. These same knobs are used by the web frontend when it renders the
+same SVG endpoint, ensuring visual consistency across PDF and browser
+surfaces. Dimension knobs are in millimetres (LaTeX-native, see Q3 below).
 
 ### 2. Histogram (single period)
 
@@ -205,11 +214,12 @@ limitation and gives pixel-precise control over element placement.
 - X-axis: speed bucket labels ("20–25", "70+")
 - Y-axis: count
 
-**Go equivalent:**
+**Go approach: direct SVG generation** ✅
 
-This is a straightforward bar chart. `gonum/plot` with `plotter.BarChart`
-handles this directly. Custom tick labels for range formatting ("20–25")
-require a `plot.Ticker` implementation.
+A straightforward bar chart rendered as `<rect>` elements with `<text>` tick
+labels. Direct SVG is used for consistency with the time-series chart rather
+than mixing gonum and hand-rolled SVG in the same package. Bucket label
+formatting ("20–25", "70+") is a simple Go string function.
 
 ### 3. Comparison histogram
 
@@ -219,10 +229,11 @@ require a `plot.Ticker` implementation.
 - Y-axis: percentage (normalised from counts)
 - Two colours from the percentile palette
 
-**Go equivalent:**
+**Go approach: direct SVG generation** ✅
 
-`gonum/plot` supports grouped bar charts via `plotter.BarChart` with offset
-positioning. Percentage normalisation is trivial in Go.
+Side-by-side grouped bars as offset `<rect>` pairs. Percentage normalisation
+(counts → fractions) is computed in Go before rendering. Two colours come
+from `palette.go` matching the web palette.
 
 ### 4. Map overlay
 
@@ -275,6 +286,17 @@ significant implementation effort.
 **Recommendation: Option B.** `rsvg-convert` is tiny, battle-tested, and
 already a known fallback in the current Python code. The SVG artefact is
 preserved for the `.zip` source archive and potential web frontend reuse.
+
+### Font embedding in SVG
+
+SVG charts **embed the Atkinson Hyperlegible font as a base64 data URI**
+(`<style>@font-face { src: url("data:font/...") }</style>`). This makes each
+SVG self-contained for `rsvg-convert` and for direct web embedding without
+requiring the font to be installed separately. The file-size cost is modest
+(~100 KB per SVG for the subset used by chart labels), which is negligible
+compared to the PDF output size. When the web frontend fetches chart SVGs
+directly, the font is already embedded and renders correctly without network
+requests for the font file.
 
 ---
 
@@ -347,16 +369,16 @@ The main template includes the preamble, opens a two-column layout for the overv
 
 Build the SVG chart generation library:
 
-1. Define `ChartStyle` struct with colour, font, layout constants
-2. Implement `RenderHistogram(data, style) → []byte` (simplest chart first)
-3. Implement `RenderTimeSeries(data, style) → []byte` (most complex chart)
-4. Implement `RenderComparison(a, b, style) → []byte`
-5. Write comprehensive tests comparing output SVG structure
-6. Use `gonum/plot` with `vgsvg` backend, or direct SVG generation via
-   `encoding/xml` if gonum's dual-axis support proves insufficient
+1. Define `ChartStyle` struct with colour, font, layout constants (dimensions in mm)
+2. Implement low-level SVG helpers in `svg.go` (`rect`, `polyline`, `text`, `line`)
+3. Implement `RenderHistogram(data, style) → []byte` (simplest chart first)
+4. Implement `RenderTimeSeries(data, style) → []byte` (most complex chart)
+5. Implement `RenderComparison(a, b, style) → []byte`
+6. Embed Atkinson Hyperlegible font as base64 data URI in SVG `<style>` block
+7. Write comprehensive tests comparing output SVG structure against golden files
 
 **Acceptance:** SVG output for all three chart types passes visual review
-against equivalent matplotlib output.
+against equivalent matplotlib output. All tests pass.
 
 ### Phase 2: LaTeX template engine (`internal/report/tex/`); `S`
 
@@ -391,12 +413,15 @@ Connect the new report pipeline to existing entry points:
 
 1. Replace `exec.Command("python"...)` in `generateReport()` with direct
    call to `report.Generate()`
-2. Add `pdf` subcommand to CLI (aligns with D-09 single binary plan)
-3. Maintain backward-compatible JSON response format
-4. Update web frontend if API response structure changes
+2. Add `pdf` subcommand to `velocity-report` CLI (aligns with D-09)
+3. Add HTTP SVG endpoints to `internal/api/`: `GET /api/charts/timeseries`,
+   `/api/charts/histogram`, `/api/charts/comparison` — these serve the same
+   SVG artefacts for web frontend consumption (see Q5)
+4. Maintain backward-compatible JSON response format for `POST /api/generate_report`
+5. Update web frontend if API response structure changes
 
 **Acceptance:** `POST /api/generate_report` produces identical results using
-Go-native pipeline.
+Go-native pipeline. SVG chart endpoints return valid SVG with embedded font.
 
 ### Phase 5: Python deprecation and cleanup; `S`
 
@@ -410,8 +435,7 @@ Remove the Python PDF stack:
    immediately: keep for reference during the transition)
 
 **Acceptance:** `make test` passes with no Python dependencies for report
-generation. Python venv is only needed for [tools/grid-heatmap/](../../tools/grid-heatmap) (if still
-in use).
+generation. Python venv is no longer required for any report or chart tooling.
 
 ### Phase 6: map overlay migration; `S`
 
@@ -423,6 +447,21 @@ Migrate the SVG marker injection:
 4. Test with production site SVG data
 
 **Acceptance:** Map overlays in PDF reports match Python-generated output.
+
+### Phase 7: `grid-heatmap` Migration — `S`
+
+Migrate `tools/grid-heatmap/plot_grid_heatmap.py` to Go:
+
+1. Implement `cmd/grid-heatmap/` using the same direct SVG chart package
+2. Support polar (ring × azimuth) and Cartesian (X–Y) projection modes
+3. Support single-snapshot, live-periodic, and PCAP-replay modes (matching
+   the current Python CLI flags)
+4. Wire as `velocity-report grid-heatmap` subcommand (D-09 alignment)
+5. Deprecate and remove `tools/grid-heatmap/` Python script
+6. Update `make` targets to point at the new subcommand
+
+**Acceptance:** `velocity-report grid-heatmap` produces equivalent SVG output
+for both projection modes. Python script is removed from the repository.
 
 ---
 
@@ -463,12 +502,12 @@ Migrate the SVG marker injection:
 
 | Risk                                                                            | Impact           | Mitigation                                                                                                                         |
 | ------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| gonum/plot dual-axis limitation                                                 | Chart quality    | Fall back to direct SVG generation via `encoding/xml` or `ajstarks/svgo`; prototype in Phase 1 before committing                   |
-| SVG-to-PDF fidelity via `rsvg-convert`                                          | Text rendering   | Use `rsvg-convert --dpi 150` for consistent sizing; test with Atkinson Hyperlegible font embedded in SVG                           |
+| SVG-to-PDF fidelity via `rsvg-convert`                                          | Text rendering   | Use `rsvg-convert --dpi 150` for consistent sizing; font is embedded in SVG so no system font dependency                           |
 | Chart visual parity with matplotlib                                             | User expectation | Side-by-side comparison during development; accept minor styling differences if data accuracy is preserved                         |
-| `rsvg-convert` not available on target                                          | Build failure    | Detect at startup, log warning; fall back to gonum/plot `vgpdf` direct PDF output (skip SVG artefact)                              |
+| `rsvg-convert` not available on target                                          | Build failure    | Detected at startup with clear warning; graceful error message directs user to `apt install librsvg2-bin` / `brew install librsvg` |
 | LaTeX template complexity                                                       | Maintenance      | Keep templates minimal; complex logic stays in Go helpers, templates only interpolate values                                       |
 | Go `text/template` default delimiters `{{`/`}}` clash with LaTeX brace grouping | Template errors  | Use custom Go template delimiters `<<` and `>>` via `template.Delims("<<", ">>")` to avoid any ambiguity with LaTeX `{`/`}` syntax |
+| Comparison chart normalisation (Q6)                                             | Incorrect chart  | Investigate `/api/radar_stats` response shape before Phase 1; add `NormaliseHistogram` helper if raw counts are returned           |
 
 ---
 
@@ -488,6 +527,7 @@ compiles against the same minimal TeX tree with the same precompiled format.
 This plan **enables** D-09's `velocity-report pdf` subcommand without
 requiring a bundled Python interpreter. The report generation logic lives
 in `internal/report/`, callable from both the API handler and the CLI.
+The `grid-heatmap` tool (Phase 7) becomes `velocity-report grid-heatmap`.
 
 ### D-10 (RPi image)
 
@@ -495,35 +535,125 @@ This plan **simplifies** the Raspberry Pi image by removing Python entirely
 from the report-generation path. The image only needs the Go binary +
 vendored TeX tree + `rsvg-convert`.
 
+### D-11 (ECharts → LayerChart migration)
+
+This plan **modifies D-11's scope** for report-view charts. Report charts
+(time-series, histogram, comparison) will be served as SVGs via the Go API
+and consumed directly by the Svelte frontend, rather than being rewritten in
+LayerChart. Non-report charts (live dashboard, real-time stats) remain in
+scope for the LayerChart migration. DECISIONS.md D-11 entry is updated to
+reflect this split.
+
 ---
 
-## Open questions
+## Resolved Questions
 
-1. **gonum/plot vs direct SVG:** Should Phase 1 prototype both approaches
-   before committing? Direct SVG gives full control but requires more code.
-   gonum/plot provides abstractions but may fight us on dual-axis layout.
+These questions were open at plan-draft time and have since been answered.
 
-2. **Font embedding in SVG:** Should chart SVGs embed the Atkinson
-   Hyperlegible font (larger files, self-contained) or reference it by name
-   (smaller files, requires font installed on system for `rsvg-convert`)?
+### Q1 — gonum/plot vs direct SVG
 
-3. **Chart dimensions in SVG:** Matplotlib uses inches as the native unit.
-   SVG uses pixels (with configurable viewBox). Should we define chart sizes
-   in mm (LaTeX-native) or inches (matplotlib-compatible)?
+**Decision: direct SVG generation via `encoding/xml`.**
 
-4. **`rsvg-convert` on macOS:** The development workflow needs `rsvg-convert`
-   available. It is installable via `brew install librsvg`. Should we add
-   this to the developer setup guide?
+gonum/plot's single-axis layout model, inability to share an X-axis between
+two Y-scale plots, and lack of built-in day-boundary gap handling make it a
+poor fit for the time-series chart. Direct SVG gives pixel-precise control
+over the dual-axis layout, low-sample shading, and broken-line segments. It
+is also used consistently for the histogram and comparison charts, so the
+package has one rendering model throughout. gonum is not used.
 
-5. **Web frontend reuse:** Should the Go chart package also serve SVG charts
-   via the API for the web frontend, replacing ECharts for static report
-   views? This would align with D-11 (ECharts → LayerChart migration) but
-   expands scope.
+### Q2 — Font embedding in SVG
 
-6. **Comparison chart in Go API:** The Python `build_comparison` method
-   normalises counts to percentages. Does the Go API already return
-   normalised histogram data, or must the report package compute percentages?
+**Decision: embed Atkinson Hyperlegible as a base64 data URI in each SVG.**
 
-7. **`grid-heatmap` tool:** [tools/grid-heatmap/](../../tools/grid-heatmap) also uses matplotlib. Is
-   it in scope for this migration, or does it remain as a standalone Python
-   tool?
+This makes each SVG self-contained — `rsvg-convert` requires no font
+installed on the system, and the web frontend can embed the SVG directly
+without a separate font request. File-size cost is modest and acceptable.
+
+### Q3 — Chart dimensions: mm vs inches
+
+**Decision: millimetres (mm).**
+
+`ChartStyle.Width` and `ChartStyle.Height` are defined in millimetres. mm is
+LaTeX-native (used directly in `\includegraphics[width=…mm]`) and avoids any
+inches↔px conversion. SVG viewBox uses the mm values multiplied by a DPI
+constant (96 px/mm) to produce pixel dimensions; `rsvg-convert` preserves the
+physical size at the specified DPI. Frontend rendering reads `width`/`height`
+attributes directly.
+
+### Q4 — `rsvg-convert` on macOS / developer setup
+
+**Decision: document in setup guide and add a startup check in v0.6.1.**
+
+`brew install librsvg` is added to the macOS developer prerequisites in
+`public_html/src/guides/setup.md`. A startup check added in v0.6.1 detects
+whether `rsvg-convert` is available and, if not, logs a clear warning and
+runs a one-page mini-PDF test (a single-page LaTeX "flyer" easter egg —
+fun, harmless, immediately confirms the full pipeline works end to end).
+The check runs when the server starts and also when `velocity-report pdf`
+is invoked via CLI.
+
+### Q5 — Web frontend reuse of Go chart SVGs
+
+**Decision: yes, in scope. Go chart package serves SVG to the web frontend.**
+
+The `internal/report/chart` package exposes an HTTP handler (via
+`internal/api`) that returns SVG charts for the same data views currently
+rendered by ECharts in the Svelte frontend. This is the consistent/DRY path:
+one layout engine (direct SVG, same `ChartStyle` struct), one colour palette,
+used by both the PDF pipeline and the web frontend.
+
+`ChartStyle` control knobs (dimensions, colours, font size, opacity) are
+designed to be consumed coherently by both surfaces. A future PR will ship
+the frontend SVG consumption and retire ECharts for these report views;
+that work is tracked as a new backlog item under v0.7 (see Backlog item added
+below). This plan does not block on the frontend change — the HTTP SVG
+endpoint ships as part of Phase 4 and the frontend continues to use ECharts
+until the v0.7 work lands.
+
+### Q6 — Comparison chart normalisation: Go API vs report package
+
+**Research needed — tracked for pre-implementation investigation.**
+
+The Python `build_comparison` method normalises raw histogram bucket counts
+to percentages before rendering. It is not yet confirmed whether:
+
+(a) The existing Go `/api/radar_stats` response already returns normalised
+histogram data (fractions or percentages), or
+
+(b) The report package must compute the normalisation itself from raw counts.
+
+**Investigation required before Phase 1:** read `internal/api/` and the
+`radar_stats` handler to determine what histogram shape the API returns.
+If raw counts, add a `NormaliseHistogram(counts []int) []float64` helper in
+`internal/report/chart/` and test it. If already normalised, use directly.
+This does not gate Phase 1 (histogram rendering) but must be resolved before
+the comparison chart is implemented.
+
+### Q7 — `grid-heatmap` tool: in scope
+
+**Decision: yes. Migrate `tools/grid-heatmap/` to a Go subcommand.**
+
+`tools/grid-heatmap/plot_grid_heatmap.py` uses matplotlib for polar and
+Cartesian background-grid heatmap visualisations. It is migrated to Go as
+part of this plan — using the same direct SVG engine — and becomes the
+`grid-heatmap` subcommand of the unified `velocity-report` binary (aligning
+with D-09). The standalone Python script is deprecated. This is added as
+Phase 7 below.
+
+---
+
+## New Backlog Items Arising From This Plan
+
+The following items are added to BACKLOG.md as a result of this plan's
+decisions:
+
+1. **v0.7 — Frontend SVG chart consumption:** Wire Svelte frontend to consume
+   Go-generated SVG charts from `internal/api` for report views; retire
+   ECharts for those views. `ChartStyle` control knobs already designed for
+   dual-surface use. New `M` item under v0.7 (frontend consolidation theme).
+
+2. **v0.7 — `ChartStyle` frontend/backend coherence:**
+   Design and ship a mechanism for the Svelte frontend and Go report package
+   to consume `ChartStyle` control knobs consistently (e.g. theme tokens
+   served via API, or a shared JSON config). Ensures palette, font size, and
+   layout constants stay in sync across both rendering surfaces.
