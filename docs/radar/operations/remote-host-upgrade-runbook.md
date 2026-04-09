@@ -184,11 +184,8 @@ fi
 # Cross-compile for Raspberry Pi
 make build-radar-linux
 
-# Sanity-check the artifact (name includes version, e.g. velocity-report-0.5.2-linux-arm64)
-BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
-if [ -z "$BINARY" ]; then
-  BINARY=$(ls -1 velocity-report-*-linux-arm64 2>/dev/null | head -1)
-fi
+# Sanity-check the artifact (dev builds have datetime prefix + SHA suffix)
+BINARY=$(ls -t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
 file "$BINARY"
 ls -lh "$BINARY"
 ```

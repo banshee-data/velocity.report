@@ -133,8 +133,14 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
         make build-ctl-linux
         unset EXTRA_LDFLAGS
 
-        cp -f "$REPO_ROOT"/*-velocity-report-*-linux-arm64-* "$BINARIES_DIR/velocity-report"
-        cp -f "$REPO_ROOT"/*-velocity-ctl-*-linux-arm64-* "$BINARIES_DIR/velocity-ctl"
+        RADAR_BIN=$(ls -t "$REPO_ROOT"/*-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+        CTL_BIN=$(ls -t "$REPO_ROOT"/*-velocity-ctl-*-linux-arm64-* 2>/dev/null | head -1)
+        if [ -z "$RADAR_BIN" ] || [ -z "$CTL_BIN" ]; then
+            log_error "Could not find timestamped binaries in $REPO_ROOT"
+            exit 1
+        fi
+        cp -f "$RADAR_BIN" "$BINARIES_DIR/velocity-report"
+        cp -f "$CTL_BIN" "$BINARIES_DIR/velocity-ctl"
     else
         # Docker build — canonical path, always produces pcap-enabled binaries.
         log_info "Building ARM64 Go binaries with pcap support (in Docker)..."
