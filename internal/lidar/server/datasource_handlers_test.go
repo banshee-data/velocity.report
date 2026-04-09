@@ -700,7 +700,7 @@ func TestStartLiveListenerLocked_NilBaseContext(t *testing.T) {
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
-	// Do NOT set base context — baseContext() returns nil
+	// Do NOT set base context: baseContext() returns nil
 
 	ws.dataSourceMu.Lock()
 	err := ws.startLiveListenerLocked()
@@ -709,7 +709,7 @@ func TestStartLiveListenerLocked_NilBaseContext(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for nil base context")
 	}
-	if err.Error() != "web server base context is not initialised — check server startup sequence" {
+	if err.Error() != "web server base context is not initialised: check server startup sequence" {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

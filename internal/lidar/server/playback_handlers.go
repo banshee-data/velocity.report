@@ -24,7 +24,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sensorID != ws.sensorID {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised — check the sensor_id matches the configured sensor", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised: check the sensor_id matches the configured sensor", sensorID))
 		return
 	}
 
@@ -63,7 +63,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		req.DurationSeconds = -1
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if errors.Is(err, io.EOF) {
-				ws.writeJSONError(w, http.StatusBadRequest, "request body is missing — send JSON with pcap_file")
+				ws.writeJSONError(w, http.StatusBadRequest, "request body is missing: send JSON with pcap_file")
 				return
 			}
 			ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("the request body is not valid JSON: %v", err))
@@ -156,7 +156,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.currentSource == DataSourcePCAP {
-		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running — stop it first via POST /pcap/stop")
+		ws.writeJSONError(w, http.StatusConflict, "PCAP replay is already running: stop it first via POST /pcap/stop")
 		return
 	}
 
@@ -243,7 +243,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sensorID != ws.sensorID {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised — check the sensor_id matches the configured sensor", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised: check the sensor_id matches the configured sensor", sensorID))
 		return
 	}
 
@@ -253,7 +253,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
-		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode — stop the current data source first")
+		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP mode: stop the current data source first")
 		return
 	}
 
@@ -261,7 +261,7 @@ func (ws *Server) handlePCAPStop(w http.ResponseWriter, r *http.Request) {
 	ws.pcapMu.Lock()
 	if !ws.pcapInProgress {
 		ws.pcapMu.Unlock()
-		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running — start one first via POST /pcap/start")
+		ws.writeJSONError(w, http.StatusConflict, "no PCAP replay is running: start one first via POST /pcap/start")
 		return
 	}
 	cancel := ws.pcapCancel
@@ -347,7 +347,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sensorID != ws.sensorID {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised — check the sensor_id matches the configured sensor", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("sensor '%s' is not recognised: check the sensor_id matches the configured sensor", sensorID))
 		return
 	}
 
@@ -355,7 +355,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	defer ws.dataSourceMu.Unlock()
 
 	if ws.currentSource != DataSourcePCAPAnalysis {
-		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode — start a PCAP replay first")
+		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode: start a PCAP replay first")
 		return
 	}
 
@@ -422,7 +422,7 @@ func (ws *Server) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/playback/pause
 func (ws *Server) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackPause == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause is not available — check a PCAP or VRLOG replay is active")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback pause is not available: check a PCAP or VRLOG replay is active")
 		return
 	}
 
@@ -439,7 +439,7 @@ func (ws *Server) handlePlaybackPause(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/playback/play
 func (ws *Server) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackPlay == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback play is not available — check a PCAP or VRLOG replay is active")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback play is not available: check a PCAP or VRLOG replay is active")
 		return
 	}
 
@@ -457,7 +457,7 @@ func (ws *Server) handlePlaybackPlay(w http.ResponseWriter, r *http.Request) {
 // Body: {"timestamp_ns": 1234567890}
 func (ws *Server) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackSeek == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek is not available — check a seekable replay source is active")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback seek is not available: check a seekable replay source is active")
 		return
 	}
 
@@ -465,7 +465,7 @@ func (ws *Server) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
 		TimestampNs int64 `json:"timestamp_ns"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON — send {\"timestamp_ns\": ...}")
+		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON: send {\"timestamp_ns\": ...}")
 		return
 	}
 
@@ -486,7 +486,7 @@ func (ws *Server) handlePlaybackSeek(w http.ResponseWriter, r *http.Request) {
 // Body: {"rate": 1.5}
 func (ws *Server) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
 	if ws.onPlaybackRate == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate control is not available — check a replay source is active")
+		ws.writeJSONError(w, http.StatusNotImplemented, "playback rate control is not available: check a replay source is active")
 		return
 	}
 
@@ -494,7 +494,7 @@ func (ws *Server) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
 		Rate float32 `json:"rate"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON — send {\"rate\": ...}")
+		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON: send {\"rate\": ...}")
 		return
 	}
 
@@ -518,7 +518,7 @@ func (ws *Server) handlePlaybackRate(w http.ResponseWriter, r *http.Request) {
 func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 
 	if ws.onVRLogLoad == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG loading is not available — check server was started with VRLOG support")
+		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG loading is not available: check server was started with VRLOG support")
 		return
 	}
 
@@ -527,7 +527,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 		VRLogPath string `json:"vrlog_path"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON — send {\"run_id\": ...} or {\"vrlog_path\": ...}")
+		ws.writeJSONError(w, http.StatusBadRequest, "the request body is not valid JSON: send {\"run_id\": ...} or {\"vrlog_path\": ...}")
 		return
 	}
 
@@ -536,7 +536,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	// If run_id is provided, look up the vrlog_path from the database
 	if body.RunID != "" {
 		if ws.db == nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, "database is not configured — check server startup includes --db-path")
+			ws.writeJSONError(w, http.StatusInternalServerError, "database is not configured: check server startup includes --db-path")
 			return
 		}
 		store := sqlite.NewAnalysisRunStore(ws.db)
@@ -599,7 +599,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 // POST /api/lidar/vrlog/stop
 func (ws *Server) handleVRLogStop(w http.ResponseWriter, r *http.Request) {
 	if ws.onVRLogStop == nil {
-		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG stop is not available — check a VRLOG replay is active")
+		ws.writeJSONError(w, http.StatusNotImplemented, "VRLOG stop is not available: check a VRLOG replay is active")
 		return
 	}
 

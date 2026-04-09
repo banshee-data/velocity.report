@@ -27,12 +27,12 @@ func (ws *Server) handleGridStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 	status := mgr.GridStatus()
 	if status == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "could not compute grid status — check background manager is initialised")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not compute grid status: check background manager is initialised")
 		return
 	}
 	resp := status
@@ -52,7 +52,7 @@ func (ws *Server) handleSettlingEval(w http.ResponseWriter, r *http.Request) {
 	}
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 	// Use the grid's current frame count as frame number.
@@ -82,7 +82,7 @@ func (ws *Server) handleSettlingEval(w http.ResponseWriter, r *http.Request) {
 // Query params: sensor_id (optional; defaults to configured sensor)
 func (ws *Server) handleTrafficStats(w http.ResponseWriter, r *http.Request) {
 	if ws.stats == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available — check the UDP port is receiving data from the sensor")
+		ws.writeJSONError(w, http.StatusNotFound, "no packet stats available: check the UDP port is receiving data from the sensor")
 		return
 	}
 
@@ -117,7 +117,7 @@ func (ws *Server) handleGridReset(w http.ResponseWriter, r *http.Request) {
 	}
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -165,7 +165,7 @@ func (ws *Server) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -186,7 +186,7 @@ func (ws *Server) handleGridHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	heatmap := bm.GetGridHeatmap(azBucketDeg, settledThreshold)
 	if heatmap == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "could not generate heatmap — check grid data is populated")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not generate heatmap: check grid data is populated")
 		return
 	}
 
@@ -207,7 +207,7 @@ func (ws *Server) handleDataSource(w http.ResponseWriter, r *http.Request) {
 		if inProgress && done != nil {
 			select {
 			case <-done:
-				// PCAP finished — fall through to return current state
+				// PCAP finished: fall through to return current state
 			case <-r.Context().Done():
 				// Client disconnected or request timeout
 				return
@@ -436,7 +436,7 @@ func (ws *Server) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
 
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil || mgr.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -462,7 +462,7 @@ func (ws *Server) handleLidarPersist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ws.writeJSONError(w, http.StatusNotImplemented, "no persist callback configured for this sensor — check server startup configuration")
+	ws.writeJSONError(w, http.StatusNotImplemented, "no persist callback configured for this sensor: check server startup configuration")
 }
 
 // handleAcceptanceMetrics returns the range-bucketed acceptance/rejection metrics
@@ -475,7 +475,7 @@ func (ws *Server) handleAcceptanceMetrics(w http.ResponseWriter, r *http.Request
 	}
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 	metrics := mgr.GetAcceptanceMetrics()
@@ -556,7 +556,7 @@ func (ws *Server) handleAcceptanceReset(w http.ResponseWriter, r *http.Request) 
 	}
 	mgr := l3grid.GetBackgroundManager(sensorID)
 	if mgr == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 	if err := mgr.ResetAcceptanceMetrics(); err != nil {
@@ -577,7 +577,7 @@ func (ws *Server) handleBackgroundGrid(w http.ResponseWriter, r *http.Request) {
 	}
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -681,7 +681,7 @@ func (ws *Server) handleBackgroundRegions(w http.ResponseWriter, r *http.Request
 
 	info := bm.GetRegionDebugInfo(includeCells)
 	if info == nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, "could not get region debug info — check region manager is initialised")
+		ws.writeJSONError(w, http.StatusInternalServerError, "could not get region debug info: check region manager is initialised")
 		return
 	}
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# create-dmg.sh — Package a .app bundle into a drag-to-install DMG.
+# create-dmg.sh: Package a .app bundle into a drag-to-install DMG.
 #
 # Usage:
 #   scripts/create-dmg.sh <app-path> <dmg-path> <volume-name> [extras...]
@@ -96,7 +96,7 @@ for _ in 1 2 3 4 5; do
 done
 
 if [ ! -d "$mount_point" ]; then
-  echo "Volume did not mount at $mount_point — check disk space and permissions." >&2
+  echo "Volume did not mount at $mount_point: check disk space and permissions." >&2
   exit 1
 fi
 

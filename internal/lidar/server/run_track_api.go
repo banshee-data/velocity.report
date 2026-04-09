@@ -116,12 +116,12 @@ func (ws *Server) handleRunTrackAPI(w http.ResponseWriter, r *http.Request) {
 				ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET or DELETE requests")
 			}
 		default:
-			ws.writeJSONError(w, http.StatusNotFound, "unknown track action — check the URL path is correct")
+			ws.writeJSONError(w, http.StatusNotFound, "unknown track action: check the URL path is correct")
 		}
 		return
 	}
 
-	ws.writeJSONError(w, http.StatusNotFound, "endpoint not found — check the URL path is correct")
+	ws.writeJSONError(w, http.StatusNotFound, "endpoint not found: check the URL path is correct")
 }
 
 // handleUpdateTrackLabel updates the user label and quality label for a track.
@@ -153,13 +153,13 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 
 	// Validate user_label (allow empty to clear)
 	if req.UserLabel != "" && !api.ValidateUserLabel(req.UserLabel) {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised user label — see documentation for valid values", req.UserLabel))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised user label: see documentation for valid values", req.UserLabel))
 		return
 	}
 
 	// Validate quality_label (allow empty to clear)
 	if req.QualityLabel != "" && !api.ValidateQualityLabel(req.QualityLabel) {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised quality label — see documentation for valid values", req.QualityLabel))
+		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised quality label: see documentation for valid values", req.QualityLabel))
 		return
 	}
 
@@ -256,7 +256,7 @@ func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request,
 // GET /api/lidar/runs/{run_id}/tracks/{track_id}
 func (ws *Server) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runID, trackID string) {
 	if ws.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured — check server startup includes --db-path")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured: check server startup includes --db-path")
 		return
 	}
 
@@ -320,7 +320,7 @@ func (ws *Server) handleDeleteRun(w http.ResponseWriter, r *http.Request, runID 
 	}
 
 	if ws.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured — check server startup includes --db-path")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "database is not configured: check server startup includes --db-path")
 		return
 	}
 
@@ -466,7 +466,7 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 
 // handleReprocessRun re-runs analysis on a PCAP file with optional parameter overrides.
 // POST /api/lidar/runs/{run_id}/reprocess
-// Request body: {"params_json": {...}} (optional — uses original run params if omitted)
+// Request body: {"params_json": {...}} (optional: uses original run params if omitted)
 func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts POST requests")

@@ -172,7 +172,7 @@ func (ws *Server) StopPCAPForSweep() error {
 	ws.dataSourceMu.Lock()
 	if ws.currentSource != DataSourcePCAP && ws.currentSource != DataSourcePCAPAnalysis {
 		ws.dataSourceMu.Unlock()
-		return nil // not in PCAP mode — nothing to do
+		return nil // not in PCAP mode: nothing to do
 	}
 
 	ws.pcapMu.Lock()
@@ -261,7 +261,7 @@ func (ws *Server) startLiveListenerLocked() error {
 	}
 	baseCtx := ws.baseContext()
 	if baseCtx == nil {
-		return errors.New("web server base context is not initialised — check server startup sequence")
+		return errors.New("web server base context is not initialised: check server startup sequence")
 	}
 
 	ws.udpListener = network.NewUDPListener(ws.udpListenerConfig)
@@ -336,7 +336,7 @@ func (ws *Server) resolvePCAPPath(candidate string) (string, error) {
 		return "", &switchError{status: http.StatusBadRequest, err: errors.New("the pcap_file parameter is required")}
 	}
 	if ws.pcapSafeDir == "" {
-		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory is not configured — check server startup configuration")}
+		return "", &switchError{status: http.StatusInternalServerError, err: errors.New("pcap safe directory is not configured: check server startup configuration")}
 	}
 
 	safeDirAbs, err := absPath(ws.pcapSafeDir)
@@ -490,7 +490,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	ws.pcapMu.Lock()
 	if ws.pcapInProgress {
 		ws.pcapMu.Unlock()
-		return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress — stop it first via POST /pcap/stop")}
+		return &switchError{status: http.StatusConflict, err: errors.New("PCAP replay is already in progress: stop it first via POST /pcap/stop")}
 	}
 	ws.pcapInProgress = true
 	ws.pcapAnalysisMode = replayCfg.AnalysisMode
@@ -568,7 +568,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		diagf("Starting PCAP replay from file: %s (sensor: %s, mode: %s, ratio: %.2f)", path, sensorID, replayCfg.SpeedMode, replayCfg.SpeedRatio)
 
 		// Disable DB track persistence during analysis replays and sweeps that
-		// have recording disabled — prevents polluting the production track store.
+		// have recording disabled: prevents polluting the production track store.
 		if replayCfg.AnalysisMode || replayCfg.DisableRecording {
 			ws.pcapDisableTrackPersistence.Store(true)
 			defer ws.pcapDisableTrackPersistence.Store(false)

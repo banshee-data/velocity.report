@@ -30,7 +30,7 @@ func (ws *Server) handleBackgroundGridPolar(w http.ResponseWriter, r *http.Reque
 
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (ws *Server) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
 		sensorID = ws.sensorID
 	}
 	// Use html.EscapeString because the value is interpolated into an HTML
-	// attribute (meta tag) in sweep_dashboard.html — the JS now reads
+	// attribute (meta tag) in sweep_dashboard.html: the JS now reads
 	// sensorId from the DOM instead of a string literal.
 	safeSensorID := html.EscapeString(sensorID)
 
@@ -155,7 +155,7 @@ func (ws *Server) handleSweepDashboard(w http.ResponseWriter, r *http.Request) {
 // handleTrafficChart renders a simple bar chart of packet/point throughput.
 func (ws *Server) handleTrafficChart(w http.ResponseWriter, r *http.Request) {
 	if ws.stats == nil {
-		ws.writeJSONError(w, http.StatusNotFound, "no packet statistics available — check the sensor is sending data")
+		ws.writeJSONError(w, http.StatusNotFound, "no packet statistics available: check the sensor is sending data")
 		return
 	}
 
@@ -207,7 +207,7 @@ func (ws *Server) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *htt
 
 	bm := l3grid.GetBackgroundManager(sensorID)
 	if bm == nil || bm.Grid == nil {
-		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s' — check it is connected and active", sensorID))
+		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no background data available for sensor '%s': check it is connected and active", sensorID))
 		return
 	}
 
@@ -316,7 +316,7 @@ func (ws *Server) handleBackgroundGridHeatmapChart(w http.ResponseWriter, r *htt
 // handleClustersChart renders recent clusters as scatter points (color by point count).
 func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 	if ws.trackAPI == nil || ws.trackAPI.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured — check server startup includes --db-path")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured: check server startup includes --db-path")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")
@@ -409,7 +409,7 @@ func (ws *Server) handleClustersChart(w http.ResponseWriter, r *http.Request) {
 // handleTracksChart renders current track positions (and optionally recent observations) as a scatter overlay.
 func (ws *Server) handleTracksChart(w http.ResponseWriter, r *http.Request) {
 	if ws.trackAPI == nil || ws.trackAPI.db == nil {
-		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured — check server startup includes --db-path")
+		ws.writeJSONError(w, http.StatusServiceUnavailable, "track database is not configured: check server startup includes --db-path")
 		return
 	}
 	sensorID := r.URL.Query().Get("sensor_id")

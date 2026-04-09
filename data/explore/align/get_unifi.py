@@ -54,7 +54,9 @@ async def load_config(
         )
         raise
     except json.JSONDecodeError as e:
-        logger.error(f"Could not parse config file as JSON: {e}. Check for syntax errors.")
+        logger.error(
+            f"Could not parse config file as JSON: {e}. Check for syntax errors."
+        )
         raise
 
 
@@ -163,7 +165,9 @@ class UIProtectLogger:
                 logger.warning("No bootstrap data available")
 
         except Exception as e:
-            logger.error(f"Could not connect to the UIProtect controller: {e}. Check the IP address and credentials in config_unifi.json.")
+            logger.error(
+                f"Could not connect to the UIProtect controller: {e}. Check the IP address and credentials in config_unifi.json."
+            )
             raise
 
     async def monitor_events(self):
@@ -264,7 +268,9 @@ class UIProtectLogger:
                 start_date = default_start
 
         except Exception as e:
-            logger.warning(f"Could not read latest timestamp from database: {e}. Using default start date.")
+            logger.warning(
+                f"Could not read latest timestamp from database: {e}. Using default start date."
+            )
             start_date = default_start
 
         # Ensure start_date is not after end_date
@@ -318,7 +324,9 @@ async def main():
             db_connection.close()
 
     except Exception as e:
-        logger.error(f"Could not start the application: {e}. Check config_unifi.json and database access.")
+        logger.error(
+            f"Could not start the application: {e}. Check config_unifi.json and database access."
+        )
 
 
 if __name__ == "__main__":

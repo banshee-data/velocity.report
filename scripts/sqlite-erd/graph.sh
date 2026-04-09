@@ -48,8 +48,8 @@ Usage:
   $0 --report <schema.sql>
 
 Layout modes:
-  full  — (default) clustered with subgroups and alignment edges.
-  auto  — family clusters only; Graphviz handles all routing.
+  full : (default) clustered with subgroups and alignment edges.
+  auto : family clusters only; Graphviz handles all routing.
 
 Examples:
   $0 --generate internal/db/schema.sql
@@ -84,7 +84,7 @@ render_dot() {
   tmp_output=$(make_temp_file schema_svg .svg)
   require_command dot
   if ! dot -Tsvg "$dot_input" >"$tmp_output"; then
-    echo "SVG rendering did not succeed — check that Graphviz 'dot' is working." >&2
+    echo "SVG rendering did not succeed: check that Graphviz 'dot' is working." >&2
     exit 1
   fi
 
@@ -110,7 +110,7 @@ generate_dot() {
     exit 1
   fi
   if ! sqlite3 "$temp_db" < "$SCRIPT_DIR/sqlite_graph.sql" | python3 "$SCRIPT_DIR/group-dot.py" --layout "$LAYOUT_MODE" >"$tmp_dot_output"; then
-    echo "DOT generation did not succeed — check sqlite3 and python3 are available." >&2
+    echo "DOT generation did not succeed: check sqlite3 and python3 are available." >&2
     exit 1
   fi
   mv "$tmp_dot_output" "$dot_output"
@@ -177,7 +177,7 @@ while [ $# -gt 0 ]; do
           LAYOUT_MODE="$1"
           ;;
         *)
-          echo "Unrecognised layout mode '$1' — expected full or auto." >&2
+          echo "Unrecognised layout mode '$1': expected full or auto." >&2
           usage
           exit 1
           ;;

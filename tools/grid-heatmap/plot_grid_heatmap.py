@@ -84,7 +84,9 @@ def fetch_heatmap(base_url, sensor_id, azimuth_bucket_deg=3, settled_threshold=5
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
-        print(f"Could not fetch heatmap data: {e}. Check the server is running and accessible.")
+        print(
+            f"Could not fetch heatmap data: {e}. Check the server is running and accessible."
+        )
         sys.exit(1)
 
 
@@ -979,7 +981,7 @@ def process_pcap_with_snapshots(
 
     # Reset grid to start clean
     if not reset_grid(base_url, sensor_id):
-        print("Could not reset grid — continuing anyway.")
+        print("Could not reset grid: continuing anyway.")
 
     time.sleep(2)
 
@@ -1026,7 +1028,7 @@ def process_pcap_with_snapshots(
                         base_url, sensor_id, azimuth_bucket, settled_threshold
                     )
                 except SystemExit:
-                    print("Could not fetch heatmap — retrying next interval.")
+                    print("Could not fetch heatmap: retrying next interval.")
                     next_snapshot_time += interval
                     continue
 

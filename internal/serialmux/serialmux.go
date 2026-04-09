@@ -108,14 +108,14 @@ func (s *SerialMux[T]) Initialise() error {
 	// sync the clock to the current UNIX time
 	command := fmt.Sprintf("C=%d", time.Now().Unix())
 	if err := s.SendCommand(command); err != nil {
-		return fmt.Errorf("failed to synchronize clock: %w — check device is connected and responding on the serial port", err)
+		return fmt.Errorf("failed to synchronize clock: %w. Check device is connected and responding on the serial port", err)
 	}
 
 	// set the TZ name and offset based on current local to format timestamps
 	tzName, tsOffsetSeconds := time.Now().Local().Zone()
 	command = fmt.Sprintf("CZ%s%d", tzName, tsOffsetSeconds/60/60)
 	if err := s.SendCommand(command); err != nil {
-		return fmt.Errorf("failed to set timezone: %w — check device is accepting commands", err)
+		return fmt.Errorf("failed to set timezone: %w. Check device is accepting commands", err)
 	}
 
 	for _, command := range []string{
@@ -130,7 +130,7 @@ func (s *SerialMux[T]) Initialise() error {
 		"R>0.25", // filter speeds below 0.25 m/s (noise floor cutoff)
 	} {
 		if err := s.SendCommand(command); err != nil {
-			return fmt.Errorf("failed to send start command %q: %w — check device is responding and is the correct model (OPS243)", command, err)
+			return fmt.Errorf("failed to send start command %q: %w. Check device is responding and is the correct model (OPS243)", command, err)
 		}
 	}
 
@@ -244,7 +244,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 	debug.HandleFunc("send-command", "send a command to the serial port", func(w http.ResponseWriter, r *http.Request) {
 		buf := bytes.NewBuffer(nil)
 		if err := sendCommandTemplate.Execute(buf, nil); err != nil {
-			http.Error(w, "could not render the command page — check template files are embedded correctly", http.StatusInternalServerError)
+			http.Error(w, "could not render the command page: check template files are embedded correctly", http.StatusInternalServerError)
 			return
 		}
 		io.Copy(w, buf)
@@ -258,11 +258,11 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		}
 		command := strings.TrimSpace(r.FormValue("command"))
 		if command == "" {
-			http.Error(w, "Missing command — provide a 'command' form field", http.StatusBadRequest)
+			http.Error(w, "Missing command: provide a 'command' form field", http.StatusBadRequest)
 			return
 		}
 		if err := s.SendCommand(command); err != nil {
-			http.Error(w, "Could not write command to serial port — check device is connected and port permissions allow access", http.StatusInternalServerError)
+			http.Error(w, "Could not write command to serial port: check device is connected and port permissions allow access", http.StatusInternalServerError)
 			return
 		}
 		io.WriteString(w, fmt.Sprintf("Wrote command %q to serial port", command))
@@ -312,7 +312,7 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		// serve tail.js from adminTemplateFS
 		f, err := adminTemplateFS.Open("templates/tail.js")
 		if err != nil {
-			http.Error(w, "could not open tail.js — check embedded assets are built correctly", http.StatusInternalServerError)
+			http.Error(w, "could not open tail.js: check embedded assets are built correctly", http.StatusInternalServerError)
 			return
 		}
 		defer f.Close()

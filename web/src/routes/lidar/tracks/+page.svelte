@@ -449,7 +449,7 @@
 			labellingProgress = null;
 			missedRegions = [];
 			markMissedMode = false;
-			// Reload the default window — tracks may have been scoped to the run's window
+			// Reload the default window: tracks may have been scoped to the run's window
 			void loadHistoricalData();
 		}
 	}
