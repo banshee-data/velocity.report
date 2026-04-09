@@ -1,6 +1,6 @@
 ---
 layout: page.njk
-title: velocity.report - Measure Speeds, Make Streets Safer
+title: velocity.report — Measure Speeds. Make Streets Safer.
 ---
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-gray-900 dark:text-gray-100">
@@ -13,7 +13,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 
             <div class="max-w-[28rem] mx-auto md:mx-0">
             <p class="text-lg text-gray-600 dark:text-gray-300 mb-10 leading-relaxed text-center md:text-left">
-                <strong>velocity.report</strong> is a privacy-first, open-source traffic speed monitor. Measure vehicle speeds, produce professional reports, and make the case for safer streets with evidence rather than anecdote.
+                Set up a radar. Measure speeds. Build the case for safer streets. <strong>velocity.report</strong> does this without collecting faces or licence plates; because the goal is evidence, not surveillance.
             </p>
 
             <div class="flex gap-4 mb-8">
@@ -37,7 +37,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                 </div>
                 <div class="flex items-start text-gray-600 dark:text-gray-300">
                      <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                    <span><strong>Open source:</strong> Audit the code, run it locally, own every byte of your data.</span>
+                    <span><strong>Open source:</strong> Audit every line, run it on your own Pi, and keep the data on a shelf you own rather than someone else's cloud.</span>
                 </div>
             </div>
 
@@ -75,12 +75,12 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                                 class="copy-sha-btn">copy</button>
                         </div>
                     </div>
-                    <p class="dl-muted">Requires Raspberry Pi 4, Pi 400, or Pi 5</p>
+                    <p class="dl-muted">Requires Raspberry Pi 3+</p>
                 </div>
                 <!-- Imager custom repo -->
                 <div class="dl-card">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Raspberry Pi Imager custom repo</p>
-                    <p class="dl-muted"><a href="https://www.raspberrypi.com/software/" class="text-blue-600 hover:underline">Install Raspberry Pi Imager</a>, then run this command in a terminal. Imager opens with the velocity.report image ready to write.</p>
+                    <p class="dl-muted"><a href="https://www.raspberrypi.com/software/" class="text-blue-600 hover:underline">Install Raspberry Pi Imager</a>, then run this in a terminal. The <code>--repo</code> flag works on all platforms; the path to the binary varies by OS.</p>
                     <div class="dl-hash-box max-w-full text-xs font-mono text-gray-600 dark:text-gray-300">
                         <span class="dl-hash-text" style="white-space:pre;padding-right:4rem;">cd /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/
 ./rpi-imager --repo {{ release.rpi_imager_repo_url }}</span>
@@ -88,7 +88,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
                             data-sha="cd /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/ && ./rpi-imager --repo {{ release.rpi_imager_repo_url }}"
                             data-select-target=".dl-hash-text"
                             class="copy-sha-btn"
-                            style="bottom:auto;height:1.35rem;">copy</button>
+                            style="top:50%;transform:translateY(-50%);bottom:auto;height:1.35rem;">copy</button>
                     </div>
                 </div>
             </div>
@@ -147,8 +147,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
             <div class="text-center mb-8">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">VelocityVisualiser.app</h2>
                 <p class="text-lg text-gray-600 dark:text-gray-300 max-w-md mx-auto leading-relaxed">
-                    A native macOS app for LiDAR point cloud visualisation,
-                    track inspection, and data labelling.
+                    Watch the road in three dimensions. VelocityVisualiser renders live LiDAR point clouds, tracked objects, and motion trails — so you can see what the sensor sees and check its work.
                 </p>
             </div>
 
@@ -194,7 +193,7 @@ title: velocity.report - Measure Speeds, Make Streets Safer
     <!-- Video Section -->
     <div class="dl-section mb-20 p-6 md:p-12">
         <div class="max-w-3xl mx-auto text-center">
-            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Data-Driven Advocacy in Action</h2>
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Making the Case at City Hall</h2>
             <div class="relative pb-[56.25%] h-0 overflow-hidden rounded-xl shadow-lg mb-8 bg-black">
                 <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/ZTJOI5gYZM4?rel=0&modestbranding=1" title="SFMTA Board Meeting Address" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
@@ -210,6 +209,9 @@ title: velocity.report - Measure Speeds, Make Streets Safer
 </div>
 <script>
 (function() {
+    var allBtns = document.querySelectorAll('.copy-sha-btn');
+    var allTexts = document.querySelectorAll('.dl-hash-text');
+
     function fallbackCopy(text) {
         try {
             var textarea = document.createElement('textarea');
@@ -227,36 +229,71 @@ title: velocity.report - Measure Speeds, Make Streets Safer
         }
     }
 
-    document.querySelectorAll('.copy-sha-btn').forEach(function(btn) {
-        var origLabel = (btn.textContent || '').trim();
+    // Reset every copy button label and clear text selection
+    function resetAll() {
+        allBtns.forEach(function(b) {
+            clearTimeout(+b.dataset.tid);
+            if (b.dataset.origLabel) b.textContent = b.dataset.origLabel;
+        });
+        window.getSelection().removeAllRanges();
+    }
+
+    function selectNode(node) {
+        var range = document.createRange();
+        range.selectNodeContents(node);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    function copyText(text, onDone) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                onDone(true);
+            }).catch(function() {
+                onDone(fallbackCopy(text));
+            });
+        } else {
+            onDone(fallbackCopy(text));
+        }
+    }
+
+    // Copy buttons
+    allBtns.forEach(function(btn) {
+        btn.dataset.origLabel = (btn.textContent || '').trim();
 
         btn.addEventListener('click', function() {
+            resetAll();
             var text = btn.dataset.sha;
             var selectTarget = btn.dataset.selectTarget
                 ? btn.parentElement.querySelector(btn.dataset.selectTarget)
                 : null;
 
-            function showStatus(msg) {
-                btn.textContent = msg;
-                if (selectTarget) {
-                    var range = document.createRange();
-                    range.selectNodeContents(selectTarget);
-                    var sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                }
-                setTimeout(function() { btn.textContent = origLabel; }, 1500);
-            }
+            copyText(text, function(ok) {
+                btn.textContent = ok ? 'copied' : 'copy failed';
+                if (selectTarget) selectNode(selectTarget);
+                btn.dataset.tid = setTimeout(function() {
+                    btn.textContent = btn.dataset.origLabel;
+                }, 1500);
+            });
+        });
+    });
 
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function() {
-                    showStatus('copied');
-                }).catch(function() {
-                    showStatus(fallbackCopy(text) ? 'copied' : 'copy failed');
-                });
-            } else {
-                showStatus(fallbackCopy(text) ? 'copied' : 'copy failed');
-            }
+    // SHA/hash text spans — click to select and copy
+    allTexts.forEach(function(span) {
+        span.addEventListener('click', function() {
+            resetAll();
+            selectNode(span);
+            var text = span.getAttribute('title') || span.textContent;
+            var btn = span.parentElement.querySelector('.copy-sha-btn');
+            copyText(text, function(ok) {
+                if (btn) {
+                    btn.textContent = ok ? 'copied' : 'copy failed';
+                    btn.dataset.tid = setTimeout(function() {
+                        btn.textContent = btn.dataset.origLabel;
+                    }, 1500);
+                }
+            });
         });
     });
 })();
