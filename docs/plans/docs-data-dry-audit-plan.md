@@ -522,28 +522,27 @@ plan hygiene tooling and to readers:
 
 ### Complete
 
-_(none yet — this plan is new)_
-
-### Outstanding
-
 **Group 1 — Quick wins**
 
-- [ ] Fix 8 gate violations (Group 1a) (`S` × 8)
-- [ ] Graduate LiDAR hub plans — 8 symlinks (Group 1b) (`S` × 8)
-- [ ] Graduate Platform hub plans — 8 symlinks (Group 1c) (`S` × 8)
-- [ ] Update hub docs: remove stale "Active plan:" links (Group 1d) (`S` × 8)
+- [x] Fix 8 gate violations (Group 1a) (`S` × 8)
+- [x] Graduate LiDAR hub plans — 7 symlinks (Group 1b) (`S` × 7; `label-vocabulary-consolidation-plan` skipped — not Complete)
+- [x] Graduate Platform hub plans — 7 symlinks (Group 1c) (`S` × 7; `schema-simplification-migration-030-plan` skipped — status is "Implemented")
+- [x] Graduate `tailscale-remote-access-guide.md` — marked Complete, content moved to hub, replaced with symlink
+- [x] Update hub docs: remove stale "Active plan:" links (Group 1d) (`S` × 5)
 
 **Group 2 — Consolidations**
 
-- [ ] Consolidate `velocity-visualiser-app/` subdirectory (Group 2a) (`M`)
-- [ ] Resolve misclassified PCAP ops docs (Group 2b) (`M`)
-- [ ] Relocate `tailscale-remote-access-guide.md` to `platform/operations/` (Group 2c) (`M`)
-- [ ] Relocate `playback-speed-vs-track-quality.md` to `lidar/operations/` (Group 2d) (`S`)
+- [x] Consolidate `velocity-visualiser-app/` subdirectory (Group 2a) (`M`)
+- [x] Resolve misclassified PCAP ops docs (Group 2b) (`M`)
+- [x] Relocate `tailscale-remote-access-guide.md` to `platform/operations/` (Group 2c) (`M`)
+- [x] Relocate `playback-speed-vs-track-quality.md` to `lidar/operations/` (Group 2d) (`S`)
 
 **Group 3 — DRY fixes**
 
-- [ ] Add config parameter cross-references (Group 3a) (`S`)
-- [ ] Resolve `warmup-trails-fix.md` closed bug (Group 3b) (`S`)
+- [x] Add config parameter cross-references (Group 3a) (`S`)
+- [x] Resolve `warmup-trails-fix.md` closed bug (Group 3b) (`S`)
+
+### Outstanding
 
 **Group 4 — Structural improvements**
 

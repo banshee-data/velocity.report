@@ -207,6 +207,8 @@ they improve will be removed.
 
 Note on naming: this repository does **not** contain a `config/tracking.json` file. Runtime tuning is loaded from `config/tuning.defaults.json` (or another JSON passed with `--config`) via `internal/config/tuning.go`.
 
+See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed at operators (grouped by tuning task rather than mathematical source).
+
 ### L3 Background Grid Settling Maths (`background-grid-settling-maths.md`)
 
 - Keys:

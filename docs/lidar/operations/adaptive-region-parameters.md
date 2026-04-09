@@ -215,7 +215,7 @@ This enables immediate foreground detection on subsequent runs from the same sen
 ## Related Documentation
 
 - [LiDAR Background Grid Standards](../architecture/lidar-background-grid-standards.md)
-- [Warmup Trails Fix](../troubleshooting/warmup-trails-fix.md)
+- [Warmup Trails Fix](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026)
 - [PCAP Analysis Mode](pcap-analysis-mode.md)
 
 ## References

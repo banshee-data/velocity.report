@@ -13,6 +13,7 @@ This guide covers common issues, error messages, and solutions for the velocity.
 - [Network and Connectivity Issues](#network-and-connectivity-issues)
 - [Performance Issues](#performance-issues)
 - [macOS Visualiser Issues](#macos-visualiser-issues)
+- [Known Fixed Issues](#known-fixed-issues)
 - [CI/CD Issues](#cicd-issues)
 - [Getting Help](#getting-help)
 
@@ -915,6 +916,28 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 # Enable debug logging
 ./velocity-report-local -debug
 ```
+
+---
+
+## Known Fixed Issues
+
+Issues that were previously reported and have been resolved. Listed here
+so operators on older versions can recognise the symptom and upgrade.
+
+### LiDAR Background Grid — Warmup Trails (fixed January 2026)
+
+**Symptom:** False positive foreground points ("trails") appearing on walls
+and static surfaces for ~30 seconds after grid reset or service restart.
+
+**Cause:** When a cell was reset (`TimesSeenCount=0`), `RangeSpreadMeters`
+started at 0. The EMA took ~50–100 observations to learn true variance,
+during which normal surface noise exceeded the threshold.
+
+**Fix:** Warmup sensitivity scaling in `ProcessFramePolarWithMask()` — the
+closeness threshold ramps from ~4× normal at count 0 down to 1× at count 100.
+Vehicles (>1 m deviation) are still detected during warmup.
+
+**Files:** `internal/lidar/l3grid/foreground.go`, `internal/lidar/l3grid/foreground_warmup_test.go`.
 
 ---
 

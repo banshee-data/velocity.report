@@ -66,3 +66,4 @@ curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40
 - `docs/lidar/operations/sweep-tool.md`
 - `docs/lidar/operations/auto-tuning.md`
 - `docs/lidar/troubleshooting/pipeline-diagnosis.md`
+- `data/maths/README.md` §Config Mapping — complete key-to-source mapping for algorithm researchers
