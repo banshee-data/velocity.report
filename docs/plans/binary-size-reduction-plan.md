@@ -12,7 +12,7 @@
 The Linux ARM64 binary is **211 MB**. The intended ceiling is < 40 MB. The cause is
 now understood and almost entirely mechanical — this is not a framework problem.
 
-GSA analysis (`gsa velocity-report-linux-arm64 -f json --compact`) reveals:
+GSA analysis (`gsa velocity-report-{version}-linux-arm64 -f json --compact`) reveals:
 
 | Segment                      | Size     | % of binary | What it is                                                       |
 | ---------------------------- | -------- | ----------- | ---------------------------------------------------------------- |
@@ -168,7 +168,7 @@ Add a CI check that fails if the binary exceeds a threshold:
 #!/bin/bash
 # scripts/check-binary-size.sh
 MAX_SIZE_MB=45  # headroom above 28 MB target
-BINARY="velocity-report-linux-arm64"
+BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
 
 if [ ! -f "$BINARY" ]; then
   echo "Binary not found: $BINARY"

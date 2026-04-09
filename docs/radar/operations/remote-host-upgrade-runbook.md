@@ -50,7 +50,7 @@ Decide these before you start:
 - Whether `/opt/velocity-report` also needs to move to `TARGET_REF` so PDF
   generation stays in sync with the Go binary.
 
-Preferred source for `NEW_BIN`: a prebuilt `velocity-report-linux-arm64`
+Preferred source for `NEW_BIN`: a prebuilt `velocity-report-{version}-linux-arm64`
 artifact already copied to the host. Building on-host is a fallback only.
 
 ## Reconnaissance
@@ -184,18 +184,24 @@ fi
 # Cross-compile for Raspberry Pi
 make build-radar-linux
 
-# Sanity-check the artifact
-file velocity-report-linux-arm64
-ls -lh velocity-report-linux-arm64
+# Sanity-check the artifact (name includes version, e.g. velocity-report-0.5.2-linux-arm64)
+BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+if [ -z "$BINARY" ]; then
+  BINARY=$(ls -1 velocity-report-*-linux-arm64 2>/dev/null | head -1)
+fi
+file "$BINARY"
+ls -lh "$BINARY"
 ```
 
-The output binary is `velocity-report-linux-arm64` in the repo root.
+The output binary is a versioned file such as
+`20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d` (dev) or
+`velocity-report-0.5.1-linux-arm64` (release) in the repo root.
 
 ### Transfer to host
 
 ```bash
 ssh radar.local 'mkdir -p /tmp/vr'
-scp velocity-report-linux-arm64 radar.local:/tmp/vr/
+scp "$BINARY" radar.local:/tmp/vr/
 ```
 
 ## Prepare the New Binary (on the host)
@@ -203,7 +209,7 @@ scp velocity-report-linux-arm64 radar.local:/tmp/vr/
 Paste this on the host to verify the transferred artifact:
 
 ```bash
-export NEW_BIN=/tmp/vr/velocity-report-linux-arm64
+export NEW_BIN=/tmp/vr/$(ls /tmp/vr/ | grep velocity-report | head -1)
 chmod +x "$NEW_BIN"
 file "$NEW_BIN"
 "$NEW_BIN" --version
@@ -231,7 +237,8 @@ if grep -q "Web Frontend Not Built" web/build/index.html; then
   exit 1
 fi
 make build-radar-linux
-export NEW_BIN="$PWD/velocity-report-linux-arm64"
+BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
 
@@ -407,7 +414,8 @@ Success means:
 Remove the transferred binary and any stray database files:
 
 ```bash
-rm -f /tmp/vr/velocity-report-linux-arm64
+rm -f /tmp/vr/velocity-report-*
+rm -f /tmp/vr/*-velocity-report-*
 rmdir /tmp/vr 2>/dev/null || true
 ls /opt/velocity-report/sensor_data.db* 2>/dev/null && echo "STRAY DB — delete it" || echo "clean"
 ```

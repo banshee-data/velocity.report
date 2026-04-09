@@ -1,6 +1,6 @@
 # Asset Naming Convention
 
-- **Status:** Draft
+- **Status:** Complete
 - **Owner:** Grace (Architect)
 - **Scope mode:** HOLD — the architecture is sound; this standardises naming across existing assets
 

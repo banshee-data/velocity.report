@@ -44,7 +44,7 @@
 
    ```makefile
    build-radar-linux:
-       GOOS=linux GOARCH=arm64 go build -o velocity-report-linux-arm64 ./cmd/velocity-report
+       GOOS=linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report
 
    build-sweep:
        GOOS=linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep
@@ -177,13 +177,13 @@
            include:
              - goos: linux
                goarch: arm64
-               output: velocity-report-linux-arm64
+               output: velocity-report-${VERSION}-linux-arm64
              - goos: darwin
                goarch: arm64
-               output: velocity-report-mac-arm64
+               output: velocity-report-${VERSION}-darwin-arm64
              - goos: darwin
                goarch: amd64
-               output: velocity-report-mac-amd64
+               output: velocity-report-${VERSION}-darwin-amd64
 
        steps:
          - uses: actions/checkout@v4
@@ -297,16 +297,16 @@
 
                ### Linux (Raspberry Pi ARM64)
                ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-linux-arm64
-               chmod +x velocity-report-linux-arm64
-               sudo mv velocity-report-linux-arm64 /usr/local/bin/velocity-report
+               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION}-linux-arm64
+               chmod +x velocity-report-${VERSION}-linux-arm64
+               sudo mv velocity-report-${VERSION}-linux-arm64 /usr/local/bin/velocity-report
                ```
 
                ### macOS (Apple Silicon)
                ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-mac-arm64
-               chmod +x velocity-report-mac-arm64
-               sudo mv velocity-report-mac-arm64 /usr/local/bin/velocity-report
+               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION}-darwin-arm64
+               chmod +x velocity-report-${VERSION}-darwin-arm64
+               sudo mv velocity-report-${VERSION}-darwin-arm64 /usr/local/bin/velocity-report
                ```
 
                ### Python Tools
@@ -367,7 +367,7 @@
    LDFLAGS = -X github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)
 
    build-radar-linux:
-       GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/velocity-report
+       GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report
 
    release-tag:
        @echo "Creating release tag $(VERSION)"
@@ -612,18 +612,19 @@
 
    ```bash
    VERSION=v1.0.0
-   curl -LO https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-linux-arm64
-   chmod +x velocity-report-linux-arm64
+   VERSION_NUM="${VERSION#v}"
+   curl -LO https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-${VERSION_NUM}-linux-arm64
+   chmod +x velocity-report-${VERSION_NUM}-linux-arm64
    ```
 
 3. **Test new binary**
 
    ```bash
    # Test migrate command
-   ./velocity-report-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db
+   ./velocity-report-${VERSION_NUM}-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db
 
    # Test serve (don't background yet)
-   ./velocity-report-linux-arm64 serve --db-path /var/lib/velocity-report/sensor_data.db --disable-radar
+   ./velocity-report-${VERSION_NUM}-linux-arm64 serve --db-path /var/lib/velocity-report/sensor_data.db --disable-radar
    # Ctrl+C to stop
    ```
 
@@ -642,7 +643,7 @@
 5. **Install new binary**
 
    ```bash
-   sudo mv velocity-report-linux-arm64 /usr/local/bin/velocity-report
+   sudo mv velocity-report-${VERSION_NUM}-linux-arm64 /usr/local/bin/velocity-report
    sudo chown root:root /usr/local/bin/velocity-report
    sudo chmod 755 /usr/local/bin/velocity-report
    ```
@@ -987,7 +988,7 @@ velocity.report/
     └── radar/
 
 Binary outputs (after build):
-├── velocity-report-linux-arm64    # Main server
+├── velocity-report-{version}-linux-arm64    # Main server
 └── app-sweep                       # Sweep tool
 ```
 
@@ -1014,7 +1015,7 @@ velocity.report/
     └── version/                   # New: version management
 
 Binary outputs (after build):
-├── velocity-report-linux-arm64                 # Main binary
+├── velocity-report-{version}-linux-arm64                 # Main binary
 ├── velocity-report-sweep-linux-arm64          # Sweep binary
 └── velocity-report-backfill-rings-linux-arm64 # Utility binary
 ```
@@ -1160,7 +1161,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 **⚠️ Minor Breaking Changes**
 
 - `cmd/radar/` moved to `cmd/velocity-report/`
-- Binary name unchanged: `velocity-report-linux-arm64`
+- Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only cmd/ structure changed)
 
 **✅ Backward Compatible**
