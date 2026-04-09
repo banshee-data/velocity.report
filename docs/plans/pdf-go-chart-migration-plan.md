@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Ready for implementation — all open questions resolved except Q6 (pre-Phase 1 research)
+- **Status:** Phases 1–3 implemented — all open questions resolved
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -871,22 +871,28 @@ until the v0.7 work lands.
 
 ### Q6 — Comparison chart normalisation: Go API vs report package
 
-**Research needed — tracked for pre-implementation investigation.**
+**Decision: the API returns raw counts. Normalisation lives in the chart
+rendering layer.**
 
-The Python `build_comparison` method normalises raw histogram bucket counts
-to percentages before rendering. It is not yet confirmed whether:
+Investigation confirmed that every layer below the chart renderer deals only
+in raw `count` values:
 
-(a) The existing Go `/api/radar_stats` response already returns normalised
-histogram data (fractions or percentages), or
+- **DB** (`RadarObjectRollupRange`): returns `map[float64]int64` — bucket
+  start in mps → raw count.
+- **API** (`/api/radar_stats`): converts keys to display units, values remain
+  raw counts (`map[string]int64` in JSON).
+- **Report orchestrator** (`internal/report/report.go`): passes
+  `HistogramData` with raw counts to the chart package.
+- **Chart renderer** (`internal/report/chart/histogram.go`): computes
+  percentages at render time, inside `RenderComparison()`.
 
-(b) The report package must compute the normalisation itself from raw counts.
-
-**Investigation required before Phase 1:** read `internal/api/` and the
-`radar_stats` handler to determine what histogram shape the API returns.
-If raw counts, add a `NormaliseHistogram(counts []int) []float64` helper in
-`internal/report/chart/` and test it. If already normalised, use directly.
-This does not gate Phase 1 (histogram rendering) but must be resolved before
-the comparison chart is implemented.
+This matches the Python architecture where `build_comparison()` normalises
+inline during rendering. The single-bar `RenderHistogram()` uses raw counts
+on the Y-axis (matching Python's `build_histogram()`). The existing
+`NormaliseHistogram()` helper only sorts keys and totals counts — the name
+is slightly misleading but the total it returns is consumed by
+`RenderComparison` for the percentage calculation. No additional helper is
+needed.
 
 ### Q7 — `grid-heatmap` tool: in scope
 
