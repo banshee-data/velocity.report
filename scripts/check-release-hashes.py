@@ -144,14 +144,21 @@ def entries_from_release_json(data: dict) -> list[dict]:
 
 
 def entries_from_os_list(data: dict) -> list[dict]:
-    """Extract downloadable entries from os-list-velocity.json."""
+    """Extract downloadable entries from os-list-velocity.json.
+
+    Note: extract_sha256 is the hash of the *extracted* image, not the
+    compressed download.  We cannot verify it without decompressing, so we
+    only use image_download_size for the download check and leave sha as
+    None.  The cross-check below validates extract_sha256 against
+    release.json instead.
+    """
     entries = []
     for item in data.get("os_list", []):
         entries.append(
             {
                 "label": f"Imager: {item['name']}",
                 "url": item["url"],
-                "sha": item.get("extract_sha256"),
+                "sha": None,
                 "size": item.get("image_download_size"),
             }
         )
