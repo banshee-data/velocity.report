@@ -527,7 +527,7 @@ plan hygiene tooling and to readers:
 - [x] Fix 8 gate violations (Group 1a) (`S` × 8)
 - [x] Graduate LiDAR hub plans — 7 symlinks (Group 1b) (`S` × 7; `label-vocabulary-consolidation-plan` skipped — not Complete)
 - [x] Graduate Platform hub plans — 7 symlinks (Group 1c) (`S` × 7; `schema-simplification-migration-030-plan` skipped — status is "Implemented")
-- [x] Graduate `tailscale-remote-access-guide.md` — marked Complete, content moved to hub, replaced with symlink
+- [x] Mark `tailscale-remote-access-guide.md` Complete, content moved to hub (symlink deferred to follow-up PR per two-PR rule)
 - [x] Update hub docs: remove stale "Active plan:" links (Group 1d) (`S` × 5)
 
 **Group 2 — Consolidations**

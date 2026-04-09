@@ -143,7 +143,7 @@ As of branch `dd/docs/merge-canonical`:
 
 - 69 plan files, all with `Canonical` metadata
 - 111 hub docs across 4 hubs (excluding READMEs)
-- 26 plans graduated to symlinks
+- 25 plans graduated to symlinks
 - 0 gate violations, 6 advisory notes (deliberate shared targets)
 
 ## Success Criteria
