@@ -59,6 +59,7 @@ ALLOWED_HUB_PREFIXES = (
     "docs/platform/",
     "config/",
     "data/",
+    "public_html/",
 )
 
 # ── Parsing ─────────────────────────────────────────────────────────────
