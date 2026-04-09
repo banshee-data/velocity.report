@@ -1,5 +1,4 @@
 package chart
-package chart
 
 const (
 	ColourP50       = "#fbd92f" // Yellow — 50th percentile

@@ -1,5 +1,4 @@
 package chart
-package chart
 
 import "testing"
 
