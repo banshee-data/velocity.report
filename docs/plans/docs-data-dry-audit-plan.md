@@ -14,27 +14,28 @@ graduating them to hub docs on completion. That discipline is working: the canon
 graduation machinery exists, 69 plans carry `Canonical` metadata, and 11 have already been
 promoted to symlinks (per `canonical-plan-graduation.md §Current State`).
 
-The problem is the **completion backlog**: 14 gate violations block the hard-fail CI gate,
+The problem is the **completion backlog**: 14 gate violations are reported by
+`make report-plan-hygiene` (advisory mode — CI does not yet hard-fail on these),
 16 further plans are marked Complete but have not yet been graduated to symlinks (leaving
 their canonical docs carrying stale "Active plan:" links back to redundant files), several
 docs are misclassified in the wrong directory, and a cluster of UI subdirectory files is
 fragmented when a single consolidated doc would serve readers better.
 
 The consequence of inaction is a documentation tree where readers must assemble one topic
-from two or three files, where CI is silently passing despite known gate violations, and
-where the plans/ directory fills with noise that obscures genuinely active work.
+from two or three files, where gate violations accumulate unchecked, and where the plans/
+directory fills with noise that obscures genuinely active work.
 
 ## Current State
 
-| Area | Current state | Severity |
-| ---- | ------------- | -------- |
-| Gate violations blocking CI | 14 violations across 8 plan files | High |
-| Complete plans not graduated | ≥15 plans marked Complete, not yet symlinked | High |
-| Misclassified docs in `plans/` | 2–3 files that are guides or research notes, not plans | Medium |
-| UI subdirectory fragmentation | 5 files under `velocity-visualiser-app/` fragment one topic | Medium |
-| Ops docs that are actually plans | 3 ops files carrying "Planning" or design-phase content | Medium |
-| Cross-doc parameter repetition | Config keys repeated in maths README and ops tuning guides | Low |
-| Resolved troubleshooting stubs | 1 troubleshooting file with Status: Resolved, never consolidated | Low |
+| Area                             | Current state                                                    | Severity |
+| -------------------------------- | ---------------------------------------------------------------- | -------- |
+| Gate violations (advisory)       | 14 violations across 8 plan files                                | High     |
+| Complete plans not graduated     | 16 plans marked Complete, not yet symlinked                      | High     |
+| Misclassified docs in `plans/`   | 4 files that are guides or research notes, not plans             | Medium   |
+| UI subdirectory fragmentation    | 5 files under `velocity-visualiser-app/` fragment one topic      | Medium   |
+| Ops docs that are actually plans | 3 ops files carrying "Planning" or design-phase content          | Medium   |
+| Cross-doc parameter repetition   | Config keys repeated in maths README and ops tuning guides       | Low      |
+| Resolved troubleshooting stubs   | 1 troubleshooting file with Status: Resolved, never consolidated | Low      |
 
 Running `make report-plan-hygiene` as of audit date produces:
 
@@ -42,8 +43,9 @@ Running `make report-plan-hygiene` as of audit date produces:
 14 gate violation(s), 7 advisory note(s)
 ```
 
-CI currently runs `make report-plan-hygiene`, so these violations are being reported but are
-not yet enforced by a hard-fail `make check-plan-hygiene` gate.
+CI currently runs `make report-plan-hygiene` (advisory mode, exit 0). These violations are
+reported but not yet enforced. The hard-fail target `make check-plan-hygiene` exists locally
+but is not wired into CI workflows.
 
 ## Findings
 
@@ -83,7 +85,7 @@ README's config mapping section, and vice versa. No merge needed; just a "See al
 
 A similar dual-appearance exists with `auto-tuning.md` §Tunable Parameters, which lists
 all tunable keys in narrative form. This serves a distinct purpose (explaining what each
-parameter *does* during automated sweep) and does not require remediation.
+parameter _does_ during automated sweep) and does not require remediation.
 
 #### 1.3 ARCHITECTURE.md Perception Pipeline section (acceptable)
 
@@ -109,24 +111,24 @@ These plans are marked **Complete** on `main`, carry a `Canonical` link, and hav
 that has absorbed their content. They satisfy the two-PR graduation rule: their Complete status
 is on `main`, so a separate branch may replace them with symlinks.
 
-| Plan file | Canonical hub doc | Hub location |
-| --------- | ---------------- | ------------ |
-| `agent-claude-preparedness-review-plan.md` | `agent-preparedness.md` | `platform/operations/` |
-| `data-database-alignment-plan.md` | `database-sql-boundary.md` | `platform/architecture/` |
-| `data-sqlite-client-standardisation-plan.md` | `database-sql-boundary.md` | `platform/architecture/` |
-| `go-god-file-split-plan.md` | `go-package-structure.md` | `platform/architecture/` |
-| `label-vocabulary-consolidation-plan.md` | `label-vocabulary.md` | `lidar/architecture/` |
-| `lidar-analysis-run-infrastructure-plan.md` | `pcap-analysis-mode.md` | `lidar/operations/` |
-| `lidar-immutable-run-config-asset-plan.md` | `immutable-run-config.md` | `lidar/operations/` |
-| `lidar-l2-dual-representation-plan.md` | `l2-dual-representation.md` | `lidar/architecture/` |
-| `lidar-layer-dependency-hygiene-plan.md` | `lidar-data-layer-model.md` | `lidar/architecture/` |
-| `lidar-sweep-hint-mode-plan.md` | `hint-sweep-mode.md` | `lidar/operations/` |
-| `lidar-tracks-table-consolidation-plan.md` | `track-storage-consolidation.md` | `lidar/architecture/` |
-| `lidar-visualiser-run-list-labelling-rollup-icon-plan.md` | `run-list-labelling-rollup.md` | `lidar/operations/visualiser/` |
-| `platform-canonical-project-files-plan.md` | `canonical-plan-graduation.md` | `platform/architecture/` |
-| `schema-simplification-migration-030-plan.md` | `schema-migration-030.md` | `platform/operations/` |
-| `tooling-python-venv-consolidation-plan.md` | `python-venv.md` | `platform/operations/` |
-| `v050-tech-debt-removal-plan.md` | `v050-release-migration.md` | `platform/operations/` |
+| Plan file                                                 | Canonical hub doc                | Hub location                   |
+| --------------------------------------------------------- | -------------------------------- | ------------------------------ |
+| `agent-claude-preparedness-review-plan.md`                | `agent-preparedness.md`          | `platform/operations/`         |
+| `data-database-alignment-plan.md`                         | `database-sql-boundary.md`       | `platform/architecture/`       |
+| `data-sqlite-client-standardisation-plan.md`              | `database-sql-boundary.md`       | `platform/architecture/`       |
+| `go-god-file-split-plan.md`                               | `go-package-structure.md`        | `platform/architecture/`       |
+| `label-vocabulary-consolidation-plan.md`                  | `label-vocabulary.md`            | `lidar/architecture/`          |
+| `lidar-analysis-run-infrastructure-plan.md`               | `pcap-analysis-mode.md`          | `lidar/operations/`            |
+| `lidar-immutable-run-config-asset-plan.md`                | `immutable-run-config.md`        | `lidar/operations/`            |
+| `lidar-l2-dual-representation-plan.md`                    | `l2-dual-representation.md`      | `lidar/architecture/`          |
+| `lidar-layer-dependency-hygiene-plan.md`                  | `lidar-data-layer-model.md`      | `lidar/architecture/`          |
+| `lidar-sweep-hint-mode-plan.md`                           | `hint-sweep-mode.md`             | `lidar/operations/`            |
+| `lidar-tracks-table-consolidation-plan.md`                | `track-storage-consolidation.md` | `lidar/architecture/`          |
+| `lidar-visualiser-run-list-labelling-rollup-icon-plan.md` | `run-list-labelling-rollup.md`   | `lidar/operations/visualiser/` |
+| `platform-canonical-project-files-plan.md`                | `canonical-plan-graduation.md`   | `platform/architecture/`       |
+| `schema-simplification-migration-030-plan.md`             | `schema-migration-030.md`        | `platform/operations/`         |
+| `tooling-python-venv-consolidation-plan.md`               | `python-venv.md`                 | `platform/operations/`         |
+| `v050-tech-debt-removal-plan.md`                          | `v050-release-migration.md`      | `platform/operations/`         |
 
 Each canonical hub doc carries a stale "Active plan:" link back to the plan file. Once the
 symlink is in place that link resolves correctly. **This is 16 plans**; graduating them
@@ -135,38 +137,37 @@ removes 16 redundant files from the active plans list and shrinks the directory 
 
 #### 2.2 Implemented plans pending merge — not yet graduatable
 
-Two plans are marked "Implemented" but their implementation is on a branch, not `main`. The
+One plan is marked "Implemented" but its implementation is on a branch, not `main`. The
 two-PR rule prohibits graduation until the Complete status lands on `main`.
 
-| Plan file | Status | Action |
-| --------- | ------ | ------ |
+| Plan file                         | Status                                                          | Action                                                      |
+| --------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
 | `lidar-schema-robustness-plan.md` | Implemented on branch `codex/draft-schema-improvement-proposal` | Mark Complete after merge; then graduate on separate branch |
-| `lidar-l2-dual-representation-plan.md` | Implemented — already in 2.1 above; hub doc says "Implemented" | Already eligible if Complete is on main |
 
 #### 2.3 Plans near completion — must be marked Complete before graduation
 
-| Plan file | Current status | Gap |
-| --------- | -------------- | --- |
-| `platform-simplification-and-deprecation-plan.md` | Approved (Phase 1 complete) | Remaining phases must complete or be deferred before marking Complete |
-| `lidar-track-labelling-auto-aware-tuning-plan.md` | Phases 1-5 complete, Phase 6 deferred, others outstanding | Resolve deferred items in checklist, then mark Complete |
+| Plan file                                         | Current status                                            | Gap                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------- |
+| `platform-simplification-and-deprecation-plan.md` | Approved (Phase 1 complete)                               | Remaining phases must complete or be deferred before marking Complete |
+| `lidar-track-labelling-auto-aware-tuning-plan.md` | Phases 1-5 complete, Phase 6 deferred, others outstanding | Resolve deferred items in checklist, then mark Complete               |
 
 ---
 
-### 3 Gate Violations — must fix before next CI hard-fail
+### 3 Gate Violations — advisory today, worth fixing proactively
 
-`make check-plan-hygiene` currently reports 14 violations across 8 files. Each blocks clean
-CI runs.
+`make report-plan-hygiene` currently reports 14 violations across 8 files. These are
+advisory (CI does not hard-fail) but should be resolved to keep the plan corpus clean.
 
-| File | Violation | Correct action |
-| ---- | --------- | -------------- |
-| `asset-naming-plan.md` | [G1] missing `Canonical` metadata | Add `- **Canonical:** [platform/architecture doc]` (new hub doc needed or BACKLOG.md) |
-| `domain-tag-vocabulary-plan.md` | [G9] Canonical points to `BACKLOG.md` (not an allowed hub prefix) | Create stub `platform/architecture/domain-tag-vocabulary.md` or point to `lidar/architecture/label-vocabulary.md` |
-| `error-surface-voice-audit-plan.md` | [G2, G3, G9] Canonical is the literal string "This document" | Create stub `platform/operations/error-surface-voice.md`, point Canonical there |
-| `lidar-replay-case-terminology-alignment-plan.md` | [G1] missing `Canonical` metadata | Add `- **Canonical:** [lidar/architecture/lidar-pipeline-reference.md]` or new stub |
-| `macos-local-server-plan.md` | [G2, G3, G9] Canonical is "This document" | Point to `ui/velocity-visualiser-architecture.md` (the existing home for server manager features) |
-| `pcap-motion-detection-and-split-plan.md` | [G1] missing `Canonical` metadata | Add `- **Canonical:** [lidar/operations/pcap-analysis-mode.md]` |
-| `setup-guide-publication-plan.md` | [G1] missing `Canonical` metadata | Add `- **Canonical:** [public_html/src/guides/setup.md]` or a platform ops stub |
-| `tailscale-remote-access-guide.md` | [G2, G3, G9] Canonical is "this document" | Move to `platform/operations/tailscale-remote-access.md`; replace with symlink |
+| File                                              | Violation                                                         | Correct action                                                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `asset-naming-plan.md`                            | [G1] missing `Canonical` metadata                                 | Add `- **Canonical:** [platform/architecture doc]` (new hub doc needed or BACKLOG.md)                             |
+| `domain-tag-vocabulary-plan.md`                   | [G9] Canonical points to `BACKLOG.md` (not an allowed hub prefix) | Create stub `platform/architecture/domain-tag-vocabulary.md` or point to `lidar/architecture/label-vocabulary.md` |
+| `error-surface-voice-audit-plan.md`               | [G2, G3, G9] Canonical is the literal string "This document"      | Create stub `platform/operations/error-surface-voice.md`, point Canonical there                                   |
+| `lidar-replay-case-terminology-alignment-plan.md` | [G1] missing `Canonical` metadata                                 | Add `- **Canonical:** [lidar/architecture/lidar-pipeline-reference.md]` or new stub                               |
+| `macos-local-server-plan.md`                      | [G2, G3, G9] Canonical is "This document"                         | Point to `ui/velocity-visualiser-architecture.md` (the existing home for server manager features)                 |
+| `pcap-motion-detection-and-split-plan.md`         | [G1] missing `Canonical` metadata                                 | Add `- **Canonical:** [lidar/operations/pcap-analysis-mode.md]`                                                   |
+| `setup-guide-publication-plan.md`                 | [G1] missing `Canonical` metadata                                 | Add `- **Canonical:** [public_html/src/guides/setup.md]` or a platform ops stub                                   |
+| `tailscale-remote-access-guide.md`                | [G2, G3, G9] Canonical is "this document"                         | Move to `platform/operations/tailscale-remote-access.md`; replace with symlink                                    |
 
 The `tailscale-remote-access-guide.md` is not really a plan — it is a complete operational
 guide. It belongs in `docs/platform/operations/`. Create it there, redirect the plan file to
@@ -181,18 +182,19 @@ that canonical home.
 The subdirectory `docs/ui/velocity-visualiser-app/` contains five files written during the
 initial macOS visualiser design phase:
 
-| File | Content | Status |
-| ---- | ------- | ------ |
-| `00-repo-inspection-notes.md` | Research notes from design phase | Superseded — `velocity-visualiser-architecture.md` absorbed the findings |
-| `01-problem-and-user-workflows.md` | Problem statement and user workflows | Partially absorbed into architecture doc |
-| `02-api-contracts.md` | API contract specification (self-described as "most critical document") | Active reference — but orphaned in subdirectory |
-| `05-troubleshooting.md` | macOS build troubleshooting | Operational but stranded |
-| `performance-investigation.md` | Investigation of M3.5 streaming, frame throttle | Substantially complete |
+| File                               | Content                                                                 | Status                                                                   |
+| ---------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `00-repo-inspection-notes.md`      | Research notes from design phase                                        | Superseded — `velocity-visualiser-architecture.md` absorbed the findings |
+| `01-problem-and-user-workflows.md` | Problem statement and user workflows                                    | Partially absorbed into architecture doc                                 |
+| `02-api-contracts.md`              | API contract specification (self-described as "most critical document") | Active reference — but orphaned in subdirectory                          |
+| `05-troubleshooting.md`            | macOS build troubleshooting                                             | Operational but stranded                                                 |
+| `performance-investigation.md`     | Investigation of M3.5 streaming, frame throttle                         | Substantially complete                                                   |
 
 The split test: same owned system (`docs/ui/`), same long-lived architecture, same reader
 expectation. These should be one body of work in `docs/ui/`, not five files in a subdirectory.
 
 Correct action:
+
 - `00-repo-inspection-notes.md` — archive or delete (content superseded)
 - `01-problem-and-user-workflows.md` — merge relevant material into `velocity-visualiser-architecture.md`
 - `02-api-contracts.md` — promote to `docs/ui/velocity-visualiser-api-contracts.md` (top-level `ui/`)
@@ -203,11 +205,11 @@ Correct action:
 
 Three operational docs under `docs/lidar/operations/` describe PCAP tools at varying stages:
 
-| File | Actual status |
-| ---- | ------------- |
-| `pcap-analysis-mode.md` | Implemented — correct as ops doc |
-| `pcap-split-tool.md` | Design document ("Executive Summary" structure) — should be a plan or be promoted to architecture |
-| `pcap-ground-plane-export-tool.md` | Status: Planning — is effectively a plan living in ops/ |
+| File                               | Actual status                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `pcap-analysis-mode.md`            | Implemented — correct as ops doc                                                                  |
+| `pcap-split-tool.md`               | Design document ("Executive Summary" structure) — should be a plan or be promoted to architecture |
+| `pcap-ground-plane-export-tool.md` | Status: Planning — is effectively a plan living in ops/                                           |
 
 The `pcap-ground-plane-export-tool.md` belongs in `docs/plans/` (it is forward-looking design),
 or its planning content should move to `pcap-motion-detection-and-split-plan.md` and the ops
@@ -230,18 +232,18 @@ data files in `data/explore/` are expected to accumulate; they do not need to be
 
 #### 5.1 Misclassified docs in `plans/`
 
-| File | Problem | Correct location |
-| ---- | ------- | --------------- |
-| `tailscale-remote-access-guide.md` | A complete operational guide, not a plan | `docs/platform/operations/tailscale-remote-access.md` |
-| `homepage-responsive-gif-strategies.md` | Implementation notes on one UI decision; Canonical is `ui/homepage.md` | Graduate once Complete; `ui/homepage.md` already absorbed the content |
-| `server-manager.md` | Feature spec / design notes, not a phased plan; Canonical is `ui/velocity-visualiser-architecture.md` | OK to remain in plans/ while active; move to `docs/ui/` on completion |
-| `wireshark-menu-alignment.md` | Design research notes; Canonical is `ui/macos-menu-layout-design.md` | OK to remain in plans/ while active; graduate on completion |
+| File                                    | Problem                                                                                               | Correct location                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `tailscale-remote-access-guide.md`      | A complete operational guide, not a plan                                                              | `docs/platform/operations/tailscale-remote-access.md`                 |
+| `homepage-responsive-gif-strategies.md` | Implementation notes on one UI decision; Canonical is `ui/homepage.md`                                | Graduate once Complete; `ui/homepage.md` already absorbed the content |
+| `server-manager.md`                     | Feature spec / design notes, not a phased plan; Canonical is `ui/velocity-visualiser-architecture.md` | OK to remain in plans/ while active; move to `docs/ui/` on completion |
+| `wireshark-menu-alignment.md`           | Design research notes; Canonical is `ui/macos-menu-layout-design.md`                                  | OK to remain in plans/ while active; graduate on completion           |
 
 #### 5.2 Ops docs carrying planning-phase content
 
-| File | Problem | Correct action |
-| ---- | ------- | -------------- |
-| `docs/lidar/operations/pcap-ground-plane-export-tool.md` | Status: Planning — forward-looking design, not implemented | Move content to `docs/plans/pcap-motion-detection-and-split-plan.md` or a new plan; stub or delete the ops file |
+| File                                                      | Problem                                                            | Correct action                                                                                                                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/lidar/operations/pcap-ground-plane-export-tool.md`  | Status: Planning — forward-looking design, not implemented         | Move content to `docs/plans/pcap-motion-detection-and-split-plan.md` or a new plan; stub or delete the ops file                                                                         |
 | `docs/lidar/operations/webserver-tuning-schema-parity.md` | Lists missing API keys as a backlog item, not an operational guide | Move to a plan or to an open section of `docs/plans/unpopulated-data-structures-remediation-plan.md`; or create `docs/platform/architecture/api-tuning-schema.md` as its canonical home |
 
 #### 5.3 Resolved troubleshooting entries never consolidated
@@ -253,11 +255,11 @@ the active troubleshooting directory creates misleading "known issues" for reade
 
 #### 5.4 Stale architecture review artefacts
 
-| File | Issue |
-| ---- | ----- |
-| `docs/lidar/architecture/lidar-layer-alignment-refactor-review.md` | Dated 2026-02-17; reviews alignment of the layer model. Findings have been absorbed into the layer model and pipeline reference. Verify content is represented in current canonical docs before archiving. |
-| `docs/lidar/architecture/math-foundations-audit.md` | An audit document. Check whether its action items are tracked in plans or the maths README. If fully absorbed, archive. |
-| `docs/lidar/architecture/coordinate-flow-audit.md` | Audit of polar/Cartesian bounce; findings are factual and correct. Remains useful as a reference for the `l2-dual-representation` design rationale. **Keep** — but add a status note indicating the findings are informational, not action items. |
+| File                                                               | Issue                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/lidar/architecture/lidar-layer-alignment-refactor-review.md` | Dated 2026-02-17; reviews alignment of the layer model. Findings have been absorbed into the layer model and pipeline reference. Verify content is represented in current canonical docs before archiving.                                        |
+| `docs/lidar/architecture/math-foundations-audit.md`                | An audit document. Check whether its action items are tracked in plans or the maths README. If fully absorbed, archive.                                                                                                                           |
+| `docs/lidar/architecture/coordinate-flow-audit.md`                 | Audit of polar/Cartesian bounce; findings are factual and correct. Remains useful as a reference for the `l2-dual-representation` design rationale. **Keep** — but add a status note indicating the findings are informational, not action items. |
 
 #### 5.5 README indirection docs
 
@@ -278,21 +280,33 @@ Its content (how PCAP replay speed affects tracking accuracy) is operational kno
 Move to `docs/lidar/operations/playback-speed-vs-track-quality.md` and update
 `docs/lidar/README.md` to point to the new location.
 
-#### 5.7 Advisory: multiple plans sharing one canonical hub doc
+#### 5.7 Hub docs that may not outlive their plans
+
+Two docs currently serve as canonical hub homes for plans but may not have long-term value
+once those plans complete. Rather than protecting them indefinitely, they should be
+consolidated when their owning plan graduates:
+
+| File                                                  | Issue                                                                                                                                                                                                                                     | Recommended action                                                                                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/lidar/operations/foundations-fixit-progress.md` | 42-line progress tracker that is the canonical hub for `lidar-architecture-foundations-fixit-plan`. Its content is a status snapshot, not durable operational guidance. When the plan completes, this doc has no standalone reader value. | Merge remaining-gaps content into the plan's completion notes or the relevant architecture docs, then delete. Do not protect as permanent.  |
+| `docs/ui/design-review-and-improvement.md`            | 437-line improvement backlog with P1 items. Functions as a plan but lives in `docs/ui/` outside the plan hygiene system. Not tracked by `check-plan-hygiene`, so its status is invisible to tooling.                                      | Either move to `docs/plans/` with proper metadata (Canonical → `docs/ui/DESIGN.md`), or merge actionable items into BACKLOG.md and archive. |
+
+#### 5.8 Advisory: multiple plans sharing one canonical hub doc
 
 `make report-plan-hygiene` flags 7 advisory notes. Three are worth tracking:
 
-| Canonical hub doc | Multiple plans pointing to it | Notes |
-| ----------------- | ----------------------------- | ----- |
-| `platform/architecture/go-package-structure.md` | `go-cmd-extraction-plan`, `go-codebase-structural-hygiene-plan`, `go-god-file-split-plan` | `go-god-file-split-plan` is Complete (graduate it); the other two are active distinct work streams — advisory is correct |
-| `platform/operations/documentation-standards.md` | `line-width-standardisation-plan`, `platform-documentation-standardisation-plan` | Two genuinely separate sub-tasks of the same canonical; acceptable until both complete |
-| `platform/operations/pdf-reporting.md` | `pdf-go-chart-migration-plan`, `pdf-latex-precompiled-format-plan` | Two independent PDF improvement tracks; acceptable |
+| Canonical hub doc                                | Multiple plans pointing to it                                                             | Notes                                                                                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `platform/architecture/go-package-structure.md`  | `go-cmd-extraction-plan`, `go-codebase-structural-hygiene-plan`, `go-god-file-split-plan` | `go-god-file-split-plan` is Complete (graduate it); the other two are active distinct work streams — advisory is correct |
+| `platform/operations/documentation-standards.md` | `line-width-standardisation-plan`, `platform-documentation-standardisation-plan`          | Two genuinely separate sub-tasks of the same canonical; acceptable until both complete                                   |
+| `platform/operations/pdf-reporting.md`           | `pdf-go-chart-migration-plan`, `pdf-latex-precompiled-format-plan`                        | Two independent PDF improvement tracks; acceptable                                                                       |
 
 ---
 
 ### 6 What the data/ Tree Is Doing Well
 
 For completeness: `data/` is structurally sound.
+
 - `data/maths/` has a comprehensive README that doubles as the research roadmap.
 - `data/structures/` holds specification-grade wire format docs in UPPER_CASE.
 - `data/experiments/` and `data/explore/` accumulate empirical work without polluting `docs/`.
@@ -358,13 +372,13 @@ review surface.
 
 #### 1a. Fix gate violations (≈ 1 hour)
 
-- [ ] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`)
+- [ ] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`) <!-- link-ignore -->
 - [ ] `domain-tag-vocabulary-plan.md` — change Canonical from BACKLOG.md to either `lidar/architecture/label-vocabulary.md` or a new stub `platform/architecture/domain-tag-vocabulary.md` (`S`)
 - [ ] `error-surface-voice-audit-plan.md` — create stub `docs/platform/operations/error-surface-voice.md` and set as Canonical (`S`)
 - [ ] `lidar-replay-case-terminology-alignment-plan.md` — add `- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)` (`S`)
 - [ ] `macos-local-server-plan.md` — fix Canonical from "This document" to `[velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)` (`S`)
 - [ ] `pcap-motion-detection-and-split-plan.md` — add `- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)` (`S`)
-- [ ] `setup-guide-publication-plan.md` — add `- **Canonical:** [setup.md](../../public_html/src/guides/setup.md)` (`S`)
+- [ ] `setup-guide-publication-plan.md` — add `- **Canonical:** [setup.md](../../public_html/src/guides/setup.md)` (requires `public_html/` in `ALLOWED_HUB_PREFIXES` — added by this PR) (`S`)
 - [ ] `tailscale-remote-access-guide.md` — create `docs/platform/operations/tailscale-remote-access.md` (move content), then fix Canonical in the plan file to point there; graduate to symlink once Complete (`M`)
 
 Verify `make check-plan-hygiene` passes after each batch.
@@ -488,7 +502,7 @@ plan hygiene tooling and to readers:
 ## Dependencies
 
 - `make check-plan-hygiene` must pass after every PR in Group 1.
-- `make check_docs_links.sh` (link integrity) must pass after every file move in Group 2.
+- `make check-md-links` (link integrity) must pass after every file move in Group 2.
 - Graduation symlinks (Groups 1b, 1c) must land on a **separate branch** from the plan
   completion marking, per the two-PR graduation rule in `canonical-plan-graduation.md`.
 - Group 2a (velocity-visualiser-app consolidation) must be sequenced: verify absorption
@@ -496,19 +510,19 @@ plan hygiene tooling and to readers:
 
 ## Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-| ---- | ---------- | ------ | ---------- |
-| Symlink creates stale inbound links from external references | Low | Medium | Run `check_docs_links.sh` after every graduation PR |
-| Hub doc "Active plan:" links break after symlink graduation | Low | Low | Update hub docs in same PR as graduation (Group 1d) |
-| Content lost during velocity-visualiser-app consolidation | Low | High | Read all 5 files before deleting; verify destination doc contains each key concept |
-| Gate violation fixes introduce new gate violations | Low | Medium | Run `make report-plan-hygiene` before and after Group 1a PRs |
-| Strategy B moves disturb active work | Medium | Low | Coordinate PCAP doc moves with the `pcap-motion-detection-and-split-plan` owner |
+| Risk                                                         | Likelihood | Impact | Mitigation                                                                         |
+| ------------------------------------------------------------ | ---------- | ------ | ---------------------------------------------------------------------------------- |
+| Symlink creates stale inbound links from external references | Low        | Medium | Run `make check-md-links` after every graduation PR                                |
+| Hub doc "Active plan:" links break after symlink graduation  | Low        | Low    | Update hub docs in same PR as graduation (Group 1d)                                |
+| Content lost during velocity-visualiser-app consolidation    | Low        | High   | Read all 5 files before deleting; verify destination doc contains each key concept |
+| Gate violation fixes introduce new gate violations           | Low        | Medium | Run `make report-plan-hygiene` before and after Group 1a PRs                       |
+| Strategy B moves disturb active work                         | Medium     | Low    | Coordinate PCAP doc moves with the `pcap-motion-detection-and-split-plan` owner    |
 
 ## Checklist
 
 ### Complete
 
-*(none yet — this plan is new)*
+_(none yet — this plan is new)_
 
 ### Outstanding
 
@@ -540,23 +554,23 @@ plan hygiene tooling and to readers:
 ### Deferred
 
 - [ ] Strategy C full opening-paragraph audit (~40 docs still missing narrative openings) —
-  tracked by [platform-documentation-standardisation-plan.md](platform-documentation-standardisation-plan.md) <!-- link-ignore -->
+      tracked by [platform-documentation-standardisation-plan.md](platform-documentation-standardisation-plan.md) <!-- link-ignore -->
 - [ ] Consolidate `data/explore/convergence-neighbour/` two experiment files — low priority;
-  empirical data accumulation is expected
+      empirical data accumulation is expected
 - [ ] Archive or resolve `lidar-schema-robustness-plan.md` after its branch merges to `main`
 
 ### Accepted residuals (no action planned)
 
 - [ ] Pipeline layer tables repeated in active plans — plans embed summary tables for
-  self-contained context; this drift is eliminated automatically as plans graduate to symlinks.
-  Not worth fixing in active plans that are about to complete.
+      self-contained context; this drift is eliminated automatically as plans graduate to symlinks.
+      Not worth fixing in active plans that are about to complete.
 - [ ] Detailed L3–L6 prose in `ARCHITECTURE.md` §Perception Pipeline duplicating individual
-  architecture docs — `ARCHITECTURE.md` is a self-contained public entry point; intentional
-  duplication at a higher abstraction level. Maintained separately with references to canonical
-  docs.
+      architecture docs — `ARCHITECTURE.md` is a self-contained public entry point; intentional
+      duplication at a higher abstraction level. Maintained separately with references to canonical
+      docs.
 - [ ] Config key listings in `auto-tuning.md` — serves a different reader (automated sweep
-  operators) than `config-param-tuning.md` (human tuners). Cross-reference added (Group 3a);
-  full merge would destroy both docs' narrative coherence.
+      operators) than `config-param-tuning.md` (human tuners). Cross-reference added (Group 3a);
+      full merge would destroy both docs' narrative coherence.
 
 ---
 
@@ -564,18 +578,16 @@ plan hygiene tooling and to readers:
 
 The following docs look redundant but serve a distinct purpose and should stay:
 
-| Doc | Why it stays |
-| --- | ------------ |
-| `docs/lidar/architecture/coordinate-flow-audit.md` | Factual reference explaining the intentional polar/Cartesian representation bounce; documents the `l2-dual-representation` design decision with measured evidence. Not superseded — clarified. |
-| `docs/lidar/terminology.md` | Single-source glossary for LiDAR-specific terms. Referenced by `lidar-replay-case-terminology-alignment-plan.md` and multiple other docs. Serves a distinct purpose from architecture docs. |
-| `docs/lidar/operations/parameter-comparison.md` | A snapshot of an optimisation result (specific parameter values, before/after). Unlike the tuning guide, it is a concrete recommendation with measured impact, not a workflow. Readers consult it when deploying a specific tuning baseline. |
-| `docs/lidar/operations/settling-time-optimisation.md` | Documents the region-persistence approach to the settling problem. Complementary to `adaptive-region-parameters.md` (which explains the feature) — this one explains why the feature was needed and what approaches were considered. |
-| `data/maths/README.md` §Config Mapping | The maths README's config section is written for algorithm researchers, not operators. It maps config keys to the mathematical models they govern. This is a different reader and purpose from `config-param-tuning.md`. Cross-reference added; merge would lose the mathematical framing. |
-| `docs/lidar/troubleshooting/garbage-tracks-checklist.md` | States it is the canonical document for garbage-track remediation. It combines review and checklist. Not superseded by any architecture doc; still operationally relevant. |
-| `docs/lidar/troubleshooting/pipeline-diagnosis.md` | Symptom-based diagnosis guide (jitter, fragmentation, empty boxes). Complements the tuning guide, which is parameter-focused. Different reader intent: "something is wrong" vs "I want to improve it". |
-| `docs/lidar/operations/foundations-fixit-progress.md` | Progress tracking doc for an ongoing multi-phase effort. Has distinct value as a status dashboard separate from the plan's checklist. |
-| `docs/ui/DESIGN.md` | Product design language reference — colour palette, typography, layout constraints. Serves UI contributors who are not consulting architecture or plans. |
-| `docs/ui/design-review-and-improvement.md` | Active improvement backlog for the design layer, with specific P1 items. Even though it resembles a plan, it lives in `docs/ui/` next to the docs it reviews, which is correct. |
-| All `data/maths/proposals/` files | Mathematical proposals are primary research artefacts, not plans. They document the mathematical justification for future algorithm changes. They should remain in `data/maths/proposals/`, not in `docs/plans/`. |
-| `data/QUESTIONS.md` | Canonical index of open research questions. Single-source; well-structured. Lives correctly in `data/`. |
-| `data/structures/MATRIX.md` | Full surface matrix for the entire system. Maintained by the `trace-matrix` skill. Not redundant with architecture docs — it is a machine-readable checklist of implemented vs. planned surfaces. |
+| Doc                                                      | Why it stays                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `docs/lidar/architecture/coordinate-flow-audit.md`       | Factual reference explaining the intentional polar/Cartesian representation bounce; documents the `l2-dual-representation` design decision with measured evidence. Not superseded — clarified.                                                                                             |
+| `docs/lidar/terminology.md`                              | Single-source glossary for LiDAR-specific terms. Referenced by `lidar-replay-case-terminology-alignment-plan.md` and multiple other docs. Serves a distinct purpose from architecture docs.                                                                                                |
+| `docs/lidar/operations/parameter-comparison.md`          | A snapshot of an optimisation result (specific parameter values, before/after). Unlike the tuning guide, it is a concrete recommendation with measured impact, not a workflow. Readers consult it when deploying a specific tuning baseline.                                               |
+| `docs/lidar/operations/settling-time-optimisation.md`    | Documents the region-persistence approach to the settling problem. Complementary to `adaptive-region-parameters.md` (which explains the feature) — this one explains why the feature was needed and what approaches were considered.                                                       |
+| `data/maths/README.md` §Config Mapping                   | The maths README's config section is written for algorithm researchers, not operators. It maps config keys to the mathematical models they govern. This is a different reader and purpose from `config-param-tuning.md`. Cross-reference added; merge would lose the mathematical framing. |
+| `docs/lidar/troubleshooting/garbage-tracks-checklist.md` | States it is the canonical document for garbage-track remediation. It combines review and checklist. Not superseded by any architecture doc; still operationally relevant.                                                                                                                 |
+| `docs/lidar/troubleshooting/pipeline-diagnosis.md`       | Symptom-based diagnosis guide (jitter, fragmentation, empty boxes). Complements the tuning guide, which is parameter-focused. Different reader intent: "something is wrong" vs "I want to improve it".                                                                                     |
+| `docs/ui/DESIGN.md`                                      | Product design language reference — colour palette, typography, layout constraints. Serves UI contributors who are not consulting architecture or plans.                                                                                                                                   |
+| All `data/maths/proposals/` files                        | Mathematical proposals are primary research artefacts, not plans. They document the mathematical justification for future algorithm changes. They should remain in `data/maths/proposals/`, not in `docs/plans/`.                                                                          |
+| `data/QUESTIONS.md`                                      | Canonical index of open research questions. Single-source; well-structured. Lives correctly in `data/`.                                                                                                                                                                                    |
+| `data/structures/MATRIX.md`                              | Full surface matrix for the entire system. Maintained by the `trace-matrix` skill. Not redundant with architecture docs — it is a machine-readable checklist of implemented vs. planned surfaces.                                                                                          |
