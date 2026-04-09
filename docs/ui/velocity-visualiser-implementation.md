@@ -212,7 +212,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
 
-See [velocity-visualiser-app/performance-investigation.md](./velocity-visualiser-app/performance-investigation.md) for detailed design.
+See [velocity-visualiser-architecture.md §10](./velocity-visualiser-architecture.md#10-performance-investigation--key-results) for the investigation summary.
 
 **Implementation Notes**:
 
@@ -687,8 +687,7 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 ## 6. Related Documents
 
-- [velocity-visualiser-app/01-problem-and-user-workflows.md](./velocity-visualiser-app/01-problem-and-user-workflows.md) – Problem statement
-- [velocity-visualiser-app/02-api-contracts.md](./velocity-visualiser-app/02-api-contracts.md) – API contract
-- [velocity-visualiser-architecture.md](./velocity-visualiser-architecture.md) – System architecture
+- [velocity-visualiser-architecture.md](./velocity-visualiser-architecture.md) – System architecture (includes problem statement and performance notes)
+- [velocity-visualiser-api-contracts.md](./velocity-visualiser-api-contracts.md) – API contract (protobuf schema)
 - [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 - [web-frontend-background-debug-surfaces-plan.md](../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope

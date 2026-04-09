@@ -492,6 +492,6 @@ Each upgrade includes unit tests for the new function.
 
 ## 6. Related Documents
 
-- [../../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../../ui/velocity-visualiser-app/01-problem-and-user-workflows.md) – User workflows
-- [../../ui/velocity-visualiser-app/02-api-contracts.md](../../ui/velocity-visualiser-app/02-api-contracts.md) – API contract
+- [../../ui/velocity-visualiser-architecture.md](../../ui/velocity-visualiser-architecture.md) – Architecture and problem statement
+- [../../ui/velocity-visualiser-api-contracts.md](../../ui/velocity-visualiser-api-contracts.md) – API contract
 - [../../ui/velocity-visualiser-implementation.md](../../ui/velocity-visualiser-implementation.md) – Milestones

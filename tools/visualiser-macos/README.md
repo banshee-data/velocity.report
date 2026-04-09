@@ -168,5 +168,5 @@ protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
 ## Related Documentation
 
 - [UI docs](../../docs/ui/)
-- [API contract](../../docs/ui/velocity-visualiser-app/02-api-contracts.md)
+- [API contract](../../docs/ui/velocity-visualiser-api-contracts.md)
 - [Architecture](../../docs/ui/velocity-visualiser-architecture.md)

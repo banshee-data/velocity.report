@@ -575,7 +575,40 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 ## 9. Related Documents
 
-- [velocity-visualiser-app/01-problem-and-user-workflows.md](./velocity-visualiser-app/01-problem-and-user-workflows.md) – Problem statement
-- [velocity-visualiser-app/02-api-contracts.md](./velocity-visualiser-app/02-api-contracts.md) – API contract (protobuf schema)
+- [velocity-visualiser-api-contracts.md](./velocity-visualiser-api-contracts.md) – API contract (protobuf schema)
 - [velocity-visualiser-implementation.md](./velocity-visualiser-implementation.md) – Milestones and tasks
 - [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+
+## 10. Performance Investigation — Key Results
+
+Investigation of gRPC streaming bandwidth under Pandar40P replay at 10–20 fps
+(35–70k points/frame). The full investigation is archived in git history; its
+conclusions are summarised here.
+
+### Problem
+
+SLOW SEND warnings (>50 ms, up to 600 ms), frame drops, and FPS collapse from
+10–20 fps to 1.4–3 fps. Root cause: sending all ~70k points per frame when only
+~3% (foreground) change between frames.
+
+### Solution — Background/Foreground Split Streaming (M3.5)
+
+For static LiDAR deployments, the scene decomposes into background (97%,
+rarely changes) and foreground (3%, every frame). The implemented solution
+sends a background snapshot every 30 s and foreground-only points per frame.
+
+| Metric              | Before            | After (M3.5)    |
+| ------------------- | ----------------- | --------------- |
+| Bandwidth (Mbps)    | 78–80             | ~3.25           |
+| avg send time (ms)  | 1–600             | <10             |
+| Dropped frames/min  | 19+               | ~0              |
+| FG points/frame     | 35–70k (all)      | 1–2k (FG only)  |
+
+### Implementation Priority (deferred items)
+
+- **Tier 2:** Client async receive processing, Metal buffer pooling, binary
+  protocol optimisation — consider for M7.
+- **Tier 3:** Multi-resolution streaming, clusters-only mode, adaptive
+  decimation — niche use cases.
+- **Tier 4:** Delta encoding, domain-specific compression, temporal
+  subsampling — superseded or redundant given M3.5 gains.

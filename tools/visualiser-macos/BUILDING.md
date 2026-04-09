@@ -70,7 +70,7 @@ In the app:
 
 ## Troubleshooting
 
-See [Troubleshooting Guide](../../docs/ui/velocity-visualiser-app/05-troubleshooting.md) for common issues and solutions.
+See [Troubleshooting Guide](../../TROUBLESHOOTING.md#macos-visualiser-issues) for common issues and solutions.
 
 ## Regenerating Protobuf Stubs
 

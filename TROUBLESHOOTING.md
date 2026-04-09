@@ -12,6 +12,7 @@ This guide covers common issues, error messages, and solutions for the velocity.
 - [Sensor Hardware Issues](#sensor-hardware-issues)
 - [Network and Connectivity Issues](#network-and-connectivity-issues)
 - [Performance Issues](#performance-issues)
+- [macOS Visualiser Issues](#macos-visualiser-issues)
 - [CI/CD Issues](#cicd-issues)
 - [Getting Help](#getting-help)
 
@@ -914,6 +915,77 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 # Enable debug logging
 ./velocity-report-local -debug
 ```
+
+---
+
+## macOS Visualiser Issues
+
+### Build Errors
+
+#### "Unable to find module dependency: 'GRPCCore'"
+
+Swift Package dependencies not resolved.
+
+1. Open `VelocityVisualiser.xcodeproj` in Xcode
+2. Wait for package resolution (may take several minutes on first run)
+3. If packages don't resolve automatically:
+   - File → Packages → Resolve Package Versions
+   - File → Packages → Reset Package Caches
+4. Clean build folder (⇧⌘K) and rebuild (⌘B)
+
+#### "No such module 'SwiftProtobuf'"
+
+1. In Xcode: File → Packages → Reset Package Caches
+2. File → Packages → Resolve Package Versions
+3. Clean build folder (⇧⌘K)
+4. Build (⌘B)
+
+#### Build succeeds but app crashes on launch
+
+Metal device not available or shader compilation failure.
+
+1. Ensure running on Apple Silicon or Intel Mac with Metal support
+2. Check Console.app for `MetalRenderer` error messages
+3. Try running from Xcode to see detailed crash logs
+
+### Connection Issues
+
+#### "Server unreachable" or connection timeout
+
+Go gRPC server not running or wrong address.
+
+1. Start the server:
+   ```bash
+   go run ./cmd/tools/visualiser-server -addr localhost:50051
+   ```
+2. Verify the address in the app matches the server's `-addr` flag
+3. Check for firewall blocking localhost connections
+
+#### Connection succeeds but no frames received
+
+1. Check server logs for "StreamFrames started" message
+2. Verify the app is requesting the correct sensor ID
+3. Try restarting both server and client
+
+### Rendering Issues
+
+| Symptom                            | Cause                                                | Solution                                      |
+| ---------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| Points not visible                 | Points toggle disabled or point buffer empty          | Enable "P" toggle; check point count in stats |
+| Boxes not visible                  | Boxes toggle disabled or no tracked objects           | Enable "B" toggle; check server sends tracks  |
+| Trails appear corrupted            | Bug in older builds                                   | Rebuild with `make build-mac`                 |
+| SwiftUI "AttributeGraph cycle"     | High-frequency frame updates through SwiftUI          | Informational only; does not affect function   |
+
+### Regenerating Protobuf Stubs
+
+When the protobuf schema changes:
+
+```bash
+make proto-gen
+```
+
+Generated Swift files are placed in
+`tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`.
 
 ---
 
