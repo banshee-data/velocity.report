@@ -186,6 +186,10 @@ make build-radar-linux
 
 # Sanity-check the artifact (dev builds have datetime prefix + SHA suffix)
 BINARY=$(ls -t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+if [ -z "$BINARY" ]; then
+  echo "No matching linux-arm64 velocity-report binary found after build."
+  exit 1
+fi
 file "$BINARY"
 ls -lh "$BINARY"
 ```
@@ -251,7 +255,11 @@ if grep -q "Web Frontend Not Built" web/build/index.html; then
   exit 1
 fi
 make build-radar-linux
-BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+BINARY=$(ls -1t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+if [ -z "$BINARY" ]; then
+  echo "No matching linux-arm64 velocity-report binary found after build."
+  exit 1
+fi
 export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
