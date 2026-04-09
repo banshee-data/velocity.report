@@ -194,7 +194,7 @@ build-radar-linux:
 
 build-radar-linux-pcap:
 	@./scripts/ensure-web-stub.sh
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-pcap-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-mac:
 	@./scripts/ensure-web-stub.sh

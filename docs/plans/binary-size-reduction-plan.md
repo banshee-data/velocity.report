@@ -168,8 +168,21 @@ Add a CI check that fails if the binary exceeds a threshold:
 #!/bin/bash
 # scripts/check-binary-size.sh
 MAX_SIZE_MB=45  # headroom above 28 MB target
-BINARY=$(ls -1 *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+BINARY="${1:-}"
 
+if [ -z "$BINARY" ]; then
+  shopt -s nullglob
+  CANDIDATES=(
+    ./velocity-report-*-linux-arm64
+    ./velocity-report-*-linux-arm64-*
+    ./*-velocity-report-*-linux-arm64-*
+  )
+  shopt -u nullglob
+
+  if [ "${#CANDIDATES[@]}" -gt 0 ]; then
+    BINARY="${CANDIDATES[0]}"
+  fi
+fi
 if [ ! -f "$BINARY" ]; then
   echo "Binary not found: $BINARY"
   exit 1

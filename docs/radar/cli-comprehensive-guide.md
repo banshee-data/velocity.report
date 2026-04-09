@@ -427,7 +427,7 @@ open http://localhost:8080/app/
 make build-radar-linux
 
 # Deploy to remote Pi (using SSH config)
-deploy install --target mypi --binary ./velocity-report-0.5.1-linux-arm64
+deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64
 
 # Check status
 deploy status --target mypi
@@ -658,7 +658,7 @@ velocity-report --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db
 
 # Separate binaries for utilities
 sweep --mode multi --output results.csv
-deploy install --target mypi --binary ./velocity-report-0.5.1-linux-arm64
+deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64
 transit-backfill --db sensor_data.db --start 2024-01-01T00:00:00Z --end 2024-01-31T23:59:59Z
 ```
 

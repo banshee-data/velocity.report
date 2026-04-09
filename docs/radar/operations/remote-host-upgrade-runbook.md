@@ -190,9 +190,10 @@ file "$BINARY"
 ls -lh "$BINARY"
 ```
 
-The output binary is a versioned file such as
-`20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d` (dev) or
-`velocity-report-0.5.1-linux-arm64` (release) in the repo root.
+The local output binary in the repo root is a dev-style versioned file such as
+`20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d`.
+A clean filename such as `velocity-report-0.5.1-linux-arm64` refers to a
+release asset, not the local output of `make build-radar-linux`.
 
 ### Transfer to host
 
@@ -206,7 +207,23 @@ scp "$BINARY" radar.local:/tmp/vr/
 Paste this on the host to verify the transferred artifact:
 
 ```bash
-export NEW_BIN=/tmp/vr/$(ls /tmp/vr/ | grep velocity-report | head -1)
+shopt -s nullglob
+candidates=(/tmp/vr/*velocity-report*)
+files=()
+for candidate in "${candidates[@]}"; do
+  if [ -f "$candidate" ]; then
+    files+=("$candidate")
+  fi
+done
+
+if [ "${#files[@]}" -ne 1 ]; then
+  echo "Expected exactly one transferred velocity-report binary in /tmp/vr, found ${#files[@]}." >&2
+  printf 'Matches:\n' >&2
+  printf '  %s\n' "${files[@]}" >&2
+  exit 1
+fi
+
+export NEW_BIN="${files[0]}"
 chmod +x "$NEW_BIN"
 file "$NEW_BIN"
 "$NEW_BIN" --version
