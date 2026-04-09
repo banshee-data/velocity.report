@@ -258,11 +258,11 @@ func (s *SerialMux[T]) AttachAdminRoutes(mux *http.ServeMux) {
 		}
 		command := strings.TrimSpace(r.FormValue("command"))
 		if command == "" {
-			http.Error(w, "Missing command: provide a 'command' form field", http.StatusBadRequest)
+			http.Error(w, "missing command: provide a 'command' form field", http.StatusBadRequest)
 			return
 		}
 		if err := s.SendCommand(command); err != nil {
-			http.Error(w, "Could not write command to serial port: check device is connected and port permissions allow access", http.StatusInternalServerError)
+			http.Error(w, "could not write command to serial port: check device is connected and port permissions allow access", http.StatusInternalServerError)
 			return
 		}
 		io.WriteString(w, fmt.Sprintf("Wrote command %q to serial port", command))

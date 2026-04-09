@@ -352,12 +352,14 @@ func main() {
 		radarSerial = serialmux.NewMockSerialMux([]byte(""))
 	} else if *fixtureMode {
 		data, err := os.ReadFile("fixtures.txt")
-		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-		firstLine := lines[0]
 		if err != nil {
 			log.Fatalf("Could not open fixtures file: %v. Ensure fixtures.txt exists in the working directory", err)
 		}
-		radarSerial = serialmux.NewMockSerialMux([]byte(firstLine + "\n"))
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		if len(lines) == 0 || lines[0] == "" {
+			log.Fatal("Fixtures file is empty: add at least one line of sample data to fixtures.txt")
+		}
+		radarSerial = serialmux.NewMockSerialMux([]byte(lines[0] + "\n"))
 	} else {
 		var err error
 		radarSerial, err = serialmux.NewRealSerialMux(*port)
