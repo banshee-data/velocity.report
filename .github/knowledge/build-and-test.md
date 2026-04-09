@@ -24,7 +24,7 @@ If the Go build fails due to missing pcap dependencies:
 
 - **Debian/Ubuntu:** `sudo apt-get install libpcap-dev`
 - **macOS:** `brew install libpcap`
-- **Without pcap:** `make build-radar-linux` (no pcap support)
+- **Without pcap:** `make build-radar-linux` (cross-compile for Linux ARM64, pcap required — install `libpcap-dev` first)
 
 ## Quality Gate (Mandatory)
 

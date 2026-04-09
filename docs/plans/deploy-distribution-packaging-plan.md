@@ -177,21 +177,24 @@
            include:
              - goos: linux
                goarch: arm64
-               output: velocity-report-${VERSION}-linux-arm64
+               output: velocity-report-${VERSION_NUM}-linux-arm64
              - goos: darwin
                goarch: arm64
-               output: velocity-report-${VERSION}-darwin-arm64
+               output: velocity-report-${VERSION_NUM}-darwin-arm64
              - goos: darwin
                goarch: amd64
-               output: velocity-report-${VERSION}-darwin-amd64
+               output: velocity-report-${VERSION_NUM}-darwin-amd64
 
        steps:
          - uses: actions/checkout@v4
 
+         - name: Derive version (strip v prefix)
+           run: echo "VERSION_NUM=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
          - name: Set up Go
            uses: actions/setup-go@v5
            with:
-             go-version: "1.25"
+             go-version-file: go.mod
 
          - name: Set up Node.js
            uses: actions/setup-node@v4
@@ -297,16 +300,16 @@
 
                ### Linux (Raspberry Pi ARM64)
                ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION}-linux-arm64
-               chmod +x velocity-report-${VERSION}-linux-arm64
-               sudo mv velocity-report-${VERSION}-linux-arm64 /usr/local/bin/velocity-report
+               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION_NUM}-linux-arm64
+               chmod +x velocity-report-${VERSION_NUM}-linux-arm64
+               sudo mv velocity-report-${VERSION_NUM}-linux-arm64 /usr/local/bin/velocity-report
                ```
 
                ### macOS (Apple Silicon)
                ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION}-darwin-arm64
-               chmod +x velocity-report-${VERSION}-darwin-arm64
-               sudo mv velocity-report-${VERSION}-darwin-arm64 /usr/local/bin/velocity-report
+               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION_NUM}-darwin-arm64
+               chmod +x velocity-report-${VERSION_NUM}-darwin-arm64
+               sudo mv velocity-report-${VERSION_NUM}-darwin-arm64 /usr/local/bin/velocity-report
                ```
 
                ### Python Tools
