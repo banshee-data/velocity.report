@@ -9,6 +9,12 @@ install -d "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator"
 cp -r files/pdf-generator/* "${ROOTFS_DIR}/opt/velocity-report/tools/pdf-generator/"
 
 on_chroot << 'CHEOF'
+# Create the velocity system account early — stage 03 also guards this with
+# an `id` check, but stage 02 needs the user for chown below.
+if ! id velocity >/dev/null 2>&1; then
+    useradd --system --home-dir /var/lib/velocity-report --shell /usr/sbin/nologin velocity
+fi
+
 mkdir -p /opt/velocity-report/tools
 
 # Create shared Python venv

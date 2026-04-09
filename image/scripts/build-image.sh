@@ -16,7 +16,7 @@
 # Options:
 #   --skip-binaries   Reuse binaries from a previous build
 #   --host-build      Build binaries with the host Go toolchain (no Docker compile)
-#   --ssh-key <path>  Install an SSH public key for the velocity user
+#   --ssh-key <path>  Install an SSH public key for the login user
 
 set -euo pipefail
 
@@ -309,7 +309,7 @@ cp -r "$BINARIES_DIR" "$PIGEN_DIR/velocity-binaries"
 if [[ -n "$SSH_KEY_PATH" ]]; then
     SSH_DEST="$PIGEN_DIR/stage-velocity/03-velocity-config/files/authorized_keys"
     cp "$SSH_KEY_PATH" "$SSH_DEST"
-    log_info "SSH public key staged for velocity user"
+    log_info "SSH public key staged for login user"
 fi
 
 # ---------------------------------------------------------------------------

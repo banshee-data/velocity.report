@@ -3,11 +3,13 @@
 # configure serial port, and install udev rules.
 
 on_chroot << 'CHEOF'
-# The login user 'velocity' is created by pi-gen stage2 (FIRST_USER_NAME).
-# We reuse it as the service user so there is one account for both
-# interactive login and the systemd service.
-
-# Add velocity user to dialout group for serial port access
+# Create the velocity system account — a non-login service user that owns
+# the data directory and runs the systemd service.  This account is immune
+# to Raspberry Pi Imager's OS Customisation user-rename because it is a
+# system account, not FIRST_USER_NAME.
+if ! id velocity >/dev/null 2>&1; then
+    useradd --system --home-dir /var/lib/velocity-report --shell /usr/sbin/nologin velocity
+fi
 usermod -aG dialout velocity
 
 # Ensure data directory exists with correct ownership
@@ -17,20 +19,19 @@ chown velocity:velocity /var/lib/velocity-report
 # Create config directory and copy tuning defaults
 mkdir -p /opt/velocity-report/config
 
-# Grant velocity user passwordless sudo for specific commands only.
-# pi-gen stage2's 010_pi-nopasswd may reference the 'pi' user or be
-# absent entirely depending on the packages installed.  Create our own
-# entry scoped to the commands the MOTD, shell aliases, and velocity-ctl
-# actually need.
+# Grant the interactive login user passwordless sudo for service management.
+# FIRST_USER_NAME is set in image/config (default: pi).  Hardcoded here
+# because the on_chroot heredoc is single-quoted to preserve sudoers
+# backslash continuations.
 #
 # Commands:
-#   getent shadow velocity  — MOTD default-password check
+#   getent shadow *         — MOTD default-password check
 #   systemctl *             — shell aliases (start/stop/restart)
 #   velocity-ctl            — on-device management tool (runs as root)
 #   velocity-report migrate — database migrations invoked by velocity-ctl
 cat > /etc/sudoers.d/020_velocity-nopasswd <<'SUDOEOF'
-velocity ALL=(root) NOPASSWD: \
-    /usr/bin/getent shadow velocity, \
+pi ALL=(root) NOPASSWD: \
+    /usr/bin/getent shadow *, \
     /usr/bin/systemctl start velocity-report.service, \
     /usr/bin/systemctl stop velocity-report.service, \
     /usr/bin/systemctl restart velocity-report.service, \
@@ -41,6 +42,9 @@ velocity ALL=(root) NOPASSWD: \
     /usr/local/bin/velocity-report migrate *
 SUDOEOF
 chmod 440 /etc/sudoers.d/020_velocity-nopasswd
+
+# Add login user to velocity group for read access to sensor data
+usermod -aG velocity pi
 CHEOF
 
 # Install tuning defaults
@@ -124,14 +128,12 @@ fi
 # Suppress the default Debian MOTD so ours is the only one shown.
 : > "${ROOTFS_DIR}/etc/motd"
 
-# Install SSH authorized_keys for velocity user (if provided via --ssh-key)
+# Install SSH authorized_keys for login user (if provided via --ssh-key)
 if [ -f files/authorized_keys ]; then
-    install -d -m 700 "${ROOTFS_DIR}/home/velocity/.ssh"
+    install -d -m 700 "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh"
     install -m 600 files/authorized_keys \
-        "${ROOTFS_DIR}/home/velocity/.ssh/authorized_keys"
-    on_chroot << 'CHEOF'
-chown -R velocity:velocity /home/velocity/.ssh
-CHEOF
+        "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh/authorized_keys"
+    chown -R 1000:1000 "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh"
 fi
 
 # Configure UART and SPI overlays for Waveshare RS232/485 HAT (SC16IS752)
@@ -160,6 +162,6 @@ fi
 # userconf-pi package may install.  This runs before export-image, so
 # export-image's own cleanup (removing piwiz.desktop) still applies.
 on_chroot << 'CHEOF'
-cancel-rename velocity 2>/dev/null || true
+cancel-rename pi 2>/dev/null || true
 CHEOF
 rm -f "${ROOTFS_DIR}/etc/systemd/system/getty@tty1.service.d/userconf.conf"
