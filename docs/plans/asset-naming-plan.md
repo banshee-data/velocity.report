@@ -163,7 +163,7 @@ DEV_VERSION := $(subst -,.,$(VERSION))
 
 ### Phase 2: Binary output filenames
 
-Update `build-*` targets to use versioned names. All consumers update in the same change — no symlink transition.
+Update `build-*` targets to use versioned names.
 
 **Changes:**
 
@@ -177,8 +177,6 @@ Update `build-*` targets to use versioned names. All consumers update in the sam
 | `build-ctl-linux`       | `velocity-ctl-linux-arm64`    | `$(BUILD_TS_COMPACT)-velocity-ctl-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT)`     | `velocity-ctl-$(VERSION)-linux-arm64`     |
 
 **Local dev binaries** (`build-radar-local`, `build-ctl`) keep their short names — they are never published.
-
-**No symlink transition.** All references to old filenames update atomically.
 
 #### Full blast radius (audited 2026-04-08)
 
@@ -385,7 +383,7 @@ env:
 ## Sequencing
 
 1. **Phase 1** — Makefile variables (`BUILD_TS_COMPACT`, `DEV_VERSION`). Zero risk. Do first.
-2. **Phase 2** — Binary filenames. Update all consumers (image build, deploy) atomically. No symlinks.
+2. **Phase 2** — Binary filenames + Go upgrade logic + download URLs. All consumers update atomically.
 3. **Phase 3** — DMG naming. Independent of Phase 2.
 4. **Phase 4** — RPi image naming. Depends on Phase 2 (binaries feed into image).
 5. **Phase 5** — CI. Remove independent `BUILD_TIME` computations. Depends on Phases 2–4.
