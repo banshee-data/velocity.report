@@ -1096,7 +1096,7 @@
 				description: 'text-red-700 dark:text-red-300'
 			}}
 		>
-			<span slot="title">Error</span>
+			<span slot="title">Map error</span>
 			<span slot="description">{error}</span>
 		</Notification>
 	{/if}
@@ -1114,7 +1114,7 @@
 		>
 			<span slot="title">Map Ready</span>
 			<span slot="description"
-				>Click <strong>Save Changes</strong> below to persist to the database.</span
+				>The map is ready. Click <strong>Save Changes</strong> to keep it.</span
 			>
 		</Notification>
 	{/if}
@@ -1156,7 +1156,7 @@
 			variant="fill"
 			color="danger"
 		>
-			Delete Map
+			Replace Map
 		</Button>
 	</div>
 </Dialog>

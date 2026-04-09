@@ -79,7 +79,6 @@
 			aria-live="assertive"
 			class="rounded border border-red-300 bg-red-50 p-3 text-red-800"
 		>
-			<strong>Error:</strong>
 			{error}
 		</div>
 	{:else if sites.length === 0}
@@ -142,13 +141,13 @@
 
 <!-- Delete Confirmation Dialog -->
 <Dialog bind:open={showDeleteDialog} aria-modal="true" role="alertdialog">
-	<div slot="title">Confirm Delete</div>
+	<div slot="title">Delete Site</div>
 
 	<div class="space-y-4">
 		<p>
-			Are you sure you want to delete the site <strong>{deletingSite?.name}</strong>?
+			This will permanently delete <strong>{deletingSite?.name}</strong> and its configuration.
 		</p>
-		<p class="text-surface-content/60 text-sm">This action cannot be undone.</p>
+		<p class="text-surface-content/60 text-sm">This cannot be undone.</p>
 	</div>
 
 	<div slot="actions">

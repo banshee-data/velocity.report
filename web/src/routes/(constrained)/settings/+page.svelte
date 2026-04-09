@@ -161,7 +161,7 @@
 			transitWorkerEnabled = response.enabled;
 			transitWorkerStatus = response;
 			scheduleTransitWorkerRefresh();
-			message = enabled ? 'Transit worker enabled — run started.' : 'Transit worker disabled.';
+			message = enabled ? 'Transit worker enabled: run started.' : 'Transit worker disabled.';
 
 			// Clear message after a few seconds
 			setTimeout(() => {
@@ -267,7 +267,7 @@
 </svelte:head>
 
 <div id="main-content" class="space-y-6 p-4">
-	<Header title="Settings" subheading="Manage your application settings and preferences." />
+	<Header title="Settings" subheading="Display units, timezone, and transit worker" />
 
 	{#if loading}
 		<Card>
@@ -314,11 +314,15 @@
 
 		{#if message}
 			<Card>
-				<div class="p-4" role={message.includes('Failed') ? 'alert' : 'status'} aria-live="polite">
+				<div
+					class="p-4"
+					role={message.includes('Could not') ? 'alert' : 'status'}
+					aria-live="polite"
+				>
 					<p
 						class="text-sm"
-						class:text-green-600={message.includes('automatically')}
-						class:text-red-600={message.includes('Failed')}
+						class:text-green-600={!message.includes('Could not')}
+						class:text-red-600={message.includes('Could not')}
 					>
 						{message}
 					</p>
