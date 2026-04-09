@@ -147,4 +147,96 @@ html {
       @apply text-gray-400;
     }
   }
+
+  /* =========================================================================
+   * Download section components (homepage)
+   * ========================================================================= */
+
+  /* Outer section panel — download groups, visualiser, video */
+  .dl-section {
+    @apply bg-gray-50 rounded-2xl border border-gray-200;
+  }
+
+  /* Subcard column — constrains width and centres within section */
+  .dl-card-group {
+    @apply flex flex-col gap-4 max-w-[21rem] mx-auto;
+  }
+
+  /* Inner download subcard */
+  .dl-card {
+    @apply flex flex-col gap-3 rounded-xl border border-gray-200 p-4 bg-white;
+  }
+
+  /* Section header label ("Raspberry Pi image", "Server downloads") */
+  .dl-section-label {
+    @apply text-xs font-semibold tracking-wide text-gray-600;
+  }
+
+  /* Secondary text (descriptions, requirements) */
+  .dl-muted {
+    @apply text-xs text-gray-500;
+  }
+
+  /* Version badge next to SHA */
+  .dl-version {
+    @apply font-semibold text-gray-700 shrink-0;
+  }
+
+  /* Copyable hash/URL display container */
+  .dl-hash-box {
+    @apply relative flex-1 min-w-0 max-w-[15em] rounded bg-gray-100;
+  }
+
+  /* Copyable hash/URL text — pr leaves gap before the inset button */
+  .dl-hash-text {
+    @apply block w-full pl-2 pr-[4rem] py-1.5 select-all cursor-text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+  }
+
+  /* Copy button overlaid on hash box — inset 2px so the box's rounding shows */
+  .copy-sha-btn {
+    @apply absolute text-[11px] font-medium rounded
+           text-gray-600 bg-gray-200 transition-colors text-center;
+    right: 3px;
+    top: 3px;
+    bottom: 3px;
+    width: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &:hover {
+      @apply bg-gray-300;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .dl-section {
+      @apply bg-slate-900 border-slate-800;
+    }
+    .dl-card {
+      border-color: var(--color-slate-700);
+      background-color: rgb(2 6 23 / 0.7);
+    }
+    .dl-section-label {
+      @apply text-gray-300;
+    }
+    .dl-muted {
+      @apply text-gray-400;
+    }
+    .dl-version {
+      @apply text-gray-300;
+    }
+    .dl-hash-box {
+      background-color: rgb(15 23 42 / 0.9);
+    }
+    .copy-sha-btn {
+      @apply text-gray-300 bg-slate-700;
+      &:hover {
+        @apply bg-slate-600;
+      }
+    }
+  }
 }
