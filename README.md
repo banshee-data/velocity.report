@@ -6,7 +6,6 @@
 
 [![CI](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/banshee-data/velocity.report/actions/workflows/go-ci.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/banshee-data/velocity.report?label=coverage)](https://codecov.io/gh/banshee-data/velocity.report)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=banshee-data_velocity.report&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=banshee-data_velocity.report)
 [![License](https://img.shields.io/github/license/banshee-data/velocity.report)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/banshee-data/velocity.report)](https://github.com/banshee-data/velocity.report/commits/main)
 [![Privacy](https://img.shields.io/badge/privacy-no%20PII%20by%20design-brightgreen)](TENETS.md)
