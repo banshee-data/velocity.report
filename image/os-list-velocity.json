@@ -6,7 +6,7 @@
       {
         "name": "Raspberry Pi 5",
         "tags": ["pi5-64bit"],
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_5.png",
+        "icon": "https://velocity.report/img/RPi_5.png",
         "description": "Raspberry Pi 5 and 500",
         "matching_type": "exclusive",
         "default": true,
@@ -15,7 +15,7 @@
       {
         "name": "Raspberry Pi 4",
         "tags": ["pi4-64bit"],
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_4.png",
+        "icon": "https://velocity.report/img/RPi_4.png",
         "description": "Raspberry Pi 4 Model B, 400, and Compute Module 4",
         "matching_type": "inclusive",
         "capabilities": []
@@ -23,7 +23,7 @@
       {
         "name": "Raspberry Pi 3",
         "tags": ["pi3-64bit"],
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_3.png",
+        "icon": "https://velocity.report/img/RPi_3.png",
         "description": "Raspberry Pi 3 Model A+ / B / B+",
         "matching_type": "inclusive",
         "capabilities": []
