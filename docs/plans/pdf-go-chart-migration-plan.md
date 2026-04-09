@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–3 implemented — all open questions resolved
+- **Status:** Phases 1–3 implemented (PR #455) — Phase 4a+4b in progress
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -366,70 +366,70 @@ The main template includes the preamble, opens a two-column layout for the overv
 ## Implementation Checklist
 
 Each item is a discrete, testable unit of work. Items within a phase are
-ordered; phases build on each other. Phases 1–3 are targeted for this branch.
+ordered; phases build on each other. Phases 1–3 landed in PR #455.
 Phase 4 is broken into three independent sub-phases to derisk integration.
 
-### Phase 1 — Chart Package (`internal/report/chart/`) `M`
+### Phase 1 — Chart Package (`internal/report/chart/`) `M` ✅ PR #455
 
 #### 1.0 Pre-work: constants + Q6 resolution
 
-- [ ] Read `tools/pdf-generator/pdf_generator/core/config_manager.py` and record
+- [x] Read `tools/pdf-generator/pdf_generator/core/config_manager.py` and record
       exact values for: all colour hex codes (p50/p85/p98/max/count_bar/low_sample),
       figure sizes in inches, and all layout constants (thresholds, fractions, widths).
-- [ ] Confirm histogram API shape: `server_radar.go` lines 230–241 confirm raw
+- [x] Confirm histogram API shape: `server_radar.go` lines 230–241 confirm raw
       `map[string]int64` (bucket-start in display units → count). `NormaliseHistogram`
       helper needed in chart package.
 
 #### 1.1 Font assets
 
-- [ ] Create `internal/report/chart/assets/` directory.
-- [ ] Copy `AtkinsonHyperlegible-Regular.ttf` from
+- [x] Create `internal/report/chart/assets/` directory.
+- [x] Copy `AtkinsonHyperlegible-Regular.ttf` from
       `tools/pdf-generator/pdf_generator/core/fonts/` into `assets/`.
-- [ ] Add `//go:embed assets/AtkinsonHyperlegible-Regular.ttf` in `svg.go`.
-- [ ] `AtkinsonRegularBase64() string` — returns base64-encoded TTF string.
+- [x] Add `//go:embed assets/AtkinsonHyperlegible-Regular.ttf` in `svg.go`.
+- [x] `AtkinsonRegularBase64() string` — returns base64-encoded TTF string.
 
 #### 1.2 `palette.go`
 
-- [ ] Constants: `ColourP50`, `ColourP85`, `ColourP98`, `ColourMax`,
+- [x] Constants: `ColourP50`, `ColourP85`, `ColourP98`, `ColourMax`,
       `ColourCountBar`, `ColourLowSample` (hex strings, matching web palette and Python config).
-- [ ] Test: assert all constants are non-empty and start with `#`.
+- [x] Test: assert all constants are non-empty and start with `#`.
 
 #### 1.3 `config.go` — ChartStyle
 
-- [ ] `type ChartStyle struct` with fields (all with Go zero values safe):
+- [x] `type ChartStyle struct` with fields (all with Go zero values safe):
       `WidthMM`, `HeightMM float64`;
       `ColourP50`…`ColourLowSample string`;
       `CountMissingThreshold`, `LowSampleThreshold int`;
       `CountAxisScale`, `BarWidthFraction`, `BarWidthBGFraction float64`;
       `LineWidthPx`, `MarkerRadiusPx float64`;
       `AxisLabelFontPx`, `AxisTickFontPx`, `LegendFontPx float64`.
-- [ ] `DefaultTimeSeriesStyle() ChartStyle` — 609.6 × 203.2 mm, all Python defaults.
-- [ ] `DefaultHistogramStyle() ChartStyle` — 76.2 × 50.8 mm, histogram font sizes.
+- [x] `DefaultTimeSeriesStyle() ChartStyle` — 609.6 × 203.2 mm, all Python defaults.
+- [x] `DefaultHistogramStyle() ChartStyle` — 76.2 × 50.8 mm, histogram font sizes.
 
 #### 1.4 `svg.go` — SVGCanvas
 
-- [ ] `type SVGCanvas` holding dims, `strings.Builder`, and pixel scale factor
+- [x] `type SVGCanvas` holding dims, `strings.Builder`, and pixel scale factor
       (mm → px: multiply by `96/25.4 ≈ 3.7795`).
-- [ ] `NewCanvas(widthMM, heightMM float64) *SVGCanvas`.
-- [ ] Methods: `Rect`, `Polyline`, `Circle`, `Line`, `Text`, `BeginGroup`/`EndGroup`.
-- [ ] `EmbedFont(family, base64Data string)` — emits `<defs><style>@font-face{…}</style></defs>`.
-- [ ] `Bytes() []byte` — close root `</svg>` and return.
-- [ ] Test: `TestNewCanvas` — parse output with `encoding/xml`, assert root is `<svg>`,
+- [x] `NewCanvas(widthMM, heightMM float64) *SVGCanvas`.
+- [x] Methods: `Rect`, `Polyline`, `Circle`, `Line`, `Text`, `BeginGroup`/`EndGroup`.
+- [x] `EmbedFont(family, base64Data string)` — emits `<defs><style>@font-face{…}</style></defs>`.
+- [x] `Bytes() []byte` — close root `</svg>` and return.
+- [x] Test: `TestNewCanvas` — parse output with `encoding/xml`, assert root is `<svg>`,
       `viewBox` contains correct pixel dimensions.
 
 #### 1.5 `histogram.go`
 
-- [ ] `NormaliseHistogram(buckets map[float64]int64) (keys []float64, counts []int64, total int64)` — sorted keys.
-- [ ] `BucketLabel(lo, hi, maxBucket float64) string` — `"20-25"`, `"70+"`.
-- [ ] `type HistogramData struct` — `Buckets map[float64]int64`, `Units string`,
+- [x] `NormaliseHistogram(buckets map[float64]int64) (keys []float64, counts []int64, total int64)` — sorted keys.
+- [x] `BucketLabel(lo, hi, maxBucket float64) string` — `"20-25"`, `"70+"`.
+- [x] `type HistogramData struct` — `Buckets map[float64]int64`, `Units string`,
       `BucketSz float64`, `MaxBucket float64`, `Cutoff float64`.
-- [ ] `RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error)` —
+- [x] `RenderHistogram(data HistogramData, style ChartStyle) ([]byte, error)` —
       single bar chart; bars: steelblue `#4682b4`, alpha 0.7, edge black 0.5 px.
       Rotate labels 45° when > 20 buckets. "No data" text if empty.
-- [ ] `RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel string, style ChartStyle) ([]byte, error)` —
+- [x] `RenderComparison(primary, compare HistogramData, primaryLabel, compareLabel string, style ChartStyle) ([]byte, error)` —
       grouped bars, `bar_width=0.4`, alpha 0.75, primary → `ColourP50`, compare → `ColourP98`.
       Percentages computed per-total separately. Y-label `"Percentage (%)"`.
-- [ ] Tests:
+- [x] Tests:
   - `TestNormaliseHistogram` — empty, single, multi bucket, total correct.
   - `TestBucketLabel` — `"20-25"`, `"70+"`, capped range.
   - `TestRenderHistogram_Structure` — parse SVG, `<rect>` count = bucket count.
@@ -438,12 +438,12 @@ Phase 4 is broken into three independent sub-phases to derisk integration.
 
 #### 1.6 `timeseries.go`
 
-- [ ] `type TimeSeriesPoint struct` — `StartTime time.Time`, `P50/P85/P98/MaxSpeed float64` (NaN = missing), `Count int`.
-- [ ] `type TimeSeriesData struct` — `Points []TimeSeriesPoint`, `Units string`, `Title string`.
-- [ ] `DayBoundaries(pts []TimeSeriesPoint) []int` — always includes 0; adds idx where `.date()` changes.
-- [ ] `ApplyCountMask(pts []TimeSeriesPoint, threshold int) []TimeSeriesPoint` — NaN-ify speeds where Count < threshold.
-- [ ] `XTicks(pts []TimeSeriesPoint, boundaries []int) []XTick` — day-start + every 3rd interior; label `"Jan 02\n15:04"` / `"15:04"`.
-- [ ] `RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error)`:
+- [x] `type TimeSeriesPoint struct` — `StartTime time.Time`, `P50/P85/P98/MaxSpeed float64` (NaN = missing), `Count int`.
+- [x] `type TimeSeriesData struct` — `Points []TimeSeriesPoint`, `Units string`, `Title string`.
+- [x] `DayBoundaries(pts []TimeSeriesPoint) []int` — always includes 0; adds idx where `.date()` changes.
+- [x] `ApplyCountMask(pts []TimeSeriesPoint, threshold int) []TimeSeriesPoint` — NaN-ify speeds where Count < threshold.
+- [x] `XTicks(pts []TimeSeriesPoint, boundaries []int) []XTick` — day-start + every 3rd interior; label `"Jan 02\n15:04"` / `"15:04"`.
+- [x] `RenderTimeSeries(data TimeSeriesData, style ChartStyle) ([]byte, error)`:
   - Integer x-domain; two independent Y-scale functions (speed left, count right).
   - Count bars: alpha 0.25, `ColourCountBar`.
   - Low-sample bg bars: full-height, alpha 0.25, `ColourLowSample`, where `Count < LowSampleThreshold`.
@@ -451,32 +451,32 @@ Phase 4 is broken into three independent sub-phases to derisk integration.
   - Day boundary lines: `stroke="gray"`, `stroke-dasharray="4 2"`, `stroke-width="0.5"`, `opacity="0.3"`.
   - Legend below chart; embed font via `EmbedFont`.
   - "No data" if empty.
-- [ ] Tests:
+- [x] Tests:
   - `TestDayBoundaries` — single day (boundary=[0]), two days.
   - `TestApplyCountMask` — below-threshold points have NaN.
   - `TestRenderTimeSeries_Structure` — parse SVG, `<polyline>` present.
   - `TestRenderTimeSeries_DayLines` — `<line>` elements with `stroke="gray"` present.
   - `TestRenderTimeSeries_Empty` — "No data" text.
 
-**Phase 1 acceptance:** `go test ./internal/report/chart/... -v` all green.
+**Phase 1 acceptance:** `go test ./internal/report/chart/... -v` all green. ✅
 SVG output for all three chart types reviewed visually against matplotlib.
 
 ---
 
-### Phase 2 — LaTeX Template Engine (`internal/report/tex/`) `S`
+### Phase 2 — LaTeX Template Engine (`internal/report/tex/`) `S` ✅ PR #455
 
 #### 2.1 `helpers.go`
 
-- [ ] `EscapeTeX(s string) string` — escape `& % $ # _ { } ~ ^ \` for LaTeX.
-- [ ] `FormatNumber(v float64) string` — `"--"` for NaN/Inf, else `"%.2f"`.
-- [ ] `FormatPercent(v float64) string` — `"--"` for NaN/Inf, else `"%.1f%%"`.
-- [ ] `FormatTime(t time.Time, loc *time.Location) string` — `"1/2 15:04"` (no zero-pad, matching Python `"%-m/%-d %H:%M"`).
-- [ ] `BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBucket float64, units string) string` —
+- [x] `EscapeTeX(s string) string` — escape `& % $ # _ { } ~ ^ \` for LaTeX.
+- [x] `FormatNumber(v float64) string` — `"--"` for NaN/Inf, else `"%.2f"`.
+- [x] `FormatPercent(v float64) string` — `"--"` for NaN/Inf, else `"%.1f%%"`.
+- [x] `FormatTime(t time.Time, loc *time.Location) string` — `"1/2 15:04"` (no zero-pad, matching Python `"%-m/%-d %H:%M"`).
+- [x] `BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBucket float64, units string) string` —
       produces a LaTeX `tabular` string with Bucket/Count/Percent columns;
       `<N` below-cutoff row (only if data exists below cutoff);
       `N+` final row (only if data exists ≥ maxBucket);
       percentage formatted to 1 decimal place.
-- [ ] Tests:
+- [x] Tests:
   - `TestEscapeTeX` table: `&` → `\&`, `%` → `\%`, `\` → `\textbackslash{}`, `~` → `\textasciitilde{}`.
   - `TestFormatNumber`: NaN → `"--"`, +Inf → `"--"`, `3.14159` → `"3.14"`.
   - `TestFormatTime`: known UTC time + Pacific timezone → expected display string.
@@ -484,128 +484,128 @@ SVG output for all three chart types reviewed visually against matplotlib.
 
 #### 2.2 `render.go` — TemplateData + RenderTeX
 
-- [ ] `type TemplateData struct` (full field list — see plan implementation notes).
-- [ ] `type StatRow struct { StartTime string; Count int; P50,P85,P98,MaxSpeed string }`.
-- [ ] `BuildStatRows(pts []TimeSeriesPoint, loc *time.Location) []StatRow`.
-- [ ] `RenderTeX(data TemplateData) ([]byte, error)` — parse embedded templates with
+- [x] `type TemplateData struct` (full field list — see plan implementation notes).
+- [x] `type StatRow struct { StartTime string; Count int; P50,P85,P98,MaxSpeed string }`.
+- [x] `BuildStatRows(pts []TimeSeriesPoint, loc *time.Location) []StatRow`.
+- [x] `RenderTeX(data TemplateData) ([]byte, error)` — parse embedded templates with
       `template.Delims("<<", ">>")`, execute, return `.tex` bytes.
 
 #### 2.3 Templates in `tex/templates/` (all `//go:embed templates/*.tex`)
 
 All templates use `<<` / `>>` delimiters throughout.
 
-- [ ] `preamble.tex` — `\documentclass[11pt,a4paper]{article}`, geometry, all packages
+- [x] `preamble.tex` — `\documentclass[11pt,a4paper]{article}`, geometry, all packages
       (graphicx, tabularx, supertabular, xcolor, colortbl, fancyhdr, hyperref, fontspec,
       amsmath, titlesec, caption, multicol, float, array), colour defines
       (`vrP50=#fbd92f`, `vrP85=#f7b32b`, `vrP98=#f25f5c`, `vrMax=#2d1e2f`),
       `\setmainfont{AtkinsonHyperlegible}[Path=<<.FontDir>>/,…]`,
       fancyhdr header/footer (left: velocity.report link; right: location italic;
       footer: date range / page N).
-- [ ] `report.tex` — top-level driver: `\input{preamble}`, `\begin{document}`,
+- [x] `report.tex` — top-level driver: `\input{preamble}`, `\begin{document}`,
       `\twocolumn[…heading block…]`, `\input` each section template, `\end{document}`.
-- [ ] `overview.tex` — `\section*{Velocity Overview}`, itemize (location/period/count/speed limit),
+- [x] `overview.tex` — `\section*{Velocity Overview}`, itemize (location/period/count/speed limit),
       key metrics param table or comparison summary table.
-- [ ] `site_info.tex` — `\subsection*{Site Information}`, description + speed limit note.
-- [ ] `science.tex` — "Citizen Radar" subsection, KE formula block, aggregation/percentiles text.
-- [ ] `survey_parameters.tex` — hardware config table + survey params table (start/end/tz/
+- [x] `site_info.tex` — `\subsection*{Site Information}`, description + speed limit note.
+- [x] `science.tex` — "Citizen Radar" subsection, KE formula block, aggregation/percentiles text.
+- [x] `survey_parameters.tex` — hardware config table + survey params table (start/end/tz/
       group/units/min speed/cosine angle+factor).
-- [ ] `statistics.tex` — histogram table (conditional on `<<if .HistogramTableTeX>>`),
+- [x] `statistics.tex` — histogram table (conditional on `<<if .HistogramTableTeX>>`),
       `\subsection*{Detailed Data}`, supertabular stats table in two-column layout.
-- [ ] `chart_section.tex` — `\onecolumn`, time-series figure (`\includegraphics`),
+- [x] `chart_section.tex` — `\onecolumn`, time-series figure (`\includegraphics`),
       comparison figure (conditional), map figure (conditional).
 
 #### 2.4 Tests
 
-- [ ] `TestRenderTeX_Valid` — render with minimal `TemplateData`, assert `\begin{document}` and `\end{document}` present.
-- [ ] `TestRenderTeX_EscapedStrings` — location `"Smith & Jones"` → `"Smith \& Jones"` in output.
-- [ ] `TestRenderTeX_ConditionalHistogram` — when `HistogramTableTeX == ""`, histogram section absent.
-- [ ] `TestRenderTeX_ConditionalComparison` — when `CompareStartDate == ""`, comparison table absent.
-- [ ] Golden file: `testdata/golden_report.tex` — generate with fixture `TemplateData`, compare
+- [x] `TestRenderTeX_Valid` — render with minimal `TemplateData`, assert `\begin{document}` and `\end{document}` present.
+- [x] `TestRenderTeX_EscapedStrings` — location `"Smith & Jones"` → `"Smith \& Jones"` in output.
+- [x] `TestRenderTeX_ConditionalHistogram` — when `HistogramTableTeX == ""`, histogram section absent.
+- [x] `TestRenderTeX_ConditionalComparison` — when `CompareStartDate == ""`, comparison table absent.
+- [x] Golden file: `testdata/golden_report.tex` — generate with fixture `TemplateData`, compare
       (use `-update` flag to regenerate).
 
-**Phase 2 acceptance:** `go test ./internal/report/tex/... -v` all green.
+**Phase 2 acceptance:** `go test ./internal/report/tex/... -v` all green. ✅
 `RenderTeX()` output compiles with `xelatex` on a machine with TeX installed.
 
 ---
 
-### Phase 3 — Report Orchestrator (`internal/report/`) `S`
+### Phase 3 — Report Orchestrator (`internal/report/`) `S` ✅ PR #455
 
 #### 3.1 `db.go` — DB interface
 
-- [ ] `type DB interface` with only the methods the report package needs:
+- [x] `type DB interface` with only the methods the report package needs:
       `RadarObjectRollupRange(…) (*db.RadarStatsResult, error)` and
       `GetSite(ctx, id int) (*db.Site, error)`.
       (Allows mocking in tests without the full `db.DB`.)
 
 #### 3.2 `config.go`
 
-- [ ] `type Config struct` — mirrors `api.ReportRequest` plus site fields already
+- [x] `type Config struct` — mirrors `api.ReportRequest` plus site fields already
       resolved by the API handler (Location, Surveyor, Contact, SpeedLimit,
       SiteDescription, CosineAngle). Self-contained; no import of `internal/api`.
-- [ ] `type Result struct { PDFPath, ZIPPath, RunID string }`.
+- [x] `type Result struct { PDFPath, ZIPPath, RunID string }`.
 
 #### 3.3 `archive.go`
 
-- [ ] `BuildZip(files map[string][]byte) ([]byte, error)` — `archive/zip` stdlib,
+- [x] `BuildZip(files map[string][]byte) ([]byte, error)` — `archive/zip` stdlib,
       one entry per map key (key = zip-internal path).
-- [ ] Test: `TestBuildZip` — build zip with two files, re-read with `archive/zip`, assert both present.
+- [x] Test: `TestBuildZip` — build zip with two files, re-read with `archive/zip`, assert both present.
 
 #### 3.4 `report.go` — Generate()
 
-- [ ] `Generate(ctx context.Context, db DB, cfg Config) (Result, error)`:
+- [x] `Generate(ctx context.Context, db DB, cfg Config) (Result, error)`:
 
   **A — DB queries (direct, no HTTP)**
-  - [ ] Parse dates using `cfg.Timezone` → Unix timestamps.
-  - [ ] Call `db.RadarObjectRollupRange` for primary period.
-  - [ ] If `cfg.CompareStart != ""` call again for compare period.
-  - [ ] Call with `histBucketSize > 0` for histogram (same or separate call depending on `cfg.Histogram`).
-  - [ ] Convert `RadarStatsResult.Rows` → `[]chart.TimeSeriesPoint`.
-  - [ ] Extract summary stats (p50/p85/p98/max/count) from overall result.
+  - [x] Parse dates using `cfg.Timezone` → Unix timestamps.
+  - [x] Call `db.RadarObjectRollupRange` for primary period.
+  - [x] If `cfg.CompareStart != ""` call again for compare period.
+  - [x] Call with `histBucketSize > 0` for histogram (same or separate call depending on `cfg.Histogram`).
+  - [x] Convert `RadarStatsResult.Rows` → `[]chart.TimeSeriesPoint`.
+  - [x] Extract summary stats (p50/p85/p98/max/count) from overall result.
 
   **B — SVG chart rendering**
-  - [ ] `chart.RenderHistogram` → `histogram.svg`.
-  - [ ] `chart.RenderTimeSeries` → `timeseries.svg`.
-  - [ ] If comparison: `chart.RenderComparison` → `comparison.svg`.
-  - [ ] Write all SVGs to `os.MkdirTemp`.
+  - [x] `chart.RenderHistogram` → `histogram.svg`.
+  - [x] `chart.RenderTimeSeries` → `timeseries.svg`.
+  - [x] If comparison: `chart.RenderComparison` → `comparison.svg`.
+  - [x] Write all SVGs to `os.MkdirTemp`.
 
   **C — SVG → PDF (`rsvg-convert`)**
-  - [ ] `convertSVGToPDF(ctx, svgPath, pdfPath string) error` — `exec.Command("rsvg-convert", "-f", "pdf", "--dpi-x", "150", "--dpi-y", "150", "-o", pdfPath, svgPath)`.
-  - [ ] `checkRsvgConvert() error` — `exec.LookPath`; on failure returns error with
+  - [x] `convertSVGToPDF(ctx, svgPath, pdfPath string) error` — `exec.Command("rsvg-convert", "-f", "pdf", "--dpi-x", "150", "--dpi-y", "150", "-o", pdfPath, svgPath)`.
+  - [x] `checkRsvgConvert() error` — `exec.LookPath`; on failure returns error with
         `"apt install librsvg2-bin"` / `"brew install librsvg"` hint.
-  - [ ] On missing binary: return descriptive error (do NOT silently skip SVG artefact).
+  - [x] On missing binary: return descriptive error (do NOT silently skip SVG artefact).
 
   **D — LaTeX rendering**
-  - [ ] Resolve `FontDir` (absolute path to bundled font assets at `internal/report/chart/assets/`).
-  - [ ] Build `tex.TemplateData` from query results, chart PDF paths, cfg fields.
-  - [ ] `tex.RenderTeX(data)` → write `report.tex` to temp dir.
+  - [x] Resolve `FontDir` (absolute path to bundled font assets at `internal/report/chart/assets/`).
+  - [x] Build `tex.TemplateData` from query results, chart PDF paths, cfg fields.
+  - [x] `tex.RenderTeX(data)` → write `report.tex` to temp dir.
 
   **E — xelatex compilation**
-  - [ ] `runXeLatex(ctx context.Context, texPath string, envOverrides map[string]string) error`:
+  - [x] `runXeLatex(ctx context.Context, texPath string, envOverrides map[string]string) error`:
     - Detect `VELOCITY_TEX_ROOT` env var; if set, use vendored compiler path and build env vars
       (matching `tex_environment.py` logic for `TEXMFHOME`, `TEXMFDIST`, `TEXMFVAR`,
       `TEXMFCNF`, `TEXINPUTS`, `PATH`, optionally `TEXFORMATS`).
     - Run xelatex twice (two-pass for cross-refs and fancyhdr).
     - On failure: read `.log`, detect fatal signatures (missing font, nullfont),
       return error with log excerpt.
-  - [ ] `checkXeLatex(texRoot string) error` — verify compiler binary exists.
+  - [x] `checkXeLatex(texRoot string) error` — verify compiler binary exists.
 
   **F — Package and return**
-  - [ ] `BuildZip` with `.tex` + all `.svg` files → `sources.zip`.
-  - [ ] Move PDF + ZIP to `output/{runID}/` mirroring current Python output dir layout.
-  - [ ] Return `Result{PDFPath, ZIPPath, RunID}`.
+  - [x] `BuildZip` with `.tex` + all `.svg` files → `sources.zip`.
+  - [x] Move PDF + ZIP to `output/{runID}/` mirroring current Python output dir layout.
+  - [x] Return `Result{PDFPath, ZIPPath, RunID}`.
 
 #### 3.5 Integration test (`report_test.go`)
 
-- [ ] `TestGenerate_EndToEnd`:
+- [x] `TestGenerate_EndToEnd`:
   - In-memory SQLite with fixture radar stats rows (use existing `testutil` pattern from `internal/`).
   - Mock xelatex: shell script writing a 1-byte `output.pdf` and exiting 0.
   - Mock rsvg-convert: shell script copying SVG to PDF and exiting 0.
   - Call `Generate(ctx, db, cfg)`.
   - Assert: `Result.PDFPath` exists; ZIP contains `.tex`, `timeseries.svg`, `histogram.svg`.
-- [ ] `TestConvertSVG_MissingBinary` — binary not on PATH → error contains `"librsvg"`.
-- [ ] `TestRunXeLatex_LogExcerpt` — xelatex exits non-zero → error contains `.log` excerpt.
+- [x] `TestConvertSVG_MissingBinary` — binary not on PATH → error contains `"librsvg"`.
+- [x] `TestRunXeLatex_LogExcerpt` — xelatex exits non-zero → error contains `.log` excerpt.
 
-**Phase 3 acceptance:** `go test ./internal/report/... -v` all green (mocked externals).
+**Phase 3 acceptance:** `go test ./internal/report/... -v` all green (mocked externals). ✅
 Manual end-to-end: call `Generate()` with a real DB and real tools; open resulting PDF.
 
 ---
