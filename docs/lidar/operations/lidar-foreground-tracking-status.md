@@ -2,6 +2,8 @@
 
 - **Status:** Operational — Vector-Grid Baseline Active, Velocity-Coherent Path Planned
 
+This document records the current operational status of the LiDAR foreground tracking pipeline, including which features are active in production and which remain planned.
+
 ## Current State
 
 **Working Features:**

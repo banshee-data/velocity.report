@@ -1,5 +1,7 @@
 # VRLOG Check Subcommand Plan
 
+This document describes the planned `vrlog check` subcommand for inspecting and validating VRLOG recordings from the main `velocity-report` binary.
+
 ## Goal
 
 Add a VRLOG inspection command as a subcommand of the main `velocity-report`
