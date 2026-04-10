@@ -223,7 +223,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
-- [Foreground Tracking Status](lidar-foreground-tracking-status.md) - Current issues and debugging
+- [Foreground Tracking Status](../architecture/foreground-tracking.md#current-operational-status) — Current issues and debugging
 - [Settling time optimisation](settling-time-optimisation.md) - Settling convergence tuning
 - [Adaptive region parameters](adaptive-region-parameters.md) - Region classification after settling
 - [Motion capture](motion-capture.md) - Sensor movement detection in L3

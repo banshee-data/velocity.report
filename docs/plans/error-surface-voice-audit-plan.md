@@ -1,1 +1,1 @@
-../platform/operations/error-surface-voice.md
+../platform/operations/documentation-standards.md

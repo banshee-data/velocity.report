@@ -71,5 +71,5 @@ make stats-pcap PCAP=/absolute/path/to/capture.pcap
 
 - `docs/lidar/operations/data-source-switching.md`
 - `docs/lidar/operations/pcap-analysis-mode.md`
-- `docs/lidar/operations/quickstart-pipeline-fix.md`
+- `docs/lidar/troubleshooting/pipeline-diagnosis.md`
 - `docs/lidar/operations/config-param-tuning.md`

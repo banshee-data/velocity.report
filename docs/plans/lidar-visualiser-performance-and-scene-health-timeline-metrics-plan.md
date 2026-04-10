@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
-- **Canonical:** [performance-and-timeline-metrics.md](../lidar/operations/visualiser/performance-and-timeline-metrics.md)
+- **Canonical:** [performance-and-timeline-metrics.md](../ui/visualiser/performance-and-timeline-metrics.md)
 
 ## Objective
 
@@ -317,6 +317,6 @@ The workflow is explicitly **measure first, then optimise**.
 
 ## Related documents
 
-- [velocity-visualiser-api-contracts.md](../ui/velocity-visualiser-api-contracts.md)
+- [api-contracts.md](../ui/visualiser/api-contracts.md)
 - [08-track-event-timeline-bar.md](./lidar-visualiser-track-event-timeline-bar-plan.md)
-- [velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)
+- [architecture.md](../ui/visualiser/architecture.md)

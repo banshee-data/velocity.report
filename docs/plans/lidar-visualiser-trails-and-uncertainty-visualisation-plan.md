@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints, L10 Clients
-- **Canonical:** [trails-and-uncertainty.md](../lidar/operations/visualiser/trails-and-uncertainty.md)
+- **Canonical:** [trails-and-uncertainty.md](../ui/visualiser/trails-and-uncertainty.md)
 
 ## Objective
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints, L10 Clients
-- **Canonical:** [qc-enhancements-overview.md](../lidar/operations/visualiser/qc-enhancements-overview.md)
+- **Canonical:** [qc-enhancements-overview.md](../ui/visualiser/qc-enhancements-overview.md)
 
 ## Scope
 
