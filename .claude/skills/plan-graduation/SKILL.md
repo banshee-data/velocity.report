@@ -20,7 +20,7 @@ Graduate a completed plan into its canonical hub doc and replace the plan file w
 The plan file must already have:
 
 - `- **Status:** Complete` on `main` (merged, not just on a feature branch)
-- `- **Canonical:** [hub-doc.md](relative/path/to/hub-doc.md)` pointing to an existing hub doc
+- `- **Canonical:** [hub-doc.md](relative/path/to/hub-doc.md)` pointing to an existing hub doc <!-- link-ignore -->
 
 The **two-PR rule** is enforced by CI (`make check-plan-hygiene`, gate G10): a plan must be marked Complete on `main` before it can be replaced with a symlink. Never complete a plan and create its symlink on the same feature branch.
 

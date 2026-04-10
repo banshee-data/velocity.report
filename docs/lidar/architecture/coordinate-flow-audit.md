@@ -1,5 +1,7 @@
 # LiDAR Coordinate Flow Audit
 
+- **Status:** Informational — findings are confirmed and intentional. The described coordinate bounce preserves original polar metadata and does not introduce floating-point accuracy penalties. See [l2-dual-representation.md](l2-dual-representation.md) for the design rationale.
+
 - **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
 - **Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
 

@@ -546,8 +546,8 @@ plan hygiene tooling and to readers:
 
 **Group 4 — Structural improvements**
 
-- [ ] Verify and archive stale architecture review artefacts (Group 4a) (`M`)
-- [ ] Classify `webserver-tuning-schema-parity.md` correctly (Group 4b) (`M`)
+- [x] Verify and archive stale architecture review artefacts (Group 4a) (`M`) — added Status lines to all three; findings are tracked by active plans and BACKLOG
+- [x] Classify `webserver-tuning-schema-parity.md` correctly (Group 4b) (`M`) — content consolidated into `lidar-architecture-foundations-fixit-plan.md` §Phase 2; file deleted
 - [ ] Add missing Status lines to 10 plans (Group 4c) (`S` × 10)
 
 ### Deferred

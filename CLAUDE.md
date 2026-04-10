@@ -174,6 +174,7 @@ The following workflow skills are available as slash commands:
 
 | Skill           | Command                           | Purpose                                                       |
 | --------------- | --------------------------------- | ------------------------------------------------------------- |
+| plan-graduation | `/plan-graduation <plan>`         | Graduate a completed plan to symlink, consolidate into hub doc |
 | plan-review     | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan            |
 | review-pr       | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review             |
 | ship-change     | `/ship-change`                    | Format → lint → test → build → commit                         |
