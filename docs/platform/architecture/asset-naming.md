@@ -55,8 +55,8 @@ Date-time prefix for sortability; 7-char git SHA suffix for traceability.
 ## Naming Grammar
 
 ```
-Release:  {product}-{version}-{os}-{arch}{ext}
-Dev:      {datetime}-{product}-{version}-{os}-{arch}-{sha7}{ext}
+Release:  {product}-{version}[-{os}-{arch}]{ext}
+Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 ```
 
 | Token      | Format               | Example            | Notes                                                   |
@@ -116,7 +116,7 @@ Every CI run validates the version field against strict SemVer.
 All naming derives from `Makefile` § VERSION INFORMATION:
 
 ```makefile
-VERSION := 0.5.1-pre1
+VERSION := <current version>
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
@@ -181,13 +181,15 @@ own `BUILD_TIME`.
 
 ## Implementation Phases
 
-| Phase | Scope                                      | Status      |
-| ----- | ------------------------------------------ | ----------- |
-| 1     | Makefile variables                         | Not started |
-| 2     | Binary output filenames + Go upgrade logic | Not started |
-| 3     | DMG naming                                 | Not started |
-| 4     | RPi image naming                           | Not started |
-| 5     | CI workflow consolidation                  | Not started |
-| 6     | Documentation                              | Not started |
+| Phase | Scope                                                | Status      |
+| ----- | ---------------------------------------------------- | ----------- |
+| 1     | Makefile variables                                   | Complete    |
+| 2     | Binary output filenames + Go upgrade logic           | Complete    |
+| 3     | DMG naming                                           | Complete    |
+| 4     | RPi image naming                                     | Complete    |
+| 5     | CI workflow and release wiring consolidation         | Not started |
+| 6     | Documentation sweep across build, release, and setup | In progress |
 
-Phases 2 and 3 can run in parallel. Phase 4 follows 2. Phase 5 follows all.
+Phases 1-4 are implemented in the current build tooling. The remaining work is
+CI/release consolidation and aligning all documentation with the canonical
+naming scheme.
