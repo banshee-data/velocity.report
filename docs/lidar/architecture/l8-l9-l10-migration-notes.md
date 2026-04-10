@@ -1,5 +1,7 @@
 # L8/L9/L10 Layer Alignment — Migration Notes
 
+- **Status:** Complete — retained as historical record
+
 This document records the package renames and file splits performed to enforce clean layer boundaries between analytics (L8), endpoints (L9), and the HTTP server during the layer alignment refactor.
 
 ## Summary

@@ -1687,17 +1687,80 @@ When pose validation is implemented:
 
 ---
 
-**Document Status:** Implementation Complete through Phase 3.6
-**Next Action:** Implement Phase 4.0 Analysis Run Infrastructure (see [LiDAR Pipeline Reference](lidar-pipeline-reference.md))
-**Last Updated:** December 1, 2025
-**Contact:** Engineering Team
+**Document Status:** Implementation Complete through Phase 3.7
+**Last Updated:** April 2026
+
+---
+
+## Current Operational Status
+
+### Working Features
+
+| Feature                     | Status     | Notes                                            |
+| --------------------------- | ---------- | ------------------------------------------------ |
+| Foreground Feed (Port 2370) | ✅ Working | Foreground points visible in LidarView           |
+| Real-time Parameter Tuning  | ✅ Working | Edit params via JSON textarea without restart    |
+| Background Subtraction      | ✅ Working | Points correctly masked as foreground/background |
+| Warmup Sensitivity Scaling  | ✅ Working | Eliminates initialisation trails                 |
+| PCAP Analysis Mode          | ✅ Working | Grid preserved for analysis workflows            |
+
+### Resolved Issues
+
+**Packet Corruption on Port 2370** — Forwarder reconstructed packets with
+incorrect azimuth values. Fixed by rewriting `ForegroundForwarder` to preserve
+`RawBlockAzimuth` and `UDPSequence`.
+
+**Foreground "Trails" After Object Pass** — Points lingered as foreground for
+~30 seconds. Two root causes: (1) warmup variance underestimation — fixed with
+sensitivity scaling in `ProcessFramePolarWithMask()` (4× → 1× over 100
+observations); (2) `recFg` accumulation during freeze — fixed by not incrementing
+during freeze and resetting to 0 on thaw. See
+[TROUBLESHOOTING.md §Known Fixed Issues](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026).
+
+**Real-time Parameter Tuning** — POST to `/api/lidar/params` with JSON body;
+changes apply immediately without restart.
+
+### Known Limitations
+
+- **M1 performance** — CPU usage during foreground processing higher than
+  expected. Investigate with `go tool pprof` (likely per-frame allocations, lock
+  contention, or packet encoding overhead).
+- **Runtime tuning schema parity** — `/api/lidar/params` supports core
+  background/tracker keys but not full canonical tuning parity for all runtime
+  keys. `max_tracks` POST support is wired.
+
+### Configuration Reference
+
+| Parameter                        | Default | Description                                |
+| -------------------------------- | ------- | ------------------------------------------ |
+| `BackgroundUpdateFraction`       | 0.02    | EMA alpha for background learning          |
+| `ClosenessSensitivityMultiplier` | 3.0     | Threshold multiplier for classification    |
+| `SafetyMarginMeters`             | 0.1     | Fixed margin added to threshold            |
+| `NoiseRelativeFraction`          | 0.01    | Distance-proportional noise allowance      |
+| `NeighborConfirmationCount`      | 3       | Neighbours needed to confirm background    |
+| `FreezeDurationNanos`            | 5e9     | Cell freeze duration after large deviation |
+| `SeedFromFirstObservation`       | true    | Initialise cells from first observation    |
+
+Warmup sensitivity: cells with `TimesSeenCount < 100` have their threshold
+multiplied by `1.0 + 3.0 × (100 − count) / 100` (4× at count 0, 1× at 100+).
+
+### API Endpoints
+
+| Endpoint                 | Method   | Description                       |
+| ------------------------ | -------- | --------------------------------- |
+| `/api/lidar/status`      | GET      | Current pipeline status           |
+| `/api/lidar/params`      | GET/POST | View/update background parameters |
+| `/api/lidar/grid_status` | GET      | Background grid statistics        |
+| `/api/lidar/grid_reset`  | GET      | Reset background grid             |
+| `/api/lidar/pcap/start`  | POST     | Start PCAP replay                 |
+| `/api/lidar/pcap/stop`   | POST     | Stop PCAP replay                  |
+| `/api/lidar/data_source` | GET      | Current data source (live/pcap)   |
 
 ---
 
 ## Related Documentation
 
-- **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)** - Pipeline data flow, existing components, and deployment architecture
-- **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** - Alternative algorithm design for sparse-point tracking with velocity coherence
-- **[LIDAR Foreground Tracking Status](../operations/lidar-foreground-tracking-status.md)** - Current issues, fixes, and enhancement roadmap
-- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)** - Technical implementation overview and module structure
-- **[Development Log](../../DEVLOG.md)** - Chronological implementation history
+- **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)** — Pipeline data flow, existing components, and deployment architecture
+- **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** — Alternative algorithm design for sparse-point tracking with velocity coherence
+- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)** — Technical implementation overview and module structure
+- **[Development Log](../../DEVLOG.md)** — Chronological implementation history

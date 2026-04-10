@@ -26,6 +26,73 @@ The tracking pipeline exhibits multiple quality degradation symptoms that stem f
 
 ---
 
+## Quick Fixes
+
+> Distilled from the original quick-start pipeline fix guide. For the detailed
+> root-cause analysis, continue to §1 below.
+
+### Deploy Optimised Parameters
+
+```bash
+# Apply the optimised configuration
+velocity-report --config config/tuning.optimised.json
+
+# Or update parameters at runtime via the monitor API
+curl -X POST http://localhost:8080/api/lidar/params \
+  -H 'Content-Type: application/json' \
+  -d @config/tuning.optimised.json
+```
+
+Alternatively, run an auto-tuning sweep for further refinement:
+
+```bash
+curl -X POST http://localhost:8080/api/lidar/sweep/auto \
+  -H 'Content-Type: application/json' \
+  -d @config/sweep-quality-tuning.json
+```
+
+### Key Parameter Changes
+
+| Parameter                 | Default | Optimised | Why                                                        |
+| ------------------------- | ------- | --------- | ---------------------------------------------------------- |
+| `closeness_multiplier`    | 8.0     | 3.0       | Was allowing vehicle points to be classified as background |
+| `safety_margin_meters`    | 0.4     | 0.15      | Was suppressing vehicle edge points                        |
+| `foreground_dbscan_eps`   | 0.3     | 0.7       | Was fragmenting distant vehicles                           |
+| `gating_distance_squared` | 4.0     | 25.0      | Was preventing track re-association                        |
+| `measurement_noise`       | 0.3     | 0.15      | Was causing heading jitter                                 |
+| `process_noise_vel`       | 0.5     | 0.3       | Was allowing velocity drift                                |
+
+See [parameter-comparison.md](../operations/parameter-comparison.md) for the full side-by-side table.
+
+### Staged Testing
+
+Deploy changes incrementally rather than all at once:
+
+1. **Foreground only** (15 min) — `closeness_multiplier=3.0`, `safety_margin_meters=0.15`, `neighbor_confirmation_count=3`. EmptyBoxRatio should drop to ~0.10.
+2. **Add clustering** (15 min) — `foreground_dbscan_eps=0.7`, `foreground_min_cluster_points=5`. FragmentationRatio should drop to ~0.15.
+3. **Add tracking** (30 min) — `gating_distance_squared=25.0`, `measurement_noise=0.15`, `process_noise_vel=0.3`. Jitter should halve.
+4. **Full deployment** — if all stages succeed, deploy `tuning.optimised.json` for overnight testing.
+
+### Expected Improvements
+
+| Metric             | Before      | After       | Change |
+| ------------------ | ----------- | ----------- | ------ |
+| HeadingJitterDeg   | 45–60°      | 15–25°      | ↓ 60%  |
+| SpeedJitterMps     | 2.0–3.0 m/s | 0.5–1.0 m/s | ↓ 70%  |
+| FragmentationRatio | 0.40–0.50   | 0.10–0.15   | ↓ 75%  |
+| MisalignmentRatio  | 0.30–0.40   | 0.10–0.15   | ↓ 65%  |
+| EmptyBoxRatio      | 0.15–0.25   | 0.05–0.10   | ↓ 60%  |
+| ForegroundCapture  | 0.70–0.75   | 0.85–0.90   | ↑ 15%  |
+
+### Reverting
+
+```bash
+# Restore defaults
+cp config/tuning.defaults.json /path/to/your/active/config.json
+```
+
+---
+
 ## 1. Systematic Issues in the Pipeline
 
 ### 1.1 High Jitter (Heading & Speed)
