@@ -1,5 +1,7 @@
 # Adaptive Region Parameters for Background Grid
 
+This guide covers the configuration and operation of adaptive region-based parameters in the LiDAR background grid, which automatically segment the sensor's field of view to apply optimised settling and noise thresholds per region.
+
 ## Overview
 
 The LiDAR background grid now supports **adaptive region-based parameters** that automatically segment the sensor's field of view into regions with different settling characteristics, and apply optimised parameters to each region.
@@ -215,7 +217,7 @@ This enables immediate foreground detection on subsequent runs from the same sen
 ## Related Documentation
 
 - [LiDAR Background Grid Standards](../architecture/lidar-background-grid-standards.md)
-- [Warmup Trails Fix](../troubleshooting/warmup-trails-fix.md)
+- [Warmup Trails Fix](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026)
 - [PCAP Analysis Mode](pcap-analysis-mode.md)
 
 ## References

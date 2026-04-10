@@ -1,5 +1,7 @@
 # PCAP Analysis Mode
 
+This guide covers the PCAP analysis mode, which replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
+
 ## Overview
 
 The LiDAR system supports two modes for PCAP replay:
@@ -222,3 +224,115 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
 - [Foreground Tracking Status](lidar-foreground-tracking-status.md) - Current issues and debugging
+- [Settling time optimisation](settling-time-optimisation.md) - Settling convergence tuning
+- [Adaptive region parameters](adaptive-region-parameters.md) - Region classification after settling
+- [Motion capture](motion-capture.md) - Sensor movement detection in L3
+
+---
+
+## PCAP Split Tool (Planned)
+
+Active plan: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md)
+
+Automatically segments LiDAR PCAP files into non-overlapping motion and static periods. Enables separate analysis pipelines for mobile observation (driving) and parked data collection.
+
+**Status:** Not yet implemented. Design complete.
+
+### Problem
+
+Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods — motion segments are unusable for perception. Today an operator must manually identify transition points and split files with external tools. This is slow, error-prone, and blocks the mobile-observation workflow.
+
+### Split Tool Architecture
+
+```
+┌──────────────────────────────────────────────────┐
+│              pcap-split CLI                      │
+│           (cmd/tools/pcap-split)                 │
+└──────────────────────────────────────────────────┘
+         │                │                │
+         ▼                ▼                ▼
+  ┌────────────┐  ┌──────────────┐  ┌────────────┐
+  │ PCAP Reader│  │  Settling    │  │ PCAP Writer│
+  │ (l1packets)│  │  Analyser    │  │ (pcapsplit)│
+  │            │  │ BackgroundMgr│  │            │
+  │ Parse UDP  │  │ Track metrics│  │ Buffer pkts│
+  │ Extract pts│  │ Detect state │  │ Write segs │
+  └────────────┘  └──────────────┘  └────────────┘
+```
+
+**Key packages:**
+
+| Package           | Location                               | Role                                                      |
+| ----------------- | -------------------------------------- | --------------------------------------------------------- |
+| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing — reads PCAP, filters UDP, parses packets        |
+| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New** — implements `FrameBuilder`, drives state machine |
+| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New** — buffers packets, writes segment PCAPs           |
+| CLI               | `cmd/tools/pcap-split/main.go`         | **New** — flag parsing, orchestration, summary output     |
+
+### Stability Detection
+
+All four criteria must hold to classify a frame as stable:
+
+1. Foreground activity < 5% of total points
+2. Settled cells > 70% (`TimesSeenCount` >= threshold)
+3. Noise deviation < 2.0 sigma
+4. Within expected variance bounds
+
+**State machine:**
+
+- **Motion → Static:** 60 s sustained stability (configurable via `--settling-sec`)
+- **Static → Motion:** 5 s sustained motion
+- **Intersection bridging:** pauses < 30 s stay classified as motion (`--max-motion-gap-sec`)
+
+### Split Tool CLI
+
+```
+pcap-split [options]
+
+Options:
+  --pcap FILE             Input PCAP file (required)
+  --output DIR            Output directory (default: current dir)
+  --prefix NAME           Output filename prefix (default: "out")
+  --settling-sec N        Settling duration threshold (default: 60)
+  --min-segment-sec N     Minimum segment duration (default: 5)
+  --max-motion-gap-sec N  Maximum motion gap to bridge (default: 30)
+  --export-metrics        Export per-frame metrics CSV
+  --export-json           Export segment metadata JSON
+```
+
+Example:
+
+```bash
+pcap-split --pcap capture.pcap --output ./segments --export-json
+```
+
+Output:
+
+```
+segments/
+├── out-motion-0.pcap
+├── out-static-0.pcap
+├── out-motion-1.pcap
+├── out-static-1.pcap
+├── out-motion-2.pcap
+├── segments.json
+└── summary.txt
+```
+
+### Required API Extensions
+
+Three new read-only accessors on `BackgroundManager` (designed, not yet implemented):
+
+| Method                                      | Purpose                                          |
+| ------------------------------------------- | ------------------------------------------------ |
+| `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts     |
+| `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope |
+| `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance      |
+
+### Phased Delivery
+
+| Phase | Scope                                                                 | Size | Prerequisite      |
+| ----- | --------------------------------------------------------------------- | ---- | ----------------- |
+| 1     | `--motion` flag in `pcap-analyse` — motion timeline in summary output | S    | None              |
+| 2     | `BackgroundManager` API extensions — three new read-only accessors    | S    | Phase 1 validated |
+| 3     | Full `pcap-split` tool — analyser, writer, CLI, metadata export       | M    | Phase 2           |

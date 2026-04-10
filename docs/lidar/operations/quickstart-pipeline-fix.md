@@ -2,6 +2,8 @@
 
 - **Issue:** High jitter, fragmentation, misalignment, and empty boxes in tracking results
 
+This quickstart guide provides a systematic approach to diagnosing and resolving common LiDAR pipeline quality issues such as jitter, fragmentation, and empty bounding boxes.
+
 ---
 
 ## TL;DR

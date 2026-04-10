@@ -3,7 +3,7 @@
 - **Status:** Complete
 - **Layers:** Cross-cutting (Go server, Web frontend, Python tools, Shell scripts)
 - **Target:** v0.6.0 — consistent, humane voice across all user-facing messages
-- **Canonical:** This document
+- **Canonical:** [error-surface-voice.md](../platform/operations/error-surface-voice.md)
 
 ## Motivation
 

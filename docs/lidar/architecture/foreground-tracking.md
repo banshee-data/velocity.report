@@ -3,6 +3,8 @@
 - **Status:** Implementation Complete through Phase 3.7
 - **Version:** 7.1 - Warmup sensitivity scaling added
 
+This plan details the end-to-end implementation of LiDAR foreground extraction and multi-object tracking, from polar-frame background subtraction through world-frame clustering, Kalman-filtered tracking, and database persistence.
+
 ---
 
 ## Executive Summary

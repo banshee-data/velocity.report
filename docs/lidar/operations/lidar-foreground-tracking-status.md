@@ -2,6 +2,8 @@
 
 - **Status:** Operational — Vector-Grid Baseline Active, Velocity-Coherent Path Planned
 
+This document records the current operational status of the LiDAR foreground tracking pipeline, including which features are active in production and which remain planned.
+
 ## Current State
 
 **Working Features:**
@@ -59,7 +61,7 @@ Separation reference:
 2. **recFg Accumulation During Freeze:** Frozen cells incremented `RecentForegroundCount` on every observation, reaching 70+ by freeze end.
    - **Fix:** Don't increment recFg during freeze; reset to 0 on thaw with 1ms grace period.
 
-**Implementation:** See [warmup-trails-fix.md](../troubleshooting/warmup-trails-fix.md)
+**Implementation:** See [TROUBLESHOOTING.md §Known Fixed Issues](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026)
 
 ### Issue 3: Real-time Parameter Tuning — ✅ IMPLEMENTED
 

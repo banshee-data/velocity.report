@@ -8,12 +8,12 @@ This is the **most critical document** for the visualiser project. It defines th
 
 This API is designed to align with the **7-DOF industry standard** for 3D bounding boxes used in autonomous vehicle (AV) perception systems:
 
-| Standard Element          | Implementation                                      | Reference                                                                        |
-| ------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **7-DOF Bounding Box**    | `OrientedBoundingBox` message                       | [av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)   |
-| **Coordinate Convention** | ENU: +X East, +Y North, +Z Up (world frame)         | [static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md) |
-| **Heading Convention**    | Radians, [-π, π], rotation around Z-axis            | AV industry standard                                                             |
-| **Units**                 | Metres for positions/dimensions, radians for angles | SI units                                                                         |
+| Standard Element          | Implementation                                      | Reference                                                                     |
+| ------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **7-DOF Bounding Box**    | `OrientedBoundingBox` message                       | [av-lidar-integration-plan.md](../plans/lidar-av-lidar-integration-plan.md)   |
+| **Coordinate Convention** | ENU: +X East, +Y North, +Z Up (world frame)         | [static-pose-alignment-plan.md](../plans/lidar-static-pose-alignment-plan.md) |
+| **Heading Convention**    | Radians, [-π, π], rotation around Z-axis            | AV industry standard                                                          |
+| **Units**                 | Metres for positions/dimensions, radians for angles | SI units                                                                      |
 
 **Key alignment points:**
 
@@ -441,7 +441,7 @@ proto/
 
 ### 2.2 Full Schema
 
-See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) for the complete protobuf definition.
+See [visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto) for the complete protobuf definition.
 
 ### 2.3 Versioning Policy
 
@@ -738,7 +738,6 @@ OverlayModeRequest {
 
 ## 7. Related Documents
 
-- [01-problem-and-user-workflows.md](./01-problem-and-user-workflows.md) – Problem statement and user workflows
-- [velocity-visualiser-architecture.md](../velocity-visualiser-architecture.md) – System architecture
-- [velocity-visualiser-implementation.md](../velocity-visualiser-implementation.md) – Implementation milestones
-- [../../lidar/troubleshooting/01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [velocity-visualiser-architecture.md](./velocity-visualiser-architecture.md) – System architecture (includes problem statement)
+- [velocity-visualiser-implementation.md](./velocity-visualiser-implementation.md) – Implementation milestones
+- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements

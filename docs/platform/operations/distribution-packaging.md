@@ -2,6 +2,8 @@
 
 Active plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md)
 
+This document describes the distribution and packaging strategy for velocity.report, consolidating scattered tools into a single-binary subcommand model with a consistent release process.
+
 ## Problem
 
 Multiple scattered tools, no release process, complex Python setup. The Go

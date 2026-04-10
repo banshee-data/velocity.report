@@ -2,6 +2,8 @@
 
 Active plan: [platform-quality-coverage-improvement-plan.md](../../plans/platform-quality-coverage-improvement-plan.md)
 
+This document tracks the programme to raise code coverage across all components to the 95.5% line-coverage target, with per-tier priorities and extraction strategies for hard-to-test code.
+
 ## Scope
 
 Raise every `internal/`, web, Python, and macOS package/module/file to

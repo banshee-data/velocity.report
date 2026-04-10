@@ -2,6 +2,8 @@
 
 - **Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
 
+This is the canonical reference for the ten-layer LiDAR data processing model used throughout velocity.report, defining the scope, data forms, and stability guarantees for layers L1 through L10.
+
 ## Purpose
 
 A single authoritative layer model for LiDAR data processing in velocity.report. The model defines ten layers — six implemented (L1–L6), one planned (L7), and three structurally present but being formalised (L8–L10). Layer numbers are permanent identifiers: once assigned, a layer number never changes meaning, even if the implementation evolves over years.

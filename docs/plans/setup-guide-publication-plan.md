@@ -1,5 +1,8 @@
 # Setup Guide Publication Plan
 
+- **Status:** Active
+- **Canonical:** [setup.md](../../public_html/src/guides/setup.md)
+
 Checklist of remaining items before the setup guide at `public_html/src/guides/setup.md` is ready for public consumption.
 
 ## Content Placeholders

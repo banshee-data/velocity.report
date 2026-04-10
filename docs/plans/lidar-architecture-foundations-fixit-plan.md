@@ -1,5 +1,6 @@
 # LiDAR Foundations Fix-It Plan
 
+- **Status:** In Progress — Phase 1 partially complete; Phases 2–3 outstanding
 - **Layers:** Cross-cutting (documentation and configuration)
 - **Canonical:** [foundations-fixit-progress.md](../lidar/operations/foundations-fixit-progress.md)
 
@@ -18,8 +19,11 @@ Exit criteria:
 ## Phase 2: Runtime Config Parity
 
 1. Extend `/api/lidar/params` POST support toward canonical tuning schema fields.
+   Missing keys: `buffer_timeout`, `min_frame_points`, `flush_interval`, `background_flush`, `max_tracks`, `height_band_floor`, `height_band_ceiling`, `remove_ground`, `max_cluster_diameter`, `min_cluster_diameter`, `max_cluster_aspect_ratio`. (Consolidated from `webserver-tuning-schema-parity.md`, now deleted.)
 2. Add tests for each newly supported key and response echo parity.
 3. Keep unsupported keys explicitly listed in handler comments/docs.
+4. Reorder POST body JSON-tagged fields to match canonical config order.
+5. Once complete, remove `continue-on-error` from `.github/workflows/config-order-ci.yml` to enforce strict mode.
 
 Exit criteria:
 

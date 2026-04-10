@@ -2,6 +2,8 @@
 
 Active plan: [speed-percentile-aggregation-alignment-plan.md](../../plans/speed-percentile-aggregation-alignment-plan.md)
 
+Defines the canonical meaning of speed percentiles (p85, p98) in velocity.report: they are computed over the population of per-transit maximum speeds, not over individual radar samples within a single track.
+
 ## Core Rule
 
 **Percentiles are aggregate-only.** `p50/p85/p98` are reserved for

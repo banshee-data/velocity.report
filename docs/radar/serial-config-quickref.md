@@ -2,6 +2,8 @@
 
 - **Full Specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
 
+Quick-reference summary of the serial port configuration UI feature, covering core requirements, implementation phases, and key API endpoints.
+
 ## What This Feature Enables
 
 Users can configure and test radar serial ports through a web interface instead of editing systemd service files.

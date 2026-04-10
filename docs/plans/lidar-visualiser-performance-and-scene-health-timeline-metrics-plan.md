@@ -317,6 +317,6 @@ The workflow is explicitly **measure first, then optimise**.
 
 ## Related documents
 
-- [02-api-contracts.md](../ui/velocity-visualiser-app/02-api-contracts.md)
+- [velocity-visualiser-api-contracts.md](../ui/velocity-visualiser-api-contracts.md)
 - [08-track-event-timeline-bar.md](./lidar-visualiser-track-event-timeline-bar-plan.md)
 - [velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)

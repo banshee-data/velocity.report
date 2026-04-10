@@ -121,9 +121,11 @@ def _resolve(token: str, source_file: Path, repo_root: Path) -> bool:
         return (repo_root / path_part).exists()
 
     # General case: try repo-root first, then file-relative.
+    # Use resolved path so symlinked plan files resolve from the canonical
+    # hub-doc location, not the symlink directory.
     if (repo_root / path_part).exists():
         return True
-    if (source_file.parent / path_part).resolve().exists():
+    if (source_file.resolve().parent / path_part).resolve().exists():
         return True
     return False
 

@@ -1,8 +1,8 @@
 # Pre-v0.5.0 Schema Hardening
 
-Active plan: [lidar-schema-robustness-plan.md](../../plans/lidar-schema-robustness-plan.md)
+- **Status:** Complete
 
-**Status:** Implemented on branch; pending merge for `v0.5.0`
+This document records the pre-v0.5.0 schema cleanup that enabled foreign keys, replaced sentinel values with proper nullability, and migrated annotations to the replay-owned table.
 
 ## Summary
 

@@ -1,6 +1,6 @@
 # Pre-v0.5.0 LiDAR Schema Hardening Plan
 
-- **Status:** Implemented on branch `codex/draft-schema-improvement-proposal`; pending merge for `v0.5.0`
+- **Status:** Complete — merged to `main`; migrations 000033–000034 landed
 - **Target:** complete before the `v0.5.0` branch cut
 - **Actual landing window:** March 22, 2026
 - **Layers:** Database, LiDAR storage, API, macOS visualiser

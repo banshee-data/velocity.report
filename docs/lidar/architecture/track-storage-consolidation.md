@@ -1,8 +1,8 @@
 # Track Storage Consolidation
 
-Active plan: [lidar-tracks-table-consolidation-plan.md](../../plans/lidar-tracks-table-consolidation-plan.md)
+- **Status:** Complete
 
-**Status:** Complete
+This document records the decision to keep live and run track tables separate while consolidating their shared column definitions into a single `TrackMeasurement` struct in the Go layer.
 
 ## Problem
 

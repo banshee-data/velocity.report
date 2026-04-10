@@ -3,6 +3,8 @@
 - **Status:** Implemented
 - **Author:** Ictinus (Product Architecture Agent)
 
+Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
+
 ## Problem Statement
 
 Users need the ability to:

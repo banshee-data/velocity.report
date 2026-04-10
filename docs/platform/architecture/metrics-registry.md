@@ -2,6 +2,8 @@
 
 Active plan: [metrics-registry-and-observability-plan.md](../../plans/metrics-registry-and-observability-plan.md)
 
+This document establishes the canonical metric registry for velocity.report, defining naming conventions, terminology rules, and enforcement strategy to prevent semantic drift across pipeline strata.
+
 ## Problem
 
 The repo lets the same metric words drift across multiple meanings and

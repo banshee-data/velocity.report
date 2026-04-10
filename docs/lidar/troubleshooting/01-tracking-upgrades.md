@@ -2,6 +2,8 @@
 
 - **Status:** 6 of 9 upgrades implemented (February 2026)
 
+Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
+
 | Upgrade                           | Status         | Implementation                                                                      |
 | --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
 | Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`             |
@@ -492,6 +494,6 @@ Each upgrade includes unit tests for the new function.
 
 ## 6. Related Documents
 
-- [../../ui/velocity-visualiser-app/01-problem-and-user-workflows.md](../../ui/velocity-visualiser-app/01-problem-and-user-workflows.md) – User workflows
-- [../../ui/velocity-visualiser-app/02-api-contracts.md](../../ui/velocity-visualiser-app/02-api-contracts.md) – API contract
+- [../../ui/velocity-visualiser-architecture.md](../../ui/velocity-visualiser-architecture.md) – Architecture and problem statement
+- [../../ui/velocity-visualiser-api-contracts.md](../../ui/velocity-visualiser-api-contracts.md) – API contract
 - [../../ui/velocity-visualiser-implementation.md](../../ui/velocity-visualiser-implementation.md) – Milestones

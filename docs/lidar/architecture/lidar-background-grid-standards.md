@@ -1,5 +1,7 @@
 # LiDAR Background Grid — Standards Comparison
 
+This document evaluates external background-grid representations (OccupancyGrid, TSDF, VTK, PCD) against the current polar range-image model and recommends an export strategy that preserves runtime simplicity while enabling standards-based tooling interchange.
+
 ## Purpose
 
 This keeps our background pipeline stable while enabling standards-based exports for external tools and future fusion work. This architecture document for LiDAR Background Grid — Standards Comparison explains component boundaries.

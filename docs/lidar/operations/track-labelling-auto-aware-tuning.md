@@ -2,6 +2,8 @@
 
 - **Status:** Implemented/Operational Baseline (with follow-up phases tracked separately)
 
+This document summarises the operational baseline for track labelling and auto-tuning, recording which components are active in production and where deferred work is tracked.
+
 ## Implemented
 
 - Track labelling workflow integrated with run browser and label APIs

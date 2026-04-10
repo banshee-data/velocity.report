@@ -145,6 +145,6 @@ Use this for:
 - References to the other platform's file layout conventions
 
 ```
-| Image CI workflow | `.github/workflows/build-image.yml` | Planned | <!-- link-ignore -->
+| Image CI workflow | `.github/workflows/build-image.yml` | Planned |
 3. [x] Migrated from `../server/` → `../platform/` <!-- link-ignore -->
 ```

@@ -3,8 +3,6 @@
 How `docs/plans/` relates to the hub documentation tree, and the lifecycle by which
 plan files graduate into stable hub docs.
 
-Active plan: [platform-canonical-project-files-plan.md](../../plans/platform-canonical-project-files-plan.md)
-
 ## Problem
 
 One body of work can spread across two or more plan files, a plan plus a hub
@@ -67,32 +65,8 @@ active plan.
 
 ## Lifecycle
 
-### Incubation
-
-Every active plan must identify its canonical hub doc in the header metadata:
-
-```markdown
-- **Canonical:** [foreground-tracking.md](../../lidar/architecture/foreground-tracking.md)
-```
-
-This is the minimal contract that makes the relationship machine-checkable.
-
-### Consolidation
-
-When the work has a stable architecture or operating shape:
-
-1. Move or merge authoritative content into the canonical hub doc.
-2. Reduce the active plan to pure execution sequencing.
-3. Merge sibling plans if they point at the same canonical hub doc.
-
-### Graduation
-
-When the plan no longer needs to be a separate execution document:
-
-1. Mark the plan status as **Complete** and merge that change to `main`.
-2. On a **separate branch** (after the completion lands on `main`), replace the plan file with a symlink to the canonical hub doc.
-3. The old plan path survives, preserving existing links.
-4. New backlog entries link to the canonical hub doc directly.
+Three phases — incubation, consolidation, graduation — described in the
+`/plan-graduation` skill (`.claude/skills/plan-graduation/SKILL.md`).
 
 **Two-PR rule:** A plan must be marked Complete on `main` before it can be
 replaced with a symlink. Never complete a plan and create its symlink on the
@@ -101,8 +75,6 @@ completed plan before the file becomes a symlink — reviewers can always find
 the final plan state in the commit log.
 
 ## Enforcement
-
-### Hard-Fail Gates
 
 `scripts/check-plan-canonical-links.py` enforces 8 gates in `--check` mode
 (run via `make check-plan-hygiene`):
@@ -117,34 +89,22 @@ the final plan state in the commit log.
 | 7   | Symlink resolves to a missing target                        |
 | 8   | `Canonical` link appears more than once in the same header  |
 | 9   | `Canonical` target not under an allowed hub prefix          |
+| 10  | Symlink created before plan was Complete on `main`          |
 
-### Advisory Notes
-
-Gate 4 (two plans sharing the same canonical target) is advisory only, because
-6 hub docs legitimately serve as the shared canonical home for more than one
-plan. These appear in `make report-plan-hygiene` output but do not block merges.
-
-### Make Targets
+Gate 4 (two plans sharing the same canonical target) is advisory only — some
+hub docs legitimately serve multiple plans.
 
 | Target                     | Mode      | Purpose                |
 | -------------------------- | --------- | ---------------------- |
 | `make check-plan-hygiene`  | Hard-fail | CI gate (blocks merge) |
 | `make report-plan-hygiene` | Advisory  | PM/editorial review    |
 
-### Rollout
-
-1. **Phase 1 — Tooling:** Checker, Makefile targets, CI advisory job. _Complete._
-2. **Phase 2 — Repository refactor:** `Canonical` metadata on all plans, stub hub docs created. _Complete (69/69 plans, 46 stubs, 0 gate violations)._
-3. **Phase 3 — Hard-fail CI:** Wire `check-plan-hygiene` into `make lint-docs` and fail CI. _Complete._
-
 ## Current State
-
-As of branch `dd/docs/merge-canonical`:
 
 - 69 plan files, all with `Canonical` metadata
 - 111 hub docs across 4 hubs (excluding READMEs)
-- 11 plans graduated to symlinks
-- 0 gate violations, 2 advisory notes (deliberate shared targets)
+- 25 plans graduated to symlinks
+- 0 gate violations, 7 advisory notes (deliberate shared targets)
 
 ## Success Criteria
 

@@ -2,6 +2,8 @@
 
 - **Status:** Implemented (March 2026) — macOS visualiser and backend complete. Web runs-list parity deferred.
 
+This document specifies the labelling rollup icon shown in the visualiser's run list, which indicates human review progress for each analysis run at a glance.
+
 ## Purpose
 
 Compact run-list icon showing the percentage of tracks with human-applied

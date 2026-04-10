@@ -1,5 +1,7 @@
 # Performance Regression Testing
 
+This guide describes the performance benchmarking mode in the `pcap-analyze` tool, used to detect processing speed regressions in the LiDAR pipeline before they reach production.
+
 ## Overview
 
 The `pcap-analyze` tool includes a performance benchmarking mode to detect regressions when modifying the LIDAR processing pipeline. This ensures that algorithm improvements, new features, or refactoring don't inadvertently degrade processing speed.

@@ -167,7 +167,6 @@ def entries_from_os_list(data: dict) -> list[dict]:
 
 def main() -> int:
     verify_sha = "--verify-sha" in sys.argv
-    check_only = "--check" in sys.argv or not verify_sha
 
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__)

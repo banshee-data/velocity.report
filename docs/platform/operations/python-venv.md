@@ -1,8 +1,8 @@
 # Python Virtual Environment — Single Shared `.venv`
 
-Active plan: [tooling-python-venv-consolidation-plan.md](../../plans/tooling-python-venv-consolidation-plan.md)
+- **Status:** Complete
 
-**Status:** Complete
+This document records the shared Python virtual environment setup used by all Python tools in the repository, consolidated into a single `.venv/` at the project root.
 
 ## Architecture
 

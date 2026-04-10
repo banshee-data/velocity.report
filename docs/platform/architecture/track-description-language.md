@@ -3,6 +3,8 @@
 - **Status:** Proposed
 - **Layers:** L8 Analytics
 
+This document specifies the Track Description Language (TDL), a natural-language query interface that lets neighbourhood advocates describe traffic questions without writing SQL.
+
 ## Summary
 
 The Track Description Language is a natural-language query interface over

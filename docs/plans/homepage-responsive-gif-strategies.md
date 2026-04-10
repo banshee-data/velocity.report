@@ -1,5 +1,6 @@
 # Homepage Responsive GIF Strategies
 
+- **Status:** Complete — chosen approach absorbed into `homepage.md`
 - **Context:** The VelocityVisualiser section on the homepage includes an animated GIF demonstrating the macOS app. The source recording is a macOS window capture at approximately 3:2 landscape aspect ratio (width:height). This document evaluates strategies for displaying the GIF responsively across viewport sizes.
 - **Canonical:** [homepage.md](../ui/homepage.md)
 

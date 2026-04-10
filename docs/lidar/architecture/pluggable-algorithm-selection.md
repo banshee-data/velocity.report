@@ -4,6 +4,8 @@ Active plan: [lidar-architecture-dynamic-algorithm-selection-plan.md](../../plan
 
 **Status:** Branch-history design specification (not active on `main` runtime)
 
+This document specifies the `ForegroundExtractor` interface design and its implementations — background-subtraction, velocity-coherent, and hybrid — enabling runtime algorithm selection for the LiDAR foreground extraction stage.
+
 ## Problem
 
 The background-subtraction algorithm (`ProcessFramePolarWithMask`) produces

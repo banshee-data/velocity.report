@@ -46,6 +46,7 @@ cleanup() {
     # Remove transient copies staged from the repo into the working tree
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
     rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     # Remove staged root documents
@@ -259,6 +260,27 @@ for f in README.md QUESTIONS.md; do
 done
 find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied data reference files"
+
+# Copy built documentation site (Eleventy output) for on-device reference.
+# Auto-build if _site/ is missing, matching the web frontend pattern above.
+if [ ! -d "$REPO_ROOT/public_html/_site" ]; then
+    log_info "Building documentation site..."
+    if command -v pnpm &>/dev/null; then
+        (cd "$REPO_ROOT/public_html" && pnpm run build)
+    elif command -v npm &>/dev/null; then
+        (cd "$REPO_ROOT/public_html" && npm run build)
+    else
+        log_error "pnpm or npm is required to build the documentation site"
+        exit 1
+    fi
+    log_info "Documentation site built"
+fi
+PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
+rm -rf "$PUBLIC_HTML_DEST"
+mkdir -p "$PUBLIC_HTML_DEST"
+cp -r "$REPO_ROOT/public_html/_site/"* "$PUBLIC_HTML_DEST/"
+find "$PUBLIC_HTML_DEST" -name '.DS_Store' -delete 2>/dev/null || true
+log_info "Copied public_html site"
 
 # Copy root-level project documents into /opt/velocity-report/
 # These are the files listed in README.md § Project Documents plus

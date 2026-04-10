@@ -1,16 +1,15 @@
 # v0.5.0 Release Migration
 
-Active plans:
+Active plan: [v050-backward-compatibility-shim-removal-plan.md](../../plans/v050-backward-compatibility-shim-removal-plan.md)
 
-- [v050-backward-compatibility-shim-removal-plan.md](../../plans/v050-backward-compatibility-shim-removal-plan.md)
-- [v050-tech-debt-removal-plan.md](../../plans/v050-tech-debt-removal-plan.md)
+This document is the migration guide for the v0.5.0 release, which coordinates all breaking changes and backward-compatibility shim removals into a single version bump.
 
 ## Principle
 
 One coordinated breaking-change release. All shims removed in one version
 bump. No temporary dual-format shims retained after the cut.
 
-> **Shim removal status and tech-debt tracking:** see the active plans above.
+> **Shim removal status and tech-debt tracking:** see the active plan above.
 
 ## Items Explicitly Retained
 

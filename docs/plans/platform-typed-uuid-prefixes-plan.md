@@ -1,5 +1,6 @@
 # Platform: Typed UUID Prefixes
 
+- **Status:** Proposed
 - **Target:** 0.6.0
 - **Scope:** All UUID generation across the project
 - **Layers:** Cross-cutting (platform)

@@ -4,6 +4,8 @@
 - **Author:** Architecture Team
 - **Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
 
+This document outlines the architecture changes needed to support multiple LiDAR sensor models with different UDP packet formats, while preserving the single-binary, privacy-first deployment model.
+
 ## Overview
 
 This document outlines the smallest viable architecture change to support an additional 3–10 LiDAR models with different UDP packet formats, while preserving velocity.report's privacy-first and local-only deployment model.

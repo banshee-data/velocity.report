@@ -1,11 +1,12 @@
 # Track Description Language and Description Interface
 
+- **Status:** Proposed
 - **Canonical:** [track-description-language.md](../platform/architecture/track-description-language.md)
 
 Defines the Track Description Language (TDL) for querying the fused transit database, and the description interface for browsing and aggregating transit statistics.
 
-**Layers:** L8 Analytics
-**Related:** [Product Vision](../VISION.md)
+- **Layers:** L8 Analytics
+  **Related:** [Product Vision](../VISION.md)
 
 ---
 

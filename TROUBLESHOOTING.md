@@ -12,6 +12,8 @@ This guide covers common issues, error messages, and solutions for the velocity.
 - [Sensor Hardware Issues](#sensor-hardware-issues)
 - [Network and Connectivity Issues](#network-and-connectivity-issues)
 - [Performance Issues](#performance-issues)
+- [Known Fixed Issues](#known-fixed-issues)
+- [macOS Visualiser Issues](#macos-visualiser-issues)
 - [CI/CD Issues](#cicd-issues)
 - [Getting Help](#getting-help)
 
@@ -914,6 +916,99 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 # Enable debug logging
 ./velocity-report-local -debug
 ```
+
+---
+
+## Known Fixed Issues
+
+Issues that were previously reported and have been resolved. Listed here
+so operators on older versions can recognise the symptom and upgrade.
+
+### LiDAR Background Grid — Warmup Trails (fixed January 2026)
+
+**Symptom:** False positive foreground points ("trails") appearing on walls
+and static surfaces for ~30 seconds after grid reset or service restart.
+
+**Cause:** When a cell was reset (`TimesSeenCount=0`), `RangeSpreadMeters`
+started at 0. The EMA took ~50–100 observations to learn true variance,
+during which normal surface noise exceeded the threshold.
+
+**Fix:** Warmup sensitivity scaling in `ProcessFramePolarWithMask()` — the
+closeness threshold ramps from ~4× normal at count 0 down to 1× at count 100.
+Vehicles (>1 m deviation) are still detected during warmup.
+
+**Files:** `internal/lidar/l3grid/foreground.go`, `internal/lidar/l3grid/foreground_warmup_test.go`.
+
+---
+
+## macOS Visualiser Issues
+
+### Build Errors
+
+#### "Unable to find module dependency: 'GRPCCore'"
+
+Swift Package dependencies not resolved.
+
+1. Open `VelocityVisualiser.xcodeproj` in Xcode
+2. Wait for package resolution (may take several minutes on first run)
+3. If packages don't resolve automatically:
+   - File → Packages → Resolve Package Versions
+   - File → Packages → Reset Package Caches
+4. Clean build folder (⇧⌘K) and rebuild (⌘B)
+
+#### "No such module 'SwiftProtobuf'"
+
+1. In Xcode: File → Packages → Reset Package Caches
+2. File → Packages → Resolve Package Versions
+3. Clean build folder (⇧⌘K)
+4. Build (⌘B)
+
+#### Build succeeds but app crashes on launch
+
+Metal device not available or shader compilation failure.
+
+1. Ensure running on Apple Silicon or Intel Mac with Metal support
+2. Check Console.app for `MetalRenderer` error messages
+3. Try running from Xcode to see detailed crash logs
+
+### Connection Issues
+
+#### "Server unreachable" or connection timeout
+
+Go gRPC server not running or wrong address.
+
+1. Start the server:
+   ```bash
+   go run ./cmd/tools/visualiser-server -addr localhost:50051
+   ```
+2. Verify the address in the app matches the server's `-addr` flag
+3. Check for firewall blocking localhost connections
+
+#### Connection succeeds but no frames received
+
+1. Check server logs for "StreamFrames started" message
+2. Verify the app is requesting the correct sensor ID
+3. Try restarting both server and client
+
+### Rendering Issues
+
+| Symptom                        | Cause                                        | Solution                                          |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
+| Points not visible             | Points toggle disabled or point buffer empty | Enable "P" toggle; check point count in stats     |
+| Boxes not visible              | Boxes toggle disabled or no tracked objects  | Enable "B" toggle; check server sends tracks      |
+| Trails appear corrupted        | Bug in older builds                          | Rebuild with `make build-mac`                     |
+| SwiftUI "AttributeGraph cycle" | High-frequency frame updates through SwiftUI | Informational only; does not affect functionality |
+
+### Regenerating Protobuf Stubs
+
+When the protobuf schema changes:
+
+```bash
+make proto-gen
+```
+
+Generated Swift files are placed in
+`tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`.
 
 ---
 

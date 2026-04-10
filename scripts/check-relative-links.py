@@ -94,7 +94,10 @@ def check_file(filepath: Path, root: Path) -> list[tuple[int, str, str]]:
                 continue
 
             # Resolve relative to the directory containing the source file.
-            resolved = (filepath.parent / path_part).resolve()
+            # Use the resolved (real) path so symlinked plan files evaluate
+            # links from the canonical hub-doc location, not the symlink dir.
+            real_parent = filepath.resolve().parent
+            resolved = (real_parent / path_part).resolve()
             # Guard against symlink traversal outside the repo.
             try:
                 resolved.relative_to(root.resolve())
