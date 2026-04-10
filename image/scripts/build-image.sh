@@ -84,7 +84,15 @@ if [[ -n "$SSH_KEY_PATH" && ! -f "$SSH_KEY_PATH" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Check prerequisites
+# 2. Compute build timestamp once for the entire script
+# ---------------------------------------------------------------------------
+# Every timestamp in this build (Docker args, MOTD metadata, image filename)
+# derives from this single date call to guarantee consistency.
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
+
+# ---------------------------------------------------------------------------
+# 3. Check prerequisites
 # ---------------------------------------------------------------------------
 if ! command -v docker &>/dev/null; then
     log_error "Docker is required but not installed"
@@ -148,7 +156,6 @@ if [[ "$SKIP_BINARIES" -eq 0 ]]; then
 
         VERSION=$(grep '^VERSION :=' Makefile | awk '{print $3}')
         GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
         docker build \
             --platform linux/amd64 \
@@ -173,11 +180,10 @@ fi
 # The stage script installs this to /etc/velocity-report-build.
 VERSION=$(grep '^VERSION :=' "$REPO_ROOT/Makefile" | awk '{print $3}')
 GIT_SHA_SHORT=$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
-BUILD_TIME_STAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat > "$IMAGE_DIR/stage-velocity/03-velocity-config/files/velocity-report-build" << BUILDEOF
 # velocity.report image build metadata — stamped at image creation time.
 VR_VERSION="$VERSION"
-VR_BUILD_TIME="$BUILD_TIME_STAMP"
+VR_BUILD_TIME="$BUILD_TIME"
 VR_GIT_SHA="$GIT_SHA_SHORT"
 BUILDEOF
 log_info "Build metadata stamped (v${VERSION}, ${GIT_SHA_SHORT})"
@@ -435,11 +441,10 @@ if [[ -n "$OUTPUT_IMG" ]]; then
     # Rename to match the asset naming convention before compressing.
     # Dev:     {datetime}-velocity-report-{devversion}-{sha7}.img.xz
     # The VERSION and GIT_SHA_SHORT variables were set earlier in the script.
-    IMG_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    IMG_BUILD_TS_COMPACT="${IMG_BUILD_TIME//[-:]/}"
+    # BUILD_TS_COMPACT was computed once at the top of the script.
     IMG_DEV_VERSION="${VERSION//-/.}"
     IMG_GIT_SHA_SHORT=$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
-    NAMED_IMG="$DEPLOY_DIR/${IMG_BUILD_TS_COMPACT}-velocity-report-${IMG_DEV_VERSION}-${IMG_GIT_SHA_SHORT}.img"
+    NAMED_IMG="$DEPLOY_DIR/${BUILD_TS_COMPACT}-velocity-report-${IMG_DEV_VERSION}-${IMG_GIT_SHA_SHORT}.img"
     mv "$OUTPUT_IMG" "$NAMED_IMG"
 
     log_info "Compressing image with xz..."

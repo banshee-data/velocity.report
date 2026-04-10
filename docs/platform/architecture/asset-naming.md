@@ -125,38 +125,41 @@ DEV_VERSION := $(subst -,.,$(VERSION))
 ```
 
 `BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst` — one `date`
-call, one source of truth. CI and `build-image.sh` must not compute their
-own `BUILD_TIME`.
+call per build invocation, one source of truth within that invocation.
+
+**Compute-once rule.** Each build environment computes the timestamp
+exactly once at the start of its run, then threads it to every consumer:
+
+| Environment        | Where computed                   | Propagation                                |
+| ------------------ | -------------------------------- | ------------------------------------------ |
+| `make` targets     | `Makefile` § VERSION INFORMATION | Shell variables → Go ldflags, filenames    |
+| `build-image.sh`   | Section 2 (after arg parsing)    | `$BUILD_TIME` / `$BUILD_TS_COMPACT` in env |
+| CI (`build-image`) | First step → `$GITHUB_ENV`       | All subsequent steps read from env         |
+| CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step           |
+
+Different build environments (Make vs CI vs script) may produce
+different timestamps — that is expected because they are separate runs.
+The invariant is: **within a single run, every artefact carries the
+same timestamp.**
 
 ## Boundary Diagram
 
 ```
-                Makefile (single source of truth)
-                ┌────────────────────────────────┐
-                │  VERSION, GIT_SHA, BUILD_TIME  │
-                │  GIT_SHA_SHORT, BUILD_TS_COMPACT│
-                │  DEV_VERSION                   │
-                └──────────┬─────────────────────┘
-                           │
-          ┌────────────────┼──────────────────┐
-          │                │                  │
-          ▼                ▼                  ▼
-   build-radar-*     dmg-mac[-release]   build-image
-   build-ctl-*             │                  │
-          │                │                  │
-          ▼                ▼                  ▼
-   Go binaries         .dmg file        .img.xz file
-   (dev or release)   (dev or release)  (dev or release)
-          │                │                  │
-          └────────┬───────┘                  │
-                   ▼                          ▼
-            GitHub Actions              GitHub Releases
-            (artefacts)                (release assets)
-                                              │
-                                              ▼
-                                    os-list-velocity.json
-                                      (URL + SHA-256)
+     ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+     │    make (local/CI)   │  │   build-image.sh     │  │   CI workflow step   │
+     │  BUILD_TIME computed │  │  BUILD_TIME computed  │  │  BUILD_TIME computed │
+     │  once in Makefile    │  │  once at script start │  │  once → $GITHUB_ENV  │
+     └──────────┬───────────┘  └──────────┬───────────┘  └──────────┬───────────┘
+                │                         │                         │
+     ┌──────────┼──────────┐              │              ┌──────────┼──────────┐
+     │          │          │              │              │          │          │
+     ▼          ▼          ▼              ▼              ▼          ▼          ▼
+  Go bins    .dmg     BuildInfo      .img.xz         binaries    MOTD     .img.xz
+  (ld­flags)  (name)   .swift        (name)          (Docker)   (stamp)   (name)
 ```
+
+Each column is a separate build environment. The invariant is
+one `date -u` call per environment, threaded to every consumer.
 
 ## Alternatives Considered
 
@@ -167,29 +170,29 @@ own `BUILD_TIME`.
 | Keep PascalCase for DMG            | **Accepted** | Brand identity in Finder, menu bar, About dialog                  |
 | `+sha` separator (old DMG style)   | Rejected     | `+` is reserved in URLs, causes shell escaping pain               |
 | Dots in dev pre-release            | Adopted      | Hyphens conflict with field separator; dots avoid ambiguity       |
-| Separate `date` call for timestamp | Rejected     | Two calls can disagree at minute boundary; derive via `subst`     |
+| Separate `date` call for timestamp | Rejected     | Multiple calls within one run can disagree at minute boundary     |
 | Minute precision in timestamp      | Rejected     | Two builds in the same minute collide; seconds costs 2 characters |
 
 ## Failure Registry
 
-| Failure                                  | Impact                           | Recovery                                                       |
-| ---------------------------------------- | -------------------------------- | -------------------------------------------------------------- |
-| Stale filename reference in script or CI | Build or deploy fails            | Grep audit catches all refs; CI validates                      |
-| `os-list-velocity.json` URL mismatch     | rpi-imager cannot find the image | CI computes URL from tag; test with pre-release first          |
-| DMG artefact glob mismatch in CI         | Artefact upload fails            | Update glob in `mac-ci.yml`                                    |
-| CI computes own `BUILD_TIME` out of sync | Timestamp mismatch across assets | Remove all independent `date` calls; single source in Makefile |
+| Failure                                  | Impact                           | Recovery                                                        |
+| ---------------------------------------- | -------------------------------- | --------------------------------------------------------------- |
+| Stale filename reference in script or CI | Build or deploy fails            | Grep audit catches all refs; CI validates                       |
+| `os-list-velocity.json` URL mismatch     | rpi-imager cannot find the image | CI computes URL from tag; test with pre-release first           |
+| DMG artefact glob mismatch in CI         | Artefact upload fails            | Update glob in `mac-ci.yml`                                     |
+| Duplicate `date` calls within one run    | Timestamp drift across artefacts | Compute once at start of each build environment; thread via env |
 
 ## Implementation Phases
 
-| Phase | Scope                                                | Status      |
-| ----- | ---------------------------------------------------- | ----------- |
-| 1     | Makefile variables                                   | Complete    |
-| 2     | Binary output filenames + Go upgrade logic           | Complete    |
-| 3     | DMG naming                                           | Complete    |
-| 4     | RPi image naming                                     | Complete    |
-| 5     | CI workflow and release wiring consolidation         | Not started |
-| 6     | Documentation sweep across build, release, and setup | In progress |
+| Phase | Scope                                                | Status   |
+| ----- | ---------------------------------------------------- | -------- |
+| 1     | Makefile variables                                   | Complete |
+| 2     | Binary output filenames + Go upgrade logic           | Complete |
+| 3     | DMG naming                                           | Complete |
+| 4     | RPi image naming                                     | Complete |
+| 5     | CI workflow and release wiring consolidation         | Complete |
+| 6     | Documentation sweep across build, release, and setup | Complete |
 
-Phases 1-4 are implemented in the current build tooling. The remaining work is
-CI/release consolidation and aligning all documentation with the canonical
-naming scheme.
+Phases 1–4 landed in PR #457. Phase 5 consolidated `build-image.sh` and
+`build-image.yml` to compute `BUILD_TIME` once per run. Phase 6 is this
+document update.
