@@ -4,6 +4,8 @@
 - **Branch:** `copilot/complete-phase-1-image`
 - **Components:** Go server, systemd service, image build
 
+This document describes the local TLS certificate setup for velocity.report devices, using a first-boot local CA to provide HTTPS on `.local` domains without requiring internet access or a public certificate authority.
+
 ## Problem
 
 velocity.report devices serve a web interface on the local network.

@@ -3,6 +3,8 @@
 - **Status:** Complete (Phase 3 shipped)
 - **Plan:** [agent-claude-preparedness-review-plan.md](../../plans/agent-claude-preparedness-review-plan.md) — Complete
 
+This document describes the layered knowledge architecture that supplies velocity.report's AI agents with project context whilst enforcing DRY principles across tools and platforms.
+
 ## Problem
 
 velocity.report uses seven named AI agents. The system previously suffered from three structural problems:
