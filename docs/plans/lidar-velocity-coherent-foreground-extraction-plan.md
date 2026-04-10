@@ -1468,8 +1468,3 @@ These features from the original design are deferred to future work:
 - [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md) — Workstream separation rationale
 - [`docs/plans/lidar-static-pose-alignment-plan.md`](./lidar-static-pose-alignment-plan.md) — Pose pipeline dependency
 - [`docs/plans/lidar-motion-capture-architecture-plan.md`](./lidar-motion-capture-architecture-plan.md) — Motion capture architecture
-
----
-
-**Document Status:** Living design document and implementation checklist
-**Implementation Status:** Core phases 1–5 prototyped with simplifications; Phases 0, 6–7 not started

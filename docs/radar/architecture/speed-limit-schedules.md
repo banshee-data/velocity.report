@@ -3,6 +3,7 @@
 - **Status:** Design Specification (Not Implemented)
 - **Author:** Ictinus (Product Architect)
 - **Issue:** Time-based speed limit schedules for sites
+- **Future Work:** Ready for implementation when prioritised
 
 Design specification for associating multiple speed limits with a site that vary by time of day and day of week, enabling accurate compliance reporting for locations such as school zones and work zones.
 
@@ -1170,9 +1171,3 @@ CREATE TABLE IF NOT EXISTS site (
 - **School Zone:** Area with reduced speed limits during school hours
 - **Cascade Delete:** Automatic deletion of child records when parent is deleted
 - **CRUD:** Create, Read, Update, Delete operations
-
----
-
-**Document Version:** 1.0
-**Implementation Status:** ❌ Not Implemented (Design Specification Only)
-**Future Work Status:** 📋 Ready for implementation when prioritised

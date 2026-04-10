@@ -2,6 +2,7 @@
 
 - **Status:** Implemented
 - **Author:** Ictinus (Product Architecture Agent)
+- **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
 
@@ -186,8 +187,3 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 1.  Users manually record when they moved the sensor.
 2.  The effective time of a configuration change is known to the second.
 3.  For "Report Comparison", users want to compare _Corrected_ speeds (true velocity), not Raw speeds (what the sensor saw).
-
----
-
-**Document Version:** 3.0 (Implemented)
-**Remaining:** Delete endpoint, report angle annotation, speed limit field migration
