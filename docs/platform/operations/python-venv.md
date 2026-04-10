@@ -1,6 +1,6 @@
 # Python Virtual Environment — Single Shared `.venv`
 
-**Status:** Complete
+- **Status:** Complete
 
 This document records the shared Python virtual environment setup used by all Python tools in the repository, consolidated into a single `.venv/` at the project root.
 

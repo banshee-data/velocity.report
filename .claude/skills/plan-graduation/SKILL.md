@@ -77,10 +77,10 @@ cat docs/plans/<plan-file>.md | head -5
 
 The relative path must go from `docs/plans/` to the hub doc location. Common patterns:
 
-- `../lidar/architecture/topic.md` — LiDAR architecture hub doc
-- `../platform/operations/topic.md` — Platform operations hub doc
-- `../platform/architecture/topic.md` — Platform architecture hub doc
-- `../ui/topic.md` — UI hub doc
+- `../lidar/architecture/topic.md` — LiDAR architecture hub doc <!-- link-ignore -->
+- `../platform/operations/topic.md` — Platform operations hub doc <!-- link-ignore -->
+- `../platform/architecture/topic.md` — Platform architecture hub doc <!-- link-ignore -->
+- `../ui/topic.md` — UI hub doc <!-- link-ignore -->
 
 ### 5. Verify plan hygiene
 

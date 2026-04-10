@@ -205,17 +205,16 @@ Correct action:
 
 Three operational docs under `docs/lidar/operations/` describe PCAP tools at varying stages:
 
-| File                               | Actual status                                                                                     |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `pcap-analysis-mode.md`            | Implemented — correct as ops doc                                                                  |
-| `pcap-split-tool.md`               | Design document ("Executive Summary" structure) — should be a plan or be promoted to architecture |
-| `pcap-ground-plane-export-tool.md` | Status: Planning — is effectively a plan living in ops/                                           |
+| File                               | Actual status                                              |
+| ---------------------------------- | ---------------------------------------------------------- |
+| `pcap-analysis-mode.md`            | Implemented — correct as ops doc                           |
+| `pcap-split-tool.md`               | Consolidated into `pcap-analysis-mode.md` §PCAP Split Tool |
+| `pcap-ground-plane-export-tool.md` | Status: Planning — is effectively a plan living in ops/    |
 
 The `pcap-ground-plane-export-tool.md` belongs in `docs/plans/` (it is forward-looking design),
 or its planning content should move to `pcap-motion-detection-and-split-plan.md` and the ops
-file should describe only what is implemented. The `pcap-split-tool.md` design doc should move
-to `docs/lidar/architecture/pcap-split-tool.md` once the tool is built, or to a plan while still
-in design.
+file should describe only what is implemented. The `pcap-split-tool.md` content has been
+consolidated into the PCAP Split Tool section of `pcap-analysis-mode.md`.
 
 #### 4.3 Two convergence experiment results — minor fragmentation
 
@@ -372,7 +371,7 @@ review surface.
 
 #### 1a. Fix gate violations (≈ 1 hour)
 
-- [ ] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`) <!-- link-ignore -->
+- [ ] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`)
 - [ ] `domain-tag-vocabulary-plan.md` — change Canonical from BACKLOG.md to either `lidar/architecture/label-vocabulary.md` or a new stub `platform/architecture/domain-tag-vocabulary.md` (`S`)
 - [ ] `error-surface-voice-audit-plan.md` — create stub `docs/platform/operations/error-surface-voice.md` and set as Canonical (`S`)
 - [ ] `lidar-replay-case-terminology-alignment-plan.md` — add `- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)` (`S`)
@@ -440,7 +439,7 @@ remove the line entirely.
 #### 2b. Resolve misclassified PCAP ops docs (≈ 1 hour)
 
 - [ ] `pcap-ground-plane-export-tool.md` — move planning-only content to `pcap-motion-detection-and-split-plan.md` §Scope or a new scope item; stub or delete the ops file if no implementation exists yet (`M`)
-- [ ] `pcap-split-tool.md` — determine if the tool is implemented: if yes, revise as a true ops guide; if no, move to `docs/plans/` or merge into `pcap-motion-detection-and-split-plan.md` (`M`)
+- [x] `pcap-split-tool.md` — consolidated into `pcap-analysis-mode.md` §PCAP Split Tool; standalone file deleted
 
 #### 2c. Relocate `tailscale-remote-access-guide.md` (≈ 45 minutes)
 

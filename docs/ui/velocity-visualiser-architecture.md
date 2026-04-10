@@ -597,12 +597,12 @@ For static LiDAR deployments, the scene decomposes into background (97%,
 rarely changes) and foreground (3%, every frame). The implemented solution
 sends a background snapshot every 30 s and foreground-only points per frame.
 
-| Metric              | Before            | After (M3.5)    |
-| ------------------- | ----------------- | --------------- |
-| Bandwidth (Mbps)    | 78–80             | ~3.25           |
-| avg send time (ms)  | 1–600             | <10             |
-| Dropped frames/min  | 19+               | ~0              |
-| FG points/frame     | 35–70k (all)      | 1–2k (FG only)  |
+| Metric             | Before       | After (M3.5)   |
+| ------------------ | ------------ | -------------- |
+| Bandwidth (Mbps)   | 78–80        | ~3.25          |
+| avg send time (ms) | 1–600        | <10            |
+| Dropped frames/min | 19+          | ~0             |
+| FG points/frame    | 35–70k (all) | 1–2k (FG only) |
 
 ### Implementation Priority (deferred items)
 

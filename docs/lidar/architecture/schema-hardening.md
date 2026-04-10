@@ -1,6 +1,6 @@
 # Pre-v0.5.0 Schema Hardening
 
-**Status:** Complete
+- **Status:** Complete
 
 This document records the pre-v0.5.0 schema cleanup that enabled foreign keys, replaced sentinel values with proper nullability, and migrated annotations to the replay-owned table.
 

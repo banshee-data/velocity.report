@@ -10,7 +10,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 
 ### v0.5.1 - Raspberry Pi Image (051)
 
-- Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 - [#445] Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 
 ### v0.5.2 - Housekeeping + Cleanup (052)
@@ -266,3 +265,4 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#436] PDF map quality parity with web: the SVG map stored in `site.map_svg_data` is rendered at a fixed 600×400 viewBox from Overpass API vector data, but the web UI shows raster tiles from OSM at zoom 15 with far more detail; raise SVG viewBox to 1200×800, increase road stroke widths proportionally, add Overpass queries for missing feature types (amenity labels, place names, POI markers), and match tile-layer detail at the configured zoom level; the marker overlay and SVG→PDF conversion path are already vector-clean: `S`
 - [#436] Stale localStorage date range: `reportSettings` persists absolute `dateRange.from`/`dateRange.to` ISO strings with no TTL; returning after days shows old dates; add freshness check or persist relative period instead of absolute timestamps: `S`
 - [#447] Agent knowledge architecture (all phases): `../TENETS.md`, `.github/knowledge/` shared modules, condensed Copilot agent files, `CLAUDE.md`, `.claude/agents/` (7 Claude-native personas), `.claude/skills/` (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
+- [#457] Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`

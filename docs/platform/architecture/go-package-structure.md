@@ -4,7 +4,6 @@ Import boundaries, file-size discipline, and structural hygiene for the Go codeb
 
 Active plan: [go-codebase-structural-hygiene-plan.md](../../plans/go-codebase-structural-hygiene-plan.md)
 
-
 ## Import Boundary: `database/sql`
 
 Non-test imports of `database/sql` are restricted to `internal/db/` and

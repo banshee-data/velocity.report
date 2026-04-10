@@ -992,12 +992,12 @@ Go gRPC server not running or wrong address.
 
 ### Rendering Issues
 
-| Symptom                            | Cause                                                | Solution                                           |
-| ---------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| Points not visible                 | Points toggle disabled or point buffer empty         | Enable "P" toggle; check point count in stats      |
-| Boxes not visible                  | Boxes toggle disabled or no tracked objects          | Enable "B" toggle; check server sends tracks       |
-| Trails appear corrupted            | Bug in older builds                                  | Rebuild with `make build-mac`                      |
-| SwiftUI "AttributeGraph cycle"     | High-frequency frame updates through SwiftUI         | Informational only; does not affect functionality |
+| Symptom                        | Cause                                        | Solution                                          |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
+| Points not visible             | Points toggle disabled or point buffer empty | Enable "P" toggle; check point count in stats     |
+| Boxes not visible              | Boxes toggle disabled or no tracked objects  | Enable "B" toggle; check server sends tracks      |
+| Trails appear corrupted        | Bug in older builds                          | Rebuild with `make build-mac`                     |
+| SwiftUI "AttributeGraph cycle" | High-frequency frame updates through SwiftUI | Informational only; does not affect functionality |
 
 ### Regenerating Protobuf Stubs
 

@@ -23,10 +23,10 @@ Development (nightly) assets include a timestamp and short SHA:
 
 ## Product Names
 
-| Product              | Asset name             | Case rule  |
-| -------------------- | ---------------------- | ---------- |
-| Server               | `velocity-report`      | kebab-case |
-| macOS Visualiser     | `VelocityVisualiser`   | PascalCase |
-| Management CLI       | `velocity-ctl`         | kebab-case |
+| Product          | Asset name           | Case rule  |
+| ---------------- | -------------------- | ---------- |
+| Server           | `velocity-report`    | kebab-case |
+| macOS Visualiser | `VelocityVisualiser` | PascalCase |
+| Management CLI   | `velocity-ctl`       | kebab-case |
 
 Active plan: [asset-naming-plan.md](../../plans/asset-naming-plan.md)
