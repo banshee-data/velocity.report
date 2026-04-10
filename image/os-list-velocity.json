@@ -33,7 +33,7 @@
   "os_list": [
     {
       "name": "velocity.report",
-      "description": "Privacy-first traffic monitoring for neighbourhood change-makers. Radar, PDF reporting, and web dashboard. Important: in Raspberry Pi Imager OS Customisation, leave the username as 'velocity' (default), the system service runs under this account.",
+      "description": "Privacy-first traffic monitoring for neighbourhood change-makers. Radar, PDF reporting, and web dashboard.",
       "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre1/2026-04-08-093248-velocity-report.img.xz",
       "extract_size": 2625634304,
       "extract_sha256": "f6355be83d780be546d1d69e8d13c10ec3c79d0b5210de31116873f880ba812a",

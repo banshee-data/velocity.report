@@ -1,7 +1,7 @@
 IMG_NAME=velocity-report
 RELEASE=bookworm
 TARGET_HOSTNAME=velocity
-FIRST_USER_NAME=velocity
+FIRST_USER_NAME=pi
 FIRST_USER_PASS=report
 DISABLE_FIRST_BOOT_USER_RENAME=1
 # SSH enabled for initial setup. The device is local-network-only (no

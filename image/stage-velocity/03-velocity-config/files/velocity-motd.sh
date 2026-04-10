@@ -9,7 +9,6 @@
 [ -t 0 ] || return 0
 
 DEFAULT_PASS="report"
-VELOCITY_USER="velocity"
 
 # Build metadata stamped at image creation time.
 BUILD_INFO_FILE="/etc/velocity-report-build"
@@ -24,7 +23,7 @@ VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
 # --- Check whether the default password is still in use ----------------------
 #
 # Read the stored hash from shadow via sudo and compare against the
-# default password.  The velocity user has a NOPASSWD sudoers entry
+# default password.  The login user has a NOPASSWD sudoers entry
 # for getent (installed by stage-velocity/03-velocity-config).
 #
 # If sudo or getent fails, assume the password is STILL default and
@@ -32,7 +31,7 @@ VR_GIT_SHA="${VR_GIT_SHA:-unknown}"
 
 password_is_default() {
     local stored
-    stored=$(sudo -n getent shadow "$VELOCITY_USER" 2>/dev/null | cut -d: -f2)
+    stored=$(sudo -n getent shadow "$USER" 2>/dev/null | cut -d: -f2)
     [ -z "$stored" ] && return 0   # Cannot verify — assume default
 
     python3 -c "
