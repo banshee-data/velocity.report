@@ -173,7 +173,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.1-pre2
+VERSION := 0.5.1-pre3
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
