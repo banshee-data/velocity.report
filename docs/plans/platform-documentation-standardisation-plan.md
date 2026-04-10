@@ -1,6 +1,6 @@
 # Documentation Standardisation Plan
 
-- **Status:** In Progress — metadata and structure rules enforced, opening paragraph gap remains
+- **Status:** In Progress — metadata and structure rules enforced, opening paragraphs complete
 - **Layers:** Cross-cutting (documentation)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
@@ -18,7 +18,7 @@ Controlled process to stabilise documentation structure and metadata quality by 
 - [x] CI integration — weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode
 - [x] Makefile integration — `lint-docs` (check) and `format-docs` (fix) targets
 - [x] Standard documented — `coding-standards.md` § Documentation Metadata
-- [ ] Opening paragraph rule — ~40 of ~123 docs still missing a narrative opening paragraph
+- [x] Opening paragraph rule — 58 docs updated with narrative opening paragraphs (DRY audit Strategy C)
 - [ ] Opening paragraph validation gate — no automated checker exists yet
 - [ ] Placeholder/filename-echo detector — §7.3 not implemented
 - [ ] Link integrity gate in CI — §7.1 references `/tmp/check_docs_links.sh` (not permanent)
