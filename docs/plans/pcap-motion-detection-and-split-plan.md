@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
 - **Scope:** add a `--motion` analysis mode to pcap-analyse and implement the pcap-split tool from existing design, shipping movement detection as a two-phase capability
-- **Related:** [pcap-split design doc](../lidar/operations/pcap-split-tool.md), [settling time optimisation](../lidar/operations/settling-time-optimisation.md), [adaptive region parameters](../lidar/operations/adaptive-region-parameters.md)
+- **Related:** [pcap-split design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned), [settling time optimisation](../lidar/operations/settling-time-optimisation.md), [adaptive region parameters](../lidar/operations/adaptive-region-parameters.md)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
 ## 1. Problem
@@ -20,7 +20,7 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 | Region classification       | `internal/lidar/l3grid/background_region.go`  | Implemented — stable/variable/volatile regions after settling      |
 | Scene hash matching         | `internal/lidar/l3grid/background.go`         | Implemented — SHA256 hash for location fingerprinting              |
 | pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented — full pipeline with stats, benchmark, CSV/JSON export |
-| pcap-split reference design | `docs/lidar/operations/pcap-split-tool.md`    | Design only — ~1,200-line spec, not implemented                    |
+| pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                   |
 
 ### Gap Analysis
 
@@ -69,7 +69,7 @@ These are read-only accessors over existing grid data. No state changes, no new 
 
 **Phase 3 — pcap-split Tool** (`M`)
 
-Implement `cmd/tools/pcap-split/` per the [existing design doc](../lidar/operations/pcap-split-tool.md):
+Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned):
 
 - `internal/lidar/pcapsplit/analyser.go` — settling analyser implementing `FrameBuilder`, state machine, metric tracking
 - `internal/lidar/pcapsplit/writer.go` — segment PCAP writer with sequential naming and packet buffering
