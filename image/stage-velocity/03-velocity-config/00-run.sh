@@ -25,13 +25,13 @@ mkdir -p /opt/velocity-report/config
 # backslash continuations.
 #
 # Commands:
-#   getent shadow *         — MOTD default-password check
+#   getent shadow pi        — MOTD default-password check
 #   systemctl *             — shell aliases (start/stop/restart)
 #   velocity-ctl            — on-device management tool (runs as root)
 #   velocity-report migrate — database migrations invoked by velocity-ctl
 cat > /etc/sudoers.d/020_velocity-nopasswd <<'SUDOEOF'
 pi ALL=(root) NOPASSWD: \
-    /usr/bin/getent shadow *, \
+    /usr/bin/getent shadow pi, \
     /usr/bin/systemctl start velocity-report.service, \
     /usr/bin/systemctl stop velocity-report.service, \
     /usr/bin/systemctl restart velocity-report.service, \
@@ -133,7 +133,9 @@ if [ -f files/authorized_keys ]; then
     install -d -m 700 "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh"
     install -m 600 files/authorized_keys \
         "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh/authorized_keys"
-    chown -R 1000:1000 "${ROOTFS_DIR}/home/${FIRST_USER_NAME}/.ssh"
+    on_chroot <<CHEOF
+chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.ssh"
+CHEOF
 fi
 
 # Configure UART and SPI overlays for Waveshare RS232/485 HAT (SC16IS752)
