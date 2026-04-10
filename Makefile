@@ -10,8 +10,7 @@ help:
 	@echo "Pattern: <action>-<subsystem>[-<variant>]"
 	@echo ""
 	@echo "BUILD TARGETS (Go cross-compilation):"
-	@echo "  build-radar-linux    Build for Linux ARM64 (no pcap)"
-	@echo "  build-radar-linux-pcap Build for Linux ARM64 with pcap"
+	@echo "  build-radar-linux    Build for Linux ARM64 with pcap"
 	@echo "  build-radar-mac      Build for macOS ARM64 with pcap"
 	@echo "  build-radar-mac-intel Build for macOS AMD64 with pcap"
 	@echo "  build-radar-local    Build for local development with pcap"
@@ -176,7 +175,10 @@ help:
 # =============================================================================
 VERSION := 0.5.1-pre2
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
+DEV_VERSION := $(subst -,.,$(VERSION))
 LDFLAGS := $(EXTRA_LDFLAGS) -X 'github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=$(GIT_SHA)' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=$(BUILD_TIME)'
 WEB_DIR = web
 WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
@@ -187,19 +189,15 @@ WEB_CACHE_SCRIPT = ./scripts/ensure-shared-web-node-modules.sh
 
 build-radar-linux:
 	@./scripts/ensure-web-stub.sh
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
-
-build-radar-linux-pcap:
-	@./scripts/ensure-web-stub.sh
-	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-linux-arm64 ./cmd/radar
+	GOOS=linux GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-mac:
 	@./scripts/ensure-web-stub.sh
-	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-arm64 ./cmd/radar
+	GOOS=darwin GOARCH=arm64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-arm64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-mac-intel:
 	@./scripts/ensure-web-stub.sh
-	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o velocity-report-mac-amd64 ./cmd/radar
+	GOOS=darwin GOARCH=amd64 go build -tags=pcap -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-report-$(DEV_VERSION)-darwin-amd64-$(GIT_SHA_SHORT) ./cmd/radar
 
 build-radar-local:
 	@./scripts/ensure-web-stub.sh
@@ -223,7 +221,7 @@ build-ctl:
 	go build -ldflags "$(LDFLAGS)" -o velocity-ctl ./cmd/velocity-ctl
 
 build-ctl-linux:
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-ctl-linux-arm64 ./cmd/velocity-ctl
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-ctl-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity-ctl
 
 # Build a Raspberry Pi image using pi-gen (requires Docker)
 # Compiles ARM64 Go binaries with pcap support inside a Docker container,
@@ -330,9 +328,8 @@ MAC_CONFIG ?= Release
 VISUALISER_BUILD_DIR = $(VISUALISER_DIR)/build
 VISUALISER_APP = $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/VelocityVisualiser.app
 VISUALISER_BIN = $(VISUALISER_APP)/Contents/MacOS/VelocityVisualiser
-GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
-DMG_SUFFIX ?= +$(GIT_SHA_SHORT)
-VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg
+VISUALISER_DMG = $(VISUALISER_BUILD_DIR)/$(BUILD_TS_COMPACT)-VelocityVisualiser-$(DEV_VERSION)-$(GIT_SHA_SHORT).dmg
+VISUALISER_DMG_RELEASE = $(VISUALISER_BUILD_DIR)/VelocityVisualiser-$(VERSION).dmg
 
 .PHONY: build-mac clean-mac run-mac dev-mac dmg-mac dmg-mac-release
 
@@ -407,12 +404,15 @@ dev-mac:
 
 dmg-mac:
 	@$(MAKE) build-mac
-	@echo "Creating DMG: VelocityVisualiser-$(VERSION)$(DMG_SUFFIX).dmg..."
-	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(VERSION)$(DMG_SUFFIX)" \
+	@echo "Creating DMG: $(notdir $(VISUALISER_DMG))..."
+	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG)" "VelocityVisualiser $(DEV_VERSION)" \
 		"$(VISUALISER_DIR)/Getting Started.txt"
 
 dmg-mac-release:
-	@$(MAKE) dmg-mac DMG_SUFFIX=
+	@$(MAKE) build-mac
+	@echo "Creating DMG: $(notdir $(VISUALISER_DMG_RELEASE))..."
+	@scripts/create-dmg.sh "$(VISUALISER_APP)" "$(VISUALISER_DMG_RELEASE)" "VelocityVisualiser $(VERSION)" \
+		"$(VISUALISER_DIR)/Getting Started.txt"
 
 # =============================================================================
 # PROTOBUF CODE GENERATION

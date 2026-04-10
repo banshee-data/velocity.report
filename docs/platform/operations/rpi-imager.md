@@ -80,7 +80,7 @@ sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
 remote execution). The `upgrade` subcommand:
 
 1. Queries GitHub Releases API for the latest version
-2. Downloads the `velocity-report-linux-arm64` asset
+2. Downloads the `velocity-report-{version}-linux-arm64` asset
 3. Verifies SHA-256 checksum
 4. Backs up current binary and database
 5. Stops the service, installs the new binary, runs DB migrations

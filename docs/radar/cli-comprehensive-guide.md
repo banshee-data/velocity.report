@@ -318,8 +318,7 @@ backfill_ring_elevations --db sensor_data.db
 
 **Build Targets (15):**
 
-- `build-radar-linux` - Cross-compile for ARM64 Linux (Raspberry Pi)
-- `build-radar-linux-pcap` - Linux build with libpcap support
+- `build-radar-linux` - Cross-compile for ARM64 Linux (Raspberry Pi) with pcap
 - `build-radar-mac` - Build for macOS ARM64
 - `build-radar-mac-intel` - Build for macOS Intel
 - `build-radar-local` - Local development build with pcap
@@ -427,7 +426,7 @@ open http://localhost:8080/app/
 make build-radar-linux
 
 # Deploy to remote Pi (using SSH config)
-deploy install --target mypi --binary ./velocity-report-linux-arm64
+deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64
 
 # Check status
 deploy status --target mypi
@@ -658,7 +657,7 @@ velocity-report --listen :8080 --db-path /var/lib/velocity-report/sensor_data.db
 
 # Separate binaries for utilities
 sweep --mode multi --output results.csv
-deploy install --target mypi --binary ./velocity-report-linux-arm64
+deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64
 transit-backfill --db sensor_data.db --start 2024-01-01T00:00:00Z --end 2024-01-31T23:59:59Z
 ```
 
@@ -673,7 +672,7 @@ velocity-report serve --listen :8080 --db-path /var/lib/velocity-report/sensor_d
 
 # Unified tools binary
 velocity-tools sweep --mode multi --output results.csv
-velocity-tools deploy install --target mypi --binary ./velocity-report-linux-arm64
+velocity-tools deploy install --target mypi --binary ./velocity-report-{version}-linux-arm64
 velocity-tools backfill-transits --start 2024-01-01T00:00:00Z --end 2024-01-31T23:59:59Z
 ```
 
@@ -1112,7 +1111,7 @@ velocity-report config get server.listen --file config.toml
 ```bash
 velocity-report deploy install \
   --target mypi \
-  --binary velocity-report-linux-arm64 \
+  --binary velocity-report-{version}-linux-arm64 \
   --config prod-config.toml
 ```
 
@@ -1121,7 +1120,7 @@ velocity-report deploy install \
 ```bash
 velocity-report deploy upgrade \
   --target mypi \
-  --binary velocity-report-linux-arm64 \
+  --binary velocity-report-{version}-linux-arm64 \
   --backup
 ```
 

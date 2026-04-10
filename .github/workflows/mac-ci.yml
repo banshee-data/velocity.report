@@ -155,5 +155,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VelocityVisualiser-dmg
-          path: tools/visualiser-macos/build/VelocityVisualiser-*.dmg
+          path: tools/visualiser-macos/build/*VelocityVisualiser-*.dmg
           retention-days: 90

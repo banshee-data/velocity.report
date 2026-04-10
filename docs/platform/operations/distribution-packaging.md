@@ -197,7 +197,7 @@ sudo systemctl start velocity-report
 ### Developers — Minor
 
 - `cmd/radar/` moves to `cmd/velocity-report/`
-- Binary name unchanged: `velocity-report-linux-arm64`
+- Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only `cmd/` structure changes)
 
 ### Advanced Users

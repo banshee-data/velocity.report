@@ -187,7 +187,7 @@ remote execution). The `upgrade` subcommand performs the full sequence:
 
 1. **Check** — query GitHub Releases API (`api.github.com`) for the latest
    release of `banshee-data/velocity.report`; compare to installed version
-2. **Download** — fetch the `velocity-report-linux-arm64` asset from the
+2. **Download** — fetch the `velocity-report-{version}-linux-arm64` asset from the
    GitHub Release; compute SHA-256 of downloaded bytes and print it for
    operator verification (automatic checksum verification against a published
    `SHA256SUMS` file is deferred to v0.6.0)
@@ -224,7 +224,7 @@ The upgrade subcommand includes:
 - GitHub release checking: HTTP GET to
   `https://api.github.com/repos/banshee-data/velocity.report/releases/latest`,
   parse JSON for `tag_name` and asset URLs
-- Binary download: HTTP GET the `velocity-report-linux-arm64` asset URL,
+- Binary download: HTTP GET the `velocity-report-{version}-linux-arm64` asset URL,
   write to temp file, compute and print SHA-256 (automatic verification
   against a published `SHA256SUMS` asset is deferred to v0.6.0)
 - `--binary` optional: if omitted, auto-download from GitHub
@@ -386,8 +386,8 @@ jobs:
         with:
           name: velocity-binaries
           path: |
-            velocity-report-linux-arm64
-            velocity-ctl-linux-arm64
+            velocity-report-*-linux-arm64*
+            velocity-ctl-*-linux-arm64*
             tools/pdf-generator/dist/*.whl
 
   build-image:

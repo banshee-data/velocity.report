@@ -52,8 +52,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 ## Build Targets (Go Cross-Compilation)
 
-- `build-radar-linux`: Build for Linux ARM64 (no pcap)
-- `build-radar-linux-pcap`: Build for Linux ARM64 with pcap
+- `build-radar-linux`: Build for Linux ARM64 with pcap
 - `build-radar-mac`: Build for macOS ARM64 with pcap
 - `build-radar-mac-intel`: Build for macOS AMD64 with pcap
 - `build-radar-local`: Build for local development with pcap

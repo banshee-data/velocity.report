@@ -91,18 +91,18 @@ To package VelocityVisualiser.app into a versioned DMG for distribution:
 ```bash
 # From repository root — builds the app then creates the DMG
 make build-mac
-make dmg-mac            # dev: VelocityVisualiser-<VERSION>+<SHA>.dmg
+make dmg-mac            # dev: <DATETIME>-VelocityVisualiser-<DEV_VERSION>-<SHA>.dmg
 make dmg-mac-release    # release: VelocityVisualiser-<VERSION>.dmg
 ```
 
-By default `dmg-mac` appends the short git SHA to the filename (e.g.
-`VelocityVisualiser-0.5.0-pre14+a1b2c3d.dmg`) so that development builds
-are easily distinguishable. Use `dmg-mac-release` (or pass `DMG_SUFFIX=`)
-to produce a clean release filename without the SHA suffix.
+By default `dmg-mac` prepends a UTC timestamp and appends the short git SHA
+to the filename (e.g. `20260407T142345Z-VelocityVisualiser-0.5.1.pre1-a1b2c3d.dmg`)
+so that development builds are sortable and traceable. Use `dmg-mac-release`
+to produce a clean release filename without the date or SHA.
 
 The output DMG is written to `tools/visualiser-macos/build/`:
 
-- `make dmg-mac` → `VelocityVisualiser-<VERSION>+<SHA>.dmg`
+- `make dmg-mac` → `<DATETIME>-VelocityVisualiser-<DEV_VERSION>-<SHA>.dmg`
 - `make dmg-mac-release` → `VelocityVisualiser-<VERSION>.dmg`
 
 The DMG opens in a small Finder window with VelocityVisualiser.app on the

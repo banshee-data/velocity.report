@@ -48,7 +48,7 @@ make test      # Run all test suites
 | Python   | `make format-python && make lint-python && make test-python`               |
 | Web      | `make format-web && make lint-web && make test-web && make build-web`      |
 
-If the Go build fails due to missing pcap: use `make build-radar-linux` (no pcap support).
+If the Go build fails due to missing pcap on the cross-compile host: install `libpcap-dev` (Linux) or `brew install libpcap` (macOS), then use `make build-radar-linux`.
 
 For full build setup, dev servers, and testing: see [knowledge/build-and-test.md](knowledge/build-and-test.md).
 

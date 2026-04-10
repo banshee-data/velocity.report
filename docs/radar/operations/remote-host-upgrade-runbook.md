@@ -50,7 +50,7 @@ Decide these before you start:
 - Whether `/opt/velocity-report` also needs to move to `TARGET_REF` so PDF
   generation stays in sync with the Go binary.
 
-Preferred source for `NEW_BIN`: a prebuilt `velocity-report-linux-arm64`
+Preferred source for `NEW_BIN`: a prebuilt `velocity-report-{version}-linux-arm64`
 artifact already copied to the host. Building on-host is a fallback only.
 
 ## Reconnaissance
@@ -184,18 +184,26 @@ fi
 # Cross-compile for Raspberry Pi
 make build-radar-linux
 
-# Sanity-check the artifact
-file velocity-report-linux-arm64
-ls -lh velocity-report-linux-arm64
+# Sanity-check the artifact (dev builds have datetime prefix + SHA suffix)
+BINARY=$(ls -t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+if [ -z "$BINARY" ]; then
+  echo "No matching linux-arm64 velocity-report binary found after build."
+  exit 1
+fi
+file "$BINARY"
+ls -lh "$BINARY"
 ```
 
-The output binary is `velocity-report-linux-arm64` in the repo root.
+The local output binary in the repo root is a dev-style versioned file such as
+`20260407T142345Z-velocity-report-0.5.1.pre1-linux-arm64-a1b2c3d`.
+A clean filename such as `velocity-report-0.5.1-linux-arm64` refers to a
+release asset, not the local output of `make build-radar-linux`.
 
 ### Transfer to host
 
 ```bash
 ssh radar.local 'mkdir -p /tmp/vr'
-scp velocity-report-linux-arm64 radar.local:/tmp/vr/
+scp "$BINARY" radar.local:/tmp/vr/
 ```
 
 ## Prepare the New Binary (on the host)
@@ -203,7 +211,23 @@ scp velocity-report-linux-arm64 radar.local:/tmp/vr/
 Paste this on the host to verify the transferred artifact:
 
 ```bash
-export NEW_BIN=/tmp/vr/velocity-report-linux-arm64
+shopt -s nullglob
+candidates=(/tmp/vr/*velocity-report*)
+files=()
+for candidate in "${candidates[@]}"; do
+  if [ -f "$candidate" ]; then
+    files+=("$candidate")
+  fi
+done
+
+if [ "${#files[@]}" -ne 1 ]; then
+  echo "Expected exactly one transferred velocity-report binary in /tmp/vr, found ${#files[@]}." >&2
+  printf 'Matches:\n' >&2
+  printf '  %s\n' "${files[@]}" >&2
+  exit 1
+fi
+
+export NEW_BIN="${files[0]}"
 chmod +x "$NEW_BIN"
 file "$NEW_BIN"
 "$NEW_BIN" --version
@@ -231,7 +255,12 @@ if grep -q "Web Frontend Not Built" web/build/index.html; then
   exit 1
 fi
 make build-radar-linux
-export NEW_BIN="$PWD/velocity-report-linux-arm64"
+BINARY=$(ls -1t *-velocity-report-*-linux-arm64-* 2>/dev/null | head -1)
+if [ -z "$BINARY" ]; then
+  echo "No matching linux-arm64 velocity-report binary found after build."
+  exit 1
+fi
+export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
 
@@ -407,7 +436,8 @@ Success means:
 Remove the transferred binary and any stray database files:
 
 ```bash
-rm -f /tmp/vr/velocity-report-linux-arm64
+rm -f /tmp/vr/velocity-report-*
+rm -f /tmp/vr/*-velocity-report-*
 rmdir /tmp/vr 2>/dev/null || true
 ls /opt/velocity-report/sensor_data.db* 2>/dev/null && echo "STRAY DB — delete it" || echo "clean"
 ```
