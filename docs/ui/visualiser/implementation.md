@@ -337,7 +337,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - [x] Occlusion handling (confirmed tracks coast 8 frames, covariance inflation)
 - [x] Classification hooks (`internal/lidar/features.go`, periodic re-classification)
 
-See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
+See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
 
 **Track A (Visualiser)**:
 
@@ -395,7 +395,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] JSON export endpoint for benchmark and classification research tooling
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
@@ -689,5 +689,5 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 - [velocity-visualiser-architecture.md](./architecture.md) – System architecture (includes problem statement and performance notes)
 - [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)
-- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
-- [web-frontend-background-debug-surfaces-plan.md](../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
+- [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [web-frontend-background-debug-surfaces-plan.md](../../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope

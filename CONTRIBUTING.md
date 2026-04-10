@@ -151,9 +151,9 @@ Read next:
   users, and reporting outcomes the UI needs to support
 - [tools/pdf-generator/README.md](tools/pdf-generator/README.md):
   report surface, chart pipeline, and configuration model
-- [docs/ui/velocity-visualiser-architecture.md](docs/ui/velocity-visualiser-architecture.md):
+- [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
   concrete workflows, UX targets, and architecture for the LiDAR visualiser
-- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md):
+- [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
 ### Technical Writer
@@ -298,9 +298,9 @@ Read next:
   PDF report pipeline, chart builders, and configuration
 - [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md):
   macOS visualiser setup, build, and architecture
-- [docs/ui/velocity-visualiser-architecture.md](docs/ui/velocity-visualiser-architecture.md):
+- [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
   concrete workflows and UX targets
-- [docs/ui/velocity-visualiser-implementation.md](docs/ui/velocity-visualiser-implementation.md):
+- [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
 ## Themes of Work

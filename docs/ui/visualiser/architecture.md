@@ -8,11 +8,11 @@ This document describes the system architecture for the macOS LiDAR visualiser a
 
 This architecture aligns with industry-standard LiDAR perception formats:
 
-| Standard                        | Implementation                           | Reference                                                                                      |
-| ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../plans/lidar-av-lidar-integration-plan.md)              |
-| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../plans/lidar-static-pose-alignment-plan.md)            |
-| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md) |
+| Standard                        | Implementation                           | Reference                                                                                         |
+| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)              |
+| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)            |
+| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../../lidar/architecture/lidar-background-grid-standards.md) |
 
 The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
 
@@ -577,7 +577,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 - [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)
 - [velocity-visualiser-implementation.md](./implementation.md) – Milestones and tasks
-- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 
 ## 10. Performance Investigation — Key Results
 
