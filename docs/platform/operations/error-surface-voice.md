@@ -15,5 +15,3 @@ web frontend, Python tools, and shell scripts.
 The voice audit covers every user-visible string: HTTP error responses,
 CLI `log.Fatalf` messages, web UI toast/error components, PDF generator
 warnings, and shell script output.
-
-Active plan: [error-surface-voice-audit-plan.md](../../plans/error-surface-voice-audit-plan.md)

@@ -1,9 +1,6 @@
 # Schema Simplification — Migrations 000030 + 000031
 
-Active plan: [schema-simplification-migration-030-plan.md](../../plans/schema-simplification-migration-030-plan.md)
-
-**Status:** Implemented — migrations 000030 and 000031 written, Go code, web
-frontend, and tests updated in PR #400.
+- **Status:** Complete — migrations 000030 and 000031 written, Go code, web frontend, and tests updated in PR #400.
 
 ## What Changed
 
@@ -81,4 +78,4 @@ separately. They must **not** be dropped.
 
 ## v0.5.x Follow-Through
 
-> **Wire-by and wire-or-delete checklists:** see the [active plan](../../plans/schema-simplification-migration-030-plan.md).
+> **Wire-by and wire-or-delete checklists:** tracked in the v0.5.x follow-through backlog.

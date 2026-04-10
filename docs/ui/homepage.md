@@ -1,7 +1,5 @@
 # Homepage — Responsive GIF Strategy
 
-Active plan: [homepage-responsive-gif-strategies.md](../plans/homepage-responsive-gif-strategies.md)
-
 Records the chosen strategy for displaying the LiDAR visualiser demo GIF on the public homepage in a responsive, performant way across device sizes.
 
 ## Chosen Approach: Simple Responsive `<img>`
