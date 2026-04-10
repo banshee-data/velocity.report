@@ -1,1 +1,0 @@
-../../../ui/visualiser/proto-contract.md

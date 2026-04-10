@@ -1,1 +1,0 @@
-../../../ui/visualiser/light-mode.md

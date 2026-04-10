@@ -1,1 +1,0 @@
-../troubleshooting/pipeline-diagnosis.md

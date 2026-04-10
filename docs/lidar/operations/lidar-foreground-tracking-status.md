@@ -1,1 +1,0 @@
-../architecture/foreground-tracking.md
