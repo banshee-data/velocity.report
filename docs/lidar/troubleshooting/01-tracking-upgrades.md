@@ -2,6 +2,8 @@
 
 - **Status:** 6 of 9 upgrades implemented (February 2026)
 
+Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
+
 | Upgrade                           | Status         | Implementation                                                                      |
 | --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
 | Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`             |

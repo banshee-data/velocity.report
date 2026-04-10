@@ -486,16 +486,16 @@ remove the line entirely.
 Several plans are missing a `**Status:**` line, which makes their state invisible to the
 plan hygiene tooling and to readers:
 
-- [ ] `data-track-description-language-plan.md` — add Status line (`S`)
-- [ ] `lidar-architecture-foundations-fixit-plan.md` — add Status line (check current state against `foundations-fixit-progress.md`) (`S`)
-- [ ] `lidar-distributed-sweep-workers-plan.md` — add Status line (the canonical `distributed-sweep.md` says "Proposed"; verify) (`S`)
-- [ ] `lidar-ml-classifier-training-plan.md` — add Status line (`S`)
-- [ ] `macos-local-server-plan.md` — add Status line after fixing Canonical (`S`)
-- [ ] `platform-data-science-metrics-first-plan.md` — add Status line (`S`)
-- [ ] `platform-quality-coverage-improvement-plan.md` — add Status line (`S`)
-- [ ] `platform-typed-uuid-prefixes-plan.md` — add Status line (`S`)
-- [ ] `tictactail-platform-plan.md` — add Status line (`S`)
-- [ ] `homepage-responsive-gif-strategies.md` — add Status line; mark Complete if `ui/homepage.md` has absorbed all content; then graduate (`S`)
+- [x] `data-track-description-language-plan.md` — add Status line (`S`)
+- [x] `lidar-architecture-foundations-fixit-plan.md` — add Status line (check current state against `foundations-fixit-progress.md`) (`S`)
+- [x] `lidar-distributed-sweep-workers-plan.md` — add Status line (the canonical `distributed-sweep.md` says "Proposed"; verify) (`S`) — already had Status line
+- [x] `lidar-ml-classifier-training-plan.md` — add Status line (`S`) — already had Status line
+- [x] `macos-local-server-plan.md` — add Status line after fixing Canonical (`S`)
+- [x] `platform-data-science-metrics-first-plan.md` — add Status line (`S`) — already had Status line
+- [x] `platform-quality-coverage-improvement-plan.md` — add Status line (`S`)
+- [x] `platform-typed-uuid-prefixes-plan.md` — add Status line (`S`)
+- [x] `tictactail-platform-plan.md` — add Status line (`S`)
+- [x] `homepage-responsive-gif-strategies.md` — add Status line; marked Complete (content absorbed into `ui/homepage.md`) (`S`)
 
 ---
 
@@ -544,19 +544,24 @@ plan hygiene tooling and to readers:
 
 ### Outstanding
 
+_(All groups complete.)_
+
+### Deferred
+
+- [x] Strategy C full opening-paragraph audit (~40 docs still missing narrative openings) —
+      58 docs updated with narrative opening paragraphs
+- [ ] Consolidate `data/explore/convergence-neighbour/` two experiment files — low priority;
+      empirical data accumulation is expected
+- [x] Archive or resolve `lidar-schema-robustness-plan.md` after its branch merges to `main` —
+      marked Complete; hub doc `schema-hardening.md` updated
+
+### Complete
+
 **Group 4 — Structural improvements**
 
 - [x] Verify and archive stale architecture review artefacts (Group 4a) (`M`) — added Status lines to all three; findings are tracked by active plans and BACKLOG
 - [x] Classify `webserver-tuning-schema-parity.md` correctly (Group 4b) (`M`) — content consolidated into `lidar-architecture-foundations-fixit-plan.md` §Phase 2; file deleted
-- [ ] Add missing Status lines to 10 plans (Group 4c) (`S` × 10)
-
-### Deferred
-
-- [ ] Strategy C full opening-paragraph audit (~40 docs still missing narrative openings) —
-      tracked by [platform-documentation-standardisation-plan.md](platform-documentation-standardisation-plan.md) <!-- link-ignore -->
-- [ ] Consolidate `data/explore/convergence-neighbour/` two experiment files — low priority;
-      empirical data accumulation is expected
-- [ ] Archive or resolve `lidar-schema-robustness-plan.md` after its branch merges to `main`
+- [x] Add missing Status lines to 10 plans (Group 4c) (`S` × 10) — 7 plans updated (3 already had Status lines)
 
 ### Accepted residuals (no action planned)
 
