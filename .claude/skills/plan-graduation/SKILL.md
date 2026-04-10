@@ -97,8 +97,6 @@ Both must pass with 0 gate violations. Advisory notes about shared canonical tar
 python3 scripts/check-relative-links.py
 ```
 
-Known limitation: the link checker resolves paths relative to the symlink location (`docs/plans/`), not the symlink target. This can produce false positives on relative links inside the hub doc when read through the symlink. These are acceptable and do not need fixing.
-
 ### 7. Commit
 
 Use the standard commit format:
@@ -134,19 +132,19 @@ When a plan graduates:
 
 ## Gates enforced by CI
 
-`scripts/check-plan-canonical-links.py` enforces 8 gates via `make check-plan-hygiene`:
+`scripts/check-plan-canonical-links.py` enforces 9 gates via `make check-plan-hygiene`:
 
-| #   | Gate                                                        |
-| --- | ----------------------------------------------------------- |
-| 1   | Non-symlink plan missing `- **Canonical:**` link            |
-| 2   | `Canonical` target points under `docs/plans/`               |
-| 3   | `Canonical` target points outside repo or to a missing file |
-| 5   | Symlink resolves under `docs/plans/`                        |
-| 6   | Symlink resolves outside the repository                     |
-| 7   | Symlink resolves to a missing target                        |
-| 8   | `Canonical` link appears more than once in the same header  |
-| 9   | `Canonical` target not under an allowed hub prefix          |
-| 10  | Symlink created before plan was Complete on `main`          |
+| #   | Gate                                                         |
+| --- | ------------------------------------------------------------ |
+| 1   | Non-symlink plan missing `- **Canonical:**` link             |
+| 2   | `Canonical` target points under `docs/plans/`                |
+| 3   | `Canonical` target points outside repo or to a missing file  |
+| 5   | Symlink resolves under `docs/plans/`                         |
+| 6   | Symlink resolves outside the repository                      |
+| 7   | Symlink resolves to a missing target                         |
+| 8   | `Canonical` link appears more than once in the same header   |
+| 9   | `Canonical` target not under an allowed hub prefix           |
+| 10  | Symlink created before plan was Complete on `main` (CI only) |
 
 Gate 4 (two plans sharing the same canonical target) is advisory only — some hub docs legitimately serve multiple plans.
 
