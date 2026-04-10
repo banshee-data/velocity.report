@@ -2,6 +2,8 @@
 
 - **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
 
+Complete reference for the `velocity-report` and `velocity-ctl` command-line interfaces, covering all flags, subcommands, and a restructuring plan for improving CLI ergonomics.
+
 ---
 
 ## Table of Contents

@@ -4,6 +4,8 @@
 - **Author:** Ictinus (Product Architect)
 - **Issue:** Serial config + test (baud, port) via UI
 
+Design specification for a web-based interface that lets users configure and test radar serial port settings without manually editing systemd service files.
+
 ## Executive Summary
 
 Enable users to configure and test radar serial port settings through the web interface, supporting multiple radar sensors and eliminating the need to manually edit configuration files or systemd service parameters.

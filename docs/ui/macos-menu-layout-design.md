@@ -2,6 +2,8 @@
 
 Active plan: [wireshark-menu-alignment.md](../plans/wireshark-menu-alignment.md)
 
+Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on macOS, aligned with Wireshark-style conventions for capture and playback workflows.
+
 ## Current VelocityVisualiser Menu Bar
 
 | Menu         | Items                                                     |

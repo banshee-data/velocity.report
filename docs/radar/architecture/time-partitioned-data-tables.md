@@ -2,6 +2,8 @@
 
 - **Status:** Draft
 
+Design for partitioning the raw radar data tables by time period to keep individual SQLite databases small enough for reliable operation on Raspberry Pi storage.
+
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)

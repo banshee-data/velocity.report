@@ -2,6 +2,8 @@
 
 Active plan: [web-frontend-consolidation-plan.md](../plans/web-frontend-consolidation-plan.md)
 
+Hub document for merging the separate radar and LiDAR web surfaces into a single Svelte application, eliminating the split-port architecture and fragmented user experience.
+
 ## Problem
 
 Three distinct web surfaces serve LiDAR functionality:

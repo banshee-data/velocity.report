@@ -1,5 +1,7 @@
 # Transit Deduplication Plan
 
+Documents the algorithm and safeguards for preventing duplicate transit records when overlapping cron runs or backfill operations process the same radar data windows.
+
 ## Problem Statement
 
 The transit worker can create duplicate transit records when:
