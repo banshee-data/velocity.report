@@ -1174,6 +1174,5 @@ CREATE TABLE IF NOT EXISTS site (
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2025-12-01
 **Implementation Status:** ❌ Not Implemented (Design Specification Only)
 **Future Work Status:** 📋 Ready for implementation when prioritised

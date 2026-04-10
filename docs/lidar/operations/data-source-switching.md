@@ -418,7 +418,5 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 ---
 
-**Created**: 2025-11-01
-**Updated**: 2025-11-01 (decisions finalized)
 **Author**: Development Team
 **Status**: Ready for Implementation ✅

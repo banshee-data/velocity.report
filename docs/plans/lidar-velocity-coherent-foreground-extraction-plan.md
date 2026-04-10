@@ -1473,4 +1473,3 @@ These features from the original design are deferred to future work:
 
 **Document Status:** Living design document and implementation checklist
 **Implementation Status:** Core phases 1–5 prototyped with simplifications; Phases 0, 6–7 not started
-**Last Updated:** February 21, 2026
