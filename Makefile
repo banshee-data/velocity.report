@@ -1103,11 +1103,9 @@ report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never
 check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSON files against download URLs
 	@python3 scripts/check-release-hashes.py --check
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, relative links, backtick paths, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
-	@python3 scripts/check-relative-links.py
-	@python3 scripts/check-backtick-paths.py
 
 check-md-links: ## Check dead relative links and stale backtick paths in Markdown (no other lint)
 	@python3 scripts/check-relative-links.py

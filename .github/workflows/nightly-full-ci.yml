@@ -228,6 +228,25 @@ jobs:
           go test -tags=pcap ./internal/api -run '^TestConvertEventAPISpeed$|^TestShowRadarObjectStats_CosineCorrection$'
           go test ./internal/db -run '^TestRadarObjectRollupRangeCosineCorrection$|^TestRadarDataRollupRangeCosineCorrection$'
 
+  docs-link-health:
+    name: "🔗 Docs Link Health"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check relative Markdown links
+        run: python3 scripts/check-relative-links.py
+
+      - name: Check backtick-quoted paths
+        run: python3 scripts/check-backtick-paths.py
+
   mac-setup:
     name: "🍎 macOS Setup"
     runs-on: macos-15
