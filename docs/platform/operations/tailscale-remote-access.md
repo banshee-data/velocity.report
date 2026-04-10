@@ -112,7 +112,7 @@ minimal policy for a velocity-report deployment.
 
 ```jsonc
 "acls": [
-  // Allow admin devices to reach velocity-report Pi on all ports
+  // Allow all Tailscale members to reach velocity-report Pi on all ports
   {
     "action": "accept",
     "src": ["autogroup:member"],
