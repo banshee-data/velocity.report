@@ -61,6 +61,11 @@ if [ -d files/data ]; then
     cp -r files/data "${ROOTFS_DIR}/opt/velocity-report/data"
 fi
 
+# Install built documentation site (velocity.report public pages)
+if [ -d files/public_html ]; then
+    cp -r files/public_html "${ROOTFS_DIR}/opt/velocity-report/public_html"
+fi
+
 # Install root-level project documents (README, ARCHITECTURE, CHANGELOG, etc.)
 for f in \
     README.md \

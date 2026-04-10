@@ -46,6 +46,7 @@ cleanup() {
     # Remove transient copies staged from the repo into the working tree
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/docs"
     rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/data"
+    rm -rf "$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
     rm -rf "$IMAGE_DIR/stage-velocity/02-velocity-python/files/pdf-generator"
     rm -rf "$IMAGE_DIR/stage-velocity/00-install-packages/files"
     # Remove staged root documents
@@ -259,6 +260,18 @@ for f in README.md QUESTIONS.md; do
 done
 find "$DATA_DEST" -name '.DS_Store' -delete 2>/dev/null || true
 log_info "Copied data reference files"
+
+# Copy built documentation site (Eleventy output) for on-device reference
+PUBLIC_HTML_DEST="$IMAGE_DIR/stage-velocity/03-velocity-config/files/public_html"
+rm -rf "$PUBLIC_HTML_DEST"
+if [ -d "$REPO_ROOT/public_html/_site" ]; then
+    cp -r "$REPO_ROOT/public_html/_site" "$PUBLIC_HTML_DEST"
+    find "$PUBLIC_HTML_DEST" -name '.DS_Store' -delete 2>/dev/null || true
+    log_info "Copied public_html site"
+else
+    log_error "public_html/_site/ not found — run 'make build-docs' first"
+    exit 1
+fi
 
 # Copy root-level project documents into /opt/velocity-report/
 # These are the files listed in README.md § Project Documents plus
