@@ -2,6 +2,8 @@
 
 **Status:** Complete
 
+This document records the pre-v0.5.0 schema cleanup that enabled foreign keys, replaced sentinel values with proper nullability, and migrated annotations to the replay-owned table.
+
 ## Summary
 
 One-pass schema cleanup before the `v0.5.0` branch cut:

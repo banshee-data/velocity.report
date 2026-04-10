@@ -1,5 +1,7 @@
 # Velocity Report Expansion Plan Inspired by an Industry Standard ML Solver
 
+This document maps transferable practices from industry-standard ML solver design onto the velocity.report parameter tuning stack, proposing a phased expansion from feature-level sweep tooling to a reusable optimisation platform.
+
 ## Document Intent
 
 Evolve sweep/auto/HINT from a feature set into a reusable Optimisation Platform.

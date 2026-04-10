@@ -2,6 +2,8 @@
 
 **Status:** Complete
 
+This document records the decision to keep live and run track tables separate while consolidating their shared column definitions into a single `TrackMeasurement` struct in the Go layer.
+
 ## Problem
 
 Two tables with 16 overlapping columns:

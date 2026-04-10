@@ -4,6 +4,8 @@
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
 - **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](./lidar-data-layer-model.md)
 
+This specification extends the ground-plane tiled-grid model into a polygon-based vector scene map, enabling variable-resolution representation of ground surfaces, buildings, vegetation, and other static scene features.
+
 ---
 
 ## 1. Overview & Motivation

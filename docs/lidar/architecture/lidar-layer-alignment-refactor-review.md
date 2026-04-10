@@ -2,6 +2,8 @@
 
 - **Status:** Reference — items 1–12 and 14 complete; item 13 (frontend decomposition) tracked in [BACKLOG.md](../../BACKLOG.md) §v0.7.0.
 
+This review audits the codebase against the six-layer LiDAR model, identifying boundary violations, readability issues, and route-registration complexity to guide the layer alignment refactor.
+
 ## Goal
 
 Make the codebase more logical and readable by aligning implementation with the six-layer model in `docs/lidar/architecture/lidar-data-layer-model.md`.
