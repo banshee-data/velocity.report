@@ -1,8 +1,6 @@
 # Pre-v0.5.0 Schema Hardening
 
-Active plan: [lidar-schema-robustness-plan.md](../../plans/lidar-schema-robustness-plan.md)
-
-**Status:** Implemented on branch; pending merge for `v0.5.0`
+**Status:** Complete
 
 ## Summary
 

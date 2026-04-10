@@ -1,5 +1,6 @@
 # TicTacTail Platform Plan
 
+- **Status:** Proposed
 - **Layers:** Cross-cutting (platform library)
 - **Decision:** D-23 — [DECISIONS.md](../DECISIONS.md)
 - **Backlog:** v0.8 — [BACKLOG.md](../BACKLOG.md)

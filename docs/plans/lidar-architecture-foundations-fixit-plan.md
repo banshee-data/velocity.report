@@ -1,5 +1,6 @@
 # LiDAR Foundations Fix-It Plan
 
+- **Status:** In Progress — Phase 1 partially complete; Phases 2–3 outstanding
 - **Layers:** Cross-cutting (documentation and configuration)
 - **Canonical:** [foundations-fixit-progress.md](../lidar/operations/foundations-fixit-progress.md)
 
