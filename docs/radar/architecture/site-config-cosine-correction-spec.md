@@ -1,7 +1,6 @@
-# Feature Specification: Site Configuration with Time-Based Cosine Error Correction
+# Site Configuration with Time-Based Cosine Error Correction
 
 - **Status:** Implemented
-- **Author:** Ictinus (Product Architecture Agent)
 - **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
@@ -17,7 +16,7 @@ Users need the ability to:
 5. **Support multiple configurations in reports** - A single report may span multiple days with different sensor angles.
 6. **Support consistent comparisons** - When comparing two different time periods (e.g., "This Week vs Last Week"), ensure that the correct angle correction is applied to each period independently to allow for accurate velocity comparisons.
 
-## User Value Proposition
+## Problem
 
 **For community advocates and traffic engineers:**
 

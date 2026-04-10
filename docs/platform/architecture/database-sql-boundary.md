@@ -3,7 +3,7 @@
 - **Status:** Implemented (March 2026)
 - **Layers:** Cross-cutting (database infrastructure)
 
-This document defines the sealed import boundary for `database/sql` usage in the codebase, restricting direct SQL access to two packages split by domain.
+Sealed import boundary for `database/sql` usage in the codebase, restricting direct SQL access to two packages split by domain.
 
 ## Summary
 

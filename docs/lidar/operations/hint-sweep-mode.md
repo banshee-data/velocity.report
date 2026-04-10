@@ -2,7 +2,7 @@
 
 - **Status:** Complete ✅ (57/57 items)
 
-This document describes HINT (Human-Involved Numerical Tuning) sweep mode, which integrates human track labelling into the automated parameter optimisation loop.
+HINT (Human-Involved Numerical Tuning) integrates human track labelling into the automated parameter optimisation loop.
 
 ## Summary
 

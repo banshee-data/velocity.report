@@ -2,7 +2,7 @@
 
 Active plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md)
 
-This document describes the distribution and packaging strategy for velocity.report, consolidating scattered tools into a single-binary subcommand model with a consistent release process.
+Distribution and packaging strategy for velocity.report: consolidate scattered tools into a single-binary subcommand model with a consistent release process.
 
 ## Problem
 

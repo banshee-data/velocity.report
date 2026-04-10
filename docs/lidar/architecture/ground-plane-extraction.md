@@ -2,7 +2,7 @@
 
 > **Status: Specification — Not Yet Implemented**
 >
-> This document describes a **planned** ground plane extraction subsystem.
+> **Planned** ground plane extraction subsystem.
 > Production code uses `HeightBandFilter` (`internal/lidar/l4perception/ground.go`),
 > a simple fixed-height band filter (floor −2.8 m, ceiling +1.5 m).
 > The tile-based plane-fitting approach described below is a future evolution.
@@ -11,7 +11,7 @@
 
 ### Purpose
 
-This document specifies a **ground plane extraction subsystem** within L4 Perception that models the road surface as a piecewise-planar grid of tiles. The ground plane provides a stable geometric reference for measuring object heights above ground, enabling robust object classification and reducing false positives from ground clutter.
+A **ground plane extraction subsystem** within L4 Perception that models the road surface as a piecewise-planar grid of tiles. The ground plane provides a stable geometric reference for measuring object heights above ground, enabling robust object classification and reducing false positives from ground clutter.
 
 ### Architecture Principles
 

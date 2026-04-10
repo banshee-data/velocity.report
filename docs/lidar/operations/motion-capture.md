@@ -10,7 +10,7 @@ Future architecture specification for moving LiDAR sensors (vehicle-mounted, bik
 
 ## Scope Notice
 
-This document describes architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
+Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 
 - State vector: `[x, y, vx, vy]` (4-state Kalman filter)
 - Object classes: `pedestrian, car, bird, other` (4 classes)

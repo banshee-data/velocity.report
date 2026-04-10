@@ -3,7 +3,6 @@
 Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
 
 **Status:** Proposed
-**Author:** Architecture Team
 **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
 
 ## Overview & Motivation
@@ -12,7 +11,7 @@ Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR inges
 
 **All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive — it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
 
-This document specifies how GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available.
+GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available. The following sections specify boundaries, data contracts, rollout safeguards, and integration validation.
 
 ### Current State
 

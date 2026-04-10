@@ -2,7 +2,7 @@
 
 Active plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
 
-This document tracks the migration of PDF report generation from the Python stack to native Go, eliminating the Python runtime dependency and enabling the single-binary deployment goal.
+Migrating PDF report generation from the Python stack to native Go, eliminating the Python runtime dependency and enabling the single-binary deployment goal.
 
 ## Problem
 

@@ -1,14 +1,12 @@
 # CLI Comprehensive Guide & Implementation Plan
 
-- **Purpose:** Complete reference and restructuring plan for velocity.report CLI interfaces
-
 Complete reference for the `velocity-report` and `velocity-ctl` command-line interfaces, covering all flags, subcommands, and a restructuring plan for improving CLI ergonomics.
 
 ---
 
 ## Table of Contents
 
-1. [Executive Summary](#executive-summary)
+1. [Overview](#overview)
 2. [Current State Inventory](#current-state-inventory)
 3. [Quick Reference](#quick-reference)
 4. [Problems & Opportunities](#problems--opportunities)
@@ -18,7 +16,7 @@ Complete reference for the `velocity-report` and `velocity-ctl` command-line int
 
 ---
 
-## Executive Summary
+## Overview
 
 velocity.report currently consists of multiple CLI applications with overlapping concerns:
 

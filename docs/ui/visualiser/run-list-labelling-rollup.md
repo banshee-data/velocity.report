@@ -1,14 +1,8 @@
 # Run List Labelling Rollup
 
-- **Status:** Implemented (March 2026) — macOS visualiser and backend complete. Web runs-list parity deferred.
+- **Status:** Implemented — macOS visualiser and backend complete. Web runs-list parity deferred.
 
-This document specifies the labelling rollup icon shown in the visualiser's run list, which indicates human review progress for each analysis run at a glance.
-
-## Purpose
-
-Compact run-list icon showing the percentage of tracks with human-applied
-labelling state in each analysis run. The icon communicates human review
-progress — not model carry-over state.
+Compact run-list icon in the visualiser's run list showing human review progress for each analysis run at a glance. The icon communicates human review progress — not model carry-over state.
 
 ## Visual Design
 

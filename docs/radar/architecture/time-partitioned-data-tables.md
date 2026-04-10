@@ -1,4 +1,4 @@
-# Design Specification: Time-Partitioned Raw Data Tables
+# Time-Partitioned Raw Data Tables
 
 - **Status:** Draft
 
@@ -6,7 +6,7 @@ Design for partitioning the raw radar data tables by time period to keep individ
 
 ## Table of Contents
 
-1. [Executive Summary](#executive-summary)
+1. [Overview](#overview)
 2. [Problem Statement](#problem-statement)
 3. [Current State Analysis](#current-state-analysis)
 4. [Proposed Architecture](#proposed-architecture)
@@ -27,7 +27,7 @@ Design for partitioning the raw radar data tables by time period to keep individ
 
 ---
 
-## Executive Summary
+## Overview
 
 This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. The system will automatically rotate raw data tables (`radar_data`, `radar_objects`, `lidar_bg_snapshot`) to monthly or quarterly read-only database files on the 2nd of each month at 00:00:00 UTC. Configuration tables remain in the main database, and union views provide transparent access to historical data across partition boundaries.
 
@@ -1423,22 +1423,22 @@ These API endpoints are designed for future web UI development:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Partition Manager                                   [Refresh]│
+│ Partition Manager                                 [Refresh] │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Timeline: [Jan 2024] ──────────────── [Mar 2025]          │
+│  Timeline: [Jan 2024] ──────────────── [Mar 2025]           │
 │                                                             │
 │  ✓ 2024 (Yearly Archive)  [2.4GB]  📦 Attached  🗑️ Detach  │
-│  ✓ 2025-01               [2.6GB]  📦 Attached  🗑️ Detach  │
-│  ✓ 2025-02               [2.5GB]  📦 Attached  🗑️ Detach  │
-│  ✓ 2025-03 (Current)     [1.2GB]  ✏️ Active    ⛔ Cannot   │
+│  ✓ 2025-01                [2.6GB]  📦 Attached  🗑️ Detach  │
+│  ✓ 2025-02                [2.5GB]  📦 Attached  🗑️ Detach  │
+│  ✓ 2025-03 (Current)      [1.2GB]  ✏️ Active    ⛔ Cannot   │
 │                                                  Detach     │
 │  Available Partitions:                                      │
-│  ○ 2023-12               [2.7GB]  📥 Attach                │
+│  ○ 2023-12                [2.7GB]  📥 Attach                │
 │                                                             │
 │  Connection Limit: 3 / 125 used                             │
 │                                                             │
-│  [Create Yearly Archive] [Import Partition] [Settings]     │
+│  [Create Yearly Archive] [Import Partition] [Settings]      │
 └─────────────────────────────────────────────────────────────┘
 ```
 

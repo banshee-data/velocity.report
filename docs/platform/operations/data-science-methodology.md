@@ -2,7 +2,7 @@
 
 Active plan: [platform-data-science-metrics-first-plan.md](../../plans/platform-data-science-metrics-first-plan.md)
 
-This document sets out the metrics-first data science methodology for velocity.report, prioritising reproducible benchmarks and transparent scorecards over opaque model-driven approaches.
+Metrics-first data science methodology for velocity.report: reproducible benchmarks and transparent scorecards over opaque model-driven approaches.
 
 ## Critical-Path Position
 

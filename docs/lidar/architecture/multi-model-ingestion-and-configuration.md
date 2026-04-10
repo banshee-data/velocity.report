@@ -1,10 +1,9 @@
 # LiDAR Multi-Model Ingestion and Configuration
 
 - **Status:** Proposed
-- **Author:** Architecture Team
 - **Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
 
-This document outlines the architecture changes needed to support multiple LiDAR sensor models with different UDP packet formats, while preserving the single-binary, privacy-first deployment model.
+Architecture changes needed to support multiple LiDAR sensor models with different UDP packet formats, while preserving the single-binary, privacy-first deployment model.
 
 ## Overview
 

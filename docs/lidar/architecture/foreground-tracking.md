@@ -3,13 +3,13 @@
 - **Status:** Implementation Complete through Phase 3.7
 - **Version:** 7.1 - Warmup sensitivity scaling added
 
-This plan details the end-to-end implementation of LiDAR foreground extraction and multi-object tracking, from polar-frame background subtraction through world-frame clustering, Kalman-filtered tracking, and database persistence.
+End-to-end implementation of LiDAR foreground extraction and multi-object tracking, from polar-frame background subtraction through world-frame clustering, Kalman-filtered tracking, and database persistence.
 
 ---
 
-## Executive Summary
+## Overview
 
-This document provides a comprehensive implementation plan for LIDAR-based object detection and tracking with **explicit separation between polar-frame background processing and world-frame clustering/tracking**.
+Implementation plan for LiDAR-based object detection and tracking with **explicit separation between polar-frame background processing and world-frame clustering/tracking**.
 
 **Key Architectural Principle:** Background subtraction operates purely in sensor-centric polar coordinates (azimuth/elevation/range). Only after foreground extraction are points transformed to world-frame Cartesian coordinates for clustering, tracking, and persistence.
 

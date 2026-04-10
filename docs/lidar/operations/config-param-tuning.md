@@ -1,6 +1,6 @@
 # LiDAR Config Parameter Tuning Guide
 
-This guide describes how to tune the LiDAR processing pipeline's configuration parameters at runtime, covering foreground extraction, clustering, and tracking settings.
+How to tune the LiDAR processing pipeline's configuration parameters at runtime, covering foreground extraction, clustering, and tracking settings.
 
 ## 1. Tuning Workflow
 

@@ -1,17 +1,16 @@
-# Feature Specification: Time-Based Speed Limit Schedules
+# Time-Based Speed Limit Schedules
 
 - **Status:** Design Specification (Not Implemented)
-- **Author:** Ictinus (Product Architect)
 - **Issue:** Time-based speed limit schedules for sites
 - **Future Work:** Ready for implementation when prioritised
 
 Design specification for associating multiple speed limits with a site that vary by time of day and day of week, enabling accurate compliance reporting for locations such as school zones and work zones.
 
-## Executive Summary
+## Overview
 
 Enable sites to define multiple speed limits that vary by time of day and day of week, allowing accurate monitoring and reporting for locations with variable speed limits such as school zones, residential areas with different daytime/nighttime limits, or work zones with active hours.
 
-## User Value Proposition
+## Problem
 
 ### Problem Statement
 
@@ -74,22 +73,6 @@ _Schedule Configuration:_
 - All other times: 30 mph (default)
 
 _Value:_ Detailed analysis of compliance during different school-related time periods.
-
-## Target Users
-
-**Primary Users:**
-
-- School traffic safety committees
-- Neighborhood associations monitoring residential streets
-- Municipal traffic engineers analysing variable speed zones
-- Community advocates collecting data for traffic calming proposals
-
-**User Personas:**
-
-1. **The School Safety Advocate** - Parent or administrator focused on child safety during school hours
-2. **The Traffic Analyst** - Collects data to support speed limit policy changes
-3. **The Neighborhood Watch** - Monitors compliance with local traffic calming measures
-4. **The Municipal Planner** - Evaluates effectiveness of time-based speed limits
 
 ## Technical Architecture
 

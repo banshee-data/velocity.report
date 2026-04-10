@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the system architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
+System architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
 
 ---
 

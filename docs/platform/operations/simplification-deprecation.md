@@ -2,7 +2,7 @@
 
 Active plan: [platform-simplification-and-deprecation-plan.md](../../plans/platform-simplification-and-deprecation-plan.md)
 
-This document tracks the programme to reduce non-core operational surface area by deprecating legacy tools, compatibility shims, and redundant interfaces across the codebase.
+Tracking the programme to reduce non-core operational surface area by deprecating legacy tools, compatibility shims, and redundant interfaces across the codebase.
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
+Incremental, API-first implementation with explicit milestones and acceptance criteria.
 
 **Current Status** (February 2026):
 

@@ -1,16 +1,15 @@
-# Feature Specification: Serial Configuration and Testing via UI
+# Serial Configuration and Testing via UI
 
 - **Status:** Draft
-- **Author:** Ictinus (Product Architect)
 - **Issue:** Serial config + test (baud, port) via UI
 
 Design specification for a web-based interface that lets users configure and test radar serial port settings without manually editing systemd service files.
 
-## Executive Summary
+## Overview
 
 Enable users to configure and test radar serial port settings through the web interface, supporting multiple radar sensors and eliminating the need to manually edit configuration files or systemd service parameters.
 
-## User Value Proposition
+## Problem
 
 **Problem Statement:**
 
@@ -29,20 +28,6 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Multi-Sensor Support:** Configure multiple radar sensors for coordinated monitoring
 - **Troubleshooting Aid:** Built-in diagnostics help users identify serial communication problems
 - **Safer Deployments:** Validate settings before committing changes, reducing downtime
-
-## Target Users
-
-**Primary Users:**
-
-- DIY radar operators managing Raspberry Pi deployments
-- Community advocates setting up neighborhood monitoring
-- Users with multiple radar sensors for coverage expansion
-
-**User Personas:**
-
-1. **The Tinkerer** - Experimenting with different sensor placements, needs to quickly test serial connections
-2. **The Installer** - Setting up new deployments, wants confidence settings are correct before leaving the site
-3. **The Expander** - Adding additional radars to existing installation, needs multi-sensor coordination
 
 ## Current System Capabilities
 

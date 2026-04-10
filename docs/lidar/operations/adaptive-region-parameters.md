@@ -1,6 +1,6 @@
 # Adaptive Region Parameters for Background Grid
 
-This guide covers the configuration and operation of adaptive region-based parameters in the LiDAR background grid, which automatically segment the sensor's field of view to apply optimised settling and noise thresholds per region.
+Configuration and operation of adaptive region-based parameters in the LiDAR background grid, which automatically segment the sensor's field of view to apply optimised settling and noise thresholds per region.
 
 ## Overview
 

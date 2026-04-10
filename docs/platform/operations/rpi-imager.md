@@ -2,7 +2,7 @@
 
 Active plan: [deploy-rpi-imager-fork-plan.md](../../plans/deploy-rpi-imager-fork-plan.md)
 
-This document describes the Raspberry Pi image pipeline that produces a ready-to-flash SD card image, removing the need for manual Linux system administration during deployment.
+The Raspberry Pi image pipeline produces a ready-to-flash SD card image, removing the need for manual Linux system administration during deployment.
 
 ## Problem
 

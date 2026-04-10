@@ -4,7 +4,7 @@ Active plan: [label-vocabulary-consolidation-plan.md](../../plans/label-vocabula
 
 **Status:** Phases 1–3.2 complete; phases 3.5–6 planned.
 
-This document defines the canonical vocabulary of track classification labels used across the proto wire format, Go runtime, Swift visualiser, and Svelte frontend.
+Canonical vocabulary of track classification labels used across the proto wire format, Go runtime, Swift visualiser, and Svelte frontend.
 
 ## Canonical Vocabulary (proto3 enum authoritative)
 

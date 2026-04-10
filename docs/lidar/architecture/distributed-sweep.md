@@ -4,7 +4,7 @@ Active plan: [lidar-distributed-sweep-workers-plan.md](../../plans/lidar-distrib
 
 **Status:** Proposed
 
-This document defines the driver–worker architecture for distributing LiDAR parameter sweep workloads across multiple machines to reduce wall-clock evaluation time.
+Driver–worker architecture for distributing LiDAR parameter sweep workloads across multiple machines to reduce wall-clock evaluation time.
 
 ## Problem
 

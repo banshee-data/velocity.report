@@ -1,6 +1,6 @@
 # PCAP Analysis Mode
 
-This guide covers the PCAP analysis mode, which replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
+PCAP analysis mode replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
 
 ## Overview
 

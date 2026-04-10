@@ -4,7 +4,7 @@
 - **Design Document:** `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md`
 - **Terminology note:** Database schema renamed to `lidar_replay_cases` in v0.5.x migration 031. API paths and Go types (`Scene`, `SceneStore`) still use the old "scene" term pending code rename in v0.5.1+. Dashboard frontend already migrated.
 
-This document describes the implementation of replay case management, which provides structured evaluation environments from PCAP captures tied to sensors, ground truth runs, and optimal parameter sets.
+Implementation of replay case management: structured evaluation environments from PCAP captures tied to sensors, ground truth runs, and optimal parameter sets.
 
 ## Overview
 
