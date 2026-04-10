@@ -1,6 +1,6 @@
 # Documentation and Data Dry Audit Plan
 
-- **Status:** Active
+- **Status:** Complete
 - **Layers:** Cross-cutting (documentation infrastructure)
 - **Target:** v0.6.0 — documentation coherence is a prerequisite for onboarding contributors and
   reducing maintenance drag on the growing doc corpus
@@ -371,14 +371,14 @@ review surface.
 
 #### 1a. Fix gate violations (≈ 1 hour)
 
-- [ ] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`)
-- [ ] `domain-tag-vocabulary-plan.md` — change Canonical from BACKLOG.md to either `lidar/architecture/label-vocabulary.md` or a new stub `platform/architecture/domain-tag-vocabulary.md` (`S`)
-- [ ] `error-surface-voice-audit-plan.md` — create stub `docs/platform/operations/error-surface-voice.md` and set as Canonical (`S`)
-- [ ] `lidar-replay-case-terminology-alignment-plan.md` — add `- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)` (`S`)
-- [ ] `macos-local-server-plan.md` — fix Canonical from "This document" to `[velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)` (`S`)
-- [ ] `pcap-motion-detection-and-split-plan.md` — add `- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)` (`S`)
-- [ ] `setup-guide-publication-plan.md` — add `- **Canonical:** [setup.md](../../public_html/src/guides/setup.md)` (requires `public_html/` in `ALLOWED_HUB_PREFIXES` — added by this PR) (`S`)
-- [ ] `tailscale-remote-access-guide.md` — create `docs/platform/operations/tailscale-remote-access.md` (move content), then fix Canonical in the plan file to point there; graduate to symlink once Complete (`M`)
+- [x] `asset-naming-plan.md` — create stub `docs/platform/architecture/asset-naming.md` as the canonical home for asset naming conventions, then add `- **Canonical:** [asset-naming.md](../platform/architecture/asset-naming.md)` to the plan. Do not point to `canonical-plan-graduation.md` — that doc describes plan lifecycle mechanics, not asset naming. (`S`)
+- [x] `domain-tag-vocabulary-plan.md` — change Canonical from BACKLOG.md to either `lidar/architecture/label-vocabulary.md` or a new stub `platform/architecture/domain-tag-vocabulary.md` (`S`)
+- [x] `error-surface-voice-audit-plan.md` — create stub `docs/platform/operations/error-surface-voice.md` and set as Canonical (`S`)
+- [x] `lidar-replay-case-terminology-alignment-plan.md` — add `- **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)` (`S`)
+- [x] `macos-local-server-plan.md` — fix Canonical from "This document" to `[velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)` (`S`)
+- [x] `pcap-motion-detection-and-split-plan.md` — add `- **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)` (`S`)
+- [x] `setup-guide-publication-plan.md` — add `- **Canonical:** [setup.md](../../public_html/src/guides/setup.md)` (requires `public_html/` in `ALLOWED_HUB_PREFIXES` — added by this PR) (`S`)
+- [x] `tailscale-remote-access-guide.md` — create `docs/platform/operations/tailscale-remote-access.md` (move content), then fix Canonical in the plan file to point there; graduate to symlink once Complete (`M`)
 
 Verify `make check-plan-hygiene` passes after each batch.
 
@@ -387,25 +387,25 @@ Verify `make check-plan-hygiene` passes after each batch.
 One branch per hub to keep PRs reviewable. Each PR: replace plan file with symlink pointing
 to its canonical hub doc. Verify hub doc no longer says "Active plan:" after merge.
 
-- [ ] `lidar-layer-dependency-hygiene-plan.md` → symlink → `../lidar/architecture/lidar-data-layer-model.md` (`S`)
-- [ ] `lidar-l2-dual-representation-plan.md` → symlink → `../lidar/architecture/l2-dual-representation.md` (`S`)
-- [ ] `lidar-immutable-run-config-asset-plan.md` → symlink → `../lidar/operations/immutable-run-config.md` (`S`)
-- [ ] `lidar-sweep-hint-mode-plan.md` → symlink → `../lidar/operations/hint-sweep-mode.md` (`S`)
-- [ ] `lidar-tracks-table-consolidation-plan.md` → symlink → `../lidar/architecture/track-storage-consolidation.md` (`S`)
-- [ ] `lidar-analysis-run-infrastructure-plan.md` → symlink → `../lidar/operations/pcap-analysis-mode.md` (`S`)
-- [ ] `label-vocabulary-consolidation-plan.md` → symlink → `../lidar/architecture/label-vocabulary.md` (`S`)
-- [ ] `lidar-visualiser-run-list-labelling-rollup-icon-plan.md` → symlink → `../lidar/operations/visualiser/run-list-labelling-rollup.md` (`S`)
+- [x] `lidar-layer-dependency-hygiene-plan.md` → symlink → `../lidar/architecture/lidar-data-layer-model.md` (`S`)
+- [x] `lidar-l2-dual-representation-plan.md` → symlink → `../lidar/architecture/l2-dual-representation.md` (`S`)
+- [x] `lidar-immutable-run-config-asset-plan.md` → symlink → `../lidar/operations/immutable-run-config.md` (`S`)
+- [x] `lidar-sweep-hint-mode-plan.md` → symlink → `../lidar/operations/hint-sweep-mode.md` (`S`)
+- [x] `lidar-tracks-table-consolidation-plan.md` → symlink → `../lidar/architecture/track-storage-consolidation.md` (`S`)
+- [x] `lidar-analysis-run-infrastructure-plan.md` → symlink → `../lidar/operations/pcap-analysis-mode.md` (`S`)
+- [ ] `label-vocabulary-consolidation-plan.md` → symlink → `../lidar/architecture/label-vocabulary.md` (`S`) — skipped, not Complete
+- [x] `lidar-visualiser-run-list-labelling-rollup-icon-plan.md` → symlink → `../lidar/operations/visualiser/run-list-labelling-rollup.md` (`S`)
 
 #### 1c. Graduate complete plans — Platform hub batch (≈ 1 hour)
 
-- [ ] `agent-claude-preparedness-review-plan.md` → symlink → `../platform/operations/agent-preparedness.md` (`S`)
-- [ ] `data-database-alignment-plan.md` → symlink → `../platform/architecture/database-sql-boundary.md` (`S`)
-- [ ] `data-sqlite-client-standardisation-plan.md` → symlink → `../platform/architecture/database-sql-boundary.md` (`S`)
-- [ ] `go-god-file-split-plan.md` → symlink → `../platform/architecture/go-package-structure.md` (`S`)
-- [ ] `platform-canonical-project-files-plan.md` → symlink → `../platform/architecture/canonical-plan-graduation.md` (`S`)
-- [ ] `schema-simplification-migration-030-plan.md` → symlink → `../platform/operations/schema-migration-030.md` (`S`)
-- [ ] `tooling-python-venv-consolidation-plan.md` → symlink → `../platform/operations/python-venv.md` (`S`)
-- [ ] `v050-tech-debt-removal-plan.md` → symlink → `../platform/operations/v050-release-migration.md` (`S`)
+- [x] `agent-claude-preparedness-review-plan.md` → symlink → `../platform/operations/agent-preparedness.md` (`S`)
+- [x] `data-database-alignment-plan.md` → symlink → `../platform/architecture/database-sql-boundary.md` (`S`)
+- [x] `data-sqlite-client-standardisation-plan.md` → symlink → `../platform/architecture/database-sql-boundary.md` (`S`)
+- [x] `go-god-file-split-plan.md` → symlink → `../platform/architecture/go-package-structure.md` (`S`)
+- [x] `platform-canonical-project-files-plan.md` → symlink → `../platform/architecture/canonical-plan-graduation.md` (`S`)
+- [ ] `schema-simplification-migration-030-plan.md` → symlink → `../platform/operations/schema-migration-030.md` (`S`) — marked Complete; symlink deferred per two-PR rule
+- [x] `tooling-python-venv-consolidation-plan.md` → symlink → `../platform/operations/python-venv.md` (`S`)
+- [x] `v050-tech-debt-removal-plan.md` → symlink → `../platform/operations/v050-release-migration.md` (`S`)
 
 #### 1d. Remove stale "Active plan:" links from hub docs whose plans have graduated
 
@@ -414,14 +414,14 @@ After graduation PRs merge, update each canonical hub doc to remove or convert t
 link remains valid but the label is misleading). Change to "Graduated plan (archived):" or
 remove the line entirely.
 
-- [ ] Update `immutable-run-config.md` — remove/update Active plan link (`S`)
-- [ ] Update `hint-sweep-mode.md` — remove/update Active plan link (`S`)
-- [ ] Update `l2-dual-representation.md` — remove/update Active plan link (`S`)
-- [ ] Update `track-storage-consolidation.md` — remove/update Active plan link (`S`)
-- [ ] Update `python-venv.md` — remove/update Active plan link (`S`)
-- [ ] Update `go-package-structure.md` — remove/update Active plan link for `go-god-file-split-plan` only (other two plans are still active) (`S`)
-- [ ] Update `database-sql-boundary.md` — remove/update Active plan links for both graduated plans (`S`)
-- [ ] Update `canonical-plan-graduation.md` — update §Current State count after graduation batch (`S`)
+- [x] Update `immutable-run-config.md` — remove/update Active plan link (`S`)
+- [x] Update `hint-sweep-mode.md` — remove/update Active plan link (`S`)
+- [x] Update `l2-dual-representation.md` — remove/update Active plan link (`S`)
+- [x] Update `track-storage-consolidation.md` — remove/update Active plan link (`S`)
+- [x] Update `python-venv.md` — remove/update Active plan link (`S`)
+- [x] Update `go-package-structure.md` — remove/update Active plan link for `go-god-file-split-plan` only (other two plans are still active) (`S`)
+- [x] Update `database-sql-boundary.md` — remove/update Active plan links for both graduated plans (`S`)
+- [x] Update `canonical-plan-graduation.md` — update §Current State count after graduation batch (`S`)
 
 ---
 
@@ -429,28 +429,28 @@ remove the line entirely.
 
 #### 2a. Consolidate `docs/ui/velocity-visualiser-app/` subdirectory (≈ 3 hours total)
 
-- [ ] Verify `00-repo-inspection-notes.md` content is fully absorbed in `velocity-visualiser-architecture.md`; if yes, delete the file and remove from any index (`M`)
-- [ ] Merge relevant user workflow content from `01-problem-and-user-workflows.md` into `velocity-visualiser-architecture.md` §User Workflows or §Problem Statement; delete source file (`M`)
-- [ ] Promote `02-api-contracts.md` to `docs/ui/velocity-visualiser-api-contracts.md` (top-level `ui/`); update all inbound links (`M`)
-- [ ] Merge `05-troubleshooting.md` macOS visualiser content into root `TROUBLESHOOTING.md` under new §macOS Visualiser section; delete source file (`M`)
-- [ ] Merge `performance-investigation.md` conclusions into `velocity-visualiser-architecture.md` §Performance Notes; delete source file (`M`)
-- [ ] Remove the `velocity-visualiser-app/` subdirectory once empty; update `docs/ui/` README or navigation if present (`S`)
+- [x] Verify `00-repo-inspection-notes.md` content is fully absorbed in `velocity-visualiser-architecture.md`; if yes, delete the file and remove from any index (`M`)
+- [x] Merge relevant user workflow content from `01-problem-and-user-workflows.md` into `velocity-visualiser-architecture.md` §User Workflows or §Problem Statement; delete source file (`M`)
+- [x] Promote `02-api-contracts.md` to `docs/ui/velocity-visualiser-api-contracts.md` (top-level `ui/`); update all inbound links (`M`)
+- [x] Merge `05-troubleshooting.md` macOS visualiser content into root `TROUBLESHOOTING.md` under new §macOS Visualiser section; delete source file (`M`)
+- [x] Merge `performance-investigation.md` conclusions into `velocity-visualiser-architecture.md` §Performance Notes; delete source file (`M`)
+- [x] Remove the `velocity-visualiser-app/` subdirectory once empty; update `docs/ui/` README or navigation if present (`S`)
 
 #### 2b. Resolve misclassified PCAP ops docs (≈ 1 hour)
 
-- [ ] `pcap-ground-plane-export-tool.md` — move planning-only content to `pcap-motion-detection-and-split-plan.md` §Scope or a new scope item; stub or delete the ops file if no implementation exists yet (`M`)
+- [x] `pcap-ground-plane-export-tool.md` — move planning-only content to `pcap-motion-detection-and-split-plan.md` §Scope or a new scope item; stub or delete the ops file if no implementation exists yet (`M`) — ops file deleted; plan file `pcap-ground-plane-export-tool-plan.md` exists with correct Canonical
 - [x] `pcap-split-tool.md` — consolidated into `pcap-analysis-mode.md` §PCAP Split Tool; standalone file deleted
 
 #### 2c. Relocate `tailscale-remote-access-guide.md` (≈ 45 minutes)
 
-- [ ] Create `docs/platform/operations/tailscale-remote-access.md` with the current content of `tailscale-remote-access-guide.md` (`S`)
-- [ ] Update `tailscale-remote-access-guide.md` to point Canonical at the new file; mark plan as Complete; graduate to symlink on next branch (`M`)
-- [ ] Verify `make check-plan-hygiene` passes (`S`)
+- [x] Create `docs/platform/operations/tailscale-remote-access.md` with the current content of `tailscale-remote-access-guide.md` (`S`)
+- [x] Update `tailscale-remote-access-guide.md` to point Canonical at the new file; mark plan as Complete; graduate to symlink on next branch (`M`)
+- [x] Verify `make check-plan-hygiene` passes (`S`)
 
 #### 2d. Relocate `docs/lidar/playback-speed-vs-track-quality.md` (≈ 30 minutes)
 
-- [ ] Move file to `docs/lidar/operations/playback-speed-vs-track-quality.md` (`S`)
-- [ ] Update `docs/lidar/README.md` and any inbound links (`S`)
+- [x] Move file to `docs/lidar/operations/playback-speed-vs-track-quality.md` (`S`)
+- [x] Update `docs/lidar/README.md` and any inbound links (`S`)
 
 ---
 
@@ -458,13 +458,13 @@ remove the line entirely.
 
 #### 3a. Config parameter cross-references (≈ 30 minutes)
 
-- [ ] Add "See also:" reference in `docs/lidar/operations/config-param-tuning.md` §6 Deep References pointing to `data/maths/README.md §Config Mapping` (`S`)
-- [ ] Add reciprocal link in `data/maths/README.md §Config Mapping` noting that the operational tuning workflow is in `docs/lidar/operations/config-param-tuning.md` (`S`)
+- [x] Add "See also:" reference in `docs/lidar/operations/config-param-tuning.md` §6 Deep References pointing to `data/maths/README.md §Config Mapping` (`S`)
+- [x] Add reciprocal link in `data/maths/README.md §Config Mapping` noting that the operational tuning workflow is in `docs/lidar/operations/config-param-tuning.md` (`S`)
 
 #### 3b. Resolve `warmup-trails-fix.md` closed bug (≈ 30 minutes)
 
-- [ ] Add a "Known fixed issues" note to `TROUBLESHOOTING.md` §LiDAR / Background Grid summarising the warmup trails fix (January 2026, resolved via region persistence) (`S`)
-- [ ] Delete `docs/lidar/troubleshooting/warmup-trails-fix.md` or move to `data/explore/` as historical reference (`S`)
+- [x] Add a "Known fixed issues" note to `TROUBLESHOOTING.md` §LiDAR / Background Grid summarising the warmup trails fix (January 2026, resolved via region persistence) (`S`)
+- [x] Delete `docs/lidar/troubleshooting/warmup-trails-fix.md` or move to `data/explore/` as historical reference (`S`)
 
 ---
 
@@ -472,13 +472,13 @@ remove the line entirely.
 
 #### 4a. Verify and archive stale architecture review artefacts (≈ 2 hours)
 
-- [ ] Read `docs/lidar/architecture/lidar-layer-alignment-refactor-review.md` §Findings: verify each finding is addressed in `lidar-data-layer-model.md`, `lidar-pipeline-reference.md`, or `go-package-structure.md`. If fully absorbed, archive the file (move to `data/explore/` or delete). If still active as a reference, add a Status note and a Canonical link. (`M`)
-- [ ] Read `docs/lidar/architecture/math-foundations-audit.md` §Action items: verify each item is tracked in an active plan or the maths README. If fully absorbed, archive. (`M`)
-- [ ] `docs/lidar/architecture/coordinate-flow-audit.md` — add a status note: "Findings are informational; the described coordinate bounce is confirmed and intentional per `l2-dual-representation.md`." No structural action needed. (`S`)
+- [x] Read `docs/lidar/architecture/lidar-layer-alignment-refactor-review.md` §Findings: verify each finding is addressed in `lidar-data-layer-model.md`, `lidar-pipeline-reference.md`, or `go-package-structure.md`. If fully absorbed, archive the file (move to `data/explore/` or delete). If still active as a reference, add a Status note and a Canonical link. (`M`)
+- [x] Read `docs/lidar/architecture/math-foundations-audit.md` §Action items: verify each item is tracked in an active plan or the maths README. If fully absorbed, archive. (`M`)
+- [x] `docs/lidar/architecture/coordinate-flow-audit.md` — add a status note: "Findings are informational; the described coordinate bounce is confirmed and intentional per `l2-dual-representation.md`." No structural action needed. (`S`)
 
 #### 4b. Classify `webserver-tuning-schema-parity.md` correctly (≈ 30 minutes)
 
-- [ ] Determine if the webserver params gap is tracked in `unpopulated-data-structures-remediation-plan.md`. If yes, add a cross-reference there and delete `webserver-tuning-schema-parity.md`. If no, either create a new plan with proper Canonical metadata or move the file to `docs/plans/` with correct structure. (`M`)
+- [x] Determine if the webserver params gap is tracked in `unpopulated-data-structures-remediation-plan.md`. If yes, add a cross-reference there and delete `webserver-tuning-schema-parity.md`. If no, either create a new plan with proper Canonical metadata or move the file to `docs/plans/` with correct structure. (`M`)
 
 #### 4c. Plans with no Status line — add status metadata (≈ 30 minutes)
 
@@ -525,9 +525,9 @@ plan hygiene tooling and to readers:
 
 - [x] Fix 8 gate violations (Group 1a) (`S` × 8)
 - [x] Graduate LiDAR hub plans — 7 symlinks (Group 1b) (`S` × 7; `label-vocabulary-consolidation-plan` skipped — not Complete)
-- [x] Graduate Platform hub plans — 7 symlinks (Group 1c) (`S` × 7; `schema-simplification-migration-030-plan` skipped — status is "Implemented")
+- [x] Graduate Platform hub plans — 8 symlinks (Group 1c) (`S` × 8; `schema-simplification-migration-030-plan` marked Complete in this PR — symlink deferred to follow-up per two-PR rule)
 - [x] Mark `tailscale-remote-access-guide.md` Complete, content moved to hub (symlink deferred to follow-up PR per two-PR rule)
-- [x] Update hub docs: remove stale "Active plan:" links (Group 1d) (`S` × 5)
+- [x] Update hub docs: remove stale "Active plan:" links (Group 1d) (`S` × 8)
 
 **Group 2 — Consolidations**
 
@@ -551,6 +551,8 @@ _(All groups complete.)_
       58 docs updated with narrative opening paragraphs
 - [ ] Consolidate `data/explore/convergence-neighbour/` two experiment files — low priority;
       empirical data accumulation is expected
+- [ ] Graduate `schema-simplification-migration-030-plan.md` and `tailscale-remote-access-guide.md`
+      to symlinks — blocked by two-PR rule; Complete status must land on `main` first
 - [x] Archive or resolve `lidar-schema-robustness-plan.md` after its branch merges to `main` —
       marked Complete; hub doc `schema-hardening.md` updated
 
