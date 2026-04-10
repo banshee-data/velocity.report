@@ -108,39 +108,7 @@ Structures are vertical surfaces observed as reflective returns from building fa
 - **Vertical plane equation** — For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
 - **Height range** — [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
 
-```go
-// StructureFeature represents a vertical scene element (building, wall, fence).
-type StructureFeature struct {
-    // Footprint polygon (2D, viewed from above)
-    FootprintVertices [][2]float64 // Ordered polygon vertices (X, Y)
-
-    // Per-wall-segment data (one entry per footprint edge)
-    WallSegments []WallSegment
-
-    // Vertical extent
-    ZMin float64 // Lowest observed return (metres, sensor frame)
-    ZMax float64 // Highest observed return
-
-    // Metadata
-    PointCount uint32
-    Confidence float32 // Aggregate planarity across wall segments
-    LOD        uint8   // Level of detail
-}
-
-// WallSegment is a single planar face of a structure.
-type WallSegment struct {
-    // Wall-plane equation: n·p = d (normal is near-horizontal)
-    Normal [3]float64
-    Offset float64
-
-    // Endpoints of this wall edge (footprint vertices i, i+1)
-    StartIdx int
-    EndIdx   int
-
-    Planarity  float32
-    PointCount uint32
-}
-```
+> **Source:** `StructureFeature` and `WallSegment` structs in `internal/lidar/` (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
 **Why not store full 3D meshes?** We don't need photorealistic building models. A few wall planes with corner coordinates capture the coarse structure visible to LiDAR, sufficient for:
 
@@ -152,36 +120,7 @@ type WallSegment struct {
 
 Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse, scattered returns. Model them as **approximate bounding volumes**:
 
-```go
-// VolumeFeature represents an irregular 3D scene element (tree, hedge, sign cluster).
-type VolumeFeature struct {
-    // Bounding representation (choose one)
-    BoundingType BoundingKind   // OBB, ConvexHull, or Sphere
-    Centre       [3]float64     // Approximate centroid
-    Dimensions   [3]float64     // Half-extents for OBB; radius for sphere
-    Orientation  [4]float64     // Quaternion rotation for OBB (identity for axis-aligned)
-    HullVertices [][3]float64   // For ConvexHull type only
-
-    // Density estimate
-    PointCount     uint32
-    PointDensity   float32 // Points per m³ (distinguishes solid vs sparse returns)
-    ApproxVolume   float32 // Bounding volume in m³
-
-    // Metadata
-    Class      VolumeClass // tree, hedge, sign_cluster, awning, unknown
-    LOD        uint8
-    Confidence float32
-}
-
-// BoundingKind specifies the bounding representation for a VolumeFeature.
-type BoundingKind uint8
-
-const (
-    BoundingBox    BoundingKind = iota // Oriented bounding box (OBB)
-    BoundingHull                       // Convex hull (compact point set)
-    BoundingSphere                     // Bounding sphere (simplest)
-)
-```
+> **Source:** `VolumeFeature` and `BoundingKind` in `internal/lidar/` (when implemented). Fields: BoundingType (OBB/ConvexHull/Sphere), Centre, Dimensions, Orientation, HullVertices, PointCount, PointDensity, ApproxVolume, Class (tree/hedge/sign_cluster/awning/unknown), LOD, Confidence.
 
 **Point density** is the distinguishing attribute: a tree canopy has high spatial extent but low density (many gaps between returns), while a solid pole has small extent but high density. This attribute helps L6 classification without storing raw point clouds.
 
@@ -233,38 +172,7 @@ LOD 0: Road_Segment_Main_Street
 
 ### LOD Data Model
 
-```go
-// SceneFeature is the common envelope for all features in the vector scene map.
-type SceneFeature struct {
-    ID       FeatureID    // Globally unique within the map
-    Class    FeatureClass // Ground, Structure, Volume
-    LOD      uint8        // 0–3
-    ParentID FeatureID    // ID of parent feature (0 = root / no parent)
-
-    // Geometry (exactly one populated, determined by Class)
-    Ground    *GroundFeature    // Non-nil for Class == Ground
-    Structure *StructureFeature // Non-nil for Class == Structure
-    Volume    *VolumeFeature    // Non-nil for Class == Volume
-
-    // Common metadata
-    PointCount       uint32
-    Confidence       float32
-    LastUpdatedNanos int64
-    Settled          bool
-}
-
-// FeatureID uniquely identifies a feature within the scene map.
-type FeatureID uint64
-
-// FeatureClass distinguishes the three geometric classes.
-type FeatureClass uint8
-
-const (
-    FeatureGround    FeatureClass = iota // Horizontal/sloped surface polygon
-    FeatureStructure                     // Vertical structure polygon(s)
-    FeatureVolume                        // 3D bounding volume
-)
-```
+> **Source:** `SceneFeature`, `FeatureID`, and `FeatureClass` in `internal/lidar/` (when implemented). `SceneFeature` wraps ID, Class (Ground/Structure/Volume), LOD (0–3), ParentID, and exactly one of `*GroundFeature`, `*StructureFeature`, `*VolumeFeature`. Common metadata: PointCount, Confidence, LastUpdatedNanos, Settled.
 
 ---
 
@@ -366,25 +274,7 @@ This ensures coarse polygons are extremely compact (4–6 vertices for a road bl
 
 ### 5.1 In-Memory Representation
 
-```go
-// VectorSceneMap holds the full multi-resolution feature set for a scene.
-type VectorSceneMap struct {
-    Features map[FeatureID]*SceneFeature
-    mu       sync.RWMutex
-
-    // Spatial index for fast 2D queries (ground + structure footprints)
-    SpatialIndex *QuadTree // or R-tree; keyed by feature bounding box
-
-    // LOD index for fast level-filtered queries
-    LODIndex [4][]FeatureID // LODIndex[lod] = list of feature IDs at that LOD
-
-    // Statistics
-    GroundCount    uint32
-    StructureCount uint32
-    VolumeCount    uint32
-    NextFeatureID  FeatureID
-}
-```
+> **Source:** `VectorSceneMap` struct in `internal/lidar/` (when implemented). Holds `map[FeatureID]*SceneFeature` with RWMutex, spatial index (QuadTree or R-tree), per-LOD feature ID lists, and per-class counters.
 
 ### 5.2 Storage Budget
 
@@ -413,37 +303,7 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 
 ### 5.3 SQLite Persistence Schema
 
-```sql
-CREATE TABLE IF NOT EXISTS vector_scene_features (
-    feature_id    INTEGER PRIMARY KEY,
-    parent_id     INTEGER,               -- 0 for root features
-    class         INTEGER NOT NULL,       -- 0=ground, 1=structure, 2=volume
-    lod           INTEGER NOT NULL,       -- 0–3
-    settled       INTEGER NOT NULL DEFAULT 0,
-    confidence    REAL NOT NULL DEFAULT 0.0,
-    point_count   INTEGER NOT NULL DEFAULT 0,
-    last_updated  INTEGER NOT NULL,       -- timestamp nanos
-    geometry_blob BLOB NOT NULL,          -- gzip-compressed feature geometry
-    FOREIGN KEY (parent_id) REFERENCES vector_scene_features(feature_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_scene_feature_class ON vector_scene_features(class);
-CREATE INDEX IF NOT EXISTS idx_scene_feature_lod ON vector_scene_features(lod);
-CREATE INDEX IF NOT EXISTS idx_scene_feature_parent ON vector_scene_features(parent_id);
-
--- Snapshot table for versioned map states (analogous to ground_plane_snapshots)
-CREATE TABLE IF NOT EXISTS vector_scene_snapshots (
-    snapshot_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_nanos   INTEGER NOT NULL,
-    sensor_id         TEXT,
-    origin_lat        REAL,    -- NULL if no GPS
-    origin_lon        REAL,
-    feature_count     INTEGER,
-    features_blob     BLOB,    -- gzip-compressed gob-encoded []SceneFeature
-    features_hash     TEXT,    -- SHA256 deduplication
-    lod_distribution  TEXT     -- JSON: {"lod0": 15, "lod1": 35, "lod2": 120, "lod3": 45}
-);
-```
+> **Source:** Schema in `internal/db/migrations/` (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
 
 ### 5.4 Export Formats
 
@@ -592,29 +452,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 The vector scene map publishes a query interface that extends `GroundSurface`:
 
-```go
-// SceneSurface extends GroundSurface with structural and volumetric queries.
-type SceneSurface interface {
-    GroundSurface // Embeds height-above-ground queries
-
-    // FeaturesAt returns all features at (x, y) up to the specified LOD.
-    // Returns features from coarsest to finest.
-    FeaturesAt(x, y float64, maxLOD uint8) []SceneFeature
-
-    // GroundPolygonAt returns the ground polygon containing (x, y) at the finest
-    // available LOD up to maxLOD. Falls back to coarser LOD if finer unavailable.
-    GroundPolygonAt(x, y float64, maxLOD uint8) (*GroundFeature, bool)
-
-    // NearestStructure returns the closest structure feature to (x, y) within radius.
-    NearestStructure(x, y, radius float64) (*StructureFeature, float64, bool)
-
-    // VolumesInRadius returns all volume features within radius of (x, y).
-    VolumesInRadius(x, y, radius float64) []VolumeFeature
-
-    // FeaturesInBBox returns all features whose bounding box overlaps [xMin,yMin]–[xMax,yMax].
-    FeaturesInBBox(xMin, yMin, xMax, yMax float64, maxLOD uint8) []SceneFeature
-}
-```
+> **Source:** `SceneSurface` interface in `internal/lidar/` (when implemented). Embeds `GroundSurface` and adds: `FeaturesAt(x, y, maxLOD)`, `GroundPolygonAt(x, y, maxLOD)`, `NearestStructure(x, y, radius)`, `VolumesInRadius(x, y, radius)`, `FeaturesInBBox(xMin, yMin, xMax, yMax, maxLOD)`.
 
 ### 7.2 LOD Fallback Semantics
 
@@ -698,16 +536,7 @@ Vector Scene Map (LOD 0–3 polygons)    ←  Derived artefact for mapping, expo
 
 ### GroundSurface Delegation
 
-The `VectorSceneMap` can implement `GroundSurface` by delegating to the underlying `GroundPlaneGrid`:
-
-```go
-func (m *VectorSceneMap) QueryHeightAboveGround(x, y, z float64) (float64, float32, bool) {
-    // Delegate to the tile-based ground plane for real-time queries
-    return m.groundGrid.QueryHeightAboveGround(x, y, z)
-}
-```
-
-For offline/export use cases, the vector polygons can directly answer height queries using their plane equations.
+The `VectorSceneMap` implements `GroundSurface` by delegating height queries to the underlying `GroundPlaneGrid` for real-time use. For offline/export use cases, the vector polygons can directly answer height queries using their plane equations.
 
 ---
 
@@ -715,44 +544,7 @@ For offline/export use cases, the vector polygons can directly answer height que
 
 ### Default Parameters
 
-```go
-// VectorSceneParams configures the scene map construction.
-type VectorSceneParams struct {
-    // Ground polygon merging
-    MergeAngleThresholdDeg float64 // Max normal angle difference for merging (default: 2.0°)
-    MergeZThresholdM       float64 // Max Z-offset difference at shared edge (default: 0.03 m)
-
-    // LOD assignment
-    LOD0MinAreaM2 float64 // Polygons > this area are LOD 0 (default: 50.0 m²)
-    LOD1MinAreaM2 float64 // Polygons > this area are LOD 1 (default: 5.0 m²)
-    LOD2MinAreaM2 float64 // Polygons > this area are LOD 2 (default: 0.25 m²)
-
-    // Refinement triggers
-    RefinementCurvatureDeg   float64 // Curvature threshold to trigger LOD 2+ (default: 5.0°)
-    RefinementZStepM         float64 // Z-step threshold to trigger LOD 2+ (default: 0.10 m)
-    RefinementDensityPtsPerM2 float64 // Point density for LOD 3 eligibility (default: 50.0)
-
-    // Pruning (per-LOD minimum polygon area; see §4.3 pruning table)
-    MinPolygonAreaLOD2M2   float64 // Discard LOD 2 polygons smaller than this (default: 0.25 m²)
-    MinPolygonAreaLOD3M2   float64 // Discard LOD 3 polygons smaller than this (default: 0.10 m²)
-    MaxVerticesPerPolygon  int     // Simplify if exceeded (default: 32)
-    PlanarityImprovementMin float64 // Min planarity gain from split (default: 0.05)
-    MinConfidence          float32 // Exclude features below this (default: 0.70)
-    StaleTimeoutLOD01Nanos int64   // Stale timeout for LOD 0–1 (default: 300e9 = 5 min)
-    StaleTimeoutLOD23Nanos int64   // Stale timeout for LOD 2–3 (default: 120e9 = 2 min)
-
-    // Vertex simplification (Douglas-Peucker tolerance per LOD)
-    SimplifyToleranceLOD [4]float64 // {2.0, 0.5, 0.1, 0.02} metres
-
-    // Structure extraction
-    StructureMinHeight float64    // Minimum vertical extent for structures (default: 1.0 m)
-    StructureMaxNormalZ float64   // Max Z-component of normal for "vertical" (default: 0.3)
-
-    // Volume extraction
-    VolumeMinPersistenceSec float64 // Min seconds a cluster must persist (default: 30.0)
-    VolumeMinPointCount     int     // Min points for volume feature (default: 50)
-}
-```
+> **Source:** `VectorSceneParams` struct in `internal/lidar/` (when implemented). Key defaults: merge angle 2°, merge Z-offset 3 cm, LOD 0 min area 50 m², LOD 1 min area 5 m², refinement curvature 5°, refinement Z-step 10 cm, min confidence 0.70, Douglas-Peucker tolerances [2.0, 0.5, 0.1, 0.02] m per LOD, structure min height 1.0 m, volume min persistence 30 s.
 
 ---
 

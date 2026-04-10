@@ -56,123 +56,13 @@ Implementation plan for LiDAR-based object detection and tracking with **explici
 
 ## Current State Assessment
 
-### ✅ Completed (Phase 1 & 2)
+All phases through 3.7 are complete: background grid (polar), foreground mask generation, polar→world transform, DBSCAN clustering, Kalman tracking, SQL schema and persistence, track classification, REST API endpoints, PCAP analysis tool, analysis run infrastructure, and track visualisation UI. See the Implementation Files table below for the full file listing.
 
-#### Background Grid Infrastructure (Polar Frame)
-
-- **Grid Structure:** 40 rings × 1800 azimuth bins (0.2° resolution) = 72,000 cells
-- **Coordinate System:** **Purely polar** (ring index, azimuth bin, range in meters)
-- **Learning Algorithm:** Exponential Moving Average (EMA) for range/spread tracking
-- **Classification:** Distance-adaptive threshold with same-ring neighbour voting
-- **Persistence:** Automatic snapshots to `lidar_bg_snapshot` table
-- **Location:** `internal/lidar/background.go`
-
-**Critical Constraint:** Background grid **never** stores or uses Cartesian/world coordinates. All EMA updates, neighbour voting, and classification occur in polar space.
-
-#### Current Capabilities
-
-- ✅ UDP packet ingestion (Hesai Pandar40P)
-- ✅ Frame assembly (360° rotations)
-- ✅ Background learning (EMA-based grid)
-- ✅ Foreground/background classification (per-point in polar)
-- ✅ PCAP replay with parameter tuning
-- ✅ HTTP APIs for monitoring and control
-
-### ✅ Completed (Phases 2.9 - 3.2)
-
-#### Phase 2.9: Foreground Mask Generation (Polar Frame)
-
-- **Implementation:** `internal/lidar/foreground.go`
-- ✅ `ProcessFramePolarWithMask()` - per-point foreground/background classification returning mask
-- ✅ **Warmup Sensitivity Scaling** - dynamic threshold multiplier during cell initialisation (4x→1x over 100 observations)
-- ✅ `ExtractForegroundPoints()` - helper to filter foreground points from mask
-- ✅ `ComputeFrameMetrics()` - frame-level statistics (total, foreground, background counts)
-- ✅ Unit tests in `internal/lidar/foreground_test.go` and `internal/lidar/foreground_warmup_test.go`
-
-#### Phase 3.0: Polar → World Transform
-
-- **Implementation:** `internal/lidar/clustering.go`
-- ✅ `WorldPoint` struct for world-frame coordinates
-- ✅ `TransformToWorld()` - converts polar points to world frame
-- ✅ `TransformPointsToWorld()` - convenience function for pre-computed Cartesian points
-- ✅ Identity transform used by default (sensor frame = world frame)
-- ✅ Unit tests for coordinate transformation accuracy
-
-> **Note:** Pose-based transformations are deferred to a future phase. Currently, sensor frame coordinates are used directly as world frame coordinates.
-
-#### Phase 3.1: DBSCAN Clustering (World Frame)
-
-- **Implementation:** `internal/lidar/clustering.go`
-- ✅ `SpatialIndex` struct with grid-based indexing using Szudzik pairing
-- ✅ `DBSCAN()` - density-based clustering with spatial index
-- ✅ `computeClusterMetrics()` - centroid, bounding box, height P95, intensity mean
-- ✅ `WorldCluster` struct with all required features
-- ✅ Unit tests in `internal/lidar/clustering_test.go`
-
-#### Phase 3.2: Kalman Tracking (World Frame)
-
-- **Implementation:** `internal/lidar/tracking.go`
-- ✅ `TrackState` lifecycle: Tentative → Confirmed → Deleted
-- ✅ `TrackedObject` struct with Kalman state and aggregated features
-- ✅ `Tracker` with configurable parameters via `TrackerConfig`
-- ✅ Mahalanobis distance gating for association
-- ✅ Kalman predict/update with constant velocity model
-- ✅ Track lifecycle management (hits/misses, promotion, deletion)
-- ✅ Speed statistics (average, max, history for percentiles)
-- ✅ Unit tests in `internal/lidar/tracking_test.go`
-
-#### Classification Research Data Support
-
-- **Implementation:** `internal/lidar/training_data.go`
-- ✅ `ForegroundFrame` struct for exporting foreground points
-- ✅ `EncodeForegroundBlob()`/`DecodeForegroundBlob()` - compact binary encoding (8 bytes/point)
-- ✅ `TrainingDataFilter` for filtering exported research frames
-- ✅ Unit tests for foreground export encoding
-
-> **Future Work:** Pose validation and quality assessment will be implemented in a future phase.
-> The current implementation stores research export data in polar (sensor) frame, which is pose-independent.
-> This keeps exported foreground data valid even if the sensor pose changes.
-
-### ✅ Completed (Phases 3.3 - 3.5)
-
-#### Phase 3.3: SQL Schema & Database Persistence
-
-- **Implementation:** `internal/db/migrations/000009_create_lidar_tracks.up.sql`, `internal/lidar/track_store.go`
-- ✅ `lidar_clusters` table for DBSCAN cluster persistence
-- ✅ `lidar_tracks` table for track lifecycle and aggregated features
-- ✅ `lidar_track_obs` table for per-observation tracking data
-- ✅ `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` database functions
-- ✅ `GetActiveTracks()`, `GetTrackObservations()`, `GetRecentClusters()` query functions
-- ✅ Unit tests in `internal/lidar/track_store_test.go`
-
-#### Phase 3.4: Track Classification
-
-- **Implementation:** `internal/lidar/classification.go`
-- ✅ `TrackClassifier` with rule-based classification
-- ✅ Object classes: pedestrian, car, bird, other
-- ✅ Classification features: height, length, width, speed, duration
-- ✅ Configurable thresholds for each class
-- ✅ `ClassifyAndUpdate()` for track classification integration
-- ✅ Speed-history-derived summary features for classification
-- ✅ Unit tests in `internal/lidar/classification_test.go`
-
-#### Phase 3.5: REST API Endpoints
-
-- **Implementation:** `internal/lidar/monitor/track_api.go`
-- ✅ `TrackAPI` struct with HTTP handlers for track/cluster queries
-- ✅ `GET /api/lidar/tracks` - List tracks with optional state filter
-- ✅ `GET /api/lidar/tracks/active` - Active tracks (real-time from memory or DB)
-- ✅ `GET /api/lidar/tracks/{track_id}` - Get specific track details
-- ✅ `PUT /api/lidar/tracks/{track_id}` - Update track metadata (class, confidence)
-- ✅ `GET /api/lidar/tracks/{track_id}/observations` - Get track trajectory
-- ✅ `GET /api/lidar/tracks/summary` - Aggregated statistics by class/state
-- ✅ `GET /api/lidar/clusters` - Recent clusters by time range
-- ✅ Unit tests in `internal/lidar/monitor/track_api_test.go`
-- ✅ **UI visualisation** - Track history playback with MapPane, TrackList, TimelinePane components
+**Critical Constraint:** Background grid operates purely in polar space. All EMA updates, neighbour voting, and classification occur in polar coordinates.
 
 ### 📋 Remaining Components
 
-1. **Track Labelling UI** - Manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
+1. **Track Labelling UI** — manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
 
 ---
 
@@ -263,71 +153,13 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) (foregroundM
 
 **Implementation:**
 
-```go
-func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) ([]bool, error) {
-    if bm == nil || bm.Grid == nil {
-        return nil, fmt.Errorf("background manager or grid nil")
-    }
-
-    g := bm.Grid
-    g.mu.Lock()
-    defer g.mu.Unlock()
-
-    // Allocate mask for all points
-    foregroundMask := make([]bool, len(points))
-
-    for i, p := range points {
-        // Calculate ring and azimuth bin (polar coordinates only)
-        ring := p.Ring
-        azBin := int(p.Azimuth / 0.2) % 1800
-
-        // Get cell from background grid
-        cell := g.Cells[g.Idx(ring, azBin)]
-
-        // Classify in polar space
-        cellDiff := math.Abs(float64(p.Distance) - float64(cell.AverageRangeMeters))
-        closenessThreshold := g.Params.ClosenessSensitivityMultiplier *
-            (cell.RangeSpreadMeters + g.Params.NoiseRelativeFraction * p.Distance + 0.01) +
-            g.Params.SafetyMarginMeters
-
-        // Same-ring neighbor voting
-        neighborConfirm := countSameRingNeighbors(g, ring, azBin, p.Distance)
-
-        isBackground := (cellDiff <= float64(closenessThreshold)) ||
-                       (neighborConfirm >= g.Params.NeighborConfirmationCount)
-
-        foregroundMask[i] = !isBackground
-
-        if isBackground {
-            g.BackgroundCount++  // Protected by mutex, no atomic needed
-            // Update EMA for background cells only
-            updateCellEMA(cell, p.Distance)
-        } else {
-            g.ForegroundCount++  // Protected by mutex, no atomic needed
-        }
-    }
-
-    return foregroundMask, nil
-}
-```
+> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go) — `ProcessFramePolar()` classifies each point in polar space using EMA distance thresholds with same-ring neighbour voting and warmup sensitivity scaling.
 
 ### Foreground Point Extraction (Outside Lock)
 
 **After releasing background lock:**
 
-```go
-func extractForegroundPoints(allPoints []PointPolar, mask []bool) []PointPolar {
-    foregroundPoints := make([]PointPolar, 0, len(allPoints)/10)
-
-    for i, isForeground := range mask {
-        if isForeground {
-            foregroundPoints = append(foregroundPoints, allPoints[i])
-        }
-    }
-
-    return foregroundPoints
-}
-```
+> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go) — `ExtractForegroundPoints()` filters polar points by mask outside the background lock.
 
 ### Frame Processing Callback
 
@@ -370,17 +202,7 @@ func onFrameComplete(frame *LidarFrame) {
 
 Add per-frame foreground metrics to HTTP status:
 
-```go
-type FrameMetrics struct {
-    TotalPoints        int     `json:"total_points"`
-    ForegroundPoints   int     `json:"foreground_points"`
-    BackgroundPoints   int     `json:"background_points"`
-    ForegroundFraction float64 `json:"foreground_fraction"`
-    ProcessingTimeUs   int64   `json:"processing_time_us"`
-}
-
-// GET /api/lidar/frame_metrics?sensor_id=<id>
-```
+> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — `FrameMetrics` struct tracks total, foreground, background counts, fraction, and processing time per frame.
 
 ---
 
@@ -409,45 +231,7 @@ Explicit coordinate transformation stage converting foreground polar points to w
 
 ### Implementation
 
-```go
-// WorldPoint represents a point in Cartesian world coordinates
-type WorldPoint struct {
-    X, Y, Z       float64   // World frame position (meters)
-    Intensity     uint8     // Laser return intensity
-    Timestamp     time.Time // Acquisition time
-    SensorID      string    // Source sensor
-}
-
-// TransformToWorld converts foreground polar points to world frame
-func TransformToWorld(polarPoints []PointPolar, pose *Pose) []WorldPoint {
-    worldPoints := make([]WorldPoint, len(polarPoints))
-
-    for i, p := range polarPoints {
-        // Step 1: Polar → Sensor Cartesian
-        cosElev := math.Cos(p.Elevation * math.Pi / 180)
-        sensorX := p.Distance * math.Cos(p.Azimuth*math.Pi/180) * cosElev
-        sensorY := p.Distance * math.Sin(p.Azimuth*math.Pi/180) * cosElev
-        sensorZ := p.Distance * math.Sin(p.Elevation*math.Pi/180)
-
-        // Step 2: Apply 4x4 homogeneous transform (sensor → world)
-        // pose.T is row-major: [m00 m01 m02 m03, m10 m11 m12 m13, m20 m21 m22 m23, m30 m31 m32 m33]
-        worldX := pose.T[0]*sensorX + pose.T[1]*sensorY + pose.T[2]*sensorZ + pose.T[3]
-        worldY := pose.T[4]*sensorX + pose.T[5]*sensorY + pose.T[6]*sensorZ + pose.T[7]
-        worldZ := pose.T[8]*sensorX + pose.T[9]*sensorY + pose.T[10]*sensorZ + pose.T[11]
-
-        worldPoints[i] = WorldPoint{
-            X:         worldX,
-            Y:         worldY,
-            Z:         worldZ,
-            Intensity: p.Intensity,
-            Timestamp: p.Timestamp,
-            SensorID:  pose.SensorID,
-        }
-    }
-
-    return worldPoints
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `WorldPoint` struct and `TransformToWorld()` converting polar to world-frame Cartesian via 4×4 homogeneous pose transform.
 
 ### Testing Requirements
 
@@ -487,223 +271,15 @@ Spatial clustering of foreground world points to detect distinct objects.
 
 #### Spatial Index (Required)
 
-```go
-type SpatialIndex struct {
-    CellSize float64
-    Grid     map[int64][]int // Cell ID → point indices
-}
-
-func NewSpatialIndex(cellSize float64) *SpatialIndex {
-    return &SpatialIndex{
-        CellSize: cellSize,
-        Grid:     make(map[int64][]int),
-    }
-}
-
-func (si *SpatialIndex) Build(points []WorldPoint) {
-    si.Grid = make(map[int64][]int, len(points)/4)
-
-    for i, p := range points {
-        cellID := si.getCellID(p.X, p.Y)
-        si.Grid[cellID] = append(si.Grid[cellID], i)
-    }
-}
-
-func (si *SpatialIndex) getCellID(x, y float64) int64 {
-    cellX := int64(math.Floor(x / si.CellSize))
-    cellY := int64(math.Floor(y / si.CellSize))
-    // Szudzik's pairing function for signed integers
-    // Maps signed integers to non-negative before pairing
-    var a, b int64
-    if cellX >= 0 {
-        a = 2 * cellX
-    } else {
-        a = -2*cellX - 1
-    }
-    if cellY >= 0 {
-        b = 2 * cellY
-    } else {
-        b = -2*cellY - 1
-    }
-    var pair int64
-    if a >= b {
-        pair = a*a + a + b
-    } else {
-        pair = a + b*b
-    }
-    // Ensure unique mapping for sign combinations
-    if (cellX < 0) != (cellY < 0) {
-        pair = -pair - 1
-    }
-    return pair
-}
-
-func (si *SpatialIndex) RegionQuery(points []WorldPoint, idx int, eps float64) []int {
-    p := points[idx]
-    neighbors := []int{}
-
-    // Get neighboring cells (3x3 grid)
-    cellX := int64(math.Floor(p.X / si.CellSize))
-    cellY := int64(math.Floor(p.Y / si.CellSize))
-
-    for dx := int64(-1); dx <= 1; dx++ {
-        for dy := int64(-1); dy <= 1; dy++ {
-            // Calculate neighbor cell world coordinates and get cell ID
-            neighborX := float64(cellX+dx) * si.CellSize
-            neighborY := float64(cellY+dy) * si.CellSize
-            neighborCellID := si.getCellID(neighborX, neighborY)
-
-            for _, candidateIdx := range si.Grid[neighborCellID] {
-                candidate := points[candidateIdx]
-                dist := math.Sqrt((candidate.X-p.X)*(candidate.X-p.X) +
-                                 (candidate.Y-p.Y)*(candidate.Y-p.Y))
-
-                if dist <= eps {
-                    neighbors = append(neighbors, candidateIdx)
-                }
-            }
-        }
-    }
-
-    return neighbors
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `SpatialIndex` with grid-based Szudzik pairing, `Build()`, `getCellID()`, and `RegionQuery()` examining current cell + 8 neighbours.
 
 #### DBSCAN Algorithm
 
-```go
-func DBSCAN(points []WorldPoint, eps float64, minPts int) []WorldCluster {
-    n := len(points)
-    labels := make([]int, n) // 0=unvisited, -1=noise, >0=clusterID
-    clusterID := 0
-
-    // Build spatial index (required for performance)
-    spatialIndex := NewSpatialIndex(eps)
-    spatialIndex.Build(points)
-
-    for i := 0; i < n; i++ {
-        if labels[i] != 0 {
-            continue
-        }
-
-        neighbors := spatialIndex.RegionQuery(points, i, eps)
-
-        if len(neighbors) < minPts {
-            labels[i] = -1 // Noise
-            continue
-        }
-
-        clusterID++
-        expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, eps, minPts)
-    }
-
-    return buildClusters(points, labels, clusterID)
-}
-
-func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
-                   seedIdx int, neighbors []int, clusterID int, eps float64, minPts int) {
-    labels[seedIdx] = clusterID
-
-    for j := 0; j < len(neighbors); j++ {
-        idx := neighbors[j]
-
-        if labels[idx] == -1 {
-            labels[idx] = clusterID // Noise → border point
-        }
-
-        if labels[idx] != 0 {
-            continue
-        }
-
-        labels[idx] = clusterID
-        newNeighbors := si.RegionQuery(points, idx, eps)
-
-        if len(newNeighbors) >= minPts {
-            neighbors = append(neighbors, newNeighbors...)
-        }
-    }
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `DBSCAN()` with spatial index and `expandCluster()` for density-based neighbour expansion.
 
 #### Cluster Metrics Computation
 
-```go
-func buildClusters(points []WorldPoint, labels []int, maxClusterID int) []WorldCluster {
-    clusters := make([]WorldCluster, 0, maxClusterID)
-
-    for cid := 1; cid <= maxClusterID; cid++ {
-        clusterPoints := []WorldPoint{}
-        for i, label := range labels {
-            if label == cid {
-                clusterPoints = append(clusterPoints, points[i])
-            }
-        }
-
-        if len(clusterPoints) == 0 {
-            continue
-        }
-
-        cluster := computeClusterMetrics(clusterPoints)
-        clusters = append(clusters, cluster)
-    }
-
-    return clusters
-}
-
-func computeClusterMetrics(points []WorldPoint) WorldCluster {
-    n := float32(len(points))
-
-    // Centroid (x, y, z)
-    var sumX, sumY, sumZ float64
-    for _, p := range points {
-        sumX += p.X
-        sumY += p.Y
-        sumZ += p.Z
-    }
-    centroidX := float32(sumX / float64(n))
-    centroidY := float32(sumY / float64(n))
-    centroidZ := float32(sumZ / float64(n))
-
-    // Axis-aligned bounding box
-    minX, maxX := points[0].X, points[0].X
-    minY, maxY := points[0].Y, points[0].Y
-    minZ, maxZ := points[0].Z, points[0].Z
-    var sumIntensity uint64
-    heights := make([]float64, len(points))
-
-    for i, p := range points {
-        if p.X < minX { minX = p.X }
-        if p.X > maxX { maxX = p.X }
-        if p.Y < minY { minY = p.Y }
-        if p.Y > maxY { maxY = p.Y }
-        if p.Z < minZ { minZ = p.Z }
-        if p.Z > maxZ { maxZ = p.Z }
-        sumIntensity += uint64(p.Intensity)
-        heights[i] = p.Z
-    }
-
-    // P95 height
-    sort.Float64s(heights)
-    p95Idx := int(0.95 * float64(len(heights)))
-    if p95Idx >= len(heights) {
-        p95Idx = len(heights) - 1
-    }
-
-    return WorldCluster{
-        TSUnixNanos:       points[0].Timestamp.UnixNano(),
-        SensorID:          points[0].SensorID,
-        CentroidX:         centroidX,
-        CentroidY:         centroidY,
-        CentroidZ:         centroidZ,
-        BoundingBoxLength: float32(maxX - minX),
-        BoundingBoxWidth:  float32(maxY - minY),
-        BoundingBoxHeight: float32(maxZ - minZ),
-        PointsCount:       len(points),
-        HeightP95:         float32(heights[p95Idx]),
-        IntensityMean:     float32(sumIntensity / uint64(len(points))),
-    }
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `buildClusters()` and `computeClusterMetrics()` computing centroid, axis-aligned bounding box, height P95, and intensity mean per cluster.
 
 ---
 
@@ -763,135 +339,11 @@ v_k ~ N(0, R)
 
 ### Implementation
 
-```go
-type TrackState string
-
-const (
-    TrackTentative TrackState = "tentative"
-    TrackConfirmed TrackState = "confirmed"
-    TrackDeleted   TrackState = "deleted"
-)
-
-type Track struct {
-    // Identity
-    TrackID    string
-    SensorID   string
-    WorldFrame FrameID
-    PoseID     int64
-    State      TrackState
-
-    // Lifecycle
-    FirstUnixNanos int64
-    LastUnixNanos  int64
-    Hits           int // Consecutive successful associations
-    Misses         int // Consecutive missed associations
-
-    // Kalman state (world frame only)
-    KalmanState TrackState2D
-
-    // Aggregated features
-    ObservationCount     int
-    BoundingBoxLengthAvg float32
-    BoundingBoxWidthAvg  float32
-    BoundingBoxHeightAvg float32
-    AvgSpeedMps          float32
-    MaxSpeedMps          float32
-
-    // Classification (Phase 3.4)
-    ObjectClass      string  // "pedestrian", "car", "bird", etc.
-    ObjectConfidence float32
-}
-
-type TrackState2D struct {
-    X, Y                 float32
-    VelocityX, VelocityY float32
-    CovarianceMatrix     [16]float32 // Row-major 4x4
-}
-```
+> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `Track` struct (identity, lifecycle, Kalman state, aggregated features, classification fields) and `TrackState2D` (position + velocity with 4×4 covariance).
 
 ### Tracker Implementation
 
-```go
-type Tracker struct {
-    Tracks                map[string]*Track
-    NextTrackID           int64
-    MaxTracks             int     // 100
-    MaxMisses             int     // 3
-    HitsToConfirm         int     // 3
-    GatingDistanceSquared float32 // 25.0 (5.0^2 meters squared)
-    ProcessNoise          [4]float32
-    MeasurementNoise      [2]float32
-    mu                    sync.RWMutex
-}
-
-func NewTracker() *Tracker {
-    return &Tracker{
-        Tracks:                make(map[string]*Track),
-        NextTrackID:           1,
-        MaxTracks:             100,
-        MaxMisses:             3,
-        HitsToConfirm:         3,
-        GatingDistanceSquared: 25.0, // 5.0 meters squared
-        ProcessNoise:          [4]float32{0.1, 0.1, 0.5, 0.5},
-        MeasurementNoise:      [2]float32{0.2, 0.2},
-    }
-}
-
-func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
-    t.mu.Lock()
-    defer t.mu.Unlock()
-
-    // Predict all tracks to current time
-    for _, track := range t.Tracks {
-        if track.State != TrackDeleted {
-            t.predict(track, timestamp)
-        }
-    }
-
-    // Associate clusters to tracks (Mahalanobis distance with gating)
-    associations := t.associate(clusters)
-
-    // Update matched tracks
-    matchedTracks := make(map[string]bool)
-    for clusterIdx, trackID := range associations {
-        if trackID != "" {
-            track := t.Tracks[trackID]
-            t.update(track, clusters[clusterIdx])
-            track.Hits++
-            track.Misses = 0
-            matchedTracks[trackID] = true
-
-            // Promote tentative → confirmed
-            if track.State == TrackTentative && track.Hits >= t.HitsToConfirm {
-                track.State = TrackConfirmed
-            }
-        }
-    }
-
-    // Handle unmatched tracks
-    for trackID, track := range t.Tracks {
-        if !matchedTracks[trackID] && track.State != TrackDeleted {
-            track.Misses++
-            track.Hits = 0
-
-            if track.Misses >= t.MaxMisses {
-                track.State = TrackDeleted
-                track.LastUnixNanos = timestamp.UnixNano()
-            }
-        }
-    }
-
-    // Initialise new tracks from unassociated clusters
-    for clusterIdx, trackID := range associations {
-        if trackID == "" && len(t.Tracks) < t.MaxTracks {
-            t.initTrack(clusters[clusterIdx])
-        }
-    }
-
-    // Cleanup deleted tracks (after grace period)
-    t.cleanupDeletedTracks(timestamp)
-}
-```
+> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `Tracker` struct with configurable gating, process/measurement noise, and `Update()` performing predict→associate→update→lifecycle management per frame.
 
 ### Gating Distance (Mahalanobis)
 
@@ -913,30 +365,7 @@ where:
 - We threshold on **squared distance** to avoid square root computation
 - Threshold tuned empirically for typical vehicle/pedestrian speeds
 
-```go
-func (t *Tracker) mahalanobisDistanceSquared(track *Track, cluster WorldCluster) float32 {
-    // Innovation: difference between measurement and prediction
-    dx := cluster.CentroidX - track.KalmanState.X
-    dy := cluster.CentroidY - track.KalmanState.Y
-
-    // Innovation covariance S (2x2)
-    S := t.computeInnovationCovariance(track)
-
-    // Mahalanobis distance squared: d² = [dx dy] * S^-1 * [dx dy]^T
-    det := S[0]*S[3] - S[1]*S[2]
-    if det == 0 {
-        return 1e9 // Singular covariance
-    }
-
-    invS00 := S[3] / det
-    invS01 := -S[1] / det
-    invS11 := S[0] / det
-
-    dist2 := dx*dx*invS00 + 2*dx*dy*invS01 + dy*dy*invS11
-
-    return dist2
-}
-```
+> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `mahalanobisDistanceSquared()` computes gating distance via 2×2 innovation covariance inversion.
 
 ---
 
@@ -950,97 +379,7 @@ func (t *Tracker) mahalanobisDistanceSquared(track *Track, cluster WorldCluster)
 
 #### Migration: 000009_create_lidar_tracks.up.sql
 
-```sql
--- Clusters detected via DBSCAN (world frame)
-CREATE TABLE IF NOT EXISTS lidar_clusters (
-    lidar_cluster_id INTEGER PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    world_frame TEXT NOT NULL,
-    ts_unix_nanos INTEGER NOT NULL,
-
-    -- World frame position (meters)
-    centroid_x REAL,
-    centroid_y REAL,
-    centroid_z REAL,
-
-    -- Bounding box (world frame, meters)
-    bounding_box_length REAL,
-    bounding_box_width REAL,
-    bounding_box_height REAL,
-
-    -- Cluster features
-    points_count INTEGER,
-    height_p95 REAL,
-    intensity_mean REAL
-);
-
-CREATE INDEX idx_clusters_sensor_time ON lidar_clusters(sensor_id, ts_unix_nanos);
-
--- Tracks (world frame)
-CREATE TABLE IF NOT EXISTS lidar_tracks (
-    track_id TEXT PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    world_frame TEXT NOT NULL,
-    track_state TEXT NOT NULL, -- 'tentative', 'confirmed', 'deleted'
-
-    -- Lifecycle
-    start_unix_nanos INTEGER NOT NULL,
-    end_unix_nanos INTEGER,
-    observation_count INTEGER,
-
-    -- Kinematics (world frame)
-    avg_speed_mps REAL,
-    peak_speed_mps REAL,
-
-    -- Shape features (world frame averages)
-    bounding_box_length_avg REAL,
-    bounding_box_width_avg REAL,
-    bounding_box_height_avg REAL,
-    height_p95_max REAL,
-    intensity_mean_avg REAL,
-
-    -- Classification (Phase 3.4)
-    object_class TEXT,           -- 'pedestrian', 'car', 'bird', 'other'
-    object_confidence REAL,
-    classification_model TEXT    -- Model version used for classification
-);
-
-CREATE INDEX idx_tracks_sensor ON lidar_tracks(sensor_id);
-CREATE INDEX idx_tracks_state ON lidar_tracks(track_state);
-CREATE INDEX idx_tracks_time ON lidar_tracks(start_unix_nanos, end_unix_nanos);
-CREATE INDEX idx_tracks_class ON lidar_tracks(object_class);
-
--- Track observations (world frame)
-CREATE TABLE IF NOT EXISTS lidar_track_obs (
-    track_id TEXT NOT NULL,
-    ts_unix_nanos INTEGER NOT NULL,
-    world_frame TEXT NOT NULL,
-
-    -- Position (world frame, meters)
-    x REAL,
-    y REAL,
-    z REAL,
-
-    -- Velocity (world frame, m/s)
-    velocity_x REAL,
-    velocity_y REAL,
-    speed_mps REAL,
-    heading_rad REAL,
-
-    -- Shape (world frame)
-    bounding_box_length REAL,
-    bounding_box_width REAL,
-    bounding_box_height REAL,
-    height_p95 REAL,
-    intensity_mean REAL,
-
-    PRIMARY KEY (track_id, ts_unix_nanos),
-    FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_track_obs_track ON lidar_track_obs(track_id);
-CREATE INDEX idx_track_obs_time ON lidar_track_obs(ts_unix_nanos);
-```
+> **Source:** [`internal/db/migrations/`](../../../internal/db/migrations/) — creates `lidar_clusters`, `lidar_tracks`, and `lidar_track_obs` tables with world-frame coordinates, lifecycle state, kinematics, classification fields, and time/sensor/class indices.
 
 ### REST API Endpoints
 
@@ -1140,42 +479,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 
 ### Classification Logic
 
-```go
-type TrackClassifier struct {
-    // Simple rule-based classifier (can be replaced with ML model later)
-}
-
-func (tc *TrackClassifier) Classify(track *Track) (class string, confidence float32) {
-    // Extract features from track
-    avgLength := track.BoundingBoxLengthAvg
-    avgWidth := track.BoundingBoxWidthAvg
-    avgHeight := track.BoundingBoxHeightAvg
-    avgSpeed := track.AvgSpeedMps
-    maxSpeed := track.MaxSpeedMps
-
-    // Rule-based classification
-    if avgHeight < 0.5 && avgSpeed < 1.0 {
-        return "bird", 0.7
-    } else if avgHeight > 1.2 && avgLength > 3.0 && avgSpeed > 5.0 {
-        return "car", 0.85
-    } else if avgHeight > 1.0 && avgHeight < 2.0 && avgSpeed < 3.0 {
-        return "pedestrian", 0.75
-    } else {
-        return "other", 0.5
-    }
-}
-
-// Called after track becomes confirmed
-func (t *Tracker) classifyTrack(track *Track) {
-    if track.ObservationCount < 10 {
-        return // Not enough observations
-    }
-
-    class, confidence := t.classifier.Classify(track)
-    track.ObjectClass = class
-    track.ObjectConfidence = confidence
-}
-```
+> **Source:** [`internal/lidar/l6objects/classification.go`](../../../internal/lidar/l6objects/classification.go) — `TrackClassifier.Classify()` implements rule-based classification using bounding box dimensions, speed, and height to distinguish pedestrian, car, bird, and other object classes.
 
 ### Future Enhancement: ML-Based Classification
 
@@ -1628,30 +932,7 @@ CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
 
 #### Export Functions
 
-```go
-// ForegroundFrame represents a single frame of foreground points for classification research
-type ForegroundFrame struct {
-    SensorID         string
-    TSUnixNanos      int64
-    SequenceID       string
-    ForegroundPoints []PointPolar
-    TotalPoints      int
-    BackgroundPoints int
-}
-
-// ExportForegroundFrame exports foreground points in polar coordinates for classification research
-func ExportForegroundFrame(polarPoints []PointPolar, mask []bool, sensorID string, ts time.Time) *ForegroundFrame {
-    foreground := ExtractForegroundPoints(polarPoints, mask)
-
-    return &ForegroundFrame{
-        SensorID:         sensorID,
-        TSUnixNanos:      ts.UnixNano(),
-        ForegroundPoints: foreground,
-        TotalPoints:      len(polarPoints),
-        BackgroundPoints: len(polarPoints) - len(foreground),
-    }
-}
-```
+> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — `ForegroundFrame` struct and `ExportForegroundFrame()` for exporting foreground points in polar coordinates for classification research.
 
 ### E. Future Work: Pose Validation
 

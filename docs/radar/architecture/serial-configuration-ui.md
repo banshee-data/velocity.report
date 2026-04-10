@@ -98,59 +98,7 @@ type SerialPorter interface {
 
 **Schema Design:**
 
-```sql
--- Serial port configurations table
-CREATE TABLE IF NOT EXISTS radar_serial_config (
-       id INTEGER PRIMARY KEY AUTOINCREMENT
-     , name TEXT NOT NULL UNIQUE
-     , port_path TEXT NOT NULL
-     , baud_rate INTEGER NOT NULL DEFAULT 19200
-     , data_bits INTEGER NOT NULL DEFAULT 8
-     , stop_bits INTEGER NOT NULL DEFAULT 1
-     , parity TEXT NOT NULL DEFAULT 'N'
-     , enabled INTEGER NOT NULL DEFAULT 1
-     , description TEXT
-     , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
-     , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
-     );
-
-CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled
-    ON radar_serial_config (enabled);
-
-CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp
-    AFTER UPDATE ON radar_serial_config
-BEGIN
-    UPDATE radar_serial_config
-    SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-END;
-
--- Insert default configuration for HAT (Raspberry Pi header)
-INSERT INTO radar_serial_config (
-       name
-     , port_path
-     , baud_rate
-     , data_bits
-     , stop_bits
-     , parity
-     , enabled
-     , description
-     , sensor_model
-     )
-VALUES (
-       'Default HAT'
-     , '/dev/ttySC1'
-     , 19200
-     , 8
-     , 1
-     , 'N'
-     , 1
-     , 'Default serial configuration for Raspberry Pi HAT (SC16IS762)'
-     , 'ops243-a'
-     );
-```
+> **Source:** Schema in `internal/db/migrations/` (when implemented). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. CHECK constraint validates sensor_model. Default config inserts HAT entry (`/dev/ttySC1`, 19200 baud, `ops243-a`).
 
 **Rationale:**
 
@@ -167,43 +115,7 @@ VALUES (
 
 **Sensor Model Information (Application Code):**
 
-The application will define sensor model capabilities and initialisation commands:
-
-```go
-type SensorModel struct {
-    Slug            string
-    DisplayName     string
-    HasDoppler      bool
-    HasFMCW         bool
-    HasDistance     bool
-    DefaultBaudRate int
-    InitCommands    []string
-    Description     string
-}
-
-var SupportedSensorModels = map[string]SensorModel{
-    "ops243-a": {
-        Slug:            "ops243-a",
-        DisplayName:     "OmniPreSense OPS243-A",
-        HasDoppler:      true,
-        HasFMCW:         false,
-        HasDistance:     false,
-        DefaultBaudRate: 19200,
-        InitCommands:    []string{"AX", "OJ", "OS", "OM", "OH", "OC"},
-        Description:     "Doppler radar with speed measurement only",
-    },
-    "ops243-c": {
-        Slug:            "ops243-c",
-        DisplayName:     "OmniPreSense OPS243-C",
-        HasDoppler:      true,
-        HasFMCW:         true,
-        HasDistance:     true,
-        DefaultBaudRate: 19200,
-        InitCommands:    []string{"AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"},
-        Description:     "FMCW radar with both speed and distance measurement",
-    },
-}
-```
+> **Source:** Sensor model registry in `internal/radar/` (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
 
 #### FR2: Go API Endpoints for Serial Configuration
 
@@ -607,45 +519,8 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 
 - **File:** `cmd/radar/radar.go`
 - **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
-- **Structure:**
 
-  ```go
-  type SerialConfig struct {
-      ID           int
-      Name         string
-      PortPath     string
-      BaudRate     int
-      DataBits     int
-      StopBits     int
-      Parity       string
-      Enabled      bool
-      Description  string
-      SensorModel  string  // Slug like "ops243-a"
-  }
-
-  type SensorModel struct {
-      Slug            string
-      DisplayName     string
-      HasDoppler      bool
-      HasFMCW         bool
-      HasDistance     bool
-      DefaultBaudRate int
-      InitCommands    []string
-      Description     string
-  }
-
-  // GetSensorModel looks up sensor model from application code
-  func GetSensorModel(slug string) (SensorModel, error) {
-      model, ok := SupportedSensorModels[slug]
-      if !ok {
-          return SensorModel{}, fmt.Errorf("unsupported sensor model: %s", slug)
-      }
-      return model, nil
-  }
-  ```
-
-**Application-Side Model Registry:**
-Sensor models are defined in the application code (as shown in the rationale section above), eliminating the need for database migrations when adding new sensor support.
+> **Source:** `SerialConfig` struct, `SensorModel` struct, and `GetSensorModel()` defined in sensor model registry (see FR1). Application-side model registry eliminates the need for database migrations when adding new sensor support.
 
 **Backward Compatibility:**
 
@@ -867,14 +742,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 
 **Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
 
-**Implementation:**
-
-```sql
-sensor_model TEXT NOT NULL DEFAULT 'ops243-a',
-CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
-```
-
-The CHECK constraint is updated via migration when the application adds support for new sensor models. This approach balances flexibility (easy to add sensors) with safety (database validates values).
+The CHECK constraint in the migration validates sensor model slugs at the database level. Adding new sensor models requires both an application update and a migration to update the CHECK constraint.
 
 ## Migration Path for Existing Deployments
 
