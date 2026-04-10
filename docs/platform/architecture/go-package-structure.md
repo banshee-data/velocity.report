@@ -4,7 +4,6 @@ Import boundaries, file-size discipline, and structural hygiene for the Go codeb
 
 Active plan: [go-codebase-structural-hygiene-plan.md](../../plans/go-codebase-structural-hygiene-plan.md)
 
-Graduated plan: [go-god-file-split-plan.md](../../plans/go-god-file-split-plan.md)
 
 ## Import Boundary: `database/sql`
 

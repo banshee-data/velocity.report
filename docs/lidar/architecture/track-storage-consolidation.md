@@ -1,7 +1,5 @@
 # Track Storage Consolidation
 
-Graduated plan: [lidar-tracks-table-consolidation-plan.md](../../plans/lidar-tracks-table-consolidation-plan.md)
-
 **Status:** Complete
 
 ## Problem

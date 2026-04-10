@@ -1,7 +1,5 @@
 # Python Virtual Environment — Single Shared `.venv`
 
-Graduated plan: [tooling-python-venv-consolidation-plan.md](../../plans/tooling-python-venv-consolidation-plan.md)
-
 **Status:** Complete
 
 ## Architecture

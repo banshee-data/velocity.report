@@ -2,7 +2,6 @@
 
 Active plan: [v050-backward-compatibility-shim-removal-plan.md](../../plans/v050-backward-compatibility-shim-removal-plan.md)
 
-Graduated plan: [v050-tech-debt-removal-plan.md](../../plans/v050-tech-debt-removal-plan.md)
 
 ## Principle
 
