@@ -467,7 +467,7 @@ This ensures that **every query returns something if any coverage exists**, rega
 
 ---
 
-## 8. Seamless Navigation Between LOD Levels
+## 8. Gap-Free Navigation Between LOD Levels
 
 ### 8.1 The Global Map Problem
 
@@ -478,7 +478,7 @@ At the global level (Tier 2, lat/long-aligned), the map should be navigable as a
 
 ### 8.2 Transition Strategy
 
-**Spatial containment invariant:** Every LOD N+1 feature is fully contained within its LOD N parent's boundary. This guarantees seamless transition:
+**Spatial containment invariant:** Every LOD N+1 feature is fully contained within its LOD N parent's boundary. This guarantees gap-free transition:
 
 ```
 Query at LOD 0: Returns ~15 large ground polygons + building footprints + vegetation spheres.
@@ -703,15 +703,21 @@ Multiple sensors observing the same area can each produce a local vector scene m
 
 ---
 
+## Open Questions
+
+No open questions for the vector scene map core. Design choices (alpha-shape vs convex-hull boundary, QuadTree vs R-tree spatial index) are documented in §4 and §10. Open questions for the geometry-prior service are in [geometry-prior-service.md](./geometry-prior-service.md).
+
+---
+
 ## References
 
 ### Internal Documents
 
-- **Ground Plane Extraction** — `docs/lidar/architecture/../lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Proposal Maths** — `data/maths/proposals/20260221-ground-plane-vector-scene-maths.md` (algorithm trade-offs)
-- **LiDAR Layer Model** — `docs/lidar/architecture/../lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
-- **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export)
-- **PCAP Export Tool** — `docs/plans/pcap-ground-plane-export-tool-plan.md` (CLI flags, export formats)
+- **Ground Plane Extraction** — [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
+- **Ground Plane Proposal Maths** — [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
+- **LiDAR Layer Model** — [lidar-data-layer-model.md](./lidar-data-layer-model.md) (L1–L6 layer definitions)
+- **Background Grid Standards** — [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
+- **PCAP Export Tool** — [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
 
 ### External Standards
 
