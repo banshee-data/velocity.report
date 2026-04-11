@@ -533,21 +533,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 ### Profiling Points
 
-```go
-// Instrumentation for latency measurement
-type PipelineMetrics struct {
-    BackgroundClassifyUs int64
-    ForegroundExtractUs  int64
-    TransformUs          int64
-    ClusteringUs         int64
-    TrackingUs           int64
-    DatabaseUs           int64
-    TotalUs              int64
-}
-
-// Emit per-frame for monitoring
-emitPipelineMetrics(metrics)
-```
+> **Source:** `PipelineMetrics` struct in [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — per-frame latency measurements for each pipeline stage (background classify, foreground extract, transform, clustering, tracking, database, total).
 
 ---
 
@@ -557,160 +543,33 @@ emitPipelineMetrics(metrics)
 
 #### 1. Polar Frame Tests (Phase 2.9)
 
-**Test:** Foreground mask accuracy
+**Test:** Foreground mask accuracy — verify that `ProcessFramePolar` produces correct per-point foreground/background classification. Points closer than background (5 m vs 10 m stable background) should be marked foreground.
 
-```go
-func TestProcessFramePolar_ForegroundMask(t *testing.T) {
-    // Setup: Background grid with stable background at 10m
-    bm := setupBackgroundManager(10.0)
-
-    // Test: Points at 5m (foreground) and 10m (background)
-    points := []PointPolar{
-        {Ring: 0, Azimuth: 0, Distance: 5.0},  // Expect: foreground
-        {Ring: 0, Azimuth: 0, Distance: 10.0}, // Expect: background
-    }
-
-    mask, err := bm.ProcessFramePolar(points)
-
-    assert.NoError(t, err)
-    assert.Equal(t, []bool{true, false}, mask)
-}
-```
+> **Source:** [`internal/lidar/l3grid/foreground_test.go`](../../../internal/lidar/l3grid/foreground_test.go)
 
 #### 2. Transform Tests (Phase 3.0)
 
-**Test:** Polar → World transform accuracy
+**Test:** Polar → World transform accuracy — verify that `TransformToWorld` converts polar coordinates to correct Cartesian world positions under identity and known custom poses. Point at (10 m, 0°, 0°) with identity pose should produce (x=10, y=0, z=0).
 
-```go
-func TestTransformToWorld_Accuracy(t *testing.T) {
-    // Known pose: identity transform
-    identityPose := &Pose{
-        T: [16]float64{
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1,
-        },
-    }
-
-    // Point at (distance=10m, azimuth=0°, elevation=0°)
-    // Should transform to (x=10, y=0, z=0)
-    polar := []PointPolar{{Distance: 10.0, Azimuth: 0, Elevation: 0}}
-
-    world := TransformToWorld(polar, identityPose)
-
-    assert.InDelta(t, 10.0, world[0].X, 0.01)
-    assert.InDelta(t, 0.0, world[0].Y, 0.01)
-    assert.InDelta(t, 0.0, world[0].Z, 0.01)
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering_test.go`](../../../internal/lidar/l4perception/clustering_test.go)
 
 #### 3. Clustering Tests (Phase 3.1)
 
-**Test:** DBSCAN detects distinct clusters
+**Test:** DBSCAN cluster detection — verify that two spatially separated point groups (e.g., origin and (10, 0)) produce exactly two clusters with correct centroids. Uses `eps=0.6`, `minPts=12`.
 
-```go
-func TestDBSCAN_TwoSeparateClusters(t *testing.T) {
-    // Create two clusters: one at origin, one at (10, 0)
-    cluster1 := generateSphere(0, 0, 0, 0.3, 50)
-    cluster2 := generateSphere(10, 0, 0, 0.3, 50)
-
-    allPoints := append(cluster1, cluster2...)
-
-    clusters := DBSCAN(allPoints, 0.6, 12)
-
-    // Should detect exactly 2 clusters
-    assert.Equal(t, 2, len(clusters))
-
-    // Verify centroids are correct
-    centroids := []float32{clusters[0].CentroidX, clusters[1].CentroidX}
-    sort.Float32s(centroids)
-    assert.InDelta(t, 0.0, centroids[0], 0.5)
-    assert.InDelta(t, 10.0, centroids[1], 0.5)
-}
-```
+> **Source:** [`internal/lidar/l4perception/clustering_test.go`](../../../internal/lidar/l4perception/clustering_test.go)
 
 #### 4. Tracking Tests (Phase 3.2)
 
-**Test:** Track lifecycle (Tentative → Confirmed → Deleted)
+**Test:** Track lifecycle transitions — verify Tentative → Confirmed (after 3 consecutive hits) and Confirmed → Deleted (after 3 consecutive misses). Uses `NewTracker()` with moving cluster input and empty-frame input for miss generation.
 
-```go
-func TestTracking_Lifecycle(t *testing.T) {
-    tracker := NewTracker()
-    timestamp := time.Now()
-
-    // Create cluster representing moving object
-    cluster := WorldCluster{
-        CentroidX: 0, CentroidY: 0,
-        TSUnixNanos: timestamp.UnixNano(),
-    }
-
-    // Frame 1: Birth (Tentative)
-    tracker.Update([]WorldCluster{cluster}, timestamp)
-    assert.Equal(t, 1, len(tracker.Tracks))
-    var track *Track
-    for _, t := range tracker.Tracks {
-        track = t
-    }
-    assert.Equal(t, TrackTentative, track.State)
-
-    // Frames 2-4: Hits (Tentative → Confirmed after 3 hits)
-    for i := 1; i <= 3; i++ {
-        timestamp = timestamp.Add(100 * time.Millisecond)
-        cluster.CentroidX = float32(i)
-        tracker.Update([]WorldCluster{cluster}, timestamp)
-    }
-    assert.Equal(t, TrackConfirmed, track.State)
-
-    // Frames 5-7: Misses (Confirmed → Deleted after 3 misses)
-    for i := 0; i < 3; i++ {
-        timestamp = timestamp.Add(100 * time.Millisecond)
-        tracker.Update([]WorldCluster{}, timestamp)
-    }
-    assert.Equal(t, TrackDeleted, track.State)
-}
-```
+> **Source:** [`internal/lidar/l5tracks/tracker_test.go`](../../../internal/lidar/l5tracks/tracker_test.go)
 
 #### 5. Integration Tests (End-to-End)
 
-**Test:** Full pipeline with PCAP
+**Test:** Full pipeline from PCAP to tracks — load a PCAP with known moving objects, run the full pipeline (polar classification → foreground extraction → world transform → DBSCAN clustering → Kalman tracking), verify that tracks are produced and frame count exceeds 100.
 
-```go
-func TestPipeline_PCAPToTracks(t *testing.T) {
-    // Load PCAP with known moving objects
-    pcapPath := "testdata/cars.pcap"
-
-    // Setup pipeline
-    bm := NewBackgroundManager(...)
-    tracker := NewTracker()
-
-    // Process all frames
-    processedFrames := 0
-    finalTracks := 0
-
-    err := processPCAP(pcapPath, func(frame *LidarFrame) {
-        // Polar classification
-        mask, _ := bm.ProcessFramePolar(frame.Points)
-        foregroundPolar := extractForegroundPoints(frame.Points, mask)
-
-        // Transform to world
-        foregroundWorld := TransformToWorld(foregroundPolar, frame.Pose)
-
-        // Cluster
-        clusters := DBSCAN(foregroundWorld, 0.6, 12)
-
-        // Track
-        tracker.Update(clusters, frame.Timestamp)
-
-        processedFrames++
-        finalTracks = len(tracker.Tracks)
-    })
-
-    assert.NoError(t, err)
-    assert.Greater(t, processedFrames, 100)
-    assert.Greater(t, finalTracks, 0)
-}
-```
+> **Source:** [`internal/lidar/l5tracks/tracker_test.go`](../../../internal/lidar/l5tracks/tracker_test.go)
 
 ---
 
@@ -779,102 +638,30 @@ func TestPipeline_PCAPToTracks(t *testing.T) {
 
 ### A. Data Structures
 
-**PointPolar (Input - Polar Frame):**
+> **Source:** [`internal/lidar/l2frames/`](../../../internal/lidar/l2frames/), [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go), [`internal/lidar/l5tracks/types.go`](../../../internal/lidar/l5tracks/types.go)
 
-```go
-type PointPolar struct {
-    Distance  float64   // Range in meters
-    Azimuth   float64   // Horizontal angle (degrees)
-    Elevation float64   // Vertical angle (degrees)
-    Intensity uint8     // Return intensity
-    Timestamp time.Time
-    Ring      int       // Laser ring index (0-39)
-}
-```
-
-**WorldPoint (After Transform - World Frame):**
-
-```go
-type WorldPoint struct {
-    X, Y, Z   float64   // Cartesian world coordinates (meters)
-    Intensity uint8
-    Timestamp time.Time
-    SensorID  string
-}
-```
-
-**WorldCluster (After Clustering - World Frame):**
-
-```go
-type WorldCluster struct {
-    ClusterID         int64
-    SensorID          string
-    WorldFrame        FrameID
-    PoseID            int64
-    TSUnixNanos       int64
-    CentroidX         float32  // World frame (meters)
-    CentroidY         float32
-    CentroidZ         float32
-    BoundingBoxLength float32
-    BoundingBoxWidth  float32
-    BoundingBoxHeight float32
-    PointsCount       int
-    HeightP95         float32
-    IntensityMean     float32
-}
-```
-
-**Track (After Tracking - World Frame):**
-
-```go
-type Track struct {
-    TrackID              string
-    SensorID             string
-    State                TrackState // tentative/confirmed/deleted
-    FirstUnixNanos       int64
-    LastUnixNanos        int64
-    Hits                 int
-    Misses               int
-    KalmanState          TrackState2D // x, y, vx, vy in world frame
-    ObservationCount     int
-    AvgSpeedMps          float32
-    MaxSpeedMps          float32
-    BoundingBoxLengthAvg float32
-    ObjectClass          string
-    ObjectConfidence     float32
-}
-```
+| Stage      | Type           | Frame | Key Fields                                                                                                 |
+| ---------- | -------------- | ----- | ---------------------------------------------------------------------------------------------------------- |
+| Input      | `PointPolar`   | Polar | distance, azimuth, elevation, intensity, ring (0–39)                                                       |
+| Transform  | `WorldPoint`   | World | x, y, z (metres), intensity, timestamp, sensor_id                                                          |
+| Clustering | `WorldCluster` | World | centroid (x, y, z), bounding box (L×W×H), point count, height P95, intensity mean                          |
+| Tracking   | `Track`        | World | track ID, lifecycle state, Kalman state (x, y, vx, vy), hits/misses, speed stats, object class, confidence |
 
 ### B. Configuration Parameters
 
-**Background (Polar):**
+See [Configuration Reference](#configuration-reference) below for runtime parameter defaults. Additional clustering and tracking defaults:
 
-```go
-BackgroundUpdateFraction       = 0.02
-ClosenessSensitivityMultiplier = 3.0
-SafetyMarginMeters             = 0.5
-NeighborConfirmationCount      = 3
-NoiseRelativeFraction          = 0.315
-```
-
-**Clustering (World):**
-
-```go
-Eps      = 0.6    // meters
-MinPts   = 12     // points
-CellSize = 0.6    // spatial index cell size (meters)
-```
-
-**Tracking (World):**
-
-```go
-MaxTracks             = 100
-MaxMisses             = 3
-HitsToConfirm         = 3
-GatingDistanceSquared = 25.0  // 5.0 meters squared
-ProcessNoise          = [0.1, 0.1, 0.5, 0.5]
-MeasurementNoise      = [0.2, 0.2]
-```
+| Domain     | Parameter               | Default              | Description                                |
+| ---------- | ----------------------- | -------------------- | ------------------------------------------ |
+| Clustering | `Eps`                   | 0.6 m                | Neighbourhood radius                       |
+| Clustering | `MinPts`                | 12                   | Minimum points per cluster                 |
+| Clustering | `CellSize`              | 0.6 m                | Spatial index cell size                    |
+| Tracking   | `MaxTracks`             | 100                  | Maximum concurrent tracks                  |
+| Tracking   | `MaxMisses`             | 3                    | Frames without association before deletion |
+| Tracking   | `HitsToConfirm`         | 3                    | Consecutive hits to confirm                |
+| Tracking   | `GatingDistanceSquared` | 25.0                 | Mahalanobis threshold (5.0 m²)             |
+| Tracking   | `ProcessNoise`          | [0.1, 0.1, 0.5, 0.5] | Kalman Q diagonal                          |
+| Tracking   | `MeasurementNoise`      | [0.2, 0.2]           | Kalman R diagonal                          |
 
 ### C. Related Documentation
 
