@@ -523,7 +523,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 This section documents known limitations and deferred work from the M2/M3/M3.5/M4 implementation that will be addressed in M7 (Performance Hardening).
 
-### 8.1 Memory Pool Not Fully Utilised (Go)
+### 8.1 Memory pool not fully used (Go)
 
 **Issue**: The `PointCloudFrame` type uses `sync.Pool` for slice allocation (`getFloat32Slice()`, `getUint8Slice()`), but the `Release()` method is not called in broadcast scenarios.
 

@@ -753,7 +753,7 @@ go test ./internal/lidar/ -v                        ✅ Complete test suite with
 === RUN   TestFrameBuilder_HybridDetection               ✅ Time-based + azimuth validation
 === RUN   TestFrameBuilder_AzimuthWrapWithTimeBased      ✅ Azimuth wrap in time-based mode
 === RUN   TestFrameBuilder_TraditionalAzimuthOnly        ✅ Traditional azimuth-only detection
-=== RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ End-to-end PCAP→parsing→framing
+=== RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ Full PCAP→parsing→framing
 
 # Background subtraction tests
 go test ./internal/lidar -run TestBackground            ✅ Background grid operations
@@ -769,7 +769,7 @@ Key test coverage:
 - HTTP endpoint functionality
 - Comprehensive frame builder testing with production-level data volumes (60,000 points)
 - Both traditional azimuth-based and hybrid time-based frame detection modes
-- End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)
+- Full integration testing with real PCAP data (76,934 points → 56,929 frame points)
 - Background grid learning and foreground detection
 - Concurrent stress testing with race detection
 - ASC point cloud export with elevation corrections

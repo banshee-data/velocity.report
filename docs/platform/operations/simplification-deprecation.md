@@ -26,7 +26,7 @@ Removal of `cmd/deploy` is gated on **all** of:
 
 1. #210 image pipeline operational (bootable Pi image, service starts, API
    responds).
-2. Packaging path confirmed (successful end-to-end deployment).
+2. Packaging path confirmed (successful full deployment).
 3. Migration period elapsed (at least one minor release with both paths).
 4. No active deploy-tool users confirmed.
 

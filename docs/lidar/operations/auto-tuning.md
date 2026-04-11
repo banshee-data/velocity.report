@@ -313,7 +313,7 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 | `per_combo` (default) | Full grid reset and re-settle for each combination.                               | Most accurate results. Use when you have time and want reliable comparisons.                                  |
 | `once`                | Full settle on the first combination only; subsequent combos do a short ~2s wait. | Faster iteration (~10× fewer settle seconds). Use for initial exploration when settle time dominates runtime. |
 
-The `once` mode leverages region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimisation.md) for details.
+The `once` mode uses region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimisation.md) for details.
 
 ### Data Sources
 

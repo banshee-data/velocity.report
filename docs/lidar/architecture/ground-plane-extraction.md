@@ -485,7 +485,7 @@ The `GroundSurface` interface is deliberately **non-point-based**: it exposes pl
 
 ### Two Operating Modes
 
-**Mode 1: Post-L3 (leverages background grid)**
+**Mode 1: Post-L3 (uses background grid)**
 
 - L3 background grid classifies points as background/foreground.
 - Ground plane extractor consumes **static background points within ground Z-band** (e.g., −3.0 m < Z < −2.5 m).

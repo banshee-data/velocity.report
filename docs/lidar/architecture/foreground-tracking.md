@@ -3,7 +3,7 @@
 - **Status:** Implementation Complete through Phase 3.7
 - **Version:** 7.1 - Warmup sensitivity scaling added
 
-End-to-end implementation of LiDAR foreground extraction and multi-object tracking, from polar-frame background subtraction through world-frame clustering, Kalman-filtered tracking, and database persistence.
+Full implementation of LiDAR foreground extraction and multi-object tracking, from polar-frame background subtraction through world-frame clustering, Kalman-filtered tracking, and database persistence.
 
 ---
 
@@ -588,7 +588,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 | 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
 | 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing and classification research export   |
 | 3.8   | Track Visualisation UI   | 2-3 days | ✅ Complete | MapPane, TrackList, TimelinePane components, pagination, playback                 |
-| Test  | Integration Testing      | 2-3 days | 📋 Planned  | End-to-end tests, performance validation                                          |
+| Test  | Integration Testing      | 2-3 days | 📋 Planned  | Integration tests, performance validation                                         |
 
 **Phases 2.9-3.8: Complete**
 **Remaining: Integration Testing**

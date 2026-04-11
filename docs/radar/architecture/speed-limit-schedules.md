@@ -720,7 +720,7 @@ _Enhancement:_ Multi-zone support:
 
 **Tradeoff:** Cannot handle one-time events or date-specific limits (addressed in future enhancements)
 
-### Why HH:MM Format (Not Unix Timestamps)?
+### Why HH:MM format (not Unix timestamps)?
 
 **Decision:** Store times as "06:00" strings instead of absolute timestamps
 

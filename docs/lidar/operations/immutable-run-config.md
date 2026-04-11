@@ -76,7 +76,7 @@ CREATE TABLE lidar_run_configs (
 - `created_at` is row-bookkeeping only — not part of any hash
 - If the param schema changes, the hash must change too
 
-## Canonical JSON Shapes
+## Canonical JSON shapes
 
 **Requested parameter set** (stored in `lidar_param_sets.params_json`):
 

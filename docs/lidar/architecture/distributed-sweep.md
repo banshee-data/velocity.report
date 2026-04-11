@@ -47,7 +47,7 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
 5. **Operator-configured workers** — worker hosts defined via Settings UI
    CRUD, not self-registered at runtime.
 
-## Worker HTTP Surface (port 8082)
+## Worker HTTP surface (port 8082)
 
 | Method | Path                            | Purpose                              |
 | ------ | ------------------------------- | ------------------------------------ |
@@ -122,7 +122,7 @@ oldest retrieved results first if disk exceeds threshold.
 1. **Phase 1** — Job model, worker server CRUD, persistence (S, low risk)
 2. **Phase 2** — Driver coordinator, settings UI, worker CRUD API (M, low risk)
 3. **Phase 3** — Worker mode in unified binary (L, medium risk)
-4. **Phase 4** — End-to-end integration + sweep dashboard (L, medium risk)
+4. **Phase 4** — Full integration + sweep dashboard (L, medium risk)
 5. **Phase 5** — Resilience and operational hardening (M, low risk)
 
 Phases 1–3 strictly sequential. Phases 4–5 can overlap once Phase 3 is

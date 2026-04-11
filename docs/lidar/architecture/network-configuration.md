@@ -374,10 +374,10 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 ### Phase 5: Integration & Testing
 
-| Task                                                 | Effort |
-| ---------------------------------------------------- | ------ |
-| End-to-end test: probe → configure → reload → verify | M      |
-| Coverage targets: 90%+ across new files              | M      |
+| Task                                                  | Effort |
+| ----------------------------------------------------- | ------ |
+| Integration test: probe → configure → reload → verify | M      |
+| Coverage targets: 90%+ across new files               | M      |
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 

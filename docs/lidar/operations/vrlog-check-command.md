@@ -36,7 +36,7 @@ and validation rules.
 - Avoids duplicating config, logging, and sensor/runtime wiring in separate
   binaries.
 
-## Proposed CLI Shape
+## Proposed CLI shape
 
 Top-level dispatch:
 

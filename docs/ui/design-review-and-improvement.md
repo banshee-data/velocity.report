@@ -254,7 +254,7 @@ No snapshot, screenshot, or visual regression testing exists for the web fronten
 
 **Effort:** 4–8 hours
 
-### 7.3 No end-to-end test infrastructure — Medium
+### 7.3 No integration test infrastructure — Medium
 
 No Cypress, Playwright, or other E2E framework is configured. API integration is tested in Go, but frontend-to-API flows are untested.
 

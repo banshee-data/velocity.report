@@ -46,7 +46,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 **Status**: Complete
 
-**Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates end-to-end pipeline without real tracking.
+**Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates full pipeline without real tracking.
 
 **Track A (Visualiser)**:
 
@@ -662,18 +662,18 @@ frame.PointCloud.Release()
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point                               | Status          |
-| --------- | ---------------------------------------- | --------------- |
-| M0        | Synthetic visualisation works end-to-end | ✅ Complete     |
-| M1        | Replay with seek/pause works             | ✅ Complete     |
-| M2        | Real point clouds render                 | ✅ Complete     |
-| M3        | Both outputs work from same model        | ✅ Complete     |
-| M3.5      | Bandwidth reduced to <5 Mbps             | ✅ Complete     |
-| M4        | Golden replay tests pass                 | ✅ Complete     |
-| M5        | Improved tracking quality validated      | ✅ Complete (B) |
-| M6        | Labelling workflow complete              | ✅ Complete (B) |
-| M7        | Performance targets met                  | ✅ Complete     |
-| M8        | BG debug surfaces + region map live      | 📝 Planned      |
+| Milestone | Stop Point                          | Status          |
+| --------- | ----------------------------------- | --------------- |
+| M0        | Synthetic visualisation works fully | ✅ Complete     |
+| M1        | Replay with seek/pause works        | ✅ Complete     |
+| M2        | Real point clouds render            | ✅ Complete     |
+| M3        | Both outputs work from same model   | ✅ Complete     |
+| M3.5      | Bandwidth reduced to <5 Mbps        | ✅ Complete     |
+| M4        | Golden replay tests pass            | ✅ Complete     |
+| M5        | Improved tracking quality validated | ✅ Complete (B) |
+| M6        | Labelling workflow complete         | ✅ Complete (B) |
+| M7        | Performance targets met             | ✅ Complete     |
+| M8        | BG debug surfaces + region map live | 📝 Planned      |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 

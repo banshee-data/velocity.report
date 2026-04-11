@@ -19,7 +19,7 @@ The velocity.report system currently stores site-level GPS coordinates in the da
 
 The L1 packet parsing layer (`internal/lidar/l1packets/parse/`) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
 
-### What GPS Enables (When Available)
+### What GPS enables (when available)
 
 Geographic referencing of LiDAR data is **optional but valuable** for:
 
@@ -113,7 +113,7 @@ IEEE 1588 Precision Time Protocol (PTP) synchronised to GPS-disciplined grandmas
 - Sub-microsecond time accuracy
 - Standard for multi-sensor deployments
 
-### Standalone GPS Receiver (Recommended)
+### Standalone GPS receiver (recommended)
 
 External GPS receiver on same network segment as LiDAR sensor:
 
