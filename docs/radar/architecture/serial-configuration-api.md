@@ -67,7 +67,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 | `init_commands`     | string[] | OPS243 initialisation sequence |
 | `description`       | string   |                                |
 
-**Implementation location:** `internal/api/serial_config.go`
+**Implementation location (planned):** `internal/api/serial_config.go`
 
 ### Error handling
 
@@ -144,7 +144,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 - Concurrent test prevention (mutex on port access)
 - Non-JSON responses are expected and valid for certain commands
 
-**Implementation location:** `internal/api/serial_test.go`
+**Implementation location (planned):** `internal/api/serial_test.go`
 
 ## FR4: Serial Auto-Detection (Port + Baud)
 
@@ -179,6 +179,6 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 4. **First match wins:** return working combination with diagnostic data
 5. **On failure:** return actionable suggestion and list of ports tested/excluded
 
-**Implementation location:** `internal/api/serial_test.go` (same file as FR3)
+**Implementation location (planned):** `internal/api/serial_test.go` (same file as FR3)
 
 **UX benefit:** "Detect Device" populates the form automatically; "Auto-Detect Baud" works when the port is already known.

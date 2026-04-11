@@ -90,35 +90,30 @@ Design choices in v1.0 that ensure the online service is additive, not a rewrite
 
 All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are **immutable once merged** — CI never modifies the contributor-uploaded content, ensuring that detached GPG signatures remain independently verifiable.
 
-**File structure (each grid cell):**
+**File structure (each grid cell):** `{lat}_{lon}.geojson`
 
-```jsonc
-// {lat}_{lon}.geojson — GeoJSON FeatureCollection
-// Written once by the contributor and never altered after merge.
-{
-  "type": "FeatureCollection",
-  "metadata": {
-    "schema_version": "1",
-    "grid_cell": "51.75_-1.26",
-    "created_at": "2026-02-23T12:00:00Z",
-    "contributor_name": "Alice Smith",        // chosen display name (required)
-    "contributor_email": "alice@example.com", // optional; for GPG key lookup
-    "gpg_fingerprint": "A1B2C3D4E5F6..."      // optional; fingerprint of signing key
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[...]] },
-      "properties": {
-        "class": "ground",           // | "structure" | "volume"
-        "confidence": 0.97,          // 0.0–1.0
-        "updated_at": "2026-02-23T12:00:00Z"
-        // ... class-specific properties (plane_normal, z_min, etc.)
-      }
-    }
-  ]
-}
-```
+Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and a `features` array.
+
+**Top-level metadata:**
+
+| Field               | Type   | Required | Notes                           |
+| ------------------- | ------ | -------- | ------------------------------- |
+| `schema_version`    | string | Yes      | Currently `"1"`                 |
+| `grid_cell`         | string | Yes      | `"{lat}_{lon}"` cell identifier |
+| `created_at`        | string | Yes      | ISO 8601 timestamp              |
+| `contributor_name`  | string | Yes      | Display name                    |
+| `contributor_email` | string | No       | For GPG key lookup              |
+| `gpg_fingerprint`   | string | No       | Fingerprint of signing key      |
+
+**Feature properties (per feature):**
+
+| Field        | Type   | Required | Notes                                    |
+| ------------ | ------ | -------- | ---------------------------------------- |
+| `class`      | string | Yes      | `"ground"`, `"structure"`, or `"volume"` |
+| `confidence` | real   | Yes      | 0.0–1.0                                  |
+| `updated_at` | string | Yes      | ISO 8601 timestamp                       |
+
+Additional class-specific properties (`plane_normal`, `z_min`, etc.) vary by classification. Each feature's `geometry` is a GeoJSON Polygon.
 
 When a contributor provides a GPG key, the export tool produces a detached signature file submitted alongside the GeoJSON in the same PR:
 

@@ -151,29 +151,30 @@ Labels are created by the user in the visualiser and stored in the Go backend SQ
 ```
 POST   /api/lidar/labels              Create new label
 GET    /api/lidar/labels              List all labels (with filters)
-GET    /api/lidar/labels/:id          Get specific label
-PUT    /api/lidar/labels/:id          Update label
-DELETE /api/lidar/labels/:id          Delete label
+GET    /api/lidar/labels/{label_id}   Get specific label
+PUT    /api/lidar/labels/{label_id}   Update label
+DELETE /api/lidar/labels/{label_id}   Delete label
 GET    /api/lidar/labels/export       Export labels as JSON
 ```
 
-**Label JSON Schema:**
+**Label schema (`lidar_labels`):**
 
-```json
-{
-  "label_id": "uuid-string",
-  "track_id": "track_42",
-  "class_label": "pedestrian",
-  "start_timestamp_ns": 1234567890000000,
-  "end_timestamp_ns": 1234567891000000,
-  "confidence": 0.95,
-  "created_by": "username",
-  "created_at_ns": 1234567890000000,
-  "notes": "optional notes"
-}
-```
+| Column               | Type    | Constraints                   | Notes                        |
+| -------------------- | ------- | ----------------------------- | ---------------------------- |
+| `label_id`           | TEXT    | PK                            | UUID string                  |
+| `track_id`           | TEXT    | NOT NULL, FK → `lidar_tracks` |                              |
+| `class_label`        | TEXT    | NOT NULL                      | e.g. `pedestrian`, `vehicle` |
+| `start_timestamp_ns` | INTEGER | NOT NULL                      | Nanosecond epoch             |
+| `end_timestamp_ns`   | INTEGER |                               | Nanosecond epoch             |
+| `confidence`         | REAL    |                               | 0.0–1.0                      |
+| `created_by`         | TEXT    |                               |                              |
+| `created_at_ns`      | INTEGER | NOT NULL                      | Nanosecond epoch             |
+| `updated_at_ns`      | INTEGER |                               | Nanosecond epoch             |
+| `notes`              | TEXT    |                               |                              |
+| `scene_id`           | TEXT    |                               | Added in migration 000019    |
+| `source_file`        | TEXT    |                               | Added in migration 000019    |
 
-**Database Schema (SQLite):** Table `lidar_labels` with columns: `label_id` (TEXT PK), `track_id` (TEXT FK to `lidar_tracks`), `class_label` (TEXT), `start_timestamp_ns`/`end_timestamp_ns` (INTEGER), `confidence` (REAL), `created_by` (TEXT), `created_at_ns`/`updated_at_ns` (INTEGER), `notes` (TEXT). Indexed on `track_id` and timestamp range.
+Indexed on `track_id`, timestamp range, `class_label`, and `scene_id`.
 
 ---
 
