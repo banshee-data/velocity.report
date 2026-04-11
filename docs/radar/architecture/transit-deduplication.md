@@ -51,164 +51,21 @@ ON CONFLICT(transit_key) DO UPDATE SET
 
 ### Implementation Plan
 
-#### Phase 1: Add Pre-Processing Step to `RunRange()`
+#### Phase 1: Pre-processing step in `RunRange()`
 
-Before processing transits in a time range, delete existing transits that would overlap:
+Before processing transits, delete existing transits with the same `model_version` that overlap the target time range. Uses a three-way overlap check (starts-in, ends-in, spans-entire) within a transaction. See `internal/db/transit_worker.go` `RunRange()`.
 
-```go
-func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error {
-    tx, err := w.DB.BeginTx(ctx, &sql.TxOptions{})
-    if err != nil {
-        return err
-    }
-    defer tx.Rollback()
+#### Phase 2: Model version migration
 
-    // NEW: Delete overlapping transits with the same model_version
-    // This handles hourly re-runs and window overlaps
-    deleteQuery := `
-        DELETE FROM radar_data_transits
-        WHERE model_version = ?
-          AND (
-              (transit_start_unix BETWEEN ? AND ?)
-              OR (transit_end_unix BETWEEN ? AND ?)
-              OR (transit_start_unix <= ? AND transit_end_unix >= ?)
-          )
-    `
-    result, err := tx.ExecContext(ctx, deleteQuery,
-        w.ModelVersion,
-        start, end,  // transit starts in range
-        start, end,  // transit ends in range
-        start, end,  // transit spans entire range
-    )
-    if err != nil {
-        return fmt.Errorf("failed to delete overlapping transits: %w", err)
-    }
+`MigrateModelVersion()` deletes all transits with the old model version, then re-runs the worker over the full history with the new version. See `internal/db/transit_worker.go`.
 
-    deleted, _ := result.RowsAffected()
-    if deleted > 0 {
-        log.Printf("Transit worker: deleted %d overlapping %s transits in range [%v, %v]",
-            deleted, w.ModelVersion, start, end)
-    }
+#### Phase 3: CLI commands
 
-    // Continue with existing clustering logic...
-}
-```
+Added `--cleanup-transits`, `--migrate-transits-from`, and `--migrate-transits-to` flags to `cmd/radar/main.go`.
 
-#### Phase 2: Add Model Version Migration Support
+#### Phase 4: Overlap analysis
 
-Add a function to switch between model versions cleanly:
-
-```go
-// MigrateModelVersion replaces all transits from oldVersion with newVersion
-// by re-running the transit worker over the entire historical range.
-func (w *TransitWorker) MigrateModelVersion(ctx context.Context, oldVersion string) error {
-    if oldVersion == w.ModelVersion {
-        return fmt.Errorf("old and new model versions must differ")
-    }
-
-    log.Printf("Transit worker: migrating from %s to %s", oldVersion, w.ModelVersion)
-
-    // Delete all old version transits
-    result, err := w.DB.ExecContext(ctx,
-        `DELETE FROM radar_data_transits WHERE model_version = ?`,
-        oldVersion,
-    )
-    if err != nil {
-        return fmt.Errorf("failed to delete old version transits: %w", err)
-    }
-
-    deleted, _ := result.RowsAffected()
-    log.Printf("Transit worker: deleted %d %s transits", deleted, oldVersion)
-
-    // Re-run over full history with new version
-    return w.RunFullHistory(ctx)
-}
-```
-
-#### Phase 3: Add CLI Command for Manual Cleanup
-
-Add command in `cmd/radar/main.go`:
-
-```go
-// Add flags:
-var (
-    cleanupTransits    bool
-    migrateModelFrom   string
-    migrateModelTo     string
-)
-
-// In init():
-flag.BoolVar(&cleanupTransits, "cleanup-transits", false,
-    "Remove duplicate transits across all model versions (keeps newest)")
-flag.StringVar(&migrateModelFrom, "migrate-transits-from", "",
-    "Migrate transits from this model version")
-flag.StringVar(&migrateModelTo, "migrate-transits-to", "",
-    "Migrate transits to this model version")
-
-// In main():
-if cleanupTransits {
-    if err := db.CleanupDuplicateTransits(); err != nil {
-        log.Fatalf("Failed to cleanup transits: %v", err)
-    }
-    log.Println("Transit cleanup complete")
-    return
-}
-
-if migrateModelFrom != "" {
-    worker := db.NewTransitWorker(db, transitWorkerThreshold, migrateModelTo)
-    worker.Interval = transitWorkerInterval
-    worker.Window = transitWorkerWindow
-    if err := worker.MigrateModelVersion(context.Background(), migrateModelFrom); err != nil {
-        log.Fatalf("Failed to migrate model version: %v", err)
-    }
-    log.Println("Model version migration complete")
-    return
-}
-```
-
-#### Phase 4: Add Deduplication Analysis Function
-
-For debugging and monitoring:
-
-```go
-// AnalyseTransitOverlaps returns statistics about overlapping transits
-func (db *DB) AnalyseTransitOverlaps() (*TransitOverlapStats, error) {
-    type overlap struct {
-        ModelVersion1 string
-        ModelVersion2 string
-        Count        int64
-        ExampleStart float64
-        ExampleEnd   float64
-    }
-
-    query := `
-        WITH overlaps AS (
-            SELECT
-                t1.model_version as mv1,
-                t2.model_version as mv2,
-                t1.transit_start_unix as start1,
-                t1.transit_end_unix as end1,
-                t2.transit_start_unix as start2,
-                t2.transit_end_unix as end2
-            FROM radar_data_transits t1
-            JOIN radar_data_transits t2
-                ON t1.transit_id < t2.transit_id
-                AND t1.model_version != t2.model_version
-                AND (
-                    (t1.transit_start_unix BETWEEN t2.transit_start_unix AND t2.transit_end_unix)
-                    OR (t1.transit_end_unix BETWEEN t2.transit_start_unix AND t2.transit_end_unix)
-                    OR (t1.transit_start_unix <= t2.transit_start_unix
-                        AND t1.transit_end_unix >= t2.transit_end_unix)
-                )
-        )
-        SELECT mv1, mv2, COUNT(*), MIN(start1), MIN(end1)
-        FROM overlaps
-        GROUP BY mv1, mv2
-    `
-
-    // Execute query and return results...
-}
-```
+`AnalyseTransitOverlaps()` uses a self-join on `radar_data_transits` to find cross-model-version overlapping transit pairs. Groups results by model version pair with counts and example timestamps.
 
 ## Migration Path
 
@@ -238,39 +95,9 @@ velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuil
 
 ## Testing Strategy
 
-1. **Unit Tests** (`internal/db/transit_worker_test.go`):
-   - Test overlapping window handling
-   - Test same model version deduplication
-   - Test cross-model version scenarios
-
-2. **Integration Test**:
-
-   ```go
-   func TestTransitWorker_Deduplication(t *testing.T) {
-       // Insert sample radar_data spanning 2 hours
-       // Run worker with 1h window twice (overlapping)
-       // Verify no duplicate transits exist
-       // Verify all radar_data points are linked exactly once
-   }
-   ```
-
-3. **Manual Verification**:
-   ```sql
-   -- Check for overlapping transits
-   SELECT
-       t1.transit_id as id1,
-       t1.model_version as mv1,
-       t1.transit_start_unix as start1,
-       t2.transit_id as id2,
-       t2.model_version as mv2,
-       t2.transit_start_unix as start2
-   FROM radar_data_transits t1
-   JOIN radar_data_transits t2
-       ON t1.transit_id < t2.transit_id
-       AND t1.transit_start_unix < t2.transit_end_unix
-       AND t1.transit_end_unix > t2.transit_start_unix
-   LIMIT 10;
-   ```
+1. **Unit tests** (`internal/db/transit_worker_test.go`): overlapping window handling, same-model deduplication, cross-model scenarios.
+2. **Integration test**: insert sample `radar_data` spanning 2 hours, run worker with 1 h window twice (overlapping), verify no duplicate transits and all data points linked exactly once.
+3. **Manual verification**: self-join query on `radar_data_transits` checking for overlapping start/end timestamps across different transit IDs.
 
 ## Database Impact
 

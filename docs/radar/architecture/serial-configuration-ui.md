@@ -42,21 +42,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
-```go
-radarSerial, err := serialmux.NewRealSerialMux(*port)
-if err := radarSerial.Initialise(); err != nil {
-    log.Fatalf("failed to initialise device: %v", err)
-}
-```
+> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()` — fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
-```go
-type SerialPorter interface {
-    io.ReadWriter
-    io.Closer
-}
-```
+> **Source:** `internal/serialmux/port.go`. `SerialPorter` interface embeds `io.ReadWriter` and `io.Closer`.
 
 ### Database Configuration (Existing)
 
@@ -492,10 +482,7 @@ type SerialPorter interface {
 
 **Current Behaviour:**
 
-```go
-// cmd/radar/radar.go:35
-port = flag.String("port", "/dev/ttySC1", "Serial port to use")
-```
+> **Source:** `cmd/radar/radar.go:35`. CLI flag `--port` defaults to `/dev/ttySC1`.
 
 **New Behaviour:**
 

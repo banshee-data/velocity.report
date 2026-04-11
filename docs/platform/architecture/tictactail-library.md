@@ -107,28 +107,7 @@ Rules:
 
 ## API
 
-```go
-package tictactail
-
-type ScalarValue any // nil, string, int64, float64, or bool; validated at ingest
-
-type Row map[string]ScalarValue
-
-type Config struct {
-  Source        string
-  WindowSeconds int
-  RefreshHz     int
-  SpinnerStyle  string
-  Columns       []string
-  HistoryRows   int
-  MaxBytes      int
-}
-
-type Engine interface {
-  Add(row Row) (*Row, error)
-  Live(nowNanos int64) Row
-}
-```
+> **Source:** `pkg/tictactail/` (when implemented). `ScalarValue` is `any` restricted to nil, string, int64, float64, or bool (validated at ingest). `Row` is `map[string]ScalarValue`. `Config` struct carries Source, WindowSeconds, RefreshHz, SpinnerStyle, Columns (ordering only), HistoryRows, and MaxBytes. `Engine` interface exposes `Add(Row) (*Row, error)` and `Live(nowNanos int64) Row`.
 
 - `ScalarValue` validated at ingest. Nested objects, arrays, structs, and
   non-integer `_inc` values are rejected.
@@ -226,32 +205,11 @@ Single-owner aggregation loop:
 
 ### Internal State
 
-```go
-type fieldKind uint8
-
-type fieldSpec struct {
-  Key  string
-  Kind fieldKind
-}
-
-type windowState struct {
-  WindowSeconds int
-  WindowID      int64
-  Latest        []ScalarValue
-  Sums          []int64
-}
-```
+> **Source:** Same package. `fieldSpec` pairs a key name with a `fieldKind` (measure vs increment). `windowState` tracks the active WindowSeconds, WindowID, a `Latest []ScalarValue` for measures, and `Sums []int64` for `_inc` counters. All slices are fixed-size after schema freeze.
 
 Renderer-side cache:
 
-```go
-type rowCache struct {
-  Rows     []Row // bounded ring buffer, newest last
-  Head     int
-  Count    int
-  MaxBytes int
-}
-```
+> **Source:** Same package. `rowCache` is a bounded ring buffer of `Row` values (newest last) with Head, Count, and MaxBytes fields. Capacity is fixed at startup.
 
 ### Update Rule
 

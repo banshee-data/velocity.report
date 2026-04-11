@@ -314,51 +314,7 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 | **VTK PolyData** | ParaView / LidarView         | PolyData with cell normals             | PolyData with wall planes               | Glyph data (OBBs as boxes)            |
 | **CityJSON**     | 3D city modelling            | Terrain surface                        | LOD 1–2 building shells                 | Vegetation objects                    |
 
-GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD:
-
-```json
-{
-  "type": "FeatureCollection",
-  "metadata": {
-    "scene_map_version": "1.0",
-    "lod_filter": 1,
-    "coordinate_system": "Sensor-XY",
-    "feature_count": 42
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[[0.5, 2.1], [12.3, 2.0], ...]] },
-      "properties": {
-        "id": 1001,
-        "class": "ground",
-        "subclass": "road",
-        "lod": 1,
-        "plane_normal": [0.01, 0.005, 0.9999],
-        "plane_offset": -2.85,
-        "planarity": 0.98,
-        "point_count": 2450,
-        "area_m2": 145.2,
-        "parent_id": 100
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[[15.0, 3.0], [15.0, 12.5], ...]] },
-      "properties": {
-        "id": 2001,
-        "class": "structure",
-        "subclass": "building",
-        "lod": 1,
-        "z_min": -2.8,
-        "z_max": 4.2,
-        "wall_count": 3,
-        "point_count": 890
-      }
-    }
-  ]
-}
-```
+GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD. Each Feature carries a GeoJSON `Polygon` geometry plus class-specific properties: ground features include `plane_normal`, `plane_offset`, `planarity`, `area_m2`, and `parent_id`; structure features include `z_min`, `z_max`, and `wall_count`. All features carry `id`, `class`, `subclass`, `lod`, and `point_count`. A top-level `metadata` object records `scene_map_version`, `lod_filter`, `coordinate_system`, and `feature_count`.
 
 ---
 

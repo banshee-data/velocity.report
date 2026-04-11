@@ -78,32 +78,7 @@ _Value:_ Detailed analysis of compliance during different school-related time pe
 
 ### Database Schema
 
-**Table:** `speed_limit_schedule`
-
-```sql
-CREATE TABLE IF NOT EXISTS speed_limit_schedule (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    site_id INTEGER NOT NULL,
-    day_of_week INTEGER NOT NULL,  -- 1=Monday, ..., 7=Sunday
-    start_time TEXT NOT NULL,       -- HH:MM format (e.g., "06:00")
-    end_time TEXT NOT NULL,         -- HH:MM format (e.g., "07:05")
-    speed_limit INTEGER NOT NULL,   -- Speed limit for this time block
-    created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site
-    ON speed_limit_schedule (site_id);
-
-CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp
-AFTER UPDATE ON speed_limit_schedule
-BEGIN
-    UPDATE speed_limit_schedule
-    SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-END;
-```
+**Table:** `speed_limit_schedule` — columns: `id` (autoincrement PK), `site_id` (FK to `site` with cascade delete), `day_of_week` (1=Monday…7=Sunday), `start_time`/`end_time` (HH:MM text), `speed_limit` (integer), `created_at`/`updated_at` (Unix epoch, server-set). Indexed on `site_id` for fast retrieval. An `AFTER UPDATE` trigger maintains `updated_at` automatically. Target: `internal/db/migrations/`.
 
 **Design Notes:**
 
@@ -113,46 +88,13 @@ END;
 - **Timestamps:** Unix epoch (seconds since 1970) for consistency with other tables
 - **Indexing:** Fast retrieval of all schedules for a site (common query pattern)
 
-**Data Model:**
-
-```go
-type SpeedLimitSchedule struct {
-    ID         int       `json:"id"`
-    SiteID     int       `json:"site_id"`
-    DayOfWeek  int       `json:"day_of_week"` // 1=Monday, ..., 7=Sunday
-    StartTime  string    `json:"start_time"`  // HH:MM format
-    EndTime    string    `json:"end_time"`    // HH:MM format
-    SpeedLimit int       `json:"speed_limit"` // Speed limit for this time block
-    CreatedAt  time.Time `json:"created_at"`
-    UpdatedAt  time.Time `json:"updated_at"`
-}
-```
+**Data Model:** `SpeedLimitSchedule` struct in `internal/db/` — mirrors the table columns with JSON tags. Fields: `ID`, `SiteID`, `DayOfWeek` (1–7), `StartTime`/`EndTime` (HH:MM strings), `SpeedLimit` (int), `CreatedAt`/`UpdatedAt` (`time.Time`).
 
 ### Database Layer (Go)
 
 **Location:** `internal/db/speed_limit_schedule.go`
 
-**CRUD Operations:**
-
-```go
-// Create a new schedule entry
-func (db *DB) CreateSpeedLimitSchedule(schedule *SpeedLimitSchedule) error
-
-// Retrieve single schedule by ID
-func (db *DB) GetSpeedLimitSchedule(id int) (*SpeedLimitSchedule, error)
-
-// Retrieve all schedules for a site (ordered by day, then time)
-func (db *DB) GetSpeedLimitSchedulesForSite(siteID int) ([]SpeedLimitSchedule, error)
-
-// Update existing schedule
-func (db *DB) UpdateSpeedLimitSchedule(schedule *SpeedLimitSchedule) error
-
-// Delete single schedule
-func (db *DB) DeleteSpeedLimitSchedule(id int) error
-
-// Delete all schedules for a site
-func (db *DB) DeleteAllSpeedLimitSchedulesForSite(siteID int) error
-```
+**CRUD Operations:** Standard `Create`, `Get`, `GetForSite`, `Update`, `Delete`, and `DeleteAllForSite` methods on `*DB`. `GetForSite` returns schedules ordered by `day_of_week ASC, start_time ASC`. Create sets the ID on the struct after insertion; Update returns an error if the record does not exist.
 
 **Key Implementation Details:**
 
@@ -178,102 +120,13 @@ DELETE /api/speed_limit_schedules/site/{siteID}  - Delete all schedules for site
 
 **API Handler:** `internal/api/server.go:handleSpeedLimitSchedules()`
 
-**Request/Response Examples:**
+**Request/Response Shapes:**
 
-**GET /api/speed_limit_schedules/site/1 - List schedules for site**
-
-Response (200 OK):
-
-```json
-[
-  {
-    "id": 1,
-    "site_id": 1,
-    "day_of_week": 1,
-    "start_time": "06:00",
-    "end_time": "07:05",
-    "speed_limit": 15,
-    "created_at": "2025-12-01T08:00:00Z",
-    "updated_at": "2025-12-01T08:00:00Z"
-  },
-  {
-    "id": 2,
-    "site_id": 1,
-    "day_of_week": 1,
-    "start_time": "14:00",
-    "end_time": "15:00",
-    "speed_limit": 15,
-    "created_at": "2025-12-01T08:00:00Z",
-    "updated_at": "2025-12-01T08:00:00Z"
-  }
-]
-```
-
-**POST /api/speed_limit_schedules - Create schedule**
-
-Request:
-
-```json
-{
-  "site_id": 1,
-  "day_of_week": 1,
-  "start_time": "06:00",
-  "end_time": "07:05",
-  "speed_limit": 15
-}
-```
-
-Response (201 Created):
-
-```json
-{
-  "id": 3,
-  "site_id": 1,
-  "day_of_week": 1,
-  "start_time": "06:00",
-  "end_time": "07:05",
-  "speed_limit": 15,
-  "created_at": "2025-12-01T08:00:00Z",
-  "updated_at": "2025-12-01T08:00:00Z"
-}
-```
-
-**PUT /api/speed_limit_schedules/3 - Update schedule**
-
-Request:
-
-```json
-{
-  "site_id": 1,
-  "day_of_week": 1,
-  "start_time": "06:00",
-  "end_time": "07:10",
-  "speed_limit": 15
-}
-```
-
-Response (200 OK):
-
-```json
-{
-  "id": 3,
-  "site_id": 1,
-  "day_of_week": 1,
-  "start_time": "06:00",
-  "end_time": "07:10",
-  "speed_limit": 15,
-  "created_at": "2025-12-01T08:00:00Z",
-  "updated_at": "2025-12-01T09:15:30Z"
-}
-```
-
-**DELETE /api/speed_limit_schedules/3 - Delete schedule**
-
-Response (204 No Content)
-
-**DELETE /api/speed_limit_schedules/site/1 - Delete all schedules for site**
-
-Response (204 No Content)
+- **GET /site/{siteID}** → 200: JSON array of schedule objects, each with `id`, `site_id`, `day_of_week`, `start_time`, `end_time`, `speed_limit`, `created_at`, `updated_at`.
+- **POST** → request body contains `site_id`, `day_of_week`, `start_time`, `end_time`, `speed_limit`; response 201 returns the full object with server-assigned `id` and timestamps.
+- **PUT /{id}** → same request shape as POST; response 200 returns the updated object with refreshed `updated_at`.
+- **DELETE /{id}** → 204 No Content.
+- **DELETE /site/{siteID}** → 204 No Content (bulk delete).
 
 **Validation Rules:**
 
@@ -283,24 +136,7 @@ Response (204 No Content)
 - `end_time`: Required, must be in HH:MM format
 - `speed_limit`: Required, must be > 0
 
-**Error Responses:**
-
-```json
-// 400 Bad Request - Invalid input
-{
-  "error": "day_of_week must be between 1 and 7"
-}
-
-// 404 Not Found - Schedule doesn't exist
-{
-  "error": "Schedule not found"
-}
-
-// 500 Internal Server Error - Database error
-{
-  "error": "Failed to create schedule: <details>"
-}
-```
+**Error Responses:** Standard `{"error": "<message>"}` JSON envelope — 400 for validation failures (e.g., day_of_week out of range), 404 for missing schedule, 500 for database errors with detail text.
 
 ### Web UI Components
 
@@ -308,13 +144,7 @@ Response (204 No Content)
 
 **Purpose:** Inline editor for managing speed limit schedules within the site configuration page
 
-**Props:**
-
-```typescript
-export let siteId: number;
-export let schedules: SpeedLimitSchedule[] = [];
-export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void;
-```
+**Props:** `siteId` (number), `schedules` (array of `SpeedLimitSchedule`, default empty), `onSchedulesChange` callback.
 
 **UI Features:**
 
@@ -334,21 +164,7 @@ export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void;
 
 **Time Selection Design:**
 
-The component generates time options in 5-minute increments for precision while avoiding overwhelming the user with too many choices:
-
-```typescript
-function generateTimeOptions(): string[] {
-  const options: string[] = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (let minute = 0; minute < 60; minute += 5) {
-      const timeStr = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-      options.push(timeStr);
-    }
-  }
-  return options;
-}
-// Generates: ["00:00", "00:05", "00:10", ..., "23:50", "23:55"]
-```
+The component generates time options in 5-minute increments (00:00–23:55, 288 values), cached once per component instance.
 
 **Reactivity:**
 
@@ -359,29 +175,7 @@ function generateTimeOptions(): string[] {
 
 **Integration Point:** `web/src/routes/site/[id]/+page.svelte`
 
-The schedule editor is embedded in the site editor page:
-
-```svelte
-<script lang="ts">
-  import SpeedLimitScheduleEditor from '../../../lib/components/SpeedLimitScheduleEditor.svelte';
-
-  let speedLimitSchedules: SpeedLimitSchedule[] = [];
-
-  async function loadSchedules() {
-    speedLimitSchedules = await getSpeedLimitSchedulesForSite(parseInt(siteId));
-  }
-
-  function handleSchedulesChange(schedules: SpeedLimitSchedule[]) {
-    speedLimitSchedules = schedules;
-  }
-</script>
-
-<SpeedLimitScheduleEditor
-  siteId={parseInt(siteId)}
-  schedules={speedLimitSchedules}
-  onSchedulesChange={handleSchedulesChange}
-/>
-```
+The schedule editor is embedded in `web/src/routes/site/[id]/+page.svelte`. On mount, it fetches schedules via the API client and passes them to `SpeedLimitScheduleEditor` with a change callback that updates local state.
 
 **Save Flow:**
 
@@ -395,38 +189,7 @@ When the user clicks "Save" on the site editor page:
 
 **API Client:** `web/src/lib/api.ts`
 
-TypeScript interface and API functions:
-
-```typescript
-export interface SpeedLimitSchedule {
-  id: number;
-  site_id: number;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  speed_limit: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export async function getSpeedLimitSchedulesForSite(
-  siteId: number,
-): Promise<SpeedLimitSchedule[]>;
-export async function getSpeedLimitSchedule(
-  id: number,
-): Promise<SpeedLimitSchedule>;
-export async function createSpeedLimitSchedule(
-  schedule: Partial<SpeedLimitSchedule>,
-): Promise<SpeedLimitSchedule>;
-export async function updateSpeedLimitSchedule(
-  id: number,
-  schedule: Partial<SpeedLimitSchedule>,
-): Promise<SpeedLimitSchedule>;
-export async function deleteSpeedLimitSchedule(id: number): Promise<void>;
-export async function deleteAllSpeedLimitSchedulesForSite(
-  siteId: number,
-): Promise<void>;
-```
+`SpeedLimitSchedule` interface in `web/src/lib/api.ts` mirrors the JSON shape (id, site_id, day_of_week, start_time, end_time, speed_limit, created_at, updated_at — all typed as number or string). Six async API functions provide full CRUD: `getForSite`, `get`, `create`, `update`, `delete`, and `deleteAllForSite`.
 
 ### Testing
 
@@ -446,34 +209,7 @@ export async function deleteAllSpeedLimitSchedulesForSite(
 
 Tests create a test site and then exercise CRUD operations on schedules:
 
-```go
-func TestSpeedLimitSchedule(t *testing.T) {
-    db := setupTestDB(t)
-    defer db.Close()
-
-    site := &Site{
-        Name:             "Test Site",
-        Location:         "Test Location",
-        SpeedLimit:       25,
-        // ... other fields
-    }
-    db.CreateSite(site)
-
-    t.Run("CreateSpeedLimitSchedule", func(t *testing.T) {
-        schedule := &SpeedLimitSchedule{
-            SiteID:     site.ID,
-            DayOfWeek:  1, // Monday
-            StartTime:  "06:00",
-            EndTime:    "07:05",
-            SpeedLimit: 15,
-        }
-        err := db.CreateSpeedLimitSchedule(schedule)
-        // ... assertions
-    })
-
-    // ... more test cases
-}
-```
+Tests follow the standard pattern: create a test DB + site, then exercise each CRUD operation as subtests (Create, Get, GetForSite ordering, Update, Delete, DeleteAll, Get-nonexistent). Target: `internal/db/speed_limit_schedule_test.go`.
 
 **Web API Tests:** `web/src/lib/api.test.ts`
 
@@ -953,132 +689,15 @@ If issues arise after deployment:
 
 ### Appendix A: Database Schema Details
 
-**Full CREATE TABLE Statement:**
-
-```sql
-CREATE TABLE IF NOT EXISTS speed_limit_schedule (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    site_id INTEGER NOT NULL,
-    day_of_week INTEGER NOT NULL,
-    start_time TEXT NOT NULL,
-    end_time TEXT NOT NULL,
-    speed_limit INTEGER NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now')),
-    FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
-);
-```
-
-**Constraints:**
-
-- `id`: Automatically incremented, unique identifier
-- `site_id`: Must reference existing site, deletes cascade
-- `day_of_week`, `start_time`, `end_time`, `speed_limit`: No NULL values
-- `created_at`, `updated_at`: Default to current Unix timestamp
-
-**Indexes:**
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_speed_limit_schedule_site
-    ON speed_limit_schedule (site_id);
-```
-
-**Triggers:**
-
-```sql
-CREATE TRIGGER IF NOT EXISTS update_speed_limit_schedule_timestamp
-AFTER UPDATE ON speed_limit_schedule
-BEGIN
-    UPDATE speed_limit_schedule
-    SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-END;
-```
+Full DDL is described in the Database Schema section above. Constraints: all columns NOT NULL; `id` autoincrement PK; `site_id` FK with cascade delete. One index on `site_id`. One `AFTER UPDATE` trigger to maintain `updated_at`.
 
 ### Appendix B: Example API Interactions
 
-**Creating Multiple Schedules for School Zone:**
-
-```bash
-# Monday morning
-curl -X POST http://localhost:8080/api/speed_limit_schedules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "site_id": 1,
-    "day_of_week": 1,
-    "start_time": "06:00",
-    "end_time": "07:05",
-    "speed_limit": 15
-  }'
-
-# Monday afternoon
-curl -X POST http://localhost:8080/api/speed_limit_schedules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "site_id": 1,
-    "day_of_week": 1,
-    "start_time": "14:00",
-    "end_time": "15:00",
-    "speed_limit": 15
-  }'
-
-# Repeat for Tuesday (day_of_week: 2) through Friday (day_of_week: 5)
-```
-
-**Retrieving All Schedules:**
-
-```bash
-curl http://localhost:8080/api/speed_limit_schedules/site/1
-```
-
-**Updating a Schedule:**
-
-```bash
-curl -X PUT http://localhost:8080/api/speed_limit_schedules/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "site_id": 1,
-    "day_of_week": 1,
-    "start_time": "06:00",
-    "end_time": "07:10",
-    "speed_limit": 15
-  }'
-```
-
-**Deleting All Schedules for a Site:**
-
-```bash
-curl -X DELETE http://localhost:8080/api/speed_limit_schedules/site/1
-```
+Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05 and afternoon 14:00–15:00 at 15 mph), repeat for days 1–5. Retrieve with `GET /api/speed_limit_schedules/site/{id}`. Update with `PUT /{id}` (same body shape as POST). Bulk-delete with `DELETE /site/{id}`.
 
 ### Appendix C: Component Props and Events
 
-**SpeedLimitScheduleEditor Component:**
-
-```typescript
-// Props
-export let siteId: number; // Required: Site ID for new schedules
-export let schedules: SpeedLimitSchedule[] = []; // Current schedules list
-export let onSchedulesChange: (schedules: SpeedLimitSchedule[]) => void; // Callback
-
-// Local State
-let daysOfWeek = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-let timeOptions: string[]; // Generated 00:00 to 23:55 in 5-min increments
-
-// Methods
-function addSchedule(); // Add new default schedule
-function removeSchedule(index: number); // Remove schedule from list
-function updateSchedule(index: number, field: string, value: any); // Update field
-function generateTimeOptions(): string[]; // Generate time dropdown options
-```
+`SpeedLimitScheduleEditor` accepts `siteId`, `schedules`, and `onSchedulesChange` props (see Web UI section above). Local state holds a `daysOfWeek` label array and cached `timeOptions`. Methods: `addSchedule()` (inserts default row), `removeSchedule(index)`, `updateSchedule(index, field, value)`, and `generateTimeOptions()` (5-min increments, 00:00–23:55).
 
 ### Appendix D: Test Case Summary
 
@@ -1114,20 +733,7 @@ function generateTimeOptions(): string[]; // Generate time dropdown options
 
 ### Appendix F: Related Tables
 
-**Site Table Relationship:**
-
-```sql
-CREATE TABLE IF NOT EXISTS site (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    location TEXT NOT NULL,
-    description TEXT,
-    cosine_error_angle REAL NOT NULL DEFAULT 21,
-    speed_limit INTEGER NOT NULL DEFAULT 25,  -- Default/baseline limit
-    speed_limit_note TEXT,                     -- E.g., "15 mph during school hours"
-    -- ... other fields
-);
-```
+**Site Table Relationship:** The `site` table carries `speed_limit` (baseline default) and `speed_limit_note` (human-readable schedule description). See `internal/db/schema.sql` for the full `site` DDL.
 
 **Relationship:**
 

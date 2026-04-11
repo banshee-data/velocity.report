@@ -169,32 +169,7 @@ For velocity.report's traffic monitoring use case, **1.0 m × 1.0 m tiles** are 
 
 **Sensor spherical → Sensor Cartesian:**
 
-Using `SphericalToCartesian` from `internal/lidar/l4perception/cluster.go` (note: current implementation has X=right, Y=forward, Z=up, not the comment's stated X=forward, Y=right):
-
-```go
-x, y, z := SphericalToCartesian(distance, azimuthDeg, elevationDeg)
-// Returns: x = distance * cos(elev) * sin(az)
-//          y = distance * cos(elev) * cos(az)
-//          z = distance * sin(elev)
-// Coordinate frame: X=right, Y=forward, Z=up (sensor-local)
-```
-
-**Sensor Cartesian → World Cartesian:**
-
-Apply sensor pose transform (rotation + translation) using `ApplyPose`:
-
-```go
-wx, wy, wz := ApplyPose(x, y, z, sensorPose)
-// sensorPose is a 4×4 homogeneous transform matrix (row-major [16]float64)
-// Output: (wx, wy, wz) in world frame (X=East, Y=North, Z=up relative to origin)
-```
-
-**World Cartesian → Tile index:**
-
-```go
-ix := int(math.Floor(wx / tileSize))
-iy := int(math.Floor(wy / tileSize))
-```
+Points transform through `SphericalToCartesian` → `ApplyPose` → floor division to tile indices, reusing existing transform functions in `internal/lidar/l4perception/`.
 
 The ground plane subsystem **can optionally** integrate with GPS/PTP parsing (see `internal/lidar/l1packets/parse/extract.go`) to obtain sensor position and heading for the pose transform. Without GPS, only Tier 1 local scene tiles are available (which is sufficient for all core perception tasks).
 
@@ -360,27 +335,7 @@ This propagation is **optional** and can be implemented as a post-processing ste
 
 The system must support queries like:
 
-```go
-// Is the region around (lat, lon) flat within ±5 cm?
-func (g *GroundPlaneGrid) QueryFlatness(lat, lon float64, radiusMeters, toleranceCm float64) (bool, float64) {
-    tiles := g.GetTilesInRadius(lat, lon, radiusMeters)
-    avgPlanarity := 0.0
-    for _, tile := range tiles {
-        if !tile.Settled {
-            return false, 0.0 // Insufficient data
-        }
-        avgPlanarity += tile.Planarity
-        // Check Z-variance across tiles
-        if tile.MaxZDeviation() > toleranceCm {
-            return false, avgPlanarity / float64(len(tiles))
-        }
-    }
-    avgPlanarity /= float64(len(tiles))
-    return avgPlanarity >= 0.95, avgPlanarity
-}
-```
-
-This enables downstream consumers to assess height measurement reliability and flag uncertain regions.
+`QueryFlatness(lat, lon, radius, tolerance)` queries flatness within a radius by checking that all tiles are settled, have planarity ≥ 0.95, and Z-deviation is within the tolerance. This enables downstream consumers to assess height measurement reliability and flag uncertain regions.
 
 ---
 
@@ -426,17 +381,7 @@ Not all tiles have equal sensor visibility:
 - **Far-field tiles** (>30 m) receive sparse points; may take minutes to accumulate sufficient observations.
 - **Occluded tiles** (behind buildings, vehicles) may never be observed.
 
-The system must track **coverage density** per tile:
-
-```go
-type GroundTile struct {
-    // ...
-    PointDensity float32 // points per m² per second
-    LastSeenTimestamp int64
-}
-```
-
-Tiles with `PointDensity < minDensityThreshold` (e.g., 1 point/m²/s) are marked **low-coverage** and excluded from confident height queries.
+The system must track **coverage density** per tile. Each tile tracks `PointDensity` (points per m² per second); tiles below the minimum density threshold are excluded from confident height queries.
 
 ### Re-validation Cadence
 
@@ -503,26 +448,12 @@ The `GroundSurface` interface is deliberately **non-point-based**: it exposes pl
 
 ### Replacing HeightBandFilter
 
-The current `HeightBandFilter` (`internal/lidar/l4perception/ground.go`) uses fixed Z thresholds:
-
-```go
-type HeightBandFilter struct {
-    FloorHeightM   float64 // e.g., -2.8 m
-    CeilingHeightM float64 // e.g., +1.5 m
-}
-```
+The current `HeightBandFilter` in `internal/lidar/l4perception/ground.go` uses fixed `FloorHeightM` and `CeilingHeightM` thresholds.
 
 **Migration path:**
 
 1. **Phase 1 (co-existence)** — Ground plane extractor runs in parallel with HeightBandFilter. Both produce height-filtered points; compare outputs for validation.
-2. **Phase 2 (hybrid)** — HeightBandFilter uses ground plane's Z-offset per tile as a **dynamic floor threshold**:
-   ```go
-   tile := groundPlane.GetTileAtPoint(x, y)
-   dynamicFloor := tile.ZOffset(x, y) // ground plane's Z at (x,y)
-   if z < dynamicFloor || z > dynamicFloor + maxHeight {
-       // Discard point
-   }
-   ```
+2. **Phase 2 (hybrid)** — Phase 2 hybrid uses the tile's Z-offset as a dynamic floor threshold instead of fixed constants.
 3. **Phase 3 (replacement)** — HeightBandFilter replaced by `GroundPlaneFilter` that queries the ground plane grid directly.
 
 **Backward compatibility:** HeightBandFilter remains available as a fallback if ground plane is unsettled or unavailable.
@@ -655,311 +586,31 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 ### Core Types
 
-```go
-package l4perception // ground plane lives within L4 Perception
+**`GroundTile`** — Stores tile spatial bounds (centre, size), plane equation (normal vector + offset), running statistics for incremental fitting (sums and sums-of-squares for x/y/z and their cross-products), settlement state (planarity score, settled boolean, confirmation counter), freeze mechanism (frozen-until timestamp, locked-baseline flag analogous to `BackgroundCell`), and coverage metrics (point density). Target: `internal/lidar/l4perception/`.
 
-import (
-    "sync"
-    "time"
-)
+**`GroundPlaneGrid`** (Tier 1) — Sparse hash map of `TileIndex` (integer ix, iy pair) → `*GroundTile` with configurable tile size, settlement thresholds (min points, min planarity, min duration), and outlier tolerance. Protected by `sync.RWMutex`. Tracks aggregate statistics (total points, settled/unsettled tile counts). Config via `GroundPlaneParams`, which mirrors the `BackgroundParams` pattern and adds stale timeout, per-state update alphas, and an outlier-rejection toggle.
 
-// GroundTile represents a single tile in the ground plane grid.
-// Each tile models the ground surface as a plane equation: n·(x,y,z) = d.
-type GroundTile struct {
-    // Spatial bounds (world frame, metres)
-    CentreX float64
-    CentreY float64
-    TileSize float64 // e.g., 1.0 m
+**`GroundSurface` interface** — Non-point-based interface published to the rest of L4 Perception. Exposes `QueryHeightAboveGround(x, y, z) → (height, confidence, ok)`, `IsSettled() → bool`, and `TileAt(x, y) → (normal, offset, confidence, ok)` without leaking the internal tile representation.
 
-    // Plane equation: n·(x,y,z) = d where n is unit normal
-    NormalX float64 // Normal vector X component
-    NormalY float64 // Normal vector Y component
-    NormalZ float64 // Normal vector Z component (typically ~1.0 for near-horizontal ground)
-    Offset  float64 // Scalar d in plane equation
-
-    // Running statistics for incremental plane fitting
-    PointCount   uint32
-    SumX, SumY, SumZ float64
-    SumXX, SumYY, SumZZ float64
-    SumXY, SumXZ, SumYZ float64
-
-    // Confidence and settlement
-    Planarity        float32 // Range [0,1]; 1.0 = perfect plane
-    Settled          bool    // true if meets minPoints + minPlanarity + minDuration
-    LastUpdateNanos  int64   // Timestamp of last observation
-    ConfirmationCount uint32 // Increments when new points match plane; decrements on outliers
-
-    // Freeze mechanism (similar to BackgroundCell)
-    FrozenUntilNanos int64 // Don't update until this time (outlier protection)
-    LockedBaseline   bool  // true if tile has high confidence and resists change
-
-    // Coverage metrics
-    PointDensity float32 // Points per m² per second (recent average)
-}
-
-// GroundPlaneGrid manages the Cartesian tile grid (Tier 1: local scene).
-// Operates in sensor-local coordinates. No GPS required.
-type GroundPlaneGrid struct {
-    // Configuration
-    TileSize float64 // Metres per tile (e.g., 1.0)
-    MinPointsForSettlement int // e.g., 20
-    MinPlanarityThreshold float32 // e.g., 0.95
-    MinSettlementDurationNanos int64 // e.g., 5e9 (5 seconds)
-    OutlierThresholdMeters float32 // e.g., 0.10 m
-
-    // Tiles stored in a hash map (sparse grid)
-    Tiles map[TileIndex]*GroundTile
-    mu    sync.RWMutex // Protects Tiles map
-
-    // Optional: spatial index for fast radius queries
-    // (e.g., R-tree or quad-tree; defer to future optimization)
-
-    // Statistics
-    TotalPoints   uint64
-    SettledTiles  uint32
-    UnsettledTiles uint32
-}
-
-// TileIndex is a 2D grid coordinate (ix, iy).
-type TileIndex struct {
-    IX int
-    IY int
-}
-
-// GroundPlaneParams mirrors BackgroundParams pattern for configuration.
-type GroundPlaneParams struct {
-    TileSize float64 // Metres per tile
-    MinPointsForSettlement int
-    MinPlanarityThreshold float32
-    MinSettlementDurationNanos int64
-    OutlierThresholdMeters float32
-    StaleTimeoutNanos int64 // Tiles not seen for this duration decay confidence
-    UpdateAlphaUnsettled float32 // e.g., 0.10 (fast convergence)
-    UpdateAlphaSettled float32 // e.g., 0.01 (stability after settlement)
-    EnableOutlierRejection bool // Use median-based outlier filter
-}
-
-// GroundSurface is the non-point-based interface published by the ground plane
-// extractor to the rest of L4 Perception. It provides height-above-ground queries
-// without exposing the internal tile representation.
-type GroundSurface interface {
-    // QueryHeightAboveGround returns the height of a point above the ground plane.
-    // Returns (height, confidence, ok). ok=false if no settled tile at (x, y).
-    QueryHeightAboveGround(x, y, z float64) (height float64, confidence float32, ok bool)
-
-    // IsSettled reports whether the ground plane has sufficient coverage to be trusted.
-    IsSettled() bool
-
-    // TileAt returns the ground plane parameters at (x, y).
-    // Returns (normal, offset, confidence, ok).
-    TileAt(x, y float64) (normal [3]float64, offset float64, confidence float32, ok bool)
-}
-
-// GlobalGroundGrid is the Tier 2 persistent grid aligned to lat/long millidegree tiles.
-// GPS required for population. Loaded at startup to seed local scene grids.
-type GlobalGroundGrid struct {
-    // Grid resolution: system constant at 0.001 degrees (~111 m equator, ~43.5 m at 67° latitude).
-    // Fixed to enable cross-device interoperability — all velocity.report instances share the same grid.
-    ResolutionDeg float64 // Always 0.001
-
-    // Tiles indexed by millidegree coordinates
-    Tiles map[GlobalTileIndex]*GlobalGroundTile
-    mu    sync.RWMutex
-
-    // Persistence
-    LastFlushNanos int64
-}
-
-// GlobalTileIndex identifies a tile in the global lat/long grid.
-type GlobalTileIndex struct {
-    LatMillideg int // floor(latitude / 0.001)
-    LonMillideg int // floor(longitude / 0.001)
-}
-
-// GlobalGroundTile aggregates ground plane statistics across observation sessions.
-type GlobalGroundTile struct {
-    MeanNormal     [3]float64 // Weighted average plane normal
-    MeanZOffset    float64    // Weighted average ground height
-    SessionCount   uint32     // Number of contributing sessions
-    LastUpdatedNanos int64    // Most recent contribution
-    Confidence     float32   // Combined planarity from all sessions
-    TotalPoints    uint64    // Sum of points across all sessions
-}
-```
+**`GlobalGroundGrid`** (Tier 2, GPS-required) — Millidegree-indexed tiles (`GlobalTileIndex` with `LatMillideg`, `LonMillideg`) aggregating statistics across sessions. Each `GlobalGroundTile` stores `MeanNormal`, `MeanZOffset`, `SessionCount`, `LastUpdatedNanos`, `Confidence`, and `TotalPoints`. Fixed at 0.001° resolution for cross-device interoperability.
 
 ### Key Methods
 
-```go
-// AddPoint updates the tile containing world-frame point (x, y, z).
-// Returns the tile index and whether the point was accepted (not an outlier).
-func (g *GroundPlaneGrid) AddPoint(x, y, z float64, timestamp int64) (TileIndex, bool) {
-    idx := g.WorldToTileIndex(x, y)
-    tile := g.GetOrCreateTile(idx)
+**`AddPoint(x, y, z, timestamp)`** — Checks outlier distance for settled tiles (rejecting points beyond threshold, decrementing confirmation counter, applying 3-second freeze), updates running sums for unsettled tiles, triggers `FitPlane` when point count meets the settlement threshold, and performs slow EMA updates for already-settled tiles. Promotes to locked baseline when confirmation count exceeds threshold.
 
-    // Outlier check (if tile is settled)
-    if tile.Settled {
-        dist := tile.DistanceToPlane(x, y, z)
-        if dist > g.OutlierThresholdMeters {
-            // Potential outlier; freeze and decrement confirmation
-            tile.ConfirmationCount--
-            if tile.ConfirmationCount < g.MinConfirmationThreshold {
-                tile.Settled = false // Revert to unsettled
-            }
-            tile.FrozenUntilNanos = timestamp + 3e9 // 3-second freeze
-            return idx, false
-        }
-    }
+**`FitPlane(tile)`** — Computes 3×3 covariance matrix from running sums, performs eigenvalue decomposition to extract the smallest eigenvector as plane normal, and computes planarity as `1 − λ₃/λ₂`.
 
-    // Update running statistics
-    tile.PointCount++
-    tile.SumX += x
-    tile.SumY += y
-    tile.SumZ += z
-    tile.SumXX += x * x
-    tile.SumYY += y * y
-    tile.SumZZ += z * z
-    tile.SumXY += x * y
-    tile.SumXZ += x * z
-    tile.SumYZ += y * z
-    tile.LastUpdateNanos = timestamp
+**`DistanceToPlane(x, y, z)`** — Absolute dot-product distance `|n·p − d|`.
 
-    // Check settlement criteria
-    if !tile.Settled && tile.PointCount >= g.MinPointsForSettlement {
-        g.FitPlane(tile)
-        if tile.Planarity >= g.MinPlanarityThreshold &&
-           (timestamp - tile.FirstObservationNanos) >= g.MinSettlementDurationNanos {
-            tile.Settled = true
-            tile.LockedBaseline = false // Not yet locked; needs more confirmation
-            g.SettledTiles++
-        }
-    } else if tile.Settled {
-        // Incremental update with low alpha
-        g.UpdatePlane(tile, x, y, z, g.UpdateAlphaSettled)
-        tile.ConfirmationCount++
-        if tile.ConfirmationCount > g.LockedBaselineThreshold {
-            tile.LockedBaseline = true
-        }
-    }
+**`QueryHeightAboveGround(x, y, z)`** — Looks up tile by `floor(x/tileSize)`, returns signed distance to plane and tile's planarity score. Returns `ok=false` if no settled tile exists at (x, y).
 
-    g.TotalPoints++
-    return idx, true
-}
+**`WorldToTileIndex(x, y)`** — Floor division of world coordinates by tile size.
 
-// FitPlane performs eigenvalue decomposition to extract plane normal and offset.
-func (g *GroundPlaneGrid) FitPlane(tile *GroundTile) {
-    // Compute mean
-    n := float64(tile.PointCount)
-    meanX := tile.SumX / n
-    meanY := tile.SumY / n
-    meanZ := tile.SumZ / n
-
-    // Compute covariance matrix (3×3 symmetric)
-    cxx := tile.SumXX/n - meanX*meanX
-    cyy := tile.SumYY/n - meanY*meanY
-    czz := tile.SumZZ/n - meanZ*meanZ
-    cxy := tile.SumXY/n - meanX*meanY
-    cxz := tile.SumXZ/n - meanX*meanZ
-    cyz := tile.SumYZ/n - meanY*meanZ
-
-    // Eigenvalue decomposition (use library or closed-form solution)
-    // Smallest eigenvector → plane normal
-    // Eigenvalues λ1 ≥ λ2 ≥ λ3
-    // Planarity = 1 - (λ3 / λ2)
-    normal, eigenvalues := eigenDecomp3x3(cxx, cyy, czz, cxy, cxz, cyz)
-    tile.NormalX = normal[0]
-    tile.NormalY = normal[1]
-    tile.NormalZ = normal[2]
-    tile.Offset = normal[0]*meanX + normal[1]*meanY + normal[2]*meanZ
-
-    // Compute planarity score
-    if eigenvalues[1] > 1e-6 { // Avoid division by zero
-        tile.Planarity = float32(1.0 - eigenvalues[2]/eigenvalues[1])
-    } else {
-        tile.Planarity = 0.0 // Degenerate case
-    }
-}
-
-// DistanceToPlane computes signed distance from point (x,y,z) to tile's plane.
-func (tile *GroundTile) DistanceToPlane(x, y, z float64) float64 {
-    return math.Abs(tile.NormalX*x + tile.NormalY*y + tile.NormalZ*z - tile.Offset)
-}
-
-// QueryHeightAboveGround returns the height of point (x, y, z) above the ground plane.
-// Returns (height, confidence, ok). ok=false if no settled tile at (x, y).
-func (g *GroundPlaneGrid) QueryHeightAboveGround(x, y, z float64) (float64, float32, bool) {
-    idx := g.WorldToTileIndex(x, y)
-    g.mu.RLock()
-    tile, exists := g.Tiles[idx]
-    g.mu.RUnlock()
-
-    if !exists || !tile.Settled {
-        return 0.0, 0.0, false
-    }
-
-    // Signed distance to plane (positive if above ground)
-    height := tile.NormalX*x + tile.NormalY*y + tile.NormalZ*z - tile.Offset
-    return height, tile.Planarity, true
-}
-
-// WorldToTileIndex converts world-frame (x, y) to tile index (ix, iy).
-func (g *GroundPlaneGrid) WorldToTileIndex(x, y float64) TileIndex {
-    return TileIndex{
-        IX: int(math.Floor(x / g.TileSize)),
-        IY: int(math.Floor(y / g.TileSize)),
-    }
-}
-
-// GetOrCreateTile retrieves or allocates a tile at index idx.
-func (g *GroundPlaneGrid) GetOrCreateTile(idx TileIndex) *GroundTile {
-    g.mu.Lock()
-    defer g.mu.Unlock()
-
-    if tile, exists := g.Tiles[idx]; exists {
-        return tile
-    }
-
-    // Create new tile
-    tile := &GroundTile{
-        CentreX:  float64(idx.IX)*g.TileSize + g.TileSize/2.0,
-        CentreY:  float64(idx.IY)*g.TileSize + g.TileSize/2.0,
-        TileSize: g.TileSize,
-        NormalZ:  1.0, // Default to horizontal plane
-        Planarity: 0.0,
-        Settled:  false,
-    }
-    g.Tiles[idx] = tile
-    g.UnsettledTiles++
-    return tile
-}
-```
+**`GetOrCreateTile(idx)`** — Lazy tile creation with default horizontal normal (0, 0, 1) and unsettled state.
 
 ### Storage Schema
 
-Extend `internal/lidar/storage/sqlite/schema.sql` with a ground plane table:
-
-```sql
-CREATE TABLE IF NOT EXISTS ground_plane_snapshots (
-    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_nanos INTEGER NOT NULL,
-    sensor_id TEXT,
-    origin_lat REAL,
-    origin_lon REAL,
-    tile_size_meters REAL,
-    tiles_blob BLOB, -- gzip-compressed gob-encoded []GroundTile
-    tiles_hash TEXT, -- SHA256 for deduplication
-    settled_tile_count INTEGER,
-    total_point_count INTEGER,
-    params_json TEXT -- JSON serialisation of GroundPlaneParams
-);
-
-CREATE INDEX IF NOT EXISTS idx_ground_plane_timestamp ON ground_plane_snapshots(timestamp_nanos);
-```
-
-**Serialisation format:**
-
-- Use `gob` encoding (Go standard) for `[]GroundTile` slice.
-- Compress with `gzip` to reduce BLOB size (similar to `BackgroundCell` snapshots).
-- Compute SHA256 hash for deduplication (avoid storing identical snapshots).
+Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` stores periodic snapshots as gzip-compressed gob-encoded tile arrays with SHA256 dedup hash, indexed by timestamp. Columns include sensor ID, origin lat/lon, tile size, settled tile count, total point count, and JSON-serialised `GroundPlaneParams`.
 
 ---
 

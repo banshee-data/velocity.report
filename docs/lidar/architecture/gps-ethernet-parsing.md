@@ -226,31 +226,7 @@ Calculation: degrees + (minutes / 60)
             = 48.1173
 ```
 
-**Implementation:**
-
-```go
-func parseNMEACoordinate(coord string, hemisphere string) (float64, error) {
-    // coord format: "DDmm.mmmm" or "DDDmm.mmmm"
-    // hemisphere: "N"/"S" or "E"/"W"
-
-    var degrees, minutes float64
-    if len(coord) > 0 && strings.Contains(coord, ".") {
-        dotIdx := strings.Index(coord, ".")
-        minutesStart := dotIdx - 2
-
-        degrees, _ = strconv.ParseFloat(coord[:minutesStart], 64)
-        minutes, _ = strconv.ParseFloat(coord[minutesStart:], 64)
-    }
-
-    decimal := degrees + (minutes / 60.0)
-
-    if hemisphere == "S" || hemisphere == "W" {
-        decimal = -decimal
-    }
-
-    return decimal, nil
-}
-```
+**Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses the `DDmm.mmmm` format by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres.
 
 ### Checksum Validation
 
@@ -268,27 +244,7 @@ $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 2. Compare with two-digit hex checksum
 3. Reject sentence if mismatch
 
-**Implementation:**
-
-```go
-func validateNMEAChecksum(sentence string) bool {
-    if !strings.HasPrefix(sentence, "$") || !strings.Contains(sentence, "*") {
-        return false
-    }
-
-    starIdx := strings.Index(sentence, "*")
-    payload := sentence[1:starIdx]
-    checksumStr := sentence[starIdx+1:]
-
-    var checksum byte
-    for i := 0; i < len(payload); i++ {
-        checksum ^= payload[i]
-    }
-
-    expectedChecksum, _ := strconv.ParseUint(checksumStr, 16, 8)
-    return checksum == byte(expectedChecksum)
-}
-```
+**Implementation:** `validateNMEAChecksum(sentence string) bool` in `internal/gps/nmea/` XORs all bytes between the `$` and `*` delimiters and compares the result against the two-digit hex checksum suffix. Sentences missing either delimiter or with a mismatched checksum are rejected.
 
 ### Time Synchronisation
 
@@ -319,87 +275,15 @@ NMEA time must correlate with LiDAR timestamps:
 
 **GPSFix - Single Position Fix**
 
-```go
-// GPSFix represents a single GPS position measurement
-type GPSFix struct {
-    Timestamp      time.Time // UTC timestamp from NMEA
-    Latitude       float64   // Decimal degrees, WGS84
-    Longitude      float64   // Decimal degrees, WGS84
-    AltitudeMSL    float64   // Metres above mean sea level
-    AltitudeHAE    float64   // Metres above WGS84 ellipsoid (MSL + geoid separation)
-    FixQuality     int       // 0=invalid, 1=GPS, 2=DGPS, 4=RTK, 5=Float RTK
-    SatelliteCount int       // Number of satellites used
-    HDOP           float64   // Horizontal dilution of precision
-    PDOP           float64   // Position dilution of precision (from GPGSA)
-    Speed          float64   // Ground speed, m/s (from GPRMC)
-    Course         float64   // True course, degrees (from GPRMC)
-    GeoidSep       float64   // Geoid separation, metres (from GPGGA)
-}
-
-// IsValid returns true if fix is suitable for geo-referencing
-func (f *GPSFix) IsValid() bool {
-    return f.FixQuality >= 1 && f.SatelliteCount >= 4 && f.HDOP < 5.0
-}
-
-// IsPrecise returns true if fix is suitable for sub-metre accuracy
-func (f *GPSFix) IsPrecise() bool {
-    return f.FixQuality >= 2 && f.HDOP < 2.0
-}
-```
+`GPSFix` struct in `internal/gps/` represents a single GPS measurement. Key fields: `Timestamp` (UTC), `Latitude`/`Longitude` (decimal degrees, WGS84), `AltitudeMSL`/`AltitudeHAE` (metres), `FixQuality` (0=invalid, 1=GPS, 2=DGPS, 4=RTK, 5=Float RTK), `SatelliteCount`, `HDOP`/`PDOP`, `Speed` (m/s, from GPRMC), `Course` (degrees), and `GeoidSep` (metres). `IsValid()` requires fix quality ≥1, ≥4 satellites, and HDOP <5.0. `IsPrecise()` requires fix quality ≥2 and HDOP <2.0.
 
 **GPSConfig - Data Source Configuration**
 
-```go
-// GPSConfig specifies GPS data source parameters
-type GPSConfig struct {
-    Enabled       bool          // Enable GPS ingestion
-    SourceType    GPSSourceType // UDP, HTTP, PCAP
-    UDPPort       int           // UDP port for NMEA sentences (e.g., 10110)
-    UDPAddress    string        // Multicast or specific address
-    HTTPEndpoint  string        // HTTP API endpoint (for Hesai built-in GPS)
-    PollInterval  time.Duration // HTTP polling interval
-    SentenceTypes []string      // NMEA sentences to parse (e.g., ["GPGGA", "GPRMC"])
-    MinSatellites int           // Minimum satellites for valid fix (default: 4)
-    MaxHDOP       float64       // Maximum HDOP for valid fix (default: 5.0)
-    TimeoutSec    int           // Seconds without fix before fallback to site config
-}
-
-type GPSSourceType int
-
-const (
-    GPSSourceUDP GPSSourceType = iota  // NMEA over UDP (standalone receiver)
-    GPSSourceHTTP                      // HTTP API (Hesai built-in)
-    GPSSourcePCAP                      // Replay from PCAP capture
-    GPSSourceSiteConfig                // Manual coordinates from database
-)
-```
+`GPSConfig` struct in `internal/gps/` specifies GPS ingestion parameters: enabled flag, source type, UDP port/address, HTTP endpoint and poll interval, NMEA sentence filter list, minimum satellite count (default 4), maximum HDOP (default 5.0), and timeout before fallback. `GPSSourceType` is an enum with four values: `GPSSourceUDP` (standalone NMEA-over-UDP receiver), `GPSSourceHTTP` (Hesai built-in API), `GPSSourcePCAP` (replay from capture), and `GPSSourceSiteConfig` (manual coordinates from database).
 
 **GPSReceiver - Data Source Manager**
 
-```go
-// GPSReceiver manages GPS data ingestion and fix distribution
-type GPSReceiver struct {
-    config      GPSConfig
-    latestFix   *GPSFix
-    fixHistory  []GPSFix          // Recent fixes for interpolation
-    fixChan     chan GPSFix       // Distribution channel for consumers
-    mu          sync.RWMutex
-    ctx         context.Context
-    cancel      context.CancelFunc
-}
-
-// Start begins GPS data ingestion
-func (r *GPSReceiver) Start(ctx context.Context) error
-
-// GetLatestFix returns most recent valid GPS fix
-func (r *GPSReceiver) GetLatestFix() (*GPSFix, error)
-
-// GetFixAtTime returns interpolated GPS position at specific timestamp
-func (r *GPSReceiver) GetFixAtTime(t time.Time) (*GPSFix, error)
-
-// Subscribe returns channel for real-time fix updates
-func (r *GPSReceiver) Subscribe() <-chan GPSFix
-```
+`GPSReceiver` in `internal/gps/receiver.go` manages GPS ingestion. It holds the config, latest fix, a fix history slice for interpolation, and a distribution channel (all guarded by `sync.RWMutex`). Key methods: `Start(ctx)` begins ingestion, `GetLatestFix()` returns the most recent valid fix, `GetFixAtTime(t)` returns an interpolated position for a given timestamp, and `Subscribe()` returns a channel for real-time fix updates.
 
 ### WGS84 Datum
 
@@ -450,32 +334,9 @@ Network Interface (eth0)
 
 ### Shared Network Listener
 
-Option 1: **Single pcap listener** (PCAP replay and live capture)
+Option 1: **Single pcap listener** (PCAP replay and live capture) — `PacketMultiplexer.Dispatch()` extracts the UDP layer from each `gopacket.Packet` and routes by destination port: 2368 → LiDAR channel, 10110 → GPS channel.
 
-```go
-// Packet multiplexer routes by port
-func (m *PacketMultiplexer) Dispatch(packet gopacket.Packet) {
-    udpLayer := packet.Layer(layers.LayerTypeUDP)
-    if udpLayer != nil {
-        udp, _ := udpLayer.(*layers.UDP)
-
-        switch udp.DstPort {
-        case 2368:
-            m.lidarChan <- packet.Data()
-        case 10110:
-            m.gpsChan <- packet.Data()
-        }
-    }
-}
-```
-
-Option 2: **Separate goroutines** (live capture only)
-
-```go
-// Independent UDP listeners
-go lidarReceiver.Listen(":2368")   // LiDAR packets
-go gpsReceiver.Listen(":10110")    // GPS packets
-```
+Option 2: **Separate goroutines** (live capture only) — independent UDP listeners on `:2368` and `:10110`.
 
 **Recommendation:** Unified pcap-based listener for PCAP replay compatibility.
 
@@ -495,38 +356,7 @@ Associate GPS fixes with LiDAR frames by timestamp:
 - Suitable for mobile deployments (moving vehicle)
 - Requires GPS update rate ≥1 Hz
 
-**Implementation:**
-
-```go
-func (r *GPSReceiver) GetFixAtTime(t time.Time) (*GPSFix, error) {
-    r.mu.RLock()
-    defer r.mu.RUnlock()
-
-    // Find bracketing fixes
-    var before, after *GPSFix
-    for i := range r.fixHistory {
-        fix := &r.fixHistory[i]
-        if fix.Timestamp.Before(t) {
-            before = fix
-        } else if fix.Timestamp.After(t) && after == nil {
-            after = fix
-            break
-        }
-    }
-
-    // Stationary: return nearest fix
-    if before != nil && after == nil {
-        return before, nil
-    }
-
-    // Mobile: interpolate position
-    if before != nil && after != nil {
-        return interpolateFix(before, after, t), nil
-    }
-
-    return nil, ErrNoGPSFix
-}
-```
+**Implementation:** `GetFixAtTime(t)` scans the fix history for the two fixes that bracket the requested timestamp. If both are found, it linearly interpolates position between them (mobile case). If only a preceding fix exists, it returns that fix directly (stationary case). Returns `ErrNoGPSFix` when no history is available.
 
 ### Sensor-to-World Transform
 
@@ -680,30 +510,7 @@ Graceful degradation when GPS unavailable:
 3. **Tertiary**: Manual site config from database (`internal/db/site.go`)
 4. **Quaternary**: No geo-reference (sensor-local coordinates only)
 
-**Decision Logic:**
-
-```go
-func (g *GeoReference) GetPosition(t time.Time) (*GPSFix, error) {
-    // Attempt real-time GPS
-    if g.gpsReceiver != nil {
-        if fix, err := g.gpsReceiver.GetFixAtTime(t); err == nil {
-            return fix, nil
-        }
-    }
-
-    // Fallback to site config
-    if g.siteConfig != nil {
-        return &GPSFix{
-            Latitude:  g.siteConfig.Latitude,
-            Longitude: g.siteConfig.Longitude,
-            Altitude:  g.siteConfig.Altitude,
-            FixQuality: 0, // Indicate manual config
-        }, nil
-    }
-
-    return nil, ErrNoGeoReference
-}
-```
+**Decision Logic:** `GeoReference.GetPosition(t)` in `internal/gps/` implements a cascaded fallback: first attempts the real-time GPS receiver via `GetFixAtTime(t)`, then falls back to constructing a fix from the database site config (with `FixQuality: 0` to indicate manual origin), and finally returns `ErrNoGeoReference` if neither source is available.
 
 ## Storage Schema
 
@@ -711,75 +518,19 @@ func (g *GeoReference) GetPosition(t time.Time) (*GPSFix, error) {
 
 For mobile deployments or multi-session analysis:
 
-```sql
-CREATE TABLE gps_fix_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp DATETIME NOT NULL,              -- UTC timestamp
-    latitude REAL NOT NULL,                   -- Decimal degrees, WGS84
-    longitude REAL NOT NULL,                  -- Decimal degrees, WGS84
-    altitude_msl REAL,                        -- Metres above mean sea level
-    altitude_hae REAL,                        -- Metres above WGS84 ellipsoid
-    fix_quality INTEGER NOT NULL,             -- 0=invalid, 1=GPS, 2=DGPS, 4=RTK
-    satellite_count INTEGER,                  -- Satellites used
-    hdop REAL,                                -- Horizontal DOP
-    pdop REAL,                                -- Position DOP
-    speed REAL,                               -- Ground speed, m/s
-    course REAL,                              -- True course, degrees
-    session_id TEXT,                          -- Link to capture session
-    FOREIGN KEY (session_id) REFERENCES capture_session(id)
-);
-
-CREATE INDEX idx_gps_fix_timestamp ON gps_fix_history(timestamp);
-CREATE INDEX idx_gps_fix_session ON gps_fix_history(session_id);
-```
+`gps_fix_history` table (in `internal/db/migrations/`) stores timestamped GPS fixes with WGS84 coordinates (`latitude`, `longitude`, `altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Indexed on `timestamp` and `session_id`.
 
 ### Session-Level GPS Metadata
 
 Link GPS position to PCAP capture sessions:
 
-```sql
-CREATE TABLE capture_session (
-    id TEXT PRIMARY KEY,                      -- UUID
-    pcap_file TEXT NOT NULL,                  -- PCAP filename
-    start_time DATETIME NOT NULL,             -- Session start (UTC)
-    end_time DATETIME NOT NULL,               -- Session end (UTC)
-    gps_latitude REAL,                        -- Representative position
-    gps_longitude REAL,
-    gps_altitude_msl REAL,
-    gps_fix_count INTEGER DEFAULT 0,          -- Number of GPS fixes
-    gps_fix_quality_median INTEGER,           -- Median fix quality
-    gps_hdop_median REAL,                     -- Median HDOP
-    site_id INTEGER,                          -- Link to site config
-    FOREIGN KEY (site_id) REFERENCES site(id)
-);
-```
+`capture_session` table links PCAP files to GPS metadata. Columns: UUID primary key, PCAP filename, start/end timestamps, representative GPS position (`gps_latitude`, `gps_longitude`, `gps_altitude_msl`), quality aggregates (`gps_fix_count`, `gps_fix_quality_median`, `gps_hdop_median`), and a `site_id` foreign key to site config.
 
 ### Ground Plane Geo-Referencing
 
 Link ground plane tiles to GPS coordinates:
 
-```sql
-CREATE TABLE ground_plane_tile (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL,                 -- Link to capture session
-    tile_x INTEGER NOT NULL,                  -- Tile grid coordinates
-    tile_y INTEGER NOT NULL,
-    center_latitude REAL NOT NULL,            -- WGS84 centre point
-    center_longitude REAL NOT NULL,
-    center_altitude_msl REAL,
-    bbox_north REAL NOT NULL,                 -- Bounding box (WGS84)
-    bbox_south REAL NOT NULL,
-    bbox_east REAL NOT NULL,
-    bbox_west REAL NOT NULL,
-    point_count INTEGER NOT NULL,             -- Points in tile
-    geometry_blob BLOB NOT NULL,              -- Compressed geometry
-    FOREIGN KEY (session_id) REFERENCES capture_session(id)
-);
-
-CREATE INDEX idx_gp_tile_session ON ground_plane_tile(session_id);
-CREATE INDEX idx_gp_tile_coords ON ground_plane_tile(tile_x, tile_y);
-CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_south, bbox_east, bbox_west);
-```
+`ground_plane_tile` table stores geo-referenced ground plane tiles. Columns: session link, tile grid coordinates (`tile_x`, `tile_y`), WGS84 centre point, bounding box (`bbox_north/south/east/west`), `point_count`, and a `geometry_blob` (compressed). Indexed on `session_id`, tile coordinates, and bounding box for spatial queries.
 
 ## Security & Privacy
 
@@ -916,29 +667,7 @@ CREATE SPATIAL INDEX idx_gp_tile_bbox ON ground_plane_tile(bbox_north, bbox_sout
 
 **Format Example:**
 
-```json
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-          [-122.3321, 47.6062, 50.0],
-          [-122.3320, 47.6062, 50.1],
-          ...
-        ]]
-      },
-      "properties": {
-        "tile_id": "tile_0_0",
-        "point_count": 15243,
-        "session_id": "a4f2c8b9-..."
-      }
-    }
-  ]
-}
-```
+Output is a standard GeoJSON `FeatureCollection` where each feature is a `Polygon` with 2.5D coordinates (longitude, latitude, altitude). Properties include `tile_id`, `point_count`, and `session_id` linking back to the capture session.
 
 ---
 

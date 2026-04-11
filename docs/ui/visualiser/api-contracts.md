@@ -63,250 +63,66 @@ The visualiser consumes a **frame-oriented data stream** from the pipeline. Each
 - **World frame**: Site-level coordinates, typically `site/<sensor_id>`
 - The pipeline emits data in **world frame** after applying sensor pose
 
-```protobuf
-message CoordinateFrameInfo {
-  string frame_id = 1;           // e.g., "site/hesai-01"
-  string reference_frame = 2;    // e.g., "ENU" or "sensor"
-  double origin_lat = 3;         // optional, for georeferencing
-  double origin_lon = 4;
-  double origin_alt = 5;
-  float rotation_deg = 6;        // rotation of X-axis from East (ENU)
-}
-```
+`CoordinateFrameInfo` is a 6-field message: `frame_id`, `reference_frame`, optional `origin_lat`/`origin_lon`/`origin_alt`, and `rotation_deg` (X-axis rotation from East in ENU). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.2 Point Clouds
 
 Points are emitted in world frame. Full fidelity or downsampled modes are supported.
 
-```protobuf
-message PointCloudFrame {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  string sensor_id = 3;
+`PointCloudFrame` carries one frame of point cloud data. Key fields:
 
-  // Compact encoding: arrays of equal length
-  repeated float x = 4 [packed = true];      // world frame X (metres)
-  repeated float y = 5 [packed = true];      // world frame Y (metres)
-  repeated float z = 6 [packed = true];      // world frame Z (metres)
-  repeated uint32 intensity = 7 [packed = true];  // 0-255
+| Field              | Type             | Description                                           |
+| ------------------ | ---------------- | ----------------------------------------------------- |
+| `x`, `y`, `z`      | packed float[]   | World-frame coordinates (metres)                      |
+| `intensity`        | packed uint32[]  | Per-point intensity (0-255)                           |
+| `classification`   | packed uint32[]  | Optional per-point label (0=background, 1=foreground) |
+| `decimation_mode`  | `DecimationMode` | NONE, UNIFORM, VOXEL, or FOREGROUND_ONLY              |
+| `decimation_ratio` | float            | Fraction of points retained (e.g. 0.5)                |
 
-  // Optional: per-point classification (background=0, foreground=1)
-  repeated uint32 classification = 8 [packed = true];
-
-  // Decimation info
-  DecimationMode decimation_mode = 9;
-  float decimation_ratio = 10;   // e.g., 0.5 = half the points
-}
-
-enum DecimationMode {
-  DECIMATION_NONE = 0;
-  DECIMATION_UNIFORM = 1;
-  DECIMATION_VOXEL = 2;
-  DECIMATION_FOREGROUND_ONLY = 3;  // only foreground points, no background
-}
-```
+See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.3 Clusters (Foreground Objects)
 
 Clusters are detected objects before tracking association.
 
-```protobuf
-message Cluster {
-  int64 cluster_id = 1;          // unique within frame
-  string sensor_id = 2;
-  int64 timestamp_ns = 3;
+`Cluster` represents a detected foreground object before tracking. `ClusterSet` wraps a frame's worth of clusters. Key fields:
 
-  // Centroid in world frame
-  float centroid_x = 4;
-  float centroid_y = 5;
-  float centroid_z = 6;
+| Field                      | Type                  | Description                                                           |
+| -------------------------- | --------------------- | --------------------------------------------------------------------- |
+| `centroid_x/y/z`           | float                 | Centroid position in world frame (metres)                             |
+| `aabb_length/width/height` | float                 | Axis-aligned bounding box extents (metres)                            |
+| `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (center xyz + length/width/height + `heading_rad`) |
+| `points_count`             | int32                 | Number of points in cluster                                           |
+| `sample_points`            | packed float[]        | Optional xyz-interleaved sample points for debug rendering            |
 
-  // Axis-aligned bounding box
-  float aabb_length = 7;         // X extent (metres)
-  float aabb_width = 8;          // Y extent (metres)
-  float aabb_height = 9;         // Z extent (metres)
+`OrientedBoundingBox` conforms to the industry-standard 7-DOF format matching `BoundingBox7DOF` from the AV integration spec: centre position (xyz), box extents (length/width/height), and heading (radians, [-pi, pi] around Z-axis).
 
-  // Oriented bounding box (if computed)
-  OrientedBoundingBox obb = 10;
-
-  // Features
-  int32 points_count = 11;
-  float height_p95 = 12;
-  float intensity_mean = 13;
-
-  // Optional: sample points for debug rendering
-  repeated float sample_points = 14 [packed = true];  // xyz interleaved
-}
-
-// OrientedBoundingBox conforms to the industry-standard 7-DOF format.
-// See: docs/plans/lidar-av-lidar-integration-plan.md for full specification.
-// This matches BoundingBox7DOF from the AV integration spec:
-//   - center_x/y/z: Centre position in metres (world frame)
-//   - length/width/height: Box extents in metres
-//   - heading_rad: Yaw angle around Z-axis in radians [-π, π]
-message OrientedBoundingBox {
-  float center_x = 1;
-  float center_y = 2;
-  float center_z = 3;
-  float length = 4;              // along heading direction (metres)
-  float width = 5;               // perpendicular to heading (metres)
-  float height = 6;              // Z extent (metres)
-  float heading_rad = 7;         // rotation around Z-axis (radians, [-π, π])
-}
-
-message ClusterSet {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  repeated Cluster clusters = 3;
-}
-```
+See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.4 Tracks (State, Velocity, Lifecycle)
 
 Tracks are persistent object identities across frames.
 
-```protobuf
-message Track {
-  string track_id = 1;           // e.g., "track_42"
-  string sensor_id = 2;
+`Track` is a persistent object identity across frames (35 fields). `TrackSet` wraps a frame's tracks plus `TrackTrail` historical positions for rendering. Key field groups:
 
-  // Lifecycle
-  TrackState state = 3;
-  int32 hits = 4;                // consecutive successful associations
-  int32 misses = 5;              // consecutive missed associations
-  int32 observation_count = 6;   // total observations
+| Group              | Fields                                                                        | Description                                  |
+| ------------------ | ----------------------------------------------------------------------------- | -------------------------------------------- |
+| Lifecycle          | `state` (TENTATIVE/CONFIRMED/DELETED), `hits`, `misses`, `observation_count`  | Association and confirmation state           |
+| Position/velocity  | `x/y/z`, `vx/vy/vz`                                                           | Current state in world frame (metres, m/s)   |
+| Derived kinematics | `speed_mps`, `heading_rad`                                                    | Scalar speed and heading                     |
+| Uncertainty        | `covariance_4x4`                                                              | Optional 4x4 packed float, row-major         |
+| Bounding box       | `bbox_length/width/height`                                                    | Per-frame cluster dimensions from DBSCAN OBB |
+| Features           | `height_p95_max`, `intensity_mean_avg`, `avg_speed_mps`, `max_speed_mps`      | Accumulated track features                   |
+| Classification     | `object_class`, `class_confidence`                                            | Classifier output or user label              |
+| Quality            | `track_length_metres`, `track_duration_secs`, `occlusion_count`, `confidence` | Track quality metrics                        |
 
-  // Timestamps
-  int64 first_seen_ns = 7;
-  int64 last_seen_ns = 8;
-
-  // Current position (world frame)
-  float x = 9;
-  float y = 10;
-  float z = 11;
-
-  // Current velocity (world frame)
-  float vx = 12;
-  float vy = 13;
-  float vz = 14;                 // typically 0 for ground-plane tracking
-
-  // Derived kinematics
-  float speed_mps = 15;
-  float heading_rad = 16;
-
-  // Uncertainty (optional)
-  repeated float covariance_4x4 = 17 [packed = true];  // row-major
-
-  // Bounding box (per-frame cluster dimensions from DBSCAN OBB)
-  float bbox_length = 18;          // metres, along heading direction
-  float bbox_width = 19;           // metres, perpendicular to heading
-  float bbox_height = 20;          // metres, Z extent
-
-  // Features
-  float height_p95_max = 22;
-  float intensity_mean_avg = 23;
-  float avg_speed_mps = 24;      // running mean speed
-  float max_speed_mps = 25;
-
-  // Classification
-  ObjectClass object_class = 26; // classifier output or user label
-  float class_confidence = 27;   // 0.0 - 1.0
-
-  // Quality metrics
-  float track_length_metres = 28;
-  float track_duration_secs = 29;
-  int32 occlusion_count = 30;
-  float confidence = 31;
-  OcclusionState occlusion_state = 32;
-  MotionModel motion_model = 33;
-  float alpha = 34;
-  int32 heading_source = 35;
-
-  // Documented track speed contract stays non-percentile.
-  // Superseded branch-local speed-summary additions are intentionally omitted.
-}
-
-enum TrackState {
-  TRACK_STATE_UNKNOWN = 0;
-  TRACK_STATE_TENTATIVE = 1;     // new track, needs confirmation
-  TRACK_STATE_CONFIRMED = 2;     // stable track
-  TRACK_STATE_DELETED = 3;       // track marked for removal
-}
-
-message TrackTrail {
-  string track_id = 1;
-  repeated TrackPoint points = 2;
-}
-
-message TrackPoint {
-  float x = 1;
-  float y = 2;
-  int64 timestamp_ns = 3;
-}
-
-message TrackSet {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  repeated Track tracks = 3;
-  repeated TrackTrail trails = 4;  // historical positions for rendering
-}
-```
+Track speed contract is non-percentile. See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.5 Debug Overlays
 
 Optional debug artifacts for algorithm tuning.
 
-```protobuf
-message DebugOverlaySet {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-
-  // Association candidates
-  repeated AssociationCandidate association_candidates = 3;
-
-  // Gating ellipses (Mahalanobis distance thresholds)
-  repeated GatingEllipse gating_ellipses = 4;
-
-  // Innovation residuals (Kalman filter)
-  repeated InnovationResidual residuals = 5;
-
-  // Filtered state predictions
-  repeated StatePrediction predictions = 6;
-}
-
-message AssociationCandidate {
-  int64 cluster_id = 1;
-  string track_id = 2;
-  float distance = 3;            // Mahalanobis distance
-  bool accepted = 4;             // whether association was accepted
-}
-
-message GatingEllipse {
-  string track_id = 1;
-  float center_x = 2;
-  float center_y = 3;
-  float semi_major = 4;          // metres
-  float semi_minor = 5;          // metres
-  float rotation_rad = 6;        // ellipse rotation
-}
-
-message InnovationResidual {
-  string track_id = 1;
-  float predicted_x = 2;
-  float predicted_y = 3;
-  float measured_x = 4;
-  float measured_y = 5;
-  float residual_magnitude = 6;
-}
-
-message StatePrediction {
-  string track_id = 1;
-  float x = 2;
-  float y = 3;
-  float vx = 4;
-  float vy = 5;
-}
-```
+`DebugOverlaySet` carries four types of optional debug artifact per frame: **AssociationCandidate** (cluster-to-track pairing with Mahalanobis distance and accept/reject), **GatingEllipse** (Mahalanobis gate ellipse geometry per track), **InnovationResidual** (Kalman filter predicted-vs-measured position and residual magnitude), and **StatePrediction** (predicted position and velocity for each track). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 1.5.1 Planned: Background Debug Surfaces for Swift Frontend
 
@@ -318,55 +134,7 @@ assignment state.
 
 Proposed debug payloads:
 
-```protobuf
-message BackgroundPointPolarDebug {
-  uint32 ring = 1;
-  uint32 azimuth_bin = 2;
-  float range_m = 3;
-  float spread_m = 4;
-  uint32 confidence = 5;   // TimesSeenCount-aligned
-  uint32 region_id = 6;    // optional, 0 = unassigned
-  string settle_state = 7; // learning/obs_stable/geom_stable/locked/frozen
-}
-
-message BackgroundPointCartesianDebug {
-  float x = 1;
-  float y = 2;
-  float z = 3;
-  uint32 confidence = 4;
-  uint32 source_ring = 5;
-  uint32 source_azimuth_bin = 6;
-  uint32 region_id = 7;    // optional, 0 = unassigned
-  string settle_state = 8;
-}
-
-message RegionMapCellDebug {
-  uint32 ring = 1;
-  uint32 azimuth_bin = 2;
-  uint32 region_id = 3;
-  string surface_class = 4; // ground/structure/volume/unknown
-  string settle_state = 5;
-}
-
-message BackgroundDebugBundle {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  repeated BackgroundPointPolarDebug polar_points = 3;
-  repeated BackgroundPointCartesianDebug cartesian_points = 4;
-  repeated RegionMapCellDebug region_cells = 5;
-}
-```
-
-Proposed stream request toggles:
-
-```protobuf
-message StreamRequest {
-  // Existing fields...
-  bool include_bg_debug_polar = 20;
-  bool include_bg_debug_cartesian = 21;
-  bool include_bg_region_map = 22;
-}
-```
+Four proposed messages (not yet in `.proto`): `BackgroundPointPolarDebug` (ring/azimuth/range/spread/confidence/region/settle-state), `BackgroundPointCartesianDebug` (xyz + confidence + source ring/azimuth + region/settle-state), `RegionMapCellDebug` (ring/azimuth/region/surface-class/settle-state), and `BackgroundDebugBundle` wrapping all three per frame. Three new `StreamRequest` toggle fields (`include_bg_debug_polar`, `include_bg_debug_cartesian`, `include_bg_region_map`) would control inclusion.
 
 Planned frontend modes:
 
@@ -405,26 +173,7 @@ GET    /api/lidar/labels/export       Export labels as JSON
 }
 ```
 
-**Database Schema (SQLite):**
-
-```sql
-CREATE TABLE lidar_labels (
-    label_id TEXT PRIMARY KEY,
-    track_id TEXT NOT NULL,
-    class_label TEXT NOT NULL,
-    start_timestamp_ns INTEGER NOT NULL,
-    end_timestamp_ns INTEGER,
-    confidence REAL,
-    created_by TEXT,
-    created_at_ns INTEGER NOT NULL,
-    updated_at_ns INTEGER,
-    notes TEXT,
-    FOREIGN KEY (track_id) REFERENCES lidar_tracks(track_id)
-);
-
-CREATE INDEX idx_lidar_labels_track ON lidar_labels(track_id);
-CREATE INDEX idx_lidar_labels_time ON lidar_labels(start_timestamp_ns, end_timestamp_ns);
-```
+**Database Schema (SQLite):** Table `lidar_labels` with columns: `label_id` (TEXT PK), `track_id` (TEXT FK to `lidar_tracks`), `class_label` (TEXT), `start_timestamp_ns`/`end_timestamp_ns` (INTEGER), `confidence` (REAL), `created_by` (TEXT), `created_at_ns`/`updated_at_ns` (INTEGER), `notes` (TEXT). Indexed on `track_id` and timestamp range.
 
 ---
 
@@ -470,123 +219,23 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 
 ### 3.1 Service Definition
 
-```protobuf
-service VisualiserService {
-  // Live streaming of frame bundles (server-streaming)
-  rpc StreamFrames(StreamRequest) returns (stream FrameBundle);
-
-  // Control RPCs for playback (replay mode)
-  rpc Pause(PauseRequest) returns (PlaybackStatus);
-  rpc Play(PlayRequest) returns (PlaybackStatus);
-  rpc Seek(SeekRequest) returns (PlaybackStatus);
-  rpc SetRate(SetRateRequest) returns (PlaybackStatus);
-
-  // Request specific overlay modes
-  rpc SetOverlayModes(OverlayModeRequest) returns (OverlayModeResponse);
-
-  // Server capabilities query
-  rpc GetCapabilities(CapabilitiesRequest) returns (CapabilitiesResponse);
-
-  // Recording control (live mode)
-  rpc StartRecording(RecordingRequest) returns (RecordingStatus);
-  rpc StopRecording(RecordingRequest) returns (RecordingStatus);
-}
-```
+`VisualiserService` defines 9 RPCs: `StreamFrames` (server-streaming frame bundles), `Pause`/`Play`/`Seek`/`SetRate` (playback control, all return `PlaybackStatus`), `SetOverlayModes` (toggle debug overlays), `GetCapabilities` (query server features), and `StartRecording`/`StopRecording` (live capture control). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ### 3.2 Message Definitions
 
-```protobuf
-message StreamRequest {
-  string sensor_id = 1;          // which sensor to stream (or "all")
-  bool include_points = 2;       // include full point cloud
-  bool include_clusters = 3;     // include cluster set
-  bool include_tracks = 4;       // include track set
-  bool include_debug = 5;        // include debug overlays
-  DecimationMode point_decimation = 6;
-  float decimation_ratio = 7;    // 0.0-1.0
-}
+| Message                | Purpose                            | Key fields                                                                                                      |
+| ---------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `StreamRequest`        | Client subscription config         | `sensor_id`, `include_points/clusters/tracks/debug`, `point_decimation`, `decimation_ratio`                     |
+| `FrameBundle`          | Top-level per-frame envelope       | `frame_id`, `timestamp_ns`, nested `PointCloudFrame`/`ClusterSet`/`TrackSet`/`DebugOverlaySet`, `playback_info` |
+| `PlaybackInfo`         | Replay metadata within FrameBundle | `is_live`, `log_start_ns`/`log_end_ns`, `playback_rate`, `paused`                                               |
+| `PlaybackStatus`       | Response to playback RPCs          | `paused`, `rate`, `current_timestamp_ns`, `current_frame_id`                                                    |
+| `SeekRequest`          | Seek target (oneof)                | `timestamp_ns` or `frame_id`                                                                                    |
+| `SetRateRequest`       | Playback speed                     | `rate` (e.g. 0.5, 1.0, 2.0)                                                                                     |
+| `OverlayModeRequest`   | Toggle 8 overlay layers            | `show_points/clusters/tracks/trails/velocity/gating/association/residuals`                                      |
+| `CapabilitiesResponse` | Server feature flags               | `supports_points/clusters/tracks/debug/replay/recording`, `available_sensors`                                   |
+| `RecordingStatus`      | Recording state                    | `recording`, `output_path`, `frames_recorded`                                                                   |
 
-message FrameBundle {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  string sensor_id = 3;
-  CoordinateFrameInfo coordinate_frame = 4;
-
-  PointCloudFrame point_cloud = 5;
-  ClusterSet clusters = 6;
-  TrackSet tracks = 7;
-  DebugOverlaySet debug = 8;
-
-  // Playback metadata (replay mode only)
-  PlaybackInfo playback_info = 9;
-}
-
-message PlaybackInfo {
-  bool is_live = 1;              // true if live, false if replay
-  int64 log_start_ns = 2;        // first frame timestamp in log
-  int64 log_end_ns = 3;          // last frame timestamp in log
-  float playback_rate = 4;       // 1.0 = real-time
-  bool paused = 5;
-}
-
-message PlaybackStatus {
-  bool paused = 1;
-  float rate = 2;
-  int64 current_timestamp_ns = 3;
-  uint64 current_frame_id = 4;
-}
-
-message PauseRequest {}
-message PlayRequest {}
-
-message SeekRequest {
-  oneof target {
-    int64 timestamp_ns = 1;      // seek to timestamp
-    uint64 frame_id = 2;         // seek to frame
-  }
-}
-
-message SetRateRequest {
-  float rate = 1;                // e.g., 0.5, 1.0, 2.0
-}
-
-message OverlayModeRequest {
-  bool show_points = 1;
-  bool show_clusters = 2;
-  bool show_tracks = 3;
-  bool show_trails = 4;
-  bool show_velocity = 5;
-  bool show_gating = 6;
-  bool show_association = 7;
-  bool show_residuals = 8;
-}
-
-message OverlayModeResponse {
-  bool success = 1;
-}
-
-message CapabilitiesRequest {}
-
-message CapabilitiesResponse {
-  bool supports_points = 1;
-  bool supports_clusters = 2;
-  bool supports_tracks = 3;
-  bool supports_debug = 4;
-  bool supports_replay = 5;
-  bool supports_recording = 6;
-  repeated string available_sensors = 7;
-}
-
-message RecordingRequest {
-  string output_path = 1;        // optional, server may generate
-}
-
-message RecordingStatus {
-  bool recording = 1;
-  string output_path = 2;
-  uint64 frames_recorded = 3;
-}
-```
+`PauseRequest`, `PlayRequest`, `CapabilitiesRequest`, `RecordingRequest`, and `OverlayModeResponse` are empty or single-field messages. See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
 ---
 
@@ -606,22 +255,7 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
     └── ...
 ```
 
-**Header (JSON)**:
-
-```json
-{
-  "version": "1.0",
-  "created_ns": 1706000000000000000,
-  "sensor_id": "hesai-01",
-  "total_frames": 12345,
-  "start_ns": 1706000000000000000,
-  "end_ns": 1706001234000000000,
-  "coordinate_frame": {
-    "frame_id": "site/hesai-01",
-    "reference_frame": "ENU"
-  }
-}
-```
+**Header (JSON):** Contains `version`, `created_ns`, `sensor_id`, `total_frames`, `start_ns`/`end_ns` time range, and nested `coordinate_frame` (frame_id + reference_frame).
 
 **Index (binary)**:
 
@@ -724,15 +358,7 @@ No point cloud, clusters/tracks only:
 
 Client can request specific overlays to reduce payload:
 
-```protobuf
-OverlayModeRequest {
-  show_points = false;
-  show_clusters = true;
-  show_tracks = true;
-  show_trails = true;
-  show_gating = false;    // expensive debug overlay
-}
-```
+Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `show_points` and `show_gating` (expensive debug overlay) — see `OverlayModeRequest` in section 3.2.
 
 ---
 
