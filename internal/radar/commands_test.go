@@ -55,3 +55,25 @@ func TestAllowedCommands_NoDuplicates(t *testing.T) {
 		seen[cmd] = true
 	}
 }
+
+func TestIsAllowedCommand(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want bool
+	}{
+		{"??", true},
+		{"OJ", false},
+		{"AX", true},
+		{"", false},
+		{"HACK", false},
+		{"OS", true},
+		{"A!", true},
+		{"\n", false},
+		{"rm", false},
+	}
+	for _, tt := range tests {
+		if got := IsAllowedCommand(tt.cmd); got != tt.want {
+			t.Errorf("IsAllowedCommand(%q) = %v, want %v", tt.cmd, got, tt.want)
+		}
+	}
+}

@@ -1142,15 +1142,32 @@ func TestSendCommandHandler_ValidCommand(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	body := bytes.NewReader([]byte("test command"))
-	req := httptest.NewRequest(http.MethodPost, "/send_command", body)
+	req := httptest.NewRequest(http.MethodPost, "/command?command=??", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 
 	server.sendCommandHandler(w, req)
 
-	// Should succeed - command is sent to serial mux
+	// Should succeed - command is on the allowed list
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
+		t.Errorf("Expected status 200, got %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestSendCommandHandler_RejectedCommand tests that commands not on the
+// whitelist are rejected with 400.
+func TestSendCommandHandler_RejectedCommand(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	req := httptest.NewRequest(http.MethodPost, "/command?command=HACK", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	server.sendCommandHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d, body: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -1480,13 +1497,13 @@ func TestSendCommandHandler_WithFormValue(t *testing.T) {
 	server, dbInst := setupTestServer(t)
 	defer cleanupTestServer(t, dbInst)
 
-	req := httptest.NewRequest(http.MethodPost, "/command?command=test_cmd", nil)
+	req := httptest.NewRequest(http.MethodPost, "/command?command=OS", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 
 	server.sendCommandHandler(w, req)
 
-	// Should succeed - disabled serial mux accepts commands silently
+	// Should succeed - OS is on the allowed list
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d, body: %s", w.Code, w.Body.String())
 	}
