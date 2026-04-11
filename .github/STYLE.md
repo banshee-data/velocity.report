@@ -66,6 +66,38 @@ Avoid. When tempted, reach for:
 - **Sentence length:** short sentences do the work. Medium sentences explain. Long sentences earn their keep or get split.
 - **Hedging:** do not. Say what is true. `The data do not support this` not `some might argue the data could potentially suggest otherwise`.
 
+## Documentation Structure
+
+Design documents and specifications describe _what_ a system should do and _why_. They are not repositories for implementation artefacts.
+
+### Code blocks in documentation
+
+If a block could be pasted into a source file and compiled or executed, it is pre-built code and does not belong in a design document. Replace it with prose, a field table, or a file reference.
+
+**Does not belong in docs:**
+
+- Go structs or interface definitions
+- SQL DDL or migration scripts
+- TypeScript/Svelte component code
+- Full JSON request/response payloads
+- HTML/CSS templates
+- Shell scripts beyond a one-liner
+
+**Belongs in docs:**
+
+- Prose descriptions of behaviour and rationale
+- ASCII diagrams (system boundaries, data flow, UI mockups)
+- Pseudocode describing algorithm flow (when prose alone is unclear)
+- Tables: API endpoints with methods/paths/status codes, field schemas, error contracts, decision matrices, timing parameters
+- Worked examples with brief inline values (not full payloads)
+- Security considerations and threat mitigations
+
+**Rule of thumb:** if it describes _what_ and _why_, it stays. If it could be copied into a source file verbatim, extract it to a companion reference file or replace it with a table.
+
+### Length target
+
+Specification and architecture documents should target 800 lines or fewer. Dense tables and design discussion justify going over; wandering prose and pre-built code do not.
+
 ## Dates and Timestamps
 
 **Machine timestamps:** UTC ISO 8601 with trailing `Z`. Example: `2026-04-07T14:32:08Z`. Applies to build metadata, log output, generated files, persisted JSON, and git date attribution. Never use local time for machine-written timestamps.

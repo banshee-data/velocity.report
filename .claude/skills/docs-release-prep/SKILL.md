@@ -36,29 +36,10 @@ Specification and architecture documents should target **≤ 800 lines**. This
 is a guideline, not a hard wall — a 900-line doc with dense tables is fine;
 a 2,000-line doc that wanders is not.
 
-**What to cut:**
-
-- Pre-built code blocks (Go structs, JS snippets, HTML templates) that
-  duplicate what exists in the source tree. Replace with a prose description
-  and a file reference.
-- Completion checklists for finished features (compress to a summary line
-  or remove entirely).
-- Duplicated content that exists in another canonical document.
-
-**What to keep:**
-
-- Design discussion and ideation (the whole point of a spec).
-- Architecture rationale and rejected-alternative analysis.
-- ASCII/text UI mockups (design artefacts, not implementation).
-- Pseudocode describing algorithm flow (ideation, not pre-built code).
-- API endpoint tables with error contracts and status codes.
-- Tables capturing design decisions, trade-offs, and precedence rules.
-- Round-duration examples, timing tables, and worked scenarios.
-- Security considerations and threat mitigations.
-
-**Rule of thumb:** if a block would be copied into a source file verbatim,
-it is pre-built code and should go. If it describes _what_ the system should
-do and _why_, it is design discussion and stays.
+**What to cut / what to keep:** see STYLE.md § Documentation Structure for the
+canonical rule on code blocks in docs. The short version: if a block could be
+pasted into a source file and compiled, replace it with prose, a field table,
+or a file reference.
 
 ### Split Threshold
 
