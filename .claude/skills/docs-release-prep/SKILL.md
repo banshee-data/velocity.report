@@ -86,6 +86,34 @@ Questions fall into two categories:
 **Never invent answers to open questions.** If the answer is unknown, leave
 the question open and surface it to the operator.
 
+### Plan Files vs Reference Docs
+
+Reference documents (architecture overviews, CLI guides, API references,
+configuration docs) describe the system **as it is implemented right now**.
+Plan files (`docs/plans/`) describe **future work** — proposed features,
+restructuring ideas, phased rollouts, aspirational architectures.
+
+**The boundary rule:** if a section describes something that does not exist
+in the codebase today, it belongs in a plan file, not in a reference doc.
+
+**When auditing a document:**
+
+1. Check every feature claim against the codebase. If a flag, endpoint,
+   binary, or behaviour is documented but does not exist, either remove it
+   or move it to a plan file.
+2. If a reference doc has a "Proposed" or "Future" or "Long-Term" section,
+   extract it to a corresponding plan file in `docs/plans/` and replace it
+   with a cross-reference link.
+3. When a plan is implemented (code lands on `main`), the relevant facts
+   move **from** the plan file **into** the reference doc. The plan file
+   then becomes a candidate for graduation (symlink).
+
+**Ghost entries** — features documented as current but actually deleted,
+renamed, or never implemented — are the most dangerous form of stale
+content. Each audit pass should verify implementation status against the
+source code, ideally by checking the actual flag definitions, route
+registrations, or binary directories.
+
 ### Design Decision Tables
 
 Every spec with non-trivial design choices should have a decision table:
