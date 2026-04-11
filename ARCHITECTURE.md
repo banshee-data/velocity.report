@@ -36,7 +36,7 @@ The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR 
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
-| **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting |
+| **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting (deprecated) |
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
 | **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
 
@@ -291,11 +291,11 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
   - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
   - SQLite database writes
 
-### Python PDF Generator
+### Python PDF Generator (Deprecated)
 
 **Location**: `/tools/pdf-generator/`
 
-**Purpose**: Generate professional PDF reports from sensor data
+**Purpose**: Generate professional PDF reports from sensor data. Deprecated: PDF generation is moving into the Go server.
 
 **Key Modules**:
 
@@ -511,7 +511,7 @@ The `site_config_periods` table implements a Type 6 SCD pattern for tracking sen
   - Transit worker → sessionize `radar_data` → `radar_data_transits`
   - LIDAR background grid → `lidar_bg_snapshot`
   - [PLANNED] LIDAR tracking → `lidar_objects`
-- **Python PDF Generator**: Read-only (via HTTP API)
+- **Python PDF Generator** (deprecated): Read-only (via HTTP API)
   - Queries transit data from 3 sources for comparison reports
   - Aggregates statistics across detection methods
 - **Web Frontend**: Read-only (via HTTP API)
@@ -645,7 +645,7 @@ Synthetic Mode (Testing):
 | Deployment | systemd                 | -       | Service management      |
 | Build      | Make                    | -       | Build automation        |
 
-### Python PDF Generator
+### Python PDF Generator (Deprecated)
 
 | Component      | Technology | Version | Purpose             |
 | -------------- | ---------- | ------- | ------------------- |
@@ -700,7 +700,7 @@ Synthetic Mode (Testing):
 - WAL mode for concurrent reads during writes
 - Subsecond timestamp precision (DOUBLE type)
 
-### Go Server ↔ Python PDF Generator
+### Go Server ↔ Python PDF Generator (Deprecated)
 
 **Interface**: HTTP REST API (JSON)
 
@@ -991,8 +991,8 @@ Web Development:
 | --------------------------------- | ------------ | ------------ |
 | Radar vehicle detection (OPS243A) | Production   | Go server    |
 | Real-time speed dashboard         | Production   | Svelte web   |
-| Professional PDF reports          | Production   | Python/LaTeX |
-| Comparison reports (before/after) | Production   | Go + Python  |
+| Professional PDF reports          | Deprecated   | Python/LaTeX |
+| Comparison reports (before/after) | Deprecated   | Go + Python  |
 | Site configuration (SCD Type 6)   | Production   | Go + SQLite  |
 | LiDAR background subtraction      | Experimental | Go server    |
 | LiDAR foreground tracking         | Experimental | Go server    |
@@ -1017,7 +1017,7 @@ The perception pipeline is organised as ten layers (L1–L10), each a distinct G
 | L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
 | L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
 | L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
-| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF                           | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF (deprecated)                      | ✅ Implemented |
 
 Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
 
@@ -1042,7 +1042,7 @@ Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/l
 - **CPU**: <5% on Raspberry Pi 4 (idle), <20% during aggregation
 - **Storage**: ~1MB per 10,000 readings (compressed)
 
-### Python PDF Generator
+### Python PDF Generator (Deprecated)
 
 - **Execution Time**:
   - Config generation: <1 second

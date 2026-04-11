@@ -102,7 +102,7 @@ Read next:
   open research questions across the pipeline, grouped by
   theme with acceptance criteria and evidence requirements
 - [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
-- [data/maths/README.md](data/maths/README.md): mathematical
+- [data/maths/MATHS.md](data/maths/MATHS.md): mathematical
   foundations across settling, ground modelling, clustering,
   tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md):
@@ -217,7 +217,7 @@ Read next:
   to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md):
   end-to-end LiDAR pipeline and component inventory
-- [data/maths/README.md](data/maths/README.md): how the
+- [data/maths/MATHS.md](data/maths/MATHS.md): how the
   maths-heavy layers fit together
 - [data/maths/clustering-maths.md](data/maths/clustering-maths.md):
   clustering assumptions, geometry extraction, and complexity

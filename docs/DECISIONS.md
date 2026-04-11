@@ -22,11 +22,11 @@ Delete-before-insert with model version tracking — [transit-deduplication.md](
 
 ### D-04 — Geometry-coherent tracking (P1 maths)
 
-Schedule for v0.6 cycle — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [maths README](../data/maths/README.md)
+Schedule for v0.6 cycle — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [MATHS.md](../data/maths/MATHS.md)
 
 ### D-05 — Maths proposal sequencing
 
-P1 → P2 → P4 → P3 confirmed — [maths README](../data/maths/README.md)
+P1 → P2 → P4 → P3 confirmed — [MATHS.md](../data/maths/MATHS.md)
 
 ### D-06 — OBB heading fixes D/E/F
 

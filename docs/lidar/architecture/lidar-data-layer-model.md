@@ -27,7 +27,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L7    | **Scene**      | Persistent canonical world model — accumulated geometry, priors, and multi-sensor fusion | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned      |
 | L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                       | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | 🚧 Move pending |
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                   | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🚧 Move pending |
-| L10   | **Clients**    | Downstream rendering consumers (Python, Svelte, Swift; deprecated Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python)                      | 🚧 Move pending |
+| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift; deprecated: Python PDF generator, Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python, deprecated)          | 🚧 Move pending |
 
 ## Canonical L1-L10 Stack Reference
 
@@ -151,7 +151,7 @@ flowchart TB
         L10c["VelocityVisualiser.app "]
         L10d["HTML dashboard ⛔"]
         L10b["Svelte clients 🌐"]
-        L10a["pdf-generator 🐍"]
+        L10a["pdf-generator ⚠️"]
     end
 
     %% ── P0 sensor → IO ──────────────────────────────────
@@ -221,7 +221,8 @@ flowchart TB
     class P0a,P0b,P0c,P0d,P0e,P0f infra;
     class L1a,L1b,L1c,L2a,L2b,L2c,L3a,L3b,L3c,L3d,L4ad,L4e,L5a,L5bg,L6a,L6b,L6c,L6f,L8a,L8b,L8c,L9a,L9b,L9c implemented;
     class L3f,L5h,L6e,L7a gap;
-    class L10a,L10b,L10c client;
+    class L10a deprecated;
+    class L10b,L10c client;
     class L10d deprecated;
 ```
 
@@ -271,7 +272,8 @@ flowchart TB
   3D visualisation. L9a (Radar REST APIs) serves L10a (pdf-generator) and
   L10b (Svelte clients).
 - **L10 clients.** All four L10 nodes are implemented applications:
-  L10a is a Python PyLaTeX PDF generator, L10b is a Svelte 5 web app,
+  L10a is the Python PyLaTeX PDF generator (deprecated, to be replaced by Go-native PDF generation),
+  L10b is a Svelte 5 web app,
   L10c is a native macOS Metal visualiser with gRPC streaming, and L10d
   is a legacy Go-embedded HTML dashboard marked deprecated (⛔).
 

@@ -1,6 +1,6 @@
 # LiDAR Math Foundations Audit
 
-- **Status:** Reference — resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and `data/maths/README.md`.
+- **Status:** Reference — resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and `data/maths/MATHS.md`.
 
 Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 

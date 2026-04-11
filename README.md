@@ -15,7 +15,7 @@
 
 </div>
 
-Street-level speed measurement for neighbourhood change-makers, researchers, and anyone learning what LiDAR can tell you about how traffic actually behaves. Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for safer streets; without cameras, licence plates, or any personally identifiable information.
+Street-level speed measurement for neighbourhood change-makers, researchers, and anyone learning what LiDAR can tell you about how traffic actually behaves. Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for safer streets: no cameras, no licence plates, no personally identifiable information.
 
 - 📊 Professional PDF reports ready for city hall
 - 🔒 No video, no plates, no personally identifiable information
@@ -55,7 +55,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ```
 
 > [!WARNING]
-> **Alpha software.** velocity.report has no authentication or access control yet. Deploy only on private networks or dedicated VLANs — exposed instances risk data loss or tampering. Authentication and hardened security are on the roadmap before v1. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
+> **Alpha software.** velocity.report has no authentication or access control yet. Deploy only on private networks or dedicated VLANs: exposed instances risk data loss or tampering. Authentication and hardened security are on the roadmap before v1. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
 
 ## Why velocity.report?
 
@@ -78,7 +78,7 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 ## Privacy
 
-The system records vehicle speed data. That is all it records. No cameras, no licence plates, no video, no personally identifiable information, by design, not by policy. The point is to measure traffic, not to start building a private surveillance habit.
+The system records vehicle speed data. That is all it records. No cameras, no licence plates, no video, no personally identifiable information: by design, not by policy. The point is to measure traffic, not to start building a private surveillance habit.
 
 The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
 
@@ -113,7 +113,7 @@ The team generated comparison reports from both periods and [presented the findi
 | **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                           |
 | **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
 | **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript. → [web/](web/README.md)                                           |
-| **PDF generator**    | Turns speed data into professional reports with charts, statistics, and proper formatting. Python + LaTeX — maintenance mode; PDF generation is moving into the Go server. → [tools/pdf-generator/](tools/pdf-generator/README.md) |
+| **PDF generator** ⚠️ | Turns speed data into professional reports with charts, statistics, and proper formatting. Python + LaTeX, deprecated: PDF generation is moving into the Go server. → [tools/pdf-generator/](tools/pdf-generator/README.md) |
 
 ## Quick Start
 
@@ -149,11 +149,11 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
                    ▼                ▼            ▼
         ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐
         │ Web Frontend │ │ PDF Generator │ │  VelocityVisualiser │
-        │   (Svelte)   │ │  (Python/TeX) │ │ (macOS/Metal, gRPC) │
+        │   (Svelte)   │ │ ⚠️ deprecated │ │ (macOS/Metal, gRPC) │
         └──────────────┘ └───────────────┘ └─────────────────────┘
 ```
 
-The web frontend and PDF generator connect over HTTP (:8080). The macOS visualiser uses gRPC (:50051) for streaming point cloud data. For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
+The web frontend and PDF generator connect over HTTP (:8080). The macOS visualiser uses gRPC (:50051) for streaming point cloud data. The Python PDF generator is deprecated: PDF generation is moving into the Go server. For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
 
 ## Development & Contributing
 
@@ -200,9 +200,10 @@ Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay ca
 
 ## 🔑 Key Documents
 
-- 📐 [TENETS.md](TENETS.md): the non-negotiable principles — privacy, safety, evidence, local-first
+- 📐 [TENETS.md](TENETS.md): the non-negotiable principles: privacy, safety, evidence, local-first
 - 🔭 [VISION.md](docs/VISION.md): where the project is heading
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): system design, data flow, and component relationships
+- 🔢 [MATHS.md](data/maths/MATHS.md): the mathematical foundations for tracking, clustering, and classification
 - 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute, prerequisites, workflow
 - 🧱 [COMMANDS.md](COMMANDS.md): every make target, catalogued
 - 🎨 [DESIGN.md](docs/ui/DESIGN.md): visual design language
@@ -213,7 +214,6 @@ Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay ca
 - 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
 - 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
 - ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions
-- 🔢 [Mathematical foundations](data/maths/README.md): tracking, clustering, classification — the maths behind the sensors
 - 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
 - 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
 

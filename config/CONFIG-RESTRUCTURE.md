@@ -1133,5 +1133,5 @@ is a candidate for replacement by an ML classifier (see
 - [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md) — canonical design for immutable config assets and exact run provenance
 - [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
 - [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
-- [Maths README](../data/maths/README.md) — proposal roadmap (P1–P4)
+- [MATHS.md](../data/maths/MATHS.md) — proposal roadmap (P1–P4)
 - [Geometry-Coherent Tracking](../data/maths/proposals/20260222-geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)
