@@ -891,7 +891,7 @@ sudo systemctl restart velocity-report
 3. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
    - Trade-off: Simplicity vs. advanced use cases
-   - Recommendation: Defer to multi-sensor phase (Phase 4)
+   - Recommendation: Explore options now — this needs addressing soon, not deferring to Phase 4
 
 ### Future Enhancements
 
