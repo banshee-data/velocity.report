@@ -285,21 +285,13 @@ velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuil
 - Initial cleanup may free significant space if duplicates exist
 - Ongoing operations maintain single copy per time range
 
-## Open Questions
+## Resolved Design Questions
 
-1. **Should we support multiple model versions concurrently?**
-   - Pro: Allows A/B testing of different clustering algorithms
-   - Con: Complicates statistics queries (which version to use?)
-   - **Recommendation**: No. Use migration path for algorithm changes.
-
-2. **What's the grace period for overlapping windows?**
-   - Current: 1h interval with 1h5m window = 5m overlap
-   - Overlap is intentional to catch late-arriving data
-   - **Recommendation**: Keep current; deduplication handles it.
-
-3. **Should hourly runs also check for and remove backfill data?**
-   - This would allow hourly to "override" a previous full backfill
-   - **Recommendation**: No. Backfills are rare and should be intentional migrations.
+| Question                                      | Resolution                                                                                                                 |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Support multiple model versions concurrently? | No. Use the migration path (`MigrateModelVersion`) for algorithm changes. A/B testing would complicate statistics queries. |
+| Grace period for overlapping windows?         | Keep the 5 min overlap (1 h interval, 1 h 5 min window). Deduplication handles late-arriving data.                         |
+| Should hourly runs remove backfill data?      | No. Backfills are rare and intentional — use the explicit migration CLI.                                                   |
 
 ## Implementation Priority
 

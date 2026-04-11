@@ -876,19 +876,20 @@ sudo systemctl restart velocity-report
 
 ## Open Questions & Future Considerations
 
+### Resolved Design Questions
+
+| Question                                      | Resolution                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Allow configuration of serial timeout values? | No. Hardcoded sensible defaults in `Initialise()`. Add configurability only if users request it. |
+
 ### Open Questions
 
-1. **Q: Should we allow configuration of serial timeout values?**
-   - Current: Hardcoded in Initialise() sequence
-   - Trade-off: Flexibility vs. complexity
-   - Recommendation: Start with sensible defaults, add if users request
-
-2. **Q: Should we support hot-swapping serial configurations without restart?**
+1. **Q: Should we support hot-swapping serial configurations without restart?**
    - Current: Changes require server restart
    - Trade-off: Complexity vs. user convenience
    - Recommendation: Phase 2 feature (after basic CRUD)
 
-3. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
+2. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
    - Trade-off: Simplicity vs. advanced use cases
    - Recommendation: Explore options now — this needs addressing soon, not deferring to Phase 4

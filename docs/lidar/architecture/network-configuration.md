@@ -381,6 +381,12 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 
+## Resolved Design Questions
+
+| Question                         | Resolution                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allow privileged ports (< 1024)? | No. Schema restricts `udp_port` to 1024–65535. Hesai defaults (2368/2369) are well above 1024; privileged ports require root or `CAP_NET_BIND_SERVICE`. |
+
 ## Open Questions
 
 1. **Multiple listeners**: Should the system support binding to multiple interfaces simultaneously (e.g., primary + backup), or is single-config-enabled sufficient?
@@ -389,8 +395,5 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 2. **Forwarding hot-reload**: Should forwarding targets (port 2368/2370) be independently hot-reloadable, or tied to the main listener config?
    - **Recommendation:** Include forwarding config in the same row. Forwarding changes require listener restart anyway (new forwarder goroutine).
 
-3. **Privileged ports**: The schema restricts `udp_port` to 1024–65535. Should we support binding to ports below 1024 (e.g., port 443 for tunnel scenarios)?
-   - **Recommendation:** Keep the unprivileged restriction. The Hesai default ports (2368/2369) are well above 1024, and privileged ports require root or `CAP_NET_BIND_SERVICE`.
-
-4. **Interface-change detection**: Should the system detect interface state changes (link down/up, IP change via DHCP) and auto-reload?
+3. **Interface-change detection**: Should the system detect interface state changes (link down/up, IP change via DHCP) and auto-reload?
    - **Recommendation:** Defer. Manual reload via API/UI is sufficient for v1. Interface monitoring (via netlink on Linux) is a natural extension for a future iteration.
