@@ -114,6 +114,7 @@ jobs:
           VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
           VERSION="${VERSION#v}"
           GIT_SHA_SHORT="$(git rev-parse --short=7 HEAD)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           printf '# velocity.report image build metadata — stamped at image creation time.\nVR_VERSION="%s"\nVR_BUILD_TIME="%s"\nVR_GIT_SHA="%s"\n' \
             "$VERSION" "$BUILD_TIME" "$GIT_SHA_SHORT" \
             > image/stage-velocity/03-velocity-config/files/velocity-report-build
