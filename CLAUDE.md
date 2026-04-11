@@ -172,20 +172,21 @@ Each agent references the shared knowledge modules in `.github/knowledge/` rathe
 
 The following workflow skills are available as slash commands:
 
-| Skill             | Command                           | Purpose                                                        |
-| ----------------- | --------------------------------- | -------------------------------------------------------------- |
-| plan-graduation   | `/plan-graduation <plan>`         | Graduate a completed plan to symlink, consolidate into hub doc |
-| plan-review       | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan             |
-| review-pr         | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review              |
-| ship-change       | `/ship-change`                    | Format → lint → test → build → commit                          |
-| weekly-retro      | `/weekly-retro`                   | Weekly backlog health, plan consistency, and drift check       |
-| standup           | `/standup`                        | Daily repo and worktree standup with priorities                |
-| security-review   | `/security-review [path]`         | Security audit: static analysis, fuzz targets, checklist       |
-| trace-matrix      | `/trace-matrix [task-group]`      | Trace backend surfaces against MATRIX.md                       |
-| fix-links         | `/fix-links [path]`               | Fix dead links and stale backtick paths in Markdown            |
-| devlog-update     | `/devlog-update`                  | Update devlog from git history since last entry                |
-| backlog-prune     | `/backlog-prune [--scan-all-prs]` | Groom backlog: PR audit, release theme coherence, L/XL splits  |
-| docs-release-prep | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep |
+| Skill             | Command                           | Purpose                                                                     |
+| ----------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| plan-graduation   | `/plan-graduation <plan>`         | Graduate a completed plan to symlink, consolidate into hub doc              |
+| plan-review       | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan                          |
+| review-pr         | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review                           |
+| ship-change       | `/ship-change`                    | Format → lint → test → build → commit                                       |
+| weekly-retro      | `/weekly-retro`                   | Weekly backlog health, plan consistency, and drift check                    |
+| standup           | `/standup`                        | Daily repo and worktree standup with priorities                             |
+| security-review   | `/security-review [path]`         | Security audit: static analysis, fuzz targets, checklist                    |
+| trace-matrix      | `/trace-matrix [task-group]`      | Trace backend surfaces against MATRIX.md                                    |
+| fix-links         | `/fix-links [path]`               | Fix dead links and stale backtick paths in Markdown                         |
+| devlog-update     | `/devlog-update`                  | Update devlog from git history since last entry                             |
+| backlog-prune     | `/backlog-prune [--scan-all-prs]` | Groom backlog: PR audit, release theme coherence, L/XL splits               |
+| docs-release-prep | `/docs-release-prep [--scope X]`  | Links, graduation, simplify, split, questions, disk image prep              |
+| release-prep      | `/release-prep [--scope X]`       | Full release gate: format, lint, test, build, drift, style, docs, changelog |
 
 Skill definitions: `.claude/skills/*/SKILL.md`.
 
