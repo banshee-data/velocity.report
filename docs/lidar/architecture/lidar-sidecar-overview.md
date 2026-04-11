@@ -774,57 +774,9 @@ Key test coverage:
 - Concurrent stress testing with race detection
 - ASC point cloud export with elevation corrections
 
-### 🔄 Planned Tests
-
-- PCAP file reading and replay
-- Parameter sweep automation
-- Background settling with real-world data
-- Clustering accuracy with known ground truth
-- Tracking association and lifecycle
-- Performance benchmarks under load
-- Multi-track scenarios
-
 ---
 
 ## Development Workflow
-
-### Next Implementation Steps (Phase 2.5 - PCAP Parameter Tuning)
-
-**Goal**: Use existing PCAP captures (cars, pedestrians) to identify optimal background subtraction parameters before implementing clustering.
-
-1. **PCAP Reader Implementation**:
-   - Add PCAP file reading capability to UDP listener
-   - Support both live UDP and PCAP file modes
-   - Implement frame replay with configurable speed
-   - Add loop mode for continuous parameter testing
-
-2. **Parameter Sweep Integration**:
-   - Use `bg-sweep` tool for single-parameter sweeps (noise_relative)
-   - Use `bg-multisweep` tool for multi-parameter sweeps (noise, closeness, neighbors)
-   - Analyse acceptance metrics to identify optimal thresholds
-   - Document settling behaviour with real-world data
-
-3. **Threshold Identification**:
-   - Analyse cars PCAP for vehicle detection thresholds
-   - Analyse pedestrians PCAP for human detection thresholds
-   - Identify optimal NoiseRelativeFraction values
-   - Tune ClosenessSensitivityMultiplier for best separation
-   - Optimize NeighborConfirmationCount for noise reduction
-
-4. **Validation & Documentation**:
-   - Validate identified parameters with both PCAP files
-   - Document acceptance rates and foreground/background separation
-   - Prepare parameter recommendations for production deployment
-   - Update sweep tools with findings for future tuning
-
-### Next Implementation Steps (Phase 3 - Clustering)
-
-1. **Foreground Extraction**: Extract points classified as foreground from ProcessFramePolar
-2. **Point Collection**: Build frame-level collection of foreground points
-3. **Euclidean Clustering**: DBSCAN-style clustering with tuned parameters (eps, minPts)
-4. **Cluster Metrics**: Compute centroid, PCA bbox, height_p95, intensity_mean
-5. **World Frame Transform**: Convert clusters from sensor frame to world coordinates
-6. **Database Integration**: Persist clusters to lidar_clusters table
 
 ### Development Tools
 
@@ -846,14 +798,6 @@ The project has real-world PCAP captures for parameter validation:
 
 - **Cars PCAP**: Vehicle traffic data for tuning vehicle detection thresholds
 - **Pedestrians PCAP**: Pedestrian movement data for tuning human detection sensitivity
-
-These PCAP files will be used to:
-
-1. Identify optimal NoiseRelativeFraction values for distance-adaptive noise handling
-2. Tune ClosenessSensitivityMultiplier for best foreground/background separation
-3. Optimize NeighborConfirmationCount for spatial filtering effectiveness
-4. Analyse background settling behaviour with real-world motion patterns
-5. Validate parameter choices across different target types (vehicles vs. pedestrians)
 
 ### Database Schema Overview
 
@@ -891,41 +835,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ## Production Readiness Assessment
 
-### ✅ **Current State Summary**
-
-The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure, background classification, PCAP-based tuning, foreground tracking pipeline, tracking upgrades (Hungarian, OBB, ground removal, occlusion), adaptive regions, parameter sweep system, and auto-tuning. The system is now ready for **Phase 4.0 (Track Labelling & Ground Truth)**.
-
-### ✅ **Completed Components**
-
-- ✅ **Foundation**: Solid core infrastructure ready for production use
-- ✅ **Performance**: Meets real-time processing requirements
-- ✅ **Testing**: Comprehensive test coverage for implemented components
-- ✅ **Configuration**: Flexible deployment options
-- ✅ **Background Classification**: Distance-adaptive foreground/background classification with neighbour voting
-- ✅ **Background Learning**: EMA-based background model updates with cell freezing
-- ✅ **Persistence**: Background grid snapshots with versioning
-- ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
-- ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
-- ✅ **Sweep Tools**: Automated parameter sweep utilities for optimisation
-- ✅ **Foreground Mask Generation** (Phase 2.9): `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()`
-- ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with identity transform
-- ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
-- ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
-- ✅ **Classification Research Data Support**: `ForegroundFrame`, compact encoding, sensor-frame storage
-
-### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
-
-- ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
-- ✅ **Parameter Optimisation**: Runtime-adjustable via HTTP API (Phase 2.5)
-- ✅ **Foreground Extraction**: `ProcessFramePolarWithMask()` and `ExtractForegroundPoints()` (Phase 2.9)
-- ✅ **World Transform**: `TransformToWorld()` with identity transform (Phase 3.0)
-- ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbour queries (Phase 3.1)
-- ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
-- ✅ **Classification Research Data**: `ForegroundFrame` export with compact binary encoding
-- ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
-- ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
-- ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
-- ✅ **REST API Endpoints**: `TrackAPI` HTTP handlers for track/cluster queries (Phase 3.5)
+The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure, background classification, PCAP-based tuning, foreground tracking pipeline, tracking upgrades (Hungarian, OBB, ground removal, occlusion), adaptive regions, parameter sweep system, and auto-tuning. The system is now ready for **Phase 4.0 (Track Labelling & Ground Truth)**. See the Implementation Status section above for detailed phase coverage.
 
 ### 📋 **Future Work (Phase 4+)**
 
@@ -939,21 +849,4 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 
 **Current Focus**: Phase 4.0 — Track labelling UI with ground truth evaluation. Label API routes need wiring (`internal/api/lidar_labels.go` handlers exist, routes not registered in WebServer).
 
-**Architecture**: Modular design with clear separation between:
-
-- UDP ingestion and parsing
-- Frame assembly
-- Background classification (polar frame)
-- Foreground extraction (polar frame)
-- World transform (polar → world)
-- Clustering (world frame)
-- Tracking (world frame)
-- Classification (world frame)
-- Database persistence (complete)
-- REST APIs (complete)
-
-**Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. REST API endpoints are ready for UI integration.
-
-**Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
-
-The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` for the detailed 8-phase design.
+See `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` for the detailed 8-phase design.
