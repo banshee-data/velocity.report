@@ -54,6 +54,9 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
+> [!WARNING]
+> **Alpha software.** velocity.report has no authentication or access control yet. Deploy only on private networks or dedicated VLANs — exposed instances risk data loss or tampering. Authentication and hardened security are on the roadmap before v1. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
+
 ## Why velocity.report?
 
 Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, but nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road while motorists zip by.
@@ -68,6 +71,7 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 - **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
 - **Community advocates** building a case for traffic calming, with data strong enough for a formal submission
+- **Transport agencies and government departments** running street speed surveys — whether for planning, compliance, or understanding what a road redesign actually did to driver behaviour — without the cost or lead time of traditional survey contractors
 - **Academics and researchers** studying street-level vehicle behaviour with raw LiDAR point clouds, multi-object tracking, and replayable datasets
 - **Perception and robotics engineers** exploring a transparent LiDAR pipeline: DBSCAN clustering, Kalman-filtered tracking, and rule-based classification; all tuneable and documented from raw UDP frames to classified tracks
 - **Before-and-after studies** showing whether traffic calming interventions actually work
@@ -104,12 +108,12 @@ The team generated comparison reports from both periods and [presented the findi
 
 ## What's Included
 
-| Component            | Language            | What it does                                                                                                                                                      |
-| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Go server**        | Go                  | Collects radar speed data and LiDAR point clouds independently, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                     |
-| **PDF generator**    | Python + LaTeX      | Turns speed data into professional reports with charts, statistics, and proper formatting. → [tools/pdf-generator/](tools/pdf-generator/README.md)                |
-| **Web frontend**     | Svelte + TypeScript | Data visualisation and interactive charts for recorded speed data. → [web/](web/README.md)                                                                        |
-| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
+| Component            | What it does                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                           |
+| **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
+| **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript. → [web/](web/README.md)                                           |
+| **PDF generator**    | Turns speed data into professional reports with charts, statistics, and proper formatting. Python + LaTeX — maintenance mode; PDF generation is moving into the Go server. → [tools/pdf-generator/](tools/pdf-generator/README.md) |
 
 ## Quick Start
 
@@ -153,13 +157,14 @@ The web frontend and PDF generator connect over HTTP (:8080). The macOS visualis
 
 ## Development & Contributing
 
-Every commit should pass:
+Every contribution needs two commands:
 
 ```sh
-make format    # auto-fix all formatting
-make lint      # check all formatting
+make format    # auto-fix all formatting (Go, Python, Web)
 make test      # run all test suites
 ```
+
+CI checks formatting and runs tests. If `make format` changes nothing and `make test` passes, your PR will too.
 
 Start with a small issue and read the nearby code before changing anything broad. It is the fastest route to understanding the project and the slowest route to producing an exciting new class of bug.
 
@@ -193,18 +198,22 @@ make dev-mac
 
 Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud data (.pcap files). See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera navigation.
 
-## Project Documents
+## 🔑 Key Documents
 
+- 📐 [TENETS.md](TENETS.md): the non-negotiable principles — privacy, safety, evidence, local-first
 - 🔭 [VISION.md](docs/VISION.md): where the project is heading
-- 🎨 [DESIGN.md](docs/ui/DESIGN.md): visual design language
-- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions
-- 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): system design, data flow, and component relationships
+- 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute, prerequisites, workflow
 - 🧱 [COMMANDS.md](COMMANDS.md): every make target, catalogued
-- 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
-- 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
+- 🎨 [DESIGN.md](docs/ui/DESIGN.md): visual design language
+- 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
+- 📊 [COVERAGE.md](docs/COVERAGE.md): test coverage tracking across Go, Python, and Web
 - 🪵 [CHANGELOG.md](CHANGELOG.md): what changed and when
 - 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal
+- 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
+- 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
+- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions
+- 🔢 [Mathematical foundations](data/maths/README.md): tracking, clustering, classification — the maths behind the sensors
 - 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
 - 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
 
