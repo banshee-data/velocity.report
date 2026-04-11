@@ -231,7 +231,7 @@ Explicit coordinate transformation stage converting foreground polar points to w
 
 ### Implementation
 
-> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `WorldPoint` struct and `TransformToWorld()` converting polar to world-frame Cartesian via 4×4 homogeneous pose transform.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `WorldPoint` struct and `TransformToWorld()` converting polar to world-frame Cartesian via 4×4 homogeneous pose transform.
 
 ### Testing Requirements
 
@@ -271,15 +271,15 @@ Spatial clustering of foreground world points to detect distinct objects.
 
 #### Spatial Index (Required)
 
-> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `SpatialIndex` with grid-based Szudzik pairing, `Build()`, `getCellID()`, and `RegionQuery()` examining current cell + 8 neighbours.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `SpatialIndex` with grid-based Szudzik pairing, `Build()`, `getCellID()`, and `RegionQuery()` examining current cell + 8 neighbours.
 
 #### DBSCAN Algorithm
 
-> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `DBSCAN()` with spatial index and `expandCluster()` for density-based neighbour expansion.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `DBSCAN()` with spatial index and `expandCluster()` for density-based neighbour expansion.
 
 #### Cluster Metrics Computation
 
-> **Source:** [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go) — `buildClusters()` and `computeClusterMetrics()` computing centroid, axis-aligned bounding box, height P95, and intensity mean per cluster.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `buildClusters()` and `computeClusterMetrics()` computing centroid, axis-aligned bounding box, height P95, and intensity mean per cluster.
 
 ---
 
@@ -339,11 +339,11 @@ v_k ~ N(0, R)
 
 ### Implementation
 
-> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `Track` struct (identity, lifecycle, Kalman state, aggregated features, classification fields) and `TrackState2D` (position + velocity with 4×4 covariance).
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `Track` struct (identity, lifecycle, Kalman state, aggregated features, classification fields) and `TrackState2D` (position + velocity with 4×4 covariance).
 
 ### Tracker Implementation
 
-> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `Tracker` struct with configurable gating, process/measurement noise, and `Update()` performing predict→associate→update→lifecycle management per frame.
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `Tracker` struct with configurable gating, process/measurement noise, and `Update()` performing predict→associate→update→lifecycle management per frame.
 
 ### Gating Distance (Mahalanobis)
 
@@ -365,7 +365,7 @@ where:
 - We threshold on **squared distance** to avoid square root computation
 - Threshold tuned empirically for typical vehicle/pedestrian speeds
 
-> **Source:** [`internal/lidar/l5tracks/tracker.go`](../../../internal/lidar/l5tracks/tracker.go) — `mahalanobisDistanceSquared()` computes gating distance via 2×2 innovation covariance inversion.
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `mahalanobisDistanceSquared()` computes gating distance via 2×2 innovation covariance inversion.
 
 ---
 
@@ -551,25 +551,25 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 **Test:** Polar → World transform accuracy — verify that `TransformToWorld` converts polar coordinates to correct Cartesian world positions under identity and known custom poses. Point at (10 m, 0°, 0°) with identity pose should produce (x=10, y=0, z=0).
 
-> **Source:** [`internal/lidar/l4perception/clustering_test.go`](../../../internal/lidar/l4perception/clustering_test.go)
+> **Source:** [`internal/lidar/l4perception/cluster_test.go`](../../../internal/lidar/l4perception/cluster_test.go)
 
 #### 3. Clustering Tests (Phase 3.1)
 
 **Test:** DBSCAN cluster detection — verify that two spatially separated point groups (e.g., origin and (10, 0)) produce exactly two clusters with correct centroids. Uses `eps=0.6`, `minPts=12`.
 
-> **Source:** [`internal/lidar/l4perception/clustering_test.go`](../../../internal/lidar/l4perception/clustering_test.go)
+> **Source:** [`internal/lidar/l4perception/cluster_test.go`](../../../internal/lidar/l4perception/cluster_test.go)
 
 #### 4. Tracking Tests (Phase 3.2)
 
 **Test:** Track lifecycle transitions — verify Tentative → Confirmed (after 3 consecutive hits) and Confirmed → Deleted (after 3 consecutive misses). Uses `NewTracker()` with moving cluster input and empty-frame input for miss generation.
 
-> **Source:** [`internal/lidar/l5tracks/tracker_test.go`](../../../internal/lidar/l5tracks/tracker_test.go)
+> **Source:** [`internal/lidar/l5tracks/tracking_test.go`](../../../internal/lidar/l5tracks/tracking_test.go)
 
 #### 5. Integration Tests (End-to-End)
 
 **Test:** Full pipeline from PCAP to tracks — load a PCAP with known moving objects, run the full pipeline (polar classification → foreground extraction → world transform → DBSCAN clustering → Kalman tracking), verify that tracks are produced and frame count exceeds 100.
 
-> **Source:** [`internal/lidar/l5tracks/tracker_test.go`](../../../internal/lidar/l5tracks/tracker_test.go)
+> **Source:** [`internal/lidar/l5tracks/tracking_test.go`](../../../internal/lidar/l5tracks/tracking_test.go)
 
 ---
 
@@ -638,7 +638,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 ### A. Data Structures
 
-> **Source:** [`internal/lidar/l2frames/`](../../../internal/lidar/l2frames/), [`internal/lidar/l4perception/clustering.go`](../../../internal/lidar/l4perception/clustering.go), [`internal/lidar/l5tracks/types.go`](../../../internal/lidar/l5tracks/types.go)
+> **Source:** [`internal/lidar/l2frames/`](../../../internal/lidar/l2frames/), [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go), [`internal/lidar/l5tracks/types.go`](../../../internal/lidar/l5tracks/types.go)
 
 | Stage      | Type           | Frame | Key Fields                                                                                                 |
 | ---------- | -------------- | ----- | ---------------------------------------------------------------------------------------------------------- |
