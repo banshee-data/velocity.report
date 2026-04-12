@@ -21,12 +21,7 @@ This feature addresses the challenge of varying environmental conditions within 
 
 ### 1. Variance collection (during settling)
 
-During the warmup period (configured via `WarmupMinFrames` and `WarmupDurationNanos`), the `RegionManager` tracks the variance (spread) of each cell:
-
-```go
-// Variance is collected each frame during settling
-rm.UpdateVarianceMetrics(cells)
-```
+During the warmup period (configured via `WarmupMinFrames` and `WarmupDurationNanos`), the `RegionManager` tracks the variance (spread) of each cell by calling `rm.UpdateVarianceMetrics(cells)` each frame.
 
 This builds a per-cell variance profile that captures how stable or volatile each part of the frame is.
 
@@ -52,15 +47,7 @@ Once regions are identified, both foreground extraction paths use region-specifi
 - `ProcessFramePolar` (batch path)
 - `ProcessFramePolarWithMask` (production runtime mask path)
 
-```go
-// Look up region for this cell
-regionID := g.RegionMgr.GetRegionForCell(cellIdx)
-if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
-    cellNoiseRel = float64(regionParams.NoiseRelativeFraction)
-    cellNeighborConfirm = regionParams.NeighborConfirmationCount
-    cellAlpha = float64(regionParams.SettleUpdateFraction)
-}
-```
+For each cell, the code looks up `regionID` via `g.RegionMgr.GetRegionForCell(cellIdx)`, then retrieves the region’s `NoiseRelativeFraction`, `NeighborConfirmationCount`, and `SettleUpdateFraction` via `g.RegionMgr.GetRegionParams(regionID)`. If no region params are found, the global defaults apply.
 
 ## Parameter scaling by region type
 
@@ -88,15 +75,12 @@ No configuration changes are needed. The feature activates automatically when:
 
 For optimal region identification:
 
-```go
-params := BackgroundParams{
-    WarmupMinFrames:      100,  // ~5 seconds at 20Hz
-    WarmupDurationNanos:  int64(30 * time.Second), // 30 seconds max
-    // ... other parameters
-}
-```
+| Parameter             | Recommended Value         | Rationale                   |
+| --------------------- | ------------------------- | --------------------------- |
+| `WarmupMinFrames`     | 100 (~5 seconds at 20 Hz) | Minimum frames for variance |
+| `WarmupDurationNanos` | 30 seconds                | Maximum settling window     |
 
-The system needs enough frames to build a stable variance profile. Aim for 20-30 seconds of settling time.
+The system needs enough frames to build a stable variance profile. Aim for 20–30 seconds of settling time.
 
 ## Debug API
 
@@ -112,58 +96,27 @@ curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01&inc
 
 **Response Structure:**
 
-```json
-{
-  "sensor_id": "hesai-01",
-  "timestamp": "2026-01-14T07:00:00Z",
-  "identification_complete": true,
-  "identification_time": "2026-01-14T06:59:30Z",
-  "frames_sampled": 150,
-  "region_count": 12,
-  "regions": [
-    {
-      "id": 0,
-      "cell_count": 4500,
-      "mean_variance": 0.05,
-      "params": {
-        "noise_relative_fraction": 0.008,
-        "neighbor_confirmation_count": 3,
-        "settle_update_fraction": 0.03
-      },
-      "cells": [...]  // Only if include_cells=true
-    },
-    ...
-  ],
-  "grid_mapping": [0, 0, 0, 1, 1, 2, ...]  // Maps cell index -> region ID
-}
-```
+The response includes top-level fields: `sensor_id`, `timestamp`, `identification_complete` (bool), `identification_time`, `frames_sampled`, and `region_count`.
+
+The `regions` array contains one entry per region with:
+
+| Field           | Type    | Description                                 |
+| --------------- | ------- | ------------------------------------------- |
+| `id`            | integer | Region identifier                           |
+| `cell_count`    | integer | Number of cells in this region              |
+| `mean_variance` | float   | Average variance across member cells        |
+| `params`        | object  | Region-specific parameters (see below)      |
+| `cells`         | array   | Cell indices (only if `include_cells=true`) |
+
+Region params contain `noise_relative_fraction`, `neighbor_confirmation_count`, and `settle_update_fraction`.
+
+The response also includes `grid_mapping`: an array mapping each cell index to its region ID.
 
 ### Visualise regions
 
 Use the grid mapping to visualise which cells belong to which region:
 
-```python
-import json
-import numpy as np
-import matplotlib.pyplot as plt
-
-# Fetch region data
-data = requests.get('http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01').json()
-
-# Reshape grid mapping to match sensor geometry
-rings = 40
-azimuth_bins = 1800
-region_grid = np.array(data['grid_mapping']).reshape(rings, azimuth_bins)
-
-# Plot heatmap
-plt.figure(figsize=(16, 8))
-plt.imshow(region_grid, cmap='tab20', aspect='auto')
-plt.colorbar(label='Region ID')
-plt.xlabel('Azimuth Bin')
-plt.ylabel('Ring')
-plt.title(f'Background Grid Regions ({data["region_count"]} regions)')
-plt.show()
-```
+Fetch the region data from the debug API, extract the `grid_mapping` array, reshape it to the sensor geometry (40 rings × 1800 azimuth bins), and render as a heatmap using matplotlib’s `imshow` with a categorical colour map (e.g. `tab20`). The colour bar maps to region IDs. Axis labels: X = Azimuth Bin, Y = Ring.
 
 ## Performance characteristics
 

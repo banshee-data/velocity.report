@@ -21,19 +21,14 @@ Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (
 
 The dashboard defines two competing palettes, neither matching DESIGN.md §3.3:
 
-```javascript
-// Old colorMap (used for legend rendering)
-const colorMap = {
-  p50: '#ece111',   // should be #fbd92f
-  p85: '#ed7648',   // should be #f7b32b
-  p98: '#d50734',   // should be #f25f5c
-  max: '#000000'    // should be #2d1e2f
-};
+| Metric | `colorMap` (legend) | `cRange` (chart) | Canonical (DESIGN.md §3.3) |
+| ------ | ------------------- | ---------------- | -------------------------- |
+| p50    | `#ece111`           | `#2563eb`        | `#fbd92f`                  |
+| p85    | `#ed7648`           | `#16a34a`        | `#f7b32b`                  |
+| p98    | `#d50734`           | `#f59e0b`        | `#f25f5c`                  |
+| max    | `#000000`           | `#ef4444`        | `#2d1e2f`                  |
 
-// cRange on chart component (used for chart series)
-cRange={['#2563eb', '#16a34a', '#f59e0b', '#ef4444']}
-// Neither matches the canonical palette
-```
+Neither palette matches the canonical values.
 
 DESIGN.md explicitly flags this as non-compliant and requires migration.
 
@@ -382,9 +377,7 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 
 The selected-track row uses a hardcoded `background-color: white` which makes the white hex track ID text invisible when the app is in light mode. The track ID badge text inherits a light colour that has no contrast against the white background.
 
-```css
-background-color: white; /* hardcoded — invisible in light mode */
-```
+The selected-track row sets `background-color: white` (hardcoded), which is invisible in light mode.
 
 **Action:** Replace `white` with a theme-aware CSS variable from svelte-ux (e.g. `hsl(var(--color-surface-200))` or `var(--surface-content)`) so the background adapts to both dark and light themes.
 
@@ -396,11 +389,7 @@ background-color: white; /* hardcoded — invisible in light mode */
 
 The canvas legend text is drawn with `ctx.fillStyle = '#fff'`, making it invisible against light-mode backgrounds. The grid label at line 306 (`ctxLocal.strokeStyle = '#fff'`) has the same issue.
 
-```typescript
-ctx!.fillStyle = "#fff"; // legend key text (line 683)
-ctx!.fillStyle = "#fff"; // legend value text (line 698)
-ctxLocal.strokeStyle = "#fff"; // grid label (line 306)
-```
+Three canvas draw calls use hardcoded `#fff`: `ctx.fillStyle` for legend key text (line 683), `ctx.fillStyle` for legend value text (line 698), and `ctxLocal.strokeStyle` for the grid label (line 306).
 
 **Action:** Read the current theme from svelte-ux's theme store and derive a contrasting fill colour. For canvas contexts that cannot use CSS variables directly, resolve the computed colour at render time (e.g. `getComputedStyle(canvas).getPropertyValue('--color-surface-content')`).
 
@@ -412,10 +401,7 @@ ctxLocal.strokeStyle = "#fff"; // grid label (line 306)
 
 Two absolutely-positioned overlay panels use `bg-black text-white` Tailwind classes. In light mode the opaque black panels clash with the lighter UI chrome.
 
-```svelte
-<div class="bg-opacity-75 ... bg-black ... text-white">  <!-- line 886 -->
-<div class="bg-opacity-80 ... bg-black ... text-white">  <!-- line 899 -->
-```
+Two overlay `<div>` elements (lines 886 and 899) use `bg-black text-white` with 75% and 80% opacity respectively.
 
 **Action:** Replace `bg-black text-white` with theme-aware surface classes (e.g. `bg-surface-100/75 text-surface-content`) or use `surface-200` with appropriate opacity. The overlays sit atop a dark canvas, so a semi-transparent dark style may be acceptable in both themes; but should be reviewed visually.
 
@@ -427,10 +413,7 @@ Two absolutely-positioned overlay panels use `bg-black text-white` Tailwind clas
 
 SVG track labels use `class="fill-white"` and track lines use `stroke="white"`, making them invisible on light-mode backgrounds.
 
-```svelte
-<text class="fill-white text-xs font-medium" ...>   <!-- line 280 -->
-<line stroke="white" ...>                            <!-- line 303 -->
-```
+SVG track labels (line 280) use `class="fill-white"` and track lines (line 303) use `stroke="white"`, both invisible on light backgrounds.
 
 **Action:** Replace `fill-white` with `fill-current` and set the text colour via a theme-aware CSS class. Replace `stroke="white"` with `stroke="currentColor"` and apply a theme-aware class on the parent `<g>` or `<svg>`.
 

@@ -136,11 +136,11 @@ Problem: `recorder` imports `visualiser`; `publisher.go` cannot import `recorder
 
 Use interface indirection:
 
-```go
-type FrameRecorder interface {
-    Record(frame *FrameBundle) error
-}
-```
+`FrameRecorder` interface:
+
+| Method   | Signature                          |
+| -------- | ---------------------------------- |
+| `Record` | `Record(frame *FrameBundle) error` |
 
 Add:
 
@@ -167,10 +167,10 @@ New migration:
 
 `internal/lidar/monitor/webserver.go` in `WebServerConfig`:
 
-```go
-OnRecordingStart func(runID string)
-OnRecordingStop  func(runID string) string
-```
+| Callback           | Signature                   |
+| ------------------ | --------------------------- |
+| `OnRecordingStart` | `func(runID string)`        |
+| `OnRecordingStop`  | `func(runID string) string` |
 
 In PCAP analysis goroutine:
 
@@ -190,15 +190,15 @@ In PCAP analysis goroutine:
 
 Add VRLOG replay state:
 
-```go
-vrlogReader        FrameReader
-vrlogStopCh        chan struct{}
-vrlogMu            sync.Mutex
-vrlogPaused        bool
-vrlogRate          float32
-vrlogSeekSignal    chan struct{}
-suppressBackground bool
-```
+| Field                | Type            | Purpose                         |
+| -------------------- | --------------- | ------------------------------- |
+| `vrlogReader`        | `FrameReader`   | Active VRLOG frame source       |
+| `vrlogStopCh`        | `chan struct{}` | Stop signal for replay loop     |
+| `vrlogMu`            | `sync.Mutex`    | Guards replay state             |
+| `vrlogPaused`        | `bool`          | Pause flag                      |
+| `vrlogRate`          | `float32`       | Playback rate multiplier        |
+| `vrlogSeekSignal`    | `chan struct{}` | Wakes paused loop on seek       |
+| `suppressBackground` | `bool`          | Suppress BG snapshots in replay |
 
 Add lifecycle/control methods:
 
@@ -235,32 +235,32 @@ Suppress periodic background snapshots during VRLOG replay (`shouldSendBackgroun
 
 Add callbacks:
 
-```go
-OnPlaybackPause   func()
-OnPlaybackPlay    func()
-OnPlaybackSeek    func(timestampNs int64) error
-OnPlaybackRate    func(rate float32)
-OnVRLogLoad       func(vrlogPath string) error
-OnVRLogStop       func()
-GetPlaybackStatus func() PlaybackStatusInfo
-```
+| Callback            | Signature                       |
+| ------------------- | ------------------------------- |
+| `OnPlaybackPause`   | `func()`                        |
+| `OnPlaybackPlay`    | `func()`                        |
+| `OnPlaybackSeek`    | `func(timestampNs int64) error` |
+| `OnPlaybackRate`    | `func(rate float32)`            |
+| `OnVRLogLoad`       | `func(vrlogPath string) error`  |
+| `OnVRLogStop`       | `func()`                        |
+| `GetPlaybackStatus` | `func() PlaybackStatusInfo`     |
 
 Add status type:
 
-```go
-type PlaybackStatusInfo struct {
-    Mode         string  `json:"mode"` // live|pcap|vrlog
-    Paused       bool    `json:"paused"`
-    Rate         float32 `json:"rate"`
-    Seekable     bool    `json:"seekable"`
-    CurrentFrame uint64  `json:"current_frame"`
-    TotalFrames  uint64  `json:"total_frames"`
-    TimestampNs  int64   `json:"timestamp_ns"`
-    LogStartNs   int64   `json:"log_start_ns"`
-    LogEndNs     int64   `json:"log_end_ns"`
-    VRLogPath    string  `json:"vrlog_path,omitempty"`
-}
-```
+`PlaybackStatusInfo` struct:
+
+| Field          | Type      | JSON key        | Description                      |
+| -------------- | --------- | --------------- | -------------------------------- |
+| `Mode`         | `string`  | `mode`          | `live`, `pcap`, or `vrlog`       |
+| `Paused`       | `bool`    | `paused`        | Whether playback is paused       |
+| `Rate`         | `float32` | `rate`          | Playback rate multiplier         |
+| `Seekable`     | `bool`    | `seekable`      | Whether seek is supported        |
+| `CurrentFrame` | `uint64`  | `current_frame` | Current frame index              |
+| `TotalFrames`  | `uint64`  | `total_frames`  | Total frames in log              |
+| `TimestampNs`  | `int64`   | `timestamp_ns`  | Current frame timestamp          |
+| `LogStartNs`   | `int64`   | `log_start_ns`  | First frame timestamp            |
+| `LogEndNs`     | `int64`   | `log_end_ns`    | Last frame timestamp             |
+| `VRLogPath`    | `string`  | `vrlog_path`    | Path to active VRLOG (omitempty) |
 
 Routes:
 
