@@ -13,15 +13,17 @@ Non-conforming formats that are detected and fixed:
 3. Blockquote bold:   ``> **Key:** value``   → ``- **Key:** value``
 4. H2 status:         ``## Status: value``   → ``- **Status:** value``
 5. Date metadata:     ``- **Created:** …``   → (removed)
-6. Missing separator: no blank line after metadata → blank line inserted
+6. Author metadata:   ``- **Author:** …``   → (removed)
+7. Missing separator: no blank line after metadata → blank line inserted
 
-Banned date keys (case-insensitive): ``Created``, ``Date``,
-``Last Updated``, ``Original Design Date``.  Keys containing a
-parenthesised date like ``Update (March 13, 2026)`` are rewritten
+Banned keys (case-insensitive): ``Author``, ``Authors``, ``Created``,
+``Date``, ``Last Updated``, ``Original Design Date``.  Keys containing
+a parenthesised date like ``Update (March 13, 2026)`` are rewritten
 to strip the date: ``Update``.
 
-Rationale: dates in documentation headers go stale immediately and
-duplicate information already available in ``git log``.  See
+Rationale: dates go stale immediately and duplicate ``git log``;
+author attribution duplicates ``git blame`` and tends to credit the
+last editor rather than the right people.  See
 ``.github/knowledge/coding-standards.md`` § Documentation Metadata.
 
 Position-based detection: ALL bold items before the first ``##`` heading
@@ -57,10 +59,17 @@ RE_BLOCKQUOTE_OUTSIDE = re.compile(r"^>\s*\*\*(?P<key>[^*:]+)\*\*:\s*(?P<val>.*)
 #  H2 heading: ``## Key: value``
 RE_H2 = re.compile(r"^##\s+(?P<key>[^:]+):\s*(?P<val>.*)")
 
-# ── Banned date keys ────────────────────────────────────────────────────
+# ── Banned keys ─────────────────────────────────────────────────────────
 
 #  Keys whose entire line should be deleted (case-insensitive match).
-BANNED_DATE_KEYS = {"created", "date", "last updated", "original design date"}
+BANNED_KEYS = {
+    "author",
+    "authors",
+    "created",
+    "date",
+    "last updated",
+    "original design date",
+}
 
 #  Detect a parenthesised date suffix in a key, e.g. ``Update (March 13, 2026)``
 RE_KEY_DATE_SUFFIX = re.compile(
@@ -127,9 +136,9 @@ def _try_match(line: str) -> tuple[str, str, str] | None:
     return None
 
 
-def _is_date_key(key: str) -> bool:
-    """Return True if *key* is a banned date-only metadata key."""
-    return key.strip().lower() in BANNED_DATE_KEYS
+def _is_banned_key(key: str) -> bool:
+    """Return True if *key* is a banned metadata key."""
+    return key.strip().lower() in BANNED_KEYS
 
 
 def _strip_key_date_suffix(key: str) -> str | None:
@@ -231,9 +240,9 @@ def process_file(
         bm = RE_BULLET.match(stripped)
         if bm:
             bkey = bm.group("key").strip()
-            # Banned date key → delete the whole line.
-            if _is_date_key(bkey):
-                changes.append((i + 1, stripped, "", "date-key"))
+            # Banned key → delete the whole line.
+            if _is_banned_key(bkey):
+                changes.append((i + 1, stripped, "", "banned-key"))
                 replace_map[i] = None
                 i += 1
                 # Also delete continuation lines of the deleted bullet.
@@ -309,9 +318,9 @@ def process_file(
                     break
             next_i = j
 
-        # Check for banned date key (even on non-canonical input).
-        if _is_date_key(key):
-            changes.append((i + 1, stripped, "", "date-key"))
+        # Check for banned key (even on non-canonical input).
+        if _is_banned_key(key):
+            changes.append((i + 1, stripped, "", "banned-key"))
             replace_map[i] = None
             i = next_i
             continue

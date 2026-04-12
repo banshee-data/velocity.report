@@ -2,7 +2,6 @@
 
 - **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
 - **Layers:** Cross-cutting (deployment infrastructure)
-- **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
 - **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)
 

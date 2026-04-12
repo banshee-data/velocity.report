@@ -2,7 +2,6 @@
 
 - **Status:** DEFERRED - AV Integration Only
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
-- **Author:** Agent Ictinus (Product Architecture)
 - **Version:** 1.1
 - **Canonical:** [av-range-image-format-alignment.md](../lidar/architecture/av-range-image-format-alignment.md)
 

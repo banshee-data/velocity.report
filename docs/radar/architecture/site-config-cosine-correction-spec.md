@@ -1,7 +1,6 @@
 # Site configuration with time-based cosine error correction
 
 - **Status:** Implemented
-- **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
 

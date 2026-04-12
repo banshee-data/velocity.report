@@ -156,7 +156,27 @@ python3 scripts/check-relative-links.py --report README.md
 Fix all automatically resolvable links. Surface ambiguous cases to the
 operator.
 
-### 2. Graduate completed plans
+### 2. Metadata audit
+
+Run the metadata checker to enforce canonical format and strip banned keys:
+
+```bash
+python3 scripts/check-doc-header-metadata.py          # dry-run
+python3 scripts/check-doc-header-metadata.py --fix     # apply fixes
+```
+
+The checker enforces:
+
+- Canonical `- **Key:** value` format for all header metadata.
+- Removal of banned keys: `Author`, `Authors`, `Created`, `Date`,
+  `Last Updated`, `Original Design Date`.
+- Stripping of parenthesised date suffixes from keys.
+- Blank line after the metadata block.
+
+See `docs/platform/operations/documentation-standards.md` for the full
+rules and rationale.
+
+### 3. Graduate completed plans
 
 List all plan files and check for graduation eligibility:
 
@@ -179,7 +199,7 @@ If it is a regular file (not a symlink), run:
 Respect the two-PR rule: a plan must be Complete on `main` before the
 symlink PR. If the completion hasn't landed yet, note it for the next cycle.
 
-### 3. Audit document length
+### 4. Audit document length
 
 ```bash
 find docs/ -name '*.md' -not -path '*/plans/*' | while read f; do
@@ -201,7 +221,7 @@ For each document over the target:
 
 Report the before/after line counts.
 
-### 4. Resolve open questions
+### 5. Resolve open questions
 
 For each spec under `docs/`:
 
@@ -216,7 +236,7 @@ Read each Open Questions section. For each question:
 - If it is still genuinely open, leave it and surface to the operator.
 - **Do not fabricate answers.**
 
-### 5. Update design decision tables
+### 6. Update design decision tables
 
 For each spec with a Design Decisions or Resolved Design Questions table:
 
@@ -224,7 +244,7 @@ For each spec with a Design Decisions or Resolved Design Questions table:
 - Update entries that have drifted from implementation.
 - Add new decisions that were made during implementation but not recorded.
 
-### 6. Prose width check
+### 7. Prose width check
 
 Run the advisory prose-width check and review the output. This never blocks
 CI: it is a quality signal, not a gate.
@@ -247,7 +267,7 @@ that cannot wrap cleanly (acceptable), or genuine overlong prose (fix it).
 Do not wrap lines mid-sentence to hit the number; Prettier handles that on
 `make format-docs`.
 
-### 7. Tone and style pass
+### 8. Tone and style pass
 
 Quick scan for the most common tone issues:
 
@@ -261,7 +281,7 @@ Quick scan for the most common tone issues:
 - [ ] **Product name:** `velocity.report` (lowercase v, no spaces).
 - [ ] **British English:** `-ise` not `-ize`, `-our` not `-or`.
 
-### 8. Disk image readiness
+### 9. Disk image readiness
 
 Check that documentation referenced by the disk image build is present and
 correct:
@@ -285,7 +305,7 @@ Verify:
 - [ ] `TROUBLESHOOTING.md` covers known deployment issues.
 - [ ] Any docs bundled in the image (`static/`, `web/build/`) are up to date.
 
-### 9. Report
+### 10. Report
 
 Print a summary:
 
@@ -293,6 +313,7 @@ Print a summary:
 ## Docs Release Prep Summary
 
 - Links fixed:           N (N ambiguous, surfaced to operator)
+- Metadata fixed:        N issues across N files
 - Plans graduated:       N
 - Documents simplified:  N (before/after line counts)
 - Documents split:       N (new files created)

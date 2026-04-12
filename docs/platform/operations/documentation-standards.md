@@ -18,11 +18,18 @@ Enforced by `scripts/check-doc-header-metadata.py` via `make lint-docs`.
 - `Related variants` → `Related`
 - `Last updated` → banned (see below)
 
-### Banned date keys
+### Banned Keys
 
-Date metadata is explicitly banned: `Created`, `Date`, `Last Updated`,
-`Original Design Date`. Enforced via `BANNED_DATE_KEYS` and
-`RE_KEY_DATE_SUFFIX` in the metadata checker.
+The following metadata keys are banned and removed automatically:
+
+| Key                    | Reason                                                                |
+| ---------------------- | --------------------------------------------------------------------- |
+| `Author`, `Authors`    | Duplicates `git blame`; credits the last editor, not the right people |
+| `Created`, `Date`      | Duplicates `git log`; goes stale immediately                          |
+| `Last Updated`         | Duplicates `git log`; goes stale immediately                          |
+| `Original Design Date` | Duplicates `git log`; goes stale immediately                          |
+
+Enforced via `BANNED_KEYS` and `RE_KEY_DATE_SUFFIX` in the metadata checker.
 
 ## Structure rules
 
