@@ -9,10 +9,10 @@ Sealed import boundary for `database/sql` usage in the codebase, restricting dir
 
 The SQLite database access boundary follows a two-package model:
 
-1. **`internal/db/`** — radar/core domain: radar objects, events, sites,
+1. **`internal/db/`**: radar/core domain: radar objects, events, sites,
    config periods, reports, transits, background snapshots, migrations,
    admin/debug routes.
-2. **`internal/lidar/storage/sqlite/`** — LiDAR domain: tracks,
+2. **`internal/lidar/storage/sqlite/`**: LiDAR domain: tracks,
    observations, clusters, analysis runs, replay cases, evaluations,
    missed regions, sweeps.
 
@@ -33,7 +33,7 @@ sentinel values (`sqlite.ErrNotFound`) from the storage layer.
 
 ### Option a: single package (`internal/db/`)
 
-All ~127 SQL operations in one package. **Rejected** — `internal/db/` is
+All ~127 SQL operations in one package. **Rejected**: `internal/db/` is
 already 1,400+ lines; adding LiDAR operations creates import cycle risk
 (`db` → `l3grid` → `db`) and means the core carries LiDAR domain
 knowledge even when LiDAR is disabled.
@@ -47,7 +47,7 @@ builds. Already enforced by CI lint script.
 ### Option c: three packages (split bgSnapshot)
 
 Move BgSnapshot/RegionSnapshot to a third package. **Not worth the
-effort** — the `l3grid.BgStore` interface is small (2 methods) and the
+effort**: the `l3grid.BgStore` interface is small (2 methods) and the
 coupling is explicit (compile-time assertion).
 
 ## BgSnapshot crossover
@@ -76,12 +76,12 @@ adding clarity.
 
 ## Relationship to other plans
 
-- **sqlite-client-standardisation** — superseded target architecture (two
+- **sqlite-client-standardisation**: superseded target architecture (two
   packages instead of one). Phases 0, 2, 4, 5 still relevant; phases 1, 3
   replaced.
-- **deploy-distribution-packaging** — single-binary plan eliminates
+- **deploy-distribution-packaging**: single-binary plan eliminates
   `cmd/tools/` exemption by construction.
-- **lidar-tracks-table-consolidation** — orthogonal (Go-level struct
+- **lidar-tracks-table-consolidation**: orthogonal (Go-level struct
   duplication, not SQL package boundary).
 
 ## History

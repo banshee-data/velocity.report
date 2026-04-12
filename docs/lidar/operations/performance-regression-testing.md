@@ -42,10 +42,10 @@ echo "Exit code: $?"
 | Flag                    | Alias    | Default                 | Description                                 |
 | ----------------------- | -------- | ----------------------- | ------------------------------------------- |
 | `-benchmark`            | `-bench` | `false`                 | Enable performance measurement mode         |
-| `-benchmark-output`     | —        | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
+| `-benchmark-output`     | -        | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
 | `-quiet`                | `-q`     | `false`                 | Suppress output to reduce measurement noise |
-| `-compare-baseline`     | —        | —                       | Compare against a baseline benchmark file   |
-| `-regression-threshold` | —        | `0.10` (10%)            | Threshold for flagging regressions          |
+| `-compare-baseline`     | -        | -                       | Compare against a baseline benchmark file   |
+| `-regression-threshold` | -        | `0.10` (10%)            | Threshold for flagging regressions          |
 
 ### Standard flags (also available in benchmark mode)
 
@@ -151,10 +151,10 @@ Regression threshold: 10%
 
 Choose PCAP files that provide comprehensive pipeline coverage:
 
-1. **Representative traffic mix** — Include vehicles, pedestrians, and background activity
-2. **Sufficient duration** — At least 60 seconds for stable statistics (600+ frames at 10 Hz)
-3. **Edge cases** — Include complex scenes with multiple simultaneous objects
-4. **Consistent sensor configuration** — Same sensor model and mounting as production
+1. **Representative traffic mix**: Include vehicles, pedestrians, and background activity
+2. **Sufficient duration**: At least 60 seconds for stable statistics (600+ frames at 10 Hz)
+3. **Edge cases**: Include complex scenes with multiple simultaneous objects
+4. **Consistent sensor configuration**: Same sensor model and mounting as production
 
 ### Recommended test files
 
@@ -167,10 +167,10 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 
 ### Maintenance guidelines
 
-- **Version control** — Store gold standard PCAPs in `data/` or a shared storage location
-- **Document provenance** — Record capture date, location, and sensor configuration
-- **Periodic refresh** — Update files annually or when sensor models change
-- **Size limits** — Keep files under 500 MB for reasonable CI run times
+- **Version control**: Store gold standard PCAPs in `data/` or a shared storage location
+- **Document provenance**: Record capture date, location, and sensor configuration
+- **Periodic refresh**: Update files annually or when sensor models change
+- **Size limits**: Keep files under 500 MB for reasonable CI run times
 
 ## CI integration
 
@@ -428,6 +428,6 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
 ## See also
 
-- [PCAP Analysis Mode](pcap-analysis-mode.md) — Using pcap-analyse for track extraction
-- [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) — Pipeline architecture
-- [Foreground Tracking Plan](../architecture/foreground-tracking.md) — Algorithm details
+- [PCAP Analysis Mode](pcap-analysis-mode.md): Using pcap-analyse for track extraction
+- [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md): Pipeline architecture
+- [Foreground Tracking Plan](../architecture/foreground-tracking.md): Algorithm details

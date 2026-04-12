@@ -8,16 +8,16 @@ Hub document for merging the separate radar and LiDAR web surfaces into a single
 
 Three distinct web surfaces serve LiDAR functionality:
 
-1. **Svelte web app** (`/app/*`, port 8080) — radar dashboard, reports, sites,
+1. **Svelte web app** (`/app/*`, port 8080): radar dashboard, reports, sites,
    settings, plus LiDAR tracks/scenes/runs.
-2. **Go-embedded HTML dashboards** (port 8081) — LiDAR status, debug dashboard,
+2. **Go-embedded HTML dashboards** (port 8081): LiDAR status, debug dashboard,
    parameter sweep/auto-tune, background regions.
-3. **macOS Metal visualiser** (gRPC 50051) — live 3D point cloud rendering.
+3. **macOS Metal visualiser** (gRPC 50051): live 3D point cloud rendering.
 
 Pain points: LiDAR nav visible in radar-only deploys, split ports, two
 charting stacks (ECharts + LayerChart), fragmented user experience.
 
-## Decision: option b — one Svelte app with conditional LiDAR sections ✅
+## Decision: option b; one Svelte app with conditional LiDAR sections ✅
 
 Scored 95 vs 32 (two apps) and 67 (build-time exclusion) on a weighted
 matrix covering effort, risk, complexity, usability, and maintenance.
@@ -25,9 +25,9 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 ### End state
 
 - **One Svelte app** on port 8080 with conditional LiDAR navigation.
-- **Go-embedded HTML dashboards retired** — sweep, regions, status migrated.
-- **macOS visualiser retained** — unchanged for 3D rendering + debugging.
-- **Port 8081 retired** — LiDAR API endpoints consolidated under 8080.
+- **Go-embedded HTML dashboards retired**: sweep, regions, status migrated.
+- **macOS visualiser retained**: unchanged for 3D rendering + debugging.
+- **Port 8081 retired**: LiDAR API endpoints consolidated under 8080.
 - **LiDAR navigation hidden** when `--enable-lidar` is off.
 
 ## Migration plan
@@ -46,7 +46,7 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 Phase 3 (sweep dashboard) dominates: 8 ECharts chart types must be
 rewritten to LayerChart/d3-scale.
 
-### Phase 0 — capabilities API
+### Phase 0: capabilities API
 
 `/api/capabilities` reports runtime sensor state:
 
@@ -57,7 +57,7 @@ rewritten to LayerChart/d3-scale.
 LiDAR navigation hidden when disabled. All `/api/lidar/*` endpoints
 return "LiDAR disabled" without initialising hardware.
 
-### Phase 3 — sweep dashboard (critical path)
+### Phase 3: sweep dashboard (critical path)
 
 | ECharts Chart          | LayerChart Equivalent  | Complexity |
 | ---------------------- | ---------------------- | ---------- |
@@ -70,7 +70,7 @@ return "LiDAR disabled" without initialising hardware.
 | Multi-round comparison | Group + Spline         | Medium     |
 | Recommendation table   | svelte-ux Table        | Low        |
 
-### Phase 5 — retire port 8081
+### Phase 5: retire port 8081
 
 Move LiDAR API route registration from `webserver.go` to `server.go`.
 Remove `--lidar-listen` flag and 8081 HTTP server. gRPC on 50051 is

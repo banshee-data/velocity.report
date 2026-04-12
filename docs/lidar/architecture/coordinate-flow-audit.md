@@ -1,6 +1,6 @@
 # LiDAR coordinate flow audit
 
-- **Status:** Informational — findings are confirmed and intentional. The described coordinate bounce preserves original polar metadata and does not introduce floating-point accuracy penalties. See [l2-dual-representation.md](l2-dual-representation.md) for the design rationale.
+- **Status:** Informational; findings are confirmed and intentional. The described coordinate bounce preserves original polar metadata and does not introduce floating-point accuracy penalties. See [l2-dual-representation.md](l2-dual-representation.md) for the design rationale.
 
 - **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
 - **Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
@@ -208,7 +208,7 @@ and avoiding duplicated forward trig in the hot path.
 Option 2 was implemented:
 
 - `LiDARFrame` stores both `PolarPoints []PointPolar` and `Points []Point`, populated once by `AddPointsPolar()`
-- L3 consumes `frame.PolarPoints` directly — no per-frame polar rebuild in the pipeline callback
+- L3 consumes `frame.PolarPoints` directly: no per-frame polar rebuild in the pipeline callback
 - the former `frame.Points -> []PointPolar` re-wrap step in `tracking_pipeline.go` has been deleted
 
 See [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md) for the full plan.

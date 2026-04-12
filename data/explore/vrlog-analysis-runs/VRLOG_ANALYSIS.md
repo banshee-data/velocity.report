@@ -6,16 +6,16 @@ A **VRLOG analysis report** is a JSON document derived from a `.vrlog` recording
 summarises track quality, speed distribution, and frame-level statistics. The format is
 designed to be:
 
-- **Comparable** — deterministic metrics enable A/B experimentation across tuning
+- **Comparable**: deterministic metrics enable A/B experimentation across tuning
   parameters, pipeline versions, or replay modes (analysis vs realtime).
-- **Composable** — a single-file report stands alone; a pair of reports can be
+- **Composable**: a single-file report stands alone; a pair of reports can be
   fed to the overlap/distance comparator for regression testing.
-- **Toolable** — flat per-track rows export trivially to CSV; histograms render
+- **Toolable**: flat per-track rows export trivially to CSV; histograms render
   directly in plotting libraries.
 
-**Status:** Draft — initial implementation landed; spec and code may diverge until stable.
+**Status:** Draft; initial implementation landed; spec and code may diverge until stable.
 **Target tool:** `cmd/tools/vrlog-analyse/` (new CLI).
-**Companion spec:** [`VRLOG_FORMAT.md`](../../structures/VRLOG_FORMAT.md) — recording wire format.
+**Companion spec:** [`VRLOG_FORMAT.md`](../../structures/VRLOG_FORMAT.md); recording wire format.
 
 ---
 
@@ -107,7 +107,7 @@ indicate faster-than-real-time replay; below 1.0 indicates slower. Omitted
 ### Percentile and distStats policy
 
 All `DistStats` blocks (§3, §4, §6) compute distribution statistics over a
-**population** of values — never over a single track's observations.
+**population** of values: never over a single track's observations.
 Percentile fields are conditional on sample count:
 
 | Field | Minimum samples | Why                                                                              |
@@ -118,9 +118,9 @@ Percentile fields are conditional on sample count:
 
 For speed specifically, the **only** surface for percentiles is the aggregate
 speed histogram (§6), computed over each track's `max_speed_mps`. The core
-metric is **p98 of track max speeds** — the fastest speed exceeded by only 2%
+metric is **p98 of track max speeds**: the fastest speed exceeded by only 2%
 of observed vehicles. Per-track speed is described by `avg_speed_mps`,
-`max_speed_mps`, variance, and jitter — never by percentile labels.
+`max_speed_mps`, variance, and jitter: never by percentile labels.
 
 ---
 
@@ -309,7 +309,7 @@ This enables:
 - Variance and RMS jitter computation (§12.1).
 
 **Percentile policy:** Percentiles (p50, p85, p98) are **never** computed on a
-single track's speed samples. They are only meaningful — and only emitted —
+single track's speed samples. They are only meaningful: and only emitted —
 across a **population** of tracks. The core metric is **p98 of track max
 speeds** over a window of 50+ observations (see §6). Per-track speed is
 summarised by `avg_speed_mps`, `max_speed_mps`, and jitter/variance metrics
@@ -327,7 +327,7 @@ Aggregate speed distribution across all confirmed tracks, using each track's
 
 The `percentiles` block computes p50/p85/p98 over the population of track max
 speeds. **This is the only context in which speed percentiles are computed.**
-The headline metric — **p98** — requires at least 50 tracks to be emitted
+The headline metric: **p98**; requires at least 50 tracks to be emitted
 (see `DistStats` thresholds in §3). Per-track speed is summarised by
 `avg_speed_mps` and `max_speed_mps`, never by percentile labels.
 
@@ -538,14 +538,14 @@ vrlog-analyse report sample.vrlog --compact
 ### What vrlog-analyse adds beyond pcap-analyse
 
 `pcap-analyse` operates on raw PCAP files and runs the full perception pipeline.
-`vrlog-analyse` operates on **already-recorded** `.vrlog` snapshots — it reads
+`vrlog-analyse` operates on **already-recorded** `.vrlog` snapshots: it reads
 the perception outputs (tracks, clusters, points) without re-running the pipeline.
 This means:
 
-- **Deterministic** — same `.vrlog` always produces the same analysis.
-- **Fast** — no signal processing, just frame deserialisation and metric computation.
-- **Offline-first** — `.vrlog` files can be shared, archived, and re-analysed.
-- **Two-file comparison** — direct structural comparison without database state.
+- **Deterministic**: same `.vrlog` always produces the same analysis.
+- **Fast**: no signal processing, just frame deserialisation and metric computation.
+- **Offline-first**: `.vrlog` files can be shared, archived, and re-analysed.
+- **Two-file comparison**: direct structural comparison without database state.
 
 ---
 
@@ -599,13 +599,13 @@ between interpolated track positions at shared timestamps. Full spatial IoU
 
 ---
 
-## 12. Future phase — additional metrics
+## 12. Future phase: additional metrics
 
 Metrics are split into two tiers: **implemented** (now live in the report) and
 **future** (requiring new fields on `visualiser.Track` or upstream tracker
 changes).
 
-### 12.1 Implemented — jitter, alignment, and histogram EMD
+### 12.1 Implemented: jitter, alignment, and histogram EMD
 
 These are computed from existing per-frame data and are now present in the
 report and comparison outputs.
@@ -622,7 +622,7 @@ report and comparison outputs.
 | `histogram_earth_mover_distance` | §8.4    | float64 | Wasserstein-1 distance between speed histograms            |
 | `per_pair`                       | §8.4    | array   | Per-matched-pair speed breakdown with both A and B speeds  |
 
-### 12.2 Implemented — header provenance fields
+### 12.2 Implemented: header provenance fields
 
 These fields are stored in `LogHeader` at recording time and copied into §2
 recording metadata by the analyser.
@@ -638,7 +638,7 @@ recording metadata by the analyser.
 Note: `inferred_replay_speed` (in §2) provides a best-effort estimate from
 frame timing. `playback_rate` from the header is authoritative when present.
 
-### 12.3 Future — requires upstream tracker changes
+### 12.3 Future: requires upstream tracker changes
 
 These require new fields on `visualiser.Track` propagated from
 `l5tracks.TrackedObject` or additional per-frame computation.
@@ -654,7 +654,7 @@ These require new fields on `visualiser.Track` propagated from
 | split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
 | quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
 
-### 12.4 Future — PCAP segment identity
+### 12.4 Future: PCAP segment identity
 
 To verify that two `.vrlog` recordings were generated from exactly the same
 PCAP packet range (enabling high-integrity A/B comparison), store a
@@ -681,10 +681,10 @@ packets at recording time, which adds I/O overhead.
 
 - Store in `LogHeader` under a `pcap_identity` nested object.
 - Populate during PCAP replay in `cmd/radar/radar.go` via the existing
-  `pcap.Reader` — capture first/last packet metadata and the file hash.
+  `pcap.Reader`: capture first/last packet metadata and the file hash.
 - Comparison tool (§8) can auto-verify identity match before comparing.
 
-### 12.5 Future — track centroid trajectory
+### 12.5 Future: track centroid trajectory
 
 To programmatically match tracks across recordings even when the tracker
 fragments observations into different track IDs, store the approximate

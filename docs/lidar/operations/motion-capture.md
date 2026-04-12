@@ -1,6 +1,6 @@
 # Motion capture architecture
 
-Future architecture specification for moving LiDAR sensors (vehicle-mounted, bike-mounted, robot, drone). Not in current release — current traffic monitoring uses a simpler 3DOF/2D+velocity model.
+Future architecture specification for moving LiDAR sensors (vehicle-mounted, bike-mounted, robot, drone). Not in current release: current traffic monitoring uses a simpler 3DOF/2D+velocity model.
 
 ## Source
 

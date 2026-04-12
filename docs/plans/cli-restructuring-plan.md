@@ -1276,10 +1276,10 @@ velocity-report --config base.toml --config local.toml serve
 
 The key principles for the restructuring:
 
-1. **Single Executable Model** — maintain for production (`velocity-report`)
-2. **Utility Consolidation** — group utilities under `velocity-tools`
-3. **Subcommand Organisation** — clear command hierarchy
-4. **Consistent Naming** — predictable patterns for flags, endpoints, and targets
-5. **Backward Compatibility** — phased migration with deprecation warnings
-6. **Configuration Files** — reduce flag clutter for complex deployments
-7. **API Versioning** — enable evolution without breaking changes
+1. **Single Executable Model**: maintain for production (`velocity-report`)
+2. **Utility Consolidation**: group utilities under `velocity-tools`
+3. **Subcommand Organisation**: clear command hierarchy
+4. **Consistent Naming**: predictable patterns for flags, endpoints, and targets
+5. **Backward Compatibility**: phased migration with deprecation warnings
+6. **Configuration Files**: reduce flag clutter for complex deployments
+7. **API Versioning**: enable evolution without breaking changes

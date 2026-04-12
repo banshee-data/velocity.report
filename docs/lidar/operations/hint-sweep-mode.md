@@ -1,4 +1,4 @@
-# HINT sweep mode — human-involved numerical tuning
+# HINT sweep mode: human-involved numerical tuning
 
 - **Status:** Complete ✅ (57/57 items)
 
@@ -16,11 +16,11 @@ optimisation.
 
 ## Motivation
 
-| Existing Mode                          | Strength                                              | Weakness                                                                                                                            |
-| -------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Manual Sweep**                       | Full control over param grid and metric visualisation | No automated narrowing; human reads CSV manually                                                                                    |
-| **Auto-Tune**                          | Automated multi-round narrowing with weighted metrics | Metrics are proxy measures (empty_box_ratio, fragmentation) — they never test whether a real vehicle was actually tracked correctly |
-| **Ground Truth** (hidden, scene-based) | Uses labelled tracks as the objective                 | Requires a pre-labelled reference run. Can't adapt labels round-by-round as params change                                           |
+| Existing Mode                          | Strength                                              | Weakness                                                                                                                           |
+| -------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Manual Sweep**                       | Full control over param grid and metric visualisation | No automated narrowing; human reads CSV manually                                                                                   |
+| **Auto-Tune**                          | Automated multi-round narrowing with weighted metrics | Metrics are proxy measures (empty_box_ratio, fragmentation): they never test whether a real vehicle was actually tracked correctly |
+| **Ground Truth** (hidden, scene-based) | Uses labelled tracks as the objective                 | Requires a pre-labelled reference run. Can't adapt labels round-by-round as params change                                          |
 
 HINT mode fills the gap: the human evaluates track quality _after_ each parameter
 change, so labels always reflect the _current_ parameter regime. This avoids the
@@ -97,7 +97,7 @@ Input: `round_durations: [60, 60, 600, 60]` (minutes)
 | Sweep round 2   | 600 min  | 11:04 pm – 9:04 am          | Overnight sweep (deep)             |
 | Reference run 3 | ~2 min   | 9:04 am                     | Automated replay with round-2 best |
 | Label window 3  | 60 min   | 9:06 – 10:06 am             | Human labels (morning)             |
-| Complete        | —        | 10:06 am                    | Best params applied                |
+| Complete        | -        | 10:06 am                    | Best params applied                |
 
 The `round_durations` list has `2 × N - 1` entries where N = number of label
 rounds. Odd-indexed entries are sweep durations; even-indexed entries are label
@@ -111,7 +111,7 @@ all combinations are evaluated before the time limit.
 
 **Editing durations mid-run:** During the `awaiting_labels` phase, the dashboard
 exposes the next sweep-round duration as an editable field. The human can
-increase or decrease it before clicking "Continue" — useful when a label window
+increase or decrease it before clicking "Continue": useful when a label window
 was missed and the schedule needs adjustment. The updated duration is sent in the
 `POST /api/lidar/sweep/hint/continue` request body.
 
@@ -126,39 +126,39 @@ the sweep if intermediate results look promising.
 
 Defined in `internal/lidar/sweep/hint.go`. Fields:
 
-- `ReplayCaseID` — replay case to use (provides PCAP, sensor ID)
-- `NumRounds` — number of label-then-sweep cycles
-- `RoundDurations` — alternating label/sweep durations in minutes (see §Round Durations)
-- `Params` — parameter bounds to sweep (same format as `AutoTuneRequest`)
-- Auto-tune settings — `ValuesPerParam`, `TopK`, `Iterations`, `Interval`, `SettleTime`, `Seed`, `SettleMode`
-- `GroundTruthWeights` — scoring weights for the ground truth objective
-- `AcceptanceCriteria` — optional hard thresholds
-- `MinLabelThreshold` — minimum fraction of tracks that must be labelled before continuation (default 0.9). Sparse labels depress detection rate because unlabelled tracks count as non-detections.
-- `CarryOverLabels` — whether to carry over labels from previous round via temporal IoU matching (default true)
+- `ReplayCaseID`: replay case to use (provides PCAP, sensor ID)
+- `NumRounds`: number of label-then-sweep cycles
+- `RoundDurations`: alternating label/sweep durations in minutes (see §Round Durations)
+- `Params`: parameter bounds to sweep (same format as `AutoTuneRequest`)
+- Auto-tune settings: `ValuesPerParam`, `TopK`, `Iterations`, `Interval`, `SettleTime`, `Seed`, `SettleMode`
+- `GroundTruthWeights`: scoring weights for the ground truth objective
+- `AcceptanceCriteria`: optional hard thresholds
+- `MinLabelThreshold`: minimum fraction of tracks that must be labelled before continuation (default 0.9). Sparse labels depress detection rate because unlabelled tracks count as non-detections.
+- `CarryOverLabels`: whether to carry over labels from previous round via temporal IoU matching (default true)
 
 ### `HINTState`
 
 Defined in `internal/lidar/sweep/hint.go`. Fields:
 
-- `Status` — `"idle"`, `"running_reference"`, `"awaiting_labels"`, `"running_sweep"`, `"completed"`, `"failed"`
-- `CurrentRound`, `TotalRounds` — round tracking
-- `ReferenceRunID` — current reference run
-- `LabelProgress` — total/labelled/percentage/by-class breakdown
-- `LabelDeadline`, `SweepDeadline` — countdown targets
-- `MinLabelThreshold` — echoed from request for UI enforcement
-- `LabelsCarriedOver` — count of labels pre-populated from previous round
-- `NextSweepDuration` — editable by human during `awaiting_labels` phase
-- `RoundHistory` — list of `HINTRound` (round number, reference run, label count, best score, best params)
+- `Status`: `"idle"`, `"running_reference"`, `"awaiting_labels"`, `"running_sweep"`, `"completed"`, `"failed"`
+- `CurrentRound`, `TotalRounds`: round tracking
+- `ReferenceRunID`: current reference run
+- `LabelProgress`: total/labelled/percentage/by-class breakdown
+- `LabelDeadline`, `SweepDeadline`: countdown targets
+- `MinLabelThreshold`: echoed from request for UI enforcement
+- `LabelsCarriedOver`: count of labels pre-populated from previous round
+- `NextSweepDuration`: editable by human during `awaiting_labels` phase
+- `RoundHistory`: list of `HINTRound` (round number, reference run, label count, best score, best params)
 
 ### Database: `lidar_sweeps` table
 
 No schema changes required. The existing table already stores:
 
-- `mode` — will be `"hint"` instead of `"auto"` or `"params"`
-- `request` — JSON blob of the `HINTSweepRequest`
-- `results` — JSON blob of final combo results
-- `recommendation` — JSON blob of best params
-- `round_results` — JSON blob of `HINTRound[]` history
+- `mode`: will be `"hint"` instead of `"auto"` or `"params"`
+- `request`: JSON blob of the `HINTSweepRequest`
+- `results`: JSON blob of final combo results
+- `recommendation`: JSON blob of best params
+- `round_results`: JSON blob of `HINTRound[]` history
 
 The `status` column gains new values: `"awaiting_labels"`,
 `"running_reference"`, `"running_sweep"`.
@@ -198,8 +198,8 @@ carryover"`).
 
 **Files:**
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — track selection
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`: `LabelPanelView`
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`: track selection
 
 ### P2. remove export labels button
 
@@ -210,25 +210,25 @@ are always run-track labels saved directly to the database via
 export the labels the human just assigned.
 
 **Fix:** Remove the "Export Labels" button and `exportLabels()` method from
-`AppState`. Labels are persisted server-side on every click — no export step is
+`AppState`. Labels are persisted server-side on every click: no export step is
 needed. If a bulk-export feature is needed later, it should export run-track
 labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`).
 
 **Files:**
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — remove button (~line 467)
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — remove `exportLabels()`
+- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`: remove button (~line 467)
+- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`: remove `exportLabels()`
 
 ### P3. auto-save labels on click (already implemented)
 
 `assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
-immediately on click — no batching or explicit save step. This is the correct
+immediately on click: no batching or explicit save step. This is the correct
 behaviour for HINT. No changes needed, but worth noting as a confirmed
 requirement.
 
 ## Implementation plan
 
-### Phase 1: backend — `HINTTuner` engine
+### Phase 1: backend; `HINTTuner` engine
 
 **File:** `internal/lidar/sweep/hint.go` (new)
 
@@ -244,7 +244,7 @@ requirement.
 4. Implement `waitForLabelsOrDeadline`:
    - Poll `analysisRunStore.GetLabelingProgress(runID)` every 10s.
    - Also check for a manual "continue" signal (channel/atomic flag).
-   - Enforce `MinLabelThreshold` — the continue signal is rejected if
+   - Enforce `MinLabelThreshold`: the continue signal is rejected if
      `progress.Pct < req.MinLabelThreshold` (default 0.9 = 90%). The HTTP
      handler returns `400 Bad Request` with a message showing the current
      progress and the required threshold.
@@ -253,7 +253,7 @@ requirement.
    - On deadline expiry, if threshold is not met, transition to `"failed"`
      with an error message rather than proceeding with insufficient labels.
 
-5. Implement `continueFromLabels(nextDuration int, addRound bool)` — public
+5. Implement `continueFromLabels(nextDuration int, addRound bool)`: public
    method called by the API handler when the human clicks "Continue".
    - Validates label threshold is met.
    - If `nextDuration > 0`, overrides the next sweep-round duration.
@@ -286,7 +286,7 @@ requirement.
    | 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
 
    Applied inside `HINTTuner.buildAutoTuneRequest()` before passing weights to
-   the ground truth scorer. Not persisted — the final recommendation uses
+   the ground truth scorer. Not persisted: the final recommendation uses
    default weights for a clean comparison.
 
 8. Handle partial labelling. Unlabelled tracks (up to 10% given the 90%
@@ -294,7 +294,7 @@ requirement.
    `LabelProgress.ByClass` map lets the human verify label distribution before
    continuing.
 
-### Phase 2: backend — API endpoints
+### Phase 2: backend; API endpoints
 
 **File:** `internal/lidar/monitor/sweep_handlers.go` (extend)
 
@@ -327,7 +327,7 @@ labelling UI.
   groundTruthScorer) in `cmd/radar/radar.go`.
 - Register routes with `mux.HandleFunc`.
 
-### Phase 3: dashboard UI — third mode
+### Phase 3: dashboard UI; third mode
 
 **File:** `sweep_dashboard.html` + `sweep_dashboard.js` + `sweep_dashboard.css`
 
@@ -392,20 +392,20 @@ Replaces the generic progress section when in HINT mode:
 Key elements:
 
 - **Progress bar** showing label completion with threshold marker at 90%
-- **Threshold enforcement** — "Continue" button disabled until
+- **Threshold enforcement**: "Continue" button disabled until
   `progress_pct >= min_label_threshold`. Tooltip shows e.g.
   `"Label at least 90% of tracks (currently 67%)"`.
-- **Carried-over label count** — shows how many labels were pre-populated
+- **Carried-over label count**: shows how many labels were pre-populated
   from the previous round.
 - **Countdown timer** to the deadline
-- **Link to Tracks page** — direct link to
+- **Link to Tracks page**: direct link to
   `/app/lidar/tracks?replay_case_id=X&run_id=Y` to label
-- **Editable next sweep duration** — number input pre-filled from
+- **Editable next sweep duration**: number input pre-filled from
   `next_sweep_duration_mins` in the state response. Sent in the continue
   request body.
-- **Add extra round toggle** — checkbox that sends `add_round: true` in the
+- **Add extra round toggle**: checkbox that sends `add_round: true` in the
   continue request. Useful when the human wants more refinement.
-- **Continue button** — calls `POST /api/lidar/sweep/hint/continue` with
+- **Continue button**: calls `POST /api/lidar/sweep/hint/continue` with
   `{ next_sweep_duration_mins, add_round }`
 - During "running_sweep" phase, shows sweep progress instead (reuses existing
   auto-tune progress rendering)
@@ -453,7 +453,7 @@ selected. Notifications fire at two transition points:
 
 1. **Sweep round completed → labels needed.** When the poller detects a
    transition to `awaiting_labels`, it fires a persistent notification
-   ("Labels needed — Round N") with `requireInteraction: true` so it stays
+   ("Labels needed: Round N") with `requireInteraction: true` so it stays
    visible for overnight sweeps.
 
 2. **HINT sweep completed.** A notification fires on `completed` status.
@@ -466,7 +466,7 @@ than stacked.
 
 Extend the existing `/app/lidar/sweeps` page:
 
-1. Show HINT sweeps with `mode = "hint"` — distinct badge colour.
+1. Show HINT sweeps with `mode = "hint"`: distinct badge colour.
 2. In the detail panel for HINT sweeps, show:
    - Round history with links to each reference run's tracks page.
    - Label progress per round.
@@ -484,7 +484,7 @@ Update the page subtitle and add mode-specific descriptions:
 
 > Sweep tuning parameters and visualise results to identify optimal tuning.
 
-**Manual Sweep** — no additional description (fits current pattern).
+**Manual Sweep**: no additional description (fits current pattern).
 
 **Auto-Tune description** (`.auto-only`, above config card):
 
@@ -504,17 +504,17 @@ Update the page subtitle and add mode-specific descriptions:
 
 ### Prerequisites (macOS visualiser)
 
-- [x] **P1** — Display existing labels in `LabelPanelView`
+- [x] **P1**: Display existing labels in `LabelPanelView`
   - [x] Accept selected `RunTrack?` in `LabelPanelView`
   - [x] Pre-populate `lastAssignedLabel` / `lastAssignedQuality` from run-track data
   - [x] Show checkmark on matching button for current label state
   - [x] Add "↻ carried" badge for carried-over labels
-- [x] **P2** — Remove Export Labels button
+- [x] **P2**: Remove Export Labels button
   - [x] Remove "Export Labels" button from `SidePanelView`
   - [x] Remove `exportLabels()` from `AppState`
-- [x] **P3** — Confirm auto-save on click works (no changes needed)
+- [x] **P3**: Confirm auto-save on click works (no changes needed)
 
-### Phase 1: backend — `HINTTuner` engine
+### Phase 1: backend; `HINTTuner` engine
 
 - [x] Define `HINTSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
 - [x] Define `HINTState` struct (phase, round, deadlines, label progress, carried-over count)
@@ -526,21 +526,21 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Implement scoring weight adjustments for early rounds
 - [x] Write unit tests (`hint_test.go`)
 
-### Phase 2: backend — API endpoints
+### Phase 2: backend; API endpoints
 
-- [x] `POST /api/lidar/sweep/hint` — start HINT sweep
-- [x] `GET /api/lidar/sweep/hint` — poll current `HINTState`
-- [x] `POST /api/lidar/sweep/hint/continue` — signal labels done (with threshold check)
-- [x] `POST /api/lidar/sweep/hint/stop` — cancel HINT run
+- [x] `POST /api/lidar/sweep/hint`: start HINT sweep
+- [x] `GET /api/lidar/sweep/hint`: poll current `HINTState`
+- [x] `POST /api/lidar/sweep/hint/continue`: signal labels done (with threshold check)
+- [x] `POST /api/lidar/sweep/hint/stop`: cancel HINT run
 - [x] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
 - [x] Write API handler tests
 
-### Phase 3: dashboard UI — third mode
+### Phase 3: dashboard UI; third mode
 
-- [x] **3a** — Add "Human-in-the-Loop" mode toggle button
+- [x] **3a**: Add "Human-in-the-Loop" mode toggle button
 - [x] Update `setMode()` for three-way switching + CSS body classes
-- [x] **3b** — HINT config card (scene dropdown, rounds, durations input)
-- [x] **3c** — HINT progress card
+- [x] **3b**: HINT config card (scene dropdown, rounds, durations input)
+- [x] **3c**: HINT progress card
   - [x] Label progress bar with 90% threshold marker
   - [x] Countdown timer (from `label_deadline`)
   - [x] Carried-over label count display
@@ -549,7 +549,7 @@ Update the page subtitle and add mode-specific descriptions:
   - [x] "Add extra round" checkbox
   - [x] "Continue to Sweep" button (disabled until ≥ 90%)
   - [x] Sweep progress display during `running_sweep` phase
-- [x] **3d** — Round history (collapsible list of completed rounds)
+- [x] **3d**: Round history (collapsible list of completed rounds)
 - [x] Write dashboard tests (`sweep_dashboard.test.ts`)
 
 ### Phase 4: dashboard polling
@@ -564,7 +564,7 @@ Update the page subtitle and add mode-specific descriptions:
 ### Phase 4b: browser notifications
 
 - [x] Request `Notification.requestPermission()` on HINT mode selection
-- [x] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
+- [x] Fire "Labels needed: Round N" notification on `awaiting_labels` transition
 - [x] Fire "HINT Sweep Complete" notification on `completed` transition
 - [x] Bring dashboard tab to front on notification click
 

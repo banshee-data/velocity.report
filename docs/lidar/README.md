@@ -114,45 +114,45 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/l5tracks/hungarian.go`)
 - ✅ Height-based ground removal (`internal/lidar/l4perception/ground.go`)
 - ✅ PCA-oriented bounding boxes with temporal smoothing (`internal/lidar/l4perception/obb.go`)
-- ✅ Occlusion coasting — MaxMissesConfirmed=15 (`internal/lidar/l5tracks/tracking.go`)
+- ✅ Occlusion coasting: MaxMissesConfirmed=15 (`internal/lidar/l5tracks/tracking.go`)
 - ✅ Debug overlay emission via gRPC (`internal/lidar/debug/collector.go`)
 
 #### Phase 3.9: adaptive regions & sweep system (jan–Feb 2026)
 
 - ✅ Adaptive region segmentation (stable/variable/volatile)
 - ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
-- ✅ Parameter sweep runner with settle mode — once/per_combo (`internal/lidar/sweep/runner.go`)
+- ✅ Parameter sweep runner with settle mode: once/per_combo (`internal/lidar/sweep/runner.go`)
 - ✅ Auto-tuner with iterative grid narrowing (`internal/lidar/sweep/auto.go`)
-- ✅ Multi-objective scoring — acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
-- ✅ Sweep dashboard — ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
+- ✅ Multi-objective scoring: acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
+- ✅ Sweep dashboard: ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
 
 #### Phase 4.0: track labelling & VRLOG replay (feb 2026)
 
-- ✅ VRLOG recording format — binary frame bundles with index for seek (`internal/lidar/l9endpoints/recorder/`)
-- ✅ VRLOG replay in Publisher — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
-- ✅ gRPC control delegation — Pause/Play/Seek/SetRate with VRLOG mode routing
-- ✅ REST playback API — `/api/lidar/playback/*` (status, pause, play, seek, rate)
-- ✅ VRLOG load API — `/api/lidar/vrlog/load` (by run_id or vrlog_path), `/api/lidar/vrlog/stop`
-- ✅ Path traversal protection — validate vrlog_path within allowed directory
-- ✅ Run-track label API — `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
-- ✅ DB migration 000023 — `vrlog_path` column for analysis runs
-- ✅ Swift run browser UI — `RunBrowserView`, `RunBrowserState` for loading analysis runs
-- ✅ Swift label API client — `RunTrackLabelAPIClient` for track labelling
+- ✅ VRLOG recording format: binary frame bundles with index for seek (`internal/lidar/l9endpoints/recorder/`)
+- ✅ VRLOG replay in Publisher: `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
+- ✅ gRPC control delegation: Pause/Play/Seek/SetRate with VRLOG mode routing
+- ✅ REST playback API: `/api/lidar/playback/*` (status, pause, play, seek, rate)
+- ✅ VRLOG load API: `/api/lidar/vrlog/load` (by run_id or vrlog_path), `/api/lidar/vrlog/stop`
+- ✅ Path traversal protection: validate vrlog_path within allowed directory
+- ✅ Run-track label API: `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
+- ✅ DB migration 000023: `vrlog_path` column for analysis runs
+- ✅ Swift run browser UI: `RunBrowserView`, `RunBrowserState` for loading analysis runs
+- ✅ Swift label API client: `RunTrackLabelAPIClient` for track labelling
 
 See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/track-labelling-ui-implementation.md)
 
 #### macOS visualiser: M0–M7 complete (oct 2025 – feb 2026)
 
-- ✅ M0: Schema + Synthetic — gRPC streaming, synthetic data
-- ✅ M1: Recorder/Replayer — Deterministic playback with seek/pause
-- ✅ M2: Real Point Clouds — Live pipeline via gRPC
-- ✅ M3: Canonical Model — LidarView + gRPC from same source
-- ✅ M3.5: Split Streaming — 96% bandwidth reduction (BG/FG separation)
-- ✅ M4: Tracking Interface — Golden replay tests, deterministic clustering
-- ✅ M5: Algorithm Upgrades — OBB, Hungarian association, occlusion handling
-- ✅ M6: Debug + Labelling — Full debug overlays, label export
-- ✅ M7: Performance Hardening — Buffer pooling (7.1, 7.2, 7.3 complete)
+- ✅ M0: Schema + Synthetic; gRPC streaming, synthetic data
+- ✅ M1: Recorder/Replayer; Deterministic playback with seek/pause
+- ✅ M2: Real Point Clouds; Live pipeline via gRPC
+- ✅ M3: Canonical Model; LidarView + gRPC from same source
+- ✅ M3.5: Split Streaming; 96% bandwidth reduction (BG/FG separation)
+- ✅ M4: Tracking Interface; Golden replay tests, deterministic clustering
+- ✅ M5: Algorithm Upgrades; OBB, Hungarian association, occlusion handling
+- ✅ M6: Debug + Labelling; Full debug overlays, label export
+- ✅ M7: Performance Hardening; Buffer pooling (7.1, 7.2, 7.3 complete)
 
 **Test Coverage (February 2026):**
 

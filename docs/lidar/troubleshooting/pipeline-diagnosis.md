@@ -1,6 +1,6 @@
 # LIDAR pipeline diagnosis: jitter, fragmentation, misalignment & empty boxes
 
-The tracking pipeline exhibits multiple quality degradation symptoms — jitter, fragmentation, misalignment, and empty bounding boxes — caused by suboptimal parameter interactions across three coupled subsystems.
+The tracking pipeline exhibits multiple quality degradation symptoms: jitter, fragmentation, misalignment, and empty bounding boxes; caused by suboptimal parameter interactions across three coupled subsystems.
 
 **Issue:** High jitter, fragmentation, misalignment and empty boxes throughout tracking results
 **Goal:** Identify systematic problems and propose optimised parameters
@@ -68,10 +68,10 @@ See [parameter-comparison.md](../operations/parameter-comparison.md) for the ful
 
 Deploy changes incrementally rather than all at once:
 
-1. **Foreground only** (15 min) — `closeness_multiplier=3.0`, `safety_margin_meters=0.15`, `neighbor_confirmation_count=3`. EmptyBoxRatio should drop to ~0.10.
-2. **Add clustering** (15 min) — `foreground_dbscan_eps=0.7`, `foreground_min_cluster_points=5`. FragmentationRatio should drop to ~0.15.
-3. **Add tracking** (30 min) — `gating_distance_squared=25.0`, `measurement_noise=0.15`, `process_noise_vel=0.3`. Jitter should halve.
-4. **Full deployment** — if all stages succeed, deploy `tuning.optimised.json` for overnight testing.
+1. **Foreground only** (15 min): `closeness_multiplier=3.0`, `safety_margin_meters=0.15`, `neighbor_confirmation_count=3`. EmptyBoxRatio should drop to ~0.10.
+2. **Add clustering** (15 min): `foreground_dbscan_eps=0.7`, `foreground_min_cluster_points=5`. FragmentationRatio should drop to ~0.15.
+3. **Add tracking** (30 min): `gating_distance_squared=25.0`, `measurement_noise=0.15`, `process_noise_vel=0.3`. Jitter should halve.
+4. **Full deployment**: if all stages succeed, deploy `tuning.optimised.json` for overnight testing.
 
 ### Expected improvements
 

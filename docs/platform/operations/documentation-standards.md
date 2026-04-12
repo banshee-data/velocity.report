@@ -89,11 +89,11 @@ Three of five formatters already default to 100. Every language reaches
 
 ### Enforcement rollout
 
-1. **Phase 1** — Config changes (no source reformatting)
-2. **Phase 2** — Mechanical reformat + `.git-blame-ignore-revs`
-3. **Phase 3** — Weekly nag PR via GitHub Actions
-4. **Phase 4** — Optional CI gate (`continue-on-error: true`, then `false`)
-5. **Phase 5** — Opt-in pre-commit hook
+1. **Phase 1**: Config changes (no source reformatting)
+2. **Phase 2**: Mechanical reformat + `.git-blame-ignore-revs`
+3. **Phase 3**: Weekly nag PR via GitHub Actions
+4. **Phase 4**: Optional CI gate (`continue-on-error: true`, then `false`)
+5. **Phase 5**: Opt-in pre-commit hook
 
 ## Validation gates
 
@@ -119,17 +119,17 @@ Run on every docs refactor:
 
 ## Error message voice
 
-Consistent, humane voice across all user-facing error messages — Go server,
+Consistent, humane voice across all user-facing error messages: Go server,
 web frontend, Python tools, and shell scripts.
 
 ### Principles
 
-1. **Sentence case** — error messages start with a capital, do not end with a
+1. **Sentence case**: error messages start with a capital, do not end with a
    full stop.
-2. **Name the problem, not the user** — "Cannot open database" rather than
+2. **Name the problem, not the user**: "Cannot open database" rather than
    "You provided an invalid path".
-3. **Include a next step** — where possible, tell the reader what to try.
-4. **Diagnostic hints** use ` — try X` suffix or `\nTry: X` on a new line.
+3. **Include a next step**: where possible, tell the reader what to try.
+4. **Diagnostic hints** use `: try X` suffix or `\nTry: X` on a new line.
 
 ### Scope
 

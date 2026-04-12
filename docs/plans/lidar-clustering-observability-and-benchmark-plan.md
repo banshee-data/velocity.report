@@ -9,9 +9,9 @@
 
 Two classes of problem lack tooling:
 
-1. **Trail glitches** — tracks that repeatedly exhibit heading flips, speed jitter, merge/split artefacts, or dropout gaps on the same stretch of road. We cannot diagnose _why_ without per-frame, per-track clustering diagnostics. The pipeline currently logs aggregate counts (`N confirmed tracks active`) but nothing about _which_ cluster was associated, how many points it had, what the innovation residual was, or whether the cluster was subsampled.
+1. **Trail glitches**: tracks that repeatedly exhibit heading flips, speed jitter, merge/split artefacts, or dropout gaps on the same stretch of road. We cannot diagnose _why_ without per-frame, per-track clustering diagnostics. The pipeline currently logs aggregate counts (`N confirmed tracks active`) but nothing about _which_ cluster was associated, how many points it had, what the innovation residual was, or whether the cluster was subsampled.
 
-2. **Performance blind spot** — the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). When stepping down from a Mac M1 (8-core, 16 GB) to a Raspberry Pi 4 (4-core, 4 GB) we need fine-grained levers for trading detection quality against latency, and CI regression gates to catch regressions before deployment.
+2. **Performance blind spot**: the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). When stepping down from a Mac M1 (8-core, 16 GB) to a Raspberry Pi 4 (4-core, 4 GB) we need fine-grained levers for trading detection quality against latency, and CI regression gates to catch regressions before deployment.
 
 ## Goals
 
@@ -131,16 +131,16 @@ Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
 Current `DebugOverlaySet` fields in `FrameBundle`:
 
-- `AssociationCandidate` — cluster↔track distances
-- `GatingEllipse` — semi-major/minor/rotation
-- `InnovationResidual` — Kalman innovation
-- `StatePrediction` — predicted state
+- `AssociationCandidate`: cluster↔track distances
+- `GatingEllipse`: semi-major/minor/rotation
+- `InnovationResidual`: Kalman innovation
+- `StatePrediction`: predicted state
 
 Proposed additions (all optional, populated only when debug logging is active):
 
-- `FrameStageTiming` — per-frame pipeline timing (Section A.1)
-- `ClusterDiagnostics []ClusterDiag` — per-cluster quality (Section A.4)
-- `AssociationDecisions []AssociationDecision` — full per-track association log (Section A.2)
+- `FrameStageTiming`: per-frame pipeline timing (Section A.1)
+- `ClusterDiagnostics []ClusterDiag`: per-cluster quality (Section A.4)
+- `AssociationDecisions []AssociationDecision`: full per-track association log (Section A.2)
 
 This keeps the VRLOG self-contained: when replaying a recording, all diagnostic context is available without needing the original text log.
 
@@ -196,7 +196,7 @@ type DistributionStats struct {
 
 ### B.2 benchmark baseline format (v2)
 
-Extend the existing `baseline-{name}.json` format with a `clustering` key. This is backward-compatible — the comparison logic skips missing keys.
+Extend the existing `baseline-{name}.json` format with a `clustering` key. This is backward-compatible: the comparison logic skips missing keys.
 
 ```jsonc
 {
@@ -442,7 +442,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 ## Open questions
 
-1. **VRLOG size growth** — Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
-2. **Structured logging format** — Should we migrate tracef/diagf from plain-text `log.Logger` to JSON for machine-parseable diagnostics? Or keep human-readable and parse with grep?
-3. **Benchmark fixture management** — `kirk0.pcapng` is 191 MB in LFS. Do we need a smaller synthetic fixture for faster CI runs?
-4. **statistics_json column** — `RunStatistics` from `l6objects/quality.go` is computed but never written to the `lidar_analysis_runs` table. Should Phase 2 wire this up?
+1. **VRLOG size growth**: Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
+2. **Structured logging format**: Should we migrate tracef/diagf from plain-text `log.Logger` to JSON for machine-parseable diagnostics? Or keep human-readable and parse with grep?
+3. **Benchmark fixture management**: `kirk0.pcapng` is 191 MB in LFS. Do we need a smaller synthetic fixture for faster CI runs?
+4. **statistics_json column**: `RunStatistics` from `l6objects/quality.go` is computed but never written to the `lidar_analysis_runs` table. Should Phase 2 wire this up?

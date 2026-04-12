@@ -4,10 +4,10 @@
 
 - **Endpoints registered in `internal/lidar/monitor/webserver.go`:**
 
-- `POST /api/lidar/pcap/start` — Start PCAP replay (resets grid, stops UDP listener)
-- `POST /api/lidar/pcap/stop` — Stop replay and resume live UDP
-- `POST /api/lidar/resume_live` — Resume live UDP data source
-- `GET /api/lidar/data_source` — Current data source, PCAP file, and replay status
+- `POST /api/lidar/pcap/start`: Start PCAP replay (resets grid, stops UDP listener)
+- `POST /api/lidar/pcap/stop`: Stop replay and resume live UDP
+- `POST /api/lidar/resume_live`: Resume live UDP data source
+- `GET /api/lidar/data_source`: Current data source, PCAP file, and replay status
 
 ---
 

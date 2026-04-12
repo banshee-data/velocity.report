@@ -1,4 +1,4 @@
-# LiDAR background grid — standards comparison
+# LiDAR background grid: standards comparison
 
 Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK, PCD) against the current polar range-image model, with a recommended export strategy that preserves runtime simplicity while enabling standards-based tooling interchange.
 

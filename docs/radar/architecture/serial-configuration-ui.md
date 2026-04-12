@@ -42,7 +42,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
-> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()` — fatal on failure.
+> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
@@ -588,7 +588,7 @@ sudo systemctl restart velocity-report
 2. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
    - Trade-off: Simplicity vs. advanced use cases
-   - Recommendation: Explore options now — this needs addressing soon, not deferring to Phase 4
+   - Recommendation: Explore options now; this needs addressing soon, not deferring to Phase 4
 
 ### Future enhancements
 

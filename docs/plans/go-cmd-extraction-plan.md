@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
-- **Target:** v0.5.2 — extract before `cmd/radar/radar.go` grows past 1,500 LOC
+- **Target:** v0.5.2; extract before `cmd/radar/radar.go` grows past 1,500 LOC
 - **Companion plans:**
   [go-god-file-split-plan.md](go-god-file-split-plan.md) (Complete),
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Active)
@@ -43,8 +43,8 @@ expand.
 - Flag parsing and `main()` wiring (~800 lines in `radar.go`)
 - Signal handling and graceful shutdown
 - Component construction order
-- `cmd/sweep/main.go` (265 lines) — sweep CLI orchestration
-- `cmd/velocity-ctl/` (121 lines) — already delegates to `internal/ctl`
+- `cmd/sweep/main.go` (265 lines): sweep CLI orchestration
+- `cmd/velocity-ctl/` (121 lines): already delegates to `internal/ctl`
 - Small tools under 60 lines: `config-validate`, `gen-vrlog`, `vrlog-analyse`,
   `backfill_lidar_run_config`
 
@@ -235,9 +235,9 @@ into the background grid package.
 
 ### Accepted residuals (no action planned)
 
-- [ ] `cmd/radar/radar.go` will still be ~800 LOC after extraction — this is legitimate
+- [ ] `cmd/radar/radar.go` will still be ~800 LOC after extraction: this is legitimate
       `main()` wiring (flag parsing, component construction, shutdown) and does not
       warrant further splitting
-- [ ] `cmd/sweep/main.go` (265 LOC) — CLI orchestration, not business logic
-- [ ] `cmd/velocity-ctl/upgrade.go` — `loadIncludePrereleases` (30 LOC) is borderline
+- [ ] `cmd/sweep/main.go` (265 LOC): CLI orchestration, not business logic
+- [ ] `cmd/velocity-ctl/upgrade.go`: `loadIncludePrereleases` (30 LOC) is borderline
       but too small to justify a move

@@ -21,9 +21,9 @@ Ghost trails and uncertainty cones rendered in the 3D scene for tracked objects.
 
 No persistent database storage required. Trails and cones are computed per frame from:
 
-- Track observation history (position, timestamp) — already in memory during replay/live.
-- Track covariance matrix (`covariance_4x4`) — streamed in `FrameBundle.Track`.
-- Current velocity and heading — streamed in `FrameBundle.Track`.
+- Track observation history (position, timestamp): already in memory during replay/live.
+- Track covariance matrix (`covariance_4x4`): streamed in `FrameBundle.Track`.
+- Current velocity and heading: streamed in `FrameBundle.Track`.
 
 ## GPU implementation
 

@@ -53,13 +53,13 @@ track-analysis work. The codebase later standardised on `p98` (migration
 
 ## Pending work
 
-### Phase 2 — track metric redesign
+### Phase 2: track metric redesign
 
 - Define replacement public track metrics with non-percentile names.
 - Specify outlier rejection and smoothing rules.
 - Decide which stay public API vs internal-only.
 
-### Phase 4 — aggregate-only percentile path
+### Phase 4: aggregate-only percentile path
 
 - Shared Go helper for dataset-level `p50/p85/p98`.
 - Remove `derive_overall_from_granular()` / `derive_daily_from_granular()`,

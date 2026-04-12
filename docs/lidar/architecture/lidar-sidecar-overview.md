@@ -1,6 +1,6 @@
-# LiDAR sidecar — technical implementation overview
+# LiDAR sidecar: technical implementation overview
 
-- **Status:** Phase 3.9 completed — All core features operational
+- **Status:** Phase 3.9 completed; All core features operational
 - **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
 
 Technical overview of the LiDAR sidecar: Hesai UDP ingestion through background subtraction, clustering, tracking, classification, and sweep-based parameter tuning.
@@ -13,9 +13,9 @@ Phases 1–3.9 complete: UDP ingestion, Hesai Pandar40P parsing, time-based fram
 
 ### Phase 4 (planned)
 
-- **Phase 4.0: Track Labelling UI** — Wire existing label API routes, scene management, Svelte labelling controls
-- **Phase 4.0: LiDAR Transit Table** — `lidar_transits` table for dashboard integration
-- **Phase 4.1: Optional Classification Benchmarking** — feature extraction, offline comparisons, and deployment only if the transparent baseline is beaten reproducibly
+- **Phase 4.0: Track Labelling UI**; Wire existing label API routes, scene management, Svelte labelling controls
+- **Phase 4.0: LiDAR Transit Table**; `lidar_transits` table for dashboard integration
+- **Phase 4.1: Optional Classification Benchmarking**; feature extraction, offline comparisons, and deployment only if the transparent baseline is beaten reproducibly
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
 - **Local Persistence**: Each sensor stores data in local SQLite database
 - **Database Unification**: Merge data from multiple local databases for analysis

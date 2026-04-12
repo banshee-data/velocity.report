@@ -6,7 +6,7 @@
 ## Hypothesis
 
 The two provisional/literature L4 clustering parameters —
-`foreground_min_cluster_points` and `foreground_dbscan_eps` — may not
+`foreground_min_cluster_points` and `foreground_dbscan_eps`: may not
 generalise from kirk0 to sites with different traffic densities, sensor
 heights, or road geometries. Sweeping each across ≥ 3 sites will determine
 whether the current defaults are robust or need adjustment.
@@ -78,7 +78,7 @@ Can run in parallel with the L3 sweep on the same corpus PCAPs.
 
 ## References
 
-- [config/README.maths.md §3 — Clustering](../../../config/README.maths.md)
+- [config/README.maths.md §3: Clustering](../../../config/README.maths.md)
 - [L3 background settling sweep](l3-background-settling-sweep.md)
-- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md) — evidence classification
-- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure
+- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
+- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

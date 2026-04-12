@@ -69,7 +69,7 @@ Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
 4. **PCAP Analysis Integration** (`cmd/tools/pcap-analyse/main.go`):
 
-   > **Source:** `cmd/tools/pcap-analyse/main.go`. When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()` — foreground detection begins immediately without settling.
+   > **Source:** `cmd/tools/pcap-analyse/main.go`. When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()`; foreground detection begins immediately without settling.
 
 #### Scene similarity detection (optional enhancement)
 

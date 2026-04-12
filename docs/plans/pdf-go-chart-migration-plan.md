@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Draft — awaiting review before implementation
+- **Status:** Draft; awaiting review before implementation
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -11,7 +11,7 @@
 - [Platform simplification plan](platform-simplification-and-deprecation-plan.md)
 
 **Goal:** Replace the Python PDF-generation stack (matplotlib, PyLaTeX, numpy,
-pandas, seaborn — 45 transitive packages) with native Go SVG charting and Go
+pandas, seaborn: 45 transitive packages) with native Go SVG charting and Go
 `text/template`-based LaTeX assembly, retaining XeTeX for typesetting and
 producing SVG charts equivalent to the current matplotlib output.
 
@@ -242,7 +242,7 @@ XeTeX's `\includegraphics` does not natively handle SVG files. Three options:
 ### ~~Option a: require `inkscape` on the system~~
 
 Use the `svg` LaTeX package, which calls `inkscape --export-pdf` during
-compilation. This adds a ~300 MB dependency — counterproductive.
+compilation. This adds a ~300 MB dependency: counterproductive.
 
 ### Option b: convert SVG→PDF in Go before `xelatex` ✅
 
@@ -266,7 +266,7 @@ The `.tex` file then uses `\includegraphics{chart.pdf}` as before.
 
 Use `gonum/plot` with `vg/vgpdf` to produce PDF figures directly. This
 avoids the SVG→PDF step entirely, but loses the SVG artefact for web reuse
-and source archive inclusion. It also makes visual debugging harder — SVGs
+and source archive inclusion. It also makes visual debugging harder: SVGs
 can be opened in any browser.
 
 ### ~~Option d: embed SVG inline via LaTeX `\input` with PGF~~
@@ -394,7 +394,7 @@ type TemplateData struct {
 
 1. **Readable:** Templates are plain `.tex` files, editable by anyone who
    knows LaTeX. No Python API knowledge needed.
-2. **Cacheable:** Templates are `go:embed`-ed at compile time — zero disk I/O
+2. **Cacheable:** Templates are `go:embed`-ed at compile time; zero disk I/O
    at runtime.
 3. **Testable:** Template rendering produces deterministic `.tex` output that
    can be compared byte-for-byte in tests.
@@ -405,7 +405,7 @@ type TemplateData struct {
 
 ## Implementation phases
 
-### Phase 1: chart package foundation (`internal/report/chart/`) — `M`
+### Phase 1: chart package foundation (`internal/report/chart/`); `M`
 
 Build the SVG chart generation library:
 
@@ -420,7 +420,7 @@ Build the SVG chart generation library:
 **Acceptance:** SVG output for all three chart types passes visual review
 against equivalent matplotlib output.
 
-### Phase 2: LaTeX template engine (`internal/report/tex/`) — `S`
+### Phase 2: LaTeX template engine (`internal/report/tex/`); `S`
 
 Build the template-based `.tex` generation:
 
@@ -433,7 +433,7 @@ Build the template-based `.tex` generation:
 **Acceptance:** `RenderTeX()` produces a `.tex` file that compiles with
 `xelatex` to a visually equivalent PDF.
 
-### Phase 3: report orchestrator (`internal/report/`) — `S`
+### Phase 3: report orchestrator (`internal/report/`); `S`
 
 Wire charts + templates + compilation together:
 
@@ -447,7 +447,7 @@ Wire charts + templates + compilation together:
 **Acceptance:** End-to-end report generation from test database produces
 valid PDF.
 
-### Phase 4: API and CLI integration — `S`
+### Phase 4: API and CLI integration; `S`
 
 Connect the new report pipeline to existing entry points:
 
@@ -460,7 +460,7 @@ Connect the new report pipeline to existing entry points:
 **Acceptance:** `POST /api/generate_report` produces identical results using
 Go-native pipeline.
 
-### Phase 5: Python deprecation and cleanup — `S`
+### Phase 5: Python deprecation and cleanup; `S`
 
 Remove the Python PDF stack:
 
@@ -469,13 +469,13 @@ Remove the Python PDF stack:
 3. Remove `make install-python` dependency from report generation targets
 4. Update `ARCHITECTURE.md`, component READMEs
 5. Retain `tools/pdf-generator/` in repository history (do not delete
-   immediately — keep for reference during the transition)
+   immediately: keep for reference during the transition)
 
 **Acceptance:** `make test` passes with no Python dependencies for report
 generation. Python venv is only needed for `tools/grid-heatmap/` (if still
 in use).
 
-### Phase 6: map overlay migration — `S`
+### Phase 6: map overlay migration; `S`
 
 Migrate the SVG marker injection:
 
@@ -542,7 +542,7 @@ This plan is **complementary**. D-08 reduces the TeX installation from
 ~800 MB to ~30–60 MB. This plan eliminates the Python stack (~450 MB).
 Together they reduce the deployment footprint from ~1.25 GB to ~30–60 MB.
 
-The precompiled `.fmt` file (D-08) still applies — the Go-generated `.tex`
+The precompiled `.fmt` file (D-08) still applies: the Go-generated `.tex`
 compiles against the same minimal TeX tree with the same precompiled format.
 
 ### D-09 (single binary)

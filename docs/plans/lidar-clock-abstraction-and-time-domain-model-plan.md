@@ -31,8 +31,8 @@ rg 'time\.Now\(\)' internal/ cmd/ --type go -g '!*_test.go' -c
 rg 'timeutil\.Clock|MockClock' internal/ --type go -c
 ```
 
-Separately, the pipeline conflates two distinct time domains — sensor
-timestamps from device packets and host wall-clock timestamps — which
+Separately, the pipeline conflates two distinct time domains: sensor
+timestamps from device packets and host wall-clock timestamps: which
 works today with a single Hesai Pandar40P in `TimestampModeSystemTime`,
 but will break under GPS/PTP modes or multi-sensor configurations.
 
@@ -54,22 +54,22 @@ Key hotspots where bare `time.Now()` creates testability risk:
 
 ### F2: two time domains are conflated
 
-**Sensor time** — timestamps embedded in LiDAR packets
+**Sensor time**: timestamps embedded in LiDAR packets
 (`CombinedTimestamp`, `TimestampMode` in `extract.go`) or radar
 serial data. Source: device clock (GPS, PTP, internal, or native
 LiDAR DateTime+Timestamp).
 
-**Wall time** — timestamps from the host's `time.Now()`. Used for
+**Wall time**: timestamps from the host's `time.Now()`. Used for
 ingest timing (`LiDARFrame.StartWallTime/EndWallTime`), throttle
 decisions, and DB audit fields.
 
 Conflation points:
 
-- `extract.go:226` — `bootTime: time.Now()` initialises
+- `extract.go:226`: `bootTime: time.Now()` initialises
   device-internal offset from wall clock
-- `extract.go:467,498` — falls back to `packetTime = time.Now()`
+- `extract.go:467,498`: falls back to `packetTime = time.Now()`
   when sensor timestamp unavailable
-- `l5tracks/tracking.go:192` — `dt` computed from
+- `l5tracks/tracking.go:192`: `dt` computed from
   `timestamp.UnixNano()`, which may be sensor or wall time
   depending on upstream `TimestampMode`
 
@@ -116,13 +116,13 @@ synchronously on `Advance()`. This preserves the callback-based
 semantics of `time.AfterFunc` while making the schedule
 controllable in tests. Implementation reference: the existing
 `MockTimer.checkAndFire` in `clock.go` already fires on
-`Advance()` — `AfterFunc` follows the same pattern but invokes
+`Advance()`: `AfterFunc` follows the same pattern but invokes
 `f()` instead of sending on a channel.
 
 ### F5: radar serial path is fine as is
 
 `serialmux/serialmux.go:109,115` syncs the radar device clock to
-the host's wall time — a one-shot initialisation command. No clock
+the host's wall time: a one-shot initialisation command. No clock
 abstraction needed.
 
 ### F6: multi-sensor future needs timestamp alignment
@@ -160,19 +160,19 @@ injection. The remaining ~60 `time.Now()` call sites in `l3grid`,
 **Decision: A now, B later.** Conceptual clarity first, then
 optional type-level enforcement when multi-sensor lands.
 
-### Open questions — resolved
+### Open questions: resolved
 
 1. **Should `pipeline/frame_timer.go` accept a `Clock`?**
    Yes. Inject `Clock` for consistency; benchmarks pass
    `RealClock{}`.
 
 2. **Should `l3grid` background timestamps migrate to `Clock`?**
-   Phase C (future work) — diagnostic/audit timestamps with low
+   Phase C (future work): diagnostic/audit timestamps with low
    testability risk.
 
 3. **Should each sensor's `FrameBuilder` have an independent
    `Clock` or share one?**
-   Independent by default — sensors have different spin rates.
+   Independent by default: sensors have different spin rates.
    However, the API should accept an optional shared `Clock` for
    sensors that require frame-rate synchronisation. Each sensor
    gets its own `Clock` instance unless explicitly wired to
@@ -229,10 +229,10 @@ optional type-level enforcement when multi-sensor lands.
       `streamFromReader`. Replace `time.Sleep()` and `time.Time{}`
       pacing with clock-driven intervals.
 - [ ] **A5.** Write tests for throttle behaviour using
-      `MockClock.Advance()` — verify frames within
+      `MockClock.Advance()`: verify frames within
       `minFrameInterval` are skipped without waiting real time.
 - [ ] **A6.** Write tests for FrameBuilder cleanup using
-      `MockClock` — verify stale frames are cleaned up after
+      `MockClock`: verify stale frames are cleaned up after
       advancing mock time past `CleanupInterval`.
 
 ### Phase b: eliminate `time.Sleep` in tests
@@ -249,7 +249,7 @@ mechanism.
       available, or `WaitFor` polling where it is not.
 - [ ] **B3.** Replace production `time.Sleep` in
       `l9endpoints/replay.go` with `clock.Sleep()` (covered by A4
-      above) — verify replay tests no longer depend on wall time.
+      above): verify replay tests no longer depend on wall time.
 - [ ] **B4.** Document the `MockClock.Advance()` test pattern
       and `WaitFor` helper in a short section in
       `docs/platform/architecture/structured-logging.md` or a
@@ -262,16 +262,16 @@ Phase A. These are lower-risk diagnostic, audit, and logging
 timestamps. Included here for completeness; schedule when
 testability benefits justify the review surface.
 
-- [ ] **C1.** `l3grid/` — ~17 background model timestamps
+- [ ] **C1.** `l3grid/`: ~17 background model timestamps
       (audit/diagnostic). Migrate to `Clock.Now()`.
-- [ ] **C2.** `l1packets/parse/extract.go` — boot-time and
+- [ ] **C2.** `l1packets/parse/extract.go`: boot-time and
       fallback packet timestamping (4 calls). Requires careful
       handling of `TimestampMode` interactions.
-- [ ] **C3.** `serialmux/serialmux.go` — radar clock sync
+- [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
-- [ ] **C4.** `cmd/radar/` and `cmd/tools/` — startup/CLI
+- [ ] **C4.** `cmd/radar/` and `cmd/tools/`: startup/CLI
       timestamps. Low testability benefit.
-- [ ] **C5.** `internal/db/` — DB audit timestamps. Low
+- [ ] **C5.** `internal/db/`: DB audit timestamps. Low
       testability benefit but may be useful for deterministic
       test snapshots.
 

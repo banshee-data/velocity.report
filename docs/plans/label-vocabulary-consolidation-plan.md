@@ -5,7 +5,7 @@
 - **Related:** [Classification Maths](../../data/maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
 - **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
-The codebase carried two overlapping enum-like vocabularies for track classification — one from the classifier, one from the labelling UI — with inconsistent string values that broke comparison logic. This plan unified them under a single proto3 `ObjectClass` enum and now tracks the remaining split: separating display-only labels (truck, motorcyclist) from user-selectable labels in the labelling UI.
+The codebase carried two overlapping enum-like vocabularies for track classification: one from the classifier, one from the labelling UI; with inconsistent string values that broke comparison logic. This plan unified them under a single proto3 `ObjectClass` enum and now tracks the remaining split: separating display-only labels (truck, motorcyclist) from user-selectable labels in the labelling UI.
 
 ## Problem (resolved)
 
@@ -125,16 +125,16 @@ label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
 
 ### Phase 3.5: classification display vs selectable enum split (#381)
 
-Keep truck and motorcyclist as **display-only** labels — visible in the track
+Keep truck and motorcyclist as **display-only** labels: visible in the track
 inspector, colour palette, and VRLOG replay when data contains those classes —
 but **not user-selectable** in the labelling UI dropdown/keyboard shortcuts.
 
 This requires splitting the label vocabulary into two tiers:
 
-- `DisplayLabel` — all 9 classes (noise, dynamic, pedestrian, cyclist, bird,
+- `DisplayLabel`: all 9 classes (noise, dynamic, pedestrian, cyclist, bird,
   bus, car, truck, motorcyclist). Used for rendering, colour lookup, and
   inspector display.
-- `SelectableLabel` — 7 classes (excludes truck, motorcyclist). Used for
+- `SelectableLabel`: 7 classes (excludes truck, motorcyclist). Used for
   labelling UI, keyboard shortcuts, and label validation API.
 
 Files requiring changes:
@@ -142,7 +142,7 @@ Files requiring changes:
 | Location                                   | Current                            | Required                                                           |
 | ------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
 | `lidar_labels.go` `AllDetectionLabels`     | 7 entries                          | No change (selectable)                                             |
-| `lidar_labels.go`                          | —                                  | Add `AllDisplayLabels` (9 entries)                                 |
+| `lidar_labels.go`                          | -                                  | Add `AllDisplayLabels` (9 entries)                                 |
 | `lidar.ts` `DetectionLabel`                | 7-value union                      | Split into `DetectionLabel` (7) + `DisplayLabel` (9)               |
 | `lidar.ts` `TRACK_COLORS`                  | 9 entries incl. truck/motorcyclist | No change (already display-capable)                                |
 | `ContentView.swift` `classificationLabels` | 7 entries                          | Keep as selectable; add separate `displayLabels` (9) for inspector |
@@ -171,7 +171,7 @@ Proto enum conversion is internal; public API uses human-readable strings.
 
 ## Risks
 
-- **Proto enum migration** (Phase 3 complete): Complete — wire protocol now uses enum, internal code uses strings with converters at boundaries
+- **Proto enum migration** (Phase 3 complete): Complete; wire protocol now uses enum, internal code uses strings with converters at boundaries
 - **Database migration** (000029 complete): Implemented idempotently with full reversibility note
 - **Frontend cache**: Taxonomy API (Phase 4) should include versioning to bust stale label lists
 

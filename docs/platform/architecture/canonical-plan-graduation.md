@@ -65,13 +65,13 @@ active plan.
 
 ## Lifecycle
 
-Three phases — incubation, consolidation, graduation — described in the
+Three phases: incubation, consolidation, graduation; described in the
 `/plan-graduation` skill (`.claude/skills/plan-graduation/SKILL.md`).
 
 **Two-PR rule:** A plan must be marked Complete on `main` before it can be
 replaced with a symlink. Never complete a plan and create its symlink on the
 same feature branch. This ensures git history on `main` contains the full
-completed plan before the file becomes a symlink — reviewers can always find
+completed plan before the file becomes a symlink: reviewers can always find
 the final plan state in the commit log.
 
 ## Enforcement
@@ -91,7 +91,7 @@ the final plan state in the commit log.
 | 9   | `Canonical` target not under an allowed hub prefix          |
 | 10  | Symlink created before plan was Complete on `main`          |
 
-Gate 4 (two plans sharing the same canonical target) is advisory only — some
+Gate 4 (two plans sharing the same canonical target) is advisory only: some
 hub docs legitimately serve multiple plans.
 
 | Target                     | Mode      | Purpose                |

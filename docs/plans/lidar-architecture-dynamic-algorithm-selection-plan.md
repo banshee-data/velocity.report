@@ -6,21 +6,21 @@
 - **Related:**
 - **Canonical:** [pluggable-algorithm-selection.md](../lidar/architecture/pluggable-algorithm-selection.md)
 
-- [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md) — Original design vision
-- [Backlog](../BACKLOG.md) — milestone placement
-- [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) — metrics-first pipeline phases
+- [`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`](../plans/lidar-velocity-coherent-foreground-extraction-plan.md): Original design vision
+- [Backlog](../BACKLOG.md): milestone placement
+- [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md): metrics-first pipeline phases
 
 ---
 
 ## 1. Executive summary
 
-This document specifies the design for **pluggable foreground extraction algorithms** in the LiDAR tracking pipeline. The work enables runtime switching between background subtraction (existing), velocity-coherent extraction (new), and hybrid approaches — supporting A/B evaluation and gradual algorithm migration.
+This document specifies the design for **pluggable foreground extraction algorithms** in the LiDAR tracking pipeline. The work enables runtime switching between background subtraction (existing), velocity-coherent extraction (new), and hybrid approaches: supporting A/B evaluation and gradual algorithm migration.
 
 Current runtime note (2026-02-21): the production pipeline on `main` still uses `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; this document should be treated as implementation guidance, not implemented-state documentation.
 
 ### Motivation
 
-The current background-subtraction algorithm (`ProcessFramePolarWithMask`) produces "foreground trails" — persistent false-positive foreground points behind vehicles after they pass. Root cause: the EMA-based background model takes time to reconverge after freeze expiry. A velocity-coherent approach eliminates trails by detecting motion rather than background deviation, but needs comparison infrastructure before replacing the proven algorithm.
+The current background-subtraction algorithm (`ProcessFramePolarWithMask`) produces "foreground trails": persistent false-positive foreground points behind vehicles after they pass. Root cause: the EMA-based background model takes time to reconverge after freeze expiry. A velocity-coherent approach eliminates trails by detecting motion rather than background deviation, but needs comparison infrastructure before replacing the proven algorithm.
 
 ### What was built (branch summary)
 
@@ -64,7 +64,7 @@ The following features are **NOT** on `main` and need to be re-implemented:
 6. **`TrackingPipeline` wrapper** with dynamic algorithm switching (additions to `tracking_pipeline.go`)
 7. **Algorithm selection API** (`/api/lidar/algorithm` endpoint in `webserver.go`)
 8. **Algorithm comparison CLI** (`cmd/tools/algo-compare/main.go`)
-9. **Migration 013** — `lidar_algorithm_runs` and `lidar_algorithm_frame_results` tables
+9. **Migration 013**: `lidar_algorithm_runs` and `lidar_algorithm_frame_results` tables
 10. **Tests** (`extractor_test.go`, `tracking_pipeline_logic_test.go`, `webserver_algo_test.go`)
 
 ---
@@ -91,7 +91,7 @@ type ForegroundExtractor interface {
 
 **Design decisions:**
 
-- Returns `[]bool` foreground mask (same length as input points), not filtered point slices — preserves index correspondence for downstream processing
+- Returns `[]bool` foreground mask (same length as input points), not filtered point slices: preserves index correspondence for downstream processing
 - `ExtractorMetrics` carries algorithm-agnostic counts plus `AlgorithmSpecific` map for algorithm-specific data
 - `Reset()` enables PCAP replay restart without recreating extractors
 - `SetParams()` enables runtime parameter tuning via API
@@ -100,7 +100,7 @@ type ForegroundExtractor interface {
 
 #### BackgroundSubtractorExtractor (`extractor_background.go`, ~200 lines)
 
-Wraps existing `BackgroundManager.ProcessFramePolarWithMask()` to conform to the `ForegroundExtractor` interface. Zero-copy adapter — delegates entirely to the existing code path.
+Wraps existing `BackgroundManager.ProcessFramePolarWithMask()` to conform to the `ForegroundExtractor` interface. Zero-copy adapter: delegates entirely to the existing code path.
 
 ```go
 type BackgroundSubtractorExtractor struct {
@@ -132,8 +132,8 @@ type VelocityCoherentConfig struct {
 
 **Dependencies:**
 
-- `frame_history.go` — circular buffer of `VelocityFrame` with spatial index
-- `velocity_estimation.go` — point correspondence and velocity estimation using `SpatialIndex`
+- `frame_history.go`: circular buffer of `VelocityFrame` with spatial index
+- `velocity_estimation.go`: point correspondence and velocity estimation using `SpatialIndex`
 
 #### HybridExtractor (`extractor_hybrid.go`, ~250 lines)
 
@@ -149,9 +149,9 @@ type HybridExtractor struct {
 
 **Merge modes:**
 
-- `union` — OR merge (maximum detection coverage, may increase false positives)
-- `intersection` — AND merge (maximum precision, may miss sparse objects)
-- `primary` — Use first extractor, ignore others (for metrics collection without affecting output)
+- `union`: OR merge (maximum detection coverage, may increase false positives)
+- `intersection`: AND merge (maximum precision, may miss sparse objects)
+- `primary`: Use first extractor, ignore others (for metrics collection without affecting output)
 
 ### 2.3 Mask merge utilities (`extractor.go`)
 
@@ -389,18 +389,18 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 **New files:**
 
-- `internal/lidar/extractor.go` — `ForegroundExtractor` interface, `MergeMode` constants, mask utilities
-- `internal/lidar/extractor_background.go` — `BackgroundSubtractorExtractor` adapter
-- `internal/lidar/extractor_test.go` — Unit tests for mask merge, agreement, precision/recall
+- `internal/lidar/extractor.go`: `ForegroundExtractor` interface, `MergeMode` constants, mask utilities
+- `internal/lidar/extractor_background.go`: `BackgroundSubtractorExtractor` adapter
+- `internal/lidar/extractor_test.go`: Unit tests for mask merge, agreement, precision/recall
 
-**No existing file changes required.** Pure additive — can be merged independently.
+**No existing file changes required.** Pure additive: can be merged independently.
 
 ### Phase 2: velocity estimation + frame history (low risk)
 
 **New files:**
 
-- `internal/lidar/frame_history.go` — `FrameHistory`, `VelocityFrame`, `PointWithVelocity`
-- `internal/lidar/velocity_estimation.go` — `EstimatePointVelocities`, spatial correspondence
+- `internal/lidar/frame_history.go`: `FrameHistory`, `VelocityFrame`, `PointWithVelocity`
+- `internal/lidar/velocity_estimation.go`: `EstimatePointVelocities`, spatial correspondence
 
 **No existing file changes required.** Uses existing `SpatialIndex` and `PointPolar` types.
 
@@ -408,7 +408,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 **New files:**
 
-- `internal/lidar/extractor_velocity_coherent.go` — `VelocityCoherentExtractor`
+- `internal/lidar/extractor_velocity_coherent.go`: `VelocityCoherentExtractor`
 
 **Dependencies:** Phase 1 + Phase 2. Uses existing DBSCAN for clustering.
 
@@ -417,22 +417,22 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 - Option A: Change `DBSCAN()` signature on `main` first (separate PR, touches tests)
 - Option B: Ignore the labels return in the velocity-coherent extractor (use only clusters)
 
-**Recommendation:** Option A — the labels array is independently useful for noise analysis.
+**Recommendation:** Option A; the labels array is independently useful for noise analysis.
 
 ### Phase 4: hybrid extractor + evaluation harness (low risk)
 
 **New files:**
 
-- `internal/lidar/extractor_hybrid.go` — `HybridExtractor`
-- `internal/lidar/evaluation_harness.go` — `EvaluationHarness`
+- `internal/lidar/extractor_hybrid.go`: `HybridExtractor`
+- `internal/lidar/evaluation_harness.go`: `EvaluationHarness`
 
 **Dependencies:** Phase 1.
 
-### Phase 5: pipeline integration (high risk — most conflicts expected)
+### Phase 5: pipeline integration (high risk; most conflicts expected)
 
 **Modified files:**
 
-- `internal/lidar/tracking_pipeline.go` — Add `TrackingPipeline` struct, modify `NewFrameCallback()`
+- `internal/lidar/tracking_pipeline.go`: Add `TrackingPipeline` struct, modify `NewFrameCallback()`
 
 **Key conflict areas:**
 
@@ -458,7 +458,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 **Modified files:**
 
-- `internal/lidar/monitor/webserver.go` — Add `trackingPipeline` field, `handleAlgorithmConfig` handler, register route
+- `internal/lidar/monitor/webserver.go`: Add `trackingPipeline` field, `handleAlgorithmConfig` handler, register route
 
 **Key conflict areas:**
 
@@ -472,12 +472,12 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 **New files:**
 
-- `internal/db/migrations/000013_create_algorithm_comparison.{up,down}.sql` — Check migration numbering on `main`
-- `cmd/tools/algo-compare/main.go` — Standalone CLI tool
+- `internal/db/migrations/000013_create_algorithm_comparison.{up,down}.sql`: Check migration numbering on `main`
+- `cmd/tools/algo-compare/main.go`: Standalone CLI tool
 
 **Modified files:**
 
-- `internal/db/schema.sql` — Add table definitions (sync with migration)
+- `internal/db/schema.sql`: Add table definitions (sync with migration)
 
 ---
 
@@ -522,9 +522,9 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 | File                                             | Lines | Description                                                          |
 | ------------------------------------------------ | ----- | -------------------------------------------------------------------- |
 | `internal/lidar/extractor.go`                    | 200   | `ForegroundExtractor` interface, `MergeMode`, mask utilities         |
-| `internal/lidar/extractor_background.go`         | 204   | `BackgroundSubtractorExtractor` — wraps `BackgroundManager`          |
-| `internal/lidar/extractor_hybrid.go`             | 247   | `HybridExtractor` — multi-algorithm merge                            |
-| `internal/lidar/extractor_velocity_coherent.go`  | 243   | `VelocityCoherentExtractor` — motion-based extraction                |
+| `internal/lidar/extractor_background.go`         | 204   | `BackgroundSubtractorExtractor`: wraps `BackgroundManager`           |
+| `internal/lidar/extractor_hybrid.go`             | 247   | `HybridExtractor`: multi-algorithm merge                             |
+| `internal/lidar/extractor_velocity_coherent.go`  | 243   | `VelocityCoherentExtractor`: motion-based extraction                 |
 | `internal/lidar/evaluation_harness.go`           | 314   | A/B comparison framework                                             |
 | `internal/lidar/frame_history.go`                | 191   | `FrameHistory` circular buffer, `PointWithVelocity`, `VelocityFrame` |
 | `internal/lidar/velocity_estimation.go`          | 418   | Point correspondence and velocity estimation                         |

@@ -13,7 +13,7 @@ the convention to every remaining entity.
 
 ## Convention
 
-- Format: `{prefix}_{uuidv4}` — e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
+- Format: `{prefix}_{uuidv4}`; e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
 - Prefixes: lowercase 4-letter abbreviation without underscore (e.g. `trak`), combined with the UUID as `{prefix}_{uuidv4}`.
 - The three run types each get a distinct prefix so you can tell at a glance
   whether a run ID came from an analysis run, a scene replay, or a
@@ -93,23 +93,23 @@ Replace each `uuid.New().String()` / `uuid.NewString()` call with
 
 Call sites (11 total):
 
-1. `internal/lidar/l5tracks/tracking.go` — already `trk_`, switch to `id.New("trak")`
-2. `internal/lidar/storage/sqlite/analysis_run_manager.go` — `id.New("runa")`
-3. `internal/lidar/monitor/scene_api.go` — replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
-4. `internal/lidar/monitor/run_track_api.go` — replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
-5. `internal/lidar/storage/sqlite/scene_store.go` — `id.New("scne")`
-6. `internal/lidar/storage/sqlite/evaluation_store.go` — `id.New("eval")`
-7. `internal/lidar/storage/sqlite/missed_region_store.go` — `id.New("regn")`
-8. `internal/api/lidar_labels.go` — `id.New("labl")`
-9. `internal/lidar/sweep/runner.go` (2 sites) — `id.New("swep")`
-10. `internal/lidar/sweep/hint.go` — `id.New("swep")`
-11. `internal/lidar/sweep/auto.go` — `id.New("swep")`
+1. `internal/lidar/l5tracks/tracking.go`: already `trk_`, switch to `id.New("trak")`
+2. `internal/lidar/storage/sqlite/analysis_run_manager.go`: `id.New("runa")`
+3. `internal/lidar/monitor/scene_api.go`: replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
+4. `internal/lidar/monitor/run_track_api.go`: replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
+5. `internal/lidar/storage/sqlite/scene_store.go`: `id.New("scne")`
+6. `internal/lidar/storage/sqlite/evaluation_store.go`: `id.New("eval")`
+7. `internal/lidar/storage/sqlite/missed_region_store.go`: `id.New("regn")`
+8. `internal/api/lidar_labels.go`: `id.New("labl")`
+9. `internal/lidar/sweep/runner.go` (2 sites): `id.New("swep")`
+10. `internal/lidar/sweep/hint.go`: `id.New("swep")`
+11. `internal/lidar/sweep/auto.go`: `id.New("swep")`
 
 ### Phase 3: track prefix migration (`trk_` → `trak_`)
 
 The existing `trk_` prefix is 3 characters. To align with the 4-character
 convention, update `l5tracks/tracking.go` from `trk_` to `trak_`. The
-golden replay test validates `track.TrackID[:4] == "trk_"` — update this
+golden replay test validates `track.TrackID[:4] == "trk_"`: update this
 assertion to check for `trak_` (5 chars including underscore).
 
 Accept mixed formats: existing `trk_`-prefixed IDs in SQLite coexist with
@@ -122,7 +122,7 @@ and unprefixed IDs coexist without schema changes. Old rows keep their
 existing format (bare UUIDs, `trk_*`, `replay-*`, `reprocess-*`); new rows
 get the `xxxx_` prefix.
 
-No `UPDATE` migration needed — IDs are opaque primary keys with no format
+No `UPDATE` migration needed: IDs are opaque primary keys with no format
 constraint.
 
 ### Phase 5: validation (optional)

@@ -43,7 +43,7 @@ type LiDARFrame struct {
 
 ## Risks
 
-- **Memory growth** — two views per frame. Acceptable only if transient
+- **Memory growth**: two views per frame. Acceptable only if transient
   hot-path allocations are removed.
-- **Partial migration** — no consumer should silently rebuild its own polar
+- **Partial migration**: no consumer should silently rebuild its own polar
   slice. The old rebuild path must be deleted.

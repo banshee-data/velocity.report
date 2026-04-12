@@ -25,10 +25,10 @@ Dual-palette semantic colour tokens that switch between dark and light variants 
 
 ## Files affected
 
-- `MetalRenderer.swift` — palette lookup for clear colour, grid, overlays
-- `AppState.swift` — appearance change observer, palette storage
-- `ContentView.swift` — SwiftUI colour bindings for inspector and controls
+- `MetalRenderer.swift`: palette lookup for clear colour, grid, overlays
+- `AppState.swift`: appearance change observer, palette storage
+- `ContentView.swift`: SwiftUI colour bindings for inspector and controls
 
 ## Accessibility requirement
 
-V1 palette must be **colour-blind-safe** (tested against deuteranopia and protanopia simulations). No semantic information may be conveyed by hue alone — shape, pattern, or label must accompany colour.
+V1 palette must be **colour-blind-safe** (tested against deuteranopia and protanopia simulations). No semantic information may be conveyed by hue alone: shape, pattern, or label must accompany colour.

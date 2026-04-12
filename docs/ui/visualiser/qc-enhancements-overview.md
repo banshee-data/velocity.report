@@ -36,13 +36,13 @@ Denormalised columns are added to `lidar_run_tracks`:
 
 Features must be implemented in this sequence (each depends on outputs of its predecessors):
 
-1. **Physics Checks** — violation records are inputs to scoring and review queue
-2. **Track Event Timeline** — events feed from violations, scoring, repairs
-3. **Track Quality Scoring** — consumes violations and track observations
-4. **Priority Review Queue** — consumes scores, violations, repair state
-5. **Split/Merge Repair** — consumes queue items, emits events and audit entries
-6. **Trails and Uncertainty** — visual-only, no persistent state, can proceed in parallel
-7. **QC Dashboard and Audit** — aggregates all prior tables for reporting
+1. **Physics Checks**: violation records are inputs to scoring and review queue
+2. **Track Event Timeline**: events feed from violations, scoring, repairs
+3. **Track Quality Scoring**: consumes violations and track observations
+4. **Priority Review Queue**: consumes scores, violations, repair state
+5. **Split/Merge Repair**: consumes queue items, emits events and audit entries
+6. **Trails and Uncertainty**: visual-only, no persistent state, can proceed in parallel
+7. **QC Dashboard and Audit**: aggregates all prior tables for reporting
 
 ## Cross-Feature milestones
 

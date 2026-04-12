@@ -9,9 +9,9 @@
 
 The project has three distinct web surfaces for LiDAR functionality:
 
-1. **Svelte web app** (`/app/*`, port 8080) — radar dashboard, reports, sites, settings, plus LiDAR tracks/scenes/runs
-2. **Go-embedded HTML dashboards** (port 8081) — LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
-3. **macOS Metal visualiser** (gRPC on port 50051) — live 3D point cloud rendering, track labelling, replay
+1. **Svelte web app** (`/app/*`, port 8080): radar dashboard, reports, sites, settings, plus LiDAR tracks/scenes/runs
+2. **Go-embedded HTML dashboards** (port 8081): LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
+3. **macOS Metal visualiser** (gRPC on port 50051): live 3D point cloud rendering, track labelling, replay
 
 The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. This makes it difficult to ship a radar-only binary without non-functioning LiDAR navigation items, and scatters LiDAR tooling across three surfaces.
 
@@ -67,15 +67,15 @@ Ship two independent SvelteKit applications, each embedded in the binary. The ra
 
 **Architecture:**
 
-- `web/radar/` — radar-only SvelteKit app (dashboard, sites, reports, settings)
-- `web/lidar/` — LiDAR-only SvelteKit app (tracks, scenes, runs, sweep, regions, status)
+- `web/radar/`: radar-only SvelteKit app (dashboard, sites, reports, settings)
+- `web/lidar/`: LiDAR-only SvelteKit app (tracks, scenes, runs, sweep, regions, status)
 - Two `embed.FS` directives in Go; two static builds
 
 **Advantages:**
 
 - Clean separation: radar binary embeds only `web/radar/build/`
 - LiDAR app can evolve independently with specialised dependencies
-- No conditional rendering needed — each app is self-contained
+- No conditional rendering needed: each app is self-contained
 - Could theoretically use different charting libraries per app
 
 **Disadvantages:**
@@ -93,7 +93,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 
 **Architecture:**
 
-- `web/` — single SvelteKit app (unchanged structure)
+- `web/`: single SvelteKit app (unchanged structure)
 - LiDAR routes at `/app/lidar/*` (existing) plus new sweep/regions/status routes
 - Navigation sidebar queries `/api/config` or a new `/api/capabilities` endpoint to determine sensor availability
 - LiDAR nav items hidden when LiDAR is disabled
@@ -103,7 +103,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 - **Minimal structural change**: no project splitting; existing routes, components, and utilities stay put
 - **Single build pipeline**: one `make build-web`, one embed, one bundle
 - **Unified UX**: one port, one navigation tree, seamless sensor switching
-- **Shared utilities naturally**: stores, API client, date/unit helpers, svelte-ux theme — all shared without duplication
+- **Shared utilities naturally**: stores, API client, date/unit helpers, svelte-ux theme; all shared without duplication
 - **Smaller binary**: single SvelteKit bundle (currently ~220KB gzipped for `everything.js`)
 - **Progressive migration**: Go-embedded dashboards can be migrated one at a time into new Svelte routes
 
@@ -121,7 +121,7 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 
 **Architecture:**
 
-- `web/` — single source tree
+- `web/`: single source tree
 - Build flag: `INCLUDE_LIDAR=true make build-web` controls which routes are included
 - Vite plugin or SvelteKit hooks exclude `/lidar/*` routes and components when flag is off
 - Two embed targets: `web/build-radar/` and `web/build-full/`
@@ -167,9 +167,9 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 | Build simplicity       | 2      | 1      | 5      | 3      |
 | **Weighted Total**     |        | **32** | **95** | **67** |
 
-## Recommendation: option b — one Svelte app with conditional LiDAR sections ✅
+## Recommendation: option b; one Svelte app with conditional LiDAR sections ✅
 
-Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside — shipping ~50KB of unused LiDAR JavaScript in radar-only deploys — is negligible compared to the maintenance cost of two separate applications or custom build tooling.
+Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside: shipping ~50KB of unused LiDAR JavaScript in radar-only deploys; is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 
 The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialise hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
 
@@ -195,17 +195,17 @@ Update the root `+layout.svelte` to fetch capabilities on load and conditionally
 
 **Files changed:**
 
-- `internal/api/server.go` — new `CapabilitiesProvider` interface, route registration, setter
-- `internal/api/server_admin.go` — `showCapabilities()` handler
-- `internal/api/capabilities_test.go` — handler tests (4 cases)
-- `cmd/radar/capabilities.go` — `capabilitiesProvider` with mutex-protected state transitions
-- `cmd/radar/capabilities_test.go` — provider tests (6 cases)
-- `cmd/radar/radar.go` — wire capabilities provider into API server startup
-- `web/src/lib/api.ts` — `Capabilities`, `LidarCapability` types and `getCapabilities()` function
-- `web/src/lib/api.test.ts` — 3 test cases for `getCapabilities()`
-- `web/src/lib/stores/capabilities.ts` — polling store with derived `lidarEnabled`/`lidarState`
-- `web/src/lib/stores/capabilities.test.ts` — 8 test cases for store
-- `web/src/routes/+layout.svelte` — conditional LiDAR nav rendering, polling lifecycle
+- `internal/api/server.go`: new `CapabilitiesProvider` interface, route registration, setter
+- `internal/api/server_admin.go`: `showCapabilities()` handler
+- `internal/api/capabilities_test.go`: handler tests (4 cases)
+- `cmd/radar/capabilities.go`: `capabilitiesProvider` with mutex-protected state transitions
+- `cmd/radar/capabilities_test.go`: provider tests (6 cases)
+- `cmd/radar/radar.go`: wire capabilities provider into API server startup
+- `web/src/lib/api.ts`: `Capabilities`, `LidarCapability` types and `getCapabilities()` function
+- `web/src/lib/api.test.ts`: 3 test cases for `getCapabilities()`
+- `web/src/lib/stores/capabilities.ts`: polling store with derived `lidarEnabled`/`lidarState`
+- `web/src/lib/stores/capabilities.test.ts`: 8 test cases for store
+- `web/src/routes/+layout.svelte`: conditional LiDAR nav rendering, polling lifecycle
 
 ### Phase 1: migrate status page
 
@@ -222,7 +222,7 @@ Rewrite as `/app/lidar/status` Svelte route using svelte-ux form components (Tex
 - Parameter JSON editor
 - Diagnostic link directory
 
-**Charting impact:** None — status page has no charts.
+**Charting impact:** None; status page has no charts.
 
 **Files changed:**
 
@@ -236,7 +236,7 @@ Rewrite as `/app/lidar/status` Svelte route using svelte-ux form components (Tex
 
 The regions dashboard (`regions_dashboard.html`, 54 lines + `regions_dashboard.js`, 298 lines) renders a polar grid using Canvas 2D. This is a self-contained visualisation with no framework dependencies.
 
-Rewrite as `/app/lidar/regions` Svelte route. The Canvas rendering logic can be largely preserved inside a Svelte component wrapping an HTML `<canvas>` element — no charting library rewrite needed since it uses raw Canvas 2D, not ECharts.
+Rewrite as `/app/lidar/regions` Svelte route. The Canvas rendering logic can be largely preserved inside a Svelte component wrapping an HTML `<canvas>` element: no charting library rewrite needed since it uses raw Canvas 2D, not ECharts.
 
 **What moves:**
 
@@ -244,7 +244,7 @@ Rewrite as `/app/lidar/regions` Svelte route. The Canvas rendering logic can be 
 - Interactive region hover/selection
 - Legend and tooltip rendering
 
-**Charting impact:** None — uses Canvas 2D directly, not ECharts.
+**Charting impact:** None; uses Canvas 2D directly, not ECharts.
 
 **Files changed:**
 
@@ -282,7 +282,7 @@ Rewrite as `/app/lidar/sweep` Svelte route with sub-components for each chart an
 - Scene/PCAP selection
 - Ground truth evaluation UI
 
-**Charting impact: High** — 8 chart types rewritten from ECharts to LayerChart/d3-scale. The heatmap is the hardest; LayerChart doesn't have a native heatmap so it would need a custom Canvas or SVG implementation.
+**Charting impact: High**; 8 chart types rewritten from ECharts to LayerChart/d3-scale. The heatmap is the hardest; LayerChart doesn't have a native heatmap so it would need a custom Canvas or SVG implementation.
 
 **Files changed:**
 
@@ -315,15 +315,15 @@ Once all HTML dashboards are migrated to Svelte, consolidate the LiDAR API endpo
 3. Removing the `--lidar-listen` flag and 8081 HTTP server
 4. Updating documentation and deployment configs
 
-**Note:** The gRPC server on port 50051 is unaffected — it serves the macOS visualiser and is independent of the HTTP consolidation.
+**Note:** The gRPC server on port 50051 is unaffected; it serves the macOS visualiser and is independent of the HTTP consolidation.
 
 **Files changed:**
 
-- `internal/api/server.go` — absorb LiDAR API routes
-- `internal/lidar/monitor/webserver.go` — remove HTML serving, retain API handlers
-- `cmd/radar/radar.go` — remove 8081 HTTP server setup
-- `web/vite.config.ts` — remove split proxy
-- `docs/` — update deployment and architecture docs
+- `internal/api/server.go`: absorb LiDAR API routes
+- `internal/lidar/monitor/webserver.go`: remove HTML serving, retain API handlers
+- `cmd/radar/radar.go`: remove 8081 HTTP server setup
+- `web/vite.config.ts`: remove split proxy
+- `docs/`: update deployment and architecture docs
 
 ### Phase 6: clean up Go embeds
 
@@ -362,23 +362,23 @@ Expected timeline: 2–4 days.
 Checklist:
 
 - [x] Define the capabilities schema and state machine (disabled, starting, ready, error) and document the contract in `docs/`.
-  - Schema: `Capabilities { radar: bool, lidar: { enabled, state }, lidar_sweep: bool }` — see `internal/api/server.go`.
-  - States: `disabled → starting → ready → error` — see `cmd/radar/capabilities.go`.
+  - Schema: `Capabilities { radar: bool, lidar: { enabled, state }, lidar_sweep: bool }`; see `internal/api/server.go`.
+  - States: `disabled → starting → ready → error`; see `cmd/radar/capabilities.go`.
 - [x] Implement a backend LiDAR lifecycle manager that can start/stop LiDAR pipelines without interrupting radar logging/stream.
   - `capabilitiesProvider` in `cmd/radar/capabilities.go` with mutex-protected state transitions.
-  - Wired in `cmd/radar/radar.go` — radar server construction is decoupled from LiDAR state.
+  - Wired in `cmd/radar/radar.go`: radar server construction is decoupled from LiDAR state.
 - [x] Implement `/api/capabilities` (or extend `/api/config`) with unit tests for default values and hardware-off scenarios.
-  - Handler: `internal/api/server_admin.go` — `showCapabilities()`.
-  - Tests: `internal/api/capabilities_test.go` — 4 test cases (default, ready, error, method-not-allowed).
+  - Handler: `internal/api/server_admin.go`; `showCapabilities()`.
+  - Tests: `internal/api/capabilities_test.go`; 4 test cases (default, ready, error, method-not-allowed).
 - [ ] Ensure all `/api/lidar/*` endpoints enforce capability gating (return "LiDAR disabled" without initialising hardware).
 - [x] Add `getCapabilities()` to `web/src/lib/api.ts`.
-  - Function: `getCapabilities()` — see `web/src/lib/api.ts`.
+  - Function: `getCapabilities()`; see `web/src/lib/api.ts`.
   - Tests: 3 test cases in `web/src/lib/api.test.ts` (ready, disabled, error).
 - [x] Update `web/src/routes/+layout.svelte` to gate LiDAR nav items based on capabilities.
   - LiDAR nav items wrapped in `{#if $capabilities.lidar.enabled}`.
 - [ ] Add a shared "LiDAR not enabled" empty-state component for direct route access.
 - [x] Add UI capability refresh (poll or SSE) and handle transitional states (starting, error).
-  - Store: `web/src/lib/stores/capabilities.ts` — polls every 30 s with `startCapabilitiesPolling()`.
+  - Store: `web/src/lib/stores/capabilities.ts`; polls every 30 s with `startCapabilitiesPolling()`.
   - Tests: 8 test cases in `web/src/lib/stores/capabilities.test.ts`.
 - [ ] Add route-level lazy loading for LiDAR routes to minimise radar-only initial load.
 - [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
@@ -483,8 +483,8 @@ Checklist:
 
 ## Non-Goals
 
-- **macOS visualiser changes** — the Metal app is retained as-is for 3D point cloud rendering
-- **PDF report generation** — out of scope; remains a Python/LaTeX tool
-- **LiDAR build tag** — runtime `--enable-lidar` flag is sufficient; no need for compile-time exclusion
-- **New charting library adoption** — use existing LayerChart/d3-scale stack; ECharts is retired, not replaced with another heavyweight library
-- **Auth/access control** — out of scope for now; deployments are private LAN only
+- **macOS visualiser changes**: the Metal app is retained as-is for 3D point cloud rendering
+- **PDF report generation**: out of scope; remains a Python/LaTeX tool
+- **LiDAR build tag**: runtime `--enable-lidar` flag is sufficient; no need for compile-time exclusion
+- **New charting library adoption**: use existing LayerChart/d3-scale stack; ECharts is retired, not replaced with another heavyweight library
+- **Auth/access control**: out of scope for now; deployments are private LAN only

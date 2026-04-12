@@ -2,7 +2,7 @@
 
 - **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)
 
-Architectural plan for running parameter sweeps across multiple remote worker machines, coordinated by a single driver unit with a job-submission API and shared filesystem access. Workers run as a mode of the same unified binary — not a separate executable.
+Architectural plan for running parameter sweeps across multiple remote worker machines, coordinated by a single driver unit with a job-submission API and shared filesystem access. Workers run as a mode of the same unified binary: not a separate executable.
 
 **Status:** Proposed (March 2026)
 **Layers:** Cross-cutting (L3 Grid, L5 Tracks, L8 Analytics, Platform)
@@ -221,7 +221,7 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
 ### Phase 1: job model, worker server CRUD, and persistence
 
-**Goal:** Define the data model for jobs and worker servers, create database migrations, and implement the stores — without changing any sweep execution behaviour.
+**Goal:** Define the data model for jobs and worker servers, create database migrations, and implement the stores; without changing any sweep execution behaviour.
 
 **Scope:**
 
@@ -237,8 +237,8 @@ See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
 **Key design decisions:**
 
-- Jobs are SQLite rows on the driver — workers never write to the driver's database directly
-- Worker servers are operator-configured (not self-registered) — added via Settings UI or API, persisted in SQLite
+- Jobs are SQLite rows on the driver: workers never write to the driver's database directly
+- Worker servers are operator-configured (not self-registered): added via Settings UI or API, persisted in SQLite
 - Each job contains a self-contained `combos_json` so workers need no access to the driver's parameter expansion logic
 
 **Files changed:**
@@ -253,7 +253,7 @@ internal/lidar/storage/sqlite/worker_server_store.go            (new — SQLite 
 internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
 ```
 
-**Effort:** S · **Risk:** Low — additive only, no existing behaviour changes
+**Effort:** S · **Risk:** Low; additive only, no existing behaviour changes
 
 ---
 
@@ -264,8 +264,8 @@ internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
 **Scope:**
 
 - Create `internal/lidar/sweep/coordinator.go` with `Coordinator` type
-  - `SubmitDistributedSweep(req SweepRequest, workerID string)` — expands params, partitions combos into N chunks, creates jobs, dispatches to worker(s)
-  - `MergeResults(sweepID string)` — retrieves completed job results from workers, confirms retrieval, merges into a unified `SweepState`
+  - `SubmitDistributedSweep(req SweepRequest, workerID string)`: expands params, partitions combos into N chunks, creates jobs, dispatches to worker(s)
+  - `MergeResults(sweepID string)`: retrieves completed job results from workers, confirms retrieval, merges into a unified `SweepState`
   - Partitioning strategy: round-robin combo assignment (combo `i` → worker `i % N`)
   - Pre-flight: calls `POST /api/worker/jobs/check` on target worker(s) before dispatching
 - Worker server CRUD endpoints under `/api/lidar/sweep/workers` (see [API Surface](#api-surface))
@@ -275,15 +275,15 @@ internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
   - New "Sweep Workers" section under `/settings`
   - Table listing configured workers: name, host, port, enabled, status (reachable/unreachable)
   - Add / Edit / Delete workers (modal form, follows existing serial-config pattern)
-  - "Test Connection" button per worker — calls `/api/lidar/sweep/workers/{id}/test`
+  - "Test Connection" button per worker: calls `/api/lidar/sweep/workers/{id}/test`
 - Integration tests: submit a sweep, verify jobs are created with correct combo partitions
 
 **Key design decisions:**
 
-- The coordinator does not execute combos — it only creates jobs, dispatches them, and merges results
+- The coordinator does not execute combos: it only creates jobs, dispatches them, and merges results
 - Combo partitioning happens after `cartesianProduct()` expansion, reusing existing `sweep_params.go` logic
 - The coordinator reuses `SweepPersister` for the parent sweep record; jobs get their own store
-- Worker servers are database-backed (not in-memory) — survive restarts, editable via UI
+- Worker servers are database-backed (not in-memory): survive restarts, editable via UI
 
 **Files changed:**
 
@@ -298,7 +298,7 @@ web/src/lib/types/lidar.ts                                 (WorkerServer type)
 web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
 ```
 
-**Effort:** M · **Risk:** Low — new endpoints and UI section, no changes to existing sweep path
+**Effort:** M · **Risk:** Low; new endpoints and UI section, no changes to existing sweep path
 
 ---
 
@@ -314,24 +314,24 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
   - Start minimal HTTP server on `--worker-listen` (default `:8082`)
   - Use driver at `--driver-url` for job polling and result reporting (worker identity is configured via Settings)
 - Create `internal/lidar/worker/` package:
-  - `server.go` — minimal HTTP server implementing the [worker endpoint table](#worker-http-surface-port-8082)
-  - `executor.go` — poll loop: accept job from driver, execute combos via `sweep.Runner` + `DirectBackend`, cache results
-  - `cache.go` — local result cache (`worker_result_cache` table in worker's local SQLite)
-  - `check.go` — pre-flight validation: resolve PCAP, init pipeline, process 1 frame, tear down
+  - `server.go`: minimal HTTP server implementing the [worker endpoint table](#worker-http-surface-port-8082)
+  - `executor.go`: poll loop: accept job from driver, execute combos via `sweep.Runner` + `DirectBackend`, cache results
+  - `cache.go`: local result cache (`worker_result_cache` table in worker's local SQLite)
+  - `check.go`: pre-flight validation: resolve PCAP, init pipeline, process 1 frame, tear down
 - Worker flags:
-  - `--worker` — enable worker mode
-  - `--driver-url` — driver's HTTP address (e.g. `http://192.168.1.10:8080`)
-  - `--pcap-root` — shared filesystem mount (e.g. `/mnt/pcap`)
-  - `--worker-listen` — HTTP listen address (default `:8082`)
-  - `--worker-id` — optional; auto-generated from hostname if omitted
+  - `--worker`: enable worker mode
+  - `--driver-url`: driver's HTTP address (e.g. `http://192.168.1.10:8080`)
+  - `--pcap-root`: shared filesystem mount (e.g. `/mnt/pcap`)
+  - `--worker-listen`: HTTP listen address (default `:8082`)
+  - `--worker-id`: optional; auto-generated from hostname if omitted
 - Heartbeat goroutine: POSTs to driver `/api/lidar/sweep/jobs/{id}/heartbeat` every 15 s while executing
 - SIGTERM handler: complete current combo, cache partial results, shut down cleanly
 
 **Key design decisions:**
 
-- No separate binary — `--worker` is a flag on the existing `cmd/radar/radar.go` entry point, consistent with `--enable-lidar`, `--disable-radar`, `--debug`
-- Worker is not stateless — it caches results locally until the driver confirms retrieval. This survives transient network issues and driver restarts.
-- Workers run their own LiDAR pipeline (L1–L5) for PCAP replay — they need sensor processing, not just an API client
+- No separate binary: `--worker` is a flag on the existing `cmd/radar/radar.go` entry point, consistent with `--enable-lidar`, `--disable-radar`, `--debug`
+- Worker is not stateless: it caches results locally until the driver confirms retrieval. This survives transient network issues and driver restarts.
+- Workers run their own LiDAR pipeline (L1–L5) for PCAP replay: they need sensor processing, not just an API client
 - `--pcap-root` must match the shared filesystem mount; the driver sends validated relative PCAP paths from this root (e.g. `site-01/capture-2026-03-10.pcap`), workers reject absolute/`..` paths and resolve full paths under `--pcap-root`
 
 **Shared filesystem layout:**
@@ -358,7 +358,7 @@ internal/lidar/worker/executor_test.go      (new — unit tests)
 internal/lidar/worker/cache_test.go         (new — unit tests)
 ```
 
-**Effort:** L · **Risk:** Medium — modifies main binary, depends on LiDAR pipeline initialisation in headless mode
+**Effort:** L · **Risk:** Medium; modifies main binary, depends on LiDAR pipeline initialisation in headless mode
 
 ---
 
@@ -371,7 +371,7 @@ internal/lidar/worker/cache_test.go         (new — unit tests)
 - Sweep UI changes (Svelte):
   - **Target selector** in sweep configuration panel: "Run on: Server (local) / Worker-01 / Worker-02 / ..."
     - Dropdown populated from `/api/lidar/sweep/workers` (enabled workers only)
-    - Default: "Server (local)" — runs sweep locally as today
+    - Default: "Server (local)"; runs sweep locally as today
     - Selecting a worker dispatches via the coordinator
   - Worker status badges: show each worker's current state (idle / running / error) next to its name
   - Aggregated progress bar: completed combos across all workers / total combos
@@ -401,7 +401,7 @@ internal/lidar/monitor/distributed_sweep_handlers_test.go  (new)
 docs/lidar/operations/distributed-sweep-setup.md           (new — operational guide)
 ```
 
-**Effort:** L · **Risk:** Medium — cross-component integration, UI changes
+**Effort:** L · **Risk:** Medium; cross-component integration, UI changes
 
 ---
 
@@ -441,7 +441,7 @@ internal/lidar/worker/cache.go                 (cleanup policies)
 internal/lidar/monitor/distributed_sweep_handlers.go  (health aggregation)
 ```
 
-**Effort:** M · **Risk:** Low — defensive additions, no happy-path changes
+**Effort:** M · **Risk:** Low; defensive additions, no happy-path changes
 
 ---
 
@@ -479,10 +479,10 @@ Existing single-machine deployments are unaffected:
 
 ## Open questions
 
-1. **Auto-discovery vs. manual only** — should workers be discoverable via mDNS/Bonjour in addition to manual configuration, or is the Settings CRUD sufficient for small deployments?
+1. **Auto-discovery vs. manual only**: should workers be discoverable via mDNS/Bonjour in addition to manual configuration, or is the Settings CRUD sufficient for small deployments?
 
-2. **Heterogeneous workers** — if workers have different hardware (Pi 4 vs. x86 workstation), should the coordinator weight combo assignment by worker capability, or is round-robin sufficient?
+2. **Heterogeneous workers**: if workers have different hardware (Pi 4 vs. x86 workstation), should the coordinator weight combo assignment by worker capability, or is round-robin sufficient?
 
-3. **Auto-tune compatibility** — the `AutoTuner` and `HINTRunner` use iterative refinement where each round's bounds depend on the previous round's results. Distributing within a round is safe; distributing across rounds requires sequential aggregation. Phase 2 coordinator should handle this explicitly.
+3. **Auto-tune compatibility**: the `AutoTuner` and `HINTRunner` use iterative refinement where each round's bounds depend on the previous round's results. Distributing within a round is safe; distributing across rounds requires sequential aggregation. Phase 2 coordinator should handle this explicitly.
 
-4. **Worker port conflict** — port 8082 is chosen to avoid colliding with 8080 (main API) and 8081 (LiDAR monitor). If a machine runs both driver and worker (testing scenario), these ports coexist. Confirm this is acceptable or make the worker port configurable via `--worker-listen`.
+4. **Worker port conflict**: port 8082 is chosen to avoid colliding with 8080 (main API) and 8081 (LiDAR monitor). If a machine runs both driver and worker (testing scenario), these ports coexist. Confirm this is acceptable or make the worker port configurable via `--worker-listen`.

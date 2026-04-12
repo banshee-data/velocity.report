@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Set Up Your Radar
-description: Build a privacy-first traffic radar with Raspberry Pi and a pre-built image — no cameras, no cloud, just local speed data
+description: Build a privacy-first traffic radar with Raspberry Pi and a pre-built image; no cameras, no cloud, just local speed data
 section: guides
 difficulty: intermediate
 time: 2-4 hours
@@ -20,7 +20,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 ## Introduction
 
-Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation tends to stall at "it feels fast" versus "the speed limit is fine" — and feelings, however justified, do not survive contact with a council agenda.
+Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation tends to stall at "it feels fast" versus "the speed limit is fine": and feelings, however justified, do not survive contact with a council agenda.
 
 This guide shows you how to build a privacy-first traffic radar using a pre-built Raspberry Pi image and off-the-shelf Doppler technology (the same sensors municipalities use). No cameras, no licence plates, no cloud accounts. Just local speed data that produces professional traffic reports.
 
@@ -103,7 +103,7 @@ Where $m$ is mass and $v$ is velocity. The key insight: energy scales with the _
 - At **50 mph**, that energy jumps to **6.25 times** what it was at 20 mph
 - Even a 5 mph difference (say, 30 mph vs 35 mph) increases crash energy by 36%
 
-For anyone outside the vehicle — pedestrians, cyclists, children — this exponential relationship is the difference between walking away and never walking again.
+For anyone outside the vehicle: pedestrians, cyclists, children; this exponential relationship is the difference between walking away and never walking again.
 
 Streets designed for 25 mph but driven at 40? That driver is doing 2.56× the destructive force should they collide with a po.
 
@@ -116,14 +116,14 @@ Streets designed for 25 mph but driven at 40? That driver is doing 2.56× the de
 A weatherproof traffic monitoring system that runs on a Raspberry Pi and starts working the moment you plug it in:
 
 - **Doppler radar logger** that captures vehicle speeds 24/7
-- **Local SQLite database** — all data stays on the device
+- **Local SQLite database**: all data stays on the device
 - **Live web dashboard** with real-time speeds, histograms, and time-of-day patterns
 - **Professional PDF reports** with traffic engineering metrics (p50, p85, p98)
 - **Weatherproof hardware** designed for permanent outdoor deployment
 
 The velocity.report Pi image includes everything pre-configured: the server, the web dashboard, the PDF generator, serial port settings, and a systemd service that starts automatically on boot. You flash one SD card and connect one sensor.
 
-**Privacy by design**: no cameras, no licence plates, no identifying information — just velocity measurements.
+**Privacy by design**: no cameras, no licence plates, no identifying information; just velocity measurements.
 
 **[PLACEHOLDER: Image showing completed infrastructure deployment (weatherproof enclosure mounted on utility pole)]**
 
@@ -162,13 +162,13 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 **Build overview** (total time: 2–4 hours):
 
-1. [Flash the Pi Image](#step-1-flash-the-pi-image) — 10–15 minutes
-2. [Connect Sensor to Raspberry Pi](#step-2-connect-the-sensor-to-the-raspberry-pi) — 15–30 minutes
-3. [Configure Sensor Output Mode](#step-3-configure-sensor-output-mode) — 10 minutes
-4. [Verify Data Stream](#step-4-verify-data-stream) — 5 minutes
-5. [Access the Web Dashboard](#step-5-access-the-web-dashboard) — 5 minutes
-6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor) — 1–2 hours
-7. [Generate PDF Reports](#step-7-generate-pdf-reports) — After data collection
+1. [Flash the Pi Image](#step-1-flash-the-pi-image): 10–15 minutes
+2. [Connect Sensor to Raspberry Pi](#step-2-connect-the-sensor-to-the-raspberry-pi): 15–30 minutes
+3. [Configure Sensor Output Mode](#step-3-configure-sensor-output-mode): 10 minutes
+4. [Verify Data Stream](#step-4-verify-data-stream): 5 minutes
+5. [Access the Web Dashboard](#step-5-access-the-web-dashboard): 5 minutes
+6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor): 1–2 hours
+7. [Generate PDF Reports](#step-7-generate-pdf-reports): After data collection
 
 ---
 
@@ -176,7 +176,7 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 _Estimated time: 10–15 minutes_
 
-The velocity.report image is a complete Raspberry Pi OS with all software pre-installed and pre-configured. Flash it to an SD card and the system is ready to run — no package installation, no build steps, no configuration files to edit.
+The velocity.report image is a complete Raspberry Pi OS with all software pre-installed and pre-configured. Flash it to an SD card and the system is ready to run: no package installation, no build steps, no configuration files to edit.
 
 1. **Download and install** [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer
 
@@ -187,7 +187,7 @@ The velocity.report image is a complete Raspberry Pi OS with all software pre-in
    - Download the latest `.img.xz` file from [GitHub Releases](https://github.com/banshee-data/velocity.report/releases)
    - Select the downloaded file
 
-4. **Choose your SD card** — a 32 GB high-endurance card is recommended for continuous recording
+4. **Choose your SD card**: a 32 GB high-endurance card is recommended for continuous recording
 
 5. **Configure Wi-Fi and SSH** (important):
    - Click the **gear icon** (⚙) or **Edit Settings** before writing
@@ -232,7 +232,7 @@ sudo systemctl status velocity-report
 
 _Estimated time: 15–30 minutes_
 
-The OPS7243-A-CW-R2 sensor (RS232 interface) connects to the Raspberry Pi via a serial HAT. The Pi image has already configured the serial port and UART settings — you just need to wire things up.
+The OPS7243-A-CW-R2 sensor (RS232 interface) connects to the Raspberry Pi via a serial HAT. The Pi image has already configured the serial port and UART settings: you just need to wire things up.
 
 1. **Power off** the Raspberry Pi completely
 
@@ -443,7 +443,7 @@ _Estimated time: 1–2 hours for complete weatherproof installation_
 
 ### Step 7: generate PDF reports
 
-_Estimated time: Varies — requires a data collection period_
+_Estimated time: Varies; requires a data collection period_
 
 After collecting data for a few days or weeks, you can generate professional reports that speak the language traffic engineers and council members understand.
 
@@ -457,7 +457,7 @@ After collecting data for a few days or weeks, you can generate professional rep
 4. Click **Generate Report**
 5. Download the PDF when ready
 
-**Cosine angle correction**: If your sensor is not mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set the cosine angle to 30° — the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
+**Cosine angle correction**: If your sensor is not mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set the cosine angle to 30°; the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
 
 **What is in the report**:
 
@@ -468,7 +468,7 @@ After collecting data for a few days or weeks, you can generate professional rep
 
 #### Comparison reports: measuring intervention effectiveness
 
-Comparison reports let you analyse the impact of traffic calming measures by comparing two time periods side by side. This is where the data earns its keep — showing council members that a speed hump reduced p85 speeds by 12 mph is considerably more persuasive than anyone's recollection of how things felt.
+Comparison reports let you analyse the impact of traffic calming measures by comparing two time periods side by side. This is where the data earns its keep: showing council members that a speed hump reduced p85 speeds by 12 mph is considerably more persuasive than anyone's recollection of how things felt.
 
 **When to use comparison reports:**
 
@@ -493,7 +493,7 @@ The report includes:
 
 **[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
 
-**Making your case**: Print the report and bring it to council. Instead of "cars go too fast", say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph." With comparison reports, you can add: "After the speed hump installation, p85 dropped from 42 mph to 31 mph — a 26% reduction."
+**Making your case**: Print the report and bring it to council. Instead of "cars go too fast", say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph." With comparison reports, you can add: "After the speed hump installation, p85 dropped from 42 mph to 31 mph; a 26% reduction."
 
 ---
 
@@ -545,7 +545,7 @@ http://192.168.1.XXX:8080
 
 - ✅ **No authentication required** if your network is trusted (home or office)
 - ✅ **Router firewall** blocks external access by default
-- ✅ **Data never leaves your network** — no cloud services involved
+- ✅ **Data never leaves your network**: no cloud services involved
 - ⚠️ **Anyone on your Wi-Fi** can access the dashboard
 
 **Best practices**:
@@ -639,7 +639,7 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 ### Example talking points
 
 - ❌ "Cars go way too fast on our street!"
-- ✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph — well above the engineering standard for residential safety."
+- ✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph: well above the engineering standard for residential safety."
 
 - ❌ "Someone's going to get hurt!"
 - ✅ "At 39 mph, crash energy is 143% higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
@@ -706,7 +706,7 @@ sudo cp /var/lib/velocity-report/sensor_data.db \
   /tmp/sensor_data_$(date +%Y%m%d).db
 ```
 
-`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/` — but that directory lives on the SD card, so if you are about to re-flash, copy the backup file off the Pi first (to your laptop, a USB stick, or anywhere that is not about to be overwritten):
+`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/`: but that directory lives on the SD card, so if you are about to re-flash, copy the backup file off the Pi first (to your laptop, a USB stick, or anywhere that is not about to be overwritten):
 
 ```bash
 # From your laptop — pull the backup over SSH
@@ -736,7 +736,7 @@ sudo cp /tmp/sensor_data.db /var/lib/velocity-report/sensor_data.db
 sudo chown velocity:velocity /var/lib/velocity-report/sensor_data.db
 ```
 
-5. **Start the service** — it detects the existing database and runs any pending migrations automatically:
+5. **Start the service**: it detects the existing database and runs any pending migrations automatically:
 
 ```bash
 sudo systemctl start velocity-report
@@ -794,7 +794,7 @@ You have a working traffic radar.
 
 Traffic safety advocacy should not require a six-figure budget or an engineering degree. With roughly $560 in parts and an afternoon of work, you have built something that produces the same metrics cities pay consultants thousands for.
 
-Show your neighbours. File public records requests to compare your data to official counts. Print the PDF report and bring it to council. The data does not care who collected it — it just needs to be accurate, and now it is.
+Show your neighbours. File public records requests to compare your data to official counts. Print the PDF report and bring it to council. The data does not care who collected it: it just needs to be accurate, and now it is.
 
 ---
 

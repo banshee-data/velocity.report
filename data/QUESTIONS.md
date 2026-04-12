@@ -353,7 +353,8 @@ and council chambers. They must withstand scrutiny.
 ### Q23. how should speed percentiles be aggregated?
 
 Percentiles do not aggregate: you cannot average p85 values
-across time bins. The [speed-percentile plan](../docs/plans/speed-percentile-aggregation-alignment-plan.md)
+across time bins.
+The [speed-percentile plan](../docs/plans/speed-percentile-aggregation-alignment-plan.md)
 reserves p50/p85/p98 for grouped/report metrics.
 
 - **Evidence needed:** Error magnitude of naive percentile

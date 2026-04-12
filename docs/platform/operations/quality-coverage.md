@@ -1,4 +1,4 @@
-# Quality coverage — 95.5% target
+# Quality coverage: 95.5% target
 
 Active plan: [platform-quality-coverage-improvement-plan.md](../../plans/platform-quality-coverage-improvement-plan.md)
 
@@ -19,11 +19,11 @@ be extracted into `internal/`.
 | Go `cmd/` (excluded) | 18.6%   | 0            | 8            |
 | Web (statements)     | 96.0%   | 9 of 11      | 2            |
 | Python               | 93.6%   | 9 of 19      | 10           |
-| macOS Swift          | ~85%    | —            | —            |
+| macOS Swift          | ~85%    | -            | -            |
 
 ## Tiered approach
 
-### Tier 1 — quick wins (< 2% gap)
+### Tier 1: quick wins (< 2% gap)
 
 Go: `serialmux` (94.9%), `lidar` root (94.4%), `l5tracks` (94.1%),
 `httputil` (93.9%), `deploy` (93.4%).
@@ -33,7 +33,7 @@ Web: `sweep_dashboard.js` (95.1%), `api.ts` (94.8%).
 Python: `document_builder.py` (94.8%), `map_utils.py` (94.5%),
 `pdf_generator.py` (94.3%), `dependency_checker.py` (94.0%).
 
-### Tier 2 — moderate work (2–5% gap)
+### Tier 2: moderate work (2–5% gap)
 
 Go: `l3grid`, `l6objects`, `storage/sqlite`, `visualiser`, `sweep`,
 `l2frames`, `adapters`, `pipeline`, `db`, `monitor`, `security`.
@@ -41,9 +41,9 @@ Go: `l3grid`, `l6objects`, `storage/sqlite`, `visualiser`, `sweep`,
 Python: `report_sections.py`, `cli/main.py`, `chart_builder.py`,
 `stats_utils.py`.
 
-### Tier 3 — significant effort (> 5% gap)
+### Tier 3: significant effort (> 5% gap)
 
-Go: `internal/api` (88.2%), `internal/config` (74.7% — 40+ `Get*` at 0%).
+Go: `internal/api` (88.2%), `internal/config` (74.7%; 40+ `Get*` at 0%).
 
 Python: `tex_environment.py` (87.5%), `zip_utils.py` (86.4%).
 

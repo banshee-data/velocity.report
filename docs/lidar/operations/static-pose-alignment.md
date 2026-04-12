@@ -38,11 +38,11 @@ Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction
 
 ## Implementation summary (when activated)
 
-**PR #1:** Database schema — add `pose_id` columns (nullable, backward-compatible).
+**PR #1:** Database schema; add `pose_id` columns (nullable, backward-compatible).
 
-**PR #2:** Go struct updates — add `pose_id`, sensor-frame coordinates to `WorldCluster`, `TrackObservation`, `TrackedObject`. All existing tests pass with `pose_id=NULL`.
+**PR #2:** Go struct updates; add `pose_id`, sensor-frame coordinates to `WorldCluster`, `TrackObservation`, `TrackedObject`. All existing tests pass with `pose_id=NULL`.
 
-**PR #3:** Populate static pose references — create static identity pose at startup, store `pose_id` on clusters and observations.
+**PR #3:** Populate static pose references; create static identity pose at startup, store `pose_id` on clusters and observations.
 
 **PR #4 (7DOF extension):**
 

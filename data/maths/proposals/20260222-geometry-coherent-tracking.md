@@ -4,9 +4,9 @@
 - **Author:** velocity.report contributors
 - **Related:**
 
-- [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards
-- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — upstream per-point velocity
-- [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md) — ground model
+- [OBB heading stability review](20260222-obb-heading-stability-review.md): current guards
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): upstream per-point velocity
+- [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md): ground model
 
 ---
 
@@ -55,7 +55,7 @@ The fundamental insight: **object shapes are persistent**. A vehicle doesn't cha
 
 ## 2. Proposed model: geometry-coherent track state
 
-We extend each `TrackedObject` with a **geometry prior** — a persistent model of the object's true shape and orientation that evolves over the track lifetime through Bayesian updates.
+We extend each `TrackedObject` with a **geometry prior**: a persistent model of the object's true shape and orientation that evolves over the track lifetime through Bayesian updates.
 
 ### 2.1 Track geometry state
 
@@ -81,7 +81,7 @@ $$
 \mathbf{z} = (L_{\text{obs}}, W_{\text{obs}}, H_{\text{obs}}, \theta_{\text{obs}})
 $$
 
-**Key challenge:** PCA has inherent 90° ambiguity. The principal axes have no canonical orientation — swapping "length" and "width" axes produces an equally valid OBB rotated by 90°.
+**Key challenge:** PCA has inherent 90° ambiguity. The principal axes have no canonical orientation; swapping "length" and "width" axes produces an equally valid OBB rotated by 90°.
 
 Therefore, each observation has **two valid interpretations**:
 
@@ -335,7 +335,7 @@ The geometry-coherent model **replaces four existing guard mechanisms**:
 | Dimension sync logic                     | Unified in ema_update()                           | ~1124-1141           |
 | HeadingSource enum complexity            | Simplified: aligned / swapped / rejected / motion | Various              |
 
-**Guard 1** (minimum point count) **remains** as a data-quality gate — it prevents OBB estimation when insufficient points are available.
+**Guard 1** (minimum point count) **remains** as a data-quality gate: it prevents OBB estimation when insufficient points are available.
 
 **Guard 4** (EMA heading smoothing) is **retained** but becomes part of the coherent model rather than a reactive patch.
 
@@ -425,7 +425,7 @@ Parameters should be validated and tuned through:
 
 2. **No more spinning:** Axis selection replaces reactive guards; 90° jumps are mathematically impossible because the wrong axis interpretation always has higher residual
 
-3. **Pedestrian-friendly:** Square clusters are classified and handled appropriately — heading trust is reduced, shape variation is expected
+3. **Pedestrian-friendly:** Square clusters are classified and handled appropriately; heading trust is reduced, shape variation is expected
 
 4. **Graceful degradation:** Without velocity-coherent data, the model still improves significantly over current guards. With velocity data, heading prior becomes much tighter.
 
@@ -467,7 +467,7 @@ Parameters should be validated and tuned through:
 
 **Enhanced by:**
 
-- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — provides per-cluster velocity for tighter heading priors
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): provides per-cluster velocity for tighter heading priors
 
 ### 8.2 Testing strategy
 
@@ -531,7 +531,7 @@ Parameters should be validated and tuned through:
 
 - Doesn't address root cause (no temporal model)
 - Creates rigidity: true geometry changes (pedestrian arm movement) would be rejected
-- Doesn't solve axis ambiguity — just suppresses symptoms more aggressively
+- Doesn't solve axis ambiguity: just suppresses symptoms more aggressively
 - More parameters to tune without principled foundation
 
 ### 9.2 Alternative: Kalman filter for geometry
@@ -541,7 +541,7 @@ Parameters should be validated and tuned through:
 **Rejected because:**
 
 - Overkill: geometry evolves much slower than position/velocity
-- Kalman assumes Gaussian noise and linear dynamics — PCA axis ambiguity is discrete, not Gaussian
+- Kalman assumes Gaussian noise and linear dynamics: PCA axis ambiguity is discrete, not Gaussian
 - Requires process noise covariance tuning (complex)
 - EMA with axis selection achieves similar result with less complexity
 - Can revisit if EMA proves insufficient

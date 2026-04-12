@@ -82,11 +82,11 @@ This mirrors existing repository conventions: stable catalogue + editable config
 
 Serve configuration through explicit API resources:
 
-- `GET /api/lidar/models` — list supported models and capabilities
-- `GET /api/lidar/model-profiles`, `POST /api/lidar/model-profiles`, `PUT /api/lidar/model-profiles`, `DELETE /api/lidar/model-profiles` — manage site profiles
-- `GET /api/lidar/ingest/config` — active binding and resolved runtime config
-- `POST /api/lidar/ingest/reload` — apply enabled profile/binding without process restart
-- `POST /api/lidar/ingest/test` — validate selected model+network pair against live traffic metadata
+- `GET /api/lidar/models`: list supported models and capabilities
+- `GET /api/lidar/model-profiles`, `POST /api/lidar/model-profiles`, `PUT /api/lidar/model-profiles`, `DELETE /api/lidar/model-profiles`: manage site profiles
+- `GET /api/lidar/ingest/config`: active binding and resolved runtime config
+- `POST /api/lidar/ingest/reload`: apply enabled profile/binding without process restart
+- `POST /api/lidar/ingest/test`: validate selected model+network pair against live traffic metadata
 
 UI placement should follow the constrained settings pattern:
 

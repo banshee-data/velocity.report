@@ -1,4 +1,4 @@
-# Server manager — plan
+# Server manager: plan
 
 - **Layers:** L10 Clients (macOS visualiser)
 - **Canonical:** [architecture.md](../ui/visualiser/architecture.md)
@@ -11,7 +11,7 @@
 ## Current state
 
 - **Hardcoded address:** `serverAddress` defaults to `"localhost:50051"` in
-  `AppState` — no UI to change it.
+  `AppState`: no UI to change it.
 - **Auto-connect:** App connects to `serverAddress` 500 ms after launch.
 - **Status indicator:** Small coloured circle (`ConnectionStatusView`) —
   green when connected, red on error, grey when disconnected. Hover tooltip
@@ -72,11 +72,11 @@ Improve the existing `ConnectionStatusView` to provide richer feedback:
 When the connection state changes, show a brief transient callout (2–3 seconds)
 overlaid on the main view:
 
-- **Connected:** `"Connected to Office Pi (192.168.1.42:50051)"` — green
+- **Connected:** `"Connected to Office Pi (192.168.1.42:50051)"`; green
   background, checkmark icon.
-- **Disconnected:** `"Disconnected from Office Pi"` — grey background, xmark
+- **Disconnected:** `"Disconnected from Office Pi"`; grey background, xmark
   icon.
-- **Error:** `"Connection failed: cannot reach 192.168.1.42:50051"` — red
+- **Error:** `"Connection failed: cannot reach 192.168.1.42:50051"`; red
   background, exclamationmark icon.
 
 Use SwiftUI `.overlay()` with animation, auto-dismiss via `Task.sleep`.
@@ -108,7 +108,7 @@ A sheet (modal) or settings tab with:
 - **Host** text field (with placeholder "e.g. 192.168.1.42 or raspberrypi.local")
 - **Port** stepper/text field (default 50051)
 - **Notes** text field (optional)
-- **Test Connection** button — attempts a quick connect/disconnect, shows
+- **Test Connection** button: attempts a quick connect/disconnect, shows
   ✅ reachable or ❌ unreachable with latency
 - **Set as Default** toggle
 - **Save** / **Cancel** buttons
@@ -120,7 +120,7 @@ Use `UserDefaults` (or a JSON file in `~/Library/Application Support/VelocityVis
 to store the server list. Persist on every change (add, edit, delete, set default,
 update `lastConnected`).
 
-Suggested key: `savedServers` — array of `Codable` `ServerConfig` structs.
+Suggested key: `savedServers`; array of `Codable` `ServerConfig` structs.
 
 On first launch with no saved servers, auto-create a default entry:
 `{ name: "Local", host: "localhost", port: 50051, isDefault: true }`.
@@ -149,7 +149,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ## Implementation plan
 
-### Phase 1 — model & persistence
+### Phase 1: model & persistence
 
 1. Create `ServerConfig` struct (`Codable`, `Identifiable`, `Equatable`)
 2. Create `ServerManager` class (`@Observable` / `ObservableObject`)
@@ -161,7 +161,7 @@ On first launch with no saved servers, auto-create a default entry:
 3. Seed default "Local" entry on first launch
 4. Wire `AppState.serverAddress` to read from `ServerManager.activeServer`
 
-### Phase 2 — server menu
+### Phase 2: server menu
 
 5. Add `CommandMenu("Servers")` to `AppCommands`
    - List saved servers with status dot
@@ -171,7 +171,7 @@ On first launch with no saved servers, auto-create a default entry:
    - "Set Default" submenu
 6. Add keyboard shortcuts (⇧⌘N for Add, ⇧⌘E for Edit)
 
-### Phase 3 — add / edit UI
+### Phase 3: add / edit UI
 
 7. Create `ServerEditorView` (sheet)
    - Name, host, port, notes fields
@@ -182,9 +182,9 @@ On first launch with no saved servers, auto-create a default entry:
    - Edit, delete, reorder
    - Set default toggle per row
 
-### Phase 4 — connection status callout
+### Phase 4: connection status callout
 
-9. Create `ConnectionToastView` — transient overlay
+9. Create `ConnectionToastView`: transient overlay
    - Triggered by `AppState.isConnected` changes
    - Auto-dismiss after 2.5 seconds
    - Animated slide-in/fade-out
@@ -192,7 +192,7 @@ On first launch with no saved servers, auto-create a default entry:
     - Show server name + dot
     - Popover on click with full details (address, uptime, frames)
 
-### Phase 5 — polish
+### Phase 5: polish
 
 11. Handle edge cases:
     - Delete the currently connected server → disconnect first

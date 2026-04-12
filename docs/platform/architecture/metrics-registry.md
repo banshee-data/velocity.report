@@ -161,7 +161,7 @@ The metrics design aligns with the existing three-stream logging model
 
 ## Future prometheus export design
 
-Design stub only — not implemented.
+Design stub only: not implemented.
 
 ### Naming rule
 

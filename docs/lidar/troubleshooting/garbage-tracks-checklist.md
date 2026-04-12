@@ -1,4 +1,4 @@
-# Garbage tracks — consolidated status and remaining priorities
+# Garbage tracks: consolidated status and remaining priorities
 
 This is the canonical document for garbage-track remediation.
 It combines the original review and checklist into one maintained source.
@@ -50,55 +50,55 @@ It combines the original review and checklist into one maintained source.
 
 ## Remaining backlog (reprioritised)
 
-### P0 — critical pipeline bugs (new findings 2026-02-16)
+### P0: critical pipeline bugs (new findings 2026-02-16)
 
 #### 8.1 Height band filter operates in sensor frame ~~(CRITICAL)~~ ✅ done
 
-- **Severity:** P0 — ~~causes loss of nearly all foreground detections~~ **Fixed**
+- **Severity:** P0; ~~causes loss of nearly all foreground detections~~ **Fixed**
 - **Implemented behaviour:** `DefaultHeightBandFilter()` now returns floor=−2.8m, ceiling=+1.5m (sensor-frame coordinates). Documentation and comments updated to reflect sensor-frame semantics.
 
 #### 8.2 OBB heading not sent to web REST API ~~— Svelte has no bounding boxes~~ ✅ done
 
-- **Severity:** P0 — **Fixed**
+- **Severity:** P0; **Fixed**
 - **Implemented behaviour:** `trackToResponse()` now includes `obb_heading_rad` field sourced from `track.OBBHeadingRad`. `BBox` struct extended with per-frame `length`, `width`, `height` alongside existing `*_avg` fields. `MapPane.svelte` now uses `track.obb_heading_rad` (with `heading_rad` fallback) for bounding box rotation, and prefers per-frame dimensions over averages for rendering. TypeScript `Track` interface updated with `obb_heading_rad` and per-frame bbox fields.
 
 #### 8.3 Per-frame OBB dimensions not persisted ~~— averaged dimensions used~~ ✅ done
 
-- **Severity:** P0/P1 — **Fixed**
+- **Severity:** P0/P1; **Fixed**
 - **Implemented behaviour:** `TrackedObject` now stores per-frame `OBBLength`, `OBBWidth`, `OBBHeight` fields updated every frame from the cluster OBB. Both gRPC adapter (`adaptTracks`) and REST API (`trackToResponse`) transmit per-frame and averaged dimensions. `InsertTrackObservation` in the tracking pipeline now persists per-frame OBB dimensions and OBB heading instead of running averages. `MapPane.svelte` prefers per-frame `bbox.length` over `bbox.length_avg` for rendering.
 
 #### 8.4 OBB heading jitter in macOS view (PCA instability) ✅ done
 
-- **Severity:** Medium — macOS visualiser only — **Fixed**
+- **Severity:** Medium; macOS visualiser only; **Fixed**
 - **Implemented behaviour:** Three guards added to `update()` in tracking.go:
   1. **Min-points threshold:** clusters with fewer than `MinPointsForPCA` (4) points skip heading update, retaining the previous smoothed heading.
   2. **Aspect-ratio lock:** when `|length − width| / max(length, width) < OBBAspectRatioLockThreshold` (0.25), the heading is locked because the principal axis is ambiguous.
   3. **Reduced smoothing α:** `OBBHeadingSmoothingAlpha` lowered from 0.15 to 0.08 for heavier EMA smoothing.
      Per-frame OBB dimensions are always updated regardless of heading lock.
 
-### R1 — next high-impact items
+### R1: next high-impact items
 
 #### 2.5 Coasted points persisted as real observations ✅ done
 
-- **Severity:** Medium — **Fixed**
+- **Severity:** Medium; **Fixed**
 - **Implemented behaviour:** The persistence loop in `tracking_pipeline.go` now checks `track.Misses == 0` before calling `InsertTrackObservation`. Coasting tracks (Misses > 0) still have their track record updated via `InsertTrack`, but predicted Kalman positions are no longer persisted as observations. This eliminates phantom straight segments from coasted positions.
 
 #### 6.4 Full-epoch default query window ✅ done
 
-- **Severity:** Medium — **Fixed**
+- **Severity:** Medium; **Fixed**
 - **Implemented behaviour:** `loadHistoricalData()` in `+page.svelte` now defaults `startTime` to `(Date.now() - 3_600_000) * 1e6` (last 1 hour in nanoseconds) instead of epoch (0). This bounds the initial query to recent data, reducing load time and eliminating exposure to old artefacts.
 
 #### 2.4 NaN/Inf guards after Kalman predict/update ✅ done
 
-- **Severity:** Medium — **Fixed**
+- **Severity:** Medium; **Fixed**
 - **Implemented behaviour:** `isFiniteState()` helper checks X, Y, VX, VY and covariance diagonal for NaN/Inf. Called at the end of both `predict()` and `update()` in tracking.go. If any value is non-finite, the state is reset to defaults and the track is marked `TrackDeleted` to prevent corruption from propagating.
 
 #### 2.3 Velocity clamp on Kalman state ✅ done
 
-- **Severity:** Medium — **Fixed**
+- **Severity:** Medium; **Fixed**
 - **Implemented behaviour:** `clampVelocity()` helper scales VX/VY proportionally so speed magnitude never exceeds `MaxReasonableSpeedMps` (30 m/s ≈ 108 km/h). Called at the end of both `predict()` and `update()` in tracking.go. This prevents teleport-like extrapolation from noisy Kalman updates.
 
-### R2 — medium-term hardening
+### R2: medium-term hardening
 
 #### 3.1 Cluster size/aspect filtering ✅ done
 
@@ -130,7 +130,7 @@ It combines the original review and checklist into one maintained source.
 - **Files:** [tracking.go](../../../internal/lidar/l5tracks/tracking.go)
 - **Implemented behaviour:** In `Update()`, `dt` is clamped to `MaxPredictDt` (0.5 s) before `LastUpdateNanos` is set. This prevents throttle-induced gaps from inflating the dt used for association gating's implied-speed check.
 
-### R3 — uX/polish and housekeeping
+### R3: uX/polish and housekeeping
 
 #### 1.3 Deleted-track DB pruning ✅ done
 
@@ -172,7 +172,7 @@ It combines the original review and checklist into one maintained source.
 
 ## Delivery order
 
-1. **P0 batch:** 8.1 (height filter — critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims) ✅
+1. **P0 batch:** 8.1 (height filter; critical, most impact), 8.2 (OBB heading to web API), 8.3 (per-frame OBB dims) ✅
 2. **R1 batch + 8.4:** 8.4, 2.5, 6.4, 2.4, 2.3 ✅
 3. **R2 batch:** 3.1, 3.3, 4.3, 5.2, 7.1 ✅
 4. **R3 batch:** 1.3, 6.2, 6.3, 6.5, 7.2, 3.2 ✅

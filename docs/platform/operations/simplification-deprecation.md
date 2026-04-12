@@ -37,7 +37,7 @@ Once met, `cmd/deploy/`, `internal/deploy/`, 8+ Makefile targets, and
 
 1. **Track speed contract:** `peak_speed_mps` → `max_speed_mps`; percentiles
    reserved for grouped/report aggregates only.
-2. **Deploy surface deprecated** — prints warnings; removal in v0.7.0+.
+2. **Deploy surface deprecated**: prints warnings; removal in v0.7.0+.
 3. **Sweep API:** Legacy request/result fields removed; `param_values` only.
 4. **Report download:** Query-parameter endpoint removed; path-based only.
 5. **Stats API:** Bare-array response removed; always `{ metrics, histogram }`.
@@ -71,7 +71,7 @@ active plan for root cause, phases, and checklist.
 
 | Segment                | Size   | Notes                                  |
 | ---------------------- | ------ | -------------------------------------- |
-| Stale `static/` embeds | 172 MB | Root cause — build hygiene, not Svelte |
+| Stale `static/` embeds | 172 MB | Root cause: build hygiene, not Svelte  |
 | Go code + all deps     | 38 MB  | Includes SQLite, gRPC, protobuf, gonum |
 | `web/build/` (current) | 1.1 MB | The actual SvelteKit build             |
 

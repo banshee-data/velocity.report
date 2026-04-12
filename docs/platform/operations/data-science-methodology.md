@@ -61,16 +61,16 @@ it is not strong enough to justify a runtime or documentation change.
 
 ## Core workstreams
 
-1. **Scorecards and Specs** — detection coverage, fragmentation, false
+1. **Scorecards and Specs**: detection coverage, fragmentation, false
    positives, velocity coverage, stability, calibration of labels, and
    traffic-engineering aggregates.
-2. **Replayable Benchmark Packs** — fixed scenes, labelled runs, and
+2. **Replayable Benchmark Packs**: fixed scenes, labelled runs, and
    comparison procedures for repeatable measurement.
-3. **Threshold and Parameter Studies** — explicit, documented studies and
+3. **Threshold and Parameter Studies**: explicit, documented studies and
    sweeps over opaque fitting.
-4. **User-Facing Metric Design** — transit schema, report metrics, and
+4. **User-Facing Metric Design**: transit schema, report metrics, and
    comparison summaries matching traffic-engineering language.
-5. **Optional Classification Research** — offline only, comparing against the
+5. **Optional Classification Research**: offline only, comparing against the
    current transparent baseline on fixed benchmarks.
 
 ## Model policy
@@ -90,12 +90,12 @@ out of scope for the critical path.
 
 - `internal/lidar/perf/pcap/kirk0.pcapng` + `scripts/validate-lfs-files.sh`
 - `internal/lidar/perf/baseline/baseline-kirk0.json` and `baseline-kirk0-ci.json`
-- `data/explore/kirk0-lifecycle/` — parameter-permutation investigation
-- `data/explore/convergence-neighbour/` — neighbour-confirmation sweep
+- `data/explore/kirk0-lifecycle/`: parameter-permutation investigation
+- `data/explore/convergence-neighbour/`: neighbour-confirmation sweep
 - `docs/lidar/operations/parameter-comparison.md`, `config-param-tuning.md`,
-  `auto-tuning.md` — parameter study guidance
+  `auto-tuning.md`: parameter study guidance
 - `data/structures/VRLOG_FORMAT.md` and
-  `data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md` — recording contract
+  `data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md`: recording contract
 
 ## Non-Goals
 

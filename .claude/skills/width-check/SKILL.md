@@ -68,7 +68,7 @@ For each violation, determine the category:
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Long URL in prose                         | Acceptable. Move the URL to a link reference if it clutters the line.                                                        |
 | List item that cannot wrap                | Acceptable. List items are excluded anyway; if it still appears, it is probably a prose paragraph that starts with a hyphen. |
-| Blockquote prose line                     | Fix: Prettier does not wrap blockquotes — break manually.                                                                    |
+| Blockquote prose line                     | Fix: Prettier does not wrap blockquotes; break manually.                                                                     |
 | Genuine overlong sentence                 | Fix: break the sentence or shorten it. Do not insert a hard newline mid-sentence purely to hit the column limit.             |
 | Pre-formatted prose in a non-fenced block | Fix: either wrap or fence the block.                                                                                         |
 

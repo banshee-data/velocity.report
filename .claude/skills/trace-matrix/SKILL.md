@@ -214,10 +214,10 @@ A second run on an unchanged codebase **must produce zero edits**:
 | Mark | Meaning                            |
 | ---- | ---------------------------------- |
 | ✅   | Fully wired to this surface        |
-| 📋   | Planned — not yet implemented      |
+| 📋   | Planned: not yet implemented       |
 | 🔶   | Partially wired (explain in notes) |
-| 🗑️   | Deprecated — to be removed         |
-| —    | Not applicable to this surface     |
+| 🗑️   | Deprecated: to be removed          |
+| -    | Not applicable to this surface     |
 
 ## Notes
 

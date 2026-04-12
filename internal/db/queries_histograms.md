@@ -1,4 +1,4 @@
-# Histogram & percentile queries — radar_data_transits vs radar_objects
+# Histogram & percentile queries: radar_data_transits vs radar_objects
 
 Purpose
 
@@ -72,7 +72,7 @@ ORDER BY bucket;
 
 If desired, you can normalise counts to percentages by adding `CAST(100.0 * COUNT(*) / (SELECT COUNT(*) FROM ... ) AS DOUBLE)`.
 
-4. Nearest-rank percentile queries (p50/p85/p98) — run sequentially
+4. Nearest-rank percentile queries (p50/p85/p98): run sequentially
 
 - Steps: 1) get `n` = count of filtered rows; 2) compute offset = floor(n \* p) - 1; 3) select ordered value LIMIT 1 OFFSET offset.
 
@@ -103,7 +103,7 @@ WHERE model_version='rebuild-full'
   AND transit_max_speed >= 2.2352;
 ```
 
-Example for `radar_objects` — replace the LIMIT/OFFSET ordering expression to order by the extracted numeric speed:
+Example for `radar_objects`: replace the LIMIT/OFFSET ordering expression to order by the extracted numeric speed:
 
 ```sql
 -- Suppose n = 22693

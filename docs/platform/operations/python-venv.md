@@ -1,4 +1,4 @@
-# Python virtual environment — single shared `.venv`
+# Python virtual environment: single shared `.venv`
 
 - **Status:** Complete
 

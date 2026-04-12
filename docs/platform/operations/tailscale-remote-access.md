@@ -1,7 +1,7 @@
 # Tailscale remote access
 
 Tailscale creates a WireGuard mesh VPN that gives every enrolled device a
-stable `100.x.y.z` address — no port forwarding, no dynamic DNS, no exposure
+stable `100.x.y.z` address: no port forwarding, no dynamic DNS, no exposure
 to public internet scanners. This guide covers RPi-specific installation,
 recommended `tailscale up` flags, ACL policy for a velocity-report deployment,
 and SSH access.
@@ -60,7 +60,7 @@ sudo tailscale up --auth-key=tskey-auth-<key> --hostname=velocity-pi
 | Flag                      | Purpose                                                       |
 | ------------------------- | ------------------------------------------------------------- |
 | `--hostname=velocity-pi`  | Human-readable MagicDNS name (`velocity-pi.<tailnet>.ts.net`) |
-| `--auth-key=tskey-auth-…` | Headless authentication — no browser needed                   |
+| `--auth-key=tskey-auth-…` | Headless authentication: no browser needed                    |
 | `--ssh`                   | Enable Tailscale SSH (see §5 below)                           |
 | `--accept-dns=true`       | Accept MagicDNS names (default; listed for clarity)           |
 
@@ -89,7 +89,7 @@ http://velocity-pi:8081
 ```
 
 Tailscale-protected debug endpoints (serial commands, DB backup, tailsql,
-pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger` — these
+pprof) are served on `:8080` under `/debug/*` via `tsweb.Debugger`: these
 are accessible only from loopback or authenticated Tailscale peers. See
 [networking.md](../../radar/architecture/networking.md) for the full listener
 segmentation.
@@ -221,6 +221,6 @@ sudo tailscale set --auto-update
 - **Tailscale on macOS visualiser**: covered separately if needed; the
   visualiser connects to the Pi's gRPC endpoint, which is reachable over
   Tailscale without additional configuration.
-- **Tailscale Funnel**: exposes services to the public internet — directly
+- **Tailscale Funnel**: exposes services to the public internet; directly
   conflicts with the privacy-first deployment model.
 - **Multi-site mesh**: coordinating multiple Pis is a v0.6.0+ concern.

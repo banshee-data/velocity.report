@@ -30,25 +30,25 @@ Per-track quality score (0–100) with reason codes and grade classification.
 
 11 initial codes:
 
-1. `SHORT_TRACK` — fewer than minimum observation threshold
-2. `HIGH_JERK` — kinematic smoothness violation
-3. `SIZE_INSTABILITY` — bounding box size variance exceeds threshold
-4. `OBSERVATION_GAPS` — significant gaps in observation timeline
-5. `CLASS_CHURN` — classification changed frequently
-6. `UNRESOLVED_VIOLATIONS` — physics violations not yet addressed
-7. `PENDING_REPAIR` — split/merge suggestion outstanding
-8. `LOW_POINT_DENSITY` — insufficient points per observation
-9. `SPEED_DISCONTINUITY` — abrupt speed changes beyond physical limits
-10. `HEADING_INSTABILITY` — heading changes faster than vehicle dynamics allow
-11. `OCCLUSION_HEAVY` — track spent significant time in occluded state
+1. `SHORT_TRACK`: fewer than minimum observation threshold
+2. `HIGH_JERK`: kinematic smoothness violation
+3. `SIZE_INSTABILITY`: bounding box size variance exceeds threshold
+4. `OBSERVATION_GAPS`: significant gaps in observation timeline
+5. `CLASS_CHURN`: classification changed frequently
+6. `UNRESOLVED_VIOLATIONS`: physics violations not yet addressed
+7. `PENDING_REPAIR`: split/merge suggestion outstanding
+8. `LOW_POINT_DENSITY`: insufficient points per observation
+9. `SPEED_DISCONTINUITY`: abrupt speed changes beyond physical limits
+10. `HEADING_INSTABILITY`: heading changes faster than vehicle dynamics allow
+11. `OCCLUSION_HEAVY`: track spent significant time in occluded state
 
 ## Storage
 
 ### Denormalised on `lidar_run_tracks`
 
-- `quality_score` (REAL) — current composite score
-- `quality_grade` (TEXT) — current grade letter
-- `quality_reason_codes` (TEXT) — comma-separated active reason codes
+- `quality_score` (REAL): current composite score
+- `quality_grade` (TEXT): current grade letter
+- `quality_reason_codes` (TEXT): comma-separated active reason codes
 
 ### History table: `lidar_run_track_quality_history`
 

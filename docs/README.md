@@ -50,19 +50,19 @@ All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a low
 
 ### Path patterns
 
-- `data/structures/` — `UPPER_CASE.md` for specification-grade content.
-- `docs/plans/` — `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
-- `data/maths/proposals/` — `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
-- `<hub>/architecture/` — `<topic>.md`
-- `<hub>/operations/` — `<topic>.md`
+- `data/structures/`: `UPPER_CASE.md` for specification-grade content.
+- `docs/plans/`: `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
+- `data/maths/proposals/`: `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
+- `<hub>/architecture/`: `<topic>.md`
+- `<hub>/operations/`: `<topic>.md`
 
 ## Document structure
 
 Every doc should open with:
 
-1. **`# Title`** — a clear, descriptive heading.
-2. **Opening paragraph** — one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_). This replaces the old `Purpose:` metadata line.
-3. **First `##` section** — use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
+1. **`# Title`**: a clear, descriptive heading.
+2. **Opening paragraph**: one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_). This replaces the old `Purpose:` metadata line.
+3. **First `##` section**: use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
 
 Optional bold metadata may follow the title for docs that need implementation state:
 
@@ -75,7 +75,7 @@ Use `**Status:**` only when the doc tracks implementation progress (plans, archi
 
 Additional rules:
 
-- `Date:` metadata fields are not allowed — use git history.
+- `Date:` metadata fields are not allowed: use git history.
 - `Version:` is optional.
 
 Use directory listings for file-level navigation to avoid stale index maintenance.

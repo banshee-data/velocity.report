@@ -13,11 +13,11 @@
 
 Extend the existing `pcap-analyse` command-line tool to compute and export ground plane geometry from static PCAP captures, with **optional** GPS geo-referencing. This enables:
 
-1. **Road surface reconstruction** — Export accurate road geometry for civil engineering analysis
-2. **GIS integration** — Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
-3. **Offline processing** — Extract ground plane from archived PCAP files without real-time replay
-4. **Quality assurance** — Validate sensor placement and ground plane extraction algorithms
-5. **Global grid population** — Merge settled tiles into the persistent lat/long global grid (GPS additive)
+1. **Road surface reconstruction**: Export accurate road geometry for civil engineering analysis
+2. **GIS integration**: Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
+3. **Offline processing**: Extract ground plane from archived PCAP files without real-time replay
+4. **Quality assurance**: Validate sensor placement and ground plane extraction algorithms
+5. **Global grid population**: Merge settled tiles into the persistent lat/long global grid (GPS additive)
 
 **Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global grid population. The core extraction pipeline operates in sensor-local coordinates.
 
@@ -33,7 +33,7 @@ The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) proce
 
 Existing export infrastructure:
 
-- `ExportBackgroundGridToASC()` in `internal/lidar/l3grid/export_bg_snapshot.go` — ASC format for CloudCompare
+- `ExportBackgroundGridToASC()` in `internal/lidar/l3grid/export_bg_snapshot.go`: ASC format for CloudCompare
 - Web API endpoints: `/api/lidar/export/frame-sequence-asc`, `handleExportSnapshotASC`
 - VTK export recommended in `docs/lidar/architecture/lidar-background-grid-standards.md`
 
@@ -57,7 +57,7 @@ Add the following flags to `cmd/tools/pcap-analyse/main.go`:
 --ground-confidence-min Minimum confidence score for exported tiles (0.0-1.0, default: 0.5)
 ```
 
-### GPS geo-referencing (optional — additive only)
+### GPS geo-referencing (optional: additive only)
 
 ```
 --gps-lat               Manual GPS latitude for geo-referencing (decimal degrees)
@@ -89,14 +89,14 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 2. **L2**: Convert spherical coordinates to Cartesian (sensor-local frame), apply sensor corrections
 3. **L3**: Accumulate background grid, settle static points, classify foreground/background
 
-### Phase 2: ground plane extraction (new — within L4 perception)
+### Phase 2: ground plane extraction (new; within L4 perception)
 
 4. **Ground Classification**: After L3 grid settling (typically 5-10 seconds):
    - Classify ground cells using height-based threshold (Z < -1.8m from sensor)
    - Apply spatial coherence filter (ground cells must be contiguous)
    - Mark ground cells in background grid metadata
 
-5. **Tile Accumulation** (Tier 1 local scene, sensor-local coordinates — no GPS required):
+5. **Tile Accumulation** (Tier 1 local scene, sensor-local coordinates: no GPS required):
    - Map XYZ point to tile coordinates (tile_x, tile_y) based on `--ground-tile-size`
    - Accumulate incremental covariance for plane fitting (μ, Σ)
    - Track point count, height statistics, first/last observation timestamps
@@ -111,12 +111,12 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
    - Classify curvature: flat (λ_min < 0.01), cambered (0.01 ≤ λ_min < 0.05), rough (≥ 0.05)
    - Filter tiles below `--ground-confidence-min` threshold
 
-8. **GPS Transformation** (optional — only if GPS coordinates available):
+8. **GPS Transformation** (optional: only if GPS coordinates available):
    - Construct ENU (East-North-Up) coordinate frame at GPS origin
    - Transform tile corners from sensor Cartesian to ENU to WGS84 (lat/long)
    - Rotate plane normals by sensor heading
 
-9. **Global Grid Merge** (optional — only if `--global-grid-merge` and GPS available):
+9. **Global Grid Merge** (optional: only if `--global-grid-merge` and GPS available):
    - Load existing global grid from `--global-grid-file` (if exists)
    - Diff settled local tiles against global tiles
    - Merge consistent tiles; flag divergent tiles for review
@@ -245,7 +245,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 
 **Implementation Notes**:
 
-- Defer to Phase 4 — requires VTK library or manual XML generation
+- Defer to Phase 4: requires VTK library or manual XML generation
 - Recommended library: `github.com/lanl/vpic-utils/vtk` or custom XML writer
 - Coordinate system: ENU if GPS available, else sensor-relative Cartesian
 

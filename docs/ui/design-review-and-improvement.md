@@ -1,7 +1,7 @@
 # Design review and improvement plan
 
 Reference: [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](../../ARCHITECTURE.md)
-Backlog: [BACKLOG.md](../BACKLOG.md) — P1 item 6
+Backlog: [BACKLOG.md](../BACKLOG.md); P1 item 6
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (
 
 ## 1. Percentile colour palette compliance
 
-### 1.1 Web dashboard uses non-canonical palette — critical
+### 1.1 Web dashboard uses non-canonical palette: critical
 
 **Location:** `web/src/routes/+page.svelte` lines 49–57
 
@@ -41,7 +41,7 @@ DESIGN.md explicitly flags this as non-compliant and requires migration.
 
 **Effort:** 1–2 hours
 
-### 1.2 macOS visualiser has no percentile palette — low
+### 1.2 macOS visualiser has no percentile palette: low
 
 **Location:** `tools/visualiser-macos/VelocityVisualiser/`
 
@@ -51,7 +51,7 @@ The macOS visualiser uses system/semantic colours only and currently renders no 
 
 **Effort:** Deferred
 
-### 1.3 No single-source palette definition — medium
+### 1.3 No single-source palette definition: medium
 
 **Location:** Three independent definitions exist:
 
@@ -69,7 +69,7 @@ There is no machine-readable single-source file that all platforms import or gen
 
 ## 2. CSS DRY and shared standard classes
 
-### 2.1 No shared standard classes exist — high
+### 2.1 No shared standard classes exist: high
 
 **Location:** `web/src/routes/app.css` (20 lines: Tailwind imports, 2 CSS variables, 1 SVG rule)
 
@@ -92,7 +92,7 @@ Add these to `web/src/routes/app.css` or a new `web/src/lib/styles/standards.css
 
 **Effort:** 1–2 days
 
-### 2.2 No widescreen content containment — medium
+### 2.2 No widescreen content containment: medium
 
 **Location:** All route files
 
@@ -106,7 +106,7 @@ DESIGN.md §5.7 specifies that at ≥3000 px the UI should centre an internal co
 
 ## 3. Chart rendering compliance
 
-### 3.1 Chart empty-state placeholder missing — critical
+### 3.1 Chart empty-state placeholder missing: critical
 
 **Location:** `web/src/routes/+page.svelte`
 
@@ -116,7 +116,7 @@ DESIGN.md §4.1 requires explicit loading/empty/error states for charts. The das
 
 **Effort:** 30 minutes
 
-### 3.2 Legend order not enforced in chart component — medium
+### 3.2 Legend order not enforced in chart component: medium
 
 **Location:** `web/src/routes/+page.svelte` `cDomain` definition (currently around lines 495–496, after chart state)
 
@@ -126,7 +126,7 @@ DESIGN.md §4.1 requires legend order `p50, p85, p98, max, then count/auxiliary`
 
 **Effort:** 30 minutes (combined with §1.3 work)
 
-### 3.3 Go-embedded eCharts dashboards not aligned — high
+### 3.3 Go-embedded eCharts dashboards not aligned: high
 
 **Location:** `internal/lidar/monitor/webserver.go` (5 `go:embed` directives, 13+ ECharts references)
 
@@ -144,11 +144,11 @@ The legacy monitor dashboards (status, debug, sweep, regions) use ECharts with G
 
 ## 4. Component policy compliance
 
-### 4.1 svelte-ux usage is consistent — no action
+### 4.1 svelte-ux usage is consistent: no action
 
 All route files import from `svelte-ux` for UI primitives (Button, Card, SelectField, TextField, DateRangeField, AppBar, etc.). No native HTML replacements without justification were found. **Compliant with DESIGN.md §5.3.**
 
-### 4.2 LayerChart usage limited to dashboard — medium
+### 4.2 LayerChart usage limited to dashboard: medium
 
 **Location:** `web/src/routes/+page.svelte`
 
@@ -158,7 +158,7 @@ LayerChart is only used on the main dashboard. The LiDAR routes (`tracks`, `scen
 
 **Effort:** Deferred
 
-### 4.3 No ad-hoc SVG charts found — no action
+### 4.3 No ad-hoc SVG charts found: no action
 
 Zero `<svg>` elements found in route-level `.svelte` files. **Compliant with DESIGN.md §5.4.**
 
@@ -166,7 +166,7 @@ Zero `<svg>` elements found in route-level `.svelte` files. **Compliant with DES
 
 ## 5. Information hierarchy (dESIGN.md §3.1)
 
-### 5.1 Lidar routes follow the four-tier hierarchy — no action
+### 5.1 Lidar routes follow the four-tier hierarchy: no action
 
 The modern workspace routes (`tracks`, `scenes`, `runs`, `sweeps`) implement:
 
@@ -177,7 +177,7 @@ The modern workspace routes (`tracks`, `scenes`, `runs`, `sweeps`) implement:
 
 **Compliant.**
 
-### 5.2 Dashboard lacks explicit context header — low
+### 5.2 Dashboard lacks explicit context header: low
 
 **Location:** `web/src/routes/+page.svelte`
 
@@ -191,7 +191,7 @@ The main dashboard does not show the current site name, data range, or sensor co
 
 ## 6. Architectural debt (from aRCHITECTURE.md)
 
-### 6.1 webserver.go is ~4,010 lines — high
+### 6.1 webserver.go is ~4,010 lines: high
 
 **Location:** `internal/lidar/monitor/webserver.go`
 
@@ -209,7 +209,7 @@ Combines HTTP handler registration, PCAP replay control, live UDP listening, ECh
 
 **Effort:** 2–3 days (incremental, one extraction per PR)
 
-### 6.2 background.go is ~2,600 lines — high
+### 6.2 background.go is ~2,600 lines: high
 
 **Location:** `internal/lidar/background.go`
 
@@ -217,14 +217,14 @@ Mixes persistence, export, drift detection, and spatial region management with c
 
 **Action:** Split into:
 
-- `background.go` — core EMA grid processing
-- `background_persistence.go` — snapshot save/restore
-- `background_regions.go` — spatial region management
-- `background_export.go` — ASC/heatmap export
+- `background.go`: core EMA grid processing
+- `background_persistence.go`: snapshot save/restore
+- `background_regions.go`: spatial region management
+- `background_export.go`: ASC/heatmap export
 
 **Effort:** 1–2 days
 
-### 6.3 analysis_run.go is ≈1,343 lines with domain comparison logic — medium
+### 6.3 analysis_run.go is ≈1,343 lines with domain comparison logic: medium
 
 **Location:** `internal/lidar/analysis_run.go`
 
@@ -238,7 +238,7 @@ Mixes persistence, export, drift detection, and spatial region management with c
 
 ## 7. Testing gaps
 
-### 7.1 No visual regression testing — medium
+### 7.1 No visual regression testing: medium
 
 No snapshot, screenshot, or visual regression testing exists for the web frontend. Palette and layout changes risk silent regressions.
 
@@ -246,7 +246,7 @@ No snapshot, screenshot, or visual regression testing exists for the web fronten
 
 **Effort:** 1–2 days (setup + 3–5 baseline tests)
 
-### 7.2 No accessibility testing — medium
+### 7.2 No accessibility testing: medium
 
 57 ARIA attributes found across 10 Svelte files (good baseline), but no automated accessibility tests exist (no axe-core, no a11y test runner).
 
@@ -254,7 +254,7 @@ No snapshot, screenshot, or visual regression testing exists for the web fronten
 
 **Effort:** 4–8 hours
 
-### 7.3 No integration test infrastructure — medium
+### 7.3 No integration test infrastructure: medium
 
 No Cypress, Playwright, or other E2E framework is configured. API integration is tested in Go, but frontend-to-API flows are untested.
 
@@ -262,7 +262,7 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 **Effort:** 1–2 days (setup + 3–5 smoke tests)
 
-### 7.4 No route-level web tests — low
+### 7.4 No route-level web tests: low
 
 11 web test files exist, all for library/utility code and Go-embedded dashboards. No route-level Svelte component tests exist.
 
@@ -270,7 +270,7 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 **Effort:** 1 day
 
-### 7.5 Code coverage thresholds are informational only — low
+### 7.5 Code coverage thresholds are informational only: low
 
 `codecov.yml` sets a 1% threshold, effectively disabling coverage gates. The web Jest config has 90% thresholds but only for `web/src/lib/`.
 
@@ -282,7 +282,7 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 ## 8. Documentation gaps
 
-### 8.1 DESIGN.md not referenced from cONTRIBUTING.md or rEADME.md — high
+### 8.1 DESIGN.md not referenced from cONTRIBUTING.md or rEADME.md: high
 
 Neither `CONTRIBUTING.md` nor `README.md` mentions `DESIGN.md`. Contributors can submit UI PRs without awareness of the design contract.
 
@@ -290,7 +290,7 @@ Neither `CONTRIBUTING.md` nor `README.md` mentions `DESIGN.md`. Contributors can
 
 **Effort:** 30 minutes
 
-### 8.2 PR checklist from dESIGN.md §9 not enforced — medium
+### 8.2 PR checklist from dESIGN.md §9 not enforced: medium
 
 DESIGN.md §9 defines a detailed UI/chart PR checklist, but this is not included in the GitHub PR template.
 
@@ -298,7 +298,7 @@ DESIGN.md §9 defines a detailed UI/chart PR checklist, but this is not included
 
 **Effort:** 30 minutes
 
-### 8.3 Frontend consolidation plan lacks palette alignment requirement — low
+### 8.3 Frontend consolidation plan lacks palette alignment requirement: low
 
 **Location:** `docs/plans/web-frontend-consolidation-plan.md`
 
@@ -312,7 +312,7 @@ The plan details the Phase 3 ECharts-to-LayerChart migration but does not explic
 
 ## 9. Cross-Platform alignment
 
-### 9.1 Tick density and axis formatting untested — medium
+### 9.1 Tick density and axis formatting untested: medium
 
 DESIGN.md §4.1 requires 6–10 visible X-axis labels and 4–6 Y-axis labels with no overlapping. The dashboard chart uses LayerChart defaults but there is no test or visual review confirming tick density compliance at different data densities and window sizes.
 
@@ -320,7 +320,7 @@ DESIGN.md §4.1 requires 6–10 visible X-axis labels and 4–6 Y-axis labels wi
 
 **Effort:** Combined with §7.1
 
-### 9.2 Time formatting does not verify timezone respect — low
+### 9.2 Time formatting does not verify timezone respect: low
 
 DESIGN.md §4.1 requires time formatting to respect selected timezone. The web frontend has timezone stores (`web/src/lib/stores/timezone.ts`) with tests, but the chart axis labels are not verified to use the selected timezone.
 
@@ -332,7 +332,7 @@ DESIGN.md §4.1 requires time formatting to respect selected timezone. The web f
 
 ## 10. Security and privacy
 
-### 10.1 No authentication on LAN API — low (by design)
+### 10.1 No authentication on LAN API: low (by design)
 
 ARCHITECTURE.md and DESIGN.md assume private LAN deployment with no authentication. The frontend consolidation plan notes this is acceptable for the current deployment model.
 
@@ -340,7 +340,7 @@ ARCHITECTURE.md and DESIGN.md assume private LAN deployment with no authenticati
 
 **Effort:** Deferred
 
-### 10.2 Go-embedded HTML templates may have injection risks — medium
+### 10.2 Go-embedded HTML templates may have injection risks: medium
 
 **Location:** `internal/lidar/monitor/templates.go`, `webserver.go`
 
@@ -354,7 +354,7 @@ Go HTML templates use `html/template` (auto-escaping), which is safe for standar
 
 ## 11. Build and development experience
 
-### 11.1 Dual SQLite drivers in go.mod — low
+### 11.1 Dual SQLite drivers in go.mod: low
 
 **Location:** `go.mod`
 
@@ -364,7 +364,7 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 
 **Effort:** 2–4 hours (audit + migration if feasible)
 
-### 11.2 Python version inconsistency — low
+### 11.2 Python version inconsistency: low
 
 `ARCHITECTURE.md` states Python 3.9+, `CONTRIBUTING.md` states Python 3.11+, `tox.ini` targets Python 3.12, and `requirements.txt` pins modern versions that may not support 3.9.
 
@@ -376,7 +376,7 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 
 ## 12. Light mode / theme compliance
 
-### 12.1 TrackList hex ID invisible in light mode — critical
+### 12.1 TrackList hex ID invisible in light mode: critical
 
 **Location:** `web/src/lib/components/lidar/TrackList.svelte:1033`
 
@@ -390,7 +390,7 @@ background-color: white; /* hardcoded — invisible in light mode */
 
 **Effort:** 15 minutes
 
-### 12.2 MapPane canvas legend uses hardcoded `#fff` — high
+### 12.2 MapPane canvas legend uses hardcoded `#fff`: high
 
 **Location:** `web/src/lib/components/lidar/MapPane.svelte:683, 698`
 
@@ -406,7 +406,7 @@ ctxLocal.strokeStyle = "#fff"; // grid label (line 306)
 
 **Effort:** 1–2 hours
 
-### 12.3 MapPane overlay panels assume dark background — medium
+### 12.3 MapPane overlay panels assume dark background: medium
 
 **Location:** `web/src/lib/components/lidar/MapPane.svelte:886, 899`
 
@@ -417,11 +417,11 @@ Two absolutely-positioned overlay panels use `bg-black text-white` Tailwind clas
 <div class="bg-opacity-80 ... bg-black ... text-white">  <!-- line 899 -->
 ```
 
-**Action:** Replace `bg-black text-white` with theme-aware surface classes (e.g. `bg-surface-100/75 text-surface-content`) or use `surface-200` with appropriate opacity. The overlays sit atop a dark canvas, so a semi-transparent dark style may be acceptable in both themes — but should be reviewed visually.
+**Action:** Replace `bg-black text-white` with theme-aware surface classes (e.g. `bg-surface-100/75 text-surface-content`) or use `surface-200` with appropriate opacity. The overlays sit atop a dark canvas, so a semi-transparent dark style may be acceptable in both themes; but should be reviewed visually.
 
 **Effort:** 30 minutes
 
-### 12.4 TimelinePane SVG text and stroke hardcoded white — high
+### 12.4 TimelinePane SVG text and stroke hardcoded white: high
 
 **Location:** `web/src/lib/components/lidar/TimelinePane.svelte:280, 303`
 

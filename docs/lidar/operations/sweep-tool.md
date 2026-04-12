@@ -1,6 +1,6 @@
 # Sweep tool guide
 
-The sweep tool (`cmd/sweep`) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics — allowing you to identify the settings that best suit your deployment site.
+The sweep tool (`cmd/sweep`) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
 
 ## Prerequisites
 
@@ -80,7 +80,7 @@ When you want to isolate one parameter while holding the others fixed:
 
 ### 3. Tracking sweep
 
-Sweeps tracker (Kalman filter) parameters and measures velocity-trail alignment — how well the estimated velocity vector matches the actual direction of travel:
+Sweeps tracker (Kalman filter) parameters and measures velocity-trail alignment: how well the estimated velocity vector matches the actual direction of travel:
 
 ```bash
 ./sweep -mode tracking \
@@ -117,7 +117,7 @@ The output CSV contains per-combination metrics:
 
 The summary CSV contains one row per parameter combination with columns:
 
-- `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count` — the parameter values
+- `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count`: the parameter values
 - Per speed-bucket acceptance rates (e.g. `0-5_accept_rate`, `5-10_accept_rate`, etc.)
 - Standard deviations of acceptance rates
 
@@ -133,9 +133,9 @@ A raw CSV with individual samples is also produced for deeper analysis.
 
 **What to look for:**
 
-- **Low `mean_alignment_deg`** (< 15°) — velocity estimates closely track actual movement
-- **Low `misalignment_ratio`** (< 0.1) — fewer than 10% of samples have wildly wrong velocity
-- **Reasonable `active_tracks`** — not too many (track splitting) or too few (track merging)
+- **Low `mean_alignment_deg`** (< 15°): velocity estimates closely track actual movement
+- **Low `misalignment_ratio`** (< 0.1): fewer than 10% of samples have wildly wrong velocity
+- **Reasonable `active_tracks`**: not too many (track splitting) or too few (track merging)
 
 ## Applying optimised parameters
 
@@ -252,6 +252,6 @@ curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p
 
 The repository includes Python scripts for visualising sweep results:
 
-- [data/multisweep-graph/plot_noise_sweep.py](../../../data/explore/multisweep-graph/plot_noise_sweep.py) — Plot acceptance rates vs noise values
-- [data/multisweep-graph/plot_noise_buckets.py](../../../data/explore/multisweep-graph/plot_noise_buckets.py) — Plot per-bucket acceptance distributions
-- [data/convergence-neighbour/analyse_convergence.py](../../../data/explore/convergence-neighbour/analyse_convergence.py) — Analyse neighbour convergence behaviour
+- [data/multisweep-graph/plot_noise_sweep.py](../../../data/explore/multisweep-graph/plot_noise_sweep.py): Plot acceptance rates vs noise values
+- [data/multisweep-graph/plot_noise_buckets.py](../../../data/explore/multisweep-graph/plot_noise_buckets.py): Plot per-bucket acceptance distributions
+- [data/convergence-neighbour/analyse_convergence.py](../../../data/explore/convergence-neighbour/analyse_convergence.py): Analyse neighbour convergence behaviour

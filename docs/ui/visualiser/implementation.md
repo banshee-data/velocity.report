@@ -4,22 +4,22 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 **Current Status** (February 2026):
 
-- ✅ **M0: Schema + Synthetic** — Complete
-- ✅ **M1: Recorder/Replayer** — Complete
-- ✅ **M2: Real Point Clouds** — Complete
-- ✅ **M3: Canonical Model + Adapters** — Complete
-- ✅ **M3.5: Split Streaming** — Complete (Track A + Track B)
-- ✅ **M4: Tracking Interface Refactor** — Complete (Track A + Track B)
-- ✅ **M5: Algorithm Upgrades** — Complete (Track B)
-- ✅ **M6: Debug + Labelling** — Complete (Track B)
-- ✅ **M7: Performance Hardening** — Complete (7.1, 7.2, 7.3 implemented; profiling items skipped — not bottlenecked)
-- 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)** — Planned (docs-only scope in this branch)
+- ✅ **M0: Schema + Synthetic**; Complete
+- ✅ **M1: Recorder/Replayer**; Complete
+- ✅ **M2: Real Point Clouds**; Complete
+- ✅ **M3: Canonical Model + Adapters**; Complete
+- ✅ **M3.5: Split Streaming**; Complete (Track A + Track B)
+- ✅ **M4: Tracking Interface Refactor**; Complete (Track A + Track B)
+- ✅ **M5: Algorithm Upgrades**; Complete (Track B)
+- ✅ **M6: Debug + Labelling**; Complete (Track B)
+- ✅ **M7: Performance Hardening**; Complete (7.1, 7.2, 7.3 implemented; profiling items skipped; not bottlenecked)
+- 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)**; Planned (docs-only scope in this branch)
 
 **Checkbox Legend**:
 
-- `[x]` — Completed
-- `[ ]` — Not started
-- `[~]` — Skipped / Won't do
+- `[x]`: Completed
+- `[ ]`: Not started
+- `[~]`: Skipped / Won't do
 
 ---
 
@@ -278,7 +278,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - `TrackingPipelineConfig.Tracker` changed from `*Tracker` to `TrackerInterface`
 - Golden replay tests verify identical track IDs, states, positions, and velocities across runs
 - Floating point tolerances: positions 1e-5, velocities 1e-4
-- No algorithm changes — pure interface wrapping
+- No algorithm changes: pure interface wrapping
 - Cluster rendering on macOS: cyan wireframe boxes (RGBA 0.0, 0.8, 1.0, 0.7), toggle with 'C' key
 - Track rendering: state-coloured boxes (green/yellow/red), toggle with 'B' key
 
@@ -417,29 +417,29 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 **Track A (Visualiser)**:
 
-- [x] GPU buffer pooling (avoid allocations per frame) — M7.1 implemented
-- [~] Triple buffering for smooth rendering — Skipped: sensor-limited at 10–20 fps; GPU frame time well under 16ms
-- [x] Memory usage < 500 MB — Validated: heap growth <1 MB over 100-frame cycles
-- [~] CPU profiling and optimisation — Skipped: pipeline uses <0.4ms/frame (87x headroom vs 33ms budget)
-- [~] GPU profiling (Metal System Trace) — Skipped: not GPU-bottlenecked at current frame rates
-- [x] Swift vertex buffer reuse (see §7.1 below) — M7.1 implemented
+- [x] GPU buffer pooling (avoid allocations per frame): M7.1 implemented
+- [~] Triple buffering for smooth rendering: Skipped: sensor-limited at 10–20 fps; GPU frame time well under 16ms
+- [x] Memory usage < 500 MB: Validated: heap growth <1 MB over 100-frame cycles
+- [~] CPU profiling and optimisation: Skipped: pipeline uses <0.4ms/frame (87x headroom vs 33ms budget)
+- [~] GPU profiling (Metal System Trace): Skipped: not GPU-bottlenecked at current frame rates
+- [x] Swift vertex buffer reuse (see §7.1 below): M7.1 implemented
 
 **Track B (Pipeline)**:
 
-- [~] gRPC streaming optimisation — Skipped: split streaming (M3.5) already achieves <5 Mbps; cooldown handles congestion
-- [~] Protobuf arena allocators — Skipped: Go protobuf lacks arena support; pool-based reuse (§7.2) covers dominant allocation path
-- [~] Decimation auto-adjustment based on bandwidth — Skipped: frame skipping cooldown (§7.3) handles congestion; foreground-only frames already small (~2k points)
-- [~] Memory profiling for 100+ track scale — Skipped: production deployment tracks <20 vehicles; 200-track benchmark validates serialisation at 0.13ms
-- [x] PointCloudFrame memory pool with reference counting (see §7.2 below) — M7.2 implemented
-- [x] Frame skipping with cooldown mechanism (see §7.3 below) — M7.3 implemented
+- [~] gRPC streaming optimisation: Skipped: split streaming (M3.5) already achieves <5 Mbps; cooldown handles congestion
+- [~] Protobuf arena allocators: Skipped: Go protobuf lacks arena support; pool-based reuse (§7.2) covers dominant allocation path
+- [~] Decimation auto-adjustment based on bandwidth: Skipped: frame skipping cooldown (§7.3) handles congestion; foreground-only frames already small (~2k points)
+- [~] Memory profiling for 100+ track scale: Skipped: production deployment tracks <20 vehicles; 200-track benchmark validates serialisation at 0.13ms
+- [x] PointCloudFrame memory pool with reference counting (see §7.2 below): M7.2 implemented
+- [x] Frame skipping with cooldown mechanism (see §7.3 below): M7.3 implemented
 
 **Acceptance Criteria** (validated via `benchmark_test.go`):
 
-- [x] 70,000 points at 30 fps sustained — Measured: 0.38ms/frame on dev machine (M1), ~40ms on CI; threshold set at 50ms to accommodate CI variability while catching regressions
-- [x] 200 tracks render without frame drops — Measured: 0.13ms serialisation for 200 tracks
-- [x] Memory stable over 1 hour session — Validated: 0.02 MB heap growth over 100-frame cycles; pool leak test: <1 MB over 1000 cycles
-- [x] CPU usage < 30% on M1 MacBook — Pipeline uses <0.4ms/frame; well within budget
-- [x] No memory leaks from pooled allocations — Validated: Retain/Release pool test passes with <1 MB growth
+- [x] 70,000 points at 30 fps sustained: Measured: 0.38ms/frame on dev machine (M1), ~40ms on CI; threshold set at 50ms to accommodate CI variability while catching regressions
+- [x] 200 tracks render without frame drops: Measured: 0.13ms serialisation for 200 tracks
+- [x] Memory stable over 1 hour session: Validated: 0.02 MB heap growth over 100-frame cycles; pool leak test: <1 MB over 1000 cycles
+- [x] CPU usage < 30% on M1 MacBook: Pipeline uses <0.4ms/frame; well within budget
+- [x] No memory leaks from pooled allocations: Validated: Retain/Release pool test passes with <1 MB growth
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
 
@@ -535,8 +535,8 @@ frame.PointCloud.Release()
 **Implementation (July 2025)**:
 
 - Extracted `sendCooldown` struct in `grpc_server.go` with hysteresis logic
-- `maxConsecutiveSlowSends = 3` — consecutive slow sends to enter skip mode
-- `minConsecutiveFastSends = 5` — consecutive fast sends required to exit skip mode
+- `maxConsecutiveSlowSends = 3`: consecutive slow sends to enter skip mode
+- `minConsecutiveFastSends = 5`: consecutive fast sends required to exit skip mode
 - `recordSlow()` / `recordFast()` / `inSkipMode()` methods for clean separation
 - A slow send during recovery resets the fast counter, preventing premature exit
 - In normal mode, a fast send resets the slow counter (original behaviour preserved)

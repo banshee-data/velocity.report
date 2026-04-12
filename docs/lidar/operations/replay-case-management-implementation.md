@@ -8,7 +8,7 @@ Implementation of replay case management: structured evaluation environments fro
 
 ## Overview
 
-Implemented Phase 2 of the track labelling system, which introduces **replay cases** — evaluation environments captured in PCAP files that can be tied to sensors, reference ground truth runs, and optimal parameter configurations.
+Implemented Phase 2 of the track labelling system, which introduces **replay cases**: evaluation environments captured in PCAP files that can be tied to sensors, reference ground truth runs, and optimal parameter configurations.
 
 ## What is a replay case?
 
@@ -84,8 +84,8 @@ Current method names (pending rename to `ReplayCase*` prefix):
 - `ListScenes(sensorID)` → retrieve as `[]*ReplayCase`, method name pending
 - `UpdateScene(scene)` → update with `ReplayCase`, method name pending
 - `DeleteScene(replayCaseID)` → delete by ID, method name pending
-- `SetReferenceRun(replayCaseID, runID)` — Sets reference run (ground truth)
-- `SetOptimalParams(replayCaseID, paramsJSON)` — Updates optimal parameters JSON (via `recommended_param_set_id` link)
+- `SetReferenceRun(replayCaseID, runID)`: Sets reference run (ground truth)
+- `SetOptimalParams(replayCaseID, paramsJSON)`: Updates optimal parameters JSON (via `recommended_param_set_id` link)
 
 **Nullable Field Handling:**
 
@@ -111,8 +111,8 @@ Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handl
 
 **Request/Response Types:**
 
-- `CreateSceneRequest` — validated required fields (sensor_id, pcap_file) — handler name pending rename
-- `UpdateSceneRequest` — uses pointers to distinguish "not set" from "set to empty" — handler name pending rename
+- `CreateSceneRequest`: validated required fields (sensor_id, pcap_file); handler name pending rename
+- `UpdateSceneRequest`: uses pointers to distinguish "not set" from "set to empty"; handler name pending rename
 
 **Routes Registration:**
 
@@ -140,13 +140,13 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 
 7 test cases covering:
 
-1. **TestSceneStore_InsertAndGet** — Basic CRUD, UUID generation, timestamp handling
-2. **TestSceneStore_ListScenes** — Filtering by sensor_id, ordering (newest first)
-3. **TestSceneStore_UpdateScene** — Field updates, updated_at_ns tracking
-4. **TestSceneStore_DeleteScene** — Deletion, non-existent replay case handling
-5. **TestSceneStore_SetReferenceRun** — Reference run setting/clearing
-6. **TestSceneStore_SetOptimalParams** — Optimal params JSON storage
-7. **TestSceneStore_NullableFields** — Verify nullable fields remain nil when not set
+1. **TestSceneStore_InsertAndGet**: Basic CRUD, UUID generation, timestamp handling
+2. **TestSceneStore_ListScenes**: Filtering by sensor_id, ordering (newest first)
+3. **TestSceneStore_UpdateScene**: Field updates, updated_at_ns tracking
+4. **TestSceneStore_DeleteScene**: Deletion, non-existent replay case handling
+5. **TestSceneStore_SetReferenceRun**: Reference run setting/clearing
+6. **TestSceneStore_SetOptimalParams**: Optimal params JSON storage
+7. **TestSceneStore_NullableFields**: Verify nullable fields remain nil when not set
 
 ### Replay case API tests (`scene_api_test.go`)
 
@@ -195,10 +195,10 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 
 **Migration Files:**
 
-- `internal/db/migrations/000020_create_lidar_scenes.up.sql` — Original table creation (v0.5.0)
-- `internal/db/migrations/000020_create_lidar_scenes.down.sql` — Rollback
-- `internal/db/migrations/000031_table_naming.up.sql` — Renames table to `lidar_replay_cases` and columns (v0.5.x)
-- `internal/db/migrations/000031_table_naming.down.sql` — Rollback to `scene` names
+- `internal/db/migrations/000020_create_lidar_scenes.up.sql`: Original table creation (v0.5.0)
+- `internal/db/migrations/000020_create_lidar_scenes.down.sql`: Rollback
+- `internal/db/migrations/000031_table_naming.up.sql`: Renames table to `lidar_replay_cases` and columns (v0.5.x)
+- `internal/db/migrations/000031_table_naming.down.sql`: Rollback to `scene` names
 
 **Store Layer:**
 
@@ -211,7 +211,7 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 - `internal/lidar/server/scene_api.go` → File rename pending; handlers use `ReplayCase` internally
 - `internal/lidar/server/scene_api_test.go` → File rename pending
 - `internal/lidar/server/scene_api_coverage_test.go` → File rename pending
-- `internal/lidar/server/routes.go` — Routes still use `/api/lidar/scenes` paths (pending rename)
+- `internal/lidar/server/routes.go`: Routes still use `/api/lidar/scenes` paths (pending rename)
 
 **Lines of Code:**
 

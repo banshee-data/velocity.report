@@ -1,4 +1,4 @@
-# Homepage — responsive GIF strategy
+# Homepage: responsive GIF strategy
 
 Records the chosen strategy for displaying the LiDAR visualiser demo GIF on the public homepage in a responsive, performant way across device sizes.
 

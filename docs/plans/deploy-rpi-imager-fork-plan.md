@@ -1,6 +1,6 @@
-# velocity.report Raspberry Pi imager — design document
+# velocity.report Raspberry Pi imager: design document
 
-- **Status:** Active — Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
+- **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
@@ -17,7 +17,7 @@
 This plan is delivered in two phases, reflecting the principle of shipping
 working software before optimising.
 
-### Phase 1 — working image (v0.5.1) ✅
+### Phase 1: working image (v0.5.1) ✅
 
 **Goal:** Produce a flashable Raspberry Pi `.img` file that contains the
 velocity.report stack with a minimal vendored TeX tree.
@@ -29,11 +29,11 @@ velocity.report stack with a minimal vendored TeX tree.
 - Build pipeline: pi-gen + GitHub Actions CI
 - Distribution: `.img.xz` GitHub Release asset + custom `os-list.json` for
   stock rpi-imager
-- All software components bundled as they exist today — Go server, Python PDF
+- All software components bundled as they exist today: Go server, Python PDF
   generator, web frontend, systemd service, udev rules, serial configuration
 - On-device update capability: `velocity-ctl upgrade` checks GitHub Releases,
   downloads the latest binary, and applies the upgrade with automatic backup
-  and database migration — preserving user data across upgrades
+  and database migration: preserving user data across upgrades
 
 **Acceptance:** A community member can download the `.img.xz`, flash it with
 rpi-imager or `dd`, boot a Raspberry Pi 4, and have velocity.report running
@@ -41,7 +41,7 @@ with radar collection and PDF report generation functional. The user can
 subsequently run `sudo velocity-ctl upgrade` to upgrade to a newer release
 without losing their sensor data.
 
-### Phase 2 — format pre-compilation (v0.6.0)
+### Phase 2: format pre-compilation (v0.6.0)
 
 **Goal:** Reduce PDF compilation time by shipping pre-compiled `.fmt` format
 files alongside the minimal TeX tree shipped in Phase 1.
@@ -91,15 +91,15 @@ image provides the baseline against which Phase 2 size reductions are measured.
 
 The solution has two independent concerns:
 
-1. **Image Building** — a CI job that produces a flashable `.img` file
-2. **Image Flashing** — a desktop application that writes that image to an SD card
+1. **Image Building**: a CI job that produces a flashable `.img` file
+2. **Image Flashing**: a desktop application that writes that image to an SD card
 
 These concerns are **decoupled by design**: the image is a standard Raspberry Pi
 `.img` file that can be flashed by _any_ tool (rpi-imager, balenaEtcher, `dd`).
 
 ---
 
-## 4. Tier 1 — image building pipeline
+## 4. Tier 1: image building pipeline
 
 ### 4.1 Tool comparison
 
@@ -161,12 +161,12 @@ curl                   # health checks
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**; users
 enable it through the web settings dashboard (see
-[frontend-consolidation.md](./web-frontend-consolidation-plan.md) Phase 0 — Capabilities
+[frontend-consolidation.md](./web-frontend-consolidation-plan.md) Phase 0: Capabilities
 API). The `--enable-lidar` flag is off unless explicitly toggled.
 
 #### 4.2.2a Update mechanism
 
-The image ships with **no automatic updates** — this preserves the privacy-first
+The image ships with **no automatic updates**: this preserves the privacy-first
 principle by making zero unsolicited network requests. Instead, users
 **explicitly** run `velocity-ctl upgrade` when they choose to upgrade.
 
@@ -185,21 +185,21 @@ sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
 `velocity-ctl` is a purpose-built on-device management binary (no SSH, no
 remote execution). The `upgrade` subcommand performs the full sequence:
 
-1. **Check** — query GitHub Releases API (`api.github.com`) for the latest
+1. **Check**: query GitHub Releases API (`api.github.com`) for the latest
    release of `banshee-data/velocity.report`; compare to installed version
-2. **Download** — fetch the `velocity-report-{version}-linux-arm64` asset from the
+2. **Download**: fetch the `velocity-report-{version}-linux-arm64` asset from the
    GitHub Release; compute SHA-256 of downloaded bytes and print it for
    operator verification (automatic checksum verification against a published
    `SHA256SUMS` file is deferred to v0.6.0)
-3. **Backup** — create timestamped backup of current binary and database to
+3. **Backup**: create timestamped backup of current binary and database to
    `/var/lib/velocity-report/backups/`
-4. **Stop** — `systemctl stop velocity-report.service`
-5. **Install** — replace `/usr/local/bin/velocity-report` with the downloaded
+4. **Stop**: `systemctl stop velocity-report.service`
+5. **Install**: replace `/usr/local/bin/velocity-report` with the downloaded
    binary
-6. **Migrate** — run `velocity-report migrate up` for any new database schema
+6. **Migrate**: run `velocity-report migrate up` for any new database schema
    changes
-7. **Start** — `systemctl start velocity-report.service`
-8. **Verify** — confirm service is active and responding
+7. **Start**: `systemctl start velocity-report.service`
+8. **Verify**: confirm service is active and responding
 
 If `--check` is passed, only step 1 runs and the result is printed. If
 `--binary` is passed, steps 1–2 are skipped and the local file is used
@@ -208,16 +208,16 @@ If `--check` is passed, only step 1 runs and the result is printed. If
 ##### Implementation scope for v0.5.1
 
 New binary at `cmd/velocity-ctl/` (~500 lines). This replaces `cmd/deploy/`
-entirely — no SSH surface, no remote execution, no install/fix/config
+entirely: no SSH surface, no remote execution, no install/fix/config
 subcommands. Only the on-device capabilities that matter:
 
-- `upgrade` — GitHub release check + download + backup + stop + install +
+- `upgrade`: GitHub release check + download + backup + stop + install +
   migrate + start + verify. `--check` flag for version comparison only.
   `--binary` flag for offline upgrades.
-- `rollback` — restore binary + database from most recent timestamped backup
-- `backup` — create manual snapshot of binary + database
-- `status` — thin wrapper around `systemctl status velocity-report`
-- `version` — print installed velocity-ctl and velocity-report versions
+- `rollback`: restore binary + database from most recent timestamped backup
+- `backup`: create manual snapshot of binary + database
+- `status`: thin wrapper around `systemctl status velocity-report`
+- `version`: print installed velocity-ctl and velocity-report versions
 
 The upgrade subcommand includes:
 
@@ -236,13 +236,13 @@ three legacy upgrade steps (`updateSourceCode`, `ensureLaTeX`,
 
 ##### Privacy guarantees
 
-- **No unsolicited requests** — the tool only contacts GitHub when the user
+- **No unsolicited requests**: the tool only contacts GitHub when the user
   explicitly runs `velocity-ctl upgrade`
-- **No telemetry** — no analytics, no tracking, no phone-home
-- **No background processes** — no cron, no timer, no daemon
-- **Public API only** — GitHub Releases API for public repos requires no
+- **No telemetry**: no analytics, no tracking, no phone-home
+- **No background processes**: no cron, no timer, no daemon
+- **Public API only**: GitHub Releases API for public repos requires no
   authentication token
-- **Verifiable** — SHA-256 checksum verification ensures binary integrity
+- **Verifiable**: SHA-256 checksum verification ensures binary integrity
 
 ##### Rollback
 
@@ -255,7 +255,7 @@ sudo velocity-ctl rollback      # restore most recent backup
 This restores the binary and database from the timestamped backup created
 during the upgrade.
 
-2. **Settings dashboard version banner** — the web UI settings page will
+2. **Settings dashboard version banner**: the web UI settings page will
    display the currently installed version. A future "Check for updates"
    button is planned but not yet implemented.
 
@@ -483,25 +483,25 @@ without changing the image build pipeline.
 
 #### 4.6.4 Implementation steps
 
-1. ✅ **Audit template dependencies** — `dependency-manifest.txt` lists every
+1. ✅ **Audit template dependencies**: `dependency-manifest.txt` lists every
    `.sty`, `.cls`, font, and binary the PDF generator uses
-2. ✅ **Build a minimal TeX tree** — `scripts/build-minimal-texlive.sh` extracts
+2. ✅ **Build a minimal TeX tree**: `scripts/build-minimal-texlive.sh` extracts
    only the required files from the full TeX Live distribution into
    `/opt/velocity-report/texlive/` (~143 MB). Pi-gen stage
    `00-install-packages/01-run.sh` runs this at image build time and purges
    the APT packages afterward
-3. **Pre-compile format files** (Phase 2) — run `xelatex -ini` to produce
+3. **Pre-compile format files** (Phase 2): run `xelatex -ini` to produce
    `.fmt` files for each report template; eliminates per-run format-loading
    overhead
-4. ✅ **Update pi-gen stage** — `00-install-packages` installs `texlive-xetex`
+4. ✅ **Update pi-gen stage**: `00-install-packages` installs `texlive-xetex`
    APT packages, builds the minimal tree, and purges the APT packages
-5. ✅ **Validate output** — PDF output validated between full TeX Live and
+5. ✅ **Validate output**: PDF output validated between full TeX Live and
    minimal builds with no rendering regressions
-6. ✅ **Measure** — minimal tree: ~143 MB vs full TeX Live: ~800 MB (~1 GB saved)
+6. ✅ **Measure**: minimal tree: ~143 MB vs full TeX Live: ~800 MB (~1 GB saved)
 
 ---
 
-## 5. Tier 2 — image flashing (rpi-imager)
+## 5. Tier 2: image flashing (rpi-imager)
 
 ### 5.1 Approach comparison
 
@@ -523,7 +523,7 @@ There are three approaches to getting our image into end users' hands:
 
 ### 5.2 Recommendation: phased approach
 
-**Phase 1 (Immediate):** Use **Approach A — Custom Repository JSON**
+**Phase 1 (Immediate):** Use **Approach A; Custom Repository JSON**
 
 This gets images into users' hands with minimal effort. Users install the stock
 Raspberry Pi Imager (which many already have), and point it to our repository:
@@ -549,7 +549,7 @@ Only pursue the fork if:
 
 ---
 
-## 6. Decision matrix — monorepo vs. separate repository
+## 6. Decision matrix: monorepo vs. separate repository
 
 If/when we proceed with the rpi-imager fork (Phase 2), the code must live
 somewhere. Here is the analysis:
@@ -630,45 +630,45 @@ the `velocity.report` monorepo:
 
 ### 7.1 Image building pitfalls
 
-| Risk                                                                                     | Severity | Mitigation                                                                                                                                                                             |
-| ---------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **TeX Live size bloat** — full installation is 4+ GB                                     | High     | Dedicated reduction work stream (§ 4.6): ship pre-compiled templates + minimal TeX tree; target < 200 MB                                                                               |
-| **pi-gen build flakiness** — network-dependent APT fetches can fail                      | Medium   | Pin package versions; use local APT mirror in CI; retry logic                                                                                                                          |
-| **ARM64 QEMU emulation speed** — pi-gen builds on x86 CI runners use QEMU for ARM chroot | Medium   | Use native ARM64 runners (GitHub now offers them) or cross-compile everything outside the chroot                                                                                       |
-| **Python venv portability** — venvs built on x86 may not work on ARM64                   | High     | Build the venv inside the ARM64 chroot (pi-gen stage script) or use wheels with `--platform manylinux_2_28_aarch64`                                                                    |
-| **Image size exceeding GitHub release limits** — GitHub has a 2 GB per-asset limit       | Medium   | Use xz compression (typical 3:1 ratio); consider hosting on a dedicated CDN for larger images                                                                                          |
-| **Serial port conflicts** — Bluetooth uses the same UART on Pi 4                         | Medium   | Overlay `miniuart-bt` moves Bluetooth to mini-UART; document for users with Bluetooth peripherals                                                                                      |
-| **SD card wear** — SQLite WAL mode on SD cards can cause premature failure               | Low      | Document recommended SD card brands; consider moving WAL to tmpfs with periodic sync                                                                                                   |
-| **LiDAR pcap binary size** — building with pcap adds ~5 MB to the Go binary              | Low      | Acceptable trade-off; LiDAR hardware support is included but disabled by default; no runtime cost when off                                                                             |
-| **First-boot configuration** — users need to set Wi-Fi before the device has a screen    | Medium   | Leverage rpi-imager's built-in Wi-Fi/SSH customisation; image defaults to US regulatory domain (`country=US`) so wireless is functional even if the user skips Wi-Fi country selection |
+| Risk                                                                                    | Severity | Mitigation                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TeX Live size bloat**: full installation is 4+ GB                                     | High     | Dedicated reduction work stream (§ 4.6): ship pre-compiled templates + minimal TeX tree; target < 200 MB                                                                               |
+| **pi-gen build flakiness**: network-dependent APT fetches can fail                      | Medium   | Pin package versions; use local APT mirror in CI; retry logic                                                                                                                          |
+| **ARM64 QEMU emulation speed**: pi-gen builds on x86 CI runners use QEMU for ARM chroot | Medium   | Use native ARM64 runners (GitHub now offers them) or cross-compile everything outside the chroot                                                                                       |
+| **Python venv portability**: venvs built on x86 may not work on ARM64                   | High     | Build the venv inside the ARM64 chroot (pi-gen stage script) or use wheels with `--platform manylinux_2_28_aarch64`                                                                    |
+| **Image size exceeding GitHub release limits**: GitHub has a 2 GB per-asset limit       | Medium   | Use xz compression (typical 3:1 ratio); consider hosting on a dedicated CDN for larger images                                                                                          |
+| **Serial port conflicts**: Bluetooth uses the same UART on Pi 4                         | Medium   | Overlay `miniuart-bt` moves Bluetooth to mini-UART; document for users with Bluetooth peripherals                                                                                      |
+| **SD card wear**: SQLite WAL mode on SD cards can cause premature failure               | Low      | Document recommended SD card brands; consider moving WAL to tmpfs with periodic sync                                                                                                   |
+| **LiDAR pcap binary size**: building with pcap adds ~5 MB to the Go binary              | Low      | Acceptable trade-off; LiDAR hardware support is included but disabled by default; no runtime cost when off                                                                             |
+| **First-boot configuration**: users need to set Wi-Fi before the device has a screen    | Medium   | Leverage rpi-imager's built-in Wi-Fi/SSH customisation; image defaults to US regulatory domain (`country=US`) so wireless is functional even if the user skips Wi-Fi country selection |
 
 ### 7.2 rpi-imager fork pitfalls (phase 2)
 
-| Risk                                                                                                                       | Severity | Mitigation                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| **Qt version churn** — rpi-imager requires Qt 6.7+; major version upgrades break APIs                                      | High     | Pin Qt version; sync with upstream only on stable releases                             |
-| **Cross-platform packaging** — building .dmg (macOS), .exe/.msi (Windows), .AppImage (Linux) requires platform-specific CI | High     | Use upstream's existing packaging scripts; GitHub Actions matrix builds                |
-| **Code signing** — macOS and Windows require signed binaries to avoid security warnings                                    | High     | Obtain Apple Developer and Windows Authenticode certificates; budget ~$200/year        |
-| **Upstream divergence** — the more we customise, the harder merges become                                                  | Medium   | Minimise changes: branding + default repo URL only; avoid touching core flashing logic |
-| **Dependency licensing** — Qt is LGPL; must comply with linking requirements                                               | Medium   | Dynamic linking (already the upstream approach); include LGPL notice                   |
-| **User confusion** — two "imager" apps on the system                                                                       | Low      | Clear naming: "velocity.report Imager" vs "Raspberry Pi Imager"                        |
+| Risk                                                                                                                      | Severity | Mitigation                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| **Qt version churn**: rpi-imager requires Qt 6.7+; major version upgrades break APIs                                      | High     | Pin Qt version; sync with upstream only on stable releases                             |
+| **Cross-platform packaging**: building .dmg (macOS), .exe/.msi (Windows), .AppImage (Linux) requires platform-specific CI | High     | Use upstream's existing packaging scripts; GitHub Actions matrix builds                |
+| **Code signing**: macOS and Windows require signed binaries to avoid security warnings                                    | High     | Obtain Apple Developer and Windows Authenticode certificates; budget ~$200/year        |
+| **Upstream divergence**: the more we customise, the harder merges become                                                  | Medium   | Minimise changes: branding + default repo URL only; avoid touching core flashing logic |
+| **Dependency licensing**: Qt is LGPL; must comply with linking requirements                                               | Medium   | Dynamic linking (already the upstream approach); include LGPL notice                   |
+| **User confusion**: two "imager" apps on the system                                                                       | Low      | Clear naming: "velocity.report Imager" vs "Raspberry Pi Imager"                        |
 
 ### 7.3 General risks
 
-| Risk                                                                       | Severity | Mitigation                                                                           |
-| -------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------ |
-| **Scope creep** — image building project absorbs all engineering time      | High     | Strict phased approach; Phase 1 (JSON repo) delivers value in days, not weeks        |
-| **Security** — pre-built images could be tampered with                     | High     | SHA-256 checksums in os-list JSON; GPG-signed releases; reproducible builds          |
-| **Support burden** — "it didn't boot" becomes the #1 issue                 | Medium   | Comprehensive first-boot diagnostics; LED status codes; web-based setup wizard       |
-| **Raspberry Pi OS upgrades** — new Debian releases break our image scripts | Medium   | Pin to Bookworm; test quarterly against new releases; document supported OS versions |
+| Risk                                                                      | Severity | Mitigation                                                                           |
+| ------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| **Scope creep**: image building project absorbs all engineering time      | High     | Strict phased approach; Phase 1 (JSON repo) delivers value in days, not weeks        |
+| **Security**: pre-built images could be tampered with                     | High     | SHA-256 checksums in os-list JSON; GPG-signed releases; reproducible builds          |
+| **Support burden**: "it didn't boot" becomes the #1 issue                 | Medium   | Comprehensive first-boot diagnostics; LED status codes; web-based setup wizard       |
+| **Raspberry Pi OS upgrades**: new Debian releases break our image scripts | Medium   | Pin to Bookworm; test quarterly against new releases; document supported OS versions |
 
 ---
 
-## 8. Deploy tool replacement — `velocity-ctl`
+## 8. Deploy tool replacement: `velocity-ctl`
 
 `cmd/deploy/` (the `velocity-deploy` binary) is **deleted in v0.5.1** and
 replaced by `cmd/velocity-ctl/` (the `velocity-ctl` binary). This is a clean
-break, not a gradual deprecation — there are no existing image users to
+break, not a gradual deprecation: there are no existing image users to
 migrate, and shipping both binaries creates a limbo state where two tools
 with overlapping names do different things.
 
@@ -677,7 +677,7 @@ with overlapping names do different things.
 | Before (deleted)                           | After (new)                              |
 | ------------------------------------------ | ---------------------------------------- |
 | `velocity-deploy` (3,678 LOC, 10 Go files) | `velocity-ctl` (~500 LOC, purpose-built) |
-| `velocity-update` (21-line bash wrapper)   | _(deleted — no wrapper needed)_          |
+| `velocity-update` (21-line bash wrapper)   | _(deleted: no wrapper needed)_           |
 | 8 subcommands, SSH surface, legacy steps   | 5 subcommands, local-only, no SSH        |
 
 ### 8.2 Subcommand map
@@ -697,14 +697,14 @@ velocity-ctl                           # On-device management (root)
 
 ### 8.3 Why `velocity-ctl` (not `velocity-deploy`)
 
-- **No name collision** — `velocity-deploy` implied pushing code TO somewhere
+- **No name collision**: `velocity-deploy` implied pushing code TO somewhere
   over SSH. On-device, the tool pulls an update DOWN to itself. The name was
   actively misleading.
-- **Unix convention** — follows `systemctl`, `apachectl`, `rabbitmqctl`.
-- **Clean privilege domain** — `velocity-ctl` always runs as root on-device.
+- **Unix convention**: follows `systemctl`, `apachectl`, `rabbitmqctl`.
+- **Clean privilege domain**: `velocity-ctl` always runs as root on-device.
   `velocity-report` runs as the `velocity` service user. No mixed privilege
   model.
-- **Smaller binary** — ~500 lines vs ~3,700. No dead code ships on the image.
+- **Smaller binary**: ~500 lines vs ~3,700. No dead code ships on the image.
 
 ### 8.4 Image binaries (v0.5.1)
 
@@ -719,8 +719,8 @@ Two Go binaries, no wrapper scripts:
 
 The following are removed from the repository in v0.5.1:
 
-- `cmd/deploy/` — entire directory (10 source files, 10 test files, README)
-- `image/stage-velocity/01-velocity-binaries/files/velocity-update` — bash wrapper
+- `cmd/deploy/`: entire directory (10 source files, 10 test files, README)
+- `image/stage-velocity/01-velocity-binaries/files/velocity-update`: bash wrapper
 - Makefile targets: `build-deploy`, `build-deploy-linux`, `deploy-install`,
   `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`,
   `deploy-install-latex-minimal`, `deploy-update-deps`, `setup-radar`
@@ -731,7 +731,7 @@ The following are removed from the repository in v0.5.1:
 The [distribution-packaging plan](./deploy-distribution-packaging-plan.md)
 proposes absorbing `velocity-ctl` subcommands into `velocity-report` as
 subcommands (e.g. `velocity-report upgrade`). That remains a future option
-but is **not required** — `velocity-ctl` is a stable, permanent name that
+but is **not required**: `velocity-ctl` is a stable, permanent name that
 can remain indefinitely. The consolidation only makes sense if eliminating
 one binary from the image is worth the mixed privilege model (root
 subcommands in a non-root binary).
@@ -740,7 +740,7 @@ subcommands in a non-root binary).
 
 ## 9. Implementation phases
 
-### Phase 0 — prerequisites (1–2 days)
+### Phase 0: prerequisites (1–2 days)
 
 - [ ] Verify `make build-radar-linux-pcap` produces a working ARM64 binary with LiDAR support
 - [ ] Verify Python PDF generator works on ARM64 Raspberry Pi OS
@@ -748,7 +748,7 @@ subcommands in a non-root binary).
 - [ ] Test RS-232 HAT configuration manually on a Raspberry Pi 4
 - [ ] Verify LiDAR packet capture works on Pi 4 with pcap-enabled binary (disabled by default, enable with `--enable-lidar`)
 
-### Phase 1 — image building with pi-gen (1–2 weeks) ✅ complete
+### Phase 1: image building with pi-gen (1–2 weeks) ✅ complete
 
 - [x] Create `image/` directory in monorepo
 - [x] Write pi-gen `config` file and `stage-velocity/` scripts
@@ -765,7 +765,7 @@ vendored TeX tree (~143 MB), then purges the APT packages from the final
 image. Further size reduction via pre-compiled `.fmt` files (§ 4.6) is
 deferred to Phase 2 (v0.6.0).
 
-### Phase 2 — custom repository JSON (2–3 days)
+### Phase 2: custom repository JSON (2–3 days)
 
 - [x] Create `image/os-list-velocity.json` with schema-compliant entries
 - [ ] Host JSON on GitHub Pages or alongside releases
@@ -773,14 +773,14 @@ deferred to Phase 2 (v0.6.0).
 - [ ] Add `--repo` instructions to main README
 - [ ] Test with stock rpi-imager on macOS, Windows, Linux
 
-### Phase 3 — first-boot experience (1 week)
+### Phase 3: first-boot experience (1 week)
 
 - [ ] Create a first-boot script that validates radar connectivity
 - [ ] Add a web-based setup wizard (accessible at `http://velocity.local:8080/setup`)
 - [ ] LED status indicator for boot progress (optional, GPIO-dependent)
 - [ ] Smoke-test the full flow: flash → boot → radar detected → web UI accessible
 
-### Phase 4 — rpi-imager fork (4–8 weeks, only if warranted)
+### Phase 4: rpi-imager fork (4–8 weeks, only if warranted)
 
 - [ ] Fork `raspberrypi/rpi-imager` to `banshee-data/velocity.report-imager`
 - [ ] Rebrand UI: velocity.report logo, colour scheme, application name
@@ -836,7 +836,7 @@ velocity.report/
 
 ## 11. os-list JSON schema (phase 2)
 
-A single image entry — the full stack with radar, LiDAR (disabled), PDF
+A single image entry: the full stack with radar, LiDAR (disabled), PDF
 generation, and web dashboard:
 
 ```json
@@ -905,30 +905,30 @@ generation, and web dashboard:
 
 ## 13. References
 
-- [raspberrypi/rpi-imager](https://github.com/raspberrypi/rpi-imager) — Apache 2.0 licence, C++/Qt6/QML/CMake
-- [RPi-Distro/pi-gen](https://github.com/RPi-Distro/pi-gen) — Stage-based image builder, BSD licence
-- [raspberrypi/rpi-image-gen](https://github.com/raspberrypi/rpi-image-gen) — New declarative image builder (2025), BSD licence
+- [raspberrypi/rpi-imager](https://github.com/raspberrypi/rpi-imager); Apache 2.0 licence, C++/Qt6/QML/CMake
+- [RPi-Distro/pi-gen](https://github.com/RPi-Distro/pi-gen); Stage-based image builder, BSD licence
+- [raspberrypi/rpi-image-gen](https://github.com/raspberrypi/rpi-image-gen); New declarative image builder (2025), BSD licence
 - [rpi-imager custom repository JSON schema](https://github.com/raspberrypi/rpi-imager/blob/main/doc/json-schema/os-list-schema.json)
 - [How to add your own images to Imager](https://www.raspberrypi.com/news/how-to-add-your-own-images-to-imager/)
 - [velocity.report distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2
 - [velocity.report ARCHITECTURE.md](../../ARCHITECTURE.md)
-- [velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) — Canonical systemd unit
-- [velocity.report frontend-consolidation.md](./web-frontend-consolidation-plan.md) — LiDAR toggle UI dependency
+- [velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service): Canonical systemd unit
+- [velocity.report frontend-consolidation.md](./web-frontend-consolidation-plan.md): LiDAR toggle UI dependency
 
 ---
 
 ## 14. Summary of recommendations
 
-| Decision                              | Recommendation                                                                           | Rationale                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Image building tool**               | Start with pi-gen, plan migration to rpi-image-gen                                       | pi-gen is proven; rpi-image-gen is better long-term but newer                                                     |
-| **Image flashing (Phase 1)**          | Custom repository JSON for stock rpi-imager                                              | Zero development cost; immediate value                                                                            |
-| **Image flashing (Phase 2)**          | Fork rpi-imager into separate repo (only if needed)                                      | Full branding + custom fields; only justified by user research                                                    |
-| **Repository for imager fork**        | **Separate repo** (`banshee-data/velocity.report-imager`)                                | Different tech stack (C++/Qt), release cadence, and contributor profile                                           |
-| **Image build scripts**               | **Monorepo** (`velocity.report/image/`)                                                  | Tightly coupled to server releases; same CI pipeline                                                              |
-| **Image variants**                    | **Single image** with full stack                                                         | LiDAR disabled by default; LaTeX footprint reduced via § 4.6                                                      |
-| **LaTeX size reduction**              | Pre-compiled templates (Option B), migrate to hybrid if needed                           | Greatest savings (~750 MB) with simplest runtime                                                                  |
-| **LiDAR support**                     | Included (pcap build) but **disabled by default**                                        | Users enable via settings dashboard; depends on [frontend-consolidation.md](./web-frontend-consolidation-plan.md) |
-| **Auto-update**                       | **None** — user-initiated `sudo velocity-ctl upgrade`; dashboard version display planned | Preserves privacy-first principle; zero unsolicited network requests                                              |
-| **Wi-Fi fallback**                    | US regulatory domain (`country=US`)                                                      | Ensures wireless works out of the box if user skips country selection                                             |
-| **Custom flashing tool (Approach C)** | **Do not pursue**                                                                        | Re-implementing disk I/O is high-risk and low-value                                                               |
+| Decision                              | Recommendation                                                                          | Rationale                                                                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Image building tool**               | Start with pi-gen, plan migration to rpi-image-gen                                      | pi-gen is proven; rpi-image-gen is better long-term but newer                                                     |
+| **Image flashing (Phase 1)**          | Custom repository JSON for stock rpi-imager                                             | Zero development cost; immediate value                                                                            |
+| **Image flashing (Phase 2)**          | Fork rpi-imager into separate repo (only if needed)                                     | Full branding + custom fields; only justified by user research                                                    |
+| **Repository for imager fork**        | **Separate repo** (`banshee-data/velocity.report-imager`)                               | Different tech stack (C++/Qt), release cadence, and contributor profile                                           |
+| **Image build scripts**               | **Monorepo** (`velocity.report/image/`)                                                 | Tightly coupled to server releases; same CI pipeline                                                              |
+| **Image variants**                    | **Single image** with full stack                                                        | LiDAR disabled by default; LaTeX footprint reduced via § 4.6                                                      |
+| **LaTeX size reduction**              | Pre-compiled templates (Option B), migrate to hybrid if needed                          | Greatest savings (~750 MB) with simplest runtime                                                                  |
+| **LiDAR support**                     | Included (pcap build) but **disabled by default**                                       | Users enable via settings dashboard; depends on [frontend-consolidation.md](./web-frontend-consolidation-plan.md) |
+| **Auto-update**                       | **None**: user-initiated `sudo velocity-ctl upgrade`; dashboard version display planned | Preserves privacy-first principle; zero unsolicited network requests                                              |
+| **Wi-Fi fallback**                    | US regulatory domain (`country=US`)                                                     | Ensures wireless works out of the box if user skips country selection                                             |
+| **Custom flashing tool (Approach C)** | **Do not pursue**                                                                       | Re-implementing disk I/O is high-risk and low-value                                                               |

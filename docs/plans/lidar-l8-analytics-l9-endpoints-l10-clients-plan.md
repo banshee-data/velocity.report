@@ -437,16 +437,16 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 
 #### L8 analytics boundary
 
-- [ ] speed percentile helpers no longer live only in storage code — _deferred: no percentile code exists in storage to extract; depends on speed-percentile plan_
-- [ ] percentile helpers extracted from `internal/lidar/storage/sqlite/track_store.go` and related storage-owned paths — _deferred: see above_
+- [ ] speed percentile helpers no longer live only in storage code: _deferred: no percentile code exists in storage to extract; depends on speed-percentile plan_
+- [ ] percentile helpers extracted from `internal/lidar/storage/sqlite/track_store.go` and related storage-owned paths: _deferred: see above_
 - [x] run comparison orchestration moved out of `storage/sqlite`
 - [x] comparison logic delegates to `l8analytics/`
-- [x] `internal/lidar/storage/sqlite/analysis_run_compare.go` no longer owns canonical matching algorithms — `compareParams` is storage-level parameter comparison (appropriate); `computeTemporalIoU` delegates to `l8analytics`
+- [x] `internal/lidar/storage/sqlite/analysis_run_compare.go` no longer owns canonical matching algorithms: `compareParams` is storage-level parameter comparison (appropriate); `computeTemporalIoU` delegates to `l8analytics`
 - [x] handler summary logic delegates to `l8analytics/`
 - [x] track summary logic delegates to `l8analytics/`
 - [x] labelling progress aggregation delegates to `l8analytics/`
-- [ ] evaluation aggregation delegates to `l8analytics/` — _deferred: `adapters.EvaluateGroundTruth` is the correct boundary; partial delegation to `l8analytics` for IoU already in place_
-- [x] handler files are transport-only in responsibility — confirmed: `track_api.go`, `chart_api.go` are transport-only; status handlers do in-line grid/status work appropriate to server layer
+- [ ] evaluation aggregation delegates to `l8analytics/`: _deferred: `adapters.EvaluateGroundTruth` is the correct boundary; partial delegation to `l8analytics` for IoU already in place_
+- [x] handler files are transport-only in responsibility: confirmed: `track_api.go`, `chart_api.go` are transport-only; status handlers do in-line grid/status work appropriate to server layer
 - [x] new or moved `L8` code has direct unit tests
 
 #### `monitor/` classification and thinning
@@ -466,12 +466,12 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] import paths in `cmd/tools/gen-vrlog/main.go` updated from `visualiser` to `l9endpoints`
 - [x] `internal/lidar/analysis/` callers updated from `visualiser` to `l9endpoints`
 - [x] proto `go_package`, generated bindings, and imports updated coherently
-- [ ] `ChartDataProvider` or equivalent narrow dependency interface defined in `l9endpoints/` — _deferred: current `Prepare*()` delegation pattern is sufficient; interface can be introduced when a second consumer appears_
+- [ ] `ChartDataProvider` or equivalent narrow dependency interface defined in `l9endpoints/`: _deferred: current `Prepare*()` delegation pattern is sufficient; interface can be introduced when a second consumer appears_
 - [x] server-side chart and view-model shaping has an explicit `L9` home in `l9endpoints/`
 - [x] `chart_data.go`-style endpoint helpers are no longer in `monitor/`
-- [ ] debug payload shaping is explicitly classified as `L9` — _deferred: structural hardening_
+- [ ] debug payload shaping is explicitly classified as `L9`: _deferred: structural hardening_
 - [x] dashboard-serving responsibilities are explicitly split between `L9` server glue and transitional `L10` asset content
-- [ ] clients do not compute canonical summary metrics locally — _deferred: structural hardening_
+- [ ] clients do not compute canonical summary metrics locally: _deferred: structural hardening_
 
 #### Legacy embedded client extraction
 
@@ -487,8 +487,8 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `l10clients/` contains no Go files
 - [x] `go:embed` directives in `l9endpoints/` include the legacy client subtree (`legacy_assets.go`)
 - [x] embed verification tests confirm the legacy assets load from the compiled binary
-- [ ] chart handler methods converted from `(ws *Server)` receivers to interface-backed handlers or equivalent package-local handlers — _deferred: structural hardening_
-- [ ] route table in the server layer registers `L9` handlers via interface adapter or closure wiring — _deferred: structural hardening_
+- [ ] chart handler methods converted from `(ws *Server)` receivers to interface-backed handlers or equivalent package-local handlers: _deferred: structural hardening_
+- [ ] route table in the server layer registers `L9` handlers via interface adapter or closure wiring: _deferred: structural hardening_
 - [x] all chart endpoint tests pass from the new location
 
 #### `server/` package creation and `monitor/` replacement
@@ -496,7 +496,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `internal/lidar/server/` package created with a `Server` struct
 - [x] `WebServer` renamed to `Server`
 - [x] `WebServerConfig` renamed to `Config`
-- [x] `webserver.go` split into `server.go`, `routes.go`, `state.go`, `status.go`, and `tuning.go` — config kept in `server.go` (too small for own file)
+- [x] `webserver.go` split into `server.go`, `routes.go`, `state.go`, `status.go`, and `tuning.go`: config kept in `server.go` (too small for own file)
 - [x] `datasource.go` moved to `server/`
 - [x] `datasource_handlers.go` moved to `server/`
 - [x] `playback_handlers.go` moved to `server/`
@@ -512,22 +512,22 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `sweep_handlers.go` moved to `server/`
 - [x] `export_handlers.go` moved to `server/`
 - [x] `pcap_files_api.go` moved to `server/`
-- [x] all handler methods confirmed to delegate analytics to `l8analytics/` — `track_api.go`, `chart_api.go` are transport-only; status/grid handlers do server-appropriate in-line work
+- [x] all handler methods confirmed to delegate analytics to `l8analytics/`: `track_api.go`, `chart_api.go` are transport-only; status/grid handlers do server-appropriate in-line work
 - [x] `testdata/` moved to `server/testdata/`
 - [x] all tests pass from the new package locations (`go test ./internal/lidar/server/...` passes)
 - [x] no imports of `internal/lidar/monitor` remain in the repository
-- [x] stale `internal/lidar/monitor/` files deleted — 13 orphaned files and directory removed
-- [x] no production analytics logic remains in `monitor/` — directory no longer exists
+- [x] stale `internal/lidar/monitor/` files deleted: 13 orphaned files and directory removed
+- [x] no production analytics logic remains in `monitor/`: directory no longer exists
 
 #### Docs, artifacts, and final verification
 
-- [x] migration note completed with package moves, caller updates, and deferred-deletion notes — see `docs/lidar/architecture/l8-l9-l10-migration-notes.md`
+- [x] migration note completed with package moves, caller updates, and deferred-deletion notes: see `docs/lidar/architecture/l8-l9-l10-migration-notes.md`
 - [x] `ARCHITECTURE.md` updated to reference `server/` and `l9endpoints/`
 - [x] `docs/lidar/README.md` updated to reference `server/` and `l9endpoints/`
 - [x] remaining docs updated to the final package layout
-- [ ] DOT graph added — _moved to `docs/plans/lidar-architecture-graph-plan.md`_
-- [ ] SVG generated and checked in — _moved to `docs/plans/lidar-architecture-graph-plan.md`_
-- [ ] graph generation is reproducible via script — _moved to `docs/plans/lidar-architecture-graph-plan.md`_
+- [ ] DOT graph added: _moved to `docs/plans/lidar-architecture-graph-plan.md`_
+- [ ] SVG generated and checked in: _moved to `docs/plans/lidar-architecture-graph-plan.md`_
+- [ ] graph generation is reproducible via script: _moved to `docs/plans/lidar-architecture-graph-plan.md`_
 - [x] tests updated for moved analytics and changed handlers
-- [ ] verification or CI guardrail exists for generated architecture artifacts — _moved to `docs/plans/lidar-architecture-graph-plan.md`_
+- [ ] verification or CI guardrail exists for generated architecture artifacts: _moved to `docs/plans/lidar-architecture-graph-plan.md`_
 - [x] final checked-in plan remains sufficient to drive follow-on implementation PRs

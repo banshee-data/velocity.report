@@ -1,6 +1,6 @@
 # Vector-Grid vs velocity algorithm workstreams
 
-Boundary between two independent LiDAR development streams — vector-grid foundations and velocity-coherent algorithms — so that motion-algorithm research does not destabilise static-scene reliability.
+Boundary between two independent LiDAR development streams: vector-grid foundations and velocity-coherent algorithms; so that motion-algorithm research does not destabilise static-scene reliability.
 
 ## Purpose
 

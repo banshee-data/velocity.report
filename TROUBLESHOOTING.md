@@ -1,6 +1,7 @@
 # Troubleshooting guide
 
-This guide covers common issues, error messages, and solutions for the velocity.report system across all components.
+This guide covers common issues, error messages,
+and solutions for the velocity.report system across all components.
 
 ## Table of contents
 
@@ -365,7 +366,8 @@ tlmgr search --global fontspec
 
 **Cause**: Custom colour not defined
 
-**Solution**: Check LaTeX template in `document_builder.py` - ensure all colours are defined before use
+**Solution**:
+Check LaTeX template in `document_builder.py` - ensure all colours are defined before use
 
 ---
 
@@ -1037,7 +1039,9 @@ Generated Swift files are placed in
 
 **Cause**: PDF generation E2E tests require Python dependencies
 
-**Solution**: API tests including E2E tests run in the CI `test-integration` job where Python dependencies are installed. For local development:
+**Solution**:
+API tests including E2E tests run in the CI `test-integration` job where Python dependencies are
+installed. For local development:
 
 ```bash
 # Option 1: Skip E2E tests using environment variable (recommended)

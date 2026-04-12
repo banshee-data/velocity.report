@@ -3,7 +3,7 @@
 Build infrastructure for producing flashable `.img` files of
 velocity.report for Raspberry Pi 4/400/5.
 
-## Phase 1 — working image (v0.5.1)
+## Phase 1: working image (v0.5.1)
 
 Installs `texlive-xetex` APT packages at build time, extracts a minimal
 TeX Live tree (~143 MB) containing only the files the PDF generator needs,
@@ -36,7 +36,7 @@ LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 The image makes zero unsolicited network requests. Updates are user-initiated
 via `sudo velocity-ctl upgrade`, which checks GitHub Releases for a newer
 version, downloads the binary, verifies the SHA-256 checksum, and upgrades
-in-place — preserving the sensor database and all collected data.
+in-place: preserving the sensor database and all collected data.
 
 ```bash
 sudo velocity-ctl upgrade              # check + download + apply latest release
@@ -100,7 +100,7 @@ Requires Docker (Docker Desktop on macOS). The script:
 
 With `HOST_BUILD=1`, binaries are compiled using the host Go toolchain
 instead of Docker. This is faster for iteration but requires
-`aarch64-linux-gnu-gcc` for pcap support — without it, pcap is
+`aarch64-linux-gnu-gcc` for pcap support: without it, pcap is
 automatically omitted.
 
 Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are

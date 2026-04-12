@@ -12,9 +12,9 @@ Observability metrics and benchmark harness for the LiDAR clustering and trackin
 
 Two classes of problem lack tooling:
 
-1. **Trail glitches** — tracks that repeatedly exhibit heading flips, speed jitter, merge/split artefacts, or dropout gaps. The pipeline currently logs aggregate counts (`N confirmed tracks active`) but nothing about _which_ cluster was associated, how many points it had, what the innovation residual was, or whether the cluster was subsampled.
+1. **Trail glitches**: tracks that repeatedly exhibit heading flips, speed jitter, merge/split artefacts, or dropout gaps. The pipeline currently logs aggregate counts (`N confirmed tracks active`) but nothing about _which_ cluster was associated, how many points it had, what the innovation residual was, or whether the cluster was subsampled.
 
-2. **Performance blind spot** — the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). Stepping from Mac M1 to Raspberry Pi 4 requires fine-grained levers for trading detection quality against latency, plus CI regression gates.
+2. **Performance blind spot**: the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). Stepping from Mac M1 to Raspberry Pi 4 requires fine-grained levers for trading detection quality against latency, plus CI regression gates.
 
 ## Part a: per-track / per-frame observability
 
@@ -46,8 +46,8 @@ Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go
 
 **Logging levels:**
 
-- `tracef` — single structured line per frame
-- `diagf` — summary every 100 frames (averages)
+- `tracef`: single structured line per frame
+- `diagf`: summary every 100 frames (averages)
 
 **VRLOG embedding:** Add `FrameStageTiming` to `FrameBundle.DebugOverlaySet` as an optional field so timing data is available during offline replay analysis.
 
@@ -94,9 +94,9 @@ Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
 Proposed additions to `DebugOverlaySet` (all optional, populated only when debug logging is active):
 
-- `FrameStageTiming` — per-frame pipeline timing (A.1)
-- `ClusterDiagnostics []ClusterDiag` — per-cluster quality (A.4)
-- `AssociationDecisions []AssociationDecision` — full per-track association log (A.2)
+- `FrameStageTiming`: per-frame pipeline timing (A.1)
+- `ClusterDiagnostics []ClusterDiag`: per-cluster quality (A.4)
+- `AssociationDecisions []AssociationDecision`: full per-track association log (A.2)
 
 ## Part b: clustering performance benchmark harness
 
@@ -113,7 +113,7 @@ All distributions use a `DistributionStats` struct: min, max, avg, p50, p95, p99
 
 ### B.2 benchmark baseline format (v2)
 
-Extend the existing `baseline-{name}.json` format with a `clustering` key. Backward-compatible — comparison logic skips missing keys.
+Extend the existing `baseline-{name}.json` format with a `clustering` key. Backward-compatible: comparison logic skips missing keys.
 
 ### B.3 CI regression gating
 
@@ -145,9 +145,9 @@ internal/lidar/perf/baseline/
 
 Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
-- `BenchmarkDBSCAN_{500,2000,5000,8000}pts` — DBSCAN scaling by point count
-- `BenchmarkSpatialIndex{Build,Query}_5000pts` — spatial index operations
-- `BenchmarkUniformSubsample_10000to8000` — subsampling overhead
+- `BenchmarkDBSCAN_{500,2000,5000,8000}pts`: DBSCAN scaling by point count
+- `BenchmarkSpatialIndex{Build,Query}_5000pts`: spatial index operations
+- `BenchmarkUniformSubsample_10000to8000`: subsampling overhead
 
 ## Part c: Raspberry Pi performance tuning levers
 
@@ -183,7 +183,7 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
 ## Open questions
 
-1. **VRLOG size growth** — Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
-2. **Structured logging format** — Migrate tracef/diagf to JSON for machine parsing, or keep human-readable and parse with grep?
-3. **Benchmark fixture management** — `kirk0.pcapng` is 191 MB in LFS. Needed smaller synthetic fixture for faster CI runs?
-4. **statistics_json column** — `RunStatistics` is computed but never written to `lidar_analysis_runs`. Wire up in Phase 2?
+1. **VRLOG size growth**: Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
+2. **Structured logging format**: Migrate tracef/diagf to JSON for machine parsing, or keep human-readable and parse with grep?
+3. **Benchmark fixture management**: `kirk0.pcapng` is 191 MB in LFS. Needed smaller synthetic fixture for faster CI runs?
+4. **statistics_json column**: `RunStatistics` is computed but never written to `lidar_analysis_runs`. Wire up in Phase 2?

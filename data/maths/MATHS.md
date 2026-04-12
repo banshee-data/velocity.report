@@ -39,7 +39,8 @@ The production pipeline uses four math-heavy layers:
 ## Core assumptions (cross-cutting)
 
 1. **Primary deployment is stationary-sensor traffic monitoring.**
-   Long-running convergence and conservative adaptation are preferred over fast but noisy adaptation.
+   Long-running convergence and conservative adaptation are preferred over fast but noisy
+   adaptation.
 2. **Most of the scene is static most of the time.**
    Dynamic occupancy is sparse relative to road/building background.
 3. **Distance noise grows with range.**
@@ -66,35 +67,54 @@ The production pipeline uses four math-heavy layers:
 ### Reviews
 
 - [Pipeline Review: Open Questions and High-Value Work](pipeline-review-open-questions.md):
-  Mathematical audit of L1–L6 implementations, addresses open questions from plans and proposals, synthesises ground plane and priors alignment, builds the dependency graph, and defines a prioritised high-value work list.
+  Mathematical audit of L1–L6 implementations, addresses open questions from plans and proposals,
+  synthesises ground plane and priors alignment, builds the dependency graph,
+  and defines a prioritised high-value work list.
 
 ### Active maths (implemented in current runtime)
 
 - [Background Grid Settling Maths](background-grid-settling-maths.md):
-  Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour, and confidence dynamics.
+  Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour,
+  and confidence dynamics.
 - [Ground Plane Maths](ground-plane-maths.md):
-  Tile/region plane estimation, region-selection math, robust confidence/settlement criteria, curvature math, density constraints, and L3-L4 interaction.
+  Tile/region plane estimation, region-selection math, robust confidence/settlement criteria,
+  curvature math, density constraints, and L3-L4 interaction.
 - [Clustering Maths](clustering-maths.md):
-  Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA), and complexity bounds.
+  Downsampling, neighbourhood indexing, DBSCAN, cluster geometry extraction (medoid + OBB/PCA),
+  and complexity bounds.
 - [Tracking Maths](tracking-maths.md):
-  CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions, and stability metrics.
+  CV Kalman model, Mahalanobis gating, Hungarian assignment, lifecycle transitions,
+  and stability metrics.
 
 ### Proposals (not yet active; see [Roadmap](#prioritised-proposal-roadmap) below)
 
 - [OBB Heading Stability Review](proposals/20260222-obb-heading-stability-review.md): **Partially Implemented**.
-  Root cause analysis of spinning bounding boxes: PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches. Guard 3 (90° jump rejection), fixes B, C, G applied; remaining fixes superseded by geometry-coherent model.
+  Root cause analysis of spinning bounding boxes:
+  PCA ambiguity, axis swaps, dimension averaging, and renderer mismatches.
+  Guard 3 (90° jump rejection), fixes B, C, G applied;
+  remaining fixes superseded by geometry-coherent model.
 - [Geometry-Coherent Track State](proposals/20260222-geometry-coherent-tracking.md):
-  Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
+  Per-track Bayesian geometry model replacing reactive guards with axis selection via likelihood
+  test, uncertainty-gated EMA updates, shape classification, and heading-motion coupling.
 - [Velocity-Coherent Foreground Extraction](proposals/20260220-velocity-coherent-foreground-extraction.md):
-  Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence, low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol. [Implementation plan](../../docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
+  Layer-integrated (L3/L4/L5) velocity/acceleration estimation, covariance-aware confidence,
+  low-speed heading stability policy, and layer-scoped optimisation/evaluation protocol.
+  [Implementation plan](../../docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md).
 - [Ground Plane and Vector-Scene Maths](proposals/20260221-ground-plane-vector-scene-maths.md):
-  Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time), region-selection scoring, and vector-scene integration.
+  Streaming PCA ground estimation, multi-criteria settlement (geometry + density + time),
+  region-selection scoring, and vector-scene integration.
 - [Reflective Sign and Static Surface Pose Anchors](proposals/20260310-reflective-sign-pose-anchor-maths.md):
-  Use sign-first reflective anchors with controlled fallback to walls, facades, and ground-support surfaces for frame-to-frame micro-pose estimation; the base case stops at L7/L8 diagnostics, while the reference extension adds a cached stability signal for L3 settling/reset control.
+  Use sign-first reflective anchors with controlled fallback to walls, facades,
+  and ground-support surfaces for frame-to-frame micro-pose estimation;
+  the base case stops at L7/L8 diagnostics,
+  while the reference extension adds a cached stability signal for L3 settling/reset control.
 - [Unify L3/L4 Settling](proposals/20260219-unify-l3-l4-settling.md):
-  Overlap analysis, interference risks, and a single-settlement architecture with shared lifecycle per surface-region key.
+  Overlap analysis, interference risks,
+  and a single-settlement architecture with shared lifecycle per surface-region key.
 - Bodies in Motion Maths (proposal, to be written):
-  CA/CTRV state equations, IMM blending and transition matrix, corridor probability model, sparse-cluster gating extensions, and scene-graph relation confidence accumulation. [Design doc](../../docs/plans/lidar-bodies-in-motion-plan.md).
+  CA/CTRV state equations, IMM blending and transition matrix, corridor probability model,
+  sparse-cluster gating extensions, and scene-graph relation confidence accumulation.
+  [Design doc](../../docs/plans/lidar-bodies-in-motion-plan.md).
 
 ---
 
@@ -216,9 +236,12 @@ they improve will be removed.
 
 ## Config mapping
 
-Note on naming: this repository does **not** contain a `config/tracking.json` file. Runtime tuning is loaded from `config/tuning.defaults.json` (or another JSON passed with `--config`) via `internal/config/tuning.go`.
+Note on naming: this repository does **not** contain a `config/tracking.json` file.
+Runtime tuning is loaded from `config/tuning.defaults.json` (or another JSON passed with `--config`)
+via `internal/config/tuning.go`.
 
-See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed at operators (grouped by tuning task rather than mathematical source).
+See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed
+at operators (grouped by tuning task rather than mathematical source).
 
 ### L3 background grid settling maths (`background-grid-settling-maths.md`)
 

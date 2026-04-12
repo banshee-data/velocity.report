@@ -62,7 +62,7 @@ All phases through 3.7 are complete: background grid (polar), foreground mask ge
 
 ### 📋 remaining components
 
-1. **Track Labelling UI** — manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
+1. **Track Labelling UI**: manual annotation interface for reproducible classification research and scorecards (Phase 4.0)
 
 ---
 
@@ -153,13 +153,13 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) (foregroundM
 
 **Implementation:**
 
-> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go) — `ProcessFramePolar()` classifies each point in polar space using EMA distance thresholds with same-ring neighbour voting and warmup sensitivity scaling.
+> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go); `ProcessFramePolar()` classifies each point in polar space using EMA distance thresholds with same-ring neighbour voting and warmup sensitivity scaling.
 
 ### Foreground point extraction (outside lock)
 
 **After releasing background lock:**
 
-> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go) — `ExtractForegroundPoints()` filters polar points by mask outside the background lock.
+> **Source:** [`internal/lidar/l3grid/foreground.go`](../../../internal/lidar/l3grid/foreground.go); `ExtractForegroundPoints()` filters polar points by mask outside the background lock.
 
 ### Frame processing callback
 
@@ -202,7 +202,7 @@ func onFrameComplete(frame *LidarFrame) {
 
 Add per-frame foreground metrics to HTTP status:
 
-> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — `FrameMetrics` struct tracks total, foreground, background counts, fraction, and processing time per frame.
+> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/); `FrameMetrics` struct tracks total, foreground, background counts, fraction, and processing time per frame.
 
 ---
 
@@ -231,7 +231,7 @@ Explicit coordinate transformation stage converting foreground polar points to w
 
 ### Implementation
 
-> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `WorldPoint` struct and `TransformToWorld()` converting polar to world-frame Cartesian via 4×4 homogeneous pose transform.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go); `WorldPoint` struct and `TransformToWorld()` converting polar to world-frame Cartesian via 4×4 homogeneous pose transform.
 
 ### Testing requirements
 
@@ -271,15 +271,15 @@ Spatial clustering of foreground world points to detect distinct objects.
 
 #### Spatial index (required)
 
-> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `SpatialIndex` with grid-based Szudzik pairing, `Build()`, `getCellID()`, and `RegionQuery()` examining current cell + 8 neighbours.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go); `SpatialIndex` with grid-based Szudzik pairing, `Build()`, `getCellID()`, and `RegionQuery()` examining current cell + 8 neighbours.
 
 #### DBSCAN algorithm
 
-> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `DBSCAN()` with spatial index and `expandCluster()` for density-based neighbour expansion.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go); `DBSCAN()` with spatial index and `expandCluster()` for density-based neighbour expansion.
 
 #### Cluster metrics computation
 
-> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go) — `buildClusters()` and `computeClusterMetrics()` computing centroid, axis-aligned bounding box, height P95, and intensity mean per cluster.
+> **Source:** [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go); `buildClusters()` and `computeClusterMetrics()` computing centroid, axis-aligned bounding box, height P95, and intensity mean per cluster.
 
 ---
 
@@ -339,11 +339,11 @@ v_k ~ N(0, R)
 
 ### Implementation
 
-> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `Track` struct (identity, lifecycle, Kalman state, aggregated features, classification fields) and `TrackState2D` (position + velocity with 4×4 covariance).
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go); `Track` struct (identity, lifecycle, Kalman state, aggregated features, classification fields) and `TrackState2D` (position + velocity with 4×4 covariance).
 
 ### Tracker implementation
 
-> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `Tracker` struct with configurable gating, process/measurement noise, and `Update()` performing predict→associate→update→lifecycle management per frame.
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go); `Tracker` struct with configurable gating, process/measurement noise, and `Update()` performing predict→associate→update→lifecycle management per frame.
 
 ### Gating distance (mahalanobis)
 
@@ -365,7 +365,7 @@ where:
 - We threshold on **squared distance** to avoid square root computation
 - Threshold tuned empirically for typical vehicle/pedestrian speeds
 
-> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go) — `mahalanobisDistanceSquared()` computes gating distance via 2×2 innovation covariance inversion.
+> **Source:** [`internal/lidar/l5tracks/tracking.go`](../../../internal/lidar/l5tracks/tracking.go); `mahalanobisDistanceSquared()` computes gating distance via 2×2 innovation covariance inversion.
 
 ---
 
@@ -379,7 +379,7 @@ where:
 
 #### Migration: 000009_create_lidar_tracks.up.sql
 
-> **Source:** [`internal/db/migrations/`](../../../internal/db/migrations/) — creates `lidar_clusters`, `lidar_tracks`, and `lidar_track_obs` tables with world-frame coordinates, lifecycle state, kinematics, classification fields, and time/sensor/class indices.
+> **Source:** [`internal/db/migrations/`](../../../internal/db/migrations/); creates `lidar_clusters`, `lidar_tracks`, and `lidar_track_obs` tables with world-frame coordinates, lifecycle state, kinematics, classification fields, and time/sensor/class indices.
 
 ### REST API endpoints
 
@@ -479,7 +479,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 
 ### Classification logic
 
-> **Source:** [`internal/lidar/l6objects/classification.go`](../../../internal/lidar/l6objects/classification.go) — `TrackClassifier.Classify()` implements rule-based classification using bounding box dimensions, speed, and height to distinguish pedestrian, car, bird, and other object classes.
+> **Source:** [`internal/lidar/l6objects/classification.go`](../../../internal/lidar/l6objects/classification.go); `TrackClassifier.Classify()` implements rule-based classification using bounding box dimensions, speed, and height to distinguish pedestrian, car, bird, and other object classes.
 
 ### Future enhancement: ML-based classification
 
@@ -533,7 +533,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 ### Profiling points
 
-> **Source:** `PipelineMetrics` struct in [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — per-frame latency measurements for each pipeline stage (background classify, foreground extract, transform, clustering, tracking, database, total).
+> **Source:** `PipelineMetrics` struct in [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/); per-frame latency measurements for each pipeline stage (background classify, foreground extract, transform, clustering, tracking, database, total).
 
 ---
 
@@ -543,31 +543,31 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 #### 1. Polar frame tests (phase 2.9)
 
-**Test:** Foreground mask accuracy — verify that `ProcessFramePolar` produces correct per-point foreground/background classification. Points closer than background (5 m vs 10 m stable background) should be marked foreground.
+**Test:** Foreground mask accuracy; verify that `ProcessFramePolar` produces correct per-point foreground/background classification. Points closer than background (5 m vs 10 m stable background) should be marked foreground.
 
 > **Source:** [`internal/lidar/l3grid/foreground_test.go`](../../../internal/lidar/l3grid/foreground_test.go)
 
 #### 2. Transform tests (phase 3.0)
 
-**Test:** Polar → World transform accuracy — verify that `TransformToWorld` converts polar coordinates to correct Cartesian world positions under identity and known custom poses. Point at (10 m, 0°, 0°) with identity pose should produce (x=10, y=0, z=0).
+**Test:** Polar → World transform accuracy; verify that `TransformToWorld` converts polar coordinates to correct Cartesian world positions under identity and known custom poses. Point at (10 m, 0°, 0°) with identity pose should produce (x=10, y=0, z=0).
 
 > **Source:** [`internal/lidar/l4perception/cluster_test.go`](../../../internal/lidar/l4perception/cluster_test.go)
 
 #### 3. Clustering tests (phase 3.1)
 
-**Test:** DBSCAN cluster detection — verify that two spatially separated point groups (e.g., origin and (10, 0)) produce exactly two clusters with correct centroids. Uses `eps=0.6`, `minPts=12`.
+**Test:** DBSCAN cluster detection; verify that two spatially separated point groups (e.g., origin and (10, 0)) produce exactly two clusters with correct centroids. Uses `eps=0.6`, `minPts=12`.
 
 > **Source:** [`internal/lidar/l4perception/cluster_test.go`](../../../internal/lidar/l4perception/cluster_test.go)
 
 #### 4. Tracking tests (phase 3.2)
 
-**Test:** Track lifecycle transitions — verify Tentative → Confirmed (after 3 consecutive hits) and Confirmed → Deleted (after 3 consecutive misses). Uses `NewTracker()` with moving cluster input and empty-frame input for miss generation.
+**Test:** Track lifecycle transitions; verify Tentative → Confirmed (after 3 consecutive hits) and Confirmed → Deleted (after 3 consecutive misses). Uses `NewTracker()` with moving cluster input and empty-frame input for miss generation.
 
 > **Source:** [`internal/lidar/l5tracks/tracking_test.go`](../../../internal/lidar/l5tracks/tracking_test.go)
 
 #### 5. Integration tests (end-to-end)
 
-**Test:** Full pipeline from PCAP to tracks — load a PCAP with known moving objects, run the full pipeline (polar classification → foreground extraction → world transform → DBSCAN clustering → Kalman tracking), verify that tracks are produced and frame count exceeds 100.
+**Test:** Full pipeline from PCAP to tracks; load a PCAP with known moving objects, run the full pipeline (polar classification → foreground extraction → world transform → DBSCAN clustering → Kalman tracking), verify that tracks are produced and frame count exceeds 100.
 
 > **Source:** [`internal/lidar/l5tracks/tracking_test.go`](../../../internal/lidar/l5tracks/tracking_test.go)
 
@@ -719,7 +719,7 @@ CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
 
 #### Export functions
 
-> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/) — `ForegroundFrame` struct and `ExportForegroundFrame()` for exporting foreground points in polar coordinates for classification research.
+> **Source:** [`internal/lidar/l8analytics/`](../../../internal/lidar/l8analytics/); `ForegroundFrame` struct and `ExportForegroundFrame()` for exporting foreground points in polar coordinates for classification research.
 
 ### E. future work: pose validation
 
@@ -769,26 +769,26 @@ When pose validation is implemented:
 
 ### Resolved issues
 
-**Packet Corruption on Port 2370** — Forwarder reconstructed packets with
+**Packet Corruption on Port 2370**: Forwarder reconstructed packets with
 incorrect azimuth values. Fixed by rewriting `ForegroundForwarder` to preserve
 `RawBlockAzimuth` and `UDPSequence`.
 
-**Foreground "Trails" After Object Pass** — Points lingered as foreground for
-~30 seconds. Two root causes: (1) warmup variance underestimation — fixed with
+**Foreground "Trails" After Object Pass**: Points lingered as foreground for
+~30 seconds. Two root causes: (1) warmup variance underestimation; fixed with
 sensitivity scaling in `ProcessFramePolarWithMask()` (4× → 1× over 100
-observations); (2) `recFg` accumulation during freeze — fixed by not incrementing
+observations); (2) `recFg` accumulation during freeze: fixed by not incrementing
 during freeze and resetting to 0 on thaw. See
 [TROUBLESHOOTING.md §Known Fixed Issues](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026).
 
-**Real-time Parameter Tuning** — POST to `/api/lidar/params` with JSON body;
+**Real-time Parameter Tuning**: POST to `/api/lidar/params` with JSON body;
 changes apply immediately without restart.
 
 ### Known limitations
 
-- **M1 performance** — CPU usage during foreground processing higher than
+- **M1 performance**: CPU usage during foreground processing higher than
   expected. Investigate with `go tool pprof` (likely per-frame allocations, lock
   contention, or packet encoding overhead).
-- **Runtime tuning schema parity** — `/api/lidar/params` supports core
+- **Runtime tuning schema parity**: `/api/lidar/params` supports core
   background/tracker keys but not full canonical tuning parity for all runtime
   keys. `max_tracks` POST support is wired.
 
@@ -823,7 +823,7 @@ multiplied by `1.0 + 3.0 × (100 − count) / 100` (4× at count 0, 1× at 100+)
 
 ## Related documentation
 
-- **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)** — Pipeline data flow, existing components, and deployment architecture
-- **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)** — Alternative algorithm design for sparse-point tracking with velocity coherence
-- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)** — Technical implementation overview and module structure
-- **[Development Log](../../DEVLOG.md)** — Chronological implementation history
+- **[LiDAR Pipeline Reference](lidar-pipeline-reference.md)**: Pipeline data flow, existing components, and deployment architecture
+- **[Velocity-Coherent Foreground Extraction](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)**: Alternative algorithm design for sparse-point tracking with velocity coherence
+- **[LIDAR Sidecar Overview](lidar-sidecar-overview.md)**: Technical implementation overview and module structure
+- **[Development Log](../../DEVLOG.md)**: Chronological implementation history

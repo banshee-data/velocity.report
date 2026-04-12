@@ -19,9 +19,9 @@ assigns quality flags (`perfect`, `good`, `truncated`, `noisy_velocity`)
 that directly feed scoring weights, but does so without seeing the objective
 measurements the system already computes.
 
-The pipeline produces rich diagnostics at every stage — run statistics,
+The pipeline produces rich diagnostics at every stage: run statistics,
 per-track quality metrics, jitter accumulators, alignment scores, cluster
-density — but most of this data either stays in SQLite unexposed, or is
+density: but most of this data either stays in SQLite unexposed, or is
 transient and discarded after each run. The labeller works blind.
 
 Additionally, HINT round history stores only `BestScore` (single float) +
@@ -39,13 +39,13 @@ that would show _why_ parameters improved between rounds.
 
 - Changing the ground truth scoring formula or acceptance criteria
 - ML feature vector export or training data curation (separate project)
-- Per-track speed percentile exposure (design debt — removal planned)
+- Per-track speed percentile exposure (design debt: removal planned)
 
 ---
 
 ## Implementation batches
 
-### Batch a — surface persisted data (small effort each)
+### Batch a: surface persisted data (small effort each)
 
 Many of these metrics are already computed and, where they are persisted to
 SQLite, the work in this batch is API deserialisation and web rendering. For
@@ -64,9 +64,9 @@ Expose the 12 fields already in `lidar_analysis_runs.statistics_json`.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go` — API response
-- `web/src/routes/lidar/runs/` — Svelte rendering
-- `internal/lidar/monitor/assets/sweep_dashboard.js` — HINT round history
+- `internal/lidar/monitor/run_track_api.go`: API response
+- `web/src/routes/lidar/runs/`: Svelte rendering
+- `internal/lidar/monitor/assets/sweep_dashboard.js`: HINT round history
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results,
 PDF reports
@@ -84,8 +84,8 @@ responses.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go` — include columns in query
-- `web/src/routes/lidar/tracks/` — Svelte rendering
+- `internal/lidar/monitor/run_track_api.go`: include columns in query
+- `web/src/routes/lidar/tracks/`: Svelte rendering
 
 **Beneficiaries:** HINT labelling, runs page, analysis dashboards
 
@@ -103,16 +103,16 @@ computed but never persisted.
 
 **Files:**
 
-- `internal/db/` — migration
-- `internal/lidar/storage/sqlite/` — write logic
-- `internal/lidar/monitor/run_track_api.go` — API
-- `web/src/routes/lidar/tracks/` — rendering
+- `internal/db/`: migration
+- `internal/lidar/storage/sqlite/`: write logic
+- `internal/lidar/monitor/run_track_api.go`: API
+- `web/src/routes/lidar/tracks/`: rendering
 
 **Beneficiaries:** HINT labelling, runs page, training data curation
 
 ---
 
-### Batch b — API endpoints (medium effort)
+### Batch b: API endpoints (medium effort)
 
 #### B1. run comparison API endpoint
 
@@ -126,9 +126,9 @@ Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go` — new handler
-- `internal/lidar/storage/sqlite/analysis_run_compare.go` — already implemented
-- `internal/lidar/monitor/assets/sweep_dashboard.js` — HINT round comparison
+- `internal/lidar/monitor/run_track_api.go`: new handler
+- `internal/lidar/storage/sqlite/analysis_run_compare.go`: already implemented
+- `internal/lidar/monitor/assets/sweep_dashboard.js`: HINT round comparison
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results
 
@@ -144,16 +144,16 @@ breakdown TODOs) and persist.
 
 **Files:**
 
-- `internal/lidar/l6objects/quality.go` — finish implementation
-- `internal/lidar/storage/sqlite/analysis_run_manager.go` — persistence
-- `web/` — rendering
+- `internal/lidar/l6objects/quality.go`: finish implementation
+- `internal/lidar/storage/sqlite/analysis_run_manager.go`: persistence
+- `web/`: rendering
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, clustering
 observability
 
 ---
 
-### Batch c — pipeline metrics in HINT round history (moderate effort)
+### Batch c: pipeline metrics in HINT round history (moderate effort)
 
 #### C1. aggregate foreground fraction per sweep combo
 
@@ -165,9 +165,9 @@ observability
 
 **Files:**
 
-- `internal/lidar/l3grid/foreground.go` — already computes `FrameMetrics`
-- `internal/lidar/sweep/runner.go` — accumulate
-- `internal/lidar/sweep/output.go` — `SampleResult` extension
+- `internal/lidar/l3grid/foreground.go`: already computes `FrameMetrics`
+- `internal/lidar/sweep/runner.go`: accumulate
+- `internal/lidar/sweep/output.go`: `SampleResult` extension
 
 **Beneficiaries:** HINT dashboard, sweep results
 
@@ -181,8 +181,8 @@ only exposed as the derived `FragmentationRatio`.
 
 **Files:**
 
-- `internal/lidar/sweep/hint.go` — `HINTRound` struct
-- `internal/lidar/monitor/assets/sweep_dashboard.js` — rendering
+- `internal/lidar/sweep/hint.go`: `HINTRound` struct
+- `internal/lidar/monitor/assets/sweep_dashboard.js`: rendering
 
 **Beneficiaries:** HINT dashboard, sweep results, tracker debugging
 
@@ -196,14 +196,14 @@ only exposed as the derived `FragmentationRatio`.
 
 **Files:**
 
-- `internal/lidar/sweep/hint.go` — `HINTRound` struct
-- `internal/lidar/monitor/assets/sweep_dashboard.js` — rendering
+- `internal/lidar/sweep/hint.go`: `HINTRound` struct
+- `internal/lidar/monitor/assets/sweep_dashboard.js`: rendering
 
 **Beneficiaries:** HINT dashboard, sweep analysis
 
 ---
 
-### Batch d — per-track diagnostics (medium effort)
+### Batch d: per-track diagnostics (medium effort)
 
 #### D1. persist per-track jitter metrics
 
@@ -219,10 +219,10 @@ accumulators but only rolled up into run-level `TrackingMetrics`.
 
 **Files:**
 
-- `internal/db/` — migration
-- `internal/lidar/l5tracks/tracking.go` — finalise per-track values
-- `internal/lidar/storage/sqlite/` — write logic
-- `internal/lidar/monitor/run_track_api.go` — API
+- `internal/db/`: migration
+- `internal/lidar/l5tracks/tracking.go`: finalise per-track values
+- `internal/lidar/storage/sqlite/`: write logic
+- `internal/lidar/monitor/run_track_api.go`: API
 
 **Beneficiaries:** HINT labelling, runs page, tracker debugging
 
@@ -238,15 +238,15 @@ coherence.
 
 **Files:**
 
-- `internal/db/` — migration
-- `internal/lidar/l5tracks/tracking.go` — expose per-track values
-- `internal/lidar/storage/sqlite/` — write logic
+- `internal/db/`: migration
+- `internal/lidar/l5tracks/tracking.go`: expose per-track values
+- `internal/lidar/storage/sqlite/`: write logic
 
 **Beneficiaries:** HINT labelling, runs page, Kalman diagnostics
 
 ---
 
-### Batch e — diagnostic value, low HINT urgency
+### Batch e: diagnostic value, low HINT urgency
 
 - [ ] **E1.** Surface cluster `cluster_density` and `aspect_ratio` on web
 - [ ] **E2.** Populate `noise_points_count` in L4 pipeline
@@ -257,11 +257,11 @@ coherence.
 
 ### Removed from scope
 
-| Item                              | Reason                                                                                             |
-| --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| ML feature vectors → export (§4)  | No HINT benefit. Separate ML infrastructure project.                                               |
-| Training data curation → API (§6) | Downstream of HINT, not an input to it.                                                            |
-| Per-track speed percentiles       | Design debt — removal planned via [migration 000030](schema-simplification-migration-030-plan.md). |
+| Item                              | Reason                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| ML feature vectors → export (§4)  | No HINT benefit. Separate ML infrastructure project.                                              |
+| Training data curation → API (§6) | Downstream of HINT, not an input to it.                                                           |
+| Per-track speed percentiles       | Design debt: removal planned via [migration 000030](schema-simplification-migration-030-plan.md). |
 
 ---
 
@@ -269,18 +269,18 @@ coherence.
 
 | Item                      | HINT Label | HINT Dash | Runs | Sweep | PDF | macOS | ML  |
 | ------------------------- | ---------- | --------- | ---- | ----- | --- | ----- | --- |
-| A1 Run statistics         | ✅         | ✅        | ✅   | ✅    | ✅  | —     | —   |
-| A2 Track quality on web   | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
-| A3 quality_score persist  | ✅         | —         | ✅   | —     | —   | —     | ✅  |
-| B1 Run comparison API     | ✅         | ✅        | ✅   | ✅    | —   | —     | —   |
-| B2 Noise coverage         | ✅         | ✅        | ✅   | —     | —   | —     | —   |
-| C1 Foreground fraction    | —          | ✅        | —    | ✅    | —   | —     | —   |
-| C2 State transitions      | —          | ✅        | ✅   | ✅    | —   | —     | —   |
-| C3 Full combo in history  | —          | ✅        | —    | ✅    | —   | —     | —   |
-| D1 Per-track jitter       | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
-| D2 Per-track alignment    | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
-| E1 Cluster quality on web | —          | —         | ✅   | —     | —   | —     | —   |
-| E2 noise_points_count     | —          | —         | ✅   | —     | —   | —     | —   |
-| E3 Speed-bucketed rates   | —          | —         | —    | ✅    | —   | —     | —   |
+| A1 Run statistics         | ✅         | ✅        | ✅   | ✅    | ✅  | -     | -   |
+| A2 Track quality on web   | ✅         | -         | ✅   | -     | -   | 🔶    | -   |
+| A3 quality_score persist  | ✅         | -         | ✅   | -     | -   | -     | ✅  |
+| B1 Run comparison API     | ✅         | ✅        | ✅   | ✅    | -   | -     | -   |
+| B2 Noise coverage         | ✅         | ✅        | ✅   | -     | -   | -     | -   |
+| C1 Foreground fraction    | -          | ✅        | -    | ✅    | -   | -     | -   |
+| C2 State transitions      | -          | ✅        | ✅   | ✅    | -   | -     | -   |
+| C3 Full combo in history  | -          | ✅        | -    | ✅    | -   | -     | -   |
+| D1 Per-track jitter       | ✅         | -         | ✅   | -     | -   | 🔶    | -   |
+| D2 Per-track alignment    | ✅         | -         | ✅   | -     | -   | 🔶    | -   |
+| E1 Cluster quality on web | -          | -         | ✅   | -     | -   | -     | -   |
+| E2 noise_points_count     | -          | -         | ✅   | -     | -   | -     | -   |
+| E3 Speed-bucketed rates   | -          | -         | -    | ✅    | -   | -     | -   |
 
-✅ = direct benefit, 🔶 = partial, — = no impact
+✅ = direct benefit, 🔶 = partial,: = no impact

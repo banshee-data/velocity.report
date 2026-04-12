@@ -56,9 +56,9 @@ implementation-vs-literature breakdown, see
 
 ### Historical (completed designs)
 
-| Document                                                                                                         | Status                                                           |
-| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete — arena.go removed, types migrated to layer packages |
+| Document                                                                                                         | Status                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete: arena.go removed, types migrated to layer packages |
 
 ### Future / research
 
@@ -71,7 +71,7 @@ implementation-vs-literature breakdown, see
 
 The layer alignment migration is **complete** (items 1–12, 14 in the review doc). Remaining:
 
-- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore) — see [BACKLOG.md](../../BACKLOG.md)
+- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore); see [BACKLOG.md](../../BACKLOG.md)
 
 Post-migration file sizes:
 

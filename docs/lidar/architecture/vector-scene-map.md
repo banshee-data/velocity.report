@@ -1,4 +1,4 @@
-# 3D vector scene map — architecture specification
+# 3D vector scene map: architecture specification
 
 - **Status:** Proposed
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
@@ -12,26 +12,26 @@ This specification extends the ground-plane tiled-grid model into a polygon-base
 
 ### From tiled grid to vector polygons
 
-The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
+The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid**: a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
 
-1. **Tile uniformity wastes storage on homogeneous regions** — A straight, flat stretch of road produces hundreds of nearly-identical 1 m tiles where a single polygon would suffice.
-2. **Buildings and walls are vertical surfaces** — Tiles are inherently horizontal (Z-up plane fits). Vertical structures require a fundamentally different representation: wall-plane parameters or bounding polygons with corner coordinates.
-3. **Vegetation and irregular shapes don't conform to planes** — Trees, hedges, and overhanging foliage need approximate bounding volumes, not surface equations.
-4. **No mechanism for variable detail** — A kerb edge and a featureless road centre receive identical 1 m resolution. Precision should follow measurement confidence and feature complexity.
+1. **Tile uniformity wastes storage on homogeneous regions**: A straight, flat stretch of road produces hundreds of nearly-identical 1 m tiles where a single polygon would suffice.
+2. **Buildings and walls are vertical surfaces**: Tiles are inherently horizontal (Z-up plane fits). Vertical structures require a fundamentally different representation: wall-plane parameters or bounding polygons with corner coordinates.
+3. **Vegetation and irregular shapes don't conform to planes**: Trees, hedges, and overhanging foliage need approximate bounding volumes, not surface equations.
+4. **No mechanism for variable detail**: A kerb edge and a featureless road centre receive identical 1 m resolution. Precision should follow measurement confidence and feature complexity.
 
 The **vector scene map** extends the ground plane concept into a **polygon-based feature representation** where:
 
 - **Ground surfaces** are described by polygons (not uniform tiles) with corner coordinates and per-polygon plane parameters. Large flat regions collapse into single polygons; fine detail emerges only at boundaries and discontinuities.
 - **Buildings and walls** are described by vertical-plane polygons capturing coarse footprint and height without point explosion.
 - **Vegetation and irregular objects** are described by approximate bounding volumes (convex hulls or oriented bounding boxes).
-- **Detail varies by need** — A multi-resolution hierarchy stores coarse polygons globally and refined polygons only where measurement accuracy demands it.
+- **Detail varies by need**: A multi-resolution hierarchy stores coarse polygons globally and refined polygons only where measurement accuracy demands it.
 
 ### Architecture principles
 
 All principles from the ground plane specification carry forward:
 
-- **Sensor-iterative (LiDAR-only first):** The vector scene map must function with LiDAR alone. GPS is additive — enables geographic alignment (Tier 2) but never required for local scene mapping.
-- **Non-point-based output:** The scene map publishes polygons, plane equations, and bounding volumes — not raw point clouds. This matches the `GroundSurface` interface pattern: geometry derived from points but exposed as compact mathematical surfaces.
+- **Sensor-iterative (LiDAR-only first):** The vector scene map must function with LiDAR alone. GPS is additive; enables geographic alignment (Tier 2) but never required for local scene mapping.
+- **Non-point-based output:** The scene map publishes polygons, plane equations, and bounding volumes; not raw point clouds. This matches the `GroundSurface` interface pattern: geometry derived from points but exposed as compact mathematical surfaces.
 - **Incremental, streaming-compatible:** Features must be constructable incrementally from streaming LiDAR frames. Batch (PCAP) mode may use multi-pass refinement, but single-pass operation must be viable.
 - **Privacy-first:** No camera data, no PII. Only geometric features (polygons, planes, volumes).
 
@@ -104,17 +104,17 @@ Each ground polygon stores:
 
 Structures are vertical surfaces observed as reflective returns from building facades, fences, and walls. They are modelled as:
 
-- **Footprint polygon** — 2D outline (viewed from above) defining the structure's horizontal extent.
-- **Vertical plane equation** — For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
-- **Height range** — [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
+- **Footprint polygon**: 2D outline (viewed from above) defining the structure's horizontal extent.
+- **Vertical plane equation**: For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
+- **Height range**: [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
 
 > **Source:** `StructureFeature` and `WallSegment` structs in `internal/lidar/` (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
 **Why not store full 3D meshes?** We don't need photorealistic building models. A few wall planes with corner coordinates capture the coarse structure visible to LiDAR, sufficient for:
 
-- **Occlusion reasoning** — "Is a potential track target behind a known building wall?"
-- **Scene context** — "This cluster is adjacent to a known building facade" (not free-standing).
-- **Map publishing** — Export building outlines as GeoJSON polygons for GIS integration.
+- **Occlusion reasoning**: "Is a potential track target behind a known building wall?"
+- **Scene context**: "This cluster is adjacent to a known building facade" (not free-standing).
+- **Map publishing**: Export building outlines as GeoJSON polygons for GIS integration.
 
 ### 2.3 Volume features (vegetation, irregular shapes)
 
@@ -165,9 +165,9 @@ LOD 0: Road_Segment_Main_Street
 
 **Properties of the hierarchy:**
 
-- **LOD 0** always exists for every feature — it provides the coarsest representation.
+- **LOD 0** always exists for every feature: it provides the coarsest representation.
 - **LOD 1–3** exist **only where measurement accuracy demands refinement** or where an explicit survey has been performed.
-- **Parent polygons completely contain their children** — the LOD 0 polygon's boundary encloses all LOD 1 polygons, which in turn enclose LOD 2, etc.
+- **Parent polygons completely contain their children**: the LOD 0 polygon's boundary encloses all LOD 1 polygons, which in turn enclose LOD 2, etc.
 - **Querying at LOD N returns that level if available, otherwise falls back to the coarsest ancestor.**
 
 ### LOD data model
@@ -218,12 +218,12 @@ LOD 2–3 features exist **only where justified** by one of:
 
 **Refinement process:**
 
-1. **Identify refinement zone** — Find boundaries within LOD 0–1 polygons where the merge criterion was marginal (near-threshold) or where curvature exceeds the threshold.
-2. **Split parent polygon** — Subdivide the parent into two or more child polygons along the discontinuity boundary.
-3. **Re-fit child planes** — Each child polygon gets its own plane equation fitted from its contributing tiles/points.
-4. **Link hierarchy** — Set `ParentID` on children; parent retains its coarse representation for fast queries.
+1. **Identify refinement zone**: Find boundaries within LOD 0–1 polygons where the merge criterion was marginal (near-threshold) or where curvature exceeds the threshold.
+2. **Split parent polygon**: Subdivide the parent into two or more child polygons along the discontinuity boundary.
+3. **Re-fit child planes**: Each child polygon gets its own plane equation fitted from its contributing tiles/points.
+4. **Link hierarchy**: Set `ParentID` on children; parent retains its coarse representation for fast queries.
 
-**Example — kerb refinement:**
+**Example: kerb refinement:**
 
 ```
 LOD 1: Road_Segment (planarity 0.97, single flat polygon)
@@ -233,7 +233,7 @@ LOD 2: Kerb_Strip (planarity 0.92, narrow polygon, +0.15m Z-step)
 LOD 2: Pavement_Beyond (planarity 0.97, flat, +0.15m elevated)
 ```
 
-The LOD 1 parent polygon is **preserved** — querying at LOD 1 still returns the single flat road polygon. Querying at LOD 2 returns the three sub-polygons.
+The LOD 1 parent polygon is **preserved**: querying at LOD 1 still returns the single flat road polygon. Querying at LOD 2 returns the three sub-polygons.
 
 ### 4.3 Threshold-Based pruning and compression
 
@@ -379,10 +379,10 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 **Algorithm:**
 
-1. **Group vertical cells** — Cluster contiguous vertical L3 cells using connected-component labelling (4-connected in the polar grid, projected to Cartesian).
-2. **Fit footprint** — Project cluster to XY plane, compute minimum bounding rectangle (or convex hull for complex shapes).
-3. **Fit wall planes** — For each edge of the footprint polygon, collect points near that edge and fit a vertical plane (constrain normal to horizontal ± 15°).
-4. **Estimate height** — Record Z_min and Z_max from contributing points.
+1. **Group vertical cells**: Cluster contiguous vertical L3 cells using connected-component labelling (4-connected in the polar grid, projected to Cartesian).
+2. **Fit footprint**: Project cluster to XY plane, compute minimum bounding rectangle (or convex hull for complex shapes).
+3. **Fit wall planes**: For each edge of the footprint polygon, collect points near that edge and fit a vertical plane (constrain normal to horizontal ± 15°).
+4. **Estimate height**: Record Z_min and Z_max from contributing points.
 5. **Emit** as `SceneFeature{Class: Structure}` at LOD determined by footprint area.
 
 ### 6.4 Volume extraction
@@ -395,9 +395,9 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 **Algorithm:**
 
-1. **Identify persistent clusters** — From L5 tracking, find tracked objects with near-zero velocity over > 30 seconds.
-2. **Compute bounding volume** — OBB from existing `ComputeOBB()` function in `l4perception/obb.go`.
-3. **Estimate density** — `point_count / bounding_volume` — distinguishes solid objects (poles: high density) from diffuse (trees: low density).
+1. **Identify persistent clusters**: From L5 tracking, find tracked objects with near-zero velocity over > 30 seconds.
+2. **Compute bounding volume**: OBB from existing `ComputeOBB()` function in `l4perception/obb.go`.
+3. **Estimate density**: `point_count / bounding_volume`; distinguishes solid objects (poles: high density) from diffuse (trees: low density).
 4. **Emit** as `SceneFeature{Class: Volume}` at LOD determined by bounding volume dimensions.
 
 ---
@@ -414,10 +414,10 @@ The vector scene map publishes a query interface that extends `GroundSurface`:
 
 When querying at a specific LOD:
 
-1. **Exact match** — If a feature exists at the requested LOD covering (x, y), return it.
-2. **Finer available** — If finer LOD exists (child features), ignore them (user asked for coarser).
-3. **Coarser fallback** — If no feature exists at the requested LOD, traverse up the parent chain until a covering feature is found.
-4. **No coverage** — If no feature at any LOD covers (x, y), return `ok = false`.
+1. **Exact match**: If a feature exists at the requested LOD covering (x, y), return it.
+2. **Finer available**: If finer LOD exists (child features), ignore them (user asked for coarser).
+3. **Coarser fallback**: If no feature exists at the requested LOD, traverse up the parent chain until a covering feature is found.
+4. **No coverage**: If no feature at any LOD covers (x, y), return `ok = false`.
 
 This ensures that **every query returns something if any coverage exists**, regardless of which LOD the caller requests.
 
@@ -485,10 +485,10 @@ Vector Scene Map (LOD 0–3 polygons)    ←  Derived artefact for mapping, expo
 
 **Real-time perception** continues to query the `GroundSurface` interface (tile-based), which is faster for per-point height queries. The vector scene map is for:
 
-- **Export** — GeoJSON, CityJSON, GeoPackage output.
-- **Scene context** — "What structures are near this cluster?"
-- **Multi-session mapping** — Accumulate building footprints and vegetation zones across sessions.
-- **LOD-filtered views** — Provide simplified or detailed scene descriptions on demand.
+- **Export**: GeoJSON, CityJSON, GeoPackage output.
+- **Scene context**: "What structures are near this cluster?"
+- **Multi-session mapping**: Accumulate building footprints and vegetation zones across sessions.
+- **LOD-filtered views**: Provide simplified or detailed scene descriptions on demand.
 
 ### GroundSurface delegation
 
@@ -669,18 +669,18 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 
 ### Internal documents
 
-- **Ground Plane Extraction** — [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Proposal Maths** — [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
-- **LiDAR Layer Model** — [lidar-data-layer-model.md](./lidar-data-layer-model.md) (L1–L6 layer definitions)
-- **Background Grid Standards** — [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
-- **PCAP Export Tool** — [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
+- **Ground Plane Extraction**: [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
+- **Ground Plane Proposal Maths**: [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
+- **LiDAR Layer Model**: [lidar-data-layer-model.md](./lidar-data-layer-model.md) (L1–L6 layer definitions)
+- **Background Grid Standards**: [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
+- **PCAP Export Tool**: [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
 
 ### External standards
 
-- **OpenStreetMap Simple 3D Buildings** — [OSM Wiki: Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) (building outlines, parts, and roof tagging model)
-- **OpenStreetMap Automated Edits Guidance** — [OSM Wiki: Automated Edits code of conduct](https://wiki.openstreetmap.org/wiki/Automated_Edits_code_of_conduct) (community process for scripted/mechanical edits)
-- **GeoJSON** — [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
-- **CityJSON** — [CityJSON 1.1](https://www.cityjson.org/specs/1.1.3/) (3D city model standard)
-- **GeoPackage** — [OGC GeoPackage](https://www.geopackage.org/) (SQLite-based geodata container)
-- **Douglas-Peucker** — Douglas & Peucker (1973), "Algorithms for the reduction of the number of points required to represent a digitised line"
-- **Alpha Shapes** — Edelsbrunner et al. (1983), "On the Shape of a Set of Points in the Plane"
+- **OpenStreetMap Simple 3D Buildings**: [OSM Wiki: Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) (building outlines, parts, and roof tagging model)
+- **OpenStreetMap Automated Edits Guidance**: [OSM Wiki: Automated Edits code of conduct](https://wiki.openstreetmap.org/wiki/Automated_Edits_code_of_conduct) (community process for scripted/mechanical edits)
+- **GeoJSON**: [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
+- **CityJSON**: [CityJSON 1.1](https://www.cityjson.org/specs/1.1.3/) (3D city model standard)
+- **GeoPackage**: [OGC GeoPackage](https://www.geopackage.org/) (SQLite-based geodata container)
+- **Douglas-Peucker**: Douglas & Peucker (1973), "Algorithms for the reduction of the number of points required to represent a digitised line"
+- **Alpha Shapes**: Edelsbrunner et al. (1983), "On the Shape of a Set of Points in the Plane"

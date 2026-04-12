@@ -4,17 +4,17 @@
 
 Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
 
-| Upgrade                           | Status         | Implementation                                                                      |
-| --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
-| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`             |
-| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go` — `EstimateOBBFromCluster()`                                |
-| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go` — EMA heading (α=0.3)                                       |
-| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go` — Kuhn-Munkres solver                                 |
-| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go` — `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` |
-| Debug artifacts                   | ✅ Implemented | `internal/lidar/debug/collector.go` — `DebugOverlaySet` via gRPC                    |
-| Voxel grid preprocessing          | 📋 Planned     | —                                                                                   |
-| Constant acceleration model       | 📋 Planned     | —                                                                                   |
-| Feature extraction for ML         | 📋 Planned     | —                                                                                   |
+| Upgrade                           | Status         | Implementation                                                                     |
+| --------------------------------- | -------------- | ---------------------------------------------------------------------------------- |
+| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go`: `HeightBandFilter` with `FilterVertical()`             |
+| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go`: `EstimateOBBFromCluster()`                                |
+| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go`: EMA heading (α=0.3)                                       |
+| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go`: Kuhn-Munkres solver                                 |
+| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go`: `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` |
+| Debug artifacts                   | ✅ Implemented | `internal/lidar/debug/collector.go`: `DebugOverlaySet` via gRPC                    |
+| Voxel grid preprocessing          | 📋 Planned     | -                                                                                  |
+| Constant acceleration model       | 📋 Planned     | -                                                                                  |
+| Feature extraction for ML         | 📋 Planned     | -                                                                                  |
 
 This document proposes concrete improvements to the LiDAR tracking pipeline for street scenes, mapping each proposal to existing code and new API outputs.
 
@@ -102,7 +102,7 @@ Lifecycle Management (tentative → confirmed → deleted)
 | RANSAC plane fit    | Handles slope        | More compute        | Use for accuracy |
 | Ring-based gradient | Uses sensor geometry | Complex             | Deferred         |
 
-**Implementation**: `internal/lidar/l4perception/ground.go` — `HeightBandFilter` implementing a `GroundRemover` interface. Filters points outside a configurable height band (default min 0.2 m wheel height, max 3.0 m truck height). Called from `tracking_pipeline.go` after `TransformToWorld()`.
+**Implementation**: `internal/lidar/l4perception/ground.go`; `HeightBandFilter` implementing a `GroundRemover` interface. Filters points outside a configurable height band (default min 0.2 m wheel height, max 3.0 m truck height). Called from `tracking_pipeline.go` after `TransformToWorld()`.
 
 **API Output**: `ground_removed: bool` flag in `PointCloudFrame`.
 

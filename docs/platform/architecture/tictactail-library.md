@@ -8,7 +8,7 @@ Active plan: [tictactail-platform-plan.md](../../plans/tictactail-platform-plan.
 
 ## Working name
 
-`TicTacTail` — `tic tac` captures cadence and regular refresh; `tail`
+`TicTacTail`: `tic tac` captures cadence and regular refresh; `tail`
 captures persistent history output. Distinctive enough for a standalone
 package/repo name.
 
@@ -93,9 +93,9 @@ though a single-pane renderer may hide it by default.
 
 Two application field kinds only:
 
-1. **Measure** — all non-reserved keys not ending in `_inc`; keeps latest
+1. **Measure**: all non-reserved keys not ending in `_inc`; keeps latest
    value seen in the active window
-2. **Increment counter** — keys ending in `_inc`; summed within the active
+2. **Increment counter**: keys ending in `_inc`; summed within the active
    window as integer counters
 
 Rules:

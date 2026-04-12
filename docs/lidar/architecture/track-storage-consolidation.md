@@ -16,9 +16,9 @@ Two tables with 16 overlapping columns:
 No JOINs between them anywhere. Completely separate code paths and
 consumers.
 
-## Decision: option b — keep separate tables, normalise Go layer
+## Decision: option b; keep separate tables, normalise Go layer
 
-SQL duplication is an intentional snapshot pattern — different lifecycles,
+SQL duplication is an intentional snapshot pattern: different lifecycles,
 different PKs, different FK relationships. Forcing both into one table
 creates mixed-lifecycle management, FK rewrites, and hot-path performance
 regression.
@@ -54,8 +54,8 @@ type TrackMeasurement struct {
 
 ### Shared helpers
 
-- `trackMeasurementColumns` — single constant slice used in both INSERTs.
-- `scanTrackMeasurementDests()` — used by `GetActiveTracks()`,
+- `trackMeasurementColumns`: single constant slice used in both INSERTs.
+- `scanTrackMeasurementDests()`: used by `GetActiveTracks()`,
   `GetRunTracks()`, `GetTracksInRange()`, `GetRunTrack()`,
   `GetUnlabeledTracks()`.
 - `trackMeasurementInsertArgs()` and `trackMeasurementUpdateArgs()`.

@@ -1357,14 +1357,14 @@ These targets are hypotheses to validate against measured outcomes, not committe
 
 ## Milestones
 
-| Milestone | Completion Criteria                                                          |
-| --------- | ---------------------------------------------------------------------------- |
-| M0        | Reproducible baseline report generated from one command                      |
-| M1        | Phase 1 complete — per-point velocities with confidence scores validated     |
-| M2        | Phase 2 complete — stable sparse clustering with MinPts=3                    |
-| M3        | Phases 3–4 complete — long-tail states and sparse continuation working       |
-| M4        | Phase 5 complete — audited fragment merging with queryable merge trail       |
-| M5        | Phases 6–7 complete — dual-source API, storage, validation, rollout decision |
+| Milestone | Completion Criteria                                                         |
+| --------- | --------------------------------------------------------------------------- |
+| M0        | Reproducible baseline report generated from one command                     |
+| M1        | Phase 1 complete: per-point velocities with confidence scores validated     |
+| M2        | Phase 2 complete: stable sparse clustering with MinPts=3                    |
+| M3        | Phases 3–4 complete: long-tail states and sparse continuation working       |
+| M4        | Phase 5 complete: audited fragment merging with queryable merge trail       |
+| M5        | Phases 6–7 complete: dual-source API, storage, validation, rollout decision |
 
 ---
 
@@ -1440,11 +1440,11 @@ The prototype implementation applies practical simplifications for the traffic m
 
 These features from the original design are deferred to future work:
 
-1. **Full 6D Spatial Index** — Simpler approach of 3D clustering + velocity validation used instead
-2. **Heading Estimation** — Not needed; velocity vector provides implicit heading
-3. **Z-axis Tracking** — Height stored as statistic, not tracked position
-4. **Track Quality Scoring** — Basic quality metrics only
-5. **Batch Mode Processing** — Real-time mode only
+1. **Full 6D Spatial Index**: Simpler approach of 3D clustering + velocity validation used instead
+2. **Heading Estimation**: Not needed; velocity vector provides implicit heading
+3. **Z-axis Tracking**: Height stored as statistic, not tracked position
+4. **Track Quality Scoring**: Basic quality metrics only
+5. **Batch Mode Processing**: Real-time mode only
 
 ### Performance observations (from PCAP replay testing)
 
@@ -1455,16 +1455,16 @@ These features from the original design are deferred to future work:
 
 ### Recommended next steps
 
-1. **Add truck/cyclist classes** — Currently only car/pedestrian/bird/other
-2. **Tune velocity tolerances** — May need per-class velocity limits
-3. **Evaluate sparse track quality** — 3-point tracks may have elevated position noise
-4. **Complete Phase 0** — Formal baseline metrics are needed to confirm improvement claims
+1. **Add truck/cyclist classes**: Currently only car/pedestrian/bird/other
+2. **Tune velocity tolerances**: May need per-class velocity limits
+3. **Evaluate sparse track quality**: 3-point tracks may have elevated position noise
+4. **Complete Phase 0**: Formal baseline metrics are needed to confirm improvement claims
 
 ---
 
 ## Related documentation
 
-- [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — Mathematical model and parameter tradeoffs
-- [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md) — Workstream separation rationale
-- [`docs/plans/lidar-static-pose-alignment-plan.md`](./lidar-static-pose-alignment-plan.md) — Pose pipeline dependency
-- [`docs/plans/lidar-motion-capture-architecture-plan.md`](./lidar-motion-capture-architecture-plan.md) — Motion capture architecture
+- [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md): Mathematical model and parameter tradeoffs
+- [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md): Workstream separation rationale
+- [`docs/plans/lidar-static-pose-alignment-plan.md`](./lidar-static-pose-alignment-plan.md): Pose pipeline dependency
+- [`docs/plans/lidar-motion-capture-architecture-plan.md`](./lidar-motion-capture-architecture-plan.md): Motion capture architecture

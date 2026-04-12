@@ -4,10 +4,10 @@
 
 Phased plan to wire up data structures that are computed on the Go backend
 but never persisted, exposed via API, or consumed by any presentation
-surface — plus per-track speed percentile cleanup per the
+surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active — Phases 1–3 proposed; Phases 4–10 proposed
+- **Status:** Active; Phases 1–3 proposed; Phases 4–10 proposed
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
@@ -19,15 +19,15 @@ schema but are never written, **4 Go structs** (34 fields total) that are
 computed but never persisted or exposed, and **2 feature-vector structs**
 (30 fields) with no export path. This creates:
 
-1. **Dead schema weight** — columns consume space in the SQLite page layout
+1. **Dead schema weight**: columns consume space in the SQLite page layout
    and appear in tooling (schema diagrams, migration diffs) but carry no
    data, confusing contributors and operators.
-2. **Lost analytical value** — `RunStatistics` quality distribution metrics
+2. **Lost analytical value**: `RunStatistics` quality distribution metrics
    are computed on every analysis run and immediately discarded.
-3. **Incomplete UI surfaces** — the web dashboard shows track counts but
+3. **Incomplete UI surfaces**: the web dashboard shows track counts but
    cannot display quality scores, noise ratios, or classification confidence
    distributions that the backend already calculates.
-4. **Blocked ML pipeline** — `TrackFeatures` and `TrainingDatasetSummary`
+4. **Blocked ML pipeline**: `TrackFeatures` and `TrainingDatasetSummary`
    are the foundation for classifier training data export, but no endpoint
    or file-export path exists.
 
@@ -37,21 +37,21 @@ This plan covers wiring existing, already-implemented Go code to persistence
 and API layers. It does **not** cover:
 
 - New algorithmic work (e.g. implementing the full `NoiseCoverageMetrics`
-  speed/size breakdown — that remains a TODO in quality.go:229).
+  speed/size breakdown: that remains a TODO in quality.go:229).
 - Clustering observability metrics from the
   [observability plan](lidar-clustering-observability-and-benchmark-plan.md)
   (FrameStageTiming, AssociationDecision).
-- New UI components — each phase notes where UI work is needed but does not
+- New UI components: each phase notes where UI work is needed but does not
   spec the Svelte components.
 
 ---
 
-## Phase 1 — wire `statistics_json` (run statistics)
+## Phase 1: wire `statistics_json` (run statistics)
 
-**Priority:** High — directly answers the open question in the clustering
+**Priority:** High; directly answers the open question in the clustering
 observability plan §4.
 **Effort:** Small (1–2 days)
-**Risk:** Low — no schema change needed; column already exists.
+**Risk:** Low; no schema change needed; column already exists.
 **Schedule:** Next available sprint. No dependencies.
 
 ### Checklist
@@ -82,11 +82,11 @@ distribution). This is a separate UI task.
 
 ---
 
-## Phase 2 — populate track quality columns
+## Phase 2: populate track quality columns
 
-**Priority:** High — 6 columns in `lidar_tracks` exist but are never written (currently hold NULL/0 defaults).
+**Priority:** High; 6 columns in `lidar_tracks` exist but are never written (currently hold NULL/0 defaults).
 **Effort:** Small–medium (2–3 days)
-**Risk:** Low — columns exist; `InsertTrack`/`UpdateTrack` just need additional parameters to populate them.
+**Risk:** Low; columns exist; `InsertTrack`/`UpdateTrack` just need additional parameters to populate them.
 **Schedule:** Same sprint as Phase 1 or immediately after.
 
 ### Checklist
@@ -114,13 +114,13 @@ labelling.
 
 ---
 
-## Phase 3 — populate cluster quality columns
+## Phase 3: populate cluster quality columns
 
-**Priority:** Medium — 3 quality-related columns in `lidar_clusters` are currently unpopulated (2 are NULL and `noise_points_count` remains at its default 0).
+**Priority:** Medium; 3 quality-related columns in `lidar_clusters` are currently unpopulated (2 are NULL and `noise_points_count` remains at its default 0).
 **Effort:** Small (1 day)
-**Risk:** Low — requires computing `noise_points_count`, `cluster_density`,
+**Risk:** Low; requires computing `noise_points_count`, `cluster_density`,
 and `aspect_ratio` from data already available at insert time.
-**Schedule:** Backlog — schedule after Phase 2 when cluster diagnostics
+**Schedule:** Backlog; schedule after Phase 2 when cluster diagnostics
 become a priority.
 
 ### Checklist
@@ -137,9 +137,9 @@ become a priority.
 
 ---
 
-## Phase 4 — run statistics API endpoint
+## Phase 4: run statistics API endpoint
 
-**Priority:** Medium — enables UI consumption of Phase 1 data.
+**Priority:** Medium; enables UI consumption of Phase 1 data.
 **Effort:** Small (1 day)
 **Risk:** Low.
 **Schedule:** After Phase 1. Can be combined with Phase 1 if capacity allows.
@@ -154,12 +154,12 @@ become a priority.
 
 ---
 
-## Phase 5 — training data export endpoint
+## Phase 5: training data export endpoint
 
-**Priority:** Medium–low — enables ML classifier training pipeline.
+**Priority:** Medium–low; enables ML classifier training pipeline.
 **Effort:** Medium (3–5 days)
-**Risk:** Medium — defines a new public API contract for feature vectors.
-**Schedule:** Backlog — schedule when ML classifier training becomes active.
+**Risk:** Medium; defines a new public API contract for feature vectors.
+**Schedule:** Backlog; schedule when ML classifier training becomes active.
 Depends on Phases 1 and 2.
 
 ### Checklist
@@ -177,12 +177,12 @@ Depends on Phases 1 and 2.
 
 ---
 
-## Phase 6 — run comparison API
+## Phase 6: run comparison API
 
-**Priority:** Low — comparison logic exists but is not user-accessible.
+**Priority:** Low; comparison logic exists but is not user-accessible.
 **Effort:** Medium (2–3 days)
 **Risk:** Low.
-**Schedule:** Backlog — schedule when multi-run comparison UI is prioritised.
+**Schedule:** Backlog; schedule when multi-run comparison UI is prioritised.
 
 ### Checklist
 
@@ -196,12 +196,12 @@ Depends on Phases 1 and 2.
 
 ---
 
-## Phase 7 — ~~Speed percentile exposure~~ per-track speed percentile removal
+## Phase 7: ~~Speed percentile exposure~~ per-track speed percentile removal
 
-**Priority:** Medium — design debt per D-18 and the speed percentile
+**Priority:** Medium; design debt per D-18 and the speed percentile
 alignment plan.
-**Effort:** Small–medium (1–2 days) — most Go renames already done.
-**Risk:** Low–medium — migration drops columns; Go code already aligned.
+**Effort:** Small–medium (1–2 days); most Go renames already done.
+**Risk:** Low–medium; migration drops columns; Go code already aligned.
 **Schedule:** Same sprint as Phase 4 or immediately after. Aligned with
 [schema simplification migration 030 plan](schema-simplification-migration-030-plan.md).
 
@@ -214,13 +214,13 @@ surfaced.
 
 **Already done (Go structs, proto, API, TypeScript):**
 
-- [x] `TrackedObject.MaxSpeedMps` — already renamed from `PeakSpeedMps`.
-- [x] `RunTrack.MaxSpeedMps` — already renamed.
+- [x] `TrackedObject.MaxSpeedMps`: already renamed from `PeakSpeedMps`.
+- [x] `RunTrack.MaxSpeedMps`: already renamed.
 - [x] Proto uses `max_speed_mps` (field 25), no percentile fields.
 - [x] REST API (`track_api.go`) uses `max_speed_mps`, no per-track
       percentile fields exposed.
-- [x] TypeScript types — no per-track percentile fields.
-- [x] `InsertTrack()` / `UpdateTrack()` — no longer write `p50/p85/p95`.
+- [x] TypeScript types: no per-track percentile fields.
+- [x] `InsertTrack()` / `UpdateTrack()`: no longer write `p50/p85/p95`.
 - [x] `ComputeSpeedPercentiles()` kept as internal-only for classifier
       feature extraction.
 
@@ -243,12 +243,12 @@ surfaced.
 
 ---
 
-## Phase 8 — cleanup scaffolding structs
+## Phase 8: cleanup scaffolding structs
 
-**Priority:** Low — removes dead code that has no concrete consumer.
+**Priority:** Low; removes dead code that has no concrete consumer.
 **Effort:** Small (1 day)
-**Risk:** Low — deletion only. No runtime impact.
-**Schedule:** Backlog — schedule after Phase 5 determines whether
+**Risk:** Low; deletion only. No runtime impact.
+**Schedule:** Backlog; schedule after Phase 5 determines whether
 `NoiseCoverageMetrics` will be fully implemented or removed.
 
 ### Checklist
@@ -259,7 +259,7 @@ surfaced.
       `ComputeNoiseCoverageMetrics()`, and associated tests.
 - [ ] If completing: implement the full speed/size breakdown, add
       persistence, and add an API endpoint.
-- [ ] Audit `TrainingDatasetSummary.TotalPoints` — if point cloud storage
+- [ ] Audit `TrainingDatasetSummary.TotalPoints`: if point cloud storage
       is not on the roadmap, remove the field and its TODO comment.
 
 ---
@@ -268,7 +268,7 @@ surfaced.
 
 ### Immediate (current sprint)
 
-Phases 1–3 should be implemented first — they wire existing data to
+Phases 1–3 should be implemented first: they wire existing data to
 persistence with minimal risk (no schema changes, all columns already exist).
 Phase 7 (per-track percentile removal / migration 000030) should follow
 immediately to clean up design debt per D-18/D-19.
@@ -277,7 +277,7 @@ immediately to clean up design debt per D-18/D-19.
 
 Phase 4 (statistics API endpoint) unlocks UI consumption of statistics once
 Phase 1 is complete. Phase 3 completion (noise_points_count) requires an L4
-pipeline change — schedule when cluster diagnostics become a priority.
+pipeline change: schedule when cluster diagnostics become a priority.
 
 ### Backlog (schedule when needed)
 

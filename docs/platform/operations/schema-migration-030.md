@@ -1,12 +1,12 @@
-# Schema simplification — migrations 000030 + 000031
+# Schema simplification: migrations 000030 + 000031
 
-- **Status:** Complete — migrations 000030 and 000031 written, Go code, web frontend, and tests updated in PR #400.
+- **Status:** Complete; migrations 000030 and 000031 written, Go code, web frontend, and tests updated in PR #400.
 
 ## What changed
 
 Two coordinated migrations standardise the LiDAR schema before v0.5.0:
 
-### Migration 000030 — column cleanup
+### Migration 000030: column cleanup
 
 - **Dropped** `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` from
   `lidar_tracks` and `lidar_run_tracks` (dead/wrong-abstraction columns).
@@ -15,7 +15,7 @@ Two coordinated migrations standardise the LiDAR schema before v0.5.0:
   `lidar_tracks`, `lidar_track_obs`.
 - **Renamed** `scene_hash` → `grid_hash` on `lidar_bg_regions`.
 
-### Migration 000031 — table naming standardisation
+### Migration 000031: table naming standardisation
 
 7 tables renamed into coherent family groups:
 
@@ -58,7 +58,7 @@ lidar_track_annotations   lidar_tuning_sweeps
 ## Tables kept unchanged
 
 `lidar_bg_regions`, `lidar_bg_snapshot`, `lidar_tracks`, `lidar_clusters`,
-`lidar_run_tracks` — already clear and well-established.
+`lidar_run_tracks`: already clear and well-established.
 
 ## Quality columns (not dropped)
 

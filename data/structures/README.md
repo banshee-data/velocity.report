@@ -18,10 +18,10 @@ point to the authoritative source files.
 
 ### SQLite database
 
-| Definition     | File                                                       | Description                                 |
-| -------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | 18 tables — radar, LiDAR, labelling, sweeps |
-| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution                |
+| Definition     | File                                                       | Description                                |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | 18 tables: radar, LiDAR, labelling, sweeps |
+| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution               |
 
 ### Configuration
 
@@ -46,35 +46,35 @@ point to the authoritative source files.
 | FrameBundle (Go)         | [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)                             | Canonical internal model for LiDAR frames                  |
 | Recorder / Replayer (Go) | [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)     | VRLOG read/write logic                                     |
 
-## TODO — candidates for dedicated documentation
+## TODO: candidates for dedicated documentation
 
 The following data structures would benefit from standalone format specifications.
 Contributions welcome.
 
-- [ ] **SQLite schema reference** — table-by-table documentation of all 18 tables,
+- [ ] **SQLite schema reference**: table-by-table documentation of all 18 tables,
       column semantics, computed columns, triggers, and index rationale.
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
 
-- [ ] **Radar JSON event format** — structure of raw radar events stored in
+- [ ] **Radar JSON event format**: structure of raw radar events stored in
       `radar_data.data_json` (computed columns: speed, magnitude, uptime).
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql) (`radar_data` table)
 
-- [ ] **Transit record format** — how vehicle transits are computed and stored
+- [ ] **Transit record format**: how vehicle transits are computed and stored
       in `radar_data_transits` (speed stats, duration, gap analysis).
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql) (`radar_data_transits` table)
 
-- [ ] **PDF report data contract** — inputs consumed by the Python PDF generator
+- [ ] **PDF report data contract**: inputs consumed by the Python PDF generator
       (API response shapes, CSV exports, chart specifications).
       Source: [`tools/pdf-generator/`](../../tools/pdf-generator/)
 
-- [ ] **Sweep configuration format** — JSON schema for parameter sweep definitions
+- [ ] **Sweep configuration format**: JSON schema for parameter sweep definitions
       (sweep-overnight, velocity-jitter, quality-tuning).
       Source: [`config/sweep-*.json`](../../config/)
 
-- [ ] **Background grid persistence format** — `lidar_bg_snapshot` and
+- [ ] **Background grid persistence format**: `lidar_bg_snapshot` and
       `lidar_bg_regions` JSON blobs (variance data, region geometry).
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
 
-- [ ] **Label / evaluation format** — `lidar_labels`, `lidar_scenes`,
+- [ ] **Label / evaluation format**: `lidar_labels`, `lidar_scenes`,
       `lidar_evaluations` table semantics and JSON fields.
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)

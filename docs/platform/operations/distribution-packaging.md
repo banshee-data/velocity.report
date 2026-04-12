@@ -191,12 +191,12 @@ sudo systemctl start velocity-report
 
 ## Breaking changes summary
 
-### End users — no breaking changes
+### End users: no breaking changes
 
 - `velocity-report` (no args) still starts server
 - All existing flags preserved
 
-### Developers — minor
+### Developers: minor
 
 - `cmd/radar/` moves to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`

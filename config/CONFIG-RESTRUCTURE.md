@@ -9,19 +9,19 @@
 
 ## 1. Why this is a breaking change
 
-The current `tuning.defaults.json` uses a **flat** schema — 44 keys at root
+The current `tuning.defaults.json` uses a **flat** schema: 44 keys at root
 level with no nesting. This worked well for a single-engine pipeline, but the
 [velocity-coherent foreground extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 proposal introduces:
 
-1. **Full layer coverage** — L1 through L6 are represented in a single
+1. **Full layer coverage**: L1 through L6 are represented in a single
    unified config, including sensor/network (L1), frame assembly (L2),
    classification thresholds (L6), and many previously hardcoded constants.
-2. **Engine selection per layer** — L3/L4/L5 each gain an `engine` field that
+2. **Engine selection per layer**: L3/L4/L5 each gain an `engine` field that
    selects the algorithm variant (e.g. `cv_kf_v1` vs `imm_cv_ca_v2`).
-3. **Optimisation strategy** — sweep/auto-tune gains a strategy profile and
+3. **Optimisation strategy**: sweep/auto-tune gains a strategy profile and
    layer-scoping controls.
-4. **Engine-specific blocks** — each engine's full parameter set lives in a
+4. **Engine-specific blocks**: each engine's full parameter set lives in a
    sub-object keyed by the engine name; the block is mandatory when selected
    and absent otherwise.
 
@@ -35,7 +35,7 @@ format for convenience, but the binary only accepts the new schema.
 | Component                                               | Impact                                                                   |
 | ------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `tuning.defaults.json`                                  | Replaced entirely with versioned, layer-scoped format                    |
-| `tuning.example.json`, `tuning.optimised.json`          | Same — must be regenerated                                               |
+| `tuning.example.json`, `tuning.optimised.json`          | Same: must be regenerated                                                |
 | `TuningConfig` Go struct                                | Replaced with nested sub-structs; no pointer fields; all fields required |
 | L6 classification constants                             | 30+ hardcoded `const` values move into `l6` config object                |
 | L2 frame assembly constants                             | 6 hardcoded values move into `l2` config object                          |
@@ -82,13 +82,13 @@ validation rules only.
 3. **Engine-selectable.** Each layer has an `engine` field that names the
    active algorithm. The matching engine block must be present.
 4. **Strict within blocks.** Every field inside a present object is
-   required — no `omitempty` on data fields, no optional data keys.
+   required: no `omitempty` on data fields, no optional data keys.
    Unknown keys are rejected. The file is either fully valid or fully
    rejected at startup.
 5. **All engine params in a block keyed by engine name.** Each engine's
    full parameter set (common + engine-specific) lives in a sub-object
    keyed by the engine name (e.g. `l3.ema_baseline_v1.noise_relative`).
-   The block is a complete, self-describing snapshot — every field is
+   The block is a complete, self-describing snapshot: every field is
    required when the block is present, enforced by `DisallowUnknownFields`.
 6. **Exactly one engine block per layer.** The layer object contains
    `engine` (selector string) plus exactly one engine block matching
@@ -154,7 +154,7 @@ See §5 for the full field-count breakdown per engine.
 ### 3.4 Spelling corrections (applied in this version)
 
 The flat schema predated the British English mandate. The new schema uses
-corrected spellings. There is no compatibility mapping — old spellings are
+corrected spellings. There is no compatibility mapping: old spellings are
 rejected as unknown keys.
 
 | Old flat key (v1)             | New key (v2)                   | Reason          |
@@ -166,8 +166,8 @@ rejected as unknown keys.
 ### 3.5 Complete example (active engines, current production defaults)
 
 This uses the active engine for each layer (`ema_baseline_v1`, `dbscan_xy_v1`,
-`cv_kf_v1`, `rule_based_v1`). All engine parameters — common and engine-specific
-alike — live inside the engine block. Values shown are current production
+`cv_kf_v1`, `rule_based_v1`). All engine parameters: common and engine-specific
+alike: live inside the engine block. Values shown are current production
 defaults. The canonical defaults will be maintained in `tuning.defaults.json` —
 this example is for structural reference only.
 
@@ -318,7 +318,7 @@ Every tuning key, its layer assignment, and its source. Keys marked **NEW**
 were previously hardcoded constants; this restructure exposes them for the
 first time.
 
-### L1 — packets (sensor / network)
+### L1: packets (sensor / network)
 
 L1 identifies the sensor hardware and current data source. Per-process
 network binding and forwarding remain CLI-managed startup settings and are
@@ -333,54 +333,54 @@ intentionally outside the hot-reload tuning schema.
 count, distance resolution, azimuth resolution) are protocol-level values
 fixed by the sensor model and are **not** exposed as tuning parameters.
 
-### L2 — frames (frame assembly)
+### L2: frames (frame assembly)
 
 L2 controls how raw packets are assembled into complete 360° frames.
 All values were previously hardcoded in `l2frames/frame_builder.go`.
 
-| Key                               | Type    | Description                                   | Source                                      |
-| --------------------------------- | ------- | --------------------------------------------- | ------------------------------------------- |
-| `min_azimuth_coverage_deg`        | float64 | Min azimuth arc (°) for a valid frame         | **NEW** — was `MinAzimuthCoverage`          |
-| `min_frame_points_for_completion` | int     | Min points before frame completion triggers   | **NEW** — was `MinFramePointsForCompletion` |
-| `azimuth_tolerance_deg`           | float64 | Tolerance for azimuth wrap detection (°)      | **NEW** — was `AzimuthTolerance`            |
-| `max_backfill_delay`              | string  | Max wait for late/backfill packets            | **NEW** — was `MaxBackfillDelay`            |
-| `cleanup_interval`                | string  | Interval for stale-frame cleanup sweep        | **NEW** — was `CleanupInterval`             |
-| `frame_buffer_size`               | int     | Max frames buffered for out-of-order packets  | **NEW** — was `FrameBufferSize`             |
-| `frame_channel_capacity`          | int     | Buffered channel capacity for frame callbacks | **NEW** — was `FrameChCapacity`             |
+| Key                               | Type    | Description                                   | Source                                     |
+| --------------------------------- | ------- | --------------------------------------------- | ------------------------------------------ |
+| `min_azimuth_coverage_deg`        | float64 | Min azimuth arc (°) for a valid frame         | **NEW**: was `MinAzimuthCoverage`          |
+| `min_frame_points_for_completion` | int     | Min points before frame completion triggers   | **NEW**: was `MinFramePointsForCompletion` |
+| `azimuth_tolerance_deg`           | float64 | Tolerance for azimuth wrap detection (°)      | **NEW**: was `AzimuthTolerance`            |
+| `max_backfill_delay`              | string  | Max wait for late/backfill packets            | **NEW**: was `MaxBackfillDelay`            |
+| `cleanup_interval`                | string  | Interval for stale-frame cleanup sweep        | **NEW**: was `CleanupInterval`             |
+| `frame_buffer_size`               | int     | Max frames buffered for out-of-order packets  | **NEW**: was `FrameBufferSize`             |
+| `frame_channel_capacity`          | int     | Buffered channel capacity for frame callbacks | **NEW**: was `FrameChCapacity`             |
 
-### L3 — background/Foreground extraction
+### L3: background/Foreground extraction
 
 Fields shared by all L3 engines (embedded via `l3Common`).
 10 existing tunable + 16 newly exposed.
 
-| Key                                    | Type    | Maths reference / description                                                        | Source                                                         |
-| -------------------------------------- | ------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md) | Tunable                                                        |
-| `closeness_multiplier`                 | float64 | EMA gating threshold                                                                 | Tunable                                                        |
-| `safety_margin_metres`                 | float64 | Additive minimum gate width                                                          | Tunable                                                        |
-| `noise_relative`                       | float64 | Range-proportional noise model                                                       | Tunable                                                        |
-| `neighbour_confirmation_count`         | int     | Spatial neighbour voting                                                             | Tunable                                                        |
-| `seed_from_first`                      | bool    | Cell initialisation policy                                                           | Tunable                                                        |
-| `warmup_duration_nanos`                | int64   | Settling state machine                                                               | Tunable                                                        |
-| `warmup_min_frames`                    | int     | Settling state machine                                                               | Tunable                                                        |
-| `post_settle_update_fraction`          | float64 | Post-convergence adaptation rate                                                     | Tunable                                                        |
-| `enable_diagnostics`                   | bool    | Per-cell debug output                                                                | Tunable                                                        |
-| `freeze_duration`                      | string  | Cell freeze time after foreground                                                    | **NEW** — was `FreezeDuration`                                 |
-| `freeze_threshold_multiplier`          | float64 | Closeness multiplier for freeze trigger                                              | **NEW** — was `FreezeThresholdMultiplier`                      |
-| `settling_period`                      | string  | Time before first persistence snapshot                                               | **NEW** — was `SettlingPeriod`                                 |
-| `snapshot_interval`                    | string  | Interval between background snapshots                                                | **NEW** — was `SnapshotInterval`                               |
-| `change_threshold_snapshot`            | int     | Min changed cells to trigger a snapshot                                              | **NEW** — was `ChangeThresholdSnapshot`                        |
-| `reacquisition_boost_multiplier`       | float64 | Fast re-acquisition alpha boost                                                      | **NEW** — was `DefaultReacquisitionBoostMultiplier`            |
-| `min_confidence_floor`                 | int     | Min `TimesSeenCount` to preserve during foreground                                   | **NEW** — was `DefaultMinConfidenceFloor`                      |
-| `locked_baseline_threshold`            | int     | Min observations before baseline lock                                                | **NEW** — was `DefaultLockedBaselineThreshold`                 |
-| `locked_baseline_multiplier`           | float64 | Locked spread acceptance window multiplier                                           | **NEW** — was `DefaultLockedBaselineMultiplier`                |
-| `sensor_movement_foreground_threshold` | float64 | Fraction of points → sensor movement detection                                       | **NEW** — was `SensorMovementForegroundThreshold`              |
-| `background_drift_threshold_metres`    | float64 | Cell drift distance for significant drift                                            | **NEW** — was `BackgroundDriftThresholdMeters`                 |
-| `background_drift_ratio_threshold`     | float64 | Fraction of settled cells → full background drift                                    | **NEW** — was `BackgroundDriftRatioThreshold`                  |
-| `settling_min_coverage`                | float64 | Min CoverageRate for convergence (e.g. 0.80 for 80%)                                 | **NEW** — was `DefaultSettlingThresholds().MinCoverage`        |
-| `settling_max_spread_delta`            | float64 | Max acceptable SpreadDeltaRate per frame                                             | **NEW** — was `DefaultSettlingThresholds().MaxSpreadDelta`     |
-| `settling_min_region_stability`        | float64 | Min region stability for convergence (e.g. 0.95 for 95%)                             | **NEW** — was `DefaultSettlingThresholds().MinRegionStability` |
-| `settling_min_confidence`              | float64 | Min mean TimesSeenCount for convergence                                              | **NEW** — was `DefaultSettlingThresholds().MinConfidence`      |
+| Key                                    | Type    | Maths reference / description                                                        | Source                                                        |
+| -------------------------------------- | ------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md) | Tunable                                                       |
+| `closeness_multiplier`                 | float64 | EMA gating threshold                                                                 | Tunable                                                       |
+| `safety_margin_metres`                 | float64 | Additive minimum gate width                                                          | Tunable                                                       |
+| `noise_relative`                       | float64 | Range-proportional noise model                                                       | Tunable                                                       |
+| `neighbour_confirmation_count`         | int     | Spatial neighbour voting                                                             | Tunable                                                       |
+| `seed_from_first`                      | bool    | Cell initialisation policy                                                           | Tunable                                                       |
+| `warmup_duration_nanos`                | int64   | Settling state machine                                                               | Tunable                                                       |
+| `warmup_min_frames`                    | int     | Settling state machine                                                               | Tunable                                                       |
+| `post_settle_update_fraction`          | float64 | Post-convergence adaptation rate                                                     | Tunable                                                       |
+| `enable_diagnostics`                   | bool    | Per-cell debug output                                                                | Tunable                                                       |
+| `freeze_duration`                      | string  | Cell freeze time after foreground                                                    | **NEW**: was `FreezeDuration`                                 |
+| `freeze_threshold_multiplier`          | float64 | Closeness multiplier for freeze trigger                                              | **NEW**: was `FreezeThresholdMultiplier`                      |
+| `settling_period`                      | string  | Time before first persistence snapshot                                               | **NEW**: was `SettlingPeriod`                                 |
+| `snapshot_interval`                    | string  | Interval between background snapshots                                                | **NEW**: was `SnapshotInterval`                               |
+| `change_threshold_snapshot`            | int     | Min changed cells to trigger a snapshot                                              | **NEW**: was `ChangeThresholdSnapshot`                        |
+| `reacquisition_boost_multiplier`       | float64 | Fast re-acquisition alpha boost                                                      | **NEW**: was `DefaultReacquisitionBoostMultiplier`            |
+| `min_confidence_floor`                 | int     | Min `TimesSeenCount` to preserve during foreground                                   | **NEW**: was `DefaultMinConfidenceFloor`                      |
+| `locked_baseline_threshold`            | int     | Min observations before baseline lock                                                | **NEW**: was `DefaultLockedBaselineThreshold`                 |
+| `locked_baseline_multiplier`           | float64 | Locked spread acceptance window multiplier                                           | **NEW**: was `DefaultLockedBaselineMultiplier`                |
+| `sensor_movement_foreground_threshold` | float64 | Fraction of points → sensor movement detection                                       | **NEW**: was `SensorMovementForegroundThreshold`              |
+| `background_drift_threshold_metres`    | float64 | Cell drift distance for significant drift                                            | **NEW**: was `BackgroundDriftThresholdMeters`                 |
+| `background_drift_ratio_threshold`     | float64 | Fraction of settled cells → full background drift                                    | **NEW**: was `BackgroundDriftRatioThreshold`                  |
+| `settling_min_coverage`                | float64 | Min CoverageRate for convergence (e.g. 0.80 for 80%)                                 | **NEW**: was `DefaultSettlingThresholds().MinCoverage`        |
+| `settling_max_spread_delta`            | float64 | Max acceptable SpreadDeltaRate per frame                                             | **NEW**: was `DefaultSettlingThresholds().MaxSpreadDelta`     |
+| `settling_min_region_stability`        | float64 | Min region stability for convergence (e.g. 0.95 for 95%)                             | **NEW**: was `DefaultSettlingThresholds().MinRegionStability` |
+| `settling_min_confidence`              | float64 | Min mean TimesSeenCount for convergence                                              | **NEW**: was `DefaultSettlingThresholds().MinConfidence`      |
 
 **Engine variants:**
 
@@ -389,7 +389,7 @@ Fields shared by all L3 engines (embedded via `l3Common`).
 | `ema_baseline_v1`     | Current production EMA background model                       | **Active** |
 | `ema_track_assist_v2` | EMA + track-assisted foreground promotion (§3 of VC proposal) | Proposed   |
 
-### L4 — perception (clustering + ground filtering)
+### L4: perception (clustering + ground filtering)
 
 All 9 existing tunable fields. No newly exposed constants (L4 has minimal
 hardcoded values beyond numerical stability guards).
@@ -414,35 +414,35 @@ hardcoded values beyond numerical stability guards).
 | `two_stage_mahalanobis_v2` | Spatial DBSCAN + velocity-coherent split/merge (§4 of VC proposal) | Proposed   |
 | `hdbscan_adaptive_v1`      | Hierarchical DBSCAN with adaptive density                          | Proposed   |
 
-### L5 — tracking (state estimation + assignment)
+### L5: tracking (state estimation + assignment)
 
 22 existing tunable + 1 newly exposed.
 
-| Key                                   | Type    | Maths reference / description                                           | Source                                  |
-| ------------------------------------- | ------- | ----------------------------------------------------------------------- | --------------------------------------- |
-| `gating_distance_squared`             | float64 | [tracking-maths.md](../data/maths/tracking-maths.md) — Mahalanobis gate | Tunable                                 |
-| `process_noise_pos`                   | float64 | KF process noise (position)                                             | Tunable                                 |
-| `process_noise_vel`                   | float64 | KF process noise (velocity)                                             | Tunable                                 |
-| `measurement_noise`                   | float64 | KF measurement noise                                                    | Tunable                                 |
-| `occlusion_cov_inflation`             | float64 | Coast-mode covariance growth                                            | Tunable                                 |
-| `occlusion_threshold_nanos`           | int64   | Gap duration (ns) triggering occlusion mode (~200 ms at 10 Hz)          | **NEW** — was `occlusionThresholdNanos` |
-| `hits_to_confirm`                     | int     | Track lifecycle                                                         | Tunable                                 |
-| `max_misses`                          | int     | Tentative track deletion                                                | Tunable                                 |
-| `max_misses_confirmed`                | int     | Confirmed track deletion                                                | Tunable                                 |
-| `max_tracks`                          | int     | Capacity limit                                                          | Tunable                                 |
-| `max_reasonable_speed_mps`            | float64 | Velocity clamp                                                          | Tunable                                 |
-| `max_position_jump_metres`            | float64 | Association plausibility gate                                           | Tunable                                 |
-| `max_predict_dt`                      | float64 | Maximum prediction horizon                                              | Tunable                                 |
-| `max_covariance_diag`                 | float64 | Covariance cap (numerical guard)                                        | Tunable                                 |
-| `min_points_for_pca`                  | int     | OBB geometry minimum                                                    | Tunable                                 |
-| `obb_heading_smoothing_alpha`         | float64 | Heading EMA                                                             | Tunable                                 |
-| `obb_aspect_ratio_lock_threshold`     | float64 | Aspect-ratio lock guard                                                 | Tunable                                 |
-| `max_track_history_length`            | int     | History buffer size                                                     | Tunable                                 |
-| `max_speed_history_length`            | int     | Speed statistics buffer                                                 | Tunable                                 |
-| `merge_size_ratio`                    | float64 | Track merge heuristic                                                   | Tunable                                 |
-| `split_size_ratio`                    | float64 | Track split heuristic                                                   | Tunable                                 |
-| `deleted_track_grace_period`          | string  | Grace period for deleted-track reuse                                    | Tunable                                 |
-| `min_observations_for_classification` | int     | Classification confidence gate                                          | Tunable                                 |
+| Key                                   | Type    | Maths reference / description                                          | Source                                 |
+| ------------------------------------- | ------- | ---------------------------------------------------------------------- | -------------------------------------- |
+| `gating_distance_squared`             | float64 | [tracking-maths.md](../data/maths/tracking-maths.md): Mahalanobis gate | Tunable                                |
+| `process_noise_pos`                   | float64 | KF process noise (position)                                            | Tunable                                |
+| `process_noise_vel`                   | float64 | KF process noise (velocity)                                            | Tunable                                |
+| `measurement_noise`                   | float64 | KF measurement noise                                                   | Tunable                                |
+| `occlusion_cov_inflation`             | float64 | Coast-mode covariance growth                                           | Tunable                                |
+| `occlusion_threshold_nanos`           | int64   | Gap duration (ns) triggering occlusion mode (~200 ms at 10 Hz)         | **NEW**: was `occlusionThresholdNanos` |
+| `hits_to_confirm`                     | int     | Track lifecycle                                                        | Tunable                                |
+| `max_misses`                          | int     | Tentative track deletion                                               | Tunable                                |
+| `max_misses_confirmed`                | int     | Confirmed track deletion                                               | Tunable                                |
+| `max_tracks`                          | int     | Capacity limit                                                         | Tunable                                |
+| `max_reasonable_speed_mps`            | float64 | Velocity clamp                                                         | Tunable                                |
+| `max_position_jump_metres`            | float64 | Association plausibility gate                                          | Tunable                                |
+| `max_predict_dt`                      | float64 | Maximum prediction horizon                                             | Tunable                                |
+| `max_covariance_diag`                 | float64 | Covariance cap (numerical guard)                                       | Tunable                                |
+| `min_points_for_pca`                  | int     | OBB geometry minimum                                                   | Tunable                                |
+| `obb_heading_smoothing_alpha`         | float64 | Heading EMA                                                            | Tunable                                |
+| `obb_aspect_ratio_lock_threshold`     | float64 | Aspect-ratio lock guard                                                | Tunable                                |
+| `max_track_history_length`            | int     | History buffer size                                                    | Tunable                                |
+| `max_speed_history_length`            | int     | Speed statistics buffer                                                | Tunable                                |
+| `merge_size_ratio`                    | float64 | Track merge heuristic                                                  | Tunable                                |
+| `split_size_ratio`                    | float64 | Track split heuristic                                                  | Tunable                                |
+| `deleted_track_grace_period`          | string  | Grace period for deleted-track reuse                                   | Tunable                                |
+| `min_observations_for_classification` | int     | Classification confidence gate                                         | Tunable                                |
 
 **Engine variants:**
 
@@ -452,7 +452,7 @@ hardcoded values beyond numerical stability guards).
 | `imm_cv_ca_v2`          | Interacting Multiple Model: CV + constant-acceleration (§5 of VC proposal) | Proposed   |
 | `imm_cv_ca_rts_eval_v2` | IMM + Rauch-Tung-Striebel offline smoothing (evaluation only)              | Proposed   |
 
-### L6 — objects (classification)
+### L6: objects (classification)
 
 All L6 classification thresholds were previously hardcoded as Go `const`
 values in `l6objects/classification.go`. Exposing them enables per-deployment
@@ -496,18 +496,18 @@ tuning (e.g. different thresholds for UK residential vs. rural roads).
 | --------------- | ---------------------------------------- | ---------- |
 | `rule_based_v1` | Current production rule-based classifier | **Active** |
 
-### Pipeline — cross-cutting
+### Pipeline: cross-cutting
 
-| Key                 | Type   | Description                         | Source                          |
-| ------------------- | ------ | ----------------------------------- | ------------------------------- |
-| `buffer_timeout`    | string | Frame completion timeout            | Tunable                         |
-| `min_frame_points`  | int    | Minimum frame size for processing   | Tunable                         |
-| `flush_interval`    | string | Background grid snapshot cadence    | Tunable                         |
-| `background_flush`  | bool   | Master flush switch                 | Tunable                         |
-| `deleted_track_ttl` | string | TTL for soft-deleted tracks in DB   | **NEW** — was `deletedTrackTTL` |
-| `prune_interval`    | string | Interval for pruning deleted tracks | **NEW** — was `pruneInterval`   |
+| Key                 | Type   | Description                         | Source                         |
+| ------------------- | ------ | ----------------------------------- | ------------------------------ |
+| `buffer_timeout`    | string | Frame completion timeout            | Tunable                        |
+| `min_frame_points`  | int    | Minimum frame size for processing   | Tunable                        |
+| `flush_interval`    | string | Background grid snapshot cadence    | Tunable                        |
+| `background_flush`  | bool   | Master flush switch                 | Tunable                        |
+| `deleted_track_ttl` | string | TTL for soft-deleted tracks in DB   | **NEW**: was `deletedTrackTTL` |
+| `prune_interval`    | string | Interval for pruning deleted tracks | **NEW**: was `pruneInterval`   |
 
-### Optimisation — sweep/Auto-tune controls
+### Optimisation: sweep/Auto-tune controls
 
 | Key             | Type   | Allowed values                                                       |
 | --------------- | ------ | -------------------------------------------------------------------- |
@@ -542,23 +542,23 @@ specific, or numerical stability guards that should never be tuned:
 ## 5. Engine block field counts
 
 All engine parameters (common + engine-specific) live inside the engine block.
-The block is a self-describing snapshot — every field is required when the
+The block is a self-describing snapshot: every field is required when the
 block is present. Validation is strict:
 
 1. Read `engine` to identify the active engine.
 2. Extract and validate the matching engine block with
-   `DisallowUnknownFields` — every field must be present, no unknowns.
+   `DisallowUnknownFields`: every field must be present, no unknowns.
 3. Reject the file if the matching engine block is absent, if any
    non-selected engine block is present, or if any field is missing or
    unknown inside the block.
 
 ### L5 engines
 
-#### `cv_kf_v1` — 23 fields
+#### `cv_kf_v1`: 23 fields
 
 The 23 common tracking params listed in §4 are the complete block.
 
-#### `imm_cv_ca_v2` — 27 fields (23 common + 4 IMM)
+#### `imm_cv_ca_v2`: 27 fields (23 common + 4 IMM)
 
 | Key                            | Type    | Description                                     |
 | ------------------------------ | ------- | ----------------------------------------------- |
@@ -567,7 +567,7 @@ The 23 common tracking params listed in §4 are the complete block.
 | `ca_process_noise_acc`         | float64 | Acceleration process noise for the CA sub-model |
 | `low_speed_heading_freeze_mps` | float64 | Speed below which heading updates are frozen    |
 
-#### `imm_cv_ca_rts_eval_v2` — 28 fields (23 common + 4 IMM + 1 RTS)
+#### `imm_cv_ca_rts_eval_v2`: 28 fields (23 common + 4 IMM + 1 RTS)
 
 All 4 `imm_cv_ca_v2` fields (inherited via struct embedding), plus:
 
@@ -577,18 +577,18 @@ All 4 `imm_cv_ca_v2` fields (inherited via struct embedding), plus:
 
 ### L4 engines
 
-#### `dbscan_xy_v1` — 9 fields
+#### `dbscan_xy_v1`: 9 fields
 
 The 9 clustering params listed in §4 are the complete block.
 
-#### `two_stage_mahalanobis_v2` — 11 fields (9 common + 2 VC)
+#### `two_stage_mahalanobis_v2`: 11 fields (9 common + 2 VC)
 
 | Key                       | Type    | Description                                             |
 | ------------------------- | ------- | ------------------------------------------------------- |
 | `velocity_coherence_gate` | float64 | Mahalanobis distance gate for velocity split/merge      |
 | `min_velocity_confidence` | float64 | Minimum L5 velocity confidence to use motion refinement |
 
-#### `hdbscan_adaptive_v1` — 11 fields (9 common + 2 HDBSCAN)
+#### `hdbscan_adaptive_v1`: 11 fields (9 common + 2 HDBSCAN)
 
 | Key                | Type | Description                                  |
 | ------------------ | ---- | -------------------------------------------- |
@@ -597,11 +597,11 @@ The 9 clustering params listed in §4 are the complete block.
 
 ### L3 engines
 
-#### `ema_baseline_v1` — 26 fields
+#### `ema_baseline_v1`: 26 fields
 
 The 26 background/foreground params listed in §4 are the complete block.
 
-#### `ema_track_assist_v2` — 29 fields (26 common + 3 TA)
+#### `ema_track_assist_v2`: 29 fields (26 common + 3 TA)
 
 | Key                        | Type    | Description                                        |
 | -------------------------- | ------- | -------------------------------------------------- |
@@ -611,7 +611,7 @@ The 26 background/foreground params listed in §4 are the complete block.
 
 ### L6 engines
 
-#### `rule_based_v1` — 29 fields
+#### `rule_based_v1`: 29 fields
 
 The 29 classification params listed in §4 are the complete block.
 
@@ -638,21 +638,21 @@ When the block is present, every field is required.
 
 ## 6. Go implementation plan
 
-### 6.1 Struct design — all fields inside engine blocks
+### 6.1 Struct design: all fields inside engine blocks
 
 Each engine-selectable layer has a **wrapper struct** containing the `engine`
 selector and one pointer field per engine variant. Each **engine struct**
 embeds the common type for that layer, so all fields (common + engine-specific)
 live inside the engine block. The engine block pointer is optional at the Go
-level (`omitempty`) — absent when that engine is not selected, present and
+level (`omitempty`): absent when that engine is not selected, present and
 strictly validated when it is. Data fields inside the block are concrete values
 (no pointers, no `omitempty`).
 
 `DisallowUnknownFields` is applied at two levels:
 
-1. **Wrapper level** — rejects unknown keys at the layer object level (only
+1. **Wrapper level**: rejects unknown keys at the layer object level (only
    `engine` and the selected engine block are allowed)
-2. **Engine block level** — rejects unknown/misspelled fields inside the
+2. **Engine block level**: rejects unknown/misspelled fields inside the
    block; all fields are required (no `omitempty`)
 
 ```go
@@ -902,7 +902,7 @@ type L6RuleBasedV1 struct {
 }
 ```
 
-### 6.2 `LoadTuningConfig` — strict validation
+### 6.2 `LoadTuningConfig`: strict validation
 
 ```
 1. Unmarshal root JSON with DisallowUnknownFields.
@@ -952,7 +952,7 @@ var engineRegistry = map[string]EngineSpec{
 }
 ```
 
-The registry also enforces layer assignment — an L4 engine cannot be placed
+The registry also enforces layer assignment: an L4 engine cannot be placed
 in the L5 slot.
 
 ### 6.3 Factory function updates
@@ -961,7 +961,7 @@ in the L5 slot.
 concrete engine struct (e.g. `*L3EmaBaselineV1`, `*L5CvKfV1`) rather than
 the layer wrapper. Common fields are accessed via the embedded common type.
 
-A new `L4ConfigFromTuning` factory is added — it accepts the concrete L4
+A new `L4ConfigFromTuning` factory is added: it accepts the concrete L4
 engine struct.
 
 **Cross-layer dependency:** `BackgroundConfigFromTuning` also reads L4
@@ -987,11 +987,11 @@ Flat key names are no longer accepted.
 When evaluating algorithm changes, the harness must compare identical replay
 windows across five scenarios:
 
-1. **Baseline** — current production config
-2. **L3-only change** — only L3 engine/params differ
-3. **L4-only change** — only L4 engine/params differ
-4. **L5-only change** — only L5 engine/params differ
-5. **Full-stack change** — all layers updated simultaneously
+1. **Baseline**: current production config
+2. **L3-only change**: only L3 engine/params differ
+3. **L4-only change**: only L4 engine/params differ
+4. **L5-only change**: only L5 engine/params differ
+5. **Full-stack change**: all layers updated simultaneously
 
 For each scenario, compute:
 
@@ -1049,17 +1049,17 @@ and that deterministic asset plan.
 
 ## 8. Implementation sequence
 
-### Phase 1 — structural realignment (v0.5.0) ✅ complete
+### Phase 1: structural realignment (v0.5.0) ✅ complete
 
 Reorganise the existing 44 flat params into the versioned, layer-scoped,
-engine-selectable schema. No new parameters are added in this phase — the
+engine-selectable schema. No new parameters are added in this phase: the
 config surface area is identical, only the structure changes.
 
 Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 
 | Step | Description                                                                                                         | Depends on | Status |
 | ---- | ------------------------------------------------------------------------------------------------------------------- | ---------- | ------ |
-| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | —          | ✅     |
+| 1    | Define engine structs with embedded common types; wrapper structs with engine selector + pointers (L3, L4, L5 only) | -          | ✅     |
 | 2    | Implement engine registry and `LoadTuningConfig` with strict validation                                             | Step 1     | ✅     |
 | 3    | Add `make config-migrate` target (converts v1 flat → v2 nested)                                                     | Step 1     | ✅     |
 | 4    | Regenerate `tuning.defaults.json`, `tuning.example.json`, `tuning.optimised.json`                                   | Step 3     | ✅     |
@@ -1069,10 +1069,10 @@ Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 | 8    | Update `config-order-check` / `config-order-sync` for nested keys                                                   | Step 4     | ✅     |
 | 9    | Update `config/README.md` and `config/README.maths.md`                                                              | Step 4     | ✅     |
 | 10   | Update `/api/lidar/params` endpoint schema                                                                          | Step 6     | ✅     |
-| 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
+| 11   | Add `make config-validate` target: CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation        | Step 2     | ✅     |
 | 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
 
-### Phase 2 — essential new variable exposure (v0.6.0) ✅ complete
+### Phase 2: essential new variable exposure (v0.6.0) ✅ complete
 
 Expose the highest-impact hardcoded constants: L1 sensor identity plus L3
 background/foreground parameters. LiDAR network binding and forwarding stay
@@ -1087,7 +1087,7 @@ of the hot-reload tuning schema on this branch.
 | 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅          |
 | 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅          |
 
-### Phase 2B — experiment contract + deterministic config identity (v0.6.x / v0.7.0)
+### Phase 2B: experiment contract + deterministic config identity (v0.6.x / v0.7.0)
 
 Turn the new nested schema into a reproducible **experiment surface**, not just
 a startup file format. This phase creates the bridge from runtime tuning config
@@ -1105,12 +1105,12 @@ cleanly.
 | 21   | Replace copied JSON blobs in run/replay/recommendation surfaces with references to canonical param-set / run-config assets; keep legacy blobs only as migration shims while backfilling | Step 20     | Proposed |
 | 22   | Upgrade UI, reports, and VRLOG provenance to diff/display exact config assets rather than ad hoc blobs or best-effort hashes                                                            | Steps 19–21 | Proposed |
 
-### Phase 3 — remaining variable exposure + L6 classification (v2.0)
+### Phase 3: remaining variable exposure + L6 classification (v2.0)
 
 Expose lower-priority hardcoded constants (L2 frame assembly, L5 occlusion,
 pipeline TTL/prune) and L6 classification thresholds. L2, L5, and pipeline
 constants are stable and work well at current values. L6 classification is
-deferred until the classifier strategy is settled — the rule-based classifier
+deferred until the classifier strategy is settled: the rule-based classifier
 is a candidate for replacement by an ML classifier (see
 [ML classifier training pipeline](../docs/plans/lidar-ml-classifier-training-plan.md)).
 
@@ -1128,10 +1128,10 @@ is a candidate for replacement by an ML classifier (see
 
 ## 9. Related documents
 
-- [Config README](README.md) — current parameter documentation
-- [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping
-- [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md) — canonical design for immutable config assets and exact run provenance
-- [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — engine variants and config contract (§6)
-- [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md) — optimisation platform plan
-- [MATHS.md](../data/maths/MATHS.md) — proposal roadmap (P1–P4)
-- [Geometry-Coherent Tracking](../data/maths/proposals/20260222-geometry-coherent-tracking.md) — P1 proposal (L5 geometry model)
+- [Config README](README.md): current parameter documentation
+- [Config Maths Cross-Reference](README.maths.md): key-to-maths mapping
+- [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md): canonical design for immutable config assets and exact run provenance
+- [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md): engine variants and config contract (§6)
+- [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md): optimisation platform plan
+- [MATHS.md](../data/maths/MATHS.md): proposal roadmap (P1–P4)
+- [Geometry-Coherent Tracking](../data/maths/proposals/20260222-geometry-coherent-tracking.md): P1 proposal (L5 geometry model)

@@ -657,7 +657,7 @@ If a migration causes issues:
 velocity.report uses [golang-migrate](https://github.com/golang-migrate/migrate) for database migrations. Key components:
 
 - **Migration files:** SQL files embedded in binary via Go's `embed.FS`
-- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO) — bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
+- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO); bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
 - **Tracking:** `schema_migrations` table stores version and dirty state
 - **Commands:** Exposed via `velocity-report migrate` CLI
 

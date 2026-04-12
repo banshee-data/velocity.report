@@ -13,10 +13,10 @@ v2.0 milestone.
 
 ## Related documents
 
-- [Backlog](../BACKLOG.md) — milestone placement (v2.0)
-- [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md) — provides run comparison and quality metrics
-- [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md) — existing parameter sweep system (Phase 3.9, ✅ implemented)
-- [Optional Classification Benchmarking](lidar-ml-classifier-training-plan.md) — may benefit from tuned parameters
+- [Backlog](../BACKLOG.md): milestone placement (v2.0)
+- [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md): provides run comparison and quality metrics
+- [Sweep/HINT Mode](lidar-sweep-hint-mode-plan.md): existing parameter sweep system (Phase 3.9, ✅ implemented)
+- [Optional Classification Benchmarking](lidar-ml-classifier-training-plan.md): may benefit from tuned parameters
 
 ---
 

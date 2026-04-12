@@ -15,7 +15,7 @@ Core terms used across the LiDAR tracking system.
 
 ## Related architecture models
 
-- [LiDAR Data Layer Model (OSI-Style)](architecture/lidar-data-layer-model.md) — ten-layer model from L1 Packets through L10 Clients.
+- [LiDAR Data Layer Model (OSI-Style)](architecture/lidar-data-layer-model.md): ten-layer model from L1 Packets through L10 Clients.
 
 ## Layer summary
 
@@ -67,12 +67,12 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 | `merge`           | Two or more distinct objects incorrectly merged into one track           |
 | `split`           | Single object incorrectly split into multiple tracks                     |
 | `truncated`       | Track starts late or ends early relative to the object's true trajectory |
-| `disconnected`    | Track was lost and recovered — identity may have changed                 |
+| `disconnected`    | Track was lost and recovered: identity may have changed                  |
 
 ### Canonical sources
 
-- **Go backend:** `internal/api/lidar_labels.go` — `validUserLabels`, `validQualityLabels`
-- **Svelte frontend:** `web/src/lib/types/lidar.ts` — `DetectionLabel`, `QualityLabel`
-- **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
+- **Go backend:** `internal/api/lidar_labels.go`; `validUserLabels`, `validQualityLabels`
+- **Svelte frontend:** `web/src/lib/types/lidar.ts`; `DetectionLabel`, `QualityLabel`
+- **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`; `LabelPanelView`
 
 > **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. v0.5.0 ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).

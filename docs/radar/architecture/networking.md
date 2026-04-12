@@ -6,10 +6,10 @@ Network architecture, listener segmentation, and access control model for veloci
 
 velocity.report runs on a Raspberry Pi 4 deployed on a private LAN alongside traffic sensors. The device has two network interfaces:
 
-| Interface                       | Purpose                               | Typical address          |
-| ------------------------------- | ------------------------------------- | ------------------------ |
-| Ethernet (`eth0`)               | Sensor subnet — LiDAR UDP packets     | `192.168.100.x` (static) |
-| Wi-Fi/Ethernet (`wlan0`/`eth1`) | Management — HTTP API, SSH, Tailscale | DHCP or static           |
+| Interface                       | Purpose                              | Typical address          |
+| ------------------------------- | ------------------------------------ | ------------------------ |
+| Ethernet (`eth0`)               | Sensor subnet: LiDAR UDP packets     | `192.168.100.x` (static) |
+| Wi-Fi/Ethernet (`wlan0`/`eth1`) | Management: HTTP API, SSH, Tailscale | DHCP or static           |
 
 The sensor subnet is a dedicated point-to-point link between the Raspberry Pi and the LiDAR sensor. No other hosts should be present on this subnet.
 
@@ -83,15 +83,15 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 
 The primary access control mechanism is **network-level segmentation** using [Tailscale](https://tailscale.com/) and its `tsweb` library:
 
-1. **`tsweb.Debugger`** — Admin routes (serial commands, DB backup, tailsql, pprof) are registered via `tsweb.Debugger(mux)`, which enforces `AllowDebugAccess`. This checks that the request originates from either:
+1. **`tsweb.Debugger`**: Admin routes (serial commands, DB backup, tailsql, pprof) are registered via `tsweb.Debugger(mux)`, which enforces `AllowDebugAccess`. This checks that the request originates from either:
    - A loopback IP (`127.0.0.1`, `::1`)
    - An authenticated Tailscale peer
 
    Unauthenticated LAN requests to `/debug/*` receive **403 Forbidden**.
 
-2. **`featureGate`** — Destructive endpoints (e.g. `runs/clear`) are wrapped with `featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", handler)`, requiring an explicit environment variable to be set. In production deployments this variable is unset, so the endpoint returns 404.
+2. **`featureGate`**: Destructive endpoints (e.g. `runs/clear`) are wrapped with `featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", handler)`, requiring an explicit environment variable to be set. In production deployments this variable is unset, so the endpoint returns 404.
 
-3. **Path-traversal protection** — PCAP file endpoints validate paths against `--lidar-pcap-dir` to prevent directory traversal attacks (see `internal/security`).
+3. **Path-traversal protection**: PCAP file endpoints validate paths against `--lidar-pcap-dir` to prevent directory traversal attacks (see `internal/security`).
 
 ### Current limitations
 
@@ -103,16 +103,16 @@ The primary access control mechanism is **network-level segmentation** using [Ta
 
 For field deployments on shared or semi-trusted networks:
 
-1. **Bind to specific interfaces** — Use `--listen 127.0.0.1:8080` and `--lidar-listen 127.0.0.1:8081` to restrict access to localhost, then expose via Tailscale only.
-2. **Firewall rules** — Use `iptables`/`nftables` to restrict access to ports 8080/8081 to specific source IPs or the Tailscale interface (`tailscale0`).
-3. **Tailscale ACLs** — Use Tailscale ACL policies to control which peers can reach the device.
+1. **Bind to specific interfaces**: Use `--listen 127.0.0.1:8080` and `--lidar-listen 127.0.0.1:8081` to restrict access to localhost, then expose via Tailscale only.
+2. **Firewall rules**: Use `iptables`/`nftables` to restrict access to ports 8080/8081 to specific source IPs or the Tailscale interface (`tailscale0`).
+3. **Tailscale ACLs**: Use Tailscale ACL policies to control which peers can reach the device.
 
 ## Future work: user API authentication
 
 User-level API authentication is deferred. When needed, the planned approach is:
 
-1. **Bearer token authentication** — A shared secret or API key for programmatic access to the HTTP APIs. Suitable for single-device deployments.
-2. **Tailscale identity headers** — For Tailscale-proxied requests, use `Tailscale-User-Login` headers to identify the caller. This provides SSO-like auth without managing credentials.
-3. **Scope-based authorisation** — Map authenticated identities to permission scopes (read, tune, admin) to enforce least-privilege access.
+1. **Bearer token authentication**: A shared secret or API key for programmatic access to the HTTP APIs. Suitable for single-device deployments.
+2. **Tailscale identity headers**: For Tailscale-proxied requests, use `Tailscale-User-Login` headers to identify the caller. This provides SSO-like auth without managing credentials.
+3. **Scope-based authorisation**: Map authenticated identities to permission scopes (read, tune, admin) to enforce least-privilege access.
 
 This work is tracked in [BACKLOG.md](../../BACKLOG.md) and [design-review-and-improvement.md](../../ui/design-review-and-improvement.md).

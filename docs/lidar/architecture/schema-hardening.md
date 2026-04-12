@@ -22,11 +22,11 @@ already assumes.
 
 ### Alternatives considered
 
-| Option         | Approach                                    | Verdict                                                                                                     |
-| -------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics         |
-| **2**          | Keep current table, add replay-case FK only | Low effort, **high risk** — preserves the lifecycle bug (annotations still depend on transient live tracks) |
-| **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk** — release behaviour depends on FK-off connections; orphaning remains possible  |
+| Option         | Approach                                    | Verdict                                                                                                    |
+| -------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics        |
+| **2**          | Keep current table, add replay-case FK only | Low effort, **high risk**: preserves the lifecycle bug (annotations still depend on transient live tracks) |
+| **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk**: release behaviour depends on FK-off connections; orphaning remains possible  |
 
 ## System boundary diagram
 
@@ -140,7 +140,7 @@ to match existing Go-side validation:
   enforcement.
 - Schema ordering tool handles self-referential FKs.
 
-Historical live-track annotations were deliberately not preserved — the
+Historical live-track annotations were deliberately not preserved: the
 pre-`v0.5.0` reset starts the replay-owned annotation model from a clean
 slate.
 

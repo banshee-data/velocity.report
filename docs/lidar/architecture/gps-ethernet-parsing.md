@@ -9,7 +9,7 @@ Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR inges
 
 ### Architecture principle: GPS is additive
 
-**All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive — it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
+**All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive: it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
 
 GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available. The following sections specify boundaries, data contracts, rollout safeguards, and integration validation.
 
@@ -32,11 +32,11 @@ Geographic referencing of LiDAR data is **optional but valuable** for:
 
 Without GPS, the system operates normally in sensor-local coordinates:
 
-- **L3 Background Grid**: Foreground/background separation — no GPS needed
-- **L4 Ground Removal**: `HeightBandFilter` removes ground returns via Z-band gating — no GPS needed
-- **L4 Clustering**: DBSCAN clustering and OBB extraction — no GPS needed
-- **L5 Tracking / L6 Classification**: Multi-frame identity and object classes — no GPS needed
-- **All PCAP analysis**: Full pipeline replay with CSV/JSON/training exports — no GPS needed
+- **L3 Background Grid**: Foreground/background separation; no GPS needed
+- **L4 Ground Removal**: `HeightBandFilter` removes ground returns via Z-band gating; no GPS needed
+- **L4 Clustering**: DBSCAN clustering and OBB extraction; no GPS needed
+- **L5 Tracking / L6 Classification**: Multi-frame identity and object classes; no GPS needed
+- **All PCAP analysis**: Full pipeline replay with CSV/JSON/training exports; no GPS needed
 
 ### Design goals
 
@@ -334,9 +334,9 @@ Network Interface (eth0)
 
 ### Shared network listener
 
-Option 1: **Single pcap listener** (PCAP replay and live capture) — `PacketMultiplexer.Dispatch()` extracts the UDP layer from each `gopacket.Packet` and routes by destination port: 2368 → LiDAR channel, 10110 → GPS channel.
+Option 1: **Single pcap listener** (PCAP replay and live capture); `PacketMultiplexer.Dispatch()` extracts the UDP layer from each `gopacket.Packet` and routes by destination port: 2368 → LiDAR channel, 10110 → GPS channel.
 
-Option 2: **Separate goroutines** (live capture only) — independent UDP listeners on `:2368` and `:10110`.
+Option 2: **Separate goroutines** (live capture only); independent UDP listeners on `:2368` and `:10110`.
 
 **Recommendation:** Unified pcap-based listener for PCAP replay compatibility.
 

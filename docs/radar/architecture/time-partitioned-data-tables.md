@@ -367,28 +367,28 @@ WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
 
 ### Rotation process details
 
-> **Source:** `RotatePartitions()` and `AcquireRotationLock()` — implementation in `internal/db/partitions/` (when implemented)
+> **Source:** `RotatePartitions()` and `AcquireRotationLock()`; implementation in `internal/db/partitions/` (when implemented)
 
 **Rotation algorithm:**
 
-1. Acquire rotation lock (CVE-2025-VR-005 — prevents concurrent rotation via a single-row `rotation_lock` table with 5-minute expiry and retry loop)
+1. Acquire rotation lock (CVE-2025-VR-005: prevents concurrent rotation via a single-row `rotation_lock` table with 5-minute expiry and retry loop)
 2. Determine partition name from rotation time (e.g. `2025-01_data.db`)
 3. Skip if partition already exists (idempotency)
 4. Create partition database with matching schema
 5. Wait for active queries to complete (30 s timeout)
 6. Copy previous month's data (`radar_data`, `radar_objects`, `lidar_bg_snapshot`, `radar_data_transits`, `radar_transit_links`)
 7. Verify data integrity in partition
-8. Delete copied data from main database (single transaction — atomic)
+8. Delete copied data from main database (single transaction: atomic)
 9. Set partition file to read-only (`0444`)
 10. Update union views to include new partition
 
 On failure at any step, the partial partition file is deleted and data remains in the main database. Retry at next scheduled rotation; alert operator after repeated failures.
 
-**Transaction safety:** Rotation is atomic — either all data is copied and deleted, or nothing changes. WAL mode allows reads during rotation. Writes are locked only during the DELETE phase.
+**Transaction safety:** Rotation is atomic; either all data is copied and deleted, or nothing changes. WAL mode allows reads during rotation. Writes are locked only during the DELETE phase.
 
 ### ATTACH DATABASE management
 
-> **Source:** `AttachPartitions()`, `ValidatePartitionPath()`, `ValidateAlias()` — implementation in `internal/db/partitions/` (when implemented)
+> **Source:** `AttachPartitions()`, `ValidatePartitionPath()`, `ValidateAlias()`; implementation in `internal/db/partitions/` (when implemented)
 
 **Attach algorithm:** Scan the archives directory for `*_data.db` files, validate each path, and assign aliases (`m01`, `m02`, …). Open each in read-only mode via `ATTACH DATABASE 'file:…?mode=ro'`.
 
@@ -418,12 +418,12 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 
 | Endpoint                           | Method | Purpose                                     | Key Parameters                                 |
 | ---------------------------------- | ------ | ------------------------------------------- | ---------------------------------------------- |
-| `/api/partitions`                  | GET    | List attached, available, and limits        | —                                              |
+| `/api/partitions`                  | GET    | List attached, available, and limits        | -                                              |
 | `/api/partitions/attach`           | POST   | Attach a historical partition               | `path` (required), `alias`, `priority`         |
 | `/api/partitions/detach`           | POST   | Detach a partition to free slots            | `alias` (required), `force`                    |
 | `/api/partitions/consolidate`      | POST   | Combine monthly → yearly archive (async)    | `source_partitions`, `output_path`, `strategy` |
-| `/api/partitions/{alias}/metadata` | GET    | Size, time range, row counts, query metrics | —                                              |
-| `/api/partitions/buffers`          | GET    | Write buffer status and rotation safety     | —                                              |
+| `/api/partitions/{alias}/metadata` | GET    | Size, time range, row counts, query metrics | -                                              |
+| `/api/partitions/buffers`          | GET    | Write buffer status and rotation safety     | -                                              |
 
 **Status codes (all endpoints):** `200 OK`, `400 Bad Request`, `404 Not Found`, `409 Conflict` (limit reached or active queries), `422 Unprocessable Entity`, `500 Internal Server Error`. Consolidate also returns `202 Accepted`.
 
@@ -486,13 +486,13 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 
 Tiered storage support: USB drives for cold archives, growth projection, and capacity alerts.
 
-> **Source:** USB mount/unmount/verify functions — implementation in `internal/db/partitions/` (when implemented)
+> **Source:** USB mount/unmount/verify functions; implementation in `internal/db/partitions/` (when implemented)
 
 ### USB storage endpoints
 
 | Endpoint                        | Method | Purpose                                  | Key Parameters                                      |
 | ------------------------------- | ------ | ---------------------------------------- | --------------------------------------------------- |
-| `/api/storage/usb/devices`      | GET    | Detect available USB storage             | —                                                   |
+| `/api/storage/usb/devices`      | GET    | Detect available USB storage             | -                                                   |
 | `/api/storage/usb/mount`        | POST   | Mount USB storage securely               | `device_path`, `mount_point`, `label`               |
 | `/api/storage/usb/unmount`      | POST   | Safely unmount USB storage               | `mount_point`, `force`, `detach_partitions`         |
 | `/api/storage/growth`           | GET    | Growth projection and disk-full estimate | `lookback_days`                                     |
@@ -627,15 +627,15 @@ Options=nosuid,nodev,noexec,noatime,ro
 
 Five alternatives were evaluated against the proposed SQLite partition approach:
 
-**Alternative 1: Data deletion** — Periodically `DELETE` + `VACUUM` on main database. Simplest, but data permanently lost with no archival. Contradicts user data ownership principle. **Verdict: not recommended.**
+**Alternative 1: Data deletion**; Periodically `DELETE` + `VACUUM` on main database. Simplest, but data permanently lost with no archival. Contradicts user data ownership principle. **Verdict: not recommended.**
 
-**Alternative 2: PostgreSQL with native partitioning** — Declarative `PARTITION BY RANGE`. Enterprise-grade features, but requires PostgreSQL server, increases RPi resource requirements, violates "SQLite as single source of truth" principle. **Verdict: not recommended** for current architecture. Re-evaluate for multi-device.
+**Alternative 2: PostgreSQL with native partitioning**; Declarative `PARTITION BY RANGE`. Enterprise-grade features, but requires PostgreSQL server, increases RPi resource requirements, violates "SQLite as single source of truth" principle. **Verdict: not recommended** for current architecture. Re-evaluate for multi-device.
 
-**Alternative 3: Time-series database** (InfluxDB, TimescaleDB) — Built-in downsampling and retention. Overkill for current use case — adds complexity, loses JSON flexibility, requires separate server. **Verdict: not recommended.**
+**Alternative 3: Time-series database** (InfluxDB, TimescaleDB); Built-in downsampling and retention. Overkill for current use case; adds complexity, loses JSON flexibility, requires separate server. **Verdict: not recommended.**
 
-**Alternative 4: External file storage** (CSV/Parquet) — Unlimited growth, interoperable formats, but loses SQL query capabilities, transactions, and referential integrity. **Verdict: not recommended.**
+**Alternative 4: External file storage** (CSV/Parquet); Unlimited growth, interoperable formats, but loses SQL query capabilities, transactions, and referential integrity. **Verdict: not recommended.**
 
-**Alternative 5: Hybrid hot/cold storage** — Partitions for recent data, compressed/alternative formats for old data. Most flexible but most complex. **Verdict: possible future enhancement** — start with uniform partitioning, add cold storage later.
+**Alternative 5: Hybrid hot/cold storage**; Partitions for recent data, compressed/alternative formats for old data. Most flexible but most complex. **Verdict: possible future enhancement**; start with uniform partitioning, add cold storage later.
 
 ### Comparison matrix
 
@@ -692,7 +692,7 @@ SD card usage stabilises at ~22 GB with tiered storage. System/OS uses ~10 GB, l
 
 ### Compression
 
-Partitions older than 6 months are gzip-compressed (~80% reduction). Compressed partitions (`*.db.gz`) must be decompressed to a temporary location before querying (lazy decompression — decompress on demand, clean up after query). Trade-off: slower access to old data, significant storage savings.
+Partitions older than 6 months are gzip-compressed (~80% reduction). Compressed partitions (`*.db.gz`) must be decompressed to a temporary location before querying (lazy decompression: decompress on demand, clean up after query). Trade-off: slower access to old data, significant storage savings.
 
 ### systemd mount units
 
@@ -708,11 +708,11 @@ Validate partitioning with test data: implement rotation, test with synthetic mo
 
 ### Phase 2: opt-in partitioning (existing deployments)
 
-Add `--enable-partitioning` flag (default: disabled). On first run: analyse data for partition boundaries, offer backfill or start fresh. Backward compatible — disable flag returns to single-file behaviour; union views continue working.
+Add `--enable-partitioning` flag (default: disabled). On first run: analyse data for partition boundaries, offer backfill or start fresh. Backward compatible; disable flag returns to single-file behaviour; union views continue working.
 
 ### Phase 3: historical backfill (optional)
 
-> **Source:** `BackfillPartitions()` — implementation in `internal/db/partitions/` (when implemented)
+> **Source:** `BackfillPartitions()`; implementation in `internal/db/partitions/` (when implemented)
 
 User chooses: (A) backfill historical data into partitions (slow, enables full partitioning), or (B) start fresh, keep historical data in main DB (fast, mixed mode).
 
@@ -866,7 +866,7 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 **systemd service** adds `After=` dependency on the archives mount, `ExecStartPre` ensures archive directories exist, and flags include `--enable-partitioning --partition-schedule=monthly --max-attached=125`.
 
-> **Source:** `PreflightChecks()` — implementation in `internal/db/partitions/` (when implemented). Checks SD card free space (minimum 10 GB) and archives mount availability.
+> **Source:** `PreflightChecks()`; implementation in `internal/db/partitions/` (when implemented). Checks SD card free space (minimum 10 GB) and archives mount availability.
 
 ---
 
@@ -918,22 +918,22 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ## Design decisions (resolved)
 
-| Decision                  | Resolution                                                                         |
-| ------------------------- | ---------------------------------------------------------------------------------- |
-| Monthly vs quarterly      | Monthly default, not configurable                                                  |
-| Derived tables (transits) | Partitioned — present in partition according to last time seen; span at boundaries |
-| SQLITE_MAX_ATTACHED       | Keep default 10 — attach partitions on demand                                      |
-| Compression               | No automatic compression — not worth the complexity                                |
-| Rotation locking          | File-based flock (single-device)                                                   |
-| Timezone                  | UTC for rotation triggers                                                          |
-| Single-file mode          | Keep indefinitely as default — partitioning is opt-in                              |
-| Monitoring                | Built-in disk usage on /api/status                                                 |
-| Backup                    | Provide reference scripts in `scripts/backup/`                                     |
-| Cloud storage             | Out of scope — local-first principle; backup to USB only                           |
+| Decision                  | Resolution                                                                        |
+| ------------------------- | --------------------------------------------------------------------------------- |
+| Monthly vs quarterly      | Monthly default, not configurable                                                 |
+| Derived tables (transits) | Partitioned: present in partition according to last time seen; span at boundaries |
+| SQLITE_MAX_ATTACHED       | Keep default 10: attach partitions on demand                                      |
+| Compression               | No automatic compression: not worth the complexity                                |
+| Rotation locking          | File-based flock (single-device)                                                  |
+| Timezone                  | UTC for rotation triggers                                                         |
+| Single-file mode          | Keep indefinitely as default: partitioning is opt-in                              |
+| Monitoring                | Built-in disk usage on /api/status                                                |
+| Backup                    | Provide reference scripts in `scripts/backup/`                                    |
+| Cloud storage             | Out of scope: local-first principle; backup to USB only                           |
 
 ## Open questions
 
-No open questions remain. All design, implementation, and operational questions were resolved during review — see the Design Decisions table above.
+No open questions remain. All design, implementation, and operational questions were resolved during review: see the Design Decisions table above.
 
 ## References
 

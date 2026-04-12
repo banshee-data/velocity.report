@@ -8,9 +8,9 @@ Active plan: [go-structured-logging-plan.md](../../plans/go-structured-logging-p
 
 The Go codebase uses three distinct logging mechanisms:
 
-1. `log.Printf()` — standard library, no levels, no structure
-2. `fmt.Printf()` — not logging at all, just prints to stdout
-3. `monitoring.Logf` — package-level function pointer, replaceable but not structured
+1. `log.Printf()`: standard library, no levels, no structure
+2. `fmt.Printf()`: not logging at all, just prints to stdout
+3. `monitoring.Logf`: package-level function pointer, replaceable but not structured
 
 Emoji appears in log output. Outside the LiDAR pipeline, logs have no consistent levels and
 no structured key-value pairs. On a Raspberry Pi running as a systemd service, operators use
@@ -53,8 +53,8 @@ changing call sites.
 
 Two runtime controls, set once at startup in `cmd/radar/radar.go`:
 
-- `--log-level ops|diag|trace` (CLI flag, default: `ops`) — verbosity threshold
-- `VELOCITY_DEBUG_LOG` (env var) — file path for debug output
+- `--log-level ops|diag|trace` (CLI flag, default: `ops`); verbosity threshold
+- `VELOCITY_DEBUG_LOG` (env var): file path for debug output
 
 Behaviour:
 
@@ -75,7 +75,7 @@ Behaviour:
 | `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
 | `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
 | `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
-| `monitoring/` | `Logf` (function pointer)   | 1     | — (remove)     |
+| `monitoring/` | `Logf` (function pointer)   | 1     | : (remove)     |
 | `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
 | `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 

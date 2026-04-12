@@ -77,22 +77,22 @@ VelocityReport.app
 
 ## Implementation priority
 
-### Phase 1 — quick wins
+### Phase 1: quick wins
 
 Open Recent, Close Recording (⌘W), Go to Frame (⌘G), First/Last Frame
 (⌘Home/⌘End), Keyboard Shortcuts reference.
 
-### Phase 2 — view enhancements
+### Phase 2: view enhancements
 
 Zoom controls (⌘+/⌘-/⌘0), VRLOG File Properties, Preferences (⌘,),
 Reset Layout.
 
-### Phase 3 — analysis features
+### Phase 3: analysis features
 
 Find Track (⌘F), Filter expression bar, Track statistics, Expert Info /
 Quality Summary, Follow Track.
 
-### Phase 4 — export & polish
+### Phase 4: export & polish
 
 Export tracks as CSV/JSON, Copy track details (⌘C), Help links.
 

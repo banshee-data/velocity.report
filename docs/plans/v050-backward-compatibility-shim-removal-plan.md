@@ -1,13 +1,13 @@
 # v0.5.0 Backward compatibility shim removal plan
 
-- **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
+- **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md); Project E
 - **Layers:** Cross-cutting (API, protobuf, database)
 - **Related:** [LiDAR Visualiser Proto Contract Plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) (speed summary fields), [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md)
 - **Canonical:** [v050-release-migration.md](../platform/operations/v050-release-migration.md)
 
 The v0.5.0 release redesigned the speed contract, protobuf schema, and database columns. Backward-compatibility shims were added across Go, Python, Svelte, and macOS to keep older clients and VRLOG files working during the migration window. This plan tracked their systematic removal; all shims are now removed except the VRLOG `Track.UnmarshalJSON` legacy speed-key fallback (§18), deferred to v0.5.2.
 
-- **Status:** Pending shim removal — two remaining items: §14 alias map residue and §18 VRLOG fallback
+- **Status:** Pending shim removal; two remaining items: §14 alias map residue and §18 VRLOG fallback
 
 - **Update:** All v0.5.0 shim removal work across Go, Python, Svelte, and macOS is
   complete. Speed contract reset (§1, §15) landed in #352; `avgSpeedMps` and
@@ -17,7 +17,7 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
   `make format && make lint && make test`). One shim remains: the VRLOG
   `Track.UnmarshalJSON` legacy speed-key fallback (§18), deferred to v0.5.2.
   §14 sweep dashboard `LEGACY_PARAM_ALIASES` map and associated normalisation
-  functions remain — tracked for removal in the
+  functions remain: tracked for removal in the
   [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (item A1).
 
 ## Tracking snapshot
@@ -50,7 +50,7 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
 
 **Remaining:**
 
-- §18 VRLOG `Track.UnmarshalJSON` legacy speed-key fallback — deferred to v0.5.2
+- §18 VRLOG `Track.UnmarshalJSON` legacy speed-key fallback: deferred to v0.5.2
 - SQL-migration-dependent column renames deferred to migration 000030 (tracked in the schema simplification plan)
 
 ## Goal
@@ -58,7 +58,7 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
 Audit and remove all backward compatibility shims, legacy field aliases, and
 compat hacks across Go, Python, Svelte, and macOS before v0.5.0 ships. These
 shims add maintenance burden and obscure the canonical data model. Removing them
-now — as a single coordinated breaking change — is cheaper than maintaining
+now: as a single coordinated breaking change; is cheaper than maintaining
 indefinite dual-format support.
 
 **Principle:** rip the bandaid off. One version bump, one migration guide, clean
@@ -100,7 +100,7 @@ Intersections with other parent-plan projects:
 
 ## Inventory of backward compatibility shims
 
-### 1. Go server — track speed contract reset
+### 1. Go server: track speed contract reset
 
 | Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
 | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -118,16 +118,16 @@ non-percentile names and formulas.
 
 **Action items:**
 
-1. ~~Back out unmerged single-track aggregate-percentile proto/REST/UI work before merge~~ — ✅ resolved; fields not merged
+1. ~~Back out unmerged single-track aggregate-percentile proto/REST/UI work before merge~~: ✅ resolved; fields not merged
 2. ~~Rename public/raw `peak_speed_mps` references to `max_speed_mps` where the
-   contract is still unshipped~~ — ✅ complete (#352); SQL column deferred to migration 000030
+   contract is still unshipped~~: ✅ complete (#352); SQL column deferred to migration 000030
 3. Define replacement public track metrics in the speed percentile alignment plan
 4. Migrate any temporary internal percentile dependencies to the new track metrics
 5. Keep aggregate percentile work isolated to grouped/report surfaces
 
 ---
 
-### 2. Go server — sweep legacy request format
+### 2. Go server: sweep legacy request format
 
 | Item                             | Location                               | Status  | Detail                                                                          |
 | -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------- |
@@ -140,7 +140,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 
 ---
 
-### 3. Go server + web — legacy download endpoint format
+### 3. Go server + web: legacy download endpoint format
 
 | Item                                    | Location                                                         | Status  | Detail                                                                                                 |
 | --------------------------------------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
@@ -152,7 +152,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 
 ---
 
-### 4. Go server — lenient JSON parsing in sweep handler
+### 4. Go server: lenient JSON parsing in sweep handler
 
 | Item                  | Location                                   | Status  | Detail                                                                                     |
 | --------------------- | ------------------------------------------ | ------- | ------------------------------------------------------------------------------------------ |
@@ -163,7 +163,7 @@ JSON is rejected.
 
 ---
 
-### 5. Go server — deploy executor backward-compat methods
+### 5. Go server: deploy executor backward-compat methods
 
 | Item              | Location                      | Status   | Detail                                                                                        |
 | ----------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
@@ -176,7 +176,7 @@ warning.
 
 ---
 
-### 6. Go server — deprecated packet header struct
+### 6. Go server: deprecated packet header struct
 
 | Item                  | Location                                    | Status  | Detail                                                |
 | --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------- |
@@ -186,7 +186,7 @@ warning.
 
 ---
 
-### 7. Go server — removed method comment
+### 7. Go server: removed method comment
 
 | Item                     | Location                                   | Status  | Detail                                                   |
 | ------------------------ | ------------------------------------------ | ------- | -------------------------------------------------------- |
@@ -196,7 +196,7 @@ warning.
 
 ---
 
-### 8. Go server — type aliases in `lidar/aliases.go`
+### 8. Go server: type aliases in `lidar/aliases.go`
 
 | Item                | Location                    | Status   | Detail                                                                                                                   |
 | ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -209,7 +209,7 @@ document the intent.
 
 ---
 
-### 9. Python — legacy API response format handling
+### 9. Python: legacy API response format handling
 
 | Item                        | Location                                                     | Status  | Detail                                                                   |
 | --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
@@ -221,7 +221,7 @@ document the intent.
 
 ---
 
-### 10. Python — config dict-conversion backward compatibility
+### 10. Python: config dict-conversion backward compatibility
 
 | Item                    | Location                                                   | Status  | Detail                                                                                     |
 | ----------------------- | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
@@ -232,18 +232,18 @@ document the intent.
 
 ---
 
-### 11. Python — PyLaTeX fallback stubs
+### 11. Python: PyLaTeX fallback stubs
 
 | Item         | Location                                                     | Status  | Detail                                                                |
 | ------------ | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
 | Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
-generator is non-functional without pylatex — the stubs just defer the error.
+generator is non-functional without pylatex: the stubs just defer the error.
 
 ---
 
-### 12. Svelte/Web — legacy `BackgroundCell` fields
+### 12. Svelte/Web: legacy `BackgroundCell` fields
 
 | Item                   | Location                     | Status  | Detail                                                               |
 | ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------- |
@@ -253,7 +253,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ---
 
-### 13. Svelte/Web — API response envelope migration
+### 13. Svelte/Web: API response envelope migration
 
 | Item                             | Location                      | Status  | Detail                                                                        |
 | -------------------------------- | ----------------------------- | ------- | ----------------------------------------------------------------------------- |
@@ -264,7 +264,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ---
 
-### 14. Web / sweep dashboard — sweep results legacy field names
+### 14. Web / sweep dashboard: sweep results legacy field names
 
 | Item                           | Location                                           | Status  | Detail                                                                                                           |
 | ------------------------------ | -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -282,7 +282,7 @@ removal in the [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md)
 
 ---
 
-### 15. macOS visualiser — branch-local track speed-label surfaces
+### 15. macOS visualiser: branch-local track speed-label surfaces
 
 | Item                                        | Location                                                                  | Status      | Detail                                                             |
 | ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
@@ -297,20 +297,20 @@ SQL column rename is deferred to migration 000030.
 
 ---
 
-### 16. macOS visualiser — legacy point buffer
+### 16. macOS visualiser: legacy point buffer
 
 | Item                         | Location                                                                  | Status       | Detail                                                                                                                                                                     |
 | ---------------------------- | ------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pointBuffer` rendering path | `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift` | Reclassified | `CompositePointCloudRenderer` is the active rendering path; `pointBuffer` is a rendering fallback (not a data-model compat shim). Reclassified as renderer-retirement work |
 
 **Action:** No action in this plan. `pointBuffer` is not a backward-compatibility
-shim — it is a legacy rendering path that serves as a fallback when
+shim: it is a legacy rendering path that serves as a fallback when
 `compositeRenderer` is nil. Retirement is tracked as renderer work, not v0.5.0
 shim removal.
 
 ---
 
-### 17. macOS visualiser — legacy playback defaults
+### 17. macOS visualiser: legacy playback defaults
 
 | Item                      | Location                                                       | Status  | Detail                                                                                                         |
 | ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
@@ -323,7 +323,7 @@ uses it directly instead of mutating `isLive`. Tests updated for the new
 
 ---
 
-### 18. Go/macOS — VRLOG legacy speed-key fallback
+### 18. Go/macOS: VRLOG legacy speed-key fallback
 
 | Item                             | Location                                                         | Status  | Detail                                                                                                                                                |
 | -------------------------------- | ---------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -332,7 +332,7 @@ uses it directly instead of mutating `isLive`. Tests updated for the new
 | Legacy recorder deserialise test | `internal/lidar/visualiser/recorder/recorder_test.go`            | Pending | `TestDeserializeFrameLegacySpeedField`                                                                                                                |
 | Legacy analysis fallback test    | `internal/lidar/analysis/compat_test.go`                         | Pending | `TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing`                                                                                               |
 | Deprecation log message          | `cmd/radar/radar.go`                                             | Pending | `legacy JSON decode path; replay may be slower`                                                                                                       |
-| macOS UI deprecation tooltip     | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | Pending | `Legacy JSON VRLOG detected — replay will be slower`                                                                                                  |
+| macOS UI deprecation tooltip     | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | Pending | `Legacy JSON VRLOG detected: replay will be slower`                                                                                                   |
 
 **Action:** Remove the `UnmarshalJSON` fallback, associated tests, and UI
 deprecation strings. Deferred to v0.5.2 to allow the migration window for
@@ -345,17 +345,17 @@ pre-#352 `.vrlog` files to close. After removal, old `.vrlog` files with
 
 The following are **not** compat shims and should be retained:
 
-| Item                                                                                     | Reason to keep                                            |
-| ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`, `storage/sqlite/types.go` | Avoid import cycles — architectural necessity, not compat |
-| `ClassPed = ClassPedestrian` short alias                                                 | Convenience alias, not legacy                             |
-| gRPC `UnimplementedServer` embedding                                                     | Required by protobuf-go for forward compat                |
-| gRPC stream type aliases (generated)                                                     | Auto-generated by protoc, not hand-maintained             |
-| `FrameType_FRAME_TYPE_FULL` enum value                                                   | Valid operational mode, not deprecated                    |
-| SVG-to-PDF converter fallback chain                                                      | Graceful degradation for different environments           |
-| Font fallback logic in PDF generator                                                     | Operational resilience, not compat                        |
-| DB legacy detection in `db.go:296-319`                                                   | Needed for upgrades from pre-migration databases          |
-| Old migration files (000002-000019)                                                      | Immutable history; never modify applied migrations        |
+| Item                                                                                     | Reason to keep                                           |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`, `storage/sqlite/types.go` | Avoid import cycles: architectural necessity, not compat |
+| `ClassPed = ClassPedestrian` short alias                                                 | Convenience alias, not legacy                            |
+| gRPC `UnimplementedServer` embedding                                                     | Required by protobuf-go for forward compat               |
+| gRPC stream type aliases (generated)                                                     | Auto-generated by protoc, not hand-maintained            |
+| `FrameType_FRAME_TYPE_FULL` enum value                                                   | Valid operational mode, not deprecated                   |
+| SVG-to-PDF converter fallback chain                                                      | Graceful degradation for different environments          |
+| Font fallback logic in PDF generator                                                     | Operational resilience, not compat                       |
+| DB legacy detection in `db.go:296-319`                                                   | Needed for upgrades from pre-migration databases         |
+| Old migration files (000002-000019)                                                      | Immutable history; never modify applied migrations       |
 
 ---
 
@@ -384,24 +384,24 @@ The following are **not** compat shims and should be retained:
 
 ## Delivery plan
 
-### Phase 1 — audit and plan (this document)
+### Phase 1: audit and plan (this document)
 
 - [x] Inventory all compat shims across Go, Python, Svelte, macOS
 - [x] Classify as "remove in v0.5.0" vs "retain"
 - [x] Review with maintainer
 
-### Phase 2 — server-side removals (Go)
+### Phase 2: server-side removals (Go)
 
 - [x] Remove sweep legacy request fields and `computeCombinations()`
 - [x] Remove legacy sweep result fields from `ComboResult`
 - [x] Return 400 on malformed sweep JSON instead of swallowing errors
 - [x] Delete `PacketHeader` struct
 - [x] Delete stale `AddPoints` removal comment
-- [x] Evaluate `lidar/aliases.go` outcome — retained and documented as an active package-boundary choice
+- [x] Evaluate `lidar/aliases.go` outcome: retained and documented as an active package-boundary choice
 - [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
-- [x] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename — ✅ resolved; fields never merged, `peak` → `max` rename landed in #352
+- [x] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename: ✅ resolved; fields never merged, `peak` → `max` rename landed in #352
 
-### Phase 3 — frontend removals (Svelte)
+### Phase 3: frontend removals (Svelte)
 
 - [x] Remove `BackgroundCell` legacy fields from `lidar.ts`
 - [x] Remove `Array.isArray(cached)` dual-format branch
@@ -409,24 +409,24 @@ The following are **not** compat shims and should be retained:
 - [x] Move report downloads to filename-based URLs
 - [x] Bump cache version to invalidate stale client-side data
 
-### Phase 4 — Python removals
+### Phase 4: Python removals
 
 - [x] Remove legacy stats format branch in `api_client.py`
 - [x] Remove `test_get_stats_legacy_format` test
 - [x] Audit and remove config dict-conversion helpers
 - [x] Make pylatex a hard dependency; remove fallback stubs
 
-### Phase 5 — macOS removals (Swift)
+### Phase 5: macOS removals (Swift)
 
-- [x] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI — resolved; fields not merged
+- [x] Back out branch-local aggregate-percentile label fields from the Swift model/client/UI: resolved; fields not merged
 - [x] Rename raw `peak` terminology to `max` on unshipped visualiser surfaces (#352)
-- [x] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it — reclassified as renderer-retirement work (not a compat shim); `CompositePointCloudRenderer` is the active path, `pointBuffer` is a rendering fallback only
+- [x] Reclassify or remove `pointBuffer` only if the composite renderer fully replaces it: reclassified as renderer-retirement work (not a compat shim); `CompositePointCloudRenderer` is the active path, `pointBuffer` is a rendering fallback only
 - [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
-- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto — confirmed: proto field 24 → `VisualiserClient` → `Track` model → UI; `maxSpeedMps` (field 25) also verified
+- [x] Verify `avgSpeedMps` field reads correctly from regenerated proto: confirmed: proto field 24 → `VisualiserClient` → `Track` model → UI; `maxSpeedMps` (field 25) also verified
 
-### Phase 6 — validation
+### Phase 6: validation
 
-- [x] `make format && make lint && make test` passes (Go monitor setup-failure is pre-existing — requires `make build-web` first)
+- [x] `make format && make lint && make test` passes (Go monitor setup-failure is pre-existing: requires `make build-web` first)
 - [x] `make build-radar-local` succeeds
 - [x] `make build-web` succeeds
 - [x] macOS visualiser builds and connects to gRPC stream after the track contract reset

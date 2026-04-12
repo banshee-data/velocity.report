@@ -1,4 +1,4 @@
-# VRLOG run comparison report — 2026-03-10
+# VRLOG run comparison report: 2026-03-10
 
 - **Branch:** `dd/vrlog-2`
 - **Source PCAP:** `kirk1.pcapng` (Hesai Pandar40P, ~178s, ~2012 frames)
@@ -76,8 +76,8 @@ Across all runs, confirmed tracks are 2.5–3.4% of total tracks. The
 remaining 97%+ are tentative or deleted. From the best run (54ba7296):
 
 - 15 confirmed out of 444 total (3.4%)
-- 194 tentative (43.7%) — tracks that never reached confirmation threshold
-- 235 deleted (52.9%) — tracks that were created and then pruned
+- 194 tentative (43.7%): tracks that never reached confirmation threshold
+- 235 deleted (52.9%): tracks that were created and then pruned
 
 The confirmed tracks are mostly low-speed objects: birds (6 tracks),
 dynamic (5), plus 2 cars, 1 pedestrian, and 1 motorcyclist. All have
@@ -277,9 +277,9 @@ all 5 runs are byte-identical in their report output.
 
 1. Using a deterministic full-frame analysis, count how many tentative
    tracks have observation counts close to the confirmation threshold.
-2. Lower the confirmation threshold by 25% and re-run — how many more
+2. Lower the confirmation threshold by 25% and re-run: how many more
    tracks get confirmed?
-3. Raise the threshold by 25% — how many tracks are lost?
+3. Raise the threshold by 25%: how many tracks are lost?
 
 **Expected outcome:** Quantify the sensitivity of the confirmation
 decision to the threshold parameter. If many tentative tracks are
@@ -288,16 +288,16 @@ aggressive for the observed frame rate.
 
 ## 5. Priority order
 
-1. **Experiment 2 (Sync analysis mode)** — foundational; everything else
+1. **Experiment 2 (Sync analysis mode)**: foundational; everything else
    depends on deterministic, complete frame processing.
-2. **Experiment 1 (Frame integrity)** — validates that sync mode works.
-3. **Experiment 3 (Timestamp audit)** — fixes the duration/interval
+2. **Experiment 1 (Frame integrity)**: validates that sync mode works.
+3. **Experiment 3 (Timestamp audit)**: fixes the duration/interval
    corruption.
-4. **Experiment 5 (Background model)** — explains 100% foreground and
+4. **Experiment 5 (Background model)**: explains 100% foreground and
    tentative track explosion.
-5. **Experiment 6 (Determinism)** — validates the analysis pipeline is
+5. **Experiment 6 (Determinism)**: validates the analysis pipeline is
    reliable.
-6. **Experiment 4 (Frame rate threshold)** — informs graceful degradation
+6. **Experiment 4 (Frame rate threshold)**: informs graceful degradation
    design.
-7. **Experiment 7 (Confirmation threshold)** — fine-tuning after
+7. **Experiment 7 (Confirmation threshold)**: fine-tuning after
    fundamentals are fixed.

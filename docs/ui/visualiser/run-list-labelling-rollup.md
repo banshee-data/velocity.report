@@ -1,8 +1,8 @@
 # Run list labelling rollup
 
-- **Status:** Implemented — macOS visualiser and backend complete. Web runs-list parity deferred.
+- **Status:** Implemented; macOS visualiser and backend complete. Web runs-list parity deferred.
 
-Compact run-list icon in the visualiser's run list showing human review progress for each analysis run at a glance. The icon communicates human review progress — not model carry-over state.
+Compact run-list icon in the visualiser's run list showing human review progress for each analysis run at a glance. The icon communicates human review progress: not model carry-over state.
 
 ## Visual design
 
@@ -45,9 +45,9 @@ run lists (no per-run follow-up queries). Store helpers live in
 
 `label_rollup` is exposed on:
 
-- `GET /api/lidar/runs` — list view with rollup per run
-- `GET /api/lidar/runs/{run_id}` — single run detail
-- `GET /api/lidar/runs/{run_id}/labelling-progress` — dedicated progress endpoint
+- `GET /api/lidar/runs`: list view with rollup per run
+- `GET /api/lidar/runs/{run_id}`: single run detail
+- `GET /api/lidar/runs/{run_id}/labelling-progress`: dedicated progress endpoint
 
 `labelling-progress.labelled` = `classified + tagged_only`, keeping
 run-browser progress and labelling-progress semantics aligned.
@@ -70,7 +70,7 @@ capsule. Tooltip shows exact counts and percentages.
 
 ### Local state update rules
 
-The icon updates immediately after a successful label write — no
+The icon updates immediately after a successful label write: no
 re-fetch of run summaries:
 
 - `RunBrowserState` is shared app state, not sheet-local

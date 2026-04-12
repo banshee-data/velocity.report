@@ -112,7 +112,7 @@ The high-level direction is now clear and should not be reopened:
 
 ## 6. Execution plan
 
-### Phase 0 — documentation and decision reset
+### Phase 0: documentation and decision reset
 
 - [x] Inventory current percentile producers/consumers and the unresolved
       aggregation boundaries.
@@ -124,11 +124,11 @@ The high-level direction is now clear and should not be reopened:
 - [x] Mark earlier proto/API expansion plans for single-track
       aggregate-percentile labels as superseded.
 
-### Phase 1 — back out the wrong public contract
+### Phase 1: back out the wrong public contract
 
 - [x] Remove branch-local aggregate-percentile label additions from the
       `Track` proto, generated bindings, visualiser model/UI, and any new
-      REST contract work tied to them — proto uses `max_speed_mps`, no
+      REST contract work tied to them: proto uses `max_speed_mps`, no
       percentile fields. Visualiser model has backward-compat shim for
       historical `PeakSpeedMps` JSON.
 - [x] Stop expanding per-track REST payloads with percentile fields —
@@ -138,12 +138,12 @@ The high-level direction is now clear and should not be reopened:
       done in Go struct fields, proto, REST API JSON, and TypeScript types.
       SQL column name still says `peak_speed_mps` pending migration 000030.
 - [ ] Update tests and docs so aggregate percentile labels appear only on
-      grouped/report surfaces — partially done. Test fixtures in
+      grouped/report surfaces: partially done. Test fixtures in
       `coverage_boost_test.go`, `track_api_test.go`, and
       `webserver_coverage_test.go` still reference `peak_speed_mps` and
       percentile columns because they match the current schema.
 
-### Phase 2 — track metric redesign
+### Phase 2: track metric redesign
 
 - [ ] Define the replacement public track metrics and their names.
 - [ ] Reserve `peak_speed_mps` for the future filtered/context-aware
@@ -153,7 +153,7 @@ The high-level direction is now clear and should not be reopened:
 - [ ] Decide which track-level speed metrics remain public API and which
       stay internal to classification/evaluation.
 
-### Phase 3 — remove per-track percentile calculations (migration 000030)
+### Phase 3: remove per-track percentile calculations (migration 000030)
 
 - [x] `InsertTrack()` and `UpdateTrack()` do not write per-track
       percentile columns to `lidar_tracks` (never wired).
@@ -163,7 +163,7 @@ The high-level direction is now clear and should not be reopened:
 - [x] Proto uses `max_speed_mps`.
 - [ ] Run migration 000030 to drop `p50/p85/p95_speed_mps` from
       `lidar_tracks` and `lidar_run_tracks` and rename `peak_speed_mps` →
-      `max_speed_mps` on both tables — see
+      `max_speed_mps` on both tables: see
       [schema simplification plan](schema-simplification-migration-030-plan.md).
 - [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
       (`track_store.go`, `analysis_run.go`).
@@ -173,7 +173,7 @@ The high-level direction is now clear and should not be reopened:
 - [ ] Update `pcap-analyse` `SpeedStatistics` struct to use `p98` instead
       of `p95` for the high-end aggregate percentile.
 
-### Phase 4 — aggregate-only percentile path
+### Phase 4: aggregate-only percentile path
 
 - [ ] Add a shared Go helper for dataset-level `p50/p85/p98` from a scalar
       speed slice, with one documented indexing rule.
@@ -208,12 +208,12 @@ The high-level direction is now clear and should not be reopened:
 | --------------------------------------------- | ------------------------------------------------------- |
 | `lidar_tracks` schema                         | `peak_speed_mps` column name, 3 dead percentile columns |
 | `lidar_run_tracks` schema                     | `peak_speed_mps` column name, 3 percentile columns      |
-| `schema.sql`                                  | Matches current schema — needs post-migration update    |
+| `schema.sql`                                  | Matches current schema: needs post-migration update     |
 | `track_store.go` SQL strings                  | `peak_speed_mps` in INSERT/UPDATE/SELECT                |
 | `analysis_run.go` SQL strings                 | `peak_speed_mps` in INSERT/SELECT (no percentile cols)  |
 | Test fixtures (`coverage_boost_test.go` etc.) | Reference `peak_speed_mps` and percentile columns       |
 | `pcap-analyse` `computeSpeedStats()`          | Uses `P95` instead of `P98` for high-end percentile     |
-| `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc. — ambiguous naming                 |
+| `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc.: ambiguous naming                  |
 
 ### ✅ correct internal use (keep)
 

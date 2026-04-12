@@ -19,7 +19,7 @@ who are not comfortable with Linux system administration.
 | **Image Building** | Create a complete `.img` with the full stack installed | `pi-gen` or `rpi-image-gen` (CI pipeline)      |
 | **Image Flashing** | End users write image to SD card                       | Fork of `rpi-imager` or custom repository JSON |
 
-A single image ships the full stack — radar, LiDAR (disabled by default),
+A single image ships the full stack: radar, LiDAR (disabled by default),
 PDF generation, and web dashboard.
 
 ## Architecture overview
@@ -69,7 +69,7 @@ users enable it through the web settings dashboard.
 
 ### Update mechanism
 
-No automatic updates — preserves privacy-first principle (zero unsolicited
+No automatic updates: preserves privacy-first principle (zero unsolicited
 network requests). Users upgrade in-place to preserve their sensor data.
 
 ```bash
@@ -178,7 +178,7 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 - Pin APT package versions; use GitHub Actions artifact attestation
 - `velocity` user runs with minimal privileges (no sudo)
 - Serial port access via udev rules, not blanket permissions
-- No default passwords — rpi-imager first-boot handles user creation
+- No default passwords: rpi-imager first-boot handles user creation
 - **No telemetry, no phone-home, no automatic updates, no cloud endpoints,
   no SSH keys, no PII in the image**
 

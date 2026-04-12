@@ -1,10 +1,10 @@
-# Bodies in motion — path prediction and sparse-cluster track linking
+# Bodies in motion: path prediction and sparse-cluster track linking
 
-- **Status:** 📋 Planned — v2.0+
+- **Status:** 📋 Planned; v2.0+
 - **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
 - **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
 - **Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
-- **Maths proposal:** to be written — `data/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
+- **Maths proposal:** to be written; `data/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
 - **Canonical:** [foreground-tracking.md](../lidar/architecture/foreground-tracking.md)
 
 ---
@@ -13,9 +13,9 @@
 
 The current L5 tracker uses a constant-velocity (CV) Kalman filter. This is a strong baseline for straight-line freeway traffic but under-performs in three scenarios that matter for neighbourhood-scale intersections:
 
-1. **Braking and acceleration events** — a CV model predicts constant speed through a stop sign; real vehicles decelerate, stop, and re-accelerate. The prediction fan diverges from reality within 1–2 seconds.
-2. **Curved trajectories** — vehicles turning at an intersection follow the road polygon; the CV model predicts a straight overshoot into the pavement or building.
-3. **Sparse-cluster track fragmentation** — at range (> 40 m) or during partial occlusion, a single vehicle may produce only 2–5 LiDAR points per frame. The resulting clusters are spatially noisy and frequently split into micro-clusters. The tracker creates and kills many short-lived tracks instead of maintaining one continuous track. Better motion priors and scene-aware association can bridge these gaps.
+1. **Braking and acceleration events**: a CV model predicts constant speed through a stop sign; real vehicles decelerate, stop, and re-accelerate. The prediction fan diverges from reality within 1–2 seconds.
+2. **Curved trajectories**: vehicles turning at an intersection follow the road polygon; the CV model predicts a straight overshoot into the pavement or building.
+3. **Sparse-cluster track fragmentation**: at range (> 40 m) or during partial occlusion, a single vehicle may produce only 2–5 LiDAR points per frame. The resulting clusters are spatially noisy and frequently split into micro-clusters. The tracker creates and kills many short-lived tracks instead of maintaining one continuous track. Better motion priors and scene-aware association can bridge these gaps.
 
 ---
 
@@ -68,7 +68,7 @@ IMM is the recommended approach because:
 
 - It automatically selects CV for straight-line segments, CA for braking/acceleration, and CTRV for turns
 - Model probabilities are useful diagnostic signals (dashboard: "this vehicle is in braking mode")
-- The computational cost is 3× the single-model filter — acceptable at our track counts (< 50 concurrent)
+- The computational cost is 3× the single-model filter: acceptable at our track counts (< 50 concurrent)
 
 ### 3.4 Ground-plane constraint in L5
 
@@ -99,7 +99,7 @@ for each predicted waypoint:
 L7 constrained trajectory fan
 ```
 
-The corridor width comes from the road polygon geometry. Kerb boundaries act as soft walls — the probability of crossing a kerb is nonzero (vehicles do mount kerbs) but heavily penalised.
+The corridor width comes from the road polygon geometry. Kerb boundaries act as soft walls: the probability of crossing a kerb is nonzero (vehicles do mount kerbs) but heavily penalised.
 
 ### 4.2 Stop-line and intersection awareness
 
@@ -107,7 +107,7 @@ When a track's predicted corridor intersects a known stop-line feature (imported
 
 1. Compute time-to-arrival at stop-line from current velocity
 2. If vehicle is decelerating (CA/CTRV model): predict a stop event with deceleration $a$ and stopping distance $d = v^2 / 2|a|$
-3. If vehicle is at constant velocity: maintain two trajectory hypotheses — "continues through" and "stops at line"
+3. If vehicle is at constant velocity: maintain two trajectory hypotheses; "continues through" and "stops at line"
 4. Weight hypotheses by observed approach behaviour (binary: has the vehicle started braking?)
 
 This is structurally similar to IMM but at the trajectory level rather than the filter level.
@@ -116,8 +116,8 @@ This is structurally similar to IMM but at the trajectory level rather than the 
 
 When two canonical objects share the same road corridor:
 
-- **Following constraint** — if B is behind A at the same heading, B's maximum predicted speed is bounded by A's speed plus a reaction-time margin
-- **Yielding constraint** — at intersection conflict points, objects on lower-priority approaches yield to higher-priority approaches (if priority is known from road topology)
+- **Following constraint**: if B is behind A at the same heading, B's maximum predicted speed is bounded by A's speed plus a reaction-time margin
+- **Yielding constraint**: at intersection conflict points, objects on lower-priority approaches yield to higher-priority approaches (if priority is known from road topology)
 
 These constraints modify the L7 trajectory probability distribution, not the L5 kinematic state. L5 tracks remain independent.
 
@@ -147,7 +147,7 @@ The current tracker:
 
 ### 5.2 Solutions by layer
 
-**L5 — relaxed association for sparse clusters:**
+**L5: relaxed association for sparse clusters:**
 
 Extend the association gate for tracks in "sparse mode" (defined as tracks where the average cluster point count over the last $N$ frames is below a threshold, e.g. < 8 points):
 
@@ -156,7 +156,7 @@ Extend the association gate for tracks in "sparse mode" (defined as tracks where
 - Increase `max_consecutive_misses` for sparse tracks (e.g. from 3 to 6)
 - Reduce the promotion threshold (tentative → confirmed) for sparse tracks if velocity is consistent
 
-**L7 — scene-corridor-assisted association:**
+**L7: scene-corridor-assisted association:**
 
 When L5 fails to associate a sparse cluster with a coasting track, L7 can provide a tighter prediction by constraining the search to the road corridor:
 
@@ -171,7 +171,7 @@ association gate is tighter → fewer false positives → longer tracks
 
 This is the key value of L7 for sparse tracking: scene geometry reduces the association ambiguity that causes fragmentation.
 
-**L7 — retrospective track merger:**
+**L7: retrospective track merger:**
 
 After a vehicle passes through the sparse zone and produces a confirmed track again, L7 can retrospectively merge the two fragments:
 
@@ -284,8 +284,8 @@ type RelationParams struct {
 
 ## 9. Non-Goals for first pass
 
-- Full probabilistic trajectory forecasting (Trajectron++ style) — too complex; simple corridor clipping first
-- Pedestrian-specific motion models — vehicle kinematics only for v2.0
-- Map-graph topology (lane-level routing) — road polygons as corridors are sufficient initially
-- Online learning of interaction parameters — use fixed conservative defaults
-- GPU-accelerated prediction — track counts (< 50) do not justify it
+- Full probabilistic trajectory forecasting (Trajectron++ style): too complex; simple corridor clipping first
+- Pedestrian-specific motion models: vehicle kinematics only for v2.0
+- Map-graph topology (lane-level routing): road polygons as corridors are sufficient initially
+- Online learning of interaction parameters: use fixed conservative defaults
+- GPU-accelerated prediction: track counts (< 50) do not justify it

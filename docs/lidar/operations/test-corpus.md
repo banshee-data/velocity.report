@@ -9,7 +9,7 @@ Five-PCAP test corpus using the Hesai P40 sensor, covering enough road geometry,
 
 ## Problem
 
-All provisional config defaults were tuned on kirk0 — a single capture at one site. The overfitting risk is real: kirk0 may be flat (sloped-road defaults untested), may over-represent one vehicle class, may lack kerbs/junctions/long-range views, and one capture cannot cover wet/dry/wind conditions.
+All provisional config defaults were tuned on kirk0: a single capture at one site. The overfitting risk is real: kirk0 may be flat (sloped-road defaults untested), may over-represent one vehicle class, may lack kerbs/junctions/long-range views, and one capture cannot cover wet/dry/wind conditions.
 
 ## Corpus specification
 
@@ -63,6 +63,6 @@ Per PCAP, create a labelled reference analysis run: ≥ 20 vehicle tracks, ≥ 5
 
 ## Non-Goals
 
-- Multi-sensor corpus (different LiDAR models) — deferred until single-sensor defaults validated
-- Weather variation within initial corpus — one clear-weather capture per site
-- Synthetic PCAPs — all captures must be real-world data
+- Multi-sensor corpus (different LiDAR models): deferred until single-sensor defaults validated
+- Weather variation within initial corpus: one clear-weather capture per site
+- Synthetic PCAPs: all captures must be real-world data

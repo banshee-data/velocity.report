@@ -82,8 +82,8 @@ Old logs without metrics field remain readable (absent field = no metrics lane).
 Multi-lane timeline with shared time cursor:
 
 - **Lane A:** existing scene/event lane (tracks, labels, QC events)
-- **Lane B:** performance lane (CPU, memory) — line charts
-- **Lane C:** scene health lane (outside-box points, drift) — bars or step-line
+- **Lane B:** performance lane (CPU, memory); line charts
+- **Lane C:** scene health lane (outside-box points, drift); bars or step-line
 
 Severity overlays: warn range in amber, error range in red, spike markers for threshold crossings.
 

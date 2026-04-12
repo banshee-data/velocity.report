@@ -1,7 +1,7 @@
 # Agent knowledge architecture
 
 - **Status:** Complete (Phase 3 shipped)
-- **Plan:** [agent-claude-preparedness-review-plan.md](../../plans/agent-claude-preparedness-review-plan.md) — Complete
+- **Plan:** [agent-claude-preparedness-review-plan.md](../../plans/agent-claude-preparedness-review-plan.md); Complete
 
 Layered knowledge architecture that supplies velocity.report's AI agents with project context whilst enforcing DRY principles across tools and platforms.
 
@@ -9,9 +9,9 @@ Layered knowledge architecture that supplies velocity.report's AI agents with pr
 
 velocity.report uses seven named AI agents. The system previously suffered from three structural problems:
 
-1. **Massive duplication** — 4,723 lines across 7 agent files with ~50% duplicated content. Privacy principles, build commands, SQLite facts, and Python venv details appeared in multiple files.
-2. **Tool lock-in** — all knowledge was in Copilot-specific formats. Adding Claude Code meant duplicating everything or restructuring.
-3. **Scaling problem** — expanding from 7 to 10–15 agents with each agent carrying its own copy of project knowledge would mean maintaining 15+ copies of the same facts.
+1. **Massive duplication**: 4,723 lines across 7 agent files with ~50% duplicated content. Privacy principles, build commands, SQLite facts, and Python venv details appeared in multiple files.
+2. **Tool lock-in**: all knowledge was in Copilot-specific formats. Adding Claude Code meant duplicating everything or restructuring.
+3. **Scaling problem**: expanding from 7 to 10–15 agents with each agent carrying its own copy of project knowledge would mean maintaining 15+ copies of the same facts.
 
 All three problems are resolved. The architecture is now live across both Copilot and Claude Code.
 
@@ -92,7 +92,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 
 ## Workflow skills
 
-Eight slash-command skills live in `.claude/skills/`. They are the canonical workflow layer — single-source, invocable from both Claude Code and VS Code.
+Eight slash-command skills live in `.claude/skills/`. They are the canonical workflow layer: single-source, invocable from both Claude Code and VS Code.
 
 | Skill           | Command                      | Purpose                                                  |
 | --------------- | ---------------------------- | -------------------------------------------------------- |
@@ -149,7 +149,7 @@ Make target: `make check-agent-drift`
 
 | Pattern                         | Applied To               | Description                                                      |
 | ------------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| Scope modes                     | Ruth (primary), Grace    | EXPANSION / HOLD / REDUCTION — user selects at session start     |
+| Scope modes                     | Ruth (primary), Grace    | EXPANSION / HOLD / REDUCTION: user selects at session start      |
 | Mandatory output artefacts      | Ruth, Flo, Grace, Malory | Prescribed output format for review/coordination/judgment agents |
 | Checklist externalisation       | Malory                   | Review criteria in `security-checklist.md`, not inlined in agent |
 | Two-pass gate classification    | Malory                   | CRITICAL (blocking) vs INFORMATIONAL (advisory)                  |

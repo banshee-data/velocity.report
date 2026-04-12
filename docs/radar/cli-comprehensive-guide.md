@@ -18,10 +18,10 @@ For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, c
 
 velocity.report consists of multiple CLI applications:
 
-- **1 main application** (`velocity-report`) — production service with radar, optional LiDAR integration, HTTP API, and transit worker
-- **3 utility applications** — device management (`velocity-ctl`), parameter sweep testing (`sweep`), and elevation backfill
-- **100+ Makefile targets** — build, test, deploy, and development tasks
-- **Multiple HTTP APIs** — radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
+- **1 main application** (`velocity-report`): production service with radar, optional LiDAR integration, HTTP API, and transit worker
+- **3 utility applications**: device management (`velocity-ctl`), parameter sweep testing (`sweep`), and elevation backfill
+- **100+ Makefile targets**: build, test, deploy, and development tasks
+- **Multiple HTTP APIs**: radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
 
 This document covers what exists and works today.
 
@@ -300,7 +300,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 > **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary (v0.5.1).
 > See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
 
-**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status — no SSH, no remote targets.
+**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status; no SSH, no remote targets.
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
@@ -321,17 +321,17 @@ sudo velocity-ctl rollback
 
 #### Subcommands
 
-**`upgrade`** — Download and install latest release from GitHub
+**`upgrade`**: Download and install latest release from GitHub
 
-**`rollback`** — Revert to previous binary version
+**`rollback`**: Revert to previous binary version
 
-**`backup`** — Back up database and configuration
+**`backup`**: Back up database and configuration
 
-**`--output .`** — Output directory for backup
+**`--output .`**: Output directory for backup
 
-**`status`** — Show service status and version info
+**`status`**: Show service status and version info
 
-**`version`** — Show velocity-ctl version
+**`version`**: Show velocity-ctl version
 
 ---
 

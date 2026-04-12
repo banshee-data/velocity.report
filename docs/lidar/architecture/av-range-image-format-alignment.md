@@ -149,13 +149,13 @@ Create `internal/lidar/l2frames/range_image.go` with a `RangeImage` struct: sens
 
 ### Phase 2: parser enhancements
 
-**Dual return detection** — add return mode constants (Strongest 0x37, Last 0x38, Dual 0x39) and `IsDualReturn()` to `PacketTail` in `internal/lidar/l1packets/extract.go`. In dual mode, even blocks are strongest returns, odd blocks are last returns. Modify `blockToPoints()` to populate `ReturnType` and `ReturnIndex`.
+**Dual return detection**: add return mode constants (Strongest 0x37, Last 0x38, Dual 0x39) and `IsDualReturn()` to `PacketTail` in `internal/lidar/l1packets/extract.go`. In dual mode, even blocks are strongest returns, odd blocks are last returns. Modify `blockToPoints()` to populate `ReturnType` and `ReturnIndex`.
 
-**Elongation estimation** (optional) — since Pandar40P lacks hardware elongation, estimate from local intensity variance across neighbouring points. Normalise to [0, 1] with empirical threshold (σ > 50 = high elongation).
+**Elongation estimation** (optional): since Pandar40P lacks hardware elongation, estimate from local intensity variance across neighbouring points. Normalise to [0, 1] with empirical threshold (σ > 50 = high elongation).
 
 ### Phase 3: frame builder updates
 
-Add `ToRangeImages()` to `LiDARFrame` in `internal/lidar/l2frames/frame_builder.go`. Maps each point's channel to a row and azimuth to a column (0.2° bins, 1800 columns). Returns two `RangeImage` instances — one per return. AV convention: column 0 = rear (−X axis), centre = front (+X). NLZ always −1.
+Add `ToRangeImages()` to `LiDARFrame` in `internal/lidar/l2frames/frame_builder.go`. Maps each point's channel to a row and azimuth to a column (0.2° bins, 1800 columns). Returns two `RangeImage` instances: one per return. AV convention: column 0 = rear (−X axis), centre = front (+X). NLZ always −1.
 
 ### Phase 4: web configuration
 

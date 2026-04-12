@@ -118,7 +118,7 @@ velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuil
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Support multiple model versions concurrently? | No. Use the migration path (`MigrateModelVersion`) for algorithm changes. A/B testing would complicate statistics queries. |
 | Grace period for overlapping windows?         | Keep the 5 min overlap (1 h interval, 1 h 5 min window). Deduplication handles late-arriving data.                         |
-| Should hourly runs remove backfill data?      | No. Backfills are rare and intentional — use the explicit migration CLI.                                                   |
+| Should hourly runs remove backfill data?      | No. Backfills are rare and intentional: use the explicit migration CLI.                                                    |
 
 ## Implementation priority
 

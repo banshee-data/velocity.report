@@ -24,12 +24,12 @@ Pre-release tags append a hyphen suffix: `0.5.1-pre1`, `0.6.0-rc1`.
 
 **No leading zeros in version segments.** `web/package.json` and
 `public_html/package.json` are validated by npm's strict SemVer parser.
-A version like `0.5.04` is invalid — the patch segment `04` has a leading
+A version like `0.5.04` is invalid: the patch segment `04` has a leading
 zero. Use `0.5.4` instead. See § Version Validity Analysis.
 
 ## Two filename tiers
 
-### Release — tagged GitHub releases
+### Release: tagged GitHub releases
 
 Human-readable, stable, linkable. No date, no SHA.
 
@@ -41,7 +41,7 @@ velocity-report-0.5.1.img.xz
 VelocityVisualiser-0.5.1.dmg
 ```
 
-### Dev — CI artefacts and local builds
+### Dev: CI artefacts and local builds
 
 Date-time prefix for sortability; 7-char git SHA suffix for traceability.
 
@@ -97,16 +97,16 @@ Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 
 ## Version validity analysis
 
-| Surface         | File                                 | Validates SemVer?    | Effect of `0.5.04`                 |
-| --------------- | ------------------------------------ | -------------------- | ---------------------------------- |
-| npm (web)       | `web/package.json`                   | **Yes — strict**     | **Rejects with parse error**       |
-| npm (docs)      | `public_html/package.json`           | **Yes — strict**     | **Rejects with parse error**       |
-| Go version pkg  | `internal/version/version.go`        | No — display only    | Passes                             |
-| Makefile        | `Makefile`                           | No — string constant | Passes                             |
-| CI workflows    | `.github/workflows/*.yml`            | No — substitution    | Passes                             |
-| Xcode           | `project.pbxproj` MARKETING_VERSION  | No — string          | Passes                             |
-| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)    | Passes; PyPI normalises to `0.5.4` |
-| rpi-imager JSON | `image/os-list-velocity.json`        | No                   | Passes                             |
+| Surface         | File                                 | Validates SemVer?   | Effect of `0.5.04`                 |
+| --------------- | ------------------------------------ | ------------------- | ---------------------------------- |
+| npm (web)       | `web/package.json`                   | **Yes: strict**     | **Rejects with parse error**       |
+| npm (docs)      | `public_html/package.json`           | **Yes: strict**     | **Rejects with parse error**       |
+| Go version pkg  | `internal/version/version.go`        | No: display only    | Passes                             |
+| Makefile        | `Makefile`                           | No: string constant | Passes                             |
+| CI workflows    | `.github/workflows/*.yml`            | No: substitution    | Passes                             |
+| Xcode           | `project.pbxproj` MARKETING_VERSION  | No: string          | Passes                             |
+| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)   | Passes; PyPI normalises to `0.5.4` |
+| rpi-imager JSON | `image/os-list-velocity.json`        | No                  | Passes                             |
 
 Two surfaces hard-block: `web/package.json` and `public_html/package.json`.
 Every CI run validates the version field against strict SemVer.
@@ -124,7 +124,7 @@ BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
 DEV_VERSION := $(subst -,.,$(VERSION))
 ```
 
-`BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst` — one `date`
+`BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst`: one `date`
 call per build invocation, one source of truth within that invocation.
 
 **Compute-once rule.** Each build environment computes the timestamp
@@ -138,7 +138,7 @@ exactly once at the start of its run, then threads it to every consumer:
 | CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step           |
 
 Different build environments (Make vs CI vs script) may produce
-different timestamps — that is expected because they are separate runs.
+different timestamps: that is expected because they are separate runs.
 The invariant is: **within a single run, every artefact carries the
 same timestamp.**
 

@@ -1,4 +1,4 @@
-# PDF reporting — Go migration
+# PDF reporting: Go migration
 
 Active plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
 
@@ -150,8 +150,8 @@ type TemplateData struct {
 ### Advantages over PyLaTeX
 
 - Templates are plain `.tex` files, editable by anyone who knows LaTeX
-- `go:embed` at compile time — zero disk I/O at runtime
-- Deterministic output — byte-for-byte comparison in tests
+- `go:embed` at compile time: zero disk I/O at runtime
+- Deterministic output: byte-for-byte comparison in tests
 - Go `text/template` is widely understood
 
 ## Colour palette (shared with web)

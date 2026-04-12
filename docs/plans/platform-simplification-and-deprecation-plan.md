@@ -50,7 +50,7 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 
 - `setup-radar` (already labelled legacy in Make help)
 - `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`
-- `build-deploy`, `build-deploy-linux` — replaced by `build-ctl`, `build-ctl-linux`
+- `build-deploy`, `build-deploy-linux`: replaced by `build-ctl`, `build-ctl-linux`
 - `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
 
 Rationale: these are superseded by the image-builder direction once [#210](../BACKLOG.md) lands.
@@ -70,13 +70,13 @@ Rationale: useful for development, but not required as first-class public workfl
 
 ### 2) `cmd/` app and tool candidates
 
-#### A. `cmd/deploy` (replaced by `velocity-ctl` in v0.5.1) — ✅ complete
+#### A. `cmd/deploy` (replaced by `velocity-ctl` in v0.5.1): ✅ complete
 
-- Replaced by `cmd/velocity-ctl/` — purpose-built on-device management binary.
+- Replaced by `cmd/velocity-ctl/`: purpose-built on-device management binary.
 - Reduction: one binary + 3,678 LOC + SSH surface + associated Make targets + duplicated deployment docs.
 - See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl).
 
-#### B. `cmd/transit-backfill` (high priority) — ✅ complete
+#### B. `cmd/transit-backfill` (high priority): ✅ complete
 
 - Removed `cmd/transit-backfill/` and `cmd/tools/scan_transits.go`.
 - `velocity-report transits rebuild` is the supported replacement.
@@ -84,7 +84,7 @@ Rationale: useful for development, but not required as first-class public workfl
 #### C. `cmd/sweep` and ad hoc `cmd/tools/*` utilities (medium priority)
 
 - `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
-- `cmd/tools/scan_transits.go` — ✅ removed alongside `transit-backfill`.
+- `cmd/tools/scan_transits.go`: ✅ removed alongside `transit-backfill`.
 - Other narrow-scope helper tools should be either:
   - promoted and maintained as supported tooling, or
   - explicitly marked deprecated and removed.
@@ -112,18 +112,18 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 
 ## Consolidation options (metrics, stats, frontend)
 
-### Option 1 — consolidate on Svelte surface (recommended) ✅
+### Option 1: consolidate on Svelte surface (recommended) ✅
 
 - Use [frontend consolidation](web-frontend-consolidation-plan.md) as the canonical migration path.
 - Retire duplicated stats/debug HTML surfaces after parity is reached.
 - Move “stats/metrics first look” workflows into one route hierarchy and one API surface.
 
-### ~~Option 2 — keep dual surfaces but reduce documented surface~~
+### ~~Option 2: keep dual surfaces but reduce documented surface~~
 
 - Keep existing monitor pages and scripts, but mark them internal-only.
 - Lower migration risk, but retains duplicated maintenance burden.
 
-### ~~Option 3 — CLI-first metrics workflow~~
+### ~~Option 3: CLI-first metrics workflow~~
 
 - Standardise on API + CLI scripts and minimise UI migration.
 - Lowest web effort, but weakest operator UX and discoverability.
@@ -131,8 +131,8 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 ## Prioritised deprecation targets
 
 1. **`cmd/deploy` replaced by `velocity-ctl`** (✅ v0.5.1)
-2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`) — replaced by `build-ctl*`
-3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)) — v0.5.0 breaking changes
+2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`): replaced by `build-ctl*`
+3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)): v0.5.0 breaking changes
 4. **`cmd/transit-backfill` and unowned tools cleanup**
 5. **LiDAR forwarding flag simplification**
 6. **Stats/plot/API-shortcut target consolidation after #252 parity**
@@ -153,22 +153,22 @@ The `cmd/deploy` tool and its associated Make targets (`setup-radar`, `deploy-in
 
 1. Build a complete Raspberry Pi image: `make build-image` (planned)
 2. Flash the image to an SD card using Raspberry Pi Imager or `dd`
-3. Boot the Pi — the service starts automatically with all dependencies pre-installed
+3. Boot the Pi: the service starts automatically with all dependencies pre-installed
 4. Upgrade in-place: `sudo velocity-ctl upgrade` checks GitHub Releases,
-   downloads the latest binary, and applies the upgrade — preserving the
+   downloads the latest binary, and applies the upgrade: preserving the
    sensor database and all collected data. See
    [deploy-rpi-imager-fork-plan.md § 4.2.2a](deploy-rpi-imager-fork-plan.md#422a-update-mechanism)
    for the full workflow specification.
 
 ### Transition period
 
-`cmd/deploy/` is deleted in v0.5.1. No transition period — the image has not
+`cmd/deploy/` is deleted in v0.5.1. No transition period: the image has not
 shipped to end users yet, so there are no existing deploy-tool users to migrate.
 
-## Deploy retirement — complete
+## Deploy retirement: complete
 
 `cmd/deploy/` was deleted in v0.5.1 and replaced by `cmd/velocity-ctl/`. The
-four-gate retirement plan below is superseded — retained for historical
+four-gate retirement plan below is superseded: retained for historical
 reference only.
 
 <details>
@@ -191,7 +191,7 @@ reference only.
 ### `cmd/sweep`
 
 - **Current status:** Parameter sweep utility for LiDAR tuning. Actively used for iterative sensor calibration.
-- **Active production need:** Yes — required until frontend sweep migration ([#252](../BACKLOG.md)) provides equivalent capability.
+- **Active production need:** Yes; required until frontend sweep migration ([#252](../BACKLOG.md)) provides equivalent capability.
 - **Recommendation:** Retain until #252 parity, then review.
 
 ### `cmd/tools/backfill_ring_elevations`
@@ -213,7 +213,7 @@ Once all four conditions are met, the following will be removed:
 
 - `cmd/deploy/` directory and binary
 - `internal/deploy/` package
-- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps` — all replaced by `build-ctl`, `build-ctl-linux`
+- Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`; all replaced by `build-ctl`, `build-ctl-linux`
 - `scripts/setup-radar-host.sh`
 - Deployment section from `README.md` (replaced by image pipeline instructions)
 
@@ -306,7 +306,7 @@ sub-plan:
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
 
-### Project e (P1): data model and API compat-shim removal — retired to backlog
+### Project e (P1): data model and API compat-shim removal; retired to backlog
 
 Sub-plan: [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md)
 

@@ -72,6 +72,6 @@ If any of those conditions fail, the result stays research-only.
 
 ## Expected implementation areas
 
-- `tools/ml-training/features.py` — feature extraction and benchmark dataset generation
-- `tools/ml-training/train_classifier.py` — offline experiments
-- `internal/lidar/ml_classifier.go` — future runtime integration only if the promotion gate is passed
+- `tools/ml-training/features.py`: feature extraction and benchmark dataset generation
+- `tools/ml-training/train_classifier.py`: offline experiments
+- `internal/lidar/ml_classifier.go`: future runtime integration only if the promotion gate is passed

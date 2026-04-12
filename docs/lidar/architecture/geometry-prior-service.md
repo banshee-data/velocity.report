@@ -1,16 +1,16 @@
-# Geometry-Prior service — architecture specification
+# Geometry-Prior service: architecture specification
 
 - **Status:** Proposed (v2.0 scope)
 - **Parent:** [vector-scene-map.md](./vector-scene-map.md)
 - **Layers:** L4 Perception (extends Prior Loader interface)
 
-Community-maintained supplemental geometry priors — ground surfaces, kerbs, vegetation — not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, keyed by coarsened GPS coordinates.
+Community-maintained supplemental geometry priors: ground surfaces, kerbs, vegetation; not well represented in OpenStreetMap. Served as static GeoJSON from a public CDN, keyed by coarsened GPS coordinates.
 
 ---
 
 ## Design goal
 
-Enable a public file tree of supplemental geometry priors that any velocity.report deployment can optionally fetch, while preserving the local-first, privacy-by-default architecture. No cameras, no PII, no location data transmitted without explicit opt-in. The files contain geometry only — no speed, transit, or vehicle data.
+Enable a public file tree of supplemental geometry priors that any velocity.report deployment can optionally fetch, while preserving the local-first, privacy-by-default architecture. No cameras, no PII, no location data transmitted without explicit opt-in. The files contain geometry only: no speed, transit, or vehicle data.
 
 ---
 
@@ -47,7 +47,7 @@ The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km
 
 **File count analysis:**
 
-Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files** (the 0.01° grid over one 1°×1° block). In practice, populated cells are heavily sparse — a typical UK town produces 50–200 files across 2–4 parent directories.
+Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files** (the 0.01° grid over one 1°×1° block). In practice, populated cells are heavily sparse: a typical UK town produces 50–200 files across 2–4 parent directories.
 
 | Scope                  | Approximate file count                             |
 | ---------------------- | -------------------------------------------------- |
@@ -67,7 +67,7 @@ Contributions are submitted as **pull requests** to a public repository (or file
 - Contributors export their sensor's learned scene map as GeoJSON.
 - A CI validation job checks schema conformance, coordinate bounds, and file placement in the correct grid folder.
 - Merged files become immediately available on the CDN.
-- Contributor identity is a **chosen name** plus an optional email address and GPG key fingerprint (see §File Format Specification). Once merged, **the GeoJSON file is never modified** — CI records signature status separately in the `_trust/` manifest (see §Trust Tiers and Host Routing) so that end users can always verify the original signature against the original file bytes.
+- Contributor identity is a **chosen name** plus an optional email address and GPG key fingerprint (see §File Format Specification). Once merged, **the GeoJSON file is never modified**: CI records signature status separately in the `_trust/` manifest (see §Trust Tiers and Host Routing) so that end users can always verify the original signature against the original file bytes.
 
 ---
 
@@ -88,7 +88,7 @@ Design choices in v1.0 that ensure the online service is additive, not a rewrite
 
 ## File format specification (v2.0 scope)
 
-All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are **immutable once merged** — CI never modifies the contributor-uploaded content, ensuring that detached GPG signatures remain independently verifiable.
+All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are **immutable once merged**: CI never modifies the contributor-uploaded content, ensuring that detached GPG signatures remain independently verifiable.
 
 **File structure (each grid cell):** `{lat}_{lon}.geojson`
 
@@ -122,7 +122,7 @@ When a contributor provides a GPG key, the export tool produces a detached signa
 51.75_-1.26.geojson.sig   # detached ASCII-armoured GPG signature
 ```
 
-CI verifies the signature against the declared `gpg_fingerprint` at merge time. The result is recorded in the `_trust/` manifest — **the GeoJSON file itself is not touched**.
+CI verifies the signature against the declared `gpg_fingerprint` at merge time. The result is recorded in the `_trust/` manifest: **the GeoJSON file itself is not touched**.
 
 ---
 
@@ -161,7 +161,7 @@ priors/
 }
 ```
 
-The manifest is the **only** place `signed` status is recorded. Clients fetch `_trust/manifest.json` once per session (or cache it) and consult it when deciding whether to trust a prior file. The data files carry no trust annotation — their content is exactly what the contributor submitted.
+The manifest is the **only** place `signed` status is recorded. Clients fetch `_trust/manifest.json` once per session (or cache it) and consult it when deciding whether to trust a prior file. The data files carry no trust annotation: their content is exactly what the contributor submitted.
 
 ---
 
@@ -189,10 +189,10 @@ With `require_signed: true` the Prior Loader fetches `_trust/manifest.json` firs
 
 **Privacy safeguards:**
 
-1. Location queries use coarsened coordinates (0.01° grid snapping, ~1 km²) — no precise deployment location disclosure.
+1. Location queries use coarsened coordinates (0.01° grid snapping, ~1 km²): no precise deployment location disclosure.
 2. No authentication required for read access (public static files).
-3. Contributor identity is a **freely chosen name** — no accounts, no verification of real-world identity. Email and GPG key are entirely optional. Signatures authenticate the _key_, not the person; status is recorded only in `_trust/manifest.json`.
-4. All prior data is geometry only — no speed, transit, or vehicle data.
+3. Contributor identity is a **freely chosen name**: no accounts, no verification of real-world identity. Email and GPG key are entirely optional. Signatures authenticate the _key_, not the person; status is recorded only in `_trust/manifest.json`.
+4. All prior data is geometry only: no speed, transit, or vehicle data.
 
 ---
 
@@ -222,7 +222,7 @@ The aggregate file is clearly labelled `source: synthetic` and signed with the *
 | **Internet Archive**                 | Free, unlimited          | Immutable items, S3 API | Good for archival snapshots; not ideal for live incremental updates.                                           |
 | **GitHub Releases (aggregate only)** | Free                     | Binary assets per tag   | Contribution store elsewhere; daily aggregate published as release asset. Clients pin to a release URL.        |
 | **GitHub Pages**                     | Free                     | Static site             | CI verifies signatures and updates `_trust/manifest.json` on each merge. Zero ops cost.                        |
-| **Any static CDN**                   | Varies                   | Unlimited               | Cloudflare Pages, S3 + CloudFront, self-hosted by municipalities — any HTTP server.                            |
+| **Any static CDN**                   | Varies                   | Unlimited               | Cloudflare Pages, S3 + CloudFront, self-hosted by municipalities: any HTTP server.                             |
 
 ---
 
@@ -245,9 +245,9 @@ No dedicated LiDAR PCAP repository exists for low-speed urban traffic data. Hugg
 
 These questions should be addressed before the v2.0 contribution pipeline is built.
 
-**Q1 — Multi-contributor merging for the same grid cell.** Each 0.01° cell is a single file. If two contributors both submit priors for `51.75_-1.26.geojson`, whose data wins? Options range from last-write-wins to weighted polygon union to versioned per-contributor sub-files. Considerations: immutability constraint prevents in-place merge; per-contributor files (e.g. `51.75_-1.26.<fingerprint>.geojson`) preserve immutability but multiply file count; a server-side merge artefact (unsigned, clearly marked synthetic) could live alongside originals.
+**Q1: Multi-contributor merging for the same grid cell.** Each 0.01° cell is a single file. If two contributors both submit priors for `51.75_-1.26.geojson`, whose data wins? Options range from last-write-wins to weighted polygon union to versioned per-contributor sub-files. Considerations: immutability constraint prevents in-place merge; per-contributor files (e.g. `51.75_-1.26.<fingerprint>.geojson`) preserve immutability but multiply file count; a server-side merge artefact (unsigned, clearly marked synthetic) could live alongside originals.
 
-**Q2 — Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
+**Q2: Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
 
 ## Resolved design questions
 

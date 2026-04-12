@@ -275,7 +275,7 @@ Canonical config/maths mapping source:
 > - **Centralised backup**: All data lives in the Go server's SQLite database
 > - **Shared access**: Web UI and visualiser can see each other's labels immediately
 >
-> The visualiser's `LabelAPIClient.swift` is a REST client only — it performs HTTP requests to the Go backend and does not access any local database.
+> The visualiser's `LabelAPIClient.swift` is a REST client only: it performs HTTP requests to the Go backend and does not access any local database.
 
 ### 3.3 Alternatives considered
 
@@ -579,7 +579,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 - [velocity-visualiser-implementation.md](./implementation.md) – Milestones and tasks
 - [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 
-## 10. Performance investigation — key results
+## 10. Performance investigation: key results
 
 Investigation of gRPC streaming bandwidth under Pandar40P replay at 10–20 fps
 (35–70k points/frame). The full investigation is archived in git history; its
@@ -591,7 +591,7 @@ SLOW SEND warnings (>50 ms, up to 600 ms), frame drops, and FPS collapse from
 10–20 fps to 1.4–3 fps. Root cause: sending all ~70k points per frame when only
 ~3% (foreground) change between frames.
 
-### Solution — background/Foreground split streaming (M3.5)
+### Solution: background/Foreground split streaming (M3.5)
 
 For static LiDAR deployments, the scene decomposes into background (97%,
 rarely changes) and foreground (3%, every frame). The implemented solution
@@ -607,8 +607,8 @@ sends a background snapshot every 30 s and foreground-only points per frame.
 ### Implementation priority (deferred items)
 
 - **Tier 2:** Client async receive processing, Metal buffer pooling, binary
-  protocol optimisation — consider for M7.
+  protocol optimisation: consider for M7.
 - **Tier 3:** Multi-resolution streaming, clusters-only mode, adaptive
-  decimation — niche use cases.
+  decimation: niche use cases.
 - **Tier 4:** Delta encoding, domain-specific compression, temporal
-  subsampling — superseded or redundant given M3.5 gains.
+  subsampling: superseded or redundant given M3.5 gains.

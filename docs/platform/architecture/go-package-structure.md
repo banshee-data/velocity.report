@@ -25,11 +25,11 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 ### Methodology
 
 1. Identify files exceeding 1,000 LOC that mix four or more concerns
-2. Split mechanically by domain — no functional changes, tests pass unchanged
+2. Split mechanically by domain: no functional changes, tests pass unchanged
 3. Target: no file exceeds 600 LOC after splitting (soft ceiling; 5–10% over is acceptable)
 4. Monitor files approaching 700 LOC for future splitting
 
-### Tier 1 — god files (all complete)
+### Tier 1: god files (all complete)
 
 | Original file                                   | Was       | Split into                                                                                                                                                                       |
 | ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 | `internal/lidar/l3grid/background.go`           | 1,672 LOC | `background.go` (352), `background_region.go` (474), `background_manager.go` (860)                                                                                               |
 | `internal/config/tuning.go`                     | 1,303 LOC | `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361)                                                                              |
 
-### Tier 2 — large files (700–860 LOC, watch list)
+### Tier 2: large files (700–860 LOC, watch list)
 
 | File                                              | LOC | Notes                               |
 | ------------------------------------------------- | --- | ----------------------------------- |

@@ -1,6 +1,6 @@
-# L8/L9/L10 layer alignment — migration notes
+# L8/L9/L10 layer alignment: migration notes
 
-- **Status:** Complete — retained as historical record
+- **Status:** Complete; retained as historical record
 
 Package renames and file splits performed to enforce clean layer boundaries between analytics (L8), endpoints (L9), and the HTTP server during the layer alignment refactor.
 
@@ -28,7 +28,7 @@ for the legacy LIDAR dashboards. It has:
 - No exported Go types or functions
 
 The `go:embed` directives in `l9endpoints/legacy_assets.go` reference
-these paths. This subtree is transitional — it will be removed once the
+these paths. This subtree is transitional: it will be removed once the
 Svelte frontend fully replaces the legacy dashboards. Until then it is
 the canonical source for those assets.
 
@@ -46,11 +46,11 @@ All functions remain on the same `*Server` receiver in the same Go
 package. No import paths changed. The split is purely internal
 organisation:
 
-- **server.go** — struct, config, lifecycle (`NewServer`, `Start`, `Close`)
-- **state.go** — state accessors and resetters
-- **routes.go** — route type, registration, middleware
-- **tuning.go** — `/api/lidar/params` handler
-- **status.go** — status, health, grid, acceptance, and background handlers
+- **server.go**: struct, config, lifecycle (`NewServer`, `Start`, `Close`)
+- **state.go**: state accessors and resetters
+- **routes.go**: route type, registration, middleware
+- **tuning.go**: `/api/lidar/params` handler
+- **status.go**: status, health, grid, acceptance, and background handlers
 
 ### Items deferred to follow-on work
 

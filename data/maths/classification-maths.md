@@ -58,7 +58,7 @@ Features are extracted per-track from the observation history:
 | P50 speed         | $v_{50}$         | m/s  | Median of speed history                   |
 | P85 speed         | $v_{85}$         | m/s  | 85th percentile                           |
 | P95 speed         | $v_{95}$         | m/s  | 95th percentile                           |
-| Observation count | $n$              | —    | `ObservationCount`                        |
+| Observation count | $n$              | -    | `ObservationCount`                        |
 | Duration          | $\Delta t$       | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
 
 ## 4. Decision thresholds
@@ -120,7 +120,7 @@ $$
 Confidence increases with extreme length (>10 m), width (>2.5 m),
 height (>2.5 m), and observation count (>20).
 
-### 5.3 Truck — _reserved (v0.6+)_
+### 5.3 Truck: _reserved (v0.6+)_
 
 > **Disabled in v0.5.0.** Truck-like objects fall through to §5.4 (Car).
 > Thresholds are preserved for future reactivation.
@@ -155,7 +155,7 @@ Bus- and truck-sized objects are excluded (detected in §5.2–5.3).
 Confidence increases with length (>4 m), width (>2 m), speed (>10 m/s),
 max speed (>15 m/s), and observation count (>20).
 
-### 5.5 Motorcyclist — _reserved (v0.6+)_
+### 5.5 Motorcyclist: _reserved (v0.6+)_
 
 > **Disabled in v0.5.0.** Motorcycle-speed objects that don't match
 > cyclist thresholds fall through to §5.8 (Dynamic).
@@ -233,15 +233,15 @@ a proto3 enum (`ObjectClass`) for forward compatibility.
 
 | Label            | Classifier output | User-assignable | Status           |
 | ---------------- | ----------------- | --------------- | ---------------- |
-| `"noise"`        | —                 | ✓               | Active           |
+| `"noise"`        | -                 | ✓               | Active           |
 | `"dynamic"`      | ✓                 | ✓               | Active           |
 | `"pedestrian"`   | ✓                 | ✓               | Active           |
 | `"cyclist"`      | ✓                 | ✓               | Active           |
 | `"bird"`         | ✓                 | ✓               | Active           |
 | `"bus"`          | ✓                 | ✓               | Active           |
 | `"car"`          | ✓                 | ✓               | Active           |
-| `"truck"`        | —                 | —               | Reserved (v0.6+) |
-| `"motorcyclist"` | —                 | —               | Reserved (v0.6+) |
+| `"truck"`        | -                 | -               | Reserved (v0.6+) |
+| `"motorcyclist"` | -                 | -               | Reserved (v0.6+) |
 
 **Canonical locations:**
 
@@ -278,11 +278,11 @@ recordings or live data) are converted directly without re-classification.
 
 ## 11. References
 
-| Reference            | BibTeX key   | Relevance                                                                                                                |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration          |
-| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                                |
-| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                         |
-| Lang et al. (2019)   | `Lang2019`   | PointPillars — learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
+| Reference            | BibTeX key   | Relevance                                                                                                               |
+| -------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration         |
+| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                               |
+| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                        |
+| Lang et al. (2019)   | `Lang2019`   | PointPillars: learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)

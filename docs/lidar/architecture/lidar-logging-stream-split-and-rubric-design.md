@@ -1,6 +1,6 @@
 # LiDAR logging stream split and rubric design (2026-02-17)
 
-Design for replacing the single `Debugf` logging stream in the LiDAR subsystem with three explicit streams — ops, diag, and trace — separated by severity and volume.
+Design for replacing the single `Debugf` logging stream in the LiDAR subsystem with three explicit streams: ops, diag, and trace; separated by severity and volume.
 
 ## Objective
 
@@ -18,8 +18,8 @@ Three stream model:
 
 ## API surface
 
-- `SetLogWriters(LogWriters{Ops, Diag, Trace io.Writer})` — root package
-- `SetLogWriters(ops, diag, trace io.Writer)` — sub-packages (parse, l2frames, l3grid, pipeline)
+- `SetLogWriters(LogWriters{Ops, Diag, Trace io.Writer})`: root package
+- `SetLogWriters(ops, diag, trace io.Writer)`: sub-packages (parse, l2frames, l3grid, pipeline)
 - `Opsf(...)` / `opsf(...)`
 - `Diagf(...)` / `diagf(...)`
 - `Tracef(...)` / `tracef(...)`
@@ -44,12 +44,12 @@ Three stream model:
 
 Two controls:
 
-- `--log-level ops|diag|trace` (CLI flag, default: `ops`) — sets verbosity threshold. Streams at or above the level are enabled; lower streams are disabled (nil writer → no-op).
-- `VELOCITY_DEBUG_LOG` (env var, optional) — file path for debug output. When set, ops stays on stdout and diag+trace route to this file. When unset, all enabled streams go to stdout.
+- `--log-level ops|diag|trace` (CLI flag, default: `ops`); sets verbosity threshold. Streams at or above the level are enabled; lower streams are disabled (nil writer → no-op).
+- `VELOCITY_DEBUG_LOG` (env var, optional): file path for debug output. When set, ops stays on stdout and diag+trace route to this file. When unset, all enabled streams go to stdout.
 
 The ordering is `ops` < `diag` < `trace`. `--log-level trace` enables all three streams.
 
-The previous per-stream env vars (`VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DIAG_LOG`, `VELOCITY_LIDAR_TRACE_LOG`) have been removed — they were never used in practice.
+The previous per-stream env vars (`VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DIAG_LOG`, `VELOCITY_LIDAR_TRACE_LOG`) have been removed: they were never used in practice.
 
 ## File/Retention guidance
 
@@ -65,7 +65,7 @@ The previous per-stream env vars (`VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DIAG
 
 All `Debugf`/`debugf` call sites have been migrated to explicit stream functions. The classifier and `Debugf` have been removed.
 
-### ops (4 sites — errors, dropped data)
+### ops (4 sites: errors, dropped data)
 
 | File                                        | Line | Message pattern                                                | Confidence |
 | ------------------------------------------- | ---- | -------------------------------------------------------------- | ---------- |
@@ -74,7 +74,7 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 | `l1packets/network/forwarder.go`            | 75   | `[PacketForwarder] Dropped %d forwarded packets due to errors` | ✅ high    |
 | `l2frames/frame_builder.go`                 | 800  | `[FrameBuilder] Dropped frame %s: callback queue full`         | ✅ high    |
 
-### trace (31 sites — per-packet/per-frame frequency)
+### trace (31 sites: per-packet/per-frame frequency)
 
 | File                                        | Line | Message pattern                                   | Confidence |
 | ------------------------------------------- | ---- | ------------------------------------------------- | ---------- |
@@ -113,7 +113,7 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 | `l3grid/foreground.go`                      | 430  | `[FG_DEBUG]`                                      | ✅ high    |
 | `l3grid/foreground.go`                      | 462  | `[Foreground] warmup active`                      | ✅ high    |
 
-### diag (20 sites — lifecycle, occasional diagnostics)
+### diag (20 sites: lifecycle, occasional diagnostics)
 
 | File                                        | Line | Message pattern                              | Confidence |
 | ------------------------------------------- | ---- | -------------------------------------------- | ---------- |
@@ -139,14 +139,14 @@ All `Debugf`/`debugf` call sites have been migrated to explicit stream functions
 
 These 3 call sites were classified with best-effort judgement. Please confirm or reassign:
 
-1. **`pipeline/tracking_pipeline.go:408`** — `[Tracking] Clustered into %d objects`
+1. **`pipeline/tracking_pipeline.go:408`**: `[Tracking] Clustered into %d objects`
    - Currently: `tracef` (fires every frame → per-frame frequency)
    - Alternative: `diagf` (design doc originally listed this as "debug"; useful context)
 
-2. **`pipeline/tracking_pipeline.go:419`** — `[Tracking] %d confirmed tracks to persist`
+2. **`pipeline/tracking_pipeline.go:419`**: `[Tracking] %d confirmed tracks to persist`
    - Currently: `tracef` (fires every frame → per-frame frequency)
    - Alternative: `diagf` (useful for track lifecycle visibility)
 
-3. **`l2frames/frame_builder.go:553`** — `[FrameBuilder] Discarding incomplete frame`
+3. **`l2frames/frame_builder.go:553`**: `[FrameBuilder] Discarding incomplete frame`
    - Currently: `diagf` (normal during startup; expected behaviour)
    - Alternative: `opsf` (could indicate data quality issues or sensor problems)

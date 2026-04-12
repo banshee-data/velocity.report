@@ -223,7 +223,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
-- [Foreground Tracking Status](../architecture/foreground-tracking.md#current-operational-status) — Current issues and debugging
+- [Foreground Tracking Status](../architecture/foreground-tracking.md#current-operational-status): Current issues and debugging
 - [Settling time optimisation](settling-time-optimisation.md) - Settling convergence tuning
 - [Adaptive region parameters](adaptive-region-parameters.md) - Region classification after settling
 - [Motion capture](motion-capture.md) - Sensor movement detection in L3
@@ -240,7 +240,7 @@ Automatically segments LiDAR PCAP files into non-overlapping motion and static p
 
 ### Problem
 
-Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods — motion segments are unusable for perception. Today an operator must manually identify transition points and split files with external tools. This is slow, error-prone, and blocks the mobile-observation workflow.
+Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods: motion segments are unusable for perception. Today an operator must manually identify transition points and split files with external tools. This is slow, error-prone, and blocks the mobile-observation workflow.
 
 ### Split tool architecture
 
@@ -262,12 +262,12 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 **Key packages:**
 
-| Package           | Location                               | Role                                                      |
-| ----------------- | -------------------------------------- | --------------------------------------------------------- |
-| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing — reads PCAP, filters UDP, parses packets        |
-| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New** — implements `FrameBuilder`, drives state machine |
-| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New** — buffers packets, writes segment PCAPs           |
-| CLI               | `cmd/tools/pcap-split/main.go`         | **New** — flag parsing, orchestration, summary output     |
+| Package           | Location                               | Role                                                     |
+| ----------------- | -------------------------------------- | -------------------------------------------------------- |
+| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing: reads PCAP, filters UDP, parses packets        |
+| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New**: implements `FrameBuilder`, drives state machine |
+| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New**: buffers packets, writes segment PCAPs           |
+| CLI               | `cmd/tools/pcap-split/main.go`         | **New**: flag parsing, orchestration, summary output     |
 
 ### Stability detection
 
@@ -331,8 +331,8 @@ Three new read-only accessors on `BackgroundManager` (designed, not yet implemen
 
 ### Phased delivery
 
-| Phase | Scope                                                                 | Size | Prerequisite      |
-| ----- | --------------------------------------------------------------------- | ---- | ----------------- |
-| 1     | `--motion` flag in `pcap-analyse` — motion timeline in summary output | S    | None              |
-| 2     | `BackgroundManager` API extensions — three new read-only accessors    | S    | Phase 1 validated |
-| 3     | Full `pcap-split` tool — analyser, writer, CLI, metadata export       | M    | Phase 2           |
+| Phase | Scope                                                                | Size | Prerequisite      |
+| ----- | -------------------------------------------------------------------- | ---- | ----------------- |
+| 1     | `--motion` flag in `pcap-analyse`: motion timeline in summary output | S    | None              |
+| 2     | `BackgroundManager` API extensions: three new read-only accessors    | S    | Phase 1 validated |
+| 3     | Full `pcap-split` tool: analyser, writer, CLI, metadata export       | M    | Phase 2           |

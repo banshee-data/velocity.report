@@ -118,14 +118,14 @@ Paste the output back to the agent. The agent should check for:
 - Whether the binary exists and which version is installed.
 - Whether the service is active and which user it runs as.
 - Whether the database exists, its size, and whether migrations are clean
-  (`Dirty: false`). A dirty migration is a guardrail — stop and ask.
+  (`Dirty: false`). A dirty migration is a guardrail: stop and ask.
 - Whether `/opt/velocity-report` is present, clean, and at which commit.
   If `git status --short` printed any paths before `(working tree clean)`,
-  the checkout is dirty — stop and ask.
+  the checkout is dirty: stop and ask.
 - Whether `config/tuning.defaults.json` exists in `/opt/velocity-report`.
   If missing, the checkout predates the config restructure and must be
   updated before the service can start.
-- Directory ownership of `/opt/velocity-report` — determines whether later
+- Directory ownership of `/opt/velocity-report`: determines whether later
   `git` and `make` steps need `sudo -u`.
 - Whether `sudo` is available without a password (affects later steps).
 - The listen port printed at the end of the service block.
@@ -395,13 +395,13 @@ echo "=== binary version ==="
 
 All three must pass before restarting:
 
-- **Config file exists** — the `--config` path in `ExecStart` must resolve.
+- **Config file exists**: the `--config` path in `ExecStart` must resolve.
   If missing, the `/opt/velocity-report` checkout is stale or the
   `git checkout` step failed (check permissions).
-- **Migrations clean** — `Dirty: false` and the current version matches the
+- **Migrations clean**: `Dirty: false` and the current version matches the
   latest migration the binary knows about. If the version is behind, run
   `migrate up` again. If `Dirty: true`, stop and recover.
-- **Binary version** — confirms the installed binary is the expected release.
+- **Binary version**: confirms the installed binary is the expected release.
 
 ## Restart and verify
 
@@ -508,7 +508,7 @@ If the checkout was originally cloned or updated as `root`, some files under
 ## Suggested agent prompt
 
 Use this with a VS Code SSH agent in Ask mode. The agent does not have direct
-command access — it analyses output you paste and gives you blocks to run.
+command access: it analyses output you paste and gives you blocks to run.
 
 ```text
 Open docs/radar/operations/remote-host-upgrade-runbook.md and follow it exactly.

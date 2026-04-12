@@ -6,7 +6,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 
 ## Audit log
 
-`lidar_qc_audit_log` — append-only table:
+`lidar_qc_audit_log`: append-only table:
 
 | Column                 | Type       | Description                                       |
 | ---------------------- | ---------- | ------------------------------------------------- |
@@ -32,7 +32,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 
 ## Run summary
 
-`lidar_qc_run_summary` — materialised table rebuilt on demand:
+`lidar_qc_run_summary`: materialised table rebuilt on demand:
 
 - Total tracks, labelled count, confirmed count, blocked count
 - Quality grade distribution (A–F counts)
@@ -54,12 +54,12 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 
 Six files in the export bundle:
 
-1. `tracks.csv` — all tracks with quality scores, grades, labels
-2. `violations.csv` — all violations with resolution state
-3. `repairs.csv` — all repairs with acceptance state
-4. `events.csv` — all track events
-5. `audit.csv` — full audit log
-6. `summary.csv` — run-level summary row
+1. `tracks.csv`: all tracks with quality scores, grades, labels
+2. `violations.csv`: all violations with resolution state
+3. `repairs.csv`: all repairs with acceptance state
+4. `events.csv`: all track events
+5. `audit.csv`: full audit log
+6. `summary.csv`: run-level summary row
 
 ## Compliance requirement
 

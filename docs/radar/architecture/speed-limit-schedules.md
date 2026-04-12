@@ -78,7 +78,7 @@ _Value:_ Detailed analysis of compliance during different school-related time pe
 
 ### Database schema
 
-**Table:** `speed_limit_schedule` — columns: `id` (autoincrement PK), `site_id` (FK to `site` with cascade delete), `day_of_week` (1=Monday…7=Sunday), `start_time`/`end_time` (HH:MM text), `speed_limit` (integer), `created_at`/`updated_at` (Unix epoch, server-set). Indexed on `site_id` for fast retrieval. An `AFTER UPDATE` trigger maintains `updated_at` automatically. Target: `internal/db/migrations/`.
+**Table:** `speed_limit_schedule`; columns: `id` (autoincrement PK), `site_id` (FK to `site` with cascade delete), `day_of_week` (1=Monday…7=Sunday), `start_time`/`end_time` (HH:MM text), `speed_limit` (integer), `created_at`/`updated_at` (Unix epoch, server-set). Indexed on `site_id` for fast retrieval. An `AFTER UPDATE` trigger maintains `updated_at` automatically. Target: `internal/db/migrations/`.
 
 **Design Notes:**
 
@@ -88,7 +88,7 @@ _Value:_ Detailed analysis of compliance during different school-related time pe
 - **Timestamps:** Unix epoch (seconds since 1970) for consistency with other tables
 - **Indexing:** Fast retrieval of all schedules for a site (common query pattern)
 
-**Data Model:** `SpeedLimitSchedule` struct in `internal/db/` — mirrors the table columns with JSON tags. Fields: `ID`, `SiteID`, `DayOfWeek` (1–7), `StartTime`/`EndTime` (HH:MM strings), `SpeedLimit` (int), `CreatedAt`/`UpdatedAt` (`time.Time`).
+**Data Model:** `SpeedLimitSchedule` struct in `internal/db/`; mirrors the table columns with JSON tags. Fields: `ID`, `SiteID`, `DayOfWeek` (1–7), `StartTime`/`EndTime` (HH:MM strings), `SpeedLimit` (int), `CreatedAt`/`UpdatedAt` (`time.Time`).
 
 ### Database layer (Go)
 
@@ -136,7 +136,7 @@ DELETE /api/speed_limit_schedules/site/{siteID}  - Delete all schedules for site
 - `end_time`: Required, must be in HH:MM format
 - `speed_limit`: Required, must be > 0
 
-**Error Responses:** Standard `{"error": "<message>"}` JSON envelope — 400 for validation failures (e.g., day_of_week out of range), 404 for missing schedule, 500 for database errors with detail text.
+**Error Responses:** Standard `{"error": "<message>"}` JSON envelope; 400 for validation failures (e.g., day_of_week out of range), 404 for missing schedule, 500 for database errors with detail text.
 
 ### Web UI components
 
@@ -189,7 +189,7 @@ When the user clicks "Save" on the site editor page:
 
 **API Client:** `web/src/lib/api.ts`
 
-`SpeedLimitSchedule` interface in `web/src/lib/api.ts` mirrors the JSON shape (id, site_id, day_of_week, start_time, end_time, speed_limit, created_at, updated_at — all typed as number or string). Six async API functions provide full CRUD: `getForSite`, `get`, `create`, `update`, `delete`, and `deleteAllForSite`.
+`SpeedLimitSchedule` interface in `web/src/lib/api.ts` mirrors the JSON shape (id, site_id, day_of_week, start_time, end_time, speed_limit, created_at, updated_at: all typed as number or string). Six async API functions provide full CRUD: `getForSite`, `get`, `create`, `update`, `delete`, and `deleteAllForSite`.
 
 ### Testing
 

@@ -4,12 +4,12 @@ Active plan: [lidar-architecture-dynamic-algorithm-selection-plan.md](../../plan
 
 **Status:** Branch-history design specification (not active on `main` runtime)
 
-`ForegroundExtractor` interface design and its implementations — background-subtraction, velocity-coherent, and hybrid — enabling runtime algorithm selection for the LiDAR foreground extraction stage.
+`ForegroundExtractor` interface design and its implementations: background-subtraction, velocity-coherent, and hybrid; enabling runtime algorithm selection for the LiDAR foreground extraction stage.
 
 ## Problem
 
 The background-subtraction algorithm (`ProcessFramePolarWithMask`) produces
-"foreground trails" — persistent false-positive foreground points behind
+"foreground trails": persistent false-positive foreground points behind
 vehicles after they pass. Root cause: EMA-based background model takes time
 to reconverge after freeze expiry.
 
@@ -53,9 +53,9 @@ correspondence:
 
 Runs multiple extractors in parallel, merges results via configurable mode:
 
-- `union` — OR merge (max detection coverage)
-- `intersection` — AND merge (max precision)
-- `primary` — use first extractor, collect metrics from others
+- `union`: OR merge (max detection coverage)
+- `intersection`: AND merge (max precision)
+- `primary`: use first extractor, collect metrics from others
 
 ## Pipeline integration
 
@@ -73,8 +73,8 @@ Frame callback delegates to extractor when present; all downstream logic
 
 ## Runtime API
 
-- `GET /api/lidar/algorithm` — returns current mode
-- `POST /api/lidar/algorithm` — switches algorithm at runtime
+- `GET /api/lidar/algorithm`: returns current mode
+- `POST /api/lidar/algorithm`: switches algorithm at runtime
 
 ## Evaluation harness
 

@@ -256,31 +256,31 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 ## 5) Suggested implementation phases
 
-### Phase a — foundation (short-term)
+### Phase a: foundation (short-term)
 
 - Introduce versioned experiment schema fields in sweep persistence.
 - Add component-level score breakdown output for all objectives.
 - Add provenance markers for carried-over labels.
 
-### Phase b — transform + objective platform
+### Phase b: transform + objective platform
 
 - Implement transform engine for pre-score metric shaping.
 - Refactor objective implementations into registry-driven modules.
 - Add objective/transform version stamps in run artifacts.
 
-### Phase c — HINT quality and explainability
+### Phase c: HINT quality and explainability
 
 - Add class/time coverage gates to `continue` validation.
 - Add HINT explanation card in dashboard and Svelte sweeps UI.
 - Expose round-over-round delta explanations.
 
-### Phase d — adaptive search expansion
+### Phase d: adaptive search expansion
 
 - Add stochastic/hybrid search strategy behind a feature flag.
 - Add early stopping based on confidence and score stability.
 - Compare compute-cost vs quality against pure grid narrowing.
 
-### Phase e — governance + promotion
+### Phase e: governance + promotion
 
 - Add experiment promotion rules for applying optimal params to scenes.
 - Add audit reports for “why recommendation was accepted.”
@@ -338,7 +338,7 @@ Define success as measurable deltas:
 
 ## 9) Implementation status and remaining backlog
 
-### Completed work (phase a — foundation)
+### Completed work (phase a: foundation)
 
 All Phase A items from the original plan (9.1–9.4) are **done**:
 
@@ -346,9 +346,9 @@ All Phase A items from the original plan (9.1–9.4) are **done**:
 - **9.2** Score component breakdown (`ScoreComponents`, `ScoreExplanation`, `groundTruthScorerDetailed`, `/api/lidar/sweep/explain/{sweep_id}`).
 - **9.3** HINT continue validation with class/time coverage gates (`MinClassCoverage`, `MinTemporalSpreadSecs`, unit tests).
 - **9.4** Explanation rendering in dashboard and Svelte sweeps page (explanation card, score breakdown section, TypeScript interfaces).
-- **Phase A extras** — label provenance markers, IoU-based carry-over confidence, schema contracts (`schema_contracts.go`).
+- **Phase A extras**: label provenance markers, IoU-based carry-over confidence, schema contracts (`schema_contracts.go`).
 
-### Phase a — remaining items
+### Phase a: remaining items
 
 Five `SaveSweepComplete` population tasks require integration with the active
 scorer during live runs. Blocked until Phase B transform pipeline work
@@ -372,26 +372,26 @@ maps each phase to its project milestone and summarises scope.
 | D     | v2.0      | Hybrid search strategy; early stopping on confidence intervals                |
 | E     | v2.0      | Experiment promotion rules; audit reports; canary mode; artefact retention    |
 
-#### Phase b — transform + objective platform (v1.0)
+#### Phase b: transform + objective platform (v1.0)
 
 - [ ] Implement config-driven transform pipeline (`Transform` interface, standard transforms, round-dependent modifiers)
 - [ ] Refactor objectives into registry-driven modules with `ObjectiveDefinition` struct
 - [ ] Add `GET /api/lidar/sweep/objectives` and `/transforms` endpoints
 - [ ] Complete Phase A remaining items (above) once transform pipeline is in place
 
-#### Phase c — HINT quality and explainability (v1.0)
+#### Phase c: HINT quality and explainability (v1.0)
 
 - [ ] Round-over-round delta explanations
 - [ ] Multi-labeller agreement consistency checks
 - [ ] Label-coverage confidence penalty in scoring
 - [ ] Per-round score decomposition rendering (dashboard + Svelte, requires live data)
 
-#### Phase d — adaptive search (v2.0)
+#### Phase d: adaptive search (v2.0)
 
 - [ ] Hybrid search strategy (broad exploration → tight exploitation) behind feature flag
 - [ ] Early stopping based on confidence intervals and score stability
 
-#### Phase e — governance + promotion (v2.0)
+#### Phase e: governance + promotion (v2.0)
 
 - [ ] Experiment promotion rules, audit reports, canary mode
 - [ ] Artefact retention policy and traceable lineage

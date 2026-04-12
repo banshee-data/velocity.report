@@ -8,7 +8,7 @@ identifiable by origin system.
 
 ## Convention
 
-- Format: `{prefix}_{uuidv4}` — e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
+- Format: `{prefix}_{uuidv4}`; e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
 - Prefixes: lowercase 4-letter abbreviation, combined with the UUID as
   `{prefix}_{uuidv4}`.
 - The three run types each get a distinct prefix so you can tell at a glance
@@ -71,17 +71,17 @@ func Parse(s string) (prefix, uuid string, err error)
 
 ## Call sites (11 total)
 
-1. `internal/lidar/l5tracks/tracking.go` — already `trk_`, switch to `id.New("trak")`
-2. `internal/lidar/storage/sqlite/analysis_run_manager.go` — `id.New("runa")`
-3. `internal/lidar/monitor/scene_api.go` — replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
-4. `internal/lidar/monitor/run_track_api.go` — replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
-5. `internal/lidar/storage/sqlite/scene_store.go` — `id.New("scne")`
-6. `internal/lidar/storage/sqlite/evaluation_store.go` — `id.New("eval")`
-7. `internal/lidar/storage/sqlite/missed_region_store.go` — `id.New("regn")`
-8. `internal/api/lidar_labels.go` — `id.New("labl")`
-9. `internal/lidar/sweep/runner.go` (2 sites) — `id.New("swep")`
-10. `internal/lidar/sweep/hint.go` — `id.New("swep")`
-11. `internal/lidar/sweep/auto.go` — `id.New("swep")`
+1. `internal/lidar/l5tracks/tracking.go`: already `trk_`, switch to `id.New("trak")`
+2. `internal/lidar/storage/sqlite/analysis_run_manager.go`: `id.New("runa")`
+3. `internal/lidar/monitor/scene_api.go`: replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
+4. `internal/lidar/monitor/run_track_api.go`: replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
+5. `internal/lidar/storage/sqlite/scene_store.go`: `id.New("scne")`
+6. `internal/lidar/storage/sqlite/evaluation_store.go`: `id.New("eval")`
+7. `internal/lidar/storage/sqlite/missed_region_store.go`: `id.New("regn")`
+8. `internal/api/lidar_labels.go`: `id.New("labl")`
+9. `internal/lidar/sweep/runner.go` (2 sites): `id.New("swep")`
+10. `internal/lidar/sweep/hint.go`: `id.New("swep")`
+11. `internal/lidar/sweep/auto.go`: `id.New("swep")`
 
 ## ID flow
 
@@ -102,7 +102,7 @@ All downstream consumers treat IDs as opaque strings:
 Accept mixed formats. All lookups treat IDs as opaque strings, so prefixed
 and unprefixed IDs coexist without schema changes. Old rows keep their
 existing format (bare UUIDs, `trk_*`, `replay-*`, `reprocess-*`); new rows
-get the `xxxx_` prefix. No `UPDATE` migration needed — IDs are opaque primary
+get the `xxxx_` prefix. No `UPDATE` migration needed: IDs are opaque primary
 keys with no format constraint.
 
 ## Track prefix migration (`trk_` → `trak_`)

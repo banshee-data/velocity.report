@@ -359,7 +359,7 @@ No point cloud, clusters/tracks only:
 
 Client can request specific overlays to reduce payload:
 
-Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `show_points` and `show_gating` (expensive debug overlay) — see `OverlayModeRequest` in section 3.2.
+Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `show_points` and `show_gating` (expensive debug overlay); see `OverlayModeRequest` in section 3.2.
 
 ---
 

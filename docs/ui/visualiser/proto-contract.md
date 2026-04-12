@@ -10,7 +10,7 @@ The visualiser protobuf schema (`visualiser.proto`) declares fields and controls
 
 ## Current state (post v0.5.0)
 
-### Track field serialisation — complete
+### Track field serialisation: complete
 
 All `Track` fields declared in `visualiser.proto` are now serialised by `frameBundleToProto()`, including:
 
@@ -23,7 +23,7 @@ All `Track` fields declared in `visualiser.proto` are now serialised by `frameBu
 
 Test: `TestFrameBundleToProto_TrackFieldCompleteness` asserts every Track field round-trips correctly.
 
-### ObjectClass enum — complete
+### ObjectClass enum: complete
 
 Proto field 26 is now `ObjectClass object_class` (typed enum, not string):
 
@@ -38,7 +38,7 @@ Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and meta-te
 
 ### Speed field direction
 
-- Field 24: `avg_speed_mps` (running mean) — stable.
+- Field 24: `avg_speed_mps` (running mean); stable.
 - Raw maximum field renamed from `peak_speed_mps` to `max_speed_mps`.
 - Aggregate-percentile labels are **not** on the `Track` proto. Percentile computation applies only to grouped/report surfaces.
 - Name `peak_speed_mps` is reserved for a future filtered/context-aware top-speed metric.
@@ -49,11 +49,11 @@ Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and meta-te
 
 - `FrameAdapter.adaptDebugFrame()` builds `DebugOverlaySet` correctly.
 - `frameBundleToProto()` does **not** yet map `frame.Debug` into `pb.FrameBundle.Debug`.
-- Existing tests assert the broken behaviour (`Debug == nil`) — these need replacement with positive serialisation tests.
+- Existing tests assert the broken behaviour (`Debug == nil`): these need replacement with positive serialisation tests.
 
 ### Overlay mode controls
 
-- Decision recorded: `include_debug` gates server-side emission. `SetOverlayModes()` remains client-side/advisory only — no server-side subset filtering.
+- Decision recorded: `include_debug` gates server-side emission. `SetOverlayModes()` remains client-side/advisory only; no server-side subset filtering.
 - `supports_debug=true` in capabilities should be treated as capability declaration, not per-overlay filtering support.
 
 ### Cluster field parity (deferred to v0.5.2)

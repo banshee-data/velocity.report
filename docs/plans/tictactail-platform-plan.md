@@ -2,8 +2,8 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (platform library)
-- **Decision:** D-23 — [DECISIONS.md](../DECISIONS.md)
-- **Backlog:** v0.8 — [BACKLOG.md](../BACKLOG.md)
+- **Decision:** D-23; [DECISIONS.md](../DECISIONS.md)
+- **Backlog:** v0.8; [BACKLOG.md](../BACKLOG.md)
 - **Canonical:** [tictactail-library.md](../platform/architecture/tictactail-library.md)
 
 - **Design specification (working name, ownership, core contract, aggregation, rendering, performance):** see [tictactail-library.md](../platform/architecture/tictactail-library.md).

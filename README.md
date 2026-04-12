@@ -15,7 +15,10 @@
 
 </div>
 
-Street-level speed measurement for neighbourhood change-makers, researchers, and anyone learning what LiDAR can tell you about how traffic actually behaves. Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for safer streets: no cameras, no licence plates, no personally identifiable information.
+Street-level speed measurement for neighbourhood change-makers, researchers,
+and anyone learning what LiDAR can tell you about how traffic actually behaves.
+Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for
+safer streets: no cameras, no licence plates, no personally identifiable information.
 
 - 📊 Professional PDF reports ready for city hall
 - 🔒 No video, no plates, no personally identifiable information
@@ -68,15 +71,30 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
                                                                 ░███████
 ```
 
-> **This is alpha software.** It works. It is tested. It is not yet hardened. **No authentication, no access control**: an exposed instance will serve its data to anyone who asks and its PDF endpoint to anyone who hammers it. PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests; a determined request loop will fill available storage and take the system down. Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem. Deploy on a private network or a dedicated VLAN with its own storage budget (or better yet, a dedicated Pi). Do not point it at the open internet and hope for the best: hope is not a security architecture. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
+> **This is alpha software.** It works. It is tested. It is not yet hardened.
+> **No authentication, no access control**:
+> an exposed instance will serve its data to anyone who asks and its PDF endpoint to anyone who
+> hammers it.
+> PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests;
+> a determined request loop will fill available storage and take the system down.
+> Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem.
+> Deploy on a private network or a dedicated VLAN with its own storage budget (or better yet,
+> a dedicated Pi).
+> Do not point it at the open internet and hope for the best: hope is not a security architecture.
+> See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
 
 ## Why velocity.report?
 
-Communities trying to make their streets safer face a familiar problem: everyone has an opinion about how fast cars go, but nobody has evidence. Council meetings run on anecdote. Speed surveys cost thousands and arrive months late. Meanwhile, someone's child is still crossing that road while motorists zip by.
+Communities trying to make their streets safer face a familiar problem:
+everyone has an opinion about how fast cars go, but nobody has evidence.
+Council meetings run on anecdote. Speed surveys cost thousands and arrive months late.
+Meanwhile, someone's child is still crossing that road while motorists zip by.
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-A radar measures speeds: no cameras, no licence plates, no surveillance infrastructure. The logged data stays on a local device in someone's house. The reports are professional enough for a planning committee.
+A radar measures speeds: no cameras, no licence plates, no surveillance infrastructure.
+The logged data stays on a local device in someone's house.
+The reports are professional enough for a planning committee.
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
@@ -91,17 +109,27 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 ## Privacy
 
-The system records vehicle speed data. That is all it records. No cameras, no licence plates, no video, no personally identifiable information: by design, not by policy. The point is to measure traffic, not to start building a private surveillance habit.
+The system records vehicle speed data. That is all it records.
+No cameras, no licence plates, no video, no personally identifiable information:
+by design, not by policy.
+The point is to measure traffic, not to start building a private surveillance habit.
 
-The data stays on a local device. Reports are generated locally. If PII reaches a log, a response body, or an export, the system has failed.
+The data stays on a local device. Reports are generated locally.
+If PII reaches a log, a response body, or an export, the system has failed.
 
 See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
 ### In practice: Clarendon avenue school zone
 
-Clarendon Avenue runs past an elementary school in San Francisco, designated a high injury road for years. Parents worried about vehicle speeds and whether the city's planned repaving would actually help.
+Clarendon Avenue runs past an elementary school in San Francisco,
+designated a high injury road for years.
+Parents worried about vehicle speeds and whether the city's planned repaving would actually help.
 
-When the city announced a quick-build to repave Clarendon, the Banshee team ran a baseline speed survey in June 2025 and sent the results to the city engineering team ahead of their October planning meeting. The city repaved in December 2025. A second survey in January 2026 showed what parents feared: speeds had climbed, not fallen. The repaving, funded to improve safety, had made the school run more dangerous.
+When the city announced a quick-build to repave Clarendon,
+the Banshee team ran a baseline speed survey in June 2025 and sent the results to the city
+engineering team ahead of their October planning meeting. The city repaved in December 2025.
+A second survey in January 2026 showed what parents feared: speeds had climbed, not fallen.
+The repaving, funded to improve safety, had made the school run more dangerous.
 
 The team [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
 
@@ -130,7 +158,8 @@ The team [presented the findings at a San Francisco City Hall street safety hear
 
 ## Quick start
 
-Requires Go 1.25+, Node.js 18+, and pnpm. See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
+Requires Go 1.25+, Node.js 18+, and pnpm.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
 
 ```sh
 git clone git@github.com:banshee-data/velocity.report.git
@@ -145,7 +174,9 @@ The build produces `velocity-report-local`. Start it without a connected sensor:
 ./velocity-report-local --disable-radar --listen :8080
 ```
 
-The server creates a new SQLite database if one does not exist. Open [localhost:8080](http://localhost:8080) to see the dashboard. Use `--db-path` to point at an existing database elsewhere.
+The server creates a new SQLite database if one does not exist.
+Open [localhost:8080](http://localhost:8080) to see the dashboard.
+Use `--db-path` to point at an existing database elsewhere.
 
 ## Architecture
 
@@ -166,7 +197,11 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
         └──────────────┘ └───────────────┘ └─────────────────────┘
 ```
 
-The web frontend and PDF generator connect over HTTP (:8080). The macOS visualiser uses gRPC (:50051) for streaming point cloud data. The Python PDF generator is deprecated: PDF generation is moving into the Go server. For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
+The web frontend and PDF generator connect over HTTP (:8080).
+The macOS visualiser uses gRPC (:50051) for streaming point cloud data.
+The Python PDF generator is deprecated: PDF generation is moving into the Go server.
+For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md).
+Sensor fusion plans live in [VISION.md](docs/VISION.md).
 
 ## Development & contributing
 
@@ -178,23 +213,39 @@ make lint      # check formatting, code quality, and repo hygiene
 make test      # run all test suites
 ```
 
-These are the core quality checks for local development and CI, but pull requests may also run additional repository or documentation checks.
+These are the core quality checks for local development and CI,
+but pull requests may also run additional repository or documentation checks.
 
-Start with a small issue and read the nearby code before changing anything broad. It is the fastest route to understanding the project and the slowest route to producing an exciting new class of bug.
+Start with a small issue and read the nearby code before changing anything broad.
+It is the fastest route to understanding the project and the slowest route to producing an exciting
+new class of bug.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup, coding standards, and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup, coding standards,
+and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
 
 ## Deployment
 
-The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
+The Go server runs as a systemd service on Raspberry Pi.
+See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
 
 ## Vision: sensor fusion
 
-The LiDAR pipeline already runs a full perception stack: DBSCAN spatial clustering, Kalman-filtered multi-object tracking with state and covariance estimation, and rule-based classification across eight object types (car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed. Today, both run in parallel.
+The LiDAR pipeline already runs a full perception stack:
+DBSCAN spatial clustering,
+Kalman-filtered multi-object tracking with state and covariance estimation,
+and rule-based classification across eight object types (car, truck, bus, pedestrian, cyclist,
+motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed.
+Today, both run in parallel.
 
-The next stage fuses them into a single scene model: cross-sensor track handoff using Mahalanobis-distance gating, Bayesian evidence accumulation for persistent geometry, and canonical object refinement via streaming statistics. A lorry clipping a corner at 35 mph tells a different story to a bicycle at the same speed; radar captures the speed regardless, and fusion adds the geometry to tell the two apart.
+The next stage fuses them into a single scene model:
+cross-sensor track handoff using Mahalanobis-distance gating,
+Bayesian evidence accumulation for persistent geometry,
+and canonical object refinement via streaming statistics.
+A lorry clipping a corner at 35 mph tells a different story to a bicycle at the same speed;
+radar captures the speed regardless, and fusion adds the geometry to tell the two apart.
 
-The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and [VISION.md](docs/VISION.md).
+The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and
+[VISION.md](docs/VISION.md).
 
 <div align="center">
   <img src="public_html/src/images/visualiser-demo.gif" alt="LiDAR point cloud visualiser showing real-time object tracking with bounding boxes and velocity vectors" width="700">
@@ -204,13 +255,18 @@ The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scen
 
 ### macOS LiDAR visualiser
 
-Native Metal renderer for live and recorded LiDAR data, with 96% bandwidth reduction through background caching and foreground-only streaming. Requires macOS 14+ and Apple Silicon.
+Native Metal renderer for live and recorded LiDAR data,
+with 96% bandwidth reduction through background caching and foreground-only streaming.
+Requires macOS 14+ and Apple Silicon.
 
 ```sh
 make dev-mac
 ```
 
-Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud data (.pcap files). See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera navigation.
+Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud
+data (.pcap files).
+See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera
+navigation.
 
 ## 🔑 key documents
 

@@ -9,13 +9,13 @@ Local TLS certificate setup for velocity.report devices, using a first-boot loca
 ## Problem
 
 velocity.report devices serve a web interface on the local network.
-Browsers increasingly distrust plain HTTP — marking pages as insecure,
+Browsers increasingly distrust plain HTTP: marking pages as insecure,
 blocking mixed content, and restricting APIs like the clipboard. A user
 visiting `http://velocity.local:8080` sees a warning label before they
 see any data.
 
 The device uses the `.local` mDNS hostname. No public Certificate
-Authority will issue a certificate for `.local` domains — they are
+Authority will issue a certificate for `.local` domains: they are
 reserved for link-local multicast DNS and explicitly excluded from the
 Web PKI trust model (CA/Browser Forum Baseline Requirements § 7.1.4.2).
 
@@ -97,7 +97,7 @@ renewals are accepted silently.
 ### Go server
 
 The Go server listens on `:8080` (plain HTTP). It has no TLS
-awareness — all HTTPS is handled by nginx.
+awareness: all HTTPS is handled by nginx.
 
 When running in development (no nginx), the server is accessed
 directly at `http://localhost:8080`.
@@ -110,7 +110,7 @@ than 24 hours remain. Because the same CA signs the new cert, browsers
 that have trusted the CA do not need to re-accept anything.
 
 The CA certificate has a 10-year validity. Replacing it requires the
-user to re-trust — this is a deliberate tradeoff. Ten years is longer
+user to re-trust: this is a deliberate tradeoff. Ten years is longer
 than the expected field life of a Raspberry Pi 4.
 
 ## Alternatives considered

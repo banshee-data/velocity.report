@@ -5,7 +5,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 ## Source
 
 - Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
-- Status: Complete — all phases delivered (P0/P1 + P2)
+- Status: Complete; all phases delivered (P0/P1 + P2)
 - Migrations: 000035 (schema additions), 000036 (legacy column removal)
 
 ## Problem
@@ -27,9 +27,9 @@ Canonical deterministic parameter payloads only. No UUIDs, no timestamps, no wal
 
 `param_set_type` encodes the shape contract:
 
-- `requested` — sparse subset of tuning keys (partial, user-specified overrides)
-- `effective` — complete runtime tuning surface as resolved by the engine (every key present)
-- `legacy` — historical backfills where coverage is incomplete
+- `requested`: sparse subset of tuning keys (partial, user-specified overrides)
+- `effective`: complete runtime tuning surface as resolved by the engine (every key present)
+- `legacy`: historical backfills where coverage is incomplete
 
 ### 2. Exact run configs (`lidar_run_configs`)
 
@@ -73,7 +73,7 @@ CREATE TABLE lidar_run_configs (
 
 - `params_hash` = SHA-256 of canonical param-set JSON including `param_set_type` and `schema_version`
 - `config_hash` = SHA-256 of exact composed run config (effective param set + build identity)
-- `created_at` is row-bookkeeping only — not part of any hash
+- `created_at` is row-bookkeeping only: not part of any hash
 - If the param schema changes, the hash must change too
 
 ## Canonical JSON shapes
@@ -92,7 +92,7 @@ CREATE TABLE lidar_run_configs (
 }
 ```
 
-**Effective parameter set** (complete — every layer, every key):
+**Effective parameter set** (complete: every layer, every key):
 
 ```json
 {
@@ -107,7 +107,7 @@ CREATE TABLE lidar_run_configs (
 }
 ```
 
-**Composed run config** (composed on read/export — never stored in `lidar_param_sets`):
+**Composed run config** (composed on read/export: never stored in `lidar_param_sets`):
 
 ```json
 {
@@ -122,7 +122,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 
 ## Config asset package
 
-`internal/lidar/storage/configasset/` — captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
+`internal/lidar/storage/configasset/`: captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
 
 ## Data ownership after migration
 
@@ -135,7 +135,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 
 ### P0/P1: introduce and adopt (migration 000035)
 
-- Schema additions — `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
+- Schema additions: `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
 - Config asset package (`internal/lidar/storage/configasset/`)
 - Effective runtime surface definition (background, clustering, tracker, classification tunables)
 - Timestamp removal from deterministic config identity

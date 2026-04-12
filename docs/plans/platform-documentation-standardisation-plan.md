@@ -1,6 +1,6 @@
 # Documentation standardisation plan
 
-- **Status:** In Progress — metadata and structure rules enforced, opening paragraphs complete
+- **Status:** In Progress; metadata and structure rules enforced, opening paragraphs complete
 - **Layers:** Cross-cutting (documentation)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
@@ -9,21 +9,21 @@ Controlled process to stabilise documentation structure and metadata quality by 
 ### Completion checklist
 
 - [x] Contract defined (this document)
-- [x] Metadata format standardised — `- **Key:** value` canonical format enforced across 86+ files
-- [x] Key normalisation — Layer→Layers, Related variants→Related, Last updated→Last Updated (57→49 unique keys)
-- [x] Date metadata removed — Created, Date, Last Updated, Original Design Date purged from 15 files
-- [x] Date enforcement linter — `BANNED_DATE_KEYS` and `RE_KEY_DATE_SUFFIX` in `check-doc-header-metadata.py`
-- [x] Summary deduplication — resolved 1 file with both `- **Summary:**` bullet and `## Summary` heading
-- [x] Structure rule compliance — zero misplaced docs, all categories correctly organised
-- [x] CI integration — weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode
-- [x] Makefile integration — `lint-docs` (check) and `format-docs` (fix) targets
-- [x] Standard documented — `coding-standards.md` § Documentation Metadata
-- [x] Opening paragraph rule — 58 docs updated with narrative opening paragraphs (DRY audit Strategy C)
-- [ ] Opening paragraph validation gate — no automated checker exists yet
-- [ ] Placeholder/filename-echo detector — §7.3 not implemented
-- [ ] Link integrity gate in CI — §7.1 references `/tmp/check_docs_links.sh` (not permanent)
-- [ ] Main-branch drift reconciliation — §3 not executed
-- [ ] Drift report — §7.4 not implemented
+- [x] Metadata format standardised: `- **Key:** value` canonical format enforced across 86+ files
+- [x] Key normalisation: Layer→Layers, Related variants→Related, Last updated→Last Updated (57→49 unique keys)
+- [x] Date metadata removed: Created, Date, Last Updated, Original Design Date purged from 15 files
+- [x] Date enforcement linter: `BANNED_DATE_KEYS` and `RE_KEY_DATE_SUFFIX` in `check-doc-header-metadata.py`
+- [x] Summary deduplication: resolved 1 file with both `- **Summary:**` bullet and `## Summary` heading
+- [x] Structure rule compliance: zero misplaced docs, all categories correctly organised
+- [x] CI integration: weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode
+- [x] Makefile integration: `lint-docs` (check) and `format-docs` (fix) targets
+- [x] Standard documented: `coding-standards.md` § Documentation Metadata
+- [x] Opening paragraph rule: 58 docs updated with narrative opening paragraphs (DRY audit Strategy C)
+- [ ] Opening paragraph validation gate: no automated checker exists yet
+- [ ] Placeholder/filename-echo detector: §7.3 not implemented
+- [ ] Link integrity gate in CI: §7.1 references `/tmp/check_docs_links.sh` (not permanent)
+- [ ] Main-branch drift reconciliation: §3 not executed
+- [ ] Drift report: §7.4 not implemented
 
 ## 1. Objective
 
@@ -54,7 +54,7 @@ Constraints:
 
 - One or two sentences describing document coverage.
 - Must be narrative text, not filename echoes, status labels, or changelog fragments.
-- Bold `**Status:**` metadata is optional — use only on docs that track implementation progress.
+- Bold `**Status:**` metadata is optional: use only on docs that track implementation progress.
 
 ## 5. Structure rule
 

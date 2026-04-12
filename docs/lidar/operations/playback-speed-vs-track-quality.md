@@ -15,19 +15,19 @@ The speed mode determines which throttling mechanisms are active.
 
 ## PCAP speed modes
 
-| Mode       | SpeedMultiplier | FrameBuilder             | Pacing                | Use Case                           |
-| ---------- | --------------- | ------------------------ | --------------------- | ---------------------------------- |
-| `analysis` | N/A             | **Blocking** (zero drop) | None — `ReadPCAPFile` | Analysis runs, every frame matters |
-| `realtime` | 1.0             | Non-blocking (drop)      | Wall-clock timing     | Live forwarding, visualiser        |
-| `scaled`   | User ratio      | Non-blocking (drop)      | Wall-clock timing     | Controlled-speed replay            |
+| Mode       | SpeedMultiplier | FrameBuilder             | Pacing               | Use Case                           |
+| ---------- | --------------- | ------------------------ | -------------------- | ---------------------------------- |
+| `analysis` | N/A             | **Blocking** (zero drop) | None: `ReadPCAPFile` | Analysis runs, every frame matters |
+| `realtime` | 1.0             | Non-blocking (drop)      | Wall-clock timing    | Live forwarding, visualiser        |
+| `scaled`   | User ratio      | Non-blocking (drop)      | Wall-clock timing    | Controlled-speed replay            |
 
 Key code: `datasource_handlers.go:508–610`.
 
 ### Analysis mode
 
-Calls `ReadPCAPFile` — no timing, no `RealtimeReplayConfig`. Frames fly through
+Calls `ReadPCAPFile`: no timing, no `RealtimeReplayConfig`. Frames fly through
 as fast as the CPU allows. FrameBuilder channel (cap 32) is set to **blocking**
-mode so every frame is delivered — zero drops. Back-pressure from the pipeline
+mode so every frame is delivered: zero drops. Back-pressure from the pipeline
 callback naturally throttles the PCAP reader.
 Best for analysis runs where every frame must be processed.
 
@@ -48,7 +48,7 @@ sleeping when ahead of schedule and applying dynamic backoff when behind.
 was counted as wall-clock time, making `behindBy` grow monotonically at sub-1x
 speeds. The fix subtracts cumulative yield from elapsed time.
 
-**Quality impact:** Pacing doesn't directly affect track quality — it controls
+**Quality impact:** Pacing doesn't directly affect track quality; it controls
 the rate at which packets enter the FrameBuilder. The downstream stages determine
 whether frames are processed or dropped.
 
@@ -57,10 +57,10 @@ whether frames are processed or dropped.
 Accumulates points into 360-degree rotational frames. Completed frames are
 pushed to a channel (capacity **32**).
 
-| Mode                   | Behaviour                          | Drop risk                 |
-| ---------------------- | ---------------------------------- | ------------------------- |
-| Non-blocking (default) | `select` on channel; drops if full | Yes — at burst speeds     |
-| Blocking (`analysis`)  | Blocks until pipeline accepts      | None — full back-pressure |
+| Mode                   | Behaviour                          | Drop risk                |
+| ---------------------- | ---------------------------------- | ------------------------ |
+| Non-blocking (default) | `select` on channel; drops if full | Yes: at burst speeds     |
+| Blocking (`analysis`)  | Blocks until pipeline accepts      | None: full back-pressure |
 
 **Quality impact:** Dropped frames never reach `Tracker.Update()`, so they do
 **not** increment the miss counter or directly consume the miss budget.
@@ -78,7 +78,7 @@ Caps the rate at which frames proceed through the expensive downstream path
 (clustering, tracking, serialisation). Default: **25 fps**.
 
 **What runs on every frame regardless:** Background model update
-(`ProcessFramePolarWithMask`) — keeps foreground extraction accurate even
+(`ProcessFramePolarWithMask`): keeps foreground extraction accurate even
 during throttle.
 
 **What is skipped during throttle:**
@@ -128,7 +128,7 @@ Clamped at `MaxPredictDt=0.5s` to prevent covariance explosion.
   The next delivered frame's capture timestamp jumps by the drop gap, stretching
   dt. At 2× speed with occasional drops, dt might reach 200-400 ms (then
   clamped), widening the gating ellipse and increasing mis-association risk.
-- **Sub-1x speeds:** dt is unchanged — it reflects the fixed sensor cadence
+- **Sub-1x speeds:** dt is unchanged; it reflects the fixed sensor cadence
   in the PCAP capture timestamps (e.g. ~100 ms at 10 Hz), regardless of
   wall-clock replay speed. Gating behaves identically to 1× for the same
   sensor.
@@ -175,7 +175,7 @@ during speed bursts (intentional).
 **Where misses cause quality problems:**
 
 - FrameBuilder drops (non-blocking mode): each dropped frame is invisible to
-  the tracker — no miss is counted, but the track also gets no observation.
+  the tracker: no miss is counted, but the track also gets no observation.
   Paradoxically, drops are **less damaging** to track continuity than processing
   empty frames (which would increment misses). The risk is that fast-moving
   objects move out of the gating radius during the unobserved gap.
@@ -191,7 +191,7 @@ Two-level buffering:
 - **Per-client channel:** capacity 10, drops when client is slow
 
 **Quality impact on visualisation (not tracking):** Publisher drops don't
-affect tracking — they only affect what the gRPC client (visualiser) sees.
+affect tracking: they only affect what the gRPC client (visualiser) sees.
 A slow gRPC client will see stale frames. The gRPC cooldown system enters
 "skip mode" after repeated slow sends, dropping frames at the server to
 prevent backlog growth.

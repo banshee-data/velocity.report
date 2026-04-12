@@ -22,7 +22,8 @@ The project uses a consistent naming scheme: `<action>-<subsystem>[-<variant>]`
 - `subsystem`: functional surface (e.g. `go`, `web`, `config`)
 - `variant`: optional narrowing (e.g. `strict`, `cov`, `linux`)
 
-For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`). Legacy aliases are kept for compatibility.
+For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`).
+Legacy aliases are kept for compatibility.
 
 ## Core subsystem targets
 
@@ -93,7 +94,8 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 ## Deployment targets (removed)
 
-> These targets were removed in v0.5.1. `velocity-deploy` has been replaced by `velocity-ctl`. See [deploy-rpi-imager-fork-plan.md §8](docs/plans/deploy-rpi-imager-fork-plan.md).
+> These targets were removed in v0.5.1. `velocity-deploy` has been replaced by `velocity-ctl`.
+> See [deploy-rpi-imager-fork-plan.md §8](docs/plans/deploy-rpi-imager-fork-plan.md).
 
 - `setup-radar`: Install server on this host (requires sudo, **removed**)
 - `deploy-install`: Removed: use RPi image or manual install
