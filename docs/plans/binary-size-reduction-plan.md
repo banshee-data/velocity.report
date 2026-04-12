@@ -5,6 +5,7 @@
 - **Target:** v0.5.0 — ship a binary < 40 MB, with CI enforcement to prevent regression
 - **Companion plans:**
   [web-frontend-consolidation-plan.md](web-frontend-consolidation-plan.md)
+
 - **Canonical:** [simplification-deprecation §Binary Size](../platform/operations/simplification-deprecation.md#binary-size)
 
 ## Motivation
@@ -15,7 +16,7 @@ now understood and almost entirely mechanical — this is not a framework proble
 GSA analysis (`gsa velocity-report-{version}-linux-arm64 -f json --compact`) reveals:
 
 | Segment                      | Size     | % of binary | What it is                                                       |
-| ---------------------------- | -------- | ----------- | ---------------------------------------------------------------- |
+|------------------------------|----------|-------------|------------------------------------------------------------------|
 | `static/` embed (stale)      | 172.0 MB | 81%         | 200 accumulated SvelteKit builds never cleaned before `go build` |
 | Go code + all dependencies   | 38.2 MB  | 18%         | SQLite, gRPC, protobuf, gonum, echarts, crypto, runtime, etc.    |
 | `web/build/` embed (current) | 1.1 MB   | 1%          | The actual single-version SvelteKit build                        |
@@ -56,7 +57,7 @@ used — the server reads from the filesystem (`http.Dir("./static")`).
 ## Current Frontend Profile
 
 | Metric                               | Value                                   |
-| ------------------------------------ | --------------------------------------- |
+|--------------------------------------|-----------------------------------------|
 | Pages                                | 9 routes                                |
 | Components                           | 6 Svelte components                     |
 | Source lines (no tests)              | ~11,000                                 |
@@ -132,7 +133,7 @@ if devMode {
 ### Expected result after Phase 1
 
 | Segment         | Before     | After      |
-| --------------- | ---------- | ---------- |
+|-----------------|------------|------------|
 | Stale `static/` | 172.0 MB   | 0 MB       |
 | `web/build/`    | 1.1 MB     | 1.1 MB     |
 | Go code + deps  | 38.2 MB    | 38.2 MB    |
@@ -155,7 +156,7 @@ Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 ### Expected result after Phase 2
 
 | Segment            | Size       |
-| ------------------ | ---------- |
+|--------------------|------------|
 | `web/build/`       | 1.1 MB     |
 | Go code (stripped) | ~27 MB     |
 | **Total**          | **~28 MB** |
@@ -237,7 +238,7 @@ is code-split into a separate chunk loaded on demand. This does not reduce binar
 The user asked whether Svelte is the right framework given the small footprint. Summary:
 
 | Factor                  | Assessment                                                                             |
-| ----------------------- | -------------------------------------------------------------------------------------- |
+|-------------------------|----------------------------------------------------------------------------------------|
 | Build output            | 1.1 MB (348 KB gzipped) — already tiny                                                 |
 | Runtime complexity      | 9 pages, 6 components, minimal state — well within Svelte's sweet spot                 |
 | Alternative: Preact     | Similar output size (~1 MB), less ecosystem, migration cost                            |
@@ -251,7 +252,7 @@ excessive was the build hygiene.
 ## What Gets Sacrificed
 
 | Sacrifice                             | Impact                                                                                           |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+|---------------------------------------|--------------------------------------------------------------------------------------------------|
 | `static/` embed removed               | None in production; dev mode path changes                                                        |
 | Debug symbols stripped (prod only)    | Stack traces in production crashes are less readable; mitigated by keeping symbols in dev builds |
 | `echarts.min.js` removal (if pursued) | Only if LiDAR status pages move to Svelte frontend                                               |
@@ -259,7 +260,7 @@ excessive was the build hygiene.
 ## Risks
 
 | Risk                                         | Likelihood | Impact | Mitigation                                                            |
-| -------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------- |
+|----------------------------------------------|------------|--------|-----------------------------------------------------------------------|
 | Dev mode behaviour change breaks workflow    | Medium     | Low    | Test dev mode with `./web/build` path before merging                  |
 | CI size gate too tight, blocks valid PRs     | Low        | Low    | Set threshold at 45 MB (60% headroom above ~28 MB target)             |
 | Stripped binary makes crash debugging harder | Low        | Medium | Keep debug symbols in local/dev builds; deploy with `GOTRACEBACK=all` |

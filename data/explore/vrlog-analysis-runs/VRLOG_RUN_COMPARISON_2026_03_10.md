@@ -8,7 +8,7 @@
 ## 1. Run Summary
 
 | Run        | Format | Speed | Frames | Confirmed | Tentative | Deleted | Total | Frag  |
-| ---------- | ------ | ----- | ------ | --------- | --------- | ------- | ----- | ----- |
+|------------|--------|-------|--------|-----------|-----------|---------|-------|-------|
 | `54ba7296` | 1.0    | n/a   | 2012   | 15        | 194       | 235     | 444   | 0.437 |
 | `60a4774c` | 0.5    | 0.1x  | 1832   | 6         | 154       | 200     | 360   | 0.428 |
 | `d8f87151` | 0.5    | 0.5x  | 1434   | 5         | 132       | 167     | 304   | 0.434 |
@@ -22,7 +22,7 @@
 Higher playback speed means fewer frames make it into the VRLOG:
 
 | Speed | Frames | % of source |
-| ----- | ------ | ----------- |
+|-------|--------|-------------|
 | n/a   | 2012   | 100%        |
 | 0.1x  | 1832   | 91%         |
 | 0.5x  | 1434   | 71%         |
@@ -63,7 +63,7 @@ speeds (possibly allowing the PCAP timestamp source to stabilise before
 the first frame was recorded).
 
 | Run        | `start_ns` origin | `end_ns` origin   |
-| ---------- | ----------------- | ----------------- |
+|------------|-------------------|-------------------|
 | `54ba7296` | PCAP (2025-12-05) | PCAP (2025-12-05) |
 | `60a4774c` | PCAP (2025-12-05) | PCAP (2025-12-05) |
 | `d8f87151` | Wall (2026-03-10) | PCAP (2025-12-05) |
@@ -87,7 +87,7 @@ populated in the FrameBundle (separate bug).
 ### 2.4 Confirmed track count scales directly with frame count
 
 | Run        | Frames | Confirmed |
-| ---------- | ------ | --------- |
+|------------|--------|-----------|
 | `54ba7296` | 2012   | 15        |
 | `60a4774c` | 1832   | 6         |
 | `d8f87151` | 1434   | 5         |
@@ -102,21 +102,23 @@ the direct mechanism by which frame dropping causes track loss.
 
 Pairwise comparison of 54ba7296 (best) against each other run:
 
-| Comparison          | Matched | A-only | B-only | Speed corr | Mean speed Δ |
-| ------------------- | ------- | ------ | ------ | ---------- | ------------ |
-| 54ba vs 60a4 (0.1x) | 6       | 9      | 0      | 0.319      | 1.87 m/s     |
-| 54ba vs d8f8 (0.5x) | 5       | 10     | 0      | 0.998      | 0.13 m/s     |
-| 54ba vs 8802 (1.0x) | 4       | 11     | 0      | 0.803      | 1.08 m/s     |
-| 54ba vs 8099 (1.0x) | 3       | 12     | 0      | 0.999      | 0.77 m/s     |
+| Comparison          | Matched | A-only | B-only | Speed corr | Mean speed Δ  |
+|---------------------|---------|--------|--------|------------|---------------|
+| 54ba vs 60a4 (0.1x) | 6       | 9      | 0      | 0.319      | 1.87 m/s      |
+| 54ba vs d8f8 (0.5x) | 5       | 10     | 0      | 0.998      | 0.13 m/s      |
+| 54ba vs 8802 (1.0x) | 4       | 11     | 0      | 0.803      | 1.08 m/s      |
+| 54ba vs 8099 (1.0x) | 3       | 12     | 0      | 0.999      | 0.77 m/s      |
 
 Key observations:
 
 - **B-only = 0 everywhere**: the fewer-frames run never finds tracks that
   the more-frames run misses. Frame loss only removes tracks, never adds.
+
 - **54ba vs 60a4 has anomalously low speed correlation (0.319)** despite
   both having many frames. One matched pair has a 5.68 m/s speed delta,
   suggesting track ID fragmentation assigned different observation windows
   to what should be the same physical object.
+
 - **Observation ratios drop with fewer frames**: e.g., for the matched car
   track, obs_ratio goes 0.99 → 0.78 → 0.35 → 0.09 as frames decrease.
 
@@ -141,7 +143,7 @@ property of the scene/tuning, not of frame completeness.
 ## 3. Root Cause Summary
 
 | Issue                     | Severity | Root cause                                           |
-| ------------------------- | -------- | ---------------------------------------------------- |
+|---------------------------|----------|------------------------------------------------------|
 | Frame loss at speed       | Critical | No backpressure / flow control in PCAP replay path   |
 | Track loss at speed       | Critical | Direct consequence of frame loss                     |
 | Timestamp inversion       | High     | First frame carries wall-clock, not PCAP timestamp   |
@@ -160,6 +162,7 @@ property of the scene/tuning, not of frame completeness.
 
 1. Count physical frames in `kirk1.pcapng` using a PCAP parser (count
    packets matching the LiDAR port).
+
 2. Run pipeline in analysis mode at 0.01x speed with VRLOG recording.
 3. Compare VRLOG `total_frames` to PCAP frame count.
 4. If they differ, the pipeline has frame loss even at the slowest speed.
@@ -183,8 +186,10 @@ processing.
 
 1. Add `--sync` flag to analysis mode that blocks PCAP reads on pipeline
    completion.
+
 2. Run `kirk1.pcapng` with `--sync` and compare output to the best
    existing run (54ba7296).
+
 3. Frame count should equal PCAP frame count. Track count and
    classifications should be deterministic (identical across repeated
    runs).
@@ -207,6 +212,7 @@ the wall-clock contamination.
 
 1. Add logging at the PCAP reader, frame pipeline, and recorder entry
    points to trace `FrameBundle.TimestampNanos` origin.
+
 2. Run at 1.0x speed and capture the first 5 frame timestamps.
 3. Identify which component injects the wall-clock timestamp.
 
@@ -224,8 +230,10 @@ confirm all real objects.
 
 1. Using the synchronous analysis mode from Experiment 2, process the
    PCAP at full resolution (100% frames).
+
 2. Downsample by processing every Nth frame (N=2,3,5,10) and re-run
    analysis.
+
 3. For each N, compare confirmed track counts and matched track IOU.
 4. Plot confirmed track count vs frame percentage.
 
@@ -242,6 +250,7 @@ threshold is too aggressive or whether frame loss is the sole cause.
 1. Log `foreground_pct` per frame during a slow-speed analysis run.
 2. Check whether the first N frames have 100% foreground (expected during
    background learning) and whether it drops after warmup.
+
 3. If foreground stays at 100%, inspect whether the background update path
    is disabled or misconfigured in PCAP mode.
 
@@ -261,6 +270,7 @@ tracks from noise.
 
 1. Run the synchronous analysis mode (Experiment 2) on `kirk1.pcapng`
    5 times.
+
 2. Compare all 5 reports using `vrlog-analyse compare`.
 3. All pairs should show: identical frame counts, identical track counts,
    track matching IOU = 1.0 for all confirmed tracks, identical speed
@@ -277,8 +287,10 @@ all 5 runs are byte-identical in their report output.
 
 1. Using a deterministic full-frame analysis, count how many tentative
    tracks have observation counts close to the confirmation threshold.
+
 2. Lower the confirmation threshold by 25% and re-run — how many more
    tracks get confirmed?
+
 3. Raise the threshold by 25% — how many tracks are lost?
 
 **Expected outcome:** Quantify the sensitivity of the confirmation
@@ -290,14 +302,19 @@ aggressive for the observed frame rate.
 
 1. **Experiment 2 (Sync analysis mode)** — foundational; everything else
    depends on deterministic, complete frame processing.
+
 2. **Experiment 1 (Frame integrity)** — validates that sync mode works.
 3. **Experiment 3 (Timestamp audit)** — fixes the duration/interval
    corruption.
+
 4. **Experiment 5 (Background model)** — explains 100% foreground and
    tentative track explosion.
+
 5. **Experiment 6 (Determinism)** — validates the analysis pipeline is
    reliable.
+
 6. **Experiment 4 (Frame rate threshold)** — informs graceful degradation
    design.
+
 7. **Experiment 7 (Confirmation threshold)** — fine-tuning after
    fundamentals are fixed.

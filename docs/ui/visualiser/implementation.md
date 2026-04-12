@@ -473,8 +473,8 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 **Options for Proper Pool Utilisation**:
 
 | Option                            | Description                                                                                                                                        | Pros                                                 | Cons                                                   |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| **A: Reference Counting** ✅      | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|--------------------------------------------------------|
+| **A: Reference Counting** ✅       | Add `refCount` field to PointCloudFrame. Increment on broadcast to each client, decrement after protobuf conversion. Release when count hits zero. | Pool actually gets reused; memory-efficient at scale | Added complexity; must ensure all code paths decrement |
 | **B: Copy-on-Broadcast**          | Each client receives a deep copy of the frame                                                                                                      | Simple ownership model; no shared state              | Defeats purpose of pooling; higher memory use          |
 | **C: Single-Client Optimisation** | Only use pool in replay mode (single client). Live mode uses regular allocation.                                                                   | Works today without changes                          | Pool only helps replay; live mode still allocates      |
 | **D: Remove Pooling**             | Delete pool code; use regular slices                                                                                                               | Simplest; fewer bugs                                 | Higher GC pressure at 70k points × 10 Hz               |
@@ -587,19 +587,19 @@ frame.PointCloud.Release()
 
 ## 3. Task Breakdown Summary
 
-| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status          |
-| ---------------------- | -------------- | -------------- | ------------ | --------------- |
-| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete     |
-| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete     |
-| M2: Real Points        | 2              | 4              | 6            | ✅ Complete     |
-| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete     |
-| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete     |
-| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete     |
-| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B) |
-| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B) |
-| M7: Performance        | 4              | 4              | 8            | ✅ Complete     |
-| M8: BG Debug Surfaces  | 4              | 4              | 8            | 📝 Planned      |
-| **Total**              | **34**         | **51**         | **85**       | **M8 pending**  |
+| Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status           |
+|------------------------|----------------|----------------|--------------|------------------|
+| M0: Schema + Synthetic | 5              | 5              | 10           | ✅ Complete       |
+| M1: Recorder/Replayer  | 4              | 4              | 8            | ✅ Complete       |
+| M2: Real Points        | 2              | 4              | 6            | ✅ Complete       |
+| M3: Canonical Model    | 0              | 5              | 5            | ✅ Complete       |
+| M3.5: Split Streaming  | 3              | 5              | 8            | ✅ Complete       |
+| M4: Tracking Refactor  | 2              | 6              | 8            | ✅ Complete       |
+| M5: Algorithm Upgrades | 2              | 10             | 12           | ✅ Complete (B)   |
+| M6: Debug + Labelling  | 8              | 4              | 12           | ✅ Complete (B)   |
+| M7: Performance        | 4              | 4              | 8            | ✅ Complete       |
+| M8: BG Debug Surfaces  | 4              | 4              | 8            | 📝 Planned        |
+| **Total**              | **34**         | **51**         | **85**       | **M8 pending**   |
 
 ---
 
@@ -662,18 +662,18 @@ frame.PointCloud.Release()
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point                          | Status          |
-| --------- | ----------------------------------- | --------------- |
-| M0        | Synthetic visualisation works fully | ✅ Complete     |
-| M1        | Replay with seek/pause works        | ✅ Complete     |
-| M2        | Real point clouds render            | ✅ Complete     |
-| M3        | Both outputs work from same model   | ✅ Complete     |
-| M3.5      | Bandwidth reduced to <5 Mbps        | ✅ Complete     |
-| M4        | Golden replay tests pass            | ✅ Complete     |
-| M5        | Improved tracking quality validated | ✅ Complete (B) |
-| M6        | Labelling workflow complete         | ✅ Complete (B) |
-| M7        | Performance targets met             | ✅ Complete     |
-| M8        | BG debug surfaces + region map live | 📝 Planned      |
+| Milestone | Stop Point                          | Status           |
+|-----------|-------------------------------------|------------------|
+| M0        | Synthetic visualisation works fully | ✅ Complete       |
+| M1        | Replay with seek/pause works        | ✅ Complete       |
+| M2        | Real point clouds render            | ✅ Complete       |
+| M3        | Both outputs work from same model   | ✅ Complete       |
+| M3.5      | Bandwidth reduced to <5 Mbps        | ✅ Complete       |
+| M4        | Golden replay tests pass            | ✅ Complete       |
+| M5        | Improved tracking quality validated | ✅ Complete (B)   |
+| M6        | Labelling workflow complete         | ✅ Complete (B)   |
+| M7        | Performance targets met             | ✅ Complete       |
+| M8        | BG debug surfaces + region map live | 📝 Planned        |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 

@@ -9,15 +9,15 @@ Canonical vocabulary of track classification labels used across the proto wire f
 ## Canonical Vocabulary (proto3 enum authoritative)
 
 | Value | Name         | User-Assignable | Notes                        |
-| ----- | ------------ | --------------- | ---------------------------- |
+|-------|--------------|-----------------|------------------------------|
 | 0     | UNSPECIFIED  | —               | Default/unknown              |
-| 1     | NOISE        | ✅              | Environmental noise          |
-| 2     | DYNAMIC      | ✅              | Classifier fallback          |
-| 3     | PEDESTRIAN   | ✅              | Foot traffic                 |
-| 4     | CYCLIST      | ✅              | Pedal cyclists + motorcycles |
-| 5     | BIRD         | ✅              | Airborne fauna               |
-| 6     | BUS          | ✅              | Public transit               |
-| 7     | CAR          | ✅              | Cars, vans, trucks           |
+| 1     | NOISE        | ✅               | Environmental noise          |
+| 2     | DYNAMIC      | ✅               | Classifier fallback          |
+| 3     | PEDESTRIAN   | ✅               | Foot traffic                 |
+| 4     | CYCLIST      | ✅               | Pedal cyclists + motorcycles |
+| 5     | BIRD         | ✅               | Airborne fauna               |
+| 6     | BUS          | ✅               | Public transit               |
+| 7     | CAR          | ✅               | Cars, vans, trucks           |
 | 8     | TRUCK        | Reserved v0.6+  | Proto value stable           |
 | 9     | MOTORCYCLIST | Reserved v0.6+  | Proto value stable           |
 

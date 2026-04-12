@@ -99,7 +99,7 @@ Current method names (pending rename to `ReplayCase*` prefix):
 Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handler names pending rename in v0.5.1+):
 
 | Method | Endpoint                                    | Description                              |
-| ------ | ------------------------------------------- | ---------------------------------------- |
+|--------|---------------------------------------------|------------------------------------------|
 | GET    | `/api/lidar/scenes`                         | List all replay cases (optional filter)  |
 | POST   | `/api/lidar/scenes`                         | Create new replay case from JSON body    |
 | GET    | `/api/lidar/scenes/{replay_case_id}`        | Get replay case details including params |

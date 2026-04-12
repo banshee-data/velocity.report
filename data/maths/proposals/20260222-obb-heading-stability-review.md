@@ -66,6 +66,7 @@ When the principal axis rotates by 90°, two things happen simultaneously:
 
 1. **Heading jumps by ~90°** (half a right angle, not caught by the 180°
    flip-toward-velocity guard).
+
 2. **Length and width swap**: `obb.Length` becomes the old `obb.Width` and
    vice versa, because length is always defined as extent along the principal
    eigenvector.
@@ -108,6 +109,7 @@ using:
 
 - **Dimensions:** `bboxLength` × `bboxWidth` × `bboxHeight`
   (per-frame cluster dimensions)
+
 - **Heading:** `bboxHeadingRad` (smoothed OBB heading from tracker)
 
 These two signals are not synchronised:
@@ -149,17 +151,17 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ## 3. Problematic Code Paths (Summary)
 
-| Location                      | Issue                                                                | Status                                            |
-| ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
-| `l4perception/obb.go:103`     | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity     | Mitigated by velocity/displacement disambiguation |
-| `l4perception/obb.go:142–145` | `length` / `width` defined by principal axis — swaps when axis flips | Handled by 90° jump rejection (Guard 3)           |
-| `l5tracks/tracking.go`        | Velocity disambiguation only when speed > 0.5 m/s                    | Displacement fallback added (Fix C)               |
-| `l5tracks/tracking.go`        | Aspect-ratio lock threshold 0.25 may be too loose                    | Open (Fix D)                                      |
-| `l5tracks/tracking.go`        | 90° heading jumps from PCA axis swaps                                | **Fixed:** Guard 3 rejects 60°–120° jumps         |
-| `l5tracks/tracking.go`        | No heading-source diagnostic data                                    | **Fixed:** HeadingSource enum added (Fix G)       |
-| `l5tracks/tracking.go`        | Dimension averaging not axis-locked                                  | **Fixed:** per-frame cluster dims used (Fix B)    |
-| `MetalRenderer.swift`         | Track boxes use averaged dims with smoothed heading                  | Comment updated; Fix E pending                    |
-| `adapter.go`                  | Associated clusters not rendered (hinders debugging)                 | Open (Fix F)                                      |
+| Location                        | Issue                                                                  | Status                                            |
+|---------------------------------|------------------------------------------------------------------------|---------------------------------------------------|
+| `l4perception/obb.go:103`       | `heading = atan2(evY, evX)` — raw PCA heading has 180° ambiguity       | Mitigated by velocity/displacement disambiguation |
+| `l4perception/obb.go:142–145`   | `length` / `width` defined by principal axis — swaps when axis flips   | Handled by 90° jump rejection (Guard 3)           |
+| `l5tracks/tracking.go`          | Velocity disambiguation only when speed > 0.5 m/s                      | Displacement fallback added (Fix C)               |
+| `l5tracks/tracking.go`          | Aspect-ratio lock threshold 0.25 may be too loose                      | Open (Fix D)                                      |
+| `l5tracks/tracking.go`          | 90° heading jumps from PCA axis swaps                                  | **Fixed:** Guard 3 rejects 60°–120° jumps         |
+| `l5tracks/tracking.go`          | No heading-source diagnostic data                                      | **Fixed:** HeadingSource enum added (Fix G)       |
+| `l5tracks/tracking.go`          | Dimension averaging not axis-locked                                    | **Fixed:** per-frame cluster dims used (Fix B)    |
+| `MetalRenderer.swift`           | Track boxes use averaged dims with smoothed heading                    | Comment updated; Fix E pending                    |
+| `adapter.go`                    | Associated clusters not rendered (hinders debugging)                   | Open (Fix F)                                      |
 
 ---
 
@@ -359,14 +361,18 @@ before tracking smoothing is applied.
 
 1. **Guard 3** (90° heading jump rejection) — catches PCA axis swaps at the
    tracker level. Replaces Fix A (canonical-axis normalisation, reverted).
+
 2. **Fix C** (low-speed disambiguation) — addresses 180° flip cases via
    displacement fallback.
+
 3. **Fix B** (use cluster dimensions directly) — per-frame rendering uses
    DBSCAN dimensions. Skips dimension updates when heading is locked to
    maintain axis consistency.
+
 4. **Fix D** (tighten aspect-ratio threshold) — config-only, reduces noise.
 5. **Fix G** (heading-source debug rendering) — colour-code boxes by heading
    origin for drift diagnosis.
+
 6. **Fix E** (renderer consistency) — synchronise both renderers.
 7. **Fix F** (debug cluster rendering) — optional, for ongoing tuning.
 
@@ -383,6 +389,7 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 - `obb_test.go`: Verify correct dimensions for rectangles in X and Y.
 - `tracking_test.go`: Verify heading stability for near-square clusters
   across multiple frames.
+
 - `tracking_test.go`: Verify dimension consistency when PCA axis would
   otherwise swap.
 
@@ -391,6 +398,7 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 - Run existing `.vrlog` captures through the pipeline with and without fixes.
 - Measure heading jitter RMS (already tracked in
   `HeadingJitterSumSq`/`HeadingJitterCount`).
+
 - Use heading-source debug rendering (Fix G) to identify which tracks have
   unstable heading sources.
 
@@ -398,8 +406,10 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 
 - Enable `showHeadingSource` in macOS visualiser to see heading-source
   colour coding (blue/yellow/orange/grey) on track boxes.
+
 - With Fix F enabled, compare raw DBSCAN OBBs against smoothed track OBBs
   in the macOS visualiser.
+
 - Confirm that cyan (cluster) boxes spin but green/yellow (track) boxes do
   not after fixes are applied.
 
@@ -412,8 +422,10 @@ The tracker already computes:
 - **Heading jitter** (`HeadingJitterSumSq` / `HeadingJitterCount`) — RMS of
   frame-to-frame heading changes. This directly measures the spinning problem.
   After fixes, expect significant reduction.
+
 - **Velocity-trail alignment** (`AlignmentMeanRad`) — measures Kalman velocity
   vs displacement direction. Not directly affected by OBB fixes.
+
 - **Speed jitter** (`SpeedJitterSumSq` / `SpeedJitterCount`) — not directly
   related but may improve if tracking association quality improves.
 

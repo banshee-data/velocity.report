@@ -23,7 +23,7 @@ Two classes of problem lack tooling:
 Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
 | Field                | Type     | Description                         |
-| -------------------- | -------- | ----------------------------------- |
+|----------------------|----------|-------------------------------------|
 | `FrameID`            | `string` | Frame identifier                    |
 | `TimestampNanos`     | `int64`  | Frame start timestamp               |
 | `PolarConvertUs`     | `int64`  | L1→polar conversion                 |
@@ -56,7 +56,7 @@ Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go
 For each cluster→track association in `Tracker.Update()`, log (at `tracef` level) the decision context:
 
 | Field             | Type      | Description                             |
-| ----------------- | --------- | --------------------------------------- |
+|-------------------|-----------|-----------------------------------------|
 | `TrackID`         | `string`  | Target track                            |
 | `ClusterID`       | `int`     | Associated cluster                      |
 | `MahalDistance`   | `float32` | Mahalanobis distance (pre-gating)       |
@@ -82,7 +82,7 @@ On track deletion, emit a `diagf`-level summary including duration, length, obse
 Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
 | Field                     | Type      | Description                                |
-| ------------------------- | --------- | ------------------------------------------ |
+|---------------------------|-----------|--------------------------------------------|
 | `DBSCANNeighboursVisited` | `int`     | Neighbour queries during cluster expansion |
 | `PointDensity`            | `float32` | Points per m² of OBB area                  |
 | `RangeMean`               | `float32` | Mean range of cluster points from sensor   |
@@ -122,7 +122,7 @@ Add a `bench-clustering` step to `.github/workflows/go-ci.yml` running only on p
 **Regression thresholds:**
 
 | Metric                  | Warning (exit 0) | Regression (exit 1) |
-| ----------------------- | ---------------- | ------------------- |
+|-------------------------|------------------|---------------------|
 | `wall_clock_ms`         | >10%             | >20%                |
 | `dbscan_p99_us`         | >15%             | >30%                |
 | `subsample_rate_pct`    | absolute >5%     | absolute >15%       |
@@ -154,7 +154,7 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 ### Tuning Parameters with Pi Impact
 
 | Parameter                       | Default | Pi Recommendation | Impact                                           |
-| ------------------------------- | ------- | ----------------- | ------------------------------------------------ |
+|---------------------------------|---------|-------------------|--------------------------------------------------|
 | `foreground_max_input_points`   | 8000    | 2000–4000         | Caps DBSCAN input; O(n·k) improvement            |
 | `foreground_dbscan_eps`         | 1.0     | 1.5–2.0           | Larger eps → fewer grid cells, faster queries    |
 | `foreground_min_cluster_points` | 3       | 5                 | Fewer tiny clusters → less tracking overhead     |
@@ -166,7 +166,7 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 ### Pi Frame Budget at 10 Hz
 
 | Stage             | Budget (ms) | Notes                                                      |
-| ----------------- | ----------- | ---------------------------------------------------------- |
+|-------------------|-------------|------------------------------------------------------------|
 | Polar conversion  | 2           | Linear in points; already fast                             |
 | Background update | 15          | 72K cell grid; dominated by memory bandwidth               |
 | Ground filter     | 2           | Single-pass height cull                                    |

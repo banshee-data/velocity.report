@@ -89,7 +89,7 @@ Phase 7 (percentile removal / migration 030)
 ## Risk Register
 
 | Risk                                                   | Mitigation                                                   |
-| ------------------------------------------------------ | ------------------------------------------------------------ |
+|--------------------------------------------------------|--------------------------------------------------------------|
 | `statistics_json` bloats DB for large runs             | JSON is < 1 KB; negligible                                   |
 | Track quality writes increase per-frame DB load        | 6 extra columns in existing UPDATE; ~µs overhead per frame   |
 | Training export returns very large responses           | Pagination/streaming; apply `TrackTrainingFilter` by default |

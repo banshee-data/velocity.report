@@ -198,7 +198,7 @@ The main dashboard does not show the current site name, data range, or sensor co
 Combines HTTP handler registration, PCAP replay control, live UDP listening, ECharts chart generation, state management, and data source lifecycle in a single file. This is flagged in the existing plans but warrants a structured split:
 
 | Extracted file      | Responsibility                  | Est. lines |
-| ------------------- | ------------------------------- | ---------- |
+|---------------------|---------------------------------|------------|
 | `routes.go`         | Route table registration        | ~200       |
 | `data_source.go`    | DataSourceManager lifecycle     | ~400       |
 | `pcap_control.go`   | PCAP replay start/stop/progress | ~500       |

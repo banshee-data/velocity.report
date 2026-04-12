@@ -55,14 +55,14 @@ Additionally, HINT round history stores only `BestScore` + `BestScoreComponents`
 ## Cross-System Benefit Map
 
 | Item                     | HINT Label | HINT Dash | Runs | Sweep | PDF | macOS | ML  |
-| ------------------------ | ---------- | --------- | ---- | ----- | --- | ----- | --- |
-| A1 Run statistics        | ✅         | ✅        | ✅   | ✅    | ✅  | —     | —   |
-| A2 Track quality on web  | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
-| A3 quality_score persist | ✅         | —         | ✅   | —     | —   | —     | ✅  |
-| B1 Run comparison API    | ✅         | ✅        | ✅   | ✅    | —   | —     | —   |
-| B2 Noise coverage        | ✅         | ✅        | ✅   | —     | —   | —     | —   |
-| C1 Foreground fraction   | —          | ✅        | —    | ✅    | —   | —     | —   |
-| C2 State transitions     | —          | ✅        | ✅   | ✅    | —   | —     | —   |
-| C3 Full combo in history | —          | ✅        | —    | ✅    | —   | —     | —   |
-| D1 Per-track jitter      | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
-| D2 Per-track alignment   | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
+|--------------------------|------------|-----------|------|-------|-----|-------|-----|
+| A1 Run statistics        | ✅          | ✅         | ✅    | ✅     | ✅   | —     | —   |
+| A2 Track quality on web  | ✅          | —         | ✅    | —     | —   | 🔶     | —   |
+| A3 quality_score persist | ✅          | —         | ✅    | —     | —   | —     | ✅   |
+| B1 Run comparison API    | ✅          | ✅         | ✅    | ✅     | —   | —     | —   |
+| B2 Noise coverage        | ✅          | ✅         | ✅    | —     | —   | —     | —   |
+| C1 Foreground fraction   | —          | ✅         | —    | ✅     | —   | —     | —   |
+| C2 State transitions     | —          | ✅         | ✅    | ✅     | —   | —     | —   |
+| C3 Full combo in history | —          | ✅         | —    | ✅     | —   | —     | —   |
+| D1 Per-track jitter      | ✅          | —         | ✅    | —     | —   | 🔶     | —   |
+| D2 Per-track alignment   | ✅          | —         | ✅    | —     | —   | 🔶     | —   |

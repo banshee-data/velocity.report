@@ -58,12 +58,16 @@ However, the plan currently behaves mostly as a **feature plan**, not yet a **pl
 
 1. **Scoring logic risks growing monolithic.**
    As more HINT-specific scoring and weighting heuristics are added, objective code can become difficult to audit and compare over time.
+
 2. **Feature transformations are implicit.**
    There is no explicit transform layer for derived signals used by objective/scoring (e.g., round-normalised metrics, class imbalance corrections, uncertainty penalties).
+
 3. **Explainability is currently output-oriented, not decomposition-oriented.**
    The system can show aggregate scores, but needs score component decomposition and “top contributing factors” to improve operator trust and labelling quality.
+
 4. **Experiment schema versioning is under-specified.**
    HINT creates longitudinal experiments; reproducibility requires explicit versioning of transforms, scoring formulas, weight sets, and eligibility filters.
+
 5. **Search strategy is primarily grid narrowing.**
    This is good for deterministic coverage but should be complemented with low-cost stochastic or adaptive search to reduce compute and improve early-round exploration.
 
@@ -366,7 +370,7 @@ Phases B–E are tracked in [BACKLOG.md](../../BACKLOG.md). The table below
 maps each phase to its project milestone and summarises scope.
 
 | Phase | Milestone | Scope                                                                         |
-| ----- | --------- | ----------------------------------------------------------------------------- |
+|-------|-----------|-------------------------------------------------------------------------------|
 | B     | v1.0      | Config-driven transform pipeline; objective registry; version stamps          |
 | C     | v1.0      | Round-over-round deltas; label-coverage penalties; multi-labeller consistency |
 | D     | v2.0      | Hybrid search strategy; early stopping on confidence intervals                |

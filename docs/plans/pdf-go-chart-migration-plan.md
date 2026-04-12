@@ -59,7 +59,7 @@ This round-trip is eliminated in the new design.
 ### Python Modules to Replace
 
 | Module                 | Lines | Replacement strategy                           |
-| ---------------------- | ----- | ---------------------------------------------- |
+|------------------------|-------|------------------------------------------------|
 | `chart_builder.py`     | ~900  | Go SVG chart package (`internal/report/chart`) |
 | `chart_saver.py`       | ~185  | Go SVG writer + optional SVG→PDF conversion    |
 | `pdf_generator.py`     | ~730  | Go template engine (`internal/report/tex`)     |
@@ -175,7 +175,7 @@ internal/report/
 **Styling map:**
 
 | matplotlib                     | gonum/plot equivalent                  |
-| ------------------------------ | -------------------------------------- |
+|--------------------------------|----------------------------------------|
 | `fig, ax = plt.subplots()`     | `p := plot.New()`                      |
 | `ax.plot(x, y, marker, color)` | `plotter.NewLine(xy)` + `LineStyle`    |
 | `ax.bar(x, heights)`           | `plotter.NewBarChart(vals, width)`     |
@@ -394,10 +394,13 @@ type TemplateData struct {
 
 1. **Readable:** Templates are plain `.tex` files, editable by anyone who
    knows LaTeX. No Python API knowledge needed.
+
 2. **Cacheable:** Templates are `go:embed`-ed at compile time — zero disk I/O
    at runtime.
+
 3. **Testable:** Template rendering produces deterministic `.tex` output that
    can be compared byte-for-byte in tests.
+
 4. **Familiar:** Go's `text/template` is widely understood; LaTeX syntax
    highlighting works in any editor.
 
@@ -453,6 +456,7 @@ Connect the new report pipeline to existing entry points:
 
 1. Replace `exec.Command("python"...)` in `generateReport()` with direct
    call to `report.Generate()`
+
 2. Add `pdf` subcommand to CLI (aligns with D-09 single binary plan)
 3. Maintain backward-compatible JSON response format
 4. Update web frontend if API response structure changes
@@ -494,6 +498,7 @@ Migrate the SVG marker injection:
 
 - **Chart SVG structure:** Parse generated SVG, assert expected elements
   (lines, bars, text labels, colours)
+
 - **Template rendering:** Compare `.tex` output against golden files
 - **LaTeX escaping:** Edge cases (ampersands, percent signs, backslashes)
 - **Number formatting:** Consistent decimal places, locale-independent
@@ -510,6 +515,7 @@ Migrate the SVG marker injection:
 - In-memory SQLite with known data → `Generate()` → assert PDF exists
 - Mock `xelatex` binary for CI (assert `.tex` is well-formed without full
   TeX installation)
+
 - Test `rsvg-convert` fallback (assert graceful error when not installed)
 
 ### Backward Compatibility
@@ -517,6 +523,7 @@ Migrate the SVG marker injection:
 - JSON API response format for `POST /api/generate_report` unchanged
 - Report filenames follow existing pattern:
   `{endDate}_velocity.report_{location}_report.pdf`
+
 - `.zip` archive structure preserved (`.tex` + chart assets)
 
 ---
@@ -524,7 +531,7 @@ Migrate the SVG marker injection:
 ## Risks and Mitigations
 
 | Risk                                                                            | Impact           | Mitigation                                                                                                                         |
-| ------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+|---------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | gonum/plot dual-axis limitation                                                 | Chart quality    | Fall back to direct SVG generation via `encoding/xml` or `ajstarks/svgo`; prototype in Phase 1 before committing                   |
 | SVG-to-PDF fidelity via `rsvg-convert`                                          | Text rendering   | Use `rsvg-convert --dpi 150` for consistent sizing; test with Atkinson Hyperlegible font embedded in SVG                           |
 | Chart visual parity with matplotlib                                             | User expectation | Side-by-side comparison during development; accept minor styling differences if data accuracy is preserved                         |

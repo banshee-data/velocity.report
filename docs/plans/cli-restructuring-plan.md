@@ -793,7 +793,7 @@ velocity-report sensor lidar configure --params @lidar-config.json
 **Principle:** CLI commands should map directly to HTTP endpoints.
 
 | CLI Command                               | HTTP Endpoint                      | Method |
-| ----------------------------------------- | ---------------------------------- | ------ |
+|-------------------------------------------|------------------------------------|--------|
 | `site list`                               | `GET /api/v1/sites`                | GET    |
 | `site create --params '{...}'`            | `POST /api/v1/sites`               | POST   |
 | `site get <id>`                           | `GET /api/v1/sites/{id}`           | GET    |
@@ -907,7 +907,7 @@ token = "vrt_abc123..."
 **Current → Long-Term:**
 
 | Current                          | Long-Term                                 | Benefit                       |
-| -------------------------------- | ----------------------------------------- | ----------------------------- |
+|----------------------------------|-------------------------------------------|-------------------------------|
 | 30+ flat flags                   | Subcommands + JSON params                 | Organization, discoverability |
 | `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP         |
 | 4 separate binaries              | Single binary with commands               | Unified interface             |

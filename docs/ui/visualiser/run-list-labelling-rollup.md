@@ -9,7 +9,7 @@ Compact run-list icon in the visualiser's run list showing human review progress
 Segmented capsule icon next to each run in the run list:
 
 | Segment     | Colour | Meaning                                                                      |
-| ----------- | ------ | ---------------------------------------------------------------------------- |
+|-------------|--------|------------------------------------------------------------------------------|
 | Classified  | Green  | Track has non-empty `user_label` with `label_source` empty or `human_manual` |
 | Tagged only | Accent | Human-applied tag state exists but no manual classification                  |
 | Unlabelled  | Grey   | No human-applied label state                                                 |
@@ -31,7 +31,7 @@ Explicitly excluded from green/accent: `carried_over`, `auto_suggested`.
 `AnalysisRun` includes a `label_rollup` field with:
 
 | Field         | Type | Description             |
-| ------------- | ---- | ----------------------- |
+|---------------|------|-------------------------|
 | `total`       | int  | Total tracks in the run |
 | `classified`  | int  | Human-classified tracks |
 | `tagged_only` | int  | Tagged but unclassified |
@@ -77,6 +77,7 @@ re-fetch of run summaries:
 - Per-run track snapshots are primed when a run is loaded for replay
 - Rollup is recomputed in memory when `assignLabel(...)`,
   `assignQuality(...)`, or bulk label writes succeed
+
 - No extra validation trip after a `2xx` response
 
 ## Web Contract

@@ -16,6 +16,7 @@ package/repo name.
 
 1. `tictactail`: all aggregation, live refresh, history rendering, alignment,
    colours, spinner, and output mechanics
+
 2. Application emitter/projector: choose keys and feed flat samples
 3. Thin adapter: CLI command or route glue
 
@@ -68,7 +69,7 @@ Disallowed: nested objects, arrays, app structs.
 Reserved keys:
 
 | Key        | Purpose                                   |
-| ---------- | ----------------------------------------- |
+|------------|-------------------------------------------|
 | `kind`     | Row type (`agg`, `live`, `event`, `init`) |
 | `ts_nanos` | Mandatory timestamp (int64 nanoseconds)   |
 | `sev`      | Severity level                            |
@@ -95,6 +96,7 @@ Two application field kinds only:
 
 1. **Measure** — all non-reserved keys not ending in `_inc`; keeps latest
    value seen in the active window
+
 2. **Increment counter** — keys ending in `_inc`; summed within the active
    window as integer counters
 
@@ -103,6 +105,7 @@ Rules:
 - `_inc` fields must be emitted as `int64`
 - count-like measures (`frame_cur`, `frame_tot`, `tr`, `cl`, `fg`, `bg`)
   should prefer `int64`
+
 - `float64` is reserved for genuinely continuous measures (`fps`, `st`)
 
 ## API
@@ -111,8 +114,10 @@ Rules:
 
 - `ScalarValue` validated at ingest. Nested objects, arrays, structs, and
   non-integer `_inc` values are rejected.
+
 - `WindowSeconds` selects the single active aggregate bucket. Changing it
   resets the current bucket and starts a fresh window.
+
 - `Columns` is ordering only, not key mapping.
 - `HistoryRows` bounds the aggregate history cache used for resize reflow.
 - `MaxBytes` is a hard cap on internal allocation after schema freeze.
@@ -184,6 +189,7 @@ At live refresh:
 
 - the live row shows latest measures plus current in-window `_inc` counts
   before flush
+
 - the live row is not required to carry `win_s`
 
 If `WindowSeconds` changes, drop the partial bucket, reset measures and
@@ -201,6 +207,7 @@ Single-owner aggregation loop:
 - the renderer keeps one bounded history cache for resize handling
 - startup rows are scanned once to freeze key and type layout before steady
   state ingest
+
 - after schema freeze, allocations are fixed and bounded by `MaxBytes`
 
 ### Internal State
@@ -267,11 +274,11 @@ row arrives or the terminal size changes.
 
 Spinner frames for the live row only:
 
-| Style      | Frames                  | When                |
-| ---------- | ----------------------- | ------------------- |
-| `moon`     | 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘 | Default (Unicode)   |
-| `braille8` | ⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷         | Alternate (Unicode) |
-| `ascii`    | `\| / - \`              | Non-Unicode / logs  |
+| Style      | Frames                                  | When                |
+|------------|-----------------------------------------|---------------------|
+| `moon`     | 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘                         | Default (Unicode)   |
+| `braille8` | ⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷                         | Alternate (Unicode) |
+| `ascii`    | `\                                      | / - \`              |
 
 Persisted history rows do not use spinner frames.
 
@@ -448,20 +455,25 @@ status bar. The adapter feeds projected samples and starts the renderer.
 - one flat row contract lets multiple CLIs share aggregation and rendering
 - raw `ts_nanos` plus scalar values keep the wire shape simple and language
   neutral
+
 - integer counters avoid accidental floating-point drift in aggregate totals
 - a single active window keeps the public API and renderer simpler
 - bounded caches and fixed allocations reduce leak risk and make memory use
   predictable
+
 - normal-screen rendering keeps scrollback available without extra TTY policy
 
 ### Costs And Shortcomings
 
 - the public row contract is still runtime-validated rather than compile-time
   enforced
+
 - startup schema freeze means unexpected new keys or type changes require a
   restart or explicit reinitialisation
+
 - bounded caches improve resize behaviour but cannot recreate arbitrarily old
   history after a large resize
+
 - a single-window design trades some flexibility for a smaller, safer surface
 - a generic library can still grow too much UI policy if renderer options are
   not kept disciplined
@@ -472,6 +484,7 @@ status bar. The adapter feeds projected samples and starts the renderer.
 - live row shows latest measures plus current in-window counts before flush
 - cache size fixed at startup from configured row count and discovered row shape
   with a hard byte ceiling
+
 - bottom bar is status-only in V1
 - TTY surface uses normal screen with scrollback
 - immediate event rows render inline in the single main pane

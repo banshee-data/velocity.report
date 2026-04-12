@@ -15,13 +15,13 @@ All provisional config defaults were tuned on kirk0 — a single capture at one 
 
 All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually labelled tracks covering car, truck, cyclist, and pedestrian at minimum.
 
-| #   | Name      | Site Description                          | Validates                                           | Duration | Status     |
-| --- | --------- | ----------------------------------------- | --------------------------------------------------- | -------- | ---------- |
-| 1   | kirk0     | Flat urban road                           | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured |
-| 2   | slope1    | Sloped residential street (≥ 3° gradient) | Ground-plane tiling, height-band limits             | ~5 min   | Planned    |
-| 3   | school1   | School zone or park entrance              | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned    |
-| 4   | junction1 | Multi-lane road or junction               | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned    |
-| 5   | rural1    | Rural or semi-rural road                  | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned    |
+| # | Name      | Site Description                             | Validates                                           | Duration | Status       |
+|---|-----------|----------------------------------------------|-----------------------------------------------------|----------|--------------|
+| 1 | kirk0     | Flat urban road                              | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured   |
+| 2 | slope1    | Sloped residential street (≥ 3° gradient)    | Ground-plane tiling, height-band limits             | ~5 min   | Planned      |
+| 3 | school1   | School zone or park entrance                 | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned      |
+| 4 | junction1 | Multi-lane road or junction                  | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned      |
+| 5 | rural1    | Rural or semi-rural road                     | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned      |
 
 ### Site Selection Criteria
 
@@ -53,7 +53,7 @@ Per PCAP, create a labelled reference analysis run: ≥ 20 vehicle tracks, ≥ 5
 ## Schedule
 
 | Phase | Work                                     | Depends on               |
-| ----- | ---------------------------------------- | ------------------------ |
+|-------|------------------------------------------|--------------------------|
 | 1     | Identify and confirm 4 new capture sites | Site access              |
 | 2     | Capture PCAPs 2–5 with P40 sensor        | Phase 1 + hardware       |
 | 3     | Label ≥ 20 tracks per PCAP               | Phase 2 + labelling UI   |

@@ -42,7 +42,7 @@ Documentation structure, scope, and naming conventions.
 All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
 
 | Rule                    | Scope                                  | Example                                               |
-| ----------------------- | -------------------------------------- | ----------------------------------------------------- |
+|-------------------------|----------------------------------------|-------------------------------------------------------|
 | No underscores          | everywhere                             | `foreground-tracking.md` not `foreground_tracking.md` |
 | No dates in filenames   | general docs                           | use git history for chronology                        |
 | UPPER_CASE filenames    | `data/structures/`, project-level docs | `VRLOG_FORMAT.md`, `README.md`, `BACKLOG.md`          |

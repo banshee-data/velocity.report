@@ -6,7 +6,7 @@ Architecture, API contracts, and feature specifications for VelocityVisualiser
 ## Architecture & Design
 
 | Document                               | Content                                 |
-| -------------------------------------- | --------------------------------------- |
+|----------------------------------------|-----------------------------------------|
 | [architecture.md](architecture.md)     | System design, Track A/B split          |
 | [api-contracts.md](api-contracts.md)   | gRPC/protobuf `FrameBundle` wire format |
 | [implementation.md](implementation.md) | Milestone checklist (M0–M8)             |
@@ -15,7 +15,7 @@ Architecture, API contracts, and feature specifications for VelocityVisualiser
 ## Feature Specifications
 
 | Document                                                                   | Content                            |
-| -------------------------------------------------------------------------- | ---------------------------------- |
+|----------------------------------------------------------------------------|------------------------------------|
 | [light-mode.md](light-mode.md)                                             | Light/dark appearance tokens       |
 | [performance-and-timeline-metrics.md](performance-and-timeline-metrics.md) | Scene health timeline              |
 | [physics-checks.md](physics-checks.md)                                     | Violation types and thresholds     |

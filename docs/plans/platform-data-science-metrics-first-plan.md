@@ -16,10 +16,13 @@ Give contributors one consistent contract for data science work across the repo:
 
 1. **No black boxes in the live pipeline.**
    Runtime perception, tracking, scoring, and reporting paths must remain spec-driven and inspectable.
+
 2. **All important runtime behaviour must stay tunable.**
    Thresholds, weights, and decision rules belong in documented configs, code, or scorecards, not hidden model internals.
+
 3. **Reproducibility is a feature, not a nice-to-have.**
    If a result cannot be replayed on the same input and produce the same scorecard, it is not ready to drive product decisions.
+
 4. **Metrics beat intuition.**
    Tuning, tradeoffs, and regressions must be discussed through explicit benchmark metrics, not anecdotal screenshots or one-off scenes.
 
@@ -124,24 +127,34 @@ As of March 10, 2026, the highest-value open questions are:
 
 1. **Rotating bounding boxes in LiDAR replay**
    The 2026-02-22 OBB review landed Guard 3 plus fixes B, C, and G, but the geometry-coherent replacement is still only a proposal. Are the replay results now good enough across fixed packs, or do rotating boxes still justify the geometry-prior model?
+
 2. **Radar + LiDAR fusion boundary**
    Should radar velocity stay a per-track association problem first, or should fusion be evaluated mainly at the future L7 scene/canonical-object layer where scene vectors and multi-sensor objects exist?
+
 3. **Ground-plane maths**
    The current runtime still uses a height-band filter. Which static or replay captures actually demonstrate that tile-plane fitting and vector-scene region selection outperform the simpler baseline enough to justify extra runtime and operational complexity?
+
 4. **Geometry priors plan review**
    How should OSM and community geometry priors be diffed, shifted, signed, reviewed, and exported (`.osc`, GeoJSON, synthetic aggregates) so that the workflow is useful without weakening provenance or manual review gates?
+
 5. **Reflective and static-surface anchors**
    LiDAR intensity is available throughout the pipeline, but it is still unclear whether high-return signs can be turned into reliable static pose anchors, how far the threshold can be relaxed when signs are absent, whether walls, facades, or road geometry provide enough redundant fallback structure without causing false resets under occlusion, and whether a cached runtime signal back into lower layers is worth the architectural cost.
+
 6. **Velocity coherence**
    Velocity-coherent extraction remains proposal/planning material on the main runtime path. What benchmark pack, scorecard, and acceptance gates would prove that it beats the current foreground-plus-DBSCAN baseline strongly enough to adopt?
+
 7. **Config-value provenance**
    For current defaults and "optimised" settings, which values are backed by repeatable comparison results, which are still provisional, and when were those comparisons last rerun on fixed replay packs?
+
 8. **Reference data coverage**
    Do current scenes, labels, and reference runs cover the classes, ranges, weather, and site types that matter, or are we overfitting to a small set of urban captures and a few familiar artifacts such as `kirk0`?
+
 9. **L3/L4 settlement boundary**
    Should the future ground-plane system share one settlement core with L3, or is the added coupling riskier than keeping independent lifecycles?
+
 10. **Bodies-in-motion and sparse-cluster linking**
     At what range, point count, and occlusion profile does the current CV tracker fragment too heavily, and what evidence would justify CA/CTRV/IMM models or L7 corridor-constrained linking?
+
 11. **Performance-versus-accuracy tradeoff**
     Which proposed math upgrades improve scorecards enough to justify their CPU, memory, and latency cost on edge hardware, rather than only in offline replay?
 

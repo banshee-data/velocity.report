@@ -18,7 +18,7 @@ aggregate-only.
 ## Canonical Terminology Rules
 
 | Term           | Canonical Meaning                                             | Allowed Level                                  | Notes                                                           |
-| -------------- | ------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------- |
+|----------------|---------------------------------------------------------------|------------------------------------------------|-----------------------------------------------------------------|
 | `avg` / `mean` | Arithmetic mean over the stated sample set                    | Any level if explicitly defined                | `avg` can remain as transport/storage name where already stable |
 | `typical`      | Robust central estimate after metric-specific filtering       | Track, scene, or session metrics               | Use when intentionally not a mean or percentile                 |
 | `max`          | Raw observed maximum with no outlier rejection                | Any level                                      | Canonical raw-maximum term repo-wide                            |
@@ -32,7 +32,7 @@ aggregate-only.
 Each metric is defined conceptually using these fields:
 
 | Field            | Meaning                                             | Example                                                                               |
-| ---------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+|------------------|-----------------------------------------------------|---------------------------------------------------------------------------------------|
 | `id`             | Stable repo-wide identifier                         | `track.max_observed_speed_mps`                                                        |
 | `family`         | Metric family                                       | `speed`, `height`, `performance`, `ops`                                               |
 | `level`          | Observation level                                   | `track`, `transit`, `aggregate`, `cluster`, `scene`, `performance`, `ops`             |
@@ -50,7 +50,7 @@ Each metric is defined conceptually using these fields:
 These are the design anchors the registry must enforce first.
 
 | Concept                       | Canonical Direction                | Notes                                                                            |
-| ----------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+|-------------------------------|------------------------------------|----------------------------------------------------------------------------------|
 | Track running mean speed      | `track.avg_observed_speed_mps`     | Stable existing meaning                                                          |
 | Track raw maximum speed       | `track.max_observed_speed_mps`     | Current `peak_speed_mps` should migrate to `max_speed_mps` on unshipped surfaces |
 | Track robust central speed    | `track.typical_observed_speed_mps` | Future replacement for track-level percentile misuse                             |
@@ -63,7 +63,7 @@ These are the design anchors the registry must enforce first.
 ## Consistency Across Pipeline Strata
 
 | Stratum                   | What Must Stay Consistent                                        | Example Failure                                                                                    |
-| ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+|---------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | Docs and plans            | Name, level, definition, migration status                        | One doc says `peak`, another says `max`                                                            |
 | SQL schema and migrations | Stored meaning and units                                         | `peak_speed_mps` treated as filtered in one place and raw in another                               |
 | Go domain/storage code    | Computation and field semantics                                  | A percentile helper exported as a track "typical" measure                                          |
@@ -88,7 +88,7 @@ No new public metric should merge unless:
 ### Planned Checks
 
 | Check                       | What It Enforces                                                                             | Delivery Shape                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+|-----------------------------|----------------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | Alias audit                 | Deprecated names only appear where the migration plan allows them                            | Start with `rg`-based review checklist; later add CI        |
 | Percentile-boundary audit   | Track speed surfaces cannot introduce aggregate percentile labels publicly                   | Start with design review; later add CI guard                |
 | Surface completeness check  | Stable public metrics must list their concrete names across SQL/API/proto/UI/report surfaces | Start in this plan; later move to machine-readable registry |
@@ -98,7 +98,7 @@ No new public metric should merge unless:
 ### Rollout Phases
 
 | Phase   | Outcome                                                                                   |
-| ------- | ----------------------------------------------------------------------------------------- |
+|---------|-------------------------------------------------------------------------------------------|
 | Phase A | Use this plan as the naming/design gate during reviews                                    |
 | Phase B | Add a small `metrics-lint` task that checks aliases and forbidden public percentile usage |
 | Phase C | Introduce a machine-readable registry only when the checks need code ownership            |
@@ -109,7 +109,7 @@ No new public metric should merge unless:
 ### Source Mode Vocabulary
 
 | Source Mode     | Meaning                                                    |
-| --------------- | ---------------------------------------------------------- |
+|-----------------|------------------------------------------------------------|
 | `live`          | Real sensor/UDP ingest                                     |
 | `pcap`          | Replay intended to mimic live flow or interactive replay   |
 | `pcap_analysis` | Offline replay/analysis mode with preserved analysis state |
@@ -118,7 +118,7 @@ No new public metric should merge unless:
 ### Allowed Export/Filter Labels
 
 | Label            | Why Allowed                              |
-| ---------------- | ---------------------------------------- |
+|------------------|------------------------------------------|
 | `site_id`        | Bounded deployment dimension             |
 | `sensor_id`      | Bounded hardware/source dimension        |
 | `source_mode`    | Core split between live and replay paths |
@@ -129,7 +129,7 @@ No new public metric should merge unless:
 ### Forbidden Export/Filter Labels
 
 | Label                       | Why Forbidden                              |
-| --------------------------- | ------------------------------------------ |
+|-----------------------------|--------------------------------------------|
 | `track_id`                  | Unbounded cardinality                      |
 | `run_id`                    | Unbounded cardinality                      |
 | `pcap_file`                 | File-name explosion and local-path leakage |
@@ -141,7 +141,7 @@ No new public metric should merge unless:
 ### Source-Mode Filtering Policy
 
 | Source Mode     | Export Policy                                     |
-| --------------- | ------------------------------------------------- |
+|-----------------|---------------------------------------------------|
 | `live`          | Include by default                                |
 | `pcap`          | Usually excluded from always-on export by default |
 | `pcap_analysis` | Optional include                                  |
@@ -153,7 +153,7 @@ The metrics design aligns with the existing three-stream logging model
 (see [structured-logging.md](structured-logging.md)).
 
 | Signal Type                                         | Preferred Home                                                    | Reason                              |
-| --------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------- |
+|-----------------------------------------------------|-------------------------------------------------------------------|-------------------------------------|
 | Reliability failures and dropped-data counts        | `ops` logs plus optional low-cardinality counters                 | Actionable and exportable           |
 | Queue depth, frame latency, connected-client counts | Prometheus-friendly gauges/histograms plus occasional `diag` logs | Time-series fit                     |
 | Per-frame/per-packet detail                         | `trace` logs and VRLOG overlays                                   | Too high-volume for default export  |
@@ -173,7 +173,7 @@ Normalisation: replace `.` with `_`, preserve canonical leaf name, keep unit
 suffixes intact, keep registry id deployment-neutral.
 
 | Canonical ID                              | Prefix            | Exported Name                                         |
-| ----------------------------------------- | ----------------- | ----------------------------------------------------- |
+|-------------------------------------------|-------------------|-------------------------------------------------------|
 | `track.avg_observed_speed_mps`            | `velocity_report` | `velocity_report_track_avg_observed_speed_mps`        |
 | `aggregate.speed_p98_mph`                 | `velocity_report` | `velocity_report_aggregate_speed_p98_mph`             |
 | `performance.frame_processing_latency_ms` | `main_street`     | `main_street_performance_frame_processing_latency_ms` |
@@ -193,7 +193,7 @@ observability:
 ### Default Export Policy
 
 | Metric Family/Level | Export by Default? | Notes                                                    |
-| ------------------- | ------------------ | -------------------------------------------------------- |
+|---------------------|--------------------|----------------------------------------------------------|
 | `ops.*`             | Yes                | Best fit for service-health counters                     |
 | `performance.*`     | Yes                | Best fit for latency/throughput/queue metrics            |
 | `scene.*`           | Usually yes        | Low-cardinality scene gauges can work                    |

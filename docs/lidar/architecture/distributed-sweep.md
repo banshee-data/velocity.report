@@ -38,29 +38,33 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
 1. **Unified binary** — worker mode is `--worker` on the same `velocity-report`
    binary. No separate `cmd/sweep-worker/`. Aligns with single-binary
    direction in distribution-packaging.
+
 2. **Reduced worker surface** — worker port 8082 exposes only job lifecycle
    and health endpoints. No dashboard, radar, PDF, or full LiDAR monitor.
+
 3. **Local result cache** — workers cache completed results in local SQLite
    until the driver confirms retrieval.
+
 4. **Pre-flight validation** — `/api/worker/jobs/check` confirms PCAP
    readable, processes one frame, and reports before the full job runs.
+
 5. **Operator-configured workers** — worker hosts defined via Settings UI
    CRUD, not self-registered at runtime.
 
 ## Worker HTTP surface (port 8082)
 
-| Method | Path                            | Purpose                              |
-| ------ | ------------------------------- | ------------------------------------ |
-| GET    | `/health`                       | Liveness (uptime, version, disk)     |
-| GET    | `/api/worker/status`            | Current state + job progress         |
-| GET    | `/api/worker/jobs`              | Recent jobs (last 50)                |
-| GET    | `/api/worker/jobs/{id}`         | Single job detail                    |
-| GET    | `/api/worker/jobs/{id}/results` | Retrieve cached results              |
-| POST   | `/api/worker/jobs/{id}/confirm` | Confirm retrieval → flag for cleanup |
-| POST   | `/api/worker/jobs/submit`       | Submit a job                         |
-| POST   | `/api/worker/jobs/check`        | Pre-flight validation                |
-| POST   | `/api/worker/jobs/{id}/cancel`  | Cancel a running job                 |
-| GET    | `/api/worker/failures`          | Past job failures                    |
+| Method | Path                            | Purpose                                |
+|--------|---------------------------------|----------------------------------------|
+| GET    | `/health`                       | Liveness (uptime, version, disk)       |
+| GET    | `/api/worker/status`            | Current state + job progress           |
+| GET    | `/api/worker/jobs`              | Recent jobs (last 50)                  |
+| GET    | `/api/worker/jobs/{id}`         | Single job detail                      |
+| GET    | `/api/worker/jobs/{id}/results` | Retrieve cached results                |
+| POST   | `/api/worker/jobs/{id}/confirm` | Confirm retrieval → flag for cleanup   |
+| POST   | `/api/worker/jobs/submit`       | Submit a job                           |
+| POST   | `/api/worker/jobs/check`        | Pre-flight validation                  |
+| POST   | `/api/worker/jobs/{id}/cancel`  | Cancel a running job                   |
+| GET    | `/api/worker/failures`          | Past job failures                      |
 
 ## Data Model
 
@@ -110,7 +114,7 @@ oldest retrieved results first if disk exceeds threshold.
 ## Failure Registry
 
 | Failure Mode      | Detection               | Recovery                                |
-| ----------------- | ----------------------- | --------------------------------------- |
+|-------------------|-------------------------|-----------------------------------------|
 | Worker crash      | Heartbeat timeout (60s) | Driver re-queues combos                 |
 | NFS mount lost    | PCAP open fails         | Job fails; driver reports to user       |
 | Driver crash      | Restart reads jobs      | Resume: re-queue incomplete, merge done |

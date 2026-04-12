@@ -9,7 +9,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 `lidar_qc_audit_log` — append-only table:
 
 | Column                 | Type       | Description                                       |
-| ---------------------- | ---------- | ------------------------------------------------- |
+|------------------------|------------|---------------------------------------------------|
 | `id`                   | INTEGER PK | Auto-increment                                    |
 | `run_id`               | TEXT       | Run identifier                                    |
 | `track_id`             | TEXT       | Track identifier (nullable for run-level actions) |
@@ -43,7 +43,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 ## API
 
 | Endpoint                                 | Method | Purpose                          |
-| ---------------------------------------- | ------ | -------------------------------- |
+|------------------------------------------|--------|----------------------------------|
 | `/api/lidar/runs/{run_id}/qc/summary`    | GET    | Run-level QC summary             |
 | `/api/lidar/runs/{run_id}/qc/timeseries` | GET    | Score/violation trends over time |
 | `/api/lidar/runs/{run_id}/qc/audit`      | GET    | Paginated audit log              |

@@ -114,7 +114,7 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 Ten-layer pipeline, L1–L6 implemented; L8 and L9 present as analytics and endpoint packages:
 
 | Layer | Package         | Purpose                                                               |
-| ----- | --------------- | --------------------------------------------------------------------- |
+|-------|-----------------|-----------------------------------------------------------------------|
 | L1    | `l1packets/`    | Hesai UDP decode, PCAP replay                                         |
 | L2    | `l2frames/`     | Frame assembly, coordinate transforms                                 |
 | L3    | `l3grid/`       | Background subtraction (EMA grid, Welford variance, adaptive regions) |
@@ -155,7 +155,7 @@ Swift/SwiftUI/Metal app (macOS 14+, M1+). gRPC client streaming `FrameBundle` pr
 Seven named agents are defined in `.claude/agents/`. Invoke them with `@AgentName` or via auto-delegation.
 
 | Agent      | Domain                                    | Class     | File                       |
-| ---------- | ----------------------------------------- | --------- | -------------------------- |
+|------------|-------------------------------------------|-----------|----------------------------|
 | **Appius** | Implementation, code review, migrations   | Technical | `.claude/agents/appius.md` |
 | **Euler**  | Algorithms, maths, statistical validation | Technical | `.claude/agents/euler.md`  |
 | **Grace**  | Architecture, design docs, feature specs  | Technical | `.claude/agents/grace.md`  |
@@ -173,7 +173,7 @@ Each agent references the shared knowledge modules in `.github/knowledge/` rathe
 The following workflow skills are available as slash commands:
 
 | Skill             | Command                           | Purpose                                                                     |
-| ----------------- | --------------------------------- | --------------------------------------------------------------------------- |
+|-------------------|-----------------------------------|-----------------------------------------------------------------------------|
 | plan-graduation   | `/plan-graduation <plan>`         | Graduate a completed plan to symlink, consolidate into hub doc              |
 | plan-review       | `/plan-review [plan]`             | Scope, technical, and risk review of a design plan                          |
 | review-pr         | `/review-pr [PR/branch]`          | Security, correctness, and maintainability review                           |

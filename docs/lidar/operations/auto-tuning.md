@@ -9,7 +9,7 @@ Covers tunable parameters, collected metrics, scoring objectives, operational wo
 **Implementation files:**
 
 | Component               | File                                               |
-| ----------------------- | -------------------------------------------------- |
+|-------------------------|----------------------------------------------------|
 | AutoTuner               | `internal/lidar/sweep/auto.go`                     |
 | Runner + Settle Mode    | `internal/lidar/sweep/runner.go`                   |
 | Multi-objective Scoring | `internal/lidar/sweep/objective.go`                |
@@ -39,7 +39,7 @@ Auto-tuning iteratively searches the parameter space to find values that maximis
 **Key terms:**
 
 | Term       | Meaning                                                                                   |
-| ---------- | ----------------------------------------------------------------------------------------- |
+|------------|-------------------------------------------------------------------------------------------|
 | **Sweep**  | A batch run that evaluates every combination in a parameter grid                          |
 | **Combo**  | One specific set of parameter values being evaluated                                      |
 | **Round**  | One complete sweep; auto-tuning runs multiple rounds with progressively narrower bounds   |
@@ -58,15 +58,15 @@ All parameters are exposed via `/api/lidar/params` and defined in `PARAM_SCHEMA`
 
 These control how the background grid distinguishes stationary environment from foreground objects.
 
-| Parameter                     | Type    | Default Range           | Description                                                                                                                                                                                        |
-| ----------------------------- | ------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `noise_relative`              | float64 | 0.01–0.2 (step 0.001)   | Fraction of measured range treated as noise threshold. Higher = more tolerant of range variation, fewer false foreground detections.                                                               |
-| `closeness_multiplier`        | float64 | 1.0–20.0 (step 0.5)     | Multiplier for the closeness threshold. Higher = wider band for background acceptance, fewer false foreground detections but may miss small objects.                                               |
-| `neighbor_confirmation_count` | int     | 0–8 (step 1)            | Number of neighbouring cells (0–8) that must agree before marking a cell as foreground. Higher = fewer false positives but may miss isolated foreground points.                                    |
-| `seed_from_first`             | bool    | —                       | If true, initialise the background model from the very first observation rather than accumulating over many frames. Useful for static scenes where the first frame is representative.              |
-| `post_settle_update_fraction` | float64 | 0–0.5 (step 0.01)       | Background update alpha after settling completes. 0 = freeze the background model entirely. Higher values allow the background to adapt to gradual changes but risk absorbing slow-moving objects. |
-| `warmup_duration_nanos`       | int64   | 5–120 seconds (step 1s) | Duration of the warmup phase before classification begins. Longer warmup = more stable background model but more data lost during settling.                                                        |
-| `warmup_min_frames`           | int     | 10–500 (step 10)        | Minimum frames required before warmup can complete. Works alongside `warmup_duration_nanos`; both conditions must be met.                                                                          |
+| Parameter                     | Type    | Default Range             | Description                                                                                                                                                                                        |
+|-------------------------------|---------|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `noise_relative`              | float64 | 0.01–0.2 (step 0.001)     | Fraction of measured range treated as noise threshold. Higher = more tolerant of range variation, fewer false foreground detections.                                                               |
+| `closeness_multiplier`        | float64 | 1.0–20.0 (step 0.5)       | Multiplier for the closeness threshold. Higher = wider band for background acceptance, fewer false foreground detections but may miss small objects.                                               |
+| `neighbor_confirmation_count` | int     | 0–8 (step 1)              | Number of neighbouring cells (0–8) that must agree before marking a cell as foreground. Higher = fewer false positives but may miss isolated foreground points.                                    |
+| `seed_from_first`             | bool    | —                         | If true, initialise the background model from the very first observation rather than accumulating over many frames. Useful for static scenes where the first frame is representative.              |
+| `post_settle_update_fraction` | float64 | 0–0.5 (step 0.01)         | Background update alpha after settling completes. 0 = freeze the background model entirely. Higher values allow the background to adapt to gradual changes but risk absorbing slow-moving objects. |
+| `warmup_duration_nanos`       | int64   | 5–120 seconds (step 1s)   | Duration of the warmup phase before classification begins. Longer warmup = more stable background model but more data lost during settling.                                                        |
+| `warmup_min_frames`           | int     | 10–500 (step 10)          | Minimum frames required before warmup can complete. Works alongside `warmup_duration_nanos`; both conditions must be met.                                                                          |
 
 **Operational guidance:**
 
@@ -79,11 +79,11 @@ These control how the background grid distinguishes stationary environment from 
 
 These control how foreground points are grouped into clusters.
 
-| Parameter                       | Type    | Default Range       | Description                                                                                                                                                                     |
-| ------------------------------- | ------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `foreground_min_cluster_points` | int     | 0–20 (step 1)       | Minimum points required for a foreground cluster to be reported. 0 = disabled (all clusters pass). Higher values suppress noise clusters but may miss small or distant objects. |
-| `foreground_dbscan_eps`         | float64 | 0–2.0 (step 0.1)    | DBSCAN epsilon (maximum distance between points in a cluster). 0 = disabled. Higher values merge nearby points into larger clusters; too high merges distinct objects.          |
-| `min_frame_points`              | int     | 100–5000 (step 100) | Minimum total points in a frame before processing. Frames with fewer points are dropped entirely. Protects against processing partial or corrupt frames.                        |
+| Parameter                       | Type    | Default Range         | Description                                                                                                                                                                     |
+|---------------------------------|---------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `foreground_min_cluster_points` | int     | 0–20 (step 1)         | Minimum points required for a foreground cluster to be reported. 0 = disabled (all clusters pass). Higher values suppress noise clusters but may miss small or distant objects. |
+| `foreground_dbscan_eps`         | float64 | 0–2.0 (step 0.1)      | DBSCAN epsilon (maximum distance between points in a cluster). 0 = disabled. Higher values merge nearby points into larger clusters; too high merges distinct objects.          |
+| `min_frame_points`              | int     | 100–5000 (step 100)   | Minimum total points in a frame before processing. Frames with fewer points are dropped entirely. Protects against processing partial or corrupt frames.                        |
 
 **Operational guidance:**
 
@@ -95,16 +95,16 @@ These control how foreground points are grouped into clusters.
 
 These control how clusters are associated with tracks and how the Kalman filter behaves.
 
-| Parameter                 | Type    | Default Range        | Description                                                                                                                                              |
-| ------------------------- | ------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gating_distance_squared` | float64 | 4.0–100.0 (step 1.0) | Squared Mahalanobis distance threshold for track-to-cluster association. Lower = stricter matching (fewer false associations but more missed updates).   |
-| `process_noise_pos`       | float64 | 0.01–1.0 (step 0.01) | Kalman process noise for position. Higher = the filter expects more position uncertainty between frames.                                                 |
-| `process_noise_vel`       | float64 | 0.05–2.0 (step 0.01) | Kalman process noise for velocity. Higher = the filter expects more velocity changes (acceleration/deceleration).                                        |
-| `measurement_noise`       | float64 | 0.01–2.0 (step 0.01) | Kalman measurement noise. Higher = less trust in observations, smoother but slower-responding tracks.                                                    |
-| `occlusion_cov_inflation` | float64 | 0.1–5.0 (step 0.1)   | Covariance inflation factor during occlusion (missed observations). Higher = the filter tolerates longer occlusions before the track becomes unreliable. |
-| `hits_to_confirm`         | int     | 1–10 (step 1)        | Consecutive successful associations needed to promote a tentative track to confirmed. Higher = fewer false tracks but slower track initialisation.       |
-| `max_misses`              | int     | 1–10 (step 1)        | Consecutive misses before a tentative (unconfirmed) track is deleted.                                                                                    |
-| `max_misses_confirmed`    | int     | 3–30 (step 1)        | Consecutive misses before a confirmed track is deleted. Higher = tracks persist longer through occlusions.                                               |
+| Parameter                 | Type    | Default Range          | Description                                                                                                                                              |
+|---------------------------|---------|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `gating_distance_squared` | float64 | 4.0–100.0 (step 1.0)   | Squared Mahalanobis distance threshold for track-to-cluster association. Lower = stricter matching (fewer false associations but more missed updates).   |
+| `process_noise_pos`       | float64 | 0.01–1.0 (step 0.01)   | Kalman process noise for position. Higher = the filter expects more position uncertainty between frames.                                                 |
+| `process_noise_vel`       | float64 | 0.05–2.0 (step 0.01)   | Kalman process noise for velocity. Higher = the filter expects more velocity changes (acceleration/deceleration).                                        |
+| `measurement_noise`       | float64 | 0.01–2.0 (step 0.01)   | Kalman measurement noise. Higher = less trust in observations, smoother but slower-responding tracks.                                                    |
+| `occlusion_cov_inflation` | float64 | 0.1–5.0 (step 0.1)     | Covariance inflation factor during occlusion (missed observations). Higher = the filter tolerates longer occlusions before the track becomes unreliable. |
+| `hits_to_confirm`         | int     | 1–10 (step 1)          | Consecutive successful associations needed to promote a tentative track to confirmed. Higher = fewer false tracks but slower track initialisation.       |
+| `max_misses`              | int     | 1–10 (step 1)          | Consecutive misses before a tentative (unconfirmed) track is deleted.                                                                                    |
+| `max_misses_confirmed`    | int     | 3–30 (step 1)          | Consecutive misses before a confirmed track is deleted. Higher = tracks persist longer through occlusions.                                               |
 
 **Operational guidance:**
 
@@ -118,7 +118,7 @@ These control how clusters are associated with tracks and how the Kalman filter 
 These control frame assembly and persistence.
 
 | Parameter          | Type   | Default Range | Description                                                           |
-| ------------------ | ------ | ------------- | --------------------------------------------------------------------- |
+|--------------------|--------|---------------|-----------------------------------------------------------------------|
 | `buffer_timeout`   | string | —             | Maximum wait time for a complete frame (Go duration, e.g. `"500ms"`). |
 | `flush_interval`   | string | —             | How often the background grid is flushed to disk (e.g. `"60s"`).      |
 | `background_flush` | bool   | —             | If true, enables periodic background grid flush to disk.              |
@@ -136,29 +136,29 @@ The sampler collects these metrics per iteration for each parameter combination.
 ### Core Metrics
 
 | Metric            | Range | Meaning                                                                                      | Good Direction                                        |
-| ----------------- | ----- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+|-------------------|-------|----------------------------------------------------------------------------------------------|-------------------------------------------------------|
 | `acceptance_rate` | 0–1   | Fraction of background cells where the current observation falls within the noise threshold. | Higher = background model fits well                   |
 | `nonzero_cells`   | 0–N   | Number of background cells with at least one observation.                                    | Higher = better coverage                              |
 | `active_tracks`   | 0–N   | Number of non-deleted tracks at sample time.                                                 | Higher = more detections (but watch for false tracks) |
 
 ### Alignment Metrics
 
-| Metric               | Range | Meaning                                                                                      | Good Direction                        |
-| -------------------- | ----- | -------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `alignment_deg`      | 0–180 | Mean angular difference between velocity heading and displacement heading across all tracks. | Lower = velocity aligns with movement |
-| `misalignment_ratio` | 0–1   | Fraction of track updates where angular difference exceeds 45 degrees.                       | Lower = fewer misaligned tracks       |
+| Metric               | Range   | Meaning                                                                                      | Good Direction                        |
+|----------------------|---------|----------------------------------------------------------------------------------------------|---------------------------------------|
+| `alignment_deg`      | 0–180   | Mean angular difference between velocity heading and displacement heading across all tracks. | Lower = velocity aligns with movement |
+| `misalignment_ratio` | 0–1     | Fraction of track updates where angular difference exceeds 45 degrees.                       | Lower = fewer misaligned tracks       |
 
 ### Track Health Metrics
 
 | Metric                | Range | Meaning                                                                              | Good Direction              |
-| --------------------- | ----- | ------------------------------------------------------------------------------------ | --------------------------- |
+|-----------------------|-------|--------------------------------------------------------------------------------------|-----------------------------|
 | `heading_jitter_deg`  | 0+    | RMS of frame-to-frame heading changes across all tracks.                             | Lower = smoother headings   |
 | `fragmentation_ratio` | 0–1   | `1 - (confirmed / created)`. Fraction of tentative tracks that were never confirmed. | Lower = fewer wasted tracks |
 
 ### Scene-Level Metrics
 
 | Metric                     | Range | Meaning                                                                           | Good Direction                      |
-| -------------------------- | ----- | --------------------------------------------------------------------------------- | ----------------------------------- |
+|----------------------------|-------|-----------------------------------------------------------------------------------|-------------------------------------|
 | `foreground_capture_ratio` | 0–1   | Fraction of foreground points captured by DBSCAN clusters.                        | Higher = fewer orphaned points      |
 | `unbounded_point_ratio`    | 0–1   | `1 - foreground_capture_ratio`. Fraction of foreground points not in any cluster. | Lower                               |
 | `empty_box_ratio`          | 0–1   | Fraction of active-track frames where no cluster was associated with the track.   | Lower = tracks consistently matched |
@@ -172,7 +172,7 @@ The sampler collects these metrics per iteration for each parameter combination.
 The auto-tuner supports three objective modes:
 
 | Mode           | When to Use                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------------- |
+|----------------|-----------------------------------------------------------------------------------------------|
 | `acceptance`   | Quick tuning focused on background model fit. Maximises acceptance rate only.                 |
 | `weighted`     | Full tuning with multiple metrics. Uses configurable weights to balance competing objectives. |
 | `ground_truth` | Precision tuning against labelled reference tracks. Requires a scene with reference run.      |
@@ -197,17 +197,17 @@ score = acceptance × w_acceptance
 
 **Default weights:**
 
-| Weight               | Field                    | Default | Effect                                     |
-| -------------------- | ------------------------ | ------- | ------------------------------------------ |
-| `acceptance`         | Acceptance rate          | 1.0     | Maximise                                   |
-| `misalignment`       | Misalignment ratio       | -0.5    | Minimise                                   |
-| `alignment`          | Alignment degrees        | -0.01   | Minimise (small weight — degrees vs ratio) |
-| `nonzero_cells`      | Nonzero cells (log)      | 0.1     | Maximise (log scale dampens large values)  |
-| `active_tracks`      | Active tracks (log)      | 0.3     | Maximise (log scale dampens large values)  |
-| `foreground_capture` | Foreground capture ratio | 0       | Off by default; set positive to enable     |
-| `empty_boxes`        | Empty box ratio          | 0       | Off by default; set negative to enable     |
-| `fragmentation`      | Fragmentation ratio      | 0       | Off by default; set negative to enable     |
-| `heading_jitter`     | Heading jitter degrees   | 0       | Off by default; set negative to enable     |
+| Weight               | Field                    | Default | Effect                                       |
+|----------------------|--------------------------|---------|----------------------------------------------|
+| `acceptance`         | Acceptance rate          | 1.0     | Maximise                                     |
+| `misalignment`       | Misalignment ratio       | -0.5    | Minimise                                     |
+| `alignment`          | Alignment degrees        | -0.01   | Minimise (small weight — degrees vs ratio)   |
+| `nonzero_cells`      | Nonzero cells (log)      | 0.1     | Maximise (log scale dampens large values)    |
+| `active_tracks`      | Active tracks (log)      | 0.3     | Maximise (log scale dampens large values)    |
+| `foreground_capture` | Foreground capture ratio | 0       | Off by default; set positive to enable       |
+| `empty_boxes`        | Empty box ratio          | 0       | Off by default; set negative to enable       |
+| `fragmentation`      | Fragmentation ratio      | 0       | Off by default; set negative to enable       |
+| `heading_jitter`     | Heading jitter degrees   | 0       | Off by default; set negative to enable       |
 
 The scene-level weights (`foreground_capture`, `empty_boxes`, `fragmentation`, `heading_jitter`) are opt-in. Enable them when you care about track quality beyond simple acceptance rate.
 
@@ -246,7 +246,7 @@ For high-quality speed measurement:
 Acceptance criteria are **hard thresholds** that reject parameter combinations before scoring. A combination that fails any criterion receives a score of negative infinity and sorts to the bottom. Use these to exclude clearly unacceptable configurations.
 
 | Criterion                   | Field                                 | Effect                                                            |
-| --------------------------- | ------------------------------------- | ----------------------------------------------------------------- |
+|-----------------------------|---------------------------------------|-------------------------------------------------------------------|
 | `max_fragmentation_ratio`   | Maximum allowed fragmentation ratio   | Rejects combos where too many tracks are never confirmed          |
 | `max_unbounded_point_ratio` | Maximum allowed unbounded point ratio | Rejects combos where too many foreground points escape clustering |
 | `max_empty_box_ratio`       | Maximum allowed empty box ratio       | Rejects combos where tracks frequently lack cluster associations  |
@@ -279,7 +279,7 @@ composite = w1 × detection_rate
 **Default ground truth weights:**
 
 | Weight | Field                 | Default | Meaning                                                     |
-| ------ | --------------------- | ------- | ----------------------------------------------------------- |
+|--------|-----------------------|---------|-------------------------------------------------------------|
 | w1     | `detection_rate`      | 1.0     | Fraction of "good\_\*" reference tracks matched             |
 | w2     | `fragmentation`       | 5.0     | Penalty for reference tracks split into multiple candidates |
 | w3     | `false_positives`     | 2.0     | Penalty for unmatched candidate tracks                      |
@@ -298,7 +298,7 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 ### Core Settings
 
 | Setting            | Default | Description                                                                                |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------ |
+|--------------------|---------|--------------------------------------------------------------------------------------------|
 | `max_rounds`       | 3       | Number of refinement rounds. More rounds = finer convergence but longer runtime.           |
 | `values_per_param` | 5       | Grid density per parameter per round. Total combos = values_per_param^(number of params).  |
 | `top_k`            | 5       | Number of best results used to narrow bounds for the next round.                           |
@@ -308,19 +308,19 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 
 ### Settle Modes
 
-| Mode                  | Behaviour                                                                         | When to Use                                                                                                   |
-| --------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `per_combo` (default) | Full grid reset and re-settle for each combination.                               | Most accurate results. Use when you have time and want reliable comparisons.                                  |
-| `once`                | Full settle on the first combination only; subsequent combos do a short ~2s wait. | Faster iteration (~10× fewer settle seconds). Use for initial exploration when settle time dominates runtime. |
+| Mode                  | Behaviour                                                                         | When to Use                                                                                                    |
+|-----------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `per_combo` (default) | Full grid reset and re-settle for each combination.                               | Most accurate results. Use when you have time and want reliable comparisons.                                   |
+| `once`                | Full settle on the first combination only; subsequent combos do a short ~2s wait. | Faster iteration (~10× fewer settle seconds). Use for initial exploration when settle time dominates runtime.  |
 
 The `once` mode uses region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimisation.md) for details.
 
 ### Data Sources
 
-| Source | Setting                 | Description                                                                   |
-| ------ | ----------------------- | ----------------------------------------------------------------------------- |
-| Live   | `"data_source": "live"` | Uses real-time sensor data. Each combination sees different traffic.          |
-| PCAP   | `"data_source": "pcap"` | Replays a PCAP file. Each combination sees the same data — more reproducible. |
+| Source | Setting                 | Description                                                                     |
+|--------|-------------------------|---------------------------------------------------------------------------------|
+| Live   | `"data_source": "live"` | Uses real-time sensor data. Each combination sees different traffic.            |
+| PCAP   | `"data_source": "pcap"` | Replays a PCAP file. Each combination sees the same data — more reproducible.   |
 
 When using PCAP, specify `pcap_file` (basename only), `pcap_start_secs`, and `pcap_duration_secs`.
 
@@ -340,7 +340,7 @@ This ensures each round zooms in on the most promising region while retaining en
 Total combinations per round = `values_per_param ^ number_of_params`. Safety limit: 1000 combinations per sweep.
 
 | Params | Values/Param | Combos/Round | Rounds | Total Combos  |
-| ------ | ------------ | ------------ | ------ | ------------- |
+|--------|--------------|--------------|--------|---------------|
 | 2      | 5            | 25           | 3      | 75            |
 | 3      | 5            | 125          | 3      | 375           |
 | 4      | 4            | 256          | 3      | 768           |
@@ -378,7 +378,7 @@ For 4+ parameters, reduce `values_per_param` to 3-4, or split into two tuning ru
 ### Diagnosing Problems from Metrics
 
 | Symptom                        | Likely Cause                                     | Parameters to Adjust                                                                     |
-| ------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+|--------------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------|
 | Low acceptance rate (<0.7)     | Background model too tight                       | Increase `noise_relative`, increase `closeness_multiplier`                               |
 | High acceptance rate (>0.98)   | Background model too loose (foreground absorbed) | Decrease `noise_relative`, decrease `closeness_multiplier`                               |
 | High misalignment ratio (>0.3) | Tracks not following real objects                | Increase `hits_to_confirm`, decrease `gating_distance_squared`, check DBSCAN eps         |
@@ -604,7 +604,7 @@ This section documents known parameter interactions to help operators and AI age
 After settling, the background grid automatically segments the sensor's field of view into regions based on variance characteristics. Each region receives scaled parameters:
 
 | Region Type              | Noise Scale | Neighbour Bonus | Settle Scale | Typical Cells   |
-| ------------------------ | ----------- | --------------- | ------------ | --------------- |
+|--------------------------|-------------|-----------------|--------------|-----------------|
 | Stable (low variance)    | 0.8× base   | 0               | 1.5× base    | Walls, pavement |
 | Variable (medium)        | 1.0× base   | 0               | 1.0× base    | Distant foliage |
 | Volatile (high variance) | 2.0× base   | +2              | 0.5× base    | Trees, glass    |

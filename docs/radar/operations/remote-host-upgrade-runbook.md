@@ -31,13 +31,17 @@ Stop and ask before continuing if any of these are true:
 
 - `velocity-report.service` is missing or points at paths other than the ones
   above.
+
 - `systemctl is-active velocity-report.service` is not `active` before the
   upgrade.
+
 - `velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db status`
   reports `Dirty: true`.
+
 - `/opt/velocity-report` exists but `git status --short` is not clean.
 - The only available build output was produced from a checkout whose
   `web/build/index.html` is the stub page.
+
 - The host cannot provide `sudo` for service stop/start, file install, and
   backup steps.
 
@@ -119,14 +123,18 @@ Paste the output back to the agent. The agent should check for:
 - Whether the service is active and which user it runs as.
 - Whether the database exists, its size, and whether migrations are clean
   (`Dirty: false`). A dirty migration is a guardrail — stop and ask.
+
 - Whether `/opt/velocity-report` is present, clean, and at which commit.
   If `git status --short` printed any paths before `(working tree clean)`,
   the checkout is dirty — stop and ask.
+
 - Whether `config/tuning.defaults.json` exists in `/opt/velocity-report`.
   If missing, the checkout predates the config restructure and must be
   updated before the service can start.
+
 - Directory ownership of `/opt/velocity-report` — determines whether later
   `git` and `make` steps need `sudo -u`.
+
 - Whether `sudo` is available without a password (affects later steps).
 - The listen port printed at the end of the service block.
 
@@ -398,9 +406,11 @@ All three must pass before restarting:
 - **Config file exists** — the `--config` path in `ExecStart` must resolve.
   If missing, the `/opt/velocity-report` checkout is stale or the
   `git checkout` step failed (check permissions).
+
 - **Migrations clean** — `Dirty: false` and the current version matches the
   latest migration the binary knows about. If the version is behind, run
   `migrate up` again. If `Dirty: true`, stop and recover.
+
 - **Binary version** — confirms the installed binary is the expected release.
 
 ## Restart and Verify

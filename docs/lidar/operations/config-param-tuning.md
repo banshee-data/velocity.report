@@ -12,7 +12,7 @@ How to tune the LiDAR processing pipeline's configuration parameters at runtime,
 ## 2. Core Parameter Groups
 
 | Group                 | Primary Keys                                                                                    | Typical Effect                                         |
-| --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+|-----------------------|-------------------------------------------------------------------------------------------------|--------------------------------------------------------|
 | Foreground/background | `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count`, `safety_margin_meters` | Detection sensitivity, false positives, empty-box risk |
 | Clustering            | `foreground_dbscan_eps`, `foreground_min_cluster_points`                                        | Fragmentation vs merge risk                            |
 | Tracking/association  | `gating_distance_squared`, `measurement_noise`, `process_noise_pos`, `process_noise_vel`        | ID stability, jitter, velocity alignment               |

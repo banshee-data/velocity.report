@@ -98,7 +98,7 @@ tables.
 ## Implementation Phases
 
 | Phase | Scope                               | Risk   |
-| ----- | ----------------------------------- | ------ |
+|-------|-------------------------------------|--------|
 | 1     | Interface + background adapter      | Low    |
 | 2     | Velocity estimation + frame history | Low    |
 | 3     | Velocity-coherent extractor         | Medium |

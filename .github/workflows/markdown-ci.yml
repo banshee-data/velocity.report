@@ -58,3 +58,28 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Suppress known-stale references with \`<!-- link-ignore -->\`." >> $GITHUB_STEP_SUMMARY
+
+  md-ascfix:
+    name: "📐 Table and list formatting (ascfix)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ascfix
+        run: cargo install ascfix --version 0.7.1
+
+      - name: Check Markdown tables and lists
+        run: ascfix --check --mode safe -e .md . --summary
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📐 Markdown Table/List Check (ascfix)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ascfix --check --mode safe -e .md . --list-files >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Fix with \`make format-docs\` or \`ascfix --in-place --mode safe -e .md .\`" >> $GITHUB_STEP_SUMMARY

@@ -8,13 +8,13 @@ adjust how the pipeline detects, clusters, or tracks objects.
 The tuning tools form a progression from manual knob-turning to fully automated
 multi-round optimisation with human feedback:
 
-| Stage                        | Document                                           | When to Use                                                           |
-| ---------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| 1. Understand the parameters | [parameter-comparison.md](parameter-comparison.md) | Read first — side-by-side of defaults vs optimised, with impact notes |
-| 2. Manual runtime tuning     | [config-param-tuning.md](config-param-tuning.md)   | Ad-hoc `curl` changes, validate with live data or PCAP replay         |
-| 3. Automated sweep           | [sweep-tool.md](sweep-tool.md)                     | Systematic grid search across parameter ranges                        |
-| 4. Multi-round auto-tuning   | [auto-tuning.md](auto-tuning.md)                   | Iterative grid search with automatic bound narrowing                  |
-| 5. Human-in-the-loop tuning  | [hint-sweep-mode.md](hint-sweep-mode.md)           | HINT mode — human labels drive the objective function each round      |
+| Stage                        | Document                                           | When to Use                                                             |
+|------------------------------|----------------------------------------------------|-------------------------------------------------------------------------|
+| 1. Understand the parameters | [parameter-comparison.md](parameter-comparison.md) | Read first — side-by-side of defaults vs optimised, with impact notes   |
+| 2. Manual runtime tuning     | [config-param-tuning.md](config-param-tuning.md)   | Ad-hoc `curl` changes, validate with live data or PCAP replay           |
+| 3. Automated sweep           | [sweep-tool.md](sweep-tool.md)                     | Systematic grid search across parameter ranges                          |
+| 4. Multi-round auto-tuning   | [auto-tuning.md](auto-tuning.md)                   | Iterative grid search with automatic bound narrowing                    |
+| 5. Human-in-the-loop tuning  | [hint-sweep-mode.md](hint-sweep-mode.md)           | HINT mode — human labels drive the objective function each round        |
 
 ## Quick Troubleshooting
 

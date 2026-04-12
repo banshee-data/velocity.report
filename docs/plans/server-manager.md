@@ -12,12 +12,15 @@
 
 - **Hardcoded address:** `serverAddress` defaults to `"localhost:50051"` in
   `AppState` — no UI to change it.
+
 - **Auto-connect:** App connects to `serverAddress` 500 ms after launch.
 - **Status indicator:** Small coloured circle (`ConnectionStatusView`) —
   green when connected, red on error, grey when disconnected. Hover tooltip
   shows the address or error message.
+
 - **Connect button:** `ConnectionButtonView` toggles connect/disconnect with
   play/stop icon and "Connect" / "Disconnect" / "Connecting..." text.
+
 - **No persistence:** Server address is not saved between sessions.
 - **Single server only:** No concept of a server list or switching.
 
@@ -30,7 +33,7 @@
 A saved server entry contains:
 
 | Field           | Type    | Required | Notes                                   |
-| --------------- | ------- | -------- | --------------------------------------- |
+|-----------------|---------|----------|-----------------------------------------|
 | `id`            | UUID    | auto     | Stable identity for persistence         |
 | `name`          | String  | yes      | User-friendly label (e.g. "Office Pi")  |
 | `host`          | String  | yes      | Hostname or IP address                  |
@@ -74,8 +77,10 @@ overlaid on the main view:
 
 - **Connected:** `"Connected to Office Pi (192.168.1.42:50051)"` — green
   background, checkmark icon.
+
 - **Disconnected:** `"Disconnected from Office Pi"` — grey background, xmark
   icon.
+
 - **Error:** `"Connection failed: cannot reach 192.168.1.42:50051"` — red
   background, exclamationmark icon.
 
@@ -110,6 +115,7 @@ A sheet (modal) or settings tab with:
 - **Notes** text field (optional)
 - **Test Connection** button — attempts a quick connect/disconnect, shows
   ✅ reachable or ❌ unreachable with latency
+
 - **Set as Default** toggle
 - **Save** / **Cancel** buttons
 - **Delete** button (with confirmation, disabled if only one server)
@@ -130,6 +136,7 @@ On first launch with no saved servers, auto-create a default entry:
 - Exactly one server can be marked `isDefault`.
 - On app launch, auto-connect to the default server (preserve current 500 ms
   delay behaviour).
+
 - If no default is set, show the server list panel instead of auto-connecting.
 - Changing the default does **not** disconnect the current session.
 
@@ -138,7 +145,7 @@ On first launch with no saved servers, auto-create a default entry:
 ## UI Placement
 
 | Component                | Location                                          |
-| ------------------------ | ------------------------------------------------- |
+|--------------------------|---------------------------------------------------|
 | Server list menu         | `CommandMenu("Servers")` in menu bar              |
 | Connection status badge  | Toolbar, replacing current `ConnectionStatusView` |
 | Connection toast/callout | Overlay on `MetalView` (top-centre)               |
@@ -234,7 +241,7 @@ On first launch with no saved servers, auto-create a default entry:
 ## File Plan
 
 | File                              | Purpose                                 |
-| --------------------------------- | --------------------------------------- |
+|-----------------------------------|-----------------------------------------|
 | `App/ServerConfig.swift`          | `ServerConfig` model struct             |
 | `App/ServerManager.swift`         | Server list management + persistence    |
 | `UI/ServerEditorView.swift`       | Add / Edit server sheet                 |
@@ -249,7 +256,7 @@ On first launch with no saved servers, auto-create a default entry:
 ## Keyboard Shortcuts
 
 | Shortcut | Action                        |
-| -------- | ----------------------------- |
+|----------|-------------------------------|
 | ⇧⌘N      | Add Server...                 |
 | ⇧⌘E      | Edit Servers...               |
 | ⇧⌘C      | Connect/Disconnect (existing) |
@@ -259,7 +266,7 @@ On first launch with no saved servers, auto-create a default entry:
 ## Test Coverage
 
 | Test                                         | Type  |
-| -------------------------------------------- | ----- |
+|----------------------------------------------|-------|
 | `ServerConfig` Codable round-trip            | Unit  |
 | `ServerManager` add/edit/delete/setDefault   | Unit  |
 | `ServerManager` persistence (UserDefaults)   | Unit  |
@@ -278,11 +285,14 @@ On first launch with no saved servers, auto-create a default entry:
 1. **Persistence format:** `UserDefaults` (simplest) vs JSON file in
    `Application Support` (more portable, visible)? Recommendation: start with
    `UserDefaults`, migrate later if needed.
+
 2. **Server discovery:** Should we support mDNS/Bonjour to auto-discover
    velocity.report servers on the local network? Useful but adds complexity —
    defer to a future phase.
+
 3. **Multiple simultaneous connections:** Currently single-server only. Is there
    a use case for viewing two servers side-by-side? Defer unless requested.
+
 4. **Secure transport:** Visualiser↔server gRPC traffic MUST use TLS by default,
    ideally mutual TLS (mTLS) with certificate validation. Plaintext/insecure
    connections, if supported at all, SHOULD be an explicit, opt-in per-server

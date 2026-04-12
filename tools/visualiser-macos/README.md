@@ -69,7 +69,7 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 ## Keyboard Shortcuts
 
 | Action             | Shortcut |
-| ------------------ | -------- |
+|--------------------|----------|
 | Connect/Disconnect | ⌘⇧C      |
 | Pause/Play         | Space    |
 | Step Forward       | .        |

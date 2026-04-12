@@ -148,8 +148,10 @@ No second L4-only warmup timer should remain after merge.
 1. Proposal keys `polar cell + Cartesian tile` are too narrow for polygon/polyline surfaces.
 2. Proposal lacks explicit region-selection maths, while vector scene depends on
    region growing and boundary-aware splits.
+
 3. Proposal treats vector scene as post-process only; in practice, global-surface
    priors should feed online region assignment and settling confidence.
+
 4. Proposal does not distinguish surface class in lifecycle state, creating risk
    of blending ground and vertical structures.
 
@@ -168,10 +170,13 @@ No second L4-only warmup timer should remain after merge.
 
 1. **Phase A (No behaviour change):**
    Add shared `SettlementCore` telemetry in parallel with existing logic.
+
 2. **Phase B (Control unification):**
    Route warmup/freeze/lock transitions through shared lifecycle; keep model math unchanged.
+
 3. **Phase C (Input unification):**
    Use shared confidence (`C_obs`) as first-class weight for L4 updates.
+
 4. **Phase D (Cleanup):**
    Remove duplicated settling timers/counters from L4 path.
 

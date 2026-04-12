@@ -112,7 +112,7 @@ Real-world traffic monitoring benefits from multiple sensors covering different 
 ### Layer impact of multi-sensor fusion
 
 | Layer         | Single-sensor (today)               | Multi-sensor (future)                                                                               |
-| ------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+|---------------|-------------------------------------|-----------------------------------------------------------------------------------------------------|
 | L1 Packets    | One UDP stream                      | Multiple streams, each sensor on its own port/interface                                             |
 | L2 Frames     | One frame pipeline                  | Parallel frame pipelines, each in sensor-local coordinates                                          |
 | L3 Grid       | One background grid                 | Per-sensor grids (polar coordinates are sensor-specific)                                            |
@@ -216,7 +216,7 @@ L7 is also the natural home for two concerns that cannot live in lower layers: *
 Single-object kinematics (richer Kalman state vectors) belong at L5 — that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
 
 | Scope                                                            | Layer        | Responsibility                                                                                    |
-| ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+|------------------------------------------------------------------|--------------|---------------------------------------------------------------------------------------------------|
 | Single-object kinematics (CV, CA, CTRV, IMM)                     | L5 Tracks    | Per-track state estimator; extends the existing Kalman state vector                               |
 | Scene-constrained prediction (road-following, kerb clipping)     | **L7 Scene** | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
 | Multi-object interaction (following distance, gap acceptance)    | **L7 Scene** | Requires simultaneous visibility of all canonical objects plus road topology                      |
@@ -300,39 +300,39 @@ L7 Scene
 
 ### Scene and map construction
 
-| Reference                                                                               | Relevance                                                                                                                |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| HD Map construction surveys (Liu et al., 2020; Li et al., 2022)                         | Canonical approach to persistent vector map construction from LiDAR; our L7 follows this paradigm at neighbourhood scale |
-| OpenStreetMap Simple 3D Buildings (S3DB) specification                                  | Prior source for building outlines; our priors service ingests S3DB tags                                                 |
-| Pannen et al. (2020) — How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020) | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                      |
-| CityJSON specification (v1.1)                                                           | 3D city model interchange format; our L7 export target for building geometry                                             |
-| Hornung et al. (2013) — **OctoMap** (doi:10.1007/s10514-012-9321-0)                     | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
-| Pomerleau et al. (2014) — Long-term 3D map maintenance                                  | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
+| Reference                                                                                 | Relevance                                                                                                                |
+|-------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| HD Map construction surveys (Liu et al., 2020; Li et al., 2022)                           | Canonical approach to persistent vector map construction from LiDAR; our L7 follows this paradigm at neighbourhood scale |
+| OpenStreetMap Simple 3D Buildings (S3DB) specification                                    | Prior source for building outlines; our priors service ingests S3DB tags                                                 |
+| Pannen et al. (2020) — How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020)   | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                      |
+| CityJSON specification (v1.1)                                                             | 3D city model interchange format; our L7 export target for building geometry                                             |
+| Hornung et al. (2013) — **OctoMap** (doi:10.1007/s10514-012-9321-0)                       | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
+| Pomerleau et al. (2014) — Long-term 3D map maintenance                                    | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
 
 ### Multi-sensor tracking and fusion
 
-| Reference                                                                                    | Relevance                                                                                         |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Bar-Shalom et al. (2011) — Tracking and Data Fusion (Mathematics in Science and Engineering) | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering |
-| Reid (1979) — An algorithm for tracking multiple targets (IEEE TAC)                          | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
-| Kim & Liu (2017) — Cooperative multi-robot observation of targets                            | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
-| Dames & Kumar (2017) — Detecting, localising, and tracking an unknown number of targets      | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
+| Reference                                                                                      | Relevance                                                                                         |
+|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Bar-Shalom et al. (2011) — Tracking and Data Fusion (Mathematics in Science and Engineering)   | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering |
+| Reid (1979) — An algorithm for tracking multiple targets (IEEE TAC)                            | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
+| Kim & Liu (2017) — Cooperative multi-robot observation of targets                              | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
+| Dames & Kumar (2017) — Detecting, localising, and tracking an unknown number of targets        | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
 
 ### Physics-constrained prediction and scene graphs
 
-| Reference                                                                                                 | Relevance                                                                                              |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Lefèvre et al. (2014) — A survey on motion prediction and risk assessment for intelligent vehicles        | Taxonomy of physics-based, manoeuvre-based, and interaction-aware prediction; frames our L5→L7 split   |
-| Schöller et al. (2020) — What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction | Surprisingly strong CV baseline; validates our L5 CV/CA starting point before adding scene constraints |
-| Salzmann et al. (2020) — Trajectron++: Dynamically-Feasible Trajectory Forecasting (ECCV 2020)            | Scene-conditioned trajectory prediction with dynamics integration; our L7 scene-constrained path model |
-| Liang et al. (2020) — Learning lane graph representations for motion forecasting (ECCV 2020)              | Lane-graph topology for trajectory prediction; relevant to our road-polygon corridor constraints       |
+| Reference                                                                                                    | Relevance                                                                                              |
+|--------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| Lefèvre et al. (2014) — A survey on motion prediction and risk assessment for intelligent vehicles           | Taxonomy of physics-based, manoeuvre-based, and interaction-aware prediction; frames our L5→L7 split   |
+| Schöller et al. (2020) — What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction    | Surprisingly strong CV baseline; validates our L5 CV/CA starting point before adding scene constraints |
+| Salzmann et al. (2020) — Trajectron++: Dynamically-Feasible Trajectory Forecasting (ECCV 2020)               | Scene-conditioned trajectory prediction with dynamics integration; our L7 scene-constrained path model |
+| Liang et al. (2020) — Learning lane graph representations for motion forecasting (ECCV 2020)                 | Lane-graph topology for trajectory prediction; relevant to our road-polygon corridor constraints       |
 
 ### Mathematical methods
 
-| Reference                                                                       | Relevance                                                                                      |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Kalman (1960) — A New Approach to Linear Filtering and Prediction Problems      | Foundation of the Kalman state estimator used in L5 tracking and L7 cross-sensor extrapolation |
-| Welford (1962) — Note on a method for calculating corrected sums                | Numerically stable online mean/variance; used for canonical object dimension refinement        |
-| Schönemann (1966) — A generalised solution of the orthogonal Procrustes problem | Closed-form rigid alignment via SVD; used for prior-to-observation registration                |
-| Mahalanobis (1936) — On the generalised distance in statistics                  | Statistical distance metric used for cross-sensor track association gating                     |
-| Hornung et al. (2013) — OctoMap                                                 | Log-odds occupancy update; adapted for vector-feature confidence accumulation                  |
+| Reference                                                                          | Relevance                                                                                      |
+|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| Kalman (1960) — A New Approach to Linear Filtering and Prediction Problems         | Foundation of the Kalman state estimator used in L5 tracking and L7 cross-sensor extrapolation |
+| Welford (1962) — Note on a method for calculating corrected sums                   | Numerically stable online mean/variance; used for canonical object dimension refinement        |
+| Schönemann (1966) — A generalised solution of the orthogonal Procrustes problem    | Closed-form rigid alignment via SVD; used for prior-to-observation registration                |
+| Mahalanobis (1936) — On the generalised distance in statistics                     | Statistical distance metric used for cross-sensor track association gating                     |
+| Hornung et al. (2013) — OctoMap                                                    | Log-odds occupancy update; adapted for vector-feature confidence accumulation                  |

@@ -7,7 +7,7 @@ Per-track quality score (0–100) with reason codes and grade classification.
 ## Component Weights
 
 | Component                  | Weight | Description                                       |
-| -------------------------- | ------ | ------------------------------------------------- |
+|----------------------------|--------|---------------------------------------------------|
 | Observation stability      | 25%    | Consistency of observation count and gap patterns |
 | Kinematic smoothness       | 20%    | Acceleration/jerk within physical bounds          |
 | Geometry consistency       | 15%    | Bounding box size stability over time             |
@@ -18,7 +18,7 @@ Per-track quality score (0–100) with reason codes and grade classification.
 ## Grade Buckets
 
 | Grade | Score Range | Meaning                              |
-| ----- | ----------- | ------------------------------------ |
+|-------|-------------|--------------------------------------|
 | A     | 90–100      | High confidence, no issues           |
 | B     | 75–89       | Good quality, minor concerns         |
 | C     | 60–74       | Moderate quality, review recommended |
@@ -53,7 +53,7 @@ Per-track quality score (0–100) with reason codes and grade classification.
 ### History table: `lidar_run_track_quality_history`
 
 | Column           | Type       | Description                |
-| ---------------- | ---------- | -------------------------- |
+|------------------|------------|----------------------------|
 | `id`             | INTEGER PK | Auto-increment             |
 | `run_id`         | TEXT       | Run identifier             |
 | `track_id`       | TEXT       | Track identifier           |

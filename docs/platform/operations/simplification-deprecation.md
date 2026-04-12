@@ -26,6 +26,7 @@ Removal of `cmd/deploy` is gated on **all** of:
 
 1. #210 image pipeline operational (bootable Pi image, service starts, API
    responds).
+
 2. Packaging path confirmed (successful full deployment).
 3. Migration period elapsed (at least one minor release with both paths).
 4. No active deploy-tool users confirmed.
@@ -37,6 +38,7 @@ Once met, `cmd/deploy/`, `internal/deploy/`, 8+ Makefile targets, and
 
 1. **Track speed contract:** `peak_speed_mps` → `max_speed_mps`; percentiles
    reserved for grouped/report aggregates only.
+
 2. **Deploy surface deprecated** — prints warnings; removal in v0.7.0+.
 3. **Sweep API:** Legacy request/result fields removed; `param_values` only.
 4. **Report download:** Query-parameter endpoint removed; path-based only.
@@ -52,12 +54,12 @@ Retire duplicated stats/debug HTML surfaces after parity is reached.
 ## Project Status
 
 | Project | Scope                  | Status              |
-| ------- | ---------------------- | ------------------- |
-| A       | Deprecation signalling | ✅ Complete         |
+|---------|------------------------|---------------------|
+| A       | Deprecation signalling | ✅ Complete          |
 | B       | Deploy retirement gate | Gated on #210       |
 | C       | Frontend consolidation | Blocked on #252     |
 | D       | CLI simplification     | Partially addressed |
-| E       | Compat shim removal    | ✅ Complete         |
+| E       | Compat shim removal    | ✅ Complete          |
 
 ## Binary Size
 
@@ -67,13 +69,14 @@ active plan for root cause, phases, and checklist.
 - **Plan:** [binary-size-reduction-plan](../../plans/binary-size-reduction-plan.md)
 - **Target:** < 40 MB production binary (currently ~211 MB, almost entirely
   stale embeds)
+
 - **CI gate:** `scripts/check-binary-size.sh` (planned)
 
-| Segment                | Size   | Notes                                  |
-| ---------------------- | ------ | -------------------------------------- |
-| Stale `static/` embeds | 172 MB | Root cause — build hygiene, not Svelte |
-| Go code + all deps     | 38 MB  | Includes SQLite, gRPC, protobuf, gonum |
-| `web/build/` (current) | 1.1 MB | The actual SvelteKit build             |
+| Segment                | Size   | Notes                                    |
+|------------------------|--------|------------------------------------------|
+| Stale `static/` embeds | 172 MB | Root cause — build hygiene, not Svelte   |
+| Go code + all deps     | 38 MB  | Includes SQLite, gRPC, protobuf, gonum   |
+| `web/build/` (current) | 1.1 MB | The actual SvelteKit build               |
 
 Phases: (1) eliminate stale embeds (~172 MB), (2) strip debug symbols (~8–12 MB),
 (3) CI binary size gate (45 MB threshold), (4) optional further reductions

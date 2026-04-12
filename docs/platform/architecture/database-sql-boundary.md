@@ -12,6 +12,7 @@ The SQLite database access boundary follows a two-package model:
 1. **`internal/db/`** — radar/core domain: radar objects, events, sites,
    config periods, reports, transits, background snapshots, migrations,
    admin/debug routes.
+
 2. **`internal/lidar/storage/sqlite/`** — LiDAR domain: tracks,
    observations, clusters, analysis runs, replay cases, evaluations,
    missed regions, sweeps.
@@ -23,11 +24,11 @@ sentinel values (`sqlite.ErrNotFound`) from the storage layer.
 
 ## SQL Operation Count
 
-| Package                                                 | Files | SQL ops | Domain             |
-| ------------------------------------------------------- | ----: | ------: | ------------------ |
-| `internal/db/` (db.go, site, config, report, transit…)  |     8 |     ~72 | Radar/core + infra |
-| `internal/lidar/storage/sqlite/` (tracks, runs, sweep…) |     7 |     ~55 | LiDAR              |
-| **Grand total**                                         |    15 |    ~127 |                    |
+| Package                                                   | Files | SQL ops | Domain             |
+|-----------------------------------------------------------|-------|---------|--------------------|
+| `internal/db/` (db.go, site, config, report, transit…)    | 8     | ~72     | Radar/core + infra |
+| `internal/lidar/storage/sqlite/` (tracks, runs, sweep…)   | 7     | ~55     | LiDAR              |
+| **Grand total**                                           | 15    | ~127    |                    |
 
 ## Options Evaluated
 
@@ -61,7 +62,7 @@ adding clarity.
 ## Remaining Gaps
 
 | Gap                          | Size | Priority | Notes                                               |
-| ---------------------------- | ---- | -------- | --------------------------------------------------- |
+|------------------------------|------|----------|-----------------------------------------------------|
 | Label SQL in `internal/api/` | S    | High     | Last query-boundary violation; 8 queries to move    |
 | Unified PRAGMA bootstrap     | XS   | Medium   | Test helpers vs production differ on busy_timeout   |
 | BgSnapshot crossover docs    | XS   | Low      | Comment block in `db.go`                            |
@@ -79,8 +80,10 @@ adding clarity.
 - **sqlite-client-standardisation** — superseded target architecture (two
   packages instead of one). Phases 0, 2, 4, 5 still relevant; phases 1, 3
   replaced.
+
 - **deploy-distribution-packaging** — single-binary plan eliminates
   `cmd/tools/` exemption by construction.
+
 - **lidar-tracks-table-consolidation** — orthogonal (Go-level struct
   duplication, not SQL package boundary).
 
@@ -88,5 +91,6 @@ adding clarity.
 
 - Original proposal: collapse all SQL into `internal/db/`
   ([sqlite-client-standardisation plan](../../plans/data-sqlite-client-standardisation-plan.md))
+
 - Replaced by two-package model
   ([database-alignment plan](../../plans/data-database-alignment-plan.md))

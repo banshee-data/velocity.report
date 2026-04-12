@@ -31,19 +31,19 @@ The dependency order is deliberate: `L8` must exist before storage and handlers 
 This plan now directly absorbs the two backlog items currently attached to it:
 
 | Backlog item                          | Release bucket | Covered by                       |
-| ------------------------------------- | -------------- | -------------------------------- |
+|---------------------------------------|----------------|----------------------------------|
 | `L8/L9/L10 layer refactor Phases 1-3` | `v0.5.1`       | Phase 1 and Phase 2 of this plan |
 | `L8/L9/L10 layer refactor Phases 4-5` | `v0.6`         | Phase 3 of this plan             |
 
 Adjacent backlog items that influence sequencing but remain separate deliverables:
 
-| Item                                                                                                                    | Why it matters here                                                                      | Rule for this plan                                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                                   | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                     |
-| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps` → `max_speed_mps` | treat as follow-on storage cleanup once the `L8` API is stable                                                         |
-| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                                    | sequence after Phase 2, not before                                                                                     |
-| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
-| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                 | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
+| Item                                                                                                                    | Why it matters here                                                                        | Rule for this plan                                                                                                     |
+|-------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                                     | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                     |
+| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps` → `max_speed_mps`   | treat as follow-on storage cleanup once the `L8` API is stable                                                         |
+| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                                      | sequence after Phase 2, not before                                                                                     |
+| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                      | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
+| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                   | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
 
 ## Repository Baseline
 
@@ -72,7 +72,7 @@ There is no `internal/lidar/l8analytics/` package today, and there is no explici
 ### Current ownership mismatches
 
 | Current location                                                         | Current responsibility                                                  | Correct owner                            |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ---------------------------------------- |
+|--------------------------------------------------------------------------|-------------------------------------------------------------------------|------------------------------------------|
 | `internal/lidar/l6objects/comparison.go`                                 | run comparison types and temporal IoU helpers                           | `L8 Analytics`                           |
 | `internal/lidar/l6objects/quality.go`                                    | mixed per-object quality helpers and run-level aggregate statistics     | split `L6` and `L8`                      |
 | `internal/lidar/storage/sqlite/track_store.go`                           | inline speed percentile calculation during persistence                  | `L8 Analytics` helper called by storage  |
@@ -114,7 +114,7 @@ The six-layer model is still described in multiple places, including:
 ## Target Ten-Layer Model
 
 | Layer | Label      | Responsibility                                                                                                                                                                                                              |
-| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | L1    | Packets    | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                                                    |
 | L2    | Frames     | frame assembly, timestamps, geometry conversion, exports                                                                                                                                                                    |
 | L3    | Grid       | background model, foreground masking, persistence, drift, regions                                                                                                                                                           |
@@ -329,7 +329,7 @@ Recommended shape:
 Split the remaining mixed package into named roles:
 
 | Target package                                      | Takes ownership of                                                                                                                                                                                                                      |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `internal/lidar/server/`                            | `webserver.go`, `datasource.go`, `datasource_handlers.go`, `playback_handlers.go`, `stats.go`, `mock_background.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, `sweep_handlers.go`, `export_handlers.go`, `pcap_files_api.go` |
 | `internal/lidar/l9endpoints/`                       | existing streaming and visualiser code plus chart and debug endpoint code moved in 3B, plus template and `go:embed` glue for the legacy asset subtree                                                                                   |
 | `internal/lidar/l9endpoints/l10clients/`            | deprecated embedded ECharts sweep/dashboard HTML, JS, CSS, and related asset bundles kept only until consolidated frontend replaces them; asset-only subtree, no Go files                                                               |

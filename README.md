@@ -89,7 +89,7 @@ When the city announced a quick-build project to repave Clarendon, the Banshee t
 The team generated comparison reports from both periods and [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
 
 | Metric        | Period 1  | Period 2  | Change |
-| ------------- | --------- | --------- | ------ |
+|---------------|-----------|-----------|--------|
 | P50 speed     | 30.54 mph | 33.02 mph | +8.1%  |
 | P85 speed     | 36.94 mph | 38.70 mph | +4.8%  |
 | P98 speed     | 43.05 mph | 44.21 mph | +2.7%  |
@@ -104,12 +104,12 @@ The team generated comparison reports from both periods and [presented the findi
 
 ## What's Included
 
-| Component            | Language            | What it does                                                                                                                                                      |
-| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Go server**        | Go                  | Collects radar speed data and LiDAR point clouds independently, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                     |
-| **PDF generator**    | Python + LaTeX      | Turns speed data into professional reports with charts, statistics, and proper formatting. → [tools/pdf-generator/](tools/pdf-generator/README.md)                |
-| **Web frontend**     | Svelte + TypeScript | Data visualisation and interactive charts for recorded speed data. → [web/](web/README.md)                                                                        |
-| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
+| Component            | Language            | What it does                                                                                                                                                        |
+|----------------------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Go server**        | Go                  | Collects radar speed data and LiDAR point clouds independently, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                       |
+| **PDF generator**    | Python + LaTeX      | Turns speed data into professional reports with charts, statistics, and proper formatting. → [tools/pdf-generator/](tools/pdf-generator/README.md)                  |
+| **Web frontend**     | Svelte + TypeScript | Data visualisation and interactive charts for recorded speed data. → [web/](web/README.md)                                                                          |
+| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md)   |
 
 ## Quick Start
 

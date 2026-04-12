@@ -98,7 +98,7 @@ help:
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
 	@echo "  format-mac           Format macOS Swift code (swift-format)"
-	@echo "  format-docs          Format docs Markdown files (prettier)"
+	@echo "  format-docs          Format docs Markdown files (ascfix + prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -107,6 +107,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
+	@echo "  check-ascfix         Validate Markdown table/list formatting (ascfix --mode safe)"
 	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
@@ -1059,6 +1060,13 @@ format-mac:
 format-docs: ensure-web-cache
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
+	@echo "Fixing Markdown tables and lists (ascfix --mode safe)..."
+	@if command -v ascfix >/dev/null 2>&1; then \
+		ascfix --in-place --mode safe -e .md . --summary; \
+	else \
+		echo "ascfix not found; install via: cargo install ascfix"; \
+		echo "Skipping Markdown table/list formatting"; \
+	fi
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
@@ -1080,7 +1088,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes
+.PHONY: lint lint-go lint-python lint-web lint-docs check-mermaid check-ascfix check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes
 
 lint: lint-go lint-python lint-web lint-docs
 	@echo "\nAll lint checks passed."
@@ -1090,6 +1098,14 @@ check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break P
 
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
+
+check-ascfix: ## [gated] Validate Markdown table/list formatting (ascfix --mode safe)
+	@if command -v ascfix >/dev/null 2>&1; then \
+		ascfix --check --mode safe -e .md . --summary; \
+	else \
+		echo "ascfix not found; install via: cargo install ascfix"; \
+		echo "Skipping Markdown table/list check"; \
+	fi
 
 check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
@@ -1103,7 +1119,7 @@ report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never
 check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSON files against download URLs
 	@python3 scripts/check-release-hashes.py --check
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-ascfix check-quarter-blocks check-release-hashes ## Check Mermaid fences, table/list formatting (ascfix), header metadata, British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

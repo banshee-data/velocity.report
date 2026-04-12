@@ -10,7 +10,7 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 ## Simplification Applied
 
 | This Plan (Deferred)             | Current Implementation     |
-| -------------------------------- | -------------------------- |
+|----------------------------------|----------------------------|
 | 7DOF (x, y, z, l, w, h, heading) | 2D+velocity (x, y, vx, vy) |
 | Oriented bounding boxes          | Axis-aligned boxes         |
 | PCA-based heading                | Heading from velocity      |
@@ -28,7 +28,7 @@ Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction
 ## Gap Analysis: Current → 7DOF
 
 | Component        | Current State        | Required Change         | Complexity |
-| ---------------- | -------------------- | ----------------------- | ---------- |
+|------------------|----------------------|-------------------------|------------|
 | Heading angle    | None                 | Add heading estimation  | Medium     |
 | Z tracking       | Assumed ground plane | Add Z to Kalman state   | Medium     |
 | Oriented box     | Axis-aligned         | Compute along heading   | Medium     |

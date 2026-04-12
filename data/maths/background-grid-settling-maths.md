@@ -72,9 +72,11 @@ For each point:
 1. If cell is frozen (`now < frozen_until_c`): classify foreground.
 2. Else compute residual:
    `delta = |mu_c - r_obs|`
+
 3. Evaluate locked-baseline gate (if locked):
    `delta_lock = |locked_baseline_c - r_obs|`
    `tau_lock = max(locked_multiplier*locked_spread_c + k_noise*r_obs + safety, 0.1)`
+
 4. Background-like if any is true:
    - inside locked window,
    - `delta <= tau_warm`,
@@ -172,7 +174,7 @@ This allows L4 to maintain geometric consistency even when L3 is temporarily uns
 ## 13. References
 
 | Reference                 | BibTeX key      | Relevance                                                                             |
-| ------------------------- | --------------- | ------------------------------------------------------------------------------------- |
+|---------------------------|-----------------|---------------------------------------------------------------------------------------|
 | Stauffer & Grimson (1999) | `Stauffer1999`  | Adaptive GMM background subtraction; our single-component EMA is a simplified variant |
 | Sack & Burgard (2004)     | `Sack2004`      | Background subtraction for static LiDAR; validates the EMA-on-range approach          |
 | Pomerleau et al. (2014)   | `Pomerleau2014` | Long-term map maintenance; related to our background settling and drift correction    |

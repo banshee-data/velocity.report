@@ -22,7 +22,7 @@ what they want to see without learning a query language.
 ## Design Decisions
 
 | Decision          | Choice                                                | Rationale                                     |
-| ----------------- | ----------------------------------------------------- | --------------------------------------------- |
+|-------------------|-------------------------------------------------------|-----------------------------------------------|
 | Syntax family     | Natural language                                      | Target users are change-makers, not engineers |
 | Execution target  | Go query builder → parameterised SQLite               | Safe, parameterised SQL; no raw SQL exposed   |
 | Schema exposure   | Abstract                                              | Users see domain concepts, not table names    |

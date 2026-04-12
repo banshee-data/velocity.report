@@ -9,7 +9,7 @@ Decision to keep live and run track tables separate while consolidating their sh
 Two tables with 16 overlapping columns:
 
 | Table              | Purpose                            | PK                   |
-| ------------------ | ---------------------------------- | -------------------- |
+|--------------------|------------------------------------|----------------------|
 | `lidar_tracks`     | Live transient buffer (pruned ~5m) | `track_id`           |
 | `lidar_run_tracks` | Immutable analysis-run snapshots   | `(run_id, track_id)` |
 
@@ -58,6 +58,7 @@ type TrackMeasurement struct {
 - `scanTrackMeasurementDests()` — used by `GetActiveTracks()`,
   `GetRunTracks()`, `GetTracksInRange()`, `GetRunTrack()`,
   `GetUnlabeledTracks()`.
+
 - `trackMeasurementInsertArgs()` and `trackMeasurementUpdateArgs()`.
 
 ### Optional SQL VIEW

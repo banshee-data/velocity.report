@@ -68,7 +68,7 @@ make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
 All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
 
 | Endpoint                       | Script                 | Make Target             | Description                      |
-| ------------------------------ | ---------------------- | ----------------------- | -------------------------------- |
+|--------------------------------|------------------------|-------------------------|----------------------------------|
 | `/api/lidar/grid_status`       | `get_grid_status.sh`   | `api-grid-status`       | Get grid cell statistics         |
 | `/api/lidar/grid_reset`        | `reset_grid.sh`        | `api-grid-reset`        | Reset grid to zero state         |
 | `/api/lidar/grid_heatmap`      | `get_grid_heatmap.sh`  | `api-grid-heatmap`      | Get aggregated heatmap data      |

@@ -30,6 +30,7 @@ Date metadata is explicitly banned: `Created`, `Date`, `Last Updated`,
 2. Client docs remain under `docs/ui/`.
 3. Data science references live under `data/`, with stable maths docs in
    `data/maths/` and proposals in `data/maths/proposals/`.
+
 4. Execution work remains under `docs/plans/`.
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
 
@@ -58,13 +59,13 @@ No automated checker exists yet.
 
 ### Data Supporting the Choice
 
-| Language | Files | ≤100 compliance |
-| -------- | ----: | --------------: |
-| Go       |   428 |           98.9% |
-| Python   |    72 |           99.6% |
-| TS/JS    |    44 |           99.8% |
-| Svelte   |    17 |           99.2% |
-| Swift    |    35 |           99.7% |
+| Language | Files | ≤100 compliance   |
+|----------|-------|-------------------|
+| Go       | 428   | 98.9%             |
+| Python   | 72    | 99.6%             |
+| TS/JS    | 44    | 99.8%             |
+| Svelte   | 17    | 99.2%             |
+| Swift    | 35    | 99.7%             |
 
 Three of five formatters already default to 100. Every language reaches
 ≥98.9% compliance at this width.
@@ -72,7 +73,7 @@ Three of five formatters already default to 100. Every language reaches
 ### Formatter Configuration
 
 | File                                | Setting                |
-| ----------------------------------- | ---------------------- |
+|-------------------------------------|------------------------|
 | `scripts/check-prose-line-width.py` | `DEFAULT_WIDTH = 100`  |
 | `pyproject.toml`                    | `line-length = 100`    |
 | `.golangci.yml`                     | `lll: line-length 100` |
@@ -126,8 +127,10 @@ web frontend, Python tools, and shell scripts.
 
 1. **Sentence case** — error messages start with a capital, do not end with a
    full stop.
+
 2. **Name the problem, not the user** — "Cannot open database" rather than
    "You provided an invalid path".
+
 3. **Include a next step** — where possible, tell the reader what to try.
 4. **Diagnostic hints** use ` — try X` suffix or `\nTry: X` on a new line.
 

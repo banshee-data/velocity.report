@@ -6,6 +6,7 @@
 - **Goal:** Replace ~800 MB `texlive-xetex` installation with a minimal vendored TeX
   tree and precompiled `.fmt` file, reducing the Raspberry Pi image by ~700–750 MB
   while preserving byte-identical PDF output.
+
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
 
 ## Problem Summary
@@ -16,7 +17,7 @@ largest dependency. The PDF generator only uses a small subset of that
 installation:
 
 | Used today                            | Not needed on Pi             |
-| ------------------------------------- | ---------------------------- |
+|---------------------------------------|------------------------------|
 | XeTeX engine binary (`xelatex`)       | tlmgr, texdoc, other engines |
 | ~10 `.sty` packages (see § 2)         | Thousands of unused packages |
 | Atkinson Hyperlegible fonts (bundled) | System-wide TeX fonts        |
@@ -40,6 +41,7 @@ pdf_generator/core/
 2. `DocumentBuilder` constructs a PyLaTeX `Document` with `\usepackage{...}` calls
 3. `pdf_generator.py` calls `doc.generate_pdf(compiler="xelatex")` (fallback chain:
    xelatex → lualatex → pdflatex)
+
 4. PyLaTeX writes a `.tex` file and shells out to the compiler
 5. XeTeX reads the `.tex`, loads each `.sty` from the TeX tree, and produces PDF
 
@@ -52,7 +54,7 @@ speed distributions) are rendered by matplotlib/seaborn as PDF figures that get
 Loaded by `DocumentBuilder.add_packages()`:
 
 | Package        | Purpose                                     |
-| -------------- | ------------------------------------------- |
+|----------------|---------------------------------------------|
 | `fancyhdr`     | Page headers and footers                    |
 | `graphicx`     | `\includegraphics` for chart PDFs           |
 | `amsmath`      | `\tfrac` and math formatting                |
@@ -74,7 +76,7 @@ files).
 ### Two Modes of Operation
 
 | Mode            | When used                         | TeX source                   |
-| --------------- | --------------------------------- | ---------------------------- |
+|-----------------|-----------------------------------|------------------------------|
 | **Development** | Iterating on report layout/design | Full `texlive-xetex` install |
 | **Production**  | Deployed Pi running headless      | Minimal vendored TeX tree    |
 
@@ -89,10 +91,10 @@ A single environment variable controls which mode is active:
 VELOCITY_TEX_ROOT=/opt/velocity-report/texlive-minimal
 ```
 
-| `VELOCITY_TEX_ROOT`       | Behaviour                                   |
-| ------------------------- | ------------------------------------------- |
-| **unset / empty**         | Development mode — use system `xelatex`     |
-| **set to directory path** | Production mode — use vendored minimal tree |
+| `VELOCITY_TEX_ROOT`       | Behaviour                                     |
+|---------------------------|-----------------------------------------------|
+| **unset / empty**         | Development mode — use system `xelatex`       |
+| **set to directory path** | Production mode — use vendored minimal tree   |
 
 When `VELOCITY_TEX_ROOT` is set, the pdf-generator:
 
@@ -191,8 +193,10 @@ when compiling a velocity.report PDF.
    ```bash
    strace -e openat -f xelatex report.tex 2>&1 | grep texlive
    ```
+
 3. Parse output to extract unique `.sty`, `.cls`, `.def`, `.fd`, `.tfm`, `.cfg`
    files
+
 4. Save the list as `tools/pdf-generator/tex/dependency-manifest.txt`
 
 **Deliverable**: `dependency-manifest.txt` — one file path per line, relative to
@@ -209,6 +213,7 @@ manifest.
    - Reads `dependency-manifest.txt`
    - Copies files from system TeX Live into a staging directory, preserving
      directory structure
+
    - Copies the `xelatex` binary (and any required shared libraries)
    - Generates `ls-R` index: `mktexlsr $STAGING/texmf-dist`
    - Writes `texmf.cnf` pointing at the minimal tree
@@ -242,6 +247,7 @@ Makefile target.
    \RequirePackage{array}
    \dump
    ```
+
 2. Extend `scripts/build-minimal-texlive.sh` to compile the `.ini` → `.fmt`
 3. Place `.fmt` in `texmf-dist/web2c/xelatex/velocity-report.fmt`
 4. Validate: `xelatex -fmt=velocity-report test.tex` produces correct output
@@ -357,12 +363,14 @@ The compiler invocation changes to:
    `TEXFORMATS` when a `.fmt` is available, so the engine picks up the
    precompiled format automatically — no PyLaTeX changes needed; see Open
    Question 3 for alternatives)
+
 4. In production mode, skip the lualatex/pdflatex fallback chain
 
 The fallback chain becomes:
 
 - **Production mode**: only `env.compiler` (no fallback — the minimal tree is
   the only option)
+
 - **Development mode**: unchanged (`xelatex` → `lualatex` → `pdflatex`)
 
 #### 4.4 Changes to `dependency_checker.py`
@@ -381,7 +389,7 @@ and whether the minimal tree is healthy.
 **New targets:**
 
 | Target                         | Purpose                                            |
-| ------------------------------ | -------------------------------------------------- |
+|--------------------------------|----------------------------------------------------|
 | `build-texlive-minimal`        | Build the minimal TeX tree from system TeX Live    |
 | `build-tex-fmt`                | Compile `velocity-report.fmt` inside the tree      |
 | `deploy-install-latex-minimal` | Copy minimal tree to Pi at `/opt/velocity-report/` |
@@ -389,10 +397,10 @@ and whether the minimal tree is healthy.
 
 **Updated targets:**
 
-| Target                 | Change                                                    |
-| ---------------------- | --------------------------------------------------------- |
-| `deploy-install-latex` | Add conditional: use minimal tree if available, else apt  |
-| `pdf-report`           | No change needed — mode detected via environment variable |
+| Target                 | Change                                                      |
+|------------------------|-------------------------------------------------------------|
+| `deploy-install-latex` | Add conditional: use minimal tree if available, else apt    |
+| `pdf-report`           | No change needed — mode detected via environment variable   |
 
 ### Phase 6: Validation & Testing
 
@@ -400,6 +408,7 @@ and whether the minimal tree is healthy.
 
 - `test_tex_environment.py` — test `resolve_tex_environment()` with and without
   `VELOCITY_TEX_ROOT`
+
 - `test_dependency_checker.py` — test production-mode LaTeX checks
 - `test_document_builder.py` — test `skip_preloaded` flag
 
@@ -418,7 +427,7 @@ A Makefile target (`validate-tex-minimal`) that:
 Record before/after in the plan:
 
 | Metric                           | Before   | After (target) |
-| -------------------------------- | -------- | -------------- |
+|----------------------------------|----------|----------------|
 | TeX install size (uncompressed)  | ~800 MB  | < 60 MB        |
 | TeX install size (xz compressed) | ~250 MB  | < 15 MB        |
 | PDF compilation time (Pi 4)      | baseline | ≤ baseline     |
@@ -429,6 +438,7 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 
 1. Remove `texlive-xetex`, `texlive-fonts-recommended`, `texlive-latex-extra`
    from APT install list
+
 2. Copy minimal tree to `/opt/velocity-report/texlive-minimal/`
 3. Set `VELOCITY_TEX_ROOT` in the systemd service environment file
 4. Validate PDF generation during image build
@@ -436,7 +446,7 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 ## Risks & Mitigations
 
 | Risk                                        | Mitigation                                          |
-| ------------------------------------------- | --------------------------------------------------- |
+|---------------------------------------------|-----------------------------------------------------|
 | Missing transitive `.sty` dependency        | `strace` audit captures all file accesses           |
 | `.fmt` incompatible after TeX engine update | `.fmt` rebuilt by same engine that ships in tree    |
 | Shared library mismatch on Pi               | Link `xelatex` statically or bundle `.so` files     |
@@ -472,6 +482,7 @@ the tree is hand-curated or TinyTeX-managed.
 
 3. **PyLaTeX `compiler_args` support** — PyLaTeX's `generate_pdf()` does not
    natively support passing `-fmt=...` to the compiler. Options:
+
    - Patch PyLaTeX (upstream PR or local monkey-patch)
    - Use a wrapper shell script as the `compiler` argument
    - Set `TEXFORMATS` environment variable so the engine finds the `.fmt`

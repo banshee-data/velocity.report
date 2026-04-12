@@ -22,7 +22,7 @@ questions quickly:
 ## Document Roles
 
 | Role                 | Purpose                                              | Path                     |
-| -------------------- | ---------------------------------------------------- | ------------------------ |
+|----------------------|------------------------------------------------------|--------------------------|
 | Canonical hub doc    | Stable architecture, implementation record, or model | Hub paths below          |
 | Active plan          | Temporary sequencing, phases, checklists             | `docs/plans/*.md`        |
 | Graduated plan alias | Preserve legacy URLs after consolidation             | Symlink in `docs/plans/` |
@@ -32,7 +32,7 @@ questions quickly:
 Four mutually exclusive hubs, chosen by domain-first sorting:
 
 | Hub              | Scope                                   |
-| ---------------- | --------------------------------------- |
+|------------------|-----------------------------------------|
 | `docs/lidar/`    | LiDAR pipeline, clustering, QC          |
 | `docs/radar/`    | Radar pipeline, time-series             |
 | `docs/ui/`       | Web frontend, macOS app, PDF generation |
@@ -46,7 +46,7 @@ the artefacts they describe.
 To place a doc, ask: _which domain owns the lasting value?_
 
 | If the lasting value is...                            | Canonical home                  |
-| ----------------------------------------------------- | ------------------------------- |
+|-------------------------------------------------------|---------------------------------|
 | Enduring design, model, API contract, system boundary | `<hub>/architecture/<topic>.md` |
 | Operating guidance, migration, implementation status  | `<hub>/operations/<topic>.md`   |
 | UI architecture or implementation reference           | `docs/ui/<topic>.md`            |
@@ -79,23 +79,23 @@ the final plan state in the commit log.
 `scripts/check-plan-canonical-links.py` enforces 8 gates in `--check` mode
 (run via `make check-plan-hygiene`):
 
-| #   | Gate                                                        |
-| --- | ----------------------------------------------------------- |
-| 1   | Non-symlink plan missing `- **Canonical:**` link            |
-| 2   | `Canonical` target points under `docs/plans/`               |
-| 3   | `Canonical` target points outside repo or to a missing file |
-| 5   | Symlink resolves under `docs/plans/`                        |
-| 6   | Symlink resolves outside the repository                     |
-| 7   | Symlink resolves to a missing target                        |
-| 8   | `Canonical` link appears more than once in the same header  |
-| 9   | `Canonical` target not under an allowed hub prefix          |
-| 10  | Symlink created before plan was Complete on `main`          |
+| #  | Gate                                                        |
+|----|-------------------------------------------------------------|
+| 1  | Non-symlink plan missing `- **Canonical:**` link            |
+| 2  | `Canonical` target points under `docs/plans/`               |
+| 3  | `Canonical` target points outside repo or to a missing file |
+| 5  | Symlink resolves under `docs/plans/`                        |
+| 6  | Symlink resolves outside the repository                     |
+| 7  | Symlink resolves to a missing target                        |
+| 8  | `Canonical` link appears more than once in the same header  |
+| 9  | `Canonical` target not under an allowed hub prefix          |
+| 10 | Symlink created before plan was Complete on `main`          |
 
 Gate 4 (two plans sharing the same canonical target) is advisory only — some
 hub docs legitimately serve multiple plans.
 
 | Target                     | Mode      | Purpose                |
-| -------------------------- | --------- | ---------------------- |
+|----------------------------|-----------|------------------------|
 | `make check-plan-hygiene`  | Hard-fail | CI gate (blocks merge) |
 | `make report-plan-hygiene` | Advisory  | PM/editorial review    |
 

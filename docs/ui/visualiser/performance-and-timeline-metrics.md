@@ -7,20 +7,20 @@ First-class metrics channel for the visualiser: per-frame performance and scene 
 ## Metric Families
 
 | Family            | Purpose                                                   |
-| ----------------- | --------------------------------------------------------- |
+|-------------------|-----------------------------------------------------------|
 | `PERFORMANCE`     | Runtime/process metrics (CPU, memory, encode/decode time) |
 | `SCENE_HEALTH`    | Scene-quality metrics derived from frame content          |
 | `PIPELINE_HEALTH` | Future: transport/backpressure/drop rates                 |
 
 ## Core Metric Definitions
 
-| Key                               | Family       | Unit    | Warn ≥ | Error ≥ |
-| --------------------------------- | ------------ | ------- | ------ | ------- |
-| `perf.cpu_usage_pct`              | PERFORMANCE  | percent | 75     | 90      |
-| `perf.memory_rss_mb`              | PERFORMANCE  | MB      | 1000   | 1500    |
-| `scene.points_outside_bbox_count` | SCENE_HEALTH | count   | 50     | 200     |
-| `scene.track_drift_m`             | SCENE_HEALTH | metres  | 0.50   | 1.00    |
-| `scene.subregion_match_iou`       | SCENE_HEALTH | ratio   | < 0.70 | < 0.50  |
+| Key                               | Family       | Unit    | Warn ≥   | Error ≥   |
+|-----------------------------------|--------------|---------|----------|-----------|
+| `perf.cpu_usage_pct`              | PERFORMANCE  | percent | 75       | 90        |
+| `perf.memory_rss_mb`              | PERFORMANCE  | MB      | 1000     | 1500      |
+| `scene.points_outside_bbox_count` | SCENE_HEALTH | count   | 50       | 200       |
+| `scene.track_drift_m`             | SCENE_HEALTH | metres  | 0.50     | 1.00      |
+| `scene.subregion_match_iou`       | SCENE_HEALTH | ratio   | < 0.70   | < 0.50    |
 
 ## Comparative Harness
 
@@ -63,7 +63,7 @@ Key messages: `MetricFamily` enum, `MetricDefinition`, `MetricSample`, `FrameMet
 ## API Endpoints
 
 | Endpoint                                   | Method | Purpose                                    |
-| ------------------------------------------ | ------ | ------------------------------------------ |
+|--------------------------------------------|--------|--------------------------------------------|
 | Streaming (via `FrameBundle.metrics`)      | gRPC   | Real-time and replay metrics               |
 | `/api/lidar/runs/{run_id}/metrics`         | GET    | Windowed metric query (timeline, bucketed) |
 | `/api/lidar/runs/{run_id}/metrics/compare` | POST   | Per-track/subregion debug comparison       |

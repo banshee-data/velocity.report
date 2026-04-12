@@ -8,6 +8,7 @@
   [go-god-file-split-plan.md](go-god-file-split-plan.md),
   [data-database-alignment-plan.md](data-database-alignment-plan.md),
   [lidar-l8-analytics-l9-endpoints-l10-clients-plan.md](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
+
 - **Canonical:** [go-package-structure.md](../platform/architecture/go-package-structure.md)
 
 ## Motivation
@@ -23,24 +24,24 @@ conventions become contracts; most of that window has now been used.
 
 ## Implementation Snapshot (2026-03-23)
 
-| Area                                  | `main` | `dd/fix-more-of-it` | Notes                                                                                                                                                                                                                                                                                 |
-| ------------------------------------- | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database/sql` import boundary        | Done   | Done                | Non-test imports limited to `internal/db/` and `internal/lidar/storage/`; enforced by `scripts/check-db-sql-imports.sh`                                                                                                                                                               |
-| SQL type aliases / sentinel           | Done   | Done                | `sqlite.SQLDB`, `sqlite.SQLTx`, `sqlite.ErrNotFound` exported from `internal/lidar/storage/sqlite/dbconn.go`                                                                                                                                                                          |
-| `cmd/tools/` boundary compliance      | Done   | Done                | `cmd/tools/backfill_ring_elevations/backfill.go` no longer imports `database/sql` directly                                                                                                                                                                                            |
-| LiDAR server / endpoint package split | Done   | Done                | `server/`, `l8analytics/`, `l9endpoints/` all exist; `monitor/` and `visualiser/` removed; `server/` still large (53 files) — further decomposition via [go-god-file-split-plan](go-god-file-split-plan.md) and [L8/L9/L10 plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
-| Single SQLite driver policy           | Done   | Done                | `mattn/go-sqlite3` removed from `go.mod`; `scripts/check-single-sqlite-driver.sh` wired into `make lint-go`                                                                                                                                                                           |
-| Context propagation                   | Done   | Done                | Zero `_ = r` placeholders; 10 site/report DB methods accept `context.Context`; cancellation test present                                                                                                                                                                              |
-| `serialmux.CurrentState` race         | Done   | Done                | `sync.RWMutex`-backed `currentState`; `CurrentStateSnapshot()` exported; test helper `resetCurrentState()`                                                                                                                                                                            |
-| `EventAPI` JSON tags                  | **No** | Done                | PascalCase → lowercase `snake_case` (`"magnitude"`, `"uptime"`, `"speed"`); TypeScript `Event` interface updated                                                                                                                                                                      |
-| `RadarObjectsRollupRow` JSON tags     | **No** | Done                | Bare struct → explicit `json:"snake_case"` tags; TypeScript `RawRadarStats` mapping updated                                                                                                                                                                                           |
-| `export_bg_snapshot.go` error drops   | **No** | Done                | `_ = mgr.SetRingElevations(...)` → `if err :=` handling with `diagf` logging                                                                                                                                                                                                          |
-| `datasource_handlers.go` error drops  | **No** | Done                | `_ = ws.startLiveListenerLocked()` and `_ = bgManager.SetParams(...)` → proper error handling with `opsf` logging                                                                                                                                                                     |
+| Area                                  | `main` | `dd/fix-more-of-it` | Notes                                                                                                                                                                                                                                                                                   |
+|---------------------------------------|--------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `database/sql` import boundary        | Done   | Done                | Non-test imports limited to `internal/db/` and `internal/lidar/storage/`; enforced by `scripts/check-db-sql-imports.sh`                                                                                                                                                                 |
+| SQL type aliases / sentinel           | Done   | Done                | `sqlite.SQLDB`, `sqlite.SQLTx`, `sqlite.ErrNotFound` exported from `internal/lidar/storage/sqlite/dbconn.go`                                                                                                                                                                            |
+| `cmd/tools/` boundary compliance      | Done   | Done                | `cmd/tools/backfill_ring_elevations/backfill.go` no longer imports `database/sql` directly                                                                                                                                                                                              |
+| LiDAR server / endpoint package split | Done   | Done                | `server/`, `l8analytics/`, `l9endpoints/` all exist; `monitor/` and `visualiser/` removed; `server/` still large (53 files) — further decomposition via [go-god-file-split-plan](go-god-file-split-plan.md) and [L8/L9/L10 plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)   |
+| Single SQLite driver policy           | Done   | Done                | `mattn/go-sqlite3` removed from `go.mod`; `scripts/check-single-sqlite-driver.sh` wired into `make lint-go`                                                                                                                                                                             |
+| Context propagation                   | Done   | Done                | Zero `_ = r` placeholders; 10 site/report DB methods accept `context.Context`; cancellation test present                                                                                                                                                                                |
+| `serialmux.CurrentState` race         | Done   | Done                | `sync.RWMutex`-backed `currentState`; `CurrentStateSnapshot()` exported; test helper `resetCurrentState()`                                                                                                                                                                              |
+| `EventAPI` JSON tags                  | **No** | Done                | PascalCase → lowercase `snake_case` (`"magnitude"`, `"uptime"`, `"speed"`); TypeScript `Event` interface updated                                                                                                                                                                        |
+| `RadarObjectsRollupRow` JSON tags     | **No** | Done                | Bare struct → explicit `json:"snake_case"` tags; TypeScript `RawRadarStats` mapping updated                                                                                                                                                                                             |
+| `export_bg_snapshot.go` error drops   | **No** | Done                | `_ = mgr.SetRingElevations(...)` → `if err :=` handling with `diagf` logging                                                                                                                                                                                                            |
+| `datasource_handlers.go` error drops  | **No** | Done                | `_ = ws.startLiveListenerLocked()` and `_ = bgManager.SetParams(...)` → proper error handling with `opsf` logging                                                                                                                                                                       |
 
 ## Updated Findings
 
 | Category                   | Current state                                                                                                                                                                                               | Severity     | Release view                                                                                                                               |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | Context propagation        | Implemented: `internal/api/server.go` handlers now propagate `r.Context()` to DB calls; 10 site/report DB methods use `*Context` variants                                                                   | ~~Critical~~ | **Done**                                                                                                                                   |
 | God files / package sprawl | `internal/lidar/monitor/` removed; `server/`, `l8analytics/`, `l9endpoints/` all exist; `internal/lidar/server/` remains large (53 files) and undivided — further decomposition is the live concern         | High         | Continue via [go-god-file-split-plan](go-god-file-split-plan.md) and [L8/L9/L10 plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) |
 | Global mutable state       | Implemented: `internal/serialmux/handlers.go` now uses `sync.RWMutex`-backed `currentState`; read via `CurrentStateSnapshot()`                                                                              | ~~High~~     | **Done**                                                                                                                                   |
@@ -121,6 +122,7 @@ Two silent error drop locations remain:
 
 - `internal/db/db.go:181` — `_ = db.Close()` inside the `NewDBWithMigrationCheck`
   error-return path (line number shifted from the original 251)
+
 - `internal/lidar/server/echarts_handlers.go` — 8 ignored `_, _ = w.Write(...)` results
 
 The `export_bg_snapshot.go` (`SetRingElevations`) and `datasource_handlers.go` sites have
@@ -152,7 +154,7 @@ There are 14 direct Go dependencies. The duplicate SQLite driver (`mattn/go-sqli
 been removed from `main`.
 
 | Dependency                             | Why it exists                                                                                                                 | Scope              | Keep?                                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------|-------------------------------------------------------------------|
 | `github.com/go-echarts/go-echarts/v2`  | HTML chart rendering in `internal/lidar/server/echarts_handlers.go`                                                           | Production         | Yes                                                               |
 | `github.com/golang-migrate/migrate/v4` | Schema migration engine in `internal/db/migrate.go`                                                                           | Production         | Yes                                                               |
 | `github.com/google/go-cmp`             | Test comparison helper in `cmd/radar/radar_test.go`                                                                           | Test-only          | Yes, low cost                                                     |
@@ -185,8 +187,10 @@ database and long-running operations.
 1. ~~Remove the 8 `_ = r` placeholders in `internal/api/server.go`~~ — Done
 2. ~~Audit branch LiDAR server handlers (`internal/lidar/server/*`) and ensure request-scoped
    work uses `r.Context()`~~ — Already used `r.Context()` in 3 relevant call sites
+
 3. ~~Add `context.Context` parameters to database methods that execute queries where still
    missing~~ — Done: 10 site/report methods updated
+
 4. ~~Use `ExecContext`, `QueryContext`, and `QueryRowContext` consistently in database code~~ — Done
 5. ~~Add at least one integration-level cancellation test~~ — Done: `TestListSites_ContextCancellation`
 
@@ -203,10 +207,13 @@ database and long-running operations.
 3. ~~Fix the remaining meaningful silent error drops~~ — Done (`dd/fix-more-of-it`;
    `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `db.go:181` and echarts
    `w.Write` remain as low-consequence residuals)
+
 4. ~~Keep the single-SQLite-driver invariant~~ — Done on `main`;
    `scripts/check-single-sqlite-driver.sh` wired into `make lint-go`
+
 5. Expand shared test helpers and start replacing `time.Sleep` with polling/wait helpers —
    **deferred** (v0.5.x, separate effort)
+
 6. Continue the package split tracked by
    [go-god-file-split-plan.md](go-god-file-split-plan.md) and
    [lidar-l8-analytics-l9-endpoints-l10-clients-plan.md](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) —
@@ -274,8 +281,10 @@ pre-v0.5.0 work from this plan will be on `main`.
 
 - [ ] Wire `LidarLabelAPI` to delegate to `LabelStore` — 10 raw SQL call sites in
       `internal/api/lidar_labels.go`; `label_store.go` exists but is unused (`M` effort)
+
 - [ ] `time.Sleep` test infrastructure reduction — 40 files, 203 call sites; shared
       polling/wait helper needed (`L` effort, phased)
+
 - [ ] `internal/lidar/server/` further decomposition — 53 files; tracked by
       [lidar-l8-analytics-l9-endpoints-l10-clients-plan.md](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
 
@@ -283,5 +292,6 @@ pre-v0.5.0 work from this plan will be on `main`.
 
 - [ ] `internal/db/db.go:181` — `_ = db.Close()` on error-return path in
       `NewDBWithMigrationCheck`; low consequence, function already returning an error
+
 - [ ] `internal/lidar/server/echarts_handlers.go` — 8 × `_, _ = w.Write(...)` after
       headers sent; standard Go HTTP write-after-headers pattern, log-or-ignore

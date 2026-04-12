@@ -39,7 +39,7 @@ This design incorporates security fixes for critical vulnerabilities identified 
 This design implements defence-in-depth measures against four identified vulnerabilities. Mitigations are described inline in the Rotation, ATTACH, and USB sections.
 
 | CVE             | Vulnerability                        | Severity | Key Mitigations                                                                                             |
-| --------------- | ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+|-----------------|--------------------------------------|----------|-------------------------------------------------------------------------------------------------------------|
 | CVE-2025-VR-002 | Path traversal in attach/consolidate | 9.5      | Path validation, symlink resolution, directory traversal rejection, filename pattern matching               |
 | CVE-2025-VR-003 | SQL injection in ATTACH DATABASE     | 8.5      | Alias validation (alphanum only), SQL keyword filtering, proper escaping, read-only mode                    |
 | CVE-2025-VR-005 | Race condition in rotation           | 7.5      | SQLite-based rotation lock with 5-min expiry, query completion wait, idempotent operations                  |
@@ -417,7 +417,7 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 ### Partition Endpoints
 
 | Endpoint                           | Method | Purpose                                     | Key Parameters                                 |
-| ---------------------------------- | ------ | ------------------------------------------- | ---------------------------------------------- |
+|------------------------------------|--------|---------------------------------------------|------------------------------------------------|
 | `/api/partitions`                  | GET    | List attached, available, and limits        | —                                              |
 | `/api/partitions/attach`           | POST   | Attach a historical partition               | `path` (required), `alias`, `priority`         |
 | `/api/partitions/detach`           | POST   | Detach a partition to free slots            | `alias` (required), `force`                    |
@@ -491,7 +491,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 ### USB Storage Endpoints
 
 | Endpoint                        | Method | Purpose                                  | Key Parameters                                      |
-| ------------------------------- | ------ | ---------------------------------------- | --------------------------------------------------- |
+|---------------------------------|--------|------------------------------------------|-----------------------------------------------------|
 | `/api/storage/usb/devices`      | GET    | Detect available USB storage             | —                                                   |
 | `/api/storage/usb/mount`        | POST   | Mount USB storage securely               | `device_path`, `mount_point`, `label`               |
 | `/api/storage/usb/unmount`      | POST   | Safely unmount USB storage               | `mount_point`, `force`, `detach_partitions`         |
@@ -535,13 +535,13 @@ Options=nosuid,nodev,noexec,noatime,ro
 
 ## Phased Implementation Plan
 
-| Phase | Scope                | Weeks | Key Deliverables                                                                                                   |
-| ----- | -------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| 1     | Core partitioning    | 1–3   | Rotation algorithm, schema creation, data copy/delete, read-only partitions, ATTACH management, union views, tests |
-| 2     | API management       | 4–6   | Partition list/attach/detach/metadata/buffer endpoints, auth, audit logging, OpenAPI spec                          |
-| 3     | USB storage & growth | 7–9   | USB detect/mount/unmount, growth projection (linear regression), capacity alerts, systemd units                    |
-| 4     | Consolidation & cold | 10–12 | Monthly→yearly consolidation (async jobs), gzip compression, tier migration, retention enforcement                 |
-| 5     | Migration & rollout  | 13–15 | `--enable-partitioning` flag, backfill tool, RPi integration testing, alpha/beta/stable releases                   |
+| Phase | Scope                | Weeks   | Key Deliverables                                                                                                   |
+|-------|----------------------|---------|--------------------------------------------------------------------------------------------------------------------|
+| 1     | Core partitioning    | 1–3     | Rotation algorithm, schema creation, data copy/delete, read-only partitions, ATTACH management, union views, tests |
+| 2     | API management       | 4–6     | Partition list/attach/detach/metadata/buffer endpoints, auth, audit logging, OpenAPI spec                          |
+| 3     | USB storage & growth | 7–9     | USB detect/mount/unmount, growth projection (linear regression), capacity alerts, systemd units                    |
+| 4     | Consolidation & cold | 10–12   | Monthly→yearly consolidation (async jobs), gzip compression, tier migration, retention enforcement                 |
+| 5     | Migration & rollout  | 13–15   | `--enable-partitioning` flag, backfill tool, RPi integration testing, alpha/beta/stable releases                   |
 
 **Total timeline:** 15 weeks. Phases 3–4 can run in parallel with Phase 2.
 
@@ -640,7 +640,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 ### Comparison Matrix
 
 | Approach                         | Complexity | Data Retention | Query Performance        | Storage Efficiency | Recommendation  |
-| -------------------------------- | ---------- | -------------- | ------------------------ | ------------------ | --------------- |
+|----------------------------------|------------|----------------|--------------------------|--------------------|-----------------|
 | **Proposed (SQLite partitions)** | Medium     | Full archival  | Good (with time filters) | Good (compression) | **Recommended** |
 | Data deletion                    | Low        | No archival    | Good (small DB)          | No archival        | No              |
 | PostgreSQL                       | High       | Full archival  | Excellent                | Good               | Too complex     |
@@ -672,7 +672,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 ### Disk Space Quotas
 
 | Policy                | Value     | Purpose                       |
-| --------------------- | --------- | ----------------------------- |
+|-----------------------|-----------|-------------------------------|
 | Max active partitions | 3         | Last 3 months on fast storage |
 | Max total partitions  | 36        | Keep 3 years total            |
 | Archive after         | 90 days   | Move to cold storage          |
@@ -682,7 +682,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 ### Storage Growth (Raspberry Pi 4, 64GB SD)
 
 | Month | Active DB | Recent (SD) | Cold (USB) | SD Usage    |
-| ----- | --------- | ----------- | ---------- | ----------- |
+|-------|-----------|-------------|------------|-------------|
 | 1     | 3 GB      | 0 GB        | 0 GB       | 13 GB (20%) |
 | 6     | 3 GB      | 9 GB        | 9 GB       | 22 GB (34%) |
 | 12    | 3 GB      | 9 GB        | 27 GB      | 22 GB (34%) |
@@ -746,10 +746,10 @@ Disable partitioning: `velocity-report --disable-partitioning`. Union views rema
 
 **Benchmark (Raspberry Pi 4):**
 | Database Size | INSERT/sec (Current) | INSERT/sec (Partitioned) |
-|---------------|---------------------|-------------------------|
-| 1GB | 1000 | 1000 |
-| 10GB | 800 | 1000 |
-| 30GB | 500 | 1000 |
+|---------------|----------------------|--------------------------|
+| 1GB           | 1000                 | 1000                     |
+| 10GB          | 800                  | 1000                     |
+| 30GB          | 500                  | 1000                     |
 
 **Conclusion:** Partitioning maintains consistent write performance.
 
@@ -834,7 +834,7 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 ### Monitoring and Alerting
 
 | Metric               | Alert Threshold                                | Action                  |
-| -------------------- | ---------------------------------------------- | ----------------------- |
+|----------------------|------------------------------------------------|-------------------------|
 | Partition count      | Approaching ATTACH limit (10 default, 125 max) | Consolidate or delete   |
 | Active database size | >5 GB                                          | Rotation may be failing |
 | SD card usage        | >80%                                           | Move partitions to USB  |
@@ -918,18 +918,18 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ## Design Decisions (Resolved)
 
-| Decision                  | Resolution                                                                         |
-| ------------------------- | ---------------------------------------------------------------------------------- |
-| Monthly vs quarterly      | Monthly default, not configurable                                                  |
-| Derived tables (transits) | Partitioned — present in partition according to last time seen; span at boundaries |
-| SQLITE_MAX_ATTACHED       | Keep default 10 — attach partitions on demand                                      |
-| Compression               | No automatic compression — not worth the complexity                                |
-| Rotation locking          | File-based flock (single-device)                                                   |
-| Timezone                  | UTC for rotation triggers                                                          |
-| Single-file mode          | Keep indefinitely as default — partitioning is opt-in                              |
-| Monitoring                | Built-in disk usage on /api/status                                                 |
-| Backup                    | Provide reference scripts in `scripts/backup/`                                     |
-| Cloud storage             | Out of scope — local-first principle; backup to USB only                           |
+| Decision                  | Resolution                                                                           |
+|---------------------------|--------------------------------------------------------------------------------------|
+| Monthly vs quarterly      | Monthly default, not configurable                                                    |
+| Derived tables (transits) | Partitioned — present in partition according to last time seen; span at boundaries   |
+| SQLITE_MAX_ATTACHED       | Keep default 10 — attach partitions on demand                                        |
+| Compression               | No automatic compression — not worth the complexity                                  |
+| Rotation locking          | File-based flock (single-device)                                                     |
+| Timezone                  | UTC for rotation triggers                                                            |
+| Single-file mode          | Keep indefinitely as default — partitioning is opt-in                                |
+| Monitoring                | Built-in disk usage on /api/status                                                   |
+| Backup                    | Provide reference scripts in `scripts/backup/`                                       |
+| Cloud storage             | Out of scope — local-first principle; backup to USB only                             |
 
 ## Open Questions
 
@@ -965,7 +965,7 @@ No open questions remain. All design, implementation, and operational questions 
 ## Revision History
 
 | Version | Date       | Author  | Changes                      |
-| ------- | ---------- | ------- | ---------------------------- |
+|---------|------------|---------|------------------------------|
 | 1.0     | 2025-12-01 | Ictinus | Initial design specification |
 
 ---

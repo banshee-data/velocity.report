@@ -11,6 +11,7 @@ per-layer sweeps) will reveal whether:
 
 1. Parameter interactions are small enough that per-key optima compose
    (i.e. the joint optimum ≈ product of per-key optima), or
+
 2. Significant interactions exist that require joint optimisation.
 
 ## Background
@@ -43,8 +44,10 @@ Completed per-layer sweep results identifying:
 1. Select the top 3–4 keys from per-layer sweep results.
 2. For each key, choose 3 values: low end, current default, high end
    of the stable range.
+
 3. Run `pcap-analyse` for every combination (3⁴ = 81 runs max for 4
    keys, 3³ = 27 runs for 3 keys) on each corpus PCAP.
+
 4. Record the full objective function for each combination and site.
 5. Analyse:
    - Are interaction terms significant (> 5% of the main effect)?
@@ -57,7 +60,7 @@ Same as the per-layer sweeps (confirmed track count, fragmentation, speed
 RMSE, objective function), plus:
 
 | Metric                | Definition                                                    |
-| --------------------- | ------------------------------------------------------------- |
+|-----------------------|---------------------------------------------------------------|
 | Interaction magnitude | Difference between joint optimum and per-key-composed optimum |
 | Consistency           | Whether the interaction direction is the same across sites    |
 
@@ -71,8 +74,10 @@ RMSE, objective function), plus:
 
 1. If interaction terms are < 5% of main effects on all sites: per-key
    optima are sufficient; no joint tuning needed.
+
 2. If interactions are > 5%: document the interaction, recommend a joint
    default, and update `tuning.defaults.json` accordingly.
+
 3. Results recorded in `data/explore/` with full sweep data.
 
 ## Resources required

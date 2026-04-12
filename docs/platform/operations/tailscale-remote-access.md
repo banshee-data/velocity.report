@@ -57,12 +57,12 @@ sudo tailscale up --auth-key=tskey-auth-<key> --hostname=velocity-pi
 
 ### Recommended flags
 
-| Flag                      | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `--hostname=velocity-pi`  | Human-readable MagicDNS name (`velocity-pi.<tailnet>.ts.net`) |
-| `--auth-key=tskey-auth-…` | Headless authentication — no browser needed                   |
-| `--ssh`                   | Enable Tailscale SSH (see §5 below)                           |
-| `--accept-dns=true`       | Accept MagicDNS names (default; listed for clarity)           |
+| Flag                        | Purpose                                                       |
+|-----------------------------|---------------------------------------------------------------|
+| `--hostname=velocity-pi`    | Human-readable MagicDNS name (`velocity-pi.<tailnet>.ts.net`) |
+| `--auth-key=tskey-auth-…`   | Headless authentication — no browser needed                   |
+| `--ssh`                     | Enable Tailscale SSH (see §5 below)                           |
+| `--accept-dns=true`         | Accept MagicDNS names (default; listed for clarity)           |
 
 Full command for production:
 
@@ -210,7 +210,7 @@ sudo tailscale set --auto-update
 ## 8. Troubleshooting
 
 | Symptom                      | Cause                              | Fix                                        |
-| ---------------------------- | ---------------------------------- | ------------------------------------------ |
+|------------------------------|------------------------------------|--------------------------------------------|
 | `tailscale up` hangs         | Pi has no internet access          | Check `eth0`/`wlan0` gateway and DNS       |
 | MagicDNS names don't resolve | MagicDNS disabled in admin console | Enable under DNS settings in admin console |
 | `/debug/*` returns 403       | Request not from Tailscale peer    | Access via Tailscale IP, not LAN IP        |
@@ -221,6 +221,8 @@ sudo tailscale set --auto-update
 - **Tailscale on macOS visualiser**: covered separately if needed; the
   visualiser connects to the Pi's gRPC endpoint, which is reachable over
   Tailscale without additional configuration.
+
 - **Tailscale Funnel**: exposes services to the public internet — directly
   conflicts with the privacy-first deployment model.
+
 - **Multi-site mesh**: coordinating multiple Pis is a v0.6.0+ concern.

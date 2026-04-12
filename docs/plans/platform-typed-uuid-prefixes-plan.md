@@ -24,7 +24,7 @@ the convention to every remaining entity.
 Current production and test IDs observed in the codebase:
 
 | Entity        | Example production ID                                  | Example test IDs                                     |
-| ------------- | ------------------------------------------------------ | ---------------------------------------------------- |
+|---------------|--------------------------------------------------------|------------------------------------------------------|
 | Track         | `trk_550e8400-e29b-41d4-a716-446655440000`             | `trk_0000abcd`, `trk_00001234`, `trk_0000test`       |
 | Analysis Run  | `550e8400-e29b-41d4-a716-446655440000`                 | `run_123`, `test_run_001`, `run_1`, `run_2`          |
 | Replay Run    | `replay-f47ac10b-58cc-4372-a567-0e02b2c3d479-3a7f1b2c` | (dynamically generated)                              |
@@ -38,7 +38,7 @@ Current production and test IDs observed in the codebase:
 ## Entity Inventory
 
 | Entity        | Package / File                                      | Current format             | Proposed prefix | Example                                     |
-| ------------- | --------------------------------------------------- | -------------------------- | --------------- | ------------------------------------------- |
+|---------------|-----------------------------------------------------|----------------------------|-----------------|---------------------------------------------|
 | Track         | `l5tracks/tracking.go`                              | `trk_<uuid>` (current)     | `trak_`         | `trak_550e8400-e29b-41d4-a716-446655440000` |
 | Analysis Run  | `storage/sqlite/analysis_run_manager.go`            | `<uuid>`                   | `runa_`         | `runa_550e8400-e29b-41d4-a716-446655440000` |
 | Replay Run    | `monitor/scene_api.go`                              | `replay-{scene}-{uuid8}`   | `runy_`         | `runy_550e8400-e29b-41d4-a716-446655440000` |
@@ -58,14 +58,18 @@ this is safe to replace with `runy_`/`runs_` + full UUID because:
 - **No code parses the prefix for logic.** All lookups are exact string match
   (`WHERE run_id = ?`). No routing or dispatch inspects `replay-` vs
   `reprocess-` vs bare UUID.
+
 - **Provenance is stored in dedicated columns.** `parent_run_id` records
   reprocess lineage; `source_path` and `source_type` record the PCAP origin;
   the `lidar_scenes.reference_run_id` FK links scenes to runs.
+
 - **Uniqueness from the 8-char UUID suffix is fragile.** A full UUIDv4 is
   stronger (collision probability ~1 in 2^122 vs ~1 in 2^32).
+
 - **Distinct prefixes preserve type context.** Unlike merging all runs under
   a single `run_` prefix, the `runa_`/`runy_`/`runs_` scheme keeps the run
   origin visible at a glance in logs and database rows.
+
 - **Frontend impact is cosmetic only.** The web UI truncates `run_id` to 8
   chars for display; `runy_a1b` is equally readable as `replay-f`.
 

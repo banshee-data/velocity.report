@@ -73,7 +73,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 ## Agent Roster
 
 | Agent      | Domain               | Class     | Copilot                          | Claude                     |
-| ---------- | -------------------- | --------- | -------------------------------- | -------------------------- |
+|------------|----------------------|-----------|----------------------------------|----------------------------|
 | **Appius** | Execution            | Technical | `.github/agents/appius.agent.md` | `.claude/agents/appius.md` |
 | **Euler**  | Algorithms           | Technical | `.github/agents/euler.agent.md`  | `.claude/agents/euler.md`  |
 | **Grace**  | System architecture  | Technical | `.github/agents/grace.agent.md`  | `.claude/agents/grace.md`  |
@@ -95,7 +95,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 Eight slash-command skills live in `.claude/skills/`. They are the canonical workflow layer — single-source, invocable from both Claude Code and VS Code.
 
 | Skill           | Command                      | Purpose                                                  |
-| --------------- | ---------------------------- | -------------------------------------------------------- |
+|-----------------|------------------------------|----------------------------------------------------------|
 | plan-review     | `/plan-review [plan]`        | Scope, technical, and risk review of a design plan       |
 | review-pr       | `/review-pr [PR/branch]`     | Security, correctness, and maintainability review        |
 | ship-change     | `/ship-change`               | Format → lint → test → build → commit                    |
@@ -113,15 +113,15 @@ Agent personas are defined natively for each platform. Shared project knowledge 
 
 ### What Gets Duplicated (Bounded)
 
-| Content                    | Duplicated?        | Copilot                       | Claude                                     |
-| -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
-| Project tenets             | No                 | `TENETS.md`                   | `TENETS.md` (same file)                    |
-| Build/test knowledge       | No                 | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
-| Role mixins                | No                 | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
-| Persona name + description | Yes (~2 lines)     | YAML frontmatter              | Inline in `.claude/agents/*.md`            |
-| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
-| Tool restrictions          | Copilot-only       | YAML `tools:` field           | n/a                                        |
-| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Content                    | Duplicated?          | Copilot                       | Claude                                     |
+|----------------------------|----------------------|-------------------------------|--------------------------------------------|
+| Project tenets             | No                   | `TENETS.md`                   | `TENETS.md` (same file)                    |
+| Build/test knowledge       | No                   | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
+| Role mixins                | No                   | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
+| Persona name + description | Yes (~2 lines)       | YAML frontmatter              | Inline in `.claude/agents/*.md`            |
+| Persona methodology        | Yes (~30–60 lines)   | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Tool restrictions          | Copilot-only         | YAML `tools:` field           | n/a                                        |
+| Coordination rules         | Yes (~10–20 lines)   | `.agent.md` body              | `.claude/agents/*.md`                      |
 
 Total bounded duplication per agent: ~40–80 lines.
 
@@ -148,7 +148,7 @@ Make target: `make check-agent-drift`
 ## Adopted Design Patterns
 
 | Pattern                         | Applied To               | Description                                                      |
-| ------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+|---------------------------------|--------------------------|------------------------------------------------------------------|
 | Scope modes                     | Ruth (primary), Grace    | EXPANSION / HOLD / REDUCTION — user selects at session start     |
 | Mandatory output artefacts      | Ruth, Flo, Grace, Malory | Prescribed output format for review/coordination/judgment agents |
 | Checklist externalisation       | Malory                   | Review criteria in `security-checklist.md`, not inlined in agent |
@@ -203,16 +203,16 @@ scripts/
 
 ## Impact
 
-| Metric                                      | Before         | After                             |
-| ------------------------------------------- | -------------- | --------------------------------- |
-| Total lines (all agent/instruction files)   | 4,723          | ~2,200                            |
-| Project fact duplication instances          | ~45            | 0                                 |
-| Files to update when build changes          | 5              | 1                                 |
-| Files to update when privacy policy changes | 7              | 1                                 |
-| Cost to add a new agent                     | ~200–800 lines | ~100–160 lines (2 files)          |
-| Tools supported                             | 1 (Copilot)    | 2 (Copilot + Claude Code)         |
-| Workflow skills (slash commands)            | 0              | 4                                 |
-| Drift detection                             | None           | Weekly (`make check-agent-drift`) |
+| Metric                                      | Before           | After                             |
+|---------------------------------------------|------------------|-----------------------------------|
+| Total lines (all agent/instruction files)   | 4,723            | ~2,200                            |
+| Project fact duplication instances          | ~45              | 0                                 |
+| Files to update when build changes          | 5                | 1                                 |
+| Files to update when privacy policy changes | 7                | 1                                 |
+| Cost to add a new agent                     | ~200–800 lines   | ~100–160 lines (2 files)          |
+| Tools supported                             | 1 (Copilot)      | 2 (Copilot + Claude Code)         |
+| Workflow skills (slash commands)            | 0                | 4                                 |
+| Drift detection                             | None             | Weekly (`make check-agent-drift`) |
 
 ## Future Expansion
 

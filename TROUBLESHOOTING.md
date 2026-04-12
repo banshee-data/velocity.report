@@ -47,7 +47,7 @@ ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 ### Common Symptoms and Quick Fixes
 
 | Symptom                | Likely Cause            | Quick Fix                                             |
-| ---------------------- | ----------------------- | ----------------------------------------------------- |
+|------------------------|-------------------------|-------------------------------------------------------|
 | No data appearing      | Radar not connected     | Check `/dev/ttyUSB0`, verify power                    |
 | PDF generation fails   | Missing LaTeX           | Install XeLaTeX: `sudo apt-get install texlive-xetex` |
 | Web frontend blank     | Build not generated     | Run `cd web && pnpm run build`                        |
@@ -981,6 +981,7 @@ Go gRPC server not running or wrong address.
    ```bash
    go run ./cmd/tools/visualiser-server -addr localhost:50051
    ```
+
 2. Verify the address in the app matches the server's `-addr` flag
 3. Check for firewall blocking localhost connections
 
@@ -993,7 +994,7 @@ Go gRPC server not running or wrong address.
 ### Rendering Issues
 
 | Symptom                        | Cause                                        | Solution                                          |
-| ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
+|--------------------------------|----------------------------------------------|---------------------------------------------------|
 | Points not visible             | Points toggle disabled or point buffer empty | Enable "P" toggle; check point count in stats     |
 | Boxes not visible              | Boxes toggle disabled or no tracked objects  | Enable "B" toggle; check server sends tracks      |
 | Trails appear corrupted        | Bug in older builds                          | Rebuild with `make build-mac`                     |
@@ -1015,7 +1016,7 @@ Generated Swift files are placed in
 ## Common Error Messages Reference
 
 | Error Message                             | Component     | Solution                              |
-| ----------------------------------------- | ------------- | ------------------------------------- |
+|-------------------------------------------|---------------|---------------------------------------|
 | `bind: address already in use`            | Go Server     | Kill process on port 8080             |
 | `database is locked`                      | Database      | Check for stale processes with `lsof` |
 | `xelatex: command not found`              | PDF Generator | Install texlive-xetex                 |

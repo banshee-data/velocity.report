@@ -76,10 +76,10 @@ Tracked in BACKLOG.md under v0.5.2:
 
 ## Key Files
 
-| File                                                | Role                                              |
-| --------------------------------------------------- | ------------------------------------------------- |
-| `proto/velocity_visualiser/v1/visualiser.proto`     | Schema definition                                 |
-| `internal/lidar/visualiser/grpc_server.go`          | `frameBundleToProto()` serialiser                 |
-| `internal/lidar/visualiser/adapter.go`              | Frame adapter (internal model → visualiser model) |
-| `tools/visualiser-macos/.../VisualiserClient.swift` | Swift gRPC client                                 |
-| `tools/visualiser-macos/.../ContentView.swift`      | macOS UI bindings                                 |
+| File                                                | Role                                                |
+|-----------------------------------------------------|-----------------------------------------------------|
+| `proto/velocity_visualiser/v1/visualiser.proto`     | Schema definition                                   |
+| `internal/lidar/visualiser/grpc_server.go`          | `frameBundleToProto()` serialiser                   |
+| `internal/lidar/visualiser/adapter.go`              | Frame adapter (internal model → visualiser model)   |
+| `tools/visualiser-macos/.../VisualiserClient.swift` | Swift gRPC client                                   |
+| `tools/visualiser-macos/.../ContentView.swift`      | macOS UI bindings                                   |

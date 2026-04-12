@@ -329,7 +329,7 @@ L5 Tracking (proposed changes)
 The geometry-coherent model **replaces four existing guard mechanisms**:
 
 | Current Guard                            | Replacement                                       | Lines in tracking.go |
-| ---------------------------------------- | ------------------------------------------------- | -------------------- |
+|------------------------------------------|---------------------------------------------------|----------------------|
 | **Guard 2:** Aspect-ratio lock threshold | Subsumed by axis selection + shape classification | ~950-980             |
 | **Guard 3:** 90° jump rejection          | Subsumed by axis selection (lower residual wins)  | ~1000-1020           |
 | Dimension sync logic                     | Unified in ema_update()                           | ~1124-1141           |
@@ -374,7 +374,7 @@ The geometry-coherent model is designed to **work well standalone** and **improv
 New tuning parameters with proposed defaults:
 
 | Parameter                            | Symbol                        | Default | Description                                                  |
-| ------------------------------------ | ----------------------------- | ------- | ------------------------------------------------------------ |
+|--------------------------------------|-------------------------------|---------|--------------------------------------------------------------|
 | `geometry_dim_alpha`                 | $\alpha_{\text{dim}}$         | 0.05    | EMA rate for dimension updates                               |
 | `geometry_heading_alpha`             | $\alpha_{\text{heading}}$     | 0.08    | EMA rate for heading updates (existing)                      |
 | `geometry_outlier_threshold`         | $d_{\text{threshold}}$        | 6.0     | Residual threshold for outlier rejection                     |
@@ -412,7 +412,7 @@ Parameters should be validated and tuned through:
 ### 7.1 Quantitative Improvements
 
 | Metric                                            | Current System | Expected with Geometry-Coherent |
-| ------------------------------------------------- | -------------- | ------------------------------- |
+|---------------------------------------------------|----------------|---------------------------------|
 | **Dimension stability** (std dev over 5s window)  | 0.3-0.5 m      | < 0.1 m                         |
 | **Heading drift** (degrees/second for stationary) | 2-5°/s         | < 0.5°/s                        |
 | **90° jump frequency** (per track)                | 0.1-0.3        | < 0.01                          |
@@ -446,7 +446,7 @@ Parameters should be validated and tuned through:
 ## 8. Implementation Estimate
 
 | Component                              | Effort           | Files                                      |
-| -------------------------------------- | ---------------- | ------------------------------------------ |
+|----------------------------------------|------------------|--------------------------------------------|
 | Track geometry state struct            | **S** (half day) | `l5tracks/tracking.go`                     |
 | Axis selection + outlier gate          | **M** (1 day)    | `l5tracks/tracking.go`                     |
 | EMA update with shape classification   | **M** (1 day)    | `l5tracks/tracking.go`                     |

@@ -11,7 +11,7 @@ Dual-palette semantic colour tokens that switch between dark and light variants 
 ## Colour Tokens
 
 | Token             | Dark Value    | Light Value  | Usage                    |
-| ----------------- | ------------- | ------------ | ------------------------ |
+|-------------------|---------------|--------------|--------------------------|
 | `sceneBackground` | near-black    | off-white    | Metal clear colour       |
 | `gridLines`       | dim grey      | light grey   | Ground grid              |
 | `trackBox`        | accent green  | darker green | Bounding boxes           |

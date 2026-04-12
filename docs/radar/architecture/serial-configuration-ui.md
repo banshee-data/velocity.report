@@ -575,7 +575,7 @@ sudo systemctl restart velocity-report
 ### Resolved Design Questions
 
 | Question                                      | Resolution                                                                                       |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+|-----------------------------------------------|--------------------------------------------------------------------------------------------------|
 | Allow configuration of serial timeout values? | No. Hardcoded sensible defaults in `Initialise()`. Add configurability only if users request it. |
 
 ### Open Questions

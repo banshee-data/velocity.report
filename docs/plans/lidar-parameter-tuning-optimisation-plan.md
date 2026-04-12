@@ -24,6 +24,7 @@ v2.0 milestone.
 
 - Analysis run infrastructure (Phase 3.7, ✅ implemented) provides the
   comparison framework.
+
 - Sweep/auto-tune system (Phase 3.9, ✅ implemented) provides the runner;
   this phase adds objective-function-driven optimisation on top.
 

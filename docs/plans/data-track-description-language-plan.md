@@ -24,7 +24,7 @@ The TDL is not SQL. It uses human-readable terms grounded in traffic-engineering
 ## 2. Design Decisions
 
 | Decision              | Choice                                                | Rationale                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Syntax family**     | Natural language                                      | Target users are neighbourhood change-makers, not engineers. The system parses structured English clauses into parameterised queries.                      |
 | **Execution target**  | Go query builder → parameterised SQLite               | Go translates parsed TDL into safe, parameterised SQL executed against SQLite views. No raw SQL is exposed.                                                |
 | **Schema exposure**   | Abstract                                              | Users see domain concepts (transit, speed, behaviour) not table names. The abstract schema (§3) maps to underlying storage via SQLite views.               |
@@ -122,15 +122,15 @@ transit {
 
 ### 3.1 Schema-to-Storage Mapping
 
-| Abstract field     | Source                                                                                                                                         | Stored per-transit? |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237                                                              | ✅                  |
-| `speed.mean_mph`   | `lidar_tracks.avg_speed_mps` × 2.237 (current proxy; a dedicated track-level "typical observed speed" metric should replace this once defined) | ✅                  |
-| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                                                                                         | ❌ read-time join   |
-| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                                                                                      | ✅                  |
-| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                                                                                  | ✅                  |
-| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                                                                                        | ❌ read-time join   |
-| `context.*`        | Computed from concurrent tracks at ingestion                                                                                                   | ✅                  |
+| Abstract field     | Source                                                                                                                                          | Stored per-transit? |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| `speed.max_mph`    | `MAX(lidar_tracks.peak_speed_mps, radar_data_transits.transit_max_speed)` × 2.237                                                               | ✅                   |
+| `speed.mean_mph`   | `lidar_tracks.avg_speed_mps` × 2.237 (current proxy; a dedicated track-level "typical observed speed" metric should replace this once defined)  | ✅                   |
+| `speed.profile[]`  | `lidar_track_obs.speed_mps` ordered by `ts_unix_nanos`                                                                                          | ❌ read-time join    |
+| `behaviour.style`  | Derived from `speed.profile[]` shape (§5)                                                                                                       | ✅                   |
+| `classification.*` | `lidar_tracks.object_class`, `lidar_tracks.object_confidence`                                                                                   | ✅                   |
+| `geometry.trail[]` | `lidar_track_obs.(x, y, ts_unix_nanos)`                                                                                                         | ❌ read-time join    |
+| `context.*`        | Computed from concurrent tracks at ingestion                                                                                                    | ✅                   |
 
 Note: the current legacy percentile-labelled track columns are implementation
 details slated for removal from the canonical track model. They should not be
@@ -149,7 +149,7 @@ A TDL expression is an English sentence composed of optional clauses. Order is f
 **Subject** — what to query. Defaults to `transits` if omitted.
 
 | Subject                                      | Meaning                                    |
-| -------------------------------------------- | ------------------------------------------ |
+|----------------------------------------------|--------------------------------------------|
 | `transits`                                   | Individual fused transit records           |
 | `vehicles`                                   | Transits classified as vehicle (any class) |
 | `cars` / `lorries` / `buses` / `motorcycles` | Transits matching a specific vehicle class |
@@ -159,7 +159,7 @@ A TDL expression is an English sentence composed of optional clauses. Order is f
 **Filter** — conditions on speed, behaviour, or context.
 
 | Pattern                   | Meaning                                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `faster than <N> mph`     | `speed.max_mph > N`                                                                                                           |
 | `slower than <N> mph`     | `speed.max_mph < N`                                                                                                           |
 | `above p85`               | `speed.max_mph > dataset_p85` (dataset-level p85, computed on demand)                                                         |
@@ -173,20 +173,20 @@ A TDL expression is an English sentence composed of optional clauses. Order is f
 
 **Time range** — scopes the query temporally.
 
-| Pattern                        | Meaning                                        |
-| ------------------------------ | ---------------------------------------------- |
-| `during morning peak`          | `timestamp` between 07:00–09:00                |
-| `during evening peak`          | `timestamp` between 16:00–18:00                |
-| `during school run`            | `timestamp` between 08:15–08:45 or 15:00–15:30 |
-| `between <HH:MM> and <HH:MM>`  | Explicit time window                           |
-| `on weekdays`                  | Monday–Friday                                  |
-| `on weekends`                  | Saturday–Sunday                                |
-| `last 7 days` / `last 30 days` | Rolling date window                            |
+| Pattern                        | Meaning                                            |
+|--------------------------------|----------------------------------------------------|
+| `during morning peak`          | `timestamp` between 07:00–09:00                    |
+| `during evening peak`          | `timestamp` between 16:00–18:00                    |
+| `during school run`            | `timestamp` between 08:15–08:45 or 15:00–15:30     |
+| `between <HH:MM> and <HH:MM>`  | Explicit time window                               |
+| `on weekdays`                  | Monday–Friday                                      |
+| `on weekends`                  | Saturday–Sunday                                    |
+| `last 7 days` / `last 30 days` | Rolling date window                                |
 
 **Direction** — filters by travel direction.
 
 | Pattern                                                 | Meaning                                        |
-| ------------------------------------------------------- | ---------------------------------------------- |
+|---------------------------------------------------------|------------------------------------------------|
 | `heading inbound` / `heading outbound`                  | `direction = 'inbound'` / `'outbound'`         |
 | `eastbound` / `westbound` / `northbound` / `southbound` | Cardinal direction (requires site calibration) |
 
@@ -233,7 +233,7 @@ speed profile for erratic vehicles last 30 days show trail
 Prefixing a query with an aggregation keyword returns grouped statistics instead of individual transits.
 
 | Prefix                   | Output                                          |
-| ------------------------ | ----------------------------------------------- |
+|--------------------------|-------------------------------------------------|
 | `count of`               | Total matching transits                         |
 | `percentage of`          | Matching / total × 100                          |
 | `speed summary of`       | p50, p85, p98, max across matching transits     |
@@ -250,12 +250,12 @@ The TDL supports natural-language terms for vehicle behaviours. These terms requ
 
 Translating sensor data into natural-language behaviour terms requires three levels of abstraction:
 
-| Level                     | Name                    | Input                            | Output                                                                              | Example                                                                           |
-| ------------------------- | ----------------------- | -------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **L0 — Observation**      | Per-frame measurement   | Raw sensor readings              | `(x, y, speed_mps, heading_rad, ts)`                                                | A single LiDAR observation at frame 1042                                          |
-| **L1 — Transit metric**   | Per-transit scalar      | Ordered L0 observations          | `max_mph`, `mean_mph`, `duration_s`, `speed_delta`, track speed summary descriptors | Stored per-transit; track descriptors remain distinct from aggregate percentiles  |
-| **L2 — Behaviour label**  | Semantic classification | L1 metrics + speed profile shape | `steady`, `braking`, `erratic`, `stopped`, `yielded`                                | Human-readable driving-style tag                                                  |
-| **L3 — Scene descriptor** | Cross-transit narrative | Multiple L2 labels + context     | _"73% of vehicles exceed 30 mph during school run"_                                 | Aggregate statement for reports; percentiles (p50/p85/p98) computed at query time |
+| Level                       | Name                    | Input                            | Output                                                                              | Example                                                                           |
+|-----------------------------|-------------------------|----------------------------------|-------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| **L0 — Observation**        | Per-frame measurement   | Raw sensor readings              | `(x, y, speed_mps, heading_rad, ts)`                                                | A single LiDAR observation at frame 1042                                          |
+| **L1 — Transit metric**     | Per-transit scalar      | Ordered L0 observations          | `max_mph`, `mean_mph`, `duration_s`, `speed_delta`, track speed summary descriptors | Stored per-transit; track descriptors remain distinct from aggregate percentiles  |
+| **L2 — Behaviour label**    | Semantic classification | L1 metrics + speed profile shape | `steady`, `braking`, `erratic`, `stopped`, `yielded`                                | Human-readable driving-style tag                                                  |
+| **L3 — Scene descriptor**   | Cross-transit narrative | Multiple L2 labels + context     | _"73% of vehicles exceed 30 mph during school run"_                                 | Aggregate statement for reports; percentiles (p50/p85/p98) computed at query time |
 
 **L0** already exists — `lidar_track_obs` and `radar_data` store per-frame data.
 
@@ -279,7 +279,7 @@ speed descriptors will be defined separately.
 Each behaviour label maps to a concrete rule over L1 metrics and the speed profile:
 
 | Label            | Rule                                                                                                                                                                                                                                     | Inputs                                                                                                      |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | **steady**       | Speed variance below threshold across the transit; no significant acceleration or deceleration events. The profile should be smoothed (e.g. moving average) before variance calculation to avoid false classification from sensor noise. | `std(smooth(profile[])) < σ_steady`                                                                         |
 | **accelerating** | Sustained speed increase: end speed exceeds start speed by more than a threshold.                                                                                                                                                        | `profile[last] - profile[first] > Δ_accel`                                                                  |
 | **braking**      | Sustained speed decrease: start speed exceeds end speed by more than a threshold.                                                                                                                                                        | `profile[first] - profile[last] > Δ_brake`                                                                  |
@@ -456,7 +456,7 @@ ORDER BY hour;
 ### 6.5 Volume Estimates and Performance
 
 | Metric                    | Estimate   | Notes                                          |
-| ------------------------- | ---------- | ---------------------------------------------- |
+|---------------------------|------------|------------------------------------------------|
 | Transits per day          | 100–500    | Residential street; varies by traffic volume   |
 | Transits per year         | ~50,000    | Upper bound for a busy street                  |
 | Row size (fused_transits) | ~200 bytes | Fixed columns, no BLOBs                        |

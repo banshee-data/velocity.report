@@ -22,7 +22,7 @@ See `docs/lidar/architecture/foreground-tracking.md` for the implemented trackin
 ## When Motion Capture Is Needed
 
 | Scenario              | Why 7DOF is Needed                                           |
-| --------------------- | ------------------------------------------------------------ |
+|-----------------------|--------------------------------------------------------------|
 | Vehicle-mounted LiDAR | Ego-motion compensation requires pose tracking               |
 | Bike-mounted LiDAR    | Higher vibration, agile motion requires orientation tracking |
 | Robot-mounted LiDAR   | Full 3D navigation requires Z velocity                       |
@@ -83,13 +83,13 @@ Orientation estimation methods (in order of complexity): from velocity (`atan2`)
 
 ## Implementation Phases
 
-| Phase | Goal                            | Effort    |
-| ----- | ------------------------------- | --------- |
-| 1     | 7DOF pose infrastructure        | 2–3 weeks |
-| 2     | 3D tracking (no orientation)    | 3–4 weeks |
-| 3     | Orientation tracking (13-state) | 4–5 weeks |
-| 4     | Ego-motion compensation         | 3–4 weeks |
-| 5     | Production integration          | 2–3 weeks |
+| Phase | Goal                            | Effort      |
+|-------|---------------------------------|-------------|
+| 1     | 7DOF pose infrastructure        | 2–3 weeks   |
+| 2     | 3D tracking (no orientation)    | 3–4 weeks   |
+| 3     | Orientation tracking (13-state) | 4–5 weeks   |
+| 4     | Ego-motion compensation         | 3–4 weeks   |
+| 5     | Production integration          | 2–3 weeks   |
 
 Total: 14–19 weeks (3.5–5 months). Sequential dependencies: each phase requires the previous.
 

@@ -381,7 +381,7 @@ This replaces the current transient evaluation (POST returns score but doesn't p
 On the scenes page, when a scene has a `reference_run_id`, show a comparison table of all evaluated runs:
 
 | Run ID | Params Summary | Detection % | Fragmentation | FP Rate | Vel. Coverage | Quality | Composite | Actions     |
-| ------ | -------------- | ----------- | ------------- | ------- | ------------- | ------- | --------- | ----------- |
+|--------|----------------|-------------|---------------|---------|---------------|---------|-----------|-------------|
 | abc123 | dist=2.5m ...  | 92.3%       | 0.05          | 3.1%    | 87.4%         | 0.82    | 0.874     | View / Diff |
 | def456 | dist=3.0m ...  | 88.1%       | 0.02          | 5.2%    | 91.0%         | 0.79    | 0.841     | View / Diff |
 
@@ -438,16 +438,16 @@ The labels are scoped to a specific analysis run, so run_tracks is the natural h
 
 #### Detection Labels (`user_label`)
 
-| Label             | Meaning                                                                        | Used in Scoring                                       |
-| ----------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `good_vehicle`    | Correctly tracked single vehicle                                               | Detection rate (vehicle-specific)                     |
-| `good_pedestrian` | Correctly tracked pedestrian                                                   | Detection rate (pedestrian-specific)                  |
-| `good_other`      | Correctly tracked non-vehicle object (cyclist, etc.)                           | Detection rate (other-specific)                       |
-| `noise`           | Not a real object — sensor artefact, multipath, ground clutter                 | False positive penalty                                |
-| `noise_flora`     | Tree, bush, vegetation motion                                                  | False positive penalty (background tuning diagnostic) |
-| `split`           | Fragment — should be part of another track (use `linked_track_ids` to specify) | Fragmentation penalty                                 |
-| `merge`           | Over-association — contains multiple objects                                   | Merge penalty                                         |
-| `missed`          | Object present but no track produced (see spatial anchoring below)             | Miss penalty (requires spatial/temporal reference)    |
+| Label             | Meaning                                                                          | Used in Scoring                                       |
+|-------------------|----------------------------------------------------------------------------------|-------------------------------------------------------|
+| `good_vehicle`    | Correctly tracked single vehicle                                                 | Detection rate (vehicle-specific)                     |
+| `good_pedestrian` | Correctly tracked pedestrian                                                     | Detection rate (pedestrian-specific)                  |
+| `good_other`      | Correctly tracked non-vehicle object (cyclist, etc.)                             | Detection rate (other-specific)                       |
+| `noise`           | Not a real object — sensor artefact, multipath, ground clutter                   | False positive penalty                                |
+| `noise_flora`     | Tree, bush, vegetation motion                                                    | False positive penalty (background tuning diagnostic) |
+| `split`           | Fragment — should be part of another track (use `linked_track_ids` to specify)   | Fragmentation penalty                                 |
+| `merge`           | Over-association — contains multiple objects                                     | Merge penalty                                         |
+| `missed`          | Object present but no track produced (see spatial anchoring below)               | Miss penalty (requires spatial/temporal reference)    |
 
 **Rationale for expanded taxonomy:**
 
@@ -456,13 +456,13 @@ The labels are scoped to a specific analysis run, so run_tracks is the natural h
 
 #### Quality Labels (`quality_label`)
 
-| Label               | Meaning                                                                     | Used in Scoring                                           |
-| ------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `perfect`           | Full transit, clean velocity profile, stable bbox, no gaps                  | Highest weight in velocity coverage & quality premium     |
-| `good`              | Minor imperfections — small speed jumps, brief gap, slight bbox instability | Standard weight                                           |
-| `truncated`         | Track starts or ends prematurely (not split — only track for this vehicle)  | Truncation penalty (background/confirmation tuning issue) |
-| `noisy_velocity`    | Correct association but velocity profile is unreliable (jumps, oscillation) | Velocity noise penalty (process/measurement noise issue)  |
-| `stopped_recovered` | Vehicle stopped and was correctly maintained through occlusion              | Bonus — rewards occlusion coasting parameter tuning       |
+| Label               | Meaning                                                                       | Used in Scoring                                           |
+|---------------------|-------------------------------------------------------------------------------|-----------------------------------------------------------|
+| `perfect`           | Full transit, clean velocity profile, stable bbox, no gaps                    | Highest weight in velocity coverage & quality premium     |
+| `good`              | Minor imperfections — small speed jumps, brief gap, slight bbox instability   | Standard weight                                           |
+| `truncated`         | Track starts or ends prematurely (not split — only track for this vehicle)    | Truncation penalty (background/confirmation tuning issue) |
+| `noisy_velocity`    | Correct association but velocity profile is unreliable (jumps, oscillation)   | Velocity noise penalty (process/measurement noise issue)  |
+| `stopped_recovered` | Vehicle stopped and was correctly maintained through occlusion                | Bonus — rewards occlusion coasting parameter tuning       |
 
 **Rationale for quality dimension:**
 

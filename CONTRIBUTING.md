@@ -18,6 +18,7 @@ working on, read on.
 - **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt)
   for real-time conversation, questions, and the occasional
   digression about sensor calibration
+
 - **GitHub Issues**: Bugs, feature requests, and the project
   roadmap
 
@@ -78,13 +79,16 @@ highest-impact starting points for a data scientist:
    Does the Bayesian geometry-coherent model reduce
    heading drift and dimension instability enough to
    replace the reactive OBB guards?
+
 2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)** —
    Does track-assisted foreground promotion beat the
    current baseline on track completeness and
    fragmentation across multiple sites?
+
 3. **[Interpretable classification](data/maths/classification-maths.md)** —
    Can a shallow, explainable model improve per-class
    precision/recall without introducing a black box?
+
 4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)** —
    Can reflective signs serve as reliable static pose
    anchors, and what fallback hierarchy works in
@@ -101,20 +105,26 @@ Read next:
 - [data/QUESTIONS.md](data/QUESTIONS.md): full index of
   open research questions across the pipeline, grouped by
   theme with acceptance criteria and evidence requirements
+
 - [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
 - [data/maths/README.md](data/maths/README.md): mathematical
   foundations across settling, ground modelling, clustering,
   tracking, and proposals
+
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md):
   the repo-wide data science stance: metrics first, no black
   boxes on the critical path
+
 - [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md):
   how labelled runs, ground truth, and tuning fit together
+
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md):
   metric and schema model for derived transit statistics
+
 - [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md):
   collected metrics, objectives, and decision-making for
   tuning
+
 - [data/maths/classification-maths.md](data/maths/classification-maths.md):
   the current boring static classifier
 
@@ -139,6 +149,7 @@ did.
    should charts represent non-normal distributions and
    communicate sample-size confidence to non-technical
    audiences?
+
 2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)** —
    What visual language makes it clear that p85 values
    across time bins cannot simply be averaged?
@@ -147,12 +158,16 @@ Read next:
 
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md): the canonical
   design language across web, macOS, and report outputs
+
 - [docs/VISION.md](docs/VISION.md): product goals, target
   users, and reporting outcomes the UI needs to support
+
 - [tools/pdf-generator/README.md](tools/pdf-generator/README.md):
   report surface, chart pipeline, and configuration model
+
 - [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
   concrete workflows, UX targets, and architecture for the LiDAR visualiser
+
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
@@ -173,12 +188,16 @@ Read next:
 
 - [README.md](README.md): project overview, component map,
   and contributor setup
+
 - [docs/README.md](docs/README.md): documentation structure,
   ownership, and naming rules
+
 - [docs/plans/platform-documentation-standardisation-plan.md](docs/plans/platform-documentation-standardisation-plan.md):
   the current documentation quality contract
+
 - [public_html/README.md](public_html/README.md): how the
   public docs site is built and organised
+
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md):
   a representative public-facing guide for tone and structure
 
@@ -202,10 +221,12 @@ seagull also helps.
    When does the height-band filter stop being good
    enough, and what replay evidence justifies tile-plane
    fitting?
+
 2. **[Kinematic model extensions](data/QUESTIONS.md)** —
    Does adding acceleration states or IMM blending
    reduce track fragmentation enough to justify the CPU
    cost on a Raspberry Pi?
+
 3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)** —
    Should fusion be scored at L5 per-track association
    or L7 scene-level, and how should conflicting
@@ -215,12 +236,16 @@ Read next:
 
 - [docs/lidar/README.md](docs/lidar/README.md): entry point
   to the LiDAR subsystem docs
+
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md):
   end-to-end LiDAR pipeline and component inventory
+
 - [data/maths/README.md](data/maths/README.md): how the
   maths-heavy layers fit together
+
 - [data/maths/clustering-maths.md](data/maths/clustering-maths.md):
   clustering assumptions, geometry extraction, and complexity
+
 - [data/maths/tracking-maths.md](data/maths/tracking-maths.md):
   Kalman filtering, gating, assignment, and lifecycle dynamics
 
@@ -245,9 +270,11 @@ shell tooling, and deployment automation is useful.
    Most defaults were tuned on a single PCAP; which
    survive multi-site validation and what does the
    auto-tuning objective function look like?
+
 2. **[Edge hardware budget](data/QUESTIONS.md)** —
    Do all proposed algorithm improvements fit within
    the 100 ms frame budget on a Raspberry Pi 4?
+
 3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)** —
    How should observed geometry be diffed, reviewed,
    and exported against OSM without weakening
@@ -257,16 +284,22 @@ Read next:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): system boundaries,
   data flow, and deployment shape
+
 - [cmd/radar/README.md](cmd/radar/README.md): the main
   binary, runtime flags, and service model
+
 - [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md):
   current CLI surface and planned consolidation
+
 - [internal/db/migrations/README.md](internal/db/migrations/README.md):
   schema workflow, migration commands, and production safety
+
 - [config/README.md](config/README.md): configuration
   contract and tuning parameter layout
+
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md):
   release packaging strategy and install model
+
 - [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md):
   listener segmentation, trust model, and network hardening
 
@@ -288,18 +321,25 @@ Read next:
 
 - [web/README.md](web/README.md): local frontend setup,
   build, and maintenance commands
+
 - [docs/ui/DESIGN.md](docs/ui/DESIGN.md): design contract
   for web, macOS, and report charts
+
 - [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md):
   current frontend design gaps and follow-up work
+
 - [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md):
   roadmap for retiring legacy Go-embedded dashboards
+
 - [tools/pdf-generator/README.md](tools/pdf-generator/README.md):
   PDF report pipeline, chart builders, and configuration
+
 - [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md):
   macOS visualiser setup, build, and architecture
+
 - [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
   concrete workflows and UX targets
+
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
@@ -378,6 +418,7 @@ Useful labels:
 - `good first issue`: Manageable starting points that will
   not leave you staring at a screen wondering what just
   happened
+
 - `help wanted`: Issues where extra hands would make a real
   difference
 
@@ -440,12 +481,15 @@ blocking your PR. This is a deliberate low-friction workflow:
 
 1. **Local check**: Run `make lint` to see all warnings
    including line-width reports.
+
 2. **Pre-commit hook**: Auto-formats code on commit if you
    have `pre-commit install` enabled. Width-related prose
    checks are opt-in and advisory.
+
 3. **CI check**: PR checks include an advisory line-width
    job (`continue-on-error: true`). It shows a yellow tick,
    not a red cross. Your PR can merge regardless.
+
 4. **Weekly nag PR**: A scheduled workflow opens a standing
    PR each week with any remaining style fixes. Easy to
    review and merge: no manual effort required.
@@ -508,13 +552,17 @@ All UI and chart work follows the design contract in
 
 - Use the **canonical percentile colour palette** (§3.3) for
   all chart stacks.
+
 - Follow the **information hierarchy**: context header →
   control strip → primary workspace → detail/inspector.
+
 - Use **svelte-ux** components first; fall back to native HTML
   only with good reason.
+
 - Use **LayerChart/d3-scale** for charts; avoid ad-hoc SVG.
 - Extract repeated class bundles into **shared standard
   classes** (§5.5).
+
 - Include explicit **loading/empty/error states** for charts.
   An empty chart without explanation is a mild act of cruelty.
 
@@ -527,9 +575,11 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
 3. **Test locally**: `make format && make lint && make test`.
 4. **Update docs**: If your change affects behaviour, update
    the relevant documentation. Future-you will be grateful.
+
 5. **Submit PR**: Describe what changed and why. The "why"
    matters more than the "what"; the diff already shows the
    what.
+
 6. **Review**: Address feedback from maintainers.
 
 ### PR Checklist
@@ -586,6 +636,7 @@ When changing behaviour, update all affected docs:
   [web/README.md](web/README.md),
   [tools/pdf-generator/README.md](tools/pdf-generator/README.md),
   [public_html/README.md](public_html/README.md)
+
 - [ARCHITECTURE.md](ARCHITECTURE.md) for design changes
 - [public_html/src/guides/](public_html/src/guides/) for
   user-facing guides
@@ -597,6 +648,7 @@ documentation at all, because at least an absence is honest.
 
 - **Discord**: Best for quick questions:
   [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
+
 - **GitHub Issues**: For bugs and feature requests
 - **Code Review**: We are happy to guide you through a PR.
   Ask early rather than late; it saves everyone time.

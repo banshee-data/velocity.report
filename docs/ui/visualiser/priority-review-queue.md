@@ -9,7 +9,7 @@ Priority-ranked queue of tracks requiring human review, ordered by composite sco
 Composite score (0–100) computed from weighted factors:
 
 | Factor          | Weight   | Description                                             |
-| --------------- | -------- | ------------------------------------------------------- |
+|-----------------|----------|---------------------------------------------------------|
 | Quality score   | High     | Lower quality → higher review priority                  |
 | Violation count | High     | Unresolved physics violations                           |
 | Repair risk     | Medium   | Tracks with pending split/merge suggestions             |
@@ -22,7 +22,7 @@ Composite score (0–100) computed from weighted factors:
 Stored in `lidar_review_queue_items`:
 
 | State      | Meaning                                               |
-| ---------- | ----------------------------------------------------- |
+|------------|-------------------------------------------------------|
 | `OPEN`     | Awaiting review                                       |
 | `CLAIMED`  | Reviewer is actively inspecting                       |
 | `RESOLVED` | Review complete (accepted or corrected)               |
@@ -40,7 +40,7 @@ The queue is rebuilt/updated when any of these change:
 ## API
 
 | Endpoint                                                  | Method | Purpose                               |
-| --------------------------------------------------------- | ------ | ------------------------------------- |
+|-----------------------------------------------------------|--------|---------------------------------------|
 | `/api/lidar/runs/{run_id}/review-queue`                   | GET    | List queue items (sorted by priority) |
 | `/api/lidar/runs/{run_id}/review-queue/{item_id}/claim`   | POST   | Claim item for review                 |
 | `/api/lidar/runs/{run_id}/review-queue/{item_id}/release` | POST   | Release claim without resolving       |

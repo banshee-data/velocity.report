@@ -521,7 +521,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 | Stage                             | Target Latency | Notes                   |
-| --------------------------------- | -------------- | ----------------------- |
+|-----------------------------------|----------------|-------------------------|
 | Background classification (polar) | <5ms           | With background lock    |
 | Foreground extraction             | <1ms           | Simple mask application |
 | Polar → World transform           | <3ms           | Matrix multiplication   |
@@ -577,18 +577,18 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 ### Phase Timeline
 
-| Phase | Description              | Duration | Status      | Deliverables                                                                      |
-| ----- | ------------------------ | -------- | ----------- | --------------------------------------------------------------------------------- |
-| 2.9   | Foreground Mask (Polar)  | 1-2 days | ✅ Complete | `ProcessFramePolarWithMask`, `ExtractForegroundPoints`, `FrameMetrics`            |
-| 3.0   | Transform (Polar→World)  | 1-2 days | ✅ Complete | `TransformToWorld`, `WorldPoint`, unit tests                                      |
-| 3.1   | DBSCAN Clustering        | 3-4 days | ✅ Complete | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster`                 |
-| 3.2   | Kalman Tracking          | 4-5 days | ✅ Complete | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management              |
-| 3.3   | SQL Schema & Persistence | 3-4 days | ✅ Complete | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
-| 3.4   | Classification           | 2-3 days | ✅ Complete | `TrackClassifier`, rule-based classification, object classes                      |
-| 3.5   | REST API Endpoints       | 1-2 days | ✅ Complete | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
-| 3.6   | PCAP Analysis Tool       | 1-2 days | ✅ Complete | `pcap-analyze` CLI tool for batch processing and classification research export   |
-| 3.8   | Track Visualisation UI   | 2-3 days | ✅ Complete | MapPane, TrackList, TimelinePane components, pagination, playback                 |
-| Test  | Integration Testing      | 2-3 days | 📋 Planned  | Integration tests, performance validation                                         |
+| Phase | Description               | Duration | Status       | Deliverables                                                                      |
+|-------|---------------------------|----------|--------------|-----------------------------------------------------------------------------------|
+| 2.9   | Foreground Mask (Polar)   | 1-2 days | ✅ Complete   | `ProcessFramePolarWithMask`, `ExtractForegroundPoints`, `FrameMetrics`            |
+| 3.0   | Transform (Polar→World)   | 1-2 days | ✅ Complete   | `TransformToWorld`, `WorldPoint`, unit tests                                      |
+| 3.1   | DBSCAN Clustering         | 3-4 days | ✅ Complete   | `SpatialIndex`, `DBSCAN`, `computeClusterMetrics`, `WorldCluster`                 |
+| 3.2   | Kalman Tracking           | 4-5 days | ✅ Complete   | `Tracker`, `TrackedObject`, Mahalanobis gating, lifecycle management              |
+| 3.3   | SQL Schema & Persistence  | 3-4 days | ✅ Complete   | `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables, persistence functions |
+| 3.4   | Classification            | 2-3 days | ✅ Complete   | `TrackClassifier`, rule-based classification, object classes                      |
+| 3.5   | REST API Endpoints        | 1-2 days | ✅ Complete   | `TrackAPI` HTTP handlers, list/get/update tracks, cluster queries                 |
+| 3.6   | PCAP Analysis Tool        | 1-2 days | ✅ Complete   | `pcap-analyze` CLI tool for batch processing and classification research export   |
+| 3.8   | Track Visualisation UI    | 2-3 days | ✅ Complete   | MapPane, TrackList, TimelinePane components, pagination, playback                 |
+| Test  | Integration Testing       | 2-3 days | 📋 Planned    | Integration tests, performance validation                                         |
 
 **Phases 2.9-3.8: Complete**
 **Remaining: Integration Testing**
@@ -610,7 +610,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 ### Implementation Files
 
 | Phase   | File                                                       | Description                                      |
-| ------- | ---------------------------------------------------------- | ------------------------------------------------ |
+|---------|------------------------------------------------------------|--------------------------------------------------|
 | 2.9     | `internal/lidar/foreground.go`                             | Foreground mask generation and extraction        |
 | 2.9     | `internal/lidar/foreground_test.go`                        | Unit tests for foreground extraction             |
 | 3.0-3.1 | `internal/lidar/clustering.go`                             | Transform and DBSCAN clustering                  |
@@ -641,7 +641,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 > **Source:** [`internal/lidar/l2frames/`](../../../internal/lidar/l2frames/), [`internal/lidar/l4perception/cluster.go`](../../../internal/lidar/l4perception/cluster.go), [`internal/lidar/l5tracks/types.go`](../../../internal/lidar/l5tracks/types.go)
 
 | Stage      | Type           | Frame | Key Fields                                                                                                 |
-| ---------- | -------------- | ----- | ---------------------------------------------------------------------------------------------------------- |
+|------------|----------------|-------|------------------------------------------------------------------------------------------------------------|
 | Input      | `PointPolar`   | Polar | distance, azimuth, elevation, intensity, ring (0–39)                                                       |
 | Transform  | `WorldPoint`   | World | x, y, z (metres), intensity, timestamp, sensor_id                                                          |
 | Clustering | `WorldCluster` | World | centroid (x, y, z), bounding box (L×W×H), point count, height P95, intensity mean                          |
@@ -652,7 +652,7 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 See [Configuration Reference](#configuration-reference) below for runtime parameter defaults. Additional clustering and tracking defaults:
 
 | Domain     | Parameter               | Default              | Description                                |
-| ---------- | ----------------------- | -------------------- | ------------------------------------------ |
+|------------|-------------------------|----------------------|--------------------------------------------|
 | Clustering | `Eps`                   | 0.6 m                | Neighbourhood radius                       |
 | Clustering | `MinPts`                | 12                   | Minimum points per cluster                 |
 | Clustering | `CellSize`              | 0.6 m                | Spatial index cell size                    |
@@ -745,7 +745,7 @@ The current implementation stores all data in polar (sensor) frame, which is pos
 When pose validation is implemented:
 
 | RMSE (meters) | Quality   | Usage Recommendation                  |
-| ------------- | --------- | ------------------------------------- |
+|---------------|-----------|---------------------------------------|
 | < 0.05        | Excellent | Use for all downstream processing     |
 | 0.05 - 0.15   | Good      | Use for tracking and research export  |
 | 0.15 - 0.30   | Fair      | Use for tracking; exclude from export |
@@ -759,13 +759,13 @@ When pose validation is implemented:
 
 ### Working Features
 
-| Feature                     | Status     | Notes                                            |
-| --------------------------- | ---------- | ------------------------------------------------ |
-| Foreground Feed (Port 2370) | ✅ Working | Foreground points visible in LidarView           |
-| Real-time Parameter Tuning  | ✅ Working | Edit params via JSON textarea without restart    |
-| Background Subtraction      | ✅ Working | Points correctly masked as foreground/background |
-| Warmup Sensitivity Scaling  | ✅ Working | Eliminates initialisation trails                 |
-| PCAP Analysis Mode          | ✅ Working | Grid preserved for analysis workflows            |
+| Feature                     | Status      | Notes                                            |
+|-----------------------------|-------------|--------------------------------------------------|
+| Foreground Feed (Port 2370) | ✅ Working   | Foreground points visible in LidarView           |
+| Real-time Parameter Tuning  | ✅ Working   | Edit params via JSON textarea without restart    |
+| Background Subtraction      | ✅ Working   | Points correctly masked as foreground/background |
+| Warmup Sensitivity Scaling  | ✅ Working   | Eliminates initialisation trails                 |
+| PCAP Analysis Mode          | ✅ Working   | Grid preserved for analysis workflows            |
 
 ### Resolved Issues
 
@@ -788,6 +788,7 @@ changes apply immediately without restart.
 - **M1 performance** — CPU usage during foreground processing higher than
   expected. Investigate with `go tool pprof` (likely per-frame allocations, lock
   contention, or packet encoding overhead).
+
 - **Runtime tuning schema parity** — `/api/lidar/params` supports core
   background/tracker keys but not full canonical tuning parity for all runtime
   keys. `max_tracks` POST support is wired.
@@ -795,7 +796,7 @@ changes apply immediately without restart.
 ### Configuration Reference
 
 | Parameter                        | Default | Description                                |
-| -------------------------------- | ------- | ------------------------------------------ |
+|----------------------------------|---------|--------------------------------------------|
 | `BackgroundUpdateFraction`       | 0.02    | EMA alpha for background learning          |
 | `ClosenessSensitivityMultiplier` | 3.0     | Threshold multiplier for classification    |
 | `SafetyMarginMeters`             | 0.1     | Fixed margin added to threshold            |
@@ -810,7 +811,7 @@ multiplied by `1.0 + 3.0 × (100 − count) / 100` (4× at count 0, 1× at 100+)
 ### API Endpoints
 
 | Endpoint                 | Method   | Description                       |
-| ------------------------ | -------- | --------------------------------- |
+|--------------------------|----------|-----------------------------------|
 | `/api/lidar/status`      | GET      | Current pipeline status           |
 | `/api/lidar/params`      | GET/POST | View/update background parameters |
 | `/api/lidar/grid_status` | GET      | Background grid statistics        |

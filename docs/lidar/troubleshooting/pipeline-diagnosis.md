@@ -17,12 +17,12 @@ The tracking pipeline exhibits multiple quality degradation symptoms that stem f
 
 **Primary Issues Identified:**
 
-| Issue             | Symptom                                      | Root Cause                                                         | Impact                                       |
-| ----------------- | -------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
-| **High Jitter**   | Spinning bounding boxes, erratic velocity    | Default measurement_noise (0.3) too high for OBB stability         | HeadingJitterDeg > 45°, SpeedJitterMps > 2.0 |
-| **Fragmentation** | Single vehicle split into multiple tracks    | Default foreground_dbscan_eps (0.3) too small for distant vehicles | FragmentationRatio > 0.4                     |
-| **Misalignment**  | Kalman velocity ≠ displacement heading       | Default process_noise_vel (0.5) allows velocity drift              | AlignmentMeanRad > 30°                       |
-| **Empty Boxes**   | Confirmed tracks with no associated clusters | Default safety_margin_meters (0.4) too conservative                | EmptyBoxRatio > 0.15                         |
+| Issue             | Symptom                                      | Root Cause                                                         | Impact                                        |
+|-------------------|----------------------------------------------|--------------------------------------------------------------------|-----------------------------------------------|
+| **High Jitter**   | Spinning bounding boxes, erratic velocity    | Default measurement_noise (0.3) too high for OBB stability         | HeadingJitterDeg > 45°, SpeedJitterMps > 2.0  |
+| **Fragmentation** | Single vehicle split into multiple tracks    | Default foreground_dbscan_eps (0.3) too small for distant vehicles | FragmentationRatio > 0.4                      |
+| **Misalignment**  | Kalman velocity ≠ displacement heading       | Default process_noise_vel (0.5) allows velocity drift              | AlignmentMeanRad > 30°                        |
+| **Empty Boxes**   | Confirmed tracks with no associated clusters | Default safety_margin_meters (0.4) too conservative                | EmptyBoxRatio > 0.15                          |
 
 ---
 
@@ -54,7 +54,7 @@ curl -X POST http://localhost:8080/api/lidar/sweep/auto \
 ### Key Parameter Changes
 
 | Parameter                 | Default | Optimised | Why                                                        |
-| ------------------------- | ------- | --------- | ---------------------------------------------------------- |
+|---------------------------|---------|-----------|------------------------------------------------------------|
 | `closeness_multiplier`    | 8.0     | 3.0       | Was allowing vehicle points to be classified as background |
 | `safety_margin_meters`    | 0.4     | 0.15      | Was suppressing vehicle edge points                        |
 | `foreground_dbscan_eps`   | 0.3     | 0.7       | Was fragmenting distant vehicles                           |
@@ -75,14 +75,14 @@ Deploy changes incrementally rather than all at once:
 
 ### Expected Improvements
 
-| Metric             | Before      | After       | Change |
-| ------------------ | ----------- | ----------- | ------ |
-| HeadingJitterDeg   | 45–60°      | 15–25°      | ↓ 60%  |
-| SpeedJitterMps     | 2.0–3.0 m/s | 0.5–1.0 m/s | ↓ 70%  |
-| FragmentationRatio | 0.40–0.50   | 0.10–0.15   | ↓ 75%  |
-| MisalignmentRatio  | 0.30–0.40   | 0.10–0.15   | ↓ 65%  |
-| EmptyBoxRatio      | 0.15–0.25   | 0.05–0.10   | ↓ 60%  |
-| ForegroundCapture  | 0.70–0.75   | 0.85–0.90   | ↑ 15%  |
+| Metric             | Before        | After         | Change  |
+|--------------------|---------------|---------------|---------|
+| HeadingJitterDeg   | 45–60°        | 15–25°        | ↓ 60%   |
+| SpeedJitterMps     | 2.0–3.0 m/s   | 0.5–1.0 m/s   | ↓ 70%   |
+| FragmentationRatio | 0.40–0.50     | 0.10–0.15     | ↓ 75%   |
+| MisalignmentRatio  | 0.30–0.40     | 0.10–0.15     | ↓ 65%   |
+| EmptyBoxRatio      | 0.15–0.25     | 0.05–0.10     | ↓ 60%   |
+| ForegroundCapture  | 0.70–0.75     | 0.85–0.90     | ↑ 15%   |
 
 ### Reverting
 
@@ -383,7 +383,7 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
 ### 3.2 Change Justification
 
 | Parameter                         | Old Value | New Value | Reason                                                         |
-| --------------------------------- | --------- | --------- | -------------------------------------------------------------- |
+|-----------------------------------|-----------|-----------|----------------------------------------------------------------|
 | **closeness_multiplier**          | 8.0       | 3.0       | Reduce false negatives; tighten foreground classification      |
 | **safety_margin_meters**          | 0.4       | 0.15      | Reduce edge-point suppression; allow vehicle hulls through     |
 | **neighbor_confirmation_count**   | 7         | 3         | Lower voting threshold to match tighter closeness              |
@@ -398,7 +398,7 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
 ### 3.3 Expected Improvements
 
 | Metric                 | Current (Typical) | Expected (Optimised) | Improvement     |
-| ---------------------- | ----------------- | -------------------- | --------------- |
+|------------------------|-------------------|----------------------|-----------------|
 | **HeadingJitterDeg**   | 45-60°            | 15-25°               | 60% reduction   |
 | **SpeedJitterMps**     | 2.0-3.0           | 0.5-1.0              | 70% reduction   |
 | **FragmentationRatio** | 0.40-0.50         | 0.10-0.15            | 75% reduction   |

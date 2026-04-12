@@ -22,7 +22,7 @@ The current L5 tracker uses a constant-velocity (CV) Kalman filter. This is a st
 ## 2. Scope and Layer Placement
 
 | Workstream                                                                             | Layer                        | Why                                                                                                            |
-| -------------------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
+|----------------------------------------------------------------------------------------|------------------------------|----------------------------------------------------------------------------------------------------------------|
 | Richer single-object kinematics (CA, CTRV, IMM)                                        | **L5 Tracks**                | Per-track state estimator; no cross-object or scene knowledge needed                                           |
 | Scene-constrained path prediction (road-following, kerb clipping, stop-line awareness) | **L7 Scene**                 | Requires accumulated road polygons, kerb geometry, and structure walls                                         |
 | Multi-object interaction prediction (following distance, yield/gap acceptance)         | **L7 Scene**                 | Requires simultaneous visibility of all canonical objects plus road topology                                   |
@@ -190,14 +190,14 @@ The L7 scene graph encodes persistent spatial relationships between features. Th
 
 ### 6.1 Relation types
 
-| Relation          | Subject → Object               | Accumulated evidence                                |
-| ----------------- | ------------------------------ | --------------------------------------------------- |
-| `contacts_ground` | Cluster/Object → GroundPolygon | Base-Z offset mean and variance (Welford)           |
-| `follows_road`    | Track/Object → GroundPolygon   | Fraction of trajectory waypoints inside polygon     |
-| `occluded_by`     | Cluster → StructureFeature     | Angle range and frequency of line-of-sight blockage |
-| `adjacent_to`     | Cluster → VolumeFeature        | Proximity to known clutter source (tree, hedge)     |
-| `bounded_by`      | Object → StructureFeature      | Object trajectory never penetrates wall             |
-| `rests_on`        | VolumeFeature → GroundPolygon  | Static object base contacts ground                  |
+| Relation          | Subject → Object                 | Accumulated evidence                                |
+|-------------------|----------------------------------|-----------------------------------------------------|
+| `contacts_ground` | Cluster/Object → GroundPolygon   | Base-Z offset mean and variance (Welford)           |
+| `follows_road`    | Track/Object → GroundPolygon     | Fraction of trajectory waypoints inside polygon     |
+| `occluded_by`     | Cluster → StructureFeature       | Angle range and frequency of line-of-sight blockage |
+| `adjacent_to`     | Cluster → VolumeFeature          | Proximity to known clutter source (tree, hedge)     |
+| `bounded_by`      | Object → StructureFeature        | Object trajectory never penetrates wall             |
+| `rests_on`        | VolumeFeature → GroundPolygon    | Static object base contacts ground                  |
 
 ### 6.2 Relation data model
 

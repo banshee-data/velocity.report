@@ -55,7 +55,7 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 ## Makefile Parameters
 
 | Parameter           | Default               | Description                   |
-| ------------------- | --------------------- | ----------------------------- |
+|---------------------|-----------------------|-------------------------------|
 | `URL`               | http://localhost:8081 | Monitor server URL            |
 | `SENSOR`            | hesai-pandar40p       | Sensor ID                     |
 | `METRIC`            | unsettled_ratio       | Metric to visualize           |

@@ -1146,5 +1146,5 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 ## Revision History
 
 | Version | Date       | Author  | Changes                 |
-| ------- | ---------- | ------- | ----------------------- |
+|---------|------------|---------|-------------------------|
 | 1.0     | 2025-12-06 | Ictinus | Initial design document |

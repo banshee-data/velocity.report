@@ -69,7 +69,7 @@ Enable operators to label tracks while viewing 3D evolution in the macOS Swift a
 Scoring: `1 (worst)` to `5 (best)`.
 
 | Option                                  | Maintainability | UX (label + scrub) | Performance | Notes                                                                                                                            |
-| --------------------------------------- | --------------- | ------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------------------------|-----------------|--------------------|-------------|----------------------------------------------------------------------------------------------------------------------------------|
 | 1. Baseline VRLOG + web-driven workflow | 3               | 2                  | 4           | Backend is straightforward, but operators context-switch between Swift 3D view and web labelling/timeline.                       |
 | 2. VRLOG + Swift-native labelling       | 4               | 5                  | 4           | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work.                   |
 | 3. Direct PCAP seek                     | 2               | 3                  | 2           | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
@@ -365,7 +365,7 @@ Phase 0 (label contract)
 ## Files to Modify
 
 | Area                    | File(s)                                                                                                                                  | Changes                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
 | Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                 | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
 | gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                               | Implement seek delegation, VRLOG mode routing                        |
 | Run persistence         | `internal/lidar/analysis_run.go`                                                                                                         | `vrlog_path` field + store updates                                   |

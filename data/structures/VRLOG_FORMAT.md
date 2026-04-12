@@ -26,7 +26,7 @@ seekable replay, labelling, and offline analysis.
 JSON object written when the recorder closes. Contains log-level metadata.
 
 | Field              | Type    | Description                                                            |
-| ------------------ | ------- | ---------------------------------------------------------------------- |
+|--------------------|---------|------------------------------------------------------------------------|
 | `version`          | string  | Format version (currently `"0.5"`)                                     |
 | `created_ns`       | int64   | Wall-clock creation time (Unix nanoseconds)                            |
 | `sensor_id`        | string  | Sensor identifier (e.g. `"hesai-01"`)                                  |
@@ -43,7 +43,7 @@ JSON object written when the recorder closes. Contains log-level metadata.
 ### coordinate_frame
 
 | Field             | Type   | Description                  |
-| ----------------- | ------ | ---------------------------- |
+|-------------------|--------|------------------------------|
 | `frame_id`        | string | e.g. `"site/hesai-01"`       |
 | `reference_frame` | string | e.g. `"ENU"` (East-North-Up) |
 
@@ -77,7 +77,7 @@ are **little-endian**.
 ### Entry Layout (24 bytes)
 
 | Offset | Size | Type   | Field         | Description                               |
-| ------ | ---- | ------ | ------------- | ----------------------------------------- |
+|--------|------|--------|---------------|-------------------------------------------|
 | 0      | 8    | uint64 | `FrameID`     | Monotonic frame identifier                |
 | 8      | 8    | int64  | `TimestampNs` | Frame timestamp (Unix nanoseconds)        |
 | 16     | 4    | uint32 | `ChunkID`     | Zero-based chunk file index               |
@@ -119,7 +119,7 @@ delimiters beyond the length prefix.
 A new chunk file is created when **any** of the following conditions are met:
 
 | Condition             | Threshold      |
-| --------------------- | -------------- |
+|-----------------------|----------------|
 | Frame count per chunk | 1,000 frames   |
 | Byte size per chunk   | 150 MB written |
 
@@ -132,7 +132,7 @@ The `FrameBundle` struct is the canonical internal model. Key fields serialised
 into each chunk frame:
 
 | Field             | Type                | Description                              |
-| ----------------- | ------------------- | ---------------------------------------- |
+|-------------------|---------------------|------------------------------------------|
 | `FrameID`         | uint64              | Monotonic frame counter                  |
 | `TimestampNanos`  | int64               | Frame timestamp (Unix nanoseconds)       |
 | `SensorID`        | string              | Sensor identifier                        |
@@ -148,7 +148,7 @@ into each chunk frame:
 ### FrameType Values
 
 | Value | Constant              | Description                                          |
-| ----- | --------------------- | ---------------------------------------------------- |
+|-------|-----------------------|------------------------------------------------------|
 | 0     | `FrameTypeFull`       | Legacy: all points included                          |
 | 1     | `FrameTypeForeground` | Split streaming: foreground + clusters + tracks only |
 | 2     | `FrameTypeBackground` | Background grid snapshot                             |
@@ -218,11 +218,14 @@ The `Replayer` supports:
 
 - **Sequential playback** — `ReadFrame()` advances `currentFrame` and returns
   the next `FrameBundle` with `PlaybackInfo` injected.
+
 - **Random seek by frame** — `Seek(frameIdx)` sets the read cursor.
 - **Seek by timestamp** — `SeekToTimestamp(ns)` finds the nearest frame via
   linear scan (binary search planned).
+
 - **Rate control** — `SetRate(rate)` adjusts playback speed (consumed by
   the gRPC streaming loop).
+
 - **Pause/resume** — `SetPaused(paused)` pauses the streaming loop.
 
 ## Related

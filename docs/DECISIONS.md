@@ -111,7 +111,7 @@ Use dual-native agent definitions (`.github/agents/` for Copilot, `.claude/agent
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |
-| --------- | -------------------------------------------------------------- |
+|-----------|----------------------------------------------------------------|
 | v0.5      | Highest-impact stabilisation work already in progress          |
 | v0.6      | Deployment blockers that gate user adoption                    |
 | v0.7      | Frontend and data-layer polish for v1.0 readiness              |

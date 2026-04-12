@@ -704,7 +704,7 @@ Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05
 **Database Layer Tests (speed_limit_schedule_test.go):**
 
 | Test Case                           | Purpose                  | Key Assertions                              |
-| ----------------------------------- | ------------------------ | ------------------------------------------- |
+|-------------------------------------|--------------------------|---------------------------------------------|
 | CreateSpeedLimitSchedule            | Verify schedule creation | ID is set after creation                    |
 | GetSpeedLimitSchedule               | Verify single retrieval  | All fields match created schedule           |
 | GetSpeedLimitSchedulesForSite       | Verify list retrieval    | Returns all schedules, sorted correctly     |
@@ -720,7 +720,7 @@ Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05
 **Day Numbering Convention:**
 
 | Number | Day       | ISO 8601 | Typical Use Case           |
-| ------ | --------- | -------- | -------------------------- |
+|--------|-----------|----------|----------------------------|
 | 1      | Monday    | 1        | School zone active         |
 | 2      | Tuesday   | 2        | School zone active         |
 | 3      | Wednesday | 3        | School zone active         |

@@ -5,11 +5,11 @@ velocity.report system. Each format has a dedicated specification file.
 
 ## Documented Formats
 
-| Format            | Document                                         | Layer | Description                                        |
-| ----------------- | ------------------------------------------------ | ----- | -------------------------------------------------- |
-| Hesai UDP packets | [HESAI_PACKET_FORMAT.md](HESAI_PACKET_FORMAT.md) | L1    | Hesai Pandar40P LiDAR UDP payload structure        |
-| VRLOG recording   | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)               | L2–L5 | Directory-based LiDAR frame recording format       |
-| Surface matrix    | [MATRIX.md](MATRIX.md)                           | L4–L8 | Backend-computed data vs web/PDF/macOS consumption |
+| Format            | Document                                         | Layer   | Description                                        |
+|-------------------|--------------------------------------------------|---------|----------------------------------------------------|
+| Hesai UDP packets | [HESAI_PACKET_FORMAT.md](HESAI_PACKET_FORMAT.md) | L1      | Hesai Pandar40P LiDAR UDP payload structure        |
+| VRLOG recording   | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)               | L2–L5   | Directory-based LiDAR frame recording format       |
+| Surface matrix    | [MATRIX.md](MATRIX.md)                           | L4–L8   | Backend-computed data vs web/PDF/macOS consumption |
 
 ## Canonical Source Definitions
 
@@ -18,15 +18,15 @@ point to the authoritative source files.
 
 ### SQLite Database
 
-| Definition     | File                                                       | Description                                 |
-| -------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | 18 tables — radar, LiDAR, labelling, sweeps |
-| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution                |
+| Definition     | File                                                       | Description                                   |
+|----------------|------------------------------------------------------------|-----------------------------------------------|
+| Current schema | [`internal/db/schema.sql`](../../internal/db/schema.sql)   | 18 tables — radar, LiDAR, labelling, sweeps   |
+| Migrations     | [`internal/db/migrations/`](../../internal/db/migrations/) | Incremental schema evolution                  |
 
 ### Configuration
 
 | Definition        | File                                                               | Description                                  |
-| ----------------- | ------------------------------------------------------------------ | -------------------------------------------- |
+|-------------------|--------------------------------------------------------------------|----------------------------------------------|
 | Tuning parameters | [`config/README.md`](../../config/README.md)                       | ~40 tuning knobs with types and defaults     |
 | Default values    | [`config/tuning.defaults.json`](../../config/tuning.defaults.json) | Canonical defaults                           |
 | Tuning Go struct  | [`internal/config/tuning.go`](../../internal/config/tuning.go)     | `TuningConfig` with JSON tags and validation |
@@ -34,13 +34,13 @@ point to the authoritative source files.
 ### Protobuf / gRPC
 
 | Definition          | File                                                                                                   | Description                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+|---------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
 | Visualiser gRPC API | [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto) | FrameBundle, PointCloudFrame, TrackSet, PlaybackInfo, etc. |
 
 ### Internal Models
 
 | Definition               | File                                                                                                           | Description                                                |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+|--------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
 | Data layer model         | [`docs/lidar/architecture/lidar-data-layer-model.md`](../../docs/lidar/architecture/lidar-data-layer-model.md) | Ten-layer model (L1 Packets → L10 Clients)                 |
 | L8 Analytics (Go)        | [`internal/lidar/l8analytics/`](../../internal/lidar/l8analytics/)                                             | Canonical run metrics, comparisons, summaries, percentiles |
 | FrameBundle (Go)         | [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)                             | Canonical internal model for LiDAR frames                  |

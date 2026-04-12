@@ -16,7 +16,7 @@ the track's observation history.
 ## 2. Object Classes
 
 | Class      | ObjectClass const | Description                                                |
-| ---------- | ----------------- | ---------------------------------------------------------- |
+|------------|-------------------|------------------------------------------------------------|
 | Pedestrian | `"pedestrian"`    | Person walking, running, or using a mobility aid           |
 | Cyclist    | `"cyclist"`       | Person on a bicycle, e-scooter, or motorcycle              |
 | Bird       | `"bird"`          | Small flying object or ground-level animal                 |
@@ -31,7 +31,7 @@ The wire protocol uses a proto3 enum (`ObjectClass`) for forward
 compatibility and self-documentation:
 
 | Value | Name                        | Scope             |
-| ----- | --------------------------- | ----------------- |
+|-------|-----------------------------|-------------------|
 | 0     | `OBJECT_CLASS_UNSPECIFIED`  | Default / unset   |
 | 1     | `OBJECT_CLASS_NOISE`        | User-only         |
 | 2     | `OBJECT_CLASS_DYNAMIC`      | Classifier + user |
@@ -48,7 +48,7 @@ compatibility and self-documentation:
 Features are extracted per-track from the observation history:
 
 | Feature           | Symbol           | Unit | Source                                    |
-| ----------------- | ---------------- | ---- | ----------------------------------------- |
+|-------------------|------------------|------|-------------------------------------------|
 | Average height    | $\bar{h}$        | m    | `BoundingBoxHeightAvg`                    |
 | Average length    | $\bar{l}$        | m    | `BoundingBoxLengthAvg`                    |
 | Average width     | $\bar{w}$        | m    | `BoundingBoxWidthAvg`                     |
@@ -64,7 +64,7 @@ Features are extracted per-track from the observation history:
 ## 4. Decision Thresholds
 
 | Threshold               | Symbol                | Value    | Purpose                          |
-| ----------------------- | --------------------- | -------- | -------------------------------- |
+|-------------------------|-----------------------|----------|----------------------------------|
 | Bird height max         | $H_{\text{bird}}$     | 0.5 m    | Birds are small                  |
 | Bird speed max          | $V_{\text{bird}}$     | 1.0 m/s  | Birds detected at low speeds     |
 | Bus length min          | $L_{\text{bus}}$      | 7.0 m    | Buses are long                   |
@@ -210,7 +210,7 @@ confidence (0.50).
 ## 6. Confidence Calibration
 
 | Level  | Value | Meaning                        |
-| ------ | ----- | ------------------------------ |
+|--------|-------|--------------------------------|
 | High   | 0.85  | Strong match to class features |
 | Medium | 0.70  | Baseline for matched rules     |
 | Low    | 0.50  | Weak match or fallback         |
@@ -232,7 +232,7 @@ aligned. Both use canonical full-word strings. The wire protocol uses
 a proto3 enum (`ObjectClass`) for forward compatibility.
 
 | Label            | Classifier output | User-assignable | Status           |
-| ---------------- | ----------------- | --------------- | ---------------- |
+|------------------|-------------------|-----------------|------------------|
 | `"noise"`        | —                 | ✓               | Active           |
 | `"dynamic"`      | ✓                 | ✓               | Active           |
 | `"pedestrian"`   | ✓                 | ✓               | Active           |
@@ -274,15 +274,16 @@ recordings or live data) are converted directly without re-classification.
 
 - Replace rule-based classifier with ML model (feature vector is
   designed to be export-compatible)
+
 - Expose label taxonomy via API endpoint for frontend consumption
 
 ## 11. References
 
-| Reference            | BibTeX key   | Relevance                                                                                                                |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration          |
-| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                                |
-| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                         |
-| Lang et al. (2019)   | `Lang2019`   | PointPillars — learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
+| Reference            | BibTeX key   | Relevance                                                                                                                  |
+|----------------------|--------------|----------------------------------------------------------------------------------------------------------------------------|
+| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration            |
+| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                                  |
+| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                           |
+| Lang et al. (2019)   | `Lang2019`   | PointPillars — learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate   |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)

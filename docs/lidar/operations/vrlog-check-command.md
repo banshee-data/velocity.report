@@ -31,8 +31,10 @@ and validation rules.
 - Keeps operator entry points consistent: one binary, many subcommands.
 - Reuses the existing manual subcommand dispatch pattern in
   `cmd/radar/radar.go`.
+
 - Lets file analysis and live-pipeline analysis share runtime types already used
   by the server (`visualiser.FrameBundle`, `recorder.Replayer`, publisher stats).
+
 - Avoids duplicating config, logging, and sensor/runtime wiring in separate
   binaries.
 
@@ -49,6 +51,7 @@ Initial subcommands:
 - `velocity-report vrlog check <path>`
   - Validate `header.json`, `index.bin`, chunk files, frame decode, and
     supported version.
+
 - `velocity-report vrlog check --live`
   - Analyse a live stream from the pipeline without requiring a recorded file.
 - `velocity-report vrlog version <path>`
@@ -61,10 +64,13 @@ Recommended flags for `vrlog check`:
 - `--refresh-hz <n>`: default `20`; common values `5`, `10`, and `20`.
 - `--fast-window <seconds>`: fast aggregate pane window in integer seconds,
   default `3`.
+
 - `--slow-window <seconds>`: slow aggregate pane window in integer seconds,
   default `30`.
+
 - `--recent-lines <n>`: maximum visible rows in the fast aggregate pane,
   default `10`.
+
 - `--no-ui`: disable the split-pane UI and print line-oriented logs only.
 - `--json`: machine-readable final summary for CI or scripting.
 - `--strict`: treat warnings such as unknown fields or version mismatches as
@@ -298,6 +304,7 @@ Examples:
   - Not a direct VRLOG header field today.
   - Can be inferred from `Background.GridMetadata.SettlingComplete` when a
     background snapshot is present.
+
   - If background snapshots are absent, show `n/a`, not `false`.
 
 - `drops`
@@ -316,8 +323,10 @@ Severity levels:
 
 - `FAIL`: structure corrupt, unsupported version, unreadable chunk, bad length,
   impossible index offset
+
 - `WARN`: unusual but readable data, unknown optional field, missing optional
   section, timestamp jump
+
 - `INFO`: operational progress and throughput
 
 Exit behaviour:
@@ -337,6 +346,7 @@ Recommended behaviour:
 - emit one compact `30` second aggregate row whenever the slow window closes
 - emit immediate event rows for structural failures, decode failures, and mode
   transitions
+
 - when `--no-ui` is set, keep only the aggregate and event rows
 
 This makes the command act like a structured terminal surface rather than a
@@ -380,13 +390,17 @@ disabled.
 - `20 Hz` redraw can waste CPU if more than the live pane and status bar are
   rewritten on every tick. Keep history pane redraw scoped to row append and
   resize.
+
 - live mode and file mode do not expose identical truth; provenance must remain
   explicit.
+
 - terminals vary in emoji width handling. Keep an ASCII fallback.
 - pane layout and resize reflow add complexity; bounded caches need explicit
   budgets and tests.
+
 - bottom-line control can get messy when other goroutines print concurrently.
   Funnel all output through one renderer.
+
 - long scans need deterministic summaries even when live redraw is disabled or
   output is redirected.
 

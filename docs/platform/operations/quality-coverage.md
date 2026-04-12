@@ -14,7 +14,7 @@ be extracted into `internal/`.
 ## Current State
 
 | Component            | Overall | Above target | Below target |
-| -------------------- | ------- | ------------ | ------------ |
+|----------------------|---------|--------------|--------------|
 | Go `internal/`       | 90.3%   | 7 packages   | 18 packages  |
 | Go `cmd/` (excluded) | 18.6%   | 0            | 8            |
 | Web (statements)     | 96.0%   | 9 of 11      | 2            |
@@ -50,7 +50,7 @@ Python: `tex_environment.py` (87.5%), `zip_utils.py` (86.4%).
 ## cmd/ Logic Extraction Strategy
 
 | Package     | Testable LOC | Target `internal/` | Priority |
-| ----------- | ------------ | ------------------ | -------- |
+|-------------|--------------|--------------------|----------|
 | `cmd/radar` | ~200         | `internal/config`  | MEDIUM   |
 | `cmd/tools` | ~65          | `internal/db`      | MEDIUM   |
 
@@ -63,6 +63,7 @@ parsing and `main()` in `cmd/`. Write unit tests against extracted code.
 2. Network error injection for API clients via `URLProtocol`.
 3. Extract pure-logic helpers from Metal renderer (matrices, colours,
    buffer sizing) into testable structs.
+
 4. Consider ViewInspector for SwiftUI view testing.
 5. Upgrade CI to run full XCTest and upload `.xcresult` coverage.
 
@@ -88,5 +89,6 @@ parsing and `main()` in `cmd/`. Write unit tests against extracted code.
 1. **Phase 1 (weeks 1–2):** `internal/config` accessors + all Tier 1.
 2. **Phase 2 (weeks 2–4):** `internal/db`, `internal/api`, lidar
    sub-packages, Python Tier 2.
+
 3. **Phase 3 (weeks 4–8):** `cmd/radar`
    extraction, macOS Swift, Python Tier 3.

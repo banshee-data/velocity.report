@@ -10,6 +10,7 @@ already assumes.
 
 - **Decision:** Move free-form annotations to a replay-owned table, then
   enable `PRAGMA foreign_keys = ON` globally before `v0.5.0`.
+
 - **Status:** Accepted and implemented (March 2026).
 
 ### Context
@@ -22,40 +23,40 @@ already assumes.
 
 ### Alternatives Considered
 
-| Option         | Approach                                    | Verdict                                                                                                     |
-| -------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics         |
-| **2**          | Keep current table, add replay-case FK only | Low effort, **high risk** — preserves the lifecycle bug (annotations still depend on transient live tracks) |
-| **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk** — release behaviour depends on FK-off connections; orphaning remains possible  |
+| Option         | Approach                                    | Verdict                                                                                                       |
+|----------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics           |
+| **2**          | Keep current table, add replay-case FK only | Low effort, **high risk** — preserves the lifecycle bug (annotations still depend on transient live tracks)   |
+| **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk** — release behaviour depends on FK-off connections; orphaning remains possible    |
 
 ## System Boundary Diagram
 
 ```text
                    +--------------------------------------+
-                   | HTTP / UI / Visualiser clients       |
-                   |--------------------------------------|
-                   | /api/lidar/labels                    |
-                   | /api/lidar/runs/.../label            |
-                   | /api/lidar/scenes                    |
+                   | HTTP / UI / Visualiser clients |
+                   |--------------------------------|
+                   | /api/lidar/labels              |
+                   | /api/lidar/runs/.../label      |
+                   | /api/lidar/scenes              |
                    +-------------------+------------------+
                                        |
                                        v
                       +----------------+----------------+
-                      | LiDAR API / storage layer       |
-                      |---------------------------------|
-                      | Free-form replay annotations    |
-                      | Run-track canonical labels      |
-                      | Replay cases and evaluations    |
+                      | LiDAR API / storage layer    |
+                      |------------------------------|
+                      | Free-form replay annotations |
+                      | Run-track canonical labels   |
+                      | Replay cases and evaluations |
                       +--------+---------------+--------+
                                |               |
                 durable owner  |               | transient owner
                                v               v
                  +-------------+----+   +------+----------------+
-                 | Replay / run data |   | Live tracking data    |
-                 |-------------------|   |-----------------------|
-                 | lidar_replay_*    |   | lidar_tracks          |
-                 | lidar_run_records  |   | lidar_track_obs       |
-                 | lidar_run_tracks   |   | prune / clear paths   |
+                 | Replay / run data |  | Live tracking data  |
+                 |-------------------|--|---------------------|
+                 | lidar_replay_*    |  | lidar_tracks        |
+                 | lidar_run_records |  | lidar_track_obs     |
+                 | lidar_run_tracks  |  | prune / clear paths |
                  +-------------+------+   +-----------+-----------+
                                \                    /
                                 \                  /
@@ -110,19 +111,20 @@ to match existing Go-side validation:
 
 - `site_reports.site_id` made nullable; writes `NULL` instead of `0` when
   no site is attached.
+
 - `radar_data.data_id` PK added; `radar_transit_links` references that key.
 
 ## Key Migrations
 
 | Migration | Purpose                                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------------------------- |
+|-----------|-----------------------------------------------------------------------------------------------------------------------------|
 | `000033`  | Replace `lidar_track_annotations` with `lidar_replay_annotations`; fix replay-evaluation uniqueness/delete semantics        |
 | `000034`  | FK hardening: `parent_run_id` FK, enum/range/boolean `CHECK`s, nullable `site_reports.site_id`, `radar_data.data_id` repair |
 
 ## Failure Registry
 
 | Failure mode                                  | User-visible effect                  | Handling                                                                      |
-| --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------- |
+|-----------------------------------------------|--------------------------------------|-------------------------------------------------------------------------------|
 | Legacy `lidar_track_annotations` rows dropped | Historical rows lost during `000033` | Accepted break before `v0.5.0`; export manually before upgrade if rows matter |
 | FK enforcement exposes orphan rows            | Upgrade blocked                      | Run integrity audit before migration; repair or quarantine violating rows     |
 | Replay case delete removes annotations        | User loses free-form notes           | Document delete contract; require migration test coverage for delete paths    |
@@ -138,6 +140,7 @@ to match existing Go-side validation:
 - Regression coverage for replay-case delete, run delete, null-site
   reports, paired annotation links, and transit-link persistence under FK
   enforcement.
+
 - Schema ordering tool handles self-referential FKs.
 
 Historical live-track annotations were deliberately not preserved — the

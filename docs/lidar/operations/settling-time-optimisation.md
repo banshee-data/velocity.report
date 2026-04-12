@@ -233,7 +233,7 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 ## Implementation Priority
 
 | Phase   | Effort | Value  | Priority                                            |
-| ------- | ------ | ------ | --------------------------------------------------- |
+|---------|--------|--------|-----------------------------------------------------|
 | Phase 1 | Medium | High   | **P0** - Immediate benefit for existing deployments |
 | Phase 2 | Low    | Medium | P1 - Completes the restoration story                |
 | Phase 3 | Medium | Medium | P1 - Provides tuning guidance                       |

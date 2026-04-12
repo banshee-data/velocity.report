@@ -193,7 +193,7 @@ type CheckResult struct {
 **Job lifecycle (under existing :8080 API):**
 
 | Method | Path                                      | Purpose                                                           |
-| ------ | ----------------------------------------- | ----------------------------------------------------------------- |
+|--------|-------------------------------------------|-------------------------------------------------------------------|
 | `POST` | `/api/lidar/sweep/start`                  | Extended: accepts optional `target` field ("server" or worker ID) |
 | `GET`  | `/api/lidar/sweep/jobs/{sweep_id}`        | Get all jobs for a sweep                                          |
 | `GET`  | `/api/lidar/sweep/jobs/{sweep_id}/status` | Aggregated sweep progress                                         |
@@ -201,7 +201,7 @@ type CheckResult struct {
 **Worker server CRUD (Settings):**
 
 | Method   | Path                                        | Purpose                                  |
-| -------- | ------------------------------------------- | ---------------------------------------- |
+|----------|---------------------------------------------|------------------------------------------|
 | `GET`    | `/api/lidar/sweep/workers`                  | List configured worker servers           |
 | `GET`    | `/api/lidar/sweep/workers/{worker_id}`      | Get single worker server                 |
 | `POST`   | `/api/lidar/sweep/workers`                  | Create a worker server entry             |

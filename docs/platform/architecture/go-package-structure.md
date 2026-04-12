@@ -32,7 +32,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 ### Tier 1 — God Files (All Complete)
 
 | Original file                                   | Was       | Split into                                                                                                                                                                       |
-| ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------------------------------------------------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `internal/db/db.go`                             | 1,420 LOC | `db.go` (337), `db_radar.go` (562), `db_bg_snapshots.go` (278), `db_regions.go` (94), `db_admin.go` (183)                                                                        |
 | `internal/api/server.go`                        | 1,711 LOC | `server.go` (260), `server_middleware.go` (75), `server_radar.go` (269), `server_sites.go` (231), `server_reports.go` (644), `server_timeline.go` (123), `server_admin.go` (177) |
 | `internal/lidar/monitor/webserver.go`           | 1,905 LOC | Renamed to `server/` package: `server.go` (426), `state.go` (174), `routes.go` (219), `tuning.go` (104), `status.go` (690)                                                       |
@@ -44,7 +44,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 ### Tier 2 — Large Files (700–860 LOC, Watch List)
 
 | File                                              | LOC | Notes                               |
-| ------------------------------------------------- | --- | ----------------------------------- |
+|---------------------------------------------------|-----|-------------------------------------|
 | `internal/lidar/l3grid/background_manager.go`     | 861 | From Tier 1 split, exceeds target   |
 | `internal/lidar/sweep/hint.go`                    | 798 | HINT algorithm + state machine      |
 | `internal/lidar/storage/sqlite/track_store.go`    | 774 | Track persistence + queries         |
@@ -61,7 +61,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 14 direct Go dependencies after removing the duplicate SQLite driver:
 
 | Dependency                             | Scope            | Purpose                     |
-| -------------------------------------- | ---------------- | --------------------------- |
+|----------------------------------------|------------------|-----------------------------|
 | `github.com/go-echarts/go-echarts/v2`  | Production       | HTML chart rendering        |
 | `github.com/golang-migrate/migrate/v4` | Production       | Schema migrations           |
 | `github.com/google/go-cmp`             | Test-only        | Test comparison helper      |
@@ -81,17 +81,22 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 
 - **Context propagation:** 8 `_ = r` placeholders removed; 10 DB methods accept
   `context.Context` and use `*Context` SQL methods
+
 - **`serialmux.CurrentState` race:** replaced unsynchronised map with `sync.RWMutex`-backed
   private state; exported `CurrentStateSnapshot()`
+
 - **Single SQLite driver:** `mattn/go-sqlite3` removed, all tests use `modernc.org/sqlite`
 
 ## Open Structural Items
 
 - **Query boundary:** `internal/api/lidar_labels.go` still contains raw SQL (7 call sites)
   that should move to `internal/lidar/storage/sqlite/label_store.go`
+
 - **`EventAPI` JSON tags:** `internal/db/db.go` still uses PascalCase JSON tags; should be
   `snake_case` before API freeze
+
 - **Silent error drops:** concentrated in `internal/db/db.go`, `l3grid/export_bg_snapshot.go`,
   `server/datasource_handlers.go`, `server/echarts_handlers.go`
+
 - **Test infrastructure:** 40 internal test files use `time.Sleep` (199 call sites); needs
   shared polling helper and phased reduction

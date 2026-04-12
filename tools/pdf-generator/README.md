@@ -39,7 +39,7 @@ python -m pdf_generator.cli.main my_config.json
 Every configuration file **must** include these 7 fields:
 
 | Field                      | Type   | Description                           | Example                    |
-| -------------------------- | ------ | ------------------------------------- | -------------------------- |
+|----------------------------|--------|---------------------------------------|----------------------------|
 | `site.location`            | string | Physical survey location              | "Main Street, Springfield" |
 | `site.surveyor`            | string | Person/organisation conducting survey | "City Traffic Department"  |
 | `site.contact`             | string | Contact email or phone                | "traffic@springfield.gov"  |
@@ -51,7 +51,7 @@ Every configuration file **must** include these 7 fields:
 ### Optional Query Fields
 
 | Field                      | Type   | Description                                                     | Example               |
-| -------------------------- | ------ | --------------------------------------------------------------- | --------------------- |
+|----------------------------|--------|-----------------------------------------------------------------|-----------------------|
 | `query.compare_start_date` | string | Comparison start date (YYYY-MM-DD)                              | ""                    |
 | `query.compare_end_date`   | string | Comparison end date (YYYY-MM-DD)                                | ""                    |
 | `query.group`              | string | Roll-up bucket size                                             | "1h"                  |
@@ -158,7 +158,7 @@ This minimal config will:
 #### Site Information
 
 | Field              | Required | Default | Description                   |
-| ------------------ | -------- | ------- | ----------------------------- |
+|--------------------|----------|---------|-------------------------------|
 | `location`         | **Yes**  | -       | Street or location name       |
 | `surveyor`         | **Yes**  | -       | Name of person/organisation   |
 | `contact`          | **Yes**  | -       | Contact email or phone        |
@@ -172,7 +172,7 @@ This minimal config will:
 #### Radar Configuration
 
 | Field                 | Required | Default                 | Description                 |
-| --------------------- | -------- | ----------------------- | --------------------------- |
+|-----------------------|----------|-------------------------|-----------------------------|
 | `cosine_error_angle`  | **Yes**  | -                       | Mounting angle in degrees   |
 | `sensor_model`        | No       | "OmniPreSense OPS243-A" | Radar model name            |
 | `firmware_version`    | No       | "v1.2.3"                | Firmware version            |
@@ -187,7 +187,7 @@ This minimal config will:
 #### Query Parameters
 
 | Field                | Required | Default               | Description                                                     |
-| -------------------- | -------- | --------------------- | --------------------------------------------------------------- |
+|----------------------|----------|-----------------------|-----------------------------------------------------------------|
 | `start_date`         | **Yes**  | -                     | Start date (YYYY-MM-DD)                                         |
 | `end_date`           | **Yes**  | -                     | End date (YYYY-MM-DD)                                           |
 | `compare_start_date` | No       | ""                    | Comparison start date (YYYY-MM-DD)                              |
@@ -205,7 +205,7 @@ This minimal config will:
 #### Output Configuration
 
 | Field         | Required | Default        | Description                                                  |
-| ------------- | -------- | -------------- | ------------------------------------------------------------ |
+|---------------|----------|----------------|--------------------------------------------------------------|
 | `file_prefix` | No       | auto-generated | User-provided prefix (auto-prefixed with `velocity.report_`) |
 | `output_dir`  | No       | "."            | Output directory                                             |
 | `run_id`      | No       | auto           | Unique run identifier                                        |
@@ -301,7 +301,7 @@ This minimal config will:
 The cosine error factor corrects for radar mounting angle:
 
 | Angle | Factor | Use Case                                 |
-| ----- | ------ | ---------------------------------------- |
+|-------|--------|------------------------------------------|
 | 0°    | 1.0000 | Perpendicular to traffic (no correction) |
 | 15°   | 1.0353 | Slight angle mount                       |
 | 21°   | 1.0711 | Typical roadside mount                   |

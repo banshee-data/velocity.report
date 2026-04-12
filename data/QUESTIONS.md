@@ -38,6 +38,7 @@ heading rotation?
 - **Evidence needed:** Dimension stability σ, heading drift
   rate, 90° jump frequency on kirk0 + at least two further
   PCAPs.
+
 - **Decision:** [D-04](../docs/DECISIONS.md) schedules P1 for
   v0.6. This question validates whether the simpler guards
   are a viable intermediate step.
@@ -63,6 +64,7 @@ pedestrian classes.
 
 - **Evidence needed:** Per-class convergence curves (dimension
   σ vs frame count) on at least three sites.
+
 - **Reference:** [geometry-coherent-tracking.md §convergence](maths/proposals/20260222-geometry-coherent-tracking.md)
 
 ---
@@ -82,11 +84,14 @@ evidence before the baseline is replaced.
 - **Acceptance gates:**
   - Track completeness (temporal IoU ≥ 0.5): ≥ 10% absolute
     improvement.
+
   - Fragmentation: < 1.2 tracks per ground-truth vehicle,
     < 1.5 for pedestrians.
+
   - Speed RMSE: no regression > 5%.
 - **Protocol:** Same PCAP, same downstream parameters, scored
   via `GroundTruthEvaluator`.
+
 - **Decision:** [D-05](../docs/DECISIONS.md) sequences P2
   after P1.
 
@@ -131,6 +136,7 @@ boundaries (5–15% false foreground), and long-running drift.
   tile-plane PCA) on sloped-road and kerbed-pavement PCAPs.
   Quantify false-foreground rate and track completeness
   change.
+
 - **Decision:** [pipeline-review Q1](maths/pipeline-review-open-questions.md)
   recommends implementing tile-plane fitting.
 
@@ -141,7 +147,7 @@ streaming PCA approach assumes fixed tiles, but kerbs and
 boundaries may need sub-tile resolution or curved fits.
 
 - **Evidence needed:** Plane-fit residual distribution for
-  0.5 m, 1.0 m, 2.0 m tiles on mixed-geometry scenes.
+  0. 5 m, 1.0 m, 2.0 m tiles on mixed-geometry scenes.
   Curvature-detection false-positive rate at tile boundaries.
 
 ### Q9. How should observed geometry align with OSM priors?
@@ -154,6 +160,7 @@ rotation) with feature-matched confidence.
 - **Evidence needed:** Translation/rotation residual
   distribution on sites with known OSM coverage. False-edit
   rate for changeset proposals.
+
 - **Reference:** [pipeline-review Q2](maths/pipeline-review-open-questions.md),
   [vector-scene-map.md](../docs/lidar/architecture/vector-scene-map.md)
 
@@ -174,6 +181,7 @@ canonical objects from multiple sensors are merged.
   per-track association vs L7 canonical-object fusion) on
   scenes with both radar and LiDAR coverage. Latency and
   complexity comparison.
+
 - **Reference:** [tracking-maths.md §fusion](maths/tracking-maths.md),
   [lidar-l7-scene-plan.md](../docs/plans/lidar-l7-scene-plan.md)
 
@@ -205,10 +213,12 @@ boundary decisions while remaining auditable.
 
 - **Constraint:** Must remain explainable. No black-box
   models on the critical path.
+
 - **Evidence needed:** Classification accuracy (per-class
   precision/recall) of rule cascade vs interpretable ML on
   labelled tracks. Feature importance analysis to validate
   that ML uses physically meaningful features.
+
 - **Reference:** [classification-maths.md](maths/classification-maths.md),
   [lidar-ml-classifier-training-plan.md](../docs/plans/lidar-ml-classifier-training-plan.md)
 
@@ -232,6 +242,7 @@ that auto-tuning can optimise against.
 - **Evidence needed:** Correlation between label categories
   and downstream speed accuracy. Proposed weighting scheme
   validated on labelled runs.
+
 - **Reference:** [track-labelling plan](../docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
 ---
@@ -251,6 +262,7 @@ and rural road captures.
 - **Evidence needed:** Per-key performance (metric vs default
   value) across all five sites. Keys that diverge > 10%
   across sites need adaptive or site-profile defaults.
+
 - **Reference:** [config/README.maths.md §6](../config/README.maths.md),
   [pipeline-review Q7](maths/pipeline-review-open-questions.md),
   [pipeline-review Q11](maths/pipeline-review-open-questions.md)
@@ -263,6 +275,7 @@ are objectives weighted and rebalanced across site classes?
 
 - **Evidence needed:** Pareto frontier analysis of detection
   vs fragmentation vs speed accuracy on multi-site sweeps.
+
 - **Reference:** [auto-tuning.md](../docs/lidar/operations/auto-tuning.md),
   [parameter-tuning plan](../docs/plans/lidar-parameter-tuning-optimisation-plan.md)
 
@@ -276,6 +289,7 @@ conditions?
 - **Evidence needed:** Cross-site validation matrix. Run
   kirk0-optimal parameters on planned PCAPs #2–#5 and
   report per-metric degradation.
+
 - **Reference:** [pipeline-review Q11](maths/pipeline-review-open-questions.md)
 
 ---
@@ -359,6 +373,7 @@ reserves p50/p85/p98 for grouped/report metrics.
 - **Evidence needed:** Error magnitude of naive percentile
   averaging vs correct re-computation from raw data, across
   typical 15-minute and hourly bins.
+
 - **Decision:** [D-18](../docs/DECISIONS.md)
 
 ### Q24. What sample size is needed for defensible p85 reporting?
@@ -398,6 +413,7 @@ per-layer timing on Pi 4 hardware.
 - **Evidence needed:** Per-layer benchmarks on ARM
   Cortex-A72. Identify any proposal that exceeds its
   estimated budget.
+
 - **Reference:** [pipeline-review Q10](maths/pipeline-review-open-questions.md)
 
 ---
@@ -436,7 +452,7 @@ See [performance-harness plan](../docs/plans/lidar-performance-measurement-harne
 ## Index by Pipeline Layer
 
 | Layer         | Questions                          |
-| ------------- | ---------------------------------- |
+|---------------|------------------------------------|
 | L3 Grid       | Q4, Q5, Q7, Q15, Q17               |
 | L4 Perception | Q6, Q7, Q8, Q12                    |
 | L5 Tracks     | Q1, Q2, Q3, Q4, Q10, Q18, Q19, Q20 |

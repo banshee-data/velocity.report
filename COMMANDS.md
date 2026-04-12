@@ -27,7 +27,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 ## Core Subsystem Targets
 
 | Action             | Go                                                            | Python            | Web            | Docs           | macOS        |
-| ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | -------------- | ------------ |
+|--------------------|---------------------------------------------------------------|-------------------|----------------|----------------|--------------|
 | **install**        | -                                                             | `install-python`  | `install-web`  | `install-docs` | -            |
 | **build**          | `build-radar-*`                                               | -                 | `build-web`    | `build-docs`   | `build-mac`  |
 | **dev**            | `dev-go`                                                      | -                 | `dev-web`      | `dev-docs`     | `dev-mac`    |
@@ -127,6 +127,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `check-config-maths`: Validate `README.maths` keys against docs JSON, `tuning*.json`, and Go schema sources
 - `check-config-maths-strict`: Strict parity mode; also requires full webserver POST schema parity
   Current status: optional in CI until webserver schema parity backlog is complete.
+
 - Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`
 
 ## Database Migration Targets

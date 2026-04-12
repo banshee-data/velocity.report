@@ -12,15 +12,15 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 ## 2. What Already Exists
 
-| Capability                  | Location                                      | Status                                                             |
-| --------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| `CheckForSensorMovement()`  | `internal/lidar/l3grid/background_drift.go`   | Implemented — foreground-ratio spike detector (>20% threshold)     |
-| `IsSettlingComplete()`      | `internal/lidar/l3grid/background_manager.go` | Implemented — settling convergence check                           |
-| `GetGridStatus()`           | `internal/lidar/l3grid/background_manager.go` | Implemented — total/frozen/times-seen cell stats                   |
-| Region classification       | `internal/lidar/l3grid/background_region.go`  | Implemented — stable/variable/volatile regions after settling      |
-| Scene hash matching         | `internal/lidar/l3grid/background.go`         | Implemented — SHA256 hash for location fingerprinting              |
-| pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented — full pipeline with stats, benchmark, CSV/JSON export |
-| pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                   |
+| Capability                    | Location                                      | Status                                                               |
+|-------------------------------|-----------------------------------------------|----------------------------------------------------------------------|
+| `CheckForSensorMovement()`    | `internal/lidar/l3grid/background_drift.go`   | Implemented — foreground-ratio spike detector (>20% threshold)       |
+| `IsSettlingComplete()`        | `internal/lidar/l3grid/background_manager.go` | Implemented — settling convergence check                             |
+| `GetGridStatus()`             | `internal/lidar/l3grid/background_manager.go` | Implemented — total/frozen/times-seen cell stats                     |
+| Region classification         | `internal/lidar/l3grid/background_region.go`  | Implemented — stable/variable/volatile regions after settling        |
+| Scene hash matching           | `internal/lidar/l3grid/background.go`         | Implemented — SHA256 hash for location fingerprinting                |
+| pcap-analyse L1–L6 pipeline   | `cmd/tools/pcap-analyse/main.go`              | Implemented — full pipeline with stats, benchmark, CSV/JSON export   |
+| pcap-split reference design   | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                     |
 
 ### Gap Analysis
 
@@ -60,7 +60,7 @@ This is safe to ship without the splitter — it gives operators immediate visib
 Expose the three new APIs the settling analyser requires:
 
 | Method                                      | Purpose                                                      |
-| ------------------------------------------- | ------------------------------------------------------------ |
+|---------------------------------------------|--------------------------------------------------------------|
 | `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts and percentages |
 | `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope             |
 | `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance                  |
@@ -138,28 +138,28 @@ Phase 1 uses a simplified version: conditions 1 and 2 only (available from exist
 
 ## 4. Failure Modes
 
-| Failure                                | Impact                                | Mitigation                                                  |
-| -------------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
-| False motion trigger (wind, tree sway) | Over-segmentation                     | Hysteresis (60s sustained stability requirement)            |
-| Missed short stops at intersections    | Short static segments in motion data  | `--max-motion-gap-sec` bridges stops under threshold        |
-| PCAP ends mid-settling                 | Incomplete final segment              | Write partial segment with `incomplete: true` metadata flag |
-| Very large PCAP (>100 GB)              | Memory pressure from packet buffering | Streaming write — flush segment to disk on each transition  |
+| Failure                                | Impact                                | Mitigation                                                   |
+|----------------------------------------|---------------------------------------|--------------------------------------------------------------|
+| False motion trigger (wind, tree sway) | Over-segmentation                     | Hysteresis (60s sustained stability requirement)             |
+| Missed short stops at intersections    | Short static segments in motion data  | `--max-motion-gap-sec` bridges stops under threshold         |
+| PCAP ends mid-settling                 | Incomplete final segment              | Write partial segment with `incomplete: true` metadata flag  |
+| Very large PCAP (>100 GB)              | Memory pressure from packet buffering | Streaming write — flush segment to disk on each transition   |
 
 ## 5. Testing Strategy
 
 | Phase   | Tests                                                                                                                                                       |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Phase 1 | Unit tests for frame classifier; integration test with known-motion PCAP; validate motion timeline matches manual observation                               |
 | Phase 2 | Unit tests for each new `BackgroundManager` method; property: metrics are consistent with existing `GetGridStatus()`                                        |
 | Phase 3 | State machine unit tests (all transitions, edge cases); integration tests with crafted PCAPs; output PCAP integrity validation; metadata consistency checks |
 
 ## 6. Effort and Dependencies
 
-| Phase                                | Effort | Dependencies                             |
-| ------------------------------------ | ------ | ---------------------------------------- |
-| Phase 1 — `--motion` in pcap-analyse | `S`    | None — uses existing APIs                |
-| Phase 2 — BackgroundManager API      | `S`    | None                                     |
-| Phase 3 — pcap-split tool            | `M`    | Phase 2; gopacket PCAP writer capability |
+| Phase                                  | Effort | Dependencies                             |
+|----------------------------------------|--------|------------------------------------------|
+| Phase 1 — `--motion` in pcap-analyse   | `S`    | None — uses existing APIs                |
+| Phase 2 — BackgroundManager API        | `S`    | None                                     |
+| Phase 3 — pcap-split tool              | `M`    | Phase 2; gopacket PCAP writer capability |
 
 Total: `M` (Phases 1+2 are `S` each and can ship independently; Phase 3 is the bulk).
 

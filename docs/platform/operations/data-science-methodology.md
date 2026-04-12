@@ -8,11 +8,14 @@ Metrics-first data science methodology for velocity.report: reproducible benchma
 
 1. **No black boxes in the live pipeline.** Runtime perception, tracking,
    scoring, and reporting paths must remain spec-driven and inspectable.
+
 2. **All important runtime behaviour must stay tunable.** Thresholds, weights,
    and decision rules belong in documented configs, code, or scorecards.
+
 3. **Reproducibility is a feature.** If a result cannot be replayed on the
    same input and produce the same scorecard, it is not ready to drive product
    decisions.
+
 4. **Metrics beat intuition.** Tuning, tradeoffs, and regressions must be
    discussed through explicit benchmark metrics.
 
@@ -64,12 +67,16 @@ it is not strong enough to justify a runtime or documentation change.
 1. **Scorecards and Specs** — detection coverage, fragmentation, false
    positives, velocity coverage, stability, calibration of labels, and
    traffic-engineering aggregates.
+
 2. **Replayable Benchmark Packs** — fixed scenes, labelled runs, and
    comparison procedures for repeatable measurement.
+
 3. **Threshold and Parameter Studies** — explicit, documented studies and
    sweeps over opaque fitting.
+
 4. **User-Facing Metric Design** — transit schema, report metrics, and
    comparison summaries matching traffic-engineering language.
+
 5. **Optional Classification Research** — offline only, comparing against the
    current transparent baseline on fixed benchmarks.
 
@@ -94,6 +101,7 @@ out of scope for the critical path.
 - `data/explore/convergence-neighbour/` — neighbour-confirmation sweep
 - `docs/lidar/operations/parameter-comparison.md`, `config-param-tuning.md`,
   `auto-tuning.md` — parameter study guidance
+
 - `data/structures/VRLOG_FORMAT.md` and
   `data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md` — recording contract
 
