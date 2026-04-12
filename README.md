@@ -54,7 +54,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
-## ⚠️ Warning: Alpha software
+## Warning ⚠️ Alpha software 🚧
 
 ```
     ░██       ░██                                ░██                      ░██
@@ -68,7 +68,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
                                                                 ░███████
 ```
 
-> **This is alpha software.** It works. It is tested. It is not yet hardened. There is no authentication or access control, which means an exposed instance will cheerfully serve its data to anyone who asks, and its PDF generation endpoint to anyone who hammers it. PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests; a determined request loop will fill available storage and take the system down. Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem. Deploy on a private network or a dedicated VLAN with its own storage budget. Do not point it at the open internet and hope for the best: hope is not a security architecture. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
+> **This is alpha software.** It works. It is tested. It is not yet hardened. **No authentication, no access control**: an exposed instance will serve its data to anyone who asks and its PDF endpoint to anyone who hammers it. PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests; a determined request loop will fill available storage and take the system down. Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem. Deploy on a private network or a dedicated VLAN with its own storage budget (or better yet, a dedicated Pi). Do not point it at the open internet and hope for the best: hope is not a security architecture. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
 
 ## Why velocity.report?
 
@@ -76,7 +76,7 @@ Communities trying to make their streets safer face a familiar problem: everyone
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-The radar measures vehicle speeds. No cameras, no licence plates, no surveillance infrastructure that a neighbourhood should never have to build in order to be heard. The data stays on a local device in someone's house. The reports are professional enough for a planning committee.
+A radar measures speeds, no cameras, no licence plates, no surveillance infrastructure. The logged data stays on a local device in someone's house. The reports are professional enough for a planning committee.
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
@@ -99,11 +99,11 @@ See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
 ### In practice: Clarendon Avenue school zone
 
-Clarendon Avenue runs past an elementary school in San Francisco. The city designated it a high injury road years ago. Parents were worried about how fast cars were going and whether the city's planned improvements would actually help.
+Clarendon Avenue runs past an elementary school in San Francisco, designated a high injury road for years. Parents worried about about vehicle speeds and whether the city's planned repaving would actually help.
 
-When the city announced a quick-build project to repave Clarendon, the Banshee team deployed a radar sensor and ran a baseline speed survey in June 2025. The results went to the city engineering team at their October planning meeting for the quick-build. The city repaved in December 2025. Banshee ran a second survey in January 2026. The data showed what parents feared: speeds had climbed after repaving, not fallen. A road improvement, paid for to make the street safer, had made the school run more dangerous.
+When the city announced a quick-build to repave Clarendon, the Banshee team ran a baseline speed survey in June 2025 and sent the results to the city engineering team ahead of their October planning meeting. The city repaved in December 2025. A second survey in January 2026 showed what parents feared: speeds had climbed, not fallen. The repaving, funded to improve safety, had made the school run more dangerous.
 
-The team generated comparison reports from both periods and [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
+The team [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
 
 | Metric        | Period 1  | Period 2  | Change |
 | ------------- | --------- | --------- | ------ |
