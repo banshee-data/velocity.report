@@ -178,7 +178,7 @@ make lint      # check formatting, code quality, and repo hygiene
 make test      # run all test suites
 ```
 
-CI checks formatting, lint, and tests. If all three pass, your PR will too.
+These are the core quality checks for local development and CI, but pull requests may also run additional repository or documentation checks.
 
 Start with a small issue and read the nearby code before changing anything broad. It is the fastest route to understanding the project and the slowest route to producing an exciting new class of bug.
 

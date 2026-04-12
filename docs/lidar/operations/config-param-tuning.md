@@ -66,7 +66,7 @@ curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40
 For a guided progression through all tuning tools, start with the
 [Tuning Guide](tuning-guide.md).
 
-- [Parameter Comparison](parameter-comparison.md)
+- [Parameter Comparison](parameter-comparison.md) — side-by-side evaluation of parameter sets
 - [Pipeline Diagnosis](../troubleshooting/pipeline-diagnosis.md) — root cause analysis and quick fixes
 - [Sweep Tool](sweep-tool.md) — automated grid search
 - [Auto-Tuning](auto-tuning.md) — multi-round iterative optimisation
