@@ -1,4 +1,4 @@
-# Executive decisions register
+# Executive Decisions Register
 
 Closed design decisions across velocity.report. This register records the outcome of each decision and links to its source document. Milestone assignments come from [BACKLOG.md](BACKLOG.md), which is the single source of truth for scheduling.
 
@@ -6,9 +6,9 @@ This file should only be edited once or twice per sprint (2-week period) when th
 
 ---
 
-## Decision register
+## Decision Register
 
-### D-01 — fused transit schema
+### D-01 — Fused transit schema
 
 Defer until Phase B — [VISION §4.1](VISION.md), [TDL plan](plans/data-track-description-language-plan.md)
 
@@ -16,15 +16,15 @@ Defer until Phase B — [VISION §4.1](VISION.md), [TDL plan](plans/data-track-d
 
 Defer to v2.0 — [VISION §3.1](VISION.md)
 
-### D-03 — transit deduplication
+### D-03 — Transit deduplication
 
 Delete-before-insert with model version tracking — [transit-deduplication.md](radar/architecture/transit-deduplication.md)
 
-### D-04 — geometry-coherent tracking (P1 maths)
+### D-04 — Geometry-coherent tracking (P1 maths)
 
 Schedule for v0.6 cycle — [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [MATHS.md](../data/maths/MATHS.md)
 
-### D-05 — maths proposal sequencing
+### D-05 — Maths proposal sequencing
 
 P1 → P2 → P4 → P3 confirmed — [MATHS.md](../data/maths/MATHS.md)
 
@@ -32,7 +32,7 @@ P1 → P2 → P4 → P3 confirmed — [MATHS.md](../data/maths/MATHS.md)
 
 Skip; P1 supersedes — [OBB heading review](../data/maths/proposals/20260222-obb-heading-stability-review.md)
 
-### D-07 — track labelling UI (phase 9)
+### D-07 — Track labelling UI (Phase 9)
 
 Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
@@ -40,7 +40,7 @@ Complete Phase 9 Swift UI for v0.7 — [track-labelling plan](plans/lidar-track-
 
 Vendored minimal TeX tree shipped in v0.5.1 (~143 MB, ~1 GB saved). Precompiled `.fmt` remains planned — [precompiled LaTeX plan](plans/pdf-latex-precompiled-format-plan.md), [RPi imager §4.6](plans/deploy-rpi-imager-fork-plan.md)
 
-### D-09 — single binary architecture
+### D-09 — Single binary architecture
 
 Single binary with subcommands — [distribution packaging plan](plans/deploy-distribution-packaging-plan.md)
 
@@ -48,27 +48,27 @@ Single binary with subcommands — [distribution packaging plan](plans/deploy-di
 
 pi-gen + precompiled `.fmt`, single tier; `.tex` source in `.zip` — [RPi imager plan](plans/deploy-rpi-imager-fork-plan.md)
 
-### D-11 — eCharts → layerChart migration
+### D-11 — ECharts → LayerChart migration
 
 Rewrite all 8 charts in v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md)
 
-### D-12 — web palette (percentile colours)
+### D-12 — Web palette (percentile colours)
 
 Svelte compliant now; ECharts fixed in v0.7 — [DESIGN §3.3](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)
 
-### D-13 — widescreen content containment
+### D-13 — Widescreen content containment
 
 Defer to v0.7 frontend consolidation — [DESIGN §5.7](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)
 
-### D-14 — simplification & deprecation scope
+### D-14 — Simplification & deprecation scope
 
 Plan confirmed; Phase 1 complete in v0.5, removal before v0.6.0 — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
-### D-15 — time-partitioned data tables
+### D-15 — Time-partitioned data tables
 
 Implement in v0.9.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
 
-### D-16 — speed limit schedules
+### D-16 — Speed limit schedules
 
 v0.8 placement (radar theme) — [speed-limit-schedules.md](radar/architecture/speed-limit-schedules.md)
 
@@ -76,11 +76,11 @@ v0.8 placement (radar theme) — [speed-limit-schedules.md](radar/architecture/s
 
 Go SVG charts + `text/template` LaTeX; eliminate Python stack — [PDF Go chart migration plan](plans/pdf-go-chart-migration-plan.md)
 
-### D-18 — speed percentile aggregation semantics
+### D-18 — Speed percentile aggregation semantics
 
 Reserve `p50/p85/p98` for grouped/report metrics only; for speed, keep `p98` as the high-end aggregate percentile and treat `p95` as historical-only legacy — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [TDL plan](plans/data-track-description-language-plan.md)
 
-### D-19 — track raw max vs future peak naming
+### D-19 — Track raw max vs future peak naming
 
 Rename the current raw `peak_speed_mps` measure to `max_speed_mps` in unshipped contracts; reserve `peak` for a future outlier-filtered/context-aware top-speed metric — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [proto plan](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
@@ -88,27 +88,27 @@ Rename the current raw `peak_speed_mps` measure to `max_speed_mps` in unshipped 
 
 Ship one coordinated breaking-change sweep; keep no temporary dual-format shims after `v0.5.0` except DB upgrade detection and architecturally necessary aliases — [shim removal plan](plans/v050-backward-compatibility-shim-removal-plan.md), [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
-### D-21 — visualiser debug overlay controls
+### D-21 — Visualiser debug overlay controls
 
 `include_debug` gates debug payload emission; `SetOverlayModes(...)` remains client-side/advisory — [proto/debug overlay plan](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
-### D-22 — image pipeline upgrade path
+### D-22 — Image pipeline upgrade path
 
 Reflash-only upgrades in the current plan; over-the-air updates are deferred to a later milestone — [simplification plan](plans/platform-simplification-and-deprecation-plan.md)
 
-### D-23 — ticTacTail platform extraction
+### D-23 — TicTacTail platform extraction
 
 Generic cadenced aggregation + live surface + aligned history engine, extracted from VRLOG checker; in-repo `pkg/tictactail` — [platform plan](plans/tictactail-platform-plan.md)
 
-### D-24 — migration 030 offline percentile policy
+### D-24 — Migration 030 offline percentile policy
 
 Adopt Option A: remove persisted per-track speed percentiles from migration 030 and keep no DB-backed fallback path; revisit offline-only export computation later only if explicitly needed — [schema simplification plan](plans/schema-simplification-migration-030-plan.md)
 
-### D-25 — agent platform strategy: dual-native personas + shared skills
+### D-25 — Agent platform strategy: dual-native personas + shared skills
 
 Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copilot, [.claude/agents/](../.claude/agents) for Claude Code) with persona methodology bounded to ~40–80 lines per agent and drift-checked weekly. Shared project knowledge (Layers 0–2) stays single-source in [.github/knowledge/](../.github/knowledge). Reusable workflows live in [.claude/skills/](../.claude/skills) as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
 
-### Milestone rationale
+### Milestone Rationale
 
 | Milestone | Rationale                                                      |
 | --------- | -------------------------------------------------------------- |
@@ -120,7 +120,7 @@ Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copi
 | v2.0      | Advanced features, connected capabilities, research graduation |
 | Deferred  | Speculative, targets different users, or prerequisite missing  |
 
-## Milestone placement
+## Milestone Placement
 
 Milestone assignments live in [BACKLOG.md](BACKLOG.md). This section documents the principles that guide placement decisions.
 

@@ -502,7 +502,7 @@ A release principally concerned with making the LiDAR pipeline measurably correc
 #### Added
 
 - SvelteKit-based web interface
-- Real-time radar data visualisation
+- Real-time radar data visualization
 - Statistics dashboard
 - API integration with Go backend
 - Responsive design
