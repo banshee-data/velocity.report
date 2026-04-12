@@ -156,11 +156,11 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > dateti
 
 ---
 
-### LIDAR Connection Issues
+### LiDAR Connection Issues
 
 **Error**: `failed to bind UDP socket: bind: address already in use`
 
-**Cause**: Another process is using the LIDAR UDP port (2368)
+**Cause**: Another process is using the LiDAR UDP port (2368)
 
 **Solution**:
 
@@ -171,16 +171,16 @@ sudo netstat -tulpn | grep 2368
 # Kill the process
 sudo kill <PID>
 
-# Verify LIDAR network configuration
+# Verify LiDAR network configuration
 ip addr show | grep 192.168.100
 
 # If network interface missing, add it
 sudo ip addr add 192.168.100.151/24 dev eth0
 ```
 
-**Error**: `no LIDAR packets received`
+**Error**: `no LiDAR packets received`
 
-**Cause**: LIDAR not configured to send to correct IP, network cable issue, or firewall blocking
+**Cause**: LiDAR not configured to send to correct IP, network cable issue, or firewall blocking
 
 **Solution**:
 
@@ -188,8 +188,8 @@ sudo ip addr add 192.168.100.151/24 dev eth0
 # Check if packets are arriving
 sudo tcpdump -i eth0 udp port 2368
 
-# Verify LIDAR is powered and LED is solid green
-# Configure LIDAR to send to 192.168.100.151 using Hesai web interface at 192.168.100.202
+# Verify LiDAR is powered and LED is solid green
+# Configure LiDAR to send to 192.168.100.151 using Hesai web interface at 192.168.100.202
 
 # Disable firewall temporarily to test
 sudo ufw disable
@@ -671,9 +671,9 @@ echo "R0" > /dev/ttyUSB0  # Set to reporting mode
 
 ---
 
-### LIDAR Not Producing Point Clouds
+### LiDAR Not Producing Point Clouds
 
-**Symptoms**: Server runs but no LIDAR data in database
+**Symptoms**: Server runs but no LiDAR data in database
 
 **Diagnosis**:
 
@@ -685,7 +685,7 @@ ping 192.168.100.202
 sudo tcpdump -i eth0 -c 10 udp port 2368
 # Should see packet captures
 
-# Check LIDAR status via web interface
+# Check LiDAR status via web interface
 # Navigate to http://192.168.100.202 in browser
 # Verify:
 # - Destination IP is 192.168.100.151
@@ -695,9 +695,9 @@ sudo tcpdump -i eth0 -c 10 udp port 2368
 
 **Solutions**:
 
-- Power cycle LIDAR
+- Power cycle LiDAR
 - Verify network cable connection
-- Reset LIDAR to factory defaults via web interface
+- Reset LiDAR to factory defaults via web interface
 - Check that network interface has correct IP: `ip addr show`
 
 ---
@@ -806,7 +806,7 @@ lsof sensor_data.db
 **Solutions**:
 
 - Restart Go server (background worker may be stuck)
-- Reduce LIDAR frame rate if processing can't keep up
+- Reduce LiDAR frame rate if processing can't keep up
 - Archive old data from database
 - Check for runaway queries in logs
 
@@ -1023,7 +1023,7 @@ Generated Swift files are placed in
 | `cosine_error_angle is required`          | PDF Generator | Add field to config                   |
 | `Failed to fetch`                         | Web Frontend  | Check API server is running           |
 | `no such file or directory: /dev/ttyUSB0` | Go Server     | Check radar connection                |
-| `no LIDAR packets received`               | Go Server     | Verify LIDAR network config           |
+| `no LiDAR packets received`               | Go Server     | Verify LiDAR network config           |
 | `PRAGMA integrity_check: failed`          | Database      | Restore from backup                   |
 | `403 Forbidden`                           | Web Server    | Check file permissions                |
 

@@ -69,7 +69,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌────────────────────┐                 ┌────────────────────┐       │
-│  │  Radar Sensor      │                 │  LIDAR Sensor      │       │
+│  │  Radar Sensor      │                 │  LiDAR Sensor      │       │
 │  │  ┌──────────────┐  │                 │  ┌──────────────┐  │       │
 │  │  │ Omnipresense │  │                 │  │   Hesai P40  │  │       │
 │  │  │   OPS243     │  │                 │  │    40-beam   │  │       │
@@ -89,12 +89,12 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 │  │  • 4GB RAM                  │                                  │  │
 │  │  • 64GB SD Card             ↓                                  │  │
 │  │  • USB Ports (Radar)   /dev/ttyUSB0                            │  │
-│  │  • Ethernet Port (LIDAR + Network)                             │  │
-│  │    - LIDAR network: 192.168.100.151/24 (listener)              │  │
-│  │    - LIDAR sensor:  192.168.100.202 (UDP source)               │  │
+│  │  • Ethernet Port (LiDAR + Network)                             │  │
+│  │    - LiDAR network: 192.168.100.151/24 (listener)              │  │
+│  │    - LiDAR sensor:  192.168.100.202 (UDP source)               │  │
 │  │    - Local LAN:     192.168.1.x (API + gRPC server)            │  │
 │  │                                                                │  │
-│  │  Network: Dual configuration (LIDAR subnet + Local LAN)        │  │
+│  │  Network: Dual configuration (LiDAR subnet + Local LAN)        │  │
 │  │                                                                │  │
 │  ├────────────────────────────────────────────────────────────────┤  │
 │  │                 SOFTWARE STACK (on this Raspberry Pi)          │  │
@@ -108,7 +108,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 │  │  │  │  Sensor Input Handlers                             │  │  │  │
 │  │  │  │                                                    │  │  │  │
 │  │  │  │  ┌──────────────────┐  ┌──────────────────────┐    │  │  │  │
-│  │  │  │  │ Radar Handler    │  │ LIDAR Handler        │    │  │  │  │
+│  │  │  │  │ Radar Handler    │  │ LiDAR Handler        │    │  │  │  │
 │  │  │  │  │ (Serial Port)    │  │ (Network/UDP)        │    │  │  │  │
 │  │  │  │  │ internal/radar/  │  │ internal/lidar/      │    │  │  │  │
 │  │  │  │  │                  │  │                      │    │  │  │  │
@@ -129,7 +129,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 │  │  │  │    → ops243 reader → JSON parse                    │  │  │  │
 │  │  │  │    → INSERT radar_data, radar_objects              │  │  │  │
 │  │  │  │                                                    │  │  │  │
-│  │  │  │  LIDAR Ethernet (Hesai UDP 192.168.100.202)        │  │  │  │
+│  │  │  │  LiDAR Ethernet (Hesai UDP 192.168.100.202)        │  │  │  │
 │  │  │  │    → packet decoder → FrameBuilder rotations       │  │  │  │
 │  │  │  │    → BackgroundManager EMA grid                    │  │  │  │
 │  │  │  │    → persist lidar_bg_snapshot rows                │  │  │  │
@@ -179,7 +179,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 │  │  │         Listen: 0.0.0.0:50051 (protobuf streaming)       │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Modes:                                                  │  │  │
-│  │  │  • Live: Stream real-time LIDAR frames                   │  │  │
+│  │  │  • Live: Stream real-time LiDAR frames                   │  │  │
 │  │  │  • Replay: Stream recorded .vrlog files                  │  │  │
 │  │  │  • Synthetic: Generate test data at configurable rate    │  │  │
 │  │  │                                                          │  │  │
@@ -242,7 +242,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 **Key Modules**:
 
 - **`cmd/radar/`** - Main server entry point
-  - Sensor data collection (radar/LIDAR)
+  - Sensor data collection (radar/LiDAR)
   - HTTP API server
   - Background task scheduler
   - Systemd service integration
@@ -258,7 +258,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
   - Data parsing and validation
   - Error handling and retry logic
 
-- **`internal/lidar/`** - LIDAR sensor integration
+- **`internal/lidar/`** - LiDAR sensor integration
   - UDP packet listener and decoder (Hesai Pandar40P)
   - `FrameBuilder` accumulates complete 360° rotations with sequence checks
   - `BackgroundManager` maintains EMA grid (40 rings × 1800 azimuth bins)
@@ -286,7 +286,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 
 - **Input**:
   - Radar: Serial port data (/dev/ttyUSB0, USB connection)
-  - LIDAR: Network/UDP packets (Ethernet connection, verified with LidarView/CloudCompare)
+  - LiDAR: Network/UDP packets (Ethernet connection, verified with LidarView/CloudCompare)
 - **Output**:
   - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
   - SQLite database writes
@@ -465,8 +465,8 @@ When a sensor reading arrives, the Go server stores the entire event as JSON in 
 - `radar_objects` - Classified transits from radar's onboard classifier
 - `radar_data_transits` - Sessionized transits built by transit worker from `radar_data`
 - `radar_transit_links` - Many-to-many links between transits and raw radar_data
-- `lidar_bg_snapshot` - LIDAR background grid for motion detection (40×1800 range-image)
-- `lidar_objects` - Track-extracted transits from LIDAR processing [PLANNED]
+- `lidar_bg_snapshot` - LiDAR background grid for motion detection (40×1800 range-image)
+- `lidar_objects` - Track-extracted transits from LiDAR processing [PLANNED]
 - `radar_commands` / `radar_command_log` - Command history and execution logs
 - `site` - Site metadata (location, speed limits)
 - `site_config_periods` - Time-based sensor configuration (cosine error angle history)
@@ -475,18 +475,18 @@ When a sensor reading arrives, the Go server stores the entire event as JSON in 
 
 1. **radar_objects**: Hardware classifier in OPS243 radar sensor
 2. **radar_data_transits**: Software sessionization of raw radar_data points
-3. **lidar_objects**: Software tracking from LIDAR point clouds [PLANNED]
+3. **lidar_objects**: Software tracking from LiDAR point clouds [PLANNED]
 
 These three sources will be compared for initial reporting, with eventual goal of:
 
 - FFT-based radar processing for improved object segmentation
-- Sensor fusion using LIDAR data to assist radar object detection
+- Sensor fusion using LiDAR data to assist radar object detection
 
 **Key Features**:
 
 - High-precision timestamps (DOUBLE for subsecond accuracy via `UNIXEPOCH('subsec')`)
 - Sessionization via `radar_data_transits` (avoids expensive CTEs in queries)
-- LIDAR background modeling for change detection (grid stored as BLOB)
+- LiDAR background modeling for change detection (grid stored as BLOB)
 - WAL mode enabled for concurrent readers/writers
 - Indexes on timestamp columns for fast time-range queries
 - Time-based site configuration via `site_config_periods` (Type 6 Slowly Changing Dimension)
@@ -509,8 +509,8 @@ The `site_config_periods` table implements a Type 6 SCD pattern for tracking sen
   - Real-time inserts to `radar_data` (raw radar events)
   - Hardware classifier → `radar_objects`
   - Transit worker → sessionize `radar_data` → `radar_data_transits`
-  - LIDAR background grid → `lidar_bg_snapshot`
-  - [PLANNED] LIDAR tracking → `lidar_objects`
+  - LiDAR background grid → `lidar_bg_snapshot`
+  - [PLANNED] LiDAR tracking → `lidar_objects`
 - **Python PDF Generator** (deprecated): Read-only (via HTTP API)
   - Queries transit data from 3 sources for comparison reports
   - Aggregates statistics across detection methods
@@ -563,7 +563,7 @@ Radar (Serial):
 2. internal/radar/ reader parses JSON speed/magnitude payloads
 3. INSERT raw packets into `radar_data`; hardware detections → `radar_objects`
 
-LIDAR (Network/UDP):
+LiDAR (Network/UDP):
 1. Hesai P40 → Ethernet/UDP (192.168.100.202 → 192.168.100.151 listener)
 2. Packet decoder reconstructs blocks → `FrameBuilder` completes 360° rotations
 3. `BackgroundManager` updates EMA background grid (40 × 1800 cells)
@@ -580,7 +580,7 @@ Transit Worker (Background Process):
 Three Transit Sources:
 • radar_objects        (radar hardware classifier)
 • radar_data_transits  (software sessionisation)
-• lidar_objects        (LIDAR tracking) [PLANNED]
+• lidar_objects        (LiDAR tracking) [PLANNED]
 ```
 
 ### PDF Report Generation
@@ -611,7 +611,7 @@ Three Transit Sources:
 
 ```
 Live Mode:
-1. LIDAR sensor → UDP packets → Go Server → FrameBuilder
+1. LiDAR sensor → UDP packets → Go Server → FrameBuilder
 2. FrameBuilder → Tracker → Adapter → FrameBundle proto
 3. gRPC Server (port 50051) → StreamFrames RPC → Swift client
 4. Swift client → Decode proto → Metal renderer
@@ -689,7 +689,7 @@ Synthetic Mode (Testing):
 - INSERT `radar_data` (real-time writes with JSON events)
 - INSERT `radar_objects` (classified detections)
 - Background sessionisation: query `radar_data` → insert/update `radar_data_transits`
-- LIDAR background modelling: update `lidar_bg_snapshot`
+- LiDAR background modelling: update `lidar_bg_snapshot`
 - SELECT for API queries (read optimised with generated columns)
 
 **Performance Considerations**:
@@ -826,7 +826,7 @@ rpc StopRecording(RecordingRequest) returns (RecordingStatus);
 
 **Server Modes**:
 
-- **Live**: Stream real-time LIDAR data, record to `.vrlog`
+- **Live**: Stream real-time LiDAR data, record to `.vrlog`
 - **Replay**: Stream recorded `.vrlog` files with playback control
 - **Synthetic**: Generate test data for development
 
@@ -905,7 +905,7 @@ HINT is not automated optimisation: the human labelling step is deliberate. At t
 │                                                │
 │  Sensor Connections:                           │
 │  • /dev/ttyUSB0 (Radar - Serial)               │
-│  • Network/UDP (LIDAR - Ethernet)              │
+│  • Network/UDP (LiDAR - Ethernet)              │
 └────────────────────────────────────────────────┘
 ```
 
