@@ -350,29 +350,27 @@ A **profile** = scene + parameter set → analysis run (track set). Comparing pr
 
 New table to persist evaluation results:
 
-```sql
-CREATE TABLE lidar_evaluations (
-    evaluation_id TEXT PRIMARY KEY,
-    scene_id TEXT NOT NULL,
-    reference_run_id TEXT NOT NULL,
-    candidate_run_id TEXT NOT NULL,
-    detection_rate REAL,
-    fragmentation REAL,
-    false_positive_rate REAL,
-    velocity_coverage REAL,
-    quality_premium REAL,
-    truncation_rate REAL,
-    velocity_noise_rate REAL,
-    stopped_recovery_rate REAL,
-    composite_score REAL,
-    params_json TEXT,           -- snapshot of params used for candidate run
-    created_at INTEGER,
-    FOREIGN KEY (scene_id) REFERENCES lidar_scenes(scene_id) ON DELETE CASCADE,
-    FOREIGN KEY (reference_run_id) REFERENCES lidar_analysis_runs(run_id),
-    FOREIGN KEY (candidate_run_id) REFERENCES lidar_analysis_runs(run_id)
-);
-CREATE UNIQUE INDEX idx_evaluations_pair ON lidar_evaluations(reference_run_id, candidate_run_id);
-```
+**`lidar_evaluations` table:**
+
+| Column                  | Type    | Constraint                              | Notes                                     |
+| ----------------------- | ------- | --------------------------------------- | ----------------------------------------- |
+| `evaluation_id`         | TEXT    | PRIMARY KEY                             |                                           |
+| `scene_id`              | TEXT    | NOT NULL, FK → `lidar_scenes` (CASCADE) |                                           |
+| `reference_run_id`      | TEXT    | NOT NULL, FK → `lidar_analysis_runs`    |                                           |
+| `candidate_run_id`      | TEXT    | NOT NULL, FK → `lidar_analysis_runs`    |                                           |
+| `detection_rate`        | REAL    |                                         |                                           |
+| `fragmentation`         | REAL    |                                         |                                           |
+| `false_positive_rate`   | REAL    |                                         |                                           |
+| `velocity_coverage`     | REAL    |                                         |                                           |
+| `quality_premium`       | REAL    |                                         |                                           |
+| `truncation_rate`       | REAL    |                                         |                                           |
+| `velocity_noise_rate`   | REAL    |                                         |                                           |
+| `stopped_recovery_rate` | REAL    |                                         |                                           |
+| `composite_score`       | REAL    |                                         |                                           |
+| `params_json`           | TEXT    |                                         | Snapshot of params used for candidate run |
+| `created_at`            | INTEGER |                                         |                                           |
+
+**Index:** unique on `(reference_run_id, candidate_run_id)`.
 
 This replaces the current transient evaluation (POST returns score but doesn't persist). Stored results enable comparison without re-running evaluation.
 
@@ -472,27 +470,21 @@ The auto-tuner needs to distinguish "correct but noisy" tracks from "correct and
 
 The `missed` label requires spatial/temporal reference since no track exists. Add to `lidar_run_tracks` or create a separate `lidar_missed_regions` table:
 
-```sql
--- Option 1: Add columns to lidar_run_tracks (for when track_id references a nearby track)
-missed_region_x REAL
-missed_region_y REAL
-missed_time_start_ns INTEGER
-missed_time_end_ns INTEGER
+**Option 1:** Add columns to `lidar_run_tracks` (for when `track_id` references a nearby track): `missed_region_x` (REAL), `missed_region_y` (REAL), `missed_time_start_ns` (INTEGER), `missed_time_end_ns` (INTEGER).
 
--- Option 2: Separate table for missed detections
-CREATE TABLE lidar_missed_regions (
-  region_id TEXT PRIMARY KEY,
-  run_id TEXT NOT NULL,
-  center_x REAL NOT NULL,
-  center_y REAL NOT NULL,
-  time_start_ns INTEGER NOT NULL,
-  time_end_ns INTEGER NOT NULL,
-  labeler_id TEXT,
-  labeled_at INTEGER,
-  notes TEXT,
-  FOREIGN KEY (run_id) REFERENCES lidar_analysis_runs(run_id) ON DELETE CASCADE
-);
-```
+**Option 2:** Separate `lidar_missed_regions` table:
+
+| Column          | Type    | Constraint                                     | Notes |
+| --------------- | ------- | ---------------------------------------------- | ----- |
+| `region_id`     | TEXT    | PRIMARY KEY                                    |       |
+| `run_id`        | TEXT    | NOT NULL, FK → `lidar_analysis_runs` (CASCADE) |       |
+| `center_x`      | REAL    | NOT NULL                                       |       |
+| `center_y`      | REAL    | NOT NULL                                       |       |
+| `time_start_ns` | INTEGER | NOT NULL                                       |       |
+| `time_end_ns`   | INTEGER | NOT NULL                                       |       |
+| `labeler_id`    | TEXT    |                                                |       |
+| `labeled_at`    | INTEGER |                                                |       |
+| `notes`         | TEXT    |                                                |       |
 
 The evaluator can then check whether candidate runs produce tracks covering those spatiotemporal regions.
 

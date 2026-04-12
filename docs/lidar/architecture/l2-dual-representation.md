@@ -14,13 +14,12 @@ tracking callback without changing clustering/tracking maths.
 
 ## LiDARFrame shape
 
-```go
-type LiDARFrame struct {
-    PolarPoints []PointPolar  // sensor-polar view (canonical L3 input)
-    Points      []Point       // sensor-Cartesian view (L2/L9 consumers)
-    // ...
-}
-```
+| Field         | Type           | Purpose                                 |
+| ------------- | -------------- | --------------------------------------- |
+| `PolarPoints` | `[]PointPolar` | Sensor-polar view (canonical L3 input)  |
+| `Points`      | `[]Point`      | Sensor-Cartesian view (L2/L9 consumers) |
+
+Plus existing fields (unchanged).
 
 ### Rules
 

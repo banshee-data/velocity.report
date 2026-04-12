@@ -181,13 +181,14 @@ The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/
 
 Add a `/api/capabilities` endpoint (or extend `/api/config`) that reports which sensors are active and their runtime state:
 
-```json
-{
-  "radar": true,
-  "lidar": { "enabled": false, "state": "disabled" },
-  "lidar_sweep": false
-}
-```
+**Capabilities response shape:**
+
+| Field           | Type      | Example      | Purpose                                                  |
+| --------------- | --------- | ------------ | -------------------------------------------------------- |
+| `radar`         | `boolean` | `true`       | Radar sensor active                                      |
+| `lidar.enabled` | `boolean` | `false`      | LiDAR pipeline enabled                                   |
+| `lidar.state`   | `string`  | `"disabled"` | Runtime state (`disabled`, `starting`, `ready`, `error`) |
+| `lidar_sweep`   | `boolean` | `false`      | Sweep subsystem available                                |
 
 Capabilities must reflect runtime transitions (disabled, starting, ready, error) so LiDAR can be enabled or disabled without restarting the radar process. A backend lifecycle manager should own start/stop of LiDAR pipelines and must not interrupt radar logging or streaming.
 

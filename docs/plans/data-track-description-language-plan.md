@@ -338,27 +338,25 @@ SQLite's constraints to design around:
 
 The TDL operates over a **materialised fused transit table**, not a view. A view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs` would require the join on every query. Instead, the fused transit record is written at transit-finalisation time:
 
-```sql
-CREATE TABLE IF NOT EXISTS fused_transits (
-    transit_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_unix  DOUBLE NOT NULL,          -- transit start (unix epoch, seconds with fractional part)
-    duration_s      REAL,                     -- transit duration
-    direction       TEXT,                     -- inbound / outbound / unknown
-    max_speed_mph   REAL NOT NULL,            -- peak speed (primary query column)
-    mean_speed_mph  REAL,                     -- arithmetic mean speed
-    category        TEXT,                     -- pedestrian / vehicle / cyclist / other
-    vehicle_class   TEXT,                     -- car / van / lorry / bus / motorcycle / unknown
-    behaviour_style TEXT,                     -- steady / accelerating / braking / erratic
-    stopped         INTEGER DEFAULT 0,        -- 1 if vehicle came to complete stop
-    yielded         INTEGER DEFAULT 0,        -- 1 if vehicle slowed below yield threshold
-    nearest_obj_distance_m REAL,              -- closest concurrent object distance
-    nearest_obj_class      TEXT,              -- class of nearest concurrent object
-    radar_transit_id       INTEGER,           -- FK → radar_data_transits
-    lidar_track_id         TEXT,              -- FK → lidar_tracks
-    fusion_confidence      REAL,              -- quality of radar/LiDAR association
-    created_at      DOUBLE DEFAULT (UNIXEPOCH('subsec'))
-);
-```
+| Column                   | Type    | Constraint                  | Notes                                          |
+| ------------------------ | ------- | --------------------------- | ---------------------------------------------- |
+| `transit_id`             | INTEGER | PRIMARY KEY AUTOINCREMENT   |                                                |
+| `timestamp_unix`         | DOUBLE  | NOT NULL                    | Transit start (unix epoch, fractional seconds) |
+| `duration_s`             | REAL    |                             | Transit duration                               |
+| `direction`              | TEXT    |                             | inbound / outbound / unknown                   |
+| `max_speed_mph`          | REAL    | NOT NULL                    | Peak speed (primary query column)              |
+| `mean_speed_mph`         | REAL    |                             | Arithmetic mean speed                          |
+| `category`               | TEXT    |                             | pedestrian / vehicle / cyclist / other         |
+| `vehicle_class`          | TEXT    |                             | car / van / lorry / bus / motorcycle / unknown |
+| `behaviour_style`        | TEXT    |                             | steady / accelerating / braking / erratic      |
+| `stopped`                | INTEGER | DEFAULT 0                   | 1 if vehicle came to complete stop             |
+| `yielded`                | INTEGER | DEFAULT 0                   | 1 if vehicle slowed below yield threshold      |
+| `nearest_obj_distance_m` | REAL    |                             | Closest concurrent object distance             |
+| `nearest_obj_class`      | TEXT    |                             | Class of nearest concurrent object             |
+| `radar_transit_id`       | INTEGER |                             | FK → `radar_data_transits`                     |
+| `lidar_track_id`         | TEXT    |                             | FK → `lidar_tracks`                            |
+| `fusion_confidence`      | REAL    |                             | Quality of radar/LiDAR association             |
+| `created_at`             | DOUBLE  | DEFAULT UNIXEPOCH('subsec') |                                                |
 
 This table is the single scan target for all TDL filter and aggregation queries. Per-frame data (`speed.profile[]`, `geometry.trail[]`) is fetched via a secondary join to `lidar_track_obs` only when requested by a `show profile` or `show trail` clause.
 
@@ -366,27 +364,15 @@ This table is the single scan target for all TDL filter and aggregation queries.
 
 Indexes are designed for the TDL query patterns described in §4:
 
-```sql
--- Primary query: filter by time + speed
-CREATE INDEX idx_fused_time_speed
-    ON fused_transits (timestamp_unix, max_speed_mph);
+Five indexes support the TDL query patterns:
 
--- Filter by direction within a time range
-CREATE INDEX idx_fused_time_direction
-    ON fused_transits (timestamp_unix, direction);
-
--- Filter by classification
-CREATE INDEX idx_fused_category
-    ON fused_transits (category, vehicle_class);
-
--- Filter by behaviour
-CREATE INDEX idx_fused_behaviour
-    ON fused_transits (behaviour_style);
-
--- Aggregation: sorted speed for percentile computation
-CREATE INDEX idx_fused_speed
-    ON fused_transits (max_speed_mph);
-```
+| Index                      | Columns                           | Purpose                                 |
+| -------------------------- | --------------------------------- | --------------------------------------- |
+| `idx_fused_time_speed`     | `(timestamp_unix, max_speed_mph)` | Time-range filter + speed threshold     |
+| `idx_fused_time_direction` | `(timestamp_unix, direction)`     | Direction filter within time range      |
+| `idx_fused_category`       | `(category, vehicle_class)`       | Classification filter                   |
+| `idx_fused_behaviour`      | `(behaviour_style)`               | Behaviour filter                        |
+| `idx_fused_speed`          | `(max_speed_mph)`                 | Sorted speed for percentile computation |
 
 The composite `(timestamp_unix, max_speed_mph)` index covers the most common TDL pattern: time-range filter + speed threshold or aggregation. SQLite can scan the index in `max_speed_mph` order within a time range to compute percentiles without a separate sort.
 
@@ -394,64 +380,25 @@ The composite `(timestamp_unix, max_speed_mph)` index covers the most common TDL
 
 **List query**: returns matching transits with pagination:
 
-```sql
-SELECT transit_id, timestamp_unix, max_speed_mph, category, vehicle_class,
-       behaviour_style, direction
-FROM fused_transits
-WHERE timestamp_unix BETWEEN ?1 AND ?2
-  AND category = 'vehicle'
-  AND max_speed_mph > ?3
-ORDER BY timestamp_unix DESC
-LIMIT ?4 OFFSET ?5;
-```
+**List query** selects `transit_id`, `timestamp_unix`, `max_speed_mph`, `category`, `vehicle_class`, `behaviour_style`, `direction` from `fused_transits` filtered by `timestamp_unix BETWEEN ?1 AND ?2`, `category = 'vehicle'`, and `max_speed_mph > ?3`, ordered by `timestamp_unix DESC` with `LIMIT ?4 OFFSET ?5`.
 
 **Speed summary**: computes dataset-level percentiles over filtered max speeds:
 
-```sql
--- Approach A: NTILE window function (pure SQL)
-SELECT
-    MAX(CASE WHEN tile = 50  THEN max_speed_mph END) AS p50,
-    MAX(CASE WHEN tile = 85  THEN max_speed_mph END) AS p85,
-    MAX(CASE WHEN tile = 98  THEN max_speed_mph END) AS p98,
-    MAX(max_speed_mph) AS max
-FROM (
-    SELECT max_speed_mph,
-           NTILE(100) OVER (ORDER BY max_speed_mph) AS tile
-    FROM fused_transits
-    WHERE timestamp_unix BETWEEN ?1 AND ?2
-      AND category = 'vehicle'
-);
+Two approaches:
 
--- Approach B: sorted slice in Go (matches existing ComputeSpeedPercentiles)
--- 1. SELECT max_speed_mph FROM fused_transits WHERE ... ORDER BY max_speed_mph
--- 2. Go code picks p50 = speeds[n/2], p85 = speeds[floor(n*0.85)], etc.
-```
+**Approach A (pure SQL):** Uses `NTILE(100) OVER (ORDER BY max_speed_mph)` as a window function over the filtered set, then picks `p50`, `p85`, `p98`, and `max` via `MAX(CASE WHEN tile = N THEN max_speed_mph END)`.
+
+**Approach B (Go):** Fetches `max_speed_mph` sorted from `fused_transits` with filters, then computes percentiles in Go: `p50 = speeds[n/2]`, `p85 = speeds[floor(n*0.85)]`, etc. Matches the existing `ComputeSpeedPercentiles` pattern.
 
 Approach B is simpler and matches the existing pattern in `internal/lidar/l6objects/classification.go`. For small-to-medium result sets (< 50,000 transits: roughly a year of data on a residential street at ~150 transits/day), the sorted slice fits comfortably in Raspberry Pi memory.
 
 **Count / percentage**: scalar aggregates:
 
-```sql
-SELECT
-    COUNT(*) AS total,
-    COUNT(CASE WHEN max_speed_mph > ?3 THEN 1 END) AS exceeding
-FROM fused_transits
-WHERE timestamp_unix BETWEEN ?1 AND ?2
-  AND category = 'vehicle';
-```
+**Count / percentage** query: `SELECT COUNT(*) AS total, COUNT(CASE WHEN max_speed_mph > ?3 THEN 1 END) AS exceeding FROM fused_transits WHERE timestamp_unix BETWEEN ?1 AND ?2 AND category = 'vehicle'`.
 
 **Hourly distribution**: histogram:
 
-```sql
-SELECT
-    CAST(strftime('%H', timestamp_unix, 'unixepoch') AS INTEGER) AS hour,
-    COUNT(*) AS count
-FROM fused_transits
-WHERE timestamp_unix BETWEEN ?1 AND ?2
-  AND category = 'vehicle'
-GROUP BY hour
-ORDER BY hour;
-```
+**Hourly distribution** query: groups by `CAST(strftime('%H', timestamp_unix, 'unixepoch') AS INTEGER) AS hour`, counts per hour, filtered by time range and `category = 'vehicle'`, ordered by hour.
 
 ### 6.5 Volume estimates and performance
 

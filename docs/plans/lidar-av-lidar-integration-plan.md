@@ -7,7 +7,9 @@
 
 ---
 
-> **Format alignment, current state analysis, gap analysis, 28-class taxonomy, and AV dataset format (7-DOF, NLZ, Parquet schema):** see [av-range-image-format-alignment.md](../lidar/architecture/av-range-image-format-alignment.md).
+> **Format alignment, current state analysis, gap analysis, and AV dataset format (7-DOF, NLZ, Parquet schema):** see [av-range-image-format-alignment.md](../lidar/architecture/av-range-image-format-alignment.md).
+>
+> **Taxonomy mapping (SemanticKITTI, Waymo, Panoptic nuScenes → v.r classes):** see §11 of [classification-maths.md](../../data/maths/classification-maths.md). The north star is Waymo `CameraSegmentation.Type` (28 classes from `camera_segmentation.proto`); see §11.4 for the full provenance.
 
 ---
 
@@ -17,25 +19,25 @@
 
 #### WorldCluster (clustering.go)
 
-```go
-type WorldCluster struct {
-    ClusterID         int64
-    SensorID          string
-    TSUnixNanos       int64
-    CentroidX         float32  // World frame
-    CentroidY         float32
-    CentroidZ         float32
-    BoundingBoxLength float32  // X extent
-    BoundingBoxWidth  float32  // Y extent
-    BoundingBoxHeight float32  // Z extent
-    PointsCount       int
-    HeightP95         float32
-    IntensityMean     float32
-    ClusterDensity    float32
-    AspectRatio       float32
-    NoisePointsCount  int
-}
-```
+**WorldCluster** fields:
+
+| Field             | Type      | Description |
+| ----------------- | --------- | ----------- |
+| ClusterID         | `int64`   |             |
+| SensorID          | `string`  |             |
+| TSUnixNanos       | `int64`   |             |
+| CentroidX         | `float32` | World frame |
+| CentroidY         | `float32` |             |
+| CentroidZ         | `float32` |             |
+| BoundingBoxLength | `float32` | X extent    |
+| BoundingBoxWidth  | `float32` | Y extent    |
+| BoundingBoxHeight | `float32` | Z extent    |
+| PointsCount       | `int`     |             |
+| HeightP95         | `float32` |             |
+| IntensityMean     | `float32` |             |
+| ClusterDensity    | `float32` |             |
+| AspectRatio       | `float32` |             |
+| NoisePointsCount  | `int`     |             |
 
 **Gaps vs AV Standard:**
 
@@ -47,21 +49,20 @@ type WorldCluster struct {
 
 #### TrackedObject (tracking.go)
 
-```go
-type TrackedObject struct {
-    TrackID                 string
-    SensorID                string
-    State                   TrackState
-    X, Y                    float32  // World frame
-    VX, VY                  float32  // Velocity
-    BoundingBoxLengthAvg    float32
-    BoundingBoxWidthAvg     float32
-    BoundingBoxHeightAvg    float32
-    ObjectClass             string   // Classification result
-    ObjectConfidence        float32
-    // ... other fields
-}
-```
+**TrackedObject** fields:
+
+| Field                | Type         | Description           |
+| -------------------- | ------------ | --------------------- |
+| TrackID              | `string`     |                       |
+| SensorID             | `string`     |                       |
+| State                | `TrackState` |                       |
+| X, Y                 | `float32`    | World frame           |
+| VX, VY               | `float32`    | Velocity              |
+| BoundingBoxLengthAvg | `float32`    |                       |
+| BoundingBoxWidthAvg  | `float32`    |                       |
+| BoundingBoxHeightAvg | `float32`    |                       |
+| ObjectClass          | `string`     | Classification result |
+| ObjectConfidence     | `float32`    |                       |
 
 **Gaps vs AV Standard:**
 
@@ -73,16 +74,16 @@ type TrackedObject struct {
 
 #### ForegroundFrame (training_data.go)
 
-```go
-type ForegroundFrame struct {
-    SensorID         string
-    TSUnixNanos      int64
-    SequenceID       string
-    ForegroundPoints []PointPolar  // Polar coordinates
-    TotalPoints      int
-    BackgroundPoints int
-}
-```
+**ForegroundFrame** fields:
+
+| Field            | Type           | Description       |
+| ---------------- | -------------- | ----------------- |
+| SensorID         | `string`       |                   |
+| TSUnixNanos      | `int64`        |                   |
+| SequenceID       | `string`       |                   |
+| ForegroundPoints | `[]PointPolar` | Polar coordinates |
+| TotalPoints      | `int`          |                   |
+| BackgroundPoints | `int`          |                   |
 
 **Gaps vs AV Standard:**
 
@@ -157,201 +158,56 @@ Extend velocity.report data structures to support industry-standard 7-DOF boundi
 
 **File:** `internal/lidar/av_types.go` (new)
 
-```go
-// BoundingBox7DOF represents a 7-DOF 3D bounding box in AV standard format.
-// Used for ground truth labels and predictions.
-type BoundingBox7DOF struct {
-    // Center position (meters)
-    CenterX float64 `json:"center_x"`
-    CenterY float64 `json:"center_y"`
-    CenterZ float64 `json:"center_z"`
+**BoundingBox7DOF** fields:
 
-    // Dimensions (meters)
-    Length float64 `json:"length"` // Extent along local X
-    Width  float64 `json:"width"`  // Extent along local Y
-    Height float64 `json:"height"` // Extent along local Z
-
-    // Heading (radians, [-π, π])
-    // Rotation around Z-axis to align +X with object forward
-    Heading float64 `json:"heading"`
-}
-
-// Corners returns the 8 corner points of the bounding box in local frame.
-func (b *BoundingBox7DOF) Corners() [8][3]float64
-
-// ContainsPoint checks if a point (in the same frame) is inside the box.
-func (b *BoundingBox7DOF) ContainsPoint(x, y, z float64) bool
-
-// Volume returns the volume of the bounding box in cubic meters.
-func (b *BoundingBox7DOF) Volume() float64
-
-// IoU computes Intersection over Union with another box.
-func (b *BoundingBox7DOF) IoU(other *BoundingBox7DOF) float64
-```
+| Field   | Type      | Description                                            |
+| ------- | --------- | ------------------------------------------------------ |
+| CenterX | `float64` | Center position (meters)                               |
+| CenterY | `float64` |                                                        |
+| CenterZ | `float64` |                                                        |
+| Length  | `float64` | Extent along local X                                   |
+| Width   | `float64` | Extent along local Y                                   |
+| Height  | `float64` | Extent along local Z                                   |
+| Heading | `float64` | Rotation around Z-axis to align +X with object forward |
 
 ### 1.2 Object label type
 
-```go
-// ObjectLabel represents a ground truth label for a detected object.
-// Matches AV industry standard LiDARBoxComponent structure.
-type ObjectLabel struct {
-    // Identity
-    ObjectID   string `json:"object_id"`   // Globally unique tracking ID
-    FrameID    string `json:"frame_id"`    // Frame context
-    SensorID   string `json:"sensor_id"`   // Source sensor
+**ObjectLabel** fields:
 
-    // Timestamp
-    TimestampMicros int64 `json:"timestamp_micros"`
-
-    // Bounding box (7-DOF)
-    Box BoundingBox7DOF `json:"box"`
-
-    // Classification (AV industry standard 28-class taxonomy)
-    ObjectType      AVObjectClass `json:"object_type"`      // Fine-grained class
-    ObjectCategory  AVCategory    `json:"object_category"`  // High-level category
-    DifficultyLevel int              `json:"difficulty_level"` // 1=easy, 2=moderate, 3=hard
-
-    // LiDAR metadata
-    NumLidarPointsInBox int  `json:"num_lidar_points_in_box"`
-    InNoLabelZone       bool `json:"in_no_label_zone"`
-
-    // Occlusion and truncation (for training data quality)
-    OcclusionLevel    OcclusionLevel `json:"occlusion_level"`    // NONE, PARTIAL, HEAVY
-    TruncationLevel   float32        `json:"truncation_level"`   // 0.0-1.0 (portion outside FOV)
-
-    // Shape completion metadata (see Phase 7: Occlusion Handling and Shape Completion)
-    IsShapeCompleted  bool    `json:"is_shape_completed"`   // True if box was estimated
-    CompletionMethod  string  `json:"completion_method"`    // "observed", "symmetric", "model"
-    CompletionScore   float32 `json:"completion_score"`     // Confidence in completed shape
-}
-
-// AVObjectClass enum matching AV industry standard 28 fine-grained categories
-type AVObjectClass int
-
-const (
-    // Instance-segmented classes (tracked across frames)
-    AVTypeCar              AVObjectClass = 1
-    AVTypeBus              AVObjectClass = 2
-    AVTypeTruck            AVObjectClass = 3
-    AVTypeOtherLargeVehicle AVObjectClass = 4
-    AVTypeTrailer          AVObjectClass = 5
-    AVTypeEgoVehicle       AVObjectClass = 6
-    AVTypeMotorcycle       AVObjectClass = 7
-    AVTypeBicycle          AVObjectClass = 8
-    AVTypePedestrian       AVObjectClass = 9
-    AVTypeCyclist          AVObjectClass = 10
-    AVTypeMotorcyclist     AVObjectClass = 11
-
-    // Non-instance classes (semantic only)
-    AVTypeGroundAnimal     AVObjectClass = 12
-    AVTypeBird             AVObjectClass = 13
-    AVTypePole             AVObjectClass = 14
-    AVTypeSign             AVObjectClass = 15
-    AVTypeTrafficLight     AVObjectClass = 16
-    AVTypeConstructionCone AVObjectClass = 17
-    AVTypePedestrianObject AVObjectClass = 18
-    AVTypeBuilding         AVObjectClass = 19
-    AVTypeRoad             AVObjectClass = 20
-    AVTypeSidewalk         AVObjectClass = 21
-    AVTypeRoadMarker       AVObjectClass = 22
-    AVTypeLaneMarker       AVObjectClass = 23
-    AVTypeVegetation       AVObjectClass = 24
-    AVTypeSky              AVObjectClass = 25
-    AVTypeGround           AVObjectClass = 26
-    AVTypeStatic           AVObjectClass = 27
-    AVTypeDynamic          AVObjectClass = 28
-
-    AVTypeUnknown          AVObjectClass = 0
-)
-
-// AVCategory represents high-level object categories for instance segmentation
-type AVCategory int
-
-const (
-    AVCategoryUnknown    AVCategory = 0
-    AVCategoryVehicle    AVCategory = 1  // Car, Bus, Truck, etc.
-    AVCategoryPedestrian AVCategory = 2  // Pedestrian, Pedestrian Object
-    AVCategoryCyclist    AVCategory = 3  // Cyclist, Motorcyclist
-    AVCategorySign       AVCategory = 4  // Sign, Traffic Light
-    AVCategoryAnimal     AVCategory = 5  // Ground Animal, Bird
-    AVCategoryStatic     AVCategory = 6  // Infrastructure, vegetation
-)
-
-// OcclusionLevel indicates how much of an object is hidden from view
-type OcclusionLevel int
-
-const (
-    OcclusionNone    OcclusionLevel = 0  // Fully visible (>90% of points expected)
-    OcclusionPartial OcclusionLevel = 1  // Partially occluded (50-90% visible)
-    OcclusionHeavy   OcclusionLevel = 2  // Heavily occluded (<50% visible)
-)
-
-// GetCategory returns the high-level category for a fine-grained object class
-func (c AVObjectClass) GetCategory() AVCategory {
-    switch c {
-    case AVTypeCar, AVTypeBus, AVTypeTruck, AVTypeOtherLargeVehicle,
-         AVTypeTrailer, AVTypeEgoVehicle, AVTypeMotorcycle, AVTypeBicycle:
-        return AVCategoryVehicle
-    case AVTypePedestrian, AVTypePedestrianObject:
-        return AVCategoryPedestrian
-    case AVTypeCyclist, AVTypeMotorcyclist:
-        return AVCategoryCyclist
-    case AVTypeSign, AVTypeTrafficLight:
-        return AVCategorySign
-    case AVTypeGroundAnimal, AVTypeBird:
-        return AVCategoryAnimal
-    case AVTypePole, AVTypeConstructionCone, AVTypeBuilding, AVTypeRoad,
-         AVTypeSidewalk, AVTypeRoadMarker, AVTypeLaneMarker, AVTypeVegetation,
-         AVTypeSky, AVTypeGround, AVTypeStatic:
-        return AVCategoryStatic
-    case AVTypeDynamic:
-        return AVCategoryUnknown
-    default:
-        return AVCategoryUnknown
-    }
-}
-
-// IsInstanceSegmented returns true if this class has instance-level tracking
-func (c AVObjectClass) IsInstanceSegmented() bool {
-    switch c {
-    case AVTypeCar, AVTypeBus, AVTypeTruck, AVTypeOtherLargeVehicle,
-         AVTypeTrailer, AVTypeMotorcycle, AVTypeBicycle,
-         AVTypePedestrian, AVTypeCyclist, AVTypeMotorcyclist,
-         AVTypePedestrianObject:
-        return true
-    default:
-        return false
-    }
-}
-```
+| Field               | Type              | Description                      |
+| ------------------- | ----------------- | -------------------------------- |
+| ObjectID            | `string`          | Globally unique tracking ID      |
+| FrameID             | `string`          | Frame context                    |
+| SensorID            | `string`          | Source sensor                    |
+| TimestampMicros     | `int64`           | Timestamp                        |
+| Box                 | `BoundingBox7DOF` | Bounding box (7-DOF)             |
+| ObjectType          | `AVObjectClass`   | Fine-grained class               |
+| ObjectCategory      | `AVCategory`      | High-level category              |
+| DifficultyLevel     | `int`             | 1=easy, 2=moderate, 3=hard       |
+| NumLidarPointsInBox | `int`             | LiDAR metadata                   |
+| InNoLabelZone       | `bool`            |                                  |
+| OcclusionLevel      | `OcclusionLevel`  | NONE, PARTIAL, HEAVY             |
+| TruncationLevel     | `float32`         | 0.0-1.0 (portion outside FOV)    |
+| IsShapeCompleted    | `bool`            | True if box was estimated        |
+| CompletionMethod    | `string`          | "observed", "symmetric", "model" |
+| CompletionScore     | `float32`         | Confidence in completed shape    |
 
 ### 1.3 LabeledFrame type
 
-```go
-// LabeledFrame represents a single LIDAR frame with ground truth labels.
-// This is the primary unit for ML training data.
-type LabeledFrame struct {
-    // Frame identity
-    ContextName     string `json:"context_name"`     // Dataset segment name
-    FrameTimestamp  int64  `json:"frame_timestamp"`  // Microseconds
-    SequenceIndex   int    `json:"sequence_index"`   // Frame index in sequence
+**LabeledFrame** fields:
 
-    // Coordinate transforms
-    VehiclePose [16]float64 `json:"vehicle_pose"` // 4x4 vehicle-to-world matrix
-
-    // Ground truth labels
-    Labels []ObjectLabel `json:"labels"`
-
-    // No Label Zones (polygons in global frame)
-    NoLabelZones []NoLabelZone `json:"no_label_zones,omitempty"`
-
-    // Point cloud metadata (not the full cloud)
-    NumPoints       int `json:"num_points"`
-    NumPointsReturn1 int `json:"num_points_return1"`
-    NumPointsReturn2 int `json:"num_points_return2"`
-    NumPointsInNLZ  int `json:"num_points_in_nlz"`
-}
-```
+| Field            | Type            | Description                               |
+| ---------------- | --------------- | ----------------------------------------- |
+| ContextName      | `string`        | Dataset segment name                      |
+| FrameTimestamp   | `int64`         | Microseconds                              |
+| SequenceIndex    | `int`           | Frame index in sequence                   |
+| VehiclePose      | `[16]float64`   | 4x4 vehicle-to-world matrix               |
+| Labels           | `[]ObjectLabel` | Ground truth labels                       |
+| NoLabelZones     | `[]NoLabelZone` | No Label Zones (polygons in global frame) |
+| NumPoints        | `int`           | Point cloud metadata (not the full cloud) |
+| NumPointsReturn1 | `int`           |                                           |
+| NumPointsReturn2 | `int`           |                                           |
+| NumPointsInNLZ   | `int`           |                                           |
 
 ### 1.4 Extend worldCluster with heading
 
@@ -359,15 +215,11 @@ type LabeledFrame struct {
 
 Add the following fields to the existing `WorldCluster` struct:
 
-```go
-// Fields to add to existing WorldCluster struct:
-
-    // Heading angle (radians, [-π, π])
-    // Computed from principal component analysis or velocity
-    Heading           float32 `json:"heading"`
-    HeadingSource     string  `json:"heading_source"`     // "pca", "velocity", "none"
-    HeadingConfidence float32 `json:"heading_confidence"`
-```
+| Field             | Type      | Description               |
+| ----------------- | --------- | ------------------------- |
+| Heading           | `float32` |                           |
+| HeadingSource     | `string`  | "pca", "velocity", "none" |
+| HeadingConfidence | `float32` |                           |
 
 These fields extend the existing WorldCluster (defined in `clustering.go`) to support orientation information needed for AV standard compatibility.
 
@@ -381,86 +233,53 @@ These fields extend the existing WorldCluster (defined in `clustering.go`) to su
 
 **File:** `internal/db/migrations/000014_av_integration.up.sql`
 
-```sql
--- Ground truth labels table (for AV dataset import)
-CREATE TABLE IF NOT EXISTS lidar_ground_truth_labels (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    context_name TEXT NOT NULL,
-    frame_timestamp_micros INTEGER NOT NULL,
-    object_id TEXT NOT NULL,
+**lidar_frame_metadata** columns:
 
-    -- 7-DOF bounding box
-    center_x REAL NOT NULL,
-    center_y REAL NOT NULL,
-    center_z REAL NOT NULL,
-    length REAL NOT NULL,
-    width REAL NOT NULL,
-    height REAL NOT NULL,
-    heading REAL NOT NULL,
+| Column                 | Type      | Notes                     |
+| ---------------------- | --------- | ------------------------- |
+| id                     | `INTEGER` | PRIMARY KEY AUTOINCREMENT |
+| context_name           | `TEXT`    | NOT NULL                  |
+| frame_timestamp_micros | `INTEGER` | NOT NULL                  |
+| object_id              | `TEXT`    | NOT NULL                  |
+| center_x               | `REAL`    | NOT NULL                  |
+| center_y               | `REAL`    | NOT NULL                  |
+| center_z               | `REAL`    | NOT NULL                  |
+| length                 | `REAL`    | NOT NULL                  |
+| width                  | `REAL`    | NOT NULL                  |
+| height                 | `REAL`    | NOT NULL                  |
+| heading                | `REAL`    | NOT NULL                  |
+| object_type            | `INTEGER` | NOT NULL                  |
+| difficulty_level       | `INTEGER` | DEFAULT 1                 |
+| num_lidar_points       | `INTEGER` |                           |
+| in_no_label_zone       | `INTEGER` | DEFAULT 0                 |
+| import_run_id          | `TEXT`    |                           |
+| imported_at            | `INTEGER` | DEFAULT (UNIXEPOCH())     |
+| id                     | `INTEGER` | PRIMARY KEY AUTOINCREMENT |
+| context_name           | `TEXT`    | NOT NULL                  |
+| frame_timestamp_micros | `INTEGER` | NOT NULL                  |
+| zone_index             | `INTEGER` | NOT NULL                  |
+| polygon_vertices_json  | `TEXT`    | NOT NULL                  |
+| import_run_id          | `TEXT`    |                           |
+| imported_at            | `INTEGER` | DEFAULT (UNIXEPOCH())     |
+| id                     | `INTEGER` | PRIMARY KEY AUTOINCREMENT |
+| context_name           | `TEXT`    | NOT NULL                  |
+| frame_timestamp_micros | `INTEGER` | NOT NULL                  |
+| sequence_index         | `INTEGER` |                           |
+| vehicle_pose_json      | `TEXT`    |                           |
+| num_points_total       | `INTEGER` |                           |
+| num_points_return1     | `INTEGER` |                           |
+| num_points_return2     | `INTEGER` |                           |
+| num_points_in_nlz      | `INTEGER` |                           |
+| num_labeled_objects    | `INTEGER` |                           |
+| import_run_id          | `TEXT`    |                           |
+| imported_at            | `INTEGER` | DEFAULT (UNIXEPOCH())     |
 
-    -- Classification
-    object_type INTEGER NOT NULL,
-    difficulty_level INTEGER DEFAULT 1,
-    num_lidar_points INTEGER,
-    in_no_label_zone INTEGER DEFAULT 0,
-
-    -- Import metadata
-    import_run_id TEXT,
-    imported_at INTEGER DEFAULT (UNIXEPOCH()),
-
-    UNIQUE(context_name, frame_timestamp_micros, object_id)
-);
-
-CREATE INDEX idx_gt_labels_context ON lidar_ground_truth_labels(context_name);
-CREATE INDEX idx_gt_labels_timestamp ON lidar_ground_truth_labels(frame_timestamp_micros);
-CREATE INDEX idx_gt_labels_object ON lidar_ground_truth_labels(object_id);
-CREATE INDEX idx_gt_labels_type ON lidar_ground_truth_labels(object_type);
-
--- No Label Zones table
-CREATE TABLE IF NOT EXISTS lidar_no_label_zones (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    context_name TEXT NOT NULL,
-    frame_timestamp_micros INTEGER NOT NULL,
-    zone_index INTEGER NOT NULL,
-
-    -- Polygon vertices (JSON array of [x, y] pairs)
-    polygon_vertices_json TEXT NOT NULL,
-
-    -- Metadata
-    import_run_id TEXT,
-    imported_at INTEGER DEFAULT (UNIXEPOCH()),
-
-    UNIQUE(context_name, frame_timestamp_micros, zone_index)
-);
-
-CREATE INDEX idx_nlz_context ON lidar_no_label_zones(context_name);
-
--- Frame metadata table
-CREATE TABLE IF NOT EXISTS lidar_frame_metadata (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    context_name TEXT NOT NULL,
-    frame_timestamp_micros INTEGER NOT NULL,
-    sequence_index INTEGER,
-
-    -- Vehicle pose (4x4 matrix as JSON array)
-    vehicle_pose_json TEXT,
-
-    -- Point cloud statistics
-    num_points_total INTEGER,
-    num_points_return1 INTEGER,
-    num_points_return2 INTEGER,
-    num_points_in_nlz INTEGER,
-    num_labeled_objects INTEGER,
-
-    -- Import metadata
-    import_run_id TEXT,
-    imported_at INTEGER DEFAULT (UNIXEPOCH()),
-
-    UNIQUE(context_name, frame_timestamp_micros)
-);
-
-CREATE INDEX idx_frame_meta_context ON lidar_frame_metadata(context_name);
-```
+- Index `idx_gt_labels_context` on `lidar_ground_truth_labels` (context_name)
+- Index `idx_gt_labels_timestamp` on `lidar_ground_truth_labels` (frame_timestamp_micros)
+- Index `idx_gt_labels_object` on `lidar_ground_truth_labels` (object_id)
+- Index `idx_gt_labels_type` on `lidar_ground_truth_labels` (object_type)
+- Index `idx_nlz_context` on `lidar_no_label_zones` (context_name)
+- Index `idx_frame_meta_context` on `lidar_frame_metadata` (context_name)
 
 ---
 
@@ -479,45 +298,24 @@ Create a robust Parquet reader for AV standard dataset files.
 - `github.com/parquet-go/parquet-go` (Apache Arrow Parquet for Go)
 - Alternative: `github.com/xitongsys/parquet-go`
 
-```go
 // AVParquetReader reads AV standard dataset Parquet files.
-type AVParquetReader struct {
-    basePath string
-    // Internal reader from parquet-go library
-}
+**AVParquetReader** holds `basePath` and wraps the parquet-go library.
 
-// ReadLidarBoxes reads 3D bounding box labels from lidar_box component.
-func (r *AVParquetReader) ReadLidarBoxes(contextName string) ([]ObjectLabel, error)
-
-// ReadFrameMetadata reads frame-level metadata including poses.
-func (r *AVParquetReader) ReadFrameMetadata(contextName string) ([]LabeledFrame, error)
-
-// ReadNoLabelZones reads NLZ polygons for a context.
-func (r *AVParquetReader) ReadNoLabelZones(contextName string) ([]NoLabelZone, error)
-
-// ListContexts lists all available segment contexts.
-func (r *AVParquetReader) ListContexts() ([]string, error)
-```
+| Method              | Parameters         | Returns               |
+| ------------------- | ------------------ | --------------------- |
+| `ReadLidarBoxes`    | contextName string | []ObjectLabel, error  |
+| `ReadFrameMetadata` | contextName string | []LabeledFrame, error |
+| `ReadNoLabelZones`  | contextName string | []NoLabelZone, error  |
+| `ListContexts`      | (none)             | []string, error       |
 
 ### 2.2 Import command (required)
 
 **File:** `cmd/tools/av-import/main.go`
 
-```go
-// av-import imports AV standard Parquet data into velocity.report database.
-//
-// Usage:
-//   av-import --input /path/to/av/parquet --db sensor_data.db
-//   av-import --input /path/to/av/parquet --components lidar_box,lidar_calibration
-//
-// Flags:
-//   --input       Path to AV standard Parquet dataset directory
-//   --db          Path to SQLite database (default: sensor_data.db)
-//   --components  Comma-separated list of components to import
-//   --context     Import only specific context (segment) name
-//   --dry-run     Validate data without importing
-//   --verbose     Enable verbose logging
-```
+CLI tool that imports AV standard Parquet data into the velocity.report SQLite database. Flags: `--input` (path to AV Parquet dataset directory), `--db` (SQLite database path, default: sensor_data.db), `--components` (comma-separated list of components to import).
+// --context Import only specific context (segment) name
+// --dry-run Validate data without importing
+// --verbose Enable verbose logging
 
 ### 2.3 Component support matrix
 
@@ -549,44 +347,26 @@ Implement NLZ polygon handling and point annotation.
 
 ### 3.1 NoLabelZone type
 
-```go
-// NoLabelZone represents an unlabeled area in a scene.
-// Polygons are in the global (world) frame.
-type NoLabelZone struct {
-    ZoneID  string        `json:"zone_id"`
-    Polygon [][2]float64  `json:"polygon"` // List of [x, y] vertices
-}
+**NoLabelZone** fields:
 
-// ContainsPoint checks if a point is inside the NLZ polygon.
-// Uses ray-casting algorithm for arbitrary (non-convex) polygons.
-func (z *NoLabelZone) ContainsPoint(x, y float64) bool
-
-// Bounds returns the axis-aligned bounding box of the polygon.
-func (z *NoLabelZone) Bounds() (minX, minY, maxX, maxY float64)
-```
+| Field   | Type           | Description                               |
+| ------- | -------------- | ----------------------------------------- |
+| ZoneID  | `string`       | Polygons are in the global (world) frame. |
+| Polygon | `[][2]float64` | List of [x, y] vertices                   |
 
 ### 3.2 Point NLZ annotation
 
-```go
-// AnnotatePointsWithNLZ annotates each point with NLZ membership.
-// Returns a boolean mask where true = point is in an NLZ.
-func AnnotatePointsWithNLZ(points []WorldPoint, zones []NoLabelZone) []bool
-
-// FilterNLZPoints returns points that are NOT in any NLZ.
-func FilterNLZPoints(points []WorldPoint, nlzMask []bool) []WorldPoint
-```
+| Method                  | Parameters                                 | Returns        |
+| ----------------------- | ------------------------------------------ | -------------- |
+| `AnnotatePointsWithNLZ` | `points []WorldPoint, zones []NoLabelZone` | `[]bool`       |
+| `FilterNLZPoints`       | `points []WorldPoint, nlzMask []bool`      | `[]WorldPoint` |
 
 ### 3.3 Prediction NLZ overlap
 
-```go
-// CheckPredictionNLZOverlap checks if a prediction overlaps with NLZ points.
-// This is required for AV standard metrics computation.
-func CheckPredictionNLZOverlap(
-    prediction BoundingBox7DOF,
-    points []WorldPoint,
-    nlzMask []bool,
-) bool
-```
+- CheckPredictionNLZOverlap checks if a prediction overlaps with NLZ points.
+- This is required for AV standard metrics computation.
+
+**CheckPredictionNLZOverlap** algorithm:
 
 ---
 
@@ -600,83 +380,45 @@ Connect AV standard ground truth labels to the ML training pipeline.
 
 **File:** `internal/lidar/av/training_generator.go`
 
-```go
-// AVTrainingGenerator creates training examples from AV standard data.
-type AVTrainingGenerator struct {
-    db          *sql.DB
-    config      TrainingConfig
-}
+**TrainingExample** fields:
 
-// TrainingExample represents a single ML training sample.
-type TrainingExample struct {
-    // Input features
-    PointCloud    []WorldPoint      `json:"point_cloud"`
-    Clusters      []WorldCluster    `json:"clusters"`
-
-    // Ground truth labels
-    Labels        []ObjectLabel     `json:"labels"`
-
-    // Metadata
-    ContextName   string            `json:"context_name"`
-    FrameTimestamp int64            `json:"frame_timestamp"`
-
-    // NLZ mask for points
-    NLZMask       []bool            `json:"nlz_mask,omitempty"`
-}
-
-// GenerateExamples creates training examples from imported AV standard data.
-func (g *AVTrainingGenerator) GenerateExamples(filter TrainingDataFilter) ([]TrainingExample, error)
-
-// ExportTFRecord exports training examples in TFRecord format.
-func (g *AVTrainingGenerator) ExportTFRecord(examples []TrainingExample, outputPath string) error
-
-// ExportParquet exports training examples in Parquet format.
-func (g *AVTrainingGenerator) ExportParquet(examples []TrainingExample, outputPath string) error
-```
+| Field          | Type             | Description                                                          |
+| -------------- | ---------------- | -------------------------------------------------------------------- |
+| db             | `*sql.DB`        | AVTrainingGenerator creates training examples from AV standard data. |
+| config         | `TrainingConfig` |                                                                      |
+| PointCloud     | `[]WorldPoint`   | Input features                                                       |
+| Clusters       | `[]WorldCluster` |                                                                      |
+| Labels         | `[]ObjectLabel`  | Ground truth labels                                                  |
+| ContextName    | `string`         | Metadata                                                             |
+| FrameTimestamp | `int64`          |                                                                      |
+| NLZMask        | `[]bool`         | NLZ mask for points                                                  |
 
 ### 4.2 Label association
 
-```go
-// AssociateClustersWithLabels matches detected clusters to ground truth labels.
-// Uses IoU (Intersection over Union) for matching.
-func AssociateClustersWithLabels(
-    clusters []WorldCluster,
-    labels []ObjectLabel,
-    iouThreshold float64,
-) []ClusterLabelAssociation
+**ClusterLabelAssociation** fields:
 
-type ClusterLabelAssociation struct {
-    ClusterID  int64
-    LabelID    string
-    IoU        float64
-    IsMatch    bool  // IoU >= threshold
-    IsFalsePos bool  // Cluster with no matching label
-    IsFalseNeg bool  // Label with no matching cluster
-}
-```
+| Field      | Type      | Description                    |
+| ---------- | --------- | ------------------------------ |
+| ClusterID  | `int64`   |                                |
+| LabelID    | `string`  |                                |
+| IoU        | `float64` |                                |
+| IsMatch    | `bool`    | IoU >= threshold               |
+| IsFalsePos | `bool`    | Cluster with no matching label |
+| IsFalseNeg | `bool`    | Label with no matching cluster |
 
 ### 4.3 Metrics computation
 
-```go
-// AVMetrics computes AV standard detection metrics.
-type AVMetrics struct{
-    // Per-class metrics
-    VehicleAP        float64 `json:"vehicle_ap"`
-    PedestrianAP     float64 `json:"pedestrian_ap"`
-    CyclistAP        float64 `json:"cyclist_ap"`
-    SignAP           float64 `json:"sign_ap"`
+**AVMetrics** fields:
 
-    // Aggregate metrics
-    MeanAP           float64 `json:"mean_ap"`
-
-    // Tracking metrics (if applicable)
-    MOTA             float64 `json:"mota"` // Multiple Object Tracking Accuracy
-    MOTP             float64 `json:"motp"` // Multiple Object Tracking Precision
-}
-
-// ComputeMetrics computes detection metrics for a set of predictions vs labels.
-func ComputeMetrics(predictions []BoundingBox7DOF, labels []ObjectLabel) AVMetrics
-```
+| Field        | Type      | Description                        |
+| ------------ | --------- | ---------------------------------- |
+| VehicleAP    | `float64` | Per-class metrics                  |
+| PedestrianAP | `float64` |                                    |
+| CyclistAP    | `float64` |                                    |
+| SignAP       | `float64` |                                    |
+| MeanAP       | `float64` | Aggregate metrics                  |
+| MOTA         | `float64` | Multiple Object Tracking Accuracy  |
+| MOTP         | `float64` | Multiple Object Tracking Precision |
 
 ---
 
@@ -690,61 +432,29 @@ Create a command-line tool for analysing LIDAR frames with AV standard-compatibl
 
 **File:** `cmd/tools/frame-analyzer/main.go`
 
-```go
 // frame-analyzer analyzes LIDAR frames for ML training and evaluation.
 //
 // Usage:
-//   frame-analyzer --input /path/to/pcap --output /path/to/analysis
-//   frame-analyzer --dataset /path/to/parquet --output /path/to/analysis
-//   frame-analyzer --compare pred.parquet gt.parquet
+// frame-analyzer --input /path/to/pcap --output /path/to/analysis
+// frame-analyzer --dataset /path/to/parquet --output /path/to/analysis
+// frame-analyzer --compare pred.parquet gt.parquet
 //
 // Modes:
-//   analyze   Process raw LIDAR data (PCAP or live)
-//   evaluate  Compare predictions against AV standard ground truth
-//   export    Export training data in various formats
+// analyze Process raw LIDAR data (PCAP or live)
+// evaluate Compare predictions against AV standard ground truth
+// export Export training data in various formats
 //
 // Flags:
-//   --input        Input PCAP or LIDAR data source
-//   --dataset      AV standard Parquet dataset path
-//   --output       Output directory for analysis results
-//   --format       Output format: json, parquet, tfrecord
-//   --viz          Enable visualization output
-//   --metrics      Compute detection/tracking metrics
-```
+// --input Input PCAP or LIDAR data source
+// --dataset AV standard Parquet dataset path
+// --output Output directory for analysis results
+// --format Output format: json, parquet, tfrecord
+// --viz Enable visualization output
+// --metrics Compute detection/tracking metrics
 
 ### 5.2 Analysis output format
 
-```json
-{
-  "metadata": {
-    "analyzer_version": "1.0",
-    "timestamp": "2025-12-16T00:00:00Z",
-    "source_type": "av_standard_parquet",
-    "context_name": "segment_xxx"
-  },
-  "frames": [
-    {
-      "frame_index": 0,
-      "timestamp_micros": 1234567890,
-      "detections": [...],
-      "ground_truth": [...],
-      "metrics": {
-        "precision": 0.95,
-        "recall": 0.92,
-        "iou_mean": 0.78
-      }
-    }
-  ],
-  "summary": {
-    "total_frames": 100,
-    "total_detections": 1234,
-    "total_ground_truth": 1200,
-    "mean_ap": 0.85
-  }
-}
-```
-
----
+## JSON object with fields: `metadata`, `analyzer_version`, `timestamp`, `source_type`, `context_name`, `frames`, `frame_index`, `timestamp_micros`, `detections`, `ground_truth`, `metrics`, `precision`, `recall`, `iou_mean`, `summary`.
 
 ## Common types and helper functions
 
@@ -752,92 +462,38 @@ This section defines shared types and helper functions used across the clusterin
 
 ### Cluster type
 
-```go
-// Cluster represents a logical grouping of LIDAR points into a candidate object.
-// This type is used as input/output for clustering algorithms.
-// NOTE: In production code, Cluster is defined in internal/lidar/clustering.go.
-type Cluster struct {
-    Points   []WorldPoint  // Points belonging to this cluster
-    Centroid [3]float64    // Cluster centroid [x, y, z]
-    ID       int64         // Unique cluster identifier
-}
-```
+**Cluster** fields:
+
+| Field    | Type           | Description                      |
+| -------- | -------------- | -------------------------------- |
+| Points   | `[]WorldPoint` | Points belonging to this cluster |
+| Centroid | `[3]float64`   | Cluster centroid [x, y, z]       |
+| ID       | `int64`        | Unique cluster identifier        |
 
 ### Helper functions
 
 The following helper functions are used by the algorithms in Phases 6 and 7. These are implemented in the clustering and geometry packages.
 
-```go
-// computeCentroidZ computes the mean Z coordinate of a set of points.
-func computeCentroidZ(points []WorldPoint) float64 {
-    if len(points) == 0 {
-        return 0
-    }
-    var sum float64
-    for _, p := range points {
-        sum += p.Z
-    }
-    return sum / float64(len(points))
-}
+- computeCentroidZ computes the mean Z coordinate of a set of points.
 
-// computeHeightRange computes the vertical extent (max Z - min Z) of a point set.
-func computeHeightRange(points []WorldPoint) float64 {
-    if len(points) == 0 {
-        return 0
-    }
-    minZ, maxZ := points[0].Z, points[0].Z
-    for _, p := range points {
-        if p.Z < minZ {
-            minZ = p.Z
-        }
-        if p.Z > maxZ {
-            maxZ = p.Z
-        }
-    }
-    return maxZ - minZ
-}
+**computeCentroidZ** algorithm:
 
-// variance computes the sample variance of a slice of float64 values.
-func variance(values []float64) float64 {
-    if len(values) == 0 {
-        return 0
-    }
-    var sum, sumSq float64
-    n := float64(len(values))
-    for _, v := range values {
-        sum += v
-        sumSq += v * v
-    }
-    mean := sum / n
-    return (sumSq / n) - (mean * mean)
-}
+- computeHeightRange computes the vertical extent (max Z - min Z) of a point set.
 
-// computeCompletionConfidence estimates confidence in a completed bounding box
-// based on observation quality, prior match, and occlusion level.
-func computeCompletionConfidence(
-    observed, completed BoundingBox7DOF,
-    prior ShapePrior,
-    occlusion OcclusionInfo,
-) float32 {
-    // Base confidence from visibility
-    confidence := occlusion.VisibleFraction
+**computeHeightRange** algorithm:
 
-    // Bonus for close match to prior dimensions
-    lengthDiff := math.Abs(float64(completed.Length) - float64(prior.MeanLength))
-    widthDiff := math.Abs(float64(completed.Width) - float64(prior.MeanWidth))
+- variance computes the sample variance of a slice of float64 values.
 
-    if lengthDiff < float64(prior.StdLength) && widthDiff < float64(prior.StdWidth) {
-        confidence += 0.1 // Good prior match bonus
-    }
+**variance** algorithm:
 
-    // Clamp to valid range
-    if confidence > 1.0 {
-        confidence = 1.0
-    }
+- computeCompletionConfidence estimates confidence in a completed bounding box
+- based on observation quality, prior match, and occlusion level.
 
-    return confidence
-}
-```
+**computeCompletionConfidence** algorithm:
+
+- Base confidence from visibility
+- Bonus for close match to prior dimensions
+- Clamp to valid range
 
 ---
 
@@ -851,71 +507,51 @@ Implement robust clustering algorithms that identify consistent point clusters r
 
 **Pipeline Overview:**
 
-```
 Raw Points → Ground Removal → DBSCAN Clustering → Cluster Merging →
 Shape Estimation → Temporal Association → 7-DOF Box Fitting
-```
-
 **Stage 1: Ground Removal (Prerequisite)**
 
 Ground points must be filtered before clustering to avoid merging ground with objects.
 
-```go
-// GroundRemoval uses RANSAC plane fitting or grid-based height filtering
-type GroundRemover struct {
-    Method            string  // "ransac", "grid", "hybrid"
-    GridResolution    float64 // meters (for grid method)
-    HeightThreshold   float64 // meters above estimated ground
-    RANSACIterations  int     // iterations for plane fitting
-    RANSACThreshold   float64 // inlier distance threshold
-}
+**GroundRemover** fields:
 
-func (gr *GroundRemover) RemoveGround(points []WorldPoint) (nonGround, ground []WorldPoint)
-```
+| Field            | Type      | Description                   |
+| ---------------- | --------- | ----------------------------- |
+| Method           | `string`  | "ransac", "grid", "hybrid"    |
+| GridResolution   | `float64` | meters (for grid method)      |
+| HeightThreshold  | `float64` | meters above estimated ground |
+| RANSACIterations | `int`     | iterations for plane fitting  |
+| RANSACThreshold  | `float64` | inlier distance threshold     |
 
 **Stage 2: DBSCAN with Adaptive Parameters**
 
 Standard DBSCAN with distance-adaptive epsilon for better clustering at varying ranges.
 
-```go
-// AdaptiveDBSCAN adjusts epsilon based on distance from sensor
-type AdaptiveDBSCANParams struct {
-    EpsBase     float64 // Base neighborhood radius at 10m (default: 0.5m)
-    EpsPerMeter float64 // Additional radius per meter of range (default: 0.02)
-    MinPts      int     // Minimum points per cluster (default: 10)
-    MaxEps      float64 // Maximum epsilon cap (default: 2.0m)
-}
+**AdaptiveDBSCANParams** fields:
 
-func AdaptiveDBSCAN(points []WorldPoint, params AdaptiveDBSCANParams) []Cluster {
-    // For each point, compute range-adaptive epsilon
-    // eps(r) = min(EpsBase + EpsPerMeter * r, MaxEps)
-    // where r = sqrt(x² + y² + z²)
-}
-```
+| Field       | Type      | Description                                          |
+| ----------- | --------- | ---------------------------------------------------- |
+| EpsBase     | `float64` | Base neighborhood radius at 10m (default: 0.5m)      |
+| EpsPerMeter | `float64` | Additional radius per meter of range (default: 0.02) |
+| MinPts      | `int`     | Minimum points per cluster (default: 10)             |
+| MaxEps      | `float64` | Maximum epsilon cap (default: 2.0m)                  |
 
 **Stage 3: Cluster Merging for Split Objects**
 
 Large vehicles may be split into multiple clusters due to discontinuities. This stage merges clusters that likely belong to the same object.
 
-```go
-// ClusterMerger identifies and merges over-segmented clusters
-type ClusterMerger struct {
-    MaxMergeDistance    float64 // Max centroid distance for merge candidates (default: 3.0m)
-    MinOverlapRatio     float64 // Min bounding box overlap for merge (default: 0.1)
-    VelocityTolerance   float64 // Max velocity difference for merge (default: 2.0 m/s)
-    HeadingTolerance    float64 // Max heading difference for merge (default: 0.3 rad)
-}
+**MergeCriteria** fields:
 
-// MergeCriteria determines if two clusters should be merged
-type MergeCriteria struct {
-    SpatialProximity    bool    // Centroids within MaxMergeDistance
-    TemporalCoherence   bool    // Similar velocity and heading
-    ShapeCompatibility  bool    // Combined shape is plausible (aspect ratio, size)
-    ConnectedByPoints   bool    // Edge points are within eps distance
-}
-
-func (cm *ClusterMerger) MergeClusters(clusters []Cluster) []Cluster
-```
+| Field              | Type      | Description                                                |
+| ------------------ | --------- | ---------------------------------------------------------- |
+| MaxMergeDistance   | `float64` | Max centroid distance for merge candidates (default: 3.0m) |
+| MinOverlapRatio    | `float64` | Min bounding box overlap for merge (default: 0.1)          |
+| VelocityTolerance  | `float64` | Max velocity difference for merge (default: 2.0 m/s)       |
+| HeadingTolerance   | `float64` | Max heading difference for merge (default: 0.3 rad)        |
+| SpatialProximity   | `bool`    | Centroids within MaxMergeDistance                          |
+| TemporalCoherence  | `bool`    | Similar velocity and heading                               |
+| ShapeCompatibility | `bool`    | Combined shape is plausible (aspect ratio, size)           |
+| ConnectedByPoints  | `bool`    | Edge points are within eps distance                        |
 
 ### 6.2 Euclidean cluster extraction algorithm
 
@@ -923,99 +559,32 @@ func (cm *ClusterMerger) MergeClusters(clusters []Cluster) []Cluster
 
 More efficient than DBSCAN for structured point clouds with known density patterns.
 
-```go
-// EuclideanClusterExtractor performs region-growing clustering
-type EuclideanClusterExtractor struct {
-    ClusterTolerance float64 // Distance threshold for neighbors (default: 0.5m)
-    MinClusterSize   int     // Minimum points per cluster (default: 10)
-    MaxClusterSize   int     // Maximum points per cluster (default: 25000)
+**EuclideanClusterExtractor** fields:
 
-    // Spatial index for efficient neighbor queries
-    spatialIndex *OctreeIndex
-}
-
-func (ece *EuclideanClusterExtractor) Extract(points []WorldPoint) []Cluster {
-    // 1. Build octree spatial index
-    ece.spatialIndex = BuildOctree(points, ece.ClusterTolerance)
-
-    // 2. Region growing from unprocessed seed points
-    clusters := []Cluster{}
-    processed := make([]bool, len(points))
-
-    for i := range points {
-        if processed[i] {
-            continue
-        }
-
-        // Grow region from seed point
-        cluster := ece.growRegion(points, i, processed)
-
-        if len(cluster) >= ece.MinClusterSize && len(cluster) <= ece.MaxClusterSize {
-            clusters = append(clusters, cluster)
-        }
-    }
-
-    return clusters
-}
-
-func (ece *EuclideanClusterExtractor) growRegion(points []WorldPoint, seed int, processed []bool) []int {
-    queue := []int{seed}
-    region := []int{}
-
-    for len(queue) > 0 {
-        idx := queue[0]
-        queue = queue[1:]
-
-        if processed[idx] {
-            continue
-        }
-        processed[idx] = true
-        region = append(region, idx)
-
-        // Find neighbors within tolerance
-        neighbors := ece.spatialIndex.RadiusSearch(points[idx], ece.ClusterTolerance)
-        queue = append(queue, neighbors...)
-    }
-
-    return region
-}
-```
+| Field            | Type           | Description                                      |
+| ---------------- | -------------- | ------------------------------------------------ |
+| ClusterTolerance | `float64`      | Distance threshold for neighbors (default: 0.5m) |
+| MinClusterSize   | `int`          | Minimum points per cluster (default: 10)         |
+| MaxClusterSize   | `int`          | Maximum points per cluster (default: 25000)      |
+| spatialIndex     | `*OctreeIndex` | Spatial index for efficient neighbor queries     |
 
 ### 6.3 Octree spatial index
 
 **Implementation for efficient 3D neighbour queries:**
 
-```go
-// OctreeNode represents a node in the octree spatial index
-type OctreeNode struct {
-    Center      [3]float64    // Center of this node's bounding box
-    HalfSize    float64       // Half the side length of the bounding box
-    Children    [8]*OctreeNode // Child nodes (nil if leaf)
-    Points      []int         // Point indices (only in leaf nodes)
-    IsLeaf      bool
-}
+**OctreeIndex** fields:
 
-// OctreeIndex provides O(log n) neighbor queries for 3D point clouds
-type OctreeIndex struct {
-    Root         *OctreeNode
-    Points       []WorldPoint
-    MaxLeafSize  int     // Max points per leaf before subdivision (default: 32)
-    MaxDepth     int     // Max tree depth (default: 10)
-}
-
-func BuildOctree(points []WorldPoint, resolution float64) *OctreeIndex {
-    // 1. Compute bounding box of all points
-    // 2. Create root node covering bounding box
-    // 3. Recursively subdivide until MaxLeafSize or MaxDepth reached
-}
-
-func (oi *OctreeIndex) RadiusSearch(query WorldPoint, radius float64) []int {
-    // 1. Start at root, check if node bounding box intersects query sphere
-    // 2. If leaf, check each point against radius
-    // 3. If internal, recurse into children that intersect query sphere
-    // Time complexity: O(k log n) where k is number of neighbors
-}
-```
+| Field       | Type             | Description                                          |
+| ----------- | ---------------- | ---------------------------------------------------- |
+| Center      | `[3]float64`     | Center of this node's bounding box                   |
+| HalfSize    | `float64`        | Half the side length of the bounding box             |
+| Children    | `[8]*OctreeNode` | Child nodes (nil if leaf)                            |
+| Points      | `[]int`          | Point indices (only in leaf nodes)                   |
+| IsLeaf      | `bool`           |                                                      |
+| Root        | `*OctreeNode`    |                                                      |
+| Points      | `[]WorldPoint`   |                                                      |
+| MaxLeafSize | `int`            | Max points per leaf before subdivision (default: 32) |
+| MaxDepth    | `int`            | Max tree depth (default: 10)                         |
 
 ---
 
@@ -1031,45 +600,19 @@ Handle partial observations where portions of an object are not "illuminated" by
 
 **Occlusion Classification:**
 
-```go
-// OcclusionAnalyzer determines which portions of an object are visible
-type OcclusionAnalyzer struct {
-    SensorPosition [3]float64 // Sensor location in world frame
-}
+**OcclusionInfo** fields:
 
-// OcclusionInfo describes visibility of object surfaces
-type OcclusionInfo struct {
-    // Visible surfaces (relative to object heading)
-    FrontVisible    bool    // Front face illuminated
-    BackVisible     bool    // Back face illuminated (rare)
-    LeftVisible     bool    // Left side illuminated
-    RightVisible    bool    // Right side illuminated
-    TopVisible      bool    // Top surface illuminated
-
-    // Visibility metrics
-    VisibleFraction float32 // Estimated fraction of surface visible [0, 1]
-    OcclusionAngle  float32 // Angle from sensor to object centroid
-
-    // Point distribution
-    PointCoverage   [6]int  // Point count per face (front, back, left, right, top, bottom)
-}
-
-func (oa *OcclusionAnalyzer) AnalyzeOcclusion(cluster Cluster, heading float32) OcclusionInfo {
-    // 1. Compute vector from sensor to cluster centroid
-    toObjectX := cluster.Centroid[0] - oa.SensorPosition[0]
-    toObjectY := cluster.Centroid[1] - oa.SensorPosition[1]
-
-    // 2. Compute angle relative to object heading
-    relativeAngle := float32(math.Atan2(float64(toObjectY), float64(toObjectX))) - heading
-
-    // 3. Determine which faces are potentially visible
-    // Front visible if |relativeAngle| < 90°
-    // Left visible if relativeAngle in [0, 180°]
-    // Right visible if relativeAngle in [-180°, 0]
-
-    // 4. Analyze point distribution to confirm visibility
-}
-```
+| Field           | Type         | Description                                                  |
+| --------------- | ------------ | ------------------------------------------------------------ |
+| SensorPosition  | `[3]float64` | Sensor location in world frame                               |
+| FrontVisible    | `bool`       | Front face illuminated                                       |
+| BackVisible     | `bool`       | Back face illuminated (rare)                                 |
+| LeftVisible     | `bool`       | Left side illuminated                                        |
+| RightVisible    | `bool`       | Right side illuminated                                       |
+| TopVisible      | `bool`       | Top surface illuminated                                      |
+| VisibleFraction | `float32`    | Estimated fraction of surface visible [0, 1]                 |
+| OcclusionAngle  | `float32`    | Angle from sensor to object centroid                         |
+| PointCoverage   | `[6]int`     | Point count per face (front, back, left, right, top, bottom) |
 
 ### 7.2 Shape completion algorithms
 
@@ -1077,349 +620,61 @@ func (oa *OcclusionAnalyzer) AnalyzeOcclusion(cluster Cluster, heading float32) 
 
 Most vehicles and many objects exhibit bilateral symmetry. Use visible points to estimate the hidden half.
 
-```go
-// SymmetricCompletion estimates full bounding box from partial observation
-type SymmetricCompletion struct {
-    MinVisibleFraction  float32 // Minimum visible fraction to attempt completion (default: 0.3)
-    SymmetryAxis        int     // 0=X (along heading), 1=Y (lateral)
-}
+**SymmetricCompletion** fields:
 
-func (sc *SymmetricCompletion) CompleteBox(
-    observedPoints []WorldPoint,
-    observedBox BoundingBox7DOF,
-    occlusion OcclusionInfo,
-) (completedBox BoundingBox7DOF, confidence float32) {
-
-    // Case 1: Only front/back visible (seeing length, need width)
-    if (occlusion.FrontVisible || occlusion.BackVisible) &&
-       !occlusion.LeftVisible && !occlusion.RightVisible {
-        // Width is underestimated; double the observed half-width
-        observedHalfWidth := observedBox.Width / 2
-        completedBox.Width = observedHalfWidth * 2
-
-        // Shift centroid to estimated true center
-        // (centroid moves perpendicular to heading)
-        confidence = 0.7 // Lower confidence for width estimation
-    }
-
-    // Case 2: Only side visible (seeing width, need length)
-    if (occlusion.LeftVisible || occlusion.RightVisible) &&
-       !occlusion.FrontVisible && !occlusion.BackVisible {
-        // Length is underestimated; use class priors
-        // (see Model-Based Completion below)
-        confidence = 0.6
-    }
-
-    // Case 3: Corner view (front + side visible)
-    if (occlusion.FrontVisible || occlusion.BackVisible) &&
-       (occlusion.LeftVisible || occlusion.RightVisible) {
-        // Good observation - use observed dimensions with minor correction
-        completedBox = observedBox
-        confidence = 0.85
-    }
-
-    return completedBox, confidence
-}
-```
+| Field              | Type      | Description                                                   |
+| ------------------ | --------- | ------------------------------------------------------------- |
+| MinVisibleFraction | `float32` | Minimum visible fraction to attempt completion (default: 0.3) |
+| SymmetryAxis       | `int`     | 0=X (along heading), 1=Y (lateral)                            |
 
 **Algorithm 2: Model-Based Completion (Class Priors)**
 
 Use learned class-specific shape priors to complete boxes when symmetry is insufficient.
 
-```go
-// ModelBasedCompletion uses class priors for shape estimation
-type ModelBasedCompletion struct {
-    ClassPriors map[AVObjectClass]ShapePrior
-}
+**ShapePrior** fields:
 
-// ShapePrior encodes typical dimensions for an object class
-type ShapePrior struct {
-    // Mean dimensions (meters)
-    MeanLength float32
-    MeanWidth  float32
-    MeanHeight float32
-
-    // Standard deviations (for confidence estimation)
-    StdLength  float32
-    StdWidth   float32
-    StdHeight  float32
-
-    // Aspect ratio constraints
-    MinAspectRatio float32 // length/width
-    MaxAspectRatio float32
-}
-
-// DefaultClassPriors returns AV industry standard shape priors
-func DefaultClassPriors() map[AVObjectClass]ShapePrior {
-    return map[AVObjectClass]ShapePrior{
-        AVTypeCar: {
-            MeanLength: 4.5, MeanWidth: 1.8, MeanHeight: 1.5,
-            StdLength: 0.5, StdWidth: 0.15, StdHeight: 0.2,
-            MinAspectRatio: 1.8, MaxAspectRatio: 3.0,
-        },
-        AVTypeTruck: {
-            MeanLength: 6.5, MeanWidth: 2.2, MeanHeight: 2.5,
-            StdLength: 1.5, StdWidth: 0.3, StdHeight: 0.5,
-            MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
-        },
-        AVTypeBus: {
-            MeanLength: 12.0, MeanWidth: 2.5, MeanHeight: 3.2,
-            StdLength: 2.0, StdWidth: 0.2, StdHeight: 0.3,
-            MinAspectRatio: 3.5, MaxAspectRatio: 6.0,
-        },
-        AVTypePedestrian: {
-            MeanLength: 0.5, MeanWidth: 0.5, MeanHeight: 1.7,
-            StdLength: 0.2, StdWidth: 0.2, StdHeight: 0.2,
-            MinAspectRatio: 0.6, MaxAspectRatio: 1.5,
-        },
-        AVTypeCyclist: {
-            MeanLength: 1.8, MeanWidth: 0.6, MeanHeight: 1.7,
-            StdLength: 0.3, StdWidth: 0.1, StdHeight: 0.2,
-            MinAspectRatio: 2.0, MaxAspectRatio: 4.0,
-        },
-        AVTypeBicycle: {
-            MeanLength: 1.7, MeanWidth: 0.5, MeanHeight: 1.0,
-            StdLength: 0.2, StdWidth: 0.1, StdHeight: 0.1,
-            MinAspectRatio: 2.5, MaxAspectRatio: 4.5,
-        },
-        AVTypeMotorcycle: {
-            MeanLength: 2.2, MeanWidth: 0.8, MeanHeight: 1.4,
-            StdLength: 0.3, StdWidth: 0.15, StdHeight: 0.2,
-            MinAspectRatio: 2.0, MaxAspectRatio: 3.5,
-        },
-    }
-}
-
-func (mbc *ModelBasedCompletion) CompleteBox(
-    observedBox BoundingBox7DOF,
-    objectClass AVObjectClass,
-    occlusion OcclusionInfo,
-) (completedBox BoundingBox7DOF, confidence float32) {
-
-    prior, exists := mbc.ClassPriors[objectClass]
-    if !exists {
-        return observedBox, 0.3 // Low confidence fallback
-    }
-
-    completedBox = observedBox
-
-    // Complete length if underobserved
-    if occlusion.VisibleFraction < 0.5 {
-        // Blend observed and prior based on visibility
-        observedWeight := occlusion.VisibleFraction
-        priorWeight := 1.0 - observedWeight
-
-        completedBox.Length = float64(observedWeight)*observedBox.Length +
-                              float64(priorWeight)*float64(prior.MeanLength)
-        completedBox.Width = float64(observedWeight)*observedBox.Width +
-                             float64(priorWeight)*float64(prior.MeanWidth)
-    }
-
-    // Enforce aspect ratio constraints
-    aspectRatio := float32(completedBox.Length / completedBox.Width)
-    if aspectRatio < prior.MinAspectRatio {
-        completedBox.Length = completedBox.Width * float64(prior.MinAspectRatio)
-    } else if aspectRatio > prior.MaxAspectRatio {
-        completedBox.Width = completedBox.Length / float64(prior.MaxAspectRatio)
-    }
-
-    // Confidence based on observation quality and prior match
-    confidence = computeCompletionConfidence(observedBox, completedBox, prior, occlusion)
-
-    return completedBox, confidence
-}
-```
+| Field          | Type                           | Description                                                 |
+| -------------- | ------------------------------ | ----------------------------------------------------------- |
+| ClassPriors    | `map[AVObjectClass]ShapePrior` | ModelBasedCompletion uses class priors for shape estimation |
+| MeanLength     | `float32`                      | Mean dimensions (meters)                                    |
+| MeanWidth      | `float32`                      |                                                             |
+| MeanHeight     | `float32`                      |                                                             |
+| StdLength      | `float32`                      | Standard deviations (for confidence estimation)             |
+| StdWidth       | `float32`                      |                                                             |
+| StdHeight      | `float32`                      |                                                             |
+| MinAspectRatio | `float32`                      | length/width                                                |
+| MaxAspectRatio | `float32`                      |                                                             |
 
 ### 7.3 Temporal consistency for shape refinement
 
 Use multi-frame observations to refine shape estimates as an object moves and reveals different surfaces.
 
-```go
-// TemporalShapeRefiner maintains shape estimates across frames
-type TemporalShapeRefiner struct {
-    // Running estimates per tracked object
-    ShapeEstimates map[string]*ShapeEstimate // trackID -> estimate
+**ShapeEstimate** fields:
 
-    // Configuration
-    DecayFactor     float32 // Weight decay for old observations (default: 0.9)
-    MinObservations int     // Min frames before confident estimate (default: 3)
-}
-
-// ShapeEstimate tracks accumulated shape evidence
-type ShapeEstimate struct {
-    // Weighted running averages
-    LengthSum, LengthWeight float64
-    WidthSum, WidthWeight   float64
-    HeightSum, HeightWeight float64
-
-    // Best observation (highest visibility)
-    BestVisibility float32
-    BestBox        BoundingBox7DOF
-
-    // Observation history
-    ObservationCount int
-    SurfacesCovered  map[string]bool // Which surfaces have been observed
-}
-
-func (tsr *TemporalShapeRefiner) UpdateEstimate(
-    trackID string,
-    observedBox BoundingBox7DOF,
-    occlusion OcclusionInfo,
-    timestamp int64,
-) BoundingBox7DOF {
-
-    estimate, exists := tsr.ShapeEstimates[trackID]
-    if !exists {
-        estimate = &ShapeEstimate{
-            SurfacesCovered: make(map[string]bool),
-        }
-        tsr.ShapeEstimates[trackID] = estimate
-    }
-
-    // Weight by visibility fraction
-    weight := float64(occlusion.VisibleFraction)
-
-    // Update running averages
-    estimate.LengthSum += observedBox.Length * weight
-    estimate.LengthWeight += weight
-    estimate.WidthSum += observedBox.Width * weight
-    estimate.WidthWeight += weight
-    estimate.HeightSum += observedBox.Height * weight
-    estimate.HeightWeight += weight
-
-    // Track which surfaces have been observed
-    if occlusion.FrontVisible { estimate.SurfacesCovered["front"] = true }
-    if occlusion.BackVisible  { estimate.SurfacesCovered["back"] = true }
-    if occlusion.LeftVisible  { estimate.SurfacesCovered["left"] = true }
-    if occlusion.RightVisible { estimate.SurfacesCovered["right"] = true }
-
-    estimate.ObservationCount++
-
-    // Update best observation
-    if occlusion.VisibleFraction > estimate.BestVisibility {
-        estimate.BestVisibility = occlusion.VisibleFraction
-        estimate.BestBox = observedBox
-    }
-
-    // Return refined estimate
-    return tsr.computeRefinedBox(estimate)
-}
-
-func (tsr *TemporalShapeRefiner) computeRefinedBox(est *ShapeEstimate) BoundingBox7DOF {
-    refined := BoundingBox7DOF{}
-
-    if est.LengthWeight > 0 {
-        refined.Length = est.LengthSum / est.LengthWeight
-    }
-    if est.WidthWeight > 0 {
-        refined.Width = est.WidthSum / est.WidthWeight
-    }
-    if est.HeightWeight > 0 {
-        refined.Height = est.HeightSum / est.HeightWeight
-    }
-
-    // Use best observation for center and heading
-    refined.CenterX = est.BestBox.CenterX
-    refined.CenterY = est.BestBox.CenterY
-    refined.CenterZ = est.BestBox.CenterZ
-    refined.Heading = est.BestBox.Heading
-
-    return refined
-}
-```
+| Field                   | Type                        | Description                                       |
+| ----------------------- | --------------------------- | ------------------------------------------------- |
+| ShapeEstimates          | `map[string]*ShapeEstimate` | trackID -> estimate                               |
+| DecayFactor             | `float32`                   | Weight decay for old observations (default: 0.9)  |
+| MinObservations         | `int`                       | Min frames before confident estimate (default: 3) |
+| LengthSum, LengthWeight | `float64`                   | Weighted running averages                         |
+| WidthSum, WidthWeight   | `float64`                   |                                                   |
+| HeightSum, HeightWeight | `float64`                   |                                                   |
+| BestVisibility          | `float32`                   | Best observation (highest visibility)             |
+| BestBox                 | `BoundingBox7DOF`           |                                                   |
+| ObservationCount        | `int`                       | Observation history                               |
+| SurfacesCovered         | `map[string]bool`           | Which surfaces have been observed                 |
 
 ### 7.4 L-Shape fitting for vehicles
 
 Classic algorithm for estimating vehicle bounding boxes from corner observations.
 
-```go
-// LShapeFitter fits oriented bounding boxes to vehicle-like point patterns
-type LShapeFitter struct {
-    MinPointsPerEdge  int     // Min points to detect an edge (default: 5)
-    AngleTolerance    float64 // Tolerance for perpendicular edges (default: 0.1 rad)
-    EdgeSearchAngles  int     // Number of angles to search (default: 180)
-}
+**LShapeFitter** fields:
 
-func (lsf *LShapeFitter) FitLShape(points []WorldPoint) (BoundingBox7DOF, float32) {
-    // 1. Search for optimal heading angle
-    bestHeading := 0.0
-    bestScore := 0.0
-
-    for i := 0; i < lsf.EdgeSearchAngles; i++ {
-        heading := float64(i) * math.Pi / float64(lsf.EdgeSearchAngles)
-        score := lsf.evaluateHeading(points, heading)
-        if score > bestScore {
-            bestScore = score
-            bestHeading = heading
-        }
-    }
-
-    // 2. Project points onto best heading axes
-    cos_h := math.Cos(bestHeading)
-    sin_h := math.Sin(bestHeading)
-
-    var minAlong, maxAlong, minPerp, maxPerp float64
-    minAlong, minPerp = math.MaxFloat64, math.MaxFloat64
-    maxAlong, maxPerp = -math.MaxFloat64, -math.MaxFloat64
-
-    for _, p := range points {
-        along := p.X*cos_h + p.Y*sin_h      // Along heading
-        perp  := -p.X*sin_h + p.Y*cos_h     // Perpendicular
-
-        minAlong = math.Min(minAlong, along)
-        maxAlong = math.Max(maxAlong, along)
-        minPerp = math.Min(minPerp, perp)
-        maxPerp = math.Max(maxPerp, perp)
-    }
-
-    // 3. Construct bounding box
-    length := maxAlong - minAlong
-    width := maxPerp - minPerp
-    centerAlong := (minAlong + maxAlong) / 2
-    centerPerp := (minPerp + maxPerp) / 2
-
-    box := BoundingBox7DOF{
-        CenterX: centerAlong*cos_h - centerPerp*sin_h,
-        CenterY: centerAlong*sin_h + centerPerp*cos_h,
-        CenterZ: computeCentroidZ(points),
-        Length:  length,
-        Width:   width,
-        Height:  computeHeightRange(points),
-        Heading: bestHeading,
-    }
-
-    confidence := float32(bestScore)
-    return box, confidence
-}
-
-func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) float64 {
-    // Score based on:
-    // 1. Point distribution along edges (variance perpendicular to edges)
-    // 2. L-shape detection (perpendicular edge detected)
-    // 3. Edge point density
-
-    cos_h := math.Cos(heading)
-    sin_h := math.Sin(heading)
-
-    // Project points
-    var along, perp []float64
-    for _, p := range points {
-        along = append(along, p.X*cos_h + p.Y*sin_h)
-        perp = append(perp, -p.X*sin_h + p.Y*cos_h)
-    }
-
-    // Compute variance ratio (good heading = low variance along edges)
-    varAlong := variance(along)
-    varPerp := variance(perp)
-
-    // Score: higher variance ratio = better edge alignment
-    if varAlong < 0.01 || varPerp < 0.01 {
-        return 0
-    }
-
-    return math.Max(varAlong/varPerp, varPerp/varAlong)
-}
-```
+| Field            | Type      | Description                                          |
+| ---------------- | --------- | ---------------------------------------------------- |
+| MinPointsPerEdge | `int`     | Min points to detect an edge (default: 5)            |
+| AngleTolerance   | `float64` | Tolerance for perpendicular edges (default: 0.1 rad) |
+| EdgeSearchAngles | `int`     | Number of angles to search (default: 180)            |
 
 ---
 
@@ -1463,7 +718,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 ### Phase 1: core data structures (week 1-2)
 
 - [ ] Create `av_types.go` with BoundingBox7DOF, ObjectLabel, LabeledFrame
-- [ ] Implement AV industry standard 28-class object taxonomy
+- [ ] Implement AV industry standard object taxonomy (see [classification-maths.md §11](../../data/maths/classification-maths.md))
 - [ ] Extend WorldCluster with heading angle
 - [ ] Add database migrations for ground truth tables
 - [ ] Unit tests for box math (IoU, containment)
@@ -1548,24 +803,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ### Python SDK (reference, not required)
 
-```python
-# Example for common AV dataset formats
-# Install appropriate dataset SDK (e.g., pip install av-dataset-tools)
-
-import av_dataset
-from av_dataset import perception
-
-# Read lidar boxes
-lidar_box_df = av_dataset.dataframe_for_component(
-    context_name='segment_xxx',
-    component='lidar_box'
-)
-
-# Access 7-DOF box
-for _, row in lidar_box_df.iterrows():
-    box = perception.LiDARBoxComponent.from_dict(row)
-    print(box.box.center.x, box.box.size.x, box.box.heading)
-```
+Example workflow for common AV dataset formats: install the dataset SDK (e.g., `pip install av-dataset-tools`), then use `av_dataset.dataframe_for_component()` to read lidar boxes by context name and component. Each row yields a `LiDARBoxComponent` with 7-DOF box centre, size, and heading attributes.
 
 ### Data access
 
@@ -1577,26 +815,24 @@ for _, row in lidar_box_df.iterrows():
 
 ## Appendix b: file structure after implementation
 
-```
 velocity.report/
 ├── internal/lidar/
-│   ├── av/
-│   │   ├── parquet_reader.go
-│   │   ├── parquet_reader_test.go
-│   │   ├── training_generator.go
-│   │   └── training_generator_test.go
-│   ├── av_types.go              # BoundingBox7DOF, ObjectLabel
-│   ├── av_types_test.go
-│   ├── nlz.go                   # NoLabelZone support
-│   ├── nlz_test.go
-│   └── docs/
-│       └── av-lidar-integration-plan.md  # This document
+│ ├── av/
+│ │ ├── parquet_reader.go
+│ │ ├── parquet_reader_test.go
+│ │ ├── training_generator.go
+│ │ └── training_generator_test.go
+│ ├── av_types.go # BoundingBox7DOF, ObjectLabel
+│ ├── av_types_test.go
+│ ├── nlz.go # NoLabelZone support
+│ ├── nlz_test.go
+│ └── docs/
+│ └── av-lidar-integration-plan.md # This document
 ├── cmd/tools/
-│   ├── av-import/
-│   │   └── main.go
-│   └── frame-analyzer/
-│       └── main.go
+│ ├── av-import/
+│ │ └── main.go
+│ └── frame-analyzer/
+│ └── main.go
 └── internal/db/migrations/
-    ├── 000014_av_integration.up.sql
-    └── 000014_av_integration.down.sql
-```
+├── 000014_av_integration.up.sql
+└── 000014_av_integration.down.sql

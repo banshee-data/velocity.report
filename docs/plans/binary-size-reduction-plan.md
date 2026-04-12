@@ -80,15 +80,7 @@ This phase alone drops the binary from 211 MB to ~39 MB.
 `StaticFiles` is used in production only for `/favicon.ico`. That can be served from
 `WebBuildFiles` (which already contains `favicon.ico`). After the change:
 
-```go
-// assets.go — after
-package radar
-
-import "embed"
-
-//go:embed web/build/*
-var WebBuildFiles embed.FS
-```
+After the change, `assets.go` contains only the `WebBuildFiles` embed directive (`//go:embed web/build/*`). The `StaticFiles` variable and `//go:embed static/*` directive are removed entirely.
 
 Update `internal/api/server.go` to serve `/favicon.ico` from `WebBuildFiles` (production)
 or `./web/build` (dev) instead of `StaticFiles`.
@@ -100,20 +92,12 @@ production binary. Dev mode already reads from the filesystem.
 
 Add to the web build script or Makefile:
 
-```makefile
-build-web:
-	@rm -rf web/build
-	@echo "Building web frontend..."
-	...existing build command...
-```
+The `build-web` target should clean `web/build/` before building (`rm -rf web/build`), then run the existing build command.
 
 For dev mode, add a `clean-static` target or modify the dev server startup to clean
 `static/_app/immutable/` before rebuilding:
 
-```makefile
-clean-static:
-	rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
-```
+A `clean-static` target removes stale immutable assets: `rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*`.
 
 ### 1.3 Dev mode: serve from `web/build/` not `static/`
 
@@ -121,13 +105,7 @@ Change the dev-mode file server to read from `./web/build` instead of `./static`
 This eliminates the need for `static/` entirely and means dev and production share
 the same file tree.
 
-```go
-if devMode {
-    staticHandler = http.FileServer(http.Dir("./web/build"))
-} else {
-    staticHandler = http.FileServer(http.FS(radar.WebBuildFiles))
-}
-```
+In dev mode, the handler serves from the local filesystem at `./web/build` via `http.FileServer(http.Dir("./web/build"))`. In production, it serves from the embedded `radar.WebBuildFiles` via `http.FileServer(http.FS(radar.WebBuildFiles))`.
 
 ### Expected result after phase 1
 
@@ -143,9 +121,7 @@ if devMode {
 The current `LDFLAGS` do not include `-s -w` (strip symbol table and DWARF debug info).
 Adding these to production builds is standard practice:
 
-```makefile
-LDFLAGS_PROD := -s -w $(LDFLAGS)
-```
+Add `-s -w` (strip symbol table and DWARF debug info) to production link flags: `LDFLAGS_PROD := -s -w $(LDFLAGS)`.
 
 Apply to `build-radar-linux` and `build-radar-linux-pcap` targets only (keep debug
 symbols for local/dev builds).
@@ -202,9 +178,9 @@ echo "OK: Binary is ${SIZE_MB} MB (limit: ${MAX_SIZE_MB} MB)"
 
 Wire into `make lint`:
 
-```makefile
-lint: lint-go lint-python lint-web check-binary-size
-```
+| Target | Purpose                                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| `lint` | Add `check-binary-size` to the existing lint dependencies: `lint-go lint-python lint-web check-binary-size` |
 
 ## Phase 4: further reductions (optional, v0.5.x)
 

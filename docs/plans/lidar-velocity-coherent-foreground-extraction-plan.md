@@ -58,81 +58,26 @@
 
 ### Algorithm: nearest-neighbour with velocity constraint
 
-```go
-// PointVelocity represents a point with estimated velocity
-type PointVelocity struct {
-    // Position (world frame)
-    X, Y, Z float64
+**`PointVelocity` struct** — a point with estimated velocity:
 
-    // Estimated velocity (m/s)
-    VX, VY, VZ float64
+| Field                   | Type    | Notes                                |
+| ----------------------- | ------- | ------------------------------------ |
+| `X, Y, Z`               | float64 | Position (world frame)               |
+| `VX, VY, VZ`            | float64 | Estimated velocity (m/s)             |
+| `VelocityConfidence`    | float32 | Confidence [0, 1]                    |
+| `CorrespondingPointIdx` | int     | Index in previous frame (−1 if none) |
+| `TimestampNanos`        | int64   | Point timestamp                      |
 
-    // Confidence [0, 1]
-    VelocityConfidence float32
+**`EstimatePointVelocities` function** — computes per-point velocities from frame correspondence. Accepts `currentFrame`, `previousFrame` (both `[]WorldPoint`), `prevVelocities` (`[]PointVelocity`), `dtSeconds` (float64), and `config` (VelocityEstimationConfig). Returns `[]PointVelocity`.
 
-    // Correspondence metadata
-    CorrespondingPointIdx int   // Index in previous frame (-1 if none)
-    TimestampNanos        int64
-}
+Algorithm:
 
-// EstimatePointVelocities computes per-point velocities from frame correspondence
-func EstimatePointVelocities(
-    currentFrame []WorldPoint,
-    previousFrame []WorldPoint,
-    prevVelocities []PointVelocity,
-    dtSeconds float64,
-    config VelocityEstimationConfig,
-) []PointVelocity {
-
-    result := make([]PointVelocity, len(currentFrame))
-
-    // Build 3D spatial index for previous frame (position-only for correspondence search)
-    prevIndex := NewSpatialIndex(config.SearchRadius)
-    prevIndex.Build(previousFrame)
-
-    for i, curr := range currentFrame {
-        result[i] = PointVelocity{
-            X: curr.X, Y: curr.Y, Z: curr.Z,
-            TimestampNanos: curr.Timestamp.UnixNano(),
-        }
-
-        // Search for correspondence in previous frame
-        // Use predicted position if previous velocity known
-        searchX, searchY := curr.X, curr.Y
-        if len(prevVelocities) > 0 {
-            // Back-project using median velocity from nearby points
-            medianVX, medianVY := estimateLocalVelocity(curr, prevVelocities, config)
-            searchX -= medianVX * dtSeconds
-            searchY -= medianVY * dtSeconds
-        }
-
-        // Find nearest neighbor in previous frame (3D position search)
-        candidates := prevIndex.RegionQuery(previousFrame, i, config.SearchRadius)
-
-        if len(candidates) == 0 {
-            result[i].VelocityConfidence = 0
-            result[i].CorrespondingPointIdx = -1
-            continue
-        }
-
-        // Select best correspondence by combined position + velocity consistency
-        bestIdx, bestScore := selectBestCorrespondence(
-            curr, previousFrame, prevVelocities, candidates, dtSeconds, config,
-        )
-
-        if bestIdx >= 0 {
-            prev := previousFrame[bestIdx]
-            result[i].VX = (curr.X - prev.X) / dtSeconds
-            result[i].VY = (curr.Y - prev.Y) / dtSeconds
-            result[i].VZ = (curr.Z - prev.Z) / dtSeconds
-            result[i].VelocityConfidence = bestScore
-            result[i].CorrespondingPointIdx = bestIdx
-        }
-    }
-
-    return result
-}
-```
+1. Build 3D spatial index for previous frame using `config.SearchRadius`
+2. For each current point, optionally back-project search position using median local velocity from `prevVelocities`
+3. Query previous-frame candidates within `SearchRadius`
+4. If no candidates: confidence 0, index −1
+5. Otherwise, `selectBestCorrespondence` by combined position + velocity consistency
+6. Compute velocity as `(curr − prev) / dt`, assign confidence from match score
 
 ### Velocity confidence scoring
 
@@ -142,50 +87,26 @@ Velocity confidence is computed based on:
 2. **Velocity consistency**: Similar velocity to neighbours increases confidence
 3. **Magnitude plausibility**: Reject physically impossible velocities (>50 m/s for vehicles)
 
-```go
-func computeVelocityConfidence(
-    spatialDist float64,
-    velocityMagnitude float64,
-    neighborVelocityVariance float64,
-    config VelocityEstimationConfig,
-) float32 {
+**`computeVelocityConfidence` function** — combines three factors:
 
-    // Spatial proximity score [0, 1]
-    spatialScore := math.Exp(-spatialDist / config.SearchRadius)
+1. **Spatial proximity score**: $e^{-d / r}$ where $d$ is spatial distance and $r$ is `SearchRadius`
+2. **Velocity plausibility score**: $1 - v / v_{\max}$; returns 0 if $v > v_{\max}$
+3. **Neighbour consistency score**: $e^{-\sigma^2 / \tau}$ where $\sigma^2$ is neighbour velocity variance and $\tau$ is `VelocityVarianceThreshold`
 
-    // Velocity plausibility score [0, 1]
-    if velocityMagnitude > config.MaxVelocityMps {
-        return 0 // Reject implausible velocities
-    }
-    plausibilityScore := 1.0 - (velocityMagnitude / config.MaxVelocityMps)
-
-    // Consistency with neighbors [0, 1]
-    consistencyScore := math.Exp(-neighborVelocityVariance / config.VelocityVarianceThreshold)
-
-    // Combined confidence
-    confidence := float32(spatialScore * plausibilityScore * consistencyScore)
-
-    return confidence
-}
-```
+Final confidence is the product of all three scores, cast to float32.
 
 ### Configuration parameters
 
-```go
-type VelocityEstimationConfig struct {
-    // Search parameters
-    SearchRadius            float64 // meters, default 2.0
-    MaxVelocityMps          float64 // m/s, default 50.0 (vehicle max)
-    VelocityVarianceThreshold float64 // m/s, default 2.0
+**`VelocityEstimationConfig` struct:**
 
-    // Minimum confidence to accept velocity
-    MinConfidence           float32 // default 0.3
-
-    // Neighbor context for local velocity estimation
-    NeighborRadius          float64 // meters, default 1.0
-    MinNeighborsForContext  int     // default 3
-}
-```
+| Field                       | Type    | Default | Purpose                                   |
+| --------------------------- | ------- | ------- | ----------------------------------------- |
+| `SearchRadius`              | float64 | 2.0 m   | Max correspondence search distance        |
+| `MaxVelocityMps`            | float64 | 50.0    | Vehicle max (~180 km/h)                   |
+| `VelocityVarianceThreshold` | float64 | 2.0 m/s | Variance threshold for consistency score  |
+| `MinConfidence`             | float32 | 0.3     | Minimum confidence to accept velocity     |
+| `NeighborRadius`            | float64 | 1.0 m   | Radius for local velocity context         |
+| `MinNeighborsForContext`    | int     | 3       | Minimum neighbours for context estimation |
 
 ### Checklist
 
@@ -217,100 +138,32 @@ Standard DBSCAN operates in 3D (x, y, z). We extend to 6D: (x, y, z, vx, vy, vz)
 
 The key insight is that **two points belong to the same object if they are close in position AND have similar velocities**.
 
-```go
-// VelocityCoherentCluster represents a group of points moving together
-type VelocityCoherentCluster struct {
-    ClusterID int64
+**`VelocityCoherentCluster` struct:**
 
-    // Centroid and velocity (world frame)
-    CentroidX, CentroidY, CentroidZ float64
-    VelocityX, VelocityY, VelocityZ float64
+| Field                              | Type    | Notes                            |
+| ---------------------------------- | ------- | -------------------------------- |
+| `ClusterID`                        | int64   | Unique cluster identifier        |
+| `CentroidX, CentroidY, CentroidZ`  | float64 | World-frame centroid             |
+| `VelocityX, VelocityY, VelocityZ`  | float64 | World-frame velocity (m/s)       |
+| `PointCount`                       | int     | Number of points                 |
+| `VelocityConfidence`               | float32 | Average confidence across points |
+| `PointIndices`                     | []int   | Indices into source array        |
+| `BoundingBoxLength, Width, Height` | float32 | OBB dimensions                   |
+| `HeightP95`                        | float32 | 95th percentile height           |
+| `IntensityMean`                    | float32 | Mean intensity                   |
+| `TSUnixNanos`                      | int64   | Timestamp                        |
 
-    // Cluster statistics
-    PointCount          int
-    VelocityConfidence  float32 // Average confidence across points
+**`DBSCAN6D` function** — clusters points in position-velocity space. Accepts `[]PointVelocity` and `Clustering6DConfig`, returns `[]VelocityCoherentCluster`. Algorithm:
 
-    // Point indices
-    PointIndices []int
-
-    // Bounding box and features (same as WorldCluster)
-    BoundingBoxLength float32
-    BoundingBoxWidth  float32
-    BoundingBoxHeight float32
-    HeightP95         float32
-    IntensityMean     float32
-
-    // Timestamp
-    TSUnixNanos int64
-}
-
-// DBSCAN6D clusters points in position-velocity space
-func DBSCAN6D(
-    points []PointVelocity,
-    config Clustering6DConfig,
-) []VelocityCoherentCluster {
-
-    n := len(points)
-    labels := make([]int, n) // 0=unvisited, -1=noise, >0=clusterID
-    clusterID := 0
-
-    // Build 6D spatial index
-    spatialIndex := NewSpatialIndex6D(config.PositionEps, config.VelocityEps)
-    spatialIndex.Build(points)
-
-    for i := 0; i < n; i++ {
-        if labels[i] != 0 {
-            continue
-        }
-
-        // Region query in 6D space
-        neighbors := spatialIndex.RegionQuery6D(
-            points[i].X, points[i].Y, points[i].Z,
-            points[i].VX, points[i].VY, points[i].VZ,
-            config.PositionEps,
-            config.VelocityEps,
-        )
-
-        // LOWER minimum points threshold (3 instead of 12)
-        if len(neighbors) < config.MinPts {
-            labels[i] = -1 // Noise
-            continue
-        }
-
-        clusterID++
-        expandCluster6D(points, spatialIndex, labels, i, neighbors, clusterID, config)
-    }
-
-    return buildVelocityClusters(points, labels, clusterID)
-}
-```
+1. Build 6D spatial index with separate `PositionEps` and `VelocityEps`
+2. For each unvisited point, run 6D region query (position + velocity)
+3. If neighbours ≥ `MinPts` (default 3, reduced from 12): start new cluster, expand
+4. Otherwise mark as noise
+5. Build `VelocityCoherentCluster` records from labels
 
 ### 6D distance metric
 
-```go
-// Distance6D computes weighted distance in position-velocity space
-func Distance6D(
-    p1, p2 PointVelocity,
-    positionWeight float64, // typically 1.0
-    velocityWeight float64, // typically 2.0 (velocity more important)
-) float64 {
-
-    // Position distance (Euclidean 3D)
-    dx := p1.X - p2.X
-    dy := p1.Y - p2.Y
-    dz := p1.Z - p2.Z
-    positionDist := math.Sqrt(dx*dx + dy*dy + dz*dz)
-
-    // Velocity distance (Euclidean 3D)
-    dvx := p1.VX - p2.VX
-    dvy := p1.VY - p2.VY
-    dvz := p1.VZ - p2.VZ
-    velocityDist := math.Sqrt(dvx*dvx + dvy*dvy + dvz*dvz)
-
-    // Weighted combination
-    return positionWeight*positionDist + velocityWeight*velocityDist
-}
-```
+**`Distance6D` function** — computes weighted distance in position-velocity space. Calculates Euclidean 3D position distance and Euclidean 3D velocity distance separately, then returns `positionWeight * positionDist + velocityWeight * velocityDist` (typically weights 1.0 and 2.0 respectively, making velocity more important).
 
 ### Minimum cluster size reduction
 
@@ -322,23 +175,16 @@ Justification:
 - Human eye can identify objects with 3 consistent points
 - Distant/sparse objects produce fewer returns but still have coherent motion
 
-```go
-type Clustering6DConfig struct {
-    // Spatial clustering parameters
-    PositionEps float64 // meters, default 0.6
-    VelocityEps float64 // m/s, default 1.0
+**`Clustering6DConfig` struct:**
 
-    // REDUCED minimum points (from 12 to 3)
-    MinPts int // default 3
-
-    // Weights for distance metric
-    PositionWeight float64 // default 1.0
-    VelocityWeight float64 // default 2.0
-
-    // Velocity confidence filter
-    MinVelocityConfidence float32 // default 0.3
-}
-```
+| Field                   | Type    | Default | Purpose                                      |
+| ----------------------- | ------- | ------- | -------------------------------------------- |
+| `PositionEps`           | float64 | 0.6 m   | Spatial clustering radius                    |
+| `VelocityEps`           | float64 | 1.0 m/s | Velocity clustering radius                   |
+| `MinPts`                | int     | 3       | Reduced from 12 (velocity confirms identity) |
+| `PositionWeight`        | float64 | 1.0     | Weight for position in distance metric       |
+| `VelocityWeight`        | float64 | 2.0     | Weight for velocity in distance metric       |
+| `MinVelocityConfidence` | float32 | 0.3     | Minimum confidence filter                    |
 
 ### Checklist
 
@@ -371,130 +217,30 @@ Extend track lifetimes to capture:
 
 When a new cluster appears, we check if it matches the predicted position of an object that should be entering the field of view based on its extrapolated trajectory from previous sparse observations.
 
-```go
-// PredictedEntryZone represents an area where objects are expected to appear
-type PredictedEntryZone struct {
-    // Expected position (extrapolated from velocity)
-    PredictedX, PredictedY float64
+**`PredictedEntryZone` struct** — fields: `PredictedX, PredictedY` (extrapolated position), `VelocityX, VelocityY` (velocity vector), `UncertaintyRadius` (grows with time), `SourceTrackID`, `PredictionTimeNanos`, `FramesSinceObservation`.
 
-    // Velocity vector
-    VelocityX, VelocityY float64
+**`PreTailDetector` struct** — maintains `EntryZones` ([]PredictedEntryZone), `FieldOfViewBoundary` (PolygonBoundary), and `Config` (PreTailConfig).
 
-    // Uncertainty radius (grows with time since last observation)
-    UncertaintyRadius float64
-
-    // Source track (tentative or previous observation)
-    SourceTrackID string
-
-    // Time of prediction
-    PredictionTimeNanos int64
-
-    // Frames since last observation
-    FramesSinceObservation int
-}
-
-// PreTailDetector watches for objects entering the sensor field
-type PreTailDetector struct {
-    // Predicted entry zones based on sparse pre-observations
-    EntryZones []PredictedEntryZone
-
-    // Field of view boundary (for entry point prediction)
-    FieldOfViewBoundary PolygonBoundary
-
-    // Configuration
-    Config PreTailConfig
-}
-
-func (d *PreTailDetector) Update(
-    newClusters []VelocityCoherentCluster,
-    timestamp time.Time,
-) []TrackAssociation {
-
-    associations := []TrackAssociation{}
-
-    for _, zone := range d.EntryZones {
-        // Find clusters near predicted entry point
-        for _, cluster := range newClusters {
-            distance := math.Sqrt(
-                math.Pow(cluster.CentroidX-zone.PredictedX, 2) +
-                math.Pow(cluster.CentroidY-zone.PredictedY, 2),
-            )
-
-            if distance < zone.UncertaintyRadius {
-                // Check velocity consistency
-                velMatch := d.velocityMatches(cluster, zone)
-                if velMatch > d.Config.MinVelocityMatchScore {
-                    associations = append(associations, TrackAssociation{
-                        ClusterID:  cluster.ClusterID,
-                        TrackID:    zone.SourceTrackID,
-                        Type:       AssociationPreTail,
-                        Confidence: velMatch,
-                    })
-                }
-            }
-        }
-    }
-
-    return associations
-}
-```
+**`PreTailDetector.Update` method** — for each entry zone, searches new clusters near the predicted entry point. If distance < `UncertaintyRadius` and velocity matches above `MinVelocityMatchScore`, creates a `TrackAssociation` with type `AssociationPreTail` linking the cluster to the source track.
 
 ### Post-Tail continuation: prediction window
 
 Instead of deleting tracks after `MaxMisses` frames, we continue predicting their position and attempt to recover them when points reappear.
 
-```go
-// PostTailConfig controls post-exit track continuation
-type PostTailConfig struct {
-    // Maximum frames to continue prediction after last observation
-    MaxPredictionFrames int // default 30 (3 seconds at 10 Hz)
+**`PostTailConfig` struct:**
 
-    // Maximum uncertainty growth before abandoning track
-    MaxUncertaintyRadius float64 // meters, default 10.0
+| Field                   | Type    | Default | Purpose                                           |
+| ----------------------- | ------- | ------- | ------------------------------------------------- |
+| `MaxPredictionFrames`   | int     | 30      | Max frames to continue prediction (~3 s at 10 Hz) |
+| `MaxUncertaintyRadius`  | float64 | 10.0 m  | Abandon track beyond this radius                  |
+| `MinRecoveryConfidence` | float32 | 0.5     | Minimum confidence to recover                     |
 
-    // Minimum confidence to recover a predicted track
-    MinRecoveryConfidence float32 // default 0.5
-}
+**`ContinuePostTail` method** — on `VelocityCoherentTracker`. For deleted/missing tracks with known velocity:
 
-// ContinuePostTail extends track lifetime via prediction
-func (t *VelocityCoherentTracker) ContinuePostTail(
-    track *TrackedObject,
-    currentTime time.Time,
-) *PredictedPosition {
-
-    if track.State != TrackDeleted {
-        return nil // Only for deleted/missing tracks
-    }
-
-    framesSinceLast := int((currentTime.UnixNano() - track.LastUnixNanos) / 100_000_000)
-    if framesSinceLast > t.PostTailConfig.MaxPredictionFrames {
-        return nil // Too long since last observation
-    }
-
-    // Predict current position using velocity
-    dt := float64(currentTime.UnixNano()-track.LastUnixNanos) / 1e9
-    predictedX := track.X + track.VX*float32(dt)
-    predictedY := track.Y + track.VY*float32(dt)
-
-    // Grow uncertainty with time
-    uncertaintyRadius := t.Config.BaseUncertainty +
-        float64(framesSinceLast)*t.Config.UncertaintyGrowthPerFrame
-
-    if uncertaintyRadius > t.PostTailConfig.MaxUncertaintyRadius {
-        return nil
-    }
-
-    return &PredictedPosition{
-        TrackID:           track.TrackID,
-        PredictedX:        predictedX,
-        PredictedY:        predictedY,
-        VelocityX:         track.VX,
-        VelocityY:         track.VY,
-        UncertaintyRadius: float32(uncertaintyRadius),
-        FramesSinceLast:   framesSinceLast,
-    }
-}
-```
+1. Compute frames since last observation; return nil if > `MaxPredictionFrames`
+2. Predict current position: $x_{pred} = x_{last} + v_x \cdot \Delta t$
+3. Grow uncertainty: $r = r_{base} + n_{frames} \cdot r_{growth}$; return nil if > `MaxUncertaintyRadius`
+4. Return `PredictedPosition` with track ID, predicted coordinates, velocity, uncertainty, and frame gap
 
 ### Extended track state machine
 
@@ -574,69 +320,23 @@ Maintain track identity even when point count drops to ~3 points, using velocity
 
 ### Sparse track criteria
 
-```go
-type SparseTrackConfig struct {
-    // Absolute minimum points to maintain a track
-    MinPointsAbsolute int // default 3
+**`SparseTrackConfig` struct:**
 
-    // Minimum velocity confidence for sparse tracks
-    MinVelocityConfidenceForSparse float32 // default 0.6
+| Field                            | Type    | Default | Purpose                                    |
+| -------------------------------- | ------- | ------- | ------------------------------------------ |
+| `MinPointsAbsolute`              | int     | 3       | Floor for track maintenance                |
+| `MinVelocityConfidenceForSparse` | float32 | 0.6     | Higher confidence required when sparse     |
+| `MaxVelocityVarianceForSparse`   | float64 | 0.5 m/s | Velocity must closely match existing track |
+| `MaxSpatialSpreadForSparse`      | float64 | 2.0 m   | Max bounding box dimension                 |
 
-    // Maximum velocity variance for sparse tracks
-    MaxVelocityVarianceForSparse float64 // m/s, default 0.5
+**`IsSparseTrackValid` function** — checks whether a sparse cluster can maintain track identity. Returns `(valid bool, confidence float32)`. Validation gates (all must pass):
 
-    // Spatial coherence threshold
-    MaxSpatialSpreadForSparse float64 // meters, default 2.0
-}
+1. Point count ≥ `MinPointsAbsolute`
+2. Velocity confidence ≥ threshold
+3. Velocity difference from existing track ≤ `MaxVelocityVarianceForSparse`
+4. Spatial spread ≤ threshold
 
-// IsSparseTrackValid checks if a sparse cluster can maintain track identity
-func IsSparseTrackValid(
-    cluster VelocityCoherentCluster,
-    existingTrack *TrackedObject,
-    config SparseTrackConfig,
-) (bool, float32) {
-
-    // Minimum point count
-    if cluster.PointCount < config.MinPointsAbsolute {
-        return false, 0
-    }
-
-    // Velocity confidence threshold
-    if cluster.VelocityConfidence < config.MinVelocityConfidenceForSparse {
-        return false, 0
-    }
-
-    // Velocity must match existing track
-    velDiff := math.Sqrt(
-        math.Pow(float64(cluster.VelocityX)-float64(existingTrack.VX), 2) +
-        math.Pow(float64(cluster.VelocityY)-float64(existingTrack.VY), 2),
-    )
-
-    if velDiff > config.MaxVelocityVarianceForSparse {
-        return false, 0
-    }
-
-    // Spatial spread must be reasonable
-    maxDim := cluster.BoundingBoxLength
-    if cluster.BoundingBoxWidth > maxDim {
-        maxDim = cluster.BoundingBoxWidth
-    }
-    if float64(maxDim) > config.MaxSpatialSpreadForSparse {
-        return false, 0
-    }
-
-    // Compute confidence score
-    velocityMatchScore := 1.0 - velDiff/config.MaxVelocityVarianceForSparse
-    pointScore := float64(cluster.PointCount) / 10.0 // Scale 3-10 points to 0.3-1.0
-    if pointScore > 1.0 {
-        pointScore = 1.0
-    }
-
-    confidence := float32(velocityMatchScore * pointScore * float64(cluster.VelocityConfidence))
-
-    return true, confidence
-}
-```
+Confidence score: `velocityMatchScore × pointScore × velocityConfidence` where `pointScore` scales 3–10 points to 0.3–1.0.
 
 ### Graceful degradation strategy
 
@@ -649,20 +349,7 @@ As point count decreases, we progressively tighten velocity constraints:
 | 3-5         | ±0.5 m/s           | ±0.5 m            | Strict velocity match required |
 | <3          | N/A                | N/A               | Rely on prediction only        |
 
-```go
-func (t *VelocityCoherentTracker) adaptiveTolerances(pointCount int) (velTol, spatialTol float64) {
-    switch {
-    case pointCount >= 12:
-        return 2.0, 1.0
-    case pointCount >= 6:
-        return 1.5, 0.8
-    case pointCount >= 3:
-        return 0.5, 0.5
-    default:
-        return 0, 0 // Cannot track with <3 points
-    }
-}
-```
+**`adaptiveTolerances` method** — returns `(velTol, spatialTol float64)` based on point count, matching the table above. Returns (0, 0) for <3 points (prediction only).
 
 ### Checklist
 
@@ -694,235 +381,53 @@ Reconnect track fragments that were split due to:
 
 ### Fragment detection
 
-```go
-// TrackFragment represents a potentially incomplete track segment
-type TrackFragment struct {
-    Track     *TrackedObject
+**`TrackFragment` struct:**
 
-    // Entry/exit characteristics
-    EntryPoint    [2]float32 // Position where track first appeared
-    ExitPoint     [2]float32 // Position where track last appeared
-    EntryVelocity [2]float32 // Velocity at entry
-    ExitVelocity  [2]float32 // Velocity at exit
+| Field             | Type            | Notes                               |
+| ----------------- | --------------- | ----------------------------------- |
+| `Track`           | \*TrackedObject | Source track                        |
+| `EntryPoint`      | [2]float32      | Position where track first appeared |
+| `ExitPoint`       | [2]float32      | Position where track last appeared  |
+| `EntryVelocity`   | [2]float32      | Velocity at entry                   |
+| `ExitVelocity`    | [2]float32      | Velocity at exit                    |
+| `StartNanos`      | int64           | First timestamp                     |
+| `EndNanos`        | int64           | Last timestamp                      |
+| `HasNaturalEntry` | bool            | Started from sensor boundary        |
+| `HasNaturalExit`  | bool            | Ended at sensor boundary            |
 
-    // Temporal bounds
-    StartNanos int64
-    EndNanos   int64
-
-    // Flags
-    HasNaturalEntry bool // Started from sensor boundary (vs. appeared mid-field)
-    HasNaturalExit  bool // Ended at sensor boundary (vs. disappeared mid-field)
-}
-
-// DetectFragments identifies tracks that may be fragments of longer trajectories
-func DetectFragments(tracks []*TrackedObject, sensorBoundary PolygonBoundary) []TrackFragment {
-    fragments := []TrackFragment{}
-
-    for _, track := range tracks {
-        if len(track.History) < 2 {
-            continue
-        }
-
-        entry := track.History[0]
-        exit := track.History[len(track.History)-1]
-
-        // Compute velocities
-        if len(track.History) >= 2 {
-            dt := float64(track.History[1].Timestamp-track.History[0].Timestamp) / 1e9
-            entryVX := (track.History[1].X - track.History[0].X) / float32(dt)
-            entryVY := (track.History[1].Y - track.History[0].Y) / float32(dt)
-
-            dtExit := float64(exit.Timestamp-track.History[len(track.History)-2].Timestamp) / 1e9
-            exitVX := (exit.X - track.History[len(track.History)-2].X) / float32(dtExit)
-            exitVY := (exit.Y - track.History[len(track.History)-2].Y) / float32(dtExit)
-
-            fragment := TrackFragment{
-                Track:         track,
-                EntryPoint:    [2]float32{entry.X, entry.Y},
-                ExitPoint:     [2]float32{exit.X, exit.Y},
-                EntryVelocity: [2]float32{entryVX, entryVY},
-                ExitVelocity:  [2]float32{exitVX, exitVY},
-                StartNanos:    track.FirstUnixNanos,
-                EndNanos:      track.LastUnixNanos,
-            }
-
-            // Check if entry/exit are at sensor boundary
-            fragment.HasNaturalEntry = sensorBoundary.IsNearBoundary(entry.X, entry.Y, 2.0)
-            fragment.HasNaturalExit = sensorBoundary.IsNearBoundary(exit.X, exit.Y, 2.0)
-
-            fragments = append(fragments, fragment)
-        }
-    }
-
-    return fragments
-}
-```
+**`DetectFragments` function** — iterates tracks with ≥2 history points. Computes entry/exit velocities from first/last two history points. Checks if entry/exit positions are near the `sensorBoundary` (within 2.0 m) to set `HasNaturalEntry`/`HasNaturalExit` flags. Returns `[]TrackFragment`.
 
 ### Fragment matching algorithm
 
-```go
-// MergeConfig controls fragment matching sensitivity
-type MergeConfig struct {
-    // Maximum time gap between fragments to consider merging
-    MaxTimeGapSeconds float64 // default 5.0
+**`MergeConfig` struct:**
 
-    // Maximum position error (predicted vs actual entry point)
-    MaxPositionErrorMeters float64 // default 3.0
+| Field                     | Type    | Default | Purpose                         |
+| ------------------------- | ------- | ------- | ------------------------------- |
+| `MaxTimeGapSeconds`       | float64 | 5.0     | Max gap between fragments       |
+| `MaxPositionErrorMeters`  | float64 | 3.0     | Predicted vs actual entry error |
+| `MaxVelocityDifferenceMs` | float64 | 2.0     | Velocity difference at junction |
+| `MinAlignmentScore`       | float32 | 0.7     | Minimum overall score           |
 
-    // Maximum velocity difference at junction
-    MaxVelocityDifferenceMs float64 // default 2.0
+**`MergeCandidatePair` struct** — links two `*TrackFragment` records with `PositionScore`, `VelocityScore`, `TrajectoryScore`, and `OverallScore` (all float32).
 
-    // Minimum trajectory alignment score
-    MinAlignmentScore float32 // default 0.7
-}
+**`FindMergeCandidates` function** — sorts fragments by start time, then for each pair where the earlier track has a non-natural exit and the later track has a non-natural entry:
 
-// MergeCandidatePair represents two fragments that might be the same object
-type MergeCandidatePair struct {
-    Earlier     *TrackFragment
-    Later       *TrackFragment
-
-    // Matching scores
-    PositionScore   float32 // How well predicted position matches
-    VelocityScore   float32 // How well velocities align
-    TrajectoryScore float32 // How well overall trajectory matches
-    OverallScore    float32
-}
-
-// FindMergeCandidates identifies fragment pairs that may belong together
-func FindMergeCandidates(
-    fragments []TrackFragment,
-    config MergeConfig,
-) []MergeCandidatePair {
-
-    candidates := []MergeCandidatePair{}
-
-    // Sort by start time
-    sort.Slice(fragments, func(i, j int) bool {
-        return fragments[i].StartNanos < fragments[j].StartNanos
-    })
-
-    for i, earlier := range fragments {
-        // Skip if natural exit (went to boundary)
-        if earlier.HasNaturalExit {
-            continue
-        }
-
-        for j := i + 1; j < len(fragments); j++ {
-            later := fragments[j]
-
-            // Skip if natural entry (came from boundary)
-            if later.HasNaturalEntry {
-                continue
-            }
-
-            // Check time gap
-            gapSeconds := float64(later.StartNanos-earlier.EndNanos) / 1e9
-            if gapSeconds < 0 || gapSeconds > config.MaxTimeGapSeconds {
-                continue
-            }
-
-            // Predict where earlier track would be at later.StartNanos
-            predictedX := earlier.ExitPoint[0] + earlier.ExitVelocity[0]*float32(gapSeconds)
-            predictedY := earlier.ExitPoint[1] + earlier.ExitVelocity[1]*float32(gapSeconds)
-
-            // Position error
-            posError := math.Sqrt(
-                math.Pow(float64(predictedX-later.EntryPoint[0]), 2) +
-                math.Pow(float64(predictedY-later.EntryPoint[1]), 2),
-            )
-
-            if posError > config.MaxPositionErrorMeters {
-                continue
-            }
-
-            // Velocity difference
-            velDiff := math.Sqrt(
-                math.Pow(float64(earlier.ExitVelocity[0]-later.EntryVelocity[0]), 2) +
-                math.Pow(float64(earlier.ExitVelocity[1]-later.EntryVelocity[1]), 2),
-            )
-
-            if velDiff > config.MaxVelocityDifferenceMs {
-                continue
-            }
-
-            // Compute scores
-            posScore := float32(1.0 - posError/config.MaxPositionErrorMeters)
-            velScore := float32(1.0 - velDiff/config.MaxVelocityDifferenceMs)
-            trajectoryScore := computeTrajectoryAlignment(earlier, later)
-
-            overallScore := (posScore + velScore + trajectoryScore) / 3.0
-
-            if overallScore >= config.MinAlignmentScore {
-                candidates = append(candidates, MergeCandidatePair{
-                    Earlier:         &fragments[i],
-                    Later:           &fragments[j],
-                    PositionScore:   posScore,
-                    VelocityScore:   velScore,
-                    TrajectoryScore: trajectoryScore,
-                    OverallScore:    overallScore,
-                })
-            }
-        }
-    }
-
-    return candidates
-}
-```
+1. Check time gap is in range (0, `MaxTimeGapSeconds`]
+2. Predict earlier track’s position at `later.StartNanos` using exit velocity
+3. Check position error ≤ `MaxPositionErrorMeters`
+4. Check velocity difference ≤ `MaxVelocityDifferenceMs`
+5. Compute scores: `posScore = 1 − posError/maxError`, `velScore = 1 − velDiff/maxDiff`, `trajectoryScore` from alignment function
+6. `overallScore = (posScore + velScore + trajectoryScore) / 3`; accept if ≥ `MinAlignmentScore`
 
 ### Merge execution
 
-```go
-// MergeTrackFragments combines two fragments into a unified track
-func MergeTrackFragments(
-    earlier *TrackedObject,
-    later *TrackedObject,
-    gapSeconds float64,
-) *TrackedObject {
+**`MergeTrackFragments` function** — combines two `*TrackedObject` records into one:
 
-    merged := &TrackedObject{
-        TrackID:        earlier.TrackID, // Keep earlier ID
-        SensorID:       earlier.SensorID,
-        State:          later.State,
-
-        // Lifecycle spans both fragments
-        FirstUnixNanos: earlier.FirstUnixNanos,
-        LastUnixNanos:  later.LastUnixNanos,
-
-        // Kalman state from later track (most recent)
-        X:  later.X,
-        Y:  later.Y,
-        VX: later.VX,
-        VY: later.VY,
-        P:  later.P,
-
-        // Aggregate statistics
-        Hits:             earlier.Hits + later.Hits,
-        Misses:           later.Misses,
-        ObservationCount: earlier.ObservationCount + later.ObservationCount,
-    }
-
-    // Merge histories
-    merged.History = make([]TrackPoint, 0, len(earlier.History)+len(later.History))
-    merged.History = append(merged.History, earlier.History...)
-
-    // Interpolate gap if needed
-    if gapSeconds > 0 && gapSeconds < 5.0 {
-        merged.History = append(merged.History, interpolateGap(
-            earlier.History[len(earlier.History)-1],
-            later.History[0],
-            gapSeconds,
-        )...)
-    }
-
-    merged.History = append(merged.History, later.History...)
-
-    // Recompute aggregated features
-    merged.ComputeQualityMetrics()
-    recomputeAggregatedFeatures(merged)
-
-    return merged
-}
-```
+- Keeps earlier track’s ID; lifecycle spans both fragments (`FirstUnixNanos` from earlier, `LastUnixNanos` from later)
+- Kalman state (position, velocity, covariance) taken from the later track (most recent)
+- Aggregate statistics summed: `Hits`, `ObservationCount`
+- History arrays concatenated; if gap is >0 and <5 s, interpolated points are inserted
+- `ComputeQualityMetrics()` and `recomputeAggregatedFeatures()` called on merged result
 
 ### Checklist
 
@@ -984,106 +489,57 @@ func MergeTrackFragments(
 
 ### Core types
 
-```go
-// VelocityCoherentTrackerConfig holds all configuration for the tracker
-type VelocityCoherentTrackerConfig struct {
-    // Phase 1: Velocity estimation
-    VelocityEstimation VelocityEstimationConfig
+**`VelocityCoherentTrackerConfig` struct** — nests all per-phase config structs:
 
-    // Phase 2: Clustering
-    Clustering Clustering6DConfig
+| Field                | Type                     | Phase    |
+| -------------------- | ------------------------ | -------- |
+| `VelocityEstimation` | VelocityEstimationConfig | 1        |
+| `Clustering`         | Clustering6DConfig       | 2        |
+| `PreTail`            | PreTailConfig            | 3        |
+| `PostTail`           | PostTailConfig           | 3        |
+| `SparseContinuation` | SparseTrackConfig        | 4        |
+| `Merge`              | MergeConfig              | 5        |
+| `Tracking`           | TrackerConfig            | Existing |
 
-    // Phase 3: Long-tail management
-    PreTail  PreTailConfig
-    PostTail PostTailConfig
+**`DefaultVelocityCoherentConfig` defaults:**
 
-    // Phase 4: Sparse continuation
-    SparseContinuation SparseTrackConfig
-
-    // Phase 5: Fragment merging
-    Merge MergeConfig
-
-    // Standard tracking (from existing system)
-    Tracking TrackerConfig
-}
-
-// DefaultVelocityCoherentConfig returns sensible defaults
-func DefaultVelocityCoherentConfig() VelocityCoherentTrackerConfig {
-    return VelocityCoherentTrackerConfig{
-        VelocityEstimation: VelocityEstimationConfig{
-            SearchRadius:              2.0,
-            MaxVelocityMps:            50.0,
-            VelocityVarianceThreshold: 2.0,
-            MinConfidence:             0.3,
-            NeighborRadius:            1.0,
-            MinNeighborsForContext:    3,
-        },
-        Clustering: Clustering6DConfig{
-            PositionEps:               0.6,
-            VelocityEps:               1.0,
-            MinPts:                    3, // REDUCED from 12
-            PositionWeight:            1.0,
-            VelocityWeight:            2.0,
-            MinVelocityConfidence:     0.3,
-        },
-        PreTail: PreTailConfig{
-            EntryPredictionWindow:     30, // frames
-            MinVelocityMatchScore:     0.6,
-            BoundaryMarginMeters:      2.0,
-        },
-        PostTail: PostTailConfig{
-            MaxPredictionFrames:       30,
-            MaxUncertaintyRadius:      10.0,
-            MinRecoveryConfidence:     0.5,
-        },
-        SparseContinuation: SparseTrackConfig{
-            MinPointsAbsolute:                3,
-            MinVelocityConfidenceForSparse:   0.6,
-            MaxVelocityVarianceForSparse:     0.5,
-            MaxSpatialSpreadForSparse:        2.0,
-        },
-        Merge: MergeConfig{
-            MaxTimeGapSeconds:         5.0,
-            MaxPositionErrorMeters:    3.0,
-            MaxVelocityDifferenceMs:   2.0,
-            MinAlignmentScore:         0.7,
-        },
-        Tracking: DefaultTrackerConfig(),
-    }
-}
-```
+| Sub-config         | Field                           | Default             |
+| ------------------ | ------------------------------- | ------------------- |
+| VelocityEstimation | SearchRadius                    | 2.0                 |
+| VelocityEstimation | MaxVelocityMps                  | 50.0                |
+| VelocityEstimation | VelocityVarianceThreshold       | 2.0                 |
+| VelocityEstimation | MinConfidence                   | 0.3                 |
+| VelocityEstimation | NeighborRadius                  | 1.0                 |
+| VelocityEstimation | MinNeighborsForContext          | 3                   |
+| Clustering         | PositionEps                     | 0.6                 |
+| Clustering         | VelocityEps                     | 1.0                 |
+| Clustering         | MinPts                          | 3 (reduced from 12) |
+| Clustering         | PositionWeight                  | 1.0                 |
+| Clustering         | VelocityWeight                  | 2.0                 |
+| Clustering         | MinVelocityConfidence           | 0.3                 |
+| PreTail            | EntryPredictionWindow           | 30 frames           |
+| PreTail            | MinVelocityMatchScore           | 0.6                 |
+| PreTail            | BoundaryMarginMeters            | 2.0                 |
+| PostTail           | MaxPredictionFrames             | 30                  |
+| PostTail           | MaxUncertaintyRadius            | 10.0                |
+| PostTail           | MinRecoveryConfidence           | 0.5                 |
+| SparseContinuation | MinPointsAbsolute               | 3                   |
+| SparseContinuation | MinVelocityConfidenceForSparse  | 0.6                 |
+| SparseContinuation | MaxVelocityVarianceForSparse    | 0.5                 |
+| SparseContinuation | MaxSpatialSpreadForSparse       | 2.0                 |
+| Merge              | MaxTimeGapSeconds               | 5.0                 |
+| Merge              | MaxPositionErrorMeters          | 3.0                 |
+| Merge              | MaxVelocityDifferenceMs         | 2.0                 |
+| Merge              | MinAlignmentScore               | 0.7                 |
+| Tracking           | _(from DefaultTrackerConfig())_ | —                   |
 
 ### Point history ring buffer
 
 For efficient frame-to-frame correspondence:
 
-```go
-// FrameHistory maintains a sliding window of recent frames
-type FrameHistory struct {
-    Frames     []PointVelocityFrame
-    Capacity   int
-    WriteIndex int
-}
+**`FrameHistory`** — ring buffer of recent frames (fields: `Frames []PointVelocityFrame`, `Capacity int`, `WriteIndex int`). `Add` overwrites at `WriteIndex` and advances mod `Capacity`. `Previous(offset)` returns the frame `offset` steps before the most recent, or nil if out of range.
 
-type PointVelocityFrame struct {
-    Points        []PointVelocity
-    Timestamp     time.Time
-    SpatialIndex  *SpatialIndex6D
-}
-
-func (h *FrameHistory) Add(frame PointVelocityFrame) {
-    h.Frames[h.WriteIndex] = frame
-    h.WriteIndex = (h.WriteIndex + 1) % h.Capacity
-}
-
-func (h *FrameHistory) Previous(offset int) *PointVelocityFrame {
-    if offset >= h.Capacity {
-        return nil
-    }
-    idx := (h.WriteIndex - 1 - offset + h.Capacity) % h.Capacity
-    return &h.Frames[idx]
-}
-```
+**`PointVelocityFrame`** — holds `Points []PointVelocity`, `Timestamp time.Time`, and `SpatialIndex *SpatialIndex6D` for efficient neighbourhood queries.
 
 ---
 
@@ -1108,183 +564,86 @@ Both track sources are:
 3. **Comparable in dashboards** for performance evaluation
 4. **Compatible with the same downstream analysis** (speed summaries, classification, etc.)
 
-```go
-// GET /api/lidar/tracks?source=background_subtraction
-// GET /api/lidar/tracks?source=velocity_coherent
-// GET /api/lidar/tracks?source=all  // returns both with source label
+The API accepts a `source` query parameter: `GET /api/lidar/tracks?source=background_subtraction`, `GET /api/lidar/tracks?source=velocity_coherent`, or `GET /api/lidar/tracks?source=all` (returns both with source labels).
 
-type TrackSource string
-
-const (
-    TrackSourceBackgroundSubtraction TrackSource = "background_subtraction"
-    TrackSourceVelocityCoherent      TrackSource = "velocity_coherent"
-)
-
-type TrackWithSource struct {
-    Track  TrackedObject `json:"track"`
-    Source TrackSource   `json:"source"`
-}
-```
+`TrackSource` is a string constant: either `"background_subtraction"` or `"velocity_coherent"`. `TrackWithSource` wraps a `TrackedObject` with its `Source` label.
 
 ### Parallel processing path
 
 The velocity-coherent extraction runs **alongside** the existing background-subtraction system, not replacing it:
 
-```go
-// ProcessFrame runs both extraction methods in parallel
-func (p *DualExtractionPipeline) ProcessFrame(
-    polarPoints []PointPolar,
-    pose *Pose,
-    timestamp time.Time,
-) (*FrameResult, error) {
+**`DualExtractionPipeline.ProcessFrame`** runs three parallel paths:
 
-    // Path 1: Existing background subtraction
-    bgMask, err := p.BackgroundManager.ProcessFramePolarWithMask(polarPoints)
-    if err != nil {
-        return nil, err
-    }
-    bgForeground := ExtractForegroundPoints(polarPoints, bgMask)
-    bgWorld := TransformToWorld(bgForeground, pose, p.SensorID)
-    bgClusters := DBSCAN(bgWorld, p.DBSCANParams)
+1. **Path 1 — Background subtraction:** Apply background mask to polar points → extract foreground → transform to world frame → standard DBSCAN (MinPts=12)
+2. **Path 2 — Velocity-coherent extraction:** Transform _all_ polar points to world frame (no background filter) → estimate per-point velocities → 6D DBSCAN (MinPts=3)
+3. **Path 3 — Merge:** Take union of both cluster sets using `mergeClusterSets` with a configurable merge threshold
 
-    // Path 2: Velocity-coherent extraction (uses ALL points, not just background-filtered)
-    worldPoints := TransformToWorld(polarPoints, pose, p.SensorID)
-    vcPoints := p.VelocityEstimator.EstimateVelocities(worldPoints, timestamp)
-    vcClusters := DBSCAN6D(vcPoints, p.Clustering6DConfig)
-
-    // Path 3: Merge results (take union of detected objects)
-    mergedClusters := mergeClusterSets(bgClusters, vcClusters, p.MergeThreshold)
-
-    // Update tracker with merged clusters
-    p.Tracker.Update(mergedClusters, timestamp)
-
-    return &FrameResult{
-        BackgroundClusters:        bgClusters,
-        VelocityCoherentClusters:  vcClusters,
-        MergedClusters:            mergedClusters,
-        ActiveTracks:              p.Tracker.GetActiveTracks(),
-    }, nil
-}
-```
+The tracker is updated with the merged cluster set. The returned `FrameResult` includes `BackgroundClusters`, `VelocityCoherentClusters`, `MergedClusters`, and `ActiveTracks`.
 
 ### REST API extensions
 
-```go
-// Additional endpoints for velocity-coherent tracking
+**Additional REST endpoints:**
 
-// GET /api/lidar/velocity-tracks/active
-// Returns tracks with velocity confidence scores
+| Method | Path                                            | Purpose                                       |
+| ------ | ----------------------------------------------- | --------------------------------------------- |
+| GET    | `/api/lidar/velocity-tracks/active`             | Active tracks with velocity confidence scores |
+| GET    | `/api/lidar/tracks/{track_id}/velocity-profile` | Velocity history for a track                  |
+| GET    | `/api/lidar/merge-candidates`                   | Detected fragment merge opportunities         |
+| POST   | `/api/lidar/merge-tracks`                       | Manually merge two track fragments            |
 
-// GET /api/lidar/tracks/{track_id}/velocity-profile
-// Returns velocity history for a track
-
-// GET /api/lidar/merge-candidates
-// Returns detected fragment merge opportunities
-
-// POST /api/lidar/merge-tracks
-// Manually merge two track fragments
-type MergeRequest struct {
-    EarlierTrackID string `json:"earlier_track_id"`
-    LaterTrackID   string `json:"later_track_id"`
-}
-```
+The `POST /api/lidar/merge-tracks` body contains `earlier_track_id` and `later_track_id` (both strings).
 
 ---
 
 ## Database schema extensions
 
-```sql
--- Velocity-coherent clustering results (6D DBSCAN output)
-CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_clusters (
-    cluster_id INTEGER PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    ts_unix_nanos INTEGER NOT NULL,
+**`lidar_velocity_coherent_clusters` table** — 6D DBSCAN output:
 
-    -- Position (world frame)
-    centroid_x REAL,
-    centroid_y REAL,
-    centroid_z REAL,
+| Column                                     | Type    | Notes                      |
+| ------------------------------------------ | ------- | -------------------------- |
+| `cluster_id`                               | INTEGER | Primary key                |
+| `sensor_id`                                | TEXT    | Not null                   |
+| `ts_unix_nanos`                            | INTEGER | Not null                   |
+| `centroid_x`, `centroid_y`, `centroid_z`   | REAL    | World-frame position       |
+| `velocity_x`, `velocity_y`, `velocity_z`   | REAL    | World-frame velocity (m/s) |
+| `velocity_confidence`                      | REAL    | —                          |
+| `points_count`                             | INTEGER | —                          |
+| `bounding_box_length`, `_width`, `_height` | REAL    | —                          |
 
-    -- Velocity (world frame, m/s)
-    velocity_x REAL,
-    velocity_y REAL,
-    velocity_z REAL,
-    velocity_confidence REAL,
+**`lidar_velocity_coherent_tracks` table** — parallel to `lidar_tracks`:
 
-    -- Cluster metrics
-    points_count INTEGER,
-    bounding_box_length REAL,
-    bounding_box_width REAL,
-    bounding_box_height REAL
-);
+| Column                                                 | Type    | Notes                                                  |
+| ------------------------------------------------------ | ------- | ------------------------------------------------------ |
+| `track_id`                                             | TEXT    | Primary key                                            |
+| `sensor_id`                                            | TEXT    | Not null                                               |
+| `track_state`                                          | TEXT    | pre_tail / tentative / confirmed / post_tail / deleted |
+| `start_unix_nanos`                                     | INTEGER | Not null                                               |
+| `end_unix_nanos`                                       | INTEGER | —                                                      |
+| `observation_count`                                    | INTEGER | —                                                      |
+| `avg_speed_mps`, `peak_speed_mps`                      | REAL    | Kinematics                                             |
+| `avg_velocity_confidence`                              | REAL    | Estimation quality                                     |
+| `velocity_consistency_score`                           | REAL    | Stability across observations                          |
+| `bounding_box_length_avg`, `_width_avg`, `_height_avg` | REAL    | Shape features                                         |
+| `height_p95_max`                                       | REAL    | —                                                      |
+| `min_points_observed`                                  | INTEGER | Sparse tracking metrics                                |
+| `sparse_frame_count`                                   | INTEGER | Frames with <12 points                                 |
+| `object_class`                                         | TEXT    | Classification                                         |
+| `object_confidence`                                    | REAL    | —                                                      |
+| `classification_model`                                 | TEXT    | —                                                      |
 
--- Velocity-coherent tracks (parallel to lidar_tracks, like radar_objects vs radar_data_transits)
--- This table stores tracks from the velocity-coherent algorithm for comparison with
--- background-subtraction tracks in lidar_tracks
-CREATE TABLE IF NOT EXISTS lidar_velocity_coherent_tracks (
-    track_id TEXT PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    track_state TEXT NOT NULL,           -- 'pre_tail', 'tentative', 'confirmed', 'post_tail', 'deleted'
+**`lidar_track_merges` table** — merge audit trail:
 
-    -- Lifecycle
-    start_unix_nanos INTEGER NOT NULL,
-    end_unix_nanos INTEGER,
-    observation_count INTEGER,
+| Column                                                                  | Type    | Notes         |
+| ----------------------------------------------------------------------- | ------- | ------------- |
+| `merge_id`                                                              | INTEGER | Primary key   |
+| `merged_at`                                                             | INTEGER | Not null      |
+| `earlier_track_id`, `later_track_id`                                    | TEXT    | Not null      |
+| `result_track_id`                                                       | TEXT    | Not null      |
+| `position_score`, `velocity_score`, `trajectory_score`, `overall_score` | REAL    | Merge quality |
+| `gap_seconds`                                                           | REAL    | —             |
+| `interpolated_points`                                                   | INTEGER | —             |
 
-    -- Kinematics (world frame)
-    avg_speed_mps REAL,
-    peak_speed_mps REAL,
-
-    -- Velocity estimation quality
-    avg_velocity_confidence REAL,
-    velocity_consistency_score REAL,     -- How stable velocity was across observations
-
-    -- Shape features
-    bounding_box_length_avg REAL,
-    bounding_box_width_avg REAL,
-    bounding_box_height_avg REAL,
-    height_p95_max REAL,
-
-    -- Sparse tracking metrics
-    min_points_observed INTEGER,         -- Minimum point count in any frame
-    sparse_frame_count INTEGER,          -- Frames with <12 points
-
-    -- Classification
-    object_class TEXT,
-    object_confidence REAL,
-    classification_model TEXT
-);
-
-CREATE INDEX idx_vc_tracks_sensor ON lidar_velocity_coherent_tracks(sensor_id);
-CREATE INDEX idx_vc_tracks_state ON lidar_velocity_coherent_tracks(track_state);
-CREATE INDEX idx_vc_tracks_time ON lidar_velocity_coherent_tracks(start_unix_nanos, end_unix_nanos);
-
--- Track merge history
-CREATE TABLE IF NOT EXISTS lidar_track_merges (
-    merge_id INTEGER PRIMARY KEY,
-    merged_at INTEGER NOT NULL,
-
-    -- Source tracks
-    earlier_track_id TEXT NOT NULL,
-    later_track_id TEXT NOT NULL,
-
-    -- Resulting track
-    result_track_id TEXT NOT NULL,
-
-    -- Merge scores
-    position_score REAL,
-    velocity_score REAL,
-    trajectory_score REAL,
-    overall_score REAL,
-
-    -- Gap info
-    gap_seconds REAL,
-    interpolated_points INTEGER
-);
-
-CREATE INDEX idx_velocity_coherent_clusters_time ON lidar_velocity_coherent_clusters(ts_unix_nanos);
-CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
-```
+**Indexes:** `idx_vc_tracks_sensor` on sensor_id, `idx_vc_tracks_state` on track_state, `idx_vc_tracks_time` on (start_unix_nanos, end_unix_nanos), `idx_velocity_coherent_clusters_time` on ts_unix_nanos, `idx_track_merges_result` on result_track_id.
 
 ---
 

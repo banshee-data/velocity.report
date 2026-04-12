@@ -232,20 +232,17 @@ Examples:
 
 ### 11.2 Proposed config shape
 
-```yaml
-observability:
-  prometheus:
-    enabled: false
-    listen_addr: ":9108"
-    prefix: "velocity_report"
-    include_families: ["ops", "performance", "scene", "aggregate"]
-    exclude_source_modes: ["vrlog"]
-```
+**Proposed Prometheus config shape:**
 
-Recommended future override path:
+| Key                                             | Default                                        | Purpose                            |
+| ----------------------------------------------- | ---------------------------------------------- | ---------------------------------- |
+| `observability.prometheus.enabled`              | `false`                                        | Enable/disable Prometheus exporter |
+| `observability.prometheus.listen_addr`          | `":9108"`                                      | Exporter listen address            |
+| `observability.prometheus.prefix`               | `"velocity_report"`                            | Metric name prefix                 |
+| `observability.prometheus.include_families`     | `["ops", "performance", "scene", "aggregate"]` | Metric families to export          |
+| `observability.prometheus.exclude_source_modes` | `["vrlog"]`                                    | Source modes excluded from export  |
 
-- config key: `observability.prometheus.prefix`
-- env override: `VELOCITY_PROMETHEUS_PREFIX`
+Recommended future override path: config key `observability.prometheus.prefix`, env override `VELOCITY_PROMETHEUS_PREFIX`.
 
 ### 11.3 Default export policy
 

@@ -105,15 +105,15 @@ Before dispatching a full sweep job, the driver calls `/api/worker/jobs/check` w
 5. Tears down the pipeline
 6. Returns a `CheckResult`:
 
-```go
-type CheckResult struct {
-    OK           bool   `json:"ok"`
-    PCAPReadable bool   `json:"pcap_readable"`
-    FrameValid   bool   `json:"frame_valid"`
-    ErrorMessage string `json:"error_message,omitempty"`
-    DiskFreeMB   int64  `json:"disk_free_mb"`
-}
-```
+**`CheckResult` fields:**
+
+| Field          | Type     | JSON            | Purpose                                   |
+| -------------- | -------- | --------------- | ----------------------------------------- |
+| `OK`           | `bool`   | `ok`            | Overall pre-flight result                 |
+| `PCAPReadable` | `bool`   | `pcap_readable` | PCAP file exists and is readable          |
+| `FrameValid`   | `bool`   | `frame_valid`   | Single-frame replay produced valid output |
+| `ErrorMessage` | `string` | `error_message` | Error detail (omitted when empty)         |
+| `DiskFreeMB`   | `int64`  | `disk_free_mb`  | Available disk space on worker            |
 
 If the check fails, the driver does not submit the job and reports the error to the user.
 
@@ -121,17 +121,17 @@ If the check fails, the driver does not submit the job and reports the error to 
 
 Workers keep completed results in local SQLite until the driver confirms retrieval:
 
-```sql
-CREATE TABLE worker_result_cache (
-    job_id          TEXT PRIMARY KEY,
-    sweep_id        TEXT NOT NULL,
-    results_json    TEXT NOT NULL,
-    completed_at    DATETIME NOT NULL,
-    retrieved       BOOLEAN NOT NULL DEFAULT FALSE,
-    retrieved_at    DATETIME,
-    size_bytes      INTEGER NOT NULL DEFAULT 0
-);
-```
+**`worker_result_cache` table:**
+
+| Column         | Type       | Constraint               | Notes                           |
+| -------------- | ---------- | ------------------------ | ------------------------------- |
+| `job_id`       | `TEXT`     | `PRIMARY KEY`            | Unique job identifier           |
+| `sweep_id`     | `TEXT`     | `NOT NULL`               | Parent sweep                    |
+| `results_json` | `TEXT`     | `NOT NULL`               | Serialised combo results        |
+| `completed_at` | `DATETIME` | `NOT NULL`               | When the job finished           |
+| `retrieved`    | `BOOLEAN`  | `NOT NULL DEFAULT FALSE` | Driver has confirmed retrieval  |
+| `retrieved_at` | `DATETIME` |                          | When retrieval was confirmed    |
+| `size_bytes`   | `INTEGER`  | `NOT NULL DEFAULT 0`     | Approximate result payload size |
 
 **Lifecycle:**
 
@@ -147,44 +147,45 @@ CREATE TABLE worker_result_cache (
 
 ### Go types
 
-```go
-// SweepJob represents a unit of work assigned to a worker.
-type SweepJob struct {
-    JobID        string          `json:"job_id"`
-    SweepID      string          `json:"sweep_id"`
-    WorkerID     string          `json:"worker_id,omitempty"`
-    Status       string          `json:"status"`        // pending, assigned, running, complete, failed
-    ComboStart   int             `json:"combo_start"`
-    ComboEnd     int             `json:"combo_end"`
-    Combos       json.RawMessage `json:"combos"`        // []map[string]interface{}
-    Results      json.RawMessage `json:"results,omitempty"`
-    ErrorMessage string          `json:"error_message,omitempty"`
-    AssignedAt   *time.Time      `json:"assigned_at,omitempty"`
-    StartedAt    *time.Time      `json:"started_at,omitempty"`
-    CompletedAt  *time.Time      `json:"completed_at,omitempty"`
-    HeartbeatAt  *time.Time      `json:"heartbeat_at,omitempty"`
-}
+**`SweepJob`** — a unit of work assigned to a worker:
 
-// WorkerServer is a configured remote worker host (persisted in settings).
-type WorkerServer struct {
-    WorkerID  string `json:"worker_id"`
-    Name      string `json:"name"`       // display name, e.g. "Lab Pi"
-    Host      string `json:"host"`       // hostname or IP
-    Port      int    `json:"port"`       // worker HTTP port (default 8082)
-    PCAPRoot  string `json:"pcap_root"`  // shared filesystem mount point
-    Enabled   bool   `json:"enabled"`
-    Notes     string `json:"notes,omitempty"`
-}
+| Field          | Type              | JSON            | Purpose                                                |
+| -------------- | ----------------- | --------------- | ------------------------------------------------------ |
+| `JobID`        | `string`          | `job_id`        | Unique job identifier                                  |
+| `SweepID`      | `string`          | `sweep_id`      | Parent sweep                                           |
+| `WorkerID`     | `string`          | `worker_id`     | Assigned worker (omitted if unassigned)                |
+| `Status`       | `string`          | `status`        | `pending`, `assigned`, `running`, `complete`, `failed` |
+| `ComboStart`   | `int`             | `combo_start`   | First combo index in partition                         |
+| `ComboEnd`     | `int`             | `combo_end`     | Last combo index in partition                          |
+| `Combos`       | `json.RawMessage` | `combos`        | Parameter combinations (`[]map[string]interface{}`)    |
+| `Results`      | `json.RawMessage` | `results`       | Combo results (omitted until complete)                 |
+| `ErrorMessage` | `string`          | `error_message` | Error detail (omitted when empty)                      |
+| `AssignedAt`   | `*time.Time`      | `assigned_at`   | When assigned to worker                                |
+| `StartedAt`    | `*time.Time`      | `started_at`    | When execution began                                   |
+| `CompletedAt`  | `*time.Time`      | `completed_at`  | When execution finished                                |
+| `HeartbeatAt`  | `*time.Time`      | `heartbeat_at`  | Last heartbeat from worker                             |
 
-// CheckResult is returned by the worker /api/worker/jobs/check pre-flight endpoint.
-type CheckResult struct {
-    OK           bool   `json:"ok"`
-    PCAPReadable bool   `json:"pcap_readable"`
-    FrameValid   bool   `json:"frame_valid"`
-    ErrorMessage string `json:"error_message,omitempty"`
-    DiskFreeMB   int64  `json:"disk_free_mb"`
-}
-```
+**`WorkerServer`** — a configured remote worker host (persisted in settings):
+
+| Field      | Type     | JSON        | Purpose                         |
+| ---------- | -------- | ----------- | ------------------------------- |
+| `WorkerID` | `string` | `worker_id` | Unique worker identifier        |
+| `Name`     | `string` | `name`      | Display name (e.g. “Lab Pi”)    |
+| `Host`     | `string` | `host`      | Hostname or IP                  |
+| `Port`     | `int`    | `port`      | Worker HTTP port (default 8082) |
+| `PCAPRoot` | `string` | `pcap_root` | Shared filesystem mount point   |
+| `Enabled`  | `bool`   | `enabled`   | Whether the worker is active    |
+| `Notes`    | `string` | `notes`     | Optional operator notes         |
+
+**`CheckResult`** — returned by the worker `/api/worker/jobs/check` pre-flight endpoint:
+
+| Field          | Type     | JSON            | Purpose                                   |
+| -------------- | -------- | --------------- | ----------------------------------------- |
+| `OK`           | `bool`   | `ok`            | Overall pre-flight result                 |
+| `PCAPReadable` | `bool`   | `pcap_readable` | PCAP file exists and is readable          |
+| `FrameValid`   | `bool`   | `frame_valid`   | Single-frame replay produced valid output |
+| `ErrorMessage` | `string` | `error_message` | Error detail (omitted when empty)         |
+| `DiskFreeMB`   | `int64`  | `disk_free_mb`  | Available disk space on worker            |
 
 ## API surface
 

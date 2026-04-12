@@ -31,119 +31,77 @@
 
 **Current Implementation (4x4 Matrix):**
 
-```go
 type Pose struct {
-    T [16]float64  // 4x4 homogeneous transformation matrix
-    // T = [R | t]  where R is 3x3 rotation, t is 3x1 translation
-    //     [0 | 1]
+T [16]float64 // 4x4 homogeneous transformation matrix
+// T = [R | t] where R is 3x3 rotation, t is 3x1 translation
+// [0 | 1]
 }
-```
-
 **Future Implementation (7DOF):**
 
-```go
-type Pose7DOF struct {
-    // Position (3 DOF)
-    TX, TY, TZ float64  // Translation in meters
+**Pose7DOF** fields:
 
-    // Orientation (4 DOF - unit quaternion)
-    QW, QX, QY, QZ float64  // qw² + qx² + qy² + qz² = 1
-
-    // Optional: Velocity (for moving sensors)
-    VX, VY, VZ float64  // Linear velocity (m/s)
-    WX, WY, WZ float64  // Angular velocity (rad/s)
-
-    // Uncertainty (6x6 covariance)
-    Covariance [36]float64  // Position (3x3) + Orientation (3x3)
-
-    // Temporal validity
-    ValidFromNanos int64
-    ValidToNanos   *int64
-
-    // Legacy compatibility (computed on-demand)
-    T [16]float64  // Can be computed from 7DOF when needed
-}
-```
+| Field          | Type          | Description                           |
+| -------------- | ------------- | ------------------------------------- |
+| TX, TY, TZ     | `float64`     | Translation in meters                 |
+| QW, QX, QY, QZ | `float64`     | qw² + qx² + qy² + qz² = 1             |
+| VX, VY, VZ     | `float64`     | Linear velocity (m/s)                 |
+| WX, WY, WZ     | `float64`     | Angular velocity (rad/s)              |
+| Covariance     | `[36]float64` | Position (3x3) + Orientation (3x3)    |
+| ValidFromNanos | `int64`       | Temporal validity                     |
+| ValidToNanos   | `*int64`      |                                       |
+| T              | `[16]float64` | Can be computed from 7DOF when needed |
 
 ### Database schema (future)
 
-```sql
-CREATE TABLE sensor_poses_7dof (
-    pose_id INTEGER PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    from_frame TEXT NOT NULL,  -- e.g., "sensor/hesai-01"
-    to_frame TEXT NOT NULL,    -- e.g., "site/main-st-001"
+**sensor_poses_7dof** columns:
 
-    -- Position (meters)
-    tx REAL NOT NULL,
-    ty REAL NOT NULL,
-    tz REAL NOT NULL,
-
-    -- Orientation (unit quaternion)
-    qw REAL NOT NULL,  -- Scalar component
-    qx REAL NOT NULL,  -- X component
-    qy REAL NOT NULL,  -- Y component
-    qz REAL NOT NULL,  -- Z component
-
-    -- Optional: Velocity (for moving sensors)
-    vx REAL,  -- Linear velocity X (m/s)
-    vy REAL,  -- Linear velocity Y (m/s)
-    vz REAL,  -- Linear velocity Z (m/s)
-    wx REAL,  -- Angular velocity X (rad/s)
-    wy REAL,  -- Angular velocity Y (rad/s)
-    wz REAL,  -- Angular velocity Z (rad/s)
-
-    -- Uncertainty (6x6 covariance, flattened)
-    covariance_6x6 BLOB,  -- 36 float64 values
-
-    -- Temporal validity
-    valid_from_ns INTEGER NOT NULL,
-    valid_to_ns INTEGER,  -- NULL = current
-
-    -- Legacy compatibility (computed from 7DOF)
-    t_rowmajor_4x4 BLOB,  -- 16 float64 values
-
-    -- Calibration metadata
-    method TEXT,
-    root_mean_square_error_meters REAL,
-
-    FOREIGN KEY (sensor_id) REFERENCES sensors (sensor_id)
-);
-```
+| Column                        | Type      | Notes                             |
+| ----------------------------- | --------- | --------------------------------- |
+| pose_id                       | `INTEGER` | PRIMARY KEY                       |
+| sensor_id                     | `TEXT`    | NOT NULL                          |
+| from_frame                    | `TEXT`    | NOT NULL e.g., "sensor/hesai-01"  |
+| to_frame                      | `TEXT`    | NOT NULL e.g., "site/main-st-001" |
+| tx                            | `REAL`    | NOT NULL                          |
+| ty                            | `REAL`    | NOT NULL                          |
+| tz                            | `REAL`    | NOT NULL                          |
+| qw                            | `REAL`    | NOT NULL Scalar component         |
+| qx                            | `REAL`    | NOT NULL X component              |
+| qy                            | `REAL`    | NOT NULL Y component              |
+| qz                            | `REAL`    | NOT NULL Z component              |
+| vx                            | `REAL`    | Linear velocity X (m/s)           |
+| vy                            | `REAL`    | Linear velocity Y (m/s)           |
+| vz                            | `REAL`    | Linear velocity Z (m/s)           |
+| wx                            | `REAL`    | Angular velocity X (rad/s)        |
+| wy                            | `REAL`    | Angular velocity Y (rad/s)        |
+| wz                            | `REAL`    | Angular velocity Z (rad/s)        |
+| covariance_6x6                | `BLOB`    | 36 float64 values                 |
+| valid_from_ns                 | `INTEGER` | NOT NULL                          |
+| valid_to_ns                   | `INTEGER` | NULL = current                    |
+| t_rowmajor_4x4                | `BLOB`    | 16 float64 values                 |
+| method                        | `TEXT`    |                                   |
+| root_mean_square_error_meters | `REAL`    |                                   |
 
 ### Quaternion operations
 
 **Required Utilities:**
 
-```go
-package quaternion
-
-// Core operations
-func Multiply(q1, q2 Quaternion) Quaternion
-func Inverse(q Quaternion) Quaternion
-func Normalize(q Quaternion) Quaternion
-func Conjugate(q Quaternion) Quaternion
-
-// Interpolation
-func SLERP(q1, q2 Quaternion, t float64) Quaternion  // Spherical Linear Interpolation
-
-// Conversions
-func ToMatrix(q Quaternion) [9]float64  // 3x3 rotation matrix
-func FromMatrix(R [9]float64) Quaternion
-func ToEuler(q Quaternion) (roll, pitch, yaw float64)
-func FromEuler(roll, pitch, yaw float64) Quaternion
-
-// Application
-func RotatePoint(q Quaternion, p [3]float64) [3]float64
-```
+| Method        | Parameters                     | Returns                                         |
+| ------------- | ------------------------------ | ----------------------------------------------- |
+| `Multiply`    | `q1, q2 Quaternion`            | `Quaternion`                                    |
+| `Inverse`     | `q Quaternion`                 | `Quaternion`                                    |
+| `Normalize`   | `q Quaternion`                 | `Quaternion`                                    |
+| `Conjugate`   | `q Quaternion`                 | `Quaternion`                                    |
+| `SLERP`       | `q1, q2 Quaternion, t float64` | `Quaternion  // Spherical Linear Interpolation` |
+| `ToMatrix`    | `q Quaternion`                 | `[9]float64  // 3x3 rotation matrix`            |
+| `FromMatrix`  | `R [9]float64`                 | `Quaternion`                                    |
+| `ToEuler`     | `q Quaternion`                 | `(roll, pitch, yaw float64)`                    |
+| `FromEuler`   | `roll, pitch, yaw float64`     | `Quaternion`                                    |
+| `RotatePoint` | `q Quaternion, p [3]float64`   | `[3]float64`                                    |
 
 **SLERP (Spherical Linear Interpolation):**
 
-```
-q(t) = sin((1-t)θ)/sin(θ) * q0 + sin(tθ)/sin(θ) * q1
-where cos(θ) = q0 · q1  (dot product)
-```
-
+q(t) = sin((1-t)θ)/sin(θ) _ q0 + sin(tθ)/sin(θ) _ q1
+where cos(θ) = q0 · q1 (dot product)
 This provides smooth rotation interpolation between poses.
 
 ---
@@ -154,10 +112,7 @@ This provides smooth rotation interpolation between poses.
 
 When the sensor moves, measured velocities include **both object motion and sensor motion**:
 
-```
 v_measured = v_object + v_sensor
-```
-
 **Example (Vehicle-Mounted LIDAR):**
 
 - Vehicle travelling at 20 m/s forward
@@ -177,66 +132,32 @@ v_measured = v_object + v_sensor
 
 1. **Prediction Step (with sensor motion):**
 
-```go
-func (t *Tracker) PredictWithEgoMotion(dt float32, prevPose, currPose *Pose7DOF) {
-    for _, track := range t.Tracks {
-        // Step 1: Transform track from world to sensor frame at t-1
-        p_sensor_prev := prevPose.WorldToSensor(track.Position())
+**PredictWithEgoMotion** algorithm:
 
-        // Step 2: Predict object motion in sensor frame (object-only motion)
-        p_sensor_pred := p_sensor_prev + track.Velocity() * dt
-
-        // Step 3: Transform prediction back to world using current pose
-        p_world_pred := currPose.SensorToWorld(p_sensor_pred)
-
-        // Update track position
-        track.SetPosition(p_world_pred)
-    }
-}
-```
+- Step 1: Transform track from world to sensor frame at t-1
+- Step 2: Predict object motion in sensor frame (object-only motion)
+- Step 3: Transform prediction back to world using current pose
+- Update track position
 
 2. **Update Step (with velocity de-biasing):**
 
-```go
-func (t *Tracker) UpdateWithEgoMotion(measurement Measurement, currPose *Pose7DOF) {
-    // Measured velocity includes sensor velocity
-    v_measured := measurement.Velocity()
+**UpdateWithEgoMotion** algorithm:
 
-    // Compute sensor velocity at measurement point
-    v_sensor := currPose.VelocityAtPoint(measurement.Position())
+- Measured velocity includes sensor velocity
+- Compute sensor velocity at measurement point
+- De-bias: Remove sensor velocity to get object velocity
+- Use de-biased velocity for Kalman update
+  **Sensor Velocity at Point (Pseudocode):**
 
-    // De-bias: Remove sensor velocity to get object velocity
-    v_object := v_measured - v_sensor
+- Note: This is mathematical pseudocode showing the algorithm concept.
+- In actual Go implementation, vector operations require explicit element-wise computation.
 
-    // Use de-biased velocity for Kalman update
-    track.Update(measurement.Position(), v_object)
-}
-```
+**VelocityAtPoint** algorithm:
 
-**Sensor Velocity at Point (Pseudocode):**
-
-```go
-// Note: This is mathematical pseudocode showing the algorithm concept.
-// In actual Go implementation, vector operations require explicit element-wise computation.
-func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
-    // v_point = v_sensor + ω × r
-    // where ω is angular velocity, r is radius vector from sensor to point
-
-    // r = point - p.Position() (element-wise subtraction)
-    pos := p.Position()
-    r := [3]float64{point[0] - pos[0], point[1] - pos[1], point[2] - pos[2]}
-
-    v_linear := p.LinearVelocity()
-    v_angular := cross(p.AngularVelocity(), r) // cross product helper
-
-    // return v_linear + v_angular (element-wise addition)
-    return [3]float64{
-        v_linear[0] + v_angular[0],
-        v_linear[1] + v_angular[1],
-        v_linear[2] + v_angular[2],
-    }
-}
-```
+- v_point = v_sensor + ω × r
+- where ω is angular velocity, r is radius vector from sensor to point
+- r = point - p.Position() (element-wise subtraction)
+- return v_linear + v_angular (element-wise addition)
 
 ### Requirements for ego-motion compensation
 
@@ -262,21 +183,15 @@ func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
 
 **4-State Kalman Filter:**
 
-```
 State: x = [x, y, vx, vy]ᵀ
 Covariance: P (4×4 matrix)
-```
-
 **Prediction:**
 
-```
 x' = F·x + w
-where F = [1 0 dt  0]
-          [0 1  0 dt]
-          [0 0  1  0]
-          [0 0  0  1]
-```
-
+where F = [1 0 dt 0]
+[0 1 0 dt]
+[0 0 1 0]
+[0 0 0 1]
 **Limitations:**
 
 - ❌ No height tracking (assumes z = 0)
@@ -288,11 +203,8 @@ where F = [1 0 dt  0]
 
 **13-State Kalman Filter:**
 
-```
 State: x = [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]ᵀ
 Covariance: P (13×13 matrix)
-```
-
 **State Components:**
 
 - **Position (3):** x, y, z (metres)
@@ -302,47 +214,25 @@ Covariance: P (13×13 matrix)
 
 **Prediction (3D with Orientation):**
 
-```go
-func (track *TrackedObject3D) Predict(dt float32) {
-    // Linear position prediction
-    track.X += track.VX * dt
-    track.Y += track.VY * dt
-    track.Z += track.VZ * dt
+**Predict** algorithm:
 
-    // Angular position prediction (quaternion integration)
-    // q' = q + 0.5 * dt * Ω(ω) * q
-    // where Ω(ω) is the quaternion rate matrix
-    dq := 0.5 * dt * QuaternionRate(track.W()) * track.Q()
-    track.Q() = Normalize(track.Q() + dq)
+- Linear position prediction
+- Angular position prediction (quaternion integration)
+- q' = q + 0.5 _ dt _ Ω(ω) \* q
+- where Ω(ω) is the quaternion rate matrix
+- Velocity predictions (constant velocity model)
+- VX, VY, VZ, WX, WY, WZ remain constant
+- Covariance prediction (13×13)
+  **Update (with 3D Measurements):**
 
-    // Velocity predictions (constant velocity model)
-    // VX, VY, VZ, WX, WY, WZ remain constant
+**Update** algorithm:
 
-    // Covariance prediction (13×13)
-    track.P = F·track.P·Fᵀ + Q
-}
-```
-
-**Update (with 3D Measurements):**
-
-```go
-func (track *TrackedObject3D) Update(z Measurement) {
-    // Measurement: position + velocity (6D)
-    // Could be extended to include orientation measurements
-
-    // Kalman gain
-    K = P·Hᵀ·(H·P·Hᵀ + R)⁻¹
-
-    // State update
-    x' = x + K·(z - H·x)
-
-    // Covariance update
-    P' = (I - K·H)·P
-
-    // Quaternion normalization (maintain unit constraint)
-    track.Q() = Normalize(track.Q())
-}
-```
+- Measurement: position + velocity (6D)
+- Could be extended to include orientation measurements
+- Kalman gain
+- State update
+- Covariance update
+- Quaternion normalization (maintain unit constraint)
 
 ### Object orientation estimation
 
@@ -357,27 +247,17 @@ func (track *TrackedObject3D) Update(z Measurement) {
 
 1. **From Velocity (Simple):**
 
-```go
 // Current method - heading from velocity
 heading := atan2(vy, vx)
-quat := QuaternionFromYaw(heading)  // Rotation around Z-axis only
-```
+quat := QuaternionFromYaw(heading) // Rotation around Z-axis only 2. **From Point Cloud Principal Axes (Better):**
 
-2. **From Point Cloud Principal Axes (Better):**
-
-```go
 // Compute principal axes via PCA on cluster points
 pca := ComputePCA(clusterPoints)
-orientation := QuaternionFromPCA(pca)
-```
+orientation := QuaternionFromPCA(pca) 3. **From Tracking History (Best):**
 
-3. **From Tracking History (Best):**
-
-```go
 // Use Kalman filter to estimate orientation over time
 // Integrates velocity heading, PCA, and temporal consistency
 track.UpdateOrientation(measurement)
-```
 
 ---
 
@@ -389,11 +269,8 @@ For reliable object tracking, clusters must represent consistent real-world obje
 
 **Multi-Stage Clustering Pipeline:**
 
-```
 Raw Points → Ground Removal → DBSCAN/Euclidean Clustering → Cluster Merging →
 Shape Estimation → Temporal Association → 7-DOF Box Fitting
-```
-
 **Detailed algorithms are specified in `av-lidar-integration-plan.md` Phase 6-7:**
 
 - **Phase 6:** Clustering Algorithms (AdaptiveDBSCAN, Octree spatial index, cluster merging)
@@ -439,95 +316,58 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 
 ### Pose-Aware cluster (motion)
 
-```go
-type WorldCluster struct {
-    ClusterID   int64
-    SensorID    string
-    WorldFrame  FrameID
-    TSUnixNanos int64
+**WorldCluster** fields:
 
-    // World coordinates (computed from sensor + pose)
-    CentroidX, CentroidY, CentroidZ float32
-
-    // ⭐ REQUIRED for motion: Reference to sensor pose
-    PoseID      int64  // NOT NULL for moving sensors
-
-    // ⭐ REQUIRED for motion: Sensor-frame coordinates
-    SensorCentroidX, SensorCentroidY, SensorCentroidZ float32
-
-    // Bounding box and features (unchanged)
-    BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight float32
-    HeightP95, IntensityMean float32
-    PointsCount int
-}
-```
+| Field                                                  | Type      | Description                                      |
+| ------------------------------------------------------ | --------- | ------------------------------------------------ |
+| ClusterID                                              | `int64`   |                                                  |
+| SensorID                                               | `string`  |                                                  |
+| WorldFrame                                             | `FrameID` |                                                  |
+| TSUnixNanos                                            | `int64`   |                                                  |
+| CentroidX, CentroidY, CentroidZ                        | `float32` | World coordinates (computed from sensor + pose)  |
+| PoseID                                                 | `int64`   | NOT NULL for moving sensors                      |
+| SensorCentroidX, SensorCentroidY, SensorCentroidZ      | `float32` | ⭐ REQUIRED for motion: Sensor-frame coordinates |
+| BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight | `float32` | Bounding box and features (unchanged)            |
+| HeightP95, IntensityMean                               | `float32` |                                                  |
+| PointsCount                                            | `int`     |                                                  |
 
 ### 3D tracked object (motion)
 
-```go
-type TrackedObject3D struct {
-    TrackID  string
-    SensorID string
-    State    TrackState
+**TrackedObject3D** fields:
 
-    // Position (world frame, meters)
-    X, Y, Z float32
-
-    // Linear velocity (world frame, m/s)
-    VX, VY, VZ float32
-
-    // ⭐ NEW: Orientation (unit quaternion)
-    QW, QX, QY, QZ float32
-
-    // ⭐ NEW: Angular velocity (rad/s)
-    WX, WY, WZ float32
-
-    // ⭐ EXPANDED: Covariance (13×13 for full state)
-    P [169]float32  // Row-major 13×13 matrix
-
-    // ⭐ NEW: Last sensor pose (for ego-motion compensation)
-    LastPoseID int64
-
-    // Lifecycle and features (unchanged)
-    Hits, Misses int
-    FirstUnixNanos, LastUnixNanos int64
-    ObservationCount int
-    // ... other features
-}
-```
+| Field                         | Type           | Description                                            |
+| ----------------------------- | -------------- | ------------------------------------------------------ |
+| TrackID                       | `string`       |                                                        |
+| SensorID                      | `string`       |                                                        |
+| State                         | `TrackState`   |                                                        |
+| X, Y, Z                       | `float32`      | Position (world frame, meters)                         |
+| VX, VY, VZ                    | `float32`      | Linear velocity (world frame, m/s)                     |
+| QW, QX, QY, QZ                | `float32`      | ⭐ NEW: Orientation (unit quaternion)                  |
+| WX, WY, WZ                    | `float32`      | ⭐ NEW: Angular velocity (rad/s)                       |
+| P                             | `[169]float32` | Row-major 13×13 matrix                                 |
+| LastPoseID                    | `int64`        | ⭐ NEW: Last sensor pose (for ego-motion compensation) |
+| Hits, Misses                  | `int`          | Lifecycle and features (unchanged)                     |
+| FirstUnixNanos, LastUnixNanos | `int64`        |                                                        |
+| ObservationCount              | `int`          |                                                        |
 
 ### Track observation (motion)
 
-```go
-type TrackObservation3D struct {
-    TrackID     string
-    TSUnixNanos int64
-    WorldFrame  string
+**TrackObservation3D** fields:
 
-    // ⭐ REQUIRED: Sensor pose at observation time
-    PoseID      int64  // NOT NULL for moving sensors
-
-    // Position (world frame)
-    X, Y, Z float32
-
-    // Velocity (world frame, de-biased)
-    VelocityX, VelocityY, VelocityZ float32
-
-    // ⭐ NEW: Orientation (world frame)
-    QW, QX, QY, QZ float32
-
-    // ⭐ NEW: Angular velocity (world frame)
-    WX, WY, WZ float32
-
-    // ⭐ NEW: Measurement uncertainty
-    PositionCovariance [9]float32      // 3×3 position covariance
-    OrientationCovariance [16]float32  // 4×4 quaternion covariance
-
-    // Shape features (unchanged)
-    BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight float32
-    HeightP95, IntensityMean float32
-}
-```
+| Field                                                  | Type          | Description                            |
+| ------------------------------------------------------ | ------------- | -------------------------------------- |
+| TrackID                                                | `string`      |                                        |
+| TSUnixNanos                                            | `int64`       |                                        |
+| WorldFrame                                             | `string`      |                                        |
+| PoseID                                                 | `int64`       | NOT NULL for moving sensors            |
+| X, Y, Z                                                | `float32`     | Position (world frame)                 |
+| VelocityX, VelocityY, VelocityZ                        | `float32`     | Velocity (world frame, de-biased)      |
+| QW, QX, QY, QZ                                         | `float32`     | ⭐ NEW: Orientation (world frame)      |
+| WX, WY, WZ                                             | `float32`     | ⭐ NEW: Angular velocity (world frame) |
+| PositionCovariance                                     | `[9]float32`  | 3×3 position covariance                |
+| OrientationCovariance                                  | `[16]float32` | 4×4 quaternion covariance              |
+| BoundingBoxLength, BoundingBoxWidth, BoundingBoxHeight | `float32`     | Shape features (unchanged)             |
+| HeightP95, IntensityMean                               | `float32`     |                                        |
 
 ---
 
@@ -629,38 +469,16 @@ type TrackObservation3D struct {
 
 **Step 1: Static Deployment (Current Release)**
 
-```bash
-# Deploy with static pose alignment
-./velocity-report --lidar-sensor-id=hesai-01
-# System uses identity transform, populates pose_id
-```
-
+Deploy with static pose alignment: `./velocity-report --lidar-sensor-id=hesai-01`
 **Step 2: Upgrade to 7DOF Support (Future Phase 1)**
 
-```bash
-# Binary supports 7DOF, but still static
-./velocity-report --lidar-sensor-id=hesai-01
-# System still uses identity, but can store 7DOF poses
-```
-
+Binary supports 7DOF, but still static: `./velocity-report --lidar-sensor-id=hesai-01`
 **Step 3: Enable 3D Tracking (Future Phase 2-3)**
 
-```bash
-# Enable 3D tracking (still static sensor)
-./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking
-# Tracks full 3D state with orientation
-```
-
+Enable 3D tracking (still static sensor): `./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking`
 **Step 4: Motion Capture (Future Phase 4)**
 
-```bash
-# Enable motion capture (moving sensor)
-./velocity-report --lidar-sensor-id=hesai-01 \
-    --use-3d-tracking \
-    --enable-ego-motion \
-    --pose-source=gps+imu
-# Tracks objects with ego-motion compensation
-```
+Enable motion capture (moving sensor): `./velocity-report --lidar-sensor-id=hesai-01 --use-3d-tracking --enable-ego-motion --pose-source=gps+imu`
 
 ### Data migration
 
@@ -701,20 +519,17 @@ type TrackObservation3D struct {
 
 **Integration Points:**
 
-```go
 // Pose provider interface
 type PoseProvider interface {
-    GetCurrentPose() (*Pose7DOF, error)
-    GetPoseAtTime(t time.Time) (*Pose7DOF, error)
-    SubscribeToPoses(callback func(*Pose7DOF))
+GetCurrentPose() (*Pose7DOF, error)
+GetPoseAtTime(t time.Time) (*Pose7DOF, error)
+SubscribeToPoses(callback func(\*Pose7DOF))
 }
 
 // Implementations
 type GPSIMUProvider struct { ... }
 type VisualOdometryProvider struct { ... }
 type SLAMProvider struct { ... }
-```
-
 ---\n\n## Related Documents
 
 - **Current Implementation:** `../lidar/architecture/foreground-tracking.md` (3DOF/2D+velocity tracking - what's actually deployed)

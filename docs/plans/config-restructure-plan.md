@@ -53,14 +53,7 @@ format for convenience, but the binary only accepts the new schema.
 44 keys, all at root level. Comment-grouped in `internal/config/tuning.go`
 but with no structural hierarchy in JSON or Go.
 
-```json
-{
-  "background_update_fraction": 0.02,
-  "closeness_multiplier": 3.0,
-  ...
-  "min_observations_for_classification": 5
-}
-```
+44 root-level keys (e.g. `background_update_fraction`, `closeness_multiplier`, … `min_observations_for_classification`), comment-grouped in `internal/config/tuning.go` but with no structural hierarchy in JSON or Go.
 
 Full key listing and documentation: [`config/CONFIG.md`](../../config/CONFIG.md).
 
@@ -119,28 +112,7 @@ optimisation:   OptimisationConfig (3 fields — see §4)
 When a different engine is selected, you replace the engine block entirely.
 For example, switching L5 from `cv_kf_v1` to `imm_cv_ca_v2`:
 
-```json
-// Before:
-"l5": {
-  "engine": "cv_kf_v1",
-  "cv_kf_v1": {
-    "gating_distance_squared": 36.0,
-    /* ...22 more fields (23 total)... */
-  }
-}
-// After:
-"l5": {
-  "engine": "imm_cv_ca_v2",
-  "imm_cv_ca_v2": {
-    "gating_distance_squared": 36.0,
-    /* ...22 more common fields... */
-    "transition_cv_to_ca": 0.05,
-    "transition_ca_to_cv": 0.05,
-    "ca_process_noise_acc": 1.0,
-    "low_speed_heading_freeze_mps": 0.5
-  }
-}
-```
+For example, switching L5 from `cv_kf_v1` to `imm_cv_ca_v2`: the `l5.engine` field changes from `"cv_kf_v1"` to `"imm_cv_ca_v2"`, the `l5.cv_kf_v1` block (23 fields) is removed entirely, and a new `l5.imm_cv_ca_v2` block is added containing the same 23 common fields plus four IMM-specific fields (`transition_cv_to_ca`, `transition_ca_to_cv`, `ca_process_noise_acc`, `low_speed_heading_freeze_mps`).
 
 The file is rejected if:
 
@@ -171,144 +143,124 @@ alike: live inside the engine block. Values shown are current production
 defaults. The canonical defaults will be maintained in `tuning.defaults.json` —
 this example is for structural reference only.
 
-```json
-{
-  "version": 2,
-  "l1": {
-    "sensor": "pandar40p",
-    "data_source": "live"
-  },
-  "l2": {
-    "min_azimuth_coverage_deg": 340.0,
-    "min_frame_points_for_completion": 10000,
-    "azimuth_tolerance_deg": 10.0,
-    "max_backfill_delay": "100ms",
-    "cleanup_interval": "250ms",
-    "frame_buffer_size": 10,
-    "frame_channel_capacity": 8
-  },
-  "l3": {
-    "engine": "ema_baseline_v1",
-    "ema_baseline_v1": {
-      "background_update_fraction": 0.02,
-      "closeness_multiplier": 3.0,
-      "safety_margin_metres": 0.15,
-      "noise_relative": 0.02,
-      "neighbour_confirmation_count": 3,
-      "seed_from_first": true,
-      "warmup_duration_nanos": 30000000000,
-      "warmup_min_frames": 100,
-      "post_settle_update_fraction": 0,
-      "enable_diagnostics": false,
-      "freeze_duration": "5s",
-      "freeze_threshold_multiplier": 3.0,
-      "settling_period": "5m",
-      "snapshot_interval": "2h",
-      "change_threshold_snapshot": 100,
-      "reacquisition_boost_multiplier": 5.0,
-      "min_confidence_floor": 3,
-      "locked_baseline_threshold": 50,
-      "locked_baseline_multiplier": 4.0,
-      "sensor_movement_foreground_threshold": 0.2,
-      "background_drift_threshold_metres": 0.5,
-      "background_drift_ratio_threshold": 0.1,
-      "settling_min_coverage": 0.8,
-      "settling_max_spread_delta": 0.001,
-      "settling_min_region_stability": 0.95,
-      "settling_min_confidence": 10.0
-    }
-  },
-  "l4": {
-    "engine": "dbscan_xy_v1",
-    "dbscan_xy_v1": {
-      "foreground_dbscan_eps": 0.8,
-      "foreground_min_cluster_points": 5,
-      "foreground_max_input_points": 8000,
-      "height_band_floor": -2.8,
-      "height_band_ceiling": 1.5,
-      "remove_ground": true,
-      "max_cluster_diameter": 12.0,
-      "min_cluster_diameter": 0.05,
-      "max_cluster_aspect_ratio": 15.0
-    }
-  },
-  "l5": {
-    "engine": "cv_kf_v1",
-    "cv_kf_v1": {
-      "gating_distance_squared": 36.0,
-      "process_noise_pos": 0.05,
-      "process_noise_vel": 0.2,
-      "measurement_noise": 0.05,
-      "occlusion_cov_inflation": 0.5,
-      "occlusion_threshold_nanos": 200000000,
-      "hits_to_confirm": 4,
-      "max_misses": 3,
-      "max_misses_confirmed": 15,
-      "max_tracks": 100,
-      "max_reasonable_speed_mps": 30.0,
-      "max_position_jump_metres": 5.0,
-      "max_predict_dt": 0.5,
-      "max_covariance_diag": 100.0,
-      "min_points_for_pca": 4,
-      "obb_heading_smoothing_alpha": 0.08,
-      "obb_aspect_ratio_lock_threshold": 0.25,
-      "max_track_history_length": 200,
-      "max_speed_history_length": 100,
-      "merge_size_ratio": 2.5,
-      "split_size_ratio": 0.3,
-      "deleted_track_grace_period": "5s",
-      "min_observations_for_classification": 5
-    }
-  },
-  "l6": {
-    "engine": "rule_based_v1",
-    "rule_based_v1": {
-      "bird_height_max": 0.5,
-      "pedestrian_height_min": 1.0,
-      "pedestrian_height_max": 2.2,
-      "pedestrian_speed_max_mps": 3.0,
-      "vehicle_height_min": 1.2,
-      "vehicle_length_min": 3.0,
-      "vehicle_width_min": 1.5,
-      "vehicle_speed_min_mps": 5.0,
-      "bus_length_min": 7.0,
-      "bus_width_min": 2.3,
-      "truck_length_min": 5.5,
-      "truck_width_min": 2.0,
-      "truck_height_min": 2.0,
-      "cyclist_height_min": 1.0,
-      "cyclist_height_max": 2.0,
-      "cyclist_speed_min_mps": 2.0,
-      "cyclist_speed_max_mps": 10.0,
-      "cyclist_width_max": 1.2,
-      "cyclist_length_max": 2.5,
-      "motorcyclist_speed_min_mps": 5.0,
-      "motorcyclist_speed_max_mps": 30.0,
-      "motorcyclist_width_max": 1.2,
-      "motorcyclist_length_min": 1.5,
-      "motorcyclist_length_max": 3.0,
-      "bird_speed_max_mps": 1.0,
-      "stationary_speed_max_mps": 0.5,
-      "high_confidence": 0.85,
-      "medium_confidence": 0.7,
-      "low_confidence": 0.5
-    }
-  },
-  "pipeline": {
-    "buffer_timeout": "500ms",
-    "min_frame_points": 1000,
-    "flush_interval": "60s",
-    "background_flush": false,
-    "deleted_track_ttl": "5m",
-    "prune_interval": "1m"
-  },
-  "optimisation": {
-    "strategy": "accuracy_first_v1",
-    "search_engine": "hybrid_grid_stochastic_v1",
-    "layer_scope": "full"
-  }
-}
-```
+The complete example below uses the active engine for each layer. All engine parameters — common and engine-specific alike — live inside the engine block. The canonical defaults will be maintained in `tuning.defaults.json`; this table is for structural reference only.
+
+| Path                                                      | Value                         | Notes                       |
+| --------------------------------------------------------- | ----------------------------- | --------------------------- |
+| `version`                                                 | 2                             | Schema version              |
+| **L1**                                                    |                               |                             |
+| `l1.sensor`                                               | `"pandar40p"`                 | Sensor model                |
+| `l1.data_source`                                          | `"live"`                      | live / pcap / pcap_analysis |
+| **L2** (7 fields)                                         |                               |                             |
+| `l2.min_azimuth_coverage_deg`                             | 340.0                         |                             |
+| `l2.min_frame_points_for_completion`                      | 10000                         |                             |
+| `l2.azimuth_tolerance_deg`                                | 10.0                          |                             |
+| `l2.max_backfill_delay`                                   | `"100ms"`                     |                             |
+| `l2.cleanup_interval`                                     | `"250ms"`                     |                             |
+| `l2.frame_buffer_size`                                    | 10                            |                             |
+| `l2.frame_channel_capacity`                               | 8                             |                             |
+| **L3** — engine `ema_baseline_v1` (26 fields)             |                               |                             |
+| `l3.ema_baseline_v1.background_update_fraction`           | 0.02                          |                             |
+| `l3.ema_baseline_v1.closeness_multiplier`                 | 3.0                           |                             |
+| `l3.ema_baseline_v1.safety_margin_metres`                 | 0.15                          |                             |
+| `l3.ema_baseline_v1.noise_relative`                       | 0.02                          |                             |
+| `l3.ema_baseline_v1.neighbour_confirmation_count`         | 3                             |                             |
+| `l3.ema_baseline_v1.seed_from_first`                      | true                          |                             |
+| `l3.ema_baseline_v1.warmup_duration_nanos`                | 30000000000                   | 30 s                        |
+| `l3.ema_baseline_v1.warmup_min_frames`                    | 100                           |                             |
+| `l3.ema_baseline_v1.post_settle_update_fraction`          | 0                             |                             |
+| `l3.ema_baseline_v1.enable_diagnostics`                   | false                         |                             |
+| `l3.ema_baseline_v1.freeze_duration`                      | `"5s"`                        |                             |
+| `l3.ema_baseline_v1.freeze_threshold_multiplier`          | 3.0                           |                             |
+| `l3.ema_baseline_v1.settling_period`                      | `"5m"`                        |                             |
+| `l3.ema_baseline_v1.snapshot_interval`                    | `"2h"`                        |                             |
+| `l3.ema_baseline_v1.change_threshold_snapshot`            | 100                           |                             |
+| `l3.ema_baseline_v1.reacquisition_boost_multiplier`       | 5.0                           |                             |
+| `l3.ema_baseline_v1.min_confidence_floor`                 | 3                             |                             |
+| `l3.ema_baseline_v1.locked_baseline_threshold`            | 50                            |                             |
+| `l3.ema_baseline_v1.locked_baseline_multiplier`           | 4.0                           |                             |
+| `l3.ema_baseline_v1.sensor_movement_foreground_threshold` | 0.2                           |                             |
+| `l3.ema_baseline_v1.background_drift_threshold_metres`    | 0.5                           |                             |
+| `l3.ema_baseline_v1.background_drift_ratio_threshold`     | 0.1                           |                             |
+| `l3.ema_baseline_v1.settling_min_coverage`                | 0.8                           |                             |
+| `l3.ema_baseline_v1.settling_max_spread_delta`            | 0.001                         |                             |
+| `l3.ema_baseline_v1.settling_min_region_stability`        | 0.95                          |                             |
+| `l3.ema_baseline_v1.settling_min_confidence`              | 10.0                          |                             |
+| **L4** — engine `dbscan_xy_v1` (9 fields)                 |                               |                             |
+| `l4.dbscan_xy_v1.foreground_dbscan_eps`                   | 0.8                           |                             |
+| `l4.dbscan_xy_v1.foreground_min_cluster_points`           | 5                             |                             |
+| `l4.dbscan_xy_v1.foreground_max_input_points`             | 8000                          |                             |
+| `l4.dbscan_xy_v1.height_band_floor`                       | −2.8                          |                             |
+| `l4.dbscan_xy_v1.height_band_ceiling`                     | 1.5                           |                             |
+| `l4.dbscan_xy_v1.remove_ground`                           | true                          |                             |
+| `l4.dbscan_xy_v1.max_cluster_diameter`                    | 12.0                          |                             |
+| `l4.dbscan_xy_v1.min_cluster_diameter`                    | 0.05                          |                             |
+| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`                | 15.0                          |                             |
+| **L5** — engine `cv_kf_v1` (23 fields)                    |                               |                             |
+| `l5.cv_kf_v1.gating_distance_squared`                     | 36.0                          |                             |
+| `l5.cv_kf_v1.process_noise_pos`                           | 0.05                          |                             |
+| `l5.cv_kf_v1.process_noise_vel`                           | 0.2                           |                             |
+| `l5.cv_kf_v1.measurement_noise`                           | 0.05                          |                             |
+| `l5.cv_kf_v1.occlusion_cov_inflation`                     | 0.5                           |                             |
+| `l5.cv_kf_v1.occlusion_threshold_nanos`                   | 200000000                     | 200 ms                      |
+| `l5.cv_kf_v1.hits_to_confirm`                             | 4                             |                             |
+| `l5.cv_kf_v1.max_misses`                                  | 3                             |                             |
+| `l5.cv_kf_v1.max_misses_confirmed`                        | 15                            |                             |
+| `l5.cv_kf_v1.max_tracks`                                  | 100                           |                             |
+| `l5.cv_kf_v1.max_reasonable_speed_mps`                    | 30.0                          |                             |
+| `l5.cv_kf_v1.max_position_jump_metres`                    | 5.0                           |                             |
+| `l5.cv_kf_v1.max_predict_dt`                              | 0.5                           |                             |
+| `l5.cv_kf_v1.max_covariance_diag`                         | 100.0                         |                             |
+| `l5.cv_kf_v1.min_points_for_pca`                          | 4                             |                             |
+| `l5.cv_kf_v1.obb_heading_smoothing_alpha`                 | 0.08                          |                             |
+| `l5.cv_kf_v1.obb_aspect_ratio_lock_threshold`             | 0.25                          |                             |
+| `l5.cv_kf_v1.max_track_history_length`                    | 200                           |                             |
+| `l5.cv_kf_v1.max_speed_history_length`                    | 100                           |                             |
+| `l5.cv_kf_v1.merge_size_ratio`                            | 2.5                           |                             |
+| `l5.cv_kf_v1.split_size_ratio`                            | 0.3                           |                             |
+| `l5.cv_kf_v1.deleted_track_grace_period`                  | `"5s"`                        |                             |
+| `l5.cv_kf_v1.min_observations_for_classification`         | 5                             |                             |
+| **L6** — engine `rule_based_v1` (29 fields)               |                               |                             |
+| `l6.rule_based_v1.bird_height_max`                        | 0.5                           |                             |
+| `l6.rule_based_v1.pedestrian_height_min`                  | 1.0                           |                             |
+| `l6.rule_based_v1.pedestrian_height_max`                  | 2.2                           |                             |
+| `l6.rule_based_v1.pedestrian_speed_max_mps`               | 3.0                           |                             |
+| `l6.rule_based_v1.vehicle_height_min`                     | 1.2                           |                             |
+| `l6.rule_based_v1.vehicle_length_min`                     | 3.0                           |                             |
+| `l6.rule_based_v1.vehicle_width_min`                      | 1.5                           |                             |
+| `l6.rule_based_v1.vehicle_speed_min_mps`                  | 5.0                           |                             |
+| `l6.rule_based_v1.bus_length_min`                         | 7.0                           |                             |
+| `l6.rule_based_v1.bus_width_min`                          | 2.3                           |                             |
+| `l6.rule_based_v1.truck_length_min`                       | 5.5                           |                             |
+| `l6.rule_based_v1.truck_width_min`                        | 2.0                           |                             |
+| `l6.rule_based_v1.truck_height_min`                       | 2.0                           |                             |
+| `l6.rule_based_v1.cyclist_height_min`                     | 1.0                           |                             |
+| `l6.rule_based_v1.cyclist_height_max`                     | 2.0                           |                             |
+| `l6.rule_based_v1.cyclist_speed_min_mps`                  | 2.0                           |                             |
+| `l6.rule_based_v1.cyclist_speed_max_mps`                  | 10.0                          |                             |
+| `l6.rule_based_v1.cyclist_width_max`                      | 1.2                           |                             |
+| `l6.rule_based_v1.cyclist_length_max`                     | 2.5                           |                             |
+| `l6.rule_based_v1.motorcyclist_speed_min_mps`             | 5.0                           |                             |
+| `l6.rule_based_v1.motorcyclist_speed_max_mps`             | 30.0                          |                             |
+| `l6.rule_based_v1.motorcyclist_width_max`                 | 1.2                           |                             |
+| `l6.rule_based_v1.motorcyclist_length_min`                | 1.5                           |                             |
+| `l6.rule_based_v1.motorcyclist_length_max`                | 3.0                           |                             |
+| `l6.rule_based_v1.bird_speed_max_mps`                     | 1.0                           |                             |
+| `l6.rule_based_v1.stationary_speed_max_mps`               | 0.5                           |                             |
+| `l6.rule_based_v1.high_confidence`                        | 0.85                          |                             |
+| `l6.rule_based_v1.medium_confidence`                      | 0.7                           |                             |
+| `l6.rule_based_v1.low_confidence`                         | 0.5                           |                             |
+| **Pipeline** (6 fields)                                   |                               |                             |
+| `pipeline.buffer_timeout`                                 | `"500ms"`                     |                             |
+| `pipeline.min_frame_points`                               | 1000                          |                             |
+| `pipeline.flush_interval`                                 | `"60s"`                       |                             |
+| `pipeline.background_flush`                               | false                         |                             |
+| `pipeline.deleted_track_ttl`                              | `"5m"`                        |                             |
+| `pipeline.prune_interval`                                 | `"1m"`                        |                             |
+| **Optimisation** (3 fields)                               |                               |                             |
+| `optimisation.strategy`                                   | `"accuracy_first_v1"`         |                             |
+| `optimisation.search_engine`                              | `"hybrid_grid_stochastic_v1"` |                             |
+| `optimisation.layer_scope`                                | `"full"`                      |                             |
 
 ---
 
@@ -655,252 +607,58 @@ strictly validated when it is. Data fields inside the block are concrete values
 2. **Engine block level**: rejects unknown/misspelled fields inside the
    block; all fields are required (no `omitempty`)
 
-```go
-const CurrentConfigVersion = 2
+`CurrentConfigVersion = 2`
 
-// --- Root ---
+**`TuningConfig` (root):**
 
-type TuningConfig struct {
-    Version      int                `json:"version"`
-    L1           L1Config           `json:"l1"`
-    L2           L2Config           `json:"l2"`
-    L3           L3Config           `json:"l3"`
-    L4           L4Config           `json:"l4"`
-    L5           L5Config           `json:"l5"`
-    L6           L6Config           `json:"l6"`
-    Pipeline     PipelineConfig     `json:"pipeline"`
-    Optimisation OptimisationConfig `json:"optimisation"`
-}
+| Field          | Type               | JSON           | Notes             |
+| -------------- | ------------------ | -------------- | ----------------- |
+| `Version`      | int                | `version`      | Must equal 2      |
+| `L1`           | L1Config           | `l1`           |                   |
+| `L2`           | L2Config           | `l2`           |                   |
+| `L3`           | L3Config           | `l3`           | Engine-selectable |
+| `L4`           | L4Config           | `l4`           | Engine-selectable |
+| `L5`           | L5Config           | `l5`           | Engine-selectable |
+| `L6`           | L6Config           | `l6`           | Engine-selectable |
+| `Pipeline`     | PipelineConfig     | `pipeline`     |                   |
+| `Optimisation` | OptimisationConfig | `optimisation` |                   |
 
-// --- L1 (no engine selection) ---
+**`L1Config`** (2 fields): `Sensor` (string), `DataSource` (string).
 
-type L1Config struct {
-    Sensor     string `json:"sensor"`
-    DataSource string `json:"data_source"`
-}
+**`L2Config`** (7 fields): `MinAzimuthCoverageDeg` (float64), `MinFramePointsForCompletion` (int), `AzimuthToleranceDeg` (float64), `MaxBackfillDelay` (string), `CleanupInterval` (string), `FrameBufferSize` (int), `FrameChannelCapacity` (int).
 
-// --- L2 (no engine selection) ---
+**`PipelineConfig`** (6 fields): `BufferTimeout` (string), `MinFramePoints` (int), `FlushInterval` (string), `BackgroundFlush` (bool), `DeletedTrackTTL` (string), `PruneInterval` (string).
 
-type L2Config struct {
-    MinAzimuthCoverageDeg       float64 `json:"min_azimuth_coverage_deg"`
-    MinFramePointsForCompletion int     `json:"min_frame_points_for_completion"`
-    AzimuthToleranceDeg         float64 `json:"azimuth_tolerance_deg"`
-    MaxBackfillDelay            string  `json:"max_backfill_delay"`
-    CleanupInterval             string  `json:"cleanup_interval"`
-    FrameBufferSize             int     `json:"frame_buffer_size"`
-    FrameChannelCapacity        int     `json:"frame_channel_capacity"`
-}
+**`OptimisationConfig`** (3 fields): `Strategy` (string), `SearchEngine` (string), `LayerScope` (string).
 
-type PipelineConfig struct {
-    BufferTimeout   string `json:"buffer_timeout"`
-    MinFramePoints  int    `json:"min_frame_points"`
-    FlushInterval   string `json:"flush_interval"`
-    BackgroundFlush bool   `json:"background_flush"`
-    DeletedTrackTTL string `json:"deleted_track_ttl"`
-    PruneInterval   string `json:"prune_interval"`
-}
+**`L3Config`** wrapper: `Engine` (string) + pointer to one engine block (`EmaBaselineV1` or `EmaTrackAssistV2`, `omitempty`).
 
-type OptimisationConfig struct {
-    Strategy     string `json:"strategy"`
-    SearchEngine string `json:"search_engine"`
-    LayerScope   string `json:"layer_scope"`
-}
+**`l3Common`** (26 fields, embedded in all L3 engines): `BackgroundUpdateFraction`, `ClosenessMultiplier`, `SafetyMarginMetres`, `NoiseRelative`, `NeighbourConfirmationCount`, `SeedFromFirst`, `WarmupDurationNanos`, `WarmupMinFrames`, `PostSettleUpdateFraction`, `EnableDiagnostics`, `FreezeDuration`, `FreezeThresholdMultiplier`, `SettlingPeriod`, `SnapshotInterval`, `ChangeThresholdSnapshot`, `ReacquisitionBoostMultiplier`, `MinConfidenceFloor`, `LockedBaselineThreshold`, `LockedBaselineMultiplier`, `SensorMovementForegroundThreshold`, `BackgroundDriftThresholdMetres`, `BackgroundDriftRatioThreshold`, `SettlingMinCoverage`, `SettlingMaxSpreadDelta`, `SettlingMinRegionStability`, `SettlingMinConfidence`.
 
-// --- L3: wrapper selects engine; all fields inside engine block ---
+- **`L3EmaBaselineV1`** embeds `l3Common` (26 fields). No additional fields.
+- **`L3EmaTrackAssistV2`** embeds `l3Common` + 3 fields: `PromotionNearGateLow`, `PromotionNearGateHigh`, `PromotionThreshold` (all float64).
 
-type L3Config struct {
-    Engine           string              `json:"engine"`
-    EmaBaselineV1    *L3EmaBaselineV1    `json:"ema_baseline_v1,omitempty"`
-    EmaTrackAssistV2 *L3EmaTrackAssistV2 `json:"ema_track_assist_v2,omitempty"`
-}
+**`L4Config`** wrapper: `Engine` + one of `DbscanXyV1`, `TwoStageMahalanobisV2`, `HdbscanAdaptiveV1`.
 
-// l3Common contains fields shared by all L3 engines (26 fields).
-// Embedded in each L3 engine struct — all fields flatten into the
-// engine block JSON object.
-type l3Common struct {
-    BackgroundUpdateFraction          float64 `json:"background_update_fraction"`
-    ClosenessMultiplier               float64 `json:"closeness_multiplier"`
-    SafetyMarginMetres                float64 `json:"safety_margin_metres"`
-    NoiseRelative                     float64 `json:"noise_relative"`
-    NeighbourConfirmationCount        int     `json:"neighbour_confirmation_count"`
-    SeedFromFirst                     bool    `json:"seed_from_first"`
-    WarmupDurationNanos               int64   `json:"warmup_duration_nanos"`
-    WarmupMinFrames                   int     `json:"warmup_min_frames"`
-    PostSettleUpdateFraction          float64 `json:"post_settle_update_fraction"`
-    EnableDiagnostics                 bool    `json:"enable_diagnostics"`
-    FreezeDuration                    string  `json:"freeze_duration"`
-    FreezeThresholdMultiplier         float64 `json:"freeze_threshold_multiplier"`
-    SettlingPeriod                    string  `json:"settling_period"`
-    SnapshotInterval                  string  `json:"snapshot_interval"`
-    ChangeThresholdSnapshot           int     `json:"change_threshold_snapshot"`
-    ReacquisitionBoostMultiplier      float64 `json:"reacquisition_boost_multiplier"`
-    MinConfidenceFloor                int     `json:"min_confidence_floor"`
-    LockedBaselineThreshold           int     `json:"locked_baseline_threshold"`
-    LockedBaselineMultiplier          float64 `json:"locked_baseline_multiplier"`
-    SensorMovementForegroundThreshold float64 `json:"sensor_movement_foreground_threshold"`
-    BackgroundDriftThresholdMetres    float64 `json:"background_drift_threshold_metres"`
-    BackgroundDriftRatioThreshold     float64 `json:"background_drift_ratio_threshold"`
-    SettlingMinCoverage               float64 `json:"settling_min_coverage"`
-    SettlingMaxSpreadDelta            float64 `json:"settling_max_spread_delta"`
-    SettlingMinRegionStability        float64 `json:"settling_min_region_stability"`
-    SettlingMinConfidence             float64 `json:"settling_min_confidence"`
-}
+**`l4Common`** (9 fields): `ForegroundDBSCANEps`, `ForegroundMinClusterPoints`, `ForegroundMaxInputPoints`, `HeightBandFloor`, `HeightBandCeiling`, `RemoveGround`, `MaxClusterDiameter`, `MinClusterDiameter`, `MaxClusterAspectRatio`.
 
-// L3EmaBaselineV1 embeds l3Common (26 fields). No additional fields.
-type L3EmaBaselineV1 struct {
-    l3Common
-}
+- **`L4DbscanXyV1`** embeds `l4Common` (9 fields). No additional fields.
+- **`L4TwoStageMahalanobisV2`** embeds `l4Common` + 2 fields: `VelocityCoherenceGate`, `MinVelocityConfidence`.
+- **`L4HdbscanAdaptiveV1`** embeds `l4Common` + 2 fields: `MinClusterSize`, `MinSamples`.
 
-// L3EmaTrackAssistV2 embeds l3Common (26 fields) + 3 track-assist fields.
-type L3EmaTrackAssistV2 struct {
-    l3Common
-    PromotionNearGateLow  float64 `json:"promotion_near_gate_low"`
-    PromotionNearGateHigh float64 `json:"promotion_near_gate_high"`
-    PromotionThreshold    float64 `json:"promotion_threshold"`
-}
+**`L5Config`** wrapper: `Engine` + one of `CvKfV1`, `ImmCvCaV2`, `ImmCvCaRtsEvalV2`.
 
-// --- L4: wrapper selects engine; all fields inside engine block ---
+**`l5Common`** (23 fields): `GatingDistanceSquared`, `ProcessNoisePos`, `ProcessNoiseVel`, `MeasurementNoise`, `OcclusionCovInflation`, `OcclusionThresholdNanos`, `HitsToConfirm`, `MaxMisses`, `MaxMissesConfirmed`, `MaxTracks`, `MaxReasonableSpeedMps`, `MaxPositionJumpMetres`, `MaxPredictDt`, `MaxCovarianceDiag`, `MinPointsForPCA`, `OBBHeadingSmoothingAlpha`, `OBBAspectRatioLockThreshold`, `MaxTrackHistoryLength`, `MaxSpeedHistoryLength`, `MergeSizeRatio`, `SplitSizeRatio`, `DeletedTrackGracePeriod`, `MinObservationsForClassification`.
 
-type L4Config struct {
-    Engine                string                   `json:"engine"`
-    DbscanXyV1            *L4DbscanXyV1            `json:"dbscan_xy_v1,omitempty"`
-    TwoStageMahalanobisV2 *L4TwoStageMahalanobisV2 `json:"two_stage_mahalanobis_v2,omitempty"`
-    HdbscanAdaptiveV1     *L4HdbscanAdaptiveV1     `json:"hdbscan_adaptive_v1,omitempty"`
-}
+- **`L5CvKfV1`** embeds `l5Common` (23 fields). No additional fields.
+- **`L5ImmCvCaV2`** embeds `l5Common` + 4 IMM fields: `TransitionCVToCA`, `TransitionCAToCV`, `CAProcessNoiseAcc`, `LowSpeedHeadingFreezeMps`.
+- **`L5ImmCvCaRtsEvalV2`** embeds `L5ImmCvCaV2` (27 fields) + 1: `RTSSmoothingWindow` (int).
 
-// l4Common contains fields shared by all L4 engines (9 fields).
-type l4Common struct {
-    ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
-    ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
-    ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
-    HeightBandFloor            float64 `json:"height_band_floor"`
-    HeightBandCeiling          float64 `json:"height_band_ceiling"`
-    RemoveGround               bool    `json:"remove_ground"`
-    MaxClusterDiameter         float64 `json:"max_cluster_diameter"`
-    MinClusterDiameter         float64 `json:"min_cluster_diameter"`
-    MaxClusterAspectRatio      float64 `json:"max_cluster_aspect_ratio"`
-}
+**`L6Config`** wrapper: `Engine` + `RuleBasedV1`.
 
-// L4DbscanXyV1 embeds l4Common (9 fields). No additional fields.
-type L4DbscanXyV1 struct {
-    l4Common
-}
+**`l6Common`** (29 fields): `BirdHeightMax`, `PedestrianHeightMin`, `PedestrianHeightMax`, `PedestrianSpeedMaxMps`, `VehicleHeightMin`, `VehicleLengthMin`, `VehicleWidthMin`, `VehicleSpeedMinMps`, `BusLengthMin`, `BusWidthMin`, `TruckLengthMin`, `TruckWidthMin`, `TruckHeightMin`, `CyclistHeightMin`, `CyclistHeightMax`, `CyclistSpeedMinMps`, `CyclistSpeedMaxMps`, `CyclistWidthMax`, `CyclistLengthMax`, `MotorcyclistSpeedMinMps`, `MotorcyclistSpeedMaxMps`, `MotorcyclistWidthMax`, `MotorcyclistLengthMin`, `MotorcyclistLengthMax`, `BirdSpeedMaxMps`, `StationarySpeedMaxMps`, `HighConfidence`, `MediumConfidence`, `LowConfidence`.
 
-// L4TwoStageMahalanobisV2 embeds l4Common (9 fields) + 2 VC fields.
-type L4TwoStageMahalanobisV2 struct {
-    l4Common
-    VelocityCoherenceGate float64 `json:"velocity_coherence_gate"`
-    MinVelocityConfidence float64 `json:"min_velocity_confidence"`
-}
-
-// L4HdbscanAdaptiveV1 embeds l4Common (9 fields) + 2 HDBSCAN fields.
-type L4HdbscanAdaptiveV1 struct {
-    l4Common
-    MinClusterSize int `json:"min_cluster_size"`
-    MinSamples     int `json:"min_samples"`
-}
-
-// --- L5: wrapper selects engine; all fields inside engine block ---
-
-type L5Config struct {
-    Engine           string               `json:"engine"`
-    CvKfV1           *L5CvKfV1            `json:"cv_kf_v1,omitempty"`
-    ImmCvCaV2        *L5ImmCvCaV2         `json:"imm_cv_ca_v2,omitempty"`
-    ImmCvCaRtsEvalV2 *L5ImmCvCaRtsEvalV2  `json:"imm_cv_ca_rts_eval_v2,omitempty"`
-}
-
-// l5Common contains fields shared by all L5 engines (23 fields).
-type l5Common struct {
-    GatingDistanceSquared          float64 `json:"gating_distance_squared"`
-    ProcessNoisePos                float64 `json:"process_noise_pos"`
-    ProcessNoiseVel                float64 `json:"process_noise_vel"`
-    MeasurementNoise               float64 `json:"measurement_noise"`
-    OcclusionCovInflation          float64 `json:"occlusion_cov_inflation"`
-    OcclusionThresholdNanos        int64   `json:"occlusion_threshold_nanos"`
-    HitsToConfirm                  int     `json:"hits_to_confirm"`
-    MaxMisses                      int     `json:"max_misses"`
-    MaxMissesConfirmed             int     `json:"max_misses_confirmed"`
-    MaxTracks                      int     `json:"max_tracks"`
-    MaxReasonableSpeedMps          float64 `json:"max_reasonable_speed_mps"`
-    MaxPositionJumpMetres          float64 `json:"max_position_jump_metres"`
-    MaxPredictDt                   float64 `json:"max_predict_dt"`
-    MaxCovarianceDiag              float64 `json:"max_covariance_diag"`
-    MinPointsForPCA                int     `json:"min_points_for_pca"`
-    OBBHeadingSmoothingAlpha       float64 `json:"obb_heading_smoothing_alpha"`
-    OBBAspectRatioLockThreshold    float64 `json:"obb_aspect_ratio_lock_threshold"`
-    MaxTrackHistoryLength          int     `json:"max_track_history_length"`
-    MaxSpeedHistoryLength          int     `json:"max_speed_history_length"`
-    MergeSizeRatio                 float64 `json:"merge_size_ratio"`
-    SplitSizeRatio                 float64 `json:"split_size_ratio"`
-    DeletedTrackGracePeriod        string  `json:"deleted_track_grace_period"`
-    MinObservationsForClassification int   `json:"min_observations_for_classification"`
-}
-
-// L5CvKfV1 embeds l5Common (23 fields). No additional fields.
-type L5CvKfV1 struct {
-    l5Common
-}
-
-// L5ImmCvCaV2 embeds l5Common (23 fields) + 4 IMM fields.
-type L5ImmCvCaV2 struct {
-    l5Common
-    TransitionCVToCA         float64 `json:"transition_cv_to_ca"`
-    TransitionCAToCV         float64 `json:"transition_ca_to_cv"`
-    CAProcessNoiseAcc        float64 `json:"ca_process_noise_acc"`
-    LowSpeedHeadingFreezeMps float64 `json:"low_speed_heading_freeze_mps"`
-}
-
-// L5ImmCvCaRtsEvalV2 embeds L5ImmCvCaV2 (23 common + 4 IMM) + RTS smoothing.
-type L5ImmCvCaRtsEvalV2 struct {
-    L5ImmCvCaV2                      // 27 fields (embedded, flattened in JSON)
-    RTSSmoothingWindow int           `json:"rts_smoothing_window"`
-}
-
-// --- L6: wrapper selects engine; all fields inside engine block ---
-
-type L6Config struct {
-    Engine      string         `json:"engine"`
-    RuleBasedV1 *L6RuleBasedV1 `json:"rule_based_v1,omitempty"`
-}
-
-// l6Common contains fields shared by all L6 engines (29 fields).
-type l6Common struct {
-    BirdHeightMax           float64 `json:"bird_height_max"`
-    PedestrianHeightMin     float64 `json:"pedestrian_height_min"`
-    PedestrianHeightMax     float64 `json:"pedestrian_height_max"`
-    PedestrianSpeedMaxMps   float64 `json:"pedestrian_speed_max_mps"`
-    VehicleHeightMin        float64 `json:"vehicle_height_min"`
-    VehicleLengthMin        float64 `json:"vehicle_length_min"`
-    VehicleWidthMin         float64 `json:"vehicle_width_min"`
-    VehicleSpeedMinMps      float64 `json:"vehicle_speed_min_mps"`
-    BusLengthMin            float64 `json:"bus_length_min"`
-    BusWidthMin             float64 `json:"bus_width_min"`
-    TruckLengthMin          float64 `json:"truck_length_min"`
-    TruckWidthMin           float64 `json:"truck_width_min"`
-    TruckHeightMin          float64 `json:"truck_height_min"`
-    CyclistHeightMin        float64 `json:"cyclist_height_min"`
-    CyclistHeightMax        float64 `json:"cyclist_height_max"`
-    CyclistSpeedMinMps      float64 `json:"cyclist_speed_min_mps"`
-    CyclistSpeedMaxMps      float64 `json:"cyclist_speed_max_mps"`
-    CyclistWidthMax         float64 `json:"cyclist_width_max"`
-    CyclistLengthMax        float64 `json:"cyclist_length_max"`
-    MotorcyclistSpeedMinMps float64 `json:"motorcyclist_speed_min_mps"`
-    MotorcyclistSpeedMaxMps float64 `json:"motorcyclist_speed_max_mps"`
-    MotorcyclistWidthMax    float64 `json:"motorcyclist_width_max"`
-    MotorcyclistLengthMin   float64 `json:"motorcyclist_length_min"`
-    MotorcyclistLengthMax   float64 `json:"motorcyclist_length_max"`
-    BirdSpeedMaxMps         float64 `json:"bird_speed_max_mps"`
-    StationarySpeedMaxMps   float64 `json:"stationary_speed_max_mps"`
-    HighConfidence          float64 `json:"high_confidence"`
-    MediumConfidence        float64 `json:"medium_confidence"`
-    LowConfidence           float64 `json:"low_confidence"`
-}
-
-// L6RuleBasedV1 embeds l6Common (29 fields). No additional fields.
-type L6RuleBasedV1 struct {
-    l6Common
-}
-```
+- **`L6RuleBasedV1`** embeds `l6Common` (29 fields). No additional fields.
 
 ### 6.2 `LoadTuningConfig`: strict validation
 
@@ -928,29 +686,21 @@ type L6RuleBasedV1 struct {
 The registry maps engine names to their struct type. Adding a new engine is a
 single-line addition:
 
-```go
-// EngineSpec describes one engine variant for a layer.
-type EngineSpec struct {
-    Layer     string               // "l3", "l4", "l5", "l6"
-    NewConfig func() interface{}   // returns pointer to zero-value struct
-}
+**`EngineSpec` struct** — `Layer` (string: `"l3"`, `"l4"`, `"l5"`, `"l6"`) and `NewConfig` (factory returning a pointer to a zero-value engine struct).
 
-var engineRegistry = map[string]EngineSpec{
-    // L3
-    "ema_baseline_v1":          {Layer: "l3", NewConfig: func() interface{} { return &L3EmaBaselineV1{} }},
-    "ema_track_assist_v2":      {Layer: "l3", NewConfig: func() interface{} { return &L3EmaTrackAssistV2{} }},
-    // L4
-    "dbscan_xy_v1":             {Layer: "l4", NewConfig: func() interface{} { return &L4DbscanXyV1{} }},
-    "two_stage_mahalanobis_v2": {Layer: "l4", NewConfig: func() interface{} { return &L4TwoStageMahalanobisV2{} }},
-    "hdbscan_adaptive_v1":      {Layer: "l4", NewConfig: func() interface{} { return &L4HdbscanAdaptiveV1{} }},
-    // L5
-    "cv_kf_v1":                 {Layer: "l5", NewConfig: func() interface{} { return &L5CvKfV1{} }},
-    "imm_cv_ca_v2":             {Layer: "l5", NewConfig: func() interface{} { return &L5ImmCvCaV2{} }},
-    "imm_cv_ca_rts_eval_v2":    {Layer: "l5", NewConfig: func() interface{} { return &L5ImmCvCaRtsEvalV2{} }},
-    // L6
-    "rule_based_v1":            {Layer: "l6", NewConfig: func() interface{} { return &L6RuleBasedV1{} }},
-}
-```
+**`engineRegistry`** maps engine names to specs:
+
+| Engine name                | Layer | Struct                    |
+| -------------------------- | ----- | ------------------------- |
+| `ema_baseline_v1`          | l3    | `L3EmaBaselineV1`         |
+| `ema_track_assist_v2`      | l3    | `L3EmaTrackAssistV2`      |
+| `dbscan_xy_v1`             | l4    | `L4DbscanXyV1`            |
+| `two_stage_mahalanobis_v2` | l4    | `L4TwoStageMahalanobisV2` |
+| `hdbscan_adaptive_v1`      | l4    | `L4HdbscanAdaptiveV1`     |
+| `cv_kf_v1`                 | l5    | `L5CvKfV1`                |
+| `imm_cv_ca_v2`             | l5    | `L5ImmCvCaV2`             |
+| `imm_cv_ca_rts_eval_v2`    | l5    | `L5ImmCvCaRtsEvalV2`      |
+| `rule_based_v1`            | l6    | `L6RuleBasedV1`           |
 
 The registry also enforces layer assignment: an L4 engine cannot be placed
 in the L5 slot.

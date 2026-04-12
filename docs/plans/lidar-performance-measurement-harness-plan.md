@@ -79,71 +79,33 @@ The harness runs as part of the existing nightly CI job. Extensions:
 
 Extend the current benchmark output with per-layer fields:
 
-```json
-{
-  "version": 1,
-  "timestamp": "2024-01-01T12:00:00Z",
-  "pcap_file": "kirk0.pcap",
-  "system_info": {
-    "hostname": "ci-runner-01",
-    "platform": "linux/arm64",
-    "cpu": "Raspberry Pi 4",
-    "memory_gb": 4
-  },
-  "metrics": {
-    "frame_time_stats": {
-      "total_frames": 3000,
-      "total_duration_ms": 45000,
-      "fps": 66.7,
-      "frame_budget_ms": 100,
-      "drops": 0,
-      "drop_rate": 0.0,
-      "mean_ms": 15.0,
-      "p50_ms": 14.2,
-      "p85_ms": 18.5,
-      "p98_ms": 22.0,
-      "max_ms": 30.0
-    },
-    "layer_time_stats": {
-      "l1l2_parse": {
-        "mean_ms": 1.2,
-        "p50_ms": 1.1,
-        "p85_ms": 1.8,
-        "p98_ms": 2.5,
-        "max_ms": 4.1
-      },
-      "l3_background": {
-        "mean_ms": 3.8,
-        "p50_ms": 3.5,
-        "p85_ms": 5.2,
-        "p98_ms": 6.1,
-        "max_ms": 8.3
-      },
-      "l4_perception": {
-        "mean_ms": 8.4,
-        "p50_ms": 7.9,
-        "p85_ms": 12.1,
-        "p98_ms": 15.0,
-        "max_ms": 18.2
-      },
-      "l5_tracking": {
-        "mean_ms": 3.1,
-        "p50_ms": 2.8,
-        "p85_ms": 4.5,
-        "p98_ms": 5.8,
-        "max_ms": 7.1
-      },
-      "l6_classification": {
-        "mean_ms": 0.3,
-        "p50_ms": 0.2,
-        "p85_ms": 0.5,
-        "p98_ms": 0.7,
-        "max_ms": 1.0
-      }
-    }
-  }
-}
-```
+The benchmark JSON output has the following structure:
+
+**Top-level fields:** `version` (integer, schema version), `timestamp` (ISO 8601), `pcap_file` (source PCAP name).
+
+**`system_info`:** `hostname`, `platform` (e.g. `linux/arm64`), `cpu` (e.g. `Raspberry Pi 4`), `memory_gb`.
+
+**`metrics.frame_time_stats`:**
+
+| Field                                             | Example                                | Purpose                    |
+| ------------------------------------------------- | -------------------------------------- | -------------------------- |
+| `total_frames`                                    | `3000`                                 | Frames processed           |
+| `total_duration_ms`                               | `45000`                                | Wall-clock replay duration |
+| `fps`                                             | `66.7`                                 | Achieved frames per second |
+| `frame_budget_ms`                                 | `100`                                  | Target budget (10 Hz)      |
+| `drops`                                           | `0`                                    | Frames exceeding budget    |
+| `drop_rate`                                       | `0.0`                                  | Drop count / total frames  |
+| `mean_ms`, `p50_ms`, `p85_ms`, `p98_ms`, `max_ms` | `15.0`, `14.2`, `18.5`, `22.0`, `30.0` | Frame time distribution    |
+
+**`metrics.layer_time_stats`** — per-layer breakdown (each with `mean_ms`, `p50_ms`, `p85_ms`, `p98_ms`, `max_ms`):
+
+| Layer key           | Example mean | What it measures                    |
+| ------------------- | ------------ | ----------------------------------- |
+| `l1l2_parse`        | `1.2` ms     | Packet parse + frame assembly       |
+| `l3_background`     | `3.8` ms     | Background update + foreground mask |
+| `l4_perception`     | `8.4` ms     | Ground filter + DBSCAN + OBB        |
+| `l5_tracking`       | `3.1` ms     | Kalman predict + Hungarian + update |
+| `l6_classification` | `0.3` ms     | Classification pass                 |
 
 ## Implementation phases
 

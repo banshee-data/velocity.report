@@ -364,61 +364,13 @@ pi-gen/
 
 ### 4.4 CI pipeline (GitHub actions)
 
-```yaml
-# .github/workflows/build-image.yml (conceptual)
-name: Build Raspberry Pi Image
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
+The CI pipeline (`.github/workflows/build-image.yml`) triggers on published releases and manual `workflow_dispatch`. It runs three sequential jobs:
 
-jobs:
-  build-binaries:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cross-compile Go binaries (ARM64)
-        run: make build-radar-linux-pcap build-ctl-linux
-      - name: Build Python wheel
-        run: make build-python-wheel
-      - uses: actions/upload-artifact@v4
-        with:
-          name: velocity-binaries
-          path: |
-            velocity-report-*-linux-arm64*
-            velocity-ctl-*-linux-arm64*
-            tools/pdf-generator/dist/*.whl
-
-  build-image:
-    needs: build-binaries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: { name: velocity-binaries }
-      - name: Build pi-gen image
-        uses: usimd/pi-gen-action@v1
-        with:
-          image-name: velocity-report
-          stage-list: stage0 stage1 stage2 stage-velocity
-          # ... additional config
-      - name: Compress image
-        run: xz -9 deploy/velocity-report.img
-      - name: Upload to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: deploy/velocity-report.img.xz
-
-  update-repo-json:
-    needs: build-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update os-list JSON with new image URL and checksum
-        run: |
-          # Generate SHA256 checksum
-          # Update os-list-velocity.json with new download URL
-          # Commit and push to gh-pages or releases
-```
+| Job                | Runner                                   | Steps                                                                                                                                                                                                                                                          |
+| ------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-binaries`   | `ubuntu-latest`                          | Check out source; cross-compile Go binaries (ARM64) via `make build-radar-linux-pcap build-ctl-linux`; build Python wheel via `make build-python-wheel`; upload `velocity-report-*-linux-arm64*`, `velocity-ctl-*-linux-arm64*`, and `dist/*.whl` as artefacts |
+| `build-image`      | `ubuntu-latest` (needs `build-binaries`) | Check out source; download binary artefacts; build pi-gen image via `usimd/pi-gen-action@v1` with stages `stage0 stage1 stage2 stage-velocity`; compress with `xz -9`; upload `.img.xz` to GitHub Release via `softprops/action-gh-release@v1`                 |
+| `update-repo-json` | `ubuntu-latest` (needs `build-image`)    | Generate SHA-256 checksum; update `os-list-velocity.json` with new download URL; commit and push to gh-pages or releases                                                                                                                                       |
 
 ### 4.5 Image size budget
 
@@ -838,29 +790,21 @@ velocity.report/
 A single image entry: the full stack with radar, LiDAR (disabled), PDF
 generation, and web dashboard:
 
-```json
-{
-  "imager": {
-    "latest_version": "1.0.0",
-    "url": "https://github.com/banshee-data/velocity.report/releases"
-  },
-  "os_list": [
-    {
-      "name": "velocity.report",
-      "description": "Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit).",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v1.0.0/velocity-report-v1.0.0.img.xz",
-      "extract_size": 1073741824,
-      "extract_sha256": "<sha256-of-uncompressed-img>",
-      "image_download_size": 419430400,
-      "release_date": "2026-03-01",
-      "icon": "https://velocity.report/images/icon-256.png",
-      "init_format": "systemd",
-      "devices": ["pi4-64bit", "pi400-64bit", "pi5-64bit"],
-      "url_info": "https://velocity.report/docs/guides/setup"
-    }
-  ]
-}
-```
+| Field                            | Value                                                                                                                                                                      | Purpose                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `imager.latest_version`          | `"1.0.0"`                                                                                                                                                                  | Imager version                   |
+| `imager.url`                     | GitHub releases URL                                                                                                                                                        | Imager download location         |
+| `os_list[0].name`                | `"velocity.report"`                                                                                                                                                        | Image display name               |
+| `os_list[0].description`         | Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit). | User-facing description          |
+| `os_list[0].url`                 | GitHub release `.img.xz` asset URL                                                                                                                                         | Download URL                     |
+| `os_list[0].extract_size`        | `1073741824`                                                                                                                                                               | Uncompressed image size (bytes)  |
+| `os_list[0].extract_sha256`      | SHA-256 of uncompressed `.img`                                                                                                                                             | Integrity check                  |
+| `os_list[0].image_download_size` | `419430400`                                                                                                                                                                | Compressed download size (bytes) |
+| `os_list[0].release_date`        | `"2026-03-01"`                                                                                                                                                             | Release date                     |
+| `os_list[0].icon`                | `icon-256.png` URL                                                                                                                                                         | 256×256 icon                     |
+| `os_list[0].init_format`         | `"systemd"`                                                                                                                                                                | Init system                      |
+| `os_list[0].devices`             | `pi4-64bit`, `pi400-64bit`, `pi5-64bit`                                                                                                                                    | Supported hardware               |
+| `os_list[0].url_info`            | Setup guide URL                                                                                                                                                            | Documentation link               |
 
 ---
 

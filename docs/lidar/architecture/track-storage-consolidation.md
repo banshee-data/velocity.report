@@ -32,25 +32,23 @@ structs, two INSERT functions, and two scan loops.
 
 Embedded in both `TrackedObject` and `RunTrack`:
 
-```go
-type TrackMeasurement struct {
-    SensorID             string
-    TrackState           string
-    StartUnixNanos       int64
-    EndUnixNanos         int64
-    ObservationCount     int
-    AvgSpeedMps          float32
-    MaxSpeedMps          float32
-    BoundingBoxLengthAvg float32
-    BoundingBoxWidthAvg  float32
-    BoundingBoxHeightAvg float32
-    HeightP95Max         float32
-    IntensityMeanAvg     float32
-    ObjectClass          string
-    ObjectConfidence     float32
-    ClassificationModel  string
-}
-```
+| Field                  | Type      | Purpose                        |
+| ---------------------- | --------- | ------------------------------ |
+| `SensorID`             | `string`  | Sensor identifier              |
+| `TrackState`           | `string`  | Current track state            |
+| `StartUnixNanos`       | `int64`   | Track start time (nanoseconds) |
+| `EndUnixNanos`         | `int64`   | Track end time (nanoseconds)   |
+| `ObservationCount`     | `int`     | Number of observations         |
+| `AvgSpeedMps`          | `float32` | Average speed (m/s)            |
+| `MaxSpeedMps`          | `float32` | Maximum speed (m/s)            |
+| `BoundingBoxLengthAvg` | `float32` | Average bounding box length    |
+| `BoundingBoxWidthAvg`  | `float32` | Average bounding box width     |
+| `BoundingBoxHeightAvg` | `float32` | Average bounding box height    |
+| `HeightP95Max`         | `float32` | 95th percentile max height     |
+| `IntensityMeanAvg`     | `float32` | Average mean intensity         |
+| `ObjectClass`          | `string`  | Classified object type         |
+| `ObjectConfidence`     | `float32` | Classification confidence      |
+| `ClassificationModel`  | `string`  | Model used for classification  |
 
 ### Shared helpers
 

@@ -112,20 +112,20 @@ Test coverage: `TestFrameBundleToProto_TrackFieldCompleteness` in
 The original plan referenced `Track.class_label` (a string field). The proto now
 defines a typed `ObjectClass` enum on field `26`:
 
-```protobuf
-enum ObjectClass {
-  OBJECT_CLASS_UNSPECIFIED  = 0;
-  OBJECT_CLASS_NOISE        = 1;
-  OBJECT_CLASS_DYNAMIC      = 2;
-  OBJECT_CLASS_PEDESTRIAN   = 3;
-  OBJECT_CLASS_CYCLIST      = 4;
-  OBJECT_CLASS_BIRD         = 5;
-  OBJECT_CLASS_BUS          = 6;
-  OBJECT_CLASS_CAR          = 7;
-  OBJECT_CLASS_TRUCK        = 8;
-  OBJECT_CLASS_MOTORCYCLIST = 9;
-}
-```
+**`ObjectClass` enum** (proto field `26` on `Track`):
+
+| Value | Name                        | Meaning                     |
+| ----- | --------------------------- | --------------------------- |
+| `0`   | `OBJECT_CLASS_UNSPECIFIED`  | Default / unknown           |
+| `1`   | `OBJECT_CLASS_NOISE`        | Noise cluster               |
+| `2`   | `OBJECT_CLASS_DYNAMIC`      | Unclassified dynamic object |
+| `3`   | `OBJECT_CLASS_PEDESTRIAN`   | Pedestrian                  |
+| `4`   | `OBJECT_CLASS_CYCLIST`      | Cyclist                     |
+| `5`   | `OBJECT_CLASS_BIRD`         | Bird                        |
+| `6`   | `OBJECT_CLASS_BUS`          | Bus                         |
+| `7`   | `OBJECT_CLASS_CAR`          | Car                         |
+| `8`   | `OBJECT_CLASS_TRUCK`        | Truck                       |
+| `9`   | `OBJECT_CLASS_MOTORCYCLIST` | Motorcyclist                |
 
 Conversion is handled by two functions in `grpc_server.go`:
 

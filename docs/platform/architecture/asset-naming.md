@@ -115,14 +115,14 @@ Every CI run validates the version field against strict SemVer.
 
 All naming derives from `Makefile` § VERSION INFORMATION:
 
-```makefile
-VERSION := <current version>
-GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
-BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
-DEV_VERSION := $(subst -,.,$(VERSION))
-```
+| Variable           | Value                                                               |
+| ------------------ | ------------------------------------------------------------------- |
+| `VERSION`          | Current version (SemVer)                                            |
+| `GIT_SHA`          | Full commit SHA from `git rev-parse HEAD` (falls back to `unknown`) |
+| `BUILD_TIME`       | UTC timestamp in ISO 8601 (`%Y-%m-%dT%H:%M:%SZ`)                    |
+| `GIT_SHA_SHORT`    | First 7 characters of `GIT_SHA`                                     |
+| `BUILD_TS_COMPACT` | `BUILD_TIME` with hyphens and colons stripped (filesystem-safe)     |
+| `DEV_VERSION`      | `VERSION` with hyphens replaced by dots (e.g. `0.5.1.pre1`)         |
 
 `BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst`: one `date`
 call per build invocation, one source of truth within that invocation.

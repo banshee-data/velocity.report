@@ -82,15 +82,7 @@ use different time bases.
 
 `pipeline/tracking_pipeline.go:215-219`:
 
-```go
-var lastProcessedTime time.Time
-now := time.Now()
-if !lastProcessedTime.IsZero() &&
-    now.Sub(lastProcessedTime) < minFrameInterval {
-    // skip expensive path
-}
-lastProcessedTime = now
-```
+The throttle stores a `lastProcessedTime` timestamp. On each frame it calls `time.Now()`, checks whether the elapsed time since `lastProcessedTime` is less than `minFrameInterval`, and skips the expensive processing path if so. It then updates `lastProcessedTime` to the current wall time.
 
 Cannot unit-test without waiting real milliseconds. During PCAP
 replay, throttle decisions are wall-time based, not replay-time
@@ -100,10 +92,7 @@ based.
 
 `l2frames/frame_builder.go:163` and `frame_builder_cleanup.go:315`:
 
-```go
-fb.cleanupTimer = time.AfterFunc(
-    fb.cleanupInterval, fb.cleanupFrames)
-```
+The frame builder calls `time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)` to schedule a stale-frame cleanup callback after `cleanupInterval`.
 
 The only way to test frame-expiry behaviour is to wait for real
 milliseconds. `FrameBuilderConfig` already has `CleanupInterval`

@@ -40,17 +40,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
-
-```json
-{
-  "status": "started",
-  "sensor_id": "hesai-pandar40p",
-  "current_source": "pcap",
-  "pcap_file": "/path/to/break-80k.pcapng",
-  "analysis_mode": true
-}
-```
+**Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`, `pcap_file` (resolved path), and `analysis_mode: true`.
 
 ### Check data source status
 
@@ -58,17 +48,7 @@ Content-Type: application/json
 GET /api/lidar/data_source?sensor_id=hesai-pandar40p
 ```
 
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "data_source": "pcap_analysis",
-  "pcap_file": "/path/to/break-80k.pcapng",
-  "pcap_in_progress": false,
-  "analysis_mode": true
-}
-```
+**Response:** returns `status: "ok"`, `data_source` (one of the values below), `pcap_file` (path), `pcap_in_progress` (boolean), and `analysis_mode` (boolean).
 
 Data source values:
 
@@ -84,16 +64,7 @@ POST /api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p
 
 Switches from PCAP analysis mode back to live UDP data **without resetting the grid**. This allows you to overlay live traffic on top of the PCAP-analysed background.
 
-**Response:**
-
-```json
-{
-  "status": "resumed_live",
-  "sensor_id": "hesai-pandar40p",
-  "current_source": "live",
-  "grid_preserved": true
-}
-```
+**Response:** returns `status: "resumed_live"`, `sensor_id`, `current_source: "live"`, and `grid_preserved: true`.
 
 ### Stop PCAP replay (reset grid)
 

@@ -98,12 +98,10 @@ handlers. No additional work needed there.
 
 `internal/serialmux/handlers.go` now uses:
 
-```go
-var (
-    currentStateMu sync.RWMutex
-    currentState   map[string]any
-)
-```
+| Variable         | Type             | Purpose                                    |
+| ---------------- | ---------------- | ------------------------------------------ |
+| `currentStateMu` | `sync.RWMutex`   | Guards concurrent access to `currentState` |
+| `currentState`   | `map[string]any` | Mutable radar configuration state map      |
 
 `HandleConfigResponse` holds the write lock while mutating the map. Callers read via
 `CurrentStateSnapshot()` (returns a shallow copy under `RLock`). Tests reset state via

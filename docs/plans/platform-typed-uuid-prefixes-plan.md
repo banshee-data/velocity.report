@@ -75,16 +75,7 @@ this is safe to replace with `runy_`/`runs_` + full UUID because:
 
 Create `internal/id/id.go`:
 
-```go
-package id
-
-import "github.com/google/uuid"
-
-// New returns a prefixed UUID v4 string: "{prefix}_{uuid}".
-func New(prefix string) string {
-    return prefix + "_" + uuid.NewString()
-}
-```
+Create `internal/id/id.go` with a single exported function `New(prefix string) string` that returns `"{prefix}_{uuidv4}"` using `github.com/google/uuid`.
 
 ### Phase 2: migrate generation sites
 
