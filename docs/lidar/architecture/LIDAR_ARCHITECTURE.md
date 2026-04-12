@@ -1,4 +1,4 @@
-# LiDAR data layer model (ten layers)
+# LiDAR Architecture
 
 - **Status:** Canonical reference; layer numbers are locked for codebase stability from v0.5.0 onwards.
 
