@@ -1,8 +1,8 @@
-# Playback Speed vs Track Quality
+# Playback speed vs track quality
 
 How PCAP replay speed affects tracking accuracy through the lidar pipeline.
 
-## Pipeline Overview
+## Pipeline overview
 
 Packets flow through a chain of stages, each with speed-sensitive behaviour:
 
@@ -13,7 +13,7 @@ PCAP Reader → FrameBuilder → Pipeline Throttle → Clustering → Tracker �
 At each handoff there is either a channel buffer, a timing gate, or both.
 The speed mode determines which throttling mechanisms are active.
 
-## PCAP Speed Modes
+## PCAP speed modes
 
 | Mode       | SpeedMultiplier | FrameBuilder             | Pacing                | Use Case                           |
 | ---------- | --------------- | ------------------------ | --------------------- | ---------------------------------- |
@@ -31,15 +31,15 @@ mode so every frame is delivered — zero drops. Back-pressure from the pipeline
 callback naturally throttles the PCAP reader.
 Best for analysis runs where every frame must be processed.
 
-### Realtime / Scaled modes
+### Realtime / scaled modes
 
 Timing-paced via wall-clock comparison. FrameBuilder is non-blocking (drops when
 channel full). The dynamic backoff system (see below) prevents catch-up bursts
 from flooding the pipeline.
 
-## Stage-by-Stage Quality Impact
+## Stage-by-Stage quality impact
 
-### 1. PCAP Reader Pacing (`pcap_realtime.go`)
+### 1. PCAP reader pacing (`pcap_realtime.go`)
 
 The reader compares wall-clock elapsed time against PCAP capture-time elapsed,
 sleeping when ahead of schedule and applying dynamic backoff when behind.
@@ -72,7 +72,7 @@ sustained burst can produce enough consecutive association failures to delete
 a tentative track (`MaxMisses=3`). This is distinct from processed-but-
 unassociated frames, where `AdvanceMisses()` is called explicitly.
 
-### 3. MaxFrameRate Throttle (`tracking_pipeline.go:323–343`)
+### 3. MaxFrameRate throttle (`tracking_pipeline.go:323–343`)
 
 Caps the rate at which frames proceed through the expensive downstream path
 (clustering, tracking, serialisation). Default: **25 fps**.
@@ -103,7 +103,7 @@ when frames slow to processable rates.
 | 2.0x                 | 20-40 fps     | Sometimes        | Some frames skip tracking                                                |
 | Analysis (CPU-bound) | CPU-bound     | Heavily          | Most frames skip tracking, but blocking mode prevents FrameBuilder drops |
 
-### 4. Kalman Filter dt Sensitivity (`tracking.go:370–381`)
+### 4. Kalman filter dt sensitivity (`tracking.go:370–381`)
 
 The tracker computes `dt` from the nanosecond timestamps of successive frames:
 
@@ -142,7 +142,7 @@ P = F*P*F' + Q  (covariance growth proportional to dt^2)
 
 Larger dt = wider gating = more permissive association = potential track swaps.
 
-### 5. Speed Window (`speed_window.go`)
+### 5. Speed window (`speed_window.go`)
 
 A purely **sample-based** ring buffer (`max_speed_history_length=100`) with
 no time weighting or decay.
@@ -161,7 +161,7 @@ For speed measurement accuracy, this is **not directly affected by replay speed*
 because the MaxFrameRate throttle ensures the tracker sees ~25 fps max regardless
 of how fast packets arrive. The practical speed window duration is ≥4 seconds.
 
-### 6. Miss Counting (`tracking.go:439–492`)
+### 6. Miss counting (`tracking.go:439–492`)
 
 | Track state | Max misses              | Effect of miss                                 |
 | ----------- | ----------------------- | ---------------------------------------------- |
@@ -183,7 +183,7 @@ during speed bursts (intentional).
   channel fills, dropping frames. The tracker loses observations without
   counting misses.
 
-### 7. Publisher / gRPC Forwarding (`publisher.go`, `grpc_server.go`)
+### 7. Publisher / gRPC forwarding (`publisher.go`, `grpc_server.go`)
 
 Two-level buffering:
 
@@ -196,7 +196,7 @@ A slow gRPC client will see stale frames. The gRPC cooldown system enters
 "skip mode" after repeated slow sends, dropping frames at the server to
 prevent backlog growth.
 
-## Practical Recommendations
+## Practical recommendations
 
 ### For analysis runs (accuracy matters most)
 
@@ -230,7 +230,7 @@ The `pcap-analyse` tool can run the same PCAP at different speeds and compare:
 - Miss ratio (misses / total frames per track)
 - Track breaks (same object getting multiple track IDs)
 
-## Summary Table
+## Summary table
 
 | Factor                | Sub-1x        | 1x          | 2x+                     |
 | --------------------- | ------------- | ----------- | ----------------------- |

@@ -31,7 +31,7 @@ visualiser via gRPC).
 
 ---
 
-## 1. HTTP API endpoints: Radar / main server
+## 1. HTTP API endpoints: radar / main server
 
 **Source:** `cmd/radar/radar.go`, `internal/api/server.go`
 
@@ -192,7 +192,7 @@ visualiser via gRPC).
 
 ---
 
-## 5. Database fields: All columns
+## 5. Database fields: all columns
 
 | Table                      | Column                            | Type          | DB  | Web | PDF | Mac |
 | -------------------------- | --------------------------------- | ------------- | --- | --- | --- | --- |
@@ -518,7 +518,7 @@ visualiser via gRPC).
 
 ---
 
-## 7. Go data structures: Computed but not persisted
+## 7. Go data structures: computed but not persisted
 
 These structs are computed in-memory but have no persistence layer, no API
 endpoint, and no export path.
@@ -535,7 +535,7 @@ endpoint, and no export path.
 
 ---
 
-## 8. Go data structures: Comparison logic (no triggering endpoint)
+## 8. Go data structures: comparison logic (no triggering endpoint)
 
 | Folder                          | File                      | Function                  | DB  | Web | PDF | Mac | Notes                       |
 | ------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --- | --------------------------- |
@@ -546,7 +546,7 @@ endpoint, and no export path.
 
 ---
 
-## 9. Live track fields: Fully wired (reference)
+## 9. Live track fields: fully wired (reference)
 
 Fields that flow correctly from pipeline through all applicable surfaces.
 
@@ -619,7 +619,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 13. Classification pipeline: Fully wired (reference)
+## 13. Classification pipeline: fully wired (reference)
 
 **Go source:** `internal/lidar/l6objects/classification.go`: `TrackClassifier` (27 usages)
 
@@ -708,7 +708,7 @@ databases.
 
 ---
 
-## 17. Speed percentile columns: Resolved design debt
+## 17. Speed percentile columns: resolved design debt
 
 The per-track percentile columns have been removed from the active schema.
 `lidar_tracks` and `lidar_run_tracks` no longer carry `p50_speed_mps`,

@@ -1,4 +1,4 @@
-# Unified LiDAR Parameter Sweep Tool
+# Unified LiDAR parameter sweep tool
 
 A comprehensive parameter sweep tool that combines the functionality of `bg-sweep`, `bg-multisweep`, and `pcap-sweep` into a single command with flexible sweep modes.
 
@@ -10,9 +10,9 @@ go build -o app-sweep ./cmd/sweep
 make tools-local
 ```
 
-## Usage Modes
+## Usage modes
 
-### 1. Multi-Parameter Sweep (Default)
+### 1. Multi-Parameter sweep (default)
 
 Test all combinations of noise, closeness, and neighbor parameters:
 
@@ -25,9 +25,9 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -iterations=30
 ```
 
-### 2. Single-Variable Sweeps
+### 2. Single-Variable sweeps
 
-#### Noise Sweep (fix closeness and neighbor)
+#### Noise sweep (fix closeness and neighbor)
 
 ```bash
 ./app-sweep \
@@ -39,7 +39,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -fixed-neighbor=1
 ```
 
-#### Closeness Sweep (fix noise and neighbor)
+#### Closeness sweep (fix noise and neighbor)
 
 ```bash
 ./app-sweep \
@@ -51,7 +51,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -fixed-neighbor=1
 ```
 
-#### Neighbor Sweep (fix noise and closeness)
+#### Neighbor sweep (fix noise and closeness)
 
 ```bash
 ./app-sweep \
@@ -63,7 +63,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -fixed-closeness=2.0
 ```
 
-### 3. PCAP Mode
+### 3. PCAP mode
 
 Run sweeps using PCAP file replay instead of live data:
 
@@ -77,9 +77,9 @@ Run sweeps using PCAP file replay instead of live data:
   -neighbors=0,1,2
 ```
 
-## Key Parameters
+## Key parameters
 
-### Common Options
+### Common options
 
 - `-monitor`: Server URL (default: `http://localhost:8081`)
 - `-sensor`: Sensor ID (default: `hesai-pandar40p`)
@@ -87,36 +87,36 @@ Run sweeps using PCAP file replay instead of live data:
 - `-iterations`: Number of samples per parameter combo (default: 30)
 - `-interval`: Time between samples (default: 2s)
 
-### Sweep Mode
+### Sweep mode
 
 - `-mode`: One of `multi`, `noise`, `closeness`, `neighbor`
 
-### Parameter Specification
+### Parameter specification
 
-#### For Multi-Mode
+#### For multi-mode
 
 - `-noise`: Comma-separated values (e.g., `0.005,0.01,0.02`)
 - `-closeness`: Comma-separated values (e.g., `1.5,2.0,2.5`)
 - `-neighbors`: Comma-separated values (e.g., `0,1,2`)
 
-#### For Single-Variable Modes
+#### For single-variable modes
 
 - Range parameters: `-noise-start`, `-noise-end`, `-noise-step`
 - Range parameters: `-closeness-start`, `-closeness-end`, `-closeness-step`
 - Range parameters: `-neighbor-start`, `-neighbor-end`, `-neighbor-step`
 - Fixed parameters: `-fixed-noise`, `-fixed-closeness`, `-fixed-neighbor`
 
-### PCAP Options
+### PCAP options
 
 - `-pcap`: Path to PCAP file (enables PCAP mode)
 - `-pcap-settle`: Wait time after PCAP replay (default: 20s)
 
-### Other Options
+### Other options
 
 - `-seed`: Seed behavior - `true`, `false`, or `toggle` (default: `true`)
 - `-settle-time`: Wait for grid to settle in live mode (default: 5s)
 
-## Output Files
+## Output files
 
 The tool generates two CSV files:
 
@@ -167,7 +167,7 @@ The tool generates two CSV files:
   -interval=3s
 ```
 
-## Migration from Old Tools
+## Migration from old tools
 
 ### From `bg-sweep`
 

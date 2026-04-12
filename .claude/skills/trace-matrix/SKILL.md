@@ -38,7 +38,7 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 
 ### 3. Trace one task group at a time
 
-#### HTTP API Surfaces (§1, §2)
+#### HTTP API surfaces (§1, §2)
 
 **Sections:** §1 Radar HTTP, §2 LiDAR HTTP
 
@@ -59,7 +59,7 @@ Key files:
 - `tools/pdf-generator/pdf_generator/core/api_client.py` — PDF API client
 - `tools/visualiser-macos/VelocityVisualiser/` — Mac HTTP calls
 
-#### gRPC + Proto Surfaces (§3, §14)
+#### gRPC + proto surfaces (§3, §14)
 
 **Sections:** §3 gRPC methods, §14 FrameBundle proto fields
 
@@ -74,7 +74,7 @@ Key files:
 - `internal/lidar/grpc/` — Go gRPC server implementation
 - `tools/visualiser-macos/VelocityVisualiser/GRPCClient.swift`
 
-#### Database Schema Surfaces (§4, §5)
+#### Database schema surfaces (§4, §5)
 
 **Sections:** §4 DB tables, §5 DB columns (all columns)
 
@@ -91,7 +91,7 @@ Key files:
 - `internal/api/` — JSON serialisation in HTTP handlers
 - `tools/pdf-generator/pdf_generator/core/api_client.py`
 
-#### Pipeline + Structs (§6, §7, §8, §9, §13)
+#### Pipeline + structs (§6, §7, §8, §9, §13)
 
 **Sections:** §6 Pipeline stages, §7 Computed structs, §8 Compare functions, §9 Live track fields, §13 Classification
 
@@ -108,7 +108,7 @@ Key files:
 - `internal/lidar/storage/sqlite/analysis_run_compare.go` — compare logic
 - `internal/lidar/l5tracks/tracking.go` — live track fields
 
-#### Tuning + Entry Points + Debug (§10, §15, §16, §18)
+#### Tuning + entry points + debug (§10, §15, §16, §18)
 
 **Sections:** §10 Tuning params, §15 ECharts, §16 cmd/ entry points, §18 Debug routes
 
@@ -124,7 +124,7 @@ Key files:
 - `cmd/` — all binary entry points
 - `internal/db/db.go` — debug/admin route attachments
 
-### 4. Update MATRIX.md
+### 4. Update mATRIX.md
 
 For each item where the checklist mark differs from MATRIX.md:
 
@@ -145,7 +145,7 @@ After updating, verify:
 3. No checklist items are missing from the matrix
 4. Run `python3 scripts/list-matrix-fields.py` to confirm item counts match
 
-## Verification Evidence Rules
+## Verification evidence rules
 
 A mark can only be set if direct code evidence exists.
 
@@ -191,7 +191,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 - **Per-surface columns**: count ✅ marks only. Do not count 🔶 or 📋.
 - After editing any section table, **recount from the table** and update the summary. Never propagate a number from a prior edit.
 
-## Anti-patterns — Never Do These
+## Anti-patterns — never do these
 
 1. **Method existence ≠ DB write.** A `ToJSON()` method means serialisation exists, not that anything calls it.
 2. **Schema column ≠ populated.** A column in `schema.sql` may be added by migration but never written by application code.
@@ -200,7 +200,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 5. **Remediation plan ≠ implementation.** A `docs/plans/` TODO item is evidence that something is NOT yet done, not that it is.
 6. **Test code ≠ production path.** A test calling `ToJSON()` does not prove production code calls it.
 
-## Idempotency Protocol
+## Idempotency protocol
 
 A second run on an unchanged codebase **must produce zero edits**:
 

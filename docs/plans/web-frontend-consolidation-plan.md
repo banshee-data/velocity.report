@@ -1,11 +1,11 @@
-# Frontend Consolidation Plan
+# Frontend consolidation plan
 
 - **Status:** Draft
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
 
 - **Layers:** L9 Endpoints, L10 Clients
 
-## Problem Statement
+## Problem statement
 
 The project has three distinct web surfaces for LiDAR functionality:
 
@@ -15,7 +15,7 @@ The project has three distinct web surfaces for LiDAR functionality:
 
 The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. This makes it difficult to ship a radar-only binary without non-functioning LiDAR navigation items, and scatters LiDAR tooling across three surfaces.
 
-### Current State Diagram
+### Current state diagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -41,7 +41,7 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Pain Points
+### Pain points
 
 | Problem                                       | Impact                                                   |
 | --------------------------------------------- | -------------------------------------------------------- |
@@ -51,17 +51,17 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 | LiDAR status page uses Go templates           | Cannot benefit from Svelte reactivity or component reuse |
 | Three surfaces for LiDAR functionality        | Fragmented user experience; unclear where to find what   |
 
-## Design Constraints
+## Design constraints
 
 > Constraint list: see [web-frontend-consolidation.md § Design Constraints](../ui/web-frontend-consolidation.md#design-constraints).
 
-## Proposed End State
+## Proposed end state
 
 > Architecture diagram and key decisions: see [web-frontend-consolidation.md § Proposed End State](../ui/web-frontend-consolidation.md#proposed-end-state).
 
-## Options Evaluated
+## Options evaluated
 
-### ~~Option A: Two Separate Svelte Apps (Radar App + LiDAR App)~~
+### ~~Option a: two separate Svelte apps (radar app + LiDAR app)~~
 
 Ship two independent SvelteKit applications, each embedded in the binary. The radar app serves on 8080, the LiDAR app on 8081 (replacing the Go-embedded HTML).
 
@@ -87,7 +87,7 @@ Ship two independent SvelteKit applications, each embedded in the binary. The ra
 - **Build complexity**: Makefile needs `build-web-radar`, `build-web-lidar`, `ensure-web-stub` for both
 - **Migration cost**: must split existing `web/` into two projects, re-test both, update all embed paths
 
-### Option B: One Svelte App with Conditional LiDAR Sections
+### Option b: one Svelte app with conditional LiDAR sections
 
 Keep a single SvelteKit application. LiDAR routes remain in the app but are conditionally shown in navigation based on a runtime capability check (API call to determine if `--enable-lidar` is active).
 
@@ -115,7 +115,7 @@ Keep a single SvelteKit application. LiDAR routes remain in the app but are cond
 - LiDAR routes must return an explicit "LiDAR disabled" response and must not initialise hardware when disabled
 - Single `package.json` may accumulate LiDAR-specific dependencies over time
 
-### ~~Option C: One Svelte App with Build-Time LiDAR Exclusion~~
+### ~~Option c: one Svelte app with build-time LiDAR exclusion~~
 
 Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip LiDAR routes at build time, producing two variants of the static output.
 
@@ -140,7 +140,7 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 - **Marginal benefit**: LiDAR JavaScript is ~50KB in the bundle; the savings don't justify the complexity
 - **Two embeds**: same binary-size concern as Option A if both variants are embedded
 
-## Decision Matrix
+## Decision matrix
 
 | Criterion                  | Weight | Option A (Two Apps)       | Option B (One App, Conditional) | Option C (One App, Build-Time) |
 | -------------------------- | ------ | ------------------------- | ------------------------------- | ------------------------------ |
@@ -167,15 +167,15 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 | Build simplicity       | 2      | 1      | 5      | 3      |
 | **Weighted Total**     |        | **32** | **95** | **67** |
 
-## Recommendation: Option B — One Svelte App with Conditional LiDAR Sections ✅
+## Recommendation: option b — one Svelte app with conditional LiDAR sections ✅
 
 Option B is the clear winner. The single-app approach avoids duplication, keeps the build simple, and provides the best user experience. The minor downside — shipping ~50KB of unused LiDAR JavaScript in radar-only deploys — is negligible compared to the maintenance cost of two separate applications or custom build tooling.
 
 The dead-route concern is mitigated by explicit server-side gating: `/api/lidar/*` must return a clear "LiDAR disabled" response and must not initialise hardware when LiDAR is off. Direct URL access to `/app/lidar/*` should show a friendly disabled state. This pairs with runtime capability refresh so hot-enable/disable is reflected without restarting the radar process.
 
-## Migration Plan
+## Migration plan
 
-### Phase 0: Capabilities API & Conditional Navigation
+### Phase 0: capabilities API & conditional navigation
 
 **Effort: Small (2–4 days)**
 
@@ -207,7 +207,7 @@ Update the root `+layout.svelte` to fetch capabilities on load and conditionally
 - `web/src/lib/stores/capabilities.test.ts` — 8 test cases for store
 - `web/src/routes/+layout.svelte` — conditional LiDAR nav rendering, polling lifecycle
 
-### Phase 1: Migrate Status Page
+### Phase 1: migrate status page
 
 **Effort: Small (2–3 days)**
 
@@ -230,7 +230,7 @@ Rewrite as `/app/lidar/status` Svelte route using svelte-ux form components (Tex
 - Update: `web/src/routes/+layout.svelte` (add nav item)
 - Update: `web/src/lib/api.ts` (status API calls)
 
-### Phase 2: Migrate Background Regions Dashboard
+### Phase 2: migrate background regions dashboard
 
 **Effort: Small (2–3 days)**
 
@@ -252,7 +252,7 @@ Rewrite as `/app/lidar/regions` Svelte route. The Canvas rendering logic can be 
 - New: `web/src/lib/components/lidar/RegionsCanvas.svelte`
 - Update: `web/src/routes/+layout.svelte` (add nav item)
 
-### Phase 3: Migrate Sweep Dashboard
+### Phase 3: migrate sweep dashboard
 
 **Effort: Large (2–3 weeks)**
 
@@ -294,7 +294,7 @@ Rewrite as `/app/lidar/sweep` Svelte route with sub-components for each chart an
 - Update: `web/src/lib/types/lidar.ts` (sweep types)
 - Update: `web/src/routes/+layout.svelte` (add nav item)
 
-### Phase 4: Migrate Debug Dashboard
+### Phase 4: migrate debug dashboard
 
 **Effort: Small (1 day)**
 
@@ -304,7 +304,7 @@ The debug dashboard (`dashboard.html`, 43 lines) is a simple iframe grid linking
 
 - Grid of chart iframes → links to individual Svelte pages or retained as iframe embeds during transition
 
-### Phase 5: Retire Port 8081
+### Phase 5: retire port 8081
 
 **Effort: Medium (3–5 days)**
 
@@ -325,7 +325,7 @@ Once all HTML dashboards are migrated to Svelte, consolidate the LiDAR API endpo
 - `web/vite.config.ts` — remove split proxy
 - `docs/` — update deployment and architecture docs
 
-### Phase 6: Clean Up Go Embeds
+### Phase 6: clean up Go embeds
 
 **Effort: Small (1 day)**
 
@@ -338,7 +338,7 @@ Remove the embedded HTML templates and ECharts assets from the Go binary:
 
 This reduces binary size and eliminates the dual charting stack.
 
-## Effort Summary
+## Effort summary
 
 | Phase     | Scope                              | Effort         | Charting Rewrite                         |
 | --------- | ---------------------------------- | -------------- | ---------------------------------------- |
@@ -353,9 +353,9 @@ This reduces binary size and eliminates the dual charting stack.
 
 Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart rewrite. All other phases are straightforward migrations of forms, tables, and Canvas-based visualisations that don't require charting library translation.
 
-## Detailed Checklists and Timelines (Option B)
+## Detailed checklists and timelines (option b)
 
-### Phase 0: Capabilities API & Conditional Navigation
+### Phase 0: capabilities API & conditional navigation
 
 Expected timeline: 2–4 days.
 
@@ -384,7 +384,7 @@ Checklist:
 - [ ] Verify radar-only UX on Pi 4 (startup time, sidebar items, zero broken links).
 - [ ] Add tests that hot-enable/disable LiDAR does not interrupt radar logging.
 
-### Phase 1: Status Page Migration
+### Phase 1: status page migration
 
 Expected timeline: 2–3 days.
 
@@ -398,7 +398,7 @@ Checklist:
 - [ ] Confirm feature parity with the Go-template version and remove/redirect old links.
 - [ ] Add API integration tests and basic UI regression checks for status workflows.
 
-### Phase 2: Background Regions Dashboard Migration
+### Phase 2: background regions dashboard migration
 
 Expected timeline: 2–3 days.
 
@@ -411,7 +411,7 @@ Checklist:
 - [ ] Validate performance on Pi 4 (fps, memory) with realistic data.
 - [ ] Add basic UI tests for interactions and empty/error states.
 
-### Phase 3: Sweep Dashboard Migration
+### Phase 3: sweep dashboard migration
 
 Expected timeline: 2–3 weeks.
 
@@ -434,7 +434,7 @@ Checklist:
 - [ ] Add render throttling/virtualization so all charts do not repaint at once.
 - [ ] Validate parity with existing sweep outputs and run real-data acceptance checks.
 
-### Phase 4: Debug Dashboard Retirement
+### Phase 4: debug dashboard retirement
 
 Expected timeline: 1 day.
 
@@ -444,7 +444,7 @@ Checklist:
 - [ ] If kept, re-implement as a Svelte route with links to new pages.
 - [ ] Remove old debug nav entries and update documentation.
 
-### Phase 5: Retire Port 8081
+### Phase 5: retire port 8081
 
 Expected timeline: 3–5 days.
 
@@ -457,7 +457,7 @@ Checklist:
 - [ ] Update docs, systemd/unit files, and deployment notes.
 - [ ] Validate that macOS visualiser (gRPC 50051) is unaffected.
 
-### Phase 6: Go Embed Cleanup
+### Phase 6: Go embed cleanup
 
 Expected timeline: 1 day.
 
@@ -468,7 +468,7 @@ Checklist:
 - [ ] Remove ECharts assets and any remaining references.
 - [ ] Run Go and web tests; verify binary size reduction.
 
-## Risks and Mitigations
+## Risks and mitigations
 
 | Risk                                                       | Likelihood | Impact | Mitigation                                                                                                  |
 | ---------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |

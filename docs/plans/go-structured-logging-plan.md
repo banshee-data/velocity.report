@@ -1,4 +1,4 @@
-# Go Logging Streams Unification Plan (v0.6+)
+# Go logging streams unification plan (v0.6+)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
@@ -32,9 +32,9 @@ This plan extends the same three-stream model to the rest of the Go codebase —
 API layer, the database package, the serial multiplexer, and the deployment tools — and
 wires the streams to a unified output configuration.
 
-## Design Principles
+## Design principles
 
-### Align with the LiDAR Rubric
+### Align with the LiDAR rubric
 
 The LiDAR logging rubric defines three streams:
 
@@ -54,7 +54,7 @@ This plan applies the same model to non-LiDAR packages. The streams are the same
 routing rubric is the same. The only difference is that most non-LiDAR code produces `ops`
 and `diag` messages; `trace` is rare outside the pipeline.
 
-### Do Not Introduce a Fourth Pattern
+### Do not introduce a fourth pattern
 
 The LiDAR packages use `Opsf`/`Diagf`/`Tracef` function-pointer loggers set via
 `SetLogWriters`. This plan does not layer `log/slog` on top. The existing stream model is
@@ -64,7 +64,7 @@ with the appropriate stream function — it does not introduce a new logging fra
 Structured logging (JSON fields, correlation IDs, external log pipeline integration) remains
 out of scope, consistent with the LiDAR rubric design document.
 
-### One Configuration Surface
+### One configuration surface
 
 The LiDAR rubric defines two runtime controls:
 
@@ -75,9 +75,9 @@ These controls should apply to the entire process, not just LiDAR packages. The
 configuration surface is set once at startup in `cmd/radar/radar.go` and propagated to all
 packages.
 
-## Backlog Items
+## Backlog items
 
-### Item 1: Extend Stream API to Non-LiDAR Packages
+### Item 1: extend stream API to non-LiDAR packages
 
 **Summary:** Expose the `ops`/`diag`/`trace` stream functions to packages outside
 `internal/lidar/`. Migrate `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls to the
@@ -123,7 +123,7 @@ the migration applies to the final file layout.
 
 ---
 
-### Item 2: Unified Stream Configuration
+### Item 2: unified stream configuration
 
 **Summary:** Wire the `--log-level` flag and `VELOCITY_DEBUG_LOG` env var to configure all
 streams — LiDAR and non-LiDAR — from a single startup path.
@@ -147,7 +147,7 @@ the wiring to the rest of the process.
 
 ---
 
-### Item 3: Test Infrastructure — Flaky Sleep Elimination
+### Item 3: test infrastructure — flaky sleep elimination
 
 **Summary:** Replace `time.Sleep` synchronisation in test files with deterministic polling
 helpers.
@@ -173,7 +173,7 @@ once Phase A lands.
 
 ---
 
-## Scheduling Recommendation
+## Scheduling recommendation
 
 | Milestone | Items                                      | Rationale                                           |
 | --------- | ------------------------------------------ | --------------------------------------------------- |
@@ -183,7 +183,7 @@ once Phase A lands.
 Items 1 and 2 are sequential (2 depends on 1). Item 3 is independent and can proceed in
 parallel.
 
-## What This Plan Does Not Cover
+## What this plan does not cover
 
 - **Structured logging** (JSON fields, correlation IDs, external log pipelines) — the
   LiDAR rubric design explicitly marks this out of scope. If needed later, it can be layered

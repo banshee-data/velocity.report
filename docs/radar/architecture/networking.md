@@ -1,8 +1,8 @@
-# Networking Design Principles
+# Networking design principles
 
 Network architecture, listener segmentation, and access control model for velocity.report.
 
-## Deployment Model
+## Deployment model
 
 velocity.report runs on a Raspberry Pi 4 deployed on a private LAN alongside traffic sensors. The device has two network interfaces:
 
@@ -13,7 +13,7 @@ velocity.report runs on a Raspberry Pi 4 deployed on a private LAN alongside tra
 
 The sensor subnet is a dedicated point-to-point link between the Raspberry Pi and the LiDAR sensor. No other hosts should be present on this subnet.
 
-## Listener Architecture
+## Listener architecture
 
 The server binds three distinct listener classes, each with a different trust level:
 
@@ -49,7 +49,7 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 
 **Trust level**: Tailscale-authenticated only. These endpoints can send raw commands to the radar sensor, download database backups, and execute arbitrary SQL queries. They are never accessible from the open LAN.
 
-## Route Segmentation
+## Route segmentation
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -77,7 +77,7 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 └──────────────────────────────────────────────────────┘
 ```
 
-## Access Control Mechanisms
+## Access control mechanisms
 
 ### Current: Tailscale route segmentation
 
@@ -107,7 +107,7 @@ For field deployments on shared or semi-trusted networks:
 2. **Firewall rules** — Use `iptables`/`nftables` to restrict access to ports 8080/8081 to specific source IPs or the Tailscale interface (`tailscale0`).
 3. **Tailscale ACLs** — Use Tailscale ACL policies to control which peers can reach the device.
 
-## Future Work: User API Authentication
+## Future work: user API authentication
 
 User-level API authentication is deferred. When needed, the planned approach is:
 

@@ -1,4 +1,4 @@
-# Design: Clustering Observability Metrics and Performance Benchmark Harness
+# Design: clustering observability metrics and performance benchmark harness
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L4 Perception, L8 Analytics
@@ -29,9 +29,9 @@ Two classes of problem lack tooling:
 
 ---
 
-## Part A: Per-Track / Per-Frame Observability
+## Part a: per-track / per-frame observability
 
-### A.1 Per-Frame Pipeline Stage Timing
+### A.1 per-frame pipeline stage timing
 
 Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
@@ -71,7 +71,7 @@ At `diagf` level, emit a summary every 100 frames:
 
 **VRLOG embedding:** Add `FrameStageTiming` to `FrameBundle.DebugOverlaySet` as an optional field. This makes timing data available during offline replay analysis without requiring the debug log.
 
-### A.2 Per-Track Association Diagnostics
+### A.2 per-track association diagnostics
 
 For each cluster→track association in `Tracker.Update()`, log (at `tracef` level) the decision context:
 
@@ -104,7 +104,7 @@ These fields already partially exist in the `DebugOverlaySet` (`AssociationCandi
 
 By logging these per-frame for all tracks, a post-hoc grep of the debug log by `TrackID` immediately reveals _which_ frames caused the glitch and _why_.
 
-### A.3 Per-Track Lifecycle Summary
+### A.3 per-track lifecycle summary
 
 On track deletion, emit a `diagf`-level summary:
 
@@ -114,7 +114,7 @@ On track deletion, emit a `diagf`-level summary:
 
 All fields already exist on `TrackedObject`. This is a formatting change, not new data collection.
 
-### A.4 Cluster Quality Metrics (new fields on WorldCluster)
+### A.4 cluster quality metrics (new fields on worldCluster)
 
 Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
@@ -127,7 +127,7 @@ Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
 `PointDensity` reveals sparse long-range clusters likely to produce jittery tracks. `RangeMean` allows stratifying benchmark metrics by distance band.
 
-### A.5 VRLOG Diagnostic Channel
+### A.5 VRLOG diagnostic channel
 
 Current `DebugOverlaySet` fields in `FrameBundle`:
 
@@ -146,9 +146,9 @@ This keeps the VRLOG self-contained: when replaying a recording, all diagnostic 
 
 ---
 
-## Part B: Clustering Performance Benchmark Harness
+## Part b: clustering performance benchmark harness
 
-### B.1 New Metrics in `pcap-analyse`
+### B.1 new metrics in `pcap-analyse`
 
 Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go`:
 
@@ -194,7 +194,7 @@ type DistributionStats struct {
 }
 ```
 
-### B.2 Benchmark Baseline Format (v2)
+### B.2 benchmark baseline format (v2)
 
 Extend the existing `baseline-{name}.json` format with a `clustering` key. This is backward-compatible — the comparison logic skips missing keys.
 
@@ -252,7 +252,7 @@ Extend the existing `baseline-{name}.json` format with a `clustering` key. This 
 }
 ```
 
-### B.3 CI Regression Gating
+### B.3 CI regression gating
 
 Add a `bench-clustering` step to `.github/workflows/go-ci.yml` (runs only on pushes to `main` and PRs that modify `internal/lidar/l4perception/`, `internal/lidar/l5tracks/`, or `internal/lidar/pipeline/`):
 
@@ -284,7 +284,7 @@ bench-clustering:
 | `fragmentation_ratio`   | >0.05            | >0.15               |
 | `confirmed_track_count` | < -10%           | < -25%              |
 
-### B.4 Checked-in Benchmark Log
+### B.4 checked-in benchmark log
 
 Store baselines as checked-in JSON files (existing pattern):
 
@@ -314,7 +314,7 @@ bench-clustering-pi:               ## Run clustering benchmark (Pi profile)
 
 The `PROFILE` variable selects the baseline file suffix (`-ci`, `-pi`) for comparison.
 
-### B.5 Go Micro-Benchmarks (new)
+### B.5 Go micro-benchmarks (new)
 
 Add targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
@@ -342,9 +342,9 @@ bench-go:                          ## Run all Go micro-benchmarks
 
 ---
 
-## Part C: Raspberry Pi Performance Tuning Levers
+## Part c: Raspberry Pi performance tuning levers
 
-### C.1 Tuning Parameters with Pi Impact
+### C.1 tuning parameters with Pi impact
 
 These parameters in `config/tuning.defaults.json` directly affect computational cost. Documented here for operators deploying on Pi:
 
@@ -358,7 +358,7 @@ These parameters in `config/tuning.defaults.json` directly affect computational 
 | `voxel_leaf_size`               | 0 (off) | 0.15              | 60–70% point reduction before DBSCAN             |
 | `remove_ground`                 | true    | true              | Ground filter is cheap; keeps DBSCAN input small |
 
-### C.2 Pi-Specific Benchmark Profile
+### C.2 Pi-specific benchmark profile
 
 Create `baseline-kirk0-pi.json` by running `make test-perf NAME=kirk0` on a Pi 4 and checking in the result. This gives a Pi-calibrated frame budget:
 
@@ -375,7 +375,7 @@ Create `baseline-kirk0-pi.json` by running `make test-perf NAME=kirk0` on a Pi 4
 | **Total**         | **55**      | Must stay under 100 ms (10 fps)                            |
 | **Headroom**      | **45**      | For GC, OS scheduling, SD card I/O                         |
 
-### C.3 Monitoring on Pi
+### C.3 monitoring on Pi
 
 Since the Pi has no display, the benchmark harness serves as the primary performance monitoring tool. Additionally:
 
@@ -384,9 +384,9 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 ---
 
-## Part D: Implementation Plan
+## Part d: implementation plan
 
-### Phase 1: Pipeline Stage Timing (low risk, high value)
+### Phase 1: pipeline stage timing (low risk, high value)
 
 1. Add `FrameStageTiming` struct to `pipeline` package.
 2. Instrument `NewFrameCallback()` with `time.Now()` checkpoints.
@@ -395,7 +395,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 **Files:** `internal/lidar/pipeline/tracking_pipeline.go`, `internal/lidar/visualiser/model.go`
 
-### Phase 2: Clustering Metrics in pcap-analyse (medium risk)
+### Phase 2: clustering metrics in pcap-analyse (medium risk)
 
 1. Add `ClusteringMetrics` to `PerformanceMetrics`.
 2. Collect per-frame foreground counts, cluster counts, DBSCAN timings.
@@ -405,7 +405,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 **Files:** `cmd/tools/pcap-analyse/main.go`, `internal/lidar/perf/baseline/*.json`
 
-### Phase 3: Per-Track Association Logging (low risk)
+### Phase 3: per-track association logging (low risk)
 
 1. Add `tracef` logging in `Tracker.Update()` for association decisions.
 2. Add `diagf` track lifecycle summary on deletion.
@@ -413,7 +413,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 **Files:** `internal/lidar/l5tracks/tracking.go`, `internal/lidar/visualiser/adapter.go`
 
-### Phase 4: Go Micro-Benchmarks (low risk)
+### Phase 4: Go micro-benchmarks (low risk)
 
 1. Create `cluster_benchmark_test.go` with DBSCAN point-count scaling benchmarks.
 2. Add `bench-go` Makefile target.
@@ -421,7 +421,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 **Files:** `internal/lidar/l4perception/cluster_benchmark_test.go`, `Makefile`
 
-### Phase 5: CI Integration (medium risk)
+### Phase 5: CI integration (medium risk)
 
 1. Add `bench-clustering` job to `go-ci.yml`.
 2. Store PCAP fixtures in Git LFS (already done for `kirk0.pcapng`).
@@ -429,7 +429,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 **Files:** `.github/workflows/go-ci.yml`, `Makefile`
 
-### Phase 6: Pi Baseline (requires hardware)
+### Phase 6: Pi baseline (requires hardware)
 
 1. Cross-compile and deploy to Pi 4.
 2. Run `make test-perf NAME=kirk0 PROFILE=pi`.
@@ -440,7 +440,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 
 ---
 
-## Open Questions
+## Open questions
 
 1. **VRLOG size growth** — Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
 2. **Structured logging format** — Should we migrate tracef/diagf from plain-text `log.Logger` to JSON for machine-parseable diagnostics? Or keep human-readable and parse with grep?

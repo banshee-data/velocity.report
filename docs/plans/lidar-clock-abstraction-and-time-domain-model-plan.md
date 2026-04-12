@@ -1,4 +1,4 @@
-# Clock Abstraction Adoption and Time-Domain Model
+# Clock abstraction adoption and time-domain model
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1 Packets, L2 Frames, Pipeline, L9 Endpoints)
@@ -12,7 +12,7 @@ subsystems where wall-time coupling prevents testability, eliminate
 `time.Sleep` synchronisation in tests, and formalise the sensor-time
 vs wall-time boundary before multi-sensor support lands.
 
-## Problem Statement
+## Problem statement
 
 The `timeutil.Clock` interface (`internal/timeutil/clock.go`) provides a
 complete clock abstraction with `RealClock`, `MockClock`, `MockTimer`,
@@ -38,7 +38,7 @@ but will break under GPS/PTP modes or multi-sensor configurations.
 
 ## Findings
 
-### F1: Clock Abstraction Exists but Is Almost Entirely Unused
+### F1: clock abstraction exists but is almost entirely unused
 
 Key hotspots where bare `time.Now()` creates testability risk:
 
@@ -52,7 +52,7 @@ Key hotspots where bare `time.Now()` creates testability risk:
 | `l9endpoints/replay.go:98`                   | Replay `time.Sleep` pacing   | High   |
 | `serialmux/serialmux.go:109,115`             | Radar device clock sync      | Low    |
 
-### F2: Two Time Domains Are Conflated
+### F2: two time domains are conflated
 
 **Sensor time** — timestamps embedded in LiDAR packets
 (`CombinedTimestamp`, `TimestampMode` in `extract.go`) or radar
@@ -78,7 +78,7 @@ and all timestamps are effectively wall time. Under GPS/PTP modes,
 or in replay, the tracker's `dt` and the pipeline throttle would
 use different time bases.
 
-### F3: Frame-Rate Throttle Is Wall-Time Coupled
+### F3: frame-rate throttle is wall-time coupled
 
 `pipeline/tracking_pipeline.go:215-219`:
 
@@ -96,7 +96,7 @@ Cannot unit-test without waiting real milliseconds. During PCAP
 replay, throttle decisions are wall-time based, not replay-time
 based.
 
-### F4: FrameBuilder Uses `time.AfterFunc` Directly
+### F4: frameBuilder uses `time.AfterFunc` directly
 
 `l2frames/frame_builder.go:163` and `frame_builder_cleanup.go:315`:
 
@@ -119,13 +119,13 @@ controllable in tests. Implementation reference: the existing
 `Advance()` — `AfterFunc` follows the same pattern but invokes
 `f()` instead of sending on a channel.
 
-### F5: Radar Serial Path Is Fine as Is
+### F5: radar serial path is fine as is
 
 `serialmux/serialmux.go:109,115` syncs the radar device clock to
 the host's wall time — a one-shot initialisation command. No clock
 abstraction needed.
 
-### F6: Multi-Sensor Future Needs Timestamp Alignment
+### F6: multi-sensor future needs timestamp alignment
 
 The [multi-model ingestion design](../lidar/architecture/multi-model-ingestion-and-configuration.md)
 describes supporting 3–10 LiDAR models with different packet
@@ -178,7 +178,7 @@ optional type-level enforcement when multi-sensor lands.
    gets its own `Clock` instance unless explicitly wired to
    another sensor's clock.
 
-## System Boundary Diagram
+## System boundary diagram
 
 ```
               SENSOR TIME DOMAIN              WALL TIME DOMAIN
@@ -201,7 +201,7 @@ optional type-level enforcement when multi-sensor lands.
         └──────────────────────────┘   └──────────────────────────┘
 ```
 
-## Failure Registry
+## Failure registry
 
 | Component         | Failure Mode            | Recovery               |
 | ----------------- | ----------------------- | ---------------------- |
@@ -210,9 +210,9 @@ optional type-level enforcement when multi-sensor lands.
 | MockClock.Advance | Forget → test hangs     | Document; use timeouts |
 | Time-domain drift | Tracker dt vs wall time | SystemTime is default  |
 
-## Implementation Plan
+## Implementation plan
 
-### Phase A: Wire Clock into Critical-Path Code
+### Phase a: wire clock into critical-path code
 
 - [ ] **A1.** Add `Clock timeutil.Clock` to `FrameBuilderConfig`.
       Default to `RealClock{}` in `NewFrameBuilder` if nil. Add
@@ -235,7 +235,7 @@ optional type-level enforcement when multi-sensor lands.
       `MockClock` — verify stale frames are cleaned up after
       advancing mock time past `CleanupInterval`.
 
-### Phase B: Eliminate `time.Sleep` in Tests
+### Phase b: eliminate `time.Sleep` in tests
 
 Companion to [go-structured-logging-plan.md](go-structured-logging-plan.md)
 Item 3 (flaky sleep elimination). That plan identifies the
@@ -255,7 +255,7 @@ mechanism.
       `docs/platform/architecture/structured-logging.md` or a
       dedicated test-patterns doc.
 
-### Phase C: Full Migration (Future Work)
+### Phase c: full migration (future work)
 
 Migrate the remaining `time.Now()` call sites not covered by
 Phase A. These are lower-risk diagnostic, audit, and logging
@@ -275,7 +275,7 @@ testability benefits justify the review surface.
       testability benefit but may be useful for deterministic
       test snapshots.
 
-### Phase D: Multi-Sensor Preparation (Deferred)
+### Phase d: multi-sensor preparation (deferred)
 
 - [ ] **D1.** When L7 Scene is designed, define a
       `TimestampAligner` interface accepting frames from N sensors
@@ -288,7 +288,7 @@ testability benefits justify the review surface.
 - [ ] **D3.** Evaluate whether radar serial timestamps need
       alignment with LiDAR timestamps for sensor-fusion use cases.
 
-### Phase E: Formalise Time-Domain Boundary
+### Phase e: formalise time-domain boundary
 
 - [ ] **E1.** Add doc comment block to `LiDARFrame` in
       `l2frames/types.go` explaining the two timestamp domains:
@@ -304,7 +304,7 @@ testability benefits justify the review surface.
       time-domain model and identifying cross-sensor timestamp
       alignment as an open question for L7 Scene.
 
-### Phase F: Validate and Harden
+### Phase f: validate and harden
 
 - [ ] **F1.** Audit all five `TimestampMode` code paths in
       `extract.go` (lines 460–510). Verify that the `dt` computed
@@ -317,7 +317,7 @@ testability benefits justify the review surface.
       FrameBuilder does not regress race tests
       (`toasc_race_test.go`).
 
-## Size Estimates
+## Size estimates
 
 | Phase | Scope                                | Effort          |
 | ----- | ------------------------------------ | --------------- |

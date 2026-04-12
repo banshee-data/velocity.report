@@ -1,4 +1,4 @@
-# Metrics Registry and Observability
+# Metrics registry and observability
 
 Active plan: [metrics-registry-and-observability-plan.md](../../plans/metrics-registry-and-observability-plan.md)
 
@@ -15,7 +15,7 @@ The immediate failure case is speed: `peak` is used for a raw track maximum,
 percentile labels have leaked into per-track work even though they should be
 aggregate-only.
 
-## Canonical Terminology Rules
+## Canonical terminology rules
 
 | Term           | Canonical Meaning                                             | Allowed Level                                  | Notes                                                           |
 | -------------- | ------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------- |
@@ -27,7 +27,7 @@ aggregate-only.
 | `p95`          | Valid percentile term in general, but not canonical for speed | Family-specific                                | `height_p95` can stay; speed `p95` is historical-only legacy    |
 | unit suffixes  | Explicit physical units in the leaf name                      | Any level                                      | Prefer `_mps`, `_mph`, `_ms`, `_count`, `_ratio`, `_m`          |
 
-## Canonical Metric Shape
+## Canonical metric shape
 
 Each metric is defined conceptually using these fields:
 
@@ -45,7 +45,7 @@ Each metric is defined conceptually using these fields:
 | `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                 |
 | `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                       |
 
-## Seed Naming Decisions
+## Seed naming decisions
 
 These are the design anchors the registry must enforce first.
 
@@ -60,7 +60,7 @@ These are the design anchors the registry must enforce first.
 | Aggregate speed percentile 98 | `aggregate.speed_p98_mph`          | Canonical high-end speed percentile                                              |
 | Aggregate raw max speed       | `aggregate.speed_max_mph`          | Use `max`, not `peak`                                                            |
 
-## Consistency Across Pipeline Strata
+## Consistency across pipeline strata
 
 | Stratum                   | What Must Stay Consistent                                        | Example Failure                                                                                    |
 | ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -73,9 +73,9 @@ These are the design anchors the registry must enforce first.
 | Logs and VRLOG overlays   | Diagnostic names aligned with canonical meaning                  | Trace logs keep old alias names after public rename                                                |
 | Future exporters          | Exported metric name and label policy derived from canonical ids | Exporter invents `speed_peak` even though the canonical term is `max`                              |
 
-## Enforcement Strategy
+## Enforcement strategy
 
-### Review Gate
+### Review gate
 
 No new public metric should merge unless:
 
@@ -85,7 +85,7 @@ No new public metric should merge unless:
 4. Its aliases are documented
 5. Its allowed and forbidden tags are documented
 
-### Planned Checks
+### Planned checks
 
 | Check                       | What It Enforces                                                                             | Delivery Shape                                              |
 | --------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -95,7 +95,7 @@ No new public metric should merge unless:
 | Tag cardinality guard       | High-cardinality ids and file paths stay out of exported labels                              | Implement when exporter work begins                         |
 | Export name synthesis check | User-defined prefix plus canonical id must remain unique and ASCII-safe                      | Implement with exporter dry-run tooling                     |
 
-### Rollout Phases
+### Rollout phases
 
 | Phase   | Outcome                                                                                   |
 | ------- | ----------------------------------------------------------------------------------------- |
@@ -104,9 +104,9 @@ No new public metric should merge unless:
 | Phase C | Introduce a machine-readable registry only when the checks need code ownership            |
 | Phase D | Generate exporter/docs/tests from the registry once observability work starts             |
 
-## Source Modes and Tag Strategy
+## Source modes and tag strategy
 
-### Source Mode Vocabulary
+### Source mode vocabulary
 
 | Source Mode     | Meaning                                                    |
 | --------------- | ---------------------------------------------------------- |
@@ -115,7 +115,7 @@ No new public metric should merge unless:
 | `pcap_analysis` | Offline replay/analysis mode with preserved analysis state |
 | `vrlog`         | Replay of recorded frame bundles                           |
 
-### Allowed Export/Filter Labels
+### Allowed export/Filter labels
 
 | Label            | Why Allowed                              |
 | ---------------- | ---------------------------------------- |
@@ -126,7 +126,7 @@ No new public metric should merge unless:
 | `stream`         | Useful for log-derived ops counters      |
 | `result`         | Useful for success/error/drop outcomes   |
 
-### Forbidden Export/Filter Labels
+### Forbidden export/Filter labels
 
 | Label                       | Why Forbidden                              |
 | --------------------------- | ------------------------------------------ |
@@ -138,7 +138,7 @@ No new public metric should merge unless:
 | `frame_id` / `timestamp_ns` | One-series-per-sample failure mode         |
 | raw error text              | Free-text cardinality explosion            |
 
-### Source-Mode Filtering Policy
+### Source-Mode filtering policy
 
 | Source Mode     | Export Policy                                     |
 | --------------- | ------------------------------------------------- |
@@ -147,7 +147,7 @@ No new public metric should merge unless:
 | `pcap_analysis` | Optional include                                  |
 | `vrlog`         | Exclude from default Prometheus export            |
 
-## Logging and Signal Placement
+## Logging and signal placement
 
 The metrics design aligns with the existing three-stream logging model
 (see [structured-logging.md](structured-logging.md)).
@@ -159,11 +159,11 @@ The metrics design aligns with the existing three-stream logging model
 | Per-frame/per-packet detail                         | `trace` logs and VRLOG overlays                                   | Too high-volume for default export  |
 | Per-track raw values                                | DB/API/VRLOG                                                      | Too high-cardinality for Prometheus |
 
-## Future Prometheus Export Design
+## Future prometheus export design
 
 Design stub only — not implemented.
 
-### Naming Rule
+### Naming rule
 
 Prometheus names derived from user-defined prefix plus canonical metric id:
 
@@ -178,7 +178,7 @@ suffixes intact, keep registry id deployment-neutral.
 | `aggregate.speed_p98_mph`                 | `velocity_report` | `velocity_report_aggregate_speed_p98_mph`             |
 | `performance.frame_processing_latency_ms` | `main_street`     | `main_street_performance_frame_processing_latency_ms` |
 
-### Proposed Config Shape
+### Proposed config shape
 
 ```yaml
 observability:
@@ -190,7 +190,7 @@ observability:
     exclude_source_modes: ["vrlog"]
 ```
 
-### Default Export Policy
+### Default export policy
 
 | Metric Family/Level | Export by Default? | Notes                                                    |
 | ------------------- | ------------------ | -------------------------------------------------------- |

@@ -1,4 +1,4 @@
-# Track Storage Consolidation
+# Track storage consolidation
 
 - **Status:** Complete
 
@@ -16,7 +16,7 @@ Two tables with 16 overlapping columns:
 No JOINs between them anywhere. Completely separate code paths and
 consumers.
 
-## Decision: Option B — Keep Separate Tables, Normalise Go Layer
+## Decision: option b — keep separate tables, normalise Go layer
 
 SQL duplication is an intentional snapshot pattern — different lifecycles,
 different PKs, different FK relationships. Forcing both into one table
@@ -28,7 +28,7 @@ structs, two INSERT functions, and two scan loops.
 
 ## Implementation
 
-### Shared `TrackMeasurement` Struct
+### Shared `TrackMeasurement` struct
 
 Embedded in both `TrackedObject` and `RunTrack`:
 
@@ -52,7 +52,7 @@ type TrackMeasurement struct {
 }
 ```
 
-### Shared Helpers
+### Shared helpers
 
 - `trackMeasurementColumns` — single constant slice used in both INSERTs.
 - `scanTrackMeasurementDests()` — used by `GetActiveTracks()`,
@@ -65,7 +65,7 @@ type TrackMeasurement struct {
 `lidar_all_tracks` unions both tables for ad-hoc SQL analysis. No Go code
 dependency.
 
-## Why Not Merge (Option A Rejected)
+## Why not merge (option a rejected)
 
 - SQLite PK limitations with nullable `run_id`.
 - FK from `lidar_track_observations` assumes `track_id` alone is unique.
@@ -73,7 +73,7 @@ dependency.
 - Mixed lifecycle (ephemeral + permanent) in one table.
 - Multi-step data migration with FK rewrites.
 
-## Why Not Slim (Option C Rejected)
+## Why not slim (option c rejected)
 
 Live tracks are pruned after ~5 minutes. Once pruned, JOINs return no
 data for historical run analysis. Would require a "pinning" mechanism

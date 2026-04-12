@@ -48,13 +48,13 @@ Connect with other velocity.report users and contributors
 
 We welcome contributions from the community! For full details on conventions, code style, and the pull request process, see our **[Contributing Guide](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)**.
 
-### Code Contributions
+### Code contributions
 
 - **New Features** - Implement new capabilities and enhancements, check out [open feature requests](https://github.com/banshee-data/velocity.report/issues?q=is%3Aissue%20state%3Aopen%20type%3AFeature)
 - **Bug Fixes** - Help squash bugs and improve stability
 - **Testing** - Add test coverage and report issues
 
-### Non-Code Contributions
+### Non-Code contributions
 
 - **Survey** - Build a citizen radar and log speeds in your area
 - **Advocacy** - Spread the word about velocity.report online and in person
@@ -62,13 +62,13 @@ We welcome contributions from the community! For full details on conventions, co
 - **Documentation** - Write tutorials, guides, and how-tos
 - **Community Support** - Help answer questions on Discord
 
-## Code of Conduct
+## Code of conduct
 
 We are committed to providing a welcoming and inclusive community. Please read our [Code of Conduct](https://github.com/banshee-data/velocity.report/blob/main/CODE_OF_CONDUCT.md) before participating.
 
-## Getting Help
+## Getting help
 
-### Support Channels
+### Support channels
 
 1. **[Discord](https://discord.gg/XXh6jXVFkt)** - Best for real-time questions and discussion
 2. **[GitHub Issues](https://github.com/banshee-data/velocity.report/issues)** - For bug reports and feature requests

@@ -1,4 +1,4 @@
-# Binary Size Reduction Plan (v0.5.x)
+# Binary size reduction plan (v0.5.x)
 
 - **Status:** Active
 - **Layers:** Cross-cutting (Go build, web frontend, CI)
@@ -25,7 +25,7 @@ almost entirely stale build artifacts in `static/` that were embedded alongside 
 current build because `go:embed static/*` globs everything in the directory, and
 SvelteKit's content-hashed filenames mean old builds coexist with new ones.
 
-## Root Cause
+## Root cause
 
 ```
 assets.go:
@@ -53,7 +53,7 @@ and serves `/app/` routes in production mode.
 under `/app/` is served from `WebBuildFiles`. In dev mode, `StaticFiles` is not
 used — the server reads from the filesystem (`http.Dir("./static")`).
 
-## Current Frontend Profile
+## Current frontend profile
 
 | Metric                               | Value                                   |
 | ------------------------------------ | --------------------------------------- |
@@ -71,7 +71,7 @@ used — the server reads from the filesystem (`http.Dir("./static")`).
 **Verdict:** The frontend is already small. No framework change is needed. The problem is
 entirely in the build pipeline — stale files accumulating in `static/`.
 
-## Phase 1: Eliminate Stale Embeds (v0.5.0) — saves ~172 MB
+## Phase 1: eliminate stale embeds (v0.5.0) — saves ~172 MB
 
 This phase alone drops the binary from 211 MB to ~39 MB.
 
@@ -129,7 +129,7 @@ if devMode {
 }
 ```
 
-### Expected result after Phase 1
+### Expected result after phase 1
 
 | Segment         | Before     | After      |
 | --------------- | ---------- | ---------- |
@@ -138,7 +138,7 @@ if devMode {
 | Go code + deps  | 38.2 MB    | 38.2 MB    |
 | **Total**       | **211 MB** | **~39 MB** |
 
-## Phase 2: Strip Debug Symbols — saves ~8–12 MB
+## Phase 2: strip debug symbols — saves ~8–12 MB
 
 The current `LDFLAGS` do not include `-s -w` (strip symbol table and DWARF debug info).
 Adding these to production builds is standard practice:
@@ -152,7 +152,7 @@ symbols for local/dev builds).
 
 Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 
-### Expected result after Phase 2
+### Expected result after phase 2
 
 | Segment            | Size       |
 | ------------------ | ---------- |
@@ -160,7 +160,7 @@ Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 | Go code (stripped) | ~27 MB     |
 | **Total**          | **~28 MB** |
 
-## Phase 3: CI Binary Size Gate — prevent regression
+## Phase 3: CI binary size gate — prevent regression
 
 Add a CI check that fails if the binary exceeds a threshold:
 
@@ -206,7 +206,7 @@ Wire into `make lint`:
 lint: lint-go lint-python lint-web check-binary-size
 ```
 
-## Phase 4: Further Reductions (optional, v0.5.x)
+## Phase 4: further reductions (optional, v0.5.x)
 
 These are diminishing returns but worth considering:
 
@@ -225,14 +225,14 @@ to debug crashes, some security scanners flag UPX-compressed binaries. **Not rec
 for production** on resource-constrained Raspberry Pi — the decompression overhead
 matters on ARM64 with limited RAM.
 
-### 4.3 Lazy-load Leaflet
+### 4.3 Lazy-load leaflet
 
 The 1 MB `start.js` bundle includes Leaflet (map library). If the map is only used on
 the site detail page, Leaflet could be dynamically imported (`import('leaflet')`) so it
 is code-split into a separate chunk loaded on demand. This does not reduce binary size
 (the chunk is still embedded) but improves initial page load. Worth doing independently.
 
-## Framework Assessment
+## Framework assessment
 
 The user asked whether Svelte is the right framework given the small footprint. Summary:
 
@@ -248,7 +248,7 @@ The user asked whether Svelte is the right framework given the small footprint. 
 No functionality needs to be removed. The frontend is lean. The only thing that was
 excessive was the build hygiene.
 
-## What Gets Sacrificed
+## What gets sacrificed
 
 | Sacrifice                             | Impact                                                                                           |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |

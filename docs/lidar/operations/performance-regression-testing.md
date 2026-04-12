@@ -1,4 +1,4 @@
-# Performance Regression Testing
+# Performance regression testing
 
 Performance benchmarking mode in the `pcap-analyze` tool, used to detect processing speed regressions in the LiDAR pipeline before they reach production.
 
@@ -13,9 +13,9 @@ The `pcap-analyze` tool includes a performance benchmarking mode to detect regre
 - Pipeline stage timing helps identify bottlenecks during optimisation
 - Regression detection prevents performance issues from reaching production
 
-## Quick Start
+## Quick start
 
-### Create a Baseline Benchmark
+### Create a baseline benchmark
 
 ```bash
 # Build the tool (requires libpcap)
@@ -25,7 +25,7 @@ go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
 ./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -benchmark-output baseline.json -quiet
 ```
 
-### Compare Against Baseline
+### Compare against baseline
 
 ```bash
 # Run benchmark and compare against baseline
@@ -35,9 +35,9 @@ go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
 echo "Exit code: $?"
 ```
 
-## CLI Reference
+## CLI reference
 
-### Benchmark Flags
+### Benchmark flags
 
 | Flag                    | Alias    | Default                 | Description                                 |
 | ----------------------- | -------- | ----------------------- | ------------------------------------------- |
@@ -47,7 +47,7 @@ echo "Exit code: $?"
 | `-compare-baseline`     | —        | —                       | Compare against a baseline benchmark file   |
 | `-regression-threshold` | —        | `0.10` (10%)            | Threshold for flagging regressions          |
 
-### Standard Flags (also available in benchmark mode)
+### Standard flags (also available in benchmark mode)
 
 | Flag         | Default           | Description                  |
 | ------------ | ----------------- | ---------------------------- |
@@ -57,7 +57,7 @@ echo "Exit code: $?"
 | `-port`      | `2369`            | UDP port for LIDAR data      |
 | `-fps`       | `10.0`            | Expected frame rate in Hz    |
 
-### Example Commands
+### Example commands
 
 ```bash
 # Basic benchmark with verbose output
@@ -73,9 +73,9 @@ echo "Exit code: $?"
 ./pcap-analyze -pcap capture.pcapng -bench -q -benchmark-output perf.json
 ```
 
-## Workflow Examples
+## Workflow examples
 
-### Creating a Baseline Benchmark
+### Creating a baseline benchmark
 
 Establish a baseline on the main branch before making changes:
 
@@ -104,7 +104,7 @@ go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
 ./pcap-analyze -pcap data/gold-standard.pcapng -benchmark -compare-baseline baseline.json -quiet
 ```
 
-### Interpreting Results
+### Interpreting results
 
 **Successful comparison (no regression):**
 
@@ -145,9 +145,9 @@ Regression threshold: 10%
 ===========================================
 ```
 
-## Gold Standard PCAP Files
+## Gold standard PCAP files
 
-### Selection Criteria
+### Selection criteria
 
 Choose PCAP files that provide comprehensive pipeline coverage:
 
@@ -156,7 +156,7 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 3. **Edge cases** — Include complex scenes with multiple simultaneous objects
 4. **Consistent sensor configuration** — Same sensor model and mounting as production
 
-### Recommended Test Files
+### Recommended test files
 
 | File                      | Duration | Description                          | Use Case                           |
 | ------------------------- | -------- | ------------------------------------ | ---------------------------------- |
@@ -165,16 +165,16 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 | `pedestrian-focus.pcapng` | 1 min    | School zone, multiple pedestrians    | Classification accuracy            |
 | `quiet-baseline.pcapng`   | 30 sec   | Empty street, background only        | Background model validation        |
 
-### Maintenance Guidelines
+### Maintenance guidelines
 
 - **Version control** — Store gold standard PCAPs in `data/` or a shared storage location
 - **Document provenance** — Record capture date, location, and sensor configuration
 - **Periodic refresh** — Update files annually or when sensor models change
 - **Size limits** — Keep files under 500 MB for reasonable CI run times
 
-## CI Integration
+## CI integration
 
-### GitHub Actions Example
+### GitHub actions example
 
 ```yaml
 name: Performance Regression Test
@@ -223,7 +223,7 @@ jobs:
           path: gold-standard_benchmark.json
 ```
 
-### Baseline Management
+### Baseline management
 
 Store baselines in the repository for reproducibility:
 
@@ -240,9 +240,9 @@ Update baselines when:
 - Hardware or Go version changes affect measurements
 - Gold standard PCAP files are updated
 
-## Understanding Metrics
+## Understanding metrics
 
-### Benchmark JSON Schema (v1.0)
+### Benchmark JSON schema (v1.0)
 
 ```json
 {
@@ -287,7 +287,7 @@ Update baselines when:
 }
 ```
 
-### Metric Descriptions
+### Metric descriptions
 
 | Metric                    | Unit  | Description                               | Regression Indicator                      |
 | ------------------------- | ----- | ----------------------------------------- | ----------------------------------------- |
@@ -306,7 +306,7 @@ Update baselines when:
 | `tracking_time_ms`        | ms    | Kalman filter tracking time               | Higher is worse                           |
 | `classify_time_ms`        | ms    | Object classification time                | Higher is worse                           |
 
-### Pipeline Stage Analysis
+### Pipeline stage analysis
 
 The pipeline stage timing helps identify where regressions occur:
 
@@ -326,7 +326,7 @@ When a regression is detected:
 
 ## Troubleshooting
 
-### Common Issues
+### Common issues
 
 **Build error: missing libpcap**
 
@@ -395,7 +395,7 @@ When using `-quiet`, comparison results are still printed. Check stderr:
 ./pcap-analyze -pcap data/test.pcapng -benchmark -compare-baseline baseline.json -quiet 2>&1
 ```
 
-### Debugging Performance Issues
+### Debugging performance issues
 
 **Identify slow frames:**
 
@@ -426,7 +426,7 @@ go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 ```
 
-## See Also
+## See also
 
 - [PCAP Analysis Mode](pcap-analysis-mode.md) — Using pcap-analyse for track extraction
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) — Pipeline architecture

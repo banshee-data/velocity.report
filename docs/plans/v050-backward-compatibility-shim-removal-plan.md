@@ -1,4 +1,4 @@
-# v0.5.0 Backward Compatibility Shim Removal Plan
+# v0.5.0 Backward compatibility shim removal plan
 
 - **Parent plan:** [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md) — Project E
 - **Layers:** Cross-cutting (API, protobuf, database)
@@ -20,7 +20,7 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
   functions remain — tracked for removal in the
   [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md) (item A1).
 
-## Tracking Snapshot
+## Tracking snapshot
 
 | Outcome             | Sections                   | Notes                                                                                                                                                                |
 | ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
 | Reclassified        | §16                        | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                                                        |
 | Pending removal     | §18                        | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                                                              |
 
-## Shim Work Already Removed
+## Shim work already removed
 
 | Shim                                           | Section | Notes                                                                                                     |
 | ---------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
@@ -98,9 +98,9 @@ Intersections with other parent-plan projects:
 
 ---
 
-## Inventory of Backward Compatibility Shims
+## Inventory of backward compatibility shims
 
-### 1. Go Server — track speed contract reset
+### 1. Go server — track speed contract reset
 
 | Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
 | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -127,7 +127,7 @@ non-percentile names and formulas.
 
 ---
 
-### 2. Go Server — Sweep legacy request format
+### 2. Go server — sweep legacy request format
 
 | Item                             | Location                               | Status  | Detail                                                                          |
 | -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------- |
@@ -140,7 +140,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 
 ---
 
-### 3. Go Server + Web — Legacy download endpoint format
+### 3. Go server + web — legacy download endpoint format
 
 | Item                                    | Location                                                         | Status  | Detail                                                                                                 |
 | --------------------------------------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
@@ -152,7 +152,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 
 ---
 
-### 4. Go Server — Lenient JSON parsing in sweep handler
+### 4. Go server — lenient JSON parsing in sweep handler
 
 | Item                  | Location                                   | Status  | Detail                                                                                     |
 | --------------------- | ------------------------------------------ | ------- | ------------------------------------------------------------------------------------------ |
@@ -163,7 +163,7 @@ JSON is rejected.
 
 ---
 
-### 5. Go Server — Deploy executor backward-compat methods
+### 5. Go server — deploy executor backward-compat methods
 
 | Item              | Location                      | Status   | Detail                                                                                        |
 | ----------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
@@ -176,7 +176,7 @@ warning.
 
 ---
 
-### 6. Go Server — Deprecated packet header struct
+### 6. Go server — deprecated packet header struct
 
 | Item                  | Location                                    | Status  | Detail                                                |
 | --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------- |
@@ -186,7 +186,7 @@ warning.
 
 ---
 
-### 7. Go Server — Removed method comment
+### 7. Go server — removed method comment
 
 | Item                     | Location                                   | Status  | Detail                                                   |
 | ------------------------ | ------------------------------------------ | ------- | -------------------------------------------------------- |
@@ -196,7 +196,7 @@ warning.
 
 ---
 
-### 8. Go Server — Type aliases in `lidar/aliases.go`
+### 8. Go server — type aliases in `lidar/aliases.go`
 
 | Item                | Location                    | Status   | Detail                                                                                                                   |
 | ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -209,7 +209,7 @@ document the intent.
 
 ---
 
-### 9. Python — Legacy API response format handling
+### 9. Python — legacy API response format handling
 
 | Item                        | Location                                                     | Status  | Detail                                                                   |
 | --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
@@ -221,7 +221,7 @@ document the intent.
 
 ---
 
-### 10. Python — Config dict-conversion backward compatibility
+### 10. Python — config dict-conversion backward compatibility
 
 | Item                    | Location                                                   | Status  | Detail                                                                                     |
 | ----------------------- | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
@@ -243,7 +243,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ---
 
-### 12. Svelte/Web — Legacy `BackgroundCell` fields
+### 12. Svelte/Web — legacy `BackgroundCell` fields
 
 | Item                   | Location                     | Status  | Detail                                                               |
 | ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------- |
@@ -264,7 +264,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 
 ---
 
-### 14. Web / sweep dashboard — Sweep results legacy field names
+### 14. Web / sweep dashboard — sweep results legacy field names
 
 | Item                           | Location                                           | Status  | Detail                                                                                                           |
 | ------------------------------ | -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -282,7 +282,7 @@ removal in the [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md)
 
 ---
 
-### 15. macOS Visualiser — Branch-local track speed-label surfaces
+### 15. macOS visualiser — branch-local track speed-label surfaces
 
 | Item                                        | Location                                                                  | Status      | Detail                                                             |
 | ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
@@ -297,7 +297,7 @@ SQL column rename is deferred to migration 000030.
 
 ---
 
-### 16. macOS Visualiser — Legacy point buffer
+### 16. macOS visualiser — legacy point buffer
 
 | Item                         | Location                                                                  | Status       | Detail                                                                                                                                                                     |
 | ---------------------------- | ------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -310,7 +310,7 @@ shim removal.
 
 ---
 
-### 17. macOS Visualiser — Legacy playback defaults
+### 17. macOS visualiser — legacy playback defaults
 
 | Item                      | Location                                                       | Status  | Detail                                                                                                         |
 | ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
@@ -341,7 +341,7 @@ pre-#352 `.vrlog` files to close. After removal, old `.vrlog` files with
 
 ---
 
-## Items Explicitly NOT Removed
+## Items explicitly NOT removed
 
 The following are **not** compat shims and should be retained:
 
@@ -359,7 +359,7 @@ The following are **not** compat shims and should be retained:
 
 ---
 
-## Migration Guide (target state for remaining removals)
+## Migration guide (target state for remaining removals)
 
 ### External contract changes
 
@@ -382,15 +382,15 @@ The following are **not** compat shims and should be retained:
 
 ---
 
-## Delivery Plan
+## Delivery plan
 
-### Phase 1 — Audit and plan (this document)
+### Phase 1 — audit and plan (this document)
 
 - [x] Inventory all compat shims across Go, Python, Svelte, macOS
 - [x] Classify as "remove in v0.5.0" vs "retain"
 - [x] Review with maintainer
 
-### Phase 2 — Server-side removals (Go)
+### Phase 2 — server-side removals (Go)
 
 - [x] Remove sweep legacy request fields and `computeCombinations()`
 - [x] Remove legacy sweep result fields from `ComboResult`
@@ -401,7 +401,7 @@ The following are **not** compat shims and should be retained:
 - [x] Finish the report download migration end-to-end (`file_type` callers/tests/terminology)
 - [x] Back out unmerged public legacy single-track speed-label surfaces and queue the raw `peak` to `max` rename — ✅ resolved; fields never merged, `peak` → `max` rename landed in #352
 
-### Phase 3 — Frontend removals (Svelte)
+### Phase 3 — frontend removals (Svelte)
 
 - [x] Remove `BackgroundCell` legacy fields from `lidar.ts`
 - [x] Remove `Array.isArray(cached)` dual-format branch
@@ -424,7 +424,7 @@ The following are **not** compat shims and should be retained:
 - [x] Update callers of `setPlaybackMode(.unknown)` legacy branch
 - [x] Verify `avgSpeedMps` field reads correctly from regenerated proto — confirmed: proto field 24 → `VisualiserClient` → `Track` model → UI; `maxSpeedMps` (field 25) also verified
 
-### Phase 6 — Validation
+### Phase 6 — validation
 
 - [x] `make format && make lint && make test` passes (Go monitor setup-failure is pre-existing — requires `make build-web` first)
 - [x] `make build-radar-local` succeeds
@@ -436,7 +436,7 @@ The following are **not** compat shims and should be retained:
 
 ---
 
-## Decision Notes
+## Decision notes
 
 - This plan is intentionally aggressive: all shims removed in one release.
   Maintaining dual formats across a minor release boundary would require test

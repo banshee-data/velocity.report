@@ -30,7 +30,7 @@ accurate, navigable, and sized for purpose.
 
 ## Rubrics
 
-### Length Target: 800 Lines
+### Length target: 800 lines
 
 Specification and architecture documents should target **≤ 800 lines**. This
 is a guideline, not a hard wall — a 900-line doc with dense tables is fine;
@@ -41,7 +41,7 @@ canonical rule on code blocks in docs. The short version: if a block could be
 pasted into a source file and compiled, replace it with prose, a field table,
 or a file reference.
 
-### Split Threshold
+### Split threshold
 
 If a document covers two or more clearly independent topics and exceeds
 800 lines, split it:
@@ -53,7 +53,7 @@ If a document covers two or more clearly independent topics and exceeds
 Example: a vector scene map doc that also specifies the geometry-prior
 service should split the prior service into its own file.
 
-### Open Questions
+### Open questions
 
 Every spec should have an **Open Questions** section (or confirm none remain).
 Questions fall into two categories:
@@ -67,7 +67,7 @@ Questions fall into two categories:
 **Never invent answers to open questions.** If the answer is unknown, leave
 the question open and surface it to the operator.
 
-### Plan Files vs Reference Docs
+### Plan files vs reference docs
 
 Reference documents (architecture overviews, CLI guides, API references,
 configuration docs) describe the system **as it is implemented right now**.
@@ -95,7 +95,7 @@ content. Each audit pass should verify implementation status against the
 source code, ideally by checking the actual flag definitions, route
 registrations, or binary directories.
 
-### Design Decision Tables
+### Design decision tables
 
 Every spec with non-trivial design choices should have a decision table:
 
@@ -109,7 +109,7 @@ each entry against the codebase or the author's stated intent.
 
 ## Procedure
 
-### 1. Fix Links
+### 1. Fix links
 
 Run the fix-links skill first — broken links undermine every subsequent step.
 
@@ -127,7 +127,7 @@ python3 scripts/check-backtick-paths.py --report 2>&1
 Fix all automatically resolvable links. Surface ambiguous cases to the
 operator.
 
-### 2. Graduate Completed Plans
+### 2. Graduate completed plans
 
 List all plan files and check for graduation eligibility:
 
@@ -150,7 +150,7 @@ If it is a regular file (not a symlink), run:
 Respect the two-PR rule: a plan must be Complete on `main` before the
 symlink PR. If the completion hasn't landed yet, note it for the next cycle.
 
-### 3. Audit Document Length
+### 3. Audit document length
 
 ```bash
 find docs/ -name '*.md' -not -path '*/plans/*' | while read f; do
@@ -172,7 +172,7 @@ For each document over the target:
 
 Report the before/after line counts.
 
-### 4. Resolve Open Questions
+### 4. Resolve open questions
 
 For each spec under `docs/`:
 
@@ -187,7 +187,7 @@ Read each Open Questions section. For each question:
 - If it is still genuinely open, leave it and surface to the operator.
 - **Do not fabricate answers.**
 
-### 5. Update Design Decision Tables
+### 5. Update design decision tables
 
 For each spec with a Design Decisions or Resolved Design Questions table:
 
@@ -273,14 +273,14 @@ Print a summary:
 Next: review changes, then /ship-change
 ```
 
-## When to Run
+## When to run
 
 - Before every point release (part of the release checklist).
 - Before building a disk image for deployment.
 - After a major documentation branch lands on `main`.
 - Quarterly, as a documentation health check.
 
-## What This Skill Does Not Do
+## What this skill does not do
 
 - Does not write new documentation from scratch.
 - Does not make architectural decisions — surfaces them to the operator.

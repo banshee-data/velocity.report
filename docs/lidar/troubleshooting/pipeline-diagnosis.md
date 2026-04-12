@@ -1,4 +1,4 @@
-# LIDAR Pipeline Diagnosis: Jitter, Fragmentation, Misalignment & Empty Boxes
+# LIDAR pipeline diagnosis: jitter, fragmentation, misalignment & empty boxes
 
 The tracking pipeline exhibits multiple quality degradation symptoms — jitter, fragmentation, misalignment, and empty bounding boxes — caused by suboptimal parameter interactions across three coupled subsystems.
 
@@ -26,12 +26,12 @@ The tracking pipeline exhibits multiple quality degradation symptoms that stem f
 
 ---
 
-## Quick Fixes
+## Quick fixes
 
 > Distilled from the original quick-start pipeline fix guide. For the detailed
 > root-cause analysis, continue to §1 below.
 
-### Deploy Optimised Parameters
+### Deploy optimised parameters
 
 ```bash
 # Apply the optimised configuration
@@ -51,7 +51,7 @@ curl -X POST http://localhost:8080/api/lidar/sweep/auto \
   -d @config/sweep-quality-tuning.json
 ```
 
-### Key Parameter Changes
+### Key parameter changes
 
 | Parameter                 | Default | Optimised | Why                                                        |
 | ------------------------- | ------- | --------- | ---------------------------------------------------------- |
@@ -64,7 +64,7 @@ curl -X POST http://localhost:8080/api/lidar/sweep/auto \
 
 See [parameter-comparison.md](../operations/parameter-comparison.md) for the full side-by-side table.
 
-### Staged Testing
+### Staged testing
 
 Deploy changes incrementally rather than all at once:
 
@@ -73,7 +73,7 @@ Deploy changes incrementally rather than all at once:
 3. **Add tracking** (30 min) — `gating_distance_squared=25.0`, `measurement_noise=0.15`, `process_noise_vel=0.3`. Jitter should halve.
 4. **Full deployment** — if all stages succeed, deploy `tuning.optimised.json` for overnight testing.
 
-### Expected Improvements
+### Expected improvements
 
 | Metric             | Before      | After       | Change |
 | ------------------ | ----------- | ----------- | ------ |
@@ -93,9 +93,9 @@ cp config/tuning.defaults.json /path/to/your/active/config.json
 
 ---
 
-## 1. Systematic Issues in the Pipeline
+## 1. Systematic issues in the pipeline
 
-### 1.1 High Jitter (Heading & Speed)
+### 1.1 High jitter (heading & speed)
 
 **Observation:** Bounding boxes rotate unpredictably frame-to-frame; velocity magnitude oscillates wildly.
 
@@ -130,7 +130,7 @@ smoothedHeading = 0.85*oldHeading + 0.15*newHeading
 
 ---
 
-### 1.2 Fragmentation (Track Splits)
+### 1.2 Fragmentation (track splits)
 
 **Observation:** A single vehicle generates 2-4 tentative tracks that fail to merge into one confirmed track.
 
@@ -173,7 +173,7 @@ if mahalanobisDistSq < gatingDistSq {
 
 ---
 
-### 1.3 Misalignment (Velocity-Trail Divergence)
+### 1.3 Misalignment (velocity-trail divergence)
 
 **Observation:** Kalman velocity vector does not align with actual displacement direction (trail).
 
@@ -213,7 +213,7 @@ if angularDiff > π/4 {
 
 ---
 
-### 1.4 Empty Boxes (Active Tracks Without Clusters)
+### 1.4 Empty boxes (active tracks without clusters)
 
 **Observation:** Confirmed tracks persist with zero associated clusters (EmptyBoxRatio high).
 
@@ -261,9 +261,9 @@ if abs(observed - baseline) > closenessThreshold {
 
 ---
 
-## 2. Parameter Interaction Failures
+## 2. Parameter interaction failures
 
-### 2.1 Contradictory Background Parameters
+### 2.1 Contradictory background parameters
 
 **Current Configuration:**
 
@@ -290,7 +290,7 @@ if abs(observed - baseline) > closenessThreshold {
 
 ---
 
-### 2.2 Clustering-Tracking Decoupling
+### 2.2 Clustering-Tracking decoupling
 
 **Current Configuration:**
 
@@ -316,7 +316,7 @@ if abs(observed - baseline) > closenessThreshold {
 
 ---
 
-### 2.3 Kalman Noise Mismatch
+### 2.3 Kalman noise mismatch
 
 **Current Configuration:**
 
@@ -341,9 +341,9 @@ if abs(observed - baseline) > closenessThreshold {
 
 ---
 
-## 3. Recommended Parameter Changes
+## 3. Recommended parameter changes
 
-### 3.1 Optimised Parameter Set for Next Test
+### 3.1 Optimised parameter set for next test
 
 Based on analysis, here's a balanced configuration for **urban street scenarios** (moderate density, mixed speeds):
 
@@ -380,7 +380,7 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
 }
 ```
 
-### 3.2 Change Justification
+### 3.2 Change justification
 
 | Parameter                         | Old Value | New Value | Reason                                                         |
 | --------------------------------- | --------- | --------- | -------------------------------------------------------------- |
@@ -395,7 +395,7 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
 | **hits_to_confirm**               | 3         | 4         | Delay confirmation to allow cluster merging                    |
 | **noise_relative**                | 0.04      | 0.02      | Reduce relative noise margin; tighten background acceptance    |
 
-### 3.3 Expected Improvements
+### 3.3 Expected improvements
 
 | Metric                 | Current (Typical) | Expected (Optimised) | Improvement     |
 | ---------------------- | ----------------- | -------------------- | --------------- |
@@ -408,9 +408,9 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
 
 ---
 
-## 4. Testing Recommendations
+## 4. Testing recommendations
 
-### 4.1 Incremental Validation
+### 4.1 Incremental validation
 
 **Do not deploy all changes at once.** Test in stages:
 
@@ -429,7 +429,7 @@ Based on analysis, here's a balanced configuration for **urban street scenarios*
    - Measure: HeadingJitterDeg, SpeedJitterMps, MisalignmentRatio
    - Expected: All jitter metrics halve
 
-### 4.2 Ground Truth Evaluation
+### 4.2 Ground truth evaluation
 
 If possible, use **labelled ground truth** (Phase 5):
 
@@ -452,7 +452,7 @@ sweep_config = {
 - Fragmentation (target < 0.10)
 - FalsePositiveRate (target < 0.05)
 
-### 4.3 Diagnostic Logging
+### 4.3 Diagnostic logging
 
 Enable detailed metrics during test:
 
@@ -470,9 +470,9 @@ Enable detailed metrics during test:
 
 ---
 
-## 5. Alternative Scenarios
+## 5. Alternative scenarios
 
-### 5.1 Highway Scenario (Fast, Sparse Traffic)
+### 5.1 Highway scenario (fast, sparse traffic)
 
 **Adjustments:**
 
@@ -486,7 +486,7 @@ Enable detailed metrics during test:
 }
 ```
 
-### 5.2 Dense Urban (Slow, Crowded)
+### 5.2 Dense urban (slow, crowded)
 
 **Adjustments:**
 
@@ -516,9 +516,9 @@ Enable detailed metrics during test:
 
 ---
 
-## 6. Monitoring & Iteration
+## 6. Monitoring & iteration
 
-### 6.1 Key Metrics to Track
+### 6.1 Key metrics to track
 
 **Per-Frame Metrics:**
 
@@ -539,7 +539,7 @@ Enable detailed metrics during test:
 - `EmptyBoxRatio` → target < 0.10
 - `MisalignmentRatio` → target < 0.15
 
-### 6.2 Sweep Configuration for Auto-Tuning
+### 6.2 Sweep configuration for auto-tuning
 
 If further refinement needed, run auto-tuning sweep:
 

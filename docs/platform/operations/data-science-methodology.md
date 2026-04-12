@@ -1,10 +1,10 @@
-# Data Science Methodology
+# Data science methodology
 
 Active plan: [platform-data-science-metrics-first-plan.md](../../plans/platform-data-science-metrics-first-plan.md)
 
 Metrics-first data science methodology for velocity.report: reproducible benchmarks and transparent scorecards over opaque model-driven approaches.
 
-## Critical-Path Position
+## Critical-Path position
 
 1. **No black boxes in the live pipeline.** Runtime perception, tracking,
    scoring, and reporting paths must remain spec-driven and inspectable.
@@ -16,7 +16,7 @@ Metrics-first data science methodology for velocity.report: reproducible benchma
 4. **Metrics beat intuition.** Tuning, tradeoffs, and regressions must be
    discussed through explicit benchmark metrics.
 
-## What Data Science Means In This Repo
+## What data science means in this repo
 
 The near-term data science role is primarily:
 
@@ -30,7 +30,7 @@ The near-term data science role is primarily:
 This is deliberately closer to actuarial analysis, experimental design, and
 quantitative QA than to model-centric ML engineering.
 
-## Reproducibility Contract
+## Reproducibility contract
 
 Every benchmarkable experiment must record:
 
@@ -44,7 +44,7 @@ Every benchmarkable experiment must record:
 
 Winning means improving the agreed scorecard on the same replay pack.
 
-## Evidence Package Contract
+## Evidence package contract
 
 Every investigation that influences defaults, thresholds, or roadmap priority
 must answer:
@@ -59,7 +59,7 @@ must answer:
 If the write-up cannot identify the input artefact set and comparison date,
 it is not strong enough to justify a runtime or documentation change.
 
-## Core Workstreams
+## Core workstreams
 
 1. **Scorecards and Specs** — detection coverage, fragmentation, false
    positives, velocity coverage, stability, calibration of labels, and
@@ -73,7 +73,7 @@ it is not strong enough to justify a runtime or documentation change.
 5. **Optional Classification Research** — offline only, comparing against the
    current transparent baseline on fixed benchmarks.
 
-## Model Policy
+## Model policy
 
 If classification research proceeds:
 
@@ -86,7 +86,7 @@ If classification research proceeds:
 Opaque end-to-end models, hidden embeddings, or cloud-only training loops are
 out of scope for the critical path.
 
-## Current Evidence Inventory
+## Current evidence inventory
 
 - `internal/lidar/perf/pcap/kirk0.pcapng` + `scripts/validate-lfs-files.sh`
 - `internal/lidar/perf/baseline/baseline-kirk0.json` and `baseline-kirk0-ci.json`

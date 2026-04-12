@@ -1,4 +1,4 @@
-# Track Description Language and Description Interface
+# Track description language and description interface
 
 - **Status:** Proposed
 - **Canonical:** [track-description-language.md](../platform/architecture/track-description-language.md)
@@ -21,7 +21,7 @@ A **Track Description Language (TDL)** provides a natural-language query interfa
 
 The TDL is not SQL. It uses human-readable terms grounded in traffic-engineering vocabulary so that neighbourhood advocates, councillors, and community groups can describe what they want to see without learning a query language.
 
-## 2. Design Decisions
+## 2. Design decisions
 
 | Decision              | Choice                                                | Rationale                                                                                                                                                  |
 | --------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ The TDL is not SQL. It uses human-readable terms grounded in traffic-engineering
 | **Schema exposure**   | Abstract                                              | Users see domain concepts (transit, speed, behaviour) not table names. The abstract schema (§3) maps to underlying storage via SQLite views.               |
 | **Aggregation model** | Per-transit max speed + on-demand dataset percentiles | Each transit stores its own `max_speed`. Dataset-level percentiles (p50, p85, p98) are computed at query time over the filtered set of transit max speeds. |
 
-### 2.1 Why Natural Language
+### 2.1 Why natural language
 
 SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects suit programmatic access but are opaque in report templates. A natural-language syntax bridges both needs:
 
@@ -38,7 +38,7 @@ SQL-like DSLs are powerful but exclude non-technical users. JSON filter objects 
 - **For reports**: embeds directly in PDF template text — the generator evaluates TDL expressions inline.
 - **For the API**: the Go server parses TDL strings into the same parameterised SQL that a JSON filter would produce, so both interfaces share one execution path.
 
-### 2.2 Speed Measurement Model
+### 2.2 Speed measurement model
 
 Percentiles should be reserved for grouped speed summaries across many transits.
 Reusing aggregate percentile terminology on a single track creates the exact ambiguity
@@ -67,7 +67,7 @@ filtered transit set. On a Raspberry Pi with SQLite, computing percentiles over
 a sorted column of a few thousand rows takes single-digit milliseconds —
 precomputation is unnecessary.
 
-## 3. Abstract Transit Schema
+## 3. Abstract transit schema
 
 The TDL operates over an abstract **transit** concept rather than raw tables. Users never reference `radar_data_transits` or `lidar_tracks` directly.
 
@@ -120,7 +120,7 @@ transit {
 
 **Dataset-level aggregates** (p50, p85, p98 of `speed.max_mph`) are not fields on the transit record. They are computed at query time over the filtered result set. A TDL query like `speed summary of vehicles during morning peak` computes these from the matching transits' `max_mph` values.
 
-### 3.1 Schema-to-Storage Mapping
+### 3.1 Schema-to-Storage mapping
 
 | Abstract field     | Source                                                                                                                                         | Stored per-transit? |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
@@ -136,9 +136,9 @@ Note: the current legacy percentile-labelled track columns are implementation
 details slated for removal from the canonical track model. They should not be
 exposed in the TDL, proto contracts, or new public APIs.
 
-## 4. Natural Language Syntax
+## 4. Natural language syntax
 
-### 4.1 Clause Structure
+### 4.1 Clause structure
 
 A TDL expression is an English sentence composed of optional clauses. Order is flexible; the parser recognises clause types by keyword anchors.
 
@@ -228,7 +228,7 @@ speed profile for erratic vehicles last 30 days show trail
 
 → Per-frame speed samples and trail polylines for transits labelled `erratic` in the last 30 days.
 
-### 4.3 Aggregation Syntax
+### 4.3 Aggregation syntax
 
 Prefixing a query with an aggregation keyword returns grouped statistics instead of individual transits.
 
@@ -242,11 +242,11 @@ Prefixing a query with an aggregation keyword returns grouped statistics instead
 
 These aggregations run at query time over the filtered transit set. For `speed summary`, the server collects `max_speed_mph` from all matching transits, sorts the values, and computes p50/p85/p98/max using floor-based indexing (consistent with the existing `ComputeSpeedPercentiles` function in `l6objects`). This is a single ordered scan — not a per-frame observation scan — so latency stays low even on constrained hardware. See §6 for index strategy and performance constraints.
 
-## 5. Behaviour Vocabulary
+## 5. Behaviour vocabulary
 
 The TDL supports natural-language terms for vehicle behaviours. These terms require a defined mapping from raw sensor data to labelled behaviour — a layer of abstraction between observation-level measurements and human-readable descriptions.
 
-### 5.1 Labelling Levels
+### 5.1 Labelling levels
 
 Translating sensor data into natural-language behaviour terms requires three levels of abstraction:
 
@@ -274,7 +274,7 @@ speed descriptors will be defined separately.
 
 **L3** is the TDL aggregation output — it composes L2 labels with time/direction/class filters to produce the natural-language statistics that appear in reports.
 
-### 5.2 Behaviour Label Definitions
+### 5.2 Behaviour label definitions
 
 Each behaviour label maps to a concrete rule over L1 metrics and the speed profile:
 
@@ -290,7 +290,7 @@ Each behaviour label maps to a concrete rule over L1 metrics and the speed profi
 
 Thresholds (`σ_steady`, `Δ_accel`, `v_stop`, `t_stop`, `d_close`, etc.) are site-configurable parameters stored alongside the site speed limit.
 
-### 5.3 Syntax Abstraction Requirements
+### 5.3 Syntax abstraction requirements
 
 For the natural-language parser to resolve behaviour terms, it needs:
 
@@ -304,7 +304,7 @@ For the natural-language parser to resolve behaviour terms, it needs:
 
 5. **Aggregate qualifiers** — words like `"percentage"`, `"count"`, `"average"`, `"breakdown"` trigger aggregation mode rather than transit listing.
 
-### 5.4 Data Labelling Requirements
+### 5.4 Data labelling requirements
 
 Behaviour labels (L2) are derived, not manually applied. The labelling pipeline runs at transit finalisation:
 
@@ -315,9 +315,9 @@ Behaviour labels (L2) are derived, not manually applied. The labelling pipeline 
 
 This is distinct from the human-applied detection/quality labels (`user_label`, `quality_label`) defined in the LiDAR [label taxonomy](../lidar/terminology.md). Those labels evaluate _tracker correctness_; behaviour labels evaluate _driving style_.
 
-## 6. Storage, Indexing, and Retrieval
+## 6. Storage, indexing, and retrieval
 
-### 6.1 SQLite as the Query Engine
+### 6.1 SQLite as the query engine
 
 SQLite is the project's single database (see `ARCHITECTURE.md`). The existing deployment runs on Raspberry Pi 4 with WAL mode, `PRAGMA synchronous = NORMAL`, and `busy_timeout = 30000`. The TDL query engine builds on this — no additional database is needed.
 
@@ -334,7 +334,7 @@ SQLite's constraints to design around:
 - **No server-side cursor streaming** — large result sets are materialised in memory. Mitigation: TDL list queries are paginated (default 100 rows); aggregation queries return scalar/histogram results, not row sets.
 - **No built-in percentile function** — `PERCENTILE_CONT` is not in base SQLite. Mitigation: use `NTILE(100)` or sorted-index offset to compute percentiles in SQL, or compute in Go from a sorted `max_speed_mph` slice (matching the existing `ComputeSpeedPercentiles` pattern).
 
-### 6.2 Fused Transit Table
+### 6.2 Fused transit table
 
 The TDL operates over a **materialised fused transit table**, not a view. A view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs` would require the join on every query. Instead, the fused transit record is written at transit-finalisation time:
 
@@ -362,7 +362,7 @@ CREATE TABLE IF NOT EXISTS fused_transits (
 
 This table is the single scan target for all TDL filter and aggregation queries. Per-frame data (`speed.profile[]`, `geometry.trail[]`) is fetched via a secondary join to `lidar_track_obs` only when requested by a `show profile` or `show trail` clause.
 
-### 6.3 Index Strategy
+### 6.3 Index strategy
 
 Indexes are designed for the TDL query patterns described in §4:
 
@@ -390,7 +390,7 @@ CREATE INDEX idx_fused_speed
 
 The composite `(timestamp_unix, max_speed_mph)` index covers the most common TDL pattern: time-range filter + speed threshold or aggregation. SQLite can scan the index in `max_speed_mph` order within a time range to compute percentiles without a separate sort.
 
-### 6.4 Query Patterns
+### 6.4 Query patterns
 
 **List query** — returns matching transits with pagination:
 
@@ -453,7 +453,7 @@ GROUP BY hour
 ORDER BY hour;
 ```
 
-### 6.5 Volume Estimates and Performance
+### 6.5 Volume estimates and performance
 
 | Metric                    | Estimate   | Notes                                          |
 | ------------------------- | ---------- | ---------------------------------------------- |
@@ -466,7 +466,7 @@ ORDER BY hour;
 
 These estimates assume the `fused_transits` table contains only scalar per-transit data. Per-frame observations remain in `lidar_track_obs` (which may be significantly larger) and are joined only for `show profile` / `show trail` requests.
 
-### 6.6 Read/Write Separation
+### 6.6 Read/Write separation
 
 The Raspberry Pi runs a single Go process handling both sensor ingestion and HTTP API. To avoid write contention:
 
@@ -474,7 +474,7 @@ The Raspberry Pi runs a single Go process handling both sensor ingestion and HTT
 - **Read path**: TDL queries run on a separate read-only connection (`?mode=ro`). This ensures long-running aggregation queries never block ingestion.
 - **Cache**: prepared statements are cached per-connection. The Go query builder re-uses a small set of parameterised query templates, so the SQLite query planner runs once per template.
 
-## 7. Implementation Path
+## 7. Implementation path
 
 1. **Define the fused transit schema** as a Go struct and SQLite view joining `radar_data_transits`, `lidar_tracks`, and `lidar_track_obs`. Per-transit columns: `max_speed_mph`, `mean_speed_mph`, `direction`, `behaviour_style`, `classification`, `context`. No per-transit percentile columns — p50/p85/p98 are query-time aggregates.
 2. **Implement the behaviour labelling pipeline** (§5.4) — speed-profile analyser, stop detector, conflict detector. Store L2 labels in the fused transit record.
@@ -483,7 +483,7 @@ The Raspberry Pi runs a single Go process handling both sensor ingestion and HTT
 5. **Expose a JSON API** — the web frontend and PDF generator post TDL strings; the server returns filtered transits or aggregated statistics.
 6. **Wire the description interface** (§8) to the TDL API.
 
-## 8. Description Interface
+## 8. Description interface
 
 A web-based interface over the transit database that:
 

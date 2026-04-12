@@ -81,7 +81,7 @@ configured via the [tuning config file](../../config/README.md), not CLI flags:
 - `l1.forward_port` — Raw packet forward port (default: `2368`).
 - `l1.foreground_forward_port` — Foreground packet forward port (default: `2370`).
 
-## PCAP Replay Setup
+## PCAP replay setup
 
 Runtime switching lets you replay captures without special startup flags:
 
@@ -140,7 +140,7 @@ The application is organized into separate components under `internal/` for main
 - `parser.go` — Pandar40P LiDAR packet parsing.
 - `stats.go` — Thread-safe packet/statistics tracking.
 
-## Features & Performance
+## Features & performance
 
 - High-performance UDP packet reception with configurable buffer sizes.
 - Optional built-in parsing for Pandar40P into 3D points.
@@ -157,11 +157,11 @@ Performance notes (observed in production):
 - **CPU Usage**: Minimal overhead with direct packet processing (no per-packet goroutines)
 - **Statistics Logging**: Configurable intervals (1-60 seconds) with colored output for errors
 
-## Embedded Configuration
+## Embedded configuration
 
 Both binaries include embedded Pandar40P sensor configuration files (angle and firetime corrections), so parsing works without external files.
 
-## LidarView Integration
+## LidarView integration
 
 To visualize incoming LiDAR data, forward packets to LidarView's listening port (2368 by default) or configure a custom port and use the `--lidar-forward` flag.
 
@@ -171,7 +171,7 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
 
-## Systemd Service Setup
+## Systemd service setup
 
 When running as a systemd service, the included `velocity-report.service` file:
 
@@ -196,17 +196,17 @@ sudo systemctl start velocity-report
 - If LiDAR snapshots do not appear in the DB, confirm `--enable-lidar` is used and the `BackgroundManager` was created with a DB-backed store.
 - No packets received: check firewall, UDP bind address, and network interface; use `netstat -un` to verify listeners.
 
-### Port Conflicts
+### Port conflicts
 
 - **Error**: "bind: address already in use"
 - **Solution**: Check for other processes using the UDP port with `lsof -i UDP:2369`
 
-### LidarView Socket Errors
+### LidarView socket errors
 
 - **Error**: "Error while opening socket!" in LidarView
 - **Solution**: Use different forwarding ports (avoid 2368 if LidarView binds to it)
 
-### No Packets Received
+### No packets received
 
 - **Check**: Firewall settings, UDP port configuration, network interface binding
 - **Debug**: Use `netstat -un` to verify UDP listener is active

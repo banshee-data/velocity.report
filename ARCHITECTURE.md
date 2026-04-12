@@ -1,4 +1,4 @@
-# velocity.report Architecture
+# velocity.report architecture
 
 This document describes the system architecture, component relationships, data flow, and integration points for the velocity.report traffic monitoring system.
 
@@ -356,7 +356,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 - **Input**: Go Server HTTP API (JSON)
 - **Output**: HTML/CSS/JS served to browser
 
-### macOS visualiser (Swift/Metal)
+### macOS visualiser (swift/Metal)
 
 **Location**: `/tools/visualiser-macos/`
 

@@ -1,4 +1,4 @@
-# Pre-v0.5.0 Schema Hardening
+# Pre-v0.5.0 schema hardening
 
 - **Status:** Complete
 
@@ -6,7 +6,7 @@ One-pass schema cleanup before the `v0.5.0` branch cut: enable foreign
 keys, move annotations to a durable owner, and tighten contracts the code
 already assumes.
 
-## Architecture Decision Record
+## Architecture decision record
 
 - **Decision:** Move free-form annotations to a replay-owned table, then
   enable `PRAGMA foreign_keys = ON` globally before `v0.5.0`.
@@ -20,7 +20,7 @@ already assumes.
 - Before this work, the main DB connection path left FK enforcement off —
   the schema contract was aspirational rather than real.
 
-### Alternatives Considered
+### Alternatives considered
 
 | Option         | Approach                                    | Verdict                                                                                                     |
 | -------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -28,7 +28,7 @@ already assumes.
 | **2**          | Keep current table, add replay-case FK only | Low effort, **high risk** — preserves the lifecycle bug (annotations still depend on transient live tracks) |
 | **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk** — release behaviour depends on FK-off connections; orphaning remains possible  |
 
-## System Boundary Diagram
+## System boundary diagram
 
 ```text
                    +--------------------------------------+
@@ -112,14 +112,14 @@ to match existing Go-side validation:
   no site is attached.
 - `radar_data.data_id` PK added; `radar_transit_links` references that key.
 
-## Key Migrations
+## Key migrations
 
 | Migration | Purpose                                                                                                                     |
 | --------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `000033`  | Replace `lidar_track_annotations` with `lidar_replay_annotations`; fix replay-evaluation uniqueness/delete semantics        |
 | `000034`  | FK hardening: `parent_run_id` FK, enum/range/boolean `CHECK`s, nullable `site_reports.site_id`, `radar_data.data_id` repair |
 
-## Failure Registry
+## Failure registry
 
 | Failure mode                                  | User-visible effect                  | Handling                                                                      |
 | --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------- |
@@ -130,7 +130,7 @@ to match existing Go-side validation:
 | Report creation without site still writes `0` | Report generation breaks under FK-on | `site_reports.site_id` migrated to nullable; API writes `NULL`                |
 | New enum checks reject legacy values          | Writes fail after schema change      | Backfill old taxonomy values during migration before adding `CHECK`s          |
 
-## What Shipped
+## What shipped
 
 - Migrations `000033` and `000034` landed.
 - `internal/db/db.go` enables `PRAGMA foreign_keys = ON`.

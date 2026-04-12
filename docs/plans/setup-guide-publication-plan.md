@@ -1,11 +1,11 @@
-# Setup Guide Publication Plan
+# Setup guide publication plan
 
 - **Status:** Active
 - **Canonical:** [setup.md](../../public_html/src/guides/setup.md)
 
 Checklist of remaining items before the setup guide at `public_html/src/guides/setup.md` is ready for public consumption.
 
-## Content Placeholders
+## Content placeholders
 
 The guide currently contains `[PLACEHOLDER]` markers where visual assets are needed. These are not optional — a guide about mounting hardware on poles without photos is a guide about trust, and trust requires evidence.
 
@@ -20,7 +20,7 @@ The guide currently contains `[PLACEHOLDER]` markers where visual assets are nee
 
 **Image format guidance**: Use `.webp` for photos (smaller, modern browsers all support it). Use `.svg` for diagrams where possible. Place images in `public_html/src/images/guides/setup/`. Alt text on every image — accessibility is not decoration.
 
-## Pi Image Release
+## Pi image release
 
 The guide now assumes the Pi image is the primary installation method. These items must be in place:
 
@@ -31,7 +31,7 @@ The guide now assumes the Pi image is the primary installation method. These ite
 - [ ] **First boot tested**: Flash → boot → SSH → `systemctl status velocity-report` shows `active (running)`
 - [ ] **velocity-ctl tested**: `sudo velocity-ctl upgrade --check` works on a fresh image
 
-## Readability Review
+## Readability review
 
 - [ ] **Fresh-eyes read**: Have someone who has never touched the project follow the guide start to finish
 - [ ] **Time estimate validated**: Confirm 2–4 hours is realistic (clock someone doing it)
@@ -39,7 +39,7 @@ The guide now assumes the Pi image is the primary installation method. These ite
 - [ ] **Link check**: Every internal and external link resolves (especially OmniPreSense product links and Discord)
 - [ ] **Mobile rendering**: Preview the Eleventy-rendered page on a phone — lots of people read docs on phones while standing next to hardware
 
-## Cross-Reference Updates
+## Cross-Reference updates
 
 When the guide changes, other documents may need to match:
 
@@ -60,11 +60,11 @@ Once content and assets are complete:
 - [ ] **GitHub Release notes**: Reference the guide in the next release changelog
 - [ ] **README link**: Ensure the main README links to the published guide URL
 
-## Voice Notes
+## Voice notes
 
 The guide is currently written at mid-Terry (Dial 2): clear, warm, personality present but restrained. If the project wants a more distinctive voice for the public launch, the full-Terry (Dial 3) alternatives below could replace specific sections. These are optional — mid-Terry is the safer choice for a guide people will follow while holding a screwdriver.
 
-### Full-Terry Alternatives (Optional)
+### Full-Terry alternatives (optional)
 
 **Introduction — current (mid)**:
 

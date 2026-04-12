@@ -1,9 +1,9 @@
-# LiDAR Tuning Guide
+# LiDAR tuning guide
 
 Entry point for all parameter tuning documentation. Start here when you need to
 adjust how the pipeline detects, clusters, or tracks objects.
 
-## Tuning Stages
+## Tuning stages
 
 The tuning tools form a progression from manual knob-turning to fully automated
 multi-round optimisation with human feedback:
@@ -16,14 +16,14 @@ multi-round optimisation with human feedback:
 | 4. Multi-round auto-tuning   | [auto-tuning.md](auto-tuning.md)                   | Iterative grid search with automatic bound narrowing                  |
 | 5. Human-in-the-loop tuning  | [hint-sweep-mode.md](hint-sweep-mode.md)           | HINT mode — human labels drive the objective function each round      |
 
-## Quick Troubleshooting
+## Quick troubleshooting
 
 If the pipeline produces poor results (jitter, fragmentation, empty boxes),
 the fastest path is the quick-fix section at the top of the diagnosis doc:
 
 - [Pipeline Diagnosis — Quick Fixes](../troubleshooting/pipeline-diagnosis.md#quick-fixes)
 
-## Operational Baseline
+## Operational baseline
 
 Track labelling and core auto-tuning workflows are implemented and active in
 production. The labelling pipeline integrates with the run browser and label APIs.
@@ -34,7 +34,7 @@ Deferred phases (advanced labelling, extended auto-aware tuning) are tracked in:
 
 - [`../../plans/lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md)
 
-## Mathematical References
+## Mathematical references
 
 For algorithm-level detail on the parameters and their derivations:
 

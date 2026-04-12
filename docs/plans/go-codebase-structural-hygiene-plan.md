@@ -1,4 +1,4 @@
-# Go Codebase Structural Hygiene Plan (v0.5.x)
+# Go codebase structural hygiene plan (v0.5.x)
 
 - **Status:** Active — substantially complete on `main`; `dd/fix-more-of-it` carries the final JSON tag and error-drop fixes
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
@@ -21,7 +21,7 @@ This document now serves primarily as an evidence record: what was done, what re
 what is deferred to companion plans. Structural cleanup is cheapest before release
 conventions become contracts; most of that window has now been used.
 
-## Implementation Snapshot (2026-03-23)
+## Implementation snapshot (2026-03-23)
 
 | Area                                  | `main` | `dd/fix-more-of-it` | Notes                                                                                                                                                                                                                                                                                 |
 | ------------------------------------- | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -37,7 +37,7 @@ conventions become contracts; most of that window has now been used.
 | `export_bg_snapshot.go` error drops   | **No** | Done                | `_ = mgr.SetRingElevations(...)` → `if err :=` handling with `diagf` logging                                                                                                                                                                                                          |
 | `datasource_handlers.go` error drops  | **No** | Done                | `_ = ws.startLiveListenerLocked()` and `_ = bgManager.SetParams(...)` → proper error handling with `opsf` logging                                                                                                                                                                     |
 
-## Updated Findings
+## Updated findings
 
 | Category                   | Current state                                                                                                                                                                                               | Severity     | Release view                                                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -49,7 +49,7 @@ conventions become contracts; most of that window has now been used.
 | Silent error drops         | Operational sites in `export_bg_snapshot.go` and `datasource_handlers.go` fixed; `echarts_handlers.go` `w.Write` and `db.Close()` remain (acceptable)                                                       | ~~Medium~~   | **Done** (operationally meaningful subset)                                                                                                 |
 | Test infrastructure drift  | 40 internal test files still use `time.Sleep` (203 call sites); test DB setup is still inconsistent                                                                                                         | Low          | Worth reducing in early v0.5.x                                                                                                             |
 
-## Analysis Notes
+## Analysis notes
 
 ### 1. The `database/sql` import boundary is closed
 
@@ -78,7 +78,7 @@ This is the only material storage-hygiene gap remaining.
 `github.com/mattn/go-sqlite3` is gone from `go.mod`. `scripts/check-single-sqlite-driver.sh`
 is wired into `make lint-go`. 14 direct Go dependencies remain.
 
-## Detailed Findings
+## Detailed findings
 
 ### 1. Request context propagation — completed
 
@@ -109,7 +109,7 @@ var (
 `CurrentStateSnapshot()` (returns a shallow copy under `RLock`). Tests reset state via
 `resetCurrentState()`. Verified with `go test -race`.
 
-### 3. ~~`EventAPI` JSON naming convention~~ — Done
+### 3. ~~`EventAPI` JSON naming convention~~ — done
 
 `EventAPI` now uses `snake_case` JSON tags (`"magnitude"`, `"uptime"`, `"speed"`),
 consistent with `RadarObjectsRollupRow` and the rest of the API surface.
@@ -143,7 +143,7 @@ That is now large enough to call a real test-infrastructure smell rather than a 
 It does not block v0.5.0 by itself, but it does justify a shared polling helper and a
 phased reduction.
 
-## Direct Go Dependency Review
+## Direct Go dependency review
 
 This section reviews **direct `go.mod` dependencies for the Go module only**. Frontend
 `package.json` trees are out of scope for this plan.
@@ -168,14 +168,14 @@ been removed from `main`.
 | `modernc.org/sqlite`                   | Canonical SQLite driver for production and tests                                                                              | Production + tests | Yes                                                               |
 | `tailscale.com`                        | `tsweb` debug/admin plumbing in `internal/db/db.go`, `internal/lidar/server/routes.go`, and `internal/serialmux/serialmux.go` | Production/debug   | Yes                                                               |
 
-### Quick-win dependency removal — Done
+### Quick-win dependency removal — done
 
 `github.com/mattn/go-sqlite3` has been removed from `go.mod` on `main`. No further
 dependency removals are available.
 
-## v0.5.x Backlog Items
+## v0.5.x Backlog items
 
-### Item 1: Request Lifecycle — make context the default path ✓ Complete
+### Item 1: request lifecycle — make context the default path ✓ complete
 
 **Summary:** Finish the job of threading `context.Context` from HTTP entrypoints into
 database and long-running operations.
@@ -192,7 +192,7 @@ database and long-running operations.
 
 **Milestone:** v0.5.0
 
-### Item 2: Package Hygiene — storage boundaries, shared state, and error visibility ✓ Substantially complete
+### Item 2: package hygiene — storage boundaries, shared state, and error visibility ✓ substantially complete
 
 **Summary:** Finish the storage/package cleanup that the import-boundary work started.
 
@@ -214,7 +214,7 @@ database and long-running operations.
 
 **Milestone:** split across v0.5.0 and v0.5.1
 
-### Item 3: API Contract Consistency — Done
+### Item 3: API contract consistency — done
 
 **Summary:** Standardise JSON tag conventions for API-facing structs.
 
@@ -233,7 +233,7 @@ TypeScript interfaces (`RawRadarStats` and `Event`) updated to match.
 
 **Why now:** this is cheap before release and annoying forever after.
 
-## Release View
+## Release view
 
 All four pre-v0.5.0 structural wins have landed on `main`:
 

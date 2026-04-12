@@ -1,4 +1,4 @@
-# Classification Maths
+# Classification maths
 
 - **Status:** Implementation-aligned math note
 - **Layers:** L6 Objects (`internal/lidar/l6objects`)
@@ -13,7 +13,7 @@ the track's observation history.
 **Source of truth:** `internal/lidar/l6objects/classification.go`
 **Model version:** `rule-based-v1.2`
 
-## 2. Object Classes
+## 2. Object classes
 
 | Class      | ObjectClass const | Description                                                |
 | ---------- | ----------------- | ---------------------------------------------------------- |
@@ -25,7 +25,7 @@ the track's observation history.
 | Noise      | `"noise"`         | Spurious track (sensor noise, rain, dust, vegetation)      |
 | Other      | `"dynamic"`       | Unclassifiable dynamic object or insufficient observations |
 
-### 2.1 Proto Enum
+### 2.1 Proto enum
 
 The wire protocol uses a proto3 enum (`ObjectClass`) for forward
 compatibility and self-documentation:
@@ -43,7 +43,7 @@ compatibility and self-documentation:
 | 8     | `OBJECT_CLASS_TRUCK`        | Reserved (v0.6+)  |
 | 9     | `OBJECT_CLASS_MOTORCYCLIST` | Reserved (v0.6+)  |
 
-## 3. Feature Vector
+## 3. Feature vector
 
 Features are extracted per-track from the observation history:
 
@@ -61,7 +61,7 @@ Features are extracted per-track from the observation history:
 | Observation count | $n$              | —    | `ObservationCount`                        |
 | Duration          | $\Delta t$       | s    | `(LastUnixNanos - FirstUnixNanos) / 10^9` |
 
-## 4. Decision Thresholds
+## 4. Decision thresholds
 
 | Threshold               | Symbol                | Value    | Purpose                          |
 | ----------------------- | --------------------- | -------- | -------------------------------- |
@@ -92,7 +92,7 @@ Features are extracted per-track from the observation history:
 | Vehicle speed min       | $V_{\text{veh}}$      | 5.0 m/s  | Minimum vehicle speed            |
 | Stationary max          | $V_{\text{stat}}$     | 0.5 m/s  | Below this, object is stationary |
 
-## 5. Classification Rules (Priority Order)
+## 5. Classification rules (priority order)
 
 Classification follows a strict priority cascade. The first matching
 rule wins.
@@ -207,7 +207,7 @@ narrow ($\bar{w} < 0.8$).
 If no rule matches, the object is classified as `"dynamic"` with low
 confidence (0.50).
 
-## 6. Confidence Calibration
+## 6. Confidence calibration
 
 | Level  | Value | Meaning                        |
 | ------ | ----- | ------------------------------ |
@@ -217,7 +217,7 @@ confidence (0.50).
 
 Confidence is always clamped to $[0, 1]$.
 
-## 7. Minimum Observation Requirement
+## 7. Minimum observation requirement
 
 Classification is deferred until the track accumulates
 $n \ge n_{\text{min}}$ observations (configurable via
@@ -225,7 +225,7 @@ $n \ge n_{\text{min}}$ observations (configurable via
 this threshold, the result is `"dynamic"` with very low confidence
 ($0.25$).
 
-## 8. Unified Label Vocabulary
+## 8. Unified label vocabulary
 
 As of v1.2, the classifier output and user-label vocabularies are
 aligned. Both use canonical full-word strings. The wire protocol uses
@@ -253,7 +253,7 @@ a proto3 enum (`ObjectClass`) for forward compatibility.
 - TypeScript types: `web/src/lib/types/lidar.ts`
 - Swift labels: `ContentView.swift` → `LabelPanelView.classificationLabels`
 
-## 9. VRLOG Replay Re-classification
+## 9. VRLOG replay re-classification
 
 VRLOG recordings made before classification was added contain tracks
 with empty `ObjectClass` strings. When these recordings are replayed,
@@ -270,7 +270,7 @@ rather than requiring a full `TrackedObject` with observation history.
 Tracks that already carry a non-empty `ObjectClass` (e.g. from newer
 recordings or live data) are converted directly without re-classification.
 
-## 10. Future Work
+## 10. Future work
 
 - Replace rule-based classifier with ML model (feature vector is
   designed to be export-compatible)

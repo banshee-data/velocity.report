@@ -1,4 +1,4 @@
-# Experiment: Multi-Key Parameter Interaction Grid Search
+# Experiment: multi-key parameter interaction grid search
 
 - **Status:** Proposed (depends on per-layer sweep results)
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks

@@ -1,4 +1,4 @@
-# LiDAR Multi-Model Ingestion and Configuration
+# LiDAR multi-model ingestion and configuration
 
 - **Status:** Proposed
 - **Related:** [`lidar-data-layer-model.md`](./lidar-data-layer-model.md), [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`network-configuration.md`](./network-configuration.md)
@@ -15,7 +15,7 @@ Current state is effectively single-model (`hesai-pandar40p`) parsing with model
 2. **Model-specific packet decoding and calibration**
 3. **Config persistence and config serving APIs**
 
-## What Should Be Generalised
+## What should be generalised
 
 ### 1. L1 parser selection (generalised)
 
@@ -55,7 +55,7 @@ Provide standard capability fields for UI and API consumers:
 - timestamp modes
 - optional features (foreground-forward compatibility)
 
-## What Remains Model-Specific
+## What remains model-specific
 
 - UDP packet binary layout and validation
 - calibration schema (angles/fire times/beam intrinsics per vendor)
@@ -64,7 +64,7 @@ Provide standard capability fields for UI and API consumers:
 
 These should live behind per-model parser implementations so L2+ layers stay unchanged.
 
-## Configuration Storage
+## Configuration storage
 
 Use SQLite as canonical storage with three focused tables:
 
@@ -78,7 +78,7 @@ Use SQLite as canonical storage with three focused tables:
 
 This mirrors existing repository conventions: stable catalogue + editable config + single active runtime binding.
 
-## Configuration Serving
+## Configuration serving
 
 Serve configuration through explicit API resources:
 
@@ -93,7 +93,7 @@ UI placement should follow the constrained settings pattern:
 - `/settings/lidar-models` for model/profile management
 - `/settings/lidar-network` keeps interface/port diagnostics
 
-## How This Works with the Current Single-Binary Deployment
+## How this works with the current single-binary deployment
 
 For `cmd/radar` (Go monolith on Raspberry Pi):
 
@@ -104,7 +104,7 @@ For `cmd/radar` (Go monolith on Raspberry Pi):
 
 This keeps deployment shape unchanged: no new services, no cloud coordination, no privacy regression.
 
-## Suggested Delivery Phases
+## Suggested delivery phases
 
 | Phase | Scope                                                                                       | Effort |
 | ----- | ------------------------------------------------------------------------------------------- | ------ |
@@ -116,7 +116,7 @@ This keeps deployment shape unchanged: no new services, no cloud coordination, n
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 
-## Open Questions
+## Open questions
 
 1. Should multiple ingest bindings be active simultaneously (multi-sensor on one host), or remain single-active to match current operational model?
 2. Should model catalogue updates be migration-seeded only, or allow import from signed local files?

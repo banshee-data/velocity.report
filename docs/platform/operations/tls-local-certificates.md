@@ -1,4 +1,4 @@
-# TLS for Local Appliances
+# TLS for local appliances
 
 - **Status:** Implemented
 - **Branch:** `copilot/complete-phase-1-image`
@@ -29,12 +29,12 @@ Web PKI trust model (CA/Browser Forum Baseline Requirements § 7.1.4.2).
 | Apple 825-day cert limit  | macOS/iOS reject server certs valid longer than 825 days  |
 | Unique per device         | Compromising one device must not affect others            |
 
-## Chosen Approach: First-Boot Local CA
+## Chosen approach: first-boot local CA
 
 Each device generates its own CA and server certificate on first boot.
 The user trusts the CA once and receives no further browser warnings.
 
-### Certificate Chain
+### Certificate chain
 
 ```
 velocity.report Local CA (ECDSA P-256, 10-year validity)
@@ -42,7 +42,7 @@ velocity.report Local CA (ECDSA P-256, 10-year validity)
         SANs: DNS:velocity.local, DNS:localhost, IP:127.0.0.1
 ```
 
-### Why a Local CA Rather Than a Bare Self-Signed Cert
+### Why a local CA rather than a bare self-signed cert
 
 A bare self-signed server certificate would technically work, but:
 
@@ -63,7 +63,7 @@ A bare self-signed server certificate would technically work, but:
 
 ## Implementation
 
-### Certificate Generation
+### Certificate generation
 
 `velocity-generate-tls.sh` runs as a systemd oneshot service
 (`velocity-generate-tls.service`) before nginx starts on first boot.
@@ -82,7 +82,7 @@ Files are written to `/var/lib/velocity-report/tls/`:
 | `server.key` | 600         | Server private key                |
 | `server.crt` | 644         | Server certificate                |
 
-### nginx Reverse Proxy
+### nginx reverse proxy
 
 nginx terminates TLS on port 443 and proxies all requests to the Go
 server on `localhost:8080`. This keeps TLS concerns out of the
@@ -94,7 +94,7 @@ nginx serves the CA certificate at `GET /ca.crt` for browser trust
 setup. After trusting the CA once, all future server certificate
 renewals are accepted silently.
 
-### Go Server
+### Go server
 
 The Go server listens on `:8080` (plain HTTP). It has no TLS
 awareness — all HTTPS is handled by nginx.
@@ -113,7 +113,7 @@ The CA certificate has a 10-year validity. Replacing it requires the
 user to re-trust — this is a deliberate tradeoff. Ten years is longer
 than the expected field life of a Raspberry Pi 4.
 
-## Alternatives Considered
+## Alternatives considered
 
 | Option                                 | Decision                                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------- |
@@ -124,7 +124,7 @@ than the expected field life of a Raspberry Pi 4.
 | Stay on plain HTTP                     | Rejected: browser warnings erode trust and block modern web APIs.               |
 | Bare self-signed cert                  | Rejected: renewal forces user to re-accept. CA approach is strictly better.     |
 
-## User Trust Setup
+## User trust setup
 
 After first boot, the user:
 
@@ -141,7 +141,7 @@ After first boot, the user:
 4. Subsequent visits show a green padlock. No further action needed
    until the CA expires (10 years).
 
-## Security Considerations
+## Security considerations
 
 - **CA key never leaves the device.** It exists only at
   `/var/lib/velocity-report/tls/ca.key` with 600 permissions.

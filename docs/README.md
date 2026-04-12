@@ -25,7 +25,7 @@ Documentation structure, scope, and naming conventions.
 - `/docs/DEVLOG.md` # Chronological development notes
 - `/docs/TROUBLESHOOTING.md` # Cross-component debugging guide
 
-## Scope Rules
+## Scope rules
 
 - Capability docs live under the owning root hub (`lidar`, `radar`).
   - Architecture and design specifications live under `<hub>/architecture/`.
@@ -37,7 +37,7 @@ Documentation structure, scope, and naming conventions.
   - Maths foundations live under `data/maths/` with proposals in `data/maths/proposals/`.
   - Exploratory analyses and revisit-worthy deep dives live under `data/explore/`.
 
-## Naming Conventions
+## Naming conventions
 
 All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
 
@@ -56,7 +56,7 @@ All documentation files use **lowercase-with-hyphens** (`kebab-case`) with a low
 - `<hub>/architecture/` — `<topic>.md`
 - `<hub>/operations/` — `<topic>.md`
 
-## Document Structure
+## Document structure
 
 Every doc should open with:
 
@@ -80,6 +80,6 @@ Additional rules:
 
 Use directory listings for file-level navigation to avoid stale index maintenance.
 
-## Public Documentation Site
+## Public documentation site
 
 Public-facing docs are in [`public_html/`](../public_html/).

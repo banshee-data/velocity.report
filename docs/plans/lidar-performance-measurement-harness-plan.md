@@ -1,4 +1,4 @@
-# LiDAR Pipeline Performance Measurement Harness Plan
+# LiDAR pipeline performance measurement harness plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1–L6, CI infrastructure)

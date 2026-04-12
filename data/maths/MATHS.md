@@ -9,7 +9,7 @@
 ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░   ░░░░░  ░░░░░░░░░
 ```
 
-# LiDAR Maths: Assumptions and Architecture
+# LiDAR maths: assumptions and architecture
 
 This folder documents the mathematically significant parts of the LiDAR pipeline.
 
@@ -104,7 +104,7 @@ Work items drawn from the proposals above, ordered by user-visible impact and
 dependency readiness. Each item can be implemented independently, but earlier
 items improve later ones.
 
-### P1: Geometry-coherent track state _(highest priority)_
+### P1: geometry-coherent track state _(highest priority)_
 
 **Source:** [geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
 **Layer:** L5 tracking
@@ -128,7 +128,7 @@ consistency), and F (debug cluster rendering) from the
 [OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
 become unnecessary once the geometry-coherent model replaces the guards.
 
-### P2: Velocity-coherent foreground extraction
+### P2: velocity-coherent foreground extraction
 
 **Source:** [velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
 **Layer:** L4 perception (pre-clustering)
@@ -148,7 +148,7 @@ heading-motion prior. Also independently improves sparse object recall by
 20–40 % and reduces fragmentation by 10–25 % (hypothesised, pending
 validation).
 
-### P3: Ground plane and vector-scene maths
+### P3: ground plane and vector-scene maths
 
 **Source:** [ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
 **Layer:** L4 perception (ground surface)
@@ -220,7 +220,7 @@ Note on naming: this repository does **not** contain a `config/tracking.json` fi
 
 See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed at operators (grouped by tuning task rather than mathematical source).
 
-### L3 Background grid settling maths (`background-grid-settling-maths.md`)
+### L3 background grid settling maths (`background-grid-settling-maths.md`)
 
 - Keys:
   - `background_update_fraction`
@@ -240,7 +240,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
 - Important non-file defaults still applied in code:
   - freeze duration, lock thresholds, reacquisition boost (`internal/lidar/l3grid/config.go`, `internal/lidar/l3grid/foreground.go`)
 
-### L4 Ground surface maths (`ground-plane-maths.md`)
+### L4 ground surface maths (`ground-plane-maths.md`)
 
 - Current config status:
   - No dedicated ground-plane tuning block is wired yet.
@@ -251,7 +251,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
 - Runtime mapping:
   - `cmd/radar/radar.go` -> `internal/lidar/pipeline/tracking_pipeline.go` -> `internal/lidar/l4perception/ground.go`
 
-### L4 Clustering maths (`clustering-maths.md`)
+### L4 clustering maths (`clustering-maths.md`)
 
 - Keys:
   - `foreground_dbscan_eps`
@@ -265,7 +265,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
   - `internal/lidar/l4perception/cluster.go` (`DefaultDBSCANParams`)
   - pipeline use in `internal/lidar/pipeline/tracking_pipeline.go`
 
-### L5 Tracking maths (`tracking-maths.md`)
+### L5 tracking maths (`tracking-maths.md`)
 
 - Keys:
   - `gating_distance_squared`

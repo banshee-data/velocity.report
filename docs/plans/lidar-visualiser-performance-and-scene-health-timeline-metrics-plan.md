@@ -1,4 +1,4 @@
-# Design: Performance and Scene Health Metrics in Timeline and VR Logs
+# Design: performance and scene health metrics in timeline and VR logs
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
@@ -40,7 +40,7 @@ Both are aligned by `frame_id` and `timestamp_ns`, then evaluated against shared
 - Drift metrics between boxes and points over time.
 - Subregion quality metrics against ground truth.
 
-## Metric Model
+## Metric model
 
 ### Metric families
 
@@ -90,7 +90,7 @@ Proposed annotation payload:
 }
 ```
 
-## API Design
+## API design
 
 ### 1) Stream API (real time + replay)
 

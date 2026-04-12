@@ -42,7 +42,7 @@ If file paths are given, read the files directly.
 - Read the test files alongside the changed code.
 - Read any plan or design doc linked in the PR.
 
-### 3. Security pass (Malory's lens — read-only, gate classification)
+### 3. Security pass (malory's lens — read-only, gate classification)
 
 Check in priority order:
 
@@ -58,7 +58,7 @@ Apply gate classification:
 - **CRITICAL**: must fix before merge (RCE, auth bypass, PII exposure, data exfiltration)
 - **INFO**: note for backlog (minor misconfig, stale dep, non-sensitive info disclosure)
 
-### 4. Correctness pass (Appius's lens)
+### 4. Correctness pass (appius's lens)
 
 - Are the invariants named and preserved?
 - Are failure modes visible and handled?
@@ -102,7 +102,7 @@ make build-radar-local  # or build-radar-linux if pcap unavailable
 **Advisory notes (INFO):** [list, or "none"]
 ```
 
-## Output Format
+## Output format
 
 ```markdown
 # PR Review: [title or number]

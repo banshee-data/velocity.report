@@ -1,4 +1,4 @@
-# LiDAR Logging Stream Split and Rubric Design (2026-02-17)
+# LiDAR logging stream split and rubric design (2026-02-17)
 
 Design for replacing the single `Debugf` logging stream in the LiDAR subsystem with three explicit streams — ops, diag, and trace — separated by severity and volume.
 
@@ -6,7 +6,7 @@ Design for replacing the single `Debugf` logging stream in the LiDAR subsystem w
 
 Replace the single `Debugf` logging stream with three explicit streams (`Opsf`, `Diagf`, `Tracef`) to separate actionable events from high-volume telemetry.
 
-## Target Logging Model
+## Target logging model
 
 Three stream model:
 
@@ -16,7 +16,7 @@ Three stream model:
 | `diag`  | Day-to-day diagnostics for troubleshooting and tuning        | Medium         | Medium    |
 | `trace` | High-frequency packet/frame telemetry and loop-level details | High           | Shortest  |
 
-## API Surface
+## API surface
 
 - `SetLogWriters(LogWriters{Ops, Diag, Trace io.Writer})` — root package
 - `SetLogWriters(ops, diag, trace io.Writer)` — sub-packages (parse, l2frames, l3grid, pipeline)
@@ -26,7 +26,7 @@ Three stream model:
 
 `SetLogWriter(level, w)`, the `LogLevel` type, `Debugf`, the keyword classifier, and the legacy `SetDebugLogger`/`SetLegacyLogger` shims have been removed. All call sites use explicit stream functions.
 
-## Routing Rubric (Severity + Volume)
+## Routing rubric (severity + volume)
 
 1. If it indicates operator action, failure, or data-loss risk → `ops`.
 2. Else if it is expected at packet/frame loop frequency → `trace`.
@@ -40,7 +40,7 @@ Three stream model:
 | Per-packet parse messages, replay progress, queue depth every frame, FPS/bandwidth stats each cycle | `trace` | High volume; useful for deep diagnostics |
 | Cluster counts, track counts, lifecycle transitions, occasional state snapshots                     | `diag`  | Useful context without flooding ops logs |
 
-## Runtime Configuration Design
+## Runtime configuration design
 
 Two controls:
 
@@ -51,17 +51,17 @@ The ordering is `ops` < `diag` < `trace`. `--log-level trace` enables all three 
 
 The previous per-stream env vars (`VELOCITY_LIDAR_OPS_LOG`, `VELOCITY_LIDAR_DIAG_LOG`, `VELOCITY_LIDAR_TRACE_LOG`) have been removed — they were never used in practice.
 
-## File/Retention Guidance
+## File/Retention guidance
 
 - `ops`: rotate daily, retain longer (incident and reliability evidence)
 - `diag`: rotate daily or by size, moderate retention
 - `trace`: aggressive rotation and short retention (high churn)
 
-## Out of Scope
+## Out of scope
 
 - Full structured logging migration (JSON fields, correlation IDs, external log pipeline integration).
 
-## Complete Call-Site Audit
+## Complete call-site audit
 
 All `Debugf`/`debugf` call sites have been migrated to explicit stream functions. The classifier and `Debugf` have been removed.
 

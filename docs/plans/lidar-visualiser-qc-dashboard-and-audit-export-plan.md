@@ -1,4 +1,4 @@
-# Design: Session-Level QC Dashboard and Audit Export (Feature 10)
+# Design: session-level QC dashboard and audit export (feature 10)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
@@ -19,7 +19,7 @@ Provide run/session-level QC visibility and exportable audit logs for training t
 - Enterprise BI replacement.
 - Long-term data warehouse design.
 
-## Dashboard Metrics
+## Dashboard metrics
 
 Core run metrics:
 
@@ -37,7 +37,7 @@ Time-series metrics:
 - queue backlog over time
 - quality trend over run duration
 
-## Audit Model
+## Audit model
 
 Add append-only table `lidar_qc_audit_log`:
 
@@ -67,7 +67,7 @@ Indexes:
 - `(run_id, action_type)`
 - `(run_id, track_id, timestamp_ns)`
 
-## Summary Materialization
+## Summary materialization
 
 Add optional summary table `lidar_qc_run_summary`:
 
@@ -75,7 +75,7 @@ Add optional summary table `lidar_qc_run_summary`:
 - cached aggregates for dashboard load speed,
 - recomputed incrementally and on-demand rebuild.
 
-## API Contract
+## API contract
 
 - `GET /api/lidar/runs/{run_id}/qc/summary`
 - `GET /api/lidar/runs/{run_id}/qc/timeseries?bucket=1m|5m|15m`
@@ -99,7 +99,7 @@ CSV export set:
 - `review_queue.csv`
 - `audit_log.csv`
 
-## macOS UI Design
+## macOS UI design
 
 Files:
 
@@ -121,7 +121,7 @@ UI additions:
   - JSON or CSV,
   - filtered/full export options.
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -130,15 +130,15 @@ Files:
 
 Add read-only summary widgets and export button.
 
-## Compliance and Traceability
+## Compliance and traceability
 
 - Include scorer/rules/queue config versions in all exports.
 - Include UTC timestamps (`ns`) for all audit events.
 - Preserve immutable audit records (no updates/deletes outside retention jobs).
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add `lidar_qc_audit_log` table and indexes
 - [ ] Add `lidar_qc_run_summary` materialised summary table
@@ -171,7 +171,7 @@ Add read-only summary widgets and export button.
 - [ ] Add summary cards and export action in tracks page
 - [ ] Add tests for data formatting and export triggers
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for aggregate metric calculations
 - [ ] End-to-end test from review actions to audit log entries
@@ -184,14 +184,14 @@ Add read-only summary widgets and export button.
 - [ ] Document audit event schema and retention policy
 - [ ] Document export file schema for downstream consumers
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Dashboard loads run summary in under 1 second for typical runs.
 - Audit log captures all QC-changing actions with actor and timestamp.
 - Export output is reproducible and includes version metadata.
 - Operators can trace any confirmed track back through violations, repairs, and label history.
 
-## Open Questions
+## Open questions
 
 - Should export include raw observation-level data or QC-only artifacts?
 - What retention period is required for audit logs?

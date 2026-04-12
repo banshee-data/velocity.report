@@ -1,4 +1,4 @@
-# Background Grid Settling Maths
+# Background grid settling maths
 
 - **Status:** Implementation-aligned math note
 - **Layers:** L3 Grid (`internal/lidar/l3grid`)
@@ -13,7 +13,7 @@ The L3 background grid estimates a stable sensor-frame baseline in polar coordin
 
 The model is an exponential moving average variant (often called EWA/EWMA/EMA in docs).
 
-## 2. Cell State
+## 2. Cell state
 
 For each cell `c`:
 
@@ -24,7 +24,7 @@ For each cell `c`:
 - `recent_fg_c` = consecutive recent foreground pressure
 - `locked_baseline_c`, `locked_spread_c`, `locked_at_count_c`
 
-## 3. Observation Binning
+## 3. Observation binning
 
 Incoming polar points are mapped to `(ring, az_bin)`.
 
@@ -35,7 +35,7 @@ Both paths use the same core threshold family and confidence dynamics.
 
 Implementation note (2026-02-21): region-adaptive overrides (`NoiseRelativeFraction`, `NeighborConfirmationCount`, `SettleUpdateFraction`) now apply on the production mask path as well.
 
-## 4. Closeness Threshold Model
+## 4. Closeness threshold model
 
 Base threshold for a point/observation at range `r`:
 
@@ -55,7 +55,7 @@ In `ProcessFramePolarWithMask`, warmup sensitivity inflates tolerance for low-co
 
 This prevents early false foreground while spread is still under-learned.
 
-## 5. Neighbour Confirmation
+## 5. Neighbour confirmation
 
 Same-ring neighbours vote for background consistency.
 
@@ -65,7 +65,7 @@ Neighbour `j` confirms if:
 
 If confirmation count reaches `NeighborConfirmationCount`, the point can be accepted as background even when direct cell residual is marginal.
 
-## 6. Decision Logic
+## 6. Decision logic
 
 For each point:
 
@@ -83,7 +83,7 @@ For each point:
    if low confidence floor + repeated FG pressure + not extreme divergence,
    force relearning to prevent stale ghost baselines.
 
-## 7. State Updates
+## 7. State updates
 
 ### 7.1 Background update (accepted)
 
@@ -112,7 +112,7 @@ If recovering after recent FG, use boosted `alpha`:
   then set freeze:
   `frozen_until_c <- now + FreezeDuration`.
 
-## 8. Locked Baseline Subsystem
+## 8. Locked baseline subsystem
 
 Once `n_c` reaches lock threshold:
 
@@ -125,7 +125,7 @@ After lock, update very slowly only during sustained background:
 
 This is a drift-resistant reference used before standard EMA in classification.
 
-## 9. Warmup and Settlement
+## 9. Warmup and settlement
 
 Global warmup gate uses duration and/or minimum-frame constraints.
 
@@ -136,7 +136,7 @@ Until warmup complete:
 
 Post-settle may use reduced alpha (`PostSettleUpdateFraction`) for stability.
 
-## 10. Region-Adaptive Parameters
+## 10. Region-Adaptive parameters
 
 After settling, cells may be partitioned into variance-driven regions.
 
@@ -148,7 +148,7 @@ Per-region overrides can adjust:
 
 Mathematically this is a piecewise-parameter model over the polar grid.
 
-## 11. Assumptions and Limits
+## 11. Assumptions and limits
 
 1. **Unimodal per-cell background assumption**
    - Fails when one cell alternates between two persistent depths.
@@ -161,7 +161,7 @@ Mathematically this is a piecewise-parameter model over the polar grid.
 5. **Same-ring neighbour confirmation**
    - Reduces cross-elevation bias but can miss vertical consistency cues.
 
-## 12. Interface to L4 Ground Plane
+## 12. Interface to L4 ground plane
 
 For long-running static mapping, L4 should consume L3 with reliability weighting, not hard binary gating:
 

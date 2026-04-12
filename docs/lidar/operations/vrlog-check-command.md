@@ -1,4 +1,4 @@
-# VRLOG Check Subcommand Plan
+# VRLOG check subcommand plan
 
 Planned `vrlog check` subcommand for inspecting and validating VRLOG recordings from the main `velocity-report` binary.
 
@@ -26,7 +26,7 @@ live/status rendering, pane layout, alignment, colour, spinner, and refresh
 policy should live there. VRLOG should only provide emitted keys, projection,
 and validation rules.
 
-## Why Put It In The Main Binary
+## Why put it in the main binary
 
 - Keeps operator entry points consistent: one binary, many subcommands.
 - Reuses the existing manual subcommand dispatch pattern in
@@ -70,7 +70,7 @@ Recommended flags for `vrlog check`:
 - `--strict`: treat warnings such as unknown fields or version mismatches as
   failures.
 
-## Dispatch / Package Layout
+## Dispatch / package layout
 
 Keep command dispatch in `cmd/radar/radar.go`, but split generic aggregation
 from VRLOG-specific reporting.
@@ -106,7 +106,7 @@ This matches the current `migrate` and `transits` handling style.
 
 ## Modes
 
-### 1. File Mode
+### 1. File mode
 
 Input is a `.vrlog` directory.
 
@@ -129,7 +129,7 @@ Output:
 - rolling content stats while scanning
 - final summary with pass/warn/fail counts
 
-### 2. Live Mode
+### 2. Live mode
 
 Input is a live frame stream from the running pipeline.
 
@@ -146,7 +146,7 @@ Live mode should not pretend to validate on-disk artefacts such as
 frame contract and reports that it is checking a live source rather than a
 recorded archive.
 
-## Emitted Keys
+## Emitted keys
 
 Preferred emitted keys for VRLOG:
 
@@ -181,14 +181,14 @@ Rendered forms may collapse generic suffix pairs:
 VRLOG should emit those exact flat keys into `tictactail`. No key mapping should
 exist in the platform.
 
-## Metrics To Show
+## Metrics to show
 
 The VRLOG layer should define the domain metrics and emit them directly into
 TicTacTail. Keep the row contract flat, one-layer, and key/value only.
 
 The command should explicitly separate three classes of metrics:
 
-### A. File-backed metrics
+### A. file-backed metrics
 
 Safe to show as facts from the recording or stream payload:
 
@@ -203,7 +203,7 @@ Safe to show as facts from the recording or stream payload:
 - background snapshot presence
 - coordinate frame metadata
 
-### B. Runtime transport metrics
+### B. runtime transport metrics
 
 Only available when instrumented at runtime:
 
@@ -214,7 +214,7 @@ Only available when instrumented at runtime:
 - dropped frame count in the checker itself
 - source lag
 
-### C. Downstream-derived metrics
+### C. downstream-derived metrics
 
 Not represented directly in VRLOG and must be labelled as derived:
 
@@ -224,7 +224,7 @@ Not represented directly in VRLOG and must be labelled as derived:
 - algorithmic anomaly counts
 - quality scores added after ingest
 
-## Aggregation Window
+## Aggregation window
 
 VRLOG should keep both a fast and a slow aggregate window hot at all times.
 
@@ -268,7 +268,7 @@ Recommended live-pane fields:
 - current fg/bg point counts
 - latest known settled/drops/errors state
 
-## Handling Metrics Not Represented In The File
+## Handling metrics not represented in the file
 
 This is the main correctness constraint: the command must not imply that a
 downstream-computed signal was stored in the VRLOG if it was not.
@@ -310,7 +310,7 @@ Examples:
   - split into `format errors`, `decode errors`, and `derived algo errors`
   - do not collapse them into one unlabeled number
 
-## Validation Policy
+## Validation policy
 
 Severity levels:
 
@@ -326,7 +326,7 @@ Exit behaviour:
 - exit `1` for validation fail
 - exit `2` for command/runtime error
 
-## Logging Alongside The Live Surface
+## Logging alongside the live surface
 
 Support both the tail stream and periodic machine-readable or plain-text logs.
 
@@ -343,9 +343,9 @@ This makes the command act like a structured terminal surface rather than a
 full-screen dashboard while still preserving line-oriented output when UI is
 disabled.
 
-## Phased Delivery
+## Phased delivery
 
-### Phase 1: File Validator
+### Phase 1: file validator
 
 - Add `velocity-report vrlog check <path>`
 - Validate structure and version
@@ -354,7 +354,7 @@ disabled.
 - Add split-pane TTY output with slow history, recent history, live, and status
   bars
 
-### Phase 2: Live Stream Checker
+### Phase 2: live stream checker
 
 - Add `--live`
 - Plug into publisher or pipeline stream
@@ -363,19 +363,19 @@ disabled.
 - Reuse the same split-pane layout in live mode
 - Decide whether the status/input bar is status-only or accepts commands
 
-### Phase 3: Derived Metrics
+### Phase 3: derived metrics
 
 - Add provenance-tagged downstream metrics
 - Run optional post-frame algorithms for signals not persisted in VRLOG
 - Mark all derived numbers clearly in UI and final report
 
-### Phase 4: Scriptable Output
+### Phase 4: scriptable output
 
 - Add `--json`
 - Add `vrlog version <path>`
 - Make exit codes stable for CI
 
-## Key Implementation Risks
+## Key implementation risks
 
 - `20 Hz` redraw can waste CPU if more than the live pane and status bar are
   rewritten on every tick. Keep history pane redraw scoped to row append and

@@ -1,10 +1,10 @@
-# QC Dashboard and Audit Export
+# QC dashboard and audit export
 
 - **Source plan:** `docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md`
 
 Run-level and session-level QC dashboard with full audit trail and CSV export.
 
-## Audit Log
+## Audit log
 
 `lidar_qc_audit_log` — append-only table:
 
@@ -21,7 +21,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 | `queue_config_version` | TEXT       | Queue scoring config version                      |
 | `created_at`           | TEXT       | ISO 8601 timestamp                                |
 
-### Action Types
+### Action types
 
 - `LABEL_APPLIED`, `LABEL_REMOVED`
 - `SCORE_COMPUTED`, `SCORE_OVERRIDDEN`
@@ -30,7 +30,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 - `QUEUE_CLAIMED`, `QUEUE_RESOLVED`, `QUEUE_SKIPPED`
 - `CONFIRM_GRANTED`, `CONFIRM_BLOCKED`
 
-## Run Summary
+## Run summary
 
 `lidar_qc_run_summary` — materialised table rebuilt on demand:
 
@@ -50,7 +50,7 @@ Run-level and session-level QC dashboard with full audit trail and CSV export.
 | `/api/lidar/runs/{run_id}/qc/export`     | GET    | Download CSV export bundle       |
 | `/api/lidar/runs/{run_id}/qc/rebuild`    | POST   | Force summary rebuild            |
 
-## CSV Export Set
+## CSV export set
 
 Six files in the export bundle:
 
@@ -61,6 +61,6 @@ Six files in the export bundle:
 5. `audit.csv` — full audit log
 6. `summary.csv` — run-level summary row
 
-## Compliance Requirement
+## Compliance requirement
 
 All exports must include scorer version, rules version, and queue config version in headers or per-row, so that audit results can be tied to the exact configuration that produced them.

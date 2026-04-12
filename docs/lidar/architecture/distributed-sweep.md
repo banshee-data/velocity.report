@@ -1,4 +1,4 @@
-# Distributed Sweep Workers
+# Distributed sweep workers
 
 Active plan: [lidar-distributed-sweep-workers-plan.md](../../plans/lidar-distributed-sweep-workers-plan.md)
 
@@ -12,7 +12,7 @@ A single velocity-report instance processes sweep combinations sequentially.
 A typical multi-parameter sweep with 200 combinations takes 30+ minutes on
 PCAP replay. N-dimensional sweeps grow multiplicatively.
 
-## Architecture: Driver–Worker Topology
+## Architecture: driver–Worker topology
 
 ```
            Svelte Dashboard (:8080)
@@ -33,7 +33,7 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
        └────────────────────┘
 ```
 
-## Design Principles
+## Design principles
 
 1. **Unified binary** — worker mode is `--worker` on the same `velocity-report`
    binary. No separate `cmd/sweep-worker/`. Aligns with single-binary
@@ -62,7 +62,7 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
 | POST   | `/api/worker/jobs/{id}/cancel`  | Cancel a running job                 |
 | GET    | `/api/worker/failures`          | Past job failures                    |
 
-## Data Model
+## Data model
 
 ### lidar_sweep_jobs (driver-side)
 
@@ -107,7 +107,7 @@ Results held locally until driver confirms retrieval. Background cleanup
 removes retrieved results older than 24 hours. Emergency cleanup removes
 oldest retrieved results first if disk exceeds threshold.
 
-## Failure Registry
+## Failure registry
 
 | Failure Mode      | Detection               | Recovery                                |
 | ----------------- | ----------------------- | --------------------------------------- |
@@ -117,7 +117,7 @@ oldest retrieved results first if disk exceeds threshold.
 | Network partition | Poll fails              | Worker holds cache; driver retries      |
 | Config invalid    | Pre-flight check fails  | Job never starts; error shown           |
 
-## Phased Rollout
+## Phased rollout
 
 1. **Phase 1** — Job model, worker server CRUD, persistence (S, low risk)
 2. **Phase 2** — Driver coordinator, settings UI, worker CRUD API (M, low risk)
@@ -128,7 +128,7 @@ oldest retrieved results first if disk exceeds threshold.
 Phases 1–3 strictly sequential. Phases 4–5 can overlap once Phase 3 is
 functional.
 
-## Design Constraints
+## Design constraints
 
 - Privacy preserved — no data leaves local network.
 - SQLite remains the database everywhere.
@@ -136,7 +136,7 @@ functional.
 - Backward compatible — single-machine sweep path unchanged.
 - Shared filesystem required (relative PCAP paths; absolute/`..` rejected).
 
-## Alternatives Rejected
+## Alternatives rejected
 
 - **Separate worker binary** — conflicts with single-binary direction.
 - **Worker self-registration** — harder to audit; Settings CRUD preferred.

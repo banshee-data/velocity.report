@@ -1,4 +1,4 @@
-# Velocity-Coherent Foreground Extraction
+# Velocity-Coherent foreground extraction
 
 - **Status:** Implementation In Progress (Core Phases 1–5 Simplified; Phases 0, 6–7 Pending)
 - **Layers:** L3 Grid, L4 Perception
@@ -16,7 +16,7 @@
 
 ## Scope
 
-### In Scope
+### In scope
 
 - Per-point velocity estimation across frames
 - Position+velocity clustering (6D metric behaviour)
@@ -25,7 +25,7 @@
 - Fragment merge heuristics for split tracks
 - Dual-source storage/API for side-by-side evaluation
 
-### Out of Scope (for this plan)
+### Out of scope (for this plan)
 
 - Replacing the existing background-subtraction pipeline
 - New ML model training
@@ -33,7 +33,7 @@
 
 ---
 
-## Phase 0: Instrumentation and Fixtures
+## Phase 0: instrumentation and fixtures
 
 **Goal:** Establish repeatable evaluation before algorithm changes so that improvements can be measured objectively.
 
@@ -44,20 +44,20 @@
 - [ ] Add benchmark harness for frame throughput and memory
 - [ ] Lock acceptance report format for side-by-side comparisons
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Reproducible baseline report generated from one command
 - [ ] Baseline includes precision/recall proxy, track duration, fragmentation rate, and throughput
 
 ---
 
-## Phase 1: Point-Level Velocity Estimation
+## Phase 1: point-level velocity estimation
 
 **Goal:** Compute velocity vectors and confidence for points with stable frame-to-frame correspondence.
 
 ### Objective by finding correspondences between consecutive frames.
 
-### Algorithm: Nearest-Neighbour with Velocity Constraint
+### Algorithm: nearest-neighbour with velocity constraint
 
 ```go
 // PointVelocity represents a point with estimated velocity
@@ -135,7 +135,7 @@ func EstimatePointVelocities(
 }
 ```
 
-### Velocity Confidence Scoring
+### Velocity confidence scoring
 
 Velocity confidence is computed based on:
 
@@ -170,7 +170,7 @@ func computeVelocityConfidence(
 }
 ```
 
-### Configuration Parameters
+### Configuration parameters
 
 ```go
 type VelocityEstimationConfig struct {
@@ -196,7 +196,7 @@ type VelocityEstimationConfig struct {
 - [ ] Add `internal/lidar/velocity_estimation_test.go` with synthetic and replayed edge cases
 - [ ] Add config wiring for velocity estimation parameters
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Velocity output generated for >95% of matchable points on validation segments
 - [ ] Implausible velocity rates bounded by configured threshold
@@ -204,7 +204,7 @@ type VelocityEstimationConfig struct {
 
 ---
 
-## Phase 2: Velocity-Coherent Clustering
+## Phase 2: velocity-coherent clustering
 
 **Goal:** Cluster points using position+velocity coherence and support `MinPts=3` mode.
 
@@ -286,7 +286,7 @@ func DBSCAN6D(
 }
 ```
 
-### 6D Distance Metric
+### 6D distance metric
 
 ```go
 // Distance6D computes weighted distance in position-velocity space
@@ -313,7 +313,7 @@ func Distance6D(
 }
 ```
 
-### Minimum Cluster Size Reduction
+### Minimum cluster size reduction
 
 **Critical change**: Reduce `MinPts` from 12 to **3** for velocity-coherent clustering.
 
@@ -349,7 +349,7 @@ type Clustering6DConfig struct {
 - [ ] Add `internal/lidar/clustering_6d_test.go`
 - [ ] Validate cluster stability versus existing DBSCAN on replay data
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] 3-point sparse clusters are accepted only with velocity coherence
 - [ ] False-positive growth stays within agreed threshold versus baseline
@@ -357,7 +357,7 @@ type Clustering6DConfig struct {
 
 ---
 
-## Phase 3: Long-Tail Track Management
+## Phase 3: long-tail track management
 
 **Goal:** Extend track continuity at object entry and exit boundaries.
 
@@ -368,7 +368,7 @@ Extend track lifetimes to capture:
 - **Pre-tail**: Objects entering the sensor field (before full clustering)
 - **Post-tail**: Objects exiting the sensor field (after point density drops)
 
-### Pre-Tail Detection: Velocity-Predicted Entry
+### Pre-Tail detection: velocity-predicted entry
 
 When a new cluster appears, we check if it matches the predicted position of an object that should be entering the field of view based on its extrapolated trajectory from previous sparse observations.
 
@@ -440,7 +440,7 @@ func (d *PreTailDetector) Update(
 }
 ```
 
-### Post-Tail Continuation: Prediction Window
+### Post-Tail continuation: prediction window
 
 Instead of deleting tracks after `MaxMisses` frames, we continue predicting their position and attempt to recover them when points reappear.
 
@@ -497,7 +497,7 @@ func (t *VelocityCoherentTracker) ContinuePostTail(
 }
 ```
 
-### Extended Track State Machine
+### Extended track state machine
 
 ```
                     ┌─────────────────────────────────────────────────────────┐
@@ -557,7 +557,7 @@ func (t *VelocityCoherentTracker) ContinuePostTail(
 - [ ] Extend track states and transitions
 - [ ] Add `internal/lidar/long_tail_test.go`
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Mean track duration increases on boundary-entry/exit scenarios
 - [ ] Recovery after brief occlusions improves without large precision drop
@@ -565,7 +565,7 @@ func (t *VelocityCoherentTracker) ContinuePostTail(
 
 ---
 
-## Phase 4: Sparse Continuation Logic
+## Phase 4: sparse continuation logic
 
 **Goal:** Preserve track identity through low-point-count observations.
 
@@ -573,7 +573,7 @@ func (t *VelocityCoherentTracker) ContinuePostTail(
 
 Maintain track identity even when point count drops to ~3 points, using velocity coherence as the primary confirmation signal.
 
-### Sparse Track Criteria
+### Sparse track criteria
 
 ```go
 type SparseTrackConfig struct {
@@ -639,7 +639,7 @@ func IsSparseTrackValid(
 }
 ```
 
-### Graceful Degradation Strategy
+### Graceful degradation strategy
 
 As point count decreases, we progressively tighten velocity constraints:
 
@@ -673,7 +673,7 @@ func (t *VelocityCoherentTracker) adaptiveTolerances(pointCount int) (velTol, sp
 - [ ] Integrate sparse continuation decisions into tracker updates
 - [ ] Add targeted tests for 3-point continuation and failure boundaries
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Sparse tracks are maintained when motion is coherent
 - [ ] No significant increase in ID switches in sparse scenes
@@ -681,7 +681,7 @@ func (t *VelocityCoherentTracker) adaptiveTolerances(pointCount int) (velTol, sp
 
 ---
 
-## Phase 5: Track Fragment Merging
+## Phase 5: track fragment merging
 
 **Goal:** Merge split track fragments when kinematics are consistent.
 
@@ -693,7 +693,7 @@ Reconnect track fragments that were split due to:
 - Sensor noise causing temporary point loss
 - Objects passing through blind spots
 
-### Fragment Detection
+### Fragment detection
 
 ```go
 // TrackFragment represents a potentially incomplete track segment
@@ -759,7 +759,7 @@ func DetectFragments(tracks []*TrackedObject, sensorBoundary PolygonBoundary) []
 }
 ```
 
-### Fragment Matching Algorithm
+### Fragment matching algorithm
 
 ```go
 // MergeConfig controls fragment matching sensitivity
@@ -870,7 +870,7 @@ func FindMergeCandidates(
 }
 ```
 
-### Merge Execution
+### Merge execution
 
 ```go
 // MergeTrackFragments combines two fragments into a unified track
@@ -933,7 +933,7 @@ func MergeTrackFragments(
 - [ ] Add `internal/lidar/track_merge_test.go`
 - [ ] Record merge decisions for audit/debug
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Fragmentation rate decreases on occlusion-heavy validation runs
 - [ ] Incorrect merge rate remains below agreed threshold
@@ -941,7 +941,7 @@ func MergeTrackFragments(
 
 ---
 
-## Phase 6: Pipeline, Storage, and API Integration
+## Phase 6: pipeline, storage, and API integration
 
 **Goal:** Run current and velocity-coherent paths in parallel and expose both results via API and storage.
 
@@ -953,7 +953,7 @@ func MergeTrackFragments(
 - [ ] Add API source selector (`background_subtraction`, `velocity_coherent`, `all`)
 - [ ] Add migration and rollback notes
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Both sources can be queried independently and jointly
 - [ ] Dashboard comparison can be generated from stored results
@@ -961,7 +961,7 @@ func MergeTrackFragments(
 
 ---
 
-## Phase 7: Validation and Rollout
+## Phase 7: validation and rollout
 
 **Goal:** Decide production readiness from measured outcomes.
 
@@ -973,7 +973,7 @@ func MergeTrackFragments(
 - [ ] Add ops runbook (alerts, fallbacks, troubleshooting)
 - [ ] Stage rollout behind feature flag
 
-### Exit Criteria
+### Exit criteria
 
 - [ ] Acceptance thresholds met on continuity and sparse-object capture
 - [ ] Throughput and memory remain within service budget
@@ -981,9 +981,9 @@ func MergeTrackFragments(
 
 ---
 
-## Data Structures
+## Data structures
 
-### Core Types
+### Core types
 
 ```go
 // VelocityCoherentTrackerConfig holds all configuration for the tracker
@@ -1054,7 +1054,7 @@ func DefaultVelocityCoherentConfig() VelocityCoherentTrackerConfig {
 }
 ```
 
-### Point History Ring Buffer
+### Point history ring buffer
 
 For efficient frame-to-frame correspondence:
 
@@ -1088,9 +1088,9 @@ func (h *FrameHistory) Previous(offset int) *PointVelocityFrame {
 
 ---
 
-## Integration with Existing System
+## Integration with existing system
 
-### Dual-Source Architecture (Matching Radar Pattern)
+### Dual-Source architecture (matching radar pattern)
 
 Just as the radar system maintains two independent transit sources:
 
@@ -1127,7 +1127,7 @@ type TrackWithSource struct {
 }
 ```
 
-### Parallel Processing Path
+### Parallel processing path
 
 The velocity-coherent extraction runs **alongside** the existing background-subtraction system, not replacing it:
 
@@ -1168,7 +1168,7 @@ func (p *DualExtractionPipeline) ProcessFrame(
 }
 ```
 
-### REST API Extensions
+### REST API extensions
 
 ```go
 // Additional endpoints for velocity-coherent tracking
@@ -1192,7 +1192,7 @@ type MergeRequest struct {
 
 ---
 
-## Database Schema Extensions
+## Database schema extensions
 
 ```sql
 -- Velocity-coherent clustering results (6D DBSCAN output)
@@ -1289,9 +1289,9 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 ---
 
-## Implementation Roadmap
+## Implementation roadmap
 
-### Phase Timeline
+### Phase timeline
 
 | Phase | Description                     | Duration  | Priority | Dependencies |
 | ----- | ------------------------------- | --------- | -------- | ------------ |
@@ -1304,7 +1304,7 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 | 6     | Pipeline, Storage, and API      | 1 week    | P1       | All phases   |
 | 7     | Validation and Rollout          | 1–2 weeks | P1       | Phase 6      |
 
-### Implementation Files
+### Implementation files
 
 | Phase | File                                          | Description                    |
 | ----- | --------------------------------------------- | ------------------------------ |
@@ -1322,7 +1322,7 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 ---
 
-## Acceptance Metrics
+## Acceptance metrics
 
 These targets are hypotheses to validate against measured outcomes, not committed production guarantees.
 
@@ -1336,7 +1336,7 @@ These targets are hypotheses to validate against measured outcomes, not committe
 
 ---
 
-## Risks and Mitigations
+## Risks and mitigations
 
 | Risk                                                     | Mitigation                                                                  |
 | -------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -1368,9 +1368,9 @@ These targets are hypotheses to validate against measured outcomes, not committe
 
 ---
 
-## Appendix: Mathematical Formulation
+## Appendix: mathematical formulation
 
-### A. Point Correspondence Optimisation
+### A. point correspondence optimisation
 
 Given frames $F_{n-1}$ and $F_n$, find optimal point correspondences $C: F_{n-1} \to F_n$ that minimise:
 
@@ -1382,7 +1382,7 @@ Where:
 - $d_{\text{vel}}(i, j)$ = Velocity consistency with local neighbourhood
 - $w_{\text{pos}}, w_{\text{vel}}$ = Weighting factors
 
-### B. 6D Distance Metric
+### B. 6D distance metric
 
 For points $p = (x, y, z, v_x, v_y, v_z)$ and $q = (x', y', z', v_x', v_y', v_z')$:
 
@@ -1394,7 +1394,7 @@ Where:
 - $\beta$ = velocity weight (default 2.0)
 - Higher $\beta$ emphasises velocity coherence over spatial proximity
 
-### C. Merge Trajectory Alignment Score
+### C. merge trajectory alignment score
 
 For fragments $A$ (ending at $t_1$) and $B$ (starting at $t_2$), compute trajectory alignment:
 
@@ -1409,9 +1409,9 @@ Where:
 
 ---
 
-## Implementation Notes (January 2026)
+## Implementation notes (January 2026)
 
-### Simplifications Applied vs. Original Design
+### Simplifications applied vs. original design
 
 The prototype implementation applies practical simplifications for the traffic monitoring use case:
 
@@ -1425,7 +1425,7 @@ The prototype implementation applies practical simplifications for the traffic m
 | **Fragment Merging**    | Full kinematic matching                | Basic implementation ✅                  | Simplified merge criteria      |
 | **Sparse Continuation** | Adaptive tolerances by point count     | Implemented ✅                           | Working as designed            |
 
-### Key Implementation Files (Prototype)
+### Key implementation files (prototype)
 
 | Phase       | Design Section | Implementation File                                |
 | ----------- | -------------- | -------------------------------------------------- |
@@ -1436,7 +1436,7 @@ The prototype implementation applies practical simplifications for the traffic m
 | Phase 5     | §12 above      | `velocity_coherent_merging.go`                     |
 | Integration | §13–14 above   | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
 
-### What Was NOT Implemented (Deferred)
+### What was NOT implemented (deferred)
 
 These features from the original design are deferred to future work:
 
@@ -1446,14 +1446,14 @@ These features from the original design are deferred to future work:
 4. **Track Quality Scoring** — Basic quality metrics only
 5. **Batch Mode Processing** — Real-time mode only
 
-### Performance Observations (from PCAP Replay Testing)
+### Performance observations (from PCAP replay testing)
 
 - **MinPts=3** successfully captures sparse distant objects missed by MinPts=12
 - **Velocity coherence** significantly reduces false positives from background noise
 - **Fragment merging** recovers ~10–15% of tracks split by occlusion gaps
 - **Post-tail prediction** extends track duration by 1–3 seconds on average
 
-### Recommended Next Steps
+### Recommended next steps
 
 1. **Add truck/cyclist classes** — Currently only car/pedestrian/bird/other
 2. **Tune velocity tolerances** — May need per-class velocity limits
@@ -1462,7 +1462,7 @@ These features from the original design are deferred to future work:
 
 ---
 
-## Related Documentation
+## Related documentation
 
 - [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) — Mathematical model and parameter tradeoffs
 - [`docs/lidar/architecture/vector-vs-velocity-workstreams.md`](../lidar/architecture/vector-vs-velocity-workstreams.md) — Workstream separation rationale

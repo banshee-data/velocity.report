@@ -1,10 +1,10 @@
-# LiDAR Background Settling Time Optimisation
+# LiDAR background settling time optimisation
 
 - **Status:** Phase 3 Complete (February 2026)
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period.
 
-## Implementation Summary
+## Implementation summary
 
 - ✅ Phase 1: Background Grid Restoration - Not implemented (regions-only approach used instead)
 - ✅ Phase 2: Region Persistence - **COMPLETE** (see implementation details below)
@@ -19,9 +19,9 @@ This document proposes two complementary approaches to address the loss of ~30 s
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period. The current implementation requires 100-300 frames (5-30 seconds at 10-20 Hz) of settling before foreground identification can begin, causing valuable data to be discarded.
 
-## Problem Statement
+## Problem statement
 
-### Current Behaviour
+### Current behaviour
 
 When processing PCAP files or starting a new LiDAR session:
 
@@ -32,7 +32,7 @@ When processing PCAP files or starting a new LiDAR session:
 
 **Impact**: For a 5-minute PCAP capture, the first 30 seconds (10% of data) is effectively lost for foreground analysis.
 
-### Root Cause
+### Root cause
 
 The settling period serves two critical purposes:
 
@@ -41,19 +41,19 @@ The settling period serves two critical purposes:
 
 Both processes currently run only during live data collection and are not persisted in a reusable form.
 
-## Proposed Solutions
+## Proposed solutions
 
-### Option A: Background Grid and Region Persistence
+### Option a: background grid and region persistence
 
 **Concept**: Save the settled background grid and identified regions to the database, then restore them when processing PCAPs from the same sensor/location.
 
-#### Database Schema Changes
+#### Database schema changes
 
 Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
 > **Source:** Migration `000017_create_lidar_bg_regions.up.sql`. Option A.1 adds a `regions_json` column to `lidar_bg_snapshot`. Option A.2 (preferred) creates a separate `lidar_bg_regions` table with columns: region_set_id, snapshot_id (FK), sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, UNIQUE(snapshot_id). Indexed on sensor_id.
 
-#### Implementation Components
+#### Implementation components
 
 1. **RegionManager Serialisation** (`internal/lidar/background.go`):
 
@@ -71,7 +71,7 @@ Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
    > **Source:** `cmd/tools/pcap-analyse/main.go`. When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()` — foreground detection begins immediately without settling.
 
-#### Scene Similarity Detection (Optional Enhancement)
+#### Scene similarity detection (optional enhancement)
 
 For multi-location deployments, detect whether a saved background matches the current scene:
 
@@ -90,11 +90,11 @@ For multi-location deployments, detect whether a saved background matches the cu
 - **Storage growth**: Additional database storage for region metadata
 - **Complexity**: Need to handle version compatibility and schema migrations
 
-### Option B: Adaptive Settling Time Evaluation
+### Option b: adaptive settling time evaluation
 
 **Concept**: Create a test harness that evaluates when the background model has "stabilised enough" based on convergence metrics, rather than using fixed frame/time thresholds.
 
-#### Convergence Metrics
+#### Convergence metrics
 
 Define metrics to determine when settling can end early:
 
@@ -105,13 +105,13 @@ Define metrics to determine when settling can end early:
 
 > **Source:** `internal/lidar/l3grid/settling_eval.go`. `SettlingMetrics` struct tracks CoverageRate, SpreadDeltaRate, RegionStability, MeanConfidence, EvaluatedAt, and FrameNumber. `BackgroundManager.EvaluateSettling()` computes the metrics; `SettlingMetrics.IsConverged()` checks them against `SettlingThresholds`.
 
-#### Test Harness Tool
+#### Test harness tool
 
 Create `cmd/tools/settling-eval/main.go`:
 
 > **Source:** `cmd/tools/settling-eval/main.go`. `SettlingEvaluation` struct with fields: PcapFile, SensorID, TotalFrames, MetricsHistory (per-frame convergence snapshots), RecommendedFrame, RecommendedTime, and Rationale. The tool processes all frames with settling suppressed, computes convergence metrics at each, and reports the optimal settling point.
 
-#### Dynamic Settling Mode
+#### Dynamic settling mode
 
 Modify `ProcessFramePolar` to support adaptive settling:
 
@@ -130,11 +130,11 @@ Modify `ProcessFramePolar` to support adaptive settling:
 - **Complexity**: Convergence detection adds processing overhead
 - **Tuning required**: Thresholds need calibration per deployment environment
 
-## Recommended Approach: Hybrid Implementation
+## Recommended approach: hybrid implementation
 
 Implement both options in phases:
 
-### Phase 1: Background Grid Restoration (Option A Core)
+### Phase 1: background grid restoration (option a core)
 
 1. Add `RestoreFromSnapshot()` to `BackgroundManager`
 2. Implement grid cell deserialisation from `BgSnapshot.GridBlob`
@@ -143,7 +143,7 @@ Implement both options in phases:
 
 **Outcome**: Immediate settling skip for sensors with existing snapshots.
 
-### Phase 2: Region Persistence ✅ COMPLETE
+### Phase 2: region persistence ✅ COMPLETE
 
 **Status**: Implemented February 2026
 
@@ -185,7 +185,7 @@ Implement both options in phases:
 
 **Outcome**: Full state restoration including region-specific parameters. Settling period can be skipped entirely when scene hash matches a previous run.
 
-### Phase 3: Settling Evaluation Tool (Option B) ✅ COMPLETE
+### Phase 3: settling evaluation tool (option b) ✅ COMPLETE
 
 **Status**: Implemented February 2026
 
@@ -222,7 +222,7 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 
 **Outcome**: Data-driven guidance for tuning settling parameters.
 
-### Phase 4: Adaptive Settling Mode (Optional)
+### Phase 4: adaptive settling mode (optional)
 
 1. Add `SettlingModeAdaptive` option
 2. Implement convergence-based settling termination
@@ -230,7 +230,7 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 
 **Outcome**: Self-tuning settling for new deployments without prior data.
 
-## Implementation Priority
+## Implementation priority
 
 | Phase   | Effort | Value  | Priority                                            |
 | ------- | ------ | ------ | --------------------------------------------------- |
@@ -239,9 +239,9 @@ Returns `{ sensor_id, metrics, thresholds, converged, settling_complete }`
 | Phase 3 | Medium | Medium | P1 - Provides tuning guidance                       |
 | Phase 4 | High   | Low    | P2 - Nice-to-have for edge cases                    |
 
-## API Changes
+## API changes
 
-### New CLI Flags for `pcap-analyse`
+### New CLI flags for `pcap-analyse`
 
 ```bash
 pcap-analyse --pcap file.pcap \
@@ -251,7 +251,7 @@ pcap-analyse --pcap file.pcap \
     --settling-mode adaptive     # Use convergence-based settling
 ```
 
-### New HTTP API Endpoints
+### New HTTP API endpoints
 
 ```bash
 # Get region snapshot for a sensor
@@ -277,7 +277,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 }
 ```
 
-## Testing Strategy
+## Testing strategy
 
 1. **Unit Tests**: `internal/lidar/background_restore_test.go`
    - Test grid restoration from valid/invalid snapshots
@@ -297,13 +297,13 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
    - Compare foreground detection results
    - Verify no regression in detection quality
 
-## Security Considerations
+## Security considerations
 
 - **Snapshot Integrity**: Validate grid dimensions match before restoration
 - **Version Compatibility**: Check snapshot format version before deserialisation
 - **Path Traversal**: Ensure snapshot IDs are numeric, not paths
 
-## Related Documentation
+## Related documentation
 
 - [Adaptive Region Parameters](../operations/adaptive-region-parameters.md)
 - [PCAP Split Tool](../../plans/pcap-split-tool-plan.md) (future: auto-segment for settling)
@@ -316,7 +316,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 - `internal/db/db.go`: `GetLatestBgSnapshot`, `InsertBgSnapshot`
 - `cmd/tools/pcap-analyse/main.go`: PCAP analysis tool
 
-## Appendix: Current Settling Parameters
+## Appendix: current settling parameters
 
 From `config.go`:
 

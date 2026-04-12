@@ -18,14 +18,14 @@ preparedness, and changelog verification in a single pass.
 /release-prep --skip-docs
 ```
 
-## When to Run
+## When to run
 
 - Before tagging a point release.
 - Before building a disk image for deployment.
 - After a large feature branch lands on `main`.
 - When you want a single "are we ready?" answer.
 
-## Relationship to Other Skills
+## Relationship to other skills
 
 This skill orchestrates checks that overlap with other skills. It does not
 replace them — it calls them or runs their core checks in sequence:

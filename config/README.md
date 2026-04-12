@@ -1,4 +1,4 @@
-# Configuration System
+# Configuration system
 
 This directory contains the canonical LiDAR tuning config files used by
 `velocity.report`.
@@ -36,7 +36,7 @@ LiDAR networking remains process-level CLI configuration for now:
 `--lidar-foreground-forward-port` are startup-only and are not part of the
 JSON tuning schema or `/api/lidar/params` hot reload flow.
 
-## Canonical Example
+## Canonical example
 
 ```json
 {
@@ -126,7 +126,7 @@ JSON tuning schema or `/api/lidar/params` hot reload flow.
 }
 ```
 
-## Runtime Updates
+## Runtime updates
 
 `POST /api/lidar/params` accepts partial updates as nested JSON objects matching the `tuning.defaults.json` structure. Legacy dot-path keys are normalised internally but nested format is preferred.
 
@@ -160,7 +160,7 @@ Runtime updates are limited on this branch to:
 LiDAR listener/forwarding ports and the UDP receive buffer are process-level
 CLI flags and do not appear in this schema.
 
-## Key Order
+## Key order
 
 Canonical ordering is derived from `config/tuning.defaults.json`.
 
@@ -170,7 +170,7 @@ make sync-config-order
 make check-config-maths
 ```
 
-## Field Reference
+## Field reference
 
 ### Root
 

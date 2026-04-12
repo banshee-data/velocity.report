@@ -1,4 +1,4 @@
-# Unified Plan: Seekable Replay and Swift-Native Track Labelling
+# Unified plan: seekable replay and Swift-native track labelling
 
 Unifies:
 
@@ -11,9 +11,9 @@ into one implementation plan with one recommendation.
 
 **Complete** — Option 2 implementation complete. Backend and Swift/macOS work done.
 
-### Implementation Checklist
+### Implementation checklist
 
-#### Go Backend (Complete)
+#### Go backend (complete)
 
 - [x] **Phase 0: Canonical Label Contract** — Run-track labels via `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
 - [x] **Phase 1.1: Publisher recording tap** — `FrameRecorder` interface in `publisher.go`
@@ -24,14 +24,14 @@ into one implementation plan with one recommendation.
 - [x] **Phase 3.1: Playback callbacks** — `OnPlaybackPause`, `OnPlaybackPlay`, `OnPlaybackSeek`, etc.
 - [x] **Phase 3: Playback API** — REST endpoints: `/api/lidar/playback/*`, `/api/lidar/vrlog/*`
 
-#### Swift/macOS (Complete)
+#### Swift/macOS (complete)
 
 - [x] **Phase 4.1: Run browser state** — `RunBrowserState` for listing and loading runs
 - [x] **Phase 4.1: Run browser UI** — `RunBrowserView` with run list and replay loader
 - [x] **Phase 4.2: RunTrackLabelAPIClient** — REST client for run-track labelling
 - [x] **Phase 4.3: Connect labelling to run-track API** — Wire selection to `RunTrackLabelAPIClient`
 
-#### Optional (Deferred)
+#### Optional (deferred)
 
 - [ ] **Phase 5: Web parity** — Web playback controls for secondary fallback
 
@@ -43,9 +43,9 @@ Enable operators to label tracks while viewing 3D evolution in the macOS Swift a
 
 ---
 
-## Options Compared
+## Options compared
 
-### Option 1: Existing baseline (VRLOG replay + web-driven timeline/labelling)
+### Option 1: existing baseline (VRLOG replay + web-driven timeline/labelling)
 
 - Keep current direction from the original VRLOG plan.
 - Web tracks page is primary timeline and labelling UI.
@@ -64,7 +64,7 @@ Enable operators to label tracks while viewing 3D evolution in the macOS Swift a
 
 ---
 
-## Comparison Matrix
+## Comparison matrix
 
 Scoring: `1 (worst)` to `5 (best)`.
 
@@ -74,7 +74,7 @@ Scoring: `1 (worst)` to `5 (best)`.
 | 2. VRLOG + Swift-native labelling       | 4               | 5                  | 4           | Best operator flow; robust seek semantics via VRLOG. Requires Swift-side API integration and run browser work.                   |
 | 3. Direct PCAP seek                     | 2               | 3                  | 2           | High risk and complexity: seek must rebuild time-dependent state (background/tracker/warmup), likely high latency and fragility. |
 
-## Single Recommendation
+## Single recommendation
 
 Pursue **Option 2: VRLOG-backed replay with Swift-native labelling**.
 
@@ -88,7 +88,7 @@ Option 1 remains a migration path/fallback. Option 3 is explicitly deferred.
 
 ---
 
-## Target Architecture (Recommended)
+## Target architecture (recommended)
 
 ```
 Recording during analysis replay:
@@ -118,9 +118,9 @@ Optional parity:
 
 ---
 
-## Implementation Plan
+## Implementation plan
 
-## Phase 0: Canonical Label Contract
+## Phase 0: canonical label contract
 
 1. Use run-track labels as canonical for analysis/tuning workflows:
    - `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
@@ -128,7 +128,7 @@ Optional parity:
 2. Keep `/api/lidar/labels` as optional free-form event annotation.
 3. Add explicit mapping rules only if both stores are needed in the same workflow.
 
-## Phase 1: Record VRLOG During Analysis PCAP Replay
+## Phase 1: record VRLOG during analysis PCAP replay
 
 ### 1.1 Publisher recording tap (`internal/lidar/visualiser/publisher.go`)
 
@@ -184,7 +184,7 @@ In PCAP analysis goroutine:
 - start recorder under `<pcapDir>/vrlog/<runID>`
 - set/clear recorder on publisher
 
-## Phase 2: Seekable VRLOG Replay in Main Runtime
+## Phase 2: seekable VRLOG replay in main runtime
 
 ### 2.1 Replay control in publisher (`internal/lidar/visualiser/publisher.go`)
 
@@ -229,7 +229,7 @@ Suppress periodic background snapshots during VRLOG replay (`shouldSendBackgroun
 - delegate `Pause()`, `Play()`, `SetRate()` to publisher in VRLOG mode
 - implement `Seek()` by calling publisher seek methods (currently unimplemented)
 
-## Phase 3: Playback API Surface and Orchestration
+## Phase 3: playback API surface and orchestration
 
 ### 3.1 Backend playback callbacks (`internal/lidar/monitor/webserver.go`)
 
@@ -274,7 +274,7 @@ Routes:
 
 `cmd/radar/radar.go` wires callbacks to server/publisher.
 
-## Phase 4: Swift App as Primary Labelling UI
+## Phase 4: Swift app as primary labelling UI
 
 ### 4.1 Replay loading in Swift
 
@@ -307,7 +307,7 @@ Connect 3D selection to run-track labelling actions in side panel.
 - keep for free-form label events only
 - avoid mixing stores for the same labelling workflow
 
-## Phase 5: Web Parity (Optional / Secondary)
+## Phase 5: web parity (optional / secondary)
 
 Keep or extend web playback controls for parity/fallback:
 
@@ -320,7 +320,7 @@ Web is secondary; Swift is primary labelling workflow.
 
 ---
 
-## Deferred Work: Direct PCAP Seek
+## Deferred work: direct PCAP seek
 
 Do not pursue as primary path.
 
@@ -350,7 +350,7 @@ Phase 0 (label contract)
 
 ---
 
-## Key Gotchas
+## Key gotchas
 
 1. `publisher.go` cannot import `recorder`; use `FrameRecorder` interface.
 2. `analysis_run` store code is in `internal/lidar/analysis_run.go`, not a separate store file.
@@ -362,7 +362,7 @@ Phase 0 (label contract)
 
 ---
 
-## Files to Modify
+## Files to modify
 
 | Area                    | File(s)                                                                                                                                  | Changes                                                              |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -390,7 +390,7 @@ Phase 0 (label contract)
 
 ---
 
-## Exit Criteria
+## Exit criteria
 
 - Operator can load a run in Swift, scrub timeline, step frames, and label tracks without leaving Swift.
 - Replay seek is stable and deterministic.

@@ -1,4 +1,4 @@
-# Wireshark Menu Alignment Plan
+# Wireshark menu alignment plan
 
 - **Layers:** L10 Clients (macOS visualiser)
 - **Canonical:** [menu-layout.md](../ui/visualiser/menu-layout.md)
@@ -8,9 +8,9 @@
 
 ---
 
-## Menu Structure Comparison
+## Menu structure comparison
 
-### Wireshark Menu Bar
+### Wireshark menu bar
 
 | Menu           | Key Sections                                                                      |
 | -------------- | --------------------------------------------------------------------------------- |
@@ -26,7 +26,7 @@
 | **Tools**      | Firewall ACL, Credentials, MAC Lookup, TLS Keylog                                 |
 | **Help**       | User Guide, Manual Pages, Website, FAQ, Wiki, Release Notes, About                |
 
-### VelocityVisualiser Menu Bar (current)
+### VelocityVisualiser menu bar (current)
 
 | Menu         | Items                                                                         |
 | ------------ | ----------------------------------------------------------------------------- |
@@ -38,7 +38,7 @@
 
 ---
 
-## Alignment Matrix
+## Alignment matrix
 
 Each Wireshark menu item is mapped to a VelocityVisualiser equivalent (existing
 or proposed). Categories:
@@ -48,7 +48,7 @@ or proposed). Categories:
 - 🔵 **Consider** — might be useful, needs evaluation
 - ⬜ **Not applicable** — Wireshark-specific, no VelocityVisualiser equivalent
 
-### File Menu
+### File menu
 
 | Wireshark Item            | VV Equivalent          | Status | Notes                                          |
 | ------------------------- | ---------------------- | ------ | ---------------------------------------------- |
@@ -65,7 +65,7 @@ or proposed). Categories:
 | Print                     | —                      | 🔵     | Print current view / generate PDF?             |
 | Quit                      | (⌘Q — system)          | ✅     | macOS provides automatically                   |
 
-### Edit Menu
+### Edit menu
 
 | Wireshark Item     | VV Equivalent            | Status | Notes                                         |
 | ------------------ | ------------------------ | ------ | --------------------------------------------- |
@@ -79,7 +79,7 @@ or proposed). Categories:
 | Packet Comments    | —                        | 🔵     | Annotate tracks / frames                      |
 | Preferences (⌘,)   | —                        | 🟡     | Settings panel (connection, display defaults) |
 
-### View Menu
+### View menu
 
 | Wireshark Item          | VV Equivalent          | Status | Notes                                        |
 | ----------------------- | ---------------------- | ------ | -------------------------------------------- |
@@ -98,7 +98,7 @@ or proposed). Categories:
 | Reset Layout            | —                      | 🔵     | Reset camera / panel layout to defaults      |
 | Internals > Shortcuts   | —                      | 🟡     | Show keyboard shortcut reference             |
 
-### Go Menu
+### Go menu
 
 | Wireshark Item            | VV Equivalent       | Status | Notes                                         |
 | ------------------------- | ------------------- | ------ | --------------------------------------------- |
@@ -109,7 +109,7 @@ or proposed). Categories:
 | Auto Scroll               | —                   | ⬜     | Live capture auto-scroll (N/A for replay)     |
 | History Navigation        | —                   | 🔵     | Selection history (⌥←/⌥→)                     |
 
-### Capture Menu
+### Capture menu
 
 | Wireshark Item     | VV Equivalent            | Status | Notes                             |
 | ------------------ | ------------------------ | ------ | --------------------------------- |
@@ -119,7 +119,7 @@ or proposed). Categories:
 | Capture Filters    | —                        | ⬜     | BPF filters N/A                   |
 | Refresh Interfaces | —                        | ⬜     | Network interfaces N/A            |
 
-### Analyse Menu
+### Analyse menu
 
 | Wireshark Item          | VV Equivalent | Status | Notes                                          |
 | ----------------------- | ------------- | ------ | ---------------------------------------------- |
@@ -129,7 +129,7 @@ or proposed). Categories:
 | Decode As               | —             | ⬜     | Protocol-specific                              |
 | Expert Info             | —             | 🔵     | Quality flag summary / anomaly report          |
 
-### Statistics Menu
+### Statistics menu
 
 | Wireshark Item          | VV Equivalent | Status | Notes                                        |
 | ----------------------- | ------------- | ------ | -------------------------------------------- |
@@ -141,7 +141,7 @@ or proposed). Categories:
 | I/O Graphs              | —             | 🔵     | Tracks/frame over time, velocity histogram   |
 | Plots                   | —             | 🔵     | Live plotting of track properties            |
 
-### Help Menu
+### Help menu
 
 | Wireshark Item     | VV Equivalent            | Status | Notes                         |
 | ------------------ | ------------------------ | ------ | ----------------------------- |
@@ -153,9 +153,9 @@ or proposed). Categories:
 
 ---
 
-## Keyboard Shortcut Alignment
+## Keyboard shortcut alignment
 
-### Current VelocityVisualiser Shortcuts (single-key, keep as-is)
+### Current VelocityVisualiser shortcuts (single-key, keep as-is)
 
 | Key   | Action               | Wireshark Equivalent |
 | ----- | -------------------- | -------------------- |
@@ -175,7 +175,7 @@ or proposed). Categories:
 > **Rule:** Never change existing single-key shortcuts. They are optimised for
 > rapid one-handed operation during replay review.
 
-### Proposed New Shortcuts (multi-key combos, Wireshark-aligned)
+### Proposed new shortcuts (multi-key combos, Wireshark-aligned)
 
 | Shortcut | Proposed Action               | Wireshark Equivalent                 |
 | -------- | ----------------------------- | ------------------------------------ |
@@ -195,9 +195,9 @@ or proposed). Categories:
 
 ---
 
-## Implementation Priority
+## Implementation priority
 
-### Phase 1 — Quick Wins (low effort, high value)
+### Phase 1 — quick wins (low effort, high value)
 
 1. **Open Recent** submenu — track last 5–10 opened VRLOGs
 2. **Close Recording** (⌘W) — unload current VRLOG, return to connection view
@@ -205,14 +205,14 @@ or proposed). Categories:
 4. **First/Last Frame** (⌘Home / ⌘End) — jump to boundaries
 5. **Keyboard Shortcuts reference** — show shortcut sheet in Help menu
 
-### Phase 2 — View Enhancements
+### Phase 2 — view enhancements
 
 6. **Zoom controls** (⌘+, ⌘-, ⌘0) — camera zoom via keyboard
 7. **VRLOG File Properties** — show metadata panel (duration, frames, site)
 8. **Preferences** (⌘,) — connection settings, display defaults, overlay colours
 9. **Reset Layout** — reset camera position and panel visibility
 
-### Phase 3 — Analysis Features
+### Phase 3 — analysis features
 
 10. **Find Track** (⌘F) — search by track ID, velocity range, quality flags
 11. **Filter expression bar** — filter visible tracks by properties
@@ -220,7 +220,7 @@ or proposed). Categories:
 13. **Expert Info / Quality Summary** — aggregate quality flag overview
 14. **Follow Track** — highlight all frames containing selected track
 
-### Phase 4 — Export & Polish
+### Phase 4 — export & polish
 
 15. **Export tracks as CSV/JSON** — selected or all tracks
 16. **Copy track details** — clipboard support for track properties
@@ -229,7 +229,7 @@ or proposed). Categories:
 
 ---
 
-## Menu Structure Proposal (post-alignment)
+## Menu structure proposal (post-alignment)
 
 ```
 VelocityReport.app
@@ -305,7 +305,7 @@ VelocityReport.app
 
 ---
 
-## Design Principles (adopted from Wireshark)
+## Design principles (adopted from Wireshark)
 
 1. **Consistent verb placement** — action verbs in menu items (Go to, Find, Export)
 2. **Ellipsis convention** — items that open a dialogue end with "..." (e.g. "Find Track...")

@@ -1,4 +1,4 @@
-# Geometry-Prior Service — Architecture Specification
+# Geometry-Prior service — architecture specification
 
 - **Status:** Proposed (v2.0 scope)
 - **Parent:** [vector-scene-map.md](./vector-scene-map.md)
@@ -8,13 +8,13 @@ Community-maintained supplemental geometry priors — ground surfaces, kerbs, ve
 
 ---
 
-## Design Goal
+## Design goal
 
 Enable a public file tree of supplemental geometry priors that any velocity.report deployment can optionally fetch, while preserving the local-first, privacy-by-default architecture. No cameras, no PII, no location data transmitted without explicit opt-in. The files contain geometry only — no speed, transit, or vehicle data.
 
 ---
 
-## Architecture: Local-First with Optional Static Fetch
+## Architecture: local-first with optional static fetch
 
 The prior service is purely additive. Without GPS or network access, the system runs LiDAR-only using its own learned background. With GPS and opt-in enabled, the Prior Loader fetches static GeoJSON files for the coarsened grid cell, applies them as soft-constraint weights, and never phones home with precise coordinates.
 
@@ -33,7 +33,7 @@ The prior service is purely additive. Without GPS or network access, the system 
 
 ---
 
-## Grid-Based Folder Structure
+## Grid-Based folder structure
 
 The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km N-S × ~0.7 km E-W at UK latitudes), matching the coarsening applied to GPS coordinates before any network request. This prevents precise deployment location disclosure while providing sufficient locality for scene priors.
 
@@ -60,7 +60,7 @@ Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files*
 
 ---
 
-## Contribution Model
+## Contribution model
 
 Contributions are submitted as **pull requests** to a public repository (or file uploads to a community-managed bucket). No accounts or authentication required for read access; write access goes through standard PR review.
 
@@ -71,7 +71,7 @@ Contributions are submitted as **pull requests** to a public repository (or file
 
 ---
 
-## Future-Compatibility Strategy
+## Future-Compatibility strategy
 
 Design choices in v1.0 that ensure the online service is additive, not a rewrite:
 
@@ -86,7 +86,7 @@ Design choices in v1.0 that ensure the online service is additive, not a rewrite
 
 ---
 
-## File Format Specification (v2.0 Scope)
+## File format specification (v2.0 scope)
 
 All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are **immutable once merged** — CI never modifies the contributor-uploaded content, ensuring that detached GPG signatures remain independently verifiable.
 
@@ -126,7 +126,7 @@ CI verifies the signature against the declared `gpg_fingerprint` at merge time. 
 
 ---
 
-## CI Trust Manifest
+## CI trust manifest
 
 Because prior files are immutable, CI maintains signature status in a separate directory:
 
@@ -165,7 +165,7 @@ The manifest is the **only** place `signed` status is recorded. Clients fetch `_
 
 ---
 
-## Trust Tiers and Host Routing
+## Trust tiers and host routing
 
 Host operators can mirror or gate the public repository to expose only the files they trust. Because the manifest is separate from the data files, a host serves a filtered view simply by controlling which files it copies:
 
@@ -196,7 +196,7 @@ With `require_signed: true` the Prior Loader fetches `_trust/manifest.json` firs
 
 ---
 
-## Server-Generated Union Artefact
+## Server-Generated union artefact
 
 Individual contribution files are immutable and per-contributor. The practical served file for most clients is a **server-generated union**: a daily aggregate produced by a scheduled job.
 
@@ -213,7 +213,7 @@ The aggregate file is clearly labelled `source: synthetic` and signed with the *
 
 ---
 
-## Hosting Options
+## Hosting options
 
 | Platform                             | Cost                     | Max size                | Notes                                                                                                          |
 | ------------------------------------ | ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -226,7 +226,7 @@ The aggregate file is clearly labelled `source: synthetic` and signed with the *
 
 ---
 
-## PCAP Research Corpus (Future)
+## PCAP research corpus (future)
 
 LiDAR PCAP files are large (100 MB–10 GB per capture) and not suitable for Git. When a public research corpus is warranted:
 
@@ -241,7 +241,7 @@ No dedicated LiDAR PCAP repository exists for low-speed urban traffic data. Hugg
 
 ---
 
-## Open Questions
+## Open questions
 
 These questions should be addressed before the v2.0 contribution pipeline is built.
 
@@ -249,7 +249,7 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 
 **Q2 — Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
 
-## Resolved Design Questions
+## Resolved design questions
 
 | Decision                     | Resolution                                                            |
 | ---------------------------- | --------------------------------------------------------------------- |
@@ -257,7 +257,7 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 
 ---
 
-## Implementation Phases
+## Implementation phases
 
 | Phase  | Milestone | Scope                                                        |
 | ------ | --------- | ------------------------------------------------------------ |

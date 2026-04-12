@@ -1,4 +1,4 @@
-# LiDAR Auto-Tuning Guide
+# LiDAR auto-tuning guide
 
 - **Status:** Phases 1–2 implemented, Phase 5 (ground truth) implemented
 
@@ -50,11 +50,11 @@ Auto-tuning iteratively searches the parameter space to find values that maximis
 
 ---
 
-## Tunable Parameters
+## Tunable parameters
 
 All parameters are exposed via `/api/lidar/params` and defined in `PARAM_SCHEMA`. They are grouped by subsystem below.
 
-### Background Model
+### Background model
 
 These control how the background grid distinguishes stationary environment from foreground objects.
 
@@ -75,7 +75,7 @@ These control how the background grid distinguishes stationary environment from 
 - In stable environments (open road, clear sightlines), decrease `noise_relative` for tighter foreground detection.
 - `post_settle_update_fraction` at 0 is safest for PCAP analysis; non-zero values allow drift during live operation.
 
-### Foreground Detection
+### Foreground detection
 
 These control how foreground points are grouped into clusters.
 
@@ -91,7 +91,7 @@ These control how foreground points are grouped into clusters.
 - `foreground_min_cluster_points` is a simple noise filter. Start at 3-5 for a 40-channel sensor.
 - `min_frame_points` should be set well below the expected point count for a valid frame (typically 5000-20000 for a 40-channel sensor).
 
-### Tracker (Kalman Filter)
+### Tracker (Kalman filter)
 
 These control how clusters are associated with tracks and how the Kalman filter behaves.
 
@@ -113,7 +113,7 @@ These control how clusters are associated with tracks and how the Kalman filter 
 - `process_noise_vel` should be higher for locations with frequent acceleration/braking (intersections, hills).
 - `measurement_noise` should reflect the actual sensor noise at the deployment range. Closer deployments can use lower values.
 
-### Frame Handling
+### Frame handling
 
 These control frame assembly and persistence.
 
@@ -133,7 +133,7 @@ These control frame assembly and persistence.
 
 The sampler collects these metrics per iteration for each parameter combination. They are aggregated as means and standard deviations across all iterations for scoring.
 
-### Core Metrics
+### Core metrics
 
 | Metric            | Range | Meaning                                                                                      | Good Direction                                        |
 | ----------------- | ----- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -141,21 +141,21 @@ The sampler collects these metrics per iteration for each parameter combination.
 | `nonzero_cells`   | 0–N   | Number of background cells with at least one observation.                                    | Higher = better coverage                              |
 | `active_tracks`   | 0–N   | Number of non-deleted tracks at sample time.                                                 | Higher = more detections (but watch for false tracks) |
 
-### Alignment Metrics
+### Alignment metrics
 
 | Metric               | Range | Meaning                                                                                      | Good Direction                        |
 | -------------------- | ----- | -------------------------------------------------------------------------------------------- | ------------------------------------- |
 | `alignment_deg`      | 0–180 | Mean angular difference between velocity heading and displacement heading across all tracks. | Lower = velocity aligns with movement |
 | `misalignment_ratio` | 0–1   | Fraction of track updates where angular difference exceeds 45 degrees.                       | Lower = fewer misaligned tracks       |
 
-### Track Health Metrics
+### Track health metrics
 
 | Metric                | Range | Meaning                                                                              | Good Direction              |
 | --------------------- | ----- | ------------------------------------------------------------------------------------ | --------------------------- |
 | `heading_jitter_deg`  | 0+    | RMS of frame-to-frame heading changes across all tracks.                             | Lower = smoother headings   |
 | `fragmentation_ratio` | 0–1   | `1 - (confirmed / created)`. Fraction of tentative tracks that were never confirmed. | Lower = fewer wasted tracks |
 
-### Scene-Level Metrics
+### Scene-Level metrics
 
 | Metric                     | Range | Meaning                                                                           | Good Direction                      |
 | -------------------------- | ----- | --------------------------------------------------------------------------------- | ----------------------------------- |
@@ -167,7 +167,7 @@ The sampler collects these metrics per iteration for each parameter combination.
 
 ## Scoring
 
-### Objective Modes
+### Objective modes
 
 The auto-tuner supports three objective modes:
 
@@ -177,7 +177,7 @@ The auto-tuner supports three objective modes:
 | `weighted`     | Full tuning with multiple metrics. Uses configurable weights to balance competing objectives. |
 | `ground_truth` | Precision tuning against labelled reference tracks. Requires a scene with reference run.      |
 
-### Weighted Multi-Objective Scoring
+### Weighted multi-objective scoring
 
 The weighted scoring function computes:
 
@@ -241,7 +241,7 @@ For high-quality speed measurement:
 }
 ```
 
-### Acceptance Criteria
+### Acceptance criteria
 
 Acceptance criteria are **hard thresholds** that reject parameter combinations before scoring. A combination that fails any criterion receives a score of negative infinity and sorts to the bottom. Use these to exclude clearly unacceptable configurations.
 
@@ -261,7 +261,7 @@ All fields are optional (nil = no constraint). Example:
 }
 ```
 
-### Ground Truth Scoring
+### Ground truth scoring
 
 When `objective` is `"ground_truth"`, scoring uses labelled reference tracks from a scene instead of live metrics. The composite score formula:
 
@@ -293,9 +293,9 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 
 ---
 
-## Auto-Tune Configuration
+## Auto-Tune configuration
 
-### Core Settings
+### Core settings
 
 | Setting            | Default | Description                                                                                |
 | ------------------ | ------- | ------------------------------------------------------------------------------------------ |
@@ -306,7 +306,7 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 | `interval`         | "2s"    | Time between samples within a combination.                                                 |
 | `settle_time`      | "5s"    | Time to wait for the background model to stabilise before sampling begins.                 |
 
-### Settle Modes
+### Settle modes
 
 | Mode                  | Behaviour                                                                         | When to Use                                                                                                   |
 | --------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -315,7 +315,7 @@ Note: `fragmentation` carries the highest default weight (5.0) because track fra
 
 The `once` mode uses region persistence to restore the background model quickly. See [Settling Time Optimisation](settling-time-optimisation.md) for details.
 
-### Data Sources
+### Data sources
 
 | Source | Setting                 | Description                                                                   |
 | ------ | ----------------------- | ----------------------------------------------------------------------------- |
@@ -324,7 +324,7 @@ The `once` mode uses region persistence to restore the background model quickly.
 
 When using PCAP, specify `pcap_file` (basename only), `pcap_start_secs`, and `pcap_duration_secs`.
 
-### Narrowing Algorithm
+### Narrowing algorithm
 
 After each round, bounds for the next round are computed from the top K results:
 
@@ -335,7 +335,7 @@ After each round, bounds for the next round are computed from the top K results:
 
 This ensures each round zooms in on the most promising region while retaining enough margin to avoid missing nearby optima.
 
-### Scaling Considerations
+### Scaling considerations
 
 Total combinations per round = `values_per_param ^ number_of_params`. Safety limit: 1000 combinations per sweep.
 
@@ -350,9 +350,9 @@ For 4+ parameters, reduce `values_per_param` to 3-4, or split into two tuning ru
 
 ---
 
-## Operational Decision-Making
+## Operational decision-making
 
-### Which Parameters to Tune First
+### Which parameters to tune first
 
 **Tier 1 — Background Model (tune first):**
 
@@ -375,7 +375,7 @@ For 4+ parameters, reduce `values_per_param` to 3-4, or split into two tuning ru
 
 - `process_noise_pos`, `measurement_noise`, `occlusion_cov_inflation` — These have reasonable defaults. Only adjust when tier 1-3 tuning is complete and specific quality issues remain.
 
-### Diagnosing Problems from Metrics
+### Diagnosing problems from metrics
 
 | Symptom                        | Likely Cause                                     | Parameters to Adjust                                                                     |
 | ------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
@@ -388,13 +388,13 @@ For 4+ parameters, reduce `values_per_param` to 3-4, or split into two tuning ru
 | High empty box ratio           | Tracks exist but lack cluster matches            | Increase `gating_distance_squared`, check sensor alignment                               |
 | High unbounded point ratio     | Many foreground points outside clusters          | Increase `foreground_dbscan_eps`, decrease `noise_relative` (may create more foreground) |
 
-### Choosing Objective Mode
+### Choosing objective mode
 
 1. **Start with `acceptance`** to quickly validate that background parameters produce a reasonable foreground/background split
 2. **Switch to `weighted`** once acceptance rate is reasonable (0.8-0.95) and you want to optimise track quality
 3. **Use `ground_truth`** when you have a labelled scene and need precision tuning for a specific deployment
 
-### Setting Acceptance Criteria
+### Setting acceptance criteria
 
 Use acceptance criteria to pre-filter clearly bad configurations:
 
@@ -408,7 +408,7 @@ These are conservative thresholds. Tighten them once you have a baseline underst
 
 ## Workflows
 
-### Quick Tune (Background Parameters Only)
+### Quick tune (background parameters only)
 
 Tune the two most impactful parameters with acceptance-only scoring:
 
@@ -434,7 +434,7 @@ POST /api/lidar/sweep/auto
 
 75 total combinations. With `settle_mode: "once"` and 10 iterations at 2s intervals, each combo takes ~20s. Total: ~25 minutes.
 
-### Full Tune (Weighted Multi-Objective)
+### Full tune (weighted multi-objective)
 
 Tune background + foreground + key tracker params with weighted scoring and acceptance criteria:
 
@@ -472,7 +472,7 @@ POST /api/lidar/sweep/auto
 
 256 combinations per round, 768 total. This is a long run; use `settle_mode: "once"` to reduce runtime.
 
-### Ground Truth Tune
+### Ground truth tune
 
 Requires a scene with labelled reference tracks:
 
@@ -515,7 +515,7 @@ POST /api/lidar/sweep/auto
 5. Run auto-tuning with `objective: "ground_truth"`
 6. Optimal parameters are automatically saved to the scene
 
-### Applying Results
+### Applying results
 
 After auto-tuning completes, the status response includes a `recommendation` object with the best parameter values. Apply them to the live system:
 
@@ -531,7 +531,7 @@ POST /api/lidar/params
 
 Only the parameters included in the request are updated; others retain their current values.
 
-### Checking Status
+### Checking status
 
 Poll sweep status during a run:
 
@@ -543,25 +543,25 @@ The response includes `round`, `total_rounds`, `completed_combos`, `total_combos
 
 ---
 
-## Parameter Interaction Guide
+## Parameter interaction guide
 
 This section documents known parameter interactions to help operators and AI agents make informed tuning decisions.
 
-### Parameters That Should Be Tuned Together
+### Parameters that should be tuned together
 
 - **`noise_relative` + `closeness_multiplier`**: Both control background sensitivity. Tuning one without the other can leave the overall sensitivity suboptimal. Always include both in a background tuning run.
 - **`hits_to_confirm` + `max_misses` + `max_misses_confirmed`**: These form the track lifecycle policy. Changing one shifts the fragmentation/false-positive balance; the others should be considered as a group.
 - **`process_noise_pos` + `process_noise_vel` + `measurement_noise`**: These are the Kalman filter noise parameters. They set the balance between trusting predictions vs observations. Tune as a group.
 - **`foreground_dbscan_eps` + `foreground_min_cluster_points`**: Both affect cluster formation. A small epsilon with a high min-points threshold will suppress most clusters.
 
-### Parameters to Hold Fixed During Initial Tuning
+### Parameters to hold fixed during initial tuning
 
 - **Warmup parameters** (`warmup_duration_nanos`, `warmup_min_frames`): Set these to known-good values before tuning other parameters. Changing warmup during a sweep makes results incomparable.
 - **Frame handling** (`buffer_timeout`, `flush_interval`, `background_flush`): These affect data collection, not tracking quality. Hold fixed.
 - **`seed_from_first`**: Choose true or false based on deployment type and hold fixed. Toggling per-combo adds confounding variation.
 - **`post_settle_update_fraction`**: Set to 0 for PCAP analysis (frozen background). Only tune for live operation.
 
-### Recommended Starting Ranges
+### Recommended starting ranges
 
 **Urban intersection (mixed traffic, moderate clutter):**
 
@@ -590,7 +590,7 @@ This section documents known parameter interactions to help operators and AI age
 - `hits_to_confirm`: 3–6
 - `max_misses_confirmed`: 5–20
 
-### Convergence Tips
+### Convergence tips
 
 - If all top K results cluster at one edge of the range, the optimal value may lie outside the initial bounds. Expand the range in that direction and re-run.
 - If scores plateau after round 2, the grid has likely converged. Additional rounds add precision but diminishing returns.
@@ -599,7 +599,7 @@ This section documents known parameter interactions to help operators and AI age
 
 ---
 
-## Adaptive Region Parameters
+## Adaptive region parameters
 
 After settling, the background grid automatically segments the sensor's field of view into regions based on variance characteristics. Each region receives scaled parameters:
 

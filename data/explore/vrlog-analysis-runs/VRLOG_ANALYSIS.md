@@ -1,4 +1,4 @@
-# VRLOG Analysis Report Specification
+# VRLOG analysis report specification
 
 ## Overview
 
@@ -19,7 +19,7 @@ designed to be:
 
 ---
 
-## File Convention
+## File convention
 
 ```
 <name>.vrlog/
@@ -36,7 +36,7 @@ and emits a `comparison.json` to stdout (or a specified path).
 
 ---
 
-## 1. Report Envelope
+## 1. Report envelope
 
 ```jsonc
 {
@@ -71,7 +71,7 @@ headings (`heading_rad`); fields suffixed `_deg` are in **degrees**.
 
 ---
 
-## 2. Recording Metadata
+## 2. Recording metadata
 
 Copied from `header.json` plus derived fields.
 
@@ -104,7 +104,7 @@ indicate faster-than-real-time replay; below 1.0 indicates slower. Omitted
 
 ---
 
-### Percentile and DistStats Policy
+### Percentile and distStats policy
 
 All `DistStats` blocks (§3, §4, §6) compute distribution statistics over a
 **population** of values — never over a single track's observations.
@@ -124,7 +124,7 @@ of observed vehicles. Per-track speed is described by `avg_speed_mps`,
 
 ---
 
-## 3. Frame Summary
+## 3. Frame summary
 
 Aggregate statistics across all frames in the recording.
 
@@ -156,7 +156,7 @@ Aggregate statistics across all frames in the recording.
 
 ---
 
-## 4. Track Summary
+## 4. Track summary
 
 Aggregate statistics across all confirmed tracks.
 
@@ -248,7 +248,7 @@ Aggregate statistics across all confirmed tracks.
 
 ---
 
-## 5. Per-Track Detail
+## 5. Per-Track detail
 
 One entry per track (all states). Sorted by `first_seen_ns` ascending.
 
@@ -299,7 +299,7 @@ One entry per track (all states). Sorted by `first_seen_ns` ascending.
 ]
 ```
 
-### Speed Samples
+### Speed samples
 
 The `speed_samples` array contains one Kalman-derived speed per observation frame.
 This enables:
@@ -320,7 +320,7 @@ for the governing design decision.
 
 ---
 
-## 6. Speed Histogram
+## 6. Speed histogram
 
 Aggregate speed distribution across all confirmed tracks, using each track's
 `max_speed_mps`. Bin width is configurable (default 1 m/s).
@@ -355,7 +355,7 @@ The headline metric — **p98** — requires at least 50 tracks to be emitted
 
 ---
 
-## 7. Classification Distribution
+## 7. Classification distribution
 
 Track counts and mean metrics per object class.
 
@@ -390,7 +390,7 @@ Track counts and mean metrics per object class.
 
 ---
 
-## 8. Comparison Report (Two-File)
+## 8. Comparison report (two-file)
 
 When `vrlog-analyse compare a.vrlog b.vrlog` is invoked, the tool reads both
 `analysis.json` files and produces a comparison document.
@@ -419,7 +419,7 @@ When `vrlog-analyse compare a.vrlog b.vrlog` is invoked, the tool reads both
 }
 ```
 
-### 8.2 Frame Overlap
+### 8.2 Frame overlap
 
 Temporal alignment between the two recordings.
 
@@ -434,7 +434,7 @@ Temporal alignment between the two recordings.
 }
 ```
 
-### 8.3 Track Matching
+### 8.3 Track matching
 
 Bipartite matching of tracks across recordings using the existing Hungarian
 algorithm and temporal IoU (threshold 0.3, matching
@@ -462,7 +462,7 @@ algorithm and temporal IoU (threshold 0.3, matching
 }
 ```
 
-### 8.4 Speed Delta
+### 8.4 Speed delta
 
 Per-matched-pair and aggregate speed comparison.
 
@@ -484,7 +484,7 @@ Per-matched-pair and aggregate speed comparison.
 }
 ```
 
-### 8.5 Quality Delta
+### 8.5 Quality delta
 
 Comparison of aggregate quality metrics from §4.
 
@@ -500,7 +500,7 @@ Negative delta = B is better (lower fragmentation).
 
 ---
 
-## 9. CLI Interface (Proposed)
+## 9. CLI interface (proposed)
 
 ```bash
 # Generate analysis report for a single .vrlog
@@ -523,7 +523,7 @@ vrlog-analyse report sample.vrlog --compact
 
 ---
 
-## 10. Relationship to Existing Infrastructure
+## 10. Relationship to existing infrastructure
 
 | Component                                                                          | Role                                            | Reuse                                |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
@@ -549,9 +549,9 @@ This means:
 
 ---
 
-## 11. Implementation Notes
+## 11. Implementation notes
 
-### Data Flow
+### Data flow
 
 ```
 .vrlog/frames/chunk_*.pb
@@ -569,13 +569,13 @@ This means:
   analysis.json
 ```
 
-### Confirmed Track Filter
+### Confirmed track filter
 
 Only tracks with `State == "confirmed"` contribute to §4 summary statistics,
 §6 speed histogram, and §7 classification distribution. All tracks (including
 tentative) appear in §5 per-track detail.
 
-### Speed Sample Extraction
+### Speed sample extraction
 
 Each frame's `TrackSet.Tracks` contains a `SpeedMps` field representing the
 instantaneous Kalman-derived speed. The analyser collects these into the
@@ -583,14 +583,14 @@ per-track `speed_samples` array. For the aggregate histogram (§6), each track
 contributes its `AvgSpeedMps` (mean of `speed_samples`), not individual frame
 readings.
 
-### Frame Matching for Comparison (Future)
+### Frame matching for comparison (future)
 
 The current comparator operates on precomputed `analysis.json` reports and does
 not perform frame-level matching. A future iteration may pair frames by nearest
 timestamp within a tolerance window, using the `index.bin` for O(1) timestamp
 lookup.
 
-### Spatial Distance (Future)
+### Spatial distance (future)
 
 `TrackMatchResult.SpatialDistance` is currently `0.0` in the ground truth
 evaluator. The analysis report computes a simple proxy: mean Euclidean distance
@@ -599,13 +599,13 @@ between interpolated track positions at shared timestamps. Full spatial IoU
 
 ---
 
-## 12. Future Phase — Additional Metrics
+## 12. Future phase — additional metrics
 
 Metrics are split into two tiers: **implemented** (now live in the report) and
 **future** (requiring new fields on `visualiser.Track` or upstream tracker
 changes).
 
-### 12.1 Implemented — Jitter, Alignment, and Histogram EMD
+### 12.1 Implemented — jitter, alignment, and histogram EMD
 
 These are computed from existing per-frame data and are now present in the
 report and comparison outputs.
@@ -622,7 +622,7 @@ report and comparison outputs.
 | `histogram_earth_mover_distance` | §8.4    | float64 | Wasserstein-1 distance between speed histograms            |
 | `per_pair`                       | §8.4    | array   | Per-matched-pair speed breakdown with both A and B speeds  |
 
-### 12.2 Implemented — Header Provenance Fields
+### 12.2 Implemented — header provenance fields
 
 These fields are stored in `LogHeader` at recording time and copied into §2
 recording metadata by the analyser.
@@ -638,7 +638,7 @@ recording metadata by the analyser.
 Note: `inferred_replay_speed` (in §2) provides a best-effort estimate from
 frame timing. `playback_rate` from the header is authoritative when present.
 
-### 12.3 Future — Requires Upstream Tracker Changes
+### 12.3 Future — requires upstream tracker changes
 
 These require new fields on `visualiser.Track` propagated from
 `l5tracks.TrackedObject` or additional per-frame computation.
@@ -654,7 +654,7 @@ These require new fields on `visualiser.Track` propagated from
 | split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
 | quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
 
-### 12.4 Future — PCAP Segment Identity
+### 12.4 Future — PCAP segment identity
 
 To verify that two `.vrlog` recordings were generated from exactly the same
 PCAP packet range (enabling high-integrity A/B comparison), store a
@@ -684,7 +684,7 @@ packets at recording time, which adds I/O overhead.
   `pcap.Reader` — capture first/last packet metadata and the file hash.
 - Comparison tool (§8) can auto-verify identity match before comparing.
 
-### 12.5 Future — Track Centroid Trajectory
+### 12.5 Future — track centroid trajectory
 
 To programmatically match tracks across recordings even when the tracker
 fragments observations into different track IDs, store the approximate

@@ -1,4 +1,4 @@
-# OBB Heading Stability Review
+# OBB heading stability review
 
 - **Status:** Implemented — Guard 3 (90° jump rejection) replaces canonical-axis normalisation. Fixes B, C, G applied. Fix D config-only. Fixes E/F skipped — superseded by geometry-coherent tracking (D-04).
 - **Scope:** L4 clustering OBB, L5 tracking heading smoothing, visualiser rendering
@@ -11,7 +11,7 @@
 
 ---
 
-## 1. Problem Statement
+## 1. Problem statement
 
 Tracked object bounding boxes **spin** visibly as vehicles move through the
 scene. The boxes should remain relatively stable (aligned to the object's
@@ -23,7 +23,7 @@ tentative). This needs clarification.
 
 ---
 
-## 2. Root Cause Analysis
+## 2. Root cause analysis
 
 Five interacting problems produce the spinning-box symptom.
 
@@ -147,7 +147,7 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ---
 
-## 3. Problematic Code Paths (Summary)
+## 3. Problematic code paths (summary)
 
 | Location                      | Issue                                                                | Status                                            |
 | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
@@ -163,7 +163,7 @@ renders all cluster boxes (ignoring association) would be valuable.
 
 ---
 
-## 4. Relationship to Math Proposals
+## 4. Relationship to math proposals
 
 ### 4.1 Clustering maths (clustering-maths.md §5.2)
 
@@ -211,9 +211,9 @@ contaminating foreground clusters), which would reduce PCA noise.
 
 ---
 
-## 5. Proposed Fixes
+## 5. Proposed fixes
 
-### Fix G: Heading-source debug rendering
+### Fix g: heading-source debug rendering
 
 **Problem:** Cannot determine which component is responsible for heading
 drift without additional diagnostic tooling.
@@ -235,7 +235,7 @@ Web API exposes `heading_source` field in `TrackResponse` JSON.
 **Impact:** Enables real-time visual diagnosis of which heading path is
 responsible for angular drift on any given track.
 
-### Fix B: Use cluster dimensions directly (addresses §2.3, §2.4)
+### Fix b: use cluster dimensions directly (addresses §2.3, §2.4)
 
 **Problem:** Per-frame OBB dimensions jitter, and EMA-smoothed dimensions
 can mix swapped axes when heading was locked due to PCA axis swaps.
@@ -267,7 +267,7 @@ anisotropic for elongated objects instead of converging towards a square.
 
 **Effort:** Small — localised change in tracker update.
 
-### Fix C: Improve low-speed heading disambiguation (addresses §2.1)
+### Fix c: improve low-speed heading disambiguation (addresses §2.1)
 
 **Problem:** Heading flip disambiguation only works above 0.5 m/s.
 
@@ -297,7 +297,7 @@ update).
 
 **Effort:** Small — localised change in tracker heading update block.
 
-### Fix D: Tighten aspect-ratio lock threshold (addresses §2.2)
+### Fix d: tighten aspect-ratio lock threshold (addresses §2.2)
 
 **Problem:** Threshold 0.25 permits near-square clusters to update heading.
 
@@ -313,7 +313,7 @@ than 15% of the longest dimension.
 vehicles viewed at angles where the cross-section appears near-square.
 Validate against replay data.
 
-### Fix E: Renderer uses per-frame (or smoothed) dimensions consistently (addresses §2.4)
+### Fix e: renderer uses per-frame (or smoothed) dimensions consistently (addresses §2.4)
 
 **Problem:** macOS renderer uses averaged dimensions; web renderer uses
 per-frame dimensions.
@@ -334,7 +334,7 @@ smoothing pipeline.
 
 **Effort:** Small — localised change in renderer.
 
-### Fix F: Debug mode for raw cluster OBB rendering (addresses §2.5)
+### Fix f: debug mode for raw cluster OBB rendering (addresses §2.5)
 
 **Problem:** Cannot visually inspect DBSCAN OBB quality because associated
 clusters are hidden.
@@ -355,7 +355,7 @@ before tracking smoothing is applied.
 
 ---
 
-## 6. Recommended Implementation Order
+## 6. Recommended implementation order
 
 1. **Guard 3** (90° heading jump rejection) — catches PCA axis swaps at the
    tracker level. Replaces Fix A (canonical-axis normalisation, reverted).
@@ -375,7 +375,7 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 
 ---
 
-## 7. Validation Approach
+## 7. Validation approach
 
 ### 7.1 Unit test additions
 
@@ -405,7 +405,7 @@ Fix D is config-only. Fixes E and F are skipped — superseded by geometry-coher
 
 ---
 
-## 8. Interaction with Existing Metrics
+## 8. Interaction with existing metrics
 
 The tracker already computes:
 
@@ -419,7 +419,7 @@ The tracker already computes:
 
 ---
 
-## 9. Open Questions
+## 9. Open questions
 
 1. What is the optimal aspect-ratio lock threshold (Fix D)? The current 0.25
    is likely too loose; 0.15 is proposed but should be validated against replay

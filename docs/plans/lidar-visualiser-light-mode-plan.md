@@ -1,4 +1,4 @@
-# Design: VelocityVisualiser Light Mode for 3D Scene Rendering
+# Design: VelocityVisualiser light mode for 3D scene rendering
 
 - **Status:** Proposed (February 2026)
 - **Canonical:** [light-mode.md](../ui/visualiser/light-mode.md)
@@ -11,7 +11,7 @@ Add a dedicated **Light Mode** for the macOS VelocityVisualiser 3D scene that fo
 - track trails,
 - 3D bounding boxes.
 
-## Why This Matters
+## Why this matters
 
 - Daylight and office use can make dark backgrounds harder to read.
 - Exported screenshots for reports often need a light visual style.
@@ -19,7 +19,7 @@ Add a dedicated **Light Mode** for the macOS VelocityVisualiser 3D scene that fo
 
 ## Scope
 
-### In Scope
+### In scope
 
 - Drive 3D scene appearance directly from macOS system dark/light mode (no in-app toggle in V1).
 - Define and implement a light-mode colour system for:
@@ -30,22 +30,22 @@ Add a dedicated **Light Mode** for the macOS VelocityVisualiser 3D scene that fo
 - Ensure trail/box selection and confidence emphasis remain visually distinct in both themes.
 - Document visual acceptance criteria and rollout checks.
 
-### Out of Scope
+### Out of scope
 
 - Full system-wide app theming rewrite outside the 3D scene.
 - New track semantics or classifier logic.
 - Changes to protobuf or backend transport.
 
-## Functional Design
+## Functional design
 
-### Theme Modes
+### Theme modes
 
 - `Dark` (existing behaviour when macOS is in Dark Appearance).
 - `Light` (new high-contrast light background profile when macOS is in Light Appearance).
 
 The visualiser does not expose an in-app appearance selector; it always follows system appearance.
 
-### 3D Rendering Style Targets (Light Mode)
+### 3D rendering style targets (light mode)
 
 - Background: near-white neutral (not pure white) to preserve depth cues.
 - Point cloud: slightly darker/saturated hues versus dark mode to avoid washout.
@@ -58,7 +58,7 @@ The visualiser does not expose an in-app appearance selector; it always follows 
   - selected box uses high-contrast accent,
   - label text and badge backgrounds remain AA-readable against light scene.
 
-## Colour System Proposal
+## Colour system proposal
 
 Define a dual-palette token set in Swift (example token names):
 
@@ -75,21 +75,21 @@ Define a dual-palette token set in Swift (example token names):
 
 Each token maps to values for `dark` and `light`, so render code references semantic tokens rather than hard-coded per-pass colours.
 
-## UX and Controls
+## UX and controls
 
 - No user-exposed appearance toggle in app UI.
 - Appearance is derived from system dark/light mode changes at runtime.
 - Optional future enhancement (post-V1): explicit override for review workflows if needed.
 
-## Implementation Plan
+## Implementation plan
 
-### Primary Files
+### Primary files
 
 - `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift`
 - `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
 - `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
 
-### Work Breakdown
+### Work breakdown
 
 1. Introduce appearance-mode binding to system dark/light state in `AppState`.
 2. Add semantic colour token model consumed by renderer passes.
@@ -97,7 +97,7 @@ Each token maps to values for `dark` and `light`, so render code references sema
 4. React to system appearance changes without requiring app restart.
 5. Validate readability and selection prominence in dense scenes.
 
-## Validation and Test Plan
+## Validation and test plan
 
 - Swift unit tests for system-appearance mapping and token selection.
 - Visual snapshot captures (dark vs light) for representative scenes:
@@ -110,7 +110,7 @@ Each token maps to values for `dark` and `light`, so render code references sema
   - no low-contrast text badges.
 - Performance check: system appearance transition should not materially impact frame time.
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - 3D viewport correctly follows macOS system dark/light appearance at runtime.
 - Point cloud, trails, and boxes remain readable in light mode.
@@ -118,7 +118,7 @@ Each token maps to values for `dark` and `light`, so render code references sema
 - No in-app appearance toggle is required for V1 behaviour.
 - No measurable regression in target FPS attributable to light mode.
 
-## Risks and Mitigations
+## Risks and mitigations
 
 - **Risk:** Colours that look good in isolation fail in dense scenes.
   - **Mitigation:** Validate against high-density recordings before merge.
@@ -127,12 +127,12 @@ Each token maps to values for `dark` and `light`, so render code references sema
 - **Risk:** Light background reduces depth cues.
   - **Mitigation:** tune grid/fog/axis contrast separately from object colours.
 
-## V1 Accessibility Requirement
+## V1 accessibility requirement
 
 - A colour-blind-safe palette variant (or equivalently validated colour set) is required for V1 sign-off for point cloud, trails, and boxes.
 - Validation should include simulation/review for common deficiencies (deuteranopia, protanopia, tritanopia) and manual readability checks in dense scenes.
 
-## Open Questions
+## Open questions
 
 - Should appearance be app-global or scoped to 3D scene only in V1?
 - Should screenshots/export pipeline auto-annotate theme metadata?

@@ -1,4 +1,4 @@
-# Tracking Upgrades
+# Tracking upgrades
 
 - **Status:** 6 of 9 upgrades implemented (February 2026)
 
@@ -20,7 +20,7 @@ This document proposes concrete improvements to the LiDAR tracking pipeline for 
 
 ---
 
-## Industry Standards Reference
+## Industry standards reference
 
 The tracking upgrades in this document are designed to align with the **7-DOF industry standard** for 3D bounding boxes:
 
@@ -34,9 +34,9 @@ The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `Boundi
 
 ---
 
-## 1. Current State
+## 1. Current state
 
-### 1.1 Existing Implementation
+### 1.1 Existing implementation
 
 | Component                 | File                                  | Key Functions/Types                                        |
 | ------------------------- | ------------------------------------- | ---------------------------------------------------------- |
@@ -47,7 +47,7 @@ The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `Boundi
 | **Pipeline**              | `internal/lidar/tracking_pipeline.go` | `TrackingPipelineConfig`, `NewFrameCallback()`             |
 | **Transform**             | `internal/lidar/transform.go`         | `SphericalToCartesian()`, `TransformToWorld()`             |
 
-### 1.2 Current Algorithm
+### 1.2 Current algorithm
 
 ```
 Raw Points (polar)
@@ -74,7 +74,7 @@ Kalman Update (constant velocity model)
 Lifecycle Management (tentative → confirmed → deleted)
 ```
 
-### 1.3 Known Limitations
+### 1.3 Known limitations
 
 | Issue                              | Impact                          | Cause                          |
 | ---------------------------------- | ------------------------------- | ------------------------------ |
@@ -86,9 +86,9 @@ Lifecycle Management (tentative → confirmed → deleted)
 
 ---
 
-## 2. Proposed Upgrades
+## 2. Proposed upgrades
 
-### 2.1 Ground/Background Removal
+### 2.1 Ground/Background removal
 
 **Current**: Polar-grid EMA model classifies points as foreground/background based on range deviation.
 
@@ -108,7 +108,7 @@ Lifecycle Management (tentative → confirmed → deleted)
 
 ---
 
-### 2.2 Clustering Improvements
+### 2.2 Clustering improvements
 
 **Current**: DBSCAN with fixed `eps=0.6m`, `minPts=12`.
 
@@ -130,13 +130,13 @@ For dense point clouds, connected components on voxel grid via flood fill may be
 
 ---
 
-### 2.3 Association Upgrades
+### 2.3 Association upgrades
 
 **Current**: Greedy nearest-neighbour with Mahalanobis gating.
 
 **Proposed**: Optimal assignment via Hungarian algorithm.
 
-#### 2.3.1 Hungarian (Jonker-Volgenant) algorithm
+#### 2.3.1 Hungarian (jonker-volgenant) algorithm
 
 Define an `Associator` interface in `internal/lidar/l5tracks/hungarian.go` with `Associate(tracks, clusters, dt) → []Assignment` where each `Assignment` carries track index, cluster index, and cost. Two implementations: `GreedyAssociator` (current nearest-neighbour) and `HungarianAssociator` (Kuhn-Munkres solver with max-cost rejection).
 
@@ -146,19 +146,19 @@ Define an `Associator` interface in `internal/lidar/l5tracks/hungarian.go` with 
 
 ---
 
-### 2.4 Filter Model Improvements
+### 2.4 Filter model improvements
 
 **Current**: Constant velocity (CV) Kalman filter, 4-state: `[x, y, vx, vy]`.
 
 **Proposed**: Options for enhanced models.
 
-#### 2.4.1 Constant Acceleration (CA) Model
+#### 2.4.1 Constant acceleration (CA) model
 
 6-state: `[x, y, vx, vy, ax, ay]`
 
 Better for accelerating/braking vehicles.
 
-#### 2.4.2 Interacting Multiple Model (IMM)
+#### 2.4.2 Interacting multiple model (IMM)
 
 Blend CV + CA based on motion likelihood.
 
@@ -170,7 +170,7 @@ Add a `MotionModel` string enum (`cv`, `ca`) to `TrackerConfig` in `internal/lid
 
 ---
 
-### 2.5 Lifecycle and Occlusion Handling
+### 2.5 Lifecycle and occlusion handling
 
 **Current**: Fixed `MaxMisses=3` before deletion. No occlusion awareness.
 
@@ -188,7 +188,7 @@ Detect when a track is likely occluded by casting a ray from sensor origin to ea
 
 ---
 
-### 2.6 OBB Estimation and Smoothing
+### 2.6 OBB estimation and smoothing
 
 **Current**: Only AABB (axis-aligned) bounding boxes. No heading estimation from shape.
 
@@ -206,7 +206,7 @@ EMA smoothing on OBB heading (α = 0.3) with circular wraparound (−π to π). 
 
 ---
 
-### 2.7 Classification Hooks
+### 2.7 Classification hooks
 
 **Current**: Rule-based classifier in `internal/lidar/classification.go` (pedestrian, car, bird, other).
 
@@ -225,7 +225,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 ---
 
-### 2.8 Debug Artifacts
+### 2.8 Debug artifacts
 
 **Current**: Limited debug logging via `Debugf()`.
 
@@ -235,7 +235,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 `DebugCollector` in `internal/lidar/debug/collector.go` accumulates per-frame debug artifacts: association candidates, gating ellipses, innovation residuals, and state predictions. Four recording methods (`RecordAssociation`, `RecordGating`, `RecordResidual`, `RecordPrediction`) plus `Emit()` to flush the frame.
 
-#### 2.8.2 Integration Points
+#### 2.8.2 Integration points
 
 | Location                                   | What to Record                            |
 | ------------------------------------------ | ----------------------------------------- |
@@ -248,7 +248,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 ---
 
-## 3. Mapping to API Outputs
+## 3. Mapping to API outputs
 
 | Upgrade        | New Proto Fields                            | Debug Overlays         |
 | -------------- | ------------------------------------------- | ---------------------- |
@@ -262,7 +262,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 ---
 
-## 4. Implementation Priority
+## 4. Implementation priority
 
 | Priority | Upgrade                           | Effort | Impact                        |
 | -------- | --------------------------------- | ------ | ----------------------------- |
@@ -278,13 +278,13 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 ---
 
-## 5. Testing Strategy
+## 5. Testing strategy
 
-### 5.1 Unit Tests
+### 5.1 Unit tests
 
 Each upgrade includes unit tests for the new function.
 
-### 5.2 Golden Replay Tests
+### 5.2 Golden replay tests
 
 - Record baseline tracks with current algorithm
 - After upgrade, compare:
@@ -292,7 +292,7 @@ Each upgrade includes unit tests for the new function.
   - Track duration (should be similar or improved)
   - ID stability (no regressions)
 
-### 5.3 Visual Validation
+### 5.3 Visual validation
 
 - Render before/after in visualiser
 - Check for improvements in:
@@ -302,7 +302,7 @@ Each upgrade includes unit tests for the new function.
 
 ---
 
-## 6. Related Documents
+## 6. Related documents
 
 - [architecture.md](../../ui/visualiser/architecture.md) – Architecture and problem statement
 - [api-contracts.md](../../ui/visualiser/api-contracts.md) – API contract

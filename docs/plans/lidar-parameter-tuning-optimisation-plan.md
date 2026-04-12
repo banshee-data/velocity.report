@@ -1,4 +1,4 @@
-# LiDAR Parameter Tuning & Optimisation
+# LiDAR parameter tuning & optimisation
 
 - **Status:** Planned
 - **Canonical:** [auto-tuning.md](../lidar/operations/auto-tuning.md)
@@ -11,7 +11,7 @@ Systematically explore parameter space to optimise track quality metrics. This
 is Phase 4.2 of the LiDAR metrics-first data science workstream, targeting the
 v2.0 milestone.
 
-## Related Documents
+## Related documents
 
 - [Backlog](../BACKLOG.md) — milestone placement (v2.0)
 - [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md) — provides run comparison and quality metrics
@@ -29,7 +29,7 @@ v2.0 milestone.
 
 ---
 
-## Tuning Workflow
+## Tuning workflow
 
 1. Define parameter grid
 2. For each parameter combination:
@@ -40,7 +40,7 @@ v2.0 milestone.
 3. Analyse results to find optimal parameters
 4. Validate on held-out PCAPs
 
-## Optimisation Objective
+## Optimisation objective
 
 Maximise confirmed tracks while minimising splits, merges, and noise:
 
@@ -54,7 +54,7 @@ objective = w1 × confirmed_tracks
 
 Default weights: w1 = 1.0, w2 = 5.0, w3 = 5.0, w4 = 2.0, w5 = 0.1.
 
-## Quality Metrics
+## Quality metrics
 
 - Track count (total and confirmed)
 - Split/merge count
@@ -63,7 +63,7 @@ Default weights: w1 = 1.0, w2 = 5.0, w3 = 5.0, w4 = 2.0, w5 = 0.1.
 - Average observations per track
 - Classification accuracy (when labels available)
 
-## Interactive Tuning UI
+## Interactive tuning UI
 
 Web-based (SvelteKit) interface with parameter sliders, live preview, run
 comparison visualisation, quality metric charts, and parameter recommendation.

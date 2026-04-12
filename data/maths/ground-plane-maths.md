@@ -1,4 +1,4 @@
-# Ground Plane Maths
+# Ground plane maths
 
 - **Status:** Implementation-aligned math note
 - **Layers:** L4 Perception
@@ -13,7 +13,7 @@ Current runtime path:
 - `internal/lidar/pipeline/tracking_pipeline.go`
 - `internal/lidar/l4perception/ground.go`
 
-## Implemented Model
+## Implemented model
 
 The production pipeline uses a vertical height-band filter in world/sensor frame coordinates:
 
@@ -23,19 +23,19 @@ The production pipeline uses a vertical height-band filter in world/sensor frame
 
 Default behaviour is provided by `DefaultHeightBandFilter()`; overrides are wired through pipeline config (`HeightBandFloor`, `HeightBandCeiling`, `RemoveGround`).
 
-## Runtime Characteristics
+## Runtime characteristics
 
 1. O(N) per frame with constant-time point checks.
 2. Deterministic and low-latency.
 3. No plane-fit state, no temporal estimator, no tile settlement.
 
-## Limits (Known)
+## Limits (known)
 
 1. Height-band filtering is not slope-aware.
 2. It does not model local plane orientation or curvature.
 3. It cannot express region priors (lanes, kerbs, structures).
 
-## Proposal Boundary
+## Proposal boundary
 
 Advanced tile-plane/vector-scene maths (region selection, confidence settlement, curvature and global-surface priors) is separated into proposal material:
 

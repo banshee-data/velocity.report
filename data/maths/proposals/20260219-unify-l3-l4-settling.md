@@ -1,10 +1,10 @@
-# Proposal: Unify L3/L4 Settling
+# Proposal: unify L3/L4 settling
 
 - **Status:** Proposal
 - **Scope:** L3 background settling + L4 ground-surface settling harmonisation
 - **Related:** [`data/maths/background-grid-settling-maths.md`](../background-grid-settling-maths.md), [`data/maths/ground-plane-maths.md`](../ground-plane-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../../docs/lidar/architecture/vector-scene-map.md)
 
-## 1. Problem Statement
+## 1. Problem statement
 
 Today, L3 and proposed L4 both perform settling-like behaviour:
 
@@ -13,7 +13,7 @@ Today, L3 and proposed L4 both perform settling-like behaviour:
 
 Running them independently creates duplicated work and inconsistent readiness states.
 
-## 2. Overlap and Duplication
+## 2. Overlap and duplication
 
 ## 2.1 Shared concerns implemented twice
 
@@ -33,7 +33,7 @@ Running them independently creates duplicated work and inconsistent readiness st
 4. **Config coupling drift**
    - Different thresholds in different stages can fight each other and produce brittle tuning.
 
-## 3. Interference Assessment
+## 3. Interference assessment
 
 - **Data-path interference:** High (same observations influence both models).
 - **Behavioral interference:** High (foreground gating changes L4 input quality directly).
@@ -50,7 +50,7 @@ Interpretation:
 2. L3 and L4 keep separate model outputs, but consume shared confidence state.
 3. L4 geometric validity remains distinct (cannot be replaced by L3 range stability), but it should not run an independent warmup policy.
 
-## 5. Unified Architecture
+## 5. Unified architecture
 
 Introduce a shared `SettlementCore` per **surface region key**, not only per
 polar cell.
@@ -87,7 +87,7 @@ Per key maintain:
 
 Both L3 and L4 subscribe to the same transition events.
 
-## 6. Proposed Data Flow
+## 6. Proposed data flow
 
 1. Ingest point.
 2. Update L3 baseline stats (range mean/spread/confidence).
@@ -100,7 +100,7 @@ Both L3 and L4 subscribe to the same transition events.
    - L3 foreground/background decision.
    - L4 ground-surface readiness and confidence.
 
-## 7. Configuration Simplification
+## 7. Configuration simplification
 
 Unify stage-control parameters:
 
@@ -135,7 +135,7 @@ With current schema (`config/tuning.defaults.json`), merged settling should map:
 
 No second L4-only warmup timer should remain after merge.
 
-## 8. Consistency Check Against Ground-Plane + Vector-Scene Planning
+## 8. Consistency check against ground-plane + vector-scene planning
 
 ### 8.1 What is already consistent
 
@@ -164,7 +164,7 @@ No second L4-only warmup timer should remain after merge.
    - `READY_GROUND_GEOM` for height queries,
    - `READY_STRUCTURE` / `READY_VOLUME` for vector-scene context.
 
-## 9. Migration Plan
+## 9. Migration plan
 
 1. **Phase A (No behaviour change):**
    Add shared `SettlementCore` telemetry in parallel with existing logic.
@@ -175,7 +175,7 @@ No second L4-only warmup timer should remain after merge.
 4. **Phase D (Cleanup):**
    Remove duplicated settling timers/counters from L4 path.
 
-## 10. Risks and Mitigations
+## 10. Risks and mitigations
 
 1. **Risk:** Over-coupling L4 to L3 mistakes.
    - **Mitigation:** Keep raw-point shadow path and cap L3 influence by weight, not hard gate.
@@ -184,7 +184,7 @@ No second L4-only warmup timer should remain after merge.
 3. **Risk:** Tuning churn during migration.
    - **Mitigation:** staged rollout with compatibility mode and comparative diagnostics.
 
-## 11. Decision Summary
+## 11. Decision summary
 
 - Do not run two independent settling lifecycles.
 - Keep two model outputs (range baseline vs geometry).

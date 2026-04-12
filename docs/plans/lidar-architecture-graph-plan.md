@@ -1,4 +1,4 @@
-# LiDAR Architecture Graph Plan
+# LiDAR architecture graph plan
 
 - **Status:** Active
 - **Layers:** All (L1–L10)
@@ -25,7 +25,7 @@ Generate and maintain a DOT graph of the LiDAR package dependency structure unde
 - [ ] `make lint-docs` or equivalent target verifies graph freshness
 - [ ] CI runs the verification target
 
-## Design Notes
+## Design notes
 
 - Use `go list -json ./internal/lidar/...` to extract the import graph; no manual maintenance.
 - Filter to `internal/lidar/*` imports only; exclude stdlib and external modules.

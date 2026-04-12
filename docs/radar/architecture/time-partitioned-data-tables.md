@@ -1,4 +1,4 @@
-# Time-Partitioned Raw Data Tables
+# Time-Partitioned raw data tables
 
 - **Status:** Draft
 
@@ -34,7 +34,7 @@ This design incorporates security fixes for critical vulnerabilities identified 
 
 ---
 
-## Security Considerations
+## Security considerations
 
 This design implements defence-in-depth measures against four identified vulnerabilities. Mitigations are described inline in the Rotation, ATTACH, and USB sections.
 
@@ -51,9 +51,9 @@ This design implements defence-in-depth measures against four identified vulnera
 
 ---
 
-## Problem Statement
+## Problem statement
 
-### Current Challenge
+### Current challenge
 
 velocity.report deployments on Raspberry Pi 4 devices continuously collect sensor data 24/7. With current storage efficiency (~1MB per 10,000 readings), a busy deployment can generate:
 
@@ -69,7 +69,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 4. **Data Retention:** No easy way to implement retention policies (e.g., keep only last 6 months of raw data)
 5. **Recovery Risk:** Corruption affects entire dataset rather than isolated time periods
 
-### User Impact
+### User impact
 
 **Deployment Failures:**
 
@@ -90,9 +90,9 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 
 ---
 
-## Current State Analysis
+## Current state analysis
 
-### Database Schema
+### Database schema
 
 **Main Database:** `/var/lib/velocity-report/sensor_data.db`
 
@@ -113,7 +113,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 - `site_reports` - Generated report metadata
 - `radar_commands` / `radar_command_log` - Command history
 
-### Data Characteristics
+### Data characteristics
 
 **High-Volume Raw Data:**
 
@@ -129,7 +129,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 - Frequently joined with raw data queries
 - Cross-cutting concern (applies to all time periods)
 
-### Storage Patterns
+### Storage patterns
 
 **Current Architecture:**
 
@@ -152,9 +152,9 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 
 ---
 
-## Proposed Architecture
+## Proposed architecture
 
-### Time-Based Partitioning Strategy
+### Time-Based partitioning strategy
 
 **Partition Scheme:** Monthly or quarterly time-based partitions for raw data tables.
 
@@ -175,7 +175,7 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │   └── ...
 ```
 
-### Architecture Diagram
+### Architecture diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -238,7 +238,7 @@ Storage Layout:
     └── ...
 ```
 
-### Key Design Decisions
+### Key design decisions
 
 **1. Separate Config from Data**
 
@@ -277,9 +277,9 @@ Once rotated, partitions become read-only:
 
 ---
 
-## Detailed Design
+## Detailed design
 
-### Partition Lifecycle
+### Partition lifecycle
 
 **Phase 1: Active Partition (Main Database)**
 
@@ -308,7 +308,7 @@ SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?;
 -- SQLite query planner handles partition selection based on timestamps
 ```
 
-### Schema Consistency
+### Schema consistency
 
 **Each Partition Database Contains:**
 
@@ -335,7 +335,7 @@ CREATE TABLE site (...);
 CREATE TABLE site_reports (...);
 ```
 
-### Union Views for Queries
+### Union views for queries
 
 **Automatically Generated Views:**
 
@@ -365,7 +365,7 @@ WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
 -- Only queries partitions containing Jan 2024 data
 ```
 
-### Rotation Process Details
+### Rotation process details
 
 > **Source:** `RotatePartitions()` and `AcquireRotationLock()` — implementation in `internal/db/partitions/` (when implemented)
 
@@ -386,7 +386,7 @@ On failure at any step, the partial partition file is deleted and data remains i
 
 **Transaction safety:** Rotation is atomic — either all data is copied and deleted, or nothing changes. WAL mode allows reads during rotation. Writes are locked only during the DELETE phase.
 
-### ATTACH DATABASE Management
+### ATTACH DATABASE management
 
 > **Source:** `AttachPartitions()`, `ValidatePartitionPath()`, `ValidateAlias()` — implementation in `internal/db/partitions/` (when implemented)
 
@@ -408,13 +408,13 @@ On failure at any step, the partial partition file is deleted and data remains i
 
 ---
 
-## API Management for Partition Control
+## API management for partition control
 
 HTTP endpoints for managing attached database partitions. All partition management requires admin role. The main database (write partition) can never be detached. Operations respect the SQLite `SQLITE_MAX_ATTACHED` limit.
 
 > **Source:** Implementation in `internal/api/partitions/` (when implemented)
 
-### Partition Endpoints
+### Partition endpoints
 
 | Endpoint                           | Method | Purpose                                     | Key Parameters                                 |
 | ---------------------------------- | ------ | ------------------------------------------- | ---------------------------------------------- |
@@ -466,7 +466,7 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 }
 ```
 
-### Partition Workflows
+### Partition workflows
 
 **Query historical data beyond connection limit:** Detach a low-priority partition (`POST /api/partitions/detach`), attach the needed one (`POST /api/partitions/attach`), run the query, optionally detach when done.
 
@@ -474,7 +474,7 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 
 **Pre-rotation safety check:** `GET /api/partitions/buffers` returns `safe_to_rotate`, `pending_writes`, and `active_transactions`. Rotation cron job checks this before proceeding.
 
-### Security Notes
+### Security notes
 
 - All partition management endpoints require admin authentication
 - All attach/detach/consolidate operations logged to `system_events` table
@@ -482,13 +482,13 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 
 ---
 
-## USB Storage Management and Growth Projection
+## USB storage management and growth projection
 
 Tiered storage support: USB drives for cold archives, growth projection, and capacity alerts.
 
 > **Source:** USB mount/unmount/verify functions — implementation in `internal/db/partitions/` (when implemented)
 
-### USB Storage Endpoints
+### USB storage endpoints
 
 | Endpoint                        | Method | Purpose                                  | Key Parameters                                      |
 | ------------------------------- | ------ | ---------------------------------------- | --------------------------------------------------- |
@@ -498,7 +498,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 | `/api/storage/growth`           | GET    | Growth projection and disk-full estimate | `lookback_days`                                     |
 | `/api/storage/alerts/configure` | POST   | Set threshold alerts                     | `sd_card_percent`, `usb_percent`, `days_until_full` |
 
-### USB Mount Security (CVE-2025-VR-006)
+### USB mount security (CVE-2025-VR-006)
 
 **Mount algorithm:** Verify device is USB (reject system disks `/dev/sda`, `/dev/mmcblk0`; check sysfs `/usb` path). Detect filesystem (whitelist: ext4, ext3 only). Validate mount point (no path traversal). Mount with secure options: `nosuid,nodev,noexec,noatime,ro`.
 
@@ -515,13 +515,13 @@ Type=ext4
 Options=nosuid,nodev,noexec,noatime,ro
 ```
 
-### Growth Projection
+### Growth projection
 
 **Algorithm:** Query daily data volume over the lookback period, run linear regression for trend, calculate daily/monthly/yearly growth rates with R² confidence. Project disk-full date per storage tier, accounting for tiered storage policy (SD card capped at 3 months of active data).
 
 **Storage tiers:** SD card (active + recent, alert at 80%), USB HDD (cold archives, alert at 90%). Configurable alert thresholds with notification support.
 
-### USB Storage Workflows
+### USB storage workflows
 
 **Setup USB cold storage:** Detect device (`GET /api/storage/usb/devices`) → mount (`POST /api/storage/usb/mount`) → verify and configure cold storage tier → move old partitions.
 
@@ -533,7 +533,7 @@ Options=nosuid,nodev,noexec,noatime,ro
 
 ---
 
-## Phased Implementation Plan
+## Phased implementation plan
 
 | Phase | Scope                | Weeks | Key Deliverables                                                                                                   |
 | ----- | -------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
@@ -549,7 +549,7 @@ Options=nosuid,nodev,noexec,noatime,ro
 
 ---
 
-## Pros and Cons
+## Pros and cons
 
 ### Advantages
 
@@ -623,7 +623,7 @@ Options=nosuid,nodev,noexec,noatime,ro
 
 ---
 
-## Alternative Approaches
+## Alternative approaches
 
 Five alternatives were evaluated against the proposed SQLite partition approach:
 
@@ -637,7 +637,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 
 **Alternative 5: Hybrid hot/cold storage** — Partitions for recent data, compressed/alternative formats for old data. Most flexible but most complex. **Verdict: possible future enhancement** — start with uniform partitioning, add cold storage later.
 
-### Comparison Matrix
+### Comparison matrix
 
 | Approach                         | Complexity | Data Retention | Query Performance        | Storage Efficiency | Recommendation  |
 | -------------------------------- | ---------- | -------------- | ------------------------ | ------------------ | --------------- |
@@ -650,9 +650,9 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 
 ---
 
-## Storage Management
+## Storage management
 
-### Mount Points and Disk Layout
+### Mount points and disk layout
 
 ```
 /var/lib/velocity-report/         (Fast storage: SD card or SSD)
@@ -669,7 +669,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 
 **Storage tiers:** Active (SD card, current month, fastest writes) → Recent (SD card, last 3 months, frequently queried) → Cold (USB HDD/NFS, >3 months, optional gzip compression at ~80% reduction).
 
-### Disk Space Quotas
+### Disk space quotas
 
 | Policy                | Value     | Purpose                       |
 | --------------------- | --------- | ----------------------------- |
@@ -679,7 +679,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 | Delete after          | 36 months | Enforced retention policy     |
 | Compress after        | 6 months  | gzip ~80% size reduction      |
 
-### Storage Growth (Raspberry Pi 4, 64GB SD)
+### Storage growth (Raspberry Pi 4, 64GB SD)
 
 | Month | Active DB | Recent (SD) | Cold (USB) | SD Usage    |
 | ----- | --------- | ----------- | ---------- | ----------- |
@@ -694,29 +694,29 @@ SD card usage stabilises at ~22 GB with tiered storage. System/OS uses ~10 GB, l
 
 Partitions older than 6 months are gzip-compressed (~80% reduction). Compressed partitions (`*.db.gz`) must be decompressed to a temporary location before querying (lazy decompression — decompress on demand, clean up after query). Trade-off: slower access to old data, significant storage savings.
 
-### systemd Mount Units
+### systemd mount units
 
 Archives directory can be a systemd mount pointing to a USB HDD. If the mount is unavailable at startup, the service falls back to local storage with a warning.
 
 ---
 
-## Migration Path
+## Migration path
 
-### Phase 1: Pre-migration (development)
+### Phase 1: pre-migration (development)
 
 Validate partitioning with test data: implement rotation, test with synthetic months, benchmark single-file vs partitioned, test failure scenarios.
 
-### Phase 2: Opt-in partitioning (existing deployments)
+### Phase 2: opt-in partitioning (existing deployments)
 
 Add `--enable-partitioning` flag (default: disabled). On first run: analyse data for partition boundaries, offer backfill or start fresh. Backward compatible — disable flag returns to single-file behaviour; union views continue working.
 
-### Phase 3: Historical backfill (optional)
+### Phase 3: historical backfill (optional)
 
 > **Source:** `BackfillPartitions()` — implementation in `internal/db/partitions/` (when implemented)
 
 User chooses: (A) backfill historical data into partitions (slow, enables full partitioning), or (B) start fresh, keep historical data in main DB (fast, mixed mode).
 
-### Phase 4: New deployments (default enabled)
+### Phase 4: new deployments (default enabled)
 
 `--enable-partitioning` becomes default. Initial schema creates empty archives directory. First rotation on 2nd of second month.
 
@@ -728,9 +728,9 @@ Disable partitioning: `velocity-report --disable-partitioning`. Union views rema
 
 ---
 
-## Performance Implications
+## Performance implications
 
-### Write Performance
+### Write performance
 
 **Single-File (Current):**
 
@@ -753,7 +753,7 @@ Disable partitioning: `velocity-report --disable-partitioning`. Union views rema
 
 **Conclusion:** Partitioning maintains consistent write performance.
 
-### Query Performance
+### Query performance
 
 **Scenario 1: Single-Month Query (Most Common)**
 
@@ -814,7 +814,7 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 - **Current:** Large working set, frequent cache misses
 - **Partitioned:** Small active working set, better cache hit rate
 
-### Rotation Overhead
+### Rotation overhead
 
 **Rotation Process Duration:**
 
@@ -829,9 +829,9 @@ WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
 
 ---
 
-## Operational Considerations
+## Operational considerations
 
-### Monitoring and Alerting
+### Monitoring and alerting
 
 | Metric               | Alert Threshold                                | Action                  |
 | -------------------- | ---------------------------------------------- | ----------------------- |
@@ -854,7 +854,7 @@ Last Rotation:    2025-03-02 00:00:15 UTC  ✅ Success
 Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 ```
 
-### Backup Strategy
+### Backup strategy
 
 > **Source:** Reference backup script in `scripts/backup/` (when implemented)
 
@@ -870,9 +870,9 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ---
 
-## Success Metrics
+## Success metrics
 
-### Technical Metrics
+### Technical metrics
 
 **Performance:**
 
@@ -892,7 +892,7 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 - ✅ SD card usage ≤35% for 12-month deployment
 - ✅ Compression ratio ≥70% for archived partitions
 
-### Operational Metrics
+### Operational metrics
 
 **Usability:**
 
@@ -906,7 +906,7 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 - ✅ Automated monitoring alerts
 - ✅ Documented rollback procedure
 
-### User Satisfaction
+### User satisfaction
 
 **Feedback Targets:**
 
@@ -916,7 +916,7 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ---
 
-## Design Decisions (Resolved)
+## Design decisions (resolved)
 
 | Decision                  | Resolution                                                                         |
 | ------------------------- | ---------------------------------------------------------------------------------- |
@@ -931,38 +931,38 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 | Backup                    | Provide reference scripts in `scripts/backup/`                                     |
 | Cloud storage             | Out of scope — local-first principle; backup to USB only                           |
 
-## Open Questions
+## Open questions
 
 No open questions remain. All design, implementation, and operational questions were resolved during review — see the Design Decisions table above.
 
 ## References
 
-### SQLite Documentation
+### SQLite documentation
 
 - [ATTACH DATABASE](https://www.sqlite.org/lang_attach.html)
 - [Limits: Maximum Number of Attached Databases](https://www.sqlite.org/limits.html#max_attached)
 - [Write-Ahead Logging (WAL)](https://www.sqlite.org/wal.html)
 - [Query Planning and Optimisation](https://www.sqlite.org/queryplanner.html)
 
-### Partitioning Patterns
+### Partitioning patterns
 
 - [Time-Series Partitioning Best Practices](<https://en.wikipedia.org/wiki/Partition_(database)>)
 - [SQLite Performance Tuning](https://www.sqlite.org/speed.html)
 
-### Related velocity.report Documentation
+### Related velocity.report documentation
 
 - [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview
 - [README.md](../../../README.md) - Project overview
 - [`internal/db/schema.sql`](../../../internal/db/schema.sql) - Current database schema
 
-### Future Reading
+### Future reading
 
 - Multi-device support design (planned, doc not written yet)
 - Data retention policy document (planned, doc not written yet)
 
 ---
 
-## Revision History
+## Revision history
 
 | Version | Date       | Author  | Changes                      |
 | ------- | ---------- | ------- | ---------------------------- |
@@ -970,9 +970,9 @@ No open questions remain. All design, implementation, and operational questions 
 
 ---
 
-## Appendix A: Example Queries
+## Appendix a: example queries
 
-### Query Current Month Data
+### Query current month data
 
 ```sql
 -- Fast: Only touches active partition
@@ -980,7 +980,7 @@ SELECT * FROM radar_data_all
 WHERE write_timestamp BETWEEN UNIXEPOCH('now', 'start of month') AND UNIXEPOCH('now');
 ```
 
-### Query Last 3 Months
+### Query last 3 months
 
 ```sql
 -- Moderate: Touches 3 partitions
@@ -989,7 +989,7 @@ WHERE write_timestamp BETWEEN UNIXEPOCH('now', '-3 months') AND UNIXEPOCH('now')
 ORDER BY write_timestamp DESC;
 ```
 
-### Query Specific Month (Historical)
+### Query specific month (historical)
 
 ```sql
 -- Fast: Only touches one archived partition
@@ -998,7 +998,7 @@ WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0  -- Jan 2024
 ORDER BY write_timestamp;
 ```
 
-### Aggregation Across All Time
+### Aggregation across all time
 
 ```sql
 -- Slower: Touches all partitions, but still reasonable

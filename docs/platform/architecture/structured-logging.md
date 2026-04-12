@@ -1,4 +1,4 @@
-# Structured Logging
+# Structured logging
 
 Three-stream logging model for the Go codebase: `ops`, `diag`, `trace`.
 
@@ -17,7 +17,7 @@ no structured key-value pairs. On a Raspberry Pi running as a systemd service, o
 `journalctl` to diagnose problems. Unstructured, unlevel, mixed-destination logs make
 diagnosis slower than it needs to be.
 
-## Three-Stream Model
+## Three-Stream model
 
 The LiDAR pipeline established the target model with `Opsf`/`Diagf`/`Tracef`. This plan
 extends that model to the entire Go codebase.
@@ -28,7 +28,7 @@ extends that model to the entire Go codebase.
 | `diag`  | Day-to-day diagnostics for troubleshooting and tuning       | Medium | Medium    |
 | `trace` | High-frequency packet/frame telemetry and loop-level detail | High   | Shortest  |
 
-### Routing Rubric
+### Routing rubric
 
 1. If it indicates operator action, failure, or data-loss risk → **ops**.
 2. Else if it is expected at packet/frame loop frequency → **trace**.
@@ -37,9 +37,9 @@ extends that model to the entire Go codebase.
 Most non-LiDAR code produces `ops` and `diag` messages; `trace` is rare outside the
 pipeline.
 
-## Design Principles
+## Design principles
 
-### No Fourth Pattern
+### No fourth pattern
 
 The migration replaces `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls with the
 appropriate stream function. It does not introduce a new logging framework or layer
@@ -49,7 +49,7 @@ Structured logging (JSON fields, correlation IDs, external log pipeline integrat
 out of scope. If needed later, it can be layered on top of the three-stream model without
 changing call sites.
 
-### One Configuration Surface
+### One configuration surface
 
 Two runtime controls, set once at startup in `cmd/radar/radar.go`:
 
@@ -66,9 +66,9 @@ Behaviour:
 
 `VELOCITY_DEBUG_LOG=/tmp/debug.log --log-level diag` routes diag to file, ops to stdout.
 
-## Migration Scope
+## Migration scope
 
-### Package-level Stream Assignment
+### Package-level stream assignment
 
 | Package       | Current pattern             | Count | Target stream  |
 | ------------- | --------------------------- | ----- | -------------- |
@@ -79,7 +79,7 @@ Behaviour:
 | `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
 | `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
-### Stream API Location
+### Stream API location
 
 The `Opsf`/`Diagf`/`Tracef` functions must be accessible to non-LiDAR packages.
 Options:
@@ -87,7 +87,7 @@ Options:
 - Promote to a shared package (e.g. `internal/logstreams/`)
 - Re-export from `internal/monitoring/`
 
-### Existing Design Reference
+### Existing design reference
 
 The LiDAR logging stream split and rubric is the source model:
 [lidar-logging-stream-split-and-rubric-design.md](../../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
@@ -95,7 +95,7 @@ The LiDAR logging stream split and rubric is the source model:
 That migration is complete for the LiDAR packages (55 call sites across `l1packets`,
 `l2frames`, `l3grid`, `pipeline`, `visualiser`).
 
-## What This Does Not Cover
+## What this does not cover
 
 - Structured logging (JSON fields, correlation IDs, external log pipelines)
 - LiDAR package logging (already migrated per the rubric design)

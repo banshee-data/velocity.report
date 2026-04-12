@@ -1,11 +1,11 @@
-# LiDAR L8 Analytics / L9 Endpoints / L10 Clients Refactor Plan
+# LiDAR L8 analytics / L9 endpoints / L10 clients refactor plan
 
 - **Status:** Revised implementation plan - reviewed against repository state and backlog on 2026-03-12
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients
 - **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema standardisation 000030–000031](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
 - **Canonical:** [l8-l9-l10-migration-notes.md](../lidar/architecture/l8-l9-l10-migration-notes.md)
 
-## Executive Summary
+## Executive summary
 
 velocity.report still documents and mostly implements a six-layer LiDAR stack ending at `L6 Objects`, but the code already contains partial `L8` analytics and partial `L9` endpoint shaping under the wrong owners. The earlier draft plan described the right destination but split the work into too many phases and pulled the `visualiser/` rename too early.
 
@@ -17,7 +17,7 @@ This revision collapses the work into three delivery phases with explicit subpha
 
 The dependency order is deliberate: `L8` must exist before storage and handlers can delegate to it, and that migration must be largely complete before the `visualiser/` to `l9endpoints/` rename and `monitor/` package split. The one explicit transitional exception is the legacy embedded ECharts dashboard surface: its HTML, JS, and CSS assets should move into an asset-only `l10clients/` subtree under `internal/lidar/l9endpoints/` in Phase 3, because those files are clients and are slated for removal once the consolidated frontend replaces them. The subtree must contain no Go code; embedding stays in `l9endpoints/`.
 
-## Review Conclusions
+## Review conclusions
 
 - The previous six-phase plan plus `Phase 4.5/5.5/6.5/7` tail was harder to schedule than to execute. The work naturally groups into three deliveries.
 - The previous draft understated the `internal/lidar/visualiser/` rename blast radius. It affects `cmd/radar`, `cmd/tools/visualiser-server`, `cmd/tools/gen-vrlog`, `internal/lidar/analysis`, generated `pb` code, recorder imports, and multiple docs.
@@ -26,7 +26,7 @@ The dependency order is deliberate: `L8` must exist before storage and handlers 
 - The embedded ECharts sweep/dashboard HTML and JS are better treated as deprecated `L10` clients than as `L9` endpoint code. They need a temporary asset-only `l10clients/` home under `l9endpoints/` until frontend consolidation deletes them.
 - Adjacent backlog items around speed metrics, migration 030, and visualiser proto follow-through must be coordinated, but they are not reasons to keep this refactor fragmented.
 
-## Backlog Alignment
+## Backlog alignment
 
 This plan now directly absorbs the two backlog items currently attached to it:
 
@@ -45,7 +45,7 @@ Adjacent backlog items that influence sequencing but remain separate deliverable
 | `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
 | `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                 | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
 
-## Repository Baseline
+## Repository baseline
 
 ### Canonical LiDAR package tree today
 
@@ -111,7 +111,7 @@ The six-layer model is still described in multiple places, including:
 - `docs/lidar/terminology.md`
 - `internal/lidar/l1packets/doc.go` through `internal/lidar/l6objects/doc.go`
 
-## Target Ten-Layer Model
+## Target ten-layer model
 
 | Layer | Label      | Responsibility                                                                                                                                                                                                              |
 | ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,7 +126,7 @@ The six-layer model is still described in multiple places, including:
 | L9    | Endpoints  | server-side payload shaping, gRPC stream contract, dashboard APIs, debug views, review payloads                                                                                                                             |
 | L10   | Clients    | browser, native, and report-generation consumers of `L9` contracts; during the transition, deprecated embedded dashboards may live under `internal/lidar/l9endpoints/l10clients/` until frontend consolidation removes them |
 
-## Design Rules
+## Design rules
 
 - `L(n)` may depend only on `L(n-1)` and below.
 - `L8 Analytics` may depend on `L1-L7`, but never on HTML, Svelte, Swift, chart libraries, or transport-layer response types.
@@ -137,9 +137,9 @@ The six-layer model is still described in multiple places, including:
 - `monitor/` is transitional application code in the current tree, not a canonical domain layer.
 - If a value is needed by web, Swift, or PDF consumers, the default answer is: compute it in `L8`, expose it in `L9`, render it in `L10`.
 
-## Three-Phase Delivery Plan
+## Three-Phase delivery plan
 
-### Phase 1: Architecture Contract and L8 Seed
+### Phase 1: architecture contract and L8 seed
 
 Backlog coverage: first half of the `v0.5.1` backlog item.
 
@@ -208,7 +208,7 @@ After Phase 1, `l6objects/` should not own:
 - `l6objects/` no longer owns run-level aggregate types
 - no new analytics code is added to `storage/sqlite` or `monitor/` during the transition
 
-### Phase 2: Analytics Migration and API Thinning
+### Phase 2: analytics migration and API thinning
 
 Backlog coverage: second half of the `v0.5.1` backlog item.
 
@@ -270,7 +270,7 @@ Phase 2 must respect these rules:
 - `monitor/` handlers are thin transport shells over extracted services
 - the backlog item currently named `L8/L9/L10 layer refactor Phases 1-3` is complete in substance
 
-### Phase 3: L9 Endpoints Formalisation and `monitor/` Replacement
+### Phase 3: L9 endpoints formalisation and `monitor/` replacement
 
 Backlog coverage: the `v0.6` backlog item currently named `L8/L9/L10 layer refactor Phases 4-5`.
 
@@ -365,7 +365,7 @@ Complete the structural refactor with the artifacts that keep it maintainable:
 - `L10` clients consume stable `L9` contracts rather than hidden `monitor/` internals
 - the backlog item currently named `L8/L9/L10 layer refactor Phases 4-5` is complete in substance
 
-## Target Package End State
+## Target package end state
 
 ```text
 internal/lidar/
@@ -388,7 +388,7 @@ internal/lidar/
 
 Long term, `L10 Clients` remains a documentation label spanning `web/`, `tools/visualiser-macos/`, and `tools/pdf-generator/`. During the transition, `internal/lidar/l9endpoints/l10clients/` is allowed as a temporary asset-only subtree for deprecated embedded dashboards. It contains no Go code, is embedded into the Go binary by `l9endpoints/`, and should be removed once the consolidated frontend replaces those clients.
 
-## Risks and Guardrails
+## Risks and guardrails
 
 - The `visualiser/` rename is broader than it first looks. Treat generated code, recorder imports, and docs as first-class rename targets.
 - Do not collapse storage refactors and the package-rename work into one PR unless tests are already strong enough to localise failures.

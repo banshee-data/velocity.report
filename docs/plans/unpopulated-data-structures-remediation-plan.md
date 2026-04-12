@@ -1,4 +1,4 @@
-# Unpopulated Data Structures Remediation Plan
+# Unpopulated data structures remediation plan
 
 - **Canonical:** [data-completeness-remediation.md](../lidar/operations/data-completeness-remediation.md)
 
@@ -46,7 +46,7 @@ and API layers. It does **not** cover:
 
 ---
 
-## Phase 1 — Wire `statistics_json` (Run Statistics)
+## Phase 1 — wire `statistics_json` (run statistics)
 
 **Priority:** High — directly answers the open question in the clustering
 observability plan §4.
@@ -82,7 +82,7 @@ distribution). This is a separate UI task.
 
 ---
 
-## Phase 2 — Populate Track Quality Columns
+## Phase 2 — populate track quality columns
 
 **Priority:** High — 6 columns in `lidar_tracks` exist but are never written (currently hold NULL/0 defaults).
 **Effort:** Small–medium (2–3 days)
@@ -114,7 +114,7 @@ labelling.
 
 ---
 
-## Phase 3 — Populate Cluster Quality Columns
+## Phase 3 — populate cluster quality columns
 
 **Priority:** Medium — 3 quality-related columns in `lidar_clusters` are currently unpopulated (2 are NULL and `noise_points_count` remains at its default 0).
 **Effort:** Small (1 day)
@@ -137,7 +137,7 @@ become a priority.
 
 ---
 
-## Phase 4 — Run Statistics API Endpoint
+## Phase 4 — run statistics API endpoint
 
 **Priority:** Medium — enables UI consumption of Phase 1 data.
 **Effort:** Small (1 day)
@@ -154,7 +154,7 @@ become a priority.
 
 ---
 
-## Phase 5 — Training Data Export Endpoint
+## Phase 5 — training data export endpoint
 
 **Priority:** Medium–low — enables ML classifier training pipeline.
 **Effort:** Medium (3–5 days)
@@ -177,7 +177,7 @@ Depends on Phases 1 and 2.
 
 ---
 
-## Phase 6 — Run Comparison API
+## Phase 6 — run comparison API
 
 **Priority:** Low — comparison logic exists but is not user-accessible.
 **Effort:** Medium (2–3 days)
@@ -196,7 +196,7 @@ Depends on Phases 1 and 2.
 
 ---
 
-## Phase 7 — ~~Speed Percentile Exposure~~ Per-Track Speed Percentile Removal
+## Phase 7 — ~~Speed percentile exposure~~ per-track speed percentile removal
 
 **Priority:** Medium — design debt per D-18 and the speed percentile
 alignment plan.
@@ -243,7 +243,7 @@ surfaced.
 
 ---
 
-## Phase 8 — Cleanup Scaffolding Structs
+## Phase 8 — cleanup scaffolding structs
 
 **Priority:** Low — removes dead code that has no concrete consumer.
 **Effort:** Small (1 day)
@@ -264,7 +264,7 @@ surfaced.
 
 ---
 
-## Scheduling Guidance
+## Scheduling guidance
 
 ### Immediate (current sprint)
 
@@ -292,7 +292,7 @@ Phases 5–8 depend on product direction:
 - **Phase 8** (cleanup) is a housekeeping task best done after Phase 5
   resolves the future of the training data curation structs.
 
-### Dependency Graph
+### Dependency graph
 
 ```
 Phase 1 (statistics_json) ──► Phase 4 (statistics API) ──► UI card
@@ -310,7 +310,7 @@ Phase 7 (percentile removal / migration 030)
 
 ---
 
-## Risk Register
+## Risk register
 
 | Risk                                                              | Mitigation                                                                           |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |

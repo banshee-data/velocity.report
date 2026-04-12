@@ -1,4 +1,4 @@
-# LiDAR Ground Plane Extraction — Architecture Specification
+# LiDAR ground plane extraction — architecture specification
 
 > **Status: Specification — Not Yet Implemented**
 >
@@ -7,13 +7,13 @@
 > a simple fixed-height band filter (floor −2.8 m, ceiling +1.5 m).
 > The tile-based plane-fitting approach described below is a future evolution.
 
-## 1. Overview & Motivation
+## 1. Overview & motivation
 
 ### Purpose
 
 A **ground plane extraction subsystem** within L4 Perception that models the road surface as a piecewise-planar grid of tiles. The ground plane provides a stable geometric reference for measuring object heights above ground, enabling robust object classification and reducing false positives from ground clutter.
 
-### Architecture Principles
+### Architecture principles
 
 **Sensor-iterative (LiDAR-only first):** All local PCAP observations are sensor-iterative. The ground plane subsystem **must function with the LiDAR sensor alone, with no GPS**. GPS is only additive — it enriches exports with geographic coordinates but is never required for core ground plane extraction or height-above-ground queries. Every algorithm described in this document operates in sensor-local coordinates by default.
 
@@ -39,7 +39,7 @@ The ground plane subsystem addresses these needs by:
 - **Providing confidence metrics** — queryable per-tile planarity and coverage statistics
 - **Optionally aligning with geographic coordinates** — lat/long-aligned Cartesian grid for integration with mapping tools and multi-device deployments (GPS additive, never required)
 
-### Relationship to Existing Systems
+### Relationship to existing systems
 
 The ground plane subsystem is part of **L4 Perception**, publishing a non-point-based interface (plane equations per tile) that is unioned into scene understanding alongside point-based cluster outputs:
 
@@ -58,9 +58,9 @@ This keeps all perception-level scene understanding within L4, maintaining the L
 
 ---
 
-## 2. Ground Surface Model
+## 2. Ground surface model
 
-### Piecewise-Planar Tile Representation
+### Piecewise-Planar tile representation
 
 The ground surface is modelled as a **mosaic of locally-flat tiles** with curvature and discontinuities at tile boundaries. Each tile stores:
 
@@ -69,7 +69,7 @@ The ground surface is modelled as a **mosaic of locally-flat tiles** with curvat
 3. **Settlement status** — Boolean indicating whether the tile has sufficient observations to be considered stable.
 4. **Bounding box** — Tile centre and extents in the grid's coordinate frame.
 
-### Local Plane Fitting — No Global Solver
+### Local plane fitting — no global solver
 
 Each tile fits its plane **independently** via incremental algorithms:
 
@@ -84,7 +84,7 @@ Both methods support **online updates** without storing all historical points, e
 - Local tiles can have different Z-heights and orientations (e.g., driveway ramps, kerbs, speed humps).
 - Independent tile fitting is **parallelizable** and **incrementally updatable**, matching the streaming data model.
 
-### Discontinuity Handling
+### Discontinuity handling
 
 Tile boundaries may exhibit:
 
@@ -96,13 +96,13 @@ The system **does not enforce continuity constraints** between tiles. Each tile 
 
 ---
 
-## 3. Grid Structure & Alignment
+## 3. Grid structure & alignment
 
-### Two-Tier Grid Model
+### Two-Tier grid model
 
 The ground plane operates at two distinct spatial scales:
 
-#### Tier 1: Local Scene Grid (Sensor-Iterative)
+#### Tier 1: local scene grid (sensor-iterative)
 
 The **local scene grid** is the primary working data, settled from live LiDAR returns during each observation session. It operates in sensor-local Cartesian coordinates and requires **no GPS**.
 
@@ -115,7 +115,7 @@ The **local scene grid** is the primary working data, settled from live LiDAR re
 
 This is the only tier required for core perception. The system **must** function at this tier with LiDAR data alone.
 
-#### Tier 2: Global Published Grid (GPS-Enhanced, Optional)
+#### Tier 2: global published grid (GPS-enhanced, optional)
 
 When GPS coordinates are available, settled local tiles can be projected into a **global lat/long-aligned grid** that persists across observation sessions:
 
@@ -135,7 +135,7 @@ Global tiles contain aggregate statistics from multiple observation sessions:
 | Last updated      | Timestamp of most recent contribution               |
 | Confidence        | Combined planarity from all contributing sessions   |
 
-### Lat/Long-Aligned Cartesian Grid (Tier 2)
+### Lat/Long-Aligned cartesian grid (tier 2)
 
 When GPS is available, the local sensor-frame grid can be transformed to a geographic Cartesian grid:
 
@@ -147,7 +147,7 @@ When GPS is available, the local sensor-frame grid can be transformed to a geogr
 
 **Tradeoff:** Cartesian grids require a coordinate transform from sensor-local spherical (distance, azimuth, elevation) → sensor-local Cartesian (X=right, Y=forward, Z=up) → world-frame Cartesian (X=East, Y=North, Z=up). This adds computational cost but is necessary for geographic alignment.
 
-### Tile Size Selection
+### Tile size selection
 
 Tile size trades off between:
 
@@ -165,7 +165,7 @@ Tile size trades off between:
 
 For velocity.report's traffic monitoring use case, **1.0 m × 1.0 m tiles** are recommended: sufficient resolution to model road curvature and kerbs without excessive tile proliferation.
 
-### Coordinate Transforms
+### Coordinate transforms
 
 **Sensor spherical → Sensor Cartesian:**
 
@@ -173,7 +173,7 @@ Points transform through `SphericalToCartesian` → `ApplyPose` → floor divisi
 
 The ground plane subsystem **can optionally** integrate with GPS/PTP parsing (see `internal/lidar/l1packets/parse/extract.go`) to obtain sensor position and heading for the pose transform. Without GPS, only Tier 1 local scene tiles are available (which is sufficient for all core perception tasks).
 
-### Relationship to L3 Polar Background Grid
+### Relationship to L3 polar background grid
 
 The L3 `BackgroundGrid` and L4 ground plane serve complementary roles:
 
@@ -191,9 +191,9 @@ The ground plane can consume **ground-classified points** from the L3 background
 
 ---
 
-## 4. Settlement & Stabilisation
+## 4. Settlement & stabilisation
 
-### Fast Convergence via Incremental Algorithms
+### Fast convergence via incremental algorithms
 
 Each tile must converge rapidly to a stable plane estimate. Target: **settled within 5–10 seconds** of first observation (approximately 50–100 LiDAR frames at 10 Hz).
 
@@ -221,7 +221,7 @@ For each new point (x, y, z) added to tile (ix, iy):
 
 **Efficiency:** No need to re-fit from scratch; eigenvalue decomposition is ~O(1) for 3×3 matrices (closed-form solution via cubic equation).
 
-### Minimum Point Threshold
+### Minimum point threshold
 
 A tile is marked **settled** when:
 
@@ -231,7 +231,7 @@ A tile is marked **settled** when:
 
 Tiles that don't meet these criteria are marked **unsettled** and excluded from height-above-ground queries.
 
-### Freeze/Lock Mechanism
+### Freeze/Lock mechanism
 
 Once a tile is **settled**, it enters a **locked baseline** state analogous to the L3 background grid's freeze mechanism:
 
@@ -239,7 +239,7 @@ Once a tile is **settled**, it enters a **locked baseline** state analogous to t
 - **Observations outside tolerance** (potential ground change or outlier) decrement confirmation counter. If counter falls below threshold, tile reverts to **unsettled** and re-accumulates.
 - **Freeze window** — After detecting a potential outlier, the tile freezes updates for a short duration (e.g., 3 seconds) to avoid thrashing from transient occlusions (vehicle shadows, debris).
 
-### Warm-up vs Steady-State Behaviour
+### Warm-up vs steady-state behaviour
 
 **Warm-up phase (first 10 seconds):**
 
@@ -262,7 +262,7 @@ EMPTY → ACCUMULATING → SETTLED → LOCKED_BASELINE
             (outlier detected)
 ```
 
-### Settlement Propagation
+### Settlement propagation
 
 Tiles settle **independently**; there is no spatial coupling during convergence. However, a tile's **confidence score** can inform its neighbours:
 
@@ -271,9 +271,9 @@ Tiles settle **independently**; there is no spatial coupling during convergence.
 
 ---
 
-## 5. Confidence & Curvature Classification
+## 5. Confidence & curvature classification
 
-### Per-Tile Confidence Metric
+### Per-Tile confidence metric
 
 Each tile computes a **planarity score** from the eigenvalues of its covariance matrix:
 
@@ -298,7 +298,7 @@ planarity = 1 - (λ₃ / λ₂)
 | 0.70–0.85 | Low-confidence       | No (warn user)          |
 | < 0.70    | Non-planar/invalid   | No (exclude from map)   |
 
-### Flatness vs Curvature Classification
+### Flatness vs curvature classification
 
 **Flatness** — Measure of local planarity within a single tile (via planarity score).
 
@@ -322,7 +322,7 @@ where n₁ and n₂ are normal vectors of adjacent tiles.
 
 The system can pre-load a **curvature mask** from prior mapping data (if available) or learn curvature zones dynamically from observed plane normals.
 
-### Confidence Propagation to Neighbours
+### Confidence propagation to neighbours
 
 A tile's confidence can inform adjacent tiles:
 
@@ -331,7 +331,7 @@ A tile's confidence can inform adjacent tiles:
 
 This propagation is **optional** and can be implemented as a post-processing step after initial tile settlement.
 
-### User-Queryable Confidence
+### User-Queryable confidence
 
 The system must support queries like:
 
@@ -339,9 +339,9 @@ The system must support queries like:
 
 ---
 
-## 6. Pixel Validation
+## 6. Pixel validation
 
-### Ground Plane Validated by Point Returns
+### Ground plane validated by point returns
 
 Each tile's plane equation is **derived from and validated by the raw LiDAR point returns** that fall within its spatial bounds. The plane is not imposed externally; it is the **least-squares or PCA fit to observed data**.
 
@@ -355,7 +355,7 @@ Each tile's plane equation is **derived from and validated by the raw LiDAR poin
    If distance > outlierThreshold (e.g., 10 cm), mark as outlier and exclude from fit.
 3. **Incremental fit update** — Inlier points update the tile's running covariance statistics and re-trigger plane fitting.
 
-### Outlier Rejection
+### Outlier rejection
 
 Two outlier rejection strategies:
 
@@ -373,7 +373,7 @@ Two outlier rejection strategies:
 
 **Recommendation:** Use median-based filtering for streaming; RANSAC for PCAP post-processing.
 
-### Minimum Coverage Requirements
+### Minimum coverage requirements
 
 Not all tiles have equal sensor visibility:
 
@@ -383,7 +383,7 @@ Not all tiles have equal sensor visibility:
 
 The system must track **coverage density** per tile. Each tile tracks `PointDensity` (points per m² per second); tiles below the minimum density threshold are excluded from confident height queries.
 
-### Re-validation Cadence
+### Re-validation cadence
 
 **Streaming mode:**
 
@@ -407,9 +407,9 @@ This prevents stale tiles from being trusted indefinitely in dynamic environment
 
 ---
 
-## 7. Integration with Existing Pipeline
+## 7. Integration with existing pipeline
 
-### Layer Position: L4 Perception (Ground Surface Interface)
+### Layer position: L4 perception (ground surface interface)
 
 The ground plane is part of **L4 Perception**, publishing a **non-point-based interface** (`GroundSurface`) that is unioned with point-based clustering for scene understanding:
 
@@ -428,7 +428,7 @@ L5 Tracking
 
 The `GroundSurface` interface is deliberately **non-point-based**: it exposes plane equations, height queries, and confidence metrics rather than point clouds. This allows L4 clustering to query height-above-ground without coupling to the internal tile representation.
 
-### Two Operating Modes
+### Two operating modes
 
 **Mode 1: Post-L3 (uses background grid)**
 
@@ -446,7 +446,7 @@ The `GroundSurface` interface is deliberately **non-point-based**: it exposes pl
 
 **Recommendation:** Support both modes via configuration flag. Default to Mode 1 (post-L3) for production; Mode 2 for offline PCAP analysis where L3 grid may not be available.
 
-### Replacing HeightBandFilter
+### Replacing heightBandFilter
 
 The current `HeightBandFilter` in `internal/lidar/l4perception/ground.go` uses fixed `FloorHeightM` and `CeilingHeightM` thresholds.
 
@@ -458,7 +458,7 @@ The current `HeightBandFilter` in `internal/lidar/l4perception/ground.go` uses f
 
 **Backward compatibility:** HeightBandFilter remains available as a fallback if ground plane is unsettled or unavailable.
 
-### Data Flow Diagram
+### Data flow diagram
 
 ```
 ┌─────────────────┐
@@ -505,7 +505,7 @@ The current `HeightBandFilter` in `internal/lidar/l4perception/ground.go` uses f
 └───────────────────────┘
 ```
 
-### Export Formats
+### Export formats
 
 The ground plane grid must support export for visualisation and analysis:
 
@@ -582,9 +582,9 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 ---
 
-## 8. Data Structures (Go)
+## 8. Data structures (Go)
 
-### Core Types
+### Core types
 
 **`GroundTile`** — Stores tile spatial bounds (centre, size), plane equation (normal vector + offset), running statistics for incremental fitting (sums and sums-of-squares for x/y/z and their cross-products), settlement state (planarity score, settled boolean, confirmation counter), freeze mechanism (frozen-until timestamp, locked-baseline flag analogous to `BackgroundCell`), and coverage metrics (point density). Target: `internal/lidar/l4perception/`.
 
@@ -594,7 +594,7 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 **`GlobalGroundGrid`** (Tier 2, GPS-required) — Millidegree-indexed tiles (`GlobalTileIndex` with `LatMillideg`, `LonMillideg`) aggregating statistics across sessions. Each `GlobalGroundTile` stores `MeanNormal`, `MeanZOffset`, `SessionCount`, `LastUpdatedNanos`, `Confidence`, and `TotalPoints`. Fixed at 0.001° resolution for cross-device interoperability.
 
-### Key Methods
+### Key methods
 
 **`AddPoint(x, y, z, timestamp)`** — Checks outlier distance for settled tiles (rejecting points beyond threshold, decrementing confirmation counter, applying 3-second freeze), updates running sums for unsettled tiles, triggers `FitPlane` when point count meets the settlement threshold, and performs slow EMA updates for already-settled tiles. Promotes to locked baseline when confirmation count exceeds threshold.
 
@@ -608,15 +608,15 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 
 **`GetOrCreateTile(idx)`** — Lazy tile creation with default horizontal normal (0, 0, 1) and unsettled state.
 
-### Storage Schema
+### Storage schema
 
 Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` stores periodic snapshots as gzip-compressed gob-encoded tile arrays with SHA256 dedup hash, indexed by timestamp. Columns include sensor ID, origin lat/lon, tile size, settled tile count, total point count, and JSON-serialised `GroundPlaneParams`.
 
 ---
 
-## 9. Open Questions
+## 9. Open questions
 
-### Sensor Mount Calibration
+### Sensor mount calibration
 
 **Problem:** The sensor's tilt angle (pitch, roll) relative to gravity affects the ground plane orientation in sensor frame. A sensor mounted with 2° forward tilt will observe the ground plane at a different angle than a perfectly level sensor.
 
@@ -628,7 +628,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Recommendation:** Start with manual calibration; add automatic calibration as post-processing step for PCAP analysis. IMU integration is future work (requires hardware support).
 
-### Multi-Pass PCAP vs Single-Pass Streaming
+### Multi-Pass PCAP vs single-pass streaming
 
 **PCAP replay mode:**
 
@@ -644,7 +644,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Recommendation:** Support both modes. PCAP analysis tool (`cmd/tools/pcap-analyse/main.go`) should use multi-pass for maximum accuracy; live streaming uses single-pass incremental algorithms.
 
-### GPS Geo-Referencing Integration (Additive Only)
+### GPS geo-referencing integration (additive only)
 
 **Principle:** GPS is strictly additive. The ground plane **must** function without GPS. GPS enables Tier 2 global grid population and geographic exports but is never required for core perception.
 
@@ -665,7 +665,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Recommendation:** GPS integration is a separate enhancement phase. Core ground plane implementation is LiDAR-only.
 
-### Integration with External Elevation Models
+### Integration with external elevation models
 
 **Future enhancement:** Seed ground plane tiles from prior terrain data (e.g., USGS DEMs, OpenStreetMap elevation layers).
 
@@ -682,7 +682,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Recommendation:** Defer to future work. Initial implementation uses LiDAR observations only.
 
-### Ground Plane Maintenance in Dynamic Environments
+### Ground plane maintenance in dynamic environments
 
 **Problem:** Parked cars, construction equipment, temporary barriers can occlude ground points. How to maintain ground plane when parts of the scene change?
 
@@ -694,7 +694,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 **Recommendation:** Implement confidence decay (Option 1) for initial version. Temporal filtering (Option 2) is future enhancement for long-running deployments.
 
-### OpenStreetMap Integration (Future V2)
+### OpenStreetMap integration (future V2)
 
 **Vision:** Import OSM polylines (kerbs, crosswalks, signs, road edges) as real-world geometric anchors for ground plane validation and refinement.
 
@@ -720,7 +720,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 ## References
 
-### Related Documents
+### Related documents
 
 - **LiDAR Data Layer Model** — `docs/lidar/architecture/lidar-data-layer-model.md` (six-layer model, L1–L6 definitions)
 - **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export standards, ROS interop)
@@ -728,7 +728,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - **L4 HeightBandFilter** — `internal/lidar/l4perception/ground.go` (current Z-band filtering, replacement target)
 - **PCAP Analysis Tool** — `cmd/tools/pcap-analyse/main.go` (multi-pass pipeline, export formats)
 
-### External Standards
+### External standards
 
 - **VTK File Formats** — [VTK XML formats](https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf) (`.vti`, `.vts`, `.vtp`)
 - **GeoJSON Specification** — [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
@@ -737,9 +737,9 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 ---
 
-## Implementation Roadmap
+## Implementation roadmap
 
-### Phase 1: Core Extraction (MVP)
+### Phase 1: core extraction (MVP)
 
 - [ ] Implement `GroundTile` and `GroundPlaneGrid` structs
 - [ ] Incremental covariance accumulation and plane fitting (PCA-based)
@@ -749,7 +749,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - [ ] ASC raster grid export
 - [ ] Unit tests for plane fitting accuracy
 
-### Phase 2: Confidence & Stability
+### Phase 2: confidence & stability
 
 - [ ] Planarity score computation (eigenvalue ratio)
 - [ ] Freeze/lock mechanism (similar to BackgroundCell)
@@ -758,7 +758,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - [ ] VTK StructuredGrid export (ParaView/LidarView)
 - [ ] Integration tests with PCAP replay
 
-### Phase 3: Pipeline Integration
+### Phase 3: pipeline integration
 
 - [ ] Mode 1: Post-L3 integration (consume ground-classified points from background grid)
 - [ ] Replace HeightBandFilter with GroundPlaneFilter
@@ -766,7 +766,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - [ ] GeoJSON export (requires GPS geo-referencing)
 - [ ] Multi-pass PCAP analysis (global statistics, RANSAC)
 
-### Phase 4: Production Hardening
+### Phase 4: production hardening
 
 - [ ] Storage: `ground_plane_snapshots` table and periodic flushing
 - [ ] Performance profiling (target: <5 ms per frame on Raspberry Pi 4)
@@ -774,7 +774,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 - [ ] Sensor mount calibration (manual pitch/roll/yaw correction)
 - [ ] Documentation: user guide, calibration procedure, troubleshooting
 
-### Phase 5: Future Enhancements
+### Phase 5: future enhancements
 
 - [ ] Automatic sensor tilt calibration
 - [ ] Multi-device ground plane fusion

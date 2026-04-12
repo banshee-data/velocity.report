@@ -1,8 +1,8 @@
-# Parameter Comparison: Current vs. Optimised
+# Parameter comparison: current vs. optimised
 
 Quick reference showing parameter changes between the current defaults and the optimised configuration for addressing jitter, fragmentation, misalignment, and empty boxes.
 
-## Side-by-Side Comparison
+## Side-by-Side comparison
 
 | Parameter                            | Current (tuning.defaults.json) | Optimised (tuning.optimised.json) | Change | Impact                                                       |
 | ------------------------------------ | ------------------------------ | --------------------------------- | ------ | ------------------------------------------------------------ |
@@ -29,7 +29,7 @@ Quick reference showing parameter changes between the current defaults and the o
 | `height_band_floor`                  | −2.8                           | −2.8                              | -      | Sensor-frame floor (≈ 0.2 m above road for 3 m mount)        |
 | `height_band_ceiling`                | 1.5                            | 1.5                               | -      | Sensor-frame ceiling (tall trucks up to ~1.5 m above sensor) |
 
-## Critical Changes (Highest Impact)
+## Critical changes (highest impact)
 
 These four parameters have the most significant effect on the observed issues:
 
@@ -57,7 +57,7 @@ These four parameters have the most significant effect on the observed issues:
 - **Effect:** OBB heading noise amplified → heading jitter, position lags → misalignment
 - **Fix:** 0.15 balances trust in observations with robustness to outliers
 
-## Expected Metric Improvements
+## Expected metric improvements
 
 | Metric                      | Current     | Optimised   | Change |
 | --------------------------- | ----------- | ----------- | ------ |
@@ -68,7 +68,7 @@ These four parameters have the most significant effect on the observed issues:
 | **EmptyBoxRatio**           | 0.15-0.25   | 0.05-0.10   | ↓ 60%  |
 | **ForegroundCapture**       | 0.70-0.75   | 0.85-0.90   | ↑ 15%  |
 
-## Deployment Recommendation
+## Deployment recommendation
 
 **Incremental Rollout:**
 
@@ -100,7 +100,7 @@ curl -X POST http://localhost:8080/api/lidar/params \
   -d @config/tuning.optimised.json
 ```
 
-## Reverting Changes
+## Reverting changes
 
 If the optimised parameters cause unexpected issues, revert to defaults:
 
@@ -109,7 +109,7 @@ If the optimised parameters cause unexpected issues, revert to defaults:
 velocity-report --config config/tuning.defaults.json
 ```
 
-## Further Tuning
+## Further tuning
 
 If the optimised configuration still shows quality issues, use auto-tuning to refine:
 

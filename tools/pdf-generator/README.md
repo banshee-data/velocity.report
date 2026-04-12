@@ -1,11 +1,11 @@
-# PDF Report Generator
+# PDF report generator
 
 A Python tool for generating professional PDF reports from radar statistics with charts, tables, and optional maps.
 
 **Location**: `tools/pdf-generator/`
 **Installation**: PYTHONPATH-based (no package installation needed)
 
-## Quick Start
+## Quick start
 
 All configuration is done via JSON files - no CLI flags needed!
 
@@ -34,7 +34,7 @@ python -m pdf_generator.cli.main my_config.json
 
 ## Configuration
 
-### Required Fields
+### Required fields
 
 Every configuration file **must** include these 7 fields:
 
@@ -48,7 +48,7 @@ Every configuration file **must** include these 7 fields:
 | `query.timezone`           | string | Display timezone                      | "US/Pacific"               |
 | `radar.cosine_error_angle` | number | Radar mounting angle in degrees       | 21.0                       |
 
-### Optional Query Fields
+### Optional query fields
 
 | Field                      | Type   | Description                                                     | Example               |
 | -------------------------- | ------ | --------------------------------------------------------------- | --------------------- |
@@ -58,7 +58,7 @@ Every configuration file **must** include these 7 fields:
 | `query.units`              | string | Display units                                                   | "mph"                 |
 | `query.source`             | string | Data source (radar_objects, radar_data, or radar_data_transits) | "radar_data_transits" |
 
-### Comparison Reports
+### Comparison reports
 
 When both `query.compare_start_date` and `query.compare_end_date` are set, the report includes side-by-side metrics with percentage changes, a dual-period histogram with a legend, and a comparison distribution table.
 
@@ -74,7 +74,7 @@ When both `query.compare_start_date` and `query.compare_end_date` are set, the r
 }
 ```
 
-### Minimal Configuration Example
+### Minimal configuration example
 
 ```json
 {
@@ -105,7 +105,7 @@ This minimal config will:
 - Display speeds in mph
 - Calculate cosine error factor: 1.0711 (from 21° angle)
 
-### Complete Configuration Example
+### Complete configuration example
 
 ```json
 {
@@ -153,9 +153,9 @@ This minimal config will:
 }
 ```
 
-### Configuration Sections Reference
+### Configuration sections reference
 
-#### Site Information
+#### Site information
 
 | Field              | Required | Default | Description                   |
 | ------------------ | -------- | ------- | ----------------------------- |
@@ -169,7 +169,7 @@ This minimal config will:
 | `longitude`        | No       | null    | GPS longitude for map         |
 | `map_angle`        | No       | null    | Map rotation angle in degrees |
 
-#### Radar Configuration
+#### Radar configuration
 
 | Field                 | Required | Default                 | Description                 |
 | --------------------- | -------- | ----------------------- | --------------------------- |
@@ -184,7 +184,7 @@ This minimal config will:
 
 **Note**: The `cosine_error_factor` is auto-calculated as `1/cos(cosine_error_angle)`.
 
-#### Query Parameters
+#### Query parameters
 
 | Field                | Required | Default               | Description                                                     |
 | -------------------- | -------- | --------------------- | --------------------------------------------------------------- |
@@ -202,7 +202,7 @@ This minimal config will:
 | `hist_bucket_size`   | No       | 5.0                   | Histogram bucket size                                           |
 | `hist_max`           | No       | null                  | Maximum histogram bucket                                        |
 
-#### Output Configuration
+#### Output configuration
 
 | Field         | Required | Default        | Description                                                  |
 | ------------- | -------- | -------------- | ------------------------------------------------------------ |
@@ -212,7 +212,7 @@ This minimal config will:
 | `debug`       | No       | false          | Enable debug output                                          |
 | `map`         | No       | false          | Include OpenStreetMap overlay                                |
 
-### Advanced Visual Customization
+### Advanced visual customization
 
 #### Colors
 
@@ -262,7 +262,7 @@ This minimal config will:
 }
 ```
 
-#### PDF Document Settings
+#### PDF document settings
 
 ```json
 {
@@ -278,7 +278,7 @@ This minimal config will:
 }
 ```
 
-#### Map Marker Configuration
+#### Map marker configuration
 
 ```json
 {
@@ -296,7 +296,7 @@ This minimal config will:
 }
 ```
 
-### Cosine Error Correction
+### Cosine error correction
 
 The cosine error factor corrects for radar mounting angle:
 
@@ -310,7 +310,7 @@ The cosine error factor corrects for radar mounting angle:
 
 Formula: `factor = 1 / cos(angle_in_radians)`
 
-## Project Structure
+## Project structure
 
 ```
 tools/pdf-generator/              # Project root
@@ -347,7 +347,7 @@ Two-level structure is standard Python practice:
 - `tools/pdf-generator/` = Project root (config, docs)
 - `pdf_generator/` = Python package (importable code)
 
-## Makefile Commands
+## Makefile commands
 
 All make commands should be run from the repository root:
 
@@ -367,9 +367,9 @@ make pdf-report CONFIG=config.example.json    # Generate PDF report
 make clean-python       # Remove generated outputs
 ```
 
-## Usage Examples
+## Usage examples
 
-### Daily Report
+### Daily report
 
 ```bash
 # Create config
@@ -399,7 +399,7 @@ EOF
 make pdf-report CONFIG=daily-report.json
 ```
 
-### Weekly Summary
+### Weekly summary
 
 ```bash
 cat > weekly-report.json << 'EOF'
@@ -427,7 +427,7 @@ EOF
 make pdf-report CONFIG=weekly-report.json
 ```
 
-### Report with Map
+### Report with map
 
 ```bash
 cat > map-report.json << 'EOF'
@@ -479,9 +479,9 @@ pytest pdf_generator/tests/test_config_manager.py -v
 pytest pdf_generator/tests/test_pdf_integration.py -v
 ```
 
-## Deployment Notes
+## Deployment notes
 
-### PYTHONPATH Approach
+### PYTHONPATH approach
 
 This project uses PYTHONPATH rather than package installation:
 
@@ -504,7 +504,7 @@ python -m pdf_generator.cli.main config.json
 make pdf-report CONFIG=config.json
 ```
 
-### Raspberry Pi Deployment
+### Raspberry Pi deployment
 
 The shared venv approach is ideal for Raspberry Pi ARM64:
 

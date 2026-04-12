@@ -1,4 +1,4 @@
-# Hub Restructure Plan
+# Hub restructure plan
 
 - **Status:** Active
 - **Canonical:** [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md)
@@ -12,7 +12,7 @@ all substantial project documentation. Collapse the previously proposed `docs/se
 and `docs/engineering/` concepts into a single `docs/platform/` hub covering both
 shared codebase structure and development methodology.
 
-## Hub Structure
+## Hub structure
 
 Five hubs total. Three existing, one new, one renamed.
 
@@ -23,7 +23,7 @@ Five hubs total. Three existing, one new, one renamed.
 | `docs/ui/`       | EXISTS     | What a user sees or interacts with — web, macOS app chrome, homepage, design language                                                      |
 | `docs/platform/` | **EXPAND** | Shared codebase structure (Go packages, DB schema, deployment, release) AND development methodology (docs rules, metrics, tooling, agents) |
 
-### Mutual Exclusivity Test
+### Mutual exclusivity test
 
 Ask in order. First match wins.
 
@@ -33,7 +33,7 @@ Ask in order. First match wins.
 3. Does it describe what a user sees or interacts with? → `docs/ui/`
 4. Everything else → `docs/platform/`
 
-## Canonical File Tree
+## Canonical file tree
 
 `EXISTS` = already in the repo. `NEW` = needs creating. `MOVE` = relocating from `docs/server/`.
 
@@ -165,7 +165,7 @@ subdirectory to keep `operations/` navigable.
 | `agent-preparedness.md`         | DONE   | `agent-claude-preparedness-review-plan`                                          | AI agent knowledge architecture   |
 | `simplification-deprecation.md` | DONE   | `platform-simplification-and-deprecation-plan`                                   | Tech debt reduction register      |
 
-## Plans That Split Across Hubs
+## Plans that split across hubs
 
 | Plan                                          | Concept A → Hub                                                                 | Concept B → Hub                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -174,7 +174,7 @@ subdirectory to keep `operations/` navigable.
 | `pdf-go-chart-migration-plan`                 | All concepts stay in `platform/operations/pdf-reporting.md`                     | (phases, not separate hubs)                                         |
 | `web-frontend-consolidation-plan`             | All concepts stay in `ui/web-frontend-consolidation.md`                         | Port consolidation noted in platform                                |
 
-## Immediate Actions
+## Immediate actions
 
 All completed on branch `dd/docs/merge-canonical`:
 
@@ -193,7 +193,7 @@ All completed on branch `dd/docs/merge-canonical`:
 | `docs/ui/`       | 9             | 3                  | 6              | 9%         |
 | `docs/platform/` | 1             | 19                 | 22             | 32%        |
 
-## Implementation Sequence
+## Implementation sequence
 
 1. [x] Land this plan and the immediate actions (section above)
 2. [x] Phase 2 of parent plan: `Canonical` metadata added to all 69 plans

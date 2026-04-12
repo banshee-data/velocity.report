@@ -1,10 +1,10 @@
-# Priority Review Queue
+# Priority review queue
 
 - **Source plan:** `docs/plans/lidar-visualiser-priority-review-queue-plan.md`
 
 Priority-ranked queue of tracks requiring human review, ordered by composite scoring.
 
-## Priority Score
+## Priority score
 
 Composite score (0–100) computed from weighted factors:
 
@@ -17,7 +17,7 @@ Composite score (0–100) computed from weighted factors:
 | Ego-proximity   | Low      | Tracks near sensor (higher confidence data, edge cases) |
 | Manual flag     | Override | User-flagged tracks jump to top                         |
 
-## Queue State Model
+## Queue state model
 
 Stored in `lidar_review_queue_items`:
 
@@ -28,7 +28,7 @@ Stored in `lidar_review_queue_items`:
 | `RESOLVED` | Review complete (accepted or corrected)               |
 | `SKIPPED`  | Reviewer deferred, remains in queue at lower priority |
 
-## Queue Refresh Triggers
+## Queue refresh triggers
 
 The queue is rebuilt/updated when any of these change:
 

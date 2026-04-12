@@ -1,16 +1,16 @@
-# QC Enhancements Overview
+# QC enhancements overview
 
 - **Source plan:** `docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md`
 
 Umbrella architecture for seven QC features that share tables, conventions, and dependency ordering.
 
-## Design Principles
+## Design principles
 
 - `run_id` + `track_id` is the canonical identity for all QC artefacts.
 - All QC tables are **append-only** for audit reproducibility.
 - Deterministic replay: the same input frames + scorer version must produce identical quality scores.
 
-## Shared Database Tables
+## Shared database tables
 
 Six new tables are introduced across the QC feature set:
 
@@ -32,7 +32,7 @@ Denormalised columns are added to `lidar_run_tracks`:
 - `unresolved_violation_count` (INTEGER)
 - `review_state` (TEXT: PENDING, BLOCKED, CONFIRMED, OVERRIDDEN)
 
-## Feature Dependency Order
+## Feature dependency order
 
 Features must be implemented in this sequence (each depends on outputs of its predecessors):
 
@@ -44,7 +44,7 @@ Features must be implemented in this sequence (each depends on outputs of its pr
 6. **Trails and Uncertainty** — visual-only, no persistent state, can proceed in parallel
 7. **QC Dashboard and Audit** — aggregates all prior tables for reporting
 
-## Cross-Feature Milestones
+## Cross-Feature milestones
 
 | Milestone | Content                                                      |
 | --------- | ------------------------------------------------------------ |

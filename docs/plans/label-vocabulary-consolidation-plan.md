@@ -1,4 +1,4 @@
-# Label Vocabulary Consolidation Plan
+# Label vocabulary consolidation plan
 
 - **Status:** Phase 1–3.2 completed · Phase 4–5 planned
 - **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
@@ -14,7 +14,7 @@ classification, with overlapping but inconsistent values. The classifier
 wrote `"pedestrian"` while user labels used `"ped"`, breaking string
 comparison in `isPositiveLabel()` and ground-truth evaluation.
 
-## Current State (after v1.2 + Phase 3)
+## Current state (after v1.2 + phase 3)
 
 ### Unified vocabulary (proto3 enum authoritative)
 
@@ -61,9 +61,9 @@ in the classifier, hidden in all UIs, and rejected by the label validation API.
 - `internal/lidar/visualiser/grpc_server.go`: Added `classifyOrConvert()` bridge function and package-level `replayClassifier`
 - `tools/visualiser-macos/.../ContentView.swift`: Track Inspector always shows Class field with "Not classified" fallback
 
-## Completed Phases
+## Completed phases
 
-### Phase 1: Unify vocabulary (string-based)
+### Phase 1: unify vocabulary (string-based)
 
 ✅ **Status: DONE**
 
@@ -73,7 +73,7 @@ Consolidated independent vocabularies. All code uses canonical full-word labels:
 - Database migration 000029 converts legacy rows
 - Go, Swift, TypeScript, Svelte aligned
 
-### Phase 2: Add truck and motorcyclist classes
+### Phase 2: add truck and motorcyclist classes
 
 ✅ **Status: DONE (subsequently trimmed in Phase 3.2)**
 
@@ -82,7 +82,7 @@ Classifier v1.2 added `ClassTruck` and `ClassMotorcyclist` with thresholds and c
 > Phase 3.2 subsequently disabled these two classes from the classifier
 > cascade and UI, retaining the proto enum values for future reactivation.
 
-### Phase 3: Proto3 enum wire protocol
+### Phase 3: proto3 enum wire protocol
 
 ✅ **Status: DONE (v0.5.0 development)**
 
@@ -107,7 +107,7 @@ strings. Without intervention, all replayed tracks show "Not classified".
 - Swift Track Inspector always displays Class field ("Not classified" fallback
   when enum is UNSPECIFIED)
 
-### Phase 3.2: Trim to 7 user-assignable classes for v0.5.0
+### Phase 3.2: trim to 7 user-assignable classes for v0.5.0
 
 ✅ **Status: DONE**
 
@@ -121,9 +121,9 @@ label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
 - Web: removed from `DetectionLabel` type and dropdowns; colours retained for backward compat
 - Proto: enum values stable; reactivation path documented (uncomment rules + restore UI entries)
 
-## Remaining Phases
+## Remaining phases
 
-### Phase 3.5: Classification display vs selectable enum split (#381)
+### Phase 3.5: classification display vs selectable enum split (#381)
 
 Keep truck and motorcyclist as **display-only** labels — visible in the track
 inspector, colour palette, and VRLOG replay when data contains those classes —
@@ -148,11 +148,11 @@ Files requiring changes:
 | `ContentView.swift` `classificationLabels` | 7 entries                          | Keep as selectable; add separate `displayLabels` (9) for inspector |
 | `ContentView.swift` track inspector        | Shows class from stream            | Show truck/motorcyclist if present in data                         |
 
-### Phase 4: Expose taxonomy via API
+### Phase 4: expose taxonomy via API
 
 Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label list with metadata (name, description, positive/negative, keyboard shortcut). This eliminates hardcoded lists in frontends.
 
-### Phase 5: Remove duplicates from frontends
+### Phase 5: remove duplicates from frontends
 
 | Location                                       | Remove               | Replace with                                    |
 | ---------------------------------------------- | -------------------- | ----------------------------------------------- |
@@ -163,7 +163,7 @@ Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label lis
 | `MapPane.svelte` legend classes                | Hardcoded array      | Derive from `TRACK_COLORS` keys or taxonomy API |
 | `adapters/ground_truth.go` `isPositiveLabel()` | Inline function      | Centralised `IsPositive()` method               |
 
-### Phase 6: Public API field alignment
+### Phase 6: public API field alignment
 
 Public REST API responses (`/api/v1/lidar/tracks` etc) should continue using canonical
 string labels. Coordinate with Phase 4 taxonomy API to ensure wire format matches.
@@ -175,7 +175,7 @@ Proto enum conversion is internal; public API uses human-readable strings.
 - **Database migration** (000029 complete): Implemented idempotently with full reversibility note
 - **Frontend cache**: Taxonomy API (Phase 4) should include versioning to bust stale label lists
 
-## Implementation Notes
+## Implementation notes
 
 - Migration 000029 handles all legacy data conversions (ped→pedestrian, other→dynamic, impossible→noise)
 - Proto enum values are immutable once committed (must maintain backward compatibility in future versions)
@@ -184,7 +184,7 @@ Proto enum conversion is internal; public API uses human-readable strings.
 - `ClassifyFeatures()` enables classification without a full `TrackedObject`, used by VRLOG replay and potentially other offline pipelines
 - `classifyOrConvert()` is the single decision point: existing labels pass through, empty labels trigger re-classification
 
-### Phase 3.2: Trim to 7 classes for v0.5.0
+### Phase 3.2: trim to 7 classes for v0.5.0
 
 ✅ **Status: DONE**
 

@@ -4,7 +4,7 @@
 ┻┛┗┛┗┛┻┗┛┛┗•┛┗┗┗┻
 ```
 
-# Frontend and Visualisation Design Language
+# Frontend and visualisation design language
 
 ## 1. One strict goal
 

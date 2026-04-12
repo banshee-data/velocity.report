@@ -1,4 +1,4 @@
-# Go cmd/ Business Logic Extraction Plan (v0.5.2)
+# Go cmd/ business logic extraction plan (v0.5.2)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
@@ -24,7 +24,7 @@ Every new consumer must reimplement or duplicate.
 wiring. If left, the file will cross 1,500 LOC by v0.6.0 as HINT and sweep features
 expand.
 
-## Current State
+## Current state
 
 ### Extraction targets by file
 
@@ -74,7 +74,7 @@ No new packages are created. All destinations already exist.
 
 ## Scope
 
-### Item 1: Extract `capabilitiesProvider` to `internal/api/`
+### Item 1: extract `capabilitiesProvider` to `internal/api/`
 
 **Summary:** Move the thread-safe capabilities provider (75 LOC) into the package
 whose types it already wraps.
@@ -88,7 +88,7 @@ whose types it already wraps.
 
 **Milestone:** v0.5.2
 
-### Item 2: Extract `lidar_helpers.go` to existing `internal/` packages
+### Item 2: extract `lidar_helpers.go` to existing `internal/` packages
 
 **Summary:** Split 275 LOC of pure functions and interfaces across their natural
 homes in `internal/config/` and `internal/lidar/server/`.
@@ -110,7 +110,7 @@ homes in `internal/config/` and `internal/lidar/server/`.
 
 **Milestone:** v0.5.2
 
-### Item 3: Extract adapters from `radar.go` to `internal/lidar/`
+### Item 3: extract adapters from `radar.go` to `internal/lidar/`
 
 **Summary:** Move ~170 LOC of struct-mapping adapters and the `hintRunCreator`
 orchestration out of `package main`.
@@ -126,7 +126,7 @@ orchestration out of `package main`.
 
 **Milestone:** v0.5.2
 
-### Item 4: Extract `runTransitsCommand` dispatch to `internal/db/`
+### Item 4: extract `runTransitsCommand` dispatch to `internal/db/`
 
 **Summary:** Move ~145 LOC of transits CLI dispatch into the package that already
 owns `TransitCLI`.
@@ -142,7 +142,7 @@ owns `TransitCLI`.
 
 **Milestone:** v0.5.2
 
-### Item 5: Extract TeX flow configuration to `internal/config/`
+### Item 5: extract teX flow configuration to `internal/config/`
 
 **Summary:** Move `resolvePrecompiledTeXRoot` and `configurePDFLaTeXFlow` (~50 LOC)
 into the config package.
@@ -156,7 +156,7 @@ into the config package.
 
 **Milestone:** v0.5.2
 
-### Item 6: Extract `config-migrate` logic to `internal/config/`
+### Item 6: extract `config-migrate` logic to `internal/config/`
 
 **Summary:** Move `legacyTuningConfig` struct and `migrateLegacyConfig` function
 (~180 LOC) out of the tool binary.
@@ -170,7 +170,7 @@ into the config package.
 
 **Milestone:** v0.5.2
 
-### Item 7: Extract `backfill_ring_elevations` SQL to `internal/lidar/storage/sqlite/`
+### Item 7: extract `backfill_ring_elevations` SQL to `internal/lidar/storage/sqlite/`
 
 **Summary:** Move `RunBackfillDB` (~60 LOC of raw SQL) into the package that owns
 the `lidar_bg_snapshot` table schema.
@@ -183,7 +183,7 @@ the `lidar_bg_snapshot` table schema.
 
 **Milestone:** v0.5.2
 
-### Item 8: Extract `settling-eval` orchestration to `internal/lidar/l3grid/`
+### Item 8: extract `settling-eval` orchestration to `internal/lidar/l3grid/`
 
 **Summary:** Move `runPCAPEval` and `backgroundConfigFromTuningConfig` (~140 LOC)
 into the background grid package.
@@ -211,7 +211,7 @@ into the background grid package.
 | `hintRunCreator` couples `sweep.Runner` internals | Low        | Medium | Keep adapter as thin bridge; do not absorb Runner lifecycle                                            |
 | Large PR blocks review                            | Medium     | Low    | Split into 3–4 PRs following the item groupings below                                                  |
 
-## Suggested PR Grouping
+## Suggested PR grouping
 
 | PR   | Items                                                 | Estimated LOC moved |
 | ---- | ----------------------------------------------------- | ------------------: |

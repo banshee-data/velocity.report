@@ -1,4 +1,4 @@
-# 3D Vector Scene Map — Architecture Specification
+# 3D vector scene map — architecture specification
 
 - **Status:** Proposed
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
@@ -8,9 +8,9 @@ This specification extends the ground-plane tiled-grid model into a polygon-base
 
 ---
 
-## 1. Overview & Motivation
+## 1. Overview & motivation
 
-### From Tiled Grid to Vector Polygons
+### From tiled grid to vector polygons
 
 The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid** — a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
 
@@ -26,7 +26,7 @@ The **vector scene map** extends the ground plane concept into a **polygon-based
 - **Vegetation and irregular objects** are described by approximate bounding volumes (convex hulls or oriented bounding boxes).
 - **Detail varies by need** — A multi-resolution hierarchy stores coarse polygons globally and refined polygons only where measurement accuracy demands it.
 
-### Architecture Principles
+### Architecture principles
 
 All principles from the ground plane specification carry forward:
 
@@ -35,7 +35,7 @@ All principles from the ground plane specification carry forward:
 - **Incremental, streaming-compatible:** Features must be constructable incrementally from streaming LiDAR frames. Batch (PCAP) mode may use multi-pass refinement, but single-pass operation must be viable.
 - **Privacy-first:** No camera data, no PII. Only geometric features (polygons, planes, volumes).
 
-### Relationship to Existing Systems
+### Relationship to existing systems
 
 The vector scene map is an **evolution** of the ground plane, not a replacement. It builds upon the same L4 Perception position:
 
@@ -53,9 +53,9 @@ L1 Packets → L2 Frames → L3 Background Grid → L4 Perception → L5 Tracks 
 
 ---
 
-## 2. Feature Taxonomy
+## 2. Feature taxonomy
 
-### Three Feature Classes
+### Three feature classes
 
 Every observable scene element falls into one of three geometric classes:
 
@@ -65,7 +65,7 @@ Every observable scene element falls into one of three geometric classes:
 | **Structure** | Vertical polygon(s) + height extent             | Buildings, walls, fences, retaining walls, bridge piers | Wall-plane equation, height range, footprint     |
 | **Volume**    | 3D bounding shape (OBB, convex hull, or sphere) | Trees, hedges, awnings, overhanging signs, light poles  | Approximate centre, bounding dimensions, density |
 
-### 2.1 Ground Features
+### 2.1 Ground features
 
 Ground features extend the existing `GroundTile` concept but replace the fixed grid with **variable-size polygons**:
 
@@ -100,7 +100,7 @@ Each ground polygon stores:
 
 **Key difference from tiles:** A single large polygon with 4–6 vertices replaces dozens of identical 1 m tiles for flat road segments. Corner positions are computed from the convex hull of contributing tile centres (or point clusters), giving **sub-tile positional accuracy** at polygon boundaries.
 
-### 2.2 Structure Features (Buildings, Walls)
+### 2.2 Structure features (buildings, walls)
 
 Structures are vertical surfaces observed as reflective returns from building facades, fences, and walls. They are modelled as:
 
@@ -116,7 +116,7 @@ Structures are vertical surfaces observed as reflective returns from building fa
 - **Scene context** — "This cluster is adjacent to a known building facade" (not free-standing).
 - **Map publishing** — Export building outlines as GeoJSON polygons for GIS integration.
 
-### 2.3 Volume Features (Vegetation, Irregular Shapes)
+### 2.3 Volume features (vegetation, irregular shapes)
 
 Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse, scattered returns. Model them as **approximate bounding volumes**:
 
@@ -126,9 +126,9 @@ Trees, hedges, and overhanging features don't conform to single planes. They pro
 
 ---
 
-## 3. Hierarchical Levels of Detail
+## 3. Hierarchical levels of detail
 
-### The Problem
+### The problem
 
 A LiDAR sensor observing a street scene can produce:
 
@@ -138,7 +138,7 @@ A LiDAR sensor observing a street scene can produce:
 
 Storing all of this at maximum resolution everywhere is wasteful. Conversely, a single coarse polygon for "the entire road" loses kerb edges and driveway dips.
 
-### Multi-Resolution Hierarchy
+### Multi-Resolution hierarchy
 
 The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by mapping conventions (zoom levels) and point cloud LOD systems:
 
@@ -149,7 +149,7 @@ The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by map
 | 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
 | 3   | **Survey**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes with cm-level corner positions   | Dense bounding volumes            | Surveyed benchmarks, driveway dip profiles     |
 
-### LOD Hierarchy as a Tree
+### LOD hierarchy as a tree
 
 Each feature exists at a **single primary LOD** but can be **refined** by splitting into child features at a finer level:
 
@@ -170,15 +170,15 @@ LOD 0: Road_Segment_Main_Street
 - **Parent polygons completely contain their children** — the LOD 0 polygon's boundary encloses all LOD 1 polygons, which in turn enclose LOD 2, etc.
 - **Querying at LOD N returns that level if available, otherwise falls back to the coarsest ancestor.**
 
-### LOD Data Model
+### LOD data model
 
 > **Source:** `SceneFeature`, `FeatureID`, and `FeatureClass` in `internal/lidar/` (when implemented). `SceneFeature` wraps ID, Class (Ground/Structure/Volume), LOD (0–3), ParentID, and exactly one of `*GroundFeature`, `*StructureFeature`, `*VolumeFeature`. Common metadata: PointCount, Confidence, LastUpdatedNanos, Settled.
 
 ---
 
-## 4. Multi-Resolution Design: Coarse-to-Detail Transitions
+## 4. Multi-Resolution design: coarse-to-detail transitions
 
-### 4.1 Coarse Polygon Construction (LOD 0–1)
+### 4.1 Coarse polygon construction (LOD 0–1)
 
 **Ground:** Starting from settled Tier 1 ground tiles (1 m grid), merge adjacent tiles with similar plane parameters into larger polygons.
 
@@ -204,7 +204,7 @@ This produces LOD 0–1 ground polygons: large flat regions collapse into single
 
 **Volumes:** Construct LOD 0 vegetation bounds from clusters of scattered returns that don't fit ground or structure models. Use bounding spheres for LOD 0; refine to OBBs or convex hulls at LOD 1.
 
-### 4.2 Selective Refinement (LOD 2–3)
+### 4.2 Selective refinement (LOD 2–3)
 
 LOD 2–3 features exist **only where justified** by one of:
 
@@ -235,7 +235,7 @@ LOD 2: Pavement_Beyond (planarity 0.97, flat, +0.15m elevated)
 
 The LOD 1 parent polygon is **preserved** — querying at LOD 1 still returns the single flat road polygon. Querying at LOD 2 returns the three sub-polygons.
 
-### 4.3 Threshold-Based Pruning and Compression
+### 4.3 Threshold-Based pruning and compression
 
 **Pruning rules** prevent detail explosion:
 
@@ -270,13 +270,13 @@ This ensures coarse polygons are extremely compact (4–6 vertices for a road bl
 
 ---
 
-## 5. Storage Model
+## 5. Storage model
 
-### 5.1 In-Memory Representation
+### 5.1 In-Memory representation
 
 > **Source:** `VectorSceneMap` struct in `internal/lidar/` (when implemented). Holds `map[FeatureID]*SceneFeature` with RWMutex, spatial index (QuadTree or R-tree), per-LOD feature ID lists, and per-class counters.
 
-### 5.2 Storage Budget
+### 5.2 Storage budget
 
 **Comparison: tiled grid vs vector polygons for a 100 m × 100 m scene**
 
@@ -301,11 +301,11 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 
 **Total scene budget (100 m × 100 m):** ~35 KB compressed (ground + structures + vegetation at mixed LOD).
 
-### 5.3 SQLite Persistence Schema
+### 5.3 SQLite persistence schema
 
 > **Source:** Schema in `internal/db/migrations/` (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
 
-### 5.4 Export Formats
+### 5.4 Export formats
 
 | Format           | Use Case                     | Ground                                 | Structures                              | Volumes                               |
 | ---------------- | ---------------------------- | -------------------------------------- | --------------------------------------- | ------------------------------------- |
@@ -318,9 +318,9 @@ GeoJSON remains the default export, consistent with the ground plane export spec
 
 ---
 
-## 6. Construction Pipeline
+## 6. Construction pipeline
 
-### 6.1 From Ground Tiles to Vector Polygons
+### 6.1 From ground tiles to vector polygons
 
 The vector scene map is built **on top of** the settled Tier 1 ground plane grid. The pipeline:
 
@@ -338,7 +338,7 @@ Vector Scene Map Constructor
 
 **Timing:** The vector scene map is a **post-settlement** artefact. It is constructed after the ground plane grid reaches sufficient coverage (e.g., > 60% of near-field tiles settled). It can be recomputed periodically (every 30 s) or on-demand for export.
 
-### 6.2 Ground Polygon Construction
+### 6.2 Ground polygon construction
 
 **Step 1: Region Growing**
 
@@ -373,7 +373,7 @@ For each pair of adjacent ground polygons where the plane parameters differ sign
 
 Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropriate tolerance.
 
-### 6.3 Structure Extraction
+### 6.3 Structure extraction
 
 **Input:** L3 background grid cells classified as static **and** with near-vertical surface orientation (normal Z-component < 0.3, indicating a wall-like surface).
 
@@ -385,7 +385,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 4. **Estimate height** — Record Z_min and Z_max from contributing points.
 5. **Emit** as `SceneFeature{Class: Structure}` at LOD determined by footprint area.
 
-### 6.4 Volume Extraction
+### 6.4 Volume extraction
 
 **Input:** L4 clusters that are:
 
@@ -402,15 +402,15 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 ---
 
-## 7. Querying the Scene Map
+## 7. Querying the scene map
 
-### 7.1 SceneSurface Interface
+### 7.1 SceneSurface interface
 
 The vector scene map publishes a query interface that extends `GroundSurface`:
 
 > **Source:** `SceneSurface` interface in `internal/lidar/` (when implemented). Embeds `GroundSurface` and adds: `FeaturesAt(x, y, maxLOD)`, `GroundPolygonAt(x, y, maxLOD)`, `NearestStructure(x, y, radius)`, `VolumesInRadius(x, y, radius)`, `FeaturesInBBox(xMin, yMin, xMax, yMax, maxLOD)`.
 
-### 7.2 LOD Fallback Semantics
+### 7.2 LOD fallback semantics
 
 When querying at a specific LOD:
 
@@ -423,16 +423,16 @@ This ensures that **every query returns something if any coverage exists**, rega
 
 ---
 
-## 8. Gap-Free Navigation Between LOD Levels
+## 8. Gap-Free navigation between LOD levels
 
-### 8.1 The Global Map Problem
+### 8.1 The global map problem
 
 At the global level (Tier 2, lat/long-aligned), the map should be navigable as a coherent simplified representation:
 
 - **Street-level polygons** (LOD 0–1) form a continuous surface with major boundaries visible: road edges, building outlines, vegetation zones.
 - **Detail zones** (LOD 2–3) appear as nested refinements visible only when queried at higher LOD.
 
-### 8.2 Transition Strategy
+### 8.2 Transition strategy
 
 **Spatial containment invariant:** Every LOD N+1 feature is fully contained within its LOD N parent's boundary. This guarantees gap-free transition:
 
@@ -452,7 +452,7 @@ Query at LOD 3: Returns ~500 polygons (surveyed benchmarks, precise corners).
 
 **Gap-free guarantee:** Because parent polygons are preserved, querying at any LOD returns full scene coverage. Finer features subdivide their parents but do not leave gaps. A client can render LOD 0 as the base layer, then overlay LOD 1+ detail where available.
 
-### 8.3 Global-to-Local Mapping
+### 8.3 Global-to-Local mapping
 
 When loading a global (Tier 2) vector scene map at session startup:
 
@@ -471,9 +471,9 @@ When merging back (local → global):
 
 ---
 
-## 9. Integration with Ground Plane
+## 9. Integration with ground plane
 
-### Backward Compatibility
+### Backward compatibility
 
 The vector scene map does **not replace** the tiled ground plane grid. The construction hierarchy is:
 
@@ -490,23 +490,23 @@ Vector Scene Map (LOD 0–3 polygons)    ←  Derived artefact for mapping, expo
 - **Multi-session mapping** — Accumulate building footprints and vegetation zones across sessions.
 - **LOD-filtered views** — Provide simplified or detailed scene descriptions on demand.
 
-### GroundSurface Delegation
+### GroundSurface delegation
 
 The `VectorSceneMap` implements `GroundSurface` by delegating height queries to the underlying `GroundPlaneGrid` for real-time use. For offline/export use cases, the vector polygons can directly answer height queries using their plane equations.
 
 ---
 
-## 10. Construction Thresholds and Configuration
+## 10. Construction thresholds and configuration
 
-### Default Parameters
+### Default parameters
 
 > **Source:** `VectorSceneParams` struct in `internal/lidar/` (when implemented). Key defaults: merge angle 2°, merge Z-offset 3 cm, LOD 0 min area 50 m², LOD 1 min area 5 m², refinement curvature 5°, refinement Z-step 10 cm, min confidence 0.70, Douglas-Peucker tolerances [2.0, 0.5, 0.1, 0.02] m per LOD, structure min height 1.0 m, volume min persistence 30 s.
 
 ---
 
-## 11. Implementation Roadmap
+## 11. Implementation roadmap
 
-### Phase 1: Ground Polygon Merging
+### Phase 1: ground polygon merging
 
 - [ ] Implement region-growing merge over settled ground tiles
 - [ ] Alpha-shape or convex-hull boundary computation
@@ -516,7 +516,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] GeoJSON export of ground polygons
 - [ ] Unit tests: merge criterion, boundary computation, planarity preservation
 
-### Phase 2: Structure and Volume Extraction
+### Phase 2: structure and volume extraction
 
 - [ ] Vertical surface grouping from L3 background cells
 - [ ] Footprint polygon construction (minimum bounding rectangle)
@@ -526,7 +526,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] LOD assignment for structures and volumes
 - [ ] GeoJSON export of all three feature classes
 
-### Phase 3: Hierarchical LOD and Refinement
+### Phase 3: hierarchical LOD and refinement
 
 - [ ] Parent–child feature linkage (`ParentID`)
 - [ ] Selective refinement at curvature/Z-step boundaries
@@ -536,7 +536,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] `SceneSurface` interface implementation
 - [ ] Integration tests with PCAP replay
 
-### Phase 4: Multi-Session Mapping
+### Phase 4: multi-session mapping
 
 - [ ] SQLite persistence (`vector_scene_features`, `vector_scene_snapshots`)
 - [ ] Global-to-local prior loading at session startup
@@ -552,9 +552,9 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 
 ---
 
-## 12. Relationship to Future Work
+## 12. Relationship to future work
 
-### OSM Integration
+### OSM integration
 
 The vector scene map provides natural anchor points for OpenStreetMap features:
 
@@ -563,7 +563,7 @@ The vector scene map provides natural anchor points for OpenStreetMap features:
 - **Kerb polygons** (LOD 2) correspond to OSM `barrier=kerb` ways.
 - **Crosswalk polygons** (LOD 2) correspond to OSM `highway=crossing` nodes/ways.
 
-#### OSM Simple 3D Buildings as the Preferred Structure Prior
+#### OSM simple 3D buildings as the preferred structure prior
 
 For **structure features** (buildings, building parts, walls), the preferred
 Tier 2 prior source should be **OpenStreetMap Simple 3D Buildings (S3DB)**
@@ -606,7 +606,7 @@ Implementation notes:
 - Treat OSM priors as **soft constraints** (`w_prior`) and allow local LiDAR to
   override them when observations disagree consistently.
 
-#### Scan-Derived OSM Update Proposal Tooling (Contribute Back Upstream)
+#### Scan-Derived OSM update proposal tooling (contribute back upstream)
 
 The V2 OSM write-back workflow from `ground-plane-extraction.md`
 should be extended for S3DB-aware building updates. The key design requirement
@@ -649,17 +649,17 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 - Bulk or repeated scripted edits must follow OSM community guidance for
   automated/mechanical edits before execution.
 
-### Supplemental Geometry-Prior Service
+### Supplemental geometry-prior service
 
 Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM. Local-first with optional static fetch from a public CDN; 0.01° grid-based folder structure; immutable contributor files with optional GPG signatures and CI-maintained trust manifest. Full architecture, file format specification, trust model, and hosting options: **[geometry-prior-service.md](./geometry-prior-service.md)**.
 
-### Multi-Device Fusion
+### Multi-Device fusion
 
 Multiple sensors observing the same area can each produce a local vector scene map. Merging follows weighted polygon averaging. Building footprints from different viewpoints refine corner positions.
 
 ---
 
-## Open Questions
+## Open questions
 
 No open questions for the vector scene map core. Design choices (alpha-shape vs convex-hull boundary, QuadTree vs R-tree spatial index) are documented in §4 and §10. Open questions for the geometry-prior service are in [geometry-prior-service.md](./geometry-prior-service.md).
 
@@ -667,7 +667,7 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 
 ## References
 
-### Internal Documents
+### Internal documents
 
 - **Ground Plane Extraction** — [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
 - **Ground Plane Proposal Maths** — [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
@@ -675,7 +675,7 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 - **Background Grid Standards** — [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
 - **PCAP Export Tool** — [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
 
-### External Standards
+### External standards
 
 - **OpenStreetMap Simple 3D Buildings** — [OSM Wiki: Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) (building outlines, parts, and roof tagging model)
 - **OpenStreetMap Automated Edits Guidance** — [OSM Wiki: Automated Edits code of conduct](https://wiki.openstreetmap.org/wiki/Automated_Edits_code_of_conduct) (community process for scripted/mechanical edits)

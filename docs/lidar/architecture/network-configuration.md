@@ -1,13 +1,13 @@
-# LiDAR Network Configuration
+# LiDAR network configuration
 
 - **Status:** Proposed
 - **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`lidar-sidecar-overview.md`](./lidar-sidecar-overview.md), [`networking.md`](../../radar/architecture/networking.md)
 
 Architecture for interface-aware UDP binding, network diagnostics, hot-reload configuration, and a settings UI for the LiDAR sensor network layer.
 
-## Overview & Motivation
+## Overview & motivation
 
-### Current State
+### Current state
 
 The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on `cmd/radar` (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
 
@@ -29,7 +29,7 @@ This model has three operational problems:
 2. **No runtime diagnostics** — Operators cannot verify whether the Hesai sensor is reachable, which interface it is transmitting on, or whether UDP packets are actually arriving — without SSH access and `tcpdump`.
 3. **No hot-reload** — Changing the listening port or interface requires restarting the service, interrupting data collection.
 
-### Design Goals
+### Design goals
 
 - **Interface-aware binding**: Bind the UDP listener to a specific network interface (by name or IP address), not just a wildcard port
 - **Network diagnostics API**: Enumerate local interfaces, report IP/gateway info, and probe whether Hesai traffic is arriving on expected ports
@@ -38,9 +38,9 @@ This model has three operational problems:
 - **Consistent with serial pattern**: Follow the `SerialPortManager` hot-reload architecture established for radar serial configuration
 - **Privacy-first**: No traffic content inspection; only metadata (packet counts, source IPs, port numbers)
 
-## Hesai Network Topology
+## Hesai network topology
 
-### Standard Port Assignments
+### Standard port assignments
 
 | Port | Direction         | Protocol | Purpose                                           |
 | ---- | ----------------- | -------- | ------------------------------------------------- |
@@ -50,7 +50,7 @@ This model has three operational problems:
 
 The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on its configured data port. The sensor expects a dedicated ethernet segment (typically `192.168.1.0/24`) with the host NIC on the same subnet.
 
-### Typical Deployment Topology
+### Typical deployment topology
 
 ```
 ┌──────────────┐      Ethernet       ┌──────────────────────────┐
@@ -67,9 +67,9 @@ The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on i
                                      └──────────────────────────┘
 ```
 
-## Proposed Architecture
+## Proposed architecture
 
-### Database Schema
+### Database schema
 
 A new `lidar_network_config` table stores the network binding configuration, following the `radar_serial_config` pattern:
 
@@ -88,7 +88,7 @@ A new `lidar_network_config` table stores the network binding configuration, fol
 
 **Bind address resolution:** When `interface_name` is set but `bind_address` is empty, the system resolves the interface's primary IPv4 address at bind time. When both are empty, the listener binds to `0.0.0.0` (wildcard). When `bind_address` is explicit, it is used directly regardless of `interface_name`.
 
-### LiDAR Network Manager
+### LiDAR network manager
 
 A `LiDARNetworkManager` follows the `SerialPortManager` pattern — a hot-reload wrapper around the UDP listener with persistent API subscriptions and thread-safe configuration swaps.
 
@@ -108,17 +108,17 @@ A `LiDARNetworkManager` follows the `SerialPortManager` pattern — a hot-reload
 
 **PacketStats persistence:** Unlike serial events, packet statistics are high-frequency (>1,000/sec) and must not be reset on reload. The manager owns a single `PacketStats` instance that is injected into each new listener, preserving throughput metrics across configuration changes.
 
-### Network Diagnostics
+### Network diagnostics
 
 The diagnostics subsystem provides three capabilities without requiring external tooling:
 
-#### 1. Interface Enumeration
+#### 1. Interface enumeration
 
 > **Source:** `internal/api/network_diagnostics.go` (when implemented). `NetworkInterface` struct with fields: Name, Addresses (IPv4/IPv6 CIDRs), MAC, Up, Running, MTU, and IsLoopback.
 
 Uses `net.Interfaces()` to enumerate NICs. Filters out loopback and down interfaces in the default response; include-all available via query parameter.
 
-#### 2. Interface Detail with Gateway
+#### 2. Interface detail with gateway
 
 For a selected interface, resolve additional network context:
 
@@ -126,7 +126,7 @@ For a selected interface, resolve additional network context:
 
 Gateway resolution reads `/proc/net/route` on Linux (the target platform). On other platforms, this field is omitted.
 
-#### 3. Traffic Probe
+#### 3. Traffic probe
 
 A non-destructive probe checks whether Hesai UDP traffic is arriving on a given interface and port:
 
@@ -142,7 +142,7 @@ A non-destructive probe checks whether Hesai UDP traffic is arriving on a given 
 
 **Active-listener warning:** If the traffic probe targets a port currently held by the `LiDARNetworkManager`, the API returns the live statistics from `PacketStats.GetLatestSnapshot()` with `listener_active: true`, rather than attempting to bind a second socket.
 
-### API Endpoints
+### API endpoints
 
 New endpoints under `/api/lidar/network/`, mirroring the `/api/serial/` pattern:
 
@@ -156,7 +156,7 @@ New endpoints under `/api/lidar/network/`, mirroring the `/api/serial/` pattern:
 | `PUT`    | `/api/lidar/network/configs/:id` | Update config            |
 | `DELETE` | `/api/lidar/network/configs/:id` | Delete config            |
 
-#### Diagnostics & Control
+#### Diagnostics & control
 
 | Method | Path                                  | Description                                             |
 | ------ | ------------------------------------- | ------------------------------------------------------- |
@@ -166,7 +166,7 @@ New endpoints under `/api/lidar/network/`, mirroring the `/api/serial/` pattern:
 | `POST` | `/api/lidar/network/reload`           | Apply enabled config (hot-reload listener)              |
 | `GET`  | `/api/lidar/network/status`           | Current listener status + live packet stats             |
 
-#### Request/Response Examples
+#### Request/Response examples
 
 **POST `/api/lidar/network/probe`**
 
@@ -239,9 +239,9 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 5. **Reload control** — "Apply Configuration" button sends `POST /api/lidar/network/reload`. Displays success/failure result inline. Warns if changing interface/port while actively ingesting.
 
-## Implementation Plan
+## Implementation plan
 
-### Phase 1: Database & API Foundation
+### Phase 1: database & API foundation
 
 | Task                                           | Effort |
 | ---------------------------------------------- | ------ |
@@ -250,14 +250,14 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 | `internal/db/lidar_network_config.go` — CRUD   | M      |
 | `internal/db/lidar_network_config_test.go`     | M      |
 
-### Phase 2: Network Diagnostics
+### Phase 2: network diagnostics
 
 | Task                                                                   | Effort |
 | ---------------------------------------------------------------------- | ------ |
 | `internal/api/network_diagnostics.go` — interface enum, gateway, probe | M      |
 | `internal/api/network_diagnostics_test.go`                             | M      |
 
-### Phase 3: Hot-Reload Manager
+### Phase 3: hot-reload manager
 
 | Task                                                         | Effort |
 | ------------------------------------------------------------ | ------ |
@@ -266,7 +266,7 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 | Wire into `server.go` route registration                     | S      |
 | CLI flag migration: honour DB config over flags              | M      |
 
-### Phase 4: Settings UI
+### Phase 4: settings UI
 
 | Task                                                               | Effort |
 | ------------------------------------------------------------------ | ------ |
@@ -274,7 +274,7 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 | `web/src/lib/api.ts` — lidar network API functions                 | S      |
 | Settings page link from `/settings`                                | S      |
 
-### Phase 5: Integration & Testing
+### Phase 5: integration & testing
 
 | Task                                                  | Effort |
 | ----------------------------------------------------- | ------ |
@@ -283,13 +283,13 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
 
-## Resolved Design Questions
+## Resolved design questions
 
 | Question                         | Resolution                                                                                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Allow privileged ports (< 1024)? | No. Schema restricts `udp_port` to 1024–65535. Hesai defaults (2368/2369) are well above 1024; privileged ports require root or `CAP_NET_BIND_SERVICE`. |
 
-## Open Questions
+## Open questions
 
 1. **Multiple listeners**: Should the system support binding to multiple interfaces simultaneously (e.g., primary + backup), or is single-config-enabled sufficient?
    - **Recommendation:** Single enabled config (matching serial pattern). Multi-listener adds complexity with minimal benefit for the current deployment model.

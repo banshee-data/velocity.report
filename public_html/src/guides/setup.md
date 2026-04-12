@@ -26,7 +26,7 @@ This guide shows you how to build a privacy-first traffic radar using a pre-buil
 
 The whole system is designed for permanent outdoor deployment: weatherproof hardware, a single SD card flash, and software that starts collecting data the moment it boots.
 
-## Who This Guide Is For
+## Who this guide is for
 
 - **Community advocates** who need professional data for traffic calming proposals
 - **Parents** who want to prove speeding near schools with evidence, not exasperation
@@ -35,7 +35,7 @@ The whole system is designed for permanent outdoor deployment: weatherproof hard
 
 **Not sure?** The project takes 2–4 hours and costs $563–596. If you care about street safety and want a permanent monitoring solution, that is a reasonable afternoon.
 
-## Before You Begin
+## Before you begin
 
 **Skills required**:
 
@@ -51,9 +51,9 @@ The whole system is designed for permanent outdoor deployment: weatherproof hard
 
 **No soldering required** • **No coding required** • **No prior radar experience needed**
 
-## Privacy & Legal Considerations
+## Privacy & legal considerations
 
-### What This System Does (and Does Not) Collect
+### What this system does (and does not) collect
 
 |                        |                                                          |
 | ---------------------- | -------------------------------------------------------- |
@@ -63,7 +63,7 @@ The whole system is designed for permanent outdoor deployment: weatherproof hard
 
 The system records vehicle speed data without collecting camera images, licence plates, or other personal details. The point is to measure traffic, not to build a private surveillance habit.
 
-### Is This Legal?
+### Is this legal?
 
 **In most jurisdictions, yes.** You are measuring public behaviour on public streets, similar to what traffic engineers and academic researchers do.
 
@@ -87,7 +87,7 @@ The system records vehicle speed data without collecting camera images, licence 
 
 **Disclaimer**: Laws vary. When in doubt, consult local authorities and/or an attorney.
 
-### Understanding Speed: The Physics Behind Street Safety
+### Understanding speed: the physics behind street safety
 
 Speed is not just a number on a sign. It is physics, and physics does not negotiate.
 
@@ -111,7 +111,7 @@ Streets designed for 25 mph but driven at 40? That driver is doing 2.56× the de
 
 ---
 
-## What You Will Build
+## What you will build
 
 A weatherproof traffic monitoring system that runs on a Raspberry Pi and starts working the moment you plug it in:
 
@@ -129,11 +129,11 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 ---
 
-## Parts and Tools List
+## Parts and tools list
 
 **New to radar sensors?** The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment. It is weatherproof (IP67), has 100m range, and handles outdoor conditions reliably.
 
-### Bill of Materials
+### Bill of materials
 
 | Part                 | Recommended Model                                                                                     | Price (approx) | Notes                                                                   |
 | -------------------- | ----------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
@@ -149,7 +149,7 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 ---
 
-### Tools Required
+### Tools required
 
 - Basic screwdrivers, drill, adhesive
 - Computer for flashing SD card and SSH access
@@ -158,7 +158,7 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 ---
 
-## Step-by-Step Build Guide
+## Step-by-Step build guide
 
 **Build overview** (total time: 2–4 hours):
 
@@ -172,7 +172,7 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 
 ---
 
-### Step 1: Flash the Pi Image
+### Step 1: flash the Pi image
 
 _Estimated time: 10–15 minutes_
 
@@ -228,7 +228,7 @@ sudo systemctl status velocity-report
 
 ---
 
-### Step 2: Connect the Sensor to the Raspberry Pi
+### Step 2: connect the sensor to the Raspberry Pi
 
 _Estimated time: 15–30 minutes_
 
@@ -272,7 +272,7 @@ If you are using a USB-Serial adapter instead of a HAT, the image creates a `/de
 
 ---
 
-### Step 3: Configure Sensor Output Mode
+### Step 3: configure sensor output mode
 
 _Estimated time: 10 minutes_
 
@@ -321,7 +321,7 @@ The OmniPreSense sensor ships with CSV output by default. velocity.report expect
 
 ---
 
-### Step 4: Verify Data Stream
+### Step 4: verify data stream
 
 _Estimated time: 5 minutes_
 
@@ -348,7 +348,7 @@ When vehicles pass, you will see more detailed information. The key is that you 
 
 ---
 
-### Step 5: Access the Web Dashboard
+### Step 5: access the web dashboard
 
 _Estimated time: 5 minutes_
 
@@ -381,7 +381,7 @@ If none of that helps, check the logs: `sudo journalctl -u velocity-report -f`
 
 ---
 
-### Step 6: Mount the Radar Sensor
+### Step 6: mount the radar sensor
 
 _Estimated time: 1–2 hours for complete weatherproof installation_
 
@@ -441,7 +441,7 @@ _Estimated time: 1–2 hours for complete weatherproof installation_
 
 ---
 
-### Step 7: Generate PDF Reports
+### Step 7: generate PDF reports
 
 _Estimated time: Varies — requires a data collection period_
 
@@ -466,7 +466,7 @@ After collecting data for a few days or weeks, you can generate professional rep
 - **p98 (top 2%)**: Threshold where the fastest regular drivers operate
 - Histograms, time-of-day charts, and crash physics analysis
 
-#### Comparison Reports: Measuring Intervention Effectiveness
+#### Comparison reports: measuring intervention effectiveness
 
 Comparison reports let you analyse the impact of traffic calming measures by comparing two time periods side by side. This is where the data earns its keep — showing council members that a speed hump reduced p85 speeds by 12 mph is considerably more persuasive than anyone's recollection of how things felt.
 
@@ -497,7 +497,7 @@ The report includes:
 
 ---
 
-#### Site Configuration Periods: Time-Based Sensor Settings
+#### Site configuration periods: time-based sensor settings
 
 When you reposition your sensor or adjust its mounting angle, historical data needs to be corrected using the angle that was in effect at the time of collection. The site configuration periods feature (based on a Type 6 Slowly Changing Dimension pattern) tracks these changes automatically.
 
@@ -529,9 +529,9 @@ When generating a report for April 2025, the system automatically applies the 35
 
 ---
 
-## Network Access & Security
+## Network access & security
 
-### Local Network Deployment (Recommended)
+### Local network deployment (recommended)
 
 The web dashboard runs on port 8080 and is accessible to any device on your local network:
 
@@ -557,7 +557,7 @@ http://192.168.1.XXX:8080
 
 ---
 
-### Remote Access with Tailscale (Optional)
+### Remote access with Tailscale (optional)
 
 [Tailscale](https://tailscale.com) provides secure remote access from anywhere without exposing your Pi to the public internet.
 
@@ -603,7 +603,7 @@ http://100.x.y.z:8080
 
 ---
 
-### Public Internet Deployment (Not Recommended)
+### Public internet deployment (not recommended)
 
 **Please do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting. It was not designed for that, and it will not thank you for the experience.
 
@@ -611,9 +611,9 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ---
 
-## Using Your Data for Advocacy
+## Using your data for advocacy
 
-### Presenting to Council
+### Presenting to council
 
 **Do**:
 
@@ -629,14 +629,14 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 - Make emotional appeals without data backup
 - Demand immediate action without acknowledging budget constraints
 
-### Building Community Support
+### Building community support
 
 1. **Share with neighbours** - Show them the data
 2. **Partner with local groups** - PTA, neighbourhood associations
 3. **File public records requests** - Compare to city traffic studies
 4. **Document over time** - Show patterns, not one-off incidents
 
-### Example Talking Points
+### Example talking points
 
 - ❌ "Cars go way too fast on our street!"
 - ✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph — well above the engineering standard for residential safety."
@@ -666,7 +666,7 @@ If you need remote access, please use [Tailscale](#remote-access-with-tailscale-
 
 ---
 
-## Updating the Software
+## Updating the software
 
 The image makes zero unsolicited network requests. Updates happen when you decide, not when a server somewhere feels inspired.
 
@@ -689,11 +689,11 @@ sudo velocity-ctl upgrade --binary /path/to/velocity-report
 
 ---
 
-## Reinstalling or Starting Fresh
+## Reinstalling or starting fresh
 
 Your sensor data is the thing that took weeks to collect. The software can be re-flashed in ten minutes. Back up the database first.
 
-### Back Up Your Data
+### Back up your data
 
 The database lives at `/var/lib/velocity-report/sensor_data.db`. Before doing anything destructive, copy it somewhere safe:
 
@@ -714,7 +714,7 @@ scp velocity@velocity.local:/var/lib/velocity-report/sensor_data.db \
   ~/sensor_data_backup_$(date +%Y%m%d).db
 ```
 
-### Re-flash and Restore
+### Re-flash and restore
 
 1. **Re-flash the SD card** using [Step 1](#step-1-flash-the-pi-image)
 2. **Boot the Pi** and verify the service is running (`sudo systemctl status velocity-report`)
@@ -744,7 +744,7 @@ sudo systemctl start velocity-report
 
 Your historical data, sites, and configuration periods will be exactly where you left them.
 
-### Removing velocity.report Entirely
+### Removing velocity.report entirely
 
 If you want to remove velocity.report from a Pi that has other things on it:
 
@@ -769,7 +769,7 @@ sudo userdel velocity
 
 ---
 
-## Wrap-Up & Next Steps
+## Wrap-Up & next steps
 
 You have a working traffic radar.
 
@@ -798,7 +798,7 @@ Show your neighbours. File public records requests to compare your data to offic
 
 ---
 
-## Resources & Links
+## Resources & links
 
 - **Project overview**: See the [main README](../../../README.md) for project background and philosophy
 - **GitHub repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
@@ -820,9 +820,9 @@ Show your neighbours. File public records requests to compare your data to offic
 
 ---
 
-## Appendix: Sensor Selection Guide
+## Appendix: sensor selection guide
 
-### Understanding OmniPreSense Product Codes
+### Understanding OmniPreSense product codes
 
 OmniPreSense offers radar sensors in multiple configurations. The product code format is:
 
@@ -845,7 +845,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 - `203-OPS7243-A-CW-R2` = Sensor in IP67 housing, speed-only, continuous wave, RS232 interface
 - `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
 
-### Available Models Comparison
+### Available models comparison
 
 | Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price |
 | ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | ----- |
@@ -861,7 +861,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 - **R2 interface**: RS232 industrial (requires serial HAT)
 - **7243 series**: IP67 weatherproof enclosure for outdoor deployment
 
-### Power Requirements
+### Power requirements
 
 All models operate on **5V DC**:
 

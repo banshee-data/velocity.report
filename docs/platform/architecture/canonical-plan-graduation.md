@@ -1,4 +1,4 @@
-# Canonical Plan Graduation
+# Canonical plan graduation
 
 How `docs/plans/` relates to the hub documentation tree, and the lifecycle by which
 plan files graduate into stable hub docs.
@@ -10,7 +10,7 @@ doc, or multiple phase plans that all describe the same architectural identity.
 That makes the project hard to reason about because readers must reconstruct
 the real source of truth by hand.
 
-## Design Goal
+## Design goal
 
 For any substantial body of work, a reader should be able to answer three
 questions quickly:
@@ -19,7 +19,7 @@ questions quickly:
 2. What plan, if any, is currently driving execution?
 3. What happened to the old plan URLs?
 
-## Document Roles
+## Document roles
 
 | Role                 | Purpose                                              | Path                     |
 | -------------------- | ---------------------------------------------------- | ------------------------ |
@@ -27,7 +27,7 @@ questions quickly:
 | Active plan          | Temporary sequencing, phases, checklists             | `docs/plans/*.md`        |
 | Graduated plan alias | Preserve legacy URLs after consolidation             | Symlink in `docs/plans/` |
 
-## Hub Structure
+## Hub structure
 
 Four mutually exclusive hubs, chosen by domain-first sorting:
 
@@ -41,7 +41,7 @@ Four mutually exclusive hubs, chosen by domain-first sorting:
 Additional prefixes `config/` and `data/` are allowed for docs that live beside
 the artefacts they describe.
 
-### Sorting Test
+### Sorting test
 
 To place a doc, ask: _which domain owns the lasting value?_
 
@@ -52,7 +52,7 @@ To place a doc, ask: _which domain owns the lasting value?_
 | UI architecture or implementation reference           | `docs/ui/<topic>.md`            |
 | Config or maths specification already in `config/`    | Existing `config/` or `data/`   |
 
-## One Body Of Work, One Canonical Doc
+## One body of work, one canonical doc
 
 Use this test when deciding whether multiple plans should merge:
 
@@ -99,14 +99,14 @@ hub docs legitimately serve multiple plans.
 | `make check-plan-hygiene`  | Hard-fail | CI gate (blocks merge) |
 | `make report-plan-hygiene` | Advisory  | PM/editorial review    |
 
-## Current State
+## Current state
 
 - 85 plan files, all with `Canonical` metadata
 - ~140 hub docs across 4 hubs (excluding READMEs)
 - 21 plans graduated to symlinks
 - 0 gate violations, 7 advisory notes (deliberate shared targets)
 
-## Success Criteria
+## Success criteria
 
 1. Every substantial body of work has one stable doc in its owning hub.
 2. No two active plans claim the same canonical body of work (or are documented as advisory exceptions).

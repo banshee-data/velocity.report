@@ -1,4 +1,4 @@
-# Motion Capture Architecture - Future Specification
+# Motion capture architecture - future specification
 
 - **Status:** Future Work (Not in Current Release)
 - **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks
@@ -12,7 +12,7 @@
 
 ---
 
-## 7DOF Pose Representation
+## 7DOF pose representation
 
 ### Why 7DOF?
 
@@ -65,7 +65,7 @@ type Pose7DOF struct {
 }
 ```
 
-### Database Schema (Future)
+### Database schema (future)
 
 ```sql
 CREATE TABLE sensor_poses_7dof (
@@ -111,7 +111,7 @@ CREATE TABLE sensor_poses_7dof (
 );
 ```
 
-### Quaternion Operations
+### Quaternion operations
 
 **Required Utilities:**
 
@@ -148,9 +148,9 @@ This provides smooth rotation interpolation between poses.
 
 ---
 
-## Ego-Motion Compensation
+## Ego-Motion compensation
 
-### Problem Statement
+### Problem statement
 
 When the sensor moves, measured velocities include **both object motion and sensor motion**:
 
@@ -171,7 +171,7 @@ v_measured = v_object + v_sensor
 - ❌ Tracking fails (objects don't match between frames)
 - ❌ Classification fails (velocity-based features incorrect)
 
-### Solution: Pose-Compensated Tracking
+### Solution: pose-compensated tracking
 
 **Kalman Filter with Ego-Motion:**
 
@@ -238,7 +238,7 @@ func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
 }
 ```
 
-### Requirements for Ego-Motion Compensation
+### Requirements for ego-motion compensation
 
 **Data Requirements:**
 
@@ -256,9 +256,9 @@ func (p *Pose7DOF) VelocityAtPoint(point [3]float64) [3]float64 {
 
 ---
 
-## 3D Tracking with Orientation
+## 3D tracking with orientation
 
-### Current: 2D Ground Plane Tracking
+### Current: 2D ground plane tracking
 
 **4-State Kalman Filter:**
 
@@ -284,7 +284,7 @@ where F = [1 0 dt  0]
 - ❌ No vertical velocity (cannot track jumping, falling)
 - ❌ No rotation (cannot track spinning objects)
 
-### Future: 3D Tracking with Orientation
+### Future: 3D tracking with orientation
 
 **13-State Kalman Filter:**
 
@@ -344,7 +344,7 @@ func (track *TrackedObject3D) Update(z Measurement) {
 }
 ```
 
-### Object Orientation Estimation
+### Object orientation estimation
 
 **Use Cases:**
 
@@ -381,9 +381,9 @@ track.UpdateOrientation(measurement)
 
 ---
 
-## Clustering and Shape Completion
+## Clustering and shape completion
 
-### Consistent Point Cluster Identification
+### Consistent point cluster identification
 
 For reliable object tracking, clusters must represent consistent real-world objects across frames.
 
@@ -399,7 +399,7 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 - **Phase 6:** Clustering Algorithms (AdaptiveDBSCAN, Octree spatial index, cluster merging)
 - **Phase 7:** Occlusion Handling (symmetry completion, model-based priors, temporal refinement)
 
-### Handling Partial Observations (Occlusion)
+### Handling partial observations (occlusion)
 
 **Problem:** LIDAR only observes surfaces facing the sensor. For a typical vehicle, only 1-3 sides are visible.
 
@@ -435,9 +435,9 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 
 ---
 
-## Data Structure Specifications
+## Data structure specifications
 
-### Pose-Aware Cluster (Motion)
+### Pose-Aware cluster (motion)
 
 ```go
 type WorldCluster struct {
@@ -462,7 +462,7 @@ type WorldCluster struct {
 }
 ```
 
-### 3D Tracked Object (Motion)
+### 3D tracked object (motion)
 
 ```go
 type TrackedObject3D struct {
@@ -496,7 +496,7 @@ type TrackedObject3D struct {
 }
 ```
 
-### Track Observation (Motion)
+### Track observation (motion)
 
 ```go
 type TrackObservation3D struct {
@@ -531,9 +531,9 @@ type TrackObservation3D struct {
 
 ---
 
-## Implementation Phases
+## Implementation phases
 
-### Phase 1: 7DOF Pose Infrastructure (Foundation)
+### Phase 1: 7DOF pose infrastructure (foundation)
 
 **Goal:** Add quaternion support without changing tracking
 
@@ -548,7 +548,7 @@ type TrackObservation3D struct {
 
 ---
 
-### Phase 2: 3D Tracking (No Orientation Yet)
+### Phase 2: 3D tracking (no orientation yet)
 
 **Goal:** Extend Kalman to 3D position/velocity (9-state)
 
@@ -562,7 +562,7 @@ type TrackObservation3D struct {
 
 ---
 
-### Phase 3: Orientation Tracking
+### Phase 3: orientation tracking
 
 **Goal:** Add quaternion state to 3D tracker (13-state)
 
@@ -577,7 +577,7 @@ type TrackObservation3D struct {
 
 ---
 
-### Phase 4: Ego-Motion Compensation
+### Phase 4: ego-motion compensation
 
 **Goal:** Support moving sensors
 
@@ -592,7 +592,7 @@ type TrackObservation3D struct {
 
 ---
 
-### Phase 5: Production Integration
+### Phase 5: production integration
 
 **Goal:** Enable motion capture in production
 
@@ -607,7 +607,7 @@ type TrackObservation3D struct {
 
 ---
 
-### Total Timeline: 14-19 weeks (3.5-5 months)
+### Total timeline: 14-19 weeks (3.5-5 months)
 
 **Dependencies:**
 
@@ -623,9 +623,9 @@ type TrackObservation3D struct {
 
 ---
 
-## Migration Path
+## Migration path
 
-### From Static to Motion (User Journey)
+### From static to motion (user journey)
 
 **Step 1: Static Deployment (Current Release)**
 
@@ -662,7 +662,7 @@ type TrackObservation3D struct {
 # Tracks objects with ego-motion compensation
 ```
 
-### Data Migration
+### Data migration
 
 **No data migration needed!**
 
@@ -673,9 +673,9 @@ type TrackObservation3D struct {
 
 ---
 
-## External Dependencies
+## External dependencies
 
-### For Motion Capture
+### For motion capture
 
 **Pose Estimation Sources:**
 

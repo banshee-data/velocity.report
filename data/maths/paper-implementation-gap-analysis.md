@@ -1,11 +1,11 @@
-# Paper-vs-Implementation Gap Analysis
+# Paper-vs-Implementation gap analysis
 
 - **Scope:** All 24 downloaded papers cross-referenced against production code (L3–L8)
 - **Method:** Trace each algorithm from the paper through the Go implementation. Note where the code deviates from the paper's intent, where edge cases go unhandled, and where the behaviour is plausible but untested.
 
 ---
 
-## Summary of Findings
+## Summary of findings
 
 | Severity                  | Count | Description                                                                          |
 | ------------------------- | ----- | ------------------------------------------------------------------------------------ |
@@ -16,7 +16,7 @@
 
 ---
 
-## 1. DBSCAN — Ester et al. (1996)
+## 1. DBSCAN — ester et al. (1996)
 
 ### Paper intent
 
@@ -38,7 +38,7 @@ DBSCAN defines three point categories: **core**, **border**, and **noise**. Bord
 
 ---
 
-## 2. Kalman Filter — Kalman (1960), Bewley (2016, SORT), Weng (2020, AB3DMOT)
+## 2. Kalman filter — Kalman (1960), bewley (2016, SORT), weng (2020, AB3DMOT)
 
 ### Paper intent
 
@@ -65,7 +65,7 @@ DBSCAN defines three point categories: **core**, **border**, and **noise**. Bord
 
 ---
 
-## 3. Hungarian Assignment — Kuhn (1955), Munkres (1957)
+## 3. Hungarian assignment — kuhn (1955), munkres (1957)
 
 ### Paper intent
 
@@ -85,7 +85,7 @@ Optimal assignment in $O(n^3)$ for balanced square matrices. Rectangular problem
 
 ---
 
-## 4. Background Model — Welford (1962), Stauffer & Grimson (1999)
+## 4. Background model — Welford (1962), stauffer & grimson (1999)
 
 ### Paper intent
 
@@ -109,7 +109,7 @@ Optimal assignment in $O(n^3)$ for balanced square matrices. Rectangular problem
 
 ---
 
-## 5. OBB / PCA — Jolliffe (2002)
+## 5. OBB / PCA — jolliffe (2002)
 
 ### Paper intent
 
@@ -130,7 +130,7 @@ PCA finds orthogonal axes of maximum variance. For 2D, the closed-form eigendeco
 
 ---
 
-## 6. SORT / DeepSORT — Bewley (2016), Wojke (2017)
+## 6. SORT / deepSORT — bewley (2016), wojke (2017)
 
 ### Paper intent
 
@@ -152,7 +152,7 @@ The tracker follows the SORT architecture but differs in three respects: world-f
 
 ---
 
-## 7. MOT Evaluation — Bernardin (2008, CLEAR MOT), Luiten (2021, HOTA), Milan (2016, MOT16)
+## 7. MOT evaluation — bernardin (2008, CLEAR MOT), luiten (2021, HOTA), milan (2016, MOT16)
 
 ### Paper intent
 
@@ -175,7 +175,7 @@ The tracker follows the SORT architecture but differs in three respects: world-f
 
 ---
 
-## 8. Patchwork++ — Lim et al. (2022)
+## 8. Patchwork++ — lim et al. (2022)
 
 ### Paper intent
 
@@ -194,7 +194,7 @@ Concentric zone-based ground segmentation that handles uneven terrain, curbs, an
 
 ---
 
-## 9. Dataset / Benchmark Papers — Caesar (2020, nuScenes), Behley (2019, SemanticKITTI), Sun (2020, Waymo)
+## 9. Dataset / benchmark papers — caesar (2020, nuScenes), behley (2019, semanticKITTI), sun (2020, waymo)
 
 ### Paper intent
 
@@ -213,7 +213,7 @@ These papers define object class taxonomies, evaluation protocols, and benchmark
 
 ---
 
-## 10. Constant Velocity Model — Schöller et al. (2020)
+## 10. Constant velocity model — schöller et al. (2020)
 
 ### Paper intent
 
@@ -232,7 +232,7 @@ The tracker uses a CV model. The paper validates this choice. See [tracking-math
 
 ---
 
-## 11. Sensor Manual — Hesai Pandar40P
+## 11. Sensor manual — hesai pandar40P
 
 ### Paper intent
 
@@ -251,7 +251,7 @@ Grid dimensions (40 rings, 1800 azimuth bins) match the Pandar40P's 40-beam, 0.2
 
 ---
 
-## Papers Reviewed With No Significant Gaps
+## Papers reviewed with no significant gaps
 
 These papers are in [references.bib](references.bib) and were reviewed. The implementation either correctly excludes them (deep learning, scope out) or uses them for context only.
 
@@ -270,9 +270,9 @@ These papers are in [references.bib](references.bib) and were reviewed. The impl
 
 ---
 
-## Prioritised Remediation Plan
+## Prioritised remediation plan
 
-### Phase 1: Tests for Known Gaps (no paper downloads needed)
+### Phase 1: tests for known gaps (no paper downloads needed)
 
 All of these can be written now against the current codebase.
 
@@ -302,7 +302,7 @@ All of these can be written now against the current codebase.
 
 **Effort key:** S = small (< 1 hour), M = medium (1–4 hours), L = large (4+ hours)
 
-### Phase 2: Documentation Improvements (no paper downloads needed)
+### Phase 2: documentation improvements (no paper downloads needed)
 
 | ID  | Action                                                                                                         |
 | --- | -------------------------------------------------------------------------------------------------------------- |
@@ -312,7 +312,7 @@ All of these can be written now against the current codebase.
 | C1  | Create nuScenes/KITTI class mapping table in [classification-maths.md](classification-maths.md)                |
 | HW2 | Document beam pattern non-uniformity in hardware notes                                                         |
 
-### Phase 3: Structural Improvements (may need paper downloads)
+### Phase 3: structural improvements (may need paper downloads)
 
 | Priority | ID    | Action                                                                         | Blocked on                   |
 | -------- | ----- | ------------------------------------------------------------------------------ | ---------------------------- |
@@ -322,7 +322,7 @@ All of these can be written now against the current codebase.
 | P2       | G1    | Evaluate Patchwork++ for slope-aware ground removal (paper already downloaded) | —                            |
 | P3       | K4/S1 | Add OBB IoU as secondary association cost                                      | —                            |
 
-### Phase 4: Post-Download Review (blocked on missing papers)
+### Phase 4: post-download review (blocked on missing papers)
 
 When the following papers are obtained via institutional access, re-run this analysis for the corresponding subsystem. BibTeX keys reference [references.bib](references.bib).
 
@@ -345,7 +345,7 @@ When the following papers are obtained via institutional access, re-run this ana
 
 ---
 
-## Cross-Reference to Existing Proposals
+## Cross-Reference to existing proposals
 
 Several gaps identified above are already captured in the proposal queue. Where a proposal exists, prefer extending it rather than opening separate work.
 

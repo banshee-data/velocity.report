@@ -1,4 +1,4 @@
-# Domain Tag Vocabulary
+# Domain tag vocabulary
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (documentation, backlog, CI)
@@ -14,7 +14,7 @@ The backlog-prune skill already infers domain labels from item wording during th
 2. **Filtering** — scripts can list all items in a domain (e.g. "show me everything tagged `algorithm`") without full-text heuristics.
 3. **Plan–backlog traceability** — a plan's `Domains` metadata and its backlog entry's `{domain}` tags should agree; drift is lintable.
 
-## Tag Vocabulary
+## Tag vocabulary
 
 Eleven canonical domain tags. Each tag is a lowercase hyphenated slug.
 
@@ -36,7 +36,7 @@ Eleven canonical domain tags. Each tag is a lowercase hyphenated slug.
 
 New tags require a PR that updates the vocabulary table above, the backlog header reference, the lint script's known-tags list, and the backlog-prune skill definition. Keep the vocabulary small — prefer reusing an existing tag over introducing a new one.
 
-## Phase 1: Backlog Inline Tags
+## Phase 1: backlog inline tags
 
 Add domain tags to backlog items in curly braces between the issue reference and the title:
 
@@ -58,7 +58,7 @@ Rules:
 
 Tag all ~80 pending backlog items. Mechanical — read each item, assign 1–2 tags. Half a day.
 
-## Phase 2: Plan Doc Metadata
+## Phase 2: plan doc metadata
 
 Add a `- **Domains:**` metadata field to plan document headers:
 
@@ -82,7 +82,7 @@ Rules:
 
 Add `Domains` to ~69 plan docs. Mechanical — most can be inferred from existing `Layers` field. Half a day.
 
-## Phase 3: Lint Enforcement
+## Phase 3: lint enforcement
 
 Add a lightweight lint script (`scripts/check-domain-tags.py`) that:
 
@@ -96,7 +96,7 @@ Wire into `make lint-docs`.
 
 Small Python script, similar in structure to `check-plan-canonical-links.py`. Half a day.
 
-## Phase 4: Backlog-Prune Integration
+## Phase 4: backlog-prune integration
 
 Update the backlog-prune skill to:
 
@@ -108,7 +108,7 @@ Update the backlog-prune skill to:
 
 Edit `.claude/skills/backlog-prune/SKILL.md`. Trivial.
 
-## Effort Summary
+## Effort summary
 
 | Phase                  | Work                               | Effort       |
 | ---------------------- | ---------------------------------- | ------------ |
@@ -118,7 +118,7 @@ Edit `.claude/skills/backlog-prune/SKILL.md`. Trivial.
 | 4. Skill integration   | Update backlog-prune               | XS           |
 | **Total**              |                                    | **2 days**   |
 
-## What Does Not Change
+## What does not change
 
 - The `Layers` metadata field in plan docs — it describes pipeline layers, not domains.
 - The commit prefix scheme (`[go]`, `[js]`, etc.) — it describes file types, not domains.

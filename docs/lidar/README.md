@@ -1,8 +1,8 @@
-# LiDAR Documentation
+# LiDAR documentation
 
 Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P integration).
 
-## Folder Structure
+## Folder structure
 
 ### `architecture/`
 
@@ -71,7 +71,7 @@ Tracking pipeline refactor and upgrade proposals.
 
 - **Tracking upgrades** (ground removal, OBB, association, debug overlays)
 
-## Quick Links
+## Quick links
 
 | Topic                   | Document                                                                                                                                                     |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -90,11 +90,11 @@ Tracking pipeline refactor and upgrade proposals.
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |
 | **Track Labelling**     | [../plans/lidar-track-labelling-auto-aware-tuning-plan.md](../plans/lidar-track-labelling-auto-aware-tuning-plan.md)                                         |
 
-## Implementation Status
+## Implementation status
 
-### Completed Work
+### Completed work
 
-#### Phases 1–3.7: Core Pipeline (Sep 2025 – Jan 2026)
+#### Phases 1–3.7: core pipeline (sep 2025 – jan 2026)
 
 - ✅ UDP packet ingestion (Hesai Pandar40P)
 - ✅ Frame assembly (360° rotations)
@@ -109,7 +109,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Port 2370 foreground streaming
 - ✅ Track visualisation UI (Svelte: MapPane, TimelinePane, TrackList)
 
-#### Phase 3.8: Tracking Upgrades (Jan 2026)
+#### Phase 3.8: tracking upgrades (jan 2026)
 
 - ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/l5tracks/hungarian.go`)
 - ✅ Height-based ground removal (`internal/lidar/l4perception/ground.go`)
@@ -117,7 +117,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Occlusion coasting — MaxMissesConfirmed=15 (`internal/lidar/l5tracks/tracking.go`)
 - ✅ Debug overlay emission via gRPC (`internal/lidar/debug/collector.go`)
 
-#### Phase 3.9: Adaptive Regions & Sweep System (Jan–Feb 2026)
+#### Phase 3.9: adaptive regions & sweep system (jan–Feb 2026)
 
 - ✅ Adaptive region segmentation (stable/variable/volatile)
 - ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
@@ -127,7 +127,7 @@ Tracking pipeline refactor and upgrade proposals.
 - ✅ Sweep dashboard — ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
 - ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
 
-#### Phase 4.0: Track Labelling & VRLOG Replay (Feb 2026)
+#### Phase 4.0: track labelling & VRLOG replay (feb 2026)
 
 - ✅ VRLOG recording format — binary frame bundles with index for seek (`internal/lidar/l9endpoints/recorder/`)
 - ✅ VRLOG replay in Publisher — `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
@@ -142,7 +142,7 @@ Tracking pipeline refactor and upgrade proposals.
 
 See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/track-labelling-ui-implementation.md)
 
-#### macOS Visualiser: M0–M7 Complete (Oct 2025 – Feb 2026)
+#### macOS visualiser: M0–M7 complete (oct 2025 – feb 2026)
 
 - ✅ M0: Schema + Synthetic — gRPC streaming, synthetic data
 - ✅ M1: Recorder/Replayer — Deterministic playback with seek/pause
@@ -167,6 +167,6 @@ See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/t
 - ✅ Port 2370 packet corruption (RawBlockAzimuth preservation)
 - ✅ recFg accumulation during freeze (reset on thaw)
 
-### Planned Work
+### Planned work
 
 See [BACKLOG.md](../BACKLOG.md) for the project-wide priority list with links to design documents.

@@ -36,7 +36,7 @@ Parse the file into two logical regions:
 - **Pending** — all items above the `## Complete` heading, grouped by their milestone section (`### vX.Y.Z …`).
 - **Complete** — all items under `## Complete`.
 
-### 2. Completeness audit (Complete section)
+### 2. Completeness audit (complete section)
 
 For every line in the Complete section:
 

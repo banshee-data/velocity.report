@@ -89,7 +89,7 @@ When only one sensor is available the record degrades gracefully: radar-only dep
 
 ## 4. Storage strategy
 
-### 4.1 Principle: No long-term point clouds
+### 4.1 Principle: no long-term point clouds
 
 Raw point clouds are ephemeral processing inputs. They are **never stored beyond the current analysis run**. Long-term storage holds only:
 

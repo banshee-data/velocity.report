@@ -1,4 +1,4 @@
-# Config Restructure: Flat → Layer-Scoped
+# Config restructure: flat → layer-scoped
 
 - **Status:** Phase 1 complete, Phase 2 adjusted, Phase 2B proposed, Phase 3 pending
 - **Schema version:** `2`
@@ -7,7 +7,7 @@
 
 ---
 
-## 1. Why This Is a Breaking Change
+## 1. Why this is a breaking change
 
 The current `tuning.defaults.json` uses a **flat** schema — 44 keys at root
 level with no nesting. This worked well for a single-engine pipeline, but the
@@ -48,7 +48,7 @@ format for convenience, but the binary only accepts the new schema.
 
 ---
 
-## 2. Current Flat Structure (for reference)
+## 2. Current flat structure (for reference)
 
 44 keys, all at root level. Comment-grouped in `internal/config/tuning.go`
 but with no structural hierarchy in JSON or Go.
@@ -66,7 +66,7 @@ Full key listing and documentation: [`config/README.md`](README.md).
 
 ---
 
-## 3. Target Nested Structure
+## 3. Target nested structure
 
 **Default values:** Canonical defaults are defined once in
 `tuning.defaults.json`. This document describes structure, types, and
@@ -312,13 +312,13 @@ this example is for structural reference only.
 
 ---
 
-## 4. Key-to-Layer Mapping (Complete)
+## 4. Key-to-Layer mapping (complete)
 
 Every tuning key, its layer assignment, and its source. Keys marked **NEW**
 were previously hardcoded constants; this restructure exposes them for the
 first time.
 
-### L1 — Packets (Sensor / Network)
+### L1 — packets (sensor / network)
 
 L1 identifies the sensor hardware and current data source. Per-process
 network binding and forwarding remain CLI-managed startup settings and are
@@ -333,7 +333,7 @@ intentionally outside the hot-reload tuning schema.
 count, distance resolution, azimuth resolution) are protocol-level values
 fixed by the sensor model and are **not** exposed as tuning parameters.
 
-### L2 — Frames (Frame Assembly)
+### L2 — frames (frame assembly)
 
 L2 controls how raw packets are assembled into complete 360° frames.
 All values were previously hardcoded in `l2frames/frame_builder.go`.
@@ -348,7 +348,7 @@ All values were previously hardcoded in `l2frames/frame_builder.go`.
 | `frame_buffer_size`               | int     | Max frames buffered for out-of-order packets  | **NEW** — was `FrameBufferSize`             |
 | `frame_channel_capacity`          | int     | Buffered channel capacity for frame callbacks | **NEW** — was `FrameChCapacity`             |
 
-### L3 — Background/Foreground Extraction
+### L3 — background/Foreground extraction
 
 Fields shared by all L3 engines (embedded via `l3Common`).
 10 existing tunable + 16 newly exposed.
@@ -389,7 +389,7 @@ Fields shared by all L3 engines (embedded via `l3Common`).
 | `ema_baseline_v1`     | Current production EMA background model                       | **Active** |
 | `ema_track_assist_v2` | EMA + track-assisted foreground promotion (§3 of VC proposal) | Proposed   |
 
-### L4 — Perception (Clustering + Ground Filtering)
+### L4 — perception (clustering + ground filtering)
 
 All 9 existing tunable fields. No newly exposed constants (L4 has minimal
 hardcoded values beyond numerical stability guards).
@@ -414,7 +414,7 @@ hardcoded values beyond numerical stability guards).
 | `two_stage_mahalanobis_v2` | Spatial DBSCAN + velocity-coherent split/merge (§4 of VC proposal) | Proposed   |
 | `hdbscan_adaptive_v1`      | Hierarchical DBSCAN with adaptive density                          | Proposed   |
 
-### L5 — Tracking (State Estimation + Assignment)
+### L5 — tracking (state estimation + assignment)
 
 22 existing tunable + 1 newly exposed.
 
@@ -452,7 +452,7 @@ hardcoded values beyond numerical stability guards).
 | `imm_cv_ca_v2`          | Interacting Multiple Model: CV + constant-acceleration (§5 of VC proposal) | Proposed   |
 | `imm_cv_ca_rts_eval_v2` | IMM + Rauch-Tung-Striebel offline smoothing (evaluation only)              | Proposed   |
 
-### L6 — Objects (Classification)
+### L6 — objects (classification)
 
 All L6 classification thresholds were previously hardcoded as Go `const`
 values in `l6objects/classification.go`. Exposing them enables per-deployment
@@ -496,7 +496,7 @@ tuning (e.g. different thresholds for UK residential vs. rural roads).
 | --------------- | ---------------------------------------- | ---------- |
 | `rule_based_v1` | Current production rule-based classifier | **Active** |
 
-### Pipeline — Cross-Cutting
+### Pipeline — cross-cutting
 
 | Key                 | Type   | Description                         | Source                          |
 | ------------------- | ------ | ----------------------------------- | ------------------------------- |
@@ -507,7 +507,7 @@ tuning (e.g. different thresholds for UK residential vs. rural roads).
 | `deleted_track_ttl` | string | TTL for soft-deleted tracks in DB   | **NEW** — was `deletedTrackTTL` |
 | `prune_interval`    | string | Interval for pruning deleted tracks | **NEW** — was `pruneInterval`   |
 
-### Optimisation — Sweep/Auto-Tune Controls
+### Optimisation — sweep/Auto-tune controls
 
 | Key             | Type   | Allowed values                                                       |
 | --------------- | ------ | -------------------------------------------------------------------- |
@@ -539,7 +539,7 @@ specific, or numerical stability guards that should never be tuned:
 
 ---
 
-## 5. Engine Block Field Counts
+## 5. Engine block field counts
 
 All engine parameters (common + engine-specific) live inside the engine block.
 The block is a self-describing snapshot — every field is required when the
@@ -636,7 +636,7 @@ When the block is present, every field is required.
 
 ---
 
-## 6. Go Implementation Plan
+## 6. Go implementation plan
 
 ### 6.1 Struct design — all fields inside engine blocks
 
@@ -982,7 +982,7 @@ Flat key names are no longer accepted.
 
 ---
 
-## 7. Evaluation Protocol (Layer-Scoped)
+## 7. Evaluation protocol (layer-scoped)
 
 When evaluating algorithm changes, the harness must compare identical replay
 windows across five scenarios:
@@ -1047,9 +1047,9 @@ and that deterministic asset plan.
 
 ---
 
-## 8. Implementation Sequence
+## 8. Implementation sequence
 
-### Phase 1 — Structural realignment (v0.5.0) ✅ Complete
+### Phase 1 — structural realignment (v0.5.0) ✅ complete
 
 Reorganise the existing 44 flat params into the versioned, layer-scoped,
 engine-selectable schema. No new parameters are added in this phase — the
@@ -1072,7 +1072,7 @@ Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 | 11   | Add `make config-validate` target — CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation       | Step 2     | ✅     |
 | 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
 
-### Phase 2 — Essential new variable exposure (v0.6.0) ✅ Complete
+### Phase 2 — essential new variable exposure (v0.6.0) ✅ complete
 
 Expose the highest-impact hardcoded constants: L1 sensor identity plus L3
 background/foreground parameters. LiDAR network binding and forwarding stay
@@ -1087,7 +1087,7 @@ of the hot-reload tuning schema on this branch.
 | 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅          |
 | 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅          |
 
-### Phase 2B — Experiment contract + deterministic config identity (v0.6.x / v0.7.0)
+### Phase 2B — experiment contract + deterministic config identity (v0.6.x / v0.7.0)
 
 Turn the new nested schema into a reproducible **experiment surface**, not just
 a startup file format. This phase creates the bridge from runtime tuning config
@@ -1105,7 +1105,7 @@ cleanly.
 | 21   | Replace copied JSON blobs in run/replay/recommendation surfaces with references to canonical param-set / run-config assets; keep legacy blobs only as migration shims while backfilling | Step 20     | Proposed |
 | 22   | Upgrade UI, reports, and VRLOG provenance to diff/display exact config assets rather than ad hoc blobs or best-effort hashes                                                            | Steps 19–21 | Proposed |
 
-### Phase 3 — Remaining variable exposure + L6 classification (v2.0)
+### Phase 3 — remaining variable exposure + L6 classification (v2.0)
 
 Expose lower-priority hardcoded constants (L2 frame assembly, L5 occlusion,
 pipeline TTL/prune) and L6 classification thresholds. L2, L5, and pipeline
@@ -1126,7 +1126,7 @@ is a candidate for replacement by an ML classifier (see
 
 ---
 
-## 9. Related Documents
+## 9. Related documents
 
 - [Config README](README.md) — current parameter documentation
 - [Config Maths Cross-Reference](README.maths.md) — key-to-maths mapping

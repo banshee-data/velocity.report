@@ -1,4 +1,4 @@
-# Line-Width Standardisation Plan
+# Line-Width standardisation plan
 
 - **Status:** Proposed (March 2026)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
@@ -96,7 +96,7 @@ automatically. One mechanical reformat PR with
 
 ## Implementation
 
-### Phase 1 — Adopt configs
+### Phase 1 — adopt configs
 
 One PR. Only config files change; no source reformatting yet.
 
@@ -111,7 +111,7 @@ One PR. Only config files change; no source reformatting yet.
 | `tools/visualiser-macos/.swift-format` | Already 100 — no change                        |
 | `.sql-formatter.json`                  | Leave at 70 (expression width, not line width) |
 
-### Phase 2 — Reformat
+### Phase 2 — reformat
 
 One PR. Run `make format` under the new configs. The diff is
 large but mechanical — reviewers verify the config, not every
@@ -126,7 +126,7 @@ automatically. Document the one-time local setup in
 git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
-### Phase 3 — Weekly nag PR
+### Phase 3 — weekly nag PR
 
 A scheduled GitHub Actions workflow runs weekly (e.g. Sunday
 night). It checks all code and documentation against the 100-
@@ -179,7 +179,7 @@ The workflow uses `--report` mode so it never blocks other
 work. It simply keeps the current state visible via a
 standing PR that is easy to review and merge.
 
-### Phase 4 — Optional CI gate
+### Phase 4 — optional CI gate
 
 Add a `check-line-width` job to the main CI workflow, gated
 behind a `continue-on-error: true` flag. This makes width
@@ -201,7 +201,7 @@ check-line-width:
     # Future: golangci-lint lll check here too
 ```
 
-### Phase 5 — Opt-in pre-commit hook
+### Phase 5 — opt-in pre-commit hook
 
 The existing `.pre-commit-config.yaml` already delegates to
 `make format-*` targets. Add a new local hook for width

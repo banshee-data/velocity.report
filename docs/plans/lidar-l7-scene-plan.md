@@ -1,4 +1,4 @@
-# L7 Scene and Multi-Sensor Fusion Plan
+# L7 scene and multi-sensor fusion plan
 
 - **Status:** 📋 Planned — v1.0
 - **Layers:** L7 Scene
@@ -13,11 +13,11 @@ This plan covers two related workstreams for the L7 Scene layer:
 
 ---
 
-## 1. L7 Scene — canonical world model
+## 1. L7 scene — canonical world model
 
 L7 is the key architectural addition in the ten-layer model. It introduces a **persistent, evidence-accumulated representation of the world** that transcends individual frames, tracks, and sensors.
 
-### What L7 Scene contains
+### What L7 scene contains
 
 1. **Static geometry** — ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
@@ -29,7 +29,7 @@ L7 is the key architectural addition in the ten-layer model. It introduces a **p
 
 5. **Uncertainty and provenance** — every scene feature carries confidence bounds, observation count, source sensor IDs, and edit history. User edits in VelocityVisualiser are tracked separately from automated refinement.
 
-### L7 relationship to L4 Perception
+### L7 relationship to L4 perception
 
 L4 produces **per-frame, single-sensor observations**:
 
@@ -159,7 +159,7 @@ L7 canonical:    ═══════════════╬═════
 
 L7 builds on the mathematical machinery already established in L3–L5 and extends it to the persistent-geometry and multi-sensor domains.
 
-### 3.1 Scene accumulation — Bayesian evidence grid
+### 3.1 Scene accumulation — bayesian evidence grid
 
 Static geometry accumulates via per-feature confidence updates. For each scene feature $f$ observed by frame evidence $z_t$:
 

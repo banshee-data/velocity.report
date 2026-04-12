@@ -1,4 +1,4 @@
-# LiDAR Test Corpus Plan
+# LiDAR test corpus plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting

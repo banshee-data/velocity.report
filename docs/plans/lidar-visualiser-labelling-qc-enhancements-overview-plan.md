@@ -1,4 +1,4 @@
-# Labelling + QC Enhancements (Features 1, 2, 3, 5, 7, 8, 10)
+# Labelling + QC enhancements (features 1, 2, 3, 5, 7, 8, 10)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints, L10 Clients
@@ -26,7 +26,7 @@ Feature-specific designs are in:
 - `docs/plans/lidar-visualiser-priority-review-queue-plan.md`
 - `docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md`
 
-## Design Principles
+## Design principles
 
 - Keep `run_id + track_id` as the canonical unit for labelling and QC.
 - Prefer append-only audit records for all human actions and auto-generated QC signals.
@@ -34,7 +34,7 @@ Feature-specific designs are in:
 - Defer expensive recomputation to async jobs; keep UI writes low-latency.
 - Expose all derived scores with version strings for reproducibility.
 
-## Shared Constraints
+## Shared constraints
 
 - Existing run-track API is under `/api/lidar/runs/*` in `internal/lidar/monitor/run_track_api.go`.
 - Existing run-track storage is `lidar_run_tracks` in `internal/db/schema.sql`.
@@ -45,7 +45,7 @@ Feature-specific designs are in:
 - Web tracks UI remains a parity target:
   - `web/src/routes/lidar/tracks/+page.svelte`
 
-## Shared Data Additions (Cross-Feature)
+## Shared data additions (cross-feature)
 
 Planned schema additions across features:
 
@@ -65,14 +65,14 @@ Denormalized columns to add on `lidar_run_tracks` for fast UI filtering/sorting:
 - `blocked_by_violations`
 - `priority_score`
 
-## Shared API Strategy
+## Shared API strategy
 
 - Extend existing `/api/lidar/runs/{run_id}/tracks` payloads with QC fields.
 - Add focused endpoints for heavy operations (recompute, rebuild, export).
 - Add paginated list endpoints for events, queue items, and audit logs.
 - Keep payloads backward-compatible by adding optional fields only.
 
-## Dependency Order
+## Dependency order
 
 Recommended order:
 
@@ -89,7 +89,7 @@ Rationale:
 - Repair operations must emit events and update score/queue state.
 - Dashboard quality is highest after all upstream signals are present.
 
-## Cross-Feature Milestones
+## Cross-Feature milestones
 
 - M1: Data schema and API contracts merged
 - M2: Physics/event pipelines producing reliable signals
@@ -97,7 +97,7 @@ Rationale:
 - M4: UI enhancements complete in macOS visualiser
 - M5: Dashboard and export/audit finalized
 
-## Program Checklist
+## Program checklist
 
 - [ ] Finalize QC taxonomy (reason codes, event types, violation types)
 - [ ] Add migrations for all new tables/columns

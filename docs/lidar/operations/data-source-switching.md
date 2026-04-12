@@ -1,4 +1,4 @@
-# Data Source Switching Implementation Plan
+# Data source switching implementation plan
 
 - **Status:** Implemented (November 2025)
 
@@ -11,11 +11,11 @@
 
 ---
 
-## Problem Statement
+## Problem statement
 
 Currently, switching between live LiDAR data and PCAP replay requires restarting the server with the `--lidar-pcap-mode` flag. This is cumbersome during development and testing when frequently switching between data sources.
 
-## Proposed Solution
+## Proposed solution
 
 Replace the CLI flag with a runtime-configurable data source that can be switched via HTTP API without server restart. When switching sources, the system will:
 
@@ -23,9 +23,9 @@ Replace the CLI flag with a runtime-configurable data source that can be switche
 2. Reset the background grid to clear old data
 3. Start the new data source (live or PCAP)
 
-## Architecture Changes
+## Architecture changes
 
-### 1. New Data Source State Management
+### 1. New data source state management
 
 **File**: `internal/lidar/monitor/webserver.go`
 
@@ -57,7 +57,7 @@ type WebServer struct {
 
 **Rationale**: Centralize data source management in WebServer since it already handles PCAP replay and has access to all necessary components.
 
-### 2. Data Source Endpoints
+### 2. Data source endpoints
 
 **Status Endpoint**: `GET /api/lidar/data_source`
 
@@ -75,7 +75,7 @@ Returns the current data source, active PCAP file (if any), and whether a replay
 
 These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding live-mode management and grid reset semantics.
 
-### 3. Implementation Flow
+### 3. Implementation flow
 
 **Handler Flow**
 
@@ -95,7 +95,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 - `handleDataSource` (GET)
   - Return current source state for observability (live/pcap, file path, replay status)
 
-### 4. UDP Listener Lifecycle Changes
+### 4. UDP listener lifecycle changes
 
 **Current State**: UDP listener started once in `main()`, runs until program exit. Controlled by `--lidar-pcap-mode` flag.
 
@@ -128,7 +128,7 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar4
 curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p"
 ```
 
-### 5. WebServer Configuration Updates
+### 5. WebServer configuration updates
 
 **File**: `internal/lidar/monitor/webserver.go`
 
@@ -143,7 +143,7 @@ type WebServerConfig struct {
 // Remove InitialDataSource - always starts in live mode
 ```
 
-### 6. Status Endpoint Updates
+### 6. Status endpoint updates
 
 **File**: `internal/lidar/monitor/webserver.go`
 
@@ -166,7 +166,7 @@ This allows clients to:
 - Know if safe to switch (pcap_in_progress=false)
 - See which PCAP file is being replayed
 
-### 6. Grid Reset Integration
+### 6. Grid reset integration
 
 **File**: `internal/lidar/background.go`
 
@@ -178,7 +178,7 @@ Already has `ResetBackground()` method - use it during source switch.
 - Reset clears all grid state (times_seen, averages, spreads)
 - Reset logged with timestamp for debugging
 
-### 7. Concurrency Safety
+### 7. Concurrency safety
 
 **Critical Sections**:
 
@@ -198,13 +198,13 @@ Already has `ResetBackground()` method - use it during source switch.
 - `handlePCAPStop` cancels the replay without holding `dataSourceMu`, waits for completion, then restarts live under the lock
 - The status endpoint uses a read lock to avoid blocking active switches
 
-## API Design Considerations
+## API design considerations
 
 Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/pcap/stop` (GET) endpoints for switching, plus `/api/lidar/data_source` (GET) for status. This preserves backward compatibility for tooling that already targets the PCAP routes while adding a lightweight status endpoint for UI polling.
 
-## Migration Path
+## Migration path
 
-### Phase 1: Implement Core Functionality
+### Phase 1: implement core functionality
 
 1. Add `currentSource`, `currentPCAPFile` state to WebServer
 2. Implement `handlePCAPStart`/`handlePCAPStop` with proper locking + 409 handling
@@ -212,14 +212,14 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 4. Expose data source status via `/api/lidar/data_source`
 5. Add tests for status endpoint / start-stop flows
 
-### Phase 2: Remove CLI Flag (BREAKING)
+### Phase 2: remove CLI flag (BREAKING)
 
 1. Remove `--lidar-pcap-mode` flag from `cmd/radar/radar.go`
 2. Remove all PCAP mode conditionals from main()
 3. WebServer always starts in live mode (UDP listener running)
 4. Update build targets and documentation
 
-### Phase 3: Update Tools & Scripts
+### Phase 3: update tools & scripts
 
 1. Update `plot_grid_heatmap.py` to use new endpoint
 2. Update sweep tools to switch source via API
@@ -230,20 +230,20 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 4. Update helper scripts in `scripts/api/lidar/`
 5. Add new script: `switch_data_source.sh`
 
-### Phase 4: Documentation & Migration Guide
+### Phase 4: documentation & migration guide
 
 1. Update `../architecture/lidar-sidecar-overview.md` to remove PCAP mode flag
 2. Update `cmd/radar/README.md` with new workflow
 3. Add migration guide for users of `--lidar-pcap-mode`
 4. Update API documentation with new endpoint
 
-## File Changes Summary
+## File changes summary
 
-### New Files
+### New files
 
 - None (all changes to existing files)
 
-### Modified Files
+### Modified files
 
 1. **`internal/lidar/monitor/webserver.go`** (~200 lines added)
    - Add data source state fields (including currentPCAPFile)
@@ -278,9 +278,9 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - `scripts/api/README.md` - document new endpoint
    - Add migration guide for `--lidar-pcap-mode` users
 
-## Testing Strategy
+## Testing strategy
 
-### Unit Tests
+### Unit tests
 
 1. `TestDataSourceSwitch_LiveToPCAP` - verify clean transition
 2. `TestDataSourceSwitch_PCAPToLive` - verify reverse transition
@@ -288,39 +288,39 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 4. `TestDataSourceSwitch_InvalidSource` - verify error handling
 5. `TestDataSourceSwitch_MissingPCAPFile` - verify validation
 
-### Integration Tests
+### Integration tests
 
 1. Start server → switch to PCAP → verify grid resets → verify data ingestion
 2. Start server → switch to live → verify UDP listener running → verify packets
 3. Switch during active PCAP replay → verify blocking/error handling
 
-### Manual Testing
+### Manual testing
 
 1. Run server, switch between sources multiple times
 2. Monitor grid reset timing
 3. Verify no memory leaks from UDP goroutine cleanup
 4. Test with sweep tools using new API
 
-## Performance Considerations
+## Performance considerations
 
-### Grid Reset Cost
+### Grid reset cost
 
 - **Current**: ~1-5ms for 72,000 cells (measured in existing code)
 - **Impact**: Negligible for interactive switching
 - **Mitigation**: Already asynchronous in background manager
 
-### UDP Listener Restart
+### UDP listener restart
 
 - **Cost**: Socket bind/unbind + goroutine creation
 - **Time**: <10ms typically
 - **Impact**: Minimal, acceptable for manual switches
 
-### PCAP Transition
+### PCAP transition
 
 - **Cost**: Wait for current replay to finish (if in progress)
 - **Mitigation**: Report 409 Conflict if PCAP running, suggest retry
 
-## Decisions Made
+## Decisions made
 
 1. **`--lidar-pcap-mode` flag: REMOVE** ✅
    - Server always starts in live mode by default
@@ -353,7 +353,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 4. **Better testing** - easier to test both modes in same session
 5. **Tool integration** - sweep tools can manage source internally
 
-## Risks & Mitigations
+## Risks & mitigations
 
 | Risk                              | Impact                   | Mitigation                                           |
 | --------------------------------- | ------------------------ | ---------------------------------------------------- |
@@ -363,7 +363,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 | PCAP blocking (409) during switch | User confusion           | Clear error message, document retry pattern          |
 | Grid reset timing                 | Lost recent data         | Document behaviour, provide confirmation in response |
 
-## Timeline Estimate
+## Timeline estimate
 
 - **Phase 1** (Core Implementation): 5-7 hours
   - Data source state + status endpoint: 1.5 hours
@@ -388,7 +388,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 **Total**: 11-16 hours
 
-## Success Criteria
+## Success criteria
 
 1. ✅ Can switch from live to PCAP without restart
 2. ✅ Can switch from PCAP to live without restart
@@ -402,7 +402,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 10. ✅ Migration guide available for users
 11. ✅ Documentation reflects new workflow
 
-## Next Steps
+## Next steps
 
 1. ✅ **Reviewed & Decided** - Decisions confirmed:
    - Remove `--lidar-pcap-mode` flag

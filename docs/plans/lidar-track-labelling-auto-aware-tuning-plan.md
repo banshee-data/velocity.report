@@ -1,4 +1,4 @@
-# Design: Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning
+# Design: track labelling, ground truth evaluation & label-aware auto-tuning
 
 - **Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints
@@ -25,7 +25,7 @@ The end goal is a `lidar_transits` table (analogous to `radar_data_transits`) fo
 
 ---
 
-## Current State (what exists)
+## Current state (what exists)
 
 ### Database tables
 
@@ -153,7 +153,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 ## Phased checklist
 
-### Phase 1: Wire up existing label infrastructure
+### Phase 1: wire up existing label infrastructure
 
 > Get the existing but unregistered label API working end-to-end.
 
@@ -187,7 +187,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/db/migrations/000018_*.up.sql` (scene_id, source_file on lidar_labels)
 - `tools/visualiser-macos/VelocityVisualiser/Labelling/LabelAPIClient.swift`
 
-### Phase 2: Scene management
+### Phase 2: scene management
 
 > Introduce the scene concept tying PCAPs to reference runs and optimal params.
 
@@ -243,7 +243,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `web/src/lib/api.ts` (new API calls)
 - `web/src/lib/types/lidar.ts` (label types)
 
-### Phase 4: Ground truth evaluation engine
+### Phase 4: ground truth evaluation engine
 
 > Implement track comparison: match candidate tracks against labelled reference tracks.
 
@@ -269,7 +269,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/lidar/sweep/ground_truth.go` (new — evaluator)
 - `internal/lidar/monitor/scene_api.go` (evaluation endpoints)
 
-### Phase 5: Label-aware auto-tuning
+### Phase 5: label-aware auto-tuning
 
 > Extend auto-tuner to use ground truth labels when a reference run exists.
 
@@ -313,7 +313,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/lidar/monitor/transit_api.go` (new)
 - `web/src/routes/lidar/dashboard/` (transit visualisation)
 
-### Phase 7: Sparse point recovery (future)
+### Phase 7: sparse point recovery (future)
 
 > Post-processing to include sparse points along established track paths.
 
@@ -340,7 +340,7 @@ This requires storing raw foreground points alongside clusters, which is not cur
 
 This is deferred — the labelling infrastructure from Phases 1-3 provides the foundation for data collection.
 
-### Phase 9: Profile comparison system (design)
+### Phase 9: profile comparison system (design)
 
 > Compare parameter profiles across runs for the same scene to find optimal tracker settings.
 
@@ -436,7 +436,7 @@ Track labelling uses **two independent label fields** on `lidar_run_tracks` for 
 
 The labels are scoped to a specific analysis run, so run_tracks is the natural home. The `lidar_labels` table is reserved for frame-level annotation (optional classification research on raw sensor data), not track-level labelling (auto-tuning ground truth).
 
-#### Detection Labels (`user_label`)
+#### Detection labels (`user_label`)
 
 | Label             | Meaning                                                                        | Used in Scoring                                       |
 | ----------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
@@ -454,7 +454,7 @@ The labels are scoped to a specific analysis run, so run_tracks is the natural h
 - **Class-specific detection labels** (`good_vehicle`, `good_pedestrian`, `good_other`): The classification system already distinguishes pedestrian/car/bird/other. Using a single `good_vehicle` label prevents measuring class-specific detection rates — the tuner can't tell if a parameter change improved car detection but degraded pedestrian detection.
 - **Noise split** (`noise` vs `noise_flora`): The auto-tuner optimises background subtraction parameters that have different sensitivities to sensor artefacts (multipath, ground reflections) vs. environmental motion (trees swaying). A single `noise` label hides which noise type the parameters are failing on.
 
-#### Quality Labels (`quality_label`)
+#### Quality labels (`quality_label`)
 
 | Label               | Meaning                                                                     | Used in Scoring                                           |
 | ------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
@@ -468,7 +468,7 @@ The labels are scoped to a specific analysis run, so run_tracks is the natural h
 
 The auto-tuner needs to distinguish "correct but noisy" tracks from "correct and clean" tracks. Without quality labels, the composite score plateaus once detection rate is high, with no gradient to push toward better measurement quality. The quality labels provide explicit feedback on velocity reliability (critical for transit promotion, Phase 6 — deferred), truncation (slow track initiation/termination issues), and occlusion handling (stopped vehicle recovery).
 
-#### Spatial Anchoring for `missed` Labels
+#### Spatial anchoring for `missed` labels
 
 The `missed` label requires spatial/temporal reference since no track exists. Add to `lidar_run_tracks` or create a separate `lidar_missed_regions` table:
 
@@ -496,7 +496,7 @@ CREATE TABLE lidar_missed_regions (
 
 The evaluator can then check whether candidate runs produce tracks covering those spatiotemporal regions.
 
-### Why scenes and not just PCAPs
+### Why scenes and not just pCAPs
 
 A PCAP file is just bytes — a scene adds:
 

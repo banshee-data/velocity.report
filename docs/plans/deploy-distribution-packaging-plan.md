@@ -1,4 +1,4 @@
-# velocity.report Distribution and Packaging Plan
+# velocity.report distribution and packaging plan
 
 - **Document Version:** 1.0
 - **Status:** Proposed Architecture
@@ -11,9 +11,9 @@
 
 ---
 
-## 5. Implementation Plan
+## 5. Implementation plan
 
-### Phase 1: Restructure Go Binaries (1-2 weeks)
+### Phase 1: restructure Go binaries (1-2 weeks)
 
 **Goal:** Create unified `velocity-report` binary with subcommands.
 
@@ -86,7 +86,7 @@
 
 ---
 
-### Phase 2: Python Tool Integration (1 week)
+### Phase 2: Python tool integration (1 week)
 
 **Goal:** Make Python tools installable and callable from Go binary.
 
@@ -151,7 +151,7 @@
 
 ---
 
-### Phase 3: GitHub Releases Automation (3-5 days)
+### Phase 3: GitHub releases automation (3-5 days)
 
 **Goal:** Automate building and releasing versioned binaries.
 
@@ -390,7 +390,7 @@
 
 ---
 
-### Phase 4: Installation Script & Documentation (3-5 days)
+### Phase 4: installation script & documentation (3-5 days)
 
 **Goal:** Create one-command installation for end users.
 
@@ -532,7 +532,7 @@
 
 ---
 
-### Phase 5: Testing & Rollout (1 week)
+### Phase 5: testing & rollout (1 week)
 
 **Goal:** Validate new distribution model in production-like environments.
 
@@ -591,9 +591,9 @@
 
 ---
 
-## 6. Migration Guide
+## 6. Migration guide
 
-### 6.1 For Existing Deployments
+### 6.1 For existing deployments
 
 **Current Setup:**
 
@@ -682,7 +682,7 @@ sudo systemctl daemon-reload
 sudo systemctl start velocity-report
 ```
 
-### 6.2 For Developers
+### 6.2 For developers
 
 **Current Workflow:**
 
@@ -713,7 +713,7 @@ make build-radar-local
 - Add tests for new subcommands
 - Verify backward compatibility (no args = serve)
 
-### 6.3 For Python Tools
+### 6.3 For Python tools
 
 **Current Workflow:**
 
@@ -751,9 +751,9 @@ velocity-report pdf /path/to/config.json
 
 ---
 
-## 7. Testing & Validation
+## 7. Testing & validation
 
-### 7.1 Unit Tests
+### 7.1 Unit tests
 
 **New tests to add:**
 
@@ -792,7 +792,7 @@ velocity-report pdf /path/to/config.json
    }
    ```
 
-### 7.2 Integration Tests
+### 7.2 Integration tests
 
 **Add to existing test suite:**
 
@@ -826,7 +826,7 @@ velocity-report pdf /path/to/config.json
    }
    ```
 
-### 7.3 End-to-End Tests
+### 7.3 End-to-End tests
 
 **Manual testing checklist:**
 
@@ -840,7 +840,7 @@ velocity-report pdf /path/to/config.json
 - [ ] Logs to systemd journal
 - [ ] Data persists across restarts
 
-### 7.4 Performance Tests
+### 7.4 Performance tests
 
 **Benchmarks:**
 
@@ -862,9 +862,9 @@ velocity-report pdf /path/to/config.json
 
 ---
 
-## 8. Future Enhancements
+## 8. Future enhancements
 
-### 8.1 Docker Distribution
+### 8.1 Docker distribution
 
 **Benefits:**
 
@@ -904,7 +904,7 @@ docker run -d \
   velocity-report:latest
 ```
 
-### 8.2 Raspberry Pi Image
+### 8.2 Raspberry Pi image
 
 **Pre-built SD card image with:**
 
@@ -919,7 +919,7 @@ docker run -d \
 - Flash with Raspberry Pi Imager
 - Boot and configure via web UI
 
-### 8.3 Package Managers
+### 8.3 Package managers
 
 **APT/DEB Package:**
 
@@ -940,7 +940,7 @@ brew install velocity-report
 - Host on GitHub Releases or packagecloud.io
 - Create Homebrew formula
 
-### 8.4 Web-Based Configuration
+### 8.4 Web-Based configuration
 
 **Goal:** Replace JSON config files with web UI.
 
@@ -958,7 +958,7 @@ velocity-report serve --enable-config-ui
 # Access at http://localhost:8080/config
 ```
 
-### 8.5 Plugin System
+### 8.5 Plugin system
 
 **Allow third-party extensions:**
 
@@ -970,9 +970,9 @@ velocity-report lidar-advanced-analytics analyse --input data.csv
 
 ---
 
-## Appendix A: File Layout Comparison
+## Appendix a: file layout comparison
 
-### Current Structure
+### Current structure
 
 ```
 velocity.report/
@@ -995,7 +995,7 @@ Binary outputs (after build):
 └── app-sweep                       # Sweep tool
 ```
 
-### Proposed Structure
+### Proposed structure
 
 ```
 velocity.report/
@@ -1023,7 +1023,7 @@ Binary outputs (after build):
 └── velocity-report-backfill-rings-linux-arm64 # Utility binary
 ```
 
-### Installed System Layout
+### Installed system layout
 
 ```
 /usr/local/bin/
@@ -1048,9 +1048,9 @@ Binary outputs (after build):
 
 ---
 
-## Appendix B: Command Reference
+## Appendix b: command reference
 
-### Current Commands (Before Migration)
+### Current commands (before migration)
 
 **Main server:**
 
@@ -1081,7 +1081,7 @@ go run cmd/transit-backfill/main.go --db sensor_data.db --start 2024-01-01 --end
 go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db
 ```
 
-### Proposed Commands (After Migration)
+### Proposed commands (after migration)
 
 **Main binary:**
 
@@ -1111,7 +1111,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 
 ---
 
-## Appendix C: Release Checklist
+## Appendix c: release checklist
 
 **Pre-release:**
 
@@ -1143,9 +1143,9 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 
 ---
 
-## Appendix D: Breaking Changes Summary
+## Appendix d: breaking changes summary
 
-### For End Users
+### For end users
 
 **✅ No Breaking Changes**
 
@@ -1159,7 +1159,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 - Built-in PDF generation: `velocity-report pdf`
 - Version command: `velocity-report version`
 
-### For Developers
+### For developers
 
 **⚠️ Minor Breaking Changes**
 
@@ -1173,7 +1173,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 - All tests pass
 - Development workflow unchanged
 
-### For Advanced Users
+### For advanced users
 
 **✨ Improvements**
 

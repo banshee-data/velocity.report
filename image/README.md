@@ -1,15 +1,15 @@
-# Raspberry Pi Image Pipeline
+# Raspberry Pi image pipeline
 
 Build infrastructure for producing flashable `.img` files of
 velocity.report for Raspberry Pi 4/400/5.
 
-## Phase 1 — Working Image (v0.5.1)
+## Phase 1 — working image (v0.5.1)
 
 Installs `texlive-xetex` APT packages at build time, extracts a minimal
 TeX Live tree (~143 MB) containing only the files the PDF generator needs,
 then purges the APT packages (~1 GB saved).
 
-### What the Image Contains
+### What the image contains
 
 | Component                            | Install Path                                |
 | ------------------------------------ | ------------------------------------------- |
@@ -21,7 +21,7 @@ then purges the APT packages (~1 GB saved).
 
 LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 
-### System Configuration
+### System configuration
 
 - Systemd service auto-starts on boot
 - Data directory `/var/lib/velocity-report/` owned by `velocity` user
@@ -31,7 +31,7 @@ LiDAR packet capture is compiled in (pcap build) but **disabled by default**.
 - LiDAR network interface pre-configured but disabled
 - US Wi-Fi regulatory domain fallback
 
-### No Automatic Updates
+### No automatic updates
 
 The image makes zero unsolicited network requests. Updates are user-initiated
 via `sudo velocity-ctl upgrade`, which checks GitHub Releases for a newer
@@ -46,7 +46,7 @@ sudo velocity-ctl upgrade --binary /f  # apply a local binary (offline upgrade)
 
 Rollback: `sudo velocity-ctl rollback` restores the previous version.
 
-## Directory Layout
+## Directory layout
 
 ```
 image/
@@ -81,7 +81,7 @@ image/
     └── EXPORT_IMAGE
 ```
 
-## Building Locally
+## Building locally
 
 ```bash
 make build-image                           # full build (Docker compile + image)
@@ -106,7 +106,7 @@ automatically omitted.
 Build artifacts (`image/.pi-gen/`, `image/velocity-binaries/`, `*.img*`) are
 gitignored.
 
-## CI Pipeline
+## CI pipeline
 
 The GitHub Actions workflow at `.github/workflows/build-image.yml` builds
 the image on release publication or manual dispatch. It cross-compiles Go
@@ -125,7 +125,7 @@ rpi-imager --repo https://velocity.report/images/os-list.json
 Or use any image-writing tool (`dd`, balenaEtcher) with the `.img.xz` file
 downloaded from the GitHub Release.
 
-## Image Size Budget (Phase 1)
+## Image size budget (phase 1)
 
 | Component                        | Estimated Size  |
 | -------------------------------- | --------------- |
@@ -136,6 +136,6 @@ downloaded from the GitHub Release.
 | LiDAR + web + system config      | ~11 MB          |
 | **Total (xz compressed)**        | **~350–500 MB** |
 
-## Design Document
+## Design document
 
 Full design: [deploy-rpi-imager-fork-plan.md](../docs/plans/deploy-rpi-imager-fork-plan.md)

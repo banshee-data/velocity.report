@@ -1,4 +1,4 @@
-# Distributed Sweep Workers
+# Distributed sweep workers
 
 - **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)
 
@@ -10,7 +10,7 @@ Architectural plan for running parameter sweeps across multiple remote worker ma
 
 > **Problem, goal, design principles, and current architecture:** see [distributed-sweep.md](../lidar/architecture/distributed-sweep.md).
 
-## Target Architecture
+## Target architecture
 
 ```
                     ┌───────────────────────────────────┐
@@ -65,7 +65,7 @@ Architectural plan for running parameter sweeps across multiple remote worker ma
               └──────────────────────────────────────────────────────────┘
 ```
 
-## Worker Execution Mode
+## Worker execution mode
 
 The worker is the same `velocity-report` binary started with `--worker`:
 
@@ -90,11 +90,11 @@ velocity-report --worker \
 - No transit worker
 - No gRPC visualiser server
 
-### Worker HTTP Surface (port 8082)
+### Worker HTTP surface (port 8082)
 
 > Endpoint table: see [distributed-sweep.md § Worker HTTP Surface](../lidar/architecture/distributed-sweep.md#worker-http-surface-port-8082).
 
-### Pre-Flight Validation (`/api/worker/jobs/check`)
+### Pre-Flight validation (`/api/worker/jobs/check`)
 
 Before dispatching a full sweep job, the driver calls `/api/worker/jobs/check` with the job's `SweepRequest` (PCAP file, sensor config). The worker:
 
@@ -117,7 +117,7 @@ type CheckResult struct {
 
 If the check fails, the driver does not submit the job and reports the error to the user.
 
-### Local Result Cache
+### Local result cache
 
 Workers keep completed results in local SQLite until the driver confirms retrieval:
 
@@ -141,11 +141,11 @@ CREATE TABLE worker_result_cache (
 4. Background cleanup: results with `retrieved = TRUE` and `retrieved_at` older than 24 hours are deleted
 5. Emergency cleanup: if disk usage exceeds a threshold, oldest retrieved results are deleted first
 
-## Data Model
+## Data model
 
 > SQL schema (`lidar_sweep_jobs`, `lidar_sweep_workers`): see [distributed-sweep.md § Data Model](../lidar/architecture/distributed-sweep.md#data-model).
 
-### Go Types
+### Go types
 
 ```go
 // SweepJob represents a unit of work assigned to a worker.
@@ -186,9 +186,9 @@ type CheckResult struct {
 }
 ```
 
-## API Surface
+## API surface
 
-### Driver Endpoints (new)
+### Driver endpoints (new)
 
 **Job lifecycle (under existing :8080 API):**
 
@@ -209,17 +209,17 @@ type CheckResult struct {
 | `DELETE` | `/api/lidar/sweep/workers/{worker_id}`      | Delete a worker server entry             |
 | `POST`   | `/api/lidar/sweep/workers/{worker_id}/test` | Test connectivity + run pre-flight check |
 
-### Worker Endpoints (port 8082)
+### Worker endpoints (port 8082)
 
 See [Worker HTTP Surface](#worker-http-surface-port-8082) above.
 
-## Failure Registry
+## Failure registry
 
 > Failure mode table: see [distributed-sweep.md § Failure Registry](../lidar/architecture/distributed-sweep.md#failure-registry).
 
-## Phased Rollout
+## Phased rollout
 
-### Phase 1: Job Model, Worker Server CRUD, and Persistence
+### Phase 1: job model, worker server CRUD, and persistence
 
 **Goal:** Define the data model for jobs and worker servers, create database migrations, and implement the stores — without changing any sweep execution behaviour.
 
@@ -257,7 +257,7 @@ internal/lidar/storage/sqlite/worker_server_store_test.go       (new — tests)
 
 ---
 
-### Phase 2: Driver Coordinator, Worker Server API, and Settings UI
+### Phase 2: driver coordinator, worker server API, and settings UI
 
 **Goal:** Add the coordinator logic that partitions a sweep into jobs, the CRUD API for worker servers, and the Settings UI for managing worker hosts.
 
@@ -302,7 +302,7 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
 
 ---
 
-### Phase 3: Worker Mode in Unified Binary
+### Phase 3: worker mode in unified binary
 
 **Goal:** Add `--worker` mode to the existing `velocity-report` binary. The worker runs a stripped-down server with a reduced HTTP surface on port 8082, executes sweep jobs, and caches results locally.
 
@@ -362,7 +362,7 @@ internal/lidar/worker/cache_test.go         (new — unit tests)
 
 ---
 
-### Phase 4: End-to-End Integration and Dashboard
+### Phase 4: end-to-end integration and dashboard
 
 **Goal:** Wire the distributed sweep path into the existing sweep dashboard, add worker selection, progress aggregation, and validate the full driver–worker–shared-filesystem flow.
 
@@ -405,7 +405,7 @@ docs/lidar/operations/distributed-sweep-setup.md           (new — operational 
 
 ---
 
-### Phase 5: Resilience and Operational Hardening
+### Phase 5: resilience and operational hardening
 
 **Goal:** Handle real-world failure modes: worker crashes, network partitions, stale jobs, result cache lifecycle, and graceful degradation.
 
@@ -445,7 +445,7 @@ internal/lidar/monitor/distributed_sweep_handlers.go  (health aggregation)
 
 ---
 
-## Phase Dependencies
+## Phase dependencies
 
 ```
 Phase 1 ─── Phase 2 ─── Phase 3 ─── Phase 4
@@ -459,15 +459,15 @@ Phase 1 ─── Phase 2 ─── Phase 3 ─── Phase 4
 
 Phases 1–3 are strictly sequential. Phase 4 (dashboard) and Phase 5 (hardening) can overlap once Phase 3 is functional.
 
-## Design Constraints
+## Design constraints
 
 > Constraint list: see [distributed-sweep.md § Design Constraints](../lidar/architecture/distributed-sweep.md#design-constraints).
 
-## Alternatives Considered
+## Alternatives considered
 
 > Rejected/deferred alternatives: see [distributed-sweep.md § Alternatives Rejected](../lidar/architecture/distributed-sweep.md#alternatives-rejected).
 
-## Migration Path
+## Migration path
 
 Existing single-machine deployments are unaffected:
 
@@ -477,7 +477,7 @@ Existing single-machine deployments are unaffected:
 - The coordinator is opt-in: only activates when a sweep targets a configured worker (not "server")
 - Settings UI gains a new "Sweep Workers" section but does not alter existing settings
 
-## Open Questions
+## Open questions
 
 1. **Auto-discovery vs. manual only** — should workers be discoverable via mDNS/Bonjour in addition to manual configuration, or is the Settings CRUD sufficient for small deployments?
 

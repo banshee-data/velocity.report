@@ -1,4 +1,4 @@
-# AV Range Image Format Alignment
+# AV range image format alignment
 
 Changes required to align the velocity.report LiDAR capture format with industry-standard autonomous vehicle range image conventions, covering dual returns, elongation, and structured range image organisation.
 
@@ -11,9 +11,9 @@ This design document outlines the changes required to align the velocity.report 
 3. **Range Image Format**: Organize point cloud data as 2D range images
 4. **Channel Structure**: Align with standard AV 4-channel format (range, intensity, elongation, is_in_nlz: No-Label Zone flag)
 
-## Current State Analysis
+## Current state analysis
 
-### Hesai Pandar40P Capabilities
+### Hesai pandar40P capabilities
 
 The Hesai Pandar40P sensor natively supports the core features needed for AV format alignment:
 
@@ -25,7 +25,7 @@ The Hesai Pandar40P sensor natively supports the core features needed for AV for
 | Elongation   | ❌ Not in protocol    | ❌ Not available            | ✅ Required              |
 | is_in_nlz    | N/A (AV-specific)     | N/A                         | ⚠️ Not applicable        |
 
-### AV Dataset LiDAR Data Format Reference
+### AV dataset LiDAR data format reference
 
 From open AV dataset documentation:
 
@@ -47,7 +47,7 @@ Range Image Structure (per-lidar):
 - Row 0 = maximum inclination, center column = forward (+X axis)
 - Separate range image for each return
 
-### Elongation Definition
+### Elongation definition
 
 From AV dataset specification:
 
@@ -60,9 +60,9 @@ From AV dataset specification:
 
 ---
 
-## Gap Analysis
+## Gap analysis
 
-### 1. Dual Return Parsing (Medium Effort)
+### 1. Dual return parsing (medium effort)
 
 **Current State:**
 
@@ -89,7 +89,7 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 ...
 ```
 
-### 2. Elongation Data (High Effort - Hardware Limitation)
+### 2. Elongation data (high effort - hardware limitation)
 
 **Critical Finding:** The Hesai Pandar40P does not provide elongation data in its packet format.
 
@@ -102,7 +102,7 @@ Dual Return Packet (10 blocks = 5 azimuth positions):
 
 **Recommendation:** Implement option 2 (placeholders) initially, with option 1 as future enhancement.
 
-### 3. Range Image Format (Medium Effort)
+### 3. Range image format (medium effort)
 
 **Current State:**
 
@@ -130,7 +130,7 @@ channel[2] = elongation      = not available (use 0)
 channel[3] = is_in_nlz       = always -1 (not applicable)
 ```
 
-### 4. No-Label Zone (NLZ) (Not Applicable)
+### 4. No-Label zone (NLZ) (not applicable)
 
 The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labelling pipelines. This is annotation metadata, not sensor data. For velocity.report:
 
@@ -139,35 +139,35 @@ The `is_in_nlz` channel marks points that are inside "no-label zones" in AV labe
 
 ---
 
-## Proposed Changes
+## Proposed changes
 
-### Phase 1: Data structure updates
+### Phase 1: data structure updates
 
 Add three fields to `Point` and `PointPolar` in `internal/lidar/l2frames/arena.go`: `ReturnType` (uint8: 0=strongest, 1=last, 2=second-strongest), `ReturnIndex` (int: 0 or 1), and `Elongation` (float32: 0.0–1.0, 0=unavailable). Add `IsInNLZ` (int8: always −1 for street monitoring) to `Point` only.
 
 Create `internal/lidar/l2frames/range_image.go` with a `RangeImage` struct: sensor ID, timestamp, return index, row/col dimensions (40 × ~1800), four channel slices (range, intensity, elongation, is_in_nlz) in row-major order, plus beam inclination and azimuth metadata. Provide `NewRangeImage()`, `Index(row, col)`, and `SetPoint()` methods.
 
-### Phase 2: Parser enhancements
+### Phase 2: parser enhancements
 
 **Dual return detection** — add return mode constants (Strongest 0x37, Last 0x38, Dual 0x39) and `IsDualReturn()` to `PacketTail` in `internal/lidar/l1packets/extract.go`. In dual mode, even blocks are strongest returns, odd blocks are last returns. Modify `blockToPoints()` to populate `ReturnType` and `ReturnIndex`.
 
 **Elongation estimation** (optional) — since Pandar40P lacks hardware elongation, estimate from local intensity variance across neighbouring points. Normalise to [0, 1] with empirical threshold (σ > 50 = high elongation).
 
-### Phase 3: Frame builder updates
+### Phase 3: frame builder updates
 
 Add `ToRangeImages()` to `LiDARFrame` in `internal/lidar/l2frames/frame_builder.go`. Maps each point's channel to a row and azimuth to a column (0.2° bins, 1800 columns). Returns two `RangeImage` instances — one per return. AV convention: column 0 = rear (−X axis), centre = front (+X). NLZ always −1.
 
-### Phase 4: Web configuration
+### Phase 4: web configuration
 
 Add `GET/POST /api/lidar/return_mode` endpoint for return mode selection. Add three `BackgroundParams` fields: `range_image_azimuth_bins` (default 1800), `enable_range_image_export`, `export_second_return`. Web UI: dropdown in status page for return mode.
 
-### Phase 5: Export formats
+### Phase 5: export formats
 
 Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVFormat()`. Binary format: header (rows, cols, 4 channels, timestamp) followed by planar channel data (range → intensity → elongation → is_in_nlz), all little-endian float32.
 
 ---
 
-## Implementation Phases Summary
+## Implementation phases summary
 
 | Phase | Description                      | Effort | Dependencies |
 | ----- | -------------------------------- | ------ | ------------ |
@@ -184,9 +184,9 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 
 ---
 
-## Web Configuration Settings
+## Web configuration settings
 
-### Required Settings
+### Required settings
 
 | Setting                     | Location            | Default       | Description                      |
 | --------------------------- | ------------------- | ------------- | -------------------------------- |
@@ -195,7 +195,7 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 | `enable_range_image_export` | `/api/lidar/params` | false         | Enable range image generation    |
 | `export_second_return`      | `/api/lidar/params` | true          | Include second return in exports |
 
-### API Endpoints
+### API endpoints
 
 | Endpoint                             | Method | Description                         |
 | ------------------------------------ | ------ | ----------------------------------- |
@@ -206,9 +206,9 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 
 ---
 
-## Parser Adaptation Details
+## Parser adaptation details
 
-### Current Parser Flow
+### Current parser flow
 
 ```
 UDP Packet (1262/1266 bytes)
@@ -222,7 +222,7 @@ blockToPoints() → Apply calibration, generate PointPolar[]
 FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame
 ```
 
-### Modified Parser Flow (with AV format alignment)
+### Modified parser flow (with AV format alignment)
 
 ```
 UDP Packet (1262/1266 bytes)
@@ -244,20 +244,20 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 
 ---
 
-## Limitations and Considerations
+## Limitations and considerations
 
-### Hardware Limitations
+### Hardware limitations
 
 1. **Elongation not available** from Pandar40P - must use placeholders or estimation
 2. **Fixed beam count** of 40 channels (vs 64-beam in some AV dataset lidars)
 3. **Max range 200m** vs 75m truncation in some datasets (not a problem)
 
-### Privacy Considerations
+### Privacy considerations
 
 - Range image format preserves privacy (no PII, just geometric data)
 - No camera projection channels needed for velocity.report use case
 
-### Compatibility Notes
+### Compatibility notes
 
 - Range image format is compatible with open AV dataset tools but not identical
 - `is_in_nlz` always -1 (no annotation zones in street monitoring)
@@ -265,16 +265,16 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 
 ---
 
-## Testing Strategy
+## Testing strategy
 
-### Unit Tests
+### Unit tests
 
 - Test dual return block pairing logic
 - Test range image indexing and population
 - Test azimuth remapping for AV coordinate system
 - Test export file format correctness
 
-### Integration Tests
+### Integration tests
 
 - Replay PCAP in dual-return mode, verify both returns captured
 - Export range images, verify dimensions match expected

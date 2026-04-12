@@ -1,4 +1,4 @@
-# Static Pose Alignment
+# Static pose alignment
 
 Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features are not required for the core traffic monitoring use case. Current implementation uses a simpler 2D+velocity model.
 
@@ -7,7 +7,7 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 - Plan: `docs/plans/lidar-static-pose-alignment-plan.md`
 - Status: DEFERRED for traffic monitoring deployments
 
-## Simplification Applied
+## Simplification applied
 
 | This Plan (Deferred)             | Current Implementation     |
 | -------------------------------- | -------------------------- |
@@ -19,13 +19,13 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 
 Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction.md` for the simplified approach.
 
-## When To Implement
+## When to implement
 
 - AV dataset integration (importing Waymo/nuScenes data for training)
 - Research applications requiring precise 3D bounding boxes
 - Integration with AV perception pipelines
 
-## Gap Analysis: Current → 7DOF
+## Gap analysis: current → 7DOF
 
 | Component        | Current State        | Required Change         | Complexity |
 | ---------------- | -------------------- | ----------------------- | ---------- |
@@ -36,7 +36,7 @@ Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction
 | UI visualisation | Rectangles           | Oriented boxes + arrows | Medium     |
 | Object classes   | 4 classes            | Support AV class enum   | Low        |
 
-## Implementation Summary (When Activated)
+## Implementation summary (when activated)
 
 **PR #1:** Database schema — add `pose_id` columns (nullable, backward-compatible).
 
@@ -52,7 +52,7 @@ Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction
 4. Store `bbox_length`, `bbox_width`, `bbox_height`, `bbox_heading` in database
 5. Svelte UI: render oriented rectangles, heading arrows, 7DOF detail panel
 
-## Benefits of Static Pose Infrastructure
+## Benefits of static pose infrastructure
 
 - Pose versioning: can update calibration without breaking historical data
 - Audit trail for calibration changes

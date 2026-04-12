@@ -1,4 +1,4 @@
-# Tailscale Remote Access
+# Tailscale remote access
 
 Tailscale creates a WireGuard mesh VPN that gives every enrolled device a
 stable `100.x.y.z` address — no port forwarding, no dynamic DNS, no exposure

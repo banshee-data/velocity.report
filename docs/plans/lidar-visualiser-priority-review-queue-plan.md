@@ -1,4 +1,4 @@
-# Design: Priority Review Queue by Uncertainty and Impact (Feature 8)
+# Design: priority review queue by uncertainty and impact (feature 8)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints
@@ -19,7 +19,7 @@ Replace linear review order with a prioritised queue so reviewers address the mo
 - Workforce scheduling or staffing optimisation.
 - Replacing full run browsing.
 
-## Priority Scoring
+## Priority scoring
 
 Compute `priority_score` (`0-100`) from weighted factors:
 
@@ -35,7 +35,7 @@ Default formula:
 
 - `priority = w1*(100-quality_score) + w2*violation_severity + w3*repair_risk + w4*rarity + w5*ego_proximity + w6*manual_flag_penalty`
 
-## Queue Data Model
+## Queue data model
 
 Add table `lidar_review_queue_items`:
 
@@ -57,7 +57,7 @@ Constraints and indexes:
 - index `(run_id, status, priority_score DESC)`
 - index `(assignee, status)`
 
-## Queue Refresh Strategy
+## Queue refresh strategy
 
 Triggers:
 
@@ -71,7 +71,7 @@ Refresh modes:
 - incremental recompute per track (default)
 - full run rebuild endpoint (maintenance)
 
-## API Contract
+## API contract
 
 - `GET /api/lidar/runs/{run_id}/review-queue?status=&assignee=&limit=&cursor=`
 - `POST /api/lidar/runs/{run_id}/review-queue/{item_id}/claim`
@@ -85,7 +85,7 @@ Response includes jump context:
 - `end_ns`
 - `top_reasons[]`
 
-## macOS UI Design
+## macOS UI design
 
 Files:
 
@@ -103,7 +103,7 @@ UI additions:
   - claim/release/resolve actions.
 - `Jump to Segment` button seeks replay timeline to issue window.
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -112,15 +112,15 @@ Files:
 
 Add optional queue mode and claim/resolve actions.
 
-## Concurrency Model
+## Concurrency model
 
 - Claim endpoint uses optimistic locking (status must be `OPEN`).
 - Resolve endpoint requires claimant or reviewer role.
 - Expire stale claims via server-side timeout policy.
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add `lidar_review_queue_items` table
 - [ ] Add priority and assignee indexes
@@ -155,7 +155,7 @@ Add optional queue mode and claim/resolve actions.
 - [ ] Add optional queue mode in tracks page
 - [ ] Add claim/resolve controls and visual indicators
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for priority formula and component bounds
 - [ ] Integration tests for queue status transitions
@@ -167,14 +167,14 @@ Add optional queue mode and claim/resolve actions.
 - [ ] Document queue scoring factors and weights
 - [ ] Document reviewer claim/resolve workflow
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Queue list sorts deterministically by priority score and tie-breakers.
 - Claim conflicts are handled without duplicate assignment.
 - Queue updates within 2 seconds after upstream QC signal changes.
 - Review throughput improves versus baseline linear workflow.
 
-## Open Questions
+## Open questions
 
 - Should queue be run-scoped only or support cross-run global queue views?
 - Should rare-class weighting be static or adaptive per scene/run?

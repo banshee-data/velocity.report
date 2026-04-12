@@ -1,13 +1,13 @@
-# PCAP Split Tool Design Document
+# PCAP split tool design document
 
 - **Status:** Proposed
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 
-## Executive Summary
+## Executive summary
 
 This document describes the design for `pcap-split`, a Go command-line tool that automatically segments LIDAR PCAP files into non-overlapping periods of motion and stability. The tool enables separate analysis pipelines for mobile observation (driving) and static observation (parked) data collection scenarios.
 
-## Problem Statement
+## Problem statement
 
 ### Background
 
@@ -21,7 +21,7 @@ These periods require different processing pipelines:
 - **Static data**: High-quality background subtraction, accurate object detection, track analysis
 - **Motion data**: SLAM/odometry processing, mobile mapping, dynamic scene reconstruction
 
-### Current Limitation
+### Current limitation
 
 Currently, long PCAP captures from mobile observation sessions contain mixed motion/static data. Analysts must:
 
@@ -30,7 +30,7 @@ Currently, long PCAP captures from mobile observation sessions contain mixed mot
 3. Manually track timing information for alignment
 4. Risk human error in identifying transition points
 
-### Proposed Solution
+### Proposed solution
 
 Automated PCAP segmentation tool that:
 
@@ -40,9 +40,9 @@ Automated PCAP segmentation tool that:
 4. Splits PCAP into labeled segments with precise cut times
 5. Outputs ready-to-analyse static and motion segments
 
-## Use Cases
+## Use cases
 
-### Primary Use Case: Mobile Observation Route
+### Primary use case: mobile observation route
 
 **Scenario**: Observer drives route with multiple stop points
 
@@ -66,7 +66,7 @@ out-motion-2.pcap    # Return journey (variable)
 - Only split after 60+ seconds of continuous stability (configurable)
 - Precise cut times at exact moment motion stops
 
-### Secondary Use Case: Long-Duration Monitoring
+### Secondary use case: long-duration monitoring
 
 **Scenario**: Overnight capture with brief vehicle movements
 
@@ -82,7 +82,7 @@ out-motion-0.pcap    # 30s movement
 out-static-1.pcap    # 4 hours stable
 ```
 
-### Tertiary Use Case: Data Quality Assessment
+### Tertiary use case: data quality assessment
 
 **Scenario**: Evaluate background settling quality across multiple captures
 
@@ -100,7 +100,7 @@ Analysts can then:
 
 ## Requirements
 
-### Functional Requirements
+### Functional requirements
 
 **FR1: PCAP Input Processing**
 
@@ -148,7 +148,7 @@ Analysts can then:
 - Minimum segment duration (default: 5s, prevents micro-segments)
 - Maximum motion gap to bridge (default: 30s, keeps intersection waits)
 
-### Non-Functional Requirements
+### Non-Functional requirements
 
 **NFR1: Performance**
 
@@ -204,9 +204,9 @@ Analysts can then:
 └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
 
-### Component Details
+### Component details
 
-#### 1. PCAP Reader (Reuse Existing)
+#### 1. PCAP reader (reuse existing)
 
 **Location**: `internal/lidar/network/pcap.go`
 
@@ -227,7 +227,7 @@ stats := &PacketStats{}
 err := network.ReadPCAPFile(ctx, inputFile, 2369, parser, analyser, stats)
 ```
 
-#### 2. Settling Analyser (New Component)
+#### 2. Settling analyser (new component)
 
 **Location**: `internal/lidar/pcapsplit/analyser.go` (new package)
 
@@ -344,7 +344,7 @@ func (a *SettlingAnalyser) classifyFrame(metrics FrameMetrics) State {
 }
 ```
 
-#### 3. PCAP Writer (New Component)
+#### 3. PCAP writer (new component)
 
 **Location**: `internal/lidar/pcapsplit/writer.go` (new package)
 
@@ -421,7 +421,7 @@ func (w *SegmentWriter) flushCurrentSegment() error {
 }
 ```
 
-#### 4. Split Orchestrator (New Component)
+#### 4. Split orchestrator (new component)
 
 **Location**: `cmd/tools/pcap-split/main.go`
 
@@ -578,9 +578,9 @@ Metrics Export:
   frame_metrics.csv (per-frame metrics)
 ```
 
-### Required API Enhancements
+### Required API enhancements
 
-#### Existing APIs to Use
+#### Existing APIs to use
 
 From `BackgroundManager`:
 
@@ -591,7 +591,7 @@ func (bm *BackgroundManager) GetGridHeatmap(azimuthBucketDeg, settledThreshold) 
 func (bm *BackgroundManager) GetAcceptanceMetrics() *AcceptanceMetrics
 ```
 
-#### New API Methods Needed
+#### New API methods needed
 
 **1. Per-Frame Settling Metrics** (add to `BackgroundManager`):
 
@@ -695,7 +695,7 @@ func (bm *BackgroundManager) IsWithinNoiseBounds(threshold float64) bool {
 }
 ```
 
-### Data Structures
+### Data structures
 
 #### Configuration
 
@@ -726,7 +726,7 @@ type SplitConfig struct {
 }
 ```
 
-#### State Machine
+#### State machine
 
 ```go
 type State int
@@ -747,7 +747,7 @@ type StateTransition struct {
 }
 ```
 
-### Processing Algorithm
+### Processing algorithm
 
 **High-Level Flow**:
 
@@ -852,9 +852,9 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 }
 ```
 
-## Technical Considerations
+## Technical considerations
 
-### Performance Optimisation
+### Performance optimisation
 
 **1. Streaming Processing**
 
@@ -874,7 +874,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Pre-allocate buffer capacity based on estimated segment size
 - Immediate write on state transition to free memory
 
-### Edge Cases
+### Edge cases
 
 **1. Very Short Segments**
 
@@ -923,7 +923,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Note settling was incomplete in metadata
 - Still useful for analysis with caveat
 
-### Error Handling
+### Error handling
 
 **1. Malformed Packets**
 
@@ -943,7 +943,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Attempt to continue with next packet
 - Include error count in summary
 
-### Testing Strategy
+### Testing strategy
 
 **Unit Tests**:
 
@@ -965,9 +965,9 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Memory usage profiling
 - CPU utilisation monitoring
 
-## Implementation Plan
+## Implementation plan
 
-### Phase 1: Core Infrastructure (Week 1)
+### Phase 1: core infrastructure (week 1)
 
 **1.1 Package Structure**
 
@@ -988,7 +988,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Basic classification logic (simplified)
 - Unit tests for state machine
 
-### Phase 2: PCAP Splitting Logic (Week 2)
+### Phase 2: PCAP splitting logic (week 2)
 
 **2.1 Settling Analyser**
 
@@ -1010,7 +1010,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Known motion/static transitions
 - Validate split accuracy
 
-### Phase 3: CLI Tool (Week 3)
+### Phase 3: CLI tool (week 3)
 
 **3.1 Command-Line Interface**
 
@@ -1030,7 +1030,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - CSV frame metrics
 - Human-readable summary
 
-### Phase 4: Polish and Documentation (Week 4)
+### Phase 4: polish and documentation (week 4)
 
 **4.1 Performance Optimisation**
 
@@ -1052,9 +1052,9 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Performance verification
 - User acceptance testing
 
-## Success Criteria
+## Success criteria
 
-### Functional Success
+### Functional success
 
 ✅ Tool processes 80K packet PCAP in < 30 seconds
 ✅ Correctly identifies motion/static transitions
@@ -1063,7 +1063,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 ✅ Handles edge cases gracefully
 ✅ Clear, actionable error messages
 
-### Quality Success
+### Quality success
 
 ✅ 80%+ code coverage (unit tests)
 ✅ Integration tests for all transition types
@@ -1072,7 +1072,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 ✅ No memory leaks (validated with profiling)
 ✅ Passes all linting and formatting checks
 
-### User Success
+### User success
 
 ✅ Single command execution (no manual steps)
 ✅ Clear progress reporting during processing
@@ -1080,9 +1080,9 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 ✅ Useful summary output
 ✅ Easy to integrate into analysis workflows
 
-## Future Enhancements
+## Future enhancements
 
-### Phase 5+: Advanced Features
+### Phase 5+: advanced features
 
 **1. Multi-Sensor Support**
 
@@ -1114,7 +1114,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 - Distributed processing for large datasets
 - API for programmatic access
 
-## Related Documentation
+## Related documentation
 
 - [PCAP Analysis Mode](../lidar/operations/pcap-analysis-mode.md) - Web UI analysis workflow
 - Background Subtraction (see [`internal/lidar/l3grid/background.go`](../../internal/lidar/l3grid/background.go)) - Settling algorithm details
@@ -1143,7 +1143,7 @@ func (a *SettlingAnalyser) processFrame(points []PointPolar, timestamp time.Time
 
 **PCAP**: Packet Capture format (tcpdump, Wireshark standard)
 
-## Revision History
+## Revision history
 
 | Version | Date       | Author  | Changes                 |
 | ------- | ---------- | ------- | ----------------------- |

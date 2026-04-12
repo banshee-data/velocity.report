@@ -1,4 +1,4 @@
-# Precompiled LaTeX Format Plan
+# Precompiled LaTeX format plan
 
 - **Status:** Draft — awaiting review before implementation
 - **Layers:** Cross-cutting (reporting infrastructure)
@@ -8,7 +8,7 @@
   while preserving byte-identical PDF output.
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
 
-## Problem Summary
+## Problem summary
 
 The full `texlive-xetex` + `texlive-fonts-recommended` + `texlive-latex-extra`
 installation adds ~800 MB uncompressed to the Pi image. This is the single
@@ -22,7 +22,7 @@ installation:
 | Atkinson Hyperlegible fonts (bundled) | System-wide TeX fonts        |
 | fontspec, hyperref support files      | Full CTAN mirror             |
 
-## Current Architecture
+## Current architecture
 
 ```
 pdf_generator/core/
@@ -47,7 +47,7 @@ pdf_generator/core/
 speed distributions) are rendered by matplotlib/seaborn as PDF figures that get
 `\includegraphics`'d into the LaTeX document.
 
-## LaTeX Packages in Use
+## LaTeX packages in use
 
 Loaded by `DocumentBuilder.add_packages()`:
 
@@ -71,7 +71,7 @@ files).
 
 ## Design
 
-### Two Modes of Operation
+### Two modes of operation
 
 | Mode            | When used                         | TeX source                   |
 | --------------- | --------------------------------- | ---------------------------- |
@@ -81,7 +81,7 @@ files).
 The pdf-generator must work identically in both modes. The only difference is
 _where_ the TeX engine and support files come from.
 
-### Mode Detection
+### Mode detection
 
 A single environment variable controls which mode is active:
 
@@ -102,7 +102,7 @@ When `VELOCITY_TEX_ROOT` is set, the pdf-generator:
 4. Optionally uses the precompiled format:
    `xelatex -fmt=velocity-report` (loads packages from `.fmt` instead of `.sty`)
 
-### Minimal TeX Tree Layout
+### Minimal teX tree layout
 
 ```
 /opt/velocity-report/texlive-minimal/
@@ -137,7 +137,7 @@ When `VELOCITY_TEX_ROOT` is set, the pdf-generator:
 
 Estimated size: **30–60 MB** (vs ~800 MB for full texlive-xetex).
 
-### Precompiled Format File (`.fmt`)
+### Precompiled format file (`.fmt`)
 
 A `.fmt` file is a binary dump of the TeX engine's memory after loading macros.
 Instead of parsing every `.sty` at compile time, the engine loads the `.fmt` in
@@ -177,9 +177,9 @@ requirement. The minimal tree works without it — packages are still present as
 - Smaller total footprint (some transitive `.sty` deps can be omitted if baked
   into the format)
 
-## Implementation Phases
+## Implementation phases
 
-### Phase 1: Audit TeX Dependencies
+### Phase 1: audit teX dependencies
 
 **Goal**: Produce an authoritative list of every file the TeX engine touches
 when compiling a velocity.report PDF.
@@ -198,7 +198,7 @@ when compiling a velocity.report PDF.
 **Deliverable**: `dependency-manifest.txt` — one file path per line, relative to
 the TeX Live root.
 
-### Phase 2: Build Minimal TeX Tree
+### Phase 2: build minimal teX tree
 
 **Goal**: Assemble a self-contained directory containing only the files from the
 manifest.
@@ -218,7 +218,7 @@ manifest.
 **Deliverable**: `scripts/build-minimal-texlive.sh` + `build-texlive-minimal`
 Makefile target.
 
-### Phase 3: Precompile Format File
+### Phase 3: precompile format file
 
 **Goal**: Produce `velocity-report.fmt` for faster runtime compilation.
 
@@ -248,7 +248,7 @@ Makefile target.
 
 **Deliverable**: `velocity-report.ini` + `.fmt` build step in the script.
 
-### Phase 4: Code Changes — pdf-generator
+### Phase 4: code changes — pdf-generator
 
 **Goal**: Make the Python code work seamlessly in both development and production
 modes.
@@ -376,7 +376,7 @@ Update `_check_latex()` to handle both modes:
 Add a new check: `_check_tex_environment()` that reports which mode is active
 and whether the minimal tree is healthy.
 
-### Phase 5: Makefile & Deploy Targets
+### Phase 5: makefile & deploy targets
 
 **New targets:**
 
@@ -394,16 +394,16 @@ and whether the minimal tree is healthy.
 | `deploy-install-latex` | Add conditional: use minimal tree if available, else apt  |
 | `pdf-report`           | No change needed — mode detected via environment variable |
 
-### Phase 6: Validation & Testing
+### Phase 6: validation & testing
 
-#### 6.1 Unit Tests
+#### 6.1 Unit tests
 
 - `test_tex_environment.py` — test `resolve_tex_environment()` with and without
   `VELOCITY_TEX_ROOT`
 - `test_dependency_checker.py` — test production-mode LaTeX checks
 - `test_document_builder.py` — test `skip_preloaded` flag
 
-#### 6.2 Integration Test
+#### 6.2 Integration test
 
 A Makefile target (`validate-tex-minimal`) that:
 
@@ -413,7 +413,7 @@ A Makefile target (`validate-tex-minimal`) that:
    - Visual comparison via `diff-pdf` or `pdftocairo` + `ImageMagick compare`
    - Page count and text extraction comparison via `pdftotext`
 
-#### 6.3 Size Measurement
+#### 6.3 Size measurement
 
 Record before/after in the plan:
 
@@ -423,7 +423,7 @@ Record before/after in the plan:
 | TeX install size (xz compressed) | ~250 MB  | < 15 MB        |
 | PDF compilation time (Pi 4)      | baseline | ≤ baseline     |
 
-### Phase 7: pi-gen Integration
+### Phase 7: pi-gen integration
 
 Update the pi-gen stage (out of scope for this PR, documented for completeness):
 
@@ -433,7 +433,7 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 3. Set `VELOCITY_TEX_ROOT` in the systemd service environment file
 4. Validate PDF generation during image build
 
-## Risks & Mitigations
+## Risks & mitigations
 
 | Risk                                        | Mitigation                                          |
 | ------------------------------------------- | --------------------------------------------------- |
@@ -443,7 +443,7 @@ Update the pi-gen stage (out of scope for this PR, documented for completeness):
 | Report layout changes break format          | CI generates PDF in both modes and compares         |
 | Developer forgets to audit after adding pkg | CI lint step checks `.ini` matches `add_packages()` |
 
-## Migration Path to Option C
+## Migration path to option c
 
 If user feedback indicates demand for custom LaTeX templates, the minimal tree
 can be upgraded to a TinyTeX-based installation without changing the Python code:
@@ -456,7 +456,7 @@ can be upgraded to a TinyTeX-based installation without changing the Python code
 The `TexEnvironment` abstraction ensures the pdf-generator does not care whether
 the tree is hand-curated or TinyTeX-managed.
 
-## Open Questions
+## Open questions
 
 1. **Static vs dynamic xelatex binary** — Should we statically compile XeTeX for
    ARM64, or bundle the required `.so` files alongside the binary? Static is

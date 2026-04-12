@@ -1,4 +1,4 @@
-# Plan Title (version scope)
+# Plan title (version scope)
 
 - **Status:** Draft | Active | Complete
 - **Layers:** e.g. Cross-cutting (Go server, API, database) | LiDAR pipeline | Web frontend
@@ -11,7 +11,7 @@
 Why this work exists. What structural risk or user-facing problem it addresses.
 One or two paragraphs. Name the consequence of inaction.
 
-## Current State
+## Current state
 
 What the codebase looks like today in the area this plan covers.
 Include counts, file paths, and measurable facts — not opinions.
@@ -22,7 +22,7 @@ Include counts, file paths, and measurable facts — not opinions.
 | ---- | ------------- | -------- | ------------ |
 |      |               |          |              |
 
-## Design / Approach
+## Design / approach
 
 How the work will be done. Name the boundaries, the load-bearing paths,
 and the invariants that must hold. If there are options, list them with
@@ -30,7 +30,7 @@ the burden each assigns.
 
 ## Scope
 
-### Item 1: Title
+### Item 1: title
 
 **Summary:** One sentence.
 
@@ -41,7 +41,7 @@ the burden each assigns.
 
 **Milestone:** v0.x.x
 
-### Item 2: Title
+### Item 2: title
 
 **Summary:** One sentence.
 

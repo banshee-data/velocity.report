@@ -1,9 +1,9 @@
-# Visualiser Documentation
+# Visualiser documentation
 
 Architecture, API contracts, and feature specifications for VelocityVisualiser
 — the macOS 3D point cloud viewer for LiDAR data.
 
-## Architecture & Design
+## Architecture & design
 
 | Document                               | Content                                 |
 | -------------------------------------- | --------------------------------------- |
@@ -12,7 +12,7 @@ Architecture, API contracts, and feature specifications for VelocityVisualiser
 | [implementation.md](implementation.md) | Milestone checklist (M0–M8)             |
 | [menu-layout.md](menu-layout.md)       | macOS menu bar and keyboard shortcuts   |
 
-## Feature Specifications
+## Feature specifications
 
 | Document                                                                   | Content                            |
 | -------------------------------------------------------------------------- | ---------------------------------- |

@@ -1,4 +1,4 @@
-# Coverage Improvement Plan: 95.5% Target
+# Coverage improvement plan: 95.5% target
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (testing infrastructure)
@@ -18,7 +18,7 @@ any testable business logic currently in `cmd/` must be extracted into
 
 ---
 
-## Current State Summary
+## Current state summary
 
 | Component            | Overall | Files ≥ 95.5% | Files < 95.5%   |
 | -------------------- | ------- | ------------- | --------------- |
@@ -33,7 +33,7 @@ requires a macOS runner. See [§ macOS Swift App](#macos-swift-app) below.
 
 ---
 
-## Tier 1 — Quick Wins (< 2% gap, ~1–3 tests each)
+## Tier 1 — quick wins (< 2% gap, ~1–3 tests each)
 
 These packages need only a handful of additional test cases.
 
@@ -67,7 +67,7 @@ These packages need only a handful of additional test cases.
 
 ---
 
-## Tier 2 — Moderate Work (2–5% gap, ~5–15 tests each)
+## Tier 2 — moderate work (2–5% gap, ~5–15 tests each)
 
 ### Go
 
@@ -99,7 +99,7 @@ These packages need only a handful of additional test cases.
 
 ---
 
-## Tier 3 — Significant Effort (> 5% gap or untested)
+## Tier 3 — significant effort (> 5% gap or untested)
 
 ### Go
 
@@ -115,7 +115,7 @@ These packages need only a handful of additional test cases.
 | `core/tex_environment.py` | 87.5%   | 8.0% | LaTeX environment detection/fallback (~5 missing lines, needs mock filesystem) |
 | `core/zip_utils.py`       | 86.4%   | 9.1% | Zip creation error paths, large-file handling (~17 missing lines)              |
 
-### Go `cmd/` — Logic Extraction to `internal/`
+### Go `cmd/` — logic extraction to `internal/`
 
 <a id="cmd-logic-extraction"></a>
 
@@ -145,7 +145,7 @@ wiring (flag parsing, `main()`, output formatting).
    (`--help` exits 0, invalid flags exit non-zero).
 4. **Priority:** `cmd/deploy` → `cmd/radar` → `cmd/tools` (by LOC impact).
 
-### macOS Swift App
+### macOS Swift app
 
 <a id="macos-swift-app"></a>
 
@@ -207,9 +207,9 @@ coverage requires a macOS runner with Metal support).
 
 ---
 
-## Recommended Execution Order
+## Recommended execution order
 
-### Phase 1: Raise the Floor (weeks 1–2)
+### Phase 1: raise the floor (weeks 1–2)
 
 1. **`internal/config`** — Write table-driven tests for all 40+ `Get*` accessors.
    Each accessor reads one field from the config struct; a single
@@ -221,7 +221,7 @@ coverage requires a macOS runner with Metal support).
 3. **Web files** — `sweep_dashboard.js` and `api.ts` each need fewer than
    10 additional test assertions.
 
-### Phase 2: Strengthen the Core (weeks 2–4)
+### Phase 2: strengthen the core (weeks 2–4)
 
 4. **`internal/db`** — Add migration-path tests (`MigrateForce`, `BaselineAtVersion`)
    and error-injection tests for `NewDBWithMigrationCheck` / `withDB`.
@@ -236,7 +236,7 @@ coverage requires a macOS runner with Metal support).
 7. **Python Tier 2** — `cli/main.py`, `chart_builder.py`, `stats_utils.py`,
    `report_sections.py`.
 
-### Phase 3: Extract cmd/ Logic + macOS (weeks 4–8)
+### Phase 3: extract cmd/ logic + macOS (weeks 4–8)
 
 8. **`cmd/deploy` → `internal/deploy`** — Extract `Installer`, `Upgrader`,
    `Rollback`, `Fixer`, and `Monitor` into `internal/deploy`. Unify
@@ -259,9 +259,9 @@ coverage requires a macOS runner with Metal support).
 
 ---
 
-## Strategies for Hard-to-Test Code
+## Strategies for hard-to-test code
 
-### SSH/Remote Operations (`cmd/deploy` → `internal/deploy`)
+### SSH/Remote operations (`cmd/deploy` → `internal/deploy`)
 
 - **Extract an executor interface** (`Executor` with `Run`, `RunSudo`,
   `WriteFile`, `CopyFile` methods) — `internal/deploy` already has a
@@ -272,20 +272,20 @@ coverage requires a macOS runner with Metal support).
   separately (CI with a local SSH server container).
 - `cmd/deploy/main.go` remains a thin CLI wrapper — no 95.5% target.
 
-### Database Error Paths (`internal/db`)
+### Database error paths (`internal/db`)
 
 - Use `testutil.NewTestDB()` with deliberate schema corruption to trigger
   migration errors.
 - Inject write failures via `PRAGMA journal_mode=OFF` + disk-full simulation.
 - Test `withDB` with a closed `*sql.DB` to cover the error branch.
 
-### LiDAR Monitor Handlers (`internal/lidar/monitor`)
+### LiDAR monitor handlers (`internal/lidar/monitor`)
 
 - Use `httptest.NewServer` with the monitor's mux to test HTTP handlers.
 - Create a `FakeBackend` implementing `ClientBackend` for PCAP replay and
   auto-tune handlers.
 
-### Config Accessors (`internal/config`)
+### Config accessors (`internal/config`)
 
 - Single table-driven test: populate a `TuningConfig` struct with known values,
   call every `Get*` function, assert against expected output.
@@ -297,7 +297,7 @@ coverage requires a macOS runner with Metal support).
   with controlled arguments.
 - Mock external dependencies (`subprocess`, `shutil`) for deterministic tests.
 
-### macOS Metal Renderer (`MetalRenderer.swift`)
+### macOS Metal renderer (`MetalRenderer.swift`)
 
 - **Extract pure-logic helpers** (matrix maths, colour mapping, buffer
   sizing) into standalone structs/functions that can be tested without a
@@ -307,7 +307,7 @@ coverage requires a macOS runner with Metal support).
 - Use `MTLCreateSystemDefaultDevice()` availability checks in tests to
   skip GPU-dependent assertions on CI runners without Metal.
 
-### macOS SwiftUI Views (`ContentView.swift`)
+### macOS SwiftUI views (`ContentView.swift`)
 
 - Extract complex logic into `@Observable` view models testable
   without a view hierarchy.
@@ -316,7 +316,7 @@ coverage requires a macOS runner with Metal support).
 - Focus on testing the view models and state management rather than the
   SwiftUI view tree itself.
 
-### macOS Network Clients (`LabelAPIClient`, `VisualiserClient`)
+### macOS network clients (`LabelAPIClient`, `VisualiserClient`)
 
 - Use a `URLProtocol` subclass to intercept HTTP requests and return
   scripted responses (4xx, 5xx, timeouts, malformed JSON).
@@ -325,7 +325,7 @@ coverage requires a macOS runner with Metal support).
 
 ---
 
-## Coverage Infrastructure Improvements
+## Coverage infrastructure improvements
 
 1. **Raise Codecov target** from 1% to 95.5% (in `codecov.yml`), with a
    ramp schedule: 90% → 92% → 95.5% over three milestones. Apply to the
@@ -350,7 +350,7 @@ coverage requires a macOS runner with Metal support).
 
 ---
 
-## Packages Already at Target (no action needed)
+## Packages already at target (no action needed)
 
 | Package                            | Coverage |
 | ---------------------------------- | -------- |
@@ -371,7 +371,7 @@ coverage requires a macOS runner with Metal support).
 
 ---
 
-## Estimated Total Effort
+## Estimated total effort
 
 | Phase     | Scope                                   | Effort        |
 | --------- | --------------------------------------- | ------------- |

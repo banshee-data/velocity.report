@@ -1,4 +1,4 @@
-# Experiment: L3 Background Settling Parameter Sweep
+# Experiment: L3 background settling parameter sweep
 
 - **Status:** Proposed
 - **Layers:** L3 Grid

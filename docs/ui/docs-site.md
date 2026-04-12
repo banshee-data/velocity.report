@@ -1,4 +1,4 @@
-# Documentation Site (public_html)
+# Documentation site (public_html)
 
 The public-facing documentation site at [velocity.report](https://velocity.report), built with Eleventy and Tailwind CSS.
 

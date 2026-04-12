@@ -1,4 +1,4 @@
-# Experiment: L5 Tracking Noise Parameter Sweep
+# Experiment: L5 tracking noise parameter sweep
 
 - **Status:** Proposed
 - **Layers:** L5 Tracks

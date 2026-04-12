@@ -1,4 +1,4 @@
-# Code Coverage
+# Code coverage
 
 This project uses [Codecov](https://codecov.io) to track code coverage across all three main components: Go server, Python PDF generator, and Web frontend.
 
@@ -73,7 +73,7 @@ The repository includes a `codecov.yml` configuration that:
 - Sets coverage thresholds
 - Enables PR comments with coverage diffs
 
-### Setting up Codecov token
+### Setting up codecov token
 
 For CI to upload coverage data, a `CODECOV_TOKEN` secret must be configured:
 
@@ -116,7 +116,7 @@ Configure exclusions in `web/jest.config.js` under `collectCoverageFrom`.
 
 ## Troubleshooting
 
-### Coverage not uploading to Codecov
+### Coverage not uploading to codecov
 
 1. Verify `CODECOV_TOKEN` is set in repository secrets
 2. Check that the workflow has `permissions: write` for `pull-requests`

@@ -1,4 +1,4 @@
-# LiDAR Terminology
+# LiDAR terminology
 
 Core terms used across the LiDAR tracking system.
 
@@ -13,11 +13,11 @@ Core terms used across the LiDAR tracking system.
 | **Sweep**              | A batch execution that varies parameter combinations, running one analysis per combination and collecting metrics for comparison.                            |
 | **Auto-Tune**          | An iterative sweep that narrows parameter bounds across rounds, converging on optimal parameters via objective scoring.                                      |
 
-## Related Architecture Models
+## Related architecture models
 
 - [LiDAR Data Layer Model (OSI-Style)](architecture/lidar-data-layer-model.md) — ten-layer model from L1 Packets through L10 Clients.
 
-## Layer Summary
+## Layer summary
 
 | Layer | Label      | Package (Go)                      | Responsibility                                               |
 | ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
@@ -32,11 +32,11 @@ Core terms used across the LiDAR tracking system.
 | L9    | Endpoints  | `internal/lidar/l9endpoints/`     | gRPC streams, chart payload shaping, debug views             |
 | L10   | Clients    | `web/`, `tools/visualiser-macos/` | Browser, native, and report-generation consumers             |
 
-## Label Taxonomy
+## Label taxonomy
 
 Labels are applied by human reviewers to tracks within an analysis run. The same taxonomy is used across all platforms (Go backend, Svelte web frontend, macOS app).
 
-### Detection Labels (`user_label`)
+### Detection labels (`user_label`)
 
 Classify what object the track represents. v0.5.0 ships 7 active labels.
 
@@ -52,7 +52,7 @@ Classify what object the track represents. v0.5.0 ships 7 active labels.
 | `noise`      | Spurious track (sensor noise, rain, dust, or vegetation) |
 | `dynamic`    | Ambiguous dynamic object or insufficient observations    |
 
-### Quality Flags (`quality_label`)
+### Quality flags (`quality_label`)
 
 Rate the measurement quality of a track. Multi-select (comma-separated).
 
@@ -69,7 +69,7 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 | `truncated`       | Track starts late or ends early relative to the object's true trajectory |
 | `disconnected`    | Track was lost and recovered — identity may have changed                 |
 
-### Canonical Sources
+### Canonical sources
 
 - **Go backend:** `internal/api/lidar_labels.go` — `validUserLabels`, `validQualityLabels`
 - **Svelte frontend:** `web/src/lib/types/lidar.ts` — `DetectionLabel`, `QualityLabel`

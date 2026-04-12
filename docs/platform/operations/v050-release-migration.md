@@ -1,4 +1,4 @@
-# v0.5.0 Release Migration
+# v0.5.0 Release migration
 
 - **Status:** Complete — retained as migration reference
 
@@ -13,7 +13,7 @@ bump. No temporary dual-format shims retained after the cut.
 
 > **Shim removal status and tech-debt tracking:** see the active plan above.
 
-## Items Explicitly Retained
+## Items explicitly retained
 
 - Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`,
   `storage/sqlite/types.go` — avoid import cycles.
@@ -24,13 +24,13 @@ bump. No temporary dual-format shims retained after the cut.
 - DB legacy detection in `db.go` — needed for pre-migration upgrades.
 - Old migration files (000002–000019) — immutable history.
 
-## Externally Gated Deferrals
+## Externally gated deferrals
 
 - **`cmd/deploy`** — gated on #210 image pipeline (v0.7.0+).
 - **Python PDF elimination** — gated on Go charting migration.
 - **VRLOG speed-key fallback** — deferred to v0.5.2 (migration window).
 
-## Config Restructure Status
+## Config restructure status
 
 | Phase | Description                 | Status      |
 | ----- | --------------------------- | ----------- |

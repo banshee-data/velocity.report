@@ -1,4 +1,4 @@
-# Platform Hub
+# Platform hub
 
 Stable documentation for shared codebase structure and cross-cutting development
 concerns. Anything that is not specific to a single sensor or to the user interface

@@ -1,4 +1,4 @@
-# Pipeline Review: Open Questions and High-Value Work
+# Pipeline review: open questions and high-value work
 
 - **Status:** Active review (March 2026)
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene (planned), L8 Analytics (planned)
@@ -8,7 +8,7 @@ plans. Identifies open questions that need reasoning, implementations that need
 extending, and high-value work — with particular attention to ground plane
 modelling and priors alignment.
 
-## 1. Current Pipeline: Mathematical Audit Summary
+## 1. Current pipeline: mathematical audit summary
 
 The implemented pipeline (L1–L6) is mathematically sound in its core
 operations. Each layer has verified, correct implementations:
@@ -43,7 +43,7 @@ Two observations worth noting for future work:
    this is acceptable, but the Joseph form would be advisable if the state
    vector grows (e.g. for IMM or acceleration states).
 
-## 2. Proposal Dependency Graph and Sequencing
+## 2. Proposal dependency graph and sequencing
 
 Six mathematical proposals exist. Their dependencies create a natural execution
 order that the current roadmap (P1–P4 + add-ons) correctly captures, with one
@@ -93,9 +93,9 @@ The recommended sequence is:
 4. **P2** — Velocity-coherent foreground (independent, enhances P1+P3)
 5. **Sign anchors** — requires L7 scene geometry from P3
 
-## 3. Open Questions Addressed
+## 3. Open questions addressed
 
-### Q1. How does tile-plane fitting align with the vector scene map?
+### Q1. how does tile-plane fitting align with the vector scene map?
 
 **Answer: Yes, for three specific and measurable scenarios — and the
 construction path from tiles to vector-scene polygons is well-defined.**
@@ -169,7 +169,7 @@ This alignment is confirmed across all four source documents:
 - `20260221-ground-plane-vector-scene-maths.md` → streaming PCA + settlement
 - `vector-scene-map.md` → region-grown polygons + LOD hierarchy
 
-### Q2. How should observed geometry align with OSM, and how do we propose edits?
+### Q2. how should observed geometry align with OSM, and how do we propose edits?
 
 **Answer: OSM is the canonical remote store. Our tools diff observed geometry
 against the community map and produce real-world OSM edits.**
@@ -287,7 +287,7 @@ statistics. This keeps the production database compact and self-contained
 while the full scene evidence remains accessible for offline analysis via
 the raw PCAP and VRLOG files.
 
-### Q3. Can LiDAR intensity create reliable pose anchors?
+### Q3. can LiDAR intensity create reliable pose anchors?
 
 **Answer: Yes, with a well-defined reliability ladder and quantified
 confidence bounds. Flagged for possible future improvement.**
@@ -322,7 +322,7 @@ the confidence bounds and tier thresholds should be revisited with empirical
 data. In particular, the wall/facade tier may achieve better accuracy than
 estimated if surface roughness is characterised per anchor.
 
-### Q4. Should ground plane share settlement core with L3, and how does this align with sign anchors and bodies-in-motion?
+### Q4. should ground plane share settlement core with L3, and how does this align with sign anchors and bodies-in-motion?
 
 **Answer: Yes, but with separated readiness outputs — and the unified
 settlement core is designed to be forward-compatible with both sign anchors
@@ -463,7 +463,7 @@ pursued.
 This sequence avoids dead ends: every item either persists in the final
 architecture or enables a downstream capability.
 
-### Q6. What benchmarks prove the foreground-plus-DBSCAN baseline should be replaced?
+### Q6. what benchmarks prove the foreground-plus-DBSCAN baseline should be replaced?
 
 **Answer: Define three acceptance metrics with explicit thresholds.**
 
@@ -497,7 +497,7 @@ run using `GroundTruthEvaluator` (Hungarian-matched temporal IoU).
 [data/experiments/try/velocity-coherent-baseline-comparison.md](../experiments/try/velocity-coherent-baseline-comparison.md)
 for the structured experiment design.
 
-### Q7. Which defaults are backed by repeatable comparisons vs provisional?
+### Q7. which defaults are backed by repeatable comparisons vs provisional?
 
 **Answer: Audit by config key with evidence classification.**
 
@@ -519,7 +519,7 @@ provisional keys to empirical are in
 [data/experiments/try/](../experiments/try/) — see the L3, L4, L5
 per-layer sweeps and multi-key interaction grid.
 
-### Q8. Rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
+### Q8. rotating bounding boxes: do geometry-coherent replacements improve replay results enough?
 
 **Answer: Expected improvement is large and verifiable.**
 
@@ -617,7 +617,7 @@ observed geometry against OSM data. See Q2 above for the proposed OSM edit
 workflow. A planned reference document will describe the diff format,
 changeset generation, and human review process.
 
-### Q10. Performance-versus-accuracy tradeoff for edge hardware.
+### Q10. performance-versus-accuracy tradeoff for edge hardware.
 
 **Answer: Budget allocation by layer with measured costs. A performance
 measurement harness provides consistent regression detection.**
@@ -662,7 +662,7 @@ for the harness design. The existing `make test-perf` target and nightly
 CI job provide the infrastructure; the harness plan extends this with
 per-layer breakdowns and hardware-specific baselines.
 
-### Q11. Reference data coverage: does kirk0 overfit?
+### Q11. reference data coverage: does kirk0 overfit?
 
 **Answer: Almost certainly yes; plan for five PCAPs with P40 sensor.**
 
@@ -696,7 +696,7 @@ within 10% of optimal across all five sites.
 See [docs/plans/lidar-test-corpus-plan.md](../../docs/plans/lidar-test-corpus-plan.md)
 for the full test corpus plan.
 
-## 4. Ground Plane and Priors Alignment: Synthesis
+## 4. Ground plane and priors alignment: synthesis
 
 The ground plane work spans four documents that need explicit alignment:
 
@@ -781,7 +781,7 @@ be OSM-first (see Q2):
    reports with suggested edits for OSM contributors. Apply w_prior weight
    in region selection scoring.
 
-## 5. Implementations That Need Extending
+## 5. Implementations that need extending
 
 ### 5.1 Classification thresholds need configuration extraction
 
@@ -837,7 +837,7 @@ with:
 3. **Geometry stability:** Add dimension and heading stability metrics for
    matched track pairs (preparation for P1 validation).
 
-## 6. High-Value Work Priority
+## 6. High-Value work priority
 
 Ordered by user-visible impact and mathematical maturity:
 
@@ -859,7 +859,7 @@ Items 4, 5, and 6 are independent and can be pursued in parallel with the
 critical path. Items 7–9 are the future-forward kinematic sequence that
 avoids throwaway work (see Q5).
 
-## 7. Cross-Reference to Existing Plans
+## 7. Cross-Reference to existing plans
 
 This review consolidates and addresses open questions from:
 

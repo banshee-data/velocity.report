@@ -7,7 +7,7 @@ Svelte-based frontend for real-time traffic data visualization.
 - **Build**: Vite
 - **Package Manager**: pnpm
 
-## Tech Stack
+## Tech stack
 
 - **[Svelte 5](https://svelte.dev/)** - Fast, reactive UI framework
 - **[@sveltejs/adapter-static](https://www.npmjs.com/package/@sveltejs/adapter-static)** - Static
@@ -16,7 +16,7 @@ Svelte-based frontend for real-time traffic data visualization.
 - **[svelte-ux 2](https://svelte-ux.techniq.dev/)** - UI components
 - **[LayerChart 2](https://www.layerchart.com/)** - Data visualization
 
-## Getting Started
+## Getting started
 
 Install [pnpm](https://pnpm.io/installation) if not already installed.
 
@@ -30,7 +30,7 @@ pnpm run dev
 
 App runs at [http://localhost:5173](http://localhost:5173) (or next available port).
 
-### Production Build
+### Production build
 
 Create an optimised build:
 

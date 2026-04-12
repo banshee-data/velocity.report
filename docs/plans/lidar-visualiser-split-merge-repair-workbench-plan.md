@@ -1,4 +1,4 @@
-# Design: One-Click Split/Merge Repair Workbench (Feature 3)
+# Design: one-click split/Merge repair workbench (feature 3)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
@@ -19,7 +19,7 @@ Provide operator-facing, auditable split/merge repair tools with algorithmic sug
 - Rewriting raw source point cloud data.
 - Automatic silent edits without operator approval.
 
-## Repair Model
+## Repair model
 
 Repairs are run-scoped and non-destructive:
 
@@ -32,7 +32,7 @@ Repair types:
 - `MERGE`: multiple track IDs should be one logical object.
 - `SPLIT`: one track ID should be multiple logical objects over time.
 
-## Suggestion Engine
+## Suggestion engine
 
 Candidate features:
 
@@ -50,7 +50,7 @@ Suggestion output:
 - `evidence_summary`
 - `proposed_payload`
 
-## Data Model
+## Data model
 
 ### Repair operations
 
@@ -88,7 +88,7 @@ Indexes:
 - `(run_id, status, confidence_score DESC)`
 - `(run_id, created_at_ns DESC)`
 
-## Backend Design
+## Backend design
 
 Add modules:
 
@@ -102,7 +102,7 @@ Resolution strategy:
 - For splits, assign time segments to effective IDs via boundary timestamps.
 - Persist resolved mapping for deterministic playback/session export.
 
-## API Contract
+## API contract
 
 - `GET /api/lidar/runs/{run_id}/repair-suggestions?status=&limit=&cursor=`
 - `POST /api/lidar/runs/{run_id}/repair-suggestions/{suggestion_id}/accept`
@@ -118,7 +118,7 @@ On accept:
 - refresh queue priority (Feature 8),
 - append audit log (Feature 10).
 
-## macOS UI Design
+## macOS UI design
 
 Files:
 
@@ -140,7 +140,7 @@ Interaction requirements:
 - explicit confirmation before apply/revert,
 - clear visual indicator when a track is part of an active repair.
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -149,15 +149,15 @@ Files:
 
 Add optional review-repair tools for parity and remote reviewers.
 
-## Consistency and Safety
+## Consistency and safety
 
 - Use DB transaction for apply/revert operations.
 - Idempotency token per mutation to avoid double-apply.
 - Reject conflicting operations on already-mutated segments.
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add `lidar_run_track_repairs` table
 - [ ] Add `lidar_run_track_repair_suggestions` table
@@ -193,7 +193,7 @@ Add optional review-repair tools for parity and remote reviewers.
 - [ ] Add optional repair controls in track/timeline UI
 - [ ] Add interaction tests for apply/revert actions
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for suggestion scoring logic
 - [ ] Golden tests for resolver output after chained repairs
@@ -205,14 +205,14 @@ Add optional review-repair tools for parity and remote reviewers.
 - [ ] Document merge/split semantics and operator playbook
 - [ ] Document rollback behaviour and conflict resolution policy
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Accepting a suggestion updates effective track identity in UI within 1 second.
 - Every repair can be reverted without data loss.
 - Conflicting edits are blocked with explicit user feedback.
 - Repair operations are fully represented in audit exports.
 
-## Open Questions
+## Open questions
 
 - Should repairs be limited to run scope or optionally promoted to scene profile hints?
 - Should split boundaries be frame-index based, timestamp-based, or both?

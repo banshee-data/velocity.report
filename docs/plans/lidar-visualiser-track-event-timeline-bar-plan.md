@@ -1,4 +1,4 @@
-# Design: Timeline Event Bar (Feature 2)
+# Design: timeline event bar (feature 2)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints
@@ -25,7 +25,7 @@ Add an event lane to replay controls so reviewers can jump directly to critical 
 - Full anomaly detection system.
 - Replacing current timeline scrub behaviour.
 
-## Event Taxonomy
+## Event taxonomy
 
 Event types (`event_type`):
 
@@ -48,7 +48,7 @@ Event severity (`severity`):
 - `WARN`
 - `ERROR`
 
-## Data Model
+## Data model
 
 Add table `lidar_run_track_events`:
 
@@ -69,7 +69,7 @@ Indexes:
 - `(run_id, track_id, timestamp_ns)`
 - `(run_id, event_type, severity)`
 
-## Event Generation Pipeline
+## Event generation pipeline
 
 ### Online emitters
 
@@ -92,7 +92,7 @@ Emit from API handlers:
 - label updates
 - split/merge repair actions
 
-## Backend Design
+## Backend design
 
 Add `internal/lidar/qc/events.go`:
 
@@ -107,7 +107,7 @@ Add API route handlers in `internal/lidar/monitor/run_track_api.go`:
 - jump-target lookups,
 - rebuild events endpoint.
 
-## API Contract
+## API contract
 
 - `GET /api/lidar/runs/{run_id}/events?start_ns=&end_ns=&types=&severity=&track_id=&limit=&cursor=`
 - `POST /api/lidar/runs/{run_id}/events/rebuild`
@@ -120,7 +120,7 @@ Response shape:
 - `count`
 - `highlights` (counts by type/severity)
 
-## macOS UI Design
+## macOS UI design
 
 Files:
 
@@ -136,7 +136,7 @@ UI additions:
 - Click marker to seek to `timestamp_ns`.
 - Filter chips (`all`, `warnings`, `repairs`, `label changes`).
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -146,15 +146,15 @@ Files:
 
 Add event lane and event-filter controls.
 
-## Performance and Caching
+## Performance and caching
 
 - Cache event windows by run and viewport time range.
 - Server-side pagination for large runs.
 - Prefetch nearest +/- 10% of current viewport for smooth scrubbing.
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add `lidar_run_track_events` table and indexes
 - [ ] Add migration tests for schema consistency
@@ -187,7 +187,7 @@ Add event lane and event-filter controls.
 - [ ] Add event lane in `TimelinePane.svelte`
 - [ ] Add keyboard shortcuts for next/previous warning event
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for event taxonomy validation
 - [ ] Integration tests for event generation from label updates
@@ -199,14 +199,14 @@ Add event lane and event-filter controls.
 - [ ] Publish event type definitions and severity policy
 - [ ] Add operator guide for event-filter workflows
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Event markers render for runs with at least 10k events without timeline lag.
 - Clicking an event seeks to target frame/timestamp within 200 ms median.
 - Event filters return deterministic counts across repeated queries.
 - Label updates and repairs appear in event bar within 1 second.
 
-## Open Questions
+## Open questions
 
 - Should dense event clusters collapse into aggregate markers at lower zoom levels?
 - Should event severity be immutable once written?

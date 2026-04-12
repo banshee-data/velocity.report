@@ -1,10 +1,10 @@
-# Track Quality Scoring
+# Track quality scoring
 
 - **Source plan:** `docs/plans/lidar-visualiser-track-quality-score-plan.md`
 
 Per-track quality score (0–100) with reason codes and grade classification.
 
-## Component Weights
+## Component weights
 
 | Component                  | Weight | Description                                       |
 | -------------------------- | ------ | ------------------------------------------------- |
@@ -15,7 +15,7 @@ Per-track quality score (0–100) with reason codes and grade classification.
 | Classification stability   | 10%    | Class label churn rate                            |
 | Violation/repair penalties | 15%    | Deductions for unresolved violations and repairs  |
 
-## Grade Buckets
+## Grade buckets
 
 | Grade | Score Range | Meaning                              |
 | ----- | ----------- | ------------------------------------ |
@@ -26,7 +26,7 @@ Per-track quality score (0–100) with reason codes and grade classification.
 | E     | 20–39       | Poor quality, likely needs repair    |
 | F     | 0–19        | Very poor, probable tracking failure |
 
-## Reason Codes
+## Reason codes
 
 11 initial codes:
 
@@ -70,7 +70,7 @@ Scorer lives in `internal/lidar/qc/scoring.go`. Scoring is:
 - Deterministic: same inputs + same scorer version = same output.
 - Idempotent: re-scoring a track overwrites the previous denormalised values and appends a new history row.
 
-## Rollout Phases
+## Rollout phases
 
 1. Schema migration + scorer package with unit tests
 2. Batch scoring for existing runs

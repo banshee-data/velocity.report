@@ -1,8 +1,8 @@
-# LiDAR Architecture
+# LiDAR architecture
 
 Current architecture documentation for the velocity.report LiDAR subsystem.
 
-## Ten-Layer Model
+## Ten-Layer model
 
 The LiDAR pipeline now uses the canonical ten-layer model. The active
 single-sensor runtime still lives mostly in L1-L6, while L7-L10 define scene,
@@ -38,7 +38,7 @@ reference, the detailed concept/algorithm status chart, and the
 implementation-vs-literature breakdown, see
 [lidar-data-layer-model.md](lidar-data-layer-model.md).
 
-## Architecture Documents
+## Architecture documents
 
 ### Current (active)
 
@@ -60,14 +60,14 @@ implementation-vs-literature breakdown, see
 | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete — arena.go removed, types migrated to layer packages |
 
-### Future / Research
+### Future / research
 
 | Document                                                                                                                                 | Scope                                        |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | [av-range-image-format-alignment.md](av-range-image-format-alignment.md)                                                                 | AV dual-return range image format (deferred) |
 | [../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md](../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md) | Runtime algorithm switching (deferred)       |
 
-## Implementation Status
+## Implementation status
 
 The layer alignment migration is **complete** (items 1–12, 14 in the review doc). Remaining:
 

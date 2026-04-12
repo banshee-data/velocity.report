@@ -1,19 +1,19 @@
-# GPS Ethernet Parsing Architecture
+# GPS ethernet parsing architecture
 
 Implementation plan for adding optional GPS-over-Ethernet parsing to LiDAR ingestion while preserving sensor-only operation, including parsing boundaries, data contracts, rollout safeguards, and integration validation requirements.
 
 **Status:** Proposed
 **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`ground-plane-extraction.md`](./ground-plane-extraction.md)
 
-## Overview & Motivation
+## Overview & motivation
 
-### Architecture Principle: GPS is Additive
+### Architecture principle: GPS is additive
 
 **All local PCAP observations are sensor-iterative.** The velocity.report system **must function with the LiDAR sensor alone, with no GPS**. GPS is strictly additive — it enriches the system with geographic coordinates but is never required for core perception, ground plane extraction, or height-above-ground measurements. Every algorithm in the pipeline operates in sensor-local coordinates by default.
 
 GPS data **may** be ingested over ethernet to enable optional geographic features when a GPS receiver is available. The following sections specify boundaries, data contracts, rollout safeguards, and integration validation.
 
-### Current State
+### Current state
 
 The velocity.report system currently stores site-level GPS coordinates in the database (`internal/db/site.go`) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic geo-referencing capability.
 
@@ -28,7 +28,7 @@ Geographic referencing of LiDAR data is **optional but valuable** for:
 3. **GeoJSON Exports**: Export ground plane tiles and other data with lat/long coordinates for GIS tools
 4. **OSM Integration** (future): Anchor LiDAR observations to OpenStreetMap features for validation
 
-### What Works Without GPS (Primary Operating Mode)
+### What works without GPS (primary operating mode)
 
 Without GPS, the system operates normally in sensor-local coordinates:
 
@@ -38,7 +38,7 @@ Without GPS, the system operates normally in sensor-local coordinates:
 - **L5 Tracking / L6 Classification**: Multi-frame identity and object classes — no GPS needed
 - **All PCAP analysis**: Full pipeline replay with CSV/JSON/training exports — no GPS needed
 
-### Design Goals
+### Design goals
 
 - **Strictly additive**: System must work identically without GPS; GPS only adds geographic context
 - **Privacy-preserving**: GPS coordinates are site-level metadata, not per-vehicle tracking
@@ -47,9 +47,9 @@ Without GPS, the system operates normally in sensor-local coordinates:
 - **Timestamp-correlated**: Associate GPS fixes with LiDAR frames by timestamp
 - **Local-only**: No external transmission (consistent with privacy-first architecture)
 
-## GPS Data Sources over Ethernet
+## GPS data sources over ethernet
 
-### NMEA-over-UDP (Recommended)
+### NMEA-over-UDP (recommended)
 
 Most GPS receivers with ethernet capability support NMEA-0183 sentences broadcast over UDP:
 
@@ -72,7 +72,7 @@ Most GPS receivers with ethernet capability support NMEA-0183 sentences broadcas
 - Mixed capture in PCAP alongside LiDAR packets
 - Simple parsing libraries available
 
-### Hesai Built-in GPS
+### Hesai built-in GPS
 
 Some Hesai LiDAR sensors include GPS receiver inputs:
 
@@ -93,7 +93,7 @@ Some Hesai LiDAR sensors include GPS receiver inputs:
 - HTTP polling adds latency vs. UDP broadcast
 - Packet embedding format varies by firmware version
 
-### PTP with GPS Grandmaster
+### PTP with GPS grandmaster
 
 IEEE 1588 Precision Time Protocol (PTP) synchronised to GPS-disciplined grandmaster clock:
 
@@ -139,9 +139,9 @@ Data Collector:  192.168.100.1 (Raspberry Pi)
 - Easy to upgrade GPS receiver (e.g., RTK-capable units)
 - Direct UDP broadcast requires no polling
 
-## NMEA Sentence Parsing
+## NMEA sentence parsing
 
-### Standard Sentences
+### Standard sentences
 
 **$GPGGA - Global Positioning System Fix Data**
 
@@ -213,7 +213,7 @@ $GPGSA,A,3,04,05,09,12,24,,,,,,,,,2.5,1.3,2.1*39
 - PDOP (position dilution of precision, quality metric)
 - Fix type (require 3D fix for altitude)
 
-### Coordinate Conversion
+### Coordinate conversion
 
 NMEA uses `DDmm.mmmm` format; must convert to decimal degrees:
 
@@ -228,7 +228,7 @@ Calculation: degrees + (minutes / 60)
 
 **Implementation:** `parseNMEACoordinate(coord, hemisphere string) (float64, error)` in `internal/gps/nmea/` parses the `DDmm.mmmm` format by splitting degrees from minutes at the decimal-point offset, dividing minutes by 60 to get decimal degrees, and negating the result for S/W hemispheres.
 
-### Checksum Validation
+### Checksum validation
 
 NMEA sentences include XOR checksum for integrity:
 
@@ -246,7 +246,7 @@ $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 
 **Implementation:** `validateNMEAChecksum(sentence string) bool` in `internal/gps/nmea/` XORs all bytes between the `$` and `*` delimiters and compares the result against the two-digit hex checksum suffix. Sentences missing either delimiter or with a mismatched checksum are rejected.
 
-### Time Synchronisation
+### Time synchronisation
 
 NMEA time must correlate with LiDAR timestamps:
 
@@ -269,9 +269,9 @@ NMEA time must correlate with LiDAR timestamps:
 - Network jitter in UDP packet arrival
 - GPS receiver startup delay (no fix for 30-60 seconds)
 
-## GPS Data Model
+## GPS data model
 
-### Go Structs
+### Go structs
 
 **GPSFix - Single Position Fix**
 
@@ -285,7 +285,7 @@ NMEA time must correlate with LiDAR timestamps:
 
 `GPSReceiver` in `internal/gps/receiver.go` manages GPS ingestion. It holds the config, latest fix, a fix history slice for interpolation, and a distribution channel (all guarded by `sync.RWMutex`). Key methods: `Start(ctx)` begins ingestion, `GetLatestFix()` returns the most recent valid fix, `GetFixAtTime(t)` returns an interpolated position for a given timestamp, and `Subscribe()` returns a channel for real-time fix updates.
 
-### WGS84 Datum
+### WGS84 datum
 
 All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 
@@ -299,7 +299,7 @@ All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 - **HAE (Height Above Ellipsoid)**: Altitude relative to WGS84 ellipsoid
 - **Relationship**: `HAE = MSL + GeoidSeparation` (from GPGGA sentence)
 
-### Coordinate Precision Requirements
+### Coordinate precision requirements
 
 **Ground Plane Tile Alignment:**
 
@@ -314,9 +314,9 @@ All GPS coordinates use **WGS84 (World Geodetic System 1984)** datum:
 - RTK Fixed (quality 4): 1-5 cm (high-precision surveying, future)
 - RTK Float (quality 5): 10-50 cm (good for mobile deployments)
 
-## Integration with L1 Packet Pipeline
+## Integration with L1 packet pipeline
 
-### Parallel Data Sources
+### Parallel data sources
 
 GPS operates alongside LiDAR packet ingestion:
 
@@ -332,7 +332,7 @@ Network Interface (eth0)
                                       (LiDAR + GPS Position)
 ```
 
-### Shared Network Listener
+### Shared network listener
 
 Option 1: **Single pcap listener** (PCAP replay and live capture) — `PacketMultiplexer.Dispatch()` extracts the UDP layer from each `gopacket.Packet` and routes by destination port: 2368 → LiDAR channel, 10110 → GPS channel.
 
@@ -340,7 +340,7 @@ Option 2: **Separate goroutines** (live capture only) — independent UDP listen
 
 **Recommendation:** Unified pcap-based listener for PCAP replay compatibility.
 
-### Time Correlation
+### Time correlation
 
 Associate GPS fixes with LiDAR frames by timestamp:
 
@@ -358,7 +358,7 @@ Associate GPS fixes with LiDAR frames by timestamp:
 
 **Implementation:** `GetFixAtTime(t)` scans the fix history for the two fixes that bracket the requested timestamp. If both are found, it linearly interpolates position between them (mobile case). If only a preceding fix exists, it returns that fix directly (stationary case). Returns `ErrNoGPSFix` when no history is available.
 
-### Sensor-to-World Transform
+### Sensor-to-World transform
 
 Compute WGS84-referenced coordinate transform from GPS position:
 
@@ -381,9 +381,9 @@ Sensor Frame → Site Frame → Local ENU → ECEF → WGS84 Lat/Long
 - Tile origin specified in WGS84 coordinates
 - Normal vector: Z-axis in ENU frame (true vertical)
 
-## PCAP Considerations
+## PCAP considerations
 
-### Mixed Capture Format
+### Mixed capture format
 
 Single PCAP contains both LiDAR and GPS packets:
 
@@ -405,7 +405,7 @@ tcpdump -r capture_site_A.pcap -n 'udp dst port 10110' | wc -l # GPS count
 - Frame 4: LiDAR packet (1262 bytes, port 2368)
 - ...
 
-### Filtering by Port/Protocol
+### Filtering by port/Protocol
 
 Extract GPS sentences from PCAP:
 
@@ -425,7 +425,7 @@ filter := "udp and (dst port 2368 or dst port 10110)"
 err := handle.SetBPFFilter(filter)
 ```
 
-### Replay Considerations
+### Replay considerations
 
 **GPS Position Extraction:**
 
@@ -453,7 +453,7 @@ err := handle.SetBPFFilter(filter)
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
 ```bash
 # GPS data source configuration
@@ -471,7 +471,7 @@ export GPS_HTTP_ENDPOINT=http://192.168.100.201/api/lidar/gps_info
 export GPS_POLL_INTERVAL=1s
 ```
 
-### Configuration File
+### Configuration file
 
 JSON configuration for site-specific deployments:
 
@@ -501,7 +501,7 @@ JSON configuration for site-specific deployments:
 }
 ```
 
-### Fallback Strategy
+### Fallback strategy
 
 Graceful degradation when GPS unavailable:
 
@@ -512,29 +512,29 @@ Graceful degradation when GPS unavailable:
 
 **Decision Logic:** `GeoReference.GetPosition(t)` in `internal/gps/` implements a cascaded fallback: first attempts the real-time GPS receiver via `GetFixAtTime(t)`, then falls back to constructing a fix from the database site config (with `FixQuality: 0` to indicate manual origin), and finally returns `ErrNoGeoReference` if neither source is available.
 
-## Storage Schema
+## Storage schema
 
-### GPS Fix History Table
+### GPS fix history table
 
 For mobile deployments or multi-session analysis:
 
 `gps_fix_history` table (in `internal/db/migrations/`) stores timestamped GPS fixes with WGS84 coordinates (`latitude`, `longitude`, `altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Indexed on `timestamp` and `session_id`.
 
-### Session-Level GPS Metadata
+### Session-Level GPS metadata
 
 Link GPS position to PCAP capture sessions:
 
 `capture_session` table links PCAP files to GPS metadata. Columns: UUID primary key, PCAP filename, start/end timestamps, representative GPS position (`gps_latitude`, `gps_longitude`, `gps_altitude_msl`), quality aggregates (`gps_fix_count`, `gps_fix_quality_median`, `gps_hdop_median`), and a `site_id` foreign key to site config.
 
-### Ground Plane Geo-Referencing
+### Ground plane geo-referencing
 
 Link ground plane tiles to GPS coordinates:
 
 `ground_plane_tile` table stores geo-referenced ground plane tiles. Columns: session link, tile grid coordinates (`tile_x`, `tile_y`), WGS84 centre point, bounding box (`bbox_north/south/east/west`), `point_count`, and a `geometry_blob` (compressed). Indexed on `session_id`, tile coordinates, and bounding box for spatial queries.
 
-## Security & Privacy
+## Security & privacy
 
-### GPS as Site-Level Metadata
+### GPS as site-level metadata
 
 **Not Personally Identifiable Information:**
 
@@ -548,7 +548,7 @@ Link ground plane tiles to GPS coordinates:
 - Local-only storage (SQLite database)
 - No external transmission of coordinates
 
-### Local-Only Storage
+### Local-Only storage
 
 **Data Retention:**
 
@@ -562,7 +562,7 @@ Link ground plane tiles to GPS coordinates:
 - Manual export for GIS integration (user-initiated)
 - Can disable GPS ingestion entirely (fallback to site config)
 
-### Attack Surface
+### Attack surface
 
 **Network Exposure:**
 
@@ -577,9 +577,9 @@ Link ground plane tiles to GPS coordinates:
 - Consistency checks (detect position jumps >100 metres)
 - Optional: DGPS or RTK for authenticated position
 
-## Open Questions & Future Work
+## Open questions & future work
 
-### IMU Integration for Sensor Orientation
+### IMU integration for sensor orientation
 
 **Current State:**
 
@@ -599,7 +599,7 @@ Link ground plane tiles to GPS coordinates:
 - Sensor motion detection (vibration, rotation)
 - Accurate ground plane extraction on slopes
 
-### RTK Corrections for Centimetre-Level Accuracy
+### RTK corrections for centimetre-level accuracy
 
 **Current State:**
 
@@ -618,7 +618,7 @@ Link ground plane tiles to GPS coordinates:
 - NTRIP client implementation (RTCM 3.x protocol)
 - Post-processing alternative: store raw observations, compute corrections offline
 
-### Mobile Deployment (Vehicle-Mounted Sensor)
+### Mobile deployment (vehicle-mounted sensor)
 
 **Current State:**
 
@@ -643,7 +643,7 @@ Link ground plane tiles to GPS coordinates:
 - GPS accuracy in urban canyons (poor satellite visibility)
 - Data volume (TB-scale point clouds per day)
 
-### Multi-Sensor Coordination
+### Multi-Sensor coordination
 
 **Future Vision:**
 
@@ -657,7 +657,7 @@ Link ground plane tiles to GPS coordinates:
 - Time synchronisation (PTP or GPS time)
 - Coordinate transform validation
 
-### GeoJSON Export for GIS Integration
+### GeoJSON export for GIS integration
 
 **Planned Feature:**
 

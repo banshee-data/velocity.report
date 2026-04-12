@@ -1,16 +1,16 @@
-# Proto Contract and Debug Overlays
+# Proto contract and debug overlays
 
 - **Source plan:** `docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md`
 
 gRPC/protobuf contract parity for visualiser streaming, ensuring the proto schema matches actual serialisation.
 
-## Problem Statement
+## Problem statement
 
 The visualiser protobuf schema (`visualiser.proto`) declares fields and controls that are not fully implemented in the gRPC stream path. This creates UI/runtime mismatch and weakens trust in the proto as a contract.
 
-## Current State (Post v0.5.0)
+## Current state (post v0.5.0)
 
-### Track Field Serialisation — Complete
+### Track field serialisation — complete
 
 All `Track` fields declared in `visualiser.proto` are now serialised by `frameBundleToProto()`, including:
 
@@ -23,7 +23,7 @@ All `Track` fields declared in `visualiser.proto` are now serialised by `frameBu
 
 Test: `TestFrameBundleToProto_TrackFieldCompleteness` asserts every Track field round-trips correctly.
 
-### ObjectClass Enum — Complete
+### ObjectClass enum — complete
 
 Proto field 26 is now `ObjectClass object_class` (typed enum, not string):
 
@@ -36,27 +36,27 @@ Conversion: `objectClassFromString()` maps canonical class strings to enum. `cla
 
 Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and meta-test ensuring no `l6objects` constant is missed.
 
-### Speed Field Direction
+### Speed field direction
 
 - Field 24: `avg_speed_mps` (running mean) — stable.
 - Raw maximum field renamed from `peak_speed_mps` to `max_speed_mps`.
 - Aggregate-percentile labels are **not** on the `Track` proto. Percentile computation applies only to grouped/report surfaces.
 - Name `peak_speed_mps` is reserved for a future filtered/context-aware top-speed metric.
 
-## Remaining Gaps
+## Remaining gaps
 
-### Debug Overlays (Deferred to v0.5.2)
+### Debug overlays (deferred to v0.5.2)
 
 - `FrameAdapter.adaptDebugFrame()` builds `DebugOverlaySet` correctly.
 - `frameBundleToProto()` does **not** yet map `frame.Debug` into `pb.FrameBundle.Debug`.
 - Existing tests assert the broken behaviour (`Debug == nil`) — these need replacement with positive serialisation tests.
 
-### Overlay Mode Controls
+### Overlay mode controls
 
 - Decision recorded: `include_debug` gates server-side emission. `SetOverlayModes()` remains client-side/advisory only — no server-side subset filtering.
 - `supports_debug=true` in capabilities should be treated as capability declaration, not per-overlay filtering support.
 
-### Cluster Field Parity (Deferred to v0.5.2)
+### Cluster field parity (deferred to v0.5.2)
 
 Declared but not yet serialised:
 
@@ -64,7 +64,7 @@ Declared but not yet serialised:
 - `Cluster.intensity_mean`
 - `Cluster.sample_points` (also needs adapter propagation from `l4perception.WorldCluster`)
 
-## Deferred Items
+## Deferred items
 
 Tracked in BACKLOG.md under v0.5.2:
 
@@ -74,7 +74,7 @@ Tracked in BACKLOG.md under v0.5.2:
 - `SeekToTimestamp()` diagnostic logging gated behind debug flag
 - `SeekToTimestamp()` O(n) linear scan → O(log n) binary search with prebuilt sorted index
 
-## Key Files
+## Key files
 
 | File                                                | Role                                              |
 | --------------------------------------------------- | ------------------------------------------------- |

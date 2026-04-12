@@ -1,10 +1,10 @@
-# LiDAR Noise vs Distance Convergence Analysis
+# LiDAR noise vs distance convergence analysis
 
 - **Test Type:** Multi-parameter sweep with live LiDAR data
 - **Parameters:** 7 noise values (0.005 to 0.030), fixed closeness=2.0, neighbor=1
 - **Samples:** 50 iterations per combination, 2s interval
 
-## Key Findings
+## Key findings
 
 ### 1. Hypothesis CONFIRMED ✓
 
@@ -15,7 +15,7 @@ Actually, the data shows the **OPPOSITE** is true:
 - **Higher noise values (0.025-0.030) provide BETTER convergence** across ALL distance buckets
 - Convergence improvement is most pronounced at farther distances
 
-### 2. Convergence Stability by Noise Level
+### 2. Convergence stability by noise level
 
 | Noise     | Overall StdDev | 1m StdDev    | 4m StdDev    | 8m StdDev    | 10m StdDev   |
 | --------- | -------------- | ------------ | ------------ | ------------ | ------------ |
@@ -27,7 +27,7 @@ Actually, the data shows the **OPPOSITE** is true:
 
 Lower standard deviation = better convergence and stability
 
-### 3. Convergence Improvement Trends
+### 3. Convergence improvement trends
 
 As noise increases from 0.005 → 0.030:
 
@@ -35,7 +35,7 @@ As noise increases from 0.005 → 0.030:
 - **4m bucket:** stddev decreased by 55% (0.003222 → 0.001461)
 - **8m bucket:** stddev decreased by 62% (0.009094 → 0.003459)
 
-### 4. Background Detection Coverage
+### 4. Background detection coverage
 
 | Noise     | Mean Cells | StdDev | Stability Score |
 | --------- | ---------- | ------ | --------------- |
@@ -51,7 +51,7 @@ Higher noise provides:
 - Slightly higher coverage
 - Better consistency across time
 
-### 5. Time-Series Convergence Speed
+### 5. Time-Series convergence speed
 
 **Noise = 0.005 (Low):**
 
@@ -75,7 +75,7 @@ Higher noise provides:
 
 ## Recommendation
 
-### Optimal Configuration: **noise = 0.030**
+### Optimal configuration: **noise = 0.030**
 
 **Rationale:**
 
@@ -90,7 +90,7 @@ Higher noise provides:
 - None observed - higher noise shows improvements across all measured dimensions
 - The traditional assumption that "lower noise = better" does not hold for this use case
 
-## Why Higher Noise Works Better
+## Why higher noise works better
 
 The counterintuitive result likely occurs because:
 
@@ -99,14 +99,14 @@ The counterintuitive result likely occurs because:
 3. **Less oscillation:** Lower noise can cause the system to be overly sensitive, leading to more accept/reject cycling
 4. **Better handling of real-world variability:** LiDAR data has inherent noise; matching the threshold to reality improves stability
 
-## Next Steps
+## Next steps
 
 1. **Validate with PCAP data:** Run same sweep with PCAP files to confirm findings in controlled environment
 2. **Test extreme values:** Try noise = 0.035-0.050 to find upper bound of benefit
 3. **Production deployment:** Update default parameters to noise=0.030, closeness=2.0, neighbor=1
 4. **Long-term monitoring:** Track convergence metrics in production to validate sustained performance
 
-## Files Generated
+## Files generated
 
 - `noise-distance-convergence.csv` - Summary statistics by noise level
 - `noise-distance-convergence-raw.csv` - Time-series data (350 samples)

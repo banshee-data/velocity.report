@@ -1,4 +1,4 @@
-# Web Frontend Consolidation
+# Web frontend consolidation
 
 Active plan: [web-frontend-consolidation-plan.md](../plans/web-frontend-consolidation-plan.md)
 
@@ -17,12 +17,12 @@ Three distinct web surfaces serve LiDAR functionality:
 Pain points: LiDAR nav visible in radar-only deploys, split ports, two
 charting stacks (ECharts + LayerChart), fragmented user experience.
 
-## Decision: Option B — One Svelte App with Conditional LiDAR Sections ✅
+## Decision: option b — one Svelte app with conditional LiDAR sections ✅
 
 Scored 95 vs 32 (two apps) and 67 (build-time exclusion) on a weighted
 matrix covering effort, risk, complexity, usability, and maintenance.
 
-### End State
+### End state
 
 - **One Svelte app** on port 8080 with conditional LiDAR navigation.
 - **Go-embedded HTML dashboards retired** — sweep, regions, status migrated.
@@ -30,7 +30,7 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 - **Port 8081 retired** — LiDAR API endpoints consolidated under 8080.
 - **LiDAR navigation hidden** when `--enable-lidar` is off.
 
-## Migration Plan
+## Migration plan
 
 | Phase | Scope                              | Effort     | Charting Rewrite |
 | ----- | ---------------------------------- | ---------- | ---------------- |
@@ -46,7 +46,7 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 Phase 3 (sweep dashboard) dominates: 8 ECharts chart types must be
 rewritten to LayerChart/d3-scale.
 
-### Phase 0 — Capabilities API
+### Phase 0 — capabilities API
 
 `/api/capabilities` reports runtime sensor state:
 
@@ -57,7 +57,7 @@ rewritten to LayerChart/d3-scale.
 LiDAR navigation hidden when disabled. All `/api/lidar/*` endpoints
 return "LiDAR disabled" without initialising hardware.
 
-### Phase 3 — Sweep Dashboard (Critical Path)
+### Phase 3 — sweep dashboard (critical path)
 
 | ECharts Chart          | LayerChart Equivalent  | Complexity |
 | ---------------------- | ---------------------- | ---------- |
@@ -70,13 +70,13 @@ return "LiDAR disabled" without initialising hardware.
 | Multi-round comparison | Group + Spline         | Medium     |
 | Recommendation table   | svelte-ux Table        | Low        |
 
-### Phase 5 — Retire Port 8081
+### Phase 5 — retire port 8081
 
 Move LiDAR API route registration from `webserver.go` to `server.go`.
 Remove `--lidar-listen` flag and 8081 HTTP server. gRPC on 50051 is
 unaffected.
 
-## Design Constraints
+## Design constraints
 
 - macOS visualiser stays (Metal 3D rendering).
 - Raspberry Pi 4 is the target (resource-constrained).

@@ -1,4 +1,4 @@
-# Histogram & Percentile queries — radar_data_transits vs radar_objects
+# Histogram & percentile queries — radar_data_transits vs radar_objects
 
 Purpose
 

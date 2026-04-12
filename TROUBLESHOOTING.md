@@ -1,4 +1,4 @@
-# Troubleshooting Guide
+# Troubleshooting guide
 
 This guide covers common issues, error messages, and solutions for the velocity.report system across all components.
 

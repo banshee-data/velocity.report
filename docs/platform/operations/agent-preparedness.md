@@ -1,4 +1,4 @@
-# Agent Knowledge Architecture
+# Agent knowledge architecture
 
 - **Status:** Complete (Phase 3 shipped)
 - **Plan:** [agent-claude-preparedness-review-plan.md](../../plans/agent-claude-preparedness-review-plan.md) — Complete
@@ -15,7 +15,7 @@ velocity.report uses seven named AI agents. The system previously suffered from 
 
 All three problems are resolved. The architecture is now live across both Copilot and Claude Code.
 
-## Layered Knowledge Model
+## Layered knowledge model
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -61,7 +61,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 └─────────────────────────────────────────────────────┘
 ```
 
-## DRY Enforcement Rules
+## DRY enforcement rules
 
 1. **No project fact may appear in more than one file.** If two agents need the same fact, it belongs in Layer 1.
 2. **Agent files reference, never restate.** Use `See build-and-test.md for make targets and venv setup.`
@@ -70,7 +70,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 5. **Persona content is the one exception.** Methodology and coordination rules are duplicated across Copilot and Claude definitions (~40–80 lines/agent). Drift-checked weekly.
 6. **Workflow logic lives in skills, not agents.** If a procedure is reusable and user-invocable, it belongs in a `SKILL.md`.
 
-## Agent Roster
+## Agent roster
 
 | Agent      | Domain               | Class     | Copilot                          | Claude                     |
 | ---------- | -------------------- | --------- | -------------------------------- | -------------------------- |
@@ -82,7 +82,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 | **Terry**  | Narrative            | Editorial | `.github/agents/terry.agent.md`  | `.claude/agents/terry.md`  |
 | **Ruth**   | Judgment             | Both      | `.github/agents/ruth.agent.md`   | `.claude/agents/ruth.md`   |
 
-### Role Class Boundaries
+### Role class boundaries
 
 **Technical agents need:** Make targets, build system, Python venv, test commands, database schema, hardware interfaces, packaging targets, path conventions.
 
@@ -90,7 +90,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 
 **Ruth (Both):** All of the above plus decision frameworks, tradeoff methodology, and scope challenge discipline.
 
-## Workflow Skills
+## Workflow skills
 
 Eight slash-command skills live in `.claude/skills/`. They are the canonical workflow layer — single-source, invocable from both Claude Code and VS Code.
 
@@ -107,11 +107,11 @@ Eight slash-command skills live in `.claude/skills/`. They are the canonical wor
 
 Rule: if a procedure is reusable and user-invocable, it belongs in a `SKILL.md`, not in an agent body.
 
-## Platform Strategy: Dual-Native with Drift Detection
+## Platform strategy: dual-native with drift detection
 
 Agent personas are defined natively for each platform. Shared project knowledge (Layers 0–2) and workflow skills (Layer 3B) remain single-source.
 
-### What Gets Duplicated (Bounded)
+### What gets duplicated (bounded)
 
 | Content                    | Duplicated?        | Copilot                       | Claude                                     |
 | -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
@@ -125,7 +125,7 @@ Agent personas are defined natively for each platform. Shared project knowledge 
 
 Total bounded duplication per agent: ~40–80 lines.
 
-### Drift Detection
+### Drift detection
 
 `scripts/check-agent-drift.sh` compares paired definitions:
 
@@ -137,7 +137,7 @@ Total bounded duplication per agent: ~40–80 lines.
 
 Make target: `make check-agent-drift`
 
-## Key Platform Findings
+## Key platform findings
 
 **Copilot agent file reference resolution:** Copilot does **not** eagerly resolve Markdown links in `.agent.md` bodies. References remain literal text; agents read files on demand using tools. This means Layer 1/2 knowledge that agents need on every interaction should be inlined in `copilot-instructions.md`, not just referenced.
 
@@ -145,7 +145,7 @@ Make target: `make check-agent-drift`
 
 **Prompt files are wrappers only:** `.github/prompts/*.prompt.md` files may select an agent, tools, or model for a workflow in VS Code, but they are not the canonical workflow definition.
 
-## Adopted Design Patterns
+## Adopted design patterns
 
 | Pattern                         | Applied To               | Description                                                      |
 | ------------------------------- | ------------------------ | ---------------------------------------------------------------- |
@@ -159,7 +159,7 @@ Make target: `make check-agent-drift`
 | Directive voice                 | All agents               | "Do B. Here's why:" not "Option B might be worth considering."   |
 | Context pressure prioritisation | All agents               | Priority hierarchy when context window is tight                  |
 
-## File Tree
+## File tree
 
 ```
 .github/TENETS.md                      # Layer 0: project constitution
@@ -214,7 +214,7 @@ scripts/
 | Workflow skills (slash commands)            | 0              | 4                                 |
 | Drift detection                             | None           | Weekly (`make check-agent-drift`) |
 
-## Future Expansion
+## Future expansion
 
 Adding a new agent requires:
 

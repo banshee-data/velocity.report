@@ -1,4 +1,4 @@
-# PCAP Analysis Mode
+# PCAP analysis mode
 
 PCAP analysis mode replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
 
@@ -9,16 +9,16 @@ The LiDAR system supports two modes for PCAP replay:
 1. **Normal PCAP Replay** - Replays PCAP file, then automatically resets grid and returns to live data
 2. **PCAP Analysis Mode** - Replays PCAP file and **preserves the background grid** for inspection and analysis
 
-## Use Cases
+## Use cases
 
-### Normal Replay Mode
+### Normal replay mode
 
 - Testing sensor configurations
 - Debugging packet parsing issues
 - Verifying frame assembly
 - Quick validation before returning to live monitoring
 
-### Analysis Mode
+### Analysis mode
 
 - **Track Analysis** - Identify and study vehicle trajectories from historical data
 - **Background Characterization** - Build accurate background models from known-quiet periods
@@ -26,9 +26,9 @@ The LiDAR system supports two modes for PCAP replay:
 - **Scene Comparison** - Compare PCAP-analysed background with live data overlay
 - **Historical Investigation** - Study specific incidents or traffic patterns
 
-## API Endpoints
+## API endpoints
 
-### Start PCAP Replay (Analysis Mode)
+### Start PCAP replay (analysis mode)
 
 ```bash
 POST /api/lidar/pcap/start?sensor_id=hesai-pandar40p
@@ -52,7 +52,7 @@ Content-Type: application/json
 }
 ```
 
-### Check Data Source Status
+### Check data source status
 
 ```bash
 GET /api/lidar/data_source?sensor_id=hesai-pandar40p
@@ -76,7 +76,7 @@ Data source values:
 - `pcap` - PCAP replay in progress
 - `pcap_analysis` - PCAP replay completed in analysis mode (grid preserved)
 
-### Resume Live Data (Preserve Grid)
+### Resume live data (preserve grid)
 
 ```bash
 POST /api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p
@@ -95,7 +95,7 @@ Switches from PCAP analysis mode back to live UDP data **without resetting the g
 }
 ```
 
-### Stop PCAP Replay (Reset Grid)
+### Stop PCAP replay (reset grid)
 
 ```bash
 POST /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
@@ -103,9 +103,9 @@ POST /api/lidar/pcap/stop?sensor_id=hesai-pandar40p
 
 Stops PCAP replay and **resets the grid** before returning to live data.
 
-## Workflow Examples
+## Workflow examples
 
-### Basic Analysis Workflow
+### Basic analysis workflow
 
 1. **Start analysis mode replay:**
 
@@ -131,14 +131,14 @@ Stops PCAP replay and **resets the grid** before returning to live data.
    curl "http://localhost:8082/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
    ```
 
-### Comparative Analysis
+### Comparative analysis
 
 1. Load PCAP in analysis mode to build background model
 2. Resume live data (grid preserved)
 3. Live objects will be detected against PCAP-built background
 4. Useful for comparing "then vs now" traffic patterns
 
-### Scene Reconstruction
+### Scene reconstruction
 
 1. Process PCAP with empty parking lot → builds clean background
 2. Resume live data with grid preserved
@@ -180,9 +180,9 @@ Normal mode logs:
 [DataSource] auto-switched to Live after PCAP for sensor=hesai-pandar40p
 ```
 
-## Technical Details
+## Technical details
 
-### Grid Preservation
+### Grid preservation
 
 In analysis mode:
 
@@ -191,7 +191,7 @@ In analysis mode:
 - Grid persists through manual live data resume
 - Grid survives background flush cycles (persisted to database)
 
-### State Transitions
+### State transitions
 
 ```
 Live → PCAP (analysis_mode=true) → PCAP Analysis → Live (grid preserved)
@@ -205,7 +205,7 @@ Normal mode:
 Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 ```
 
-### Performance Notes
+### Performance notes
 
 - PCAP replay runs as fast as CPU allows (not real-time throttled)
 - Example: 80K packets (28.7M points) processes in ~13 seconds
@@ -219,7 +219,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 - Grid reset is irreversible (must replay PCAP to rebuild)
 - PCAP files must be in configured safe directory
 
-## See Also
+## See also
 
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
@@ -230,7 +230,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 ---
 
-## PCAP Split Tool (Planned)
+## PCAP split tool (planned)
 
 Active plan: [pcap-split-tool-plan.md](../../plans/pcap-split-tool-plan.md)
 
@@ -242,7 +242,7 @@ Automatically segments LiDAR PCAP files into non-overlapping motion and static p
 
 Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods — motion segments are unusable for perception. Today an operator must manually identify transition points and split files with external tools. This is slow, error-prone, and blocks the mobile-observation workflow.
 
-### Split Tool Architecture
+### Split tool architecture
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -269,7 +269,7 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 | Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New** — buffers packets, writes segment PCAPs           |
 | CLI               | `cmd/tools/pcap-split/main.go`         | **New** — flag parsing, orchestration, summary output     |
 
-### Stability Detection
+### Stability detection
 
 All four criteria must hold to classify a frame as stable:
 
@@ -284,7 +284,7 @@ All four criteria must hold to classify a frame as stable:
 - **Static → Motion:** 5 s sustained motion
 - **Intersection bridging:** pauses < 30 s stay classified as motion (`--max-motion-gap-sec`)
 
-### Split Tool CLI
+### Split tool CLI
 
 ```
 pcap-split [options]
@@ -319,7 +319,7 @@ segments/
 └── summary.txt
 ```
 
-### Required API Extensions
+### Required API extensions
 
 Three new read-only accessors on `BackgroundManager` (designed, not yet implemented):
 
@@ -329,7 +329,7 @@ Three new read-only accessors on `BackgroundManager` (designed, not yet implemen
 | `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope |
 | `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance      |
 
-### Phased Delivery
+### Phased delivery
 
 | Phase | Scope                                                                 | Size | Prerequisite      |
 | ----- | --------------------------------------------------------------------- | ---- | ----------------- |

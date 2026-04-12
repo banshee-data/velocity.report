@@ -1,14 +1,14 @@
-# Serial Configuration UI - Quick Reference
+# Serial configuration UI - quick reference
 
 - **Full Specification:** See [docs/radar/architecture/serial-configuration-ui.md](architecture/serial-configuration-ui.md)
 
 Quick-reference summary of the serial port configuration UI feature, covering core requirements, implementation phases, and key API endpoints.
 
-## What This Feature Enables
+## What this feature enables
 
 Users can configure and test radar serial ports through a web interface instead of editing systemd service files.
 
-## Core Requirements
+## Core requirements
 
 1. **Database Schema** - Store serial port configurations in SQLite
 2. **API Endpoints** - REST API for CRUD operations and testing
@@ -18,16 +18,16 @@ Users can configure and test radar serial ports through a web interface instead 
 6. **Server Integration** - Load configs from DB at startup
 7. **Backward Compatible** - CLI flags still work
 
-## Implementation Phases
+## Implementation phases
 
-### Phase 1: Database Foundation (1-2 days)
+### Phase 1: database foundation (1-2 days)
 
 - Create `radar_serial_config` table
 - Migration with default HAT configuration
 - Server loads from database
 - CLI flag fallback for compatibility
 
-### Phase 2: API Endpoints (3-4 days)
+### Phase 2: API endpoints (3-4 days)
 
 - `/api/serial/configs` - CRUD operations
 - `/api/serial/devices` - Enumerate available serial paths (excludes ones already configured)
@@ -36,7 +36,7 @@ Users can configure and test radar serial ports through a web interface instead 
 - `/api/serial/detect-baud` - Auto-detect baud rate for known port
 - Unit and integration tests
 
-### Phase 3: Web UI (4-5 days)
+### Phase 3: web UI (4-5 days)
 
 - Configuration list page
 - Edit/create modal
@@ -45,13 +45,13 @@ Users can configure and test radar serial ports through a web interface instead 
 - Auto-detect baud button
 - User documentation
 
-### Phase 4: Multi-Sensor (Future)
+### Phase 4: multi-sensor (future)
 
 - Multiple SerialMux instances
 - Data tagging with sensor ID
 - Multi-sensor analytics
 
-## Key Design Decisions
+## Key design decisions
 
 1. **Database over config files** - Consistent with existing patterns
 2. **Application-side sensor models** - No migrations needed for new sensors, CHECK constraint validates
@@ -59,7 +59,7 @@ Users can configure and test radar serial ports through a web interface instead 
 4. **Selectable baud rates** - Prevents errors, auto-detect as helper
 5. **Multiple SerialMux instances** - Future-ready for multi-sensor
 
-## Database Schema (FR1)
+## Database schema (FR1)
 
 ```sql
 -- Serial port configurations table
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 
 **Note:** Sensor model information (capabilities, init commands) is stored in application code, not the database. The CHECK constraint validates that only supported sensor models are used.
 
-## API Endpoints (FR2-FR4)
+## API endpoints (FR2-FR4)
 
 - `GET /api/serial/configs` - List all configurations
 - `GET /api/serial/configs/:id` - Get single configuration
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS radar_serial_config (
 - `POST /api/serial/auto-detect` - Probe all unassigned devices to find connected OPS243 sensors
 - `POST /api/serial/detect-baud` - Auto-detect baud rate for specified port
 
-## Testing Algorithm (FR3)
+## Testing algorithm (FR3)
 
 1. Open serial port with specified settings
 2. Send safe query command (`??`)
@@ -124,7 +124,7 @@ All command responses are logged, including both JSON and non-JSON formats. This
 4. On failure, reports the ports tested and the ones excluded because they are already assigned, along with troubleshooting suggestions
 5. Users can still call `POST /api/serial/detect-baud` when only the baud rate needs to be identified for a known port
 
-## File Locations
+## File locations
 
 **Backend:**
 
@@ -144,7 +144,7 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - User guide: `docs/src/guides/serial-configuration.md`
 - API reference: `docs/api/serial-endpoints.md`
 
-## Success Criteria
+## Success criteria
 
 - Users can configure serial ports via web UI
 - Test connection validates settings before saving
@@ -153,7 +153,7 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - No breaking changes to CLI flags
 - Zero data collection downtime during changes
 
-## Security Considerations
+## Security considerations
 
 - Restrict port paths to `/dev/tty*` and `/dev/serial*`
 - Prevent command injection via input validation
@@ -161,7 +161,7 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - Mutex protection for concurrent port access
 - Clear error messages for permission issues
 
-## Migration Path
+## Migration path
 
 **Existing Users:**
 

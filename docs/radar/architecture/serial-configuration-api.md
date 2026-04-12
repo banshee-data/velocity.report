@@ -1,11 +1,11 @@
-# Serial Configuration API Endpoints
+# Serial configuration API endpoints
 
 - **Status:** Draft
 - **Parent:** [serial-configuration-ui.md](serial-configuration-ui.md)
 
 API endpoint specifications for serial port configuration, testing, and auto-detection. These endpoints support the serial configuration UI described in the parent document.
 
-## FR2: Go API Endpoints for Serial Configuration
+## FR2: Go API endpoints for serial configuration
 
 **Requirement:** REST endpoints to manage serial configurations
 
@@ -78,7 +78,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 | `409`  | Name already exists (unique constraint)    |
 | `500`  | Database error                             |
 
-## FR3: Serial Port Testing Endpoint
+## FR3: serial port testing endpoint
 
 **Requirement:** Validate serial port configuration before saving
 
@@ -146,7 +146,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 
 **Implementation location (planned):** `internal/api/serial_test.go`
 
-## FR4: Serial Auto-Detection (Port + Baud)
+## FR4: serial auto-detection (port + baud)
 
 **Requirement:** Help users find connected radar devices without guessing port paths or baud rates
 

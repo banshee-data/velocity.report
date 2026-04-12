@@ -1,4 +1,4 @@
-# PDF Generation Migration to Go
+# PDF generation migration to Go
 
 - **Status:** Draft — awaiting review before implementation
 - **Layers:** Cross-cutting (reporting infrastructure)
@@ -21,7 +21,7 @@ producing SVG charts equivalent to the current matplotlib output.
 
 ---
 
-## Current Architecture
+## Current architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ producing SVG charts equivalent to the current matplotlib output.
 Python process makes an HTTP request back to the Go server that spawned it.
 This round-trip is eliminated in the new design.
 
-### Python Modules to Replace
+### Python modules to replace
 
 | Module                 | Lines | Replacement strategy                           |
 | ---------------------- | ----- | ---------------------------------------------- |
@@ -78,7 +78,7 @@ This round-trip is eliminated in the new design.
 
 ---
 
-## Proposed Architecture
+## Proposed architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -112,7 +112,7 @@ This round-trip is eliminated in the new design.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Package Layout
+### Package layout
 
 ```
 internal/report/
@@ -149,9 +149,9 @@ internal/report/
 
 ---
 
-## Chart-by-Chart Migration
+## Chart-by-Chart migration
 
-### 1. Time-Series Chart (Dual-Axis Percentile + Count)
+### 1. Time-Series chart (dual-axis percentile + count)
 
 **Current (matplotlib):** 24.0 × 8.0 inch figure with:
 
@@ -197,7 +197,7 @@ Alternatively, generate the SVG directly using Go's `encoding/xml` or the
 control over the dual-axis layout. This avoids gonum/plot's single-axis
 limitation and gives pixel-precise control over element placement.
 
-### 2. Histogram (Single Period)
+### 2. Histogram (single period)
 
 **Current (matplotlib):** 3.0 × 2.0 inch figure with:
 
@@ -211,7 +211,7 @@ This is a straightforward bar chart. `gonum/plot` with `plotter.BarChart`
 handles this directly. Custom tick labels for range formatting ("20–25")
 require a `plot.Ticker` implementation.
 
-### 3. Comparison Histogram
+### 3. Comparison histogram
 
 **Current (matplotlib):** 3.0 × 2.0 inch figure with:
 
@@ -224,7 +224,7 @@ require a `plot.Ticker` implementation.
 `gonum/plot` supports grouped bar charts via `plotter.BarChart` with offset
 positioning. Percentage normalisation is trivial in Go.
 
-### 4. Map Overlay
+### 4. Map overlay
 
 **Current (Python):** `SVGMarkerInjector` injects radar-coverage triangles
 into site map SVGs, then converts SVG→PDF via `cairosvg`/`inkscape`/`rsvg`.
@@ -235,16 +235,16 @@ the same strategy as chart SVGs (see § SVG-to-PDF Strategy).
 
 ---
 
-## SVG-to-PDF Strategy
+## SVG-to-PDF strategy
 
 XeTeX's `\includegraphics` does not natively handle SVG files. Three options:
 
-### ~~Option A: Require `inkscape` on the system~~
+### ~~Option a: require `inkscape` on the system~~
 
 Use the `svg` LaTeX package, which calls `inkscape --export-pdf` during
 compilation. This adds a ~300 MB dependency — counterproductive.
 
-### Option B: Convert SVG→PDF in Go before `xelatex` ✅
+### Option b: convert SVG→PDF in Go before `xelatex` ✅
 
 Use `rsvg-convert` (from `librsvg`, ~2 MB) as a lightweight SVG→PDF
 converter:
@@ -262,14 +262,14 @@ cmd := exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")
 
 The `.tex` file then uses `\includegraphics{chart.pdf}` as before.
 
-### ~~Option C: Generate PDF charts directly from Go (bypass SVG)~~
+### ~~Option c: generate PDF charts directly from Go (bypass SVG)~~
 
 Use `gonum/plot` with `vg/vgpdf` to produce PDF figures directly. This
 avoids the SVG→PDF step entirely, but loses the SVG artefact for web reuse
 and source archive inclusion. It also makes visual debugging harder — SVGs
 can be opened in any browser.
 
-### ~~Option D: Embed SVG inline via LaTeX `\input` with PGF~~
+### ~~Option d: embed SVG inline via LaTeX `\input` with PGF~~
 
 Convert SVG paths to PGF/TikZ commands. Fragile, slow compilation, and
 significant implementation effort.
@@ -280,12 +280,12 @@ preserved for the `.zip` source archive and potential web frontend reuse.
 
 ---
 
-## LaTeX Template Design
+## LaTeX template design
 
 Replace PyLaTeX's programmatic document construction with Go `text/template`
 files embedded via `go:embed`.
 
-### Preamble Template (`templates/preamble.tex`)
+### Preamble template (`templates/preamble.tex`)
 
 ```latex
 \documentclass[11pt,a4paper]{article}
@@ -325,7 +325,7 @@ files embedded via `go:embed`.
 \definecolor{vrMax}{HTML}{2d1e2f}
 ```
 
-### Main Template (`templates/report.tex`)
+### Main template (`templates/report.tex`)
 
 ```latex
 <<template "preamble" .>>
@@ -345,7 +345,7 @@ files embedded via `go:embed`.
 \end{document}
 ```
 
-### Template Data Structure
+### Template data structure
 
 ```go
 type TemplateData struct {
@@ -390,7 +390,7 @@ type TemplateData struct {
 }
 ```
 
-### Template Advantages Over PyLaTeX
+### Template advantages over PyLaTeX
 
 1. **Readable:** Templates are plain `.tex` files, editable by anyone who
    knows LaTeX. No Python API knowledge needed.
@@ -403,9 +403,9 @@ type TemplateData struct {
 
 ---
 
-## Implementation Phases
+## Implementation phases
 
-### Phase 1: Chart Package Foundation (`internal/report/chart/`) — `M`
+### Phase 1: chart package foundation (`internal/report/chart/`) — `M`
 
 Build the SVG chart generation library:
 
@@ -420,7 +420,7 @@ Build the SVG chart generation library:
 **Acceptance:** SVG output for all three chart types passes visual review
 against equivalent matplotlib output.
 
-### Phase 2: LaTeX Template Engine (`internal/report/tex/`) — `S`
+### Phase 2: LaTeX template engine (`internal/report/tex/`) — `S`
 
 Build the template-based `.tex` generation:
 
@@ -433,7 +433,7 @@ Build the template-based `.tex` generation:
 **Acceptance:** `RenderTeX()` produces a `.tex` file that compiles with
 `xelatex` to a visually equivalent PDF.
 
-### Phase 3: Report Orchestrator (`internal/report/`) — `S`
+### Phase 3: report orchestrator (`internal/report/`) — `S`
 
 Wire charts + templates + compilation together:
 
@@ -447,7 +447,7 @@ Wire charts + templates + compilation together:
 **Acceptance:** End-to-end report generation from test database produces
 valid PDF.
 
-### Phase 4: API and CLI Integration — `S`
+### Phase 4: API and CLI integration — `S`
 
 Connect the new report pipeline to existing entry points:
 
@@ -460,7 +460,7 @@ Connect the new report pipeline to existing entry points:
 **Acceptance:** `POST /api/generate_report` produces identical results using
 Go-native pipeline.
 
-### Phase 5: Python Deprecation and Cleanup — `S`
+### Phase 5: Python deprecation and cleanup — `S`
 
 Remove the Python PDF stack:
 
@@ -475,7 +475,7 @@ Remove the Python PDF stack:
 generation. Python venv is only needed for `tools/grid-heatmap/` (if still
 in use).
 
-### Phase 6: Map Overlay Migration — `S`
+### Phase 6: map overlay migration — `S`
 
 Migrate the SVG marker injection:
 
@@ -488,9 +488,9 @@ Migrate the SVG marker injection:
 
 ---
 
-## Testing and Validation
+## Testing and validation
 
-### Unit Tests
+### Unit tests
 
 - **Chart SVG structure:** Parse generated SVG, assert expected elements
   (lines, bars, text labels, colours)
@@ -499,20 +499,20 @@ Migrate the SVG marker injection:
 - **Number formatting:** Consistent decimal places, locale-independent
 - **Histogram bucketing:** Match Go server's existing computation
 
-### Visual Regression
+### Visual regression
 
 - Generate PDF from test database with both Python and Go pipelines
 - Compare visually (manual review during development)
 - Capture "golden" SVG snapshots for automated comparison after stabilisation
 
-### Integration Tests
+### Integration tests
 
 - In-memory SQLite with known data → `Generate()` → assert PDF exists
 - Mock `xelatex` binary for CI (assert `.tex` is well-formed without full
   TeX installation)
 - Test `rsvg-convert` fallback (assert graceful error when not installed)
 
-### Backward Compatibility
+### Backward compatibility
 
 - JSON API response format for `POST /api/generate_report` unchanged
 - Report filenames follow existing pattern:
@@ -521,7 +521,7 @@ Migrate the SVG marker injection:
 
 ---
 
-## Risks and Mitigations
+## Risks and mitigations
 
 | Risk                                                                            | Impact           | Mitigation                                                                                                                         |
 | ------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -534,9 +534,9 @@ Migrate the SVG marker injection:
 
 ---
 
-## Relationship to Existing Decisions
+## Relationship to existing decisions
 
-### D-08 (Precompiled LaTeX)
+### D-08 (precompiled LaTeX)
 
 This plan is **complementary**. D-08 reduces the TeX installation from
 ~800 MB to ~30–60 MB. This plan eliminates the Python stack (~450 MB).
@@ -545,13 +545,13 @@ Together they reduce the deployment footprint from ~1.25 GB to ~30–60 MB.
 The precompiled `.fmt` file (D-08) still applies — the Go-generated `.tex`
 compiles against the same minimal TeX tree with the same precompiled format.
 
-### D-09 (Single Binary)
+### D-09 (single binary)
 
 This plan **enables** D-09's `velocity-report pdf` subcommand without
 requiring a bundled Python interpreter. The report generation logic lives
 in `internal/report/`, callable from both the API handler and the CLI.
 
-### D-10 (RPi Image)
+### D-10 (RPi image)
 
 This plan **simplifies** the Raspberry Pi image by removing Python entirely
 from the report-generation path. The image only needs the Go binary +
@@ -559,7 +559,7 @@ vendored TeX tree + `rsvg-convert`.
 
 ---
 
-## Open Questions
+## Open questions
 
 1. **gonum/plot vs direct SVG:** Should Phase 1 prototype both approaches
    before committing? Direct SVG gives full control but requires more code.

@@ -1,4 +1,4 @@
-# HINT Sweep Mode — Human-Involved Numerical Tuning
+# HINT sweep mode — human-involved numerical tuning
 
 - **Status:** Complete ✅ (57/57 items)
 
@@ -27,7 +27,7 @@ change, so labels always reflect the _current_ parameter regime. This avoids the
 stale-reference problem and makes subjective judgement (split? noise? truncated?)
 part of the optimisation loop.
 
-## User Flow
+## User flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -83,7 +83,7 @@ part of the optimisation loop.
                                      └─────────────────┘
 ```
 
-### Round Durations Example
+### Round durations example
 
 Input: `round_durations: [60, 60, 600, 60]` (minutes)
 
@@ -120,7 +120,7 @@ When enabled, the system appends one additional label→sweep cycle after the
 current round completes, using the edited duration. This lets the human extend
 the sweep if intermediate results look promising.
 
-## Data Model Changes
+## Data model changes
 
 ### `HINTSweepRequest`
 
@@ -170,12 +170,12 @@ run. This is already supported by `ReplayCaseStore.SetReferenceRun()`. On comple
 the replay case's `optimal_params_json` is updated with the best parameters (already
 supported by `ReplayCaseStore.SetOptimalParams()`).
 
-## Prerequisite: macOS Visualiser Label UX Changes
+## Prerequisite: macOS visualiser label UX changes
 
 The macOS app's labelling workflow needs three changes before HINT mode is
 viable. These are independent of the HINT backend and can be shipped first.
 
-### P1. Display Existing Labels in LabelPanelView
+### P1. display existing labels in labelPanelView
 
 **Problem:** `LabelPanelView` does not fetch or display a track's existing
 `user_label` / `quality_label` from the database. The checkmark only appears for
@@ -201,7 +201,7 @@ carryover"`).
 - `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — `LabelPanelView`
 - `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — track selection
 
-### P2. Remove Export Labels Button
+### P2. remove export labels button
 
 **Problem:** The "Export Labels" button in `SidePanelView` exports free-form
 `LabelEvent` records (session-based, via `LabelAPIClient`). In HINT mode, labels
@@ -219,16 +219,16 @@ labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`)
 - `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` — remove button (~line 467)
 - `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` — remove `exportLabels()`
 
-### P3. Auto-Save Labels on Click (Already Implemented)
+### P3. auto-save labels on click (already implemented)
 
 `assignLabel()` and `assignQuality()` in `AppState` already fire async API calls
 immediately on click — no batching or explicit save step. This is the correct
 behaviour for HINT. No changes needed, but worth noting as a confirmed
 requirement.
 
-## Implementation Plan
+## Implementation plan
 
-### Phase 1: Backend — `HINTTuner` Engine
+### Phase 1: backend — `HINTTuner` engine
 
 **File:** `internal/lidar/sweep/hint.go` (new)
 
@@ -294,7 +294,7 @@ requirement.
    `LabelProgress.ByClass` map lets the human verify label distribution before
    continuing.
 
-### Phase 2: Backend — API Endpoints
+### Phase 2: backend — API endpoints
 
 **File:** `internal/lidar/monitor/sweep_handlers.go` (extend)
 
@@ -327,11 +327,11 @@ labelling UI.
   groundTruthScorer) in `cmd/radar/radar.go`.
 - Register routes with `mux.HandleFunc`.
 
-### Phase 3: Dashboard UI — Third Mode
+### Phase 3: dashboard UI — third mode
 
 **File:** `sweep_dashboard.html` + `sweep_dashboard.js` + `sweep_dashboard.css`
 
-#### 3a. Mode Toggle
+#### 3a. Mode toggle
 
 Update the mode toggle to three buttons: Manual Sweep, Auto-Tune, and
 Human-in-the-Loop. CSS adds `body.hint-mode` alongside `body.auto-mode`:
@@ -343,7 +343,7 @@ Human-in-the-Loop. CSS adds `body.hint-mode` alongside `body.auto-mode`:
 
 Update `setMode()` to handle three states and toggle appropriate body classes.
 
-#### 3b. HINT Config Card (`.hint-only`)
+#### 3b. HINT config card (`.hint-only`)
 
 ```
 ┌─────────────────────────────────────┐
@@ -367,7 +367,7 @@ The Sweep Parameters card (param bounds) is shared with auto mode
 settle time). The Data Source card is hidden in HINT mode because the scene
 provides the PCAP source.
 
-#### 3c. HINT Progress Card
+#### 3c. HINT progress card
 
 Replaces the generic progress section when in HINT mode:
 
@@ -410,7 +410,7 @@ Key elements:
 - During "running_sweep" phase, shows sweep progress instead (reuses existing
   auto-tune progress rendering)
 
-#### 3d. Round History
+#### 3d. Round history
 
 Below the progress card, a collapsible list of completed rounds:
 
@@ -419,7 +419,7 @@ Below the progress card, a collapsible list of completed rounds:
 ▶ Round 2: score=0.912 — 18/18 labelled — eps=0.45, noise=0.7
 ```
 
-### Phase 4: Dashboard Polling
+### Phase 4: dashboard polling
 
 Extend `pollAutoTuneStatus()` (or add `pollHINTStatus()`) to poll
 `GET /api/lidar/sweep/hint` when in HINT mode. The poller:
@@ -446,7 +446,7 @@ Extend `pollAutoTuneStatus()` (or add `pollHINTStatus()`) to poll
 6. On `failed`:
    - Shows error message.
 
-### Phase 4b: Browser Notifications
+### Phase 4b: browser notifications
 
 The dashboard requests `Notification.requestPermission()` when HINT mode is
 selected. Notifications fire at two transition points:
@@ -462,7 +462,7 @@ Clicking either notification calls `window.focus()` to bring the dashboard tab
 to the front. The `tag` field ensures duplicate notifications are replaced rather
 than stacked.
 
-### Phase 5: Svelte Sweeps Page Updates
+### Phase 5: Svelte sweeps page updates
 
 Extend the existing `/app/lidar/sweeps` page:
 
@@ -476,7 +476,7 @@ Extend the existing `/app/lidar/sweeps` page:
    - Show a prominent "Label Tracks" link to the tracks page.
    - Show "Continue" button inline.
 
-### Phase 6: Mode Description Updates
+### Phase 6: mode description updates
 
 Update the page subtitle and add mode-specific descriptions:
 
@@ -500,9 +500,9 @@ Update the page subtitle and add mode-specific descriptions:
 > using your labels as the objective. Repeats for multiple rounds, progressively
 > narrowing towards parameters that produce tracks you judge as correct.
 
-## Implementation Checklist
+## Implementation checklist
 
-### Prerequisites (macOS Visualiser)
+### Prerequisites (macOS visualiser)
 
 - [x] **P1** — Display existing labels in `LabelPanelView`
   - [x] Accept selected `RunTrack?` in `LabelPanelView`
@@ -514,7 +514,7 @@ Update the page subtitle and add mode-specific descriptions:
   - [x] Remove `exportLabels()` from `AppState`
 - [x] **P3** — Confirm auto-save on click works (no changes needed)
 
-### Phase 1: Backend — `HINTTuner` Engine
+### Phase 1: backend — `HINTTuner` engine
 
 - [x] Define `HINTSweepRequest` struct (scene ID, rounds, durations, threshold, carryover flag)
 - [x] Define `HINTState` struct (phase, round, deadlines, label progress, carried-over count)
@@ -526,7 +526,7 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Implement scoring weight adjustments for early rounds
 - [x] Write unit tests (`hint_test.go`)
 
-### Phase 2: Backend — API Endpoints
+### Phase 2: backend — API endpoints
 
 - [x] `POST /api/lidar/sweep/hint` — start HINT sweep
 - [x] `GET /api/lidar/sweep/hint` — poll current `HINTState`
@@ -535,7 +535,7 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
 - [x] Write API handler tests
 
-### Phase 3: Dashboard UI — Third Mode
+### Phase 3: dashboard UI — third mode
 
 - [x] **3a** — Add "Human-in-the-Loop" mode toggle button
 - [x] Update `setMode()` for three-way switching + CSS body classes
@@ -552,7 +552,7 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] **3d** — Round history (collapsible list of completed rounds)
 - [x] Write dashboard tests (`sweep_dashboard.test.ts`)
 
-### Phase 4: Dashboard Polling
+### Phase 4: dashboard polling
 
 - [x] Implement `pollHINTStatus()` or extend `pollAutoTuneStatus()`
 - [x] Handle `awaiting_labels` phase (5s poll, progress bar, countdown, continue button)
@@ -561,14 +561,14 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Handle `completed` phase (recommendation + apply button + round history)
 - [x] Handle `failed` phase (error message)
 
-### Phase 4b: Browser Notifications
+### Phase 4b: browser notifications
 
 - [x] Request `Notification.requestPermission()` on HINT mode selection
 - [x] Fire "Labels needed — Round N" notification on `awaiting_labels` transition
 - [x] Fire "HINT Sweep Complete" notification on `completed` transition
 - [x] Bring dashboard tab to front on notification click
 
-### Phase 5: Svelte Sweeps Page Updates
+### Phase 5: Svelte sweeps page updates
 
 - [x] Show HINT sweeps with distinct `mode = "hint"` badge
 - [x] HINT detail panel: round history with links to reference run tracks
@@ -577,13 +577,13 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT` to `api.ts`
 - [x] Add `HINTState`, `HINTRound`, `LabelProgress` types to `lidar.ts`
 
-### Phase 6: Mode Description Updates
+### Phase 6: mode description updates
 
 - [x] Add page subtitle shared across modes
 - [x] Add Auto-Tune description text (`.auto-only`)
 - [x] Add HINT description text (`.hint-only`)
 
-## File Manifest
+## File manifest
 
 | File                                                             | Action     | Description                                                              |
 | ---------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
@@ -601,7 +601,7 @@ Update the page subtitle and add mode-specific descriptions:
 | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | **Modify** | Show existing labels in panel, remove Export Labels button               |
 | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`   | **Modify** | Remove `exportLabels()`, wire selected RunTrack to LabelPanelView        |
 
-## Testing Strategy
+## Testing strategy
 
 1. **Unit tests** (`hint_test.go`):
    - Duration indexing: verify wrap-around behaviour for short duration lists.

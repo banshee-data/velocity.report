@@ -1,4 +1,4 @@
-# LiDAR Data Layer Model (Ten Layers)
+# LiDAR data layer model (ten layers)
 
 - **Status:** Canonical reference — layer numbers are locked for codebase stability from v0.5.0 onwards.
 
@@ -29,13 +29,13 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                                  | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | 🚧 Move pending |
 | L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift; deprecated: Python PDF generator, Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python, deprecated)          | 🚧 Move pending |
 
-## Canonical L1-L10 Stack Reference
+## Canonical L1-L10 stack reference
 
 The table above is the canonical L1-L10 stack reference. This section remains
 as the stable anchor for summaries that refer to the locked layer ordering.
 The concept chart below is the primary visual reference.
 
-## Segmented Concept Status Chart
+## Segmented concept status chart
 
 This is the primary visual breakdown for the layer model. Green nodes show
 implemented components; grey nodes mark planned extensions with no runtime
@@ -287,7 +287,7 @@ flowchart TB
 - Solid arrows: implemented code
 - Dashed arrows: reference links for future work
 
-## Layered Concept and Literature Status
+## Layered concept and literature status
 
 The ten-layer table above shows where layers live. The concept chart shows
 which ideas within those layers are active. This table makes the
@@ -557,7 +557,7 @@ Use the references above as the fast visual index:
 
 The full bibliography in BibTeX format is at [data/maths/references.bib](../../../data/maths/references.bib). Each entry key matches the citation style used in this document (e.g. `Ester1996`, `Kalman1960`).
 
-### L1 Packets — sensor transport
+### L1 packets — sensor transport
 
 **Our approach:** Raw UDP packet capture from Hesai Pandar40P; PCAP file replay for offline analysis.
 
@@ -570,7 +570,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 | Hesai ROS 2 driver (2022)           | Canonical Hesai L1 driver; demonstrates the packet-driver / pointcloud-assembly split        |
 | Autoware `nebula` driver (2023)     | Modern multi-vendor L1 abstraction supporting Hesai, Velodyne, Ouster, Robosense             |
 
-### L2 Frames — point cloud assembly
+### L2 frames — point cloud assembly
 
 **Our approach:** Assemble a complete 360° rotation into a time-coherent `LiDARFrame`; convert from polar (ring, azimuth, range) to Cartesian (x, y, z) coordinates. Export to ASC/LidarView formats.
 
@@ -582,7 +582,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 | Behley et al. (2019) — **SemanticKITTI** (arXiv:1904.01416)    | Defined the standard for sequential LiDAR frame datasets; our frame-level data follows the same temporal conventions |
 | VTK structured grid formats                                    | Our ASC/VTK export pathway follows ParaView interchange conventions                                                  |
 
-### L3 Grid — background/foreground separation
+### L3 grid — background/foreground separation
 
 **Our approach:** Exponential Moving Average (EMA) per polar-grid cell (40 rings × 1800 azimuth bins = 72,000 cells). Each cell tracks mean range and spread. Foreground points are those deviating beyond a distance-adaptive threshold from the learned baseline. Neighbour confirmation voting reduces noise. Settling period: 100 frames + 30 seconds.
 
@@ -597,7 +597,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Design choice:** Polar-frame EMA over OctoMap/TSDF for background — lower latency, no pose dependence, and the sensor-centric grid naturally matches the measurement geometry. See [lidar-background-grid-standards.md](lidar-background-grid-standards.md) for the full comparison.
 
-### L4 Perception — clustering and ground extraction
+### L4 perception — clustering and ground extraction
 
 **Our approach:** Height-band ground removal, voxel downsampling, DBSCAN clustering (ε = 0.8 m, minPts = 5), PCA-based oriented bounding boxes (OBB). Ground surface modelled as tiled planes, evolving toward vector polygons.
 
@@ -614,7 +614,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Vector scene map (L4 → L7):** Per-frame polygon extraction (ground, structure, volume features) begins at L4 but the accumulated, persistent scene model lives at L7. See [vector-scene-map.md](vector-scene-map.md) for the full specification.
 
-### L5 Tracks — multi-object tracking
+### L5 tracks — multi-object tracking
 
 **Our approach:** 3D Kalman filter for state prediction; Hungarian (Munkres) algorithm for detection-to-track assignment; `hits_to_confirm` promotion policy (tentative → confirmed → deleted lifecycle).
 
@@ -631,7 +631,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Design choice:** Classical Kalman + Hungarian over learned trackers (e.g. transformer-based) — deterministic, real-time on Raspberry Pi hardware, and fully interpretable. The architecture supports future drop-in replacement of the tracker implementation without changing layer boundaries.
 
-### L3f Velocity-Coherent Foreground (planned)
+### L3f velocity-coherent foreground (planned)
 
 **Our approach (planned):** Track-assisted foreground promotion in L3 — points classified as background by the EMA gate but near the threshold are promoted if they fall within a predicted track's spatial covariance envelope. This feeds a two-stage L4 clustering engine that uses Mahalanobis-gated velocity coherence to split spatially merged candidates with incompatible motion vectors.
 
@@ -644,7 +644,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Design and implementation plan:** [Velocity-coherent foreground plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md). Full maths specification: [Velocity-coherent foreground maths](../../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md).
 
-### L5h Motion Extensions (planned)
+### L5h motion extensions (planned)
 
 **Our approach (planned):** Three motion-model engines in priority order: (1) `cv_kf_v1` — constant-velocity (CV) Kalman filter (current default); (2) `imm_cv_ca_v2` — Interacting Multiple Model with CV and constant-acceleration (CA) sub-filters; (3) `imm_cv_ca_rts_eval_v2` — adds Rauch-Tung-Striebel (RTS) offline smoother for evaluation. CTRV (constant turn-rate and velocity) with an Unscented Kalman Filter is planned for curve negotiation.
 
@@ -660,7 +660,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Design plan:** [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md).
 
-### L6 Objects — semantic classification
+### L6 objects — semantic classification
 
 **Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV 28-class taxonomy mapping as an export concern.
 
@@ -673,7 +673,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 | KITTI 3D Object Detection Benchmark (Geiger et al., 2012)           | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                  |
 | Behley et al. (2019) — SemanticKITTI                                | 28-class point-wise semantic labels; our AV compatibility mapping targets this taxonomy                               |
 
-### L6e ML Classifier (planned)
+### L6e ML classifier (planned)
 
 **Our approach (planned):** A learned classifier to complement or replace the rule-based L6b classifier. The 13-feature vector (height, length, width, speed percentiles, observation count, duration) already used by the rule-based classifier is designed to be export-compatible with standard ML frameworks. Training would use KITTI- or nuScenes-format labelled data generated from VRLOG recordings.
 
@@ -690,7 +690,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 ---
 
-## L7 Scene — architectural role
+## L7 scene — architectural role
 
 L7 introduces a **persistent, evidence-accumulated world model** that transcends individual frames, tracks, and sensors. It is the boundary between the per-sensor real-time pipeline (L1–L6) and the consumption layers (L8–L10).
 
@@ -811,7 +811,7 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 - Yin, T., Zhou, X., & Krähenbühl, P. (2021). Center-based 3D object detection and tracking. _CVPR 2021_. arXiv:2006.11275.
 - Bernardin, K., & Stiefelhagen, R. (2008). Evaluating multiple object tracking performance: The CLEAR MOT metrics. _EURASIP JIVP_, 2008.
 
-### Advanced motion models and smoothers (planned — L5h)
+### Advanced motion models and smoothers (planned — l5h)
 
 - Bar-Shalom, Y., & Fortmann, T. E. (1988). _Tracking and Data Association_. Academic Press.
 - Blom, H. A. P., & Bar-Shalom, Y. (1988). The interacting multiple model algorithm for systems with Markovian switching coefficients. _IEEE Transactions on Automatic Control_, 33(8), 780–783. (IMM — foundation of planned `imm_cv_ca_v2` engine)

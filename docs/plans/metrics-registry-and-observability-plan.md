@@ -1,4 +1,4 @@
-# Metrics Registry and Observability Plan
+# Metrics registry and observability plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (all layers)
@@ -48,7 +48,7 @@ risks inventing a slightly different meaning.
 - Rewriting all existing code in this document's PR.
 - Turning every current metric into a machine-readable registry immediately.
 
-## 4. Canonical Terminology Rules
+## 4. Canonical terminology rules
 
 | Term           | Canonical meaning                                                                                 | Allowed level                                      | Notes                                                             |
 | -------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- |
@@ -60,7 +60,7 @@ risks inventing a slightly different meaning.
 | `p95`          | Valid percentile term in general, but not the canonical high-speed percentile for speed reporting | Family-specific                                    | `height_p95` can stay; speed `p95` is historical-only legacy      |
 | unit suffixes  | Explicit physical units in the leaf name                                                          | Any level                                          | Prefer `_mps`, `_mph`, `_ms`, `_count`, `_ratio`, `_m`            |
 
-## 5. Canonical Metric Shape
+## 5. Canonical metric shape
 
 Each metric should be defined conceptually using these fields, even before a
 machine-readable registry exists.
@@ -79,7 +79,7 @@ machine-readable registry exists.
 | `allowed_tags`   | Low-cardinality labels allowed for filtering/export | `site_id`, `sensor_id`, `source_mode`                                                 |
 | `forbidden_tags` | Labels that must never become metric tags           | `track_id`, `run_id`, `pcap_file`, `vrlog_path`                                       |
 
-## 6. Seed Naming Decisions
+## 6. Seed naming decisions
 
 These are the design anchors this plan should enforce first.
 
@@ -94,7 +94,7 @@ These are the design anchors this plan should enforce first.
 | Aggregate speed percentile 98 | `aggregate.speed_p98_mph`          | Canonical high-end speed percentile                                              |
 | Aggregate raw max speed       | `aggregate.speed_max_mph`          | Use `max`, not `peak`                                                            |
 
-## 7. Consistency Across Pipeline Strata
+## 7. Consistency across pipeline strata
 
 | Stratum                   | What must stay consistent                                        | Example failure                                                                                    |
 | ------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ These are the design anchors this plan should enforce first.
 | Logs and VRLOG overlays   | Diagnostic names aligned with canonical meaning                  | Trace logs keep old alias names after public rename                                                |
 | Future exporters          | Exported metric name and label policy derived from canonical ids | Exporter invents `speed_peak` even though the canonical term is `max`                              |
 
-## 8. Enforcement Strategy
+## 8. Enforcement strategy
 
 ### 8.1 Review gate
 
@@ -138,7 +138,7 @@ No new public metric should merge unless:
 | Phase C | Introduce a machine-readable registry only when the checks need code ownership            |
 | Phase D | Generate exporter/docs/tests from the registry once observability work starts             |
 
-## 9. Source Modes and Tag Strategy
+## 9. Source modes and tag strategy
 
 The repo already has concrete source concepts that the naming plan should use
 consistently:
@@ -182,7 +182,7 @@ consistently:
 | `pcap_analysis` | Optional include                                  | Useful for offline tuning/benchmark jobs     |
 | `vrlog`         | Exclude from default Prometheus export            | Better suited to logs and replay diagnostics |
 
-## 10. Logging and Filtering
+## 10. Logging and filtering
 
 The metrics design must align with the existing logging split rather than
 compete with it.
@@ -202,7 +202,7 @@ compete with it.
 | per-frame/per-packet detail                         | `trace` logs and VRLOG overlays                                   | too high-volume for default export  |
 | per-track raw values                                | DB/API/VRLOG                                                      | too high-cardinality for Prometheus |
 
-## 11. Future Prometheus Export Design
+## 11. Future prometheus export design
 
 This is a design stub only. It is intentionally not implemented in this PR.
 
@@ -258,7 +258,7 @@ Recommended future override path:
 | `track.*`           | No                 | too high-cardinality                                     |
 | `cluster.*`         | Usually no         | usually too ephemeral unless aggregated first            |
 
-## 12. How This Helps Future Work
+## 12. How this helps future work
 
 | Future work                   | Value from this plan                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------------------ |
@@ -271,31 +271,31 @@ Recommended future override path:
 
 ## 13. Plan
 
-### Phase 0 - Design Alignment
+### Phase 0 - design alignment
 
 - [x] Write this plan.
 - [ ] Use this plan as the naming reference for ongoing speed-metric work.
 - [ ] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set.
 
-### Phase 1 - Speed Naming Reset
+### Phase 1 - speed naming reset
 
 - [ ] Rename raw public `peak_speed_mps` to `max_speed_mps` on unshipped surfaces.
 - [ ] Keep aggregate percentile labels off all public track-level speed contracts.
 - [ ] Record the replacement track metrics and formulas once decided.
 
-### Phase 2 - Consistency Checks
+### Phase 2 - consistency checks
 
 - [ ] Add a lightweight `metrics-lint` task or review script.
 - [ ] Fail the check if new public track speed contracts reuse aggregate percentile labels.
 - [ ] Fail the check if deprecated aliases appear outside an approved migration window.
 
-### Phase 3 - Observability Stubs
+### Phase 3 - observability stubs
 
 - [ ] Define the first exporter-friendly low-cardinality families (`ops`, `performance`, selected `scene`).
 - [ ] Add config support for a user-defined Prometheus metric prefix.
 - [ ] Add dry-run validation for metric-name synthesis and label allow/deny rules.
 
-### Phase 4 - Optional Machine-Readable Registry
+### Phase 4 - optional machine-readable registry
 
 - [ ] Introduce a machine-readable registry only when enforcement/export generation needs it.
 - [ ] Keep the machine-readable form derived from this plan, not an independent source of truth.

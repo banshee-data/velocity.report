@@ -1,4 +1,4 @@
-# Experiment: L4 Clustering Parameter Sweep
+# Experiment: L4 clustering parameter sweep
 
 - **Status:** Proposed
 - **Layers:** L4 Perception

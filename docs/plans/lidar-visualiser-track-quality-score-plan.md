@@ -1,4 +1,4 @@
-# Design: Track Quality Score and Reason Codes (Feature 1)
+# Design: track quality score and reason codes (feature 1)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
@@ -32,7 +32,7 @@ Provide a per-track quality score (`0-100`) with explainable reason codes so rev
 - Event history from Feature 2.
 - Repair actions from Feature 3.
 
-## Scoring Model
+## Scoring model
 
 Score range: `0-100`.
 
@@ -56,7 +56,7 @@ Formula:
   - `D` 40-59
   - `F` < 40
 
-## Reason Code Taxonomy
+## Reason code taxonomy
 
 Initial reason codes:
 
@@ -78,9 +78,9 @@ Each reason code stores:
 - source (`score_model|physics|repair`)
 - evidence payload (small JSON)
 
-## Data Model Changes
+## Data model changes
 
-### Migration A: denormalized fields on `lidar_run_tracks`
+### Migration a: denormalized fields on `lidar_run_tracks`
 
 Add columns:
 
@@ -90,7 +90,7 @@ Add columns:
 - `quality_version TEXT`
 - `quality_computed_at_ns INTEGER`
 
-### Migration B: score history
+### Migration b: score history
 
 Add table `lidar_run_track_quality_history`:
 
@@ -109,7 +109,7 @@ Indexes:
 - `(run_id, track_id, computed_at_ns DESC)`
 - `(run_id, quality_score)`
 
-## Backend Design
+## Backend design
 
 ### Scorer package
 
@@ -135,7 +135,7 @@ Add async recompute path:
 - full recompute for run
 - incremental recompute for one track after label/repair/violation updates
 
-## API Contract
+## API contract
 
 Add endpoints in `internal/lidar/monitor/run_track_api.go`:
 
@@ -150,7 +150,7 @@ Extend `GET /api/lidar/runs/{run_id}/tracks` response with optional fields:
 - `quality_reason_codes`
 - `quality_version`
 
-## macOS UI Changes
+## macOS UI changes
 
 Files:
 
@@ -168,7 +168,7 @@ UI additions:
 - Track list row badge colour by grade.
 - Optional sort toggle: `quality asc|desc`.
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -199,9 +199,9 @@ Logs:
 - Phase 3: macOS UI and queue integration
 - Phase 4: web parity and dashboard consumption
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add denormalized quality fields to `lidar_run_tracks`
 - [ ] Add `lidar_run_track_quality_history` table
@@ -234,7 +234,7 @@ Logs:
 - [ ] Add API bindings in `web/src/lib/api.ts`
 - [ ] Add quality sort/filter controls in `TrackList.svelte`
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for scoring components and reason-code generation
 - [ ] Golden test for deterministic score output
@@ -246,14 +246,14 @@ Logs:
 - [ ] Document score rubric and reason code meanings
 - [ ] Add operator guidance for interpreting low-score tracks
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Same run and scorer version produce identical score outputs.
 - Every score below 75 includes at least one reason code.
 - Track list can be sorted by quality score in under 150 ms for 2k tracks.
 - Score recompute for a single track completes in under 500 ms.
 
-## Open Questions
+## Open questions
 
 - Should quality score participate directly in model auto-tuner objective weights?
 - Should grade thresholds be globally fixed or scene-profile specific?

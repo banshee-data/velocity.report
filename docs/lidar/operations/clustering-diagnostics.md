@@ -1,4 +1,4 @@
-# Clustering Diagnostics
+# Clustering diagnostics
 
 Observability metrics and benchmark harness for the LiDAR clustering and tracking pipeline. Covers per-frame timing, per-track association diagnostics, cluster quality fields, benchmark regression gating, and Raspberry Pi tuning levers.
 
@@ -16,9 +16,9 @@ Two classes of problem lack tooling:
 
 2. **Performance blind spot** — the `pcap-analyse -benchmark` harness captures wall-clock timing and throughput, but has no clustering-specific metrics (cluster count distribution, points-per-cluster, DBSCAN grid utilisation, subsampling frequency). Stepping from Mac M1 to Raspberry Pi 4 requires fine-grained levers for trading detection quality against latency, plus CI regression gates.
 
-## Part A: Per-Track / Per-Frame Observability
+## Part a: per-track / per-frame observability
 
-### A.1 Per-Frame Pipeline Stage Timing
+### A.1 per-frame pipeline stage timing
 
 Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
@@ -51,7 +51,7 @@ Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go
 
 **VRLOG embedding:** Add `FrameStageTiming` to `FrameBundle.DebugOverlaySet` as an optional field so timing data is available during offline replay analysis.
 
-### A.2 Per-Track Association Diagnostics
+### A.2 per-track association diagnostics
 
 For each cluster→track association in `Tracker.Update()`, log (at `tracef` level) the decision context:
 
@@ -73,11 +73,11 @@ For each cluster→track association in `Tracker.Update()`, log (at `tracef` lev
 
 **Glitch trail diagnosis:** A jittering track typically exhibits oscillating `AreaRatio` (merge/split cycles), high `HeadingDeltaDeg`, `MahalDistance` near the gating boundary, and low `ClusterPoints` (sparse cluster = unstable OBB).
 
-### A.3 Per-Track Lifecycle Summary
+### A.3 per-track lifecycle summary
 
 On track deletion, emit a `diagf`-level summary including duration, length, observation count, max misses, occlusions, heading jitter, speed jitter, merge/split events, alignment, class, and confidence. All fields already exist on `TrackedObject`.
 
-### A.4 Cluster Quality Metrics
+### A.4 cluster quality metrics
 
 Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
@@ -90,7 +90,7 @@ Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
 
 `PointDensity` reveals sparse long-range clusters likely to produce jittery tracks. `RangeMean` allows stratifying benchmark metrics by distance band.
 
-### A.5 VRLOG Diagnostic Channel
+### A.5 VRLOG diagnostic channel
 
 Proposed additions to `DebugOverlaySet` (all optional, populated only when debug logging is active):
 
@@ -98,9 +98,9 @@ Proposed additions to `DebugOverlaySet` (all optional, populated only when debug
 - `ClusterDiagnostics []ClusterDiag` — per-cluster quality (A.4)
 - `AssociationDecisions []AssociationDecision` — full per-track association log (A.2)
 
-## Part B: Clustering Performance Benchmark Harness
+## Part b: clustering performance benchmark harness
 
-### B.1 New Metrics in pcap-analyse
+### B.1 new metrics in pcap-analyse
 
 Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go` with `ClusteringMetrics`:
 
@@ -111,11 +111,11 @@ Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go` with `Clustering
 
 All distributions use a `DistributionStats` struct: min, max, avg, p50, p95, p99, samples.
 
-### B.2 Benchmark Baseline Format (v2)
+### B.2 benchmark baseline format (v2)
 
 Extend the existing `baseline-{name}.json` format with a `clustering` key. Backward-compatible — comparison logic skips missing keys.
 
-### B.3 CI Regression Gating
+### B.3 CI regression gating
 
 Add a `bench-clustering` step to `.github/workflows/go-ci.yml` running only on pushes to `main` and PRs modifying `internal/lidar/l4perception/`, `l5tracks/`, or `pipeline/`.
 
@@ -129,7 +129,7 @@ Add a `bench-clustering` step to `.github/workflows/go-ci.yml` running only on p
 | `fragmentation_ratio`   | >0.05            | >0.15               |
 | `confirmed_track_count` | < -10%           | < -25%              |
 
-### B.4 Checked-in Baselines
+### B.4 checked-in baselines
 
 Store baselines as checked-in JSON files:
 
@@ -141,7 +141,7 @@ internal/lidar/perf/baseline/
 └── baseline-lidar_20Hz.json      # second fixture
 ```
 
-### B.5 Go Micro-Benchmarks
+### B.5 Go micro-benchmarks
 
 Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
@@ -149,9 +149,9 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 - `BenchmarkSpatialIndex{Build,Query}_5000pts` — spatial index operations
 - `BenchmarkUniformSubsample_10000to8000` — subsampling overhead
 
-## Part C: Raspberry Pi Performance Tuning Levers
+## Part c: Raspberry Pi performance tuning levers
 
-### Tuning Parameters with Pi Impact
+### Tuning parameters with Pi impact
 
 | Parameter                       | Default | Pi Recommendation | Impact                                           |
 | ------------------------------- | ------- | ----------------- | ------------------------------------------------ |
@@ -163,7 +163,7 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 | `voxel_leaf_size`               | 0 (off) | 0.15              | 60–70% point reduction before DBSCAN             |
 | `remove_ground`                 | true    | true              | Ground filter is cheap; keeps DBSCAN input small |
 
-### Pi Frame Budget at 10 Hz
+### Pi frame budget at 10 hz
 
 | Stage             | Budget (ms) | Notes                                                      |
 | ----------------- | ----------- | ---------------------------------------------------------- |
@@ -176,12 +176,12 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 | **Total**         | **55**      | Must stay under 100 ms (10 fps)                            |
 | **Headroom**      | **45**      | For GC, OS scheduling, SD card I/O                         |
 
-### Pi Monitoring
+### Pi monitoring
 
 - `/api/lidar/scene-health` HTTP endpoint can expose `FrameStageTiming` aggregates (p50/p95)
 - `--perf-log-interval` flag (default disabled) dumps timing summary every N seconds to `opsf`
 
-## Open Questions
+## Open questions
 
 1. **VRLOG size growth** — Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
 2. **Structured logging format** — Migrate tracef/diagf to JSON for machine parsing, or keep human-readable and parse with grep?

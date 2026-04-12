@@ -1,9 +1,9 @@
-# Data Structures & Wire Formats
+# Data structures & wire formats
 
 This directory documents the binary and on-disk data formats used by the
 velocity.report system. Each format has a dedicated specification file.
 
-## Documented Formats
+## Documented formats
 
 | Format            | Document                                         | Layer | Description                                        |
 | ----------------- | ------------------------------------------------ | ----- | -------------------------------------------------- |
@@ -11,12 +11,12 @@ velocity.report system. Each format has a dedicated specification file.
 | VRLOG recording   | [VRLOG_FORMAT.md](VRLOG_FORMAT.md)               | L2–L5 | Directory-based LiDAR frame recording format       |
 | Surface matrix    | [MATRIX.md](MATRIX.md)                           | L4–L8 | Backend-computed data vs web/PDF/macOS consumption |
 
-## Canonical Source Definitions
+## Canonical source definitions
 
 These structures are defined in code rather than standalone docs. Links below
 point to the authoritative source files.
 
-### SQLite Database
+### SQLite database
 
 | Definition     | File                                                       | Description                                 |
 | -------------- | ---------------------------------------------------------- | ------------------------------------------- |
@@ -37,7 +37,7 @@ point to the authoritative source files.
 | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
 | Visualiser gRPC API | [`proto/velocity_visualiser/v1/visualiser.proto`](../../proto/velocity_visualiser/v1/visualiser.proto) | FrameBundle, PointCloudFrame, TrackSet, PlaybackInfo, etc. |
 
-### Internal Models
+### Internal models
 
 | Definition               | File                                                                                                           | Description                                                |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -46,7 +46,7 @@ point to the authoritative source files.
 | FrameBundle (Go)         | [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)                             | Canonical internal model for LiDAR frames                  |
 | Recorder / Replayer (Go) | [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)     | VRLOG read/write logic                                     |
 
-## TODO — Candidates for Dedicated Documentation
+## TODO — candidates for dedicated documentation
 
 The following data structures would benefit from standalone format specifications.
 Contributions welcome.

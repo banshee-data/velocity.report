@@ -1,4 +1,4 @@
-# Bodies in Motion — Path Prediction and Sparse-Cluster Track Linking
+# Bodies in motion — path prediction and sparse-cluster track linking
 
 - **Status:** 📋 Planned — v2.0+
 - **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
@@ -19,7 +19,7 @@ The current L5 tracker uses a constant-velocity (CV) Kalman filter. This is a st
 
 ---
 
-## 2. Scope and Layer Placement
+## 2. Scope and layer placement
 
 | Workstream                                                                             | Layer                        | Why                                                                                                            |
 | -------------------------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -31,7 +31,7 @@ The current L5 tracker uses a constant-velocity (CV) Kalman filter. This is a st
 
 ---
 
-## 3. L5 Kinematic Extensions
+## 3. L5 kinematic extensions
 
 ### 3.1 Constant-acceleration model (CA)
 
@@ -54,7 +54,7 @@ When $|\omega_k| < \epsilon$, fall back to straight-line CV prediction to avoid 
 
 The CTRV model captures turns at constant speed but not acceleration during turns. Requires an extended or unscented Kalman filter (EKF/UKF) due to nonlinearity.
 
-### 3.3 Interacting Multiple Model (IMM)
+### 3.3 Interacting multiple model (IMM)
 
 Rather than choosing one motion model, IMM runs $M$ filters in parallel (e.g. CV, CA, CTRV) and blends their outputs by model probability:
 
@@ -82,7 +82,7 @@ This prevents predicted trajectories from going underground. The constraint is a
 
 ---
 
-## 4. L7 Scene-Constrained Prediction
+## 4. L7 scene-constrained prediction
 
 ### 4.1 Road-corridor constraint
 
@@ -123,7 +123,7 @@ These constraints modify the L7 trajectory probability distribution, not the L5 
 
 ---
 
-## 5. Sparse-Cluster Track Linking
+## 5. Sparse-Cluster track linking
 
 ### 5.1 The problem
 
@@ -184,7 +184,7 @@ This is a batch operation, not real-time, and naturally belongs in L7's accumula
 
 ---
 
-## 6. Scene Graph Relations
+## 6. Scene graph relations
 
 The L7 scene graph encodes persistent spatial relationships between features. These relations are accumulated over many frames and carry per-relation confidence.
 
@@ -227,7 +227,7 @@ type RelationParams struct {
 
 ---
 
-## 7. Implementation Phases
+## 7. Implementation phases
 
 ### Phase 1: L5 kinematic extensions (v2.0)
 
@@ -263,7 +263,7 @@ type RelationParams struct {
 
 ---
 
-## 8. Build Checklist
+## 8. Build checklist
 
 - [ ] Choose EKF vs UKF for CTRV (recommend UKF for simpler Jacobian-free implementation)
 - [ ] Define IMM transition matrix defaults (CV↔CA, CV↔CTRV switching probabilities)
@@ -282,7 +282,7 @@ type RelationParams struct {
 
 ---
 
-## 9. Non-Goals for First Pass
+## 9. Non-Goals for first pass
 
 - Full probabilistic trajectory forecasting (Trajectron++ style) — too complex; simple corridor clipping first
 - Pedestrian-specific motion models — vehicle kinematics only for v2.0

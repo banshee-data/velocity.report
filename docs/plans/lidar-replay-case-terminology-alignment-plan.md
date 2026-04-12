@@ -1,4 +1,4 @@
-# LiDAR Replay Case Terminology Alignment
+# LiDAR replay case terminology alignment
 
 - **Status:** Planned for v0.5.1 or v0.5.2
 - **Design Phase:** Nomenclature standardisation
@@ -14,25 +14,25 @@ The LiDAR evaluation/replay system was originally built using "scene" as the int
 
 This plan consolidates the "replay case" terminology across the system while preserving "scene" in its geometric context.
 
-## Current State
+## Current state
 
-### Dashboard Frontend (Complete — v0.5.0)
+### Dashboard frontend (complete — v0.5.0)
 
 - [x] `sweep_dashboard.html`, `sweep_dashboard.css`, `sweep_dashboard.js` — all local identifiers renamed
 - [x] Test file sweep_dashboard.test.ts — 292 tests pass, API contract refs only
 
-### Database Schema (Complete — v0.5.x)
+### Database schema (complete — v0.5.x)
 
 - [x] Table `lidar_replay_cases` with `replay_case_id` primary key (migration 031)
 - [x] Indexes: `idx_lidar_replay_cases_sensor`, `idx_lidar_replay_cases_pcap`, `idx_lidar_replay_cases_recommended_param_set`
 - [x] Field: `recommended_param_set_id` links to `lidar_param_sets` table
 
-### Documentation (Complete — v0.5.0)
+### Documentation (complete — v0.5.0)
 
 - [x] `docs/lidar/operations/scene-management-implementation.md` → `replay-case-management-implementation.md` (content updated, rename staged in git)
 - [x] Update stale reference in `docs/plans/platform-hub-restructure-plan.md` (line 83)
 
-### Store/API Layer (Outstanding — Rename Batch 1)
+### Store/API layer (outstanding — rename batch 1)
 
 **Completed in current codebase:**
 
@@ -50,7 +50,7 @@ This plan consolidates the "replay case" terminology across the system while pre
 
 Breaking change: All consumers (Svelte, tests, integration) must update API URLs and response handling.
 
-### Sweep Layer (Outstanding — Rename Batch 2)
+### Sweep layer (outstanding — rename batch 2)
 
 - `internal/lidar/sweep/hint.go`: `SceneGetter` → `ReplayCaseGetter`, `HINTScene` → `HINTReplayCase`, `sceneStore`/`sceneGetter` fields
 - `internal/lidar/sweep/auto.go`: `SceneStoreSaver` → `ReplayCaseStoreSaver`, setter methods
@@ -58,7 +58,7 @@ Breaking change: All consumers (Svelte, tests, integration) must update API URLs
 - Test files: `hint_test.go`, `hint_coverage_test.go`, `auto_test.go`, `auto_coverage_test.go`
 - `cmd/radar/radar.go`: `sceneStore`, `hintSceneAdapter`, wiring logic
 
-### Web/Svelte (Outstanding — Rename Batch 3)
+### Web/Svelte (outstanding — rename batch 3)
 
 - `web/src/lib/api.ts`: Response var `scenes` → `replayCases`, param name `scene` → `replayCase`, preserve API contract URLs (handled by backend)
 - `web/src/routes/lidar/replay-cases/+page.svelte`: Local vars `scenes` → `replayCases`, `selectedScene` → `selectedCase`, `loadScenes` → `loadReplayCases`, comments/labels
@@ -66,7 +66,7 @@ Breaking change: All consumers (Svelte, tests, integration) must update API URLs
 - `web/src/routes/lidar/runs/+page.svelte`: Similar updates
 - Status page HTML: Remove scene-related UI text
 
-### Database Layer (Complete — Already Renamed in v0.5.x Migrations)
+### Database layer (complete — already renamed in v0.5.x migrations)
 
 Migration 031 has renamed:
 
@@ -77,7 +77,7 @@ Migration 031 has renamed:
 
 No further database work required — code changes follow renamed schema.
 
-### Documentation (Batch 4 — Defer to v0.5.2+)
+### Documentation (batch 4 — defer to v0.5.2+)
 
 ~50+ markdown files reference "scene". Sweep will happen after code rename lands, focusing on evaluation/replay context:
 
@@ -85,7 +85,7 @@ No further database work required — code changes follow renamed schema.
 - Keep "scene" intact in L3 grid, background persistence, settling, tracking (physical geometry context)
 - Update plan docs, architecture docs, and troubleshooting guides
 
-## Breaking Changes
+## Breaking changes
 
 **API Contract Change (Batch 1):**
 
@@ -97,7 +97,7 @@ Response: { scenes: [...] } → { replay_cases: [...] }
 
 All consumers (Svelte, testing, integration) must update. This is a deliberate breaking change for v0.5.1 or v0.5.2.
 
-## Testing Expectations
+## Testing expectations
 
 1. Store tests must verify both old and new method names work correctly
 2. API tests must assert response shape (array property name, field names)
@@ -105,7 +105,7 @@ All consumers (Svelte, testing, integration) must update. This is a deliberate b
 4. Svelte component tests must verify data flow through renamed variables
 5. E2E tests on replay-cases page must verify selector population and filtering
 
-## Exclusions (Keep "Scene")
+## Exclusions (keep "Scene")
 
 These files/uses of "scene" remain unchanged:
 
@@ -116,7 +116,7 @@ These files/uses of "scene" remain unchanged:
 - Database migrations (immutable history)
 - Maths proposals and architecture docs (domain-specific geometric context)
 
-## Rollout Strategy
+## Rollout strategy
 
 1. **Batch 1 (v0.5.1 or v0.5.2):** Store + API layer rename (API-breaking)
 2. **Batch 2:** Sweep interfaces and wiring

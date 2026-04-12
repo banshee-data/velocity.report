@@ -1,4 +1,4 @@
-# VRLOG Wire Format Specification
+# VRLOG wire format specification
 
 ## Overview
 
@@ -9,7 +9,7 @@ seekable replay, labelling, and offline analysis.
 **Version:** 0.5
 **Source:** [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)
 
-## Directory Layout
+## Directory layout
 
 ```
 <name>.vrlog/
@@ -74,7 +74,7 @@ JSON object written when the recorder closes. Contains log-level metadata.
 Fixed-size binary seek index — one entry per frame, written in order. All fields
 are **little-endian**.
 
-### Entry Layout (24 bytes)
+### Entry layout (24 bytes)
 
 | Offset | Size | Type   | Field         | Description                               |
 | ------ | ---- | ------ | ------------- | ----------------------------------------- |
@@ -87,11 +87,11 @@ The total file size is `24 × total_frames` bytes. To seek to frame _N_, read
 `index.bin` at offset `24 × N`, extract `ChunkID` and `Offset`, then read
 the frame from the corresponding chunk file.
 
-## Chunk Files (`frames/chunk_NNNN.pb`)
+## Chunk files (`frames/chunk_NNNN.pb`)
 
 Each chunk file contains a sequence of length-prefixed serialised frames.
 
-### Frame Encoding
+### Frame encoding
 
 ```
 ┌──────────────┬────────────────────────────────┐
@@ -104,7 +104,7 @@ Each chunk file contains a sequence of length-prefixed serialised frames.
 Frames are concatenated sequentially within the chunk with no padding or
 delimiters beyond the length prefix.
 
-### Serialisation Format
+### Serialisation format
 
 **Current (v0.5):** JSON-serialised `FrameBundle` (Go `encoding/json`).
 
@@ -114,7 +114,7 @@ delimiters beyond the length prefix.
 > [protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto)
 > for the target wire format.
 
-### Chunk Rotation Policy
+### Chunk rotation policy
 
 A new chunk file is created when **any** of the following conditions are met:
 
@@ -126,7 +126,7 @@ A new chunk file is created when **any** of the following conditions are met:
 The read-side hard limit is **200 MB** per chunk (rejects chunks larger than
 this to prevent excessive memory allocation).
 
-## FrameBundle Model
+## FrameBundle model
 
 The `FrameBundle` struct is the canonical internal model. Key fields serialised
 into each chunk frame:
@@ -145,7 +145,7 @@ into each chunk frame:
 | `Background`      | BackgroundSnapshot? | Background grid state (split streaming)  |
 | `FrameType`       | int                 | Frame type (see below)                   |
 
-### FrameType Values
+### FrameType values
 
 | Value | Constant              | Description                                          |
 | ----- | --------------------- | ---------------------------------------------------- |
@@ -162,14 +162,14 @@ PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
 Full model definition: [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)
 
-## Deterministic Recording Guarantee (v0.5+)
+## Deterministic recording guarantee (v0.5+)
 
 When recording from a PCAP source, the VRLOG guarantees a **1:1 mapping from
 sensor rotations to VRLOG frames**. Given the same PCAP file, tuning
 parameters, and build version, repeated recordings produce identical frame
 counts.
 
-### Variable Rotation Rate
+### Variable rotation rate
 
 The Hesai Pandar40P operates at 10–20 Hz depending on motor configuration.
 The motor speed can vary within a single capture session. A frame boundary
@@ -212,7 +212,7 @@ This invariant holds regardless of playback speed, motor RPM, background model
 configuration, or pipeline processing latency. Inter-frame intervals vary
 with the sensor's actual rotation rate.
 
-## Replay Mechanics
+## Replay mechanics
 
 The `Replayer` supports:
 

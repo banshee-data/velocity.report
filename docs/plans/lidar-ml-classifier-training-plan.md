@@ -1,4 +1,4 @@
-# LiDAR Classification Benchmarking and Optional Model Training
+# LiDAR classification benchmarking and optional model training
 
 - **Canonical:** [ml-solver-expansion.md](../lidar/architecture/ml-solver-expansion.md)
 
@@ -26,7 +26,7 @@ Evaluate whether future classification methods can improve on the current transp
 - Analysis runs must persist params, metrics, and dataset provenance so comparisons can be replayed later.
 - The rule-based baseline in `internal/lidar/l6objects/classification.go` remains the comparison target for every experiment.
 
-## Benchmark Data Flow
+## Benchmark data flow
 
 ```
 Labelled Tracks → Feature Extraction → Benchmark Dataset
@@ -38,7 +38,7 @@ Labelled Tracks → Feature Extraction → Benchmark Dataset
                          Optional Deployment Proposal
 ```
 
-## Feature Set
+## Feature set
 
 Candidate methods may only use documented track features such as:
 
@@ -49,7 +49,7 @@ Candidate methods may only use documented track features such as:
 
 These features must stay exportable so the same benchmark can be rerun outside the model training code.
 
-## Candidate Approach
+## Candidate approach
 
 Start with interpretable, feature-based methods:
 
@@ -59,7 +59,7 @@ Start with interpretable, feature-based methods:
 
 More complex models should be considered only if they still provide clear feature provenance and materially outperform the transparent baseline.
 
-## Promotion Gate
+## Promotion gate
 
 Before any candidate reaches deployment review, it must:
 
@@ -70,7 +70,7 @@ Before any candidate reaches deployment review, it must:
 
 If any of those conditions fail, the result stays research-only.
 
-## Expected Implementation Areas
+## Expected implementation areas
 
 - `tools/ml-training/features.py` — feature extraction and benchmark dataset generation
 - `tools/ml-training/train_classifier.py` — offline experiments

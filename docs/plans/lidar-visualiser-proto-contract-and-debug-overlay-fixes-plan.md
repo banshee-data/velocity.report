@@ -1,4 +1,4 @@
-# LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
+# LiDAR visualiser proto contract and debug overlay fixes plan
 
 - **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.2
 - **Layers:** L9 Endpoints
@@ -51,7 +51,7 @@ in the proto as a contract.
 2. Large UI workflow changes beyond inspector label/value updates.
 3. Backward compatibility guarantees for pre-`v0.5.0` proto consumers.
 
-## 4. Current Gaps (Observed)
+## 4. Current gaps (observed)
 
 ### 4.1 Debug overlays
 
@@ -148,7 +148,7 @@ Test coverage:
 - `TestObjectClassConversionInProtoMessages` — full proto message round-trip.
 - Swift: `ObjectClassConversionTests` in `VisualiserClientTests.swift`.
 
-## 5. Protocol Change Direction (Pre-`v0.5.0`)
+## 5. Protocol change direction (pre-`v0.5.0`)
 
 ### 5.1 Track speed summary fields
 
@@ -171,9 +171,9 @@ Percentile computation still applies to grouped/report surfaces, but not to the
 terminology. The branch-local `speedPercentiles()` helper and related bindings
 should not be treated as the merge target for the visualiser contract.
 
-## 6. Implementation Plan
+## 6. Implementation plan
 
-### Phase A: gRPC serialiser parity (P0)
+### Phase a: gRPC serialiser parity (P0)
 
 1. Update `frameBundleToProto(...)` to serialise `FrameBundle.debug` when
    `StreamRequest.include_debug=true`.
@@ -189,7 +189,7 @@ should not be treated as the merge target for the visualiser contract.
 5. ~~Add `ObjectClass` enum conversion with `objectClassFromString()` and
    `classifyOrConvert()` for VRLOG backward compatibility.~~ ✅ Complete.
 
-### Phase B: Overlay mode behaviour (P1)
+### Phase b: overlay mode behaviour (P1)
 
 Decision recorded in [DECISIONS.md](../DECISIONS.md): `include_debug` gates
 whether debug payloads are emitted by the server. `SetOverlayModes(...)`
@@ -203,19 +203,19 @@ remains client-side/advisory and does not drive server-side subset filtering.
 3. Document `supports_debug` as stream-level capability, not per-overlay
    server-side filtering support.
 
-### Phase C: Track speed summary schema — Retired
+### Phase c: track speed summary schema — retired
 
 **Retired:** This scope is now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0
 under "Visualiser track proto parity". The proto rename, percentile back-out, and
 binding regeneration are owned by that backlog item.
 
-### Phase D: Swift client/UI parity — Retired
+### Phase d: Swift client/UI parity — retired
 
 **Retired:** Swift-side `peak` → `max` rename and inspector label updates are
 now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Visualiser track proto
 parity".
 
-### Phase E: Test hardening (P1)
+### Phase e: test hardening (P1)
 
 1. Replace "debug not converted" tests with positive serialisation tests.
    `TestFrameBundleToProto_DebugNotConverted` and
@@ -231,7 +231,7 @@ parity".
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
-### Phase E.1: SeekToTimestamp diagnostic logging behind debug flag (#381)
+### Phase E.1: seekToTimestamp diagnostic logging behind debug flag (#381)
 
 `SeekToTimestamp()` currently logs index entry dumps and seek diagnostics
 unconditionally on every call. This should be gated behind the existing
@@ -254,7 +254,7 @@ timestamp index at `NewReplayer` load time:
 3. Add a loading/indexing state to the macOS UI (spinner) while the index
    is being built — visible when loading large VRLOGs
 
-## 7. Acceptance Criteria
+## 7. Acceptance criteria
 
 1. Enabling debug overlays in stream requests produces non-empty `FrameBundle.debug`
    when debug data exists upstream.
@@ -266,7 +266,7 @@ timestamp index at `NewReplayer` load time:
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
 
-## 8. Risks and Open Questions
+## 8. Risks and open questions
 
 1. Mixed-version client/server compatibility during local development:
    backing out the branch-local speed-summary expansion can temporarily leave
@@ -278,7 +278,7 @@ timestamp index at `NewReplayer` load time:
    `supports_debug` and overlay-mode docs must make the client-side/advisory
    behaviour explicit to avoid implying server-side subset filtering.
 
-## 9. Task Checklist
+## 9. Task checklist
 
 - [ ] Add debug overlay protobuf serialisation in `frameBundleToProto(...)`
 - [ ] Gate debug serialisation by `include_debug`

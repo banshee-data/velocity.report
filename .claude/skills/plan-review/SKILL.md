@@ -28,7 +28,7 @@ Also read:
 - `docs/DECISIONS.md` (for related decisions)
 - Any files the plan references in its first section
 
-### 2. Scope review (Ruth's lens)
+### 2. Scope review (ruth's lens)
 
 Answer each question:
 
@@ -39,7 +39,7 @@ Answer each question:
 - What happens if we do nothing?
 - What existing code already solves part of this problem?
 
-### 3. Technical soundness review (Grace's lens)
+### 3. Technical soundness review (grace's lens)
 
 - Are component boundaries clean?
 - Is data flow described for happy path and failure paths?
@@ -48,7 +48,7 @@ Answer each question:
 - Does the plan fit within Raspberry Pi 4 constraints?
 - Are new dependencies justified?
 
-### 4. Risk register (Flo's lens)
+### 4. Risk register (flo's lens)
 
 Produce a risk register:
 
@@ -60,7 +60,7 @@ Produce a risk register:
 
 Minimum risk categories to check: technical, integration, data/migration, privacy, scope creep, dependency.
 
-### 5. Sequencing check (Flo's lens)
+### 5. Sequencing check (flo's lens)
 
 - Are tasks ordered to unblock dependencies early?
 - Are the highest-risk items tackled first?
@@ -87,7 +87,7 @@ Produce a short verdict:
 **Suggested next agent:** [Appius for implementation | Grace for redesign | Flo for re-sequencing]
 ```
 
-## Output Format
+## Output format
 
 ```markdown
 # Plan Review: [plan name]

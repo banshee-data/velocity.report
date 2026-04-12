@@ -1,4 +1,4 @@
-# HINT Metric Observability Plan
+# HINT metric observability plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L5 Tracking, L6 Objects, L8 Analytics, Sweep, Web)
@@ -43,16 +43,16 @@ that would show _why_ parameters improved between rounds.
 
 ---
 
-## Implementation Batches
+## Implementation batches
 
-### Batch A — Surface persisted data (small effort each)
+### Batch a — surface persisted data (small effort each)
 
 Many of these metrics are already computed and, where they are persisted to
 SQLite, the work in this batch is API deserialisation and web rendering. For
 metrics that are computed but not yet persisted, add the minimal SQLite
 fields first, then expose them via the same API/web paths.
 
-#### A1. Surface run statistics on web
+#### A1. surface run statistics on web
 
 Expose the 12 fields already in `lidar_analysis_runs.statistics_json`.
 
@@ -71,7 +71,7 @@ Expose the 12 fields already in `lidar_analysis_runs.statistics_json`.
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results,
 PDF reports
 
-#### A2. Surface track quality metrics on web
+#### A2. surface track quality metrics on web
 
 Include the 6 per-track quality columns already in `lidar_tracks` in API
 responses.
@@ -89,7 +89,7 @@ responses.
 
 **Beneficiaries:** HINT labelling, runs page, analysis dashboards
 
-#### A3. Persist and surface quality score
+#### A3. persist and surface quality score
 
 The composite `QualityScore` (0–1) from `ComputeTrackQualityMetrics()` is
 computed but never persisted.
@@ -112,9 +112,9 @@ computed but never persisted.
 
 ---
 
-### Batch B — API endpoints (medium effort)
+### Batch b — API endpoints (medium effort)
 
-#### B1. Run comparison API endpoint
+#### B1. run comparison API endpoint
 
 Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 
@@ -132,7 +132,7 @@ Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results
 
-#### B2. Complete and surface noise coverage metrics
+#### B2. complete and surface noise coverage metrics
 
 Finish the `ComputeNoiseCoverageMetrics()` implementation (speed/size
 breakdown TODOs) and persist.
@@ -153,9 +153,9 @@ observability
 
 ---
 
-### Batch C — Pipeline metrics in HINT round history (moderate effort)
+### Batch c — pipeline metrics in HINT round history (moderate effort)
 
-#### C1. Aggregate foreground fraction per sweep combo
+#### C1. aggregate foreground fraction per sweep combo
 
 `FrameMetrics.ForegroundFraction` is computed per frame but transient.
 
@@ -171,7 +171,7 @@ observability
 
 **Beneficiaries:** HINT dashboard, sweep results
 
-#### C2. Surface tracking state transitions in HINT round history
+#### C2. surface tracking state transitions in HINT round history
 
 `TracksCreated` and `TracksConfirmed` are computed in `TrackingMetrics` but
 only exposed as the derived `FragmentationRatio`.
@@ -186,7 +186,7 @@ only exposed as the derived `FragmentationRatio`.
 
 **Beneficiaries:** HINT dashboard, sweep results, tracker debugging
 
-#### C3. Full combo result in HINT round history
+#### C3. full combo result in HINT round history
 
 `ComboResult` has 36 fields but HINT stores only `BestScore` +
 `BestScoreComponents`.
@@ -203,9 +203,9 @@ only exposed as the derived `FragmentationRatio`.
 
 ---
 
-### Batch D — Per-track diagnostics (medium effort)
+### Batch d — per-track diagnostics (medium effort)
 
-#### D1. Persist per-track jitter metrics
+#### D1. persist per-track jitter metrics
 
 `HeadingJitterDeg` and `SpeedJitterMps` are accumulated per-track via L5
 accumulators but only rolled up into run-level `TrackingMetrics`.
@@ -226,7 +226,7 @@ accumulators but only rolled up into run-level `TrackingMetrics`.
 
 **Beneficiaries:** HINT labelling, runs page, tracker debugging
 
-#### D2. Persist per-track alignment metrics
+#### D2. persist per-track alignment metrics
 
 `MeanAlignmentDeg` and `MisalignmentRate` per track show velocity-trajectory
 coherence.
@@ -246,7 +246,7 @@ coherence.
 
 ---
 
-### Batch E — Diagnostic value, low HINT urgency
+### Batch e — diagnostic value, low HINT urgency
 
 - [ ] **E1.** Surface cluster `cluster_density` and `aspect_ratio` on web
 - [ ] **E2.** Populate `noise_points_count` in L4 pipeline
@@ -255,7 +255,7 @@ coherence.
 
 ---
 
-### Removed from Scope
+### Removed from scope
 
 | Item                              | Reason                                                                                             |
 | --------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -265,7 +265,7 @@ coherence.
 
 ---
 
-## Cross-System Benefit Map
+## Cross-System benefit map
 
 | Item                      | HINT Label | HINT Dash | Runs | Sweep | PDF | macOS | ML  |
 | ------------------------- | ---------- | --------- | ---- | ----- | --- | ----- | --- |

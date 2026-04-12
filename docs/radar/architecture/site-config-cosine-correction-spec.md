@@ -1,11 +1,11 @@
-# Site Configuration with Time-Based Cosine Error Correction
+# Site configuration with time-based cosine error correction
 
 - **Status:** Implemented
 - **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
 
-## Problem Statement
+## Problem statement
 
 Users need the ability to:
 
@@ -27,9 +27,9 @@ Users need the ability to:
 - Confidence in data accuracy for decision-making
 - **Accurate Trend Analysis:** When comparing traffic data pre- and post-intervention, or week-over-week, ensures that sensor adjustments don't masquerade as changes in driver behaviour.
 
-## Current System Capabilities
+## Current system capabilities
 
-### Existing Infrastructure
+### Existing infrastructure
 
 **Database:**
 
@@ -49,7 +49,7 @@ Users need the ability to:
 - Statistical summaries (P50, P85, P98).
 - **Report Comparison:** The system supports generating reports that compare two data sets (e.g., "Main Period" t1 vs "Comparison Period" t2).
 
-### Gaps Identified
+### Gaps identified
 
 1. ~~**No time-based configuration tracking**~~ — ✅ Resolved: `site_config_periods` table with SCD Type 6 pattern.
 2. ~~**No correction application**~~ — ✅ Resolved: `buildCosineSpeedExpr()` applies correction at query time.
@@ -57,9 +57,9 @@ Users need the ability to:
 4. ~~**No active site concept**~~ — ✅ Resolved: `is_active` flag with single-active trigger constraint.
 5. **Comparison Validity:** Currently, if a sensor is moved/adjusted, comparing data before and after the move is invalid because the cosine error changes.
 
-## Solution Design: Type 6 Slowly Changing Dimension
+## Solution design: type 6 slowly changing dimension
 
-### Architecture Decision
+### Architecture decision
 
 **Pattern Selected:** Type 6 SCD (Hybrid Temporal Tracking)
 
@@ -70,7 +70,7 @@ Users need the ability to:
 - Supports retroactive corrections (compute at read time, not write time).
 - Standard data warehousing pattern with well-understood semantics.
 
-### Proposed Schema
+### Proposed schema
 
 ```sql
 CREATE TABLE site_config_periods (
@@ -94,7 +94,7 @@ CREATE TABLE site_config_periods (
 - **is_active flag** - Marks which period applies to new incoming data (only one can be active).
 - **Snapshot Values**: Store the `cosine_error_angle` directly in the period row.
 
-### Cosine Correction Formula
+### Cosine correction formula
 
 ```
 corrected_speed = measured_speed / cos(angle_in_radians)
@@ -107,15 +107,15 @@ Where:
 
 **Implementation Location:** Query time (SELECT statements), not write time (INSERT statements).
 
-## Proposed Implementation Plan
+## Proposed implementation plan
 
-### 1. Database Schema Changes
+### 1. Database schema changes
 
 - Create `site_config_periods` table.
 - Migrate existing `site.cosine_error_angle` to an initial "forever" period (start=0, end=NULL) to preserve backward compatibility.
 - Add triggers to enforce "Single Active Period" constraint.
 
-### 2. Backend Query Refactoring (Go)
+### 2. Backend query refactoring (Go)
 
 Modify all speed-related queries in `internal/db/` to join with `site_config_periods`:
 
@@ -123,7 +123,7 @@ Modify all speed-related queries in `internal/db/` to join with `site_config_per
 - **Correction:** Return `speed / COS(angle)` as the authoritative speed column.
 - **Fallback:** If no period matches (shouldn't happen if migrated correctly), return raw speed (implying 0° angle).
 
-### 3. API Updates
+### 3. API updates
 
 **New Endpoints:**
 
@@ -135,7 +135,7 @@ Modify all speed-related queries in `internal/db/` to join with `site_config_per
 
 - Stats and Speed APIs should transparently return corrected values.
 
-### 4. Integration with Report Comparison
+### 4. Integration with report comparison
 
 **Challenge:**
 A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, Range B: Jan 14-21). A sensor adjustment might occur on Jan 10.
@@ -154,7 +154,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 - **Speed Displays:** Add indicator (e.g., tooltip or icon) showing "Corrected Speed".
 - **Management UI:** Forms to add/edit historical periods.
 
-## What Remains To Be Done
+## What remains to be done
 
 ### Completed (all layers)
 
@@ -170,7 +170,7 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 - [ ] **Report angle annotation** — PDF comparison reports should note when different cosine angles apply to each period.
 - [ ] **Speed limit fields** — `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014 and are not yet in `site_config_periods` (see [speed-limit-schedules spec](speed-limit-schedules.md) for the future design).
 
-## Testing Strategy
+## Testing strategy
 
 1.  **Unit Tests:**
     - Test cosine math logic.

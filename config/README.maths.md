@@ -1,4 +1,4 @@
-# LiDAR Config-to-Maths Cross Reference
+# LiDAR config-to-maths cross reference
 
 Primary schema sources:
 
@@ -7,13 +7,13 @@ Primary schema sources:
 
 This file lists the canonical v2 leaf paths used by the runtime.
 
-## L1 Packets / Source
+## L1 packets / source
 
 - `version`
 - `l1.sensor`
 - `l1.data_source`
 
-## L3 Background Settling
+## L3 background settling
 
 Math references:
 
@@ -48,7 +48,7 @@ Math references:
 - `l3.ema_baseline_v1.settling_min_region_stability`
 - `l3.ema_baseline_v1.settling_min_confidence`
 
-## L4 Clustering / Ground Filtering
+## L4 clustering / ground filtering
 
 Math references:
 
@@ -66,7 +66,7 @@ Math references:
 - `l4.dbscan_xy_v1.min_cluster_diameter`
 - `l4.dbscan_xy_v1.max_cluster_aspect_ratio`
 
-## L5 Tracking
+## L5 tracking
 
 Math reference:
 

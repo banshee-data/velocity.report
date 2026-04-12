@@ -1,12 +1,12 @@
-# Grid Heatmap Visualization Guide
+# Grid heatmap visualization guide
 
 ## Overview
 
 The grid heatmap visualization tools create spatial analysis plots from the `/api/lidar/grid_heatmap` endpoint, showing patterns of filled, settled, and unsettled cells across the LiDAR sensor's field of view.
 
-## Quick Start
+## Quick start
 
-### Using Makefile (Recommended)
+### Using makefile (recommended)
 
 ```bash
 # Basic polar heatmap (default: unsettled_ratio)
@@ -25,7 +25,7 @@ make plot-grid-heatmap COMBINED=true
 make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 ```
 
-### Direct Python Usage
+### Direct Python usage
 
 ```bash
 # Polar heatmap (ring vs azimuth)
@@ -52,7 +52,7 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
   --dpi 200
 ```
 
-## Makefile Parameters
+## Makefile parameters
 
 | Parameter           | Default               | Description                   |
 | ------------------- | --------------------- | ----------------------------- |
@@ -67,9 +67,9 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 | `COMBINED`          | (auto)                | Create combined view          |
 | `DPI`               | 150                   | Image resolution              |
 
-## Visualization Types
+## Visualization types
 
-### 1. Polar Heatmap (Ring vs Azimuth)
+### 1. Polar heatmap (ring vs azimuth)
 
 Shows the sensor-centric view with rings (elevation) on Y-axis and azimuth on X-axis.
 
@@ -86,7 +86,7 @@ Shows the sensor-centric view with rings (elevation) on Y-axis and azimuth on X-
 make plot-grid-heatmap POLAR=true METRIC=unsettled_ratio
 ```
 
-### 2. Cartesian Heatmap (X-Y Spatial)
+### 2. Cartesian heatmap (X-Y spatial)
 
 Shows physical spatial distribution in meters, with sensor at origin (0, 0).
 
@@ -103,7 +103,7 @@ Shows physical spatial distribution in meters, with sensor at origin (0, 0).
 make plot-grid-heatmap CARTESIAN=true METRIC=fill_rate
 ```
 
-### 3. Combined Multi-Metric View
+### 3. Combined multi-metric view
 
 Shows 4 metrics side-by-side: fill_rate, settle_rate, unsettled_ratio, mean_times_seen.
 
@@ -120,7 +120,7 @@ Shows 4 metrics side-by-side: fill_rate, settle_rate, unsettled_ratio, mean_time
 make plot-grid-heatmap COMBINED=true
 ```
 
-## Available Metrics
+## Available metrics
 
 ### `fill_rate` (0.0 to 1.0)
 
@@ -140,7 +140,7 @@ make plot-grid-heatmap COMBINED=true
 - **Color**: Green (low/good) → Red (high/bad)
 - **Use**: **Primary diagnostic** - highlights problematic areas
 
-### `mean_times_seen` (0 to N)
+### `mean_times_seen` (0 to n)
 
 - **Definition**: Average observation count for filled cells
 - **Color**: Viridis (blue → yellow)
@@ -154,7 +154,7 @@ make plot-grid-heatmap COMBINED=true
 
 ## Examples
 
-### Investigating Non-Settled Cells
+### Investigating non-settled cells
 
 ```bash
 # Generate unsettled ratio heatmap
@@ -166,7 +166,7 @@ make plot-grid-heatmap METRIC=unsettled_ratio POLAR=true CARTESIAN=true
 # - Parameter tuning needed (closeness_multiplier, noise_relative)
 ```
 
-### Parameter Tuning Workflow
+### Parameter tuning workflow
 
 ```bash
 # 1. Baseline before parameter change
@@ -185,7 +185,7 @@ make plot-grid-heatmap COMBINED=true OUT=after.png
 # 5. Compare visually
 ```
 
-### Temporal Analysis
+### Temporal analysis
 
 ```bash
 # Capture heatmaps over time to track settlement
@@ -198,7 +198,7 @@ done
 convert -delay 50 settle_t*.png settle_progression.gif
 ```
 
-### Finding Occlusions
+### Finding occlusions
 
 ```bash
 # Look for consistent gaps in fill_rate
@@ -210,7 +210,7 @@ make plot-grid-heatmap METRIC=fill_rate CARTESIAN=true
 # - Range limitations
 ```
 
-## Testing Without Server
+## Testing without server
 
 Use the test script to generate example plots with synthetic data:
 
@@ -220,9 +220,9 @@ Use the test script to generate example plots with synthetic data:
 
 This creates 6 example visualizations demonstrating all plot types and metrics.
 
-## Output Interpretation
+## Output interpretation
 
-### Polar Heatmap Features
+### Polar heatmap features
 
 - **X-axis (0-360°)**: Azimuth angle around sensor
 - **Y-axis (0-40)**: Ring index (elevation angle)
@@ -230,7 +230,7 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 - **Grid lines**: Every 30° azimuth, every 5 rings
 - **Summary box**: Total filled/settled/frozen counts
 
-### Cartesian Heatmap Features
+### Cartesian heatmap features
 
 - **X/Y axes**: Physical distance in meters
 - **Red star**: Sensor location (origin)
@@ -238,7 +238,7 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 - **Color**: Metric value
 - **Circular pattern**: Range-dependent coverage
 
-### Combined View Features
+### Combined view features
 
 - **4 subplots**: fill_rate, settle_rate, unsettled_ratio, mean_times_seen
 - **Shared scale**: Consistent color mapping
@@ -253,29 +253,29 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
   - Cartesian: ~1-2 MB (many points)
   - Combined: ~150-200 KB
 
-## Tips & Best Practices
+## Tips & best practices
 
-### For Initial Grid Analysis
+### For initial grid analysis
 
 1. Start with **combined view** for overview
 2. Focus on **unsettled_ratio** to find problems
 3. Use **cartesian view** to correlate with environment
 
-### For Parameter Tuning
+### For parameter tuning
 
 1. Baseline with current params
 2. Adjust one parameter at a time
 3. Compare before/after using same metric
 4. Look for improvements in settle_rate
 
-### For Debugging
+### For debugging
 
 1. Use **fill_rate** to verify sensor coverage
 2. Check **mean_times_seen** for observation frequency
 3. Investigate **unsettled_ratio** hot spots
 4. Correlate with acceptance rate data
 
-### For Reporting
+### For reporting
 
 1. Use **combined view** for comprehensive snapshot
 2. Set `DPI=300` for high-quality output
@@ -309,7 +309,7 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 .venv/bin/pip install matplotlib numpy requests
 ```
 
-## Related Tools
+## Related tools
 
 - `tools/grid-heatmap/test_grid_heatmap.sh` - Test API endpoint and display summary
 - `tools/grid-heatmap/test_plot_grid_heatmap.py` - Generate example plots with mock data

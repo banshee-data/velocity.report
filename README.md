@@ -97,7 +97,7 @@ The data stays on a local device. Reports are generated locally. If PII reaches 
 
 See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
-### In practice: Clarendon Avenue school zone
+### In practice: Clarendon avenue school zone
 
 Clarendon Avenue runs past an elementary school in San Francisco, designated a high injury road for years. Parents worried about vehicle speeds and whether the city's planned repaving would actually help.
 
@@ -188,7 +188,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup,
 
 The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
 
-## Vision: Sensor fusion
+## Vision: sensor fusion
 
 The LiDAR pipeline already runs a full perception stack: DBSCAN spatial clustering, Kalman-filtered multi-object tracking with state and covariance estimation, and rule-based classification across eight object types (car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed. Today, both run in parallel.
 
@@ -212,7 +212,7 @@ make dev-mac
 
 Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud data (.pcap files). See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera navigation.
 
-## 🔑 Key documents
+## 🔑 key documents
 
 - 📐 [TENETS.md](TENETS.md): the six tenets that guide the project: privacy, safety, evidence, local-first, simplicity, DRY
 - 🔭 [VISION.md](docs/VISION.md): where this is going, and what it looks like when it gets there

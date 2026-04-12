@@ -1,4 +1,4 @@
-# Platform: Typed UUID Prefixes
+# Platform: typed UUID prefixes
 
 - **Status:** Proposed
 - **Target:** 0.6.0
@@ -19,7 +19,7 @@ the convention to every remaining entity.
   whether a run ID came from an analysis run, a scene replay, or a
   reprocess operation.
 
-## Existing ID Examples
+## Existing ID examples
 
 Current production and test IDs observed in the codebase:
 
@@ -35,7 +35,7 @@ Current production and test IDs observed in the codebase:
 | Label         | `550e8400-e29b-41d4-a716-446655440000`                 | `label-001`, `label-002`, `label-003`                |
 | Sweep         | `550e8400-e29b-41d4-a716-446655440000`                 | `sweep-001`, `sweep-002`, `sweep-valid`, `sweep-123` |
 
-## Entity Inventory
+## Entity inventory
 
 | Entity        | Package / File                                      | Current format             | Proposed prefix | Example                                     |
 | ------------- | --------------------------------------------------- | -------------------------- | --------------- | ------------------------------------------- |
@@ -49,7 +49,7 @@ Current production and test IDs observed in the codebase:
 | Label         | `api/lidar_labels.go`                               | `<uuid>`                   | `labl_`         | `labl_550e8400-e29b-41d4-a716-446655440000` |
 | Sweep         | `sweep/runner.go`, `sweep/hint.go`, `sweep/auto.go` | `<uuid>`                   | `swep_`         | `swep_550e8400-e29b-41d4-a716-446655440000` |
 
-### Replay / Reprocess migration rationale
+### Replay / reprocess migration rationale
 
 The composite `replay-{sceneID}-{uuid8}` and `reprocess-{run8}-{uuid8}`
 formats bake human-readable provenance into the primary key. Analysis shows
@@ -71,7 +71,7 @@ this is safe to replace with `runy_`/`runs_` + full UUID because:
 
 ## Implementation
 
-### Phase 1: Central helper
+### Phase 1: central helper
 
 Create `internal/id/id.go`:
 
@@ -86,7 +86,7 @@ func New(prefix string) string {
 }
 ```
 
-### Phase 2: Migrate generation sites
+### Phase 2: migrate generation sites
 
 Replace each `uuid.New().String()` / `uuid.NewString()` call with
 `id.New("xxxx")` using the prefix from the table above.
@@ -105,7 +105,7 @@ Call sites (11 total):
 10. `internal/lidar/sweep/hint.go` — `id.New("swep")`
 11. `internal/lidar/sweep/auto.go` — `id.New("swep")`
 
-### Phase 3: Track prefix migration (`trk_` → `trak_`)
+### Phase 3: track prefix migration (`trk_` → `trak_`)
 
 The existing `trk_` prefix is 3 characters. To align with the 4-character
 convention, update `l5tracks/tracking.go` from `trk_` to `trak_`. The
@@ -125,13 +125,13 @@ get the `xxxx_` prefix.
 No `UPDATE` migration needed — IDs are opaque primary keys with no format
 constraint.
 
-### Phase 5: Validation (optional)
+### Phase 5: validation (optional)
 
 Add an `id.Parse(s string) (prefix, uuid string, err error)` that splits on
 the first `_` and validates the UUID portion. Useful for API input validation
 and debugging, but not required for correctness since IDs are opaque keys.
 
-## ID Flow
+## ID flow
 
 ```
 id.New("xxxx")  →  SQLite (TEXT PK)  →  HTTP API (JSON + URL paths)  →  Clients (macOS / Web / CLI)
@@ -145,7 +145,7 @@ All downstream consumers treat IDs as opaque strings:
 - **macOS visualiser:** `AppState.currentRunID`, `selectedTrackID` as opaque strings
 - **Sweep system:** checkpoint/resume persistence by sweep_id exact match
 
-## Exit Criteria
+## Exit criteria
 
 - Every `uuid.New()` / `uuid.NewString()` call site replaced with `id.New`.
 - `replay-` and `reprocess-` composite formats replaced with `runy_` / `runs_`.

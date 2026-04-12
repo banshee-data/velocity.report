@@ -1,10 +1,10 @@
-# LiDAR Pipeline Reference
+# LiDAR pipeline reference
 
 Complete reference for the velocity.report LiDAR processing pipeline: data flow, component inventory, production deployment architecture, and the metrics-first data science boundaries around tuning and future classification work.
 
 ---
 
-## Current Data Flow
+## Current data flow
 
 ```
 PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → Track → Classify → API
@@ -14,7 +14,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
                                                                     Scorecards / Replay Benchmarks
 ```
 
-## Existing Components
+## Existing components
 
 | Component             | Location                                           | Status      |
 | --------------------- | -------------------------------------------------- | ----------- |
@@ -39,7 +39,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | OBB Estimation        | `internal/lidar/l4perception/obb.go`               | ✅ Complete |
 | Debug Collector       | `internal/lidar/debug/collector.go`                | ✅ Complete |
 
-## Production Deployment Architecture (Phase 4.3)
+## Production deployment architecture (phase 4.3)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -79,7 +79,7 @@ features, but it is not on the critical path. Any candidate model must beat the
 current rule-based baseline on fixed replay packs before deployment is even
 considered.
 
-## Metrics-First Data Science and Optional Classification Flow
+## Metrics-First data science and optional classification flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐

@@ -1,10 +1,10 @@
-# Ground Plane and Vector-Scene Maths (Proposal)
+# Ground plane and vector-scene maths (proposal)
 
 - **Status:** Proposal Math (Not Active in Current Runtime)
 - **Layers:** L4 Perception
 - **Related:** [Background Grid Settling Maths](../background-grid-settling-maths.md), [Clustering Maths](../clustering-maths.md), [`docs/lidar/architecture/ground-plane-extraction.md`](../../../docs/lidar/architecture/ground-plane-extraction.md), [`docs/lidar/architecture/vector-scene-map.md`](../../../docs/lidar/architecture/vector-scene-map.md)
 
-## 1. Scope and Design Intent
+## 1. Scope and design intent
 
 This document defines the mathematical model for long-running, high-quality ground estimation in stationary LiDAR deployments.
 
@@ -30,7 +30,7 @@ Height query at `(x, y)` uses:
 
 `z_ground(x,y) = -(nx*x + ny*y + d)/nz` (valid when `|nz|` is not near zero).
 
-## 3. Online Plane Estimation
+## 3. Online plane estimation
 
 ### 3.1 Streaming covariance/PCA (primary online estimator)
 
@@ -74,7 +74,7 @@ For static-map batches, robustify with RANSAC or IRLS on tiles marked unstable.
 
 Online path should remain deterministic and bounded; robust heavy fits are post-process.
 
-## 4. Settlement: Geometry + Density + Time
+## 4. Settlement: geometry + density + time
 
 A tile should settle only when three independent conditions hold.
 
@@ -164,7 +164,7 @@ A practical coupling:
 
 where `k_close = closeness_multiplier` and `r` is point range.
 
-## 5. Density Model and Range Limits
+## 5. Density model and range limits
 
 Do not assume isotropic `1/(4*pi*r^2)` coverage for ground settlement decisions.
 
@@ -186,7 +186,7 @@ Practical correction:
 - treat density curves as empirical, site-specific calibration artifacts,
 - keep thresholds adaptive by measured coverage statistics, not fixed radius cutoffs.
 
-## 6. Curvature and Discontinuity Math
+## 6. Curvature and discontinuity math
 
 ### 6.1 Angular curvature
 
@@ -210,7 +210,7 @@ Local grade across tile spacing `s`:
 
 This is coordinate-consistent and physically interpretable.
 
-## 7. Interaction with L3 Background Grid (EWA/EMA)
+## 7. Interaction with L3 background grid (EWA/EMA)
 
 The current L3 grid is an exponential moving update model (often described as EWA/EWMA/EMA in docs).
 
@@ -255,7 +255,7 @@ deviation from global-surface priors.
 This makes L3 EWA and L4 geometry complementary: L3 stabilizes observation
 trust, while region-aware L4 prevents over-smoothing across real boundaries.
 
-## 8. Tier-2 Global Merge (Important Limits)
+## 8. Tier-2 global merge (important limits)
 
 Coarse geodetic tiles can erase meaningful local geometry.
 
@@ -266,7 +266,7 @@ Recommendations:
 3. Renormalize averaged normals and reject opposite-direction merges.
 4. Avoid blind merge when divergence exceeds thresholds; mark for revalidation.
 
-## 9. Simplifications and Their Limits
+## 9. Simplifications and their limits
 
 1. **Single-plane per tile**
    - Simplifies fitting and memory.
@@ -287,7 +287,7 @@ Recommendations:
    - Operationally transparent.
    - Threshold tuning can be site-dependent and may need auto-calibration.
 
-## 10. Computational Profile (Order-of-Growth)
+## 10. Computational profile (order-of-growth)
 
 For `N` accepted points and `T` active tiles per frame:
 
@@ -297,7 +297,7 @@ For `N` accepted points and `T` active tiles per frame:
 
 Dominant cost is point admission/filtering and memory locality, not eigensolve math.
 
-## 11. Recommended Long-Running Static Pipeline
+## 11. Recommended long-running static pipeline
 
 1. **Warmup:** conservative acceptance, no hard downstream dependence.
 2. **Settle:** require geometry+density+temporal gates.

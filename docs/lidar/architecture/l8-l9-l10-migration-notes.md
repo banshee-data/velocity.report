@@ -1,4 +1,4 @@
-# L8/L9/L10 Layer Alignment — Migration Notes
+# L8/L9/L10 layer alignment — migration notes
 
 - **Status:** Complete — retained as historical record
 
@@ -11,7 +11,7 @@ between analytics (`l8analytics`), endpoints (`l9endpoints`), and the
 HTTP server (`server`). This document records the changes and any
 breaking-change rationale.
 
-## Package Renames
+## Package renames
 
 | Old name       | New name                                          | Reason                                     |
 | -------------- | ------------------------------------------------- | ------------------------------------------ |
@@ -19,7 +19,7 @@ breaking-change rationale.
 | `webserver.go` | `server/server.go`                                | Reflects actual role                       |
 | (split files)  | `state.go`, `routes.go`, `tuning.go`, `status.go` | Reduced 1 573-line file to focused units   |
 
-## l10clients Exception
+## l10clients exception
 
 `l9endpoints/l10clients/` contains **only** embedded HTML/CSS/JS assets
 for the legacy LIDAR dashboards. It has:
@@ -32,7 +32,7 @@ these paths. This subtree is transitional — it will be removed once the
 Svelte frontend fully replaces the legacy dashboards. Until then it is
 the canonical source for those assets.
 
-## Breaking Changes
+## Breaking changes
 
 ### Import path: `internal/lidar/monitor`
 

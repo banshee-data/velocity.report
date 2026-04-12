@@ -1,14 +1,14 @@
-# LiDAR Neighbor & Closeness Convergence Analysis
+# LiDAR neighbor & closeness convergence analysis
 
 - **Test Type:** 40-minute multi-parameter sweep with live LiDAR data
 - **Parameters:** Fixed noise=0.030, closeness={1.5,2.0,2.5,3.0}, neighbor={0,1,2,3}
 - **Configuration:** 16 combinations × 50 iterations × 3s interval = ~40 minutes total
 
-## Executive Summary
+## Executive summary
 
 **Critical Finding:** The neighbor confirmation parameter has a **dramatic** impact on convergence stability, with `neighbor=1` showing 94% better stability compared to other values.
 
-### Optimal Configuration
+### Optimal configuration
 
 - **Noise:** 0.030
 - **Closeness:** 2.5
@@ -16,9 +16,9 @@
 - **Performance:** 99.96% acceptance ± 0.0014 (EXCELLENT stability)
 - **Coverage:** 58,716 cells ± 66
 
-## Key Findings
+## Key findings
 
-### 1. Neighbor Confirmation Impact ⭐ CRITICAL
+### 1. Neighbor confirmation impact ⭐ CRITICAL
 
 The neighbor confirmation count is the **most important parameter** for convergence stability:
 
@@ -31,7 +31,7 @@ The neighbor confirmation count is the **most important parameter** for converge
 
 **Impact:** Neighbor=1 provides **94.1% improvement** in stability (16.5× better) compared to other values.
 
-### 2. Why Neighbor=1 Works Best
+### 2. Why neighbor=1 works best
 
 **Neighbor=0 (No confirmation required):**
 
@@ -55,7 +55,7 @@ The neighbor confirmation count is the **most important parameter** for converge
 - ❌ Slower convergence
 - Initial acceptance: 65% → converges slowly to 99.8%
 
-### 3. Closeness Parameter Impact
+### 3. Closeness parameter impact
 
 When neighbor=1, closeness has **minimal impact** on stability:
 
@@ -70,7 +70,7 @@ When neighbor=1, closeness has **minimal impact** on stability:
 
 When neighbor≠1, closeness variation is **irrelevant** - all show poor stability.
 
-### 4. Convergence Speed Analysis
+### 4. Convergence speed analysis
 
 **Optimal Config (closeness=2.5, neighbor=1):**
 
@@ -96,7 +96,7 @@ Convergence: Slower, never reaches EXCELLENT stability
 Time to stability: >2.5 minutes, still variable
 ```
 
-### 5. Configuration Performance Matrix
+### 5. Configuration performance matrix
 
 | Closeness                         | Neighbor | Overall Acc  | StdDev       | Stability        | Cells StdDev |
 | --------------------------------- | -------- | ------------ | ------------ | ---------------- | ------------ |
@@ -110,9 +110,9 @@ Time to stability: >2.5 minutes, still variable
 | ... all neighbor=2 (except 2.5,3) | ...      | 99.02-99.24% | 0.033-0.049  | POOR             | 53-61        |
 | ... all neighbor=3 (except 2.5)   | ...      | 99.00-99.24% | 0.033-0.049  | POOR             | 59-65        |
 
-## Detailed Time-Series Convergence
+## Detailed time-series convergence
 
-### Optimal Configuration: closeness=2.5, neighbor=1
+### Optimal configuration: closeness=2.5, neighbor=1
 
 **Progression:**
 
@@ -128,7 +128,7 @@ Time to stability: >2.5 minutes, still variable
 
 **Convergence improvement:** 99.9% (early range → late range)
 
-### Comparison: closeness=2.0, neighbor=2 (Poor Config)
+### Comparison: closeness=2.0, neighbor=2 (poor config)
 
 **Progression:**
 
@@ -146,7 +146,7 @@ Time to stability: >2.5 minutes, still variable
 
 ## Recommendations
 
-### Production Configuration
+### Production configuration
 
 ```
 noise_relative: 0.030
@@ -164,7 +164,7 @@ seed_from_first_frame: true
 5. **High acceptance** - 99.96% with minimal variation
 6. **Consistent coverage** - 58,716 cells with only 66 cell stddev (0.11%)
 
-### Alternative Configurations
+### Alternative configurations
 
 If closeness=2.5 causes issues in specific environments:
 
@@ -176,11 +176,11 @@ If closeness=2.5 causes issues in specific environments:
 - neighbor=0 (too permissive, unstable)
 - neighbor=2 or neighbor=3 (too restrictive, poor stability)
 
-## Why Neighbor=1 is Optimal
+## Why neighbor=1 is optimal
 
 The neighbor confirmation parameter acts as a **noise filter with minimal false rejection**:
 
-### Mathematical Intuition
+### Mathematical intuition
 
 - **Neighbor=0:** Accept any point (no spatial validation)
   - Problem: Random noise gets accepted → unstable background
@@ -194,7 +194,7 @@ The neighbor confirmation parameter acts as a **noise filter with minimal false 
   - Problem: Edge points and sparse regions get rejected
   - Result: Over-filtering causes instability from accept/reject cycling
 
-### Empirical Evidence
+### Empirical evidence
 
 From 800+ samples across 16 configurations:
 
@@ -203,7 +203,7 @@ From 800+ samples across 16 configurations:
 - Maintains stability over extended periods
 - Works consistently across all closeness values
 
-## Next Steps
+## Next steps
 
 1. ✅ **Deploy to production:** Update default parameters
 2. ✅ **Validate with PCAP:** Confirm behavior with recorded data
@@ -211,13 +211,13 @@ From 800+ samples across 16 configurations:
 4. ⬜ **Edge case testing:** Validate in sparse/dense environments
 5. ⬜ **Document in codebase:** Update parameter descriptions and defaults
 
-## Files Generated
+## Files generated
 
 - `convergence-neighbour-closeness-40min.csv` - Summary statistics (16 configurations)
 - `convergence-neighbour-closeness-40min-raw.csv` - Time-series data (800 samples)
 - `convergence-neighbour-closeness-findings.md` - This analysis document
 
-## Appendix: Statistical Summary
+## Appendix: statistical summary
 
 **Total test duration:** 39 minutes 25 seconds
 **Total samples collected:** 800 (50 per configuration)

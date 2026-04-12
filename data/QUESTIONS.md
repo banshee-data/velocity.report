@@ -1,4 +1,4 @@
-# Open Research Questions
+# Open research questions
 
 Exploratory research topics for data scientists, ML engineers,
 and perception researchers interested in contributing to
@@ -27,7 +27,7 @@ See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md#data-scientist) and
 The most visible user-facing problem: bounding boxes that spin,
 change shape, or fail to capture all cluster points.
 
-### Q1. Do the OBB heading fixes hold up without geometry-coherent tracking?
+### Q1. do the OBB heading fixes hold up without geometry-coherent tracking?
 
 The [2026-02-22 OBB review](maths/proposals/20260222-obb-heading-stability-review.md)
 applied Guards B, C, G. Do they survive replay on multiple
@@ -42,7 +42,7 @@ heading rotation?
   v0.6. This question validates whether the simpler guards
   are a viable intermediate step.
 
-### Q2. How should the PCA axis ambiguity be resolved for near-square clusters?
+### Q2. how should the PCA axis ambiguity be resolved for near-square clusters?
 
 Pedestrians and slow vehicles produce near-square clusters
 where eigenvalue near-equality causes the principal axes to
@@ -55,7 +55,7 @@ disambiguation model (e.g. motion-only heading)?
   labelled tracks. Comparison of Bayesian disambiguation vs
   motion-heading fallback for aspect ratios < 1.5.
 
-### Q3. What convergence time does the Bayesian geometry model need?
+### Q3. what convergence time does the bayesian geometry model need?
 
 The proposal claims 5–10 frames vs 15–20 for reactive guards.
 Validate on labelled tracks across vehicle, cyclist, and
@@ -72,7 +72,7 @@ pedestrian classes.
 Separating moving objects from the static scene: the
 foundation that clustering and tracking depend on.
 
-### Q4. Does velocity-coherent extraction beat the baseline?
+### Q4. does velocity-coherent extraction beat the baseline?
 
 The [velocity-coherent proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 hypothesises 20–40% improvement in sparse object recall and
@@ -90,7 +90,7 @@ evidence before the baseline is replaced.
 - **Decision:** [D-05](../docs/DECISIONS.md) sequences P2
   after P1.
 
-### Q5. Can sparse long-range points be reliably promoted to foreground?
+### Q5. can sparse long-range points be reliably promoted to foreground?
 
 At ranges > 40 m the LiDAR returns < 5 points per object per
 frame. Motion-aware background promotion (using predicted track
@@ -101,7 +101,7 @@ but risks false positives.
   promotion at 30 m, 40 m, 50 m ranges. Comparison with and
   without track-assisted promotion on sparse-vehicle PCAPs.
 
-### Q6. Which clustering engine performs best?
+### Q6. which clustering engine performs best?
 
 DBSCAN is the current production path. HDBSCAN may handle
 variable-density scenes better. The deterministic
@@ -120,7 +120,7 @@ The terrain under the sensor: getting this right means better
 foreground separation, fewer phantom objects, and the
 foundation for corridor-aware tracking.
 
-### Q7. When does the height-band filter stop being good enough?
+### Q7. when does the height-band filter stop being good enough?
 
 The current filter is O(n), zero-parameter, and works well on
 flat roads. Three failure modes are documented: sloped roads
@@ -134,7 +134,7 @@ boundaries (5–15% false foreground), and long-running drift.
 - **Decision:** [pipeline-review Q1](maths/pipeline-review-open-questions.md)
   recommends implementing tile-plane fitting.
 
-### Q8. How should tile-plane boundaries be set?
+### Q8. how should tile-plane boundaries be set?
 
 Fixed 1 m tiles, adaptive tiles, or region-based? The
 streaming PCA approach assumes fixed tiles, but kerbs and
@@ -144,7 +144,7 @@ boundaries may need sub-tile resolution or curved fits.
   0.5 m, 1.0 m, 2.0 m tiles on mixed-geometry scenes.
   Curvature-detection false-positive rate at tile boundaries.
 
-### Q9. How should observed geometry align with OSM priors?
+### Q9. how should observed geometry align with OSM priors?
 
 Observed tile-plane polygons need to be diffed, reviewed, and
 exported against OpenStreetMap without weakening provenance.
@@ -164,7 +164,7 @@ rotation) with feature-matched confidence.
 Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
 
-### Q10. Should radar + LiDAR fusion happen at L5 or L7?
+### Q10. should radar + LiDAR fusion happen at L5 or L7?
 
 Current design associates radar speed at the per-track level
 (L5). The alternative is scene-level fusion at L7 where
@@ -177,7 +177,7 @@ canonical objects from multiple sensors are merged.
 - **Reference:** [tracking-maths.md §fusion](maths/tracking-maths.md),
   [lidar-l7-scene-plan.md](../docs/plans/lidar-l7-scene-plan.md)
 
-### Q11. How should conflicting multi-sensor observations be resolved?
+### Q11. how should conflicting multi-sensor observations be resolved?
 
 When radar and LiDAR disagree on speed, heading, or
 classification, the conflict resolution strategy must be
@@ -196,7 +196,7 @@ Turning tracked objects into named categories: currently a
 rule-based cascade, with explicit questions about whether
 interpretable ML could do better.
 
-### Q12. Should the rule-based classifier be augmented with interpretable ML?
+### Q12. should the rule-based classifier be augmented with interpretable ML?
 
 The current 7-tier cascade uses height, width, speed, and
 observation count. An interpretable model (logistic regression,
@@ -212,7 +212,7 @@ boundary decisions while remaining auditable.
 - **Reference:** [classification-maths.md](maths/classification-maths.md),
   [lidar-ml-classifier-training-plan.md](../docs/plans/lidar-ml-classifier-training-plan.md)
 
-### Q13. What evidence justifies re-enabling truck and motorcyclist classes?
+### Q13. what evidence justifies re-enabling truck and motorcyclist classes?
 
 The v0.5.0 classifier disables truck (> 5.5 m) and
 motorcyclist (5–30 m/s, narrow) classes. What labelled data
@@ -223,7 +223,7 @@ and false-positive rates are needed before re-activation?
   Confusion matrix showing that re-enabled classes do not
   degrade car/pedestrian/cyclist accuracy.
 
-### Q14. How should quality labels be aggregated into tuning scores?
+### Q14. how should quality labels be aggregated into tuning scores?
 
 Track-level quality labels (`perfect`, `good`, `truncated`,
 `noisy_velocity`, `stopped_recovered`) need a scoring function
@@ -241,7 +241,7 @@ that auto-tuning can optimise against.
 Every default has provenance: or it should. Roughly eight
 config keys are provisional (tuned on kirk0 only).
 
-### Q15. Which defaults survive multi-site validation?
+### Q15. which defaults survive multi-site validation?
 
 Provisional defaults were tuned against one PCAP at one site.
 The five-PCAP test corpus plan requires validation across flat
@@ -255,7 +255,7 @@ and rural road captures.
   [pipeline-review Q7](maths/pipeline-review-open-questions.md),
   [pipeline-review Q11](maths/pipeline-review-open-questions.md)
 
-### Q16. What does the auto-tuning objective function look like?
+### Q16. what does the auto-tuning objective function look like?
 
 Should the objective optimise detection rate, fragmentation,
 velocity noise, or a weighted multi-objective scorecard? How
@@ -266,7 +266,7 @@ are objectives weighted and rebalanced across site classes?
 - **Reference:** [auto-tuning.md](../docs/lidar/operations/auto-tuning.md),
   [parameter-tuning plan](../docs/plans/lidar-parameter-tuning-optimisation-plan.md)
 
-### Q17. Does kirk0 overfit?
+### Q17. does kirk0 overfit?
 
 All provisional defaults were tuned against a single capture
 at one site with one sensor model. How degraded are results
@@ -285,7 +285,7 @@ conditions?
 The current constant-velocity Kalman filter fragments tracks
 when vehicles brake, accelerate, or turn.
 
-### Q18. Does adding acceleration states reduce fragmentation?
+### Q18. does adding acceleration states reduce fragmentation?
 
 A CA (constant-acceleration) model extends the state vector
 from 4 to 6 dimensions. The pipeline-review estimates +1 ms
@@ -295,7 +295,7 @@ per frame cost.
   ground-truth object) for CV vs CA on captures with known
   braking events. Speed accuracy comparison.
 
-### Q19. Is IMM worth the complexity?
+### Q19. is IMM worth the complexity?
 
 Interacting Multiple Model blending (CV + CA) adapts per track
 per frame. Estimated +3 ms. Is the improvement over CA alone
@@ -305,7 +305,7 @@ justifiable on edge hardware?
   CA vs IMM on manoeuvring-vehicle PCAPs. Per-frame timing on
   Raspberry Pi 4.
 
-### Q20. Are L5 kinematic fixes future-forward, or will L7 corridors supersede them?
+### Q20. are L5 kinematic fixes future-forward, or will L7 corridors supersede them?
 
 The [pipeline-review Q5](maths/pipeline-review-open-questions.md)
 argues that CTRV and ad-hoc sparse-cluster linking at L5 are
@@ -324,7 +324,7 @@ The sensor is stationary but not perfectly still: thermal
 expansion, wind, and mast flexion produce micro-movements
 that degrade long-running accuracy.
 
-### Q21. Can reflective signs serve as reliable pose anchors?
+### Q21. can reflective signs serve as reliable pose anchors?
 
 Retroreflective signs return intensity 50–200× background.
 The [pose-anchor proposal](maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)
@@ -334,7 +334,7 @@ claims σ_translation < 1 mm after 50 frames.
   residual across varying ranges, angles of incidence, and
   weather conditions.
 
-### Q22. What fallback hierarchy works in sign-poor scenes?
+### Q22. what fallback hierarchy works in sign-poor scenes?
 
 When signs are absent: walls (σ < 5 mm perpendicular only),
 ground support (σ_z < 10 mm). Is the combined fallback
@@ -350,7 +350,7 @@ sufficient for shake diagnostics?
 The numbers this project produces go to community meetings
 and council chambers. They must withstand scrutiny.
 
-### Q23. How should speed percentiles be aggregated?
+### Q23. how should speed percentiles be aggregated?
 
 Percentiles do not aggregate: you cannot average p85 values
 across time bins. The [speed-percentile plan](../docs/plans/speed-percentile-aggregation-alignment-plan.md)
@@ -361,7 +361,7 @@ reserves p50/p85/p98 for grouped/report metrics.
   typical 15-minute and hourly bins.
 - **Decision:** [D-18](../docs/DECISIONS.md)
 
-### Q24. What sample size is needed for defensible p85 reporting?
+### Q24. what sample size is needed for defensible p85 reporting?
 
 Traffic engineers use the 85th percentile speed as a standard
 metric. What minimum sample size per time bin produces a p85
@@ -371,7 +371,7 @@ estimate with ≤ 2 km/h confidence interval?
   interval vs sample size, stratified by traffic density and
   speed distribution shape.
 
-### Q25. Are speed distributions normal, bimodal, or something else?
+### Q25. are speed distributions normal, bimodal, or something else?
 
 Many statistical methods assume normality. Urban speed
 distributions are often bimodal (free-flow vs platooned) or
@@ -389,7 +389,7 @@ right-skewed. What distribution families fit observed data?
 All algorithms run on a Raspberry Pi 4 at 10 Hz. The current
 pipeline uses 23% of the 100 ms frame budget.
 
-### Q26. Do all proposed improvements fit within the frame budget?
+### Q26. do all proposed improvements fit within the frame budget?
 
 The pipeline-review estimates all proposals combined add
 12–17 ms, leaving ~40% headroom. Validate with measured
@@ -402,31 +402,31 @@ per-layer timing on Pi 4 hardware.
 
 ---
 
-## Cross-cutting: Experimental infrastructure
+## Cross-cutting: experimental infrastructure
 
 Several questions above depend on infrastructure that does
 not yet exist or is incomplete.
 
-### I1. Five-site PCAP test corpus
+### I1. five-site PCAP test corpus
 
 Most questions require validation beyond kirk0. Four
 additional captures are planned but not yet recorded.
 See [lidar-test-corpus-plan.md](../docs/plans/lidar-test-corpus-plan.md).
 
-### I2. Ground-truth labelling pipeline
+### I2. ground-truth labelling pipeline
 
 Track-level labels are needed for classification accuracy,
 fragmentation measurement, and tuning validation. The macOS
 visualiser Phase 9 provides the labelling UI.
 See [track-labelling plan](../docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md).
 
-### I3. Parameter sweep framework
+### I3. parameter sweep framework
 
 Multi-key sweeps across multiple sites require automated
 experiment runners with provenance tracking.
 See [parameter-tuning plan](../docs/plans/lidar-parameter-tuning-optimisation-plan.md).
 
-### I4. Performance measurement harness
+### I4. performance measurement harness
 
 Per-layer timing on Pi 4 hardware for regression detection.
 See [performance-harness plan](../docs/plans/lidar-performance-measurement-harness-plan.md).

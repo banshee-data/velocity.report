@@ -72,7 +72,7 @@ make api-stop-pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
 make api-status [BASE_URL=http://127.0.0.1:8081]
 ```
 
-## API Endpoints Reference
+## API endpoints reference
 
 All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
 

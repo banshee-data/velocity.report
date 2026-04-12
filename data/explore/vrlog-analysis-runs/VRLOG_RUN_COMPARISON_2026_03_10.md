@@ -1,11 +1,11 @@
-# VRLOG Run Comparison Report — 2026-03-10
+# VRLOG run comparison report — 2026-03-10
 
 - **Branch:** `dd/vrlog-2`
 - **Source PCAP:** `kirk1.pcapng` (Hesai Pandar40P, ~178s, ~2012 frames)
 - **Tuning:** identical across all runs (`0ff580...` hash)
 - **Runs compared:** 5 analysis runs at different playback speeds
 
-## 1. Run Summary
+## 1. Run summary
 
 | Run        | Format | Speed | Frames | Confirmed | Tentative | Deleted | Total | Frag  |
 | ---------- | ------ | ----- | ------ | --------- | --------- | ------- | ----- | ----- |
@@ -15,7 +15,7 @@
 | `8802b52b` | 0.5    | 1.0x  | 743    | 4         | 101       | 127     | 232   | 0.435 |
 | `8099c80b` | 0.5    | 1.0x  | 349    | 3         | 64        | 54      | 121   | 0.529 |
 
-## 2. Critical Findings
+## 2. Critical findings
 
 ### 2.1 Frame dropping scales with playback speed
 
@@ -138,7 +138,7 @@ Fragmentation ratio is ~0.43 across all runs except the smallest
 (0.53 for 349 frames). This suggests fragmentation is an intrinsic
 property of the scene/tuning, not of frame completeness.
 
-## 3. Root Cause Summary
+## 3. Root cause summary
 
 | Issue                     | Severity | Root cause                                           |
 | ------------------------- | -------- | ---------------------------------------------------- |
@@ -150,9 +150,9 @@ property of the scene/tuning, not of frame completeness.
 | High tentative count      | Low      | Expected with noisy foreground + aggressive tracking |
 | Non-deterministic 1x runs | High     | OS scheduling / CPU load causes variable frame loss  |
 
-## 4. Experiment Test Plan
+## 4. Experiment test plan
 
-### Experiment 1: Frame Integrity Test (blocking)
+### Experiment 1: frame integrity test (blocking)
 
 **Goal:** Verify that analysis mode processes every PCAP frame.
 
@@ -173,7 +173,7 @@ recorder should log warnings when gaps appear. Analysis mode should
 either block until processing completes (synchronous mode) or buffer
 frames until the pipeline drains.
 
-### Experiment 2: Synchronous Analysis Mode
+### Experiment 2: synchronous analysis mode
 
 **Goal:** Implement and validate a frame-synchronous PCAP processing mode
 where the next PCAP frame is read only after the current one finishes
@@ -198,7 +198,7 @@ same PCAP with the same tuning produces identical tracks.
 - Repeated runs produce identical `confirmed_tracks` count.
 - Track IDs differ (UUID), but track matching IOU = 1.0 for all pairs.
 
-### Experiment 3: Timestamp Source Audit
+### Experiment 3: timestamp source audit
 
 **Goal:** Identify where the first frame's timestamp comes from and fix
 the wall-clock contamination.
@@ -215,7 +215,7 @@ where `TimestampNanos` is more than 1 hour away from the previous frame.
 Alternatively, the PCAP reader should guarantee it only emits frames
 with PCAP-sourced timestamps.
 
-### Experiment 4: Frame Rate vs Confirmed Track Threshold
+### Experiment 4: frame rate vs confirmed track threshold
 
 **Goal:** Determine the minimum frame rate (as % of source) needed to
 confirm all real objects.
@@ -233,7 +233,7 @@ confirm all real objects.
 needed for track confirmation. This informs whether the confirmation
 threshold is too aggressive or whether frame loss is the sole cause.
 
-### Experiment 5: Background Model Validation
+### Experiment 5: background model validation
 
 **Goal:** Verify the background model is operational in PCAP mode.
 
@@ -253,7 +253,7 @@ for outdoor traffic scenes).
 foreground cluster candidate, which explains the hundreds of tentative
 tracks from noise.
 
-### Experiment 6: Determinism Test
+### Experiment 6: determinism test
 
 **Goal:** Prove analysis mode is fully deterministic.
 
@@ -269,7 +269,7 @@ tracks from noise.
 **Acceptance criteria:** After normalising/removing UUIDs and timestamps,
 all 5 runs are byte-identical in their report output.
 
-### Experiment 7: Track Confirmation Threshold Sensitivity
+### Experiment 7: track confirmation threshold sensitivity
 
 **Goal:** Evaluate whether the confirmation threshold is appropriate.
 
@@ -286,7 +286,7 @@ decision to the threshold parameter. If many tentative tracks are
 1-2 observations short of confirmation, the threshold may be too
 aggressive for the observed frame rate.
 
-## 5. Priority Order
+## 5. Priority order
 
 1. **Experiment 2 (Sync analysis mode)** — foundational; everything else
    depends on deterministic, complete frame processing.

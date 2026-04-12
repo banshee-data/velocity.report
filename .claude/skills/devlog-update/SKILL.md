@@ -14,7 +14,7 @@ Bring `docs/DEVLOG.md` up to date by reading git history across all branches and
 /devlog-update
 ```
 
-## Format Reference
+## Format reference
 
 The devlog uses H2 headers for entries:
 

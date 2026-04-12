@@ -1,4 +1,4 @@
-# PCAP Motion Detection and Scene Split Plan
+# PCAP motion detection and scene split plan
 
 - **Status:** Proposed
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
@@ -10,7 +10,7 @@
 
 Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods — motion segments are unusable for perception but still occupy analysis time. Today an operator must manually scrub through captures, guess transition points, and split files with external tools (tcpdump, editcap). This is slow, error-prone, and blocks the mobile-observation workflow.
 
-## 2. What Already Exists
+## 2. What already exists
 
 | Capability                  | Location                                      | Status                                                             |
 | --------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
@@ -22,7 +22,7 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 | pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented — full pipeline with stats, benchmark, CSV/JSON export |
 | pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                   |
 
-### Gap Analysis
+### Gap analysis
 
 The pcap-split design doc is comprehensive and sound. The primary gaps before shipping are:
 
@@ -33,7 +33,7 @@ The pcap-split design doc is comprehensive and sound. The primary gaps before sh
 
 ## 3. Design
 
-### 3.1 Phased Delivery
+### 3.1 Phased delivery
 
 **Phase 1 — Motion Detection in pcap-analyse** (`S`)
 
@@ -105,7 +105,7 @@ Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/
 
 Phase 1 can use the existing `CheckForSensorMovement()` and `GetGridStatus()` for a simpler initial classifier. Phase 3 upgrades to the full settling analyser with the Phase 2 API extensions.
 
-### 3.3 State Machine (from pcap-split design)
+### 3.3 State machine (from pcap-split design)
 
 ```
       ┌──────────┐
@@ -125,7 +125,7 @@ Phase 1 can use the existing `CheckForSensorMovement()` and `GetGridStatus()` fo
 - Static → Motion: 5s sustained motion
 - Intersection bridging: stops < 30s stay in motion (configurable via `--max-motion-gap-sec`)
 
-### 3.4 Detection Criteria
+### 3.4 Detection criteria
 
 A frame is classified as **stable** when all four conditions hold:
 
@@ -136,7 +136,7 @@ A frame is classified as **stable** when all four conditions hold:
 
 Phase 1 uses a simplified version: conditions 1 and 2 only (available from existing APIs). Phase 3 adds conditions 3 and 4 via Phase 2 API extensions.
 
-## 4. Failure Modes
+## 4. Failure modes
 
 | Failure                                | Impact                                | Mitigation                                                  |
 | -------------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
@@ -145,7 +145,7 @@ Phase 1 uses a simplified version: conditions 1 and 2 only (available from exist
 | PCAP ends mid-settling                 | Incomplete final segment              | Write partial segment with `incomplete: true` metadata flag |
 | Very large PCAP (>100 GB)              | Memory pressure from packet buffering | Streaming write — flush segment to disk on each transition  |
 
-## 5. Testing Strategy
+## 5. Testing strategy
 
 | Phase   | Tests                                                                                                                                                       |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -153,7 +153,7 @@ Phase 1 uses a simplified version: conditions 1 and 2 only (available from exist
 | Phase 2 | Unit tests for each new `BackgroundManager` method; property: metrics are consistent with existing `GetGridStatus()`                                        |
 | Phase 3 | State machine unit tests (all transitions, edge cases); integration tests with crafted PCAPs; output PCAP integrity validation; metadata consistency checks |
 
-## 6. Effort and Dependencies
+## 6. Effort and dependencies
 
 | Phase                                | Effort | Dependencies                             |
 | ------------------------------------ | ------ | ---------------------------------------- |
@@ -163,7 +163,7 @@ Phase 1 uses a simplified version: conditions 1 and 2 only (available from exist
 
 Total: `M` (Phases 1+2 are `S` each and can ship independently; Phase 3 is the bulk).
 
-## 7. What This Plan Does Not Cover
+## 7. What this plan does not cover
 
 - **Real-time splitting** — live UDP stream segmentation (future Phase 5 in the design doc)
 - **ML-based classification** — the rule-based state machine is sufficient for the mobile-observation use case

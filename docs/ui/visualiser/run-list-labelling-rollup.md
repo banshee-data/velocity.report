@@ -1,10 +1,10 @@
-# Run List Labelling Rollup
+# Run list labelling rollup
 
 - **Status:** Implemented — macOS visualiser and backend complete. Web runs-list parity deferred.
 
 Compact run-list icon in the visualiser's run list showing human review progress for each analysis run at a glance. The icon communicates human review progress — not model carry-over state.
 
-## Visual Design
+## Visual design
 
 Segmented capsule icon next to each run in the run list:
 
@@ -16,7 +16,7 @@ Segmented capsule icon next to each run in the run list:
 
 Capsule proportions are computed from the ratio of tracks in each bucket.
 
-## Bucket Classification Rules
+## Bucket classification rules
 
 - **Classified:** `label_source` is empty or `human_manual`, AND `user_label` is non-empty, AND `user_label` is not `split` or `merge`.
 - **Tagged only:** No manual classification present, but some human-applied tag state exists: `quality_label` non-empty, legacy `user_label` of `split`/`merge`, split/merge candidate flags, or linked track IDs.
@@ -24,9 +24,9 @@ Capsule proportions are computed from the ratio of tracks in each bucket.
 
 Explicitly excluded from green/accent: `carried_over`, `auto_suggested`.
 
-## Backend Design
+## Backend design
 
-### Store Contract
+### Store contract
 
 `AnalysisRun` includes a `label_rollup` field with:
 
@@ -41,7 +41,7 @@ Rollups are computed from `lidar_run_tracks` using one grouped query for
 run lists (no per-run follow-up queries). Store helpers live in
 `internal/lidar/storage/sqlite/analysis_run.go`.
 
-### API Contract
+### API contract
 
 `label_rollup` is exposed on:
 
@@ -55,7 +55,7 @@ run-browser progress and labelling-progress semantics aligned.
 The implementation tolerates environments where `lidar_run_tracks` is
 absent, so partial-schema tests do not fail while reading run rows.
 
-## macOS Client Design
+## macOS client design
 
 ### Model
 
@@ -68,7 +68,7 @@ recomputation: `label_source`, `linked_track_ids`, split/merge flags.
 `RunBrowserView.swift` renders a `Labels` column with the segmented
 capsule. Tooltip shows exact counts and percentages.
 
-### Local State Update Rules
+### Local state update rules
 
 The icon updates immediately after a successful label write — no
 re-fetch of run summaries:
@@ -79,13 +79,13 @@ re-fetch of run summaries:
   `assignQuality(...)`, or bulk label writes succeed
 - No extra validation trip after a `2xx` response
 
-## Web Contract
+## Web contract
 
 The shared API contract is typed on the web side (optional `label_rollup`
 on `AnalysisRun` and `LabellingProgress`). No web rendering in this
 phase.
 
-## Deferred Work
+## Deferred work
 
 - Web runs-list parity UI: rendering the same capsule icon in the Svelte web frontend
 - Decide whether `/flags` mutations should update the local rollup path in Swift

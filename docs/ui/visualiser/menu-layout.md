@@ -1,10 +1,10 @@
-# macOS Menu Layout Design
+# macOS menu layout design
 
 Active plan: [wireshark-menu-alignment.md](../../plans/wireshark-menu-alignment.md)
 
 Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on macOS, aligned with Wireshark-style conventions for capture and playback workflows.
 
-## Current VelocityVisualiser Menu Bar
+## Current VelocityVisualiser menu bar
 
 | Menu         | Items                                                     |
 | ------------ | --------------------------------------------------------- |
@@ -14,7 +14,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 | **Overlays** | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g) |
 | **Labels**   | Label Selected Track (l), Classify submenu (1–9)          |
 
-## Single-Key Shortcuts (Immutable)
+## Single-Key shortcuts (immutable)
 
 | Key   | Action                 |
 | ----- | ---------------------- |
@@ -32,7 +32,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 > Never change existing single-key shortcuts. They are optimised for rapid
 > one-handed operation during replay review.
 
-## Proposed New Shortcuts (Wireshark-Aligned)
+## Proposed new shortcuts (Wireshark-aligned)
 
 | Shortcut | Action                | Wireshark Equivalent |
 | -------- | --------------------- | -------------------- |
@@ -45,7 +45,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 | ⌘End     | Jump to Last Frame    | Last Packet          |
 | ⌥→/⌥←    | Selection History Nav | History Nav          |
 
-## Target Menu Structure
+## Target menu structure
 
 ```
 VelocityReport.app
@@ -75,28 +75,28 @@ VelocityReport.app
 └── Help → Keyboard Shortcuts, User Guide, Release Notes
 ```
 
-## Implementation Priority
+## Implementation priority
 
-### Phase 1 — Quick Wins
+### Phase 1 — quick wins
 
 Open Recent, Close Recording (⌘W), Go to Frame (⌘G), First/Last Frame
 (⌘Home/⌘End), Keyboard Shortcuts reference.
 
-### Phase 2 — View Enhancements
+### Phase 2 — view enhancements
 
 Zoom controls (⌘+/⌘-/⌘0), VRLOG File Properties, Preferences (⌘,),
 Reset Layout.
 
-### Phase 3 — Analysis Features
+### Phase 3 — analysis features
 
 Find Track (⌘F), Filter expression bar, Track statistics, Expert Info /
 Quality Summary, Follow Track.
 
-### Phase 4 — Export & Polish
+### Phase 4 — export & polish
 
 Export tracks as CSV/JSON, Copy track details (⌘C), Help links.
 
-## Design Principles (from Wireshark)
+## Design principles (from Wireshark)
 
 1. Consistent verb placement in menu items.
 2. Ellipsis convention for items that open a dialogue.
