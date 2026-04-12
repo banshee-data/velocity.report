@@ -33,6 +33,18 @@ EXCLUDED_DIRS = {
     "node_modules",
 }
 
+# Files excluded from width checking.  Relative to repo root (as given in
+# DEFAULT_SCAN_PATHS or on the command line).  Matched by resolved path.
+#
+# CHANGELOG.md — almost entirely list items (already excluded); the few
+#   prose lines are release intro paragraphs that read better long.
+# docs/DECISIONS.md — single-line register entries with dense link refs;
+#   wrapping them hurts scanability more than it helps readability.
+EXCLUDED_FILES = {
+    "CHANGELOG.md",
+    "docs/DECISIONS.md",
+}
+
 DEFAULT_SCAN_PATHS = [
     "docs",
     "data",
@@ -60,8 +72,14 @@ def _is_excluded_dir(name: str) -> bool:
     return name in EXCLUDED_DIRS
 
 
+def _resolve_excluded_files() -> set[Path]:
+    """Return resolved paths for EXCLUDED_FILES so comparison is reliable."""
+    return {Path(p).resolve() for p in EXCLUDED_FILES}
+
+
 def iter_markdown_paths(paths: list[str]) -> list[Path]:
-    """Collect .md files from the given paths, skipping excluded directories."""
+    """Collect .md files from the given paths, skipping excluded entries."""
+    skip = _resolve_excluded_files()
     found: set[Path] = set()
     out: list[Path] = []
 
@@ -70,7 +88,11 @@ def iter_markdown_paths(paths: list[str]) -> list[Path]:
         if not path.exists():
             continue
         if path.is_file():
-            if path.suffix == ".md" and path not in found:
+            if (
+                path.suffix == ".md"
+                and path.resolve() not in skip
+                and path not in found
+            ):
                 found.add(path)
                 out.append(path)
         else:
@@ -79,7 +101,7 @@ def iter_markdown_paths(paths: list[str]) -> list[Path]:
                 for fn in sorted(files):
                     if fn.endswith(".md"):
                         fp = Path(root) / fn
-                        if fp not in found:
+                        if fp.resolve() not in skip and fp not in found:
                             found.add(fp)
                             out.append(fp)
     return sorted(out)
