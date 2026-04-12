@@ -39,7 +39,7 @@ Root `requirements.in` includes all packages for all Python tools:
 ## Go server integration
 
 The Go server finds the Python binary at the path composed from
-`repoRoot + ".venv/bin/python"` via `filepath.Join`.
+`filepath.Join(repoRoot, ".venv", "bin", "python")`.
 
 ## Makefile variables
 

@@ -12,7 +12,7 @@ Controlled process to stabilise documentation structure and metadata quality by 
 - [x] Metadata format standardised: `- **Key:** value` canonical format enforced across 86+ files
 - [x] Key normalisation: Layer→Layers, Related variants→Related, Last updated→Last Updated (57→49 unique keys)
 - [x] Date metadata removed: Created, Date, Last Updated, Original Design Date purged from 15 files
-- [x] Date enforcement linter: `BANNED_DATE_KEYS` and `RE_KEY_DATE_SUFFIX` in `check-doc-header-metadata.py`
+- [x] Metadata enforcement linter: `BANNED_KEYS` and `RE_KEY_DATE_SUFFIX` in `check-doc-header-metadata.py`
 - [x] Summary deduplication: resolved 1 file with both `- **Summary:**` bullet and `## Summary` heading
 - [x] Structure rule compliance: zero misplaced docs, all categories correctly organised
 - [x] CI integration: weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode

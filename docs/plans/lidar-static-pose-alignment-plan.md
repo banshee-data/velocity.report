@@ -551,9 +551,13 @@ Day 7-8: Testing and documentation
 
 1. **Backup database:**
 
-Run `cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup` 2. **Apply migration (system offline):**
+Run `cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup`
 
-Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_references.up.sql` 3. **Update binary:**
+2. **Apply migration (system offline):**
+
+Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_references.up.sql`
+
+3. **Update binary:**
 
 - `sudo systemctl stop velocity-report`
 - `sudo cp velocity-report /usr/local/bin/velocity-report`
@@ -563,7 +567,8 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 
 - Check static pose created: `sqlite3 /var/lib/velocity-report/sensor_data.db "SELECT * FROM sensor_poses;"`
 - Check tracking works: `curl http://localhost:8082/api/lidar/tracks`
-  **Rollback Plan:**
+
+**Rollback Plan:**
 
 - Stop service: `sudo systemctl stop velocity-report`
 - Restore backup: `cp /var/lib/velocity-report/sensor_data.db.backup /var/lib/velocity-report/sensor_data.db`

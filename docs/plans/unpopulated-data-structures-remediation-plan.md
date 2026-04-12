@@ -173,7 +173,7 @@ Depends on Phases 1 and 2.
 - [ ] Optional: support `Accept: text/csv` for direct CSV export.
 - [ ] Wire `FilterTracksForTraining()` and `SummarizeTrainingDataset()`.
 - [ ] Write handler tests with filtered and unfiltered exports.
-- [ ] Document the endpoint in [data/structures/README.md](../../data/structures/DATA_STRUCTURES.md).
+- [ ] Document the endpoint in [data/structures/DATA_STRUCTURES.md](../../data/structures/DATA_STRUCTURES.md).
 
 ---
 

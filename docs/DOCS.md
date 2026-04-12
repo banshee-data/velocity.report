@@ -45,12 +45,12 @@ For project-wide numeric constants and default thresholds, see
 Default naming is **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
 Documented exceptions apply for canonical `UPPER_CASE.md` files and dated maths proposals.
 
-| Rule                    | Scope                                                      | Example                                                           |
-| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| No underscores          | everywhere                                                 | `foreground-tracking.md` not `foreground_tracking.md`             |
-| No dates in filenames   | general docs                                               | use git history for chronology                                    |
-| UPPER_CASE filenames    | [data/structures/](../data/structures), project-level docs | `VRLOG_FORMAT.md`, [README.md](DOCS.md), [BACKLOG.md](BACKLOG.md) |
-| Date prefix `YYYYMMDD-` | [data/maths/proposals/](../data/maths/proposals) only      | `20260222-geometry-coherent-tracking.md`                          |
+| Rule                    | Scope                                                      | Example                                                                |
+| ----------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------- |
+| No underscores          | everywhere                                                 | `foreground-tracking.md` not `foreground_tracking.md`                  |
+| No dates in filenames   | general docs                                               | use git history for chronology                                         |
+| UPPER_CASE filenames    | [data/structures/](../data/structures), project-level docs | `VRLOG_FORMAT.md`, [README.md](../README.md), [BACKLOG.md](BACKLOG.md) |
+| Date prefix `YYYYMMDD-` | [data/maths/proposals/](../data/maths/proposals) only      | `20260222-geometry-coherent-tracking.md`                               |
 
 ### Path patterns
 

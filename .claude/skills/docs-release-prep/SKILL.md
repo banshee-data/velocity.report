@@ -194,7 +194,15 @@ Scan plan files and design docs for banned code-block languages:
 ````bash
 # List banned code blocks in docs/plans/
 grep -rn '^```' docs/plans/ --include='*.md' \
-  | grep -v '```$' \
+  | awk -F: '
+      $3 == "```" {
+        bare_fence_count[$1]++
+        # Odd bare fences are opening fences; even are closing fences.
+        if (bare_fence_count[$1] % 2 == 1) print
+        next
+      }
+      { print }
+    ' \
   | grep -Ev '^[^:]+:[0-9]+:```(bash|sh|mermaid|text)$'
 ````
 

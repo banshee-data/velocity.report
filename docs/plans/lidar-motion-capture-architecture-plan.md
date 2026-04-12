@@ -100,7 +100,7 @@ T [16]float64 // 4x4 homogeneous transformation matrix
 
 **SLERP (Spherical Linear Interpolation):**
 
-q(t) = sin((1-t)θ)/sin(θ) _ q0 + sin(tθ)/sin(θ) _ q1
+q(t) = sin((1-t)θ)/sin(θ) · q0 + sin(tθ)/sin(θ) · q1
 where cos(θ) = q0 · q1 (dot product)
 This provides smooth rotation interpolation between poses.
 
@@ -218,7 +218,7 @@ Covariance: P (13×13 matrix)
 
 - Linear position prediction
 - Angular position prediction (quaternion integration)
-- q' = q + 0.5 _ dt _ Ω(ω) \* q
+- q' = q + 0.5 · dt · Ω(ω) · q
 - where Ω(ω) is the quaternion rate matrix
 - Velocity predictions (constant velocity model)
 - VX, VY, VZ, WX, WY, WZ remain constant

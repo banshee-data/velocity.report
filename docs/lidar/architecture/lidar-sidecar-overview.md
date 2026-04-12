@@ -613,7 +613,7 @@ PCAP file access is restricted to a designated safe directory to prevent path tr
 **Systemd Integration**:
 The service file automatically creates the safe directory on startup:
 
-```ini
+```text
 ExecStartPre=/bin/mkdir -p /home/david/sensor-data/lidar
 ExecStart=/home/david/code/velocity.report/radar --lidar-pcap-dir /home/david/sensor-data/lidar
 ```
