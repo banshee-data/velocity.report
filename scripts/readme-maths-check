@@ -34,21 +34,34 @@ def unique_preserve_order(keys: list[str]) -> list[str]:
     return out
 
 
+TABLE_ROW_RE = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(\w+)")
+
+
 def extract_maths_keys(path: Path) -> list[str]:
     keys: list[str] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        if not line.startswith("- "):
+        # Bullet list: - `key`
+        if line.startswith("- "):
+            body = line[2:].strip()
+            if not body.startswith("`"):
+                continue
+            end = body.find("`", 1)
+            if end <= 1:
+                continue
+            token = body[1:end].strip()
+            if is_valid_key(token, allow_private=True):
+                keys.append(token)
             continue
-        body = line[2:].strip()
-        if not body.startswith("`"):
-            continue
-        end = body.find("`", 1)
-        if end <= 1:
-            continue
-        token = body[1:end].strip()
-        if is_valid_key(token, allow_private=True):
-            keys.append(token)
+        # Table row: | `key` | type | ... (skip object containers)
+        m = TABLE_ROW_RE.match(line)
+        if m:
+            token = m.group(1).strip()
+            type_str = m.group(2).strip()
+            if type_str.lower() == "object":
+                continue
+            if is_valid_key(token, allow_private=True):
+                keys.append(token)
     keys = unique_preserve_order(keys)
     if not keys:
         raise ValueError(f"{path}: no config paths found")
@@ -127,7 +140,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check config maths leaf paths against docs and tuning JSON"
     )
-    parser.add_argument("--config-md", action="append", default=["config/CONFIG.md"])
+    parser.add_argument("--maths-md", default="config/CONFIG.md")
+    parser.add_argument("--doc-md", action="append", default=["config/CONFIG.md"])
     parser.add_argument("--doc-glob", action="append", default=[])
     parser.add_argument("--require-key", default="version")
     parser.add_argument(

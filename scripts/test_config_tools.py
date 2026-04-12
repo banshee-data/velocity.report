@@ -338,6 +338,29 @@ def test_readme_maths_helpers_and_main(
     maths_md.write_text("- `version`\n- `l3.alpha`\n- `_private`\n", encoding="utf-8")
     assert mod.extract_maths_keys(maths_md) == ["version", "l3.alpha", "_private"]
 
+    # Table extraction: extracts leaf keys, skips object containers
+    table_md = tmp_path / "TABLE.md"
+    table_md.write_text(
+        "| Path | Type | Notes |\n"
+        "| --- | --- | --- |\n"
+        "| `version` | int | Must equal `2`. |\n"
+        "| `l1` | object | Sensor block. |\n"
+        "| `l1.sensor` | string | Sensor id. |\n",
+        encoding="utf-8",
+    )
+    assert mod.extract_maths_keys(table_md) == ["version", "l1.sensor"]
+
+    # Mixed bullets and tables: deduplicates
+    mixed_md = tmp_path / "MIXED.md"
+    mixed_md.write_text(
+        "| Path | Type | Notes |\n"
+        "| --- | --- | --- |\n"
+        "| `version` | int | Schema version. |\n"
+        "\n- `version`\n- `l3.alpha`\n",
+        encoding="utf-8",
+    )
+    assert mod.extract_maths_keys(mixed_md) == ["version", "l3.alpha"]
+
     empty_maths = tmp_path / "EMPTY.maths.md"
     empty_maths.write_text("plain text\n", encoding="utf-8")
     with pytest.raises(ValueError, match="no config paths found"):
