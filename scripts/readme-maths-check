@@ -125,7 +125,7 @@ def compare_key_sets(label: str, source_keys: list[str], maths_keys: list[str]) 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Check README.maths leaf paths against docs and tuning JSON"
+        description="Check config maths leaf paths against docs and tuning JSON"
     )
     parser.add_argument("--config-md", action="append", default=["config/CONFIG.md"])
     parser.add_argument("--doc-glob", action="append", default=[])

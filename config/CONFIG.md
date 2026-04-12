@@ -18,12 +18,12 @@ For a project-wide register of ports, thresholds, and fixed constants, see
 
 The runtime now accepts a versioned nested schema.
 
-- `version` must equal `2`
-- `l1` holds sensor identity and runtime data-source settings
-- `l3`, `l4`, and `l5` each contain:
-  - `engine`
+- `$.version` must equal `2`
+- `$.l1` holds sensor identity and runtime data-source settings
+- `$.l3`, `$.l4`, and `$.l5` each contain:
+  - an engine selector
   - exactly one engine block matching that selector
-- `pipeline` holds cross-cutting runtime settings
+- `$.pipeline` holds cross-cutting runtime settings
 
 The runtime rejects:
 
@@ -39,7 +39,6 @@ The runtime rejects:
 ./velocity-report --config config/tuning.example.json --enable-lidar
 
 make config-validate TUNING_CONFIG=config/tuning.defaults.json
-make config-migrate IN=config/legacy-flat.json OUT=config/tuning.migrated.json
 ```
 
 LiDAR networking remains process-level CLI configuration for now:
@@ -161,11 +160,9 @@ Example:
 
 Runtime updates are limited on this branch to:
 
-- `l3.ema_baseline_v1.*`
-- `l4.dbscan_xy_v1.foreground_dbscan_eps`
-- `l4.dbscan_xy_v1.foreground_min_cluster_points`
-- `l4.dbscan_xy_v1.foreground_max_input_points`
-- `l5.cv_kf_v1.*`
+- L3 engine parameters (`l3.ema_baseline_v1.*`)
+- L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
+- L5 tracker parameters (`l5.cv_kf_v1.*`)
 
 `l1.*`, `pipeline.*`, and engine selectors remain startup-only.
 LiDAR listener/forwarding ports and the UDP receive buffer are process-level
@@ -185,21 +182,21 @@ make check-config-maths
 
 ### Root
 
-| Path       | Type   | Notes                             |
-| ---------- | ------ | --------------------------------- |
-| `version`  | int    | Must equal `2`.                   |
-| `l1`       | object | Sensor identity and data source.  |
-| `l3`       | object | Background/foreground extraction. |
-| `l4`       | object | Clustering and ground filtering.  |
-| `l5`       | object | Tracking.                         |
-| `pipeline` | object | Cross-cutting runtime settings.   |
+| Path       | Type   | Notes                            |
+| ---------- | ------ | -------------------------------- |
+| `version`  | int    | Must equal `2`                   |
+| `l1`       | object | Sensor identity and data source  |
+| `l3`       | object | Background/foreground extraction |
+| `l4`       | object | Clustering and ground filtering  |
+| `l5`       | object | Tracking                         |
+| `pipeline` | object | Cross-cutting runtime settings   |
 
 ### L1
 
-| Path             | Type   | Default           | Notes                                   |
-| ---------------- | ------ | ----------------- | --------------------------------------- |
-| `l1.sensor`      | string | `hesai-pandar40p` | Sensor identifier.                      |
-| `l1.data_source` | string | `live`            | One of `live`, `pcap`, `pcap_analysis`. |
+| Path             | Type   | Default           | Notes                                  |
+| ---------------- | ------ | ----------------- | -------------------------------------- |
+| `l1.sensor`      | string | `hesai-pandar40p` | Sensor identifier                      |
+| `l1.data_source` | string | `live`            | One of `live`, `pcap`, `pcap_analysis` |
 
 ### L3
 
