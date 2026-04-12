@@ -214,20 +214,20 @@ Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay ca
 
 ## 🔑 Key documents
 
-- 📐 [TENETS.md](TENETS.md): the non-negotiable principles: privacy, safety, evidence, local-first
-- 🔭 [VISION.md](docs/VISION.md): where the project is heading
-- 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): system design, data flow, and component relationships
-- 🔢 [MATHS.md](data/maths/MATHS.md): the mathematical foundations for tracking, clustering, and classification
-- 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute, prerequisites, workflow
-- 🧱 [COMMANDS.md](COMMANDS.md): every make target, catalogued
-- 🎨 [DESIGN.md](docs/ui/DESIGN.md): visual design language
+- 📐 [TENETS.md](TENETS.md): the four rules that do not bend: privacy, safety, evidence, local-first
+- 🔭 [VISION.md](docs/VISION.md): where this is going, and what it looks like when it gets there
+- 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): how the parts fit together: sensors, server, database, frontend
+- 🔢 [MATHS.md](data/maths/MATHS.md): the maths behind tracking, clustering, and classification — no handwaving
+- 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute without producing an exciting new class of bug
+- 🧱 [COMMANDS.md](COMMANDS.md): every make target, in one place
+- 🎨 [DESIGN.md](docs/ui/DESIGN.md): how the interface should look and why
 - 🧭 [DECISIONS.md](docs/DECISIONS.md): why things are the way they are
-- 📊 [COVERAGE.md](docs/COVERAGE.md): test coverage tracking across Go, Python, and Web
+- 📊 [COVERAGE.md](docs/COVERAGE.md): what is tested, what is not, and where the gaps live
 - 🪵 [CHANGELOG.md](CHANGELOG.md): what changed and when
 - 📓 [DEVLOG.md](docs/DEVLOG.md): engineering journal
 - 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
 - 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
-- ❓ [QUESTIONS.md](data/QUESTIONS.md): open research questions
+- ❓ [QUESTIONS.md](data/QUESTIONS.md): things we do not know yet
 - 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
 - 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
 
