@@ -58,28 +58,3 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Suppress known-stale references with \`<!-- link-ignore -->\`." >> $GITHUB_STEP_SUMMARY
-
-  md-ascfix:
-    name: "📐 ASCII diagram formatting (ascfix)"
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install ascfix
-        run: cargo install ascfix --version 0.7.1
-
-      - name: Check ASCII diagrams
-        run: ascfix --check --mode diagram -e .md . --summary
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "## 📐 ASCII Diagram Check (ascfix)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ascfix --check --mode diagram -e .md . --list-files >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Fix with \`ascfix --in-place --mode diagram -e .md <file>\`" >> $GITHUB_STEP_SUMMARY
