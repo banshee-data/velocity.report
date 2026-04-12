@@ -213,7 +213,7 @@ seagull also helps.
 
 Read next:
 
-- [docs/lidar/README.md](docs/lidar/README.md): entry point
+- [docs/lidar/LIDAR.md](docs/lidar/LIDAR.md): entry point
   to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md):
   end-to-end LiDAR pipeline and component inventory
