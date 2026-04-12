@@ -8,12 +8,12 @@ cause.
 
 ## What Was Tried
 
-Two PyPI tools were installed and run against the repository:
+Two tools were installed and run against the repository:
 
-| Tool          | Version                                         | Command                                    |
-| ------------- | ----------------------------------------------- | ------------------------------------------ |
-| `ascfix`      | not pinned (installed as `latest` during trial) | `ascfix --mode diagram docs/ ...`          |
-| `ascii-guard` | 2.3.0                                           | `ascii-guard lint .` / `ascii-guard fix .` |
+| Tool          | Version | Ecosystem        | Command                                    |
+| ------------- | ------- | ---------------- | ------------------------------------------ |
+| `ascfix`      | 0.7.1   | Rust (crates.io) | `ascfix --mode diagram docs/ ...`          |
+| `ascii-guard` | 2.3.0   | Python (PyPI)    | `ascii-guard lint .` / `ascii-guard fix .` |
 
 Both tools are general-purpose ASCII art formatters designed for stand-alone,
 single-level Unicode box-drawing structures.
@@ -22,10 +22,23 @@ single-level Unicode box-drawing structures.
 
 ### ascfix
 
-Mangled arrow connectors: `────►` became `────  ►` (trailing space inserted
-before arrowhead). Shifted box contents sideways in multi-column layouts.
-Inserted spurious `↓` characters in flow diagrams. The changes were
-consistently wrong and would have broken every diagram it touched.
+Tested at v0.7.1 (latest as of April 2026; installed via `cargo install ascfix`).
+
+The arrow-connector mangling (`────►` → `────  ►`) reported in earlier
+unversioned trials is **fixed** in 0.7.1. However, two classes of corruption
+remain:
+
+1. **Spurious double-junctions.** Horizontal separator lines `├───...───┤`
+   gain a trailing `│` → `├───...───┤│`. Three instances in `ARCHITECTURE.md`
+   alone.
+2. **Vertical arrow removal.** `▼` characters embedded in box-drawing top
+   borders (e.g. `┌──────▼──────▼──────┐`) are silently deleted, breaking
+   data-flow arrows. The `↓` character is sometimes shifted or dropped.
+   Eleven arrow-related lines changed in `ARCHITECTURE.md`.
+
+Running `ascfix --mode diagram --check .` flags **253 of 253** Markdown files
+as needing changes — every file in the repository. The changes are
+consistently wrong for nested, junction-rich diagrams.
 
 ### ascii-guard
 
