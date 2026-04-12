@@ -2,6 +2,9 @@
 
 Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P integration).
 
+For the canonical ten-layer processing stack and per-block implementation status,
+see [architecture/lidar-data-layer-model.md](architecture/lidar-data-layer-model.md).
+
 ## Folder structure
 
 ### `architecture/`
@@ -73,100 +76,23 @@ Tracking pipeline refactor and upgrade proposals.
 
 ## Quick links
 
-| Topic                   | Document                                                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Layer stack reference   | [architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference](architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference)           |
-| Concept/algorithm chart | [architecture/lidar-data-layer-model.md#segmented-concept-status-chart](architecture/lidar-data-layer-model.md#segmented-concept-status-chart)               |
-| Paper/status mapping    | [architecture/lidar-data-layer-model.md#layered-concept-and-literature-status](architecture/lidar-data-layer-model.md#layered-concept-and-literature-status) |
-| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                                                                             |
-| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                                                                                   |
-| Current status          | [architecture/foreground-tracking.md §Operational Status](architecture/foreground-tracking.md#current-operational-status)                                    |
-| Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                                 |
-| Packet format           | [HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)                                                                                       |
-| **macOS Visualiser**    | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                                                                                         |
-| **API Contracts**       | [../ui/visualiser/api-contracts.md](../ui/visualiser/api-contracts.md)                                                                                       |
-| **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                 |
-| **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                                           |
-| **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |
-| **Track Labelling**     | [../plans/lidar-track-labelling-auto-aware-tuning-plan.md](../plans/lidar-track-labelling-auto-aware-tuning-plan.md)                                         |
+| Topic                   | Document                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Layer stack + status    | [architecture/lidar-data-layer-model.md](architecture/lidar-data-layer-model.md)                             |
+| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                             |
+| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                                   |
+| Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)                 |
+| Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                                       |
+| Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md)           |
+| macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                                         |
+| API contracts           | [../ui/visualiser/api-contracts.md](../ui/visualiser/api-contracts.md)                                       |
+| Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md) |
+| Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                               |
 
 ## Implementation status
 
-### Completed work
+L1–L6 are fully implemented and in production. L7 (scene) is planned. L8–L10
+are structurally present and being formalised.
 
-#### Phases 1–3.7: core pipeline (sep 2025 – jan 2026)
-
-- ✅ UDP packet ingestion (Hesai Pandar40P)
-- ✅ Frame assembly (360° rotations)
-- ✅ Background learning (EMA-based polar grid)
-- ✅ Foreground/background classification with warmup scaling
-- ✅ DBSCAN clustering (world frame)
-- ✅ Kalman tracking (constant velocity model)
-- ✅ Rule-based classification (pedestrian, car, bird, other)
-- ✅ REST API endpoints for tracks/clusters
-- ✅ PCAP analysis tool for batch processing
-- ✅ Analysis run infrastructure (params JSON, run comparison)
-- ✅ Port 2370 foreground streaming
-- ✅ Track visualisation UI (Svelte: MapPane, TimelinePane, TrackList)
-
-#### Phase 3.8: tracking upgrades (jan 2026)
-
-- ✅ Hungarian (Kuhn-Munkres) optimal assignment (`internal/lidar/l5tracks/hungarian.go`)
-- ✅ Height-based ground removal (`internal/lidar/l4perception/ground.go`)
-- ✅ PCA-oriented bounding boxes with temporal smoothing (`internal/lidar/l4perception/obb.go`)
-- ✅ Occlusion coasting: MaxMissesConfirmed=15 (`internal/lidar/l5tracks/tracking.go`)
-- ✅ Debug overlay emission via gRPC (`internal/lidar/debug/collector.go`)
-
-#### Phase 3.9: adaptive regions & sweep system (jan–Feb 2026)
-
-- ✅ Adaptive region segmentation (stable/variable/volatile)
-- ✅ Region persistence & restoration (scene hash-based, skips settling on subsequent runs)
-- ✅ Parameter sweep runner with settle mode: once/per_combo (`internal/lidar/sweep/runner.go`)
-- ✅ Auto-tuner with iterative grid narrowing (`internal/lidar/sweep/auto.go`)
-- ✅ Multi-objective scoring: acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
-- ✅ Sweep dashboard: ECharts: bar charts, heatmaps, results table (`sweep_dashboard.html`)
-- ✅ PARAM_SCHEMA with sane defaults for all numeric parameters
-
-#### Phase 4.0: track labelling & VRLOG replay (feb 2026)
-
-- ✅ VRLOG recording format: binary frame bundles with index for seek (`internal/lidar/l9endpoints/recorder/`)
-- ✅ VRLOG replay in Publisher: `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, `SetVRLogRate`
-- ✅ gRPC control delegation: Pause/Play/Seek/SetRate with VRLOG mode routing
-- ✅ REST playback API: `/api/lidar/playback/*` (status, pause, play, seek, rate)
-- ✅ VRLOG load API: `/api/lidar/vrlog/load` (by run_id or vrlog_path), `/api/lidar/vrlog/stop`
-- ✅ Path traversal protection: validate vrlog_path within allowed directory
-- ✅ Run-track label API: `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
-- ✅ DB migration 000023: `vrlog_path` column for analysis runs
-- ✅ Swift run browser UI: `RunBrowserView`, `RunBrowserState` for loading analysis runs
-- ✅ Swift label API client: `RunTrackLabelAPIClient` for track labelling
-
-See: [`docs/lidar/operations/track-labelling-ui-implementation.md`](operations/track-labelling-ui-implementation.md)
-
-#### macOS visualiser: M0–M7 complete (oct 2025 – feb 2026)
-
-- ✅ M0: Schema + Synthetic; gRPC streaming, synthetic data
-- ✅ M1: Recorder/Replayer; Deterministic playback with seek/pause
-- ✅ M2: Real Point Clouds; Live pipeline via gRPC
-- ✅ M3: Canonical Model; LidarView + gRPC from same source
-- ✅ M3.5: Split Streaming; 96% bandwidth reduction (BG/FG separation)
-- ✅ M4: Tracking Interface; Golden replay tests, deterministic clustering
-- ✅ M5: Algorithm Upgrades; OBB, Hungarian association, occlusion handling
-- ✅ M6: Debug + Labelling; Full debug overlays, label export
-- ✅ M7: Performance Hardening; Buffer pooling (7.1, 7.2, 7.3 complete)
-
-**Test Coverage (February 2026):**
-
-- `internal/lidar/l9endpoints`: 89.7%
-- `internal/lidar/network`: 94.7%
-- `internal/lidar/server`: 75.9%
-- `internal/lidar`: 87.0%
-
-**Resolved Issues (January 2026):**
-
-- ✅ Warmup trails (sensitivity scaling fix)
-- ✅ Port 2370 packet corruption (RawBlockAzimuth preservation)
-- ✅ recFg accumulation during freeze (reset on thaw)
-
-### Planned work
-
-See [BACKLOG.md](../BACKLOG.md) for the project-wide priority list with links to design documents.
+For the complete per-layer and per-algorithm status, see the ten-layer model:
+[architecture/lidar-data-layer-model.md](architecture/lidar-data-layer-model.md).
