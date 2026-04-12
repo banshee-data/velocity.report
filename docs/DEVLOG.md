@@ -1,6 +1,49 @@
 # Development log
 
-## April 8, 2026 - map editor polish, backlog grooming & tooling fixes
+## April 12, 2026 - LiDAR docs restructure, directory indices & STYLE compliance
+
+- Deprecated Python matplotlib chart rendering and updated STYLE.md guidelines (#463).
+- Restructured `docs/lidar/` as a directory index: consolidated LIDAR.md and LIDAR_ARCHITECTURE.md, added layer summary and implementation status tables.
+- Created directory index files for `data/` subdirectories (DATA.md, DATA_STRUCTURES.md, EXPERIMENTS.md, EXPLORE.md, MATHS.md) with README symlinks.
+- Added PLATFORM.md, VISUALISER.md, and DOCS.md as documentation hub indices. Enhanced CONFIG.md with primary consumer references and CI parity check.
+- Expanded coding standards with file naming conventions. Fixed stale references: OPS243-C → OPS243-A, L8/L9 status, monitor → server.
+- Banned compilable code blocks and Author/Authors metadata in design documents. Updated DESIGN.md for chart rendering: matplotlib deprecation, SVG-first architecture, shared abstractions.
+- Stripped version-number references from 16 documentation files to make docs timeless. Improved LiDAR maths documentation clarity across classification and taxonomy files.
+- Integrated ascfix Markdown formatter into CI, then removed it: corrupts hand-crafted ASCII art. Documented findings as an operations note.
+- {dd/fix/dependabot-updates} Tightened pnpm override ranges and added node engines constraint.
+
+## April 11, 2026 - README refresh, dependency fixes & documentation polish
+
+- Graduated completed plans: API endpoint specifications, width-check and update-PR-description skills, and release-prep skill documentation (#460).
+- Refreshed README.md: expanded alpha-software warning with security notes, broadened audience description, simplified developer commands, and added key-documents table.
+- Created MAGIC_NUMBERS.md documenting project-wide numeric constants. Added `check-backtick-paths.py` to detect stale file-path references in Markdown prose.
+- Standardised British English spelling (neighbour, metre) and heading capitalisation across documentation. Fixed link formatting in multiple files.
+- Added width-check skill for advisory prose line-width validation and update-PR-description skill for generating structured PR descriptions from branch diffs.
+- Added release-prep skill documentation. Updated documentation structure guidelines to prefer prose and tables over pre-built code blocks.
+- Added detailed API endpoint specifications for serial configuration and testing. Refactored transit deduplication documentation.
+- {dd/fix/dependabot-updates} Fixed 19 dependabot alerts across Go, npm, and Python ecosystems.
+
+## April 10, 2026 - documentation standardisation & plan graduation
+
+- Graduated 7 plans to symlinks, consolidated fragmented documentation, removed deprecated files, and fixed 23 dead links after the visualiser directory move (#459).
+- Completed the opening-paragraph audit: added narrative introductions to 58 hub docs across LiDAR architecture, platform operations, radar, and UI directories.
+- Created the plan-graduation skill with slim hub-doc template and two-PR graduation rule. Added the docs-release-prep skill.
+- Resolved the lidar-schema-robustness plan as complete. Added status lines to 7 plans, consolidated webserver-tuning into the fixit plan.
+- Added CI docs link health check and refined linting scripts. Auto-built the documentation site when missing from the RPi image.
+- {dd/fix/security-c2-c3} Hardened serial command injection protection and restricted default listen addresses to localhost.
+
+## April 9, 2026 - asset naming, Go report generation & RPi image security
+
+- Implemented versioned asset naming across Go binaries, CI workflows, macOS builds, and pi-gen image output (#457). Binary names now include version and architecture suffixes.
+- Separated the velocity service account from the login user in the RPi image (#458): dedicated system account for the service, restricted sudoers to the login user, fixed SSH key ownership.
+- Added device entries and custom favicon for the docs site RPi Imager catalogue (#456). Expanded the OS list JSON with Raspberry Pi 5, 4, and 3 support.
+- Switched CI Go setup to `go-version-file` for automatic version tracking (#451). Backed out the SonarCloud integration.
+- Added the documentation standardisation audit plan with gate definitions and checklist (#452).
+- Added Vite config symlink for worktree support (#454).
+- {worktree-chart-migration} Built Go-native SVG chart rendering: histogram and time-series packages with Atkinson Hyperlegible font support, LaTeX template rendering, and a PDF report generation subcommand with ZIP output.
+- Began the documentation audit: fixed 8 gate violations, graduated 15 complete plans to symlinks, consolidated the visualiser app directory, reclassified PCAP design docs as plans, and added config cross-references.
+
+## April 8, 2026 - map editor, homepage build & tooling
 
 - Added confirmation modal for mode switching in `MapEditorInteractive` to prevent accidental data loss. Combined angle stepper and remove button into a single row for custom SVG mode.
 - Enhanced save error handling on the site settings page with user-visible feedback on failure.
@@ -12,6 +55,8 @@
 - Refactored `dev-ssh.sh` to cleanly separate SSH options from remote command arguments.
 - Tightened link-checker skip predicate to match only `image/stage-*/files/` paths.
 - Updated `devlog-update` skill procedure: added `git fetch` step, gap-fill logic for incomplete existing entries, and broadened amend rules.
+- Restructured the homepage download section with per-platform SHA-256 hashes, RPi Imager JSON references, and Docker-based ARM64 cross-compilation (#453).
+- Merged the error surface voice audit across Go, JavaScript, Python, and shell scripts (#449).
 
 ## April 7, 2026 - RPi image hardening, web map editor & backlog grooming
 
@@ -58,8 +103,8 @@
 
 ## March 31, 2026 - voice quality audit & error message rewrite
 
-- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [cmd/radar](../cmd/radar) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
-- {copilot/update-error-surface-voice-audit-plan} Rewrote shell script messages and marked the voice audit plan complete.
+- Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [cmd/radar](../cmd/radar) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
+- Rewrote shell script messages and marked the voice audit plan complete.
 - Centralised API error handling in the web frontend for consistent error message display.
 - Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
 - Updated MOTD ASCII art drafts for the RPi login banners.
