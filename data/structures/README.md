@@ -51,6 +51,18 @@ point to the authoritative source files.
 The following data structures would benefit from standalone format specifications.
 Contributions welcome.
 
+- [ ] **Background grid persistence format**: `lidar_bg_snapshot` and
+      `lidar_bg_regions` JSON blobs (variance data, region geometry).
+      Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
+
+- [ ] **Label / evaluation format**: `lidar_labels`, `lidar_scenes`,
+      `lidar_evaluations` table semantics and JSON fields.
+      Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
+
+- [ ] **Sweep configuration format**: JSON schema for parameter sweep definitions
+      (sweep-overnight, velocity-jitter, quality-tuning).
+      Source: [`config/sweep-*.json`](../../config/)
+
 - [ ] **SQLite schema reference**: table-by-table documentation of all 18 tables,
       column semantics, computed columns, triggers, and index rationale.
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
@@ -66,15 +78,3 @@ Contributions welcome.
 - [ ] **PDF report data contract**: inputs consumed by the Python PDF generator
       (API response shapes, CSV exports, chart specifications).
       Source: [`tools/pdf-generator/`](../../tools/pdf-generator/)
-
-- [ ] **Sweep configuration format**: JSON schema for parameter sweep definitions
-      (sweep-overnight, velocity-jitter, quality-tuning).
-      Source: [`config/sweep-*.json`](../../config/)
-
-- [ ] **Background grid persistence format**: `lidar_bg_snapshot` and
-      `lidar_bg_regions` JSON blobs (variance data, region geometry).
-      Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
-
-- [ ] **Label / evaluation format**: `lidar_labels`, `lidar_scenes`,
-      `lidar_evaluations` table semantics and JSON fields.
-      Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
