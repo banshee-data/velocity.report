@@ -27,18 +27,18 @@ This document describes the system architecture, component relationships, data f
 
 ## System Overview
 
-**velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and the PDF generator produces professional reports ready for a city engineer's desk or a planning committee hearing. No cameras, no licence plates, no personally identifiable information — by architecture, not by policy.
+**velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and produces professional reports ready for a city engineer's desk or a planning committee hearing. (PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras, no licence plates, no personally identifiable information — by architecture, not by policy.
 
 The LiDAR pipeline extends the picture. Where radar sees a vehicle's speed through a narrow field of view, LiDAR sees the full scene: every object's shape, trajectory, and classification across the entire road. A car that enters at 25 mph, slows for a pedestrian, and exits at 35 mph is one speed reading to radar but a complete behavioural record to LiDAR. The perception stack — DBSCAN clustering, Kalman-filtered tracking, rule-based classification — runs on the same Raspberry Pi, processing 70,000 points per frame at 10 Hz with no cloud dependency.
 
 The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR provides geometry, object identity, and track continuity. Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
-| Component            | Language            | Purpose                                                            |
-| -------------------- | ------------------- | ------------------------------------------------------------------ |
-| **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
+| Component            | Language            | Purpose                                                                         |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API                         |
 | **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting (deprecated) |
-| **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
-| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay        |
+| **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards                         |
+| **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay                     |
 
 ### Design Principles
 
@@ -1017,7 +1017,7 @@ The perception pipeline is organised as ten layers (L1–L10), each a distinct G
 | L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
 | L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
 | L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
-| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF (deprecated)                      | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF (deprecated)              | ✅ Implemented |
 
 Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
 

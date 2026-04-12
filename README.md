@@ -108,11 +108,11 @@ The team generated comparison reports from both periods and [presented the findi
 
 ## What's Included
 
-| Component            | What it does                                                                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                           |
-| **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md) |
-| **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript. → [web/](web/README.md)                                           |
+| Component            | What it does                                                                                                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Go server**        | Collects radar speed data and LiDAR point clouds, stores both in SQLite, serves the API. → [cmd/](cmd/), [internal/](internal/)                                                                                             |
+| **macOS visualiser** | Native 3D LiDAR point cloud viewer with object tracking, replay, and debug overlays. Apple Silicon. → [tools/visualiser-macos/](tools/visualiser-macos/README.md)                                                           |
+| **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript. → [web/](web/README.md)                                                                                                             |
 | **PDF generator** ⚠️ | Turns speed data into professional reports with charts, statistics, and proper formatting. Python + LaTeX, deprecated: PDF generation is moving into the Go server. → [tools/pdf-generator/](tools/pdf-generator/README.md) |
 
 ## Quick Start
@@ -157,14 +157,15 @@ The web frontend and PDF generator connect over HTTP (:8080). The macOS visualis
 
 ## Development & Contributing
 
-Every contribution needs two commands:
+Every contribution needs three commands:
 
 ```sh
 make format    # auto-fix all formatting (Go, Python, Web)
+make lint      # check formatting, code quality, and repo hygiene
 make test      # run all test suites
 ```
 
-CI checks formatting and runs tests. If `make format` changes nothing and `make test` passes, your PR will too.
+CI checks formatting, lint, and tests. If all three pass, your PR will too.
 
 Start with a small issue and read the nearby code before changing anything broad. It is the fastest route to understanding the project and the slowest route to producing an exciting new class of bug.
 
