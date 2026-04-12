@@ -1,4 +1,4 @@
-# Speed Percentile Aggregation Alignment Plan
+# Speed percentile aggregation alignment plan
 
 - **Status:** Proposed - design reset documented; implementation and contract rework pending
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
@@ -21,7 +21,7 @@ but it is not. The public model
 should not ship both. Percentiles need to be reserved for grouped/report
 aggregates, while tracks use distinct non-percentile speed metrics.
 
-## 2. Metric Inventory
+## 2. Metric inventory
 
 ### 2.1 Percentile and max usage
 
@@ -58,7 +58,7 @@ already points to `p98` as the standard high-end aggregate percentile, and
 `p95` mostly survives as historical migration residue plus non-speed domains
 like `height_p95` or latency `p95`.
 
-## 3. Current State Inventory
+## 3. Current state inventory
 
 | Surface                                                                     | Current state                                                                                                                                     | Status                                    |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -75,7 +75,7 @@ like `height_p95` or latency `p95`.
 | `l6objects/features.go` `TrackFeatures.SpeedP50/P85/P95`                    | ML feature vector fields for training data export. Not stored in DB.                                                                              | ✅ Keep as internal                       |
 | Planning/docs surface                                                       | Plans updated to reflect aggregate-only direction. `MATRIX.md` marks per-track percentiles as design debt.                                        | ✅ Aligned                                |
 
-## 4. Decisions Already Settled
+## 4. Decisions already settled
 
 The high-level direction is now clear and should not be reopened:
 
@@ -99,7 +99,7 @@ The high-level direction is now clear and should not be reopened:
    A canonical aggregate summary cannot be derived from prior bucket
    `p50/p85/p98` outputs.
 
-## 5. Decisions That Still Need Explicit Implementation Choices
+## 5. Decisions that still need explicit implementation choices
 
 | Decision                                                  | Why it matters                                                                                                                                | Recommended resolution                                                                                                                                                                                                                                      |
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,9 +110,9 @@ The high-level direction is now clear and should not be reopened:
 | Canonical aggregate percentile algorithm                  | Aggregate/report percentiles still need one documented implementation path.                                                                   | Standardise on one shared helper for dataset-level `p50/p85/p98`, document the indexing rule in code/tests, and migrate radar/reporting to it.                                                                                                              |
 | `peak` -> `max` migration shape                           | We need to free the word `peak` for a future filtered metric without losing the current raw maximum.                                          | Rename the current raw field to `max_speed_mps` before merge where contracts are still unshipped; if a filtered `peak_speed_mps` is later added to proto/API, give it a new field number and clear docs.                                                    |
 
-## 6. Execution Plan
+## 6. Execution plan
 
-### Phase 0 — Documentation and Decision Reset
+### Phase 0: documentation and decision reset
 
 - [x] Inventory current percentile producers/consumers and the unresolved
       aggregation boundaries.
@@ -124,11 +124,11 @@ The high-level direction is now clear and should not be reopened:
 - [x] Mark earlier proto/API expansion plans for single-track
       aggregate-percentile labels as superseded.
 
-### Phase 1 — Back Out The Wrong Public Contract
+### Phase 1: back out the wrong public contract
 
 - [x] Remove branch-local aggregate-percentile label additions from the
       `Track` proto, generated bindings, visualiser model/UI, and any new
-      REST contract work tied to them — proto uses `max_speed_mps`, no
+      REST contract work tied to them: proto uses `max_speed_mps`, no
       percentile fields. Visualiser model has backward-compat shim for
       historical `PeakSpeedMps` JSON.
 - [x] Stop expanding per-track REST payloads with percentile fields —
@@ -138,12 +138,12 @@ The high-level direction is now clear and should not be reopened:
       done in Go struct fields, proto, REST API JSON, and TypeScript types.
       SQL column name still says `peak_speed_mps` pending migration 000030.
 - [ ] Update tests and docs so aggregate percentile labels appear only on
-      grouped/report surfaces — partially done. Test fixtures in
+      grouped/report surfaces: partially done. Test fixtures in
       `coverage_boost_test.go`, `track_api_test.go`, and
       `webserver_coverage_test.go` still reference `peak_speed_mps` and
       percentile columns because they match the current schema.
 
-### Phase 2 — Track Metric Redesign
+### Phase 2: track metric redesign
 
 - [ ] Define the replacement public track metrics and their names.
 - [ ] Reserve `peak_speed_mps` for the future filtered/context-aware
@@ -153,7 +153,7 @@ The high-level direction is now clear and should not be reopened:
 - [ ] Decide which track-level speed metrics remain public API and which
       stay internal to classification/evaluation.
 
-### Phase 3 — Remove Per-Track Percentile Calculations (migration 000030)
+### Phase 3: remove per-track percentile calculations (migration 000030)
 
 - [x] `InsertTrack()` and `UpdateTrack()` do not write per-track
       percentile columns to `lidar_tracks` (never wired).
@@ -163,7 +163,7 @@ The high-level direction is now clear and should not be reopened:
 - [x] Proto uses `max_speed_mps`.
 - [ ] Run migration 000030 to drop `p50/p85/p95_speed_mps` from
       `lidar_tracks` and `lidar_run_tracks` and rename `peak_speed_mps` →
-      `max_speed_mps` on both tables — see
+      `max_speed_mps` on both tables: see
       [schema simplification plan](schema-simplification-migration-030-plan.md).
 - [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
       (`track_store.go`, `analysis_run.go`).
@@ -173,7 +173,7 @@ The high-level direction is now clear and should not be reopened:
 - [ ] Update `pcap-analyse` `SpeedStatistics` struct to use `p98` instead
       of `p95` for the high-end aggregate percentile.
 
-### Phase 4 — Aggregate-Only Percentile Path
+### Phase 4: aggregate-only percentile path
 
 - [ ] Add a shared Go helper for dataset-level `p50/p85/p98` from a scalar
       speed slice, with one documented indexing rule.
@@ -187,9 +187,9 @@ The high-level direction is now clear and should not be reopened:
 - [ ] Move report consumers to fused transit summaries when they can replace
       source-specific radar/LiDAR rollups.
 
-## 7. Current State Summary (March 2026)
+## 7. Current state summary (March 2026)
 
-### ✅ Already aligned
+### ✅ already aligned
 
 | Surface                        | Status                                       |
 | ------------------------------ | -------------------------------------------- |
@@ -202,20 +202,20 @@ The high-level direction is now clear and should not be reopened:
 | PDF generator                  | P50/P85/P98 aggregate stats, correct usage   |
 | Web charts (`+page.svelte`)    | P50/P85/P98/Max aggregate display            |
 
-### ⚠️ Needs migration 000030 (v0.5.x)
+### ⚠️ needs migration 000030 (v0.5.x)
 
 | Surface                                       | Issue                                                   |
 | --------------------------------------------- | ------------------------------------------------------- |
 | `lidar_tracks` schema                         | `peak_speed_mps` column name, 3 dead percentile columns |
 | `lidar_run_tracks` schema                     | `peak_speed_mps` column name, 3 percentile columns      |
-| `schema.sql`                                  | Matches current schema — needs post-migration update    |
+| `schema.sql`                                  | Matches current schema: needs post-migration update     |
 | `track_store.go` SQL strings                  | `peak_speed_mps` in INSERT/UPDATE/SELECT                |
 | `analysis_run.go` SQL strings                 | `peak_speed_mps` in INSERT/SELECT (no percentile cols)  |
 | Test fixtures (`coverage_boost_test.go` etc.) | Reference `peak_speed_mps` and percentile columns       |
 | `pcap-analyse` `computeSpeedStats()`          | Uses `P95` instead of `P98` for high-end percentile     |
-| `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc. — ambiguous naming                 |
+| `pcap-analyse` `SpeedStatistics` JSON tags    | `p50_speed_mps` etc.: ambiguous naming                  |
 
-### ✅ Correct internal use (keep)
+### ✅ correct internal use (keep)
 
 | Surface                                    | Rationale                                              |
 | ------------------------------------------ | ------------------------------------------------------ |
@@ -223,7 +223,7 @@ The high-level direction is now clear and should not be reopened:
 | `TrackFeatures.SpeedP50/P85/P95`           | ML feature vector fields, not DB columns or API fields |
 | `ClassificationFeatures.P50Speed/P85Speed` | Internal classifier decision inputs, not public API    |
 
-## 8. Acceptance Criteria
+## 8. Acceptance criteria
 
 - No track-level public field, proto property, or UI label reuses aggregate
   percentile labels.

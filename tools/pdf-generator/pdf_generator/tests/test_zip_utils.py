@@ -358,9 +358,9 @@ Test content
             readme = zf.read("README.txt").decode("utf-8")
 
             # Check for key sections
-            self.assertIn("Velocity Report Source Files", readme)
-            self.assertIn("Quick Start (Portable Version)", readme)
-            self.assertIn("Using Custom Fonts", readme)
+            self.assertIn("Velocity report source files", readme)
+            self.assertIn("Quick start (portable version)", readme)
+            self.assertIn("Using custom fonts", readme)
             self.assertIn("pdflatex", readme)
             self.assertIn("xelatex", readme)
             self.assertIn("brailleinstitute.org", readme)

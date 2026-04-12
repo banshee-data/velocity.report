@@ -1,4 +1,4 @@
-# Raspberry Pi Imager
+# Raspberry Pi imager
 
 Active plan: [deploy-rpi-imager-fork-plan.md](../../plans/deploy-rpi-imager-fork-plan.md)
 
@@ -12,17 +12,17 @@ up Python venv with LaTeX dependencies, configuring RS-232 HAT drivers, and
 enabling systemd services. This is a barrier for neighbourhood change-makers
 who are not comfortable with Linux system administration.
 
-## Two-Tier Solution
+## Two-Tier solution
 
 | Tier               | Problem                                                | Tool                                           |
 | ------------------ | ------------------------------------------------------ | ---------------------------------------------- |
 | **Image Building** | Create a complete `.img` with the full stack installed | `pi-gen` or `rpi-image-gen` (CI pipeline)      |
 | **Image Flashing** | End users write image to SD card                       | Fork of `rpi-imager` or custom repository JSON |
 
-A single image ships the full stack — radar, LiDAR (disabled by default),
+A single image ships the full stack: radar, LiDAR (disabled by default),
 PDF generation, and web dashboard.
 
-## Architecture Overview
+## Architecture overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -38,7 +38,7 @@ PDF generation, and web dashboard.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Image Contents
+## Image contents
 
 The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 
@@ -56,7 +56,7 @@ The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**;
 users enable it through the web settings dashboard.
 
-### System Configuration
+### System configuration
 
 - Systemd service at `/etc/systemd/system/velocity-report.service`
 - Data directory `/var/lib/velocity-report/` owned by `velocity` user
@@ -67,9 +67,9 @@ users enable it through the web settings dashboard.
 - LiDAR network interface pre-configured (192.168.100.1/24, manual, disabled)
 - US Wi-Fi regulatory domain fallback
 
-### Update Mechanism
+### Update mechanism
 
-No automatic updates — preserves privacy-first principle (zero unsolicited
+No automatic updates: preserves privacy-first principle (zero unsolicited
 network requests). Users upgrade in-place to preserve their sensor data.
 
 ```bash
@@ -95,7 +95,7 @@ planned but not yet implemented).
 
 Design detail: [deploy-rpi-imager-fork-plan.md § 4.2.2a](../../plans/deploy-rpi-imager-fork-plan.md#422a-update-mechanism)
 
-## Image Building: pi-gen Integration
+## Image building: pi-gen integration
 
 ```
 pi-gen/
@@ -115,7 +115,7 @@ Tool comparison: start with **pi-gen** (proven), plan migration to
 **rpi-image-gen** (faster, declarative, SBOM) once image requirements
 stabilise.
 
-## Image Size Budget
+## Image size budget
 
 | Component                                    | Estimated Size  |
 | -------------------------------------------- | --------------- |
@@ -127,7 +127,7 @@ stabilise.
 | **Total (compressed, before TeX reduction)** | **~600–900 MB** |
 | **Target (after TeX reduction)**             | **~350–500 MB** |
 
-### LaTeX Size Reduction (Chosen: Pre-compiled Templates)
+### LaTeX size reduction (chosen: pre-compiled templates)
 
 Full `texlive-xetex` adds ~800 MB. The chosen approach (D-08, Option B)
 ships only pre-compiled `.fmt` files, specific fonts used by report
@@ -138,9 +138,9 @@ Steps: audit template deps → build minimal TeX tree in
 `/opt/velocity-report/texlive-minimal/` → pre-compile formats → replace
 APT packages → validate output byte-for-byte → measure sizes.
 
-## Image Flashing: Phased Approach
+## Image flashing: phased approach
 
-### Phase 1 (Immediate): Custom Repository JSON
+### Phase 1 (immediate): custom repository JSON
 
 Host a JSON catalogue; users launch stock rpi-imager with `--repo` flag:
 
@@ -151,14 +151,14 @@ rpi-imager --repo https://velocity.report/images/os-list.json
 Zero development cost, immediate value. Single image entry covering the
 full stack. Targets: `pi4-64bit`, `pi400-64bit`, `pi5-64bit`.
 
-### Phase 2 (Future, If Warranted): Fork rpi-imager
+### Phase 2 (future, if warranted): fork rpi-imager
 
 Only pursue if user research shows the custom repo step is a significant
 adoption barrier, or custom first-boot fields are needed (site name, radar
 port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`)
 — different tech stack (C++/Qt), release cadence, and contributor profile.
 
-## What Stays in the Monorepo
+## What stays in the monorepo
 
 | Asset                   | Location                                                                | Reason                                                            |
 | ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -178,11 +178,11 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 - Pin APT package versions; use GitHub Actions artifact attestation
 - `velocity` user runs with minimal privileges (no sudo)
 - Serial port access via udev rules, not blanket permissions
-- No default passwords — rpi-imager first-boot handles user creation
+- No default passwords: rpi-imager first-boot handles user creation
 - **No telemetry, no phone-home, no automatic updates, no cloud endpoints,
   no SSH keys, no PII in the image**
 
-## Key Risks
+## Key risks
 
 | Risk                       | Mitigation                                                |
 | -------------------------- | --------------------------------------------------------- |

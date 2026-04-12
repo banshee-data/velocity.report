@@ -1,4 +1,4 @@
-# Experiment: Velocity-Coherent vs Background-Subtraction Baseline Comparison
+# Experiment: velocity-coherent vs background-subtraction baseline comparison
 
 - **Status:** Proposed
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks

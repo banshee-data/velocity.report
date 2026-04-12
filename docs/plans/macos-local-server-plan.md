@@ -1,4 +1,4 @@
-# macOS Local Server — Plan
+# macOS local server: plan
 
 - **Status:** Proposed
 - **Layers:** L10 Clients (macOS visualiser), Platform (deployment)
@@ -35,17 +35,17 @@ A single VelocityVisualiser.app that:
 
 ## Non-Goals
 
-- Linux/Windows support — macOS only.
-- Running the server as root or a system daemon — user-space only.
-- Auto-updating the Go binary — the binary ships with the app version.
-- Replacing the Raspberry Pi deployment model — this is for macOS
+- Linux/Windows support: macOS only.
+- Running the server as root or a system daemon: user-space only.
+- Auto-updating the Go binary: the binary ships with the app version.
+- Replacing the Raspberry Pi deployment model: this is for macOS
   analyst/developer use, not production sensor ingest.
 
 ---
 
 ## Architecture
 
-### Binary Location
+### Binary location
 
 ```
 VelocityVisualiser.app/
@@ -60,11 +60,11 @@ VelocityVisualiser.app/
     └── Info.plist
 ```
 
-The Go binary sits in `Contents/Resources/` — the standard location for
+The Go binary sits in `Contents/Resources/`: the standard location for
 non-executable resources in a macOS app bundle. The app locates it at
 runtime via `Bundle.main.url(forResource:)`.
 
-### Data Directory
+### Data directory
 
 ```
 ~/Library/Application Support/VelocityVisualiser/
@@ -75,9 +75,9 @@ runtime via `Bundle.main.url(forResource:)`.
 
 This follows macOS conventions and keeps data out of the sandbox container
 (requires the `com.apple.security.files.user-selected.read-write`
-entitlement or a non-sandboxed helper — see Phase 4 trade-offs).
+entitlement or a non-sandboxed helper: see Phase 4 trade-offs).
 
-### Server Process Model
+### Server process model
 
 ```
 ┌─────────────────────────┐
@@ -104,10 +104,10 @@ entitlement or a non-sandboxed helper — see Phase 4 trade-offs).
 
 The Go server runs as a child process of the Swift app. `ServerProcessManager`
 owns the `Process` (née `NSTask`) handle. The process is independent of the
-gRPC connection — the server can be running while the visualiser is not
+gRPC connection: the server can be running while the visualiser is not
 streaming, and vice versa.
 
-### Menu Structure
+### Menu structure
 
 Extend the existing menu bar with a **Server** menu:
 
@@ -139,7 +139,7 @@ The "Connect to Local" shortcut is the common case: ensure the local server
 is running, then connect the gRPC stream to it. One keyboard shortcut for
 the entire workflow.
 
-### Login Item Architecture (Phase 4)
+### Login item architecture (phase 4)
 
 macOS offers two mechanisms for starting at login:
 
@@ -167,7 +167,7 @@ app at login. Evaluate if users report the full-app approach is too heavy.
 
 ---
 
-## Server Manager Integration
+## Server manager integration
 
 The existing [server-manager.md](server-manager.md) plan defines multi-server
 connection management. This plan extends it:
@@ -209,9 +209,9 @@ No entitlement escape is needed if we use the container path.
 
 ---
 
-## Build Pipeline
+## Build pipeline
 
-### Makefile Changes
+### Makefile changes
 
 ```makefile
 # Build Go server for macOS ARM64, output to visualiser resources
@@ -226,7 +226,7 @@ build-mac: build-server-for-mac
 	xcodebuild ...
 ```
 
-### Xcode Project Changes
+### Xcode project changes
 
 - Add `velocity-report-server` to the Xcode project as a resource
   (Copy Bundle Resources build phase).
@@ -234,12 +234,12 @@ build-mac: build-server-for-mac
 - Add a Run Script build phase that copies the Go binary from the build
   output, or reference the Makefile target.
 
-### DMG Changes
+### DMG changes
 
-No change — the Go binary ships inside the `.app` bundle, which is already
+No change: the Go binary ships inside the `.app` bundle, which is already
 packaged into the DMG.
 
-### Version Coupling
+### Version coupling
 
 The Go binary version must match the app version. Both are stamped from the
 same `VERSION` file and git SHA at build time. The app should verify the
@@ -254,18 +254,18 @@ Mismatches log a warning but do not block operation.
 
 ---
 
-## Implementation Plan
+## Implementation plan
 
-### Phase 1 — ServerProcessManager (`S`)
+### Phase 1: serverProcessManager (`S`)
 
-1. Create `App/ServerProcessManager.swift` — `@Observable` class.
-   - `start()` — locate binary via `Bundle.main`, launch `Process` with
+1. Create `App/ServerProcessManager.swift`: `@Observable` class.
+   - `start()`: locate binary via `Bundle.main`, launch `Process` with
      `--listen :50051 --grpc-only --db-path <container>/sensor_data.db
 --disable-radar`.
-   - `stop()` — `SIGTERM` → wait 5s → `SIGKILL`.
-   - `restart()` — stop then start.
-   - `isRunning: Bool` — poll via `Process.isRunning`.
-   - `pid: Int32?`, `exitCode: Int32?` — observable state.
+   - `stop()`: `SIGTERM` → wait 5s → `SIGKILL`.
+   - `restart()`: stop then start.
+   - `isRunning: Bool`: poll via `Process.isRunning`.
+   - `pid: Int32?`, `exitCode: Int32?`: observable state.
    - Capture stdout/stderr to `server.log` via `FileHandle`.
    - Write `server.pid` for external tooling.
 2. Wire `AppState` to hold a `ServerProcessManager` instance.
@@ -274,7 +274,7 @@ Mismatches log a warning but do not block operation.
 **Depends on:** Go binary builds for macOS ARM64 (already exists:
 `make build-radar-mac`).
 
-### Phase 2 — Server Menu (`S`)
+### Phase 2: server menu (`S`)
 
 4. Add `CommandMenu("Server")` to `AppCommands`.
    - Start / Stop / Restart local server.
@@ -284,16 +284,16 @@ Mismatches log a warning but do not block operation.
 5. Keyboard shortcuts: ⌃⌘S (start), ⌃⌘X (stop), ⌃⌘R (restart).
 6. "Connect to Local" shortcut (⇧⌘L): start server if needed, then connect.
 
-### Phase 3 — Build Pipeline (`S`)
+### Phase 3: build pipeline (`S`)
 
 7. Add `build-server-for-mac` Makefile target.
 8. Add Go binary to Xcode project as a bundled resource.
 9. Update `build-mac` to depend on `build-server-for-mac`.
-10. Update `dmg-mac` and `dmg-mac-release` — no structural change needed
+10. Update `dmg-mac` and `dmg-mac-release`: no structural change needed
     since the binary is inside the `.app`.
 11. Add version verification on app launch.
 
-### Phase 4 — Login Item (`S`)
+### Phase 4: login item (`S`)
 
 12. Add `SMAppService.mainApp` registration.
 13. Add "Start at Login" toggle to Server menu.
@@ -305,9 +305,9 @@ Mismatches log a warning but do not block operation.
 15. Clicking the Dock icon or re-launching restores normal window behaviour.
 
 **macOS version requirement:** macOS 13+ (Ventura) for `SMAppService`.
-Current app minimum is macOS 14 — compatible.
+Current app minimum is macOS 14: compatible.
 
-### Phase 5 — Server Manager Integration (`S`)
+### Phase 5: server manager integration (`S`)
 
 16. Extend `ServerConfig` with `isLocal: Bool` flag.
 17. Auto-create "Local" entry on first launch.
@@ -320,7 +320,7 @@ Current app minimum is macOS 14 — compatible.
 
 ---
 
-## Failure Modes
+## Failure modes
 
 | Failure                        | Detection                                             | Recovery                                                               |
 | ------------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -334,7 +334,7 @@ Current app minimum is macOS 14 — compatible.
 
 ---
 
-## Security Considerations
+## Security considerations
 
 - **Binary provenance:** The Go binary is built from the same commit as the
   Swift app. Code-signed together as part of the app bundle.
@@ -348,7 +348,7 @@ Current app minimum is macOS 14 — compatible.
 
 ---
 
-## Open Questions
+## Open questions
 
 1. **gRPC-only mode:** Does the Go server currently support a `--grpc-only`
    flag to skip HTTP API startup? If not, Phase 1 needs this flag added.
@@ -374,7 +374,7 @@ Support/VelocityVisualiser/`. The sandbox container is safer but less
 
 ---
 
-## Test Coverage
+## Test coverage
 
 | Test                                                     | Type        |
 | -------------------------------------------------------- | ----------- |

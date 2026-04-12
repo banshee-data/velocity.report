@@ -1,10 +1,10 @@
-# Go Package Structure
+# Go package structure
 
 Import boundaries, file-size discipline, and structural hygiene for the Go codebase.
 
 Active plan: [go-codebase-structural-hygiene-plan.md](../../plans/go-codebase-structural-hygiene-plan.md)
 
-## Import Boundary: `database/sql`
+## Import boundary: `database/sql`
 
 Non-test imports of `database/sql` are restricted to `internal/db/` and
 `internal/lidar/storage/`. Enforced by `scripts/check-db-sql-imports.sh` in CI.
@@ -20,16 +20,16 @@ The project uses `modernc.org/sqlite` exclusively (v1.44.3, SQLite 3.51.2). The 
 Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The driver name is
 `"sqlite"` everywhere.
 
-## God File Discipline
+## God file discipline
 
 ### Methodology
 
 1. Identify files exceeding 1,000 LOC that mix four or more concerns
-2. Split mechanically by domain — no functional changes, tests pass unchanged
+2. Split mechanically by domain: no functional changes, tests pass unchanged
 3. Target: no file exceeds 600 LOC after splitting (soft ceiling; 5–10% over is acceptable)
 4. Monitor files approaching 700 LOC for future splitting
 
-### Tier 1 — God Files (All Complete)
+### Tier 1: god files (all complete)
 
 | Original file                                   | Was       | Split into                                                                                                                                                                       |
 | ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,7 +41,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 | `internal/lidar/l3grid/background.go`           | 1,672 LOC | `background.go` (352), `background_region.go` (474), `background_manager.go` (860)                                                                                               |
 | `internal/config/tuning.go`                     | 1,303 LOC | `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361)                                                                              |
 
-### Tier 2 — Large Files (700–860 LOC, Watch List)
+### Tier 2: large files (700–860 LOC, watch list)
 
 | File                                              | LOC | Notes                               |
 | ------------------------------------------------- | --- | ----------------------------------- |
@@ -56,7 +56,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 | `internal/lidar/l9endpoints/recorder/recorder.go` | 711 | Recorder                            |
 | `internal/lidar/server/datasource_handlers.go`    | 702 | Data source switching               |
 
-## Direct Dependency Inventory
+## Direct dependency inventory
 
 14 direct Go dependencies after removing the duplicate SQLite driver:
 
@@ -77,7 +77,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 | `modernc.org/sqlite`                   | Production+tests | Canonical SQLite driver     |
 | `tailscale.com`                        | Production/debug | Debug/admin plumbing        |
 
-## Completed Structural Fixes
+## Completed structural fixes
 
 - **Context propagation:** 8 `_ = r` placeholders removed; 10 DB methods accept
   `context.Context` and use `*Context` SQL methods
@@ -85,7 +85,7 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
   private state; exported `CurrentStateSnapshot()`
 - **Single SQLite driver:** `mattn/go-sqlite3` removed, all tests use `modernc.org/sqlite`
 
-## Open Structural Items
+## Open structural items
 
 - **Query boundary:** `internal/api/lidar_labels.go` still contains raw SQL (7 call sites)
   that should move to `internal/lidar/storage/sqlite/label_store.go`

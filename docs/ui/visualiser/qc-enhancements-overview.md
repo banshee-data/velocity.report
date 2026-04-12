@@ -1,16 +1,16 @@
-# QC Enhancements Overview
+# QC enhancements overview
 
 - **Source plan:** `docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md`
 
 Umbrella architecture for seven QC features that share tables, conventions, and dependency ordering.
 
-## Design Principles
+## Design principles
 
 - `run_id` + `track_id` is the canonical identity for all QC artefacts.
 - All QC tables are **append-only** for audit reproducibility.
 - Deterministic replay: the same input frames + scorer version must produce identical quality scores.
 
-## Shared Database Tables
+## Shared database tables
 
 Six new tables are introduced across the QC feature set:
 
@@ -32,19 +32,19 @@ Denormalised columns are added to `lidar_run_tracks`:
 - `unresolved_violation_count` (INTEGER)
 - `review_state` (TEXT: PENDING, BLOCKED, CONFIRMED, OVERRIDDEN)
 
-## Feature Dependency Order
+## Feature dependency order
 
 Features must be implemented in this sequence (each depends on outputs of its predecessors):
 
-1. **Physics Checks** — violation records are inputs to scoring and review queue
-2. **Track Event Timeline** — events feed from violations, scoring, repairs
-3. **Track Quality Scoring** — consumes violations and track observations
-4. **Priority Review Queue** — consumes scores, violations, repair state
-5. **Split/Merge Repair** — consumes queue items, emits events and audit entries
-6. **Trails and Uncertainty** — visual-only, no persistent state, can proceed in parallel
-7. **QC Dashboard and Audit** — aggregates all prior tables for reporting
+1. **Physics Checks**: violation records are inputs to scoring and review queue
+2. **Track Event Timeline**: events feed from violations, scoring, repairs
+3. **Track Quality Scoring**: consumes violations and track observations
+4. **Priority Review Queue**: consumes scores, violations, repair state
+5. **Split/Merge Repair**: consumes queue items, emits events and audit entries
+6. **Trails and Uncertainty**: visual-only, no persistent state, can proceed in parallel
+7. **QC Dashboard and Audit**: aggregates all prior tables for reporting
 
-## Cross-Feature Milestones
+## Cross-Feature milestones
 
 | Milestone | Content                                                      |
 | --------- | ------------------------------------------------------------ |

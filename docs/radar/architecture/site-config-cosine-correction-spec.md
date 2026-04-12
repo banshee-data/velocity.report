@@ -1,18 +1,18 @@
-# Site Configuration with Time-Based Cosine Error Correction
+# Site configuration with time-based cosine error correction
 
 - **Status:** Implemented
 - **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
 
-## Problem Statement
+## Problem statement
 
 Users need the ability to:
 
 1. **Configure cosine error angle correction** - Radar sensors are often not perfectly perpendicular to traffic, introducing cosine error in speed measurements.
 2. **Track configuration changes over time** - When sensors are adjusted or repositioned, different correction angles apply to different time periods.
 3. **Apply corrections retroactively** - Users may realize the angle was wrong after data collection and need to correct historical data without recomputation.
-4. **Visualize configuration coverage** - Identify time periods where data exists but no site configuration is assigned.
+4. **Visualise configuration coverage** - Identify time periods where data exists but no site configuration is assigned.
 5. **Support multiple configurations in reports** - A single report may span multiple days with different sensor angles.
 6. **Support consistent comparisons** - When comparing two different time periods (e.g., "This Week vs Last Week"), ensure that the correct angle correction is applied to each period independently to allow for accurate velocity comparisons.
 
@@ -27,9 +27,9 @@ Users need the ability to:
 - Confidence in data accuracy for decision-making
 - **Accurate Trend Analysis:** When comparing traffic data pre- and post-intervention, or week-over-week, ensures that sensor adjustments don't masquerade as changes in driver behaviour.
 
-## Current System Capabilities
+## Current system capabilities
 
-### Existing Infrastructure
+### Existing infrastructure
 
 **Database:**
 
@@ -49,17 +49,17 @@ Users need the ability to:
 - Statistical summaries (P50, P85, P98).
 - **Report Comparison:** The system supports generating reports that compare two data sets (e.g., "Main Period" t1 vs "Comparison Period" t2).
 
-### Gaps Identified
+### Gaps identified
 
-1. ~~**No time-based configuration tracking**~~ — ✅ Resolved: `site_config_periods` table with SCD Type 6 pattern.
-2. ~~**No correction application**~~ — ✅ Resolved: `buildCosineSpeedExpr()` applies correction at query time.
-3. ~~**No configuration timeline view**~~ — ✅ Resolved: `GET /api/timeline` returns periods and unconfigured gaps.
-4. ~~**No active site concept**~~ — ✅ Resolved: `is_active` flag with single-active trigger constraint.
+1. ~~**No time-based configuration tracking**~~: ✅ Resolved: `site_config_periods` table with SCD Type 6 pattern.
+2. ~~**No correction application**~~: ✅ Resolved: `buildCosineSpeedExpr()` applies correction at query time.
+3. ~~**No configuration timeline view**~~: ✅ Resolved: `GET /api/timeline` returns periods and unconfigured gaps.
+4. ~~**No active site concept**~~: ✅ Resolved: `is_active` flag with single-active trigger constraint.
 5. **Comparison Validity:** Currently, if a sensor is moved/adjusted, comparing data before and after the move is invalid because the cosine error changes.
 
-## Solution Design: Type 6 Slowly Changing Dimension
+## Solution design: type 6 slowly changing dimension
 
-### Architecture Decision
+### Architecture decision
 
 **Pattern Selected:** Type 6 SCD (Hybrid Temporal Tracking)
 
@@ -70,7 +70,7 @@ Users need the ability to:
 - Supports retroactive corrections (compute at read time, not write time).
 - Standard data warehousing pattern with well-understood semantics.
 
-### Proposed Schema
+### Proposed schema
 
 ```sql
 CREATE TABLE site_config_periods (
@@ -94,7 +94,7 @@ CREATE TABLE site_config_periods (
 - **is_active flag** - Marks which period applies to new incoming data (only one can be active).
 - **Snapshot Values**: Store the `cosine_error_angle` directly in the period row.
 
-### Cosine Correction Formula
+### Cosine correction formula
 
 ```
 corrected_speed = measured_speed / cos(angle_in_radians)
@@ -107,15 +107,15 @@ Where:
 
 **Implementation Location:** Query time (SELECT statements), not write time (INSERT statements).
 
-## Proposed Implementation Plan
+## Proposed implementation plan
 
-### 1. Database Schema Changes
+### 1. Database schema changes
 
 - Create `site_config_periods` table.
 - Migrate existing `site.cosine_error_angle` to an initial "forever" period (start=0, end=NULL) to preserve backward compatibility.
 - Add triggers to enforce "Single Active Period" constraint.
 
-### 2. Backend Query Refactoring (Go)
+### 2. Backend query refactoring (Go)
 
 Modify all speed-related queries in `internal/db/` to join with `site_config_periods`:
 
@@ -123,19 +123,19 @@ Modify all speed-related queries in `internal/db/` to join with `site_config_per
 - **Correction:** Return `speed / COS(angle)` as the authoritative speed column.
 - **Fallback:** If no period matches (shouldn't happen if migrated correctly), return raw speed (implying 0° angle).
 
-### 3. API Updates
+### 3. API updates
 
 **New Endpoints:**
 
 - `GET /api/site_config_periods` (List)
 - `POST /api/site_config_periods` (Create/Update)
-- `GET /api/timeline` (Visualize data coverage vs config coverage)
+- `GET /api/timeline` (Visualise data coverage vs config coverage)
 
 **Modified Responses:**
 
 - Stats and Speed APIs should transparently return corrected values.
 
-### 4. Integration with Report Comparison
+### 4. Integration with report comparison
 
 **Challenge:**
 A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, Range B: Jan 14-21). A sensor adjustment might occur on Jan 10.
@@ -154,23 +154,23 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 - **Speed Displays:** Add indicator (e.g., tooltip or icon) showing "Corrected Speed".
 - **Management UI:** Forms to add/edit historical periods.
 
-## What Remains To Be Done
+## What remains to be done
 
 ### Completed (all layers)
 
-- ✅ **Database schema & migration** — `site_config_periods` table created (migration 000013); legacy columns removed from `site` (migration 000014). SCD Type 6 pattern with overlap-prevention triggers and single-active-period constraint.
-- ✅ **Core stats query updates** — `buildCosineSpeedExpr()` in `db.go` joins `site_config_periods` by timestamp range and applies `speed / COS(angle × π/180)` correction. Used in `RadarObjectRollupRange()` for all three data sources.
-- ✅ **API endpoints** — `GET /api/site_config_periods` (list), `POST /api/site_config_periods` (upsert), `GET /api/timeline` (coverage gaps). Report generation passes active period's cosine angle to PDF generator.
-- ✅ **Frontend** — Site edit page shows Configuration Periods card with form (start, end, angle 0–80°, notes, active flag) and period listing table.
-- ✅ **Test coverage** — CRUD tests, cosine correction integration tests, overlap validation, timeline boundary tests, and E2E report generation tests.
+- ✅ **Database schema & migration**: `site_config_periods` table created (migration 000013); legacy columns removed from `site` (migration 000014). SCD Type 6 pattern with overlap-prevention triggers and single-active-period constraint.
+- ✅ **Core stats query updates**: `buildCosineSpeedExpr()` in `db.go` joins `site_config_periods` by timestamp range and applies `speed / COS(angle × π/180)` correction. Used in `RadarObjectRollupRange()` for all three data sources.
+- ✅ **API endpoints**: `GET /api/site_config_periods` (list), `POST /api/site_config_periods` (upsert), `GET /api/timeline` (coverage gaps). Report generation passes active period's cosine angle to PDF generator.
+- ✅ **Frontend**: Site edit page shows Configuration Periods card with form (start, end, angle 0–80°, notes, active flag) and period listing table.
+- ✅ **Test coverage**: CRUD tests, cosine correction integration tests, overlap validation, timeline boundary tests, and E2E report generation tests.
 
 ### Remaining
 
-- [ ] **Delete endpoint** — API supports create and update but not period deletion.
-- [ ] **Report angle annotation** — PDF comparison reports should note when different cosine angles apply to each period.
-- [ ] **Speed limit fields** — `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014 and are not yet in `site_config_periods` (see [speed-limit-schedules spec](speed-limit-schedules.md) for the future design).
+- [ ] **Delete endpoint**: API supports create and update but not period deletion.
+- [ ] **Report angle annotation**: PDF comparison reports should note when different cosine angles apply to each period.
+- [ ] **Speed limit fields**: `speed_limit` and `speed_limit_note` were removed from `site` in migration 000014 and are not yet in `site_config_periods` (see [speed-limit-schedules spec](speed-limit-schedules.md) for the future design).
 
-## Testing Strategy
+## Testing strategy
 
 1.  **Unit Tests:**
     - Test cosine math logic.

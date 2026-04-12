@@ -1,4 +1,4 @@
-# Design: Ghost Trails and Velocity Uncertainty Cones (Feature 5)
+# Design: ghost trails and velocity uncertainty cones (feature 5)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints, L10 Clients
@@ -24,7 +24,7 @@ Improve motion interpretability during review by rendering:
 - Long-horizon trajectory forecasting.
 - Physics-rule enforcement (handled by Feature 7).
 
-## Functional Design
+## Functional design
 
 ### Ghost trails
 
@@ -49,7 +49,7 @@ Improve motion interpretability during review by rendering:
 - Tracks with quality `< 60` get dashed future trail.
 - Hide future trail when speed below threshold (`<0.3 m/s`).
 
-## Data and Compute Path
+## Data and compute path
 
 No persistent DB schema required for MVP.
 
@@ -64,7 +64,7 @@ Optional protocol extension (if needed after profiling):
 
 - Add precomputed uncertainty parameters per track to protobuf `Track`.
 
-## Renderer Design (macOS)
+## Renderer design (macOS)
 
 Files:
 
@@ -94,13 +94,13 @@ Keyboard shortcuts:
 - `H` toggle ghost trails
 - `U` toggle uncertainty cones
 
-## API and Client Contract
+## API and client contract
 
 No new REST endpoints required for MVP.
 
 Add optional fields to local Swift `Track` model if protocol extension is adopted.
 
-## Performance Budget
+## Performance budget
 
 Targets on Apple Silicon baseline:
 
@@ -108,35 +108,35 @@ Targets on Apple Silicon baseline:
 - ghost + uncertainty rendering adds <=3 ms/frame GPU time,
 - no more than +150 MB transient memory overhead.
 
-## Task Checklist
+## Task checklist
 
-### Renderer and Models
+### Renderer and models
 
 - [ ] Add ghost trail buffers and draw pass in `MetalRenderer.swift`
 - [ ] Add uncertainty cone mesh generation and draw pass
 - [ ] Add fallback covariance handling when data is missing
 - [ ] Add selected-track emphasis and low-quality styling
 
-### UI and State
+### UI and state
 
 - [ ] Add toggles/sliders to `OverlayTogglesView` in `ContentView.swift`
 - [ ] Add state fields in `AppState.swift` for horizons and cone scale
 - [ ] Add keybindings for ghost/uncertainty toggles
 - [ ] Persist settings between sessions
 
-### Protocol and Mapping (Optional)
+### Protocol and mapping (optional)
 
 - [ ] Evaluate need for protobuf `Track` extension
 - [ ] If needed, update `proto/velocity_visualiser/v1/visualiser.proto`
 - [ ] Update Go adapter mapping and Swift decoder models
 
-### Web Parity
+### Web parity
 
 - [ ] Add simplified ghost-trail rendering mode in `MapPane.svelte`
 - [ ] Add uncertainty glyph rendering fallback in canvas mode
 - [ ] Add UI toggles for parity
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests for covariance -> cone parameter conversion
 - [ ] Snapshot tests for selected and non-selected trail styling
@@ -148,14 +148,14 @@ Targets on Apple Silicon baseline:
 - [ ] Add operator guidance for interpreting uncertainty cones
 - [ ] Add troubleshooting notes for visual clutter/performance tradeoffs
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Reviewers can toggle trails and uncertainty independently without stutter.
 - High-uncertainty tracks are visually obvious in dense scenes.
 - Selected-track motion history/future is interpretable within one interaction.
 - Performance targets are met on baseline hardware.
 
-## Open Questions
+## Open questions
 
 - Should future trajectory use CV only or motion-model-specific extrapolation (CV/CA)?
 - Should uncertainty cones be clipped by map plane for clearer 2D readability?

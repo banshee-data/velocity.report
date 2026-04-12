@@ -1,12 +1,12 @@
-# Experiment: L5 Tracking Noise Parameter Sweep
+# Experiment: L5 tracking noise parameter sweep
 
 - **Status:** Proposed
 - **Layers:** L5 Tracks
 
 ## Hypothesis
 
-The three provisional Kalman filter noise parameters — `process_noise_pos`,
-`process_noise_vel`, and `measurement_noise` — control the trade-off between
+The three provisional Kalman filter noise parameters: `process_noise_pos`,
+`process_noise_vel`, and `measurement_noise`: control the trade-off between
 track smoothness and responsiveness. Values tuned on kirk0 may not generalise
 to sites with different speed distributions, turning vehicles, or sensor noise
 characteristics. Sweeping each will quantify sensitivity and identify robust
@@ -26,7 +26,7 @@ The L5 CV Kalman tracker uses three noise parameters:
 `measurement_noise` has a theoretical derivation path (sensor spec) but was
 tuned empirically on kirk0. All three are classified as provisional.
 
-See [config/README.maths.md §4](../../../config/README.maths.md) for the
+See [config/CONFIG.md §4](../../../config/CONFIG.md#config-to-maths-cross-reference) for the
 mathematical context.
 
 ## Method
@@ -97,7 +97,7 @@ Can run in parallel with L3 and L4 sweeps.
 
 ## References
 
-- [config/README.maths.md §4 — Tracking](../../../config/README.maths.md)
+- [config/CONFIG.md §4: tracking](../../../config/CONFIG.md#config-to-maths-cross-reference)
 - [L3 background settling sweep](l3-background-settling-sweep.md)
-- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md) — evidence classification
-- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure
+- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
+- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

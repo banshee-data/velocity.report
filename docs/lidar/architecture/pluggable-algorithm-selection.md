@@ -1,19 +1,19 @@
-# Pluggable Algorithm Selection
+# Pluggable algorithm selection
 
 Active plan: [lidar-architecture-dynamic-algorithm-selection-plan.md](../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md)
 
 **Status:** Branch-history design specification (not active on `main` runtime)
 
-`ForegroundExtractor` interface design and its implementations — background-subtraction, velocity-coherent, and hybrid — enabling runtime algorithm selection for the LiDAR foreground extraction stage.
+`ForegroundExtractor` interface design and its implementations: background-subtraction, velocity-coherent, and hybrid; enabling runtime algorithm selection for the LiDAR foreground extraction stage.
 
 ## Problem
 
 The background-subtraction algorithm (`ProcessFramePolarWithMask`) produces
-"foreground trails" — persistent false-positive foreground points behind
+"foreground trails": persistent false-positive foreground points behind
 vehicles after they pass. Root cause: EMA-based background model takes time
 to reconverge after freeze expiry.
 
-## ForegroundExtractor Interface
+## ForegroundExtractor interface
 
 ```go
 type ForegroundExtractor interface {
@@ -32,7 +32,7 @@ type ForegroundExtractor interface {
 Returns `[]bool` foreground mask (same length as input points) preserving
 index correspondence for downstream processing.
 
-## Extractor Implementations
+## Extractor implementations
 
 ### BackgroundSubtractorExtractor
 
@@ -53,11 +53,11 @@ correspondence:
 
 Runs multiple extractors in parallel, merges results via configurable mode:
 
-- `union` — OR merge (max detection coverage)
-- `intersection` — AND merge (max precision)
-- `primary` — use first extractor, collect metrics from others
+- `union`: OR merge (max detection coverage)
+- `intersection`: AND merge (max precision)
+- `primary`: use first extractor, collect metrics from others
 
-## Pipeline Integration
+## Pipeline integration
 
 `TrackingPipeline` wraps `TrackingPipelineConfig` with dynamic algorithm
 selection. New fields on config:
@@ -73,17 +73,17 @@ Frame callback delegates to extractor when present; all downstream logic
 
 ## Runtime API
 
-- `GET /api/lidar/algorithm` — returns current mode
-- `POST /api/lidar/algorithm` — switches algorithm at runtime
+- `GET /api/lidar/algorithm`: returns current mode
+- `POST /api/lidar/algorithm`: switches algorithm at runtime
 
-## Evaluation Harness
+## Evaluation harness
 
 Runs multiple extractors on the same frames, collects per-frame comparison
 metrics. Optional `GroundTruthProvider` for precision/recall computation.
 Results stored in `lidar_algorithm_runs` and
 `lidar_algorithm_frame_results` tables.
 
-## What Landed on main vs Pending
+## What landed on main vs pending
 
 **Already on main:** `isNilInterface()`, thaw grace period,
 locked baseline fields, `AnalysisRunManager`, track quality metrics,
@@ -95,7 +95,7 @@ estimation), hybrid extractor, evaluation harness, `TrackingPipeline`
 wrapper, algorithm API, `algo-compare` CLI tool, migration for comparison
 tables.
 
-## Implementation Phases
+## Implementation phases
 
 | Phase | Scope                               | Risk   |
 | ----- | ----------------------------------- | ------ |

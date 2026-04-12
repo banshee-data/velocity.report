@@ -1,11 +1,11 @@
-# Experiment: L3 Background Settling Parameter Sweep
+# Experiment: L3 background settling parameter sweep
 
 - **Status:** Proposed
 - **Layers:** L3 Grid
 
 ## Hypothesis
 
-The four provisional L3 background settling parameters — `closeness_multiplier`,
+The four provisional L3 background settling parameters: `closeness_multiplier`,
 `safety_margin_meters`, `noise_relative`, and `neighbor_confirmation_count` —
 were tuned on kirk0 only. Sweeping each across ≥ 3 sites will either confirm
 the current defaults are robust or reveal site-specific sensitivity that
@@ -18,7 +18,7 @@ background using an EMA baseline with configurable thresholds. The current
 defaults were set during initial kirk0 development. The pipeline review (Q7)
 classified these keys as "provisional" because they lack multi-site evidence.
 
-See [config/README.maths.md §1](../../../config/README.maths.md) for the
+See [config/CONFIG.md §1](../../../config/CONFIG.md#config-to-maths-cross-reference) for the
 mathematical rationale behind each key.
 
 ## Method
@@ -98,7 +98,7 @@ kirk0-only as a dry run to validate the methodology.
 
 ## References
 
-- [config/README.maths.md §1 — Background Settling](../../../config/README.maths.md)
-- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md) — evidence classification
-- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure
-- [Test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md) — five-site PCAP corpus
+- [config/CONFIG.md §1: background settling](../../../config/CONFIG.md#config-to-maths-cross-reference)
+- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
+- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure
+- [Test corpus plan](../../../docs/plans/lidar-test-corpus-plan.md): five-site PCAP corpus

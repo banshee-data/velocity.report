@@ -28,17 +28,17 @@ python3 scripts/check-backtick-paths.py --report 2>&1
 ```
 
 Collect every finding into a working list. If both checkers report clean,
-print "All links OK — nothing to fix." and stop.
+print "All links OK: nothing to fix." and stop.
 
 ### 2. Triage each finding
 
 For every item apply this decision tree in order:
 
-**a. Placeholder or template token** — skip silently.
+**a. Placeholder or template token**: skip silently.
 Examples: entries like `linked-plan-name.md` or `other-plan.md`
 in `docs/plans/TEMPLATE.md`. These are intentional scaffolding.
 
-**b. The file moved — unique match exists** — fix automatically.
+**b. The file moved: unique match exists**; fix automatically.
 Search the repo for the bare filename:
 
 ```bash
@@ -51,12 +51,12 @@ find . -name "<filename>" \
 If exactly one result is found, compute the correct relative or repo-root path
 and apply the edit. Record it in the **Fixed** list.
 
-**c. Multiple candidates exist** — surface to operator (see §3).
+**c. Multiple candidates exist**: surface to operator (see §3).
 
-**d. No match anywhere in the repo** — surface to operator (see §3).
+**d. No match anywhere in the repo**: surface to operator (see §3).
 
 **e. The reference is to a file that should exist but has not been created yet**
-(e.g. a plan references a future schema file) — surface to operator as
+(e.g. a plan references a future schema file): surface to operator as
 "referenced file not yet created".
 
 ### 3. Surface ambiguous cases

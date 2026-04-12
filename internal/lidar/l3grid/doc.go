@@ -7,6 +7,6 @@
 // Dependency rule: L3 may depend on L1-L2, but never on L4+.
 // No SQL/database code is allowed in this package.
 //
-// See docs/lidar/architecture/lidar-data-layer-model.md for the full
+// See docs/lidar/architecture/LIDAR_ARCHITECTURE.md for the full
 // layer model.
 package l3grid

@@ -1,6 +1,6 @@
-# Motion Capture Architecture
+# Motion capture architecture
 
-Future architecture specification for moving LiDAR sensors (vehicle-mounted, bike-mounted, robot, drone). Not in current release — current traffic monitoring uses a simpler 3DOF/2D+velocity model.
+Future architecture specification for moving LiDAR sensors (vehicle-mounted, bike-mounted, robot, drone). Not in current release: current traffic monitoring uses a simpler 3DOF/2D+velocity model.
 
 ## Source
 
@@ -8,7 +8,7 @@ Future architecture specification for moving LiDAR sensors (vehicle-mounted, bik
 - Status: Future Work (not in current release)
 - Layers: L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 
-## Scope Notice
+## Scope notice
 
 Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 
@@ -19,7 +19,7 @@ Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 
 See `docs/lidar/architecture/foreground-tracking.md` for the implemented tracking architecture.
 
-## When Motion Capture Is Needed
+## When motion capture is needed
 
 | Scenario              | Why 7DOF is Needed                                           |
 | --------------------- | ------------------------------------------------------------ |
@@ -30,7 +30,7 @@ See `docs/lidar/architecture/foreground-tracking.md` for the implemented trackin
 
 For static roadside sensors, the current 2D+velocity model is adequate.
 
-## 7DOF Pose Representation
+## 7DOF pose representation
 
 7DOF = 3 position (x, y, z) + 4 orientation (unit quaternion qw, qx, qy, qz).
 
@@ -48,7 +48,7 @@ type Pose7DOF struct {
 }
 ```
 
-## Ego-Motion Compensation
+## Ego-Motion compensation
 
 When the sensor moves, measured velocities include both object and sensor motion: `v_measured = v_object + v_sensor`.
 
@@ -60,7 +60,7 @@ When the sensor moves, measured velocities include both object and sensor motion
 
 Requires: pose at each measurement time, pose velocity, ≥10 Hz pose estimates (preferably 100 Hz), pose interpolation.
 
-## 3D Tracking with Orientation
+## 3D tracking with orientation
 
 **13-State Kalman Filter:**
 
@@ -73,7 +73,7 @@ Quaternion prediction via integration: `q' = q + 0.5 · dt · Ω(ω) · q`, foll
 
 Orientation estimation methods (in order of complexity): from velocity (`atan2`), from point cloud PCA, from Kalman tracking history.
 
-## Data Structures
+## Data structures
 
 **Pose-aware cluster:** adds `PoseID` (NOT NULL for moving sensors) and sensor-frame coordinates alongside world coordinates.
 
@@ -81,7 +81,7 @@ Orientation estimation methods (in order of complexity): from velocity (`atan2`)
 
 **3D track observation:** adds pose reference, 3×3 position covariance, 4×4 quaternion covariance.
 
-## Implementation Phases
+## Implementation phases
 
 | Phase | Goal                            | Effort    |
 | ----- | ------------------------------- | --------- |
@@ -93,7 +93,7 @@ Orientation estimation methods (in order of complexity): from velocity (`atan2`)
 
 Total: 14–19 weeks (3.5–5 months). Sequential dependencies: each phase requires the previous.
 
-## External Dependencies
+## External dependencies
 
 Pose estimation sources: GPS+IMU (most common, 10–100 Hz), visual odometry (30–60 Hz), wheel odometry+IMU (100+ Hz), SLAM (LiDAR-based, most expensive).
 
@@ -105,6 +105,6 @@ type PoseProvider interface {
 }
 ```
 
-## Migration Path
+## Migration path
 
 No data migration needed between phases. Static pose references work with motion code. NULL `pose_id` handled for legacy data. 7DOF backward-compatible with 4×4 matrices. 2D and 3D tracks can coexist.

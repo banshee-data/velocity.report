@@ -1,4 +1,4 @@
-# LiDAR Background Grid — Standards Comparison
+# LiDAR background grid: standards comparison
 
 Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK, PCD) against the current polar range-image model, with a recommended export strategy that preserves runtime simplicity while enabling standards-based tooling interchange.
 
@@ -8,7 +8,7 @@ Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK
 - The grid is tuned for single-sensor, streaming foreground/background separation with EMA updates, neighbour confirmation, and runtime-adjustable thresholds.
 - Question: should we align the background geometry with external standards (e.g., SLAM/LidarView ecosystems), and what are the tradeoffs?
 
-## External Representations
+## External representations
 
 | Standard                                    | Geometry form                                         | Notes                                                                                   | Pros                                                                                             | Cons                                                                                                                                             |
 | ------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -25,7 +25,7 @@ Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK
 - **Export channels:** Extend `exportFrameToASC` to optionally emit VTK XML (`.vti`/`.vts`) alongside ASC so LidarView/ParaView/CloudCompare can ingest without changing runtime storage. Keep runtime grid unchanged.
 - **Live tap (optional):** Serve a lightweight HTTP/WS stream of periodic VTK XML frames (or VTP polydata derived from foreground points) so external viewers can subscribe for live introspection. This is additive and avoids touching the hot path.
 
-## Fit Analysis vs Current Grid
+## Fit analysis vs current grid
 
 - **Latency & simplicity:** Our polar grid updates in-place per frame with O(rings × azBins) memory and no pose dependence. Occupancy/TSDF require pose fusion and 3D neighborhoods; costlier for Raspberry Pi and unnecessary for single-sensor foreground masking.
 - **Semantics:** Background cells carry **mean + spread + recency + freeze**—richer than binary occupancy but specialised for background subtraction. Standard grids would discard spread/freeze unless extended with custom fields.

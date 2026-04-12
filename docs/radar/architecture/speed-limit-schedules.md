@@ -1,4 +1,4 @@
-# Time-Based Speed Limit Schedules
+# Time-Based speed limit schedules
 
 - **Status:** Design Specification (Not Implemented)
 - **Issue:** Time-based speed limit schedules for sites
@@ -12,7 +12,7 @@ Enable sites to define multiple speed limits that vary by time of day and day of
 
 ## Problem
 
-### Problem Statement
+### Problem statement
 
 Traffic monitoring sites often have speed limits that change throughout the day:
 
@@ -27,7 +27,7 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 - Generate context-aware reports that account for the active speed limit at measurement time
 - Provide meaningful statistics (e.g., "85% of vehicles exceeded the school zone limit during active hours")
 
-### User Benefits
+### User benefits
 
 - **Accurate Violation Tracking:** Know which vehicles were speeding based on the speed limit in effect at that specific time
 - **School Zone Compliance:** Monitor whether drivers are respecting reduced school zone hours
@@ -35,7 +35,7 @@ Currently, velocity.report sites can only specify a single static speed limit, m
 - **Flexible Reporting:** Generate reports that show compliance with time-appropriate speed limits
 - **Multiple Time Blocks:** Support complex schedules with different limits for morning/afternoon, weekdays/weekends, etc.
 
-### Real-World Use Cases
+### Real-World use cases
 
 **Use Case 1: School Zone Monitoring**
 
@@ -58,7 +58,7 @@ _Schedule Configuration:_
 - Saturday-Sunday, 00:00-23:59: 20 mph
 - Monday-Friday: 25 mph (default site speed limit)
 
-_Value:_ Neighborhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
+_Value:_ Neighbourhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
 
 **Use Case 3: Multi-Period School Zone**
 
@@ -74,11 +74,11 @@ _Schedule Configuration:_
 
 _Value:_ Detailed analysis of compliance during different school-related time periods.
 
-## Technical Architecture
+## Technical architecture
 
-### Database Schema
+### Database schema
 
-**Table:** `speed_limit_schedule` — columns: `id` (autoincrement PK), `site_id` (FK to `site` with cascade delete), `day_of_week` (1=Monday…7=Sunday), `start_time`/`end_time` (HH:MM text), `speed_limit` (integer), `created_at`/`updated_at` (Unix epoch, server-set). Indexed on `site_id` for fast retrieval. An `AFTER UPDATE` trigger maintains `updated_at` automatically. Target: `internal/db/migrations/`.
+**Table:** `speed_limit_schedule`; columns: `id` (autoincrement PK), `site_id` (FK to `site` with cascade delete), `day_of_week` (1=Monday…7=Sunday), `start_time`/`end_time` (HH:MM text), `speed_limit` (integer), `created_at`/`updated_at` (Unix epoch, server-set). Indexed on `site_id` for fast retrieval. An `AFTER UPDATE` trigger maintains `updated_at` automatically. Target: `internal/db/migrations/`.
 
 **Design Notes:**
 
@@ -88,9 +88,9 @@ _Value:_ Detailed analysis of compliance during different school-related time pe
 - **Timestamps:** Unix epoch (seconds since 1970) for consistency with other tables
 - **Indexing:** Fast retrieval of all schedules for a site (common query pattern)
 
-**Data Model:** `SpeedLimitSchedule` struct in `internal/db/` — mirrors the table columns with JSON tags. Fields: `ID`, `SiteID`, `DayOfWeek` (1–7), `StartTime`/`EndTime` (HH:MM strings), `SpeedLimit` (int), `CreatedAt`/`UpdatedAt` (`time.Time`).
+**Data Model:** `SpeedLimitSchedule` struct in `internal/db/`; mirrors the table columns with JSON tags. Fields: `ID`, `SiteID`, `DayOfWeek` (1–7), `StartTime`/`EndTime` (HH:MM strings), `SpeedLimit` (int), `CreatedAt`/`UpdatedAt` (`time.Time`).
 
-### Database Layer (Go)
+### Database layer (Go)
 
 **Location:** `internal/db/speed_limit_schedule.go`
 
@@ -103,7 +103,7 @@ _Value:_ Detailed analysis of compliance during different school-related time pe
 - Create operation sets the ID on the schedule object after insertion
 - Update operation validates that the schedule exists (returns error if not found)
 
-### HTTP API Endpoints
+### HTTP API endpoints
 
 **Base Path:** `/api/speed_limit_schedules`
 
@@ -136,9 +136,9 @@ DELETE /api/speed_limit_schedules/site/{siteID}  - Delete all schedules for site
 - `end_time`: Required, must be in HH:MM format
 - `speed_limit`: Required, must be > 0
 
-**Error Responses:** Standard `{"error": "<message>"}` JSON envelope — 400 for validation failures (e.g., day_of_week out of range), 404 for missing schedule, 500 for database errors with detail text.
+**Error Responses:** Standard `{"error": "<message>"}` JSON envelope; 400 for validation failures (e.g., day_of_week out of range), 404 for missing schedule, 500 for database errors with detail text.
 
-### Web UI Components
+### Web UI components
 
 **Primary Component:** `web/src/lib/components/SpeedLimitScheduleEditor.svelte`
 
@@ -189,7 +189,7 @@ When the user clicks "Save" on the site editor page:
 
 **API Client:** `web/src/lib/api.ts`
 
-`SpeedLimitSchedule` interface in `web/src/lib/api.ts` mirrors the JSON shape (id, site_id, day_of_week, start_time, end_time, speed_limit, created_at, updated_at — all typed as number or string). Six async API functions provide full CRUD: `getForSite`, `get`, `create`, `update`, `delete`, and `deleteAllForSite`.
+`SpeedLimitSchedule` interface in `web/src/lib/api.ts` mirrors the JSON shape (id, site_id, day_of_week, start_time, end_time, speed_limit, created_at, updated_at: all typed as number or string). Six async API functions provide full CRUD: `getForSite`, `get`, `create`, `update`, `delete`, and `deleteAllForSite`.
 
 ### Testing
 
@@ -215,9 +215,9 @@ Tests follow the standard pattern: create a test DB + site, then exercise each C
 
 Tests mock the API endpoints and verify TypeScript interfaces match expected responses.
 
-## Data Flow Diagrams
+## Data flow diagrams
 
-### Creating a Schedule
+### Creating a schedule
 
 ```
 User (Site Editor Page)
@@ -261,7 +261,7 @@ SpeedLimitScheduleEditor
 User sees new schedule with ID
 ```
 
-### Loading Site Schedules
+### Loading site schedules
 
 ```
 User navigates to /site/123
@@ -299,9 +299,9 @@ SpeedLimitScheduleEditor
 User sees all configured schedules
 ```
 
-## User Workflow
+## User workflow
 
-### Configuring School Zone Schedules
+### Configuring school zone schedules
 
 **Scenario:** User wants to set up 15 mph limit during school hours
 
@@ -326,9 +326,9 @@ User sees all configured schedules
 
 **Result:** Site now has time-based speed limits that can be used for reporting and analysis
 
-## Future Enhancements
+## Future enhancements
 
-### Potential Evolution Areas
+### Potential evolution areas
 
 **1. Schedule Resolution Logic**
 
@@ -360,7 +360,7 @@ _Enhancement:_ Visual weekly calendar view:
 
 - 7 columns (days of week)
 - 24 rows (hours of day)
-- Color-coded speed limit blocks
+- Colour-coded speed limit blocks
 - Hover for details
 - Drag-to-create new blocks
 
@@ -440,9 +440,9 @@ _Enhancement:_ Multi-zone support:
 - Tag radar sensors with zone ID
 - Zone-specific reporting
 
-## Design Decisions and Rationale
+## Design decisions and rationale
 
-### Why Day-Based (Not Date-Based) Schedules?
+### Why day-based (not date-based) schedules?
 
 **Decision:** Store day of week (0-6) instead of specific dates
 
@@ -456,7 +456,7 @@ _Enhancement:_ Multi-zone support:
 
 **Tradeoff:** Cannot handle one-time events or date-specific limits (addressed in future enhancements)
 
-### Why HH:MM format (not Unix timestamps)?
+### Why HH:MM format (not unix timestamps)?
 
 **Decision:** Store times as "06:00" strings instead of absolute timestamps
 
@@ -470,7 +470,7 @@ _Enhancement:_ Multi-zone support:
 
 **Tradeoff:** Requires parsing for time arithmetic (minor, well-solved problem)
 
-### Why No Overlap Validation?
+### Why no overlap validation?
 
 **Decision:** Allow overlapping schedules without blocking saves
 
@@ -483,7 +483,7 @@ _Enhancement:_ Multi-zone support:
 
 **Tradeoff:** Users could create conflicting schedules (addressed in future enhancements)
 
-### Why Server-Side Timestamps?
+### Why server-side timestamps?
 
 **Decision:** Use `DEFAULT (STRFTIME('%s', 'now'))` instead of client-provided times
 
@@ -494,7 +494,7 @@ _Enhancement:_ Multi-zone support:
 - Consistent across all records
 - Simpler client code (no need to format timestamps)
 
-### Why Cascade Delete?
+### Why cascade delete?
 
 **Decision:** `ON DELETE CASCADE` for site_id foreign key
 
@@ -505,7 +505,7 @@ _Enhancement:_ Multi-zone support:
 - Simpler site deletion workflow
 - Matches user expectation (deleting site deletes everything about it)
 
-### Why 5-Minute Time Increments?
+### Why 5-Minute time increments?
 
 **Decision:** Time selectors use 00:00, 00:05, 00:10, ..., 23:55
 
@@ -519,7 +519,7 @@ _Enhancement:_ Multi-zone support:
 
 **Tradeoff:** Cannot represent 6:07am precisely (not a real limitation)
 
-### Why Separate API for Schedules (Not Nested in Site)?
+### Why separate API for schedules (not nested in site)?
 
 **Decision:** `/api/speed_limit_schedules` instead of `/api/sites/123/schedules`
 
@@ -531,9 +531,9 @@ _Enhancement:_ Multi-zone support:
 - Easier to add bulk operations later
 - Matches existing pattern (site_reports is also separate)
 
-## Privacy and Security
+## Privacy and security
 
-### Privacy Considerations
+### Privacy considerations
 
 **No PII Collection:**
 
@@ -547,7 +547,7 @@ _Enhancement:_ Multi-zone support:
 - No transmission to external services
 - User maintains full data control
 
-### Security Considerations
+### Security considerations
 
 **Input Validation:**
 
@@ -558,7 +558,7 @@ _Enhancement:_ Multi-zone support:
 
 **SQL Injection Protection:**
 
-- All queries use parameterized statements (`?` placeholders)
+- All queries use parameterised statements (`?` placeholders)
 - No string concatenation for SQL construction
 - Foreign key constraints prevent invalid references
 
@@ -567,9 +567,9 @@ _Enhancement:_ Multi-zone support:
 - Currently no authentication (local-only deployment model)
 - Future: Role-based access if multi-user support added
 
-## Performance Considerations
+## Performance considerations
 
-### Query Optimisation
+### Query optimisation
 
 **Index Strategy:**
 
@@ -583,7 +583,7 @@ _Enhancement:_ Multi-zone support:
 - Schedule creation: <1ms
 - Bulk site deletion with cascade: <10ms for 100 schedules
 
-### UI Performance
+### UI performance
 
 **Component Efficiency:**
 
@@ -608,9 +608,9 @@ _Enhancement:_ Multi-zone support:
 - Tested with: 100 schedules per site (no performance issues)
 - SQLite can handle thousands of schedules easily
 
-## Migration and Deployment
+## Migration and deployment
 
-### Database Migration
+### Database migration
 
 **Migration Status:** Schema already in `internal/db/schema.sql`
 
@@ -634,7 +634,7 @@ _Enhancement:_ Multi-zone support:
 - Schedules are optional enhancement
 - No breaking changes to existing API endpoints
 
-### Rollback Plan
+### Rollback plan
 
 If issues arise after deployment:
 
@@ -643,9 +643,9 @@ If issues arise after deployment:
 3. **Database:** Table can remain (no harm, ignored)
 4. **Data:** Schedules remain in database for future re-enablement
 
-## Documentation Updates
+## Documentation updates
 
-### Files That Should Reference This Feature
+### Files that should reference this feature
 
 **User-Facing Documentation:**
 
@@ -665,21 +665,21 @@ If issues arise after deployment:
 - [ ] API reference doc - Document all schedule endpoints
 - [ ] OpenAPI/Swagger spec - Add schedule endpoints (if created)
 
-## Success Metrics
+## Success metrics
 
-### Feature Adoption
+### Feature adoption
 
 - **Setup Rate:** % of sites with at least one schedule defined
 - **Usage Pattern:** Average number of schedules per site
 - **Time to Configure:** How long to set up typical school zone (target: <5 min)
 
-### Feature Effectiveness
+### Feature effectiveness
 
 - **Data Quality:** Are schedules being used in reports? (future)
 - **User Satisfaction:** Feedback on ease of configuration
 - **Support Burden:** Number of schedule-related support questions
 
-### Technical Metrics
+### Technical metrics
 
 - **API Performance:** Schedule CRUD operation latency (target: <100ms)
 - **Error Rate:** Schedule creation/update success rate (target: >99%)
@@ -687,19 +687,19 @@ If issues arise after deployment:
 
 ## Appendices
 
-### Appendix A: Database Schema Details
+### Appendix a: database schema details
 
 Full DDL is described in the Database Schema section above. Constraints: all columns NOT NULL; `id` autoincrement PK; `site_id` FK with cascade delete. One index on `site_id`. One `AFTER UPDATE` trigger to maintain `updated_at`.
 
-### Appendix B: Example API Interactions
+### Appendix b: example API interactions
 
 Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05 and afternoon 14:00–15:00 at 15 mph), repeat for days 1–5. Retrieve with `GET /api/speed_limit_schedules/site/{id}`. Update with `PUT /{id}` (same body shape as POST). Bulk-delete with `DELETE /site/{id}`.
 
-### Appendix C: Component Props and Events
+### Appendix c: component props and events
 
 `SpeedLimitScheduleEditor` accepts `siteId`, `schedules`, and `onSchedulesChange` props (see Web UI section above). Local state holds a `daysOfWeek` label array and cached `timeOptions`. Methods: `addSchedule()` (inserts default row), `removeSchedule(index)`, `updateSchedule(index, field, value)`, and `generateTimeOptions()` (5-min increments, 00:00–23:55).
 
-### Appendix D: Test Case Summary
+### Appendix d: test case summary
 
 **Database Layer Tests (speed_limit_schedule_test.go):**
 
@@ -715,7 +715,7 @@ Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05
 
 **Coverage:** 100% of database layer functions
 
-### Appendix E: Day of Week Reference
+### Appendix e: day of week reference
 
 **Day Numbering Convention:**
 
@@ -731,7 +731,7 @@ Typical school-zone setup: POST two schedules per weekday (morning 06:00–07:05
 
 **Note:** ISO 8601 (which uses 1=Monday, 7=Sunday). This conforms with using unix seconds and UTC as date standards.
 
-### Appendix F: Related Tables
+### Appendix f: related tables
 
 **Site Table Relationship:** The `site` table carries `speed_limit` (baseline default) and `speed_limit_note` (human-readable schedule description). See `internal/db/schema.sql` for the full `site` DDL.
 

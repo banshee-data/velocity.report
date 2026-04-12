@@ -1,6 +1,6 @@
-# Development Log
+# Development log
 
-## April 8, 2026 - Map Editor Polish, Backlog Grooming & Tooling Fixes
+## April 8, 2026 - map editor polish, backlog grooming & tooling fixes
 
 - Added confirmation modal for mode switching in `MapEditorInteractive` to prevent accidental data loss. Combined angle stepper and remove button into a single row for custom SVG mode.
 - Enhanced save error handling on the site settings page with user-visible feedback on failure.
@@ -13,7 +13,7 @@
 - Tightened link-checker skip predicate to match only `image/stage-*/files/` paths.
 - Updated `devlog-update` skill procedure: added `git fetch` step, gap-fill logic for incomplete existing entries, and broadened amend rules.
 
-## April 7, 2026 - RPi Image Hardening, Web Map Editor & Backlog Grooming
+## April 7, 2026 - RPi image hardening, web map editor & backlog grooming
 
 - Hardened the RPi image cleanup script: `dpkg --purge` of the camera stack triggered an `apt-get autoremove` cascade that removed `librsvg2-bin`, `network-manager`, and other runtime packages. Added `apt-mark manual` protection and a post-purge verification step.
 - Added build metadata stamping to the RPi image: `VR_VERSION`, `VR_BUILD_TIME`, and `VR_GIT_SHA` written to `/etc/velocity-report-build` and displayed in the MOTD login banners.
@@ -34,59 +34,59 @@
 - Installed `fonts-noto-color-emoji` in the RPi image for map label rendering. Updated sudoers configuration for specific commands.
 - Added UTC timestamp guidelines to `STYLE.md` and `coding-standards.md`.
 
-## April 6, 2026 - Claude Code Init, Security Fixes, Paper Gap Analysis & CI Linting
+## April 6, 2026 - Claude code init, security fixes, paper gap analysis & CI linting
 
-- Initialised Claude Code configuration (#447): `CLAUDE.md`, `.claude/agents/` (7 personas), `.claude/skills/` (8 workflow slash commands), and shared knowledge modules in `.github/knowledge/`.
+- Initialised Claude Code configuration (#447): [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), and shared knowledge modules in [.github/knowledge/](../.github/knowledge).
 - Updated vulnerable dependencies across Go, npm, and Python ecosystems (#441). Fixed a dev-mode path traversal vulnerability by normalising `requestedPath` before joining with `buildDir`.
-- Added paper-vs-implementation gap analysis (`data/maths/paper-implementation-gap-analysis.md`): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers.
+- Added paper-vs-implementation gap analysis ([data/maths/paper-implementation-gap-analysis.md](../data/maths/paper-implementation-gap-analysis.md)): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers.
 - Added `download-papers.py` script with DOI/URL resolution, SSRF guards, and dry-run mode (#446).
 - Merged Go clock abstraction plan (#428): `timeutil.Clock` interface for pipeline timing, replay pacing, and benchmark instrumentation.
 - Added Markdown CI workflows: `check-md-links` for dead link detection, `check-backtick-paths.py` for stale file path references, `public_html` CI for docs site linting. Wired into `make lint-docs`.
-- Refreshed `README.md` with sample PDF report and visualiser demo images (#443, #444). Added `STYLE.md` with writing conventions and British English guidelines.
+- Refreshed [README.md](README.md) with sample PDF report and visualiser demo images (#443, #444). Added `STYLE.md` with writing conventions and British English guidelines.
 - Added wiring diagrams and YAML configuration for OPS243-A radar sensor (`docs/hw/`).
 - Updated agent preparedness documentation, added `fix-links` skill, and expanded coding standards with configuration and media guidelines.
 - Added `age-color` terminal script and new Makefile log convenience targets.
 
-## April 5, 2026 - README & ASCII Art Refresh
+## April 5, 2026 - README & ASCII art refresh
 
-- Refreshed `README.md` structure: reorganised sections, updated project description and feature list.
+- Refreshed [README.md](README.md) structure: reorganised sections, updated project description and feature list.
 - Iterated on ASCII art header designs across documentation files.
 
-## April 1, 2026 - ASCII Art Update
+## April 1, 2026 - ASCII art update
 
 - Updated ASCII art crosswalk and banner designs in documentation (#442).
 
-## March 31, 2026 - Voice Quality Audit & Error Message Rewrite
+## March 31, 2026 - voice quality audit & error message rewrite
 
-- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, `cmd/radar` CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
+- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [cmd/radar](../cmd/radar) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
 - {copilot/update-error-surface-voice-audit-plan} Rewrote shell script messages and marked the voice audit plan complete.
 - Centralised API error handling in the web frontend for consistent error message display.
 - Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
 - Updated MOTD ASCII art drafts for the RPi login banners.
 - Fixed missing `.invalidConfiguration` case in Swift `APIError` switch statements.
 
-## March 30, 2026 - Deprecation Signalling, AutoTuner Fix & Homepage
+## March 30, 2026 - deprecation signalling, autoTuner fix & homepage
 
 - Fixed macOS `APIError` handling in `LabelAPIClientTests` (#440).
 - Updated project-wide copy across JS, Go, and Python surfaces (#431): refreshed deprecation messages for legacy deployment targets.
 - Fixed a race condition in `AutoTuner` completion persistence: reordered operations to prevent concurrent write conflicts.
 - Added Raspberry Pi image section to the homepage with download link and SHA256 checksum (commented out pending first release).
 
-## March 29, 2026 - RPi Image: Web Build, HTTPS & TLS, Image Cleanup
+## March 29, 2026 - RPi image: web build, HTTPS & TLS, image cleanup
 
 - Added Raspberry Pi download section to the homepage (#437): `release.json` data source, per-platform SHA256 hashes, clipboard fallback for copy buttons.
 - Fixed homepage mobile layout (#439): resolved light/dark theming split and download card spacing.
 - Refined Terry agent coaching workshop documentation (#438).
-- Fixed "Web Frontend Not Built" in the RPi image: whitelisted `web/build/` in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`.
+- Fixed "Web Frontend Not Built" in the RPi image: whitelisted [web/build/](../web/build) in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`. <!-- link-ignore -->
 - Moved TLS termination from Go server to nginx reverse proxy. Go server stays on `:8080` (plain HTTP), nginx handles HTTPS on port 443.
 - Added first-boot TLS certificate generation (`velocity-generate-tls.sh`): per-device ECDSA P-256 local CA (10-year) and server cert (825-day). Idempotent, regenerates on expiry.
 - Exposed CA certificate at `GET /ca.crt` via nginx for browser trust installation.
 - Installed root-level project documents into the image for on-device reference.
-- Documented the TLS strategy in `docs/platform/operations/tls-local-certificates.md`.
+- Documented the TLS strategy in [docs/platform/operations/tls-local-certificates.md](platform/operations/tls-local-certificates.md).
 
-## March 28, 2026 - RPi Image: Build Pipeline, Flash Target & First-Boot Polish
+## March 28, 2026 - RPi image: build pipeline, flash target & first-boot polish
 
-- Consolidated Go version information printing into a single function across `cmd/radar` and `cmd/velocity-ctl`.
+- Consolidated Go version information printing into a single function across [cmd/radar](../cmd/radar) and [cmd/velocity-ctl](../cmd/velocity-ctl).
 - Updated build process and documentation for RPi images: clarified `build-image.sh` sections and improved error handling.
 - Added timestamps to image filenames to prevent collisions during rebuilds.
 - Added installation step for `tuning.defaults.json` in the pi-gen run script so the service starts with a valid config.
@@ -99,16 +99,16 @@
 - Enhanced the image build with reference data installation (alignment CSVs, sample VRLOGs) so the appliance ships with test datasets.
 - Added `make clean-images` to remove old `.img`, `.zip`, and older `.xz`/`.sha256`/`.info` files from the deploy directory, keeping only the latest build. Recovered 18 GB → 529 MB on first run.
 - Updated `.dockerignore` to clarify web frontend asset inclusion.
-- Moved `TENETS.md` to the repository root and updated all cross-references in `.github/copilot-instructions.md`, agent files, and documentation.
+- Moved [TENETS.md](../TENETS.md) to the repository root and updated all cross-references in [.github/copilot-instructions.md](../.github/copilot-instructions.md), agent files, and documentation.
 
-## March 27, 2026 - RPi Image: Pi-gen Integration & ARM64 Cross-Compilation
+## March 27, 2026 - RPi image: Pi-gen integration & ARM64 cross-compilation
 
 - Added Raspberry Pi image build support using pi-gen (bookworm-arm64 fork). The `image/` directory now contains pi-gen stage definitions, configuration, and the unified `build-image.sh` script.
 - Added `Dockerfile.build` for ARM64 cross-compilation of the Go binary on macOS (Apple Silicon). The Docker build compiles `velocity-report` and `velocity-ctl` for `linux/arm64` with CGO enabled via `zig cc`.
 - Added `.dockerignore` to control the Docker build context: whitelists only Go sources, web build output, static assets, and build scripts.
 - Improved image extraction and compression logic: the output pipeline now produces `.img.xz` with SHA-256 checksum and `.info` metadata files.
 
-## March 26, 2026 - velocity-ctl, Setup Guide & Architecture Docs
+## March 26, 2026 - velocity-ctl, setup guide & architecture docs
 
 - Created `velocity-ctl` as the on-device management tool, replacing the remote `velocity-deploy` script. Implements `backup`, `rollback`, `status`, and `upgrade` subcommands. Designed to run _on_ the Raspberry Pi, not from a development machine.
 - Removed `velocity-update` shell script (superseded by `velocity-ctl upgrade`).
@@ -119,20 +119,20 @@
 - Enhanced the setup guide with backup and restore instructions for sensor data.
 - Updated architecture documents for ground plane extraction and GPS parsing.
 
-## March 25, 2026 - Documentation Refresh & RPi Image Planning
+## March 25, 2026 - documentation refresh & RPi image planning
 
-- Added `data/QUESTIONS.md` with open research questions about hourly comparison data and speed distributions.
-- Refactored `README.md` structure and added `COMMANDS.md` with make targets reference and ASCII art headers.
+- Added [data/QUESTIONS.md](../data/QUESTIONS.md) with open research questions about hourly comparison data and speed distributions.
+- Refactored [README.md](README.md) structure and added [COMMANDS.md](../COMMANDS.md) with make targets reference and ASCII art headers.
 - Split the Raspberry Pi image plan into phased delivery (Phase 1 bootable image, Phase 2 OTA, Phase 3 fleet management).
 - {dd/mac/dmg-signing} Added macOS code-signing and notarisation to the CI workflow and Makefile (#425): `codesign --deep`, `notarytool`, and `stapler`.
 - {dd/mac/dmg-signing} Fixed notarisation auth handling for macOS 13+ keychain profiles and removed the unreliable `spctl` DMG check.
 - {dd/mac/dmg-signing} Added a pre-build guard to verify the visualiser `.app` bundle exists before attempting DMG creation.
 - {dd/mac/dmg-signing} Enhanced notarisation error handling with detailed logging and keychain path resolution.
 
-## March 24, 2026 - Config Consolidation, ERD Refresh & Workflow Docs
+## March 24, 2026 - config consolidation, ERD refresh & workflow docs
 
 - Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
-- Extracted testable helper paths in `cmd/radar` and added focused coverage for the run-config backfill tool.
+- Extracted testable helper paths in [cmd/radar](../cmd/radar) and added focused coverage for the run-config backfill tool.
 - Updated immutable run-config and replay-case operations docs, and replaced older scene-management implementation notes with the newer asset plan.
 - Switched plan-hygiene reporting to an advisory workflow in CI rather than a hard PR gate.
 - Refreshed schema visualisation tooling: added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
@@ -145,7 +145,7 @@
 - {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked it complete after implementation.
 - {copilot/update-capabilities-check-radar-mode} Expanded web test coverage with a multi-sensor `lidarState` derived store test.
 
-## March 23, 2026 - Capabilities Gating, Stream Fix & Host Upgrade Runbook
+## March 23, 2026 - capabilities gating, stream fix & host upgrade runbook
 
 - Added capabilities API surfaces in radar/admin Go endpoints and covered them with new API and radar tests.
 - Wired capabilities through the web client and stores so unfinished LiDAR UI paths can stay hidden until backend support is present.
@@ -153,7 +153,7 @@
 - Fixed `StreamFrames` hang conditions in replay endpoints to prevent stuck frame streams.
 - Added a remote-host upgrade runbook documenting safer deployment and upgrade flow for field systems.
 
-## March 22, 2026 - Schema Hardening, Track Cleanup & Canonical Docs
+## March 22, 2026 - schema hardening, track cleanup & canonical docs
 
 - Hardened the pre-v0.5.0 schema path across SQL and Go: added replay annotation/evaluation integrity migration work and strengthened label-path coverage.
 - Regenerated schema artefacts and refreshed `VRLOG_FORMAT.md`, LiDAR architecture docs, and schema-hardening documentation.
@@ -162,21 +162,21 @@
 - Made docs more canonical across Python/docs surfaces and standardised pre-v1.0 release naming.
 - Added canonical docs plan-hygiene CI, 4-hub structure, and Canonical metadata to all 69 plan files with 45 populated hub doc stubs.
 
-## March 21, 2026 - L8-L10 Refactor, CLI Networking & Storage Cleanup
+## March 21, 2026 - L8-L10 refactor, CLI networking & storage cleanup
 
 - Landed the large L8-L10 refactor across Go packages and docs: reshaped server/package boundaries, updated routes, and continued the monitor → endpoint/client split.
 - Moved LiDAR network settings fully to CLI/runtime flags, trimming duplicated config-file state and updating radar/config docs and tests.
-- Broke up large `internal/api` server files into narrower admin, middleware, radar, reports, sites, and timeline units.
-- Broke up large `internal/db`, `internal/lidar/l2frames`, and `internal/lidar/l5tracks` files into more focused storage, frame-builder, and tracking units.
+- Broke up large [internal/api](../internal/api) server files into narrower admin, middleware, radar, reports, sites, and timeline units.
+- Broke up large [internal/db](../internal/db), [internal/lidar/l2frames](../internal/lidar/l2frames), and [internal/lidar/l5tracks](../internal/lidar/l5tracks) files into more focused storage, frame-builder, and tracking units.
 - Split tuning/background internals into cleaner accessors, codec, validation, background-manager, and region-specific files.
 - Refactored SQLite access through shared storage interfaces for labels and server-facing codepaths.
 - Continued general tech-debt cleanup across reports, tracking update logic, transit tooling, and plan/backlog alignment.
 - Fixed context propagation and serialmux race issues.
 - Refreshed ERD column layout in generated schema docs.
 
-## March 20, 2026 - Config Refactor & Migration Tooling
+## March 20, 2026 - config refactor & migration tooling
 
-- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in `cmd/radar`.
+- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in [cmd/radar](../cmd/radar).
 - Added `config-migrate` with broad coverage for moving existing configs onto the new layout.
 - Added `config-validate` to check migrated/runtime configs before deployment.
 - Expanded radar flag and config-path test coverage substantially.
@@ -184,7 +184,7 @@
 - Converted tuning API from flat dot-path keys to nested JSON format across Go and web surfaces.
 - Normalised American→British English: `neighbor` → `neighbour`, `meters` → `metres` across code, comments, and test names.
 
-## March 19, 2026 - Breaking Migration Merge & Immutable Run Config Planning
+## March 19, 2026 - breaking migration merge & immutable run config planning
 
 - Landed the breaking schema cleanup across SQL, Go, web, and macOS surfaces.
 - Regenerated schema artefacts and aligned v0.5.0 backlog/plan updates around the migration.
@@ -194,15 +194,15 @@
 - Expanded Go coverage across frame-builder, monitor, visualiser, analysis, DB, and HTTP utility codepaths.
 - Strengthened DB-boundary handling with alignment planning and import-check tooling.
 
-## March 18, 2026 - Contributor Refresh, Schema Planning & Homepage Download
+## March 18, 2026 - contributor refresh, schema planning & homepage download
 
-- Rewrote `CONTRIBUTING.md` with updated contributor guidance, personas, and workflow expectations.
+- Rewrote [CONTRIBUTING.md](../CONTRIBUTING.md) with updated contributor guidance, personas, and workflow expectations.
 - Expanded the v0.5.0 breaking-schema update plan to cover migration sequencing and cleanup scope.
 - Added `VelocityVisualiser.app` download and promo assets to the homepage, including supporting media/conversion tooling.
 - {copilot/add-bumper-sticker-designs} Added a Cairo-based bumper sticker generator tool (#403): Python CLI producing SVG/PNG stickers with configurable text and gradient backgrounds.
 - {copilot/add-bumper-sticker-designs} Addressed code review feedback on `y_frac` semantics, Cool-S proportions, and step divisor clarity.
 
-## March 17, 2026 - Shim Removal, MATRIX Inventory & Sweep Worker Planning
+## March 17, 2026 - shim removal, MATRIX inventory & sweep worker planning
 
 - Removed remaining backward-compatibility shims across Go, macOS, and Python surfaces, with matching backlog and plan updates.
 - Added the Matrix Tracer agent and the new `list-matrix-fields.py` inventory tooling.
@@ -212,92 +212,92 @@
 - Added the 100-line plan and checked in experiment notes / documentation cleanup across docs and Python.
 - {codex/plan-remaining-obb-heading-stability} Added OBB heading stability plan (#397): documented remaining work for oriented bounding box heading estimation, covering temporal smoothing, velocity-aligned correction, and evaluation metrics.
 
-## March 16, 2026 - Header Standardisation & Backlog Prune
+## March 16, 2026 - header standardisation & backlog prune
 
 - Standardised documentation headers to bullet-list metadata format (`- **Key:** value`) across the repo and updated related tooling/docs to match.
 - Pruned backlog and decisions entries via Flo's weekly planning pass, tightening milestone scope and decision tracking.
 
-## March 14, 2026 - Data Reorganisation, VRLOG Refresh & UK Spelling
+## March 14, 2026 - data reorganisation, VRLOG refresh & UK spelling
 
 - Reworked VRLOG labelling and replay contracts across Go, Swift, and tooling: refreshed label APIs, run-track endpoints, replay handlers, recorder encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` support.
 - Expanded macOS visualiser run-browser and labelling flows alongside the VRLOG changes.
 - Added and refreshed VRLOG analysis / format documentation, terminology notes, and related backlog references.
-- Reshaped the `data/` tree: moved structures and maths material into `data/structures/` and `data/maths/`, added `data/explore/`, and relocated exploratory analysis outputs.
+- Reshaped the `data/` tree: moved structures and maths material into [data/structures/](../data/structures) and [data/maths/](../data/maths), added [data/explore/](../data/explore), and relocated exploratory analysis outputs.
 - Normalised British English and refreshed repo-wide cross-references, including `convergence-neighbour` naming and documentation path fixes.
 
-## March 12, 2026 - Agent Stack Refresh, Light-mode Plan & SSE Delivery Fix
+## March 12, 2026 - agent stack refresh, light-mode plan & SSE delivery fix
 
 - Reworked AI-agent tooling into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack.
-- Added `.github/knowledge/`, `TENETS.md`, portraits, and refreshed agent/instruction docs around the new stack.
+- Added [.github/knowledge/](../.github/knowledge), [TENETS.md](../TENETS.md), portraits, and refreshed agent/instruction docs around the new stack.
 - Added the macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
 - Fixed SSE subscribers receiving test payloads end-to-end: buffered serialmux subscriber channels, tightened subscriber registration timing, and updated replay reset handling in `AppState`.
 
-## March 11, 2026 - Dual Frame Representation & Naming Standardisation
+## March 11, 2026 - dual frame representation & naming standardisation
 
 - Added [L2 dual representation](plans/lidar-l2-dual-representation-plan.md) in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
 - Renamed `PeakSpeedMps` to `MaxSpeedMps` across analysis/reporting, classification, proto, Swift visualiser, and tests; CI fix for remaining references missed in the initial rename.
-- Standardised docs naming conventions: all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
+- Standardised docs naming conventions: all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from [internal/db/](../internal/db).
 - Overhauled LiDAR architecture Mermaid layer diagram with enhanced documentation and added Mermaid flowchart readability utility script.
 - Added [coordinate-flow audit](lidar/architecture/coordinate-flow-audit.md) documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
 - Added 52-entry BibTeX bibliography (`docs/references.bib`) covering L3f, L5h, L6e planned work and existing references.
 - Updated BACKLOG with v0.5.0 breaking-change/proto work split and shipped component status.
 - Activated shared web cache for worktrees: `make activate-web-cache` for Codex environment setup, reusable Make targets.
 
-## March 10, 2026 - PCAP Playback Fix & VRLOG Analysis Metrics
+## March 10, 2026 - PCAP playback fix & VRLOG analysis metrics
 
 - Hardened PCAP playback and analysis paths: replay timing fixes, speed-ratio controls, datasource/monitor/dashboard updates, database write cleanup, per-frame timing traces in `pcap-analyse`, and matching macOS visualiser model/client changes.
 - Implemented all §12.1 "implementable now" VRLOG analysis metrics: per-track detail fields, comparison report, and supporting `vrlog-analyse` code and tests.
-- Documented outstanding data-science questions in `CONTRIBUTING.md`, linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
+- Documented outstanding data-science questions in [CONTRIBUTING.md](../CONTRIBUTING.md), linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
 
-## March 9, 2026 - LiDAR L7-L10 & Metrics-first Documentation
+## March 9, 2026 - LiDAR L7-L10 & metrics-first documentation
 
-- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
-- Rewrote contributor personas in `CONTRIBUTING.md`, expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
+- Updated [LiDAR data layer model](lidar/architecture/LIDAR_ARCHITECTURE.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
+- Rewrote contributor personas in [CONTRIBUTING.md](../CONTRIBUTING.md), expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
 - Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification: CLI shape, package layout, modes, metrics, and aggregation windows.
 - Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
 - Updated 0.5.0 proto plan: [percentile aggregation](plans/speed-percentile-aggregation-alignment-plan.md) decisions, [metrics registry](plans/metrics-registry-and-observability-plan.md) strategy, tagging guidance, and observability/export mapping.
 - Added Jess agent standup and planning behaviours.
 - British English spelling lint check, backlog decision updates, Python CI bump.
 
-## March 8, 2026 - L7/L8/L9 Client Planning
+## March 8, 2026 - L7/L8/L9 client planning
 
 - Added LiDAR [L7 analytics and L8 visualisation refactor plan](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md): phased implementation steps and checklist covering docs, L7/L8 boundaries, monitor/, and generated artefacts.
 
-## March 7, 2026 - Platform Simplification Phase 1
+## March 7, 2026 - platform simplification phase 1
 
 - Implemented Phase 1 of [platform simplification](plans/platform-simplification-and-deprecation-plan.md): added deprecation warnings to legacy deployment targets and tools, updated documentation for `velocity-deploy` and Makefile targets.
 
-## March 6, 2026 - Compatibility Plans
+## March 6, 2026 - compatibility plans
 
 - Documented visualiser speed summary schema improvements, platform simplification status, and updated backlog tracking for completed work.
 
-## March 5, 2026 - Contributor Guidance, Agent Prototyping & Cleanup
+## March 5, 2026 - contributor guidance, agent prototyping & cleanup
 
-- Added contributor personas and general work themes to `CONTRIBUTING.md`.
+- Added contributor personas and general work themes to [CONTRIBUTING.md](../CONTRIBUTING.md).
 - Added Jess (PM) agent; renamed existing agents with role context: Hadaly→Hadaly (Dev), Ictinus→Ictinus (Architect), Malory→Malory (Pen Test), Thompson→Thompson (Writer).
 - Removed tracked binaries (`gen-vrlog`, `replay-server`, `visualiser-server`), added to `.gitignore`, cleaned misplaced scripts.
 - Bumped application dependency group: `go-echarts/v2`, `go-sqlite3`, `google.golang.org/grpc`, `modernc.org/sqlite`.
 
-## March 1, 2026 - Config Restructure & Maths Refresh
+## March 1, 2026 - config restructure & maths refresh
 
-- Added [`config/CONFIG-RESTRUCTURE.md`](../config/CONFIG-RESTRUCTURE.md) documenting the migration from flat to layer-scoped nested tuning config schema.
+- Added [`docs/plans/config-restructure-plan.md`](plans/config-restructure-plan.md) documenting the migration from flat to layer-scoped nested tuning config schema.
 - Updated ML solver expansion and [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths documents to match new configuration and modelling direction.
 - Refreshed backlog references around the config and maths workstream.
 
-## February 28, 2026 - macOS Build Metadata
+## February 28, 2026 - macOS build metadata
 
 - Updated macOS build/release process so build metadata refreshes on every build; improved licensing display in About view; added release signing readiness tasks to backlog.
 
-## February 27, 2026 - DMG Packaging & UI Polish
+## February 27, 2026 - DMG packaging & UI polish
 
 - Added versioned DMG export for VelocityVisualiser: automated packaging scripts, Finder-layout automation (`create-dmg`), CI wiring, and updated build/getting-started documentation.
 - Second round of macOS UI polish: label taxonomy consolidation, track labelling and navigation improvements, enhanced test coverage for visualiser components.
 - Bumped version to `0.5.0-pre14`.
 - {dd/mac/dmg-signing} Added initial code-signing and notarisation pipeline (#425): Makefile targets for `codesign`, `notarytool`, and `stapler`, wired into the CI release workflow.
 
-## February 26, 2026 - Replay EOF Debugging, Build Metadata CI/Test Plumbing & Format Docs
+## February 26, 2026 - replay EOF debugging, build metadata cI/Test plumbing & format docs
 
-- Added `data/structures/README.md` and `data/structures/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
+- Added [data/structures/README.md](../data/structures/README.md) and [data/structures/VRLOG_FORMAT.md](../data/structures/VRLOG_FORMAT.md), and updated LiDAR architecture/documentation references to the new data format docs.
 - Expanded macOS visualiser diagnostics while debugging replay EOF behaviour: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
 - Simplified debug log output in `AppState` by removing privacy-attribute noise and improving message formatting clarity.
 - Added detailed `VisualiserClient` replay RPC diagnostics (`seek()` / `play()` / stream restart path) including connection-state and response logging.
@@ -306,7 +306,7 @@
 - Extended `BuildInfo.swift` generation to macOS test runs and CI workflows (`mac-ci`, `nightly-full-ci`) so `gitSHA`/`buildTime` metadata is available consistently.
 - Refined `AboutView` / `ContentView` layout and separated version/build info into clearer lines.
 
-## February 25, 2026 - Visualiser Test Coverage, Replay Completion & UI Refinement
+## February 25, 2026 - visualiser test coverage, replay completion & UI refinement
 
 - Refactored `ContentView.swift` to extract testable helper functions: `KeyAction` enum (25 cases), `handleKeyPress()`, `assignLabelByIndex()`, standalone row/toolbar/panel views.
 - Extended keyboard label shortcuts from 4 → 9 (keys 1–9 map to `ObjectClass` proto enum order: noise, dynamic, pedestrian, cyclist, bird, bus, car, truck, motorcyclist).
@@ -322,7 +322,7 @@
 - Applied Swift safety/polish fixes (#330): reduced force-unwraps, addressed actor-isolation issues, normalised whitespace, and fixed range-slider edge cases.
 - Test coverage on `ContentView.swift` improved from 55.97% → 86.65% (3045/3514 lines). Total unit tests: 1032.
 
-## February 24, 2026 - Label Taxonomy Consolidation & UI Polish
+## February 24, 2026 - label taxonomy consolidation & UI polish
 
 - Added `ObjectClass` protobuf enum and updated `Track` and `LabelEvent` messages to use it (replaces free-form string classification).
 - SQL migrations (`000029`) to expand and normalise label vocabulary across the database.
@@ -343,7 +343,7 @@
 - Added `TestResults/` to `.gitignore` for Xcode test artifact cleanup.
 - Bumped version to `0.5.0-pre13`.
 
-## February 23, 2026 - Settling Evaluation, Backlog Alignment & Vector Scene Map
+## February 23, 2026 - settling evaluation, backlog alignment & vector scene map
 
 - Implemented `settling-eval` CLI tool (`cmd/settling-eval`) for evaluating background grid convergence from PCAP files.
 - Added `SettlingReport` structure and JSON reporting methods to `l3grid` package.
@@ -357,7 +357,7 @@
 - Added 6 missing GitHub issues to BACKLOG.md (#4, #7, #8, #103, #122, #148); fixed #290→#11 reference.
 - Updated [vector scene map](lidar/architecture/vector-scene-map.md) architecture: integrated OSM Simple 3D Buildings as structure priors, enhanced geometry prior service design.
 
-## February 22, 2026 - PCAP Performance, OBB Heading & Region-Adaptive Parameters
+## February 22, 2026 - PCAP performance, OBB heading & region-adaptive parameters
 
 - PCAP performance hardening (PR #313, 68 files): fixed `finalizeFrame` deadlock, added `foreground_max_input_points` tuning for DBSCAN decimation.
 - Used local random generator in `uniformSubsample` to avoid lock contention during concurrent DBSCAN calls.
@@ -376,16 +376,16 @@
 - Created [VISION.md](VISION.md) with project-wide vision statement and technical design language.
 - Bumped version to 0.5.0-pre12.
 
-## February 21, 2026 - Documentation Reorganisation & Maths Specifications
+## February 21, 2026 - documentation reorganisation & maths specifications
 
-- Reorganised `docs/plans/` directory (PR #308, 35 files): consolidated and restructured plan documents.
+- Reorganised [docs/plans/](plans) directory (PR #308, 35 files): consolidated and restructured plan documents.
 - Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
-- Moved maths proposals to `data/maths/proposals/` with consistent naming convention.
+- Moved maths proposals to [data/maths/proposals/](../data/maths/proposals) with consistent naming convention.
 - Added [documentation standardisation plan](plans/platform-documentation-standardisation-plan.md) with metadata and validation gates.
 - Updated ROADMAP.md (PR #312): aligned roadmap entries with BACKLOG.md priorities.
 - Added macOS process profiling script (`macos_profile_lidar.sh`) and corresponding Makefile targets.
 
-## February 20, 2026 - Design Plans, Test Coverage & CI Improvements
+## February 20, 2026 - design plans, test coverage & CI improvements
 
 - Created [platform simplification and deprecation plan](plans/platform-simplification-and-deprecation-plan.md) (PR #300): deprecation signalling, deploy retirement gate, migration task list.
 - Created [quality coverage improvement plan](plans/platform-quality-coverage-improvement-plan.md) (PR #294): target 95.5% across all components, exclude `cmd/`, add logic extraction strategy and macOS Swift app.
@@ -398,12 +398,12 @@
 - Added OBB serialisation to `frameBundleToProto` with tests.
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
-- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) documentation with visualisation details.
+- Updated [LiDAR data layer model](lidar/architecture/LIDAR_ARCHITECTURE.md) documentation with visualisation details.
 - {copilot/update-serial-configuration-ui} Added serial configuration backend (#290): DB layer with `serial_configs` table, API CRUD handlers, and a reload manager that hot-swaps serial port bindings without restarting the service.
 - {copilot/update-serial-configuration-ui} Added serial configuration web UI: settings page with create/edit/delete dialogs, port test dialog, and `uniquePortPaths` deduplication.
 - {copilot/update-serial-configuration-ui} Expanded Go test coverage for serial config reload and added Jest threshold enforcement for the web frontend.
 
-## February 19, 2026 - LiDAR Layer Alignment & Architecture Review
+## February 19, 2026 - LiDAR layer alignment & architecture review
 
 - Implemented LiDAR 6-layer alignment refactor: split `l3grid/background.go` into persistence, export, and drift files.
 - Split `monitor/webserver.go` into data-source and playback handler files.
@@ -420,7 +420,7 @@
 - Added mathematical specifications and standardised config key ordering.
 - Added database naming standardisation guide and pull-request template.
 
-## February 18, 2026 - Design System & TeX/Chart Updates
+## February 18, 2026 - design system & teX/Chart updates
 
 - Created [`DESIGN.md`](ui/DESIGN.md) with project-wide design principles and frontend design language.
 - Conducted comprehensive design review against `DESIGN.md`, producing improvement plan.
@@ -429,7 +429,7 @@
 - Updated Go CI integration tests to use minimal TeX tree (`build-texlive-minimal`) instead of full TeX Live install.
 - Trimmed CI TeX Live packages: dropped `texlive-fonts-extra` (~500 MB) and `latexmk`; added `--no-install-recommends`.
 
-## February 15-16, 2026 - HINT Tuning System & LiDAR Track Improvements
+## February 15-16, 2026 - HINT tuning system & LiDAR track improvements
 
 - Implemented Human-Involved Numerical Tuning ([HINT](plans/lidar-sweep-hint-mode-plan.md)) system (renamed from RLHF).
 - Replaced HTTP client with in-process `DirectBackend` for sweep runner, eliminating HTTP overhead.
@@ -444,25 +444,25 @@
 - macOS visualiser: added ground reference grid toggle, background grid points toggle, track filtering with dual-handle range slider.
 - Refactored all default parameters to load from `tuning.defaults.json` instead of hardcoded values.
 - Bumped version to 0.5.0-pre8 and 0.5.0-pre9.
-- Created [LiDAR 6-layer data model](lidar/architecture/lidar-data-layer-model.md) documentation (OSI-style).
+- Created [LiDAR 6-layer data model](lidar/architecture/LIDAR_ARCHITECTURE.md) documentation (OSI-style).
 - Added [LiDAR labelling QC enhancements](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) plan.
 - Created LiDAR refactor plans for package restructuring.
 
-## February 14, 2026 - Sweep Schema Fixes & Documentation Updates
+## February 14, 2026 - sweep schema fixes & documentation updates
 
 - Fixed sweep parameter schema and config compatibility issues from PR review.
 - Updated documentation to reflect current code state: corrected Makefile target count (59→101), Go version (1.21+→1.25+), SQLite version (3.51.2), Python version (3.11+).
-- Fixed broken doc links and wrong paths in `TROUBLESHOOTING.md`.
+- Fixed broken doc links and wrong paths in [TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 - Expanded repo structure in `copilot-instructions.md` (5→15 internal packages).
 - Fixed setup guide frontmatter cost and typos.
 - Dependency update: bumped `markdown-it` 14.1.0→14.1.1 in docs site.
 
-## February 12, 2026 - Precompiled LaTeX Plan & Test Expansion
+## February 12, 2026 - precompiled LaTeX plan & test expansion
 
 - Created design document for [precompiled LaTeX `.fmt`](plans/pdf-latex-precompiled-format-plan.md) support in PDF generator.
 - Expanded test coverage across Go, Python, and macOS components.
 
-## February 11, 2026 - RLHF Score Explainability & Label Provenance
+## February 11, 2026 - RLHF score explainability & label provenance
 
 - Implemented `RLHFTuner` engine with RLHF API endpoints and handler tests.
 - Added RLHF mode to sweep dashboard UI and Svelte sweeps page.
@@ -479,7 +479,7 @@
 - Simplified packet handling by directly using polar points in `FrameBuilder`.
 - Bumped version to 0.5.0-pre7.
 
-## February 10-11, 2026 - VRLog Replay & Track Labelling
+## February 10-11, 2026 - vRLog replay & track labelling
 
 - Implemented `.vrlog` recording and replay for track labelling workflow.
 - Added `FrameRecorder` interface, `vrlog_path` field, and playback API endpoints.
@@ -491,7 +491,7 @@
 - Added label taxonomy and classification details for detection and quality in LiDAR terminology.
 - Bumped version to 0.5.0-pre6.
 
-## February 9-10, 2026 - Label-Aware Auto-Tuning & LiDAR Refinement
+## February 9-10, 2026 - label-aware auto-tuning & LiDAR refinement
 
 - Implemented track label-aware auto-tuning: scoring incorporates human labels.
 - Enhanced LiDAR tuning refinement with updated parameters and thresholds.
@@ -500,7 +500,7 @@
 - Created [frontend consolidation](plans/web-frontend-consolidation-plan.md) design document.
 - Designed Swift label plan for macOS visualiser track labelling workflow.
 
-## February 8, 2026 - Documentation Audit & Roadmap
+## February 8, 2026 - documentation audit & roadmap
 
 - Comprehensive audit of all 29 LiDAR documentation files against actual codebase.
 - Identified 12 discrepancies between docs and implementation status.
@@ -516,7 +516,7 @@
 - Designed `lidar_transits` table schema for dashboard/report integration.
 - Identified label API route gap: CRUD handlers exist but routes not registered.
 
-## February 7, 2026 - Param Sweep Dashboard & Auto-Tune Mode
+## February 7, 2026 - param sweep dashboard & auto-tune mode
 
 - Consolidated LiDAR configuration into single config struct with fluent setters.
 - Implemented parameter sweep dashboard with ECharts bar charts and results table.
@@ -525,7 +525,7 @@
 - Added iteration validation and clamping in `Sample` method.
 - Created sweep sampler, scoring, and chart data preparation utilities.
 
-## February 5-6, 2026 - macOS Visualiser M3.5–M7
+## February 5-6, 2026 - macOS visualiser M3.5–M7
 
 - M3.5: Split streaming: background snapshots every 30s + foreground-only per-frame (78→3 Mbps).
 - M4: Tracking interface refactor: `TrackerInterface`, `ClustererInterface`, golden replay tests.
@@ -534,7 +534,7 @@
 - M7: Performance hardening: Swift buffer pooling, PointCloudFrame reference counting, frame skip cooldown.
 - Added [LiDAR settling time optimisation](lidar/operations/settling-time-optimisation.md) design document.
 
-## February 3-4, 2026 - macOS Visualiser M0–M3
+## February 3-4, 2026 - macOS visualiser M0–M3
 
 - Designed macOS visualiser architecture (SwiftUI + Metal + gRPC).
 - M0: Schema + synthetic: protobuf schema, gRPC server, synthetic data generator, SwiftUI+Metal renderer.
@@ -543,18 +543,18 @@
 - M3: Canonical model: `FrameBundle` as single source of truth, LidarView + gRPC from same model.
 - Added app icon assets.
 
-## February 2, 2026 - Map Feature & CI Refactor
+## February 2, 2026 - map feature & CI refactor
 
 - Added interactive map component for site visualisation.
 - Refactored CI pipeline with end-to-end test support.
 - Dependency updates across application group.
 
-## February 1, 2026 - Documentation Homepage
+## February 1, 2026 - documentation homepage
 
 - Updated homepage spacing and added hamburger menu.
 - Refined documentation site styling.
 
-## January 31, 2026 - Dependency Injection & Test Coverage
+## January 31, 2026 - dependency injection & test coverage
 
 - Implemented dependency injection interfaces: `CommandExecutor`, `UDPSocket`, `PCAPReader`, `DataSourceManager`.
 - Refactored `UDPListener` to use `SocketFactory` for testability.
@@ -569,7 +569,7 @@
 - Extended WebServer and BackgroundManager test coverage.
 - Bumped version to 0.4.2.
 
-## January 30, 2026 - Test Coverage Expansion
+## January 30, 2026 - test coverage expansion
 
 - Increased Go test coverage from ~38% to 73.1% on testable packages.
 - Added comprehensive tests: monitoring, serialmux factory/mock, LiDAR arena, quality scoring.
@@ -578,7 +578,7 @@
 - Added CONTRIBUTING guide.
 - Fixed CI version check scripts and changelog links.
 
-## January 29, 2026 - Release v0.4.0 & Setup Guide
+## January 29, 2026 - release v0.4.0 & setup guide
 
 - Released version 0.4.0 with comparison reports, site config, and transit worker.
 - Created comprehensive setup guide for Citizen Radar deployment.
@@ -587,7 +587,7 @@
 - Enhanced documentation site: dark mode, Tailwind v4 CSS, KaTeX math rendering.
 - Fixed documentation CI to use pnpm instead of yarn.
 
-## January 25, 2026 - Radar Config SCD & Comparison Reports
+## January 25, 2026 - radar config SCD & comparison reports
 
 - Implemented site config periods with cosine correction (Type 6 SCD pattern).
 - Added boundary hour filtering to `RadarObjectRollupRange` for improved data accuracy.
@@ -600,7 +600,7 @@
 - Added security validation for PDF path (path traversal prevention).
 - Bumped version to 0.4.0-pre9.
 
-## January 20, 2026 - Transit Worker Inspector
+## January 20, 2026 - transit worker inspector
 
 - Added full-history run capability to transit worker and API.
 - Implemented transit CLI: `analyse`, `delete`, `migrate`, `rebuild` commands.
@@ -609,7 +609,7 @@
 - Updated model version default from `rebuild-full` to `hourly-cron`.
 - Bumped version to 0.0.4-pre8.
 
-## January 19, 2026 - Comparison Report Generator
+## January 19, 2026 - comparison report generator
 
 - Added comparison-period report generation with dual-period outputs (T1/T2).
 - Enhanced PDF report with comparison metrics and improved labelling.
@@ -617,7 +617,7 @@
 - Added PDF generator version tracking in `set-version` script.
 - Bumped version to 0.0.4-pre7.
 
-## January 17, 2026 - Track Visualisation UI Fixes
+## January 17, 2026 - track visualisation UI fixes
 
 - Fixed click detection to check track history, not just head position.
 - Filtered (0,0) noise points from rendering (backend and frontend).
@@ -631,7 +631,7 @@
 - Added physical plausibility checks: `MaxReasonableSpeedMps=30.0`, `MaxPositionJumpMeters=5.0` in Mahalanobis gating.
 - Increased API limit from 100 to 1000 tracks (`getTrackHistory` default=500).
 
-## January 14-16, 2026 - Adaptive Region Segmentation
+## January 14-16, 2026 - adaptive region segmentation
 
 - Implemented adaptive region segmentation in BackgroundGrid for distance-aware thresholds.
 - Added `RegionParams` struct with configurable `ThresholdMultiplier` and `WarmupFrames` per region.
@@ -643,7 +643,7 @@
 - Aggressively tuned thresholds to achieve <30 false positives target (from 150+).
 - Fixed potential XSS vulnerability (code scanning alert #33) with HTML escaping.
 
-## January 13, 2026 - Warmup Trails Fix
+## January 13, 2026 - warmup trails fix
 
 - Fixed false positive foreground classifications during grid warmup (~100 frames).
 - Implemented dynamic threshold multiplier: 4x at count=0, tapering to 1x at count=100.
@@ -651,19 +651,19 @@
 - Added track quality metrics for investigation.
 - Enhanced grid plotter visualisation for debugging.
 
-## January 11, 2026 - PCAP Analyse Benchmarking
+## January 11, 2026 - PCAP analyse benchmarking
 
 - Extended pcap-analyse tool with performance benchmarking capabilities.
 - Added CI pipeline integration for automated benchmark runs.
 - Improved frame processing performance metrics.
 
-## January 9, 2026 - Test Coverage Expansion
+## January 9, 2026 - test coverage expansion
 
 - Added comprehensive unit tests across LiDAR pipeline (~3,363 lines of new test code).
 - Improved coverage for background processing, clustering, and tracking modules.
 - Added edge case testing for frame builder and parser.
 
-## January 6, 2026 - Foreground Forwarding & Debugging
+## January 6, 2026 - foreground forwarding & debugging
 
 - Implemented foreground point forwarding to UDP port 2370 for downstream processing.
 - Added PCAP realtime replay mode for development/testing.
@@ -672,32 +672,32 @@
 - Fixed build failure with stub generation for pcap-disabled builds.
 - Applied security fixes for path validation.
 
-## January 3, 2026 - DB Stats API
+## January 3, 2026 - DB stats API
 
 - Added `GET /api/db/stats` endpoint for database size and table statistics.
 - Implemented path traversal security hardening in file operations.
 - Added duplicate snapshot cleanup utility.
 
-## January 2, 2026 - LiDAR Documentation Updates
+## January 2, 2026 - LiDAR documentation updates
 
 - Restructured LiDAR documentation for improved navigation.
 - Added velocity-coherent foreground extraction design document (1,456 lines).
 - Merged in upstream dependency updates for documentation and application packages.
 
-## December 28, 2025 - LiDAR Alignment Planning
+## December 28, 2025 - LiDAR alignment planning
 
 - Created comprehensive alignment planning document for multi-sensor fusion.
 - Documented clustering algorithms comparison (DBSCAN vs HDBSCAN).
 - Added occlusion handling strategies and static pose alignment procedures.
 - Designed motion capture architecture for dynamic calibration.
 
-## December 16, 2025 - AV-LIDAR Integration Plan
+## December 16, 2025 - AV-LIDAR integration plan
 
 - Added comprehensive integration plan for LIDAR frame analyser (913 lines).
 - Documented frame data flow from sensor to classification pipeline.
 - Specified integration points with AV perception stack.
 
-## December 10, 2025 - LiDAR Track Visualisation UI
+## December 10, 2025 - LiDAR track visualisation UI
 
 - Implemented `MapPane.svelte` canvas component for real-time track rendering.
 - Added `TimelinePane.svelte` with D3-based SVG timeline and playback controls.
@@ -705,19 +705,19 @@
 - Added background grid overlay API for spatial visualisation.
 - Integrated WebSocket updates for live track streaming.
 
-## December 9, 2025 - Background Grid Standards & PCAP Split
+## December 9, 2025 - background grid standards & PCAP split
 
 - Documented LiDAR background grid export standards and format options.
 - Added pcap-split tool design specification (1,094 lines) for PCAP file segmentation.
 - Defined foreground research export formats for offline benchmarking and ML work.
 
-## December 2, 2025 - CLI Architecture Guide
+## December 2, 2025 - CLI architecture guide
 
 - Created CLI comprehensive guide with long-term architecture vision (1,715 lines).
 - Documented command structure, flag conventions, and extension patterns.
 - Added LiDAR foreground tracking API implementation notes (Phases 2.9-3.6).
 
-## December 1, 2025 - Release 0.3.0 & Infrastructure
+## December 1, 2025 - release 0.3.0 & infrastructure
 
 - Implemented `velocity-deploy` deployment manager (install, upgrade, rollback, backup, health commands).
 - Added hourly transit worker job with UI toggle for background processing.
@@ -729,7 +729,7 @@
 - Added speed limit schedules feature spec (school zones, time-based limits).
 - Completed security review of data partitioning plan (CVE fixes for path traversal, SQL injection, race conditions).
 
-## December 1, 2025 - Phase 3.7 Analysis Run Infrastructure
+## December 1, 2025 - phase 3.7 analysis run infrastructure
 
 - Implemented `AnalysisRun` type for versioned parameter configurations with `params_json` storage.
 - Added `RunParams` type capturing all configurable parameters (background, clustering, tracking, classification).
@@ -740,15 +740,15 @@
 - Added split/merge detection types: `RunComparison`, `TrackSplit`, `TrackMerge` for run comparison.
 - Renumbered phases: 4.0→3.7 (Analysis Run), 4.1→4.0 (Labelling UI), 4.2→4.1 (ML Training).
 
-## December 1, 2025 - ML Pipeline Roadmap
+## December 1, 2025 - ML pipeline roadmap
 
-- Created comprehensive ML Pipeline Roadmap documentation (now tracked in `docs/lidar/operations/track-labelling-ui-implementation.md` and related LiDAR plan docs).
+- Created comprehensive ML Pipeline Roadmap documentation (now tracked in [docs/lidar/operations/track-labelling-ui-implementation.md](lidar/operations/track-labelling-ui-implementation.md) and related LiDAR plan docs).
 - Planned Phase 4.0 Track Labelling UI: SvelteKit routes, track browser, trajectory viewer, labelling panel.
 - Planned Phase 4.1 ML Classifier Training: feature extraction, Python training pipeline, Go model deployment.
 - Planned Phase 4.2 Parameter Tuning: grid search, quality metrics, objective function optimisation.
 - Recommended implementation order: ✅3.7 → 4.0 → 4.2 (parallel) → 4.1 → 4.3.
 
-## December 1, 2025 - Phase 3.6 PCAP Analysis Tool
+## December 1, 2025 - phase 3.6 PCAP analysis tool
 
 - Implemented `cmd/tools/pcap-analyze/main.go` for batch PCAP processing through full tracking pipeline.
 - Full pipeline: parse UDP → build frames → background subtraction → clustering → tracking → classification.
@@ -758,7 +758,7 @@
 - Added `GetAllTracks()` method to `Tracker` for retrieving all tracks including deleted.
 - Added build tag `pcap` to `integration_test.go` for conditional test execution.
 
-## November 30, 2025 - Pose Simplification
+## November 30, 2025 - pose simplification
 
 - Removed `internal/lidar/pose.go` and `internal/lidar/pose_test.go` (deferred to future phase).
 - Removed pose-related fields from `ForegroundFrame`, `TrainingFrameMetadata`, `TrainingDataFilter`, `TrackObservation`, `WorldCluster`, `TrackSummary`.
@@ -766,7 +766,7 @@
 - Updated `track_store.go` and `track_api.go` to use simplified signatures.
 - Research export data stored in polar (sensor) frame, which is pose-independent.
 
-## November 30, 2025 - Phase 3.5 Track/Cluster REST API
+## November 30, 2025 - phase 3.5 track/Cluster REST API
 
 - Implemented `TrackAPI` struct in `internal/lidar/monitor/track_api.go`.
 - Added endpoints: `GET /api/lidar/tracks`, `GET /api/lidar/tracks/active`, `GET /api/lidar/tracks/{id}`.
@@ -775,7 +775,7 @@
 - Created JSON response structures: `TrackResponse`, `ClusterResponse`, `TracksListResponse`, `TrackSummaryResponse`.
 - Supports both in-memory tracker (real-time) and database queries.
 
-## November 30, 2025 - Phases 3.3-3.4 SQL Schema & Classification
+## November 30, 2025 - phases 3.3-3.4 SQL schema & classification
 
 - Created migration `000009_create_lidar_tracks.up.sql` with `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables.
 - Implemented persistence in `track_store.go`: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()`, `InsertTrackObservation()`.
@@ -784,7 +784,7 @@
 - Added speed-history summary computation for track classification features.
 - Added `ObjectClass`, `ObjectConfidence`, `ClassificationModel` fields to `TrackedObject`.
 
-## November 30, 2025 - Phases 2.9-3.2 Foreground Tracking Pipeline
+## November 30, 2025 - phases 2.9-3.2 foreground tracking pipeline
 
 - Phase 2.9: Implemented `ProcessFramePolarWithMask()` for per-point foreground/background classification.
 - Phase 3.0: Added `WorldPoint` struct and `TransformToWorld()` with pose support.
@@ -793,49 +793,49 @@
 - Added track lifecycle: Tentative → Confirmed → Deleted with hits/misses counting.
 - Added classification research export support: `ForegroundFrame`, `EncodeForegroundBlob()`/`DecodeForegroundBlob()`.
 
-## November 29, 2025 - Distribution & Tracking Plans
+## November 29, 2025 - distribution & tracking plans
 
 - Created distribution and packaging plan document (1,636 lines).
 - Created LIDAR foreground extraction and tracking implementation plan v2 with polar/world frame separation.
 - Documented Szudzik pairing function for spatial indexing.
 
-## November 19, 2025 - Database Migration System
+## November 19, 2025 - database migration system
 
 - Implemented database migration system using golang-migrate.
 - Created 12 migration files covering schema evolution.
 - Integrated migration CLI commands into main binary.
 
-## November 14, 2025 - Migration System Design
+## November 14, 2025 - migration system design
 
 - Added database migration system design document.
 - Evaluated golang-migrate vs custom solution.
 - Documented migration file conventions and versioning strategy.
 
-## November 7, 2025 - LaTeX Security Fix
+## November 7, 2025 - LaTeX security fix
 
 - Fixed LaTeX injection vulnerability (CVE-9.8 severity) with `escape_latex()` function.
 - Sanitised all user inputs before PDF generation.
 - Fixed JavaScript download bug in report generation.
 
-## November 6, 2025 - Python Venv Consolidation & AI Agents
+## November 6, 2025 - Python venv consolidation & AI agents
 
 - Consolidated Python virtual environments to single repository root `.venv/`.
 - Added Malory (security) and Thompson (communications) custom AI agents.
 - Merged multiple dependabot dependency updates.
 
-## November 5, 2025 - Docs Restructure & Path Security
+## November 5, 2025 - docs restructure & path security
 
 - Restructured Eleventy documentation site with syntax highlighting, typography plugin, breadcrumbs.
 - Added community page to documentation.
 - Implemented path validation to prevent traversal attacks in file operations.
 
-## November 4, 2025 - Build Metadata & PCAP API
+## November 4, 2025 - build metadata & PCAP API
 
 - Added GIT SHA and build time to HTML meta tags via `set-build-env.js`.
 - Moved PCAP/live data source flag from CLI to runtime API (`POST /api/lidar/source`).
 - Updated Makefile naming conventions (162+ line changes).
 
-## November 1, 2025 - PCAP Security & Grid Visualisation
+## November 1, 2025 - PCAP security & grid visualisation
 
 - Implemented path traversal protection with `--lidar-pcap-dir` flag using `filepath.Join()` + `filepath.Abs()` + prefix checking.
 - Added file validation: regular files only, `.pcap`/`.pcapng` extensions required, 403 Forbidden for path escape.
@@ -847,7 +847,7 @@
 - Added Python plotting tools: polar/cartesian heatmaps with live and PCAP replay modes.
 - Consolidated DEBUG-LOGGING-PLAN, GRID-ANALYSIS-PLAN, GRID-HEATMAP-API, LIDAR-PCAP-Debug docs into sidecar overview.
 
-## October 31, 2025 - Grid Analysis API & Debug Logging
+## October 31, 2025 - grid analysis API & debug logging
 
 - Added `GET /api/lidar/grid_heatmap` endpoint for spatial bucket aggregation (40 rings × 120 azimuth buckets).
 - Implemented `GetGridHeatmap()` with configurable bucket size and settled threshold.
@@ -861,7 +861,7 @@
 - Added Makefile targets: dev-go, log-go-tail, log-go-cat, dev-go-pcap.
 - Fixed frame eviction callback delivery bug.
 
-## October 30, 2025 - PCAP Debugging & Development Tools
+## October 30, 2025 - PCAP debugging & development tools
 
 - Enhanced frame eviction logging and finalised frame callback delivery path.
 - Added diagnostics for non-zero channel counts in ParsePacket.
@@ -872,14 +872,14 @@
 - Added log-go-cat and log-go-tail targets.
 - Corrected log directory name in .gitignore.
 
-## October 29, 2025 - Configuration & Documentation Cleanup
+## October 29, 2025 - configuration & documentation cleanup
 
 - Updated lidar configuration flags for clarity and consistency.
 - Enhanced documentation for database path and command flags.
 - Added `SeedFromFirstObservation` parameter for PCAP mode background initialisation.
 - Removed outdated Frontend Units Override Feature documentation.
 
-## October 28, 2025 - PCAP Support Foundation
+## October 28, 2025 - PCAP support foundation
 
 - Added PCAP file replay support with BPF filtering for multi-sensor files.
 - Integrated with existing parser and frame builder for seamless replay.
@@ -888,47 +888,47 @@
 - Added `POST /api/lidar/pcap/start` endpoint for triggering PCAP replay via API.
 - Updated LiDAR sidecar overview with classification, filtering, and metrics implementation details.
 
-## October 27, 2025 - Formatting & Linting
+## October 27, 2025 - formatting & linting
 
 - Added formatting and linting commands to Makefile.
 
-## October 23, 2025 - Sites, Timezones & JavaScript Tests
+## October 23, 2025 - sites, timezones & JavaScript tests
 
 - Updated file prefix conventions for reports.
 - Added timezone handling for sites.
 - Added JavaScript test suite with CI integration.
 
-## October 21, 2025 - Vite Security Update
+## October 21, 2025 - Vite security update
 
 - Bumped vite from 7.1.5 to 7.1.11 for security fix.
 
-## October 14, 2025 - PDF Generator Cleanup
+## October 14, 2025 - PDF generator cleanup
 
 - Cleaned up PDF generator code and structure.
 
-## October 13, 2025 - Report Templates & Tests
+## October 13, 2025 - report templates & tests
 
 - Tweaked LaTeX report templates.
 - Added report generation tests.
 
-## October 3, 2025 - PDF Report Initialisation
+## October 3, 2025 - PDF report initialisation
 
 - Initialised PDF report generation with LaTeX templates (report.pdf).
 
-## September 27, 2025 - Background Parameters & Multisweep
+## September 27, 2025 - background parameters & multisweep
 
 - Added configurable parameters: `closeness_multiplier`, `neighbor_confirmation_count`.
 - Created multisweep tool for parameter exploration.
 - Fixed export destination to use `os.TempDir()`.
 
-## September 23, 2025 - Background Diagnostics & Monitor APIs
+## September 23, 2025 - background diagnostics & monitor APIs
 
-- Centralised runtime diagnostics with `internal/monitoring` logger and per-manager `EnableDiagnostics` flag.
+- Centralised runtime diagnostics with [internal/monitoring](../internal/monitoring) logger and per-manager `EnableDiagnostics` flag.
 - Added BackgroundManager helpers: `SetNoiseRelativeFraction`, `SetEnableDiagnostics`, `GetAcceptanceMetrics`, `ResetAcceptanceMetrics`, `GridStatus`, `ResetGrid`.
 - Added monitor API endpoints: `GET/POST /api/lidar/params`, `GET /api/lidar/acceptance`, `POST /api/lidar/acceptance/reset`, `GET /api/lidar/grid_status`, `POST /api/lidar/grid_reset`.
 - Created `cmd/bg-sweep` CLI: incremental & settle modes, per-noise grid reset, live bucket discovery, CSV output.
 
-## September 22, 2025 - Background Model Fixes & Snapshot Export
+## September 22, 2025 - background model fixes & snapshot export
 
 - Wired BackgroundManager into LiDAR pipeline with self-contained snapshots.
 - Persisted per-ring elevation angles (`ring_elevations_json`) with each `lidar_bg_snapshot`.
@@ -937,24 +937,24 @@
 - Improved `ProcessFramePolar`: restrict neighbour confirmation to same-ring, update spread EMA relative to previous mean.
 - Fixed concurrent SQLite update pattern to avoid SQLITE_BUSY.
 
-## September 21, 2025 - Server & SerialMux Consolidation
+## September 21, 2025 - server & serialMux consolidation
 
-- Centralised HTTP server and UI paths into `internal/api`.
-- Standardised on single SQLite DB (`sensor_data.db`) in `internal/db`.
+- Centralised HTTP server and UI paths into [internal/api](../internal/api).
+- Standardised on single SQLite DB (`sensor_data.db`) in [internal/db](../internal/db).
 - Added LiDAR background snapshot persistence with manual HTTP trigger.
 - Added `--disable-radar` flag and robust `DisabledSerialMux`.
 - Merged duplicate LiDAR webservers; canonical monitor accepts injected `*db.DB` and `SensorID`.
-- Moved radar event handlers to `internal/serialmux/handlers.go`, classification to `parse.go`.
+- Moved radar event handlers to [internal/serialmux/handlers.go](../internal/serialmux/handlers.go), classification to `parse.go`.
 - Added unit tests for serialmux (DisabledSerialMux, classification, config parsing, event handlers).
 
-## September 20, 2025 - Snapshot & Persistence Improvements
+## September 20, 2025 - snapshot & persistence improvements
 
 - Hardened BackgroundGrid persistence with RW-mutexes and copy-under-read.
 - Added DB access for snapshots via GetLatestBgSnapshot helper.
 - Added monitor endpoint to fetch, gunzip/gob-decode and summarise stored snapshots.
 - Moved manual persist endpoint into lidar monitor webserver.
 
-## September 19, 2025 - BackgroundManager & Polar Processing
+## September 19, 2025 - backgroundManager & polar processing
 
 - Introduced BackgroundManager registry with `NewBackgroundManager` constructor.
 - Added managers discoverable via `GetBackgroundManager`/`RegisterBackgroundManager`.
@@ -962,14 +962,14 @@
 - Added `InsertBgSnapshot` in lidar DB layer.
 - Implemented `ProcessFramePolar`: bin by ring/azimuth, EMA updates, neighbour-confirmation, freezing heuristics.
 
-## September 18, 2025 - Polar-First Refactor
+## September 18, 2025 - polar-first refactor
 
 - Centralised spherical→Cartesian math into `transform.go` helper.
 - Introduced `PointPolar` type; parser now emits polar-first.
 - Added `FrameBuilder.AddPointsPolar([]PointPolar)`, removed legacy `AddPoints([]Point)`.
 - UDP listener forwards polar points directly.
 
-## September 17, 2025 - Background Model & Transform Design
+## September 17, 2025 - background model & transform design
 
 - Designed sensor-frame background model (ring × azimuth) for foreground masking.
 - Two-level settling per cell: fast noise settling, slow parked-object settling.
@@ -977,11 +977,11 @@
 - Planned spherical→Cartesian refactor with polar/cartesian point type split.
 - Planned world-grid (height-map / ground estimate) on masked Cartesian points.
 
-## September 15, 2025 - Velocity Graph
+## September 15, 2025 - velocity graph
 
 - Added velocity graph component to web frontend.
 
-## September 13, 2025 - LiDAR Frame Parsing & Test Improvements
+## September 13, 2025 - LiDAR frame parsing & test improvements
 
 - Implemented LiDAR packet parsing into complete 360° frames.
 - Added units, velocity, and timezone configuration support.
@@ -989,10 +989,10 @@
 - Fixed boundary conditions in PCAP extraction loop bounds.
 - Streamlined extractUDPPayloads by removing redundant conditional checks.
 
-## September 12, 2025 - Frame Builder Tests & Time-Based Detection
+## September 12, 2025 - frame builder tests & time-based detection
 
 - Fixed 3 previously failing frame builder tests with realistic production data patterns.
-- Moved PCAP integration test to `internal/lidar/integration_test.go`.
+- Moved PCAP integration test to [internal/lidar/integration_test.go](../internal/lidar/integration_test.go).
 - Created `internal/lidar/testdata/` directory following Go conventions.
 - Increased test point counts to 60,000 points matching production.
 - Implemented hybrid frame detection: time-based primary with azimuth validation.
@@ -1001,7 +1001,7 @@
 - Added --sensor-name flag for flexible deployment.
 - Enhanced code documentation in extract.go with packet structure details.
 
-## September 11, 2025 - Memory Optimisation & Frame Rate Fixes
+## September 11, 2025 - memory optimisation & frame rate fixes
 
 - Analysed Hesai Pandar40P UDP packet structure via Wireshark.
 - Discovered Ethernet tail issue: extra 4 bytes appended to UDP packets.
@@ -1009,25 +1009,25 @@
 - Validated correct UDP sequence extraction and point parsing.
 - Confirmed proper frame characteristics: ~69,000 points per frame, ~100ms duration.
 
-## September 8, 2025 - LiDAR Parser Initialisation
+## September 8, 2025 - LiDAR parser initialisation
 
 - Initialised LiDAR parser for Hesai Pandar40P protocol.
 - Added UDP listener for sensor data ingestion.
 - Created basic packet parsing structure.
 
-## September 5, 2025 - Telraam Integration
+## September 5, 2025 - telraam integration
 
 - Added Python tool to fetch Telraam traffic counting data.
 
-## September 2, 2025 - UniFi Protect Integration
+## September 2, 2025 - uniFi protect integration
 
 - Added Python tool to fetch UniFi Protect camera data.
 
-## August 27, 2025 - Production Web Assets
+## August 27, 2025 - production web assets
 
 - Fixed and bundled production web assets in Go binary.
 
-## August 26, 2025 - Frontend Integration & Middleware
+## August 26, 2025 - frontend integration & middleware
 
 - Integrated Svelte frontend with Go backend server.
 - Added Flush method to loggingResponseWriter for proper streaming.
@@ -1035,64 +1035,64 @@
 - Fixed RadarObjects query and migration.
 - Added VSCode settings for development.
 
-## August 25, 2025 - Svelte Dashboard
+## August 25, 2025 - Svelte dashboard
 
 - Created first dashboard slices with Svelte, svelte-ux, layerchart.
 - Fixed Svelte theme configuration.
 - Added Tailwind CSS styling.
 
-## August 21, 2025 - Favicon & Logging Middleware
+## August 21, 2025 - favicon & logging middleware
 
 - Added favicon serving.
 - Implemented LoggingMiddleware with colour-coded HTTP status codes.
 
-## August 20, 2025 - Radar Stats API
+## August 20, 2025 - radar stats API
 
 - Added `/api/radar_stats` endpoint for aggregated radar statistics.
 
-## July 23, 2025 - Documentation Merge
+## July 23, 2025 - documentation merge
 
 - Merged gh-pages branch into main for unified documentation.
 
-## July 10, 2025 - README Enhancement
+## July 10, 2025 - README enhancement
 
 - Added ASCII art logo to README.
 
-## June 28, 2025 - Code of Conduct
+## June 28, 2025 - code of conduct
 
 - Added CODE_OF_CONDUCT.md for community guidelines.
 
-## June 27, 2025 - RadarObject Parsing & Project Structure
+## June 27, 2025 - radarObject parsing & project structure
 
 - Rebased and implemented RadarObject parsing.
-- Restructured into `cmd/radar/`, `internal/*` packages.
+- Restructured into [cmd/radar/](../cmd/radar), `internal/*` packages.
 - Renamed project to velocity.report.
 - Added Apache 2.0 license.
 - Implemented JSON parsing for radar data.
 - Added unit tests for parsing.
 
-## June 3, 2025 - Radar Objects Table
+## June 3, 2025 - radar objects table
 
 - Created `radar_objects` SQL table.
 - Added RadarObjects database functions.
 
-## May 30, 2025 - Live Tail & Command Fixes
+## May 30, 2025 - live tail & command fixes
 
 - Fixed live tail WebSocket functionality.
 - Fixed command sending to serial port.
 
-## May 26, 2025 - Serial Port Configuration
+## May 26, 2025 - serial port configuration
 
 - Updated serial port configuration handling.
 - Updated event list SQL queries.
 
-## May 22, 2025 - SerialMux Abstraction
+## May 22, 2025 - serialMux abstraction
 
 - Initialised SerialMux for multiple subscriber support.
 - Fixed graceful shutdown handling.
 - Fixed x/net dependabot warning.
 
-## May 16, 2025 - Dev Server & Web Skeleton
+## May 16, 2025 - dev server & web skeleton
 
 - Created working dev server configuration.
 - Began web app skeleton with package namespace.
@@ -1100,18 +1100,18 @@
 - Fixed nested `/api/` route handling.
 - Added `/debug/tailsql` and `/debug/backup` routes.
 
-## May 12, 2025 - SQLite Migration & Serial Tests
+## May 12, 2025 - SQLite migration & serial tests
 
 - Replaced DuckDB with SQLite (modernc.org/sqlite for pure Go).
 - Added serialReader unit tests.
 - Implemented bufio for serial port buffering.
 
-## April 11, 2025 - Command Logging & Handler Extraction
+## April 11, 2025 - command logging & handler extraction
 
 - Added command logging to database.
 - Extracted serialPortHandler into separate function.
 
-## March 21, 2025 - Serial Reader & API Improvements
+## March 21, 2025 - serial reader & API improvements
 
 - Implemented uptime parsing and validation.
 - Added readline counter for serial data.
@@ -1123,13 +1123,13 @@
 - Fixed timestamp casting in SQL.
 - Added API verb support for commands.
 
-## March 20, 2025 - Baud Rate & Schema Updates
+## March 20, 2025 - baud rate & schema updates
 
 - Set serial baud rate to 19.2k.
 - Updated schema to v0.0.2 with uptime field.
 - Added POST /execute endpoint.
 
-## March 17, 2025 - Project Initialisation
+## March 17, 2025 - project initialisation
 
 - Initialised repository with Go 1.24.
 - Created initial server structure with Gin HTTP framework.

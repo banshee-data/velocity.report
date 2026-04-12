@@ -11,9 +11,9 @@ and without collecting the sort of personal data that makes a
 privacy officer reach for the whisky. If that sounds worth
 working on, read on.
 
-## Community & Discussion
+## Community & discussion
 
-[![Discord](https://img.shields.io/discord/1387513267496419359?logo=discord&label=chat%20on%20discord)](https://discord.gg/XXh6jXVFkt)
+### [Join us on Discord](https://discord.gg/XXh6jXVFkt)
 
 - **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt)
   for real-time conversation, questions, and the occasional
@@ -36,7 +36,7 @@ If a feature would be clever but would require a camera, or
 convenient but would phone home, it does not get built. The
 privacy commitment is the product, not a constraint on it.
 
-## Finding Your Way In
+## Finding your way in
 
 The project spans sensor hardware, real-time data pipelines,
 web visualisation, data science, and hardware deployment.
@@ -44,7 +44,7 @@ Nobody knows all of it. Pick the role closest to what you
 already do, read the linked documents, and then find an
 issue that fits.
 
-### Data Scientist
+### Data scientist
 
 The perception pipeline runs on transparent, auditable maths:
 polar background settling, ground and cluster geometry,
@@ -74,18 +74,18 @@ and evidence requirements lives in
 [data/QUESTIONS.md](data/QUESTIONS.md). These four are the
 highest-impact starting points for a data scientist:
 
-1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)** —
+1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)**:
    Does the Bayesian geometry-coherent model reduce
    heading drift and dimension instability enough to
    replace the reactive OBB guards?
-2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)** —
+2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)**:
    Does track-assisted foreground promotion beat the
    current baseline on track completeness and
    fragmentation across multiple sites?
-3. **[Interpretable classification](data/maths/classification-maths.md)** —
+3. **[Interpretable classification](data/maths/classification-maths.md)**:
    Can a shallow, explainable model improve per-class
    precision/recall without introducing a black box?
-4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)** —
+4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)**:
    Can reflective signs serve as reliable static pose
    anchors, and what fallback hierarchy works in
    sign-poor scenes?
@@ -101,8 +101,8 @@ Read next:
 - [data/QUESTIONS.md](data/QUESTIONS.md): full index of
   open research questions across the pipeline, grouped by
   theme with acceptance criteria and evidence requirements
-- [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
-- [data/maths/README.md](data/maths/README.md): mathematical
+- [Pipeline Architecture](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): Ten layer data processing stack, from sensors to visualisation tools
+- [data/maths/MATHS.md](data/maths/MATHS.md): mathematical
   foundations across settling, ground modelling, clustering,
   tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md):
@@ -118,7 +118,7 @@ Read next:
 - [data/maths/classification-maths.md](data/maths/classification-maths.md):
   the current boring static classifier
 
-### Designer (UX & Data Visualisation)
+### Designer (UX & data visualisation)
 
 Designers turn speed data into clear, persuasive stories that
 help people argue for safer streets. This includes information
@@ -134,12 +134,12 @@ did.
 
 #### Open questions
 
-1. **[Speed distribution visualisation](data/QUESTIONS.md)** —
+1. **[Speed distribution visualisation](data/QUESTIONS.md)**:
    Urban speed data is often bimodal or skewed; how
    should charts represent non-normal distributions and
    communicate sample-size confidence to non-technical
    audiences?
-2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)** —
+2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)**:
    What visual language makes it clear that p85 values
    across time bins cannot simply be averaged?
 
@@ -156,7 +156,7 @@ Read next:
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
-### Technical Writer
+### Technical writer
 
 Technical writers make the project easier to understand,
 contribute to, and deploy. Setup guides, architecture docs,
@@ -182,7 +182,7 @@ Read next:
 - [public_html/src/guides/setup.md](public_html/src/guides/setup.md):
   a representative public-facing guide for tone and structure
 
-### Perception & Algorithm Engineer
+### Perception & algorithm engineer
 
 Perception and algorithm engineers turn raw radar and LiDAR
 data into tracked objects with speed, heading, and
@@ -198,33 +198,33 @@ seagull also helps.
 
 #### Open questions
 
-1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)** —
+1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)**:
    When does the height-band filter stop being good
    enough, and what replay evidence justifies tile-plane
    fitting?
-2. **[Kinematic model extensions](data/QUESTIONS.md)** —
+2. **[Kinematic model extensions](data/QUESTIONS.md)**:
    Does adding acceleration states or IMM blending
    reduce track fragmentation enough to justify the CPU
    cost on a Raspberry Pi?
-3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)** —
+3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)**:
    Should fusion be scored at L5 per-track association
    or L7 scene-level, and how should conflicting
    observations be resolved?
 
 Read next:
 
-- [docs/lidar/README.md](docs/lidar/README.md): entry point
+- [LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): entry point
   to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md):
   end-to-end LiDAR pipeline and component inventory
-- [data/maths/README.md](data/maths/README.md): how the
+- [data/maths/MATHS.md](data/maths/MATHS.md): how the
   maths-heavy layers fit together
 - [data/maths/clustering-maths.md](data/maths/clustering-maths.md):
   clustering assumptions, geometry extraction, and complexity
 - [data/maths/tracking-maths.md](data/maths/tracking-maths.md):
   Kalman filtering, gating, assignment, and lifecycle dynamics
 
-### Platform Engineer
+### Platform engineer
 
 Platform engineers work on the Go server and everything around
 it: sensor ingestion, APIs, database work, configuration,
@@ -241,14 +241,14 @@ shell tooling, and deployment automation is useful.
 
 #### Open questions
 
-1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)** —
+1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)**:
    Most defaults were tuned on a single PCAP; which
    survive multi-site validation and what does the
    auto-tuning objective function look like?
-2. **[Edge hardware budget](data/QUESTIONS.md)** —
+2. **[Edge hardware budget](data/QUESTIONS.md)**:
    Do all proposed algorithm improvements fit within
    the 100 ms frame budget on a Raspberry Pi 4?
-3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)** —
+3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)**:
    How should observed geometry be diffed, reviewed,
    and exported against OSM without weakening
    provenance?
@@ -263,14 +263,14 @@ Read next:
   current CLI surface and planned consolidation
 - [internal/db/migrations/README.md](internal/db/migrations/README.md):
   schema workflow, migration commands, and production safety
-- [config/README.md](config/README.md): configuration
+- [config/CONFIG.md](config/CONFIG.md): configuration
   contract and tuning parameter layout
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md):
   release packaging strategy and install model
 - [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md):
   listener segmentation, trust model, and network hardening
 
-### Frontend Engineer (js:Svelte / mac:Swift / py:matplotlib)
+### Frontend engineer (js:Svelte / mac:Swift / py:matplotlib)
 
 Frontend work spans three surfaces: the **Svelte web app**,
 the **macOS LiDAR visualiser**, and the **PDF report charts**.
@@ -303,20 +303,20 @@ Read next:
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
-## Themes of Work
+## Themes of work
 
 These are the broad areas of work across the project. Specific
 tasks live in the [backlog](docs/BACKLOG.md); the themes help
 you find the part that fits your hands.
 
-### Sensor Integration & Data Pipeline
+### Sensor integration & data pipeline
 
 Getting data in from radar and LiDAR sensors, validating it,
 and storing it. Serial and UDP protocol handling, data parsing,
 schema design, and making sure nothing gets quietly lost on
 hardware that costs forty pounds.
 
-### Tracking, Perception & Sensor Fusion
+### Tracking, perception & sensor fusion
 
 Turning raw sensor feeds into meaningful objects: clustering
 point clouds, maintaining tracked identities across frames,
@@ -324,7 +324,7 @@ classifying vehicles, and fusing radar speed with LiDAR
 spatial tracks. The goal is a unified transit record that
 would survive a polite cross-examination.
 
-### Web Frontend & Visualisation
+### Web frontend & visualisation
 
 The Svelte web app and the macOS visualiser: real-time
 dashboards, interactive charts, configuration interfaces,
@@ -333,7 +333,7 @@ enforcement. Also includes migrating legacy Go-embedded
 dashboards to Svelte, improving responsiveness, and ensuring
 the whole thing works for people who use screen readers.
 
-### Report Generation & Data Export
+### Report generation & data export
 
 Producing professional PDF speed reports suitable for
 submitting to a local authority, and providing data export
@@ -343,7 +343,7 @@ query-scoped report generation. The report is often the first
 thing a council officer reads, so it needs to look like it was
 made on purpose.
 
-### Deployment, Packaging & Platform
+### Deployment, packaging & platform
 
 Making velocity.report straightforward to install and run:
 Raspberry Pi image pipelines, cross-compiled binaries,
@@ -351,7 +351,7 @@ one-line installers, systemd integration, CI/CD automation,
 and release management. The target user is a neighbourhood
 advocate, not a systems administrator.
 
-### Quality, Testing & Accessibility
+### Quality, testing & accessibility
 
 Raising and maintaining test coverage across Go, Python, and
 web components. Unit testing, E2E testing with Playwright,
@@ -359,7 +359,7 @@ visual regression testing, accessibility auditing, and code
 quality tooling. The test suite is the last thing standing
 between a commit and a user having a bad afternoon.
 
-### Documentation & Community
+### Documentation & community
 
 Writing and maintaining setup guides, architecture docs,
 design documents, and the public documentation site. Keeping
@@ -381,7 +381,7 @@ Useful labels:
 - `help wanted`: Issues where extra hands would make a real
   difference
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
@@ -391,7 +391,7 @@ Useful labels:
 - **SQLite3**: database (also the entire database strategy,
   which is one of the nicer things about the project)
 
-### Initial Setup
+### Initial setup
 
 ```bash
 git clone git@github.com:banshee-data/velocity.report.git
@@ -405,7 +405,7 @@ make install-docs        # Public docs site
 
 See the [README](README.md) for the full story.
 
-## Code Style & Conventions
+## Code style & conventions
 
 ### Formatting
 
@@ -423,7 +423,7 @@ make test      # Make sure nothing caught fire
 All three must pass before submitting a PR. This is the
 quality gate, and it does not have a side entrance.
 
-### Pre-commit Hooks (Recommended)
+### Pre-commit hooks (recommended)
 
 For regular contributors, install hooks that format on commit
 so you do not have to remember:
@@ -433,7 +433,7 @@ pip install pre-commit
 pre-commit install
 ```
 
-### Advisory Linting (Non-Blocking)
+### Advisory linting (non-blocking)
 
 Some lint checks are **advisory**: they report issues without
 blocking your PR. This is a deliberate low-friction workflow:
@@ -461,9 +461,9 @@ its default 88-column line length. The prose-width linter checks
 Markdown. For details see
 [`line-width-standardisation-plan.md`](docs/plans/line-width-standardisation-plan.md).
 
-## Git Workflow
+## Git workflow
 
-### Branch Naming
+### Branch naming
 
 Name branches so a stranger can guess the contents:
 
@@ -472,7 +472,7 @@ Name branches so a stranger can guess the contents:
 - `docs/`: Documentation (e.g., `docs/update-setup-guide`)
 - `refactor/`: Tidying (e.g., `refactor/db-layer`)
 
-### Commit Messages
+### Commit messages
 
 Prefix each commit message with the primary language or
 purpose. This makes the log scannable for humans who are not
@@ -501,7 +501,7 @@ Examples:
 Multiple tags are fine when a commit touches more than one
 area. Split commits when practical.
 
-## Design Language
+## Design language
 
 All UI and chart work follows the design contract in
 [docs/ui/DESIGN.md](docs/ui/DESIGN.md). The short version:
@@ -520,7 +520,7 @@ All UI and chart work follows the design contract in
 
 See DESIGN.md §9 for the full UI and chart PR checklist.
 
-## Pull Requests
+## Pull requests
 
 1. **Fork & branch**: Create a feature branch from `main`.
 2. **Make changes**: Follow the code style conventions above.
@@ -532,7 +532,7 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
    what.
 6. **Review**: Address feedback from maintainers.
 
-### PR Checklist
+### PR checklist
 
 - [ ] `make lint` passes
 - [ ] `make test` passes
@@ -541,7 +541,7 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
 
 ## Testing
 
-### Running Tests
+### Running tests
 
 ```bash
 make test              # Everything
@@ -550,10 +550,10 @@ make test-python       # Python tests
 make test-web          # Web tests (Jest)
 ```
 
-### Writing Tests
+### Writing tests
 
 - **Go**: `*_test.go` files alongside the code they test.
-- **Python**: `tools/pdf-generator/pdf_generator/tests/`.
+- **Python**: [tools/pdf-generator/pdf_generator/tests/](tools/pdf-generator/pdf_generator/tests).
 - **Web**: Jest, with test files matching
   `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`.
 
@@ -562,7 +562,7 @@ the problem. If you fix a bug, write a test that reproduces
 it. A bug without a regression test is a bug that will come
 back when you are on holiday.
 
-## Project Structure
+## Project structure
 
 ```
 velocity.report/
@@ -593,7 +593,7 @@ When changing behaviour, update all affected docs:
 Documentation that contradicts the code is worse than no
 documentation at all, because at least an absence is honest.
 
-## Getting Help
+## Getting help
 
 - **Discord**: Best for quick questions:
   [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)

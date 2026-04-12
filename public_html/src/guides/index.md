@@ -4,7 +4,7 @@ title: Guides
 eleventyExcludeFromCollections: true
 ---
 
-# How-To Guides
+# How-To guides
 
 Step-by-step tutorials to help you get the most out of velocity.report
 

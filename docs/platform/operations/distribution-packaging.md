@@ -1,4 +1,4 @@
-# Distribution and Packaging
+# Distribution and packaging
 
 Active plan: [deploy-distribution-packaging-plan.md](../../plans/deploy-distribution-packaging-plan.md)
 
@@ -10,7 +10,7 @@ Multiple scattered tools, no release process, complex Python setup. The Go
 server, Python PDF generator, sweep tool, and utility scripts each have
 different build and distribution paths.
 
-## Chosen Architecture: Subcommand Model (D-09)
+## Chosen architecture: subcommand model (D-09)
 
 Single `velocity-report` binary with subcommands, plus separate power-user
 binaries.
@@ -38,7 +38,7 @@ velocity-report-backfill-rings         # Developer tool
 [deploy-rpi-imager-fork-plan.md § 8](../../plans/deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl)).
 It is a purpose-built on-device management tool with no SSH surface.
 
-### Key Changes
+### Key changes
 
 | What               | Before                         | After                                               |
 | ------------------ | ------------------------------ | --------------------------------------------------- |
@@ -49,7 +49,7 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **Installation**   | Manual build + scp + script    | `curl install.sh \| sudo bash`                      |
 | **Releases**       | None                           | GitHub Releases with CI/CD                          |
 
-## Components Inventory
+## Components inventory
 
 | Component                    | Type          | Location                              | Current Distribution              |
 | ---------------------------- | ------------- | ------------------------------------- | --------------------------------- |
@@ -62,7 +62,7 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **Grid Heatmap**             | Python        | `tools/grid-heatmap/`                 | Manual invocation                 |
 | **Web Frontend**             | Svelte        | `web/`                                | `//go:embed` in assets.go         |
 
-## User Personas
+## User personas
 
 | Persona                    | Needs                                                                   |
 | -------------------------- | ----------------------------------------------------------------------- |
@@ -70,13 +70,13 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **Traffic Engineer**       | All tools (sweep, heatmap, backfill), Python available, CLI proficiency |
 | **Developer**              | Source repo with Makefile, all build targets, dev convenience           |
 
-## Tool Categorisation
+## Tool categorisation
 
 - **Core tools** (in main binary): serve, migrate, pdf, basic backfill
 - **Power user tools** (separate): sweep, grid-heatmap
 - **Developer tools** (not installed): ring elevations backfill, dev scripts
 
-## Installed System Layout
+## Installed system layout
 
 ```
 /usr/local/bin/
@@ -101,7 +101,7 @@ It is a purpose-built on-device management tool with no SSH surface.
   └── config.yaml
 ```
 
-## Python Environment Strategy
+## Python environment strategy
 
 Python scripts need dependencies (matplotlib, PyLaTeX, etc.). Solution:
 virtual environment in a shared location.
@@ -117,9 +117,9 @@ The `velocity-report pdf` subcommand discovers Python via a fallback chain:
 3. System `python3`
 4. Error with helpful message
 
-## Command Structure
+## Command structure
 
-### Main Binary: `velocity-report`
+### Main binary: `velocity-report`
 
 ```
 velocity-report                  # Start server (default, backward compat)
@@ -131,14 +131,14 @@ velocity-report version          # Show version info
 velocity-report help             # Show help
 ```
 
-### Additional Binaries
+### Additional binaries
 
 ```
 velocity-report-sweep --mode multi --iterations 30
 velocity-report-backfill-rings --db sensor_data.db
 ```
 
-## Version Management
+## Version management
 
 ```go
 package version
@@ -155,7 +155,7 @@ Set via linker flags: `-X .../version.Version=$(VERSION)`
 Git revision and build time populated from `debug.ReadBuildInfo()` VCS
 settings at runtime.
 
-## Source Layout (Proposed)
+## Source layout (proposed)
 
 ```
 cmd/
@@ -171,7 +171,7 @@ internal/
   └── version/                   # Version management
 ```
 
-## Migration Compatibility
+## Migration compatibility
 
 - Old binary still works (starts server by default)
 - New binary backward compatible (no args = serve)
@@ -179,7 +179,7 @@ internal/
 - All existing Makefile targets preserved
 - All existing flags for `serve` preserved
 
-## Rollback Plan
+## Rollback plan
 
 ```bash
 sudo systemctl stop velocity-report
@@ -189,20 +189,20 @@ sudo systemctl daemon-reload
 sudo systemctl start velocity-report
 ```
 
-## Breaking Changes Summary
+## Breaking changes summary
 
-### End Users — No Breaking Changes
+### End users: no breaking changes
 
 - `velocity-report` (no args) still starts server
 - All existing flags preserved
 
-### Developers — Minor
+### Developers: minor
 
 - `cmd/radar/` moves to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only `cmd/` structure changes)
 
-### Advanced Users
+### Advanced users
 
 - `app-sweep` renamed to `velocity-report-sweep`
 - All features preserved, consistent naming convention

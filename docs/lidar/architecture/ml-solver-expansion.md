@@ -1,8 +1,8 @@
-# Velocity Report Expansion Plan Inspired by an Industry Standard ML Solver
+# Velocity report expansion plan inspired by an industry standard ML solver
 
 This document maps transferable practices from industry-standard ML solver design onto the velocity.report parameter tuning stack, proposing a phased expansion from feature-level sweep tooling to a reusable optimisation platform.
 
-## Document Intent
+## Document intent
 
 Evolve sweep/auto/HINT from a feature set into a reusable Optimisation Platform.
 
@@ -10,7 +10,7 @@ This document translates practices from an industry standard ML solver into a co
 
 ---
 
-## 1) Current State Deep Analysis (Velocity Report)
+## 1) Current state deep analysis (velocity report)
 
 ### 1.1 What is already strong
 
@@ -69,7 +69,7 @@ However, the plan currently behaves mostly as a **feature plan**, not yet a **pl
 
 ---
 
-## 2) Transferable Learnings from an Industry Standard ML Solver
+## 2) Transferable learnings from an industry standard ML solver
 
 ### 2.1 Explicit schema for examples and model artefacts
 
@@ -146,7 +146,7 @@ This aligns well with current auto-tune behaviour and suggests extending with:
 
 ---
 
-## 3) Expansion Blueprint for Velocity Report
+## 3) Expansion blueprint for velocity report
 
 ### 3.1 Strategic goal
 
@@ -185,11 +185,11 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
    - Promotion criteria (minimum labels, confidence thresholds, quality checks).
    - Artifact retention policy and traceable lineage.
 
-### 3.3 Layer-Scoped Contract (L3/L4/L5)
+### 3.3 Layer-Scoped contract (L3/L4/L5)
 
 > **Moved:** The detailed layer-scoped config contract, engine selection
 > registry, and evaluation protocol are now maintained in
-> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md),
+> [`docs/plans/config-restructure-plan.md`](../../plans/config-restructure-plan.md),
 > which is the canonical reference for the breaking config migration from
 > flat to layer-scoped structure.
 >
@@ -199,7 +199,7 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
 
 ---
 
-## 4) HINT-Specific Enhancements to Prioritise
+## 4) HINT-Specific enhancements to prioritise
 
 ### 4.1 Label provenance and confidence contract
 
@@ -254,33 +254,33 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 ---
 
-## 5) Suggested Implementation Phases
+## 5) Suggested implementation phases
 
-### Phase A — Foundation (short-term)
+### Phase a: foundation (short-term)
 
 - Introduce versioned experiment schema fields in sweep persistence.
 - Add component-level score breakdown output for all objectives.
 - Add provenance markers for carried-over labels.
 
-### Phase B — Transform + Objective Platform
+### Phase b: transform + objective platform
 
 - Implement transform engine for pre-score metric shaping.
 - Refactor objective implementations into registry-driven modules.
 - Add objective/transform version stamps in run artifacts.
 
-### Phase C — HINT Quality and Explainability
+### Phase c: HINT quality and explainability
 
 - Add class/time coverage gates to `continue` validation.
 - Add HINT explanation card in dashboard and Svelte sweeps UI.
 - Expose round-over-round delta explanations.
 
-### Phase D — Adaptive Search Expansion
+### Phase d: adaptive search expansion
 
 - Add stochastic/hybrid search strategy behind a feature flag.
 - Add early stopping based on confidence and score stability.
 - Compare compute-cost vs quality against pure grid narrowing.
 
-### Phase E — Governance + Promotion
+### Phase e: governance + promotion
 
 - Add experiment promotion rules for applying optimal params to scenes.
 - Add audit reports for “why recommendation was accepted.”
@@ -288,7 +288,7 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 ---
 
-## 6) Data Model and API Additions (Proposed)
+## 6) Data model and API additions (proposed)
 
 ### 6.1 Data model additions
 
@@ -309,7 +309,7 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 ---
 
-## 7) Risks and Mitigations
+## 7) Risks and mitigations
 
 1. **Risk: Increased complexity in tuning stack.**
    - Mitigation: enforce module boundaries (transform/objective/search) and keep default presets minimal.
@@ -325,7 +325,7 @@ This improves sample efficiency during expensive human-in-the-loop cycles.
 
 ---
 
-## 8) Success Criteria
+## 8) Success criteria
 
 Define success as measurable deltas:
 
@@ -336,9 +336,9 @@ Define success as measurable deltas:
 
 ---
 
-## 9) Implementation Status and Remaining Backlog
+## 9) Implementation status and remaining backlog
 
-### Completed work (Phase A — Foundation)
+### Completed work (phase a: foundation)
 
 All Phase A items from the original plan (9.1–9.4) are **done**:
 
@@ -346,9 +346,9 @@ All Phase A items from the original plan (9.1–9.4) are **done**:
 - **9.2** Score component breakdown (`ScoreComponents`, `ScoreExplanation`, `groundTruthScorerDetailed`, `/api/lidar/sweep/explain/{sweep_id}`).
 - **9.3** HINT continue validation with class/time coverage gates (`MinClassCoverage`, `MinTemporalSpreadSecs`, unit tests).
 - **9.4** Explanation rendering in dashboard and Svelte sweeps page (explanation card, score breakdown section, TypeScript interfaces).
-- **Phase A extras** — label provenance markers, IoU-based carry-over confidence, schema contracts (`schema_contracts.go`).
+- **Phase A extras**: label provenance markers, IoU-based carry-over confidence, schema contracts (`schema_contracts.go`).
 
-### Phase A — remaining items
+### Phase a: remaining items
 
 Five `SaveSweepComplete` population tasks require integration with the active
 scorer during live runs. Blocked until Phase B transform pipeline work
@@ -360,7 +360,7 @@ provides the structured metric vectors these fields depend on.
 - [ ] Populate component breakdown during HINT scoring in `hint.go`
 - [ ] Persist `schema_version` field on sweep records
 
-### Upcoming work (Phases B–E)
+### Upcoming work (phases B–E)
 
 Phases B–E are tracked in [BACKLOG.md](../../BACKLOG.md). The table below
 maps each phase to its project milestone and summarises scope.
@@ -372,26 +372,26 @@ maps each phase to its project milestone and summarises scope.
 | D     | v2.0      | Hybrid search strategy; early stopping on confidence intervals                |
 | E     | v2.0      | Experiment promotion rules; audit reports; canary mode; artefact retention    |
 
-#### Phase B — Transform + Objective Platform (v1.0)
+#### Phase b: transform + objective platform (v1.0)
 
 - [ ] Implement config-driven transform pipeline (`Transform` interface, standard transforms, round-dependent modifiers)
 - [ ] Refactor objectives into registry-driven modules with `ObjectiveDefinition` struct
 - [ ] Add `GET /api/lidar/sweep/objectives` and `/transforms` endpoints
 - [ ] Complete Phase A remaining items (above) once transform pipeline is in place
 
-#### Phase C — HINT Quality and Explainability (v1.0)
+#### Phase c: HINT quality and explainability (v1.0)
 
 - [ ] Round-over-round delta explanations
 - [ ] Multi-labeller agreement consistency checks
 - [ ] Label-coverage confidence penalty in scoring
 - [ ] Per-round score decomposition rendering (dashboard + Svelte, requires live data)
 
-#### Phase D — Adaptive Search (v2.0)
+#### Phase d: adaptive search (v2.0)
 
 - [ ] Hybrid search strategy (broad exploration → tight exploitation) behind feature flag
 - [ ] Early stopping based on confidence intervals and score stability
 
-#### Phase E — Governance + Promotion (v2.0)
+#### Phase e: governance + promotion (v2.0)
 
 - [ ] Experiment promotion rules, audit reports, canary mode
 - [ ] Artefact retention policy and traceable lineage

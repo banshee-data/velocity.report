@@ -1,8 +1,8 @@
-# Plan Title (version scope)
+# Plan title (version scope)
 
 - **Status:** Draft | Active | Complete
 - **Layers:** e.g. Cross-cutting (Go server, API, database) | LiDAR pipeline | Web frontend
-- **Target:** e.g. v0.5.x — reason the work is tied to this release
+- **Target:** e.g. v0.5.x; reason the work is tied to this release
 - **Companion plans:** [linked-plan-name](linked-plan-name.md) (if any) <!-- link-ignore -->
 - **Canonical:** [hub-doc-name](../platform/path/hub-doc.md) (single source of truth) <!-- link-ignore -->
 
@@ -11,10 +11,10 @@
 Why this work exists. What structural risk or user-facing problem it addresses.
 One or two paragraphs. Name the consequence of inaction.
 
-## Current State
+## Current state
 
 What the codebase looks like today in the area this plan covers.
-Include counts, file paths, and measurable facts — not opinions.
+Include counts, file paths, and measurable facts: not opinions.
 
 ## Findings
 
@@ -22,7 +22,7 @@ Include counts, file paths, and measurable facts — not opinions.
 | ---- | ------------- | -------- | ------------ |
 |      |               |          |              |
 
-## Design / Approach
+## Design / approach
 
 How the work will be done. Name the boundaries, the load-bearing paths,
 and the invariants that must hold. If there are options, list them with
@@ -30,7 +30,7 @@ the burden each assigns.
 
 ## Scope
 
-### Item 1: Title
+### Item 1: title
 
 **Summary:** One sentence.
 
@@ -41,7 +41,7 @@ the burden each assigns.
 
 **Milestone:** v0.x.x
 
-### Item 2: Title
+### Item 2: title
 
 **Summary:** One sentence.
 
@@ -66,16 +66,16 @@ External or internal dependencies that gate or sequence this work.
 
 ### Complete
 
-- [x] Example completed item — brief description
+- [x] Example completed item: brief description
 
 ### Outstanding
 
-- [ ] Example outstanding item — brief description (`S`/`M`/`L` effort)
+- [ ] Example outstanding item: brief description (`S`/`M`/`L` effort)
 
 ### Deferred
 
-- [ ] Example deferred item — reason for deferral, tracked by [other-plan](other-plan.md) <!-- link-ignore -->
+- [ ] Example deferred item: reason for deferral, tracked by [other-plan](other-plan.md) <!-- link-ignore -->
 
 ### Accepted residuals (no action planned)
 
-- [ ] Example residual — why it is acceptable
+- [ ] Example residual: why it is acceptable

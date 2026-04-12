@@ -1,35 +1,35 @@
-# L7 Scene and Multi-Sensor Fusion Plan
+# L7 scene and multi-sensor fusion plan
 
-- **Status:** 📋 Planned — v1.0
+- **Status:** 📋 Planned; v1.0
 - **Layers:** L7 Scene
-- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
-- **Maths index:** [data/maths/README.md](../../data/maths/README.md)
+- **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
+- **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
 This plan covers two related workstreams for the L7 Scene layer:
 
-1. **L7 Scene layer** — design the canonical world model package
-2. **Multi-sensor architecture** — how multiple sensors fuse at L7
+1. **L7 Scene layer**: design the canonical world model package
+2. **Multi-sensor architecture**: how multiple sensors fuse at L7
 
 ---
 
-## 1. L7 Scene — canonical world model
+## 1. L7 scene: canonical world model
 
 L7 is the key architectural addition in the ten-layer model. It introduces a **persistent, evidence-accumulated representation of the world** that transcends individual frames, tracks, and sensors.
 
-### What L7 Scene contains
+### What L7 scene contains
 
-1. **Static geometry** — ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+1. **Static geometry**: ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
-2. **Dynamic canonical objects** — long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+2. **Dynamic canonical objects**: long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
-3. **External priors** — geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
+3. **External priors**: geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
 
-4. **Multi-sensor merged scene** — when multiple sensors observe the same area, L7 fuses their independent L1–L6 pipelines into a single coherent world model (see [§ 2. Multi-sensor architecture](#2-multi-sensor-architecture) below).
+4. **Multi-sensor merged scene**: when multiple sensors observe the same area, L7 fuses their independent L1–L6 pipelines into a single coherent world model (see [§ 2. Multi-sensor architecture](#2-multi-sensor-architecture) below).
 
-5. **Uncertainty and provenance** — every scene feature carries confidence bounds, observation count, source sensor IDs, and edit history. User edits in VelocityVisualiser are tracked separately from automated refinement.
+5. **Uncertainty and provenance**: every scene feature carries confidence bounds, observation count, source sensor IDs, and edit history. User edits in VelocityVisualiser are tracked separately from automated refinement.
 
-### L7 relationship to L4 Perception
+### L7 relationship to L4 perception
 
 L4 produces **per-frame, single-sensor observations**:
 
@@ -43,9 +43,9 @@ The separation ensures L4 remains a fast, stateless, per-frame operation while L
 
 ### L7 relationship to L5/L6
 
-L5 tracks are **ephemeral identity** — they live for the duration of an object's visibility to one sensor. L6 objects are **per-track semantic labels**.
+L5 tracks are **ephemeral identity**: they live for the duration of an object's visibility to one sensor. L6 objects are **per-track semantic labels**.
 
-L7 canonical objects are **persistent identity** — a car that drives through the intersection, disappears for 30 seconds, then returns can be re-identified as the same canonical object. When multiple sensors are deployed (future), L7 is where tracks from different sensors merge into a single coherent object trajectory.
+L7 canonical objects are **persistent identity**: a car that drives through the intersection, disappears for 30 seconds, then returns can be re-identified as the same canonical object. When multiple sensors are deployed (future), L7 is where tracks from different sensors merge into a single coherent object trajectory.
 
 ### OSM priors service
 
@@ -104,10 +104,10 @@ Real-world traffic monitoring benefits from multiple sensors covering different 
 
 **Use cases for multi-sensor deployment:**
 
-1. **Extended coverage** — two sensors on opposite sides of a bend cover the full trajectory of a turning vehicle, eliminating the blind zone.
-2. **Multi-modality** — combine LiDAR (rich geometry, range accuracy) with radar (direct velocity measurement, weather resilience) for robust detection in all conditions.
-3. **Occlusion resolution** — a pedestrian occluded from Sensor A may be visible to Sensor B; the merged scene shows the complete picture.
-4. **Redundancy** — sensor failure or blockage (snow, spider web) is compensated by the remaining sensors.
+1. **Extended coverage**: two sensors on opposite sides of a bend cover the full trajectory of a turning vehicle, eliminating the blind zone.
+2. **Multi-modality**: combine LiDAR (rich geometry, range accuracy) with radar (direct velocity measurement, weather resilience) for robust detection in all conditions.
+3. **Occlusion resolution**: a pedestrian occluded from Sensor A may be visible to Sensor B; the merged scene shows the complete picture.
+4. **Redundancy**: sensor failure or blockage (snow, spider web) is compensated by the remaining sensors.
 
 ### Layer impact of multi-sensor fusion
 
@@ -148,10 +148,10 @@ L7 canonical:    ═══════════════╬═════
 
 **Association strategies** (to be evaluated during implementation):
 
-- **Spatial gating** — predicted position from A's Kalman state vs. B's new detection position; gate by Mahalanobis distance
-- **Velocity consistency** — heading and speed must agree within tolerance
-- **Temporal proximity** — departure time from A and arrival time at B must be consistent with expected transit time across the gap
-- **Appearance consistency** — dimensions and classification from A must match B's observations
+- **Spatial gating**: predicted position from A's Kalman state vs. B's new detection position; gate by Mahalanobis distance
+- **Velocity consistency**: heading and speed must agree within tolerance
+- **Temporal proximity**: departure time from A and arrival time at B must be consistent with expected transit time across the gap
+- **Appearance consistency**: dimensions and classification from A must match B's observations
 
 ---
 
@@ -159,7 +159,7 @@ L7 canonical:    ═══════════════╬═════
 
 L7 builds on the mathematical machinery already established in L3–L5 and extends it to the persistent-geometry and multi-sensor domains.
 
-### 3.1 Scene accumulation — Bayesian evidence grid
+### 3.1 Scene accumulation: bayesian evidence grid
 
 Static geometry accumulates via per-feature confidence updates. For each scene feature $f$ observed by frame evidence $z_t$:
 
@@ -171,9 +171,9 @@ $$L(f \mid z_{1:t}) = L(f \mid z_{1:t-1}) + \log\frac{P(z_t \mid f)}{P(z_t \mid 
 
 This is the same occupancy-grid update used in OctoMap (Hornung et al., 2013) but applied to vector features rather than voxels. Each feature carries an observation count $N$ and accumulated log-odds confidence $L$.
 
-**Related maths docs:** [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) (L4 ground removal — production uses `HeightBandFilter`; tile-based surface estimation is planned, see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)).
+**Related maths docs:** [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) (L3 EMA settling), [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) (L4 ground removal; production uses `HeightBandFilter`; tile-based surface estimation is planned, see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)).
 
-### 3.2 Canonical object refinement — running sufficient statistics
+### 3.2 Canonical object refinement: running sufficient statistics
 
 When L5 tracks are promoted to L7 canonical objects, their geometry is refined using streaming Welford updates (same Welford algorithm proposed for the planned L4 ground-plane estimator):
 
@@ -183,7 +183,7 @@ where $\delta = x_{n+1} - \mu_n$ and $C$ is the running scatter matrix. This pro
 
 **Related maths doc:** [ground-plane-vector-scene-maths proposal](../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) § 3.1.
 
-### 3.3 Cross-sensor track association — gated nearest-neighbour
+### 3.3 Cross-sensor track association: gated nearest-neighbour
 
 Track handoff from Sensor A to Sensor B uses Mahalanobis-distance gating:
 
@@ -195,7 +195,7 @@ Association is accepted when $d_M^2 < \chi^2_{3,\alpha}$ (3-DOF gate for positio
 
 **Related maths docs:** [tracking-maths.md](../../data/maths/tracking-maths.md) (L5 Kalman filter), [clustering-maths.md](../../data/maths/clustering-maths.md) (DBSCAN spatial indexing).
 
-### 3.4 Prior-to-observation alignment — rigid transform estimation
+### 3.4 Prior-to-observation alignment: rigid transform estimation
 
 OSM priors are aligned to sensor-observed geometry via Procrustes analysis. Given $n$ corresponding point pairs $\{(p_i, q_i)\}$ between prior and observed features:
 
@@ -211,9 +211,9 @@ This aligns OSM building outlines and road geometry to the sensor's local coordi
 
 L7 is also the natural home for two concerns that cannot live in lower layers: **physics-constrained trajectory prediction** and **persistent geometric relationships** (the scene graph).
 
-### 4.1 Physics motion model — layer placement
+### 4.1 Physics motion model: layer placement
 
-Single-object kinematics (richer Kalman state vectors) belong at L5 — that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
+Single-object kinematics (richer Kalman state vectors) belong at L5: that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
 
 | Scope                                                            | Layer        | Responsibility                                                                                    |
 | ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
@@ -236,21 +236,21 @@ L7 constrained path probability distribution
 
 **Design doc:** [lidar-bodies-in-motion-plan.md](lidar-bodies-in-motion-plan.md) expands this into a full implementation plan including sparse-cluster track linking and path prediction. **Maths proposal:** [bodies-in-motion-maths](../../data/maths/proposals/) (to be written).
 
-### 4.2 Scene graph — geometric constraint relationships
+### 4.2 Scene graph: geometric constraint relationships
 
 "Cluster expected to touch ground plane" and "height above ground / base clamped" are instances of typed spatial relationships between features of different classes. The set of these relationships forms a scene graph.
 
-**Per-frame queries (L4 — stateless, planned):**
+**Per-frame queries (L4: stateless, planned):**
 
 L4 would own the primitive geometric queries that run every frame. Currently, ground removal uses a simple `HeightBandFilter` (fixed Z-band gating). The queries below require the planned `GroundSurface` interface (see [ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)):
 
-- `GroundSurface.QueryHeightAboveGround(x, y, z)` — point height relative to local ground
+- `GroundSurface.QueryHeightAboveGround(x, y, z)`: point height relative to local ground
 - Per-frame ground-contact check: "is this cluster's lowest point within 20 cm of the ground surface?"
 - Base-Z clamping during cluster extraction: `cluster.BaseZ = max(clusterMinZ, groundZ)`
 
 These would be stateless and would not require accumulated geometry or cross-frame state.
 
-**Accumulated relationships (L7 — stateful):**
+**Accumulated relationships (L7: stateful):**
 
 The persistent relationship graph lives at L7 because it represents evidence accumulated over many frames:
 
@@ -268,9 +268,9 @@ VolumeFeature   → rooted_in      →     GroundPolygon     (tree base on groun
 
 Each relation carries accumulated confidence and relation-specific parameters:
 
-- `contacts_ground` — expected base-Z offset from ground surface (typically ~0 for vehicles)
-- `follows_road` — corridor width constraint
-- `occluded_by` — occlusion angle range
+- `contacts_ground`: expected base-Z offset from ground surface (typically ~0 for vehicles)
+- `follows_road`: corridor width constraint
+- `occluded_by`: occlusion angle range
 
 **Key distinction:** L4 answers "what is the ground height here?" (stateless query). L7 answers "this object consistently contacts this ground polygon" (accumulated evidence) and uses that relationship to constrain predicted paths.
 
@@ -300,39 +300,39 @@ L7 Scene
 
 ### Scene and map construction
 
-| Reference                                                                               | Relevance                                                                                                                |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| HD Map construction surveys (Liu et al., 2020; Li et al., 2022)                         | Canonical approach to persistent vector map construction from LiDAR; our L7 follows this paradigm at neighbourhood scale |
-| OpenStreetMap Simple 3D Buildings (S3DB) specification                                  | Prior source for building outlines; our priors service ingests S3DB tags                                                 |
-| Pannen et al. (2020) — How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020) | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                      |
-| CityJSON specification (v1.1)                                                           | 3D city model interchange format; our L7 export target for building geometry                                             |
-| Hornung et al. (2013) — **OctoMap** (doi:10.1007/s10514-012-9321-0)                     | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
-| Pomerleau et al. (2014) — Long-term 3D map maintenance                                  | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
+| Reference                                                                              | Relevance                                                                                                                |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| HD Map construction surveys (Liu et al., 2020; Li et al., 2022)                        | Canonical approach to persistent vector map construction from LiDAR; our L7 follows this paradigm at neighbourhood scale |
+| OpenStreetMap Simple 3D Buildings (S3DB) specification                                 | Prior source for building outlines; our priors service ingests S3DB tags                                                 |
+| Pannen et al. (2020): How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020) | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                      |
+| CityJSON specification (v1.1)                                                          | 3D city model interchange format; our L7 export target for building geometry                                             |
+| Hornung et al. (2013): **OctoMap** (doi:10.1007/s10514-012-9321-0)                     | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                              |
+| Pomerleau et al. (2014): Long-term 3D map maintenance                                  | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                              |
 
 ### Multi-sensor tracking and fusion
 
-| Reference                                                                                    | Relevance                                                                                         |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Bar-Shalom et al. (2011) — Tracking and Data Fusion (Mathematics in Science and Engineering) | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering |
-| Reid (1979) — An algorithm for tracking multiple targets (IEEE TAC)                          | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
-| Kim & Liu (2017) — Cooperative multi-robot observation of targets                            | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
-| Dames & Kumar (2017) — Detecting, localising, and tracking an unknown number of targets      | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
+| Reference                                                                                   | Relevance                                                                                         |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Bar-Shalom et al. (2011): Tracking and Data Fusion (Mathematics in Science and Engineering) | Canonical text on multi-sensor data fusion; covariance intersection, distributed Kalman filtering |
+| Reid (1979): An algorithm for tracking multiple targets (IEEE TAC)                          | Multiple Hypothesis Tracking (MHT); the theoretical framework for multi-sensor association        |
+| Kim & Liu (2017): Cooperative multi-robot observation of targets                            | Decentralised track fusion across sensor nodes; relevant to our distributed edge architecture     |
+| Dames & Kumar (2017): Detecting, localising, and tracking an unknown number of targets      | Multi-sensor PHD filter; advanced alternative to our proposed gating-based approach               |
 
 ### Physics-constrained prediction and scene graphs
 
-| Reference                                                                                                 | Relevance                                                                                              |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Lefèvre et al. (2014) — A survey on motion prediction and risk assessment for intelligent vehicles        | Taxonomy of physics-based, manoeuvre-based, and interaction-aware prediction; frames our L5→L7 split   |
-| Schöller et al. (2020) — What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction | Surprisingly strong CV baseline; validates our L5 CV/CA starting point before adding scene constraints |
-| Salzmann et al. (2020) — Trajectron++: Dynamically-Feasible Trajectory Forecasting (ECCV 2020)            | Scene-conditioned trajectory prediction with dynamics integration; our L7 scene-constrained path model |
-| Liang et al. (2020) — Learning lane graph representations for motion forecasting (ECCV 2020)              | Lane-graph topology for trajectory prediction; relevant to our road-polygon corridor constraints       |
+| Reference                                                                                                | Relevance                                                                                              |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Lefèvre et al. (2014): A survey on motion prediction and risk assessment for intelligent vehicles        | Taxonomy of physics-based, manoeuvre-based, and interaction-aware prediction; frames our L5→L7 split   |
+| Schöller et al. (2020): What the Constant Velocity Model Can Teach Us About Pedestrian Motion Prediction | Surprisingly strong CV baseline; validates our L5 CV/CA starting point before adding scene constraints |
+| Salzmann et al. (2020): Trajectron++: Dynamically-Feasible Trajectory Forecasting (ECCV 2020)            | Scene-conditioned trajectory prediction with dynamics integration; our L7 scene-constrained path model |
+| Liang et al. (2020): Learning lane graph representations for motion forecasting (ECCV 2020)              | Lane-graph topology for trajectory prediction; relevant to our road-polygon corridor constraints       |
 
 ### Mathematical methods
 
-| Reference                                                                       | Relevance                                                                                      |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Kalman (1960) — A New Approach to Linear Filtering and Prediction Problems      | Foundation of the Kalman state estimator used in L5 tracking and L7 cross-sensor extrapolation |
-| Welford (1962) — Note on a method for calculating corrected sums                | Numerically stable online mean/variance; used for canonical object dimension refinement        |
-| Schönemann (1966) — A generalised solution of the orthogonal Procrustes problem | Closed-form rigid alignment via SVD; used for prior-to-observation registration                |
-| Mahalanobis (1936) — On the generalised distance in statistics                  | Statistical distance metric used for cross-sensor track association gating                     |
-| Hornung et al. (2013) — OctoMap                                                 | Log-odds occupancy update; adapted for vector-feature confidence accumulation                  |
+| Reference                                                                      | Relevance                                                                                      |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Kalman (1960): A New Approach to Linear Filtering and Prediction Problems      | Foundation of the Kalman state estimator used in L5 tracking and L7 cross-sensor extrapolation |
+| Welford (1962): Note on a method for calculating corrected sums                | Numerically stable online mean/variance; used for canonical object dimension refinement        |
+| Schönemann (1966): A generalised solution of the orthogonal Procrustes problem | Closed-form rigid alignment via SVD; used for prior-to-observation registration                |
+| Mahalanobis (1936): On the generalised distance in statistics                  | Statistical distance metric used for cross-sensor track association gating                     |
+| Hornung et al. (2013): OctoMap                                                 | Log-odds occupancy update; adapted for vector-feature confidence accumulation                  |

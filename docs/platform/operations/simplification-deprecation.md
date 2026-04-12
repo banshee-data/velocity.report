@@ -1,4 +1,4 @@
-# Simplification and Deprecation
+# Simplification and deprecation
 
 Active plan: [platform-simplification-and-deprecation-plan.md](../../plans/platform-simplification-and-deprecation-plan.md)
 
@@ -10,7 +10,7 @@ Reduce non-core operational surface area and clean up backward compatibility
 debt across Make targets, `cmd/` applications, CLI flags, metrics/frontend
 surfaces, and data model shims.
 
-## Core vs Non-Core
+## Core vs non-core
 
 **Core:** `cmd/radar` binary and its API serving path, database migration/query
 paths, web app on `:8080`.
@@ -20,7 +20,7 @@ local plotting helpers, CLI flags tied to transitional debug pathways.
 
 > **Deprecation targets and progress:** see the active plan above.
 
-## Deploy Retirement Gate
+## Deploy retirement gate
 
 Removal of `cmd/deploy` is gated on **all** of:
 
@@ -33,11 +33,11 @@ Removal of `cmd/deploy` is gated on **all** of:
 Once met, `cmd/deploy/`, `internal/deploy/`, 8+ Makefile targets, and
 `scripts/setup-radar-host.sh` are removed.
 
-## v0.5.0 Breaking Changes
+## v0.5.0 Breaking changes
 
 1. **Track speed contract:** `peak_speed_mps` → `max_speed_mps`; percentiles
    reserved for grouped/report aggregates only.
-2. **Deploy surface deprecated** — prints warnings; removal in v0.7.0+.
+2. **Deploy surface deprecated**: prints warnings; removal in v0.7.0+.
 3. **Sweep API:** Legacy request/result fields removed; `param_values` only.
 4. **Report download:** Query-parameter endpoint removed; path-based only.
 5. **Stats API:** Bare-array response removed; always `{ metrics, histogram }`.
@@ -49,7 +49,7 @@ Consolidate on Svelte surface via
 [web-frontend-consolidation](../../ui/web-frontend-consolidation.md).
 Retire duplicated stats/debug HTML surfaces after parity is reached.
 
-## Project Status
+## Project status
 
 | Project | Scope                  | Status              |
 | ------- | ---------------------- | ------------------- |
@@ -59,7 +59,7 @@ Retire duplicated stats/debug HTML surfaces after parity is reached.
 | D       | CLI simplification     | Partially addressed |
 | E       | Compat shim removal    | ✅ Complete         |
 
-## Binary Size
+## Binary size
 
 The velocity-report Linux ARM64 binary must stay below 40 MB. See the
 active plan for root cause, phases, and checklist.
@@ -71,7 +71,7 @@ active plan for root cause, phases, and checklist.
 
 | Segment                | Size   | Notes                                  |
 | ---------------------- | ------ | -------------------------------------- |
-| Stale `static/` embeds | 172 MB | Root cause — build hygiene, not Svelte |
+| Stale `static/` embeds | 172 MB | Root cause: build hygiene, not Svelte  |
 | Go code + all deps     | 38 MB  | Includes SQLite, gRPC, protobuf, gonum |
 | `web/build/` (current) | 1.1 MB | The actual SvelteKit build             |
 

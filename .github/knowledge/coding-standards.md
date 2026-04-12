@@ -128,8 +128,44 @@ This applies to:
 
 ## Configuration
 
-Configuration is JSON, version-tagged (`v2`), and validated at load time. See `config/README.md` for the schema. Do not add CLI flags for values that belong in the tuning file.
+Configuration is JSON, version-tagged (`v2`), and validated at load time. See [config/CONFIG.md](../../config/CONFIG.md) for the schema. Do not add CLI flags for values that belong in the tuning file.
 
 ## Images and Media
 
 Canonical image assets live in `public_html/src/images/`. The path `docs/images/` is a symlink to that directory, so documentation can reference `docs/images/` for shorter paths. Add new images to `public_html/src/images/`. Use descriptive filenames with hyphens. Keep file sizes under 1 MB where possible. Use SVG for diagrams, PNG for screenshots, GIF for short animations.
+
+## File Naming
+
+Two naming patterns are used across the repository. They carry semantic meaning and are not interchangeable.
+
+### UPPER_CASE.md: canonical reference files
+
+Use `UPPER_CASE.md` for documents that _are_ the canonical answer for their
+topic: the one file you open when you need the definitive statement on
+something. One per directory or per topic.
+
+| File                                                     | Topic                                    |
+| -------------------------------------------------------- | ---------------------------------------- |
+| `README.md`                                              | Entry point for a directory or component |
+| `ARCHITECTURE.md`                                        | System-wide architecture reference       |
+| `CHANGELOG.md`                                           | Release history                          |
+| `TENETS.md`                                              | Project principles                       |
+| `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`                  | Community governance                     |
+| `TROUBLESHOOTING.md`, `COMMANDS.md`                      | Operational quick-reference              |
+| `docs/BACKLOG.md`, `docs/DECISIONS.md`, `docs/DEVLOG.md` | Project management canon                 |
+| `config/CONFIG.md`                                       | Configuration schema reference           |
+| `data/maths/MATHS.md`                                    | Maths reference index                    |
+| `docs/platform/PLATFORM.md`                              | Platform operations canon                |
+
+**Rule:** if the filename answers "where do I look for X?", it is `UPPER_CASE.md`.
+
+### kebab-case.md: everything else
+
+Use `kebab-case.md` for design plans, operation guides, architecture deep-dives,
+specs, and investigations — any document that covers _one aspect_ of a topic
+rather than being the definitive reference for it.
+
+Examples: `transit-deduplication.md`, `pdf-go-chart-migration-plan.md`, `auto-tuning.md`.
+
+**Rule:** if the filename describes _what the document covers_ rather than
+serving as the index for a topic, it is `kebab-case.md`.

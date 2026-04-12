@@ -1,4 +1,4 @@
-# AV Standard LIDAR Integration Plan
+# AV standard LIDAR integration plan
 
 - **Status:** DEFERRED - AV Integration Only
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
@@ -12,9 +12,9 @@
 
 ---
 
-## Current velocity.report Capabilities
+## Current velocity.report capabilities
 
-### Existing Data Structures
+### Existing data structures
 
 #### WorldCluster (clustering.go)
 
@@ -92,7 +92,7 @@ type ForegroundFrame struct {
 - ❌ No tracking ID associations
 - ❌ No NLZ annotations
 
-### Current ML Pipeline Status
+### Current ML pipeline status
 
 | Component                   | Status      | Description                                                                       |
 | --------------------------- | ----------- | --------------------------------------------------------------------------------- |
@@ -110,9 +110,9 @@ type ForegroundFrame struct {
 
 ---
 
-## Data Structure Gap Analysis
+## Data structure gap analysis
 
-### Required Additions for AV Standard Compatibility
+### Required additions for AV standard compatibility
 
 | Gap                            | Priority      | Effort | Description                          |
 | ------------------------------ | ------------- | ------ | ------------------------------------ |
@@ -125,7 +125,7 @@ type ForegroundFrame struct {
 | **Global tracking ID**         | P1 - High     | Low    | AV standard-compatible track IDs     |
 | **Object difficulty level**    | P2 - Medium   | Low    | AV standard difficulty annotation    |
 
-### Coordinate Frame Alignment
+### Coordinate frame alignment
 
 **AV Standard Convention:**
 
@@ -148,13 +148,13 @@ type ForegroundFrame struct {
 
 ---
 
-## Phase 1: Core Data Structure Alignment
+## Phase 1: core data structure alignment
 
 ### Objective
 
 Extend velocity.report data structures to support industry-standard 7-DOF bounding boxes and ground truth labels.
 
-### 1.1 BoundingBox7DOF Type
+### 1.1 BoundingBox7DOF type
 
 **File:** `internal/lidar/av_types.go` (new)
 
@@ -190,7 +190,7 @@ func (b *BoundingBox7DOF) Volume() float64
 func (b *BoundingBox7DOF) IoU(other *BoundingBox7DOF) float64
 ```
 
-### 1.2 Object Label Type
+### 1.2 Object label type
 
 ```go
 // ObjectLabel represents a ground truth label for a detected object.
@@ -326,7 +326,7 @@ func (c AVObjectClass) IsInstanceSegmented() bool {
 }
 ```
 
-### 1.3 LabeledFrame Type
+### 1.3 LabeledFrame type
 
 ```go
 // LabeledFrame represents a single LIDAR frame with ground truth labels.
@@ -354,7 +354,7 @@ type LabeledFrame struct {
 }
 ```
 
-### 1.4 Extend WorldCluster with Heading
+### 1.4 Extend worldCluster with heading
 
 **File:** `internal/lidar/clustering.go`
 
@@ -378,7 +378,7 @@ These fields extend the existing WorldCluster (defined in `clustering.go`) to su
 2. **Velocity**: From track velocity (VX, VY)
 3. **Motion History**: Direction of travel from track history
 
-### 1.5 Database Schema Extensions
+### 1.5 Database schema extensions
 
 **File:** `internal/db/migrations/000014_av_integration.up.sql`
 
@@ -465,13 +465,13 @@ CREATE INDEX idx_frame_meta_context ON lidar_frame_metadata(context_name);
 
 ---
 
-## Phase 2: Parquet Ingestion Pipeline
+## Phase 2: parquet ingestion pipeline
 
 ### Objective
 
 Create a robust Parquet reader for AV standard dataset files.
 
-### 2.1 Parquet Reader (Required)
+### 2.1 Parquet reader (required)
 
 **File:** `internal/lidar/av/parquet_reader.go`
 
@@ -500,7 +500,7 @@ func (r *AVParquetReader) ReadNoLabelZones(contextName string) ([]NoLabelZone, e
 func (r *AVParquetReader) ListContexts() ([]string, error)
 ```
 
-### 2.2 Import Command (Required)
+### 2.2 Import command (required)
 
 **File:** `cmd/tools/av-import/main.go`
 
@@ -520,7 +520,7 @@ func (r *AVParquetReader) ListContexts() ([]string, error)
 //   --verbose     Enable verbose logging
 ```
 
-### 2.3 Component Support Matrix
+### 2.3 Component support matrix
 
 | Component            | Required    | Description                 | Priority |
 | -------------------- | ----------- | --------------------------- | -------- |
@@ -530,7 +530,7 @@ func (r *AVParquetReader) ListContexts() ([]string, error)
 | `lidar`              | ⚪ Optional | Raw point clouds            | P2       |
 | `lidar_segmentation` | ⚪ Optional | Semantic segmentation       | P2       |
 
-### 2.4 Data Validation
+### 2.4 Data validation
 
 **Validation Rules:**
 
@@ -542,13 +542,13 @@ func (r *AVParquetReader) ListContexts() ([]string, error)
 
 ---
 
-## Phase 3: No Label Zone (NLZ) Support
+## Phase 3: no label zone (NLZ) support
 
 ### Objective
 
 Implement NLZ polygon handling and point annotation.
 
-### 3.1 NoLabelZone Type
+### 3.1 NoLabelZone type
 
 ```go
 // NoLabelZone represents an unlabeled area in a scene.
@@ -566,7 +566,7 @@ func (z *NoLabelZone) ContainsPoint(x, y float64) bool
 func (z *NoLabelZone) Bounds() (minX, minY, maxX, maxY float64)
 ```
 
-### 3.2 Point NLZ Annotation
+### 3.2 Point NLZ annotation
 
 ```go
 // AnnotatePointsWithNLZ annotates each point with NLZ membership.
@@ -577,7 +577,7 @@ func AnnotatePointsWithNLZ(points []WorldPoint, zones []NoLabelZone) []bool
 func FilterNLZPoints(points []WorldPoint, nlzMask []bool) []WorldPoint
 ```
 
-### 3.3 Prediction NLZ Overlap
+### 3.3 Prediction NLZ overlap
 
 ```go
 // CheckPredictionNLZOverlap checks if a prediction overlaps with NLZ points.
@@ -591,13 +591,13 @@ func CheckPredictionNLZOverlap(
 
 ---
 
-## Phase 4: ML Training Integration
+## Phase 4: ML training integration
 
 ### Objective
 
 Connect AV standard ground truth labels to the ML training pipeline.
 
-### 4.1 Training Data Generator
+### 4.1 Training data generator
 
 **File:** `internal/lidar/av/training_generator.go`
 
@@ -635,7 +635,7 @@ func (g *AVTrainingGenerator) ExportTFRecord(examples []TrainingExample, outputP
 func (g *AVTrainingGenerator) ExportParquet(examples []TrainingExample, outputPath string) error
 ```
 
-### 4.2 Label Association
+### 4.2 Label association
 
 ```go
 // AssociateClustersWithLabels matches detected clusters to ground truth labels.
@@ -656,7 +656,7 @@ type ClusterLabelAssociation struct {
 }
 ```
 
-### 4.3 Metrics Computation
+### 4.3 Metrics computation
 
 ```go
 // AVMetrics computes AV standard detection metrics.
@@ -681,13 +681,13 @@ func ComputeMetrics(predictions []BoundingBox7DOF, labels []ObjectLabel) AVMetri
 
 ---
 
-## Phase 5: Frame Analyzer Tool
+## Phase 5: frame analyzer tool
 
 ### Objective
 
 Create a command-line tool for analysing LIDAR frames with AV standard-compatible output.
 
-### 5.1 Frame Analyzer Command
+### 5.1 Frame analyzer command
 
 **File:** `cmd/tools/frame-analyzer/main.go`
 
@@ -713,7 +713,7 @@ Create a command-line tool for analysing LIDAR frames with AV standard-compatibl
 //   --metrics      Compute detection/tracking metrics
 ```
 
-### 5.2 Analysis Output Format
+### 5.2 Analysis output format
 
 ```json
 {
@@ -747,11 +747,11 @@ Create a command-line tool for analysing LIDAR frames with AV standard-compatibl
 
 ---
 
-## Common Types and Helper Functions
+## Common types and helper functions
 
 This section defines shared types and helper functions used across the clustering and occlusion handling algorithms.
 
-### Cluster Type
+### Cluster type
 
 ```go
 // Cluster represents a logical grouping of LIDAR points into a candidate object.
@@ -764,7 +764,7 @@ type Cluster struct {
 }
 ```
 
-### Helper Functions
+### Helper functions
 
 The following helper functions are used by the algorithms in Phases 6 and 7. These are implemented in the clustering and geometry packages.
 
@@ -842,13 +842,13 @@ func computeCompletionConfidence(
 
 ---
 
-## Phase 6: Clustering Algorithms for Consistent Object Detection
+## Phase 6: clustering algorithms for consistent object detection
 
 ### Objective
 
 Implement robust clustering algorithms that identify consistent point clusters representing real-world objects, with handling for partial observations (occlusion) and shape estimation for non-illuminated surfaces.
 
-### 6.1 Multi-Stage Clustering Pipeline
+### 6.1 Multi-Stage clustering pipeline
 
 **Pipeline Overview:**
 
@@ -918,7 +918,7 @@ type MergeCriteria struct {
 func (cm *ClusterMerger) MergeClusters(clusters []Cluster) []Cluster
 ```
 
-### 6.2 Euclidean Cluster Extraction Algorithm
+### 6.2 Euclidean cluster extraction algorithm
 
 **Algorithm: Region Growing with Spatial Index**
 
@@ -982,7 +982,7 @@ func (ece *EuclideanClusterExtractor) growRegion(points []WorldPoint, seed int, 
 }
 ```
 
-### 6.3 Octree Spatial Index
+### 6.3 Octree spatial index
 
 **Implementation for efficient 3D neighbour queries:**
 
@@ -1020,13 +1020,13 @@ func (oi *OctreeIndex) RadiusSearch(query WorldPoint, radius float64) []int {
 
 ---
 
-## Phase 7: Occlusion Handling and Shape Completion
+## Phase 7: occlusion handling and shape completion
 
 ### Objective
 
 Handle partial observations where portions of an object are not "illuminated" by the LIDAR (e.g., the far side of a car) and estimate the complete 3D bounding box.
 
-### 7.1 Occlusion Detection
+### 7.1 Occlusion detection
 
 **Problem:** A LIDAR sensor only observes surfaces facing toward it. For a typical vehicle, only 1-3 sides are visible at any time.
 
@@ -1072,7 +1072,7 @@ func (oa *OcclusionAnalyzer) AnalyzeOcclusion(cluster Cluster, heading float32) 
 }
 ```
 
-### 7.2 Shape Completion Algorithms
+### 7.2 Shape completion algorithms
 
 **Algorithm 1: Symmetry-Based Completion**
 
@@ -1231,7 +1231,7 @@ func (mbc *ModelBasedCompletion) CompleteBox(
 }
 ```
 
-### 7.3 Temporal Consistency for Shape Refinement
+### 7.3 Temporal consistency for shape refinement
 
 Use multi-frame observations to refine shape estimates as an object moves and reveals different surfaces.
 
@@ -1329,7 +1329,7 @@ func (tsr *TemporalShapeRefiner) computeRefinedBox(est *ShapeEstimate) BoundingB
 }
 ```
 
-### 7.4 L-Shape Fitting for Vehicles
+### 7.4 L-Shape fitting for vehicles
 
 Classic algorithm for estimating vehicle bounding boxes from corner observations.
 
@@ -1424,9 +1424,9 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ---
 
-## Tool Requirements Matrix
+## Tool requirements matrix
 
-### Required Tools and Libraries
+### Required tools and libraries
 
 | Tool/Library            | Purpose                        | Status    | Priority      |
 | ----------------------- | ------------------------------ | --------- | ------------- |
@@ -1437,7 +1437,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
 | **frame-analyzer CLI**  | Analyse frames                 | 🆕 New    | P1 - High     |
 
-### Optional Tools and Libraries
+### Optional tools and libraries
 
 | Tool/Library                 | Purpose                  | Status      | Priority    |
 | ---------------------------- | ------------------------ | ----------- | ----------- |
@@ -1447,7 +1447,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | **Point cloud registration** | Refined pose alignment   | ⚪ Optional | P3 - Low    |
 | **Semantic segmentation**    | Per-point labels         | ⚪ Optional | P3 - Low    |
 
-### Decision Matrix: Build vs External
+### Decision matrix: build vs external
 
 | Capability       | Recommendation             | Rationale                           |
 | ---------------- | -------------------------- | ----------------------------------- |
@@ -1459,9 +1459,9 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ---
 
-## Implementation Timeline
+## Implementation timeline
 
-### Phase 1: Core Data Structures (Week 1-2)
+### Phase 1: core data structures (week 1-2)
 
 - [ ] Create `av_types.go` with BoundingBox7DOF, ObjectLabel, LabeledFrame
 - [ ] Implement AV industry standard 28-class object taxonomy
@@ -1469,35 +1469,35 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 - [ ] Add database migrations for ground truth tables
 - [ ] Unit tests for box math (IoU, containment)
 
-### Phase 2: Parquet Ingestion (Week 2-3)
+### Phase 2: parquet ingestion (week 2-3)
 
 - [ ] Add Parquet library dependency
 - [ ] Implement AVParquetReader
 - [ ] Create av-import CLI tool
 - [ ] Integration tests with sample AV dataset
 
-### Phase 3: NLZ Support (Week 3-4)
+### Phase 3: NLZ support (week 3-4)
 
 - [ ] Implement NoLabelZone type and polygon math
 - [ ] Add point NLZ annotation functions
 - [ ] Update database schema for NLZ storage
 - [ ] Tests for polygon containment edge cases
 
-### Phase 4: ML Integration (Week 4-5)
+### Phase 4: ML integration (week 4-5)
 
 - [ ] Implement cluster-to-label association
 - [ ] Create AVTrainingGenerator
 - [ ] Add metrics computation (AP, IoU)
 - [ ] Export formats (JSON, Parquet)
 
-### Phase 5: Frame Analyzer (Week 5-6)
+### Phase 5: frame analyzer (week 5-6)
 
 - [ ] Create frame-analyzer CLI tool
 - [ ] Implement analysis pipeline
 - [ ] Add evaluation mode
 - [ ] Documentation and examples
 
-### Phase 6: Clustering Algorithms (Week 6-7)
+### Phase 6: clustering algorithms (week 6-7)
 
 - [ ] Implement ground removal (RANSAC/grid-based)
 - [ ] Implement AdaptiveDBSCAN with range-dependent epsilon
@@ -1506,7 +1506,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 - [ ] L-shape fitting for vehicle bounding boxes
 - [ ] Unit tests for clustering algorithms
 
-### Phase 7: Occlusion Handling (Week 7-8)
+### Phase 7: occlusion handling (week 7-8)
 
 - [ ] Implement occlusion detection (surface visibility analysis)
 - [ ] Symmetry-based shape completion
@@ -1517,16 +1517,16 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ---
 
-## Future Considerations
+## Future considerations
 
-### Potential Extensions
+### Potential extensions
 
 1. **Radar Integration**: Integrate radar detections with LiDAR for velocity validation
 2. **Sensor Fusion**: Combine LiDAR and radar detections for improved tracking
 3. **Domain Adaptation**: Transfer AV dataset models to Hesai P40 sensor
 4. **Active Learning**: Prioritise labelling based on model uncertainty
 
-### Privacy Alignment
+### Privacy alignment
 
 **AV Dataset Compatibility with velocity.report Privacy Principles:**
 
@@ -1537,7 +1537,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 | Local storage     | ✅ Data imported locally                |
 | User ownership    | ✅ User downloads and owns copy         |
 
-### Performance Considerations
+### Performance considerations
 
 - **Large dataset**: Typical AV datasets have ~1000 segments with ~20s each at 10Hz = 200k frames
 - **Storage**: Estimated 50GB+ for full Parquet import
@@ -1545,7 +1545,7 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ---
 
-## Appendix A: AV Dataset SDK Reference
+## Appendix a: AV dataset SDK reference
 
 ### Python SDK (reference, not required)
 
@@ -1568,7 +1568,7 @@ for _, row in lidar_box_df.iterrows():
     print(box.box.center.x, box.box.size.x, box.box.heading)
 ```
 
-### Data Access
+### Data access
 
 - **Storage**: Cloud storage or local download
 - **Download**: Via appropriate dataset tools
@@ -1576,7 +1576,7 @@ for _, row in lidar_box_df.iterrows():
 
 ---
 
-## Appendix B: File Structure After Implementation
+## Appendix b: file structure after implementation
 
 ```
 velocity.report/

@@ -1,13 +1,13 @@
-# Setup Guide Publication Plan
+# Setup guide publication plan
 
 - **Status:** Active
 - **Canonical:** [setup.md](../../public_html/src/guides/setup.md)
 
 Checklist of remaining items before the setup guide at `public_html/src/guides/setup.md` is ready for public consumption.
 
-## Content Placeholders
+## Content placeholders
 
-The guide currently contains `[PLACEHOLDER]` markers where visual assets are needed. These are not optional — a guide about mounting hardware on poles without photos is a guide about trust, and trust requires evidence.
+The guide currently contains `[PLACEHOLDER]` markers where visual assets are needed. These are not optional: a guide about mounting hardware on poles without photos is a guide about trust, and trust requires evidence.
 
 - [ ] **Hero image**: Completed infrastructure deployment (weatherproof enclosure mounted on utility pole)
 - [ ] **Wiring diagram**: RS232 connections between OPS7243 sensor and Waveshare HAT, colour-coded wires, pin labels
@@ -18,9 +18,9 @@ The guide currently contains `[PLACEHOLDER]` markers where visual assets are nee
 - [ ] **PDF report sample**: Page from a real report showing histogram, p50/p85/p98, time-of-day chart
 - [ ] **Advocacy photo**: Community member presenting PDF report at council meeting (or staged equivalent)
 
-**Image format guidance**: Use `.webp` for photos (smaller, modern browsers all support it). Use `.svg` for diagrams where possible. Place images in `public_html/src/images/guides/setup/`. Alt text on every image — accessibility is not decoration.
+**Image format guidance**: Use `.webp` for photos (smaller, modern browsers all support it). Use `.svg` for diagrams where possible. Place images in `public_html/src/images/guides/setup/`. Alt text on every image; accessibility is not decoration.
 
-## Pi Image Release
+## Pi image release
 
 The guide now assumes the Pi image is the primary installation method. These items must be in place:
 
@@ -31,15 +31,15 @@ The guide now assumes the Pi image is the primary installation method. These ite
 - [ ] **First boot tested**: Flash → boot → SSH → `systemctl status velocity-report` shows `active (running)`
 - [ ] **velocity-ctl tested**: `sudo velocity-ctl upgrade --check` works on a fresh image
 
-## Readability Review
+## Readability review
 
 - [ ] **Fresh-eyes read**: Have someone who has never touched the project follow the guide start to finish
 - [ ] **Time estimate validated**: Confirm 2–4 hours is realistic (clock someone doing it)
 - [ ] **Troubleshooting coverage**: Walk through each failure mode mentioned and verify the fix works
 - [ ] **Link check**: Every internal and external link resolves (especially OmniPreSense product links and Discord)
-- [ ] **Mobile rendering**: Preview the Eleventy-rendered page on a phone — lots of people read docs on phones while standing next to hardware
+- [ ] **Mobile rendering**: Preview the Eleventy-rendered page on a phone; lots of people read docs on phones while standing next to hardware
 
-## Cross-Reference Updates
+## Cross-Reference updates
 
 When the guide changes, other documents may need to match:
 
@@ -60,59 +60,59 @@ Once content and assets are complete:
 - [ ] **GitHub Release notes**: Reference the guide in the next release changelog
 - [ ] **README link**: Ensure the main README links to the published guide URL
 
-## Voice Notes
+## Voice notes
 
-The guide is currently written at mid-Terry (Dial 2): clear, warm, personality present but restrained. If the project wants a more distinctive voice for the public launch, the full-Terry (Dial 3) alternatives below could replace specific sections. These are optional — mid-Terry is the safer choice for a guide people will follow while holding a screwdriver.
+The guide is currently written at mid-Terry (Dial 2): clear, warm, personality present but restrained. If the project wants a more distinctive voice for the public launch, the full-Terry (Dial 3) alternatives below could replace specific sections. These are optional; mid-Terry is the safer choice for a guide people will follow while holding a screwdriver.
 
-### Full-Terry Alternatives (Optional)
+### Full-Terry alternatives (optional)
 
-**Introduction — current (mid)**:
+**Introduction: current (mid)**:
 
-> Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation tends to stall at "it feels fast" versus "the speed limit is fine" — and feelings, however justified, do not survive contact with a council agenda.
+> Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation tends to stall at "it feels fast" versus "the speed limit is fine": and feelings, however justified, do not survive contact with a council agenda.
 
-**Introduction — full Terry**:
+**Introduction: full Terry**:
 
-> Every street has a speed limit. Most streets also have a second, informal speed limit — the one drivers actually observe, which tends to be higher, faster, and considerably more dangerous. The first step toward fixing this is proving it exists, which requires something more persuasive than a firmly worded letter. This guide shows you how to build that something.
+> Every street has a speed limit. Most streets also have a second, informal speed limit: the one drivers actually observe, which tends to be higher, faster, and considerably more dangerous. The first step toward fixing this is proving it exists, which requires something more persuasive than a firmly worded letter. This guide shows you how to build that something.
 
 ---
 
-**Before You Begin — current (mid)**:
+**Before You Begin: current (mid)**:
 
 > Patience for sensor configuration (it can be finicky, which is a polite word for it)
 
-**Before You Begin — full Terry**:
+**Before You Begin: full Terry**:
 
 > Patience for sensor configuration (the sensor knows exactly what it wants; it just communicates this through the medium of silence and garbled output)
 
 ---
 
-**Step 1: Flash the Pi Image — current (mid)**:
+**Step 1: Flash the Pi Image; current (mid)**:
 
 > The image also pre-configures serial port settings, UART overlays, and the service user. These are the things you would normally spend thirty minutes getting wrong, so they arrive done.
 
-**Step 1: Flash the Pi Image — full Terry**:
+**Step 1: Flash the Pi Image; full Terry**:
 
-> The image also pre-configures serial port settings, UART overlays, and the service user — the sort of items that, without pre-configuration, transform a pleasant afternoon project into a quiet argument with `/boot/config.txt`. They arrive done. You are welcome.
+> The image also pre-configures serial port settings, UART overlays, and the service user: the sort of items that, without pre-configuration, transform a pleasant afternoon project into a quiet argument with `/boot/config.txt`. They arrive done. You are welcome.
 
 ---
 
-**Public Internet Deployment — current (mid)**:
+**Public Internet Deployment: current (mid)**:
 
 > The dashboard has no authentication, no HTTPS, and no rate limiting. It was not designed for that, and it will not thank you for the experience.
 
-**Public Internet Deployment — full Terry**:
+**Public Internet Deployment: full Terry**:
 
 > The dashboard has no authentication, no HTTPS, and no rate limiting. Putting it on the public internet would be like leaving your front door open and then being surprised when a stranger walks in and rearranges the furniture.
 
 ---
 
-**Wrap-Up — current (mid)**:
+**Wrap-Up: current (mid)**:
 
-> The data does not care who collected it — it just needs to be accurate, and now it is.
+> The data does not care who collected it: it just needs to be accurate, and now it is.
 
-**Wrap-Up — full Terry**:
+**Wrap-Up: full Terry**:
 
-> The data does not care who collected it, which is one of the better things about data. It just needs to be accurate, and now — assuming you have followed the steps and the sensor is not pointing at a hedge — it is.
+> The data does not care who collected it, which is one of the better things about data. It just needs to be accurate, and now: assuming you have followed the steps and the sensor is not pointing at a hedge; it is.
 
 ---
 

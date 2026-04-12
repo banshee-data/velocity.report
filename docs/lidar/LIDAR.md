@@ -1,0 +1,102 @@
+# LiDAR
+
+Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P).
+
+For the canonical ten-layer processing architecture, implementation status, and literature
+alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
+
+## Layer summary
+
+| Layer | Label      | Package (Go)                      | Responsibility                                               |
+| ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
+| L1    | Packets    | `internal/lidar/l1packets/`       | Wire transport, UDP capture, PCAP replay, packet parsing     |
+| L2    | Frames     | `internal/lidar/l2frames/`        | Frame assembly, timestamps, geometry conversion              |
+| L3    | Grid       | `internal/lidar/l3grid/`          | Background model, foreground masking, persistence, regions   |
+| L4    | Perception | `internal/lidar/l4perception/`    | Per-frame clustering, OBBs, ground removal                   |
+| L5    | Tracks     | `internal/lidar/l5tracks/`        | Temporal association, identity, lifecycle, motion estimation |
+| L6    | Objects    | `internal/lidar/l6objects/`       | Semantic classification, per-object quality                  |
+| L7    | Scene      | _(planned)_                       | Persistent world model, multi-sensor fusion                  |
+| L8    | Analytics  | `internal/lidar/l8analytics/`     | Canonical metrics, summaries, comparisons, scoring           |
+| L9    | Endpoints  | `internal/lidar/l9endpoints/`     | gRPC streams, chart payload shaping, debug views             |
+| L10   | Clients    | `web/`, `tools/visualiser-macos/` | Browser, native, and report-generation consumers             |
+
+## Folder structure
+
+| Folder             | Scope                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `architecture/`    | System design, layer specifications, and the canonical ten-layer model |
+| `operations/`      | Runtime operations: data source switching, auto-tuning, debugging      |
+| `troubleshooting/` | Resolved investigation notes for reference                             |
+
+## Quick links
+
+| Topic                   | Document                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| Ten-layer architecture  | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
+| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                   |
+| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
+| Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
+| Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
+| Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
+| macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
+| Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
+
+## Terminology
+
+Core terms used across the LiDAR tracking system.
+
+| Term                   | Definition                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Point**              | A single 3D measurement from the LiDAR sensor (x, y, z, intensity, timestamp).                                                                               |
+| **Cluster**            | A group of spatially-proximate foreground points identified by DBSCAN, representing a potential object.                                                      |
+| **Track**              | A temporally-linked sequence of clusters representing a moving object across frames, maintained by the Kalman-filter tracker.                                |
+| **Observation**        | A single cluster-to-track association at one point in time (one frame's measurement of a track).                                                             |
+| **Scene**              | A named collection of reference ground-truth labels for a specific sensor environment (installation, angle, location). Used for evaluating tracking quality. |
+| **Run** (Analysis Run) | A single processing pass over a data source (live or PCAP) with fixed parameters, producing tracks that can be compared against a scene's ground truth.      |
+| **Sweep**              | A batch execution that varies parameter combinations, running one analysis per combination and collecting metrics for comparison.                            |
+| **Auto-Tune**          | An iterative sweep that narrows parameter bounds across rounds, converging on optimal parameters via objective scoring.                                      |
+
+## Label taxonomy
+
+Labels are applied by human reviewers to tracks within an analysis run. The same taxonomy is used across all platforms (Go backend, Svelte web frontend, macOS app).
+
+### Detection labels (`user_label`)
+
+Classify what object the track represents. v0.5.0 ships 7 active labels.
+
+<!-- Canonical source: internal/api/lidar_labels.go → AllDetectionLabels -->
+
+| Label        | Description                                              |
+| ------------ | -------------------------------------------------------- |
+| `car`        | Passenger car, SUV, van, or truck                        |
+| `bus`        | Bus, coach, or large passenger vehicle (length > 7 m)    |
+| `pedestrian` | Person walking, running, or using a mobility aid         |
+| `cyclist`    | Person on a bicycle, e-scooter, or motorcycle            |
+| `bird`       | Bird or other airborne fauna                             |
+| `noise`      | Spurious track (sensor noise, rain, dust, or vegetation) |
+| `dynamic`    | Ambiguous dynamic object or insufficient observations    |
+
+### Quality flags (`quality_label`)
+
+Rate the measurement quality of a track. Multi-select (comma-separated).
+
+<!-- Canonical source: internal/api/lidar_labels.go → AllQualityFlags -->
+
+| Flag              | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------ |
+| `good`            | Clean, accurate track with correct speed and trajectory                  |
+| `noisy`           | Track has noisy position or speed estimates                              |
+| `jitter_velocity` | Speed estimates jitter significantly                                     |
+| `jitter_heading`  | Heading estimates jitter significantly                                   |
+| `merge`           | Two or more distinct objects incorrectly merged into one track           |
+| `split`           | Single object incorrectly split into multiple tracks                     |
+| `truncated`       | Track starts late or ends early relative to the object's true trajectory |
+| `disconnected`    | Track was lost and recovered: identity may have changed                  |
+
+### Canonical sources
+
+- **Go backend:** `internal/api/lidar_labels.go`; `validUserLabels`, `validQualityLabels`
+- **Svelte frontend:** `web/src/lib/types/lidar.ts`; `DetectionLabel`, `QualityLabel`
+- **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`; `LabelPanelView`
+
+> **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. v0.5.0 ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).

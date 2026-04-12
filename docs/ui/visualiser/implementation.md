@@ -1,29 +1,29 @@
-# Implementation Plan
+# Implementation plan
 
 Incremental, API-first implementation with explicit milestones and acceptance criteria.
 
 **Current Status** (February 2026):
 
-- ✅ **M0: Schema + Synthetic** — Complete
-- ✅ **M1: Recorder/Replayer** — Complete
-- ✅ **M2: Real Point Clouds** — Complete
-- ✅ **M3: Canonical Model + Adapters** — Complete
-- ✅ **M3.5: Split Streaming** — Complete (Track A + Track B)
-- ✅ **M4: Tracking Interface Refactor** — Complete (Track A + Track B)
-- ✅ **M5: Algorithm Upgrades** — Complete (Track B)
-- ✅ **M6: Debug + Labelling** — Complete (Track B)
-- ✅ **M7: Performance Hardening** — Complete (7.1, 7.2, 7.3 implemented; profiling items skipped — not bottlenecked)
-- 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)** — Planned (docs-only scope in this branch)
+- ✅ **M0: Schema + Synthetic**; Complete
+- ✅ **M1: Recorder/Replayer**; Complete
+- ✅ **M2: Real Point Clouds**; Complete
+- ✅ **M3: Canonical Model + Adapters**; Complete
+- ✅ **M3.5: Split Streaming**; Complete (Track A + Track B)
+- ✅ **M4: Tracking Interface Refactor**; Complete (Track A + Track B)
+- ✅ **M5: Algorithm Upgrades**; Complete (Track B)
+- ✅ **M6: Debug + Labelling**; Complete (Track B)
+- ✅ **M7: Performance Hardening**; Complete (7.1, 7.2, 7.3 implemented; profiling items skipped; not bottlenecked)
+- 📝 **M8: Background Debug Surfaces (Polar/Cartesian/Region Map)**; Planned (docs-only scope in this branch)
 
 **Checkbox Legend**:
 
-- `[x]` — Completed
-- `[ ]` — Not started
-- `[~]` — Skipped / Won't do
+- `[x]`: Completed
+- `[ ]`: Not started
+- `[~]`: Skipped / Won't do
 
 ---
 
-## 1. Milestone Overview
+## 1. Milestone overview
 
 ```
  M0: Schema + Synthetic            ──▶ Visualiser renders synthetic data     ✅ DONE
@@ -40,9 +40,9 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 ---
 
-## 2. Detailed Milestones
+## 2. Detailed milestones
 
-### M0: Protobuf Schema + gRPC Stub + Synthetic Publisher + macOS Viewer ✅
+### M0: Protobuf schema + gRPC stub + synthetic publisher + macOS viewer ✅
 
 **Status**: Complete
 
@@ -80,7 +80,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 ---
 
-### M1: Recorder/Replayer with Deterministic Playback ✅
+### M1: recorder/Replayer with deterministic playback ✅
 
 **Status**: Complete
 
@@ -126,7 +126,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 ---
 
-### M2: Real Point Clouds via gRPC ✅
+### M2: real point clouds via gRPC ✅
 
 **Status**: Complete
 
@@ -166,7 +166,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 ---
 
-### M3: Canonical Internal Model + Adapters ✅
+### M3: canonical internal model + adapters ✅
 
 **Status**: Complete
 
@@ -202,7 +202,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 ---
 
-### M3.5: Split Streaming for Static LiDAR ✅
+### M3.5: split streaming for static LiDAR ✅
 
 **Status**: Complete
 
@@ -264,7 +264,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 
 ---
 
-### M4: Tracking Interface Refactor ✅
+### M4: tracking interface refactor ✅
 
 **Status**: Complete
 
@@ -278,7 +278,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - `TrackingPipelineConfig.Tracker` changed from `*Tracker` to `TrackerInterface`
 - Golden replay tests verify identical track IDs, states, positions, and velocities across runs
 - Floating point tolerances: positions 1e-5, velocities 1e-4
-- No algorithm changes — pure interface wrapping
+- No algorithm changes: pure interface wrapping
 - Cluster rendering on macOS: cyan wireframe boxes (RGBA 0.0, 0.8, 1.0, 0.7), toggle with 'C' key
 - Track rendering: state-coloured boxes (green/yellow/red), toggle with 'B' key
 
@@ -314,7 +314,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 
 ---
 
-### M5: Algorithm Upgrades ✅
+### M5: algorithm upgrades ✅
 
 **Status**: Complete (Track A + Track B)
 
@@ -354,7 +354,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 ---
 
-### M6: Debug Overlays + Labelling Export ✅
+### M6: debug overlays + labelling export ✅
 
 **Status**: Complete (Track A + Track B)
 
@@ -409,7 +409,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 ---
 
-### M7: Performance Hardening ✅
+### M7: performance hardening ✅
 
 **Status**: Complete
 
@@ -417,33 +417,33 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 **Track A (Visualiser)**:
 
-- [x] GPU buffer pooling (avoid allocations per frame) — M7.1 implemented
-- [~] Triple buffering for smooth rendering — Skipped: sensor-limited at 10–20 fps; GPU frame time well under 16ms
-- [x] Memory usage < 500 MB — Validated: heap growth <1 MB over 100-frame cycles
-- [~] CPU profiling and optimisation — Skipped: pipeline uses <0.4ms/frame (87x headroom vs 33ms budget)
-- [~] GPU profiling (Metal System Trace) — Skipped: not GPU-bottlenecked at current frame rates
-- [x] Swift vertex buffer reuse (see §7.1 below) — M7.1 implemented
+- [x] GPU buffer pooling (avoid allocations per frame): M7.1 implemented
+- [~] Triple buffering for smooth rendering: Skipped: sensor-limited at 10–20 fps; GPU frame time well under 16ms
+- [x] Memory usage < 500 MB: Validated: heap growth <1 MB over 100-frame cycles
+- [~] CPU profiling and optimisation: Skipped: pipeline uses <0.4ms/frame (87x headroom vs 33ms budget)
+- [~] GPU profiling (Metal System Trace): Skipped: not GPU-bottlenecked at current frame rates
+- [x] Swift vertex buffer reuse (see §7.1 below): M7.1 implemented
 
 **Track B (Pipeline)**:
 
-- [~] gRPC streaming optimisation — Skipped: split streaming (M3.5) already achieves <5 Mbps; cooldown handles congestion
-- [~] Protobuf arena allocators — Skipped: Go protobuf lacks arena support; pool-based reuse (§7.2) covers dominant allocation path
-- [~] Decimation auto-adjustment based on bandwidth — Skipped: frame skipping cooldown (§7.3) handles congestion; foreground-only frames already small (~2k points)
-- [~] Memory profiling for 100+ track scale — Skipped: production deployment tracks <20 vehicles; 200-track benchmark validates serialisation at 0.13ms
-- [x] PointCloudFrame memory pool with reference counting (see §7.2 below) — M7.2 implemented
-- [x] Frame skipping with cooldown mechanism (see §7.3 below) — M7.3 implemented
+- [~] gRPC streaming optimisation: Skipped: split streaming (M3.5) already achieves <5 Mbps; cooldown handles congestion
+- [~] Protobuf arena allocators: Skipped: Go protobuf lacks arena support; pool-based reuse (§7.2) covers dominant allocation path
+- [~] Decimation auto-adjustment based on bandwidth: Skipped: frame skipping cooldown (§7.3) handles congestion; foreground-only frames already small (~2k points)
+- [~] Memory profiling for 100+ track scale: Skipped: production deployment tracks <20 vehicles; 200-track benchmark validates serialisation at 0.13ms
+- [x] PointCloudFrame memory pool with reference counting (see §7.2 below): M7.2 implemented
+- [x] Frame skipping with cooldown mechanism (see §7.3 below): M7.3 implemented
 
 **Acceptance Criteria** (validated via `benchmark_test.go`):
 
-- [x] 70,000 points at 30 fps sustained — Measured: 0.38ms/frame on dev machine (M1), ~40ms on CI; threshold set at 50ms to accommodate CI variability while catching regressions
-- [x] 200 tracks render without frame drops — Measured: 0.13ms serialisation for 200 tracks
-- [x] Memory stable over 1 hour session — Validated: 0.02 MB heap growth over 100-frame cycles; pool leak test: <1 MB over 1000 cycles
-- [x] CPU usage < 30% on M1 MacBook — Pipeline uses <0.4ms/frame; well within budget
-- [x] No memory leaks from pooled allocations — Validated: Retain/Release pool test passes with <1 MB growth
+- [x] 70,000 points at 30 fps sustained: Measured: 0.38ms/frame on dev machine (M1), ~40ms on CI; threshold set at 50ms to accommodate CI variability while catching regressions
+- [x] 200 tracks render without frame drops: Measured: 0.13ms serialisation for 200 tracks
+- [x] Memory stable over 1 hour session: Validated: 0.02 MB heap growth over 100-frame cycles; pool leak test: <1 MB over 1000 cycles
+- [x] CPU usage < 30% on M1 MacBook: Pipeline uses <0.4ms/frame; well within budget
+- [x] No memory leaks from pooled allocations: Validated: Retain/Release pool test passes with <1 MB growth
 
 **Estimated Dev-Days**: 8 (4 Track A + 4 Track B)
 
-#### 7.1 Swift Buffer Pooling ✅
+#### 7.1 Swift buffer pooling ✅
 
 **Status**: Implemented (February 2026)
 
@@ -464,7 +464,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 - 50% growth margin to reduce reallocation frequency
 - `getBufferStats()` method added for performance monitoring
 
-#### 7.2 PointCloudFrame Memory Pool (Release() Strategy) ✅
+#### 7.2 PointCloudFrame memory pool (release() strategy) ✅
 
 **Status**: Implemented (February 2026) using Option A (Reference Counting)
 
@@ -522,7 +522,7 @@ for _, client := range p.clients {
 frame.PointCloud.Release()
 ```
 
-#### 7.3 Frame Skipping Cooldown ✅
+#### 7.3 Frame skipping cooldown ✅
 
 **Status**: Implemented (July 2025)
 
@@ -535,14 +535,14 @@ frame.PointCloud.Release()
 **Implementation (July 2025)**:
 
 - Extracted `sendCooldown` struct in `grpc_server.go` with hysteresis logic
-- `maxConsecutiveSlowSends = 3` — consecutive slow sends to enter skip mode
-- `minConsecutiveFastSends = 5` — consecutive fast sends required to exit skip mode
+- `maxConsecutiveSlowSends = 3`: consecutive slow sends to enter skip mode
+- `minConsecutiveFastSends = 5`: consecutive fast sends required to exit skip mode
 - `recordSlow()` / `recordFast()` / `inSkipMode()` methods for clean separation
 - A slow send during recovery resets the fast counter, preventing premature exit
 - In normal mode, a fast send resets the slow counter (original behaviour preserved)
 - 9 unit tests covering: entry, exit, interruption, return values, threshold edge cases
 
-#### 7.4 Decimation Edge Cases
+#### 7.4 Decimation edge cases
 
 **Current Behaviour**: For very small ratios (e.g., 0.00001), `targetCount` becomes 1, and only the first point is kept.
 
@@ -550,7 +550,7 @@ frame.PointCloud.Release()
 
 ---
 
-### M8: Background Debug Surfaces (Polar/Cartesian/Region Map) 📝
+### M8: background debug surfaces (polar/Cartesian/Region map) 📝
 
 **Status**: Planned (docs only in this branch; implementation deferred)
 
@@ -585,7 +585,7 @@ frame.PointCloud.Release()
 
 ---
 
-## 3. Task Breakdown Summary
+## 3. Task breakdown summary
 
 | Milestone              | Track A (Days) | Track B (Days) | Total (Days) | Status          |
 | ---------------------- | -------------- | -------------- | ------------ | --------------- |
@@ -603,9 +603,9 @@ frame.PointCloud.Release()
 
 ---
 
-## 4. Risks and Mitigations
+## 4. Risks and mitigations
 
-### 4.1 Protobuf Churn
+### 4.1 Protobuf churn
 
 **Risk**: Schema changes during development break client/server compatibility.
 
@@ -615,7 +615,7 @@ frame.PointCloud.Release()
 - Use optional fields for new additions
 - Version bump only for breaking changes
 
-### 4.2 Performance Bottlenecks
+### 4.2 Performance bottlenecks
 
 **Risk**: 70k points × 10-20 Hz overwhelms bandwidth or GPU.
 
@@ -625,7 +625,7 @@ frame.PointCloud.Release()
 - Profile incrementally at each milestone
 - Foreground-only mode as fallback
 
-### 4.3 Determinism Failures
+### 4.3 Determinism failures
 
 **Risk**: Replay produces different tracks due to floating-point or timing issues.
 
@@ -636,7 +636,7 @@ frame.PointCloud.Release()
 - Use integer timestamps, not floating-point deltas
 - Golden replay tests in CI
 
-### 4.4 Coordinate Frame Bugs
+### 4.4 Coordinate frame bugs
 
 **Risk**: Misaligned coordinates between pipeline and visualiser.
 
@@ -646,7 +646,7 @@ frame.PointCloud.Release()
 - Include test frame with known geometry (axis marker)
 - Validate with LidarView comparison
 
-### 4.5 ID Stability
+### 4.5 ID stability
 
 **Risk**: Track IDs change on replay due to association order.
 
@@ -658,7 +658,7 @@ frame.PointCloud.Release()
 
 ---
 
-## 5. Stop Points
+## 5. Stop points
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
@@ -685,7 +685,7 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 ---
 
-## 6. Related Documents
+## 6. Related documents
 
 - [velocity-visualiser-architecture.md](./architecture.md) – System architecture (includes problem statement and performance notes)
 - [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)

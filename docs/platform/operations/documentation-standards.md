@@ -1,4 +1,4 @@
-# Documentation Standards
+# Documentation standards
 
 Rules and conventions for Markdown documentation across the velocity.report repository, covering metadata format, structure, and prose style.
 
@@ -7,24 +7,24 @@ Active plans:
 - [platform-documentation-standardisation-plan.md](../../plans/platform-documentation-standardisation-plan.md)
 - [line-width-standardisation-plan.md](../../plans/line-width-standardisation-plan.md)
 
-## Metadata Format
+## Metadata format
 
 All docs under `docs/` use the `- **Key:** value` canonical metadata format.
 Enforced by `scripts/check-doc-header-metadata.py` via `make lint-docs`.
 
-### Key Normalisation (Applied)
+### Key normalisation (applied)
 
 - `Layer` → `Layers`
 - `Related variants` → `Related`
 - `Last updated` → banned (see below)
 
-### Banned Date Keys
+### Banned date keys
 
 Date metadata is explicitly banned: `Created`, `Date`, `Last Updated`,
 `Original Design Date`. Enforced via `BANNED_DATE_KEYS` and
 `RE_KEY_DATE_SUFFIX` in the metadata checker.
 
-## Structure Rules
+## Structure rules
 
 1. Capability docs remain under `docs/lidar/` and `docs/radar/`.
 2. Client docs remain under `docs/ui/`.
@@ -33,7 +33,7 @@ Date metadata is explicitly banned: `Created`, `Date`, `Last Updated`,
 4. Execution work remains under `docs/plans/`.
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
 
-## Opening Paragraph Rule
+## Opening paragraph rule
 
 Every doc must have an opening paragraph after the `# Title` heading.
 Source order:
@@ -52,11 +52,13 @@ Constraints:
 **Status:** ~40 of ~123 docs still missing a narrative opening paragraph.
 No automated checker exists yet.
 
-## Line-Width Standard: 100 Columns
+## Line-Width standard: 100 columns
 
 100 is the single line-width standard across all code and documentation.
+For the canonical constants register, see
+[MAGIC_NUMBERS.md](../../../MAGIC_NUMBERS.md).
 
-### Data Supporting the Choice
+### Data supporting the choice
 
 | Language | Files | ≤100 compliance |
 | -------- | ----: | --------------: |
@@ -69,7 +71,7 @@ No automated checker exists yet.
 Three of five formatters already default to 100. Every language reaches
 ≥98.9% compliance at this width.
 
-### Formatter Configuration
+### Formatter configuration
 
 | File                                | Setting                |
 | ----------------------------------- | ---------------------- |
@@ -87,15 +89,26 @@ Three of five formatters already default to 100. Every language reaches
 - SQL expression width (separate concern, stays at 70)
 - Vendored/minified files
 
-### Enforcement Rollout
+### Excluded files
 
-1. **Phase 1** — Config changes (no source reformatting)
-2. **Phase 2** — Mechanical reformat + `.git-blame-ignore-revs`
-3. **Phase 3** — Weekly nag PR via GitHub Actions
-4. **Phase 4** — Optional CI gate (`continue-on-error: true`, then `false`)
-5. **Phase 5** — Opt-in pre-commit hook
+Two files are excluded from prose-width checking entirely:
 
-## Validation Gates
+- **`CHANGELOG.md`** — almost entirely list items (already excluded by
+  the checker); the few remaining prose lines are release intro paragraphs
+  that read better long.
+- **`docs/DECISIONS.md`** — single-line register entries with dense link
+  references; wrapping them hurts scanability more than it helps
+  readability.
+
+### Enforcement rollout
+
+1. **Phase 1**: Config changes (no source reformatting)
+2. **Phase 2**: Mechanical reformat + `.git-blame-ignore-revs`
+3. **Phase 3**: Weekly nag PR via GitHub Actions
+4. **Phase 4**: Optional CI gate (`continue-on-error: true`, then `false`)
+5. **Phase 5**: Opt-in pre-commit hook
+
+## Validation gates
 
 Run on every docs refactor:
 
@@ -104,32 +117,32 @@ Run on every docs refactor:
 3. No placeholder values (no filename echoes or status labels)
 4. Drift report: list files using main-derived paragraph vs manual fallback
 
-## CI Integration
+## CI integration
 
 - Weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode.
 - `make lint-docs` (check) and `make format-docs` (fix) Makefile targets.
 - Standard documented in `.github/knowledge/coding-standards.md`
   § Documentation Metadata.
 
-## Edit Governance
+## Edit governance
 
 1. Do not run blanket rewrite scripts without dry-run output and approval.
 2. Batch edits must include a candidate report before writes.
 3. Metadata automation must skip files where candidate text is non-narrative.
 
-## Error Message Voice
+## Error message voice
 
-Consistent, humane voice across all user-facing error messages — Go server,
+Consistent, humane voice across all user-facing error messages: Go server,
 web frontend, Python tools, and shell scripts.
 
 ### Principles
 
-1. **Sentence case** — error messages start with a capital, do not end with a
+1. **Sentence case**: error messages start with a capital, do not end with a
    full stop.
-2. **Name the problem, not the user** — "Cannot open database" rather than
+2. **Name the problem, not the user**: "Cannot open database" rather than
    "You provided an invalid path".
-3. **Include a next step** — where possible, tell the reader what to try.
-4. **Diagnostic hints** use ` — try X` suffix or `\nTry: X` on a new line.
+3. **Include a next step**: where possible, tell the reader what to try.
+4. **Diagnostic hints** use `: try X` suffix or `\nTry: X` on a new line.
 
 ### Scope
 

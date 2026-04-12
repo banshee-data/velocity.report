@@ -1,10 +1,10 @@
-# LiDAR Math Foundations Audit
+# LiDAR math foundations audit
 
-- **Status:** Reference — resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and `data/maths/README.md`.
+- **Status:** Reference; resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and `data/maths/MATHS.md`.
 
 Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
-## 1. Built vs Proposed
+## 1. Built vs proposed
 
 ### Built (implemented in code)
 
@@ -27,11 +27,11 @@ Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
 3. Unified L3/L4 settlement core:
    - still a proposal (`data/maths/proposals/20260219-unify-l3-l4-settling.md:3`).
 
-## 2. Velocity Coherence Separation
+## 2. Velocity coherence separation
 
 To keep foundations stable, split into two independent workstreams with one narrow interface.
 
-### Workstream A: Vector-grid foundations (static scene model)
+### Workstream a: vector-grid foundations (static scene model)
 
 Owns:
 
@@ -49,7 +49,7 @@ Primary packages:
 - `internal/lidar/l3grid/*`
 - future L4 geometry packages (new, separate from extractor logic)
 
-### Workstream B: Velocity-coherent foreground algorithm (motion model)
+### Workstream b: velocity-coherent foreground algorithm (motion model)
 
 Owns:
 
@@ -67,7 +67,7 @@ Primary packages:
 
 - new extractor modules (for example `internal/lidar/extractors/*`)
 
-### Interface contract between A and B
+### Interface contract between a and b
 
 Use a single foreground extractor contract:
 
@@ -76,9 +76,9 @@ Use a single foreground extractor contract:
 
 Pipeline keeps downstream behaviour identical (transform, ground filter, clustering, tracking, persistence) and swaps only the foreground source.
 
-## 3. Gaps Found
+## 3. Gaps found
 
-### [Resolved] Region-adaptive math parity on production mask path
+### [Resolved] region-adaptive math parity on production mask path
 
 Resolution:
 
@@ -89,7 +89,7 @@ Impact:
 
 - Production behaviour now aligns with adaptive-region maths and operations docs.
 
-### [High] Velocity-coherent design docs and code state are inconsistent/fragmented
+### [High] velocity-coherent design docs and code state are inconsistent/fragmented
 
 Evidence:
 
@@ -102,7 +102,7 @@ Impact:
 
 - unclear implementation truth makes roadmap and dependency planning brittle.
 
-### [Resolved] Broken internal links in velocity-coherence math/planning docs
+### [Resolved] broken internal links in velocity-coherence math/planning docs
 
 Resolution:
 
@@ -114,7 +114,7 @@ Impact:
 
 - math spec and implementation plan links are now connected.
 
-### [Medium] Ground-plane maths status reads implementation-aligned while runtime is still height-band filtering
+### [Medium] ground-plane maths status reads implementation-aligned while runtime is still height-band filtering
 
 Evidence:
 
@@ -136,7 +136,7 @@ Impact:
 
 - slows onboarding and causes incorrect assumptions during refactors.
 
-### [Medium] Runtime config POST API is still schema-divergent (improved)
+### [Medium] runtime config POST API is still schema-divergent (improved)
 
 Evidence:
 
@@ -147,7 +147,7 @@ Impact:
 
 - parameter updates can drift from canonical tuning schema.
 
-### [Low] Explicitly incomplete features in lidar code should be tracked as non-foundational
+### [Low] explicitly incomplete features in lidar code should be tracked as non-foundational
 
 Evidence:
 
@@ -159,14 +159,14 @@ Impact:
 
 - these are operational/tooling limitations, not core math blockers, but should be visible in planning.
 
-## 4. Recommended Foundation Tasks
+## 4. Recommended foundation tasks
 
 1. Keep a single source-of-truth status page for velocity-coherent work (implemented/planned/deferred), then align all references.
 2. Continue stale package-path cleanup across older LiDAR docs.
 3. Maintain explicit implemented-vs-planned labels in ground-plane maths and related architecture docs.
 4. Resolve remaining config parity TODO in `/api/lidar/params` so tuning IO matches canonical schema.
 
-## 5. Validation Run
+## 5. Validation run
 
 LiDAR package tests were run after audit:
 

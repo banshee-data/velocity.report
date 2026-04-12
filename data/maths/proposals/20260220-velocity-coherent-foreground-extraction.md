@@ -1,4 +1,4 @@
-# Velocity-Coherent Foreground Extraction Math
+# Velocity-Coherent foreground extraction math
 
 - **Status:** Proposal Math (Supersedes Prior Review Split)
 - **Version:** 2.0
@@ -12,7 +12,7 @@ artefacts, but the math and evaluation contract are defined here.
 
 ---
 
-## 1. Scope and Architectural Constraint
+## 1. Scope and architectural constraint
 
 Pipeline remains strictly:
 
@@ -24,7 +24,7 @@ No additional intermediary layers are introduced.
 
 ---
 
-## 2. Primary Objective
+## 2. Primary objective
 
 Optimise for the most accurate motion estimates for tracked clusters:
 
@@ -41,7 +41,7 @@ This proposal treats runtime and evaluation as separate concerns:
 
 ---
 
-## 3. L3 Mathematics: Track-Assisted Foreground Promotion
+## 3. L3 mathematics: track-assisted foreground promotion
 
 ### 3.1 Baseline foreground decision (retained)
 
@@ -88,19 +88,19 @@ observation support.
 
 ---
 
-## 4. L4 Mathematics: Engine-Selectable Two-Stage Clustering
+## 4. L4 mathematics: engine-selectable two-stage clustering
 
 L4 engine is configurable. Default highest-accuracy engine:
 
 `two_stage_mahalanobis_v2`
 
-### 4.1 Stage A: spatial candidate extraction
+### 4.1 Stage a: spatial candidate extraction
 
 Use spatial DBSCAN/HDBSCAN candidate extraction in `(x, y)` (optionally `z`
 for tie-breaking), preserving existing operational constraints on point count
 and cluster geometry.
 
-### 4.2 Stage B: velocity-coherence split/merge
+### 4.2 Stage b: velocity-coherence split/merge
 
 Refine Stage A candidates with track-informed motion coherence.
 
@@ -122,7 +122,7 @@ Raw 6D Euclidean DBSCAN is retained only as optional debug engine, not default.
 
 ---
 
-## 5. L5 Mathematics: Velocity, Acceleration, Confidence, Heading Stability
+## 5. L5 mathematics: velocity, acceleration, confidence, heading stability
 
 ### 5.1 Motion model engines
 
@@ -166,12 +166,12 @@ covariance-gated updates.
 
 ---
 
-## 6. Config Contract (`config.tuning.json`)
+## 6. Config contract (`config.tuning.json`)
 
 > **Canonical reference:** The full config restructure plan, including the
 > complete key-to-layer mapping, nested JSON schema, migration strategy, and
 > engine-specific options, is maintained in
-> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md).
+> [`docs/plans/config-restructure-plan.md`](../../../docs/plans/config-restructure-plan.md).
 >
 > This section retains the mathematical config contract for engine selection
 > and optimisation strategy only.
@@ -217,11 +217,10 @@ sweep strategy:
 }
 ```
 
-All engine parameters live inside the engine block — the block is a
-self-describing snapshot where every field is enforced when present. Only the
-selected engine's block may be present (see CONFIG-RESTRUCTURE.md §3.1
-principles 5–6). The full field set per engine is defined in
-CONFIG-RESTRUCTURE.md §5.
+All engine parameters live inside the engine block: the block is a self-describing snapshot where
+every field is enforced when present. Only the selected engine's block may be present
+(see config-restructure-plan.md §3.1 principles 5–6). The full field set per engine is defined in
+config-restructure-plan.md §5.
 
 Allowed engine values:
 
@@ -237,7 +236,7 @@ Allowed optimisation values:
 
 ---
 
-## 7. Harness Comparison Protocol (Layer-Isolated + Full Stack)
+## 7. Harness comparison protocol (layer-isolated + full stack)
 
 Evaluation protocol compares identical replay windows across scenarios:
 
@@ -279,7 +278,7 @@ recommendation explanation payload).
 
 ---
 
-## 8. Performance Envelope and Strategy Profiles
+## 8. Performance envelope and strategy profiles
 
 Expected impact:
 
@@ -296,7 +295,7 @@ Profile intent:
 
 ---
 
-## 9. Failure Modes and Guards
+## 9. Failure modes and guards
 
 1. **False promotion in L3**
    - Guard: promotion only near background gate with covariance consistency.
@@ -309,7 +308,7 @@ Profile intent:
 
 ---
 
-## 10. Acceptance Requirements
+## 10. Acceptance requirements
 
 Proposal acceptance requires replay-backed evidence that the configured default
 (`accuracy_first_v1` + default layer engines) improves velocity and
@@ -323,11 +322,11 @@ fragmentation quality within defined non-regression bounds.
 | Reference                    | BibTeX key       | Relevance                                                                                          |
 | ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
 | Bar-Shalom & Fortmann (1988) | `BarShalom1988a` | Bayesian framework for track-assisted detection decisions (Section 3.2 covariance-gated promotion) |
-| Blom & Bar-Shalom (1988)     | `Blom1988`       | IMM algorithm — `imm_cv_ca_v2` and `imm_cv_ca_rts_eval_v2` engines (Section 5.1)                   |
-| Rauch et al. (1965)          | `Rauch1965`      | RTS fixed-interval smoother — evaluation-only `imm_cv_ca_rts_eval_v2` (Section 5.1)                |
-| Julier & Uhlmann (1997)      | `Julier1997`     | UKF — recommended for CTRV nonlinear motion equations                                              |
-| Campello et al. (2013)       | `Campello2013`   | HDBSCAN — optional Stage A alternative to DBSCAN (Section 4.1)                                     |
-| Weng et al. (2020)           | `Weng2020`       | AB3DMOT — benchmark reference for velocity accuracy improvements (Section 7.1)                     |
-| Welford (1962)               | `Welford1962`    | Numerically stable online variance — recommended for per-layer metric accumulation                 |
+| Blom & Bar-Shalom (1988)     | `Blom1988`       | IMM algorithm: `imm_cv_ca_v2` and `imm_cv_ca_rts_eval_v2` engines (Section 5.1)                    |
+| Rauch et al. (1965)          | `Rauch1965`      | RTS fixed-interval smoother: evaluation-only `imm_cv_ca_rts_eval_v2` (Section 5.1)                 |
+| Julier & Uhlmann (1997)      | `Julier1997`     | UKF: recommended for CTRV nonlinear motion equations                                               |
+| Campello et al. (2013)       | `Campello2013`   | HDBSCAN: optional Stage A alternative to DBSCAN (Section 4.1)                                      |
+| Weng et al. (2020)           | `Weng2020`       | AB3DMOT: benchmark reference for velocity accuracy improvements (Section 7.1)                      |
+| Welford (1962)               | `Welford1962`    | Numerically stable online variance: recommended for per-layer metric accumulation                  |
 
 Full BibTeX entries: [data/maths/references.bib](../references.bib)

@@ -1,4 +1,4 @@
-# Design: Automatic Physics Checks and Confirmation Gates (Feature 7)
+# Design: automatic physics checks and confirmation gates (feature 7)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
@@ -19,7 +19,7 @@ Automatically detect physically implausible track behaviour and block manual "co
 - Replacing tracker state transitions (`tentative|confirmed|deleted`).
 - Replacing human judgment for rare edge cases.
 
-## Rule Set
+## Rule set
 
 Class-aware thresholds (initial defaults):
 
@@ -39,7 +39,7 @@ Violation types:
 - `SIZE_CHANGE_EXCEEDED`
 - `SPEED_DISCONTINUITY`
 
-## Review State Model
+## Review state model
 
 Add run-track review fields:
 
@@ -54,7 +54,7 @@ Gate logic:
 - if unresolved `ERROR` violations exist, set `review_state=BLOCKED`.
 - allow explicit override with mandatory reason.
 
-## Data Model
+## Data model
 
 Add table `lidar_run_track_violations`:
 
@@ -85,7 +85,7 @@ Indexes:
 - `(run_id, track_id, status)`
 - `(run_id, severity, status)`
 
-## Backend Design
+## Backend design
 
 Add rule engine package `internal/lidar/qc/physics_rules.go`:
 
@@ -100,7 +100,7 @@ Add orchestration package `internal/lidar/qc/violations.go`:
 - update review gate fields,
 - emit events (Feature 2).
 
-## API Contract
+## API contract
 
 - `GET /api/lidar/runs/{run_id}/tracks/{track_id}/violations`
 - `POST /api/lidar/runs/{run_id}/violations/recompute`
@@ -112,7 +112,7 @@ Request requirements:
 - confirm request fails when blocking violations exist.
 - override request requires `override_reason` and `reviewed_by`.
 
-## macOS UI Design
+## macOS UI design
 
 Files:
 
@@ -130,7 +130,7 @@ UI additions:
   - `Confirm Track` button disabled when blocked,
   - `Override and Confirm` flow with reason input.
 
-## Web Parity
+## Web parity
 
 Files:
 
@@ -148,9 +148,9 @@ Metrics:
 - override rate per reviewer
 - false-positive feedback counts
 
-## Task Checklist
+## Task checklist
 
-### Data and Migrations
+### Data and migrations
 
 - [ ] Add `lidar_run_track_violations` table
 - [ ] Add review-state columns to `lidar_run_tracks`
@@ -185,7 +185,7 @@ Metrics:
 - [ ] Add warning and review-state badges in list/timeline
 - [ ] Add confirm/override controls
 
-### Testing and Validation
+### Testing and validation
 
 - [ ] Unit tests per violation type and threshold class
 - [ ] Integration test for violation -> blocked -> override flow
@@ -197,14 +197,14 @@ Metrics:
 - [ ] Publish threshold defaults by class
 - [ ] Document override policy and audit expectations
 
-## Acceptance Criteria
+## Acceptance criteria
 
 - Blocking violations prevent confirmation until resolved/overridden.
 - Override actions always capture user and reason.
 - Violations appear in UI within 1 second of detection.
 - False-positive rate remains within agreed threshold after calibration.
 
-## Open Questions
+## Open questions
 
 - Should override be allowed for `ERROR` severity only with secondary reviewer?
 - Should thresholds be sensor-profile specific or globally fixed?

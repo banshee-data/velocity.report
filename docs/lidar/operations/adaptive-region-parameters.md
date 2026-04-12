@@ -1,4 +1,4 @@
-# Adaptive Region Parameters for Background Grid
+# Adaptive region parameters for background grid
 
 Configuration and operation of adaptive region-based parameters in the LiDAR background grid, which automatically segment the sensor's field of view to apply optimised settling and noise thresholds per region.
 
@@ -8,7 +8,7 @@ The LiDAR background grid now supports **adaptive region-based parameters** that
 
 This feature addresses the challenge of varying environmental conditions within a single sensor frame: trees and glass have high variance and require looser noise thresholds, while stable surfaces like walls need tighter thresholds for better foreground detection.
 
-## Key Features
+## Key features
 
 - **Automatic Region Identification**: Segments the frame into contiguous regions based on variance characteristics during the settling period
 - **Dynamic Parameter Assignment**: Each region gets optimised values for noise tolerance, neighbour confirmation, and settling rate
@@ -17,9 +17,9 @@ This feature addresses the challenge of varying environmental conditions within 
 - **Configurable Limits**: Maximum 50 regions per frame to ensure performance
 - **Debug Visualisation**: API endpoint to inspect region boundaries and parameters
 
-## How It Works
+## How it works
 
-### 1. Variance Collection (During Settling)
+### 1. Variance collection (during settling)
 
 During the warmup period (configured via `WarmupMinFrames` and `WarmupDurationNanos`), the `RegionManager` tracks the variance (spread) of each cell:
 
@@ -30,7 +30,7 @@ rm.UpdateVarianceMetrics(cells)
 
 This builds a per-cell variance profile that captures how stable or volatile each part of the frame is.
 
-### 2. Region Identification (At Settling Completion)
+### 2. Region identification (at settling completion)
 
 When settling completes, regions are automatically identified:
 
@@ -45,7 +45,7 @@ When settling completes, regions are automatically identified:
 
 4. **Assign parameters**: Each region receives optimised parameters based on its variance category
 
-### 3. Parameter Application (During Runtime)
+### 3. Parameter application (during runtime)
 
 Once regions are identified, both foreground extraction paths use region-specific parameters per cell:
 
@@ -62,7 +62,7 @@ if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
 }
 ```
 
-## Parameter Scaling by Region Type
+## Parameter scaling by region type
 
 | Region Type                  | NoiseRelativeFraction | NeighborConfirmationCount | SettleUpdateFraction | Rationale                                                                                                  |
 | ---------------------------- | --------------------- | ------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -72,9 +72,9 @@ if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
 
 Example with base parameters (`NoiseRelativeFraction=0.01`, `NeighborConfirmationCount=3`, `BackgroundUpdateFraction=0.02`):
 
-- **Stable region**: noise=0.008, neighbors=3, alpha=0.03
-- **Variable region**: noise=0.01, neighbors=3, alpha=0.02
-- **Volatile region**: noise=0.02, neighbors=5, alpha=0.01
+- **Stable region**: noise=0.008, neighbours=3, alpha=0.03
+- **Variable region**: noise=0.01, neighbours=3, alpha=0.02
+- **Volatile region**: noise=0.02, neighbours=5, alpha=0.01
 
 ## Configuration
 
@@ -84,7 +84,7 @@ No configuration changes are needed. The feature activates automatically when:
 2. Warmup parameters are configured (`WarmupMinFrames` and/or `WarmupDurationNanos`)
 3. The sensor completes its settling period
 
-### Recommended Warmup Settings
+### Recommended warmup settings
 
 For optimal region identification:
 
@@ -100,7 +100,7 @@ The system needs enough frames to build a stable variance profile. Aim for 20-30
 
 ## Debug API
 
-### Get Region Information
+### Get region information
 
 ```bash
 # Get region metadata (compact)
@@ -138,7 +138,7 @@ curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01&inc
 }
 ```
 
-### Visualize Regions
+### Visualise regions
 
 Use the grid mapping to visualise which cells belong to which region:
 
@@ -165,7 +165,7 @@ plt.title(f'Background Grid Regions ({data["region_count"]} regions)')
 plt.show()
 ```
 
-## Performance Characteristics
+## Performance characteristics
 
 - **Settling Time**: < 30 seconds (typical: 20-25 seconds at 20Hz frame rate)
 - **Memory Overhead**: ~40 KB per sensor (variance tracking + region metadata)
@@ -174,7 +174,7 @@ plt.show()
 
 ## Troubleshooting
 
-### Regions Not Identified
+### Regions not identified
 
 Check that:
 
@@ -182,16 +182,16 @@ Check that:
 2. Sensor has received enough frames
 3. Check logs for `[RegionManager] Identified N regions` message
 
-### Too Many/Too Few Regions
+### Too many/Too few regions
 
 - **Too many**: Increase variance classification thresholds (requires code change)
 - **Too few**: Decrease thresholds or check if scene actually has uniform variance
 
-### Unexpected Parameter Values
+### Unexpected parameter values
 
 Check the base `BackgroundParams` values. Region parameters are scaled relative to these base values.
 
-## Region Persistence & Restoration
+## Region persistence & restoration
 
 **Status**: ✅ Implemented (February 2026)
 
@@ -208,13 +208,13 @@ This enables immediate foreground detection on subsequent runs from the same sen
 
 **Implementation**: `internal/lidar/background.go` (lines 1407-1483)
 
-## Future Enhancements
+## Future enhancements
 
 1. **Manual Override**: API to manually define region boundaries
 2. **Dynamic Re-identification**: Optionally re-segment if scene changes (e.g., seasonal)
 3. **Per-Region Diagnostics**: Track acceptance rates per region for tuning
 
-## Related Documentation
+## Related documentation
 
 - [LiDAR Background Grid Standards](../architecture/lidar-background-grid-standards.md)
 - [Warmup Trails Fix](../../../TROUBLESHOOTING.md#lidar-background-grid--warmup-trails-fixed-january-2026)

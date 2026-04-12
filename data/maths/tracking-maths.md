@@ -1,4 +1,4 @@
-# Tracking Maths
+# Tracking maths
 
 - **Status:** Implementation-aligned math note
 - **Layers:** L5 Tracks (`internal/lidar/l5tracks`)
@@ -15,7 +15,7 @@ Core mathematical components:
 3. global assignment with Hungarian optimisation,
 4. lifecycle state transitions using hit/miss counters.
 
-## 2. State-Space Model
+## 2. State-Space model
 
 Track state (world frame):
 
@@ -67,7 +67,7 @@ Posterior:
 
 The implementation rejects updates with near-singular `S` (determinant below threshold).
 
-## 3. Gating and Plausibility
+## 3. Gating and plausibility
 
 Each cluster-track candidate gets a squared Mahalanobis cost:
 
@@ -82,7 +82,7 @@ Candidate is forbidden if any of:
 
 Forbidden costs are represented as a large sentinel (`+inf`) in assignment.
 
-## 4. Global Association (Hungarian)
+## 4. Global association (hungarian)
 
 Build cost matrix `C` with rows = clusters, columns = active tracks.
 
@@ -93,7 +93,7 @@ Solve rectangular assignment by padded square Hungarian (Kuhn-Munkres/JV-style p
 
 This avoids greedy collision artifacts where two clusters compete for one track.
 
-## 5. Lifecycle Dynamics
+## 5. Lifecycle dynamics
 
 States:
 
@@ -111,7 +111,7 @@ Rules:
 
 During occlusion (misses), covariance inflation widens future gating windows for re-association.
 
-## 6. Secondary Stability Metrics
+## 6. Secondary stability metrics
 
 Tracker computes additional quality statistics:
 
@@ -127,7 +127,7 @@ Tracker computes additional quality statistics:
 
 These metrics are not primary filter states; they are diagnostics/tuning signals.
 
-## 7. OBB Heading Handling
+## 7. OBB heading handling
 
 OBB heading has 180-degree ambiguity from PCA.
 
@@ -150,7 +150,7 @@ For `C` clusters and `T` tracks:
 
 In typical road scenes, assignment cost is acceptable; gating prunes many impossible pairs.
 
-## 9. Assumptions and Limits
+## 9. Assumptions and limits
 
 1. **Constant velocity model**
    - Good short horizon, less accurate for sharp turns/accelerations.
@@ -163,7 +163,7 @@ In typical road scenes, assignment cost is acceptable; gating prunes many imposs
 5. **Cluster quality dependency**
    - Tracking cannot fully recover from severe upstream merge/split/noise errors.
 
-## 10. Practical Tuning Direction
+## 10. Practical tuning direction
 
 For long-running static traffic monitoring:
 
@@ -174,16 +174,16 @@ For long-running static traffic monitoring:
 
 ## 11. References
 
-| Reference                       | BibTeX key        | Relevance                                                                                      |
-| ------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
-| Kalman (1960)                   | `Kalman1960`      | Original Kalman filter predict-update cycle (Sections 2–3)                                     |
-| Kuhn (1955)                     | `Kuhn1955`        | Hungarian method for global assignment (Section 4)                                             |
-| Munkres (1957)                  | `Munkres1957`     | Munkres reformulation of Hungarian assignment; our `hungarian.go` implementation follows this  |
-| Mahalanobis (1936)              | `Mahalanobis1936` | Mahalanobis distance used in gating (Section 3)                                                |
-| Weng et al. (2020)              | `Weng2020`        | AB3DMOT — Kalman+Hungarian 3D MOT baseline our architecture closely follows                    |
-| Bewley et al. (2016)            | `Bewley2016`      | SORT — 2D Kalman+Hungarian lifecycle model; our lifecycle (Section 5) follows SORT conventions |
-| Bernardin & Stiefelhagen (2008) | `Bernardin2008`   | CLEAR MOT metrics (MOTA, MOTP) used in L8 run comparisons                                      |
-| Blom & Bar-Shalom (1988)        | `Blom1988`        | IMM algorithm — foundation for planned `imm_cv_ca_v2` motion-model extension (Section 10)      |
-| Rauch et al. (1965)             | `Rauch1965`       | RTS smoother — evaluation-only path in planned `imm_cv_ca_rts_eval_v2` (Section 10)            |
+| Reference                       | BibTeX key        | Relevance                                                                                     |
+| ------------------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| Kalman (1960)                   | `Kalman1960`      | Original Kalman filter predict-update cycle (Sections 2–3)                                    |
+| Kuhn (1955)                     | `Kuhn1955`        | Hungarian method for global assignment (Section 4)                                            |
+| Munkres (1957)                  | `Munkres1957`     | Munkres reformulation of Hungarian assignment; our `hungarian.go` implementation follows this |
+| Mahalanobis (1936)              | `Mahalanobis1936` | Mahalanobis distance used in gating (Section 3)                                               |
+| Weng et al. (2020)              | `Weng2020`        | AB3DMOT: Kalman+Hungarian 3D MOT baseline our architecture closely follows                    |
+| Bewley et al. (2016)            | `Bewley2016`      | SORT: 2D Kalman+Hungarian lifecycle model; our lifecycle (Section 5) follows SORT conventions |
+| Bernardin & Stiefelhagen (2008) | `Bernardin2008`   | CLEAR MOT metrics (MOTA, MOTP) used in L8 run comparisons                                     |
+| Blom & Bar-Shalom (1988)        | `Blom1988`        | IMM algorithm: foundation for planned `imm_cv_ca_v2` motion-model extension (Section 10)      |
+| Rauch et al. (1965)             | `Rauch1965`       | RTS smoother: evaluation-only path in planned `imm_cv_ca_rts_eval_v2` (Section 10)            |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)

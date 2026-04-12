@@ -1,8 +1,8 @@
-# Transit Deduplication Plan
+# Transit deduplication plan
 
 Documents the algorithm and safeguards for preventing duplicate transit records when overlapping cron runs or backfill operations process the same radar data windows.
 
-## Problem Statement
+## Problem statement
 
 The transit worker can create duplicate transit records when:
 
@@ -12,9 +12,9 @@ The transit worker can create duplicate transit records when:
 
 This can lead to double-counting of transits in statistics and reports.
 
-## Current Behaviour
+## Current behaviour
 
-### Transit Worker (`internal/db/transit_worker.go`)
+### Transit worker (`internal/db/transit_worker.go`)
 
 **Data Model:**
 
@@ -39,9 +39,9 @@ ON CONFLICT(transit_key) DO UPDATE SET
 2. No cleanup of older/overlapping transits before inserting new ones
 3. Lookback window (1h5m for 1h interval) creates intentional overlap but doesn't deduplicate
 
-## Proposed Solution
+## Proposed solution
 
-### Strategy: Delete-Before-Insert with Model Version Priority
+### Strategy: delete-before-insert with model version priority
 
 **Priority Order:**
 
@@ -49,13 +49,13 @@ ON CONFLICT(transit_key) DO UPDATE SET
 2. Newer hourly runs ("hourly-cron") replace older overlapping hourly data
 3. When switching between model versions, explicitly remove old version data
 
-### Implementation Plan
+### Implementation plan
 
-#### Phase 1: Pre-processing step in `RunRange()`
+#### Phase 1: pre-processing step in `RunRange()`
 
 Before processing transits, delete existing transits with the same `model_version` that overlap the target time range. Uses a three-way overlap check (starts-in, ends-in, spans-entire) within a transaction. See `internal/db/transit_worker.go` `RunRange()`.
 
-#### Phase 2: Model version migration
+#### Phase 2: model version migration
 
 `MigrateModelVersion()` deletes all transits with the old model version, then re-runs the worker over the full history with the new version. See `internal/db/transit_worker.go`.
 
@@ -63,19 +63,19 @@ Before processing transits, delete existing transits with the same `model_versio
 
 Added `--cleanup-transits`, `--migrate-transits-from`, and `--migrate-transits-to` flags to `cmd/radar/main.go`.
 
-#### Phase 4: Overlap analysis
+#### Phase 4: overlap analysis
 
 `AnalyseTransitOverlaps()` uses a self-join on `radar_data_transits` to find cross-model-version overlapping transit pairs. Groups results by model version pair with counts and example timestamps.
 
-## Migration Path
+## Migration path
 
-### Step 1: Deploy Code with Deduplication Logic (Non-Breaking)
+### Step 1: deploy code with deduplication logic (non-breaking)
 
 - Deploy new code with delete-before-insert in `RunRange()`
 - This immediately prevents new duplicates from hourly runs
 - Existing duplicates remain (cleaned up in Step 2)
 
-### Step 2: One-Time Cleanup of Existing Duplicates
+### Step 2: one-time cleanup of existing duplicates
 
 ```bash
 # Analyse current state
@@ -88,18 +88,18 @@ sqlite3 sensor_data.db "DELETE FROM radar_data_transits WHERE model_version = 'r
 velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuild-full
 ```
 
-### Step 3: Ongoing Operations
+### Step 3: ongoing operations
 
 - Hourly cron runs automatically deduplicate their own overlaps
 - Full backfill runs (if ever needed) require manual model version migration
 
-## Testing Strategy
+## Testing strategy
 
 1. **Unit tests** (`internal/db/transit_worker_test.go`): overlapping window handling, same-model deduplication, cross-model scenarios.
 2. **Integration test**: insert sample `radar_data` spanning 2 hours, run worker with 1 h window twice (overlapping), verify no duplicate transits and all data points linked exactly once.
 3. **Manual verification**: self-join query on `radar_data_transits` checking for overlapping start/end timestamps across different transit IDs.
 
-## Database Impact
+## Database impact
 
 **Performance Considerations:**
 
@@ -112,15 +112,15 @@ velocity-report --migrate-transits-from hourly-cron --migrate-transits-to rebuil
 - Initial cleanup may free significant space if duplicates exist
 - Ongoing operations maintain single copy per time range
 
-## Resolved Design Questions
+## Resolved design questions
 
 | Question                                      | Resolution                                                                                                                 |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Support multiple model versions concurrently? | No. Use the migration path (`MigrateModelVersion`) for algorithm changes. A/B testing would complicate statistics queries. |
 | Grace period for overlapping windows?         | Keep the 5 min overlap (1 h interval, 1 h 5 min window). Deduplication handles late-arriving data.                         |
-| Should hourly runs remove backfill data?      | No. Backfills are rare and intentional — use the explicit migration CLI.                                                   |
+| Should hourly runs remove backfill data?      | No. Backfills are rare and intentional: use the explicit migration CLI.                                                    |
 
-## Implementation Priority
+## Implementation priority
 
 1. ✅ **COMPLETED**: Fix model_version default to "hourly-cron" (already done)
 2. ✅ **COMPLETED**: Implement delete-before-insert in `RunRange()` (Phase 1)

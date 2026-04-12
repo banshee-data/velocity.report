@@ -1,10 +1,10 @@
-# Track Event Timeline
+# Track event timeline
 
 - **Source plan:** `docs/plans/lidar-visualiser-track-event-timeline-bar-plan.md`
 
 Event lane rendered below the replay slider, showing lifecycle and diagnostic events per track.
 
-## Event Types
+## Event types
 
 12 event types across three severity levels:
 
@@ -39,7 +39,7 @@ Event lane rendered below the replay slider, showing lifecycle and diagnostic ev
 | `detail_json`  | TEXT       | Event-specific structured payload |
 | `created_at`   | TEXT       | ISO 8601                          |
 
-## Event Emitters
+## Event emitters
 
 Three categories of emitter:
 
@@ -47,7 +47,7 @@ Three categories of emitter:
 - **Async emitters:** fire from background scoring or detection (quality drop, split/merge suspected).
 - **User-action emitters:** fire from UI actions (confirm, delete, label update, repair apply/revert).
 
-## UI: Event Lane
+## UI: event lane
 
 Rendered in `PlaybackControlsView`:
 

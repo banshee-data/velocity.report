@@ -1,4 +1,4 @@
-# Typed UUID Prefixes
+# Typed UUID prefixes
 
 Active plan: [platform-typed-uuid-prefixes-plan.md](../../plans/platform-typed-uuid-prefixes-plan.md)
 
@@ -8,14 +8,14 @@ identifiable by origin system.
 
 ## Convention
 
-- Format: `{prefix}_{uuidv4}` — e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
+- Format: `{prefix}_{uuidv4}`; e.g. `trak_550e8400-e29b-41d4-a716-446655440000`
 - Prefixes: lowercase 4-letter abbreviation, combined with the UUID as
   `{prefix}_{uuidv4}`.
 - The three run types each get a distinct prefix so you can tell at a glance
   whether a run ID came from an analysis run, a scene replay, or a
   reprocess operation.
 
-## Entity Inventory
+## Entity inventory
 
 | Entity        | Package / File                                      | Current Format             | Proposed Prefix | Example                                     |
 | ------------- | --------------------------------------------------- | -------------------------- | --------------- | ------------------------------------------- |
@@ -29,7 +29,7 @@ identifiable by origin system.
 | Label         | `api/lidar_labels.go`                               | `<uuid>`                   | `labl_`         | `labl_550e8400-e29b-41d4-a716-446655440000` |
 | Sweep         | `sweep/runner.go`, `sweep/hint.go`, `sweep/auto.go` | `<uuid>`                   | `swep_`         | `swep_550e8400-e29b-41d4-a716-446655440000` |
 
-## Replay / Reprocess Migration Rationale
+## Replay / reprocess migration rationale
 
 The composite `replay-{sceneID}-{uuid8}` and `reprocess-{run8}-{uuid8}`
 formats bake human-readable provenance into the primary key. Analysis shows
@@ -49,7 +49,7 @@ replacement with `runy_`/`runs_` + full UUID is safe because:
 - **Frontend impact is cosmetic only.** The web UI truncates `run_id` to 8
   chars for display; `runy_a1b` is equally readable as `replay-f`.
 
-## Central Helper Design
+## Central helper design
 
 ```go
 package id
@@ -69,21 +69,21 @@ Optional validation:
 func Parse(s string) (prefix, uuid string, err error)
 ```
 
-## Call Sites (11 Total)
+## Call sites (11 total)
 
-1. `internal/lidar/l5tracks/tracking.go` — already `trk_`, switch to `id.New("trak")`
-2. `internal/lidar/storage/sqlite/analysis_run_manager.go` — `id.New("runa")`
-3. `internal/lidar/monitor/scene_api.go` — replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
-4. `internal/lidar/monitor/run_track_api.go` — replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
-5. `internal/lidar/storage/sqlite/scene_store.go` — `id.New("scne")`
-6. `internal/lidar/storage/sqlite/evaluation_store.go` — `id.New("eval")`
-7. `internal/lidar/storage/sqlite/missed_region_store.go` — `id.New("regn")`
-8. `internal/api/lidar_labels.go` — `id.New("labl")`
-9. `internal/lidar/sweep/runner.go` (2 sites) — `id.New("swep")`
-10. `internal/lidar/sweep/hint.go` — `id.New("swep")`
-11. `internal/lidar/sweep/auto.go` — `id.New("swep")`
+1. `internal/lidar/l5tracks/tracking.go`: already `trk_`, switch to `id.New("trak")`
+2. `internal/lidar/storage/sqlite/analysis_run_manager.go`: `id.New("runa")`
+3. `internal/lidar/monitor/scene_api.go`: replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
+4. `internal/lidar/monitor/run_track_api.go`: replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
+5. `internal/lidar/storage/sqlite/scene_store.go`: `id.New("scne")`
+6. `internal/lidar/storage/sqlite/evaluation_store.go`: `id.New("eval")`
+7. `internal/lidar/storage/sqlite/missed_region_store.go`: `id.New("regn")`
+8. `internal/api/lidar_labels.go`: `id.New("labl")`
+9. `internal/lidar/sweep/runner.go` (2 sites): `id.New("swep")`
+10. `internal/lidar/sweep/hint.go`: `id.New("swep")`
+11. `internal/lidar/sweep/auto.go`: `id.New("swep")`
 
-## ID Flow
+## ID flow
 
 ```
 id.New("xxxx")  →  SQLite (TEXT PK)  →  HTTP API (JSON + URL paths)  →  Clients (macOS / Web / CLI)
@@ -97,22 +97,22 @@ All downstream consumers treat IDs as opaque strings:
 - **macOS visualiser:** `AppState.currentRunID`, `selectedTrackID` as opaque strings
 - **Sweep system:** checkpoint/resume persistence by sweep_id exact match
 
-## SQLite Migration Strategy
+## SQLite migration strategy
 
 Accept mixed formats. All lookups treat IDs as opaque strings, so prefixed
 and unprefixed IDs coexist without schema changes. Old rows keep their
 existing format (bare UUIDs, `trk_*`, `replay-*`, `reprocess-*`); new rows
-get the `xxxx_` prefix. No `UPDATE` migration needed — IDs are opaque primary
+get the `xxxx_` prefix. No `UPDATE` migration needed: IDs are opaque primary
 keys with no format constraint.
 
-## Track Prefix Migration (`trk_` → `trak_`)
+## Track prefix migration (`trk_` → `trak_`)
 
 The existing `trk_` prefix is 3 characters. To align with the 4-character
 convention, `l5tracks/tracking.go` updates from `trk_` to `trak_`. The
 golden replay test assertion `track.TrackID[:4] == "trk_"` updates to check
 for `trak_`. Mixed formats coexist in SQLite.
 
-## Exit Criteria
+## Exit criteria
 
 - Every `uuid.New()` / `uuid.NewString()` call site replaced with `id.New`.
 - `replay-` and `reprocess-` composite formats replaced with `runy_` / `runs_`.

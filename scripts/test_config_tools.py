@@ -338,6 +338,29 @@ def test_readme_maths_helpers_and_main(
     maths_md.write_text("- `version`\n- `l3.alpha`\n- `_private`\n", encoding="utf-8")
     assert mod.extract_maths_keys(maths_md) == ["version", "l3.alpha", "_private"]
 
+    # Table extraction: extracts leaf keys, skips object containers
+    table_md = tmp_path / "TABLE.md"
+    table_md.write_text(
+        "| Path | Type | Notes |\n"
+        "| --- | --- | --- |\n"
+        "| `version` | int | Must equal `2`. |\n"
+        "| `l1` | object | Sensor block. |\n"
+        "| `l1.sensor` | string | Sensor id. |\n",
+        encoding="utf-8",
+    )
+    assert mod.extract_maths_keys(table_md) == ["version", "l1.sensor"]
+
+    # Mixed bullets and tables: deduplicates
+    mixed_md = tmp_path / "MIXED.md"
+    mixed_md.write_text(
+        "| Path | Type | Notes |\n"
+        "| --- | --- | --- |\n"
+        "| `version` | int | Schema version. |\n"
+        "\n- `version`\n- `l3.alpha`\n",
+        encoding="utf-8",
+    )
+    assert mod.extract_maths_keys(mixed_md) == ["version", "l3.alpha"]
+
     empty_maths = tmp_path / "EMPTY.maths.md"
     empty_maths.write_text("plain text\n", encoding="utf-8")
     with pytest.raises(ValueError, match="no config paths found"):
@@ -369,11 +392,11 @@ def test_readme_maths_helpers_and_main(
 
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    maths_path = config_dir / "README.maths.md"
-    maths_path.write_text("- `version`\n- `l3.alpha`\n", encoding="utf-8")
-    readme_path = config_dir / "README.md"
-    readme_path.write_text(
-        '```json\n{"version":1,"l3":{"alpha":1}}\n```\n', encoding="utf-8"
+    config_md = config_dir / "CONFIG.md"
+    config_md.write_text(
+        "- `version`\n- `l3.alpha`\n\n"
+        '```json\n{"version":1,"l3":{"alpha":1}}\n```\n',
+        encoding="utf-8",
     )
     extra_doc = docs_dir / "extra.md"
     extra_doc.write_text(
@@ -397,23 +420,15 @@ def test_readme_maths_helpers_and_main(
 
     no_tuning_root = tmp_path / "no-tuning"
     (no_tuning_root / "config").mkdir(parents=True)
-    (no_tuning_root / "config/README.maths.md").write_text(
-        "- `version`\n", encoding="utf-8"
-    )
-    (no_tuning_root / "config/README.md").write_text(
-        '```json\n{"version":1}\n```\n', encoding="utf-8"
-    )
+    (no_tuning_root / "config/CONFIG.md").write_text("- `version`\n", encoding="utf-8")
     monkeypatch.chdir(no_tuning_root)
     monkeypatch.setattr(sys, "argv", ["readme-maths-check"])
     assert mod.main() == 1
 
     missing_required_root = tmp_path / "missing-required"
     (missing_required_root / "config").mkdir(parents=True)
-    (missing_required_root / "config/README.maths.md").write_text(
-        "- `version`\n", encoding="utf-8"
-    )
-    (missing_required_root / "config/README.md").write_text(
-        '```json\n{"l3":{"alpha":1}}\n```\n', encoding="utf-8"
+    (missing_required_root / "config/CONFIG.md").write_text(
+        "- `version`\n" '```json\n{"l3":{"alpha":1}}\n```\n', encoding="utf-8"
     )
     (missing_required_root / "config/tuning.defaults.json").write_text(
         '{"version":1}\n', encoding="utf-8"
@@ -424,11 +439,8 @@ def test_readme_maths_helpers_and_main(
 
     top_level_list_root = tmp_path / "top-level-list"
     (top_level_list_root / "config").mkdir(parents=True)
-    (top_level_list_root / "config/README.maths.md").write_text(
-        "- `version`\n", encoding="utf-8"
-    )
-    (top_level_list_root / "config/README.md").write_text(
-        '```json\n{"version":1}\n```\n', encoding="utf-8"
+    (top_level_list_root / "config/CONFIG.md").write_text(
+        "- `version`\n" '```json\n{"version":1}\n```\n', encoding="utf-8"
     )
     (top_level_list_root / "config/tuning.list.json").write_text(
         "[1, 2]\n", encoding="utf-8"
@@ -443,11 +455,8 @@ def test_readme_maths_helpers_and_main(
 
     invalid_json_root = tmp_path / "invalid-json"
     (invalid_json_root / "config").mkdir(parents=True)
-    (invalid_json_root / "config/README.maths.md").write_text(
-        "- `version`\n", encoding="utf-8"
-    )
-    (invalid_json_root / "config/README.md").write_text(
-        '```json\n{"version":1}\n```\n', encoding="utf-8"
+    (invalid_json_root / "config/CONFIG.md").write_text(
+        "- `version`\n" '```json\n{"version":1}\n```\n', encoding="utf-8"
     )
     (invalid_json_root / "config/tuning.invalid.json").write_text(
         "{bad}\n", encoding="utf-8"

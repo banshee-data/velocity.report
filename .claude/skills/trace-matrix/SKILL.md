@@ -6,7 +6,7 @@ argument-hint: "[task-group: http | grpc | db | pipeline | tuning | all]"
 
 # Skill: trace-matrix
 
-Maintain `data/structures/MATRIX.md` — the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to four consumer surfaces: **DB**, **Web**, **PDF**, **Mac**.
+Maintain `data/structures/MATRIX.md`: the canonical mapping of every backend surface (HTTP endpoints, gRPC methods, DB tables/columns, pipeline stages, structs, tuning params, cmd/ entry points, debug routes) to four consumer surfaces: **DB**, **Web**, **PDF**, **Mac**.
 
 ## Usage
 
@@ -38,7 +38,7 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 
 ### 3. Trace one task group at a time
 
-#### HTTP API Surfaces (§1, §2)
+#### HTTP API surfaces (§1, §2)
 
 **Sections:** §1 Radar HTTP, §2 LiDAR HTTP
 
@@ -50,31 +50,31 @@ Read `data/structures/MATRIX.md` to understand existing surface marks. This file
 
 Key files:
 
-- `internal/api/server.go` — radar HTTP handlers
-- `internal/lidar/monitor/webserver.go` — LiDAR HTTP handlers
-- `internal/lidar/monitor/track_api.go` — track API handlers
-- `internal/lidar/monitor/run_track_api.go` — run/track API handlers
-- `internal/api/lidar_labels.go` — label API handlers
-- `web/src/lib/api/` — Svelte fetch calls
-- `tools/pdf-generator/pdf_generator/core/api_client.py` — PDF API client
-- `tools/visualiser-macos/VelocityVisualiser/` — Mac HTTP calls
+- `internal/api/server.go`: radar HTTP handlers
+- `internal/lidar/monitor/webserver.go`: LiDAR HTTP handlers
+- `internal/lidar/monitor/track_api.go`: track API handlers
+- `internal/lidar/monitor/run_track_api.go`: run/track API handlers
+- `internal/api/lidar_labels.go`: label API handlers
+- `web/src/lib/api/`: Svelte fetch calls
+- `tools/pdf-generator/pdf_generator/core/api_client.py`: PDF API client
+- `tools/visualiser-macos/VelocityVisualiser/`: Mac HTTP calls
 
-#### gRPC + Proto Surfaces (§3, §14)
+#### gRPC + proto surfaces (§3, §14)
 
 **Sections:** §3 gRPC methods, §14 FrameBundle proto fields
 
 1. Read `proto/velocity_visualiser/v1/visualiser.proto` for method definitions
 2. Check Go server impl in `internal/lidar/grpc/` for DB reads
 3. Search Swift client in `tools/visualiser-macos/` for method calls
-4. Almost all should be Mac=✅ only — flag any that also touch DB or Web
+4. Almost all should be Mac=✅ only: flag any that also touch DB or Web
 
 Key files:
 
 - `proto/velocity_visualiser/v1/visualiser.proto`
-- `internal/lidar/grpc/` — Go gRPC server implementation
+- `internal/lidar/grpc/`: Go gRPC server implementation
 - `tools/visualiser-macos/VelocityVisualiser/GRPCClient.swift`
 
-#### Database Schema Surfaces (§4, §5)
+#### Database schema surfaces (§4, §5)
 
 **Sections:** §4 DB tables, §5 DB columns (all columns)
 
@@ -86,45 +86,45 @@ Key files:
 
 Key files:
 
-- `internal/db/schema.sql` — table definitions
-- `internal/lidar/storage/sqlite/` — Go DB access layer
-- `internal/api/` — JSON serialisation in HTTP handlers
+- `internal/db/schema.sql`: table definitions
+- `internal/lidar/storage/sqlite/`: Go DB access layer
+- `internal/api/`: JSON serialisation in HTTP handlers
 - `tools/pdf-generator/pdf_generator/core/api_client.py`
 
-#### Pipeline + Structs (§6, §7, §8, §9, §13)
+#### Pipeline + structs (§6, §7, §8, §9, §13)
 
 **Sections:** §6 Pipeline stages, §7 Computed structs, §8 Compare functions, §9 Live track fields, §13 Classification
 
-1. Many structs are in-memory only — check if any field is persisted to DB
+1. Many structs are in-memory only: check if any field is persisted to DB
 2. Check if returned via any HTTP endpoint (grep for struct field names in handlers)
 3. Check if sent via gRPC (grep proto definitions)
 4. Compare functions: check if any HTTP endpoint calls them
 
 Key files:
 
-- `internal/lidar/l6objects/quality.go` — computed structs
-- `internal/lidar/l6objects/features.go` — feature structs
-- `internal/lidar/l6objects/classification.go` — classification pipeline
-- `internal/lidar/storage/sqlite/analysis_run_compare.go` — compare logic
-- `internal/lidar/l5tracks/tracking.go` — live track fields
+- `internal/lidar/l6objects/quality.go`: computed structs
+- `internal/lidar/l6objects/features.go`: feature structs
+- `internal/lidar/l6objects/classification.go`: classification pipeline
+- `internal/lidar/storage/sqlite/analysis_run_compare.go`: compare logic
+- `internal/lidar/l5tracks/tracking.go`: live track fields
 
-#### Tuning + Entry Points + Debug (§10, §15, §16, §18)
+#### Tuning + entry points + debug (§10, §15, §16, §18)
 
 **Sections:** §10 Tuning params, §15 ECharts, §16 cmd/ entry points, §18 Debug routes
 
 1. Tuning params: check `GET/POST /api/lidar/params`, `params_json` in DB
 2. ECharts: Web=✅ via embedded dashboards at `/debug/lidar/*`
 3. cmd/ binaries: check which ones write to production SQLite
-4. Debug routes: diagnostic only — mark DB only if they query SQLite
+4. Debug routes: diagnostic only; mark DB only if they query SQLite
 
 Key files:
 
-- `internal/config/tuning.go` — tuning parameter definitions
-- `internal/lidar/monitor/chart_api.go` — ECharts endpoints
-- `cmd/` — all binary entry points
-- `internal/db/db.go` — debug/admin route attachments
+- `internal/config/tuning.go`: tuning parameter definitions
+- `internal/lidar/monitor/chart_api.go`: ECharts endpoints
+- `cmd/`: all binary entry points
+- `internal/db/db.go`: debug/admin route attachments
 
-### 4. Update MATRIX.md
+### 4. Update mATRIX.md
 
 For each item where the checklist mark differs from MATRIX.md:
 
@@ -145,7 +145,7 @@ After updating, verify:
 3. No checklist items are missing from the matrix
 4. Run `python3 scripts/list-matrix-fields.py` to confirm item counts match
 
-## Verification Evidence Rules
+## Verification evidence rules
 
 A mark can only be set if direct code evidence exists.
 
@@ -191,7 +191,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 - **Per-surface columns**: count ✅ marks only. Do not count 🔶 or 📋.
 - After editing any section table, **recount from the table** and update the summary. Never propagate a number from a prior edit.
 
-## Anti-patterns — Never Do These
+## Anti-patterns: never do these
 
 1. **Method existence ≠ DB write.** A `ToJSON()` method means serialisation exists, not that anything calls it.
 2. **Schema column ≠ populated.** A column in `schema.sql` may be added by migration but never written by application code.
@@ -200,7 +200,7 @@ The handler returns the field but only behind a query parameter, or the frontend
 5. **Remediation plan ≠ implementation.** A `docs/plans/` TODO item is evidence that something is NOT yet done, not that it is.
 6. **Test code ≠ production path.** A test calling `ToJSON()` does not prove production code calls it.
 
-## Idempotency Protocol
+## Idempotency protocol
 
 A second run on an unchanged codebase **must produce zero edits**:
 
@@ -214,10 +214,10 @@ A second run on an unchanged codebase **must produce zero edits**:
 | Mark | Meaning                            |
 | ---- | ---------------------------------- |
 | ✅   | Fully wired to this surface        |
-| 📋   | Planned — not yet implemented      |
+| 📋   | Planned: not yet implemented       |
 | 🔶   | Partially wired (explain in notes) |
-| 🗑️   | Deprecated — to be removed         |
-| —    | Not applicable to this surface     |
+| 🗑️   | Deprecated: to be removed          |
+| -    | Not applicable to this surface     |
 
 ## Notes
 

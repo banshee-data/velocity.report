@@ -1,4 +1,4 @@
-# CLI Reference Guide
+# CLI reference guide
 
 Complete reference for the `velocity-report` and `velocity-ctl` command-line interfaces as currently implemented: all flags, subcommands, HTTP endpoints, and Makefile targets.
 
@@ -6,7 +6,7 @@ For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, c
 
 ---
 
-## Table of Contents
+## Table of contents
 
 1. [Overview](#overview)
 2. [Current State Inventory](#current-state-inventory)
@@ -18,18 +18,18 @@ For the proposed CLI restructuring plan (subcommand hierarchy, API versioning, c
 
 velocity.report consists of multiple CLI applications:
 
-- **1 main application** (`velocity-report`) — production service with radar, optional LiDAR integration, HTTP API, and transit worker
-- **3 utility applications** — device management (`velocity-ctl`), parameter sweep testing (`sweep`), and elevation backfill
-- **100+ Makefile targets** — build, test, deploy, and development tasks
-- **Multiple HTTP APIs** — radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
+- **1 main application** (`velocity-report`): production service with radar, optional LiDAR integration, HTTP API, and transit worker
+- **3 utility applications**: device management (`velocity-ctl`), parameter sweep testing (`sweep`), and elevation backfill
+- **100+ Makefile targets**: build, test, deploy, and development tasks
+- **Multiple HTTP APIs**: radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
 
 This document covers what exists and works today.
 
 ---
 
-## Current State Inventory
+## Current state inventory
 
-### 1. Radar Binary (`cmd/radar`)
+### 1. Radar binary (`cmd/radar`)
 
 **Description:** Main production service that runs radar serial monitoring, HTTP API server, and optional lidar components.
 
@@ -37,7 +37,7 @@ This document covers what exists and works today.
 
 **Location:** `cmd/radar`
 
-#### Quick Start Examples
+#### Quick start examples
 
 ```bash
 # Production mode
@@ -50,7 +50,7 @@ velocity-report --disable-radar --debug
 velocity-report --enable-lidar --lidar-listen :8081
 ```
 
-#### CLI Flags
+#### CLI flags
 
 **Core Service Flags:**
 
@@ -81,7 +81,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--lidar-pcap-dir ../sensor_data/lidar` - Safe directory for PCAP files
 
 **Sensor/network settings** are now configured via the
-[tuning config file](../../config/README.md) (`l1.sensor`, `l1.udp_port`,
+[tuning config file](../../config/CONFIG.md) (`l1.sensor`, `l1.udp_port`,
 `l1.forward_port`, `l1.foreground_forward_port`), not CLI flags.
 
 **PDF Report Flags:**
@@ -110,9 +110,9 @@ velocity-report --enable-lidar --lidar-listen :8081
 
 **Tuning Config:**
 
-- `--config tuning.json` - Path to JSON tuning config file (see [config/README.md](../../config/README.md))
+- `--config tuning.json` - Path to JSON tuning config file (see [config/CONFIG.md](../../config/CONFIG.md))
 
-Background subtraction parameters (flush interval, noise threshold, frame buffer timeout, min frame points, seed behaviour) are configured via the [tuning config file](../../config/README.md), not CLI flags.
+Background subtraction parameters (flush interval, noise threshold, frame buffer timeout, min frame points, seed behaviour) are configured via the [tuning config file](../../config/CONFIG.md), not CLI flags.
 
 #### Subcommands
 
@@ -125,7 +125,7 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
   - `delete` - Delete transit sessions
   - `migrate` - Backfill transits from historical radar data
 
-#### HTTP Endpoints Served
+#### HTTP endpoints served
 
 **Radar API (`:8080` by default):**
 
@@ -225,7 +225,7 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 ---
 
-### 2. Sweep Binary (`cmd/sweep`)
+### 2. Sweep binary (`cmd/sweep`)
 
 **Description:** Parameter sweep utility for testing lidar background model with different configurations.
 
@@ -233,7 +233,7 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 **Location:** `cmd/sweep`
 
-#### Quick Start Examples
+#### Quick start examples
 
 ```bash
 # Multi-parameter sweep
@@ -246,7 +246,7 @@ sweep --mode noise --noise-start 0.005 --noise-end 0.03
 sweep --pcap recording.pcap --pcap-settle 20s
 ```
 
-#### CLI Flags
+#### CLI flags
 
 **Core Configuration:**
 
@@ -295,18 +295,18 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ---
 
-### 3. Device Management Binary (`cmd/velocity-ctl`)
+### 3. Device management binary (`cmd/velocity-ctl`)
 
 > **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary (v0.5.1).
 > See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
 
-**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status — no SSH, no remote targets.
+**Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status; no SSH, no remote targets.
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
 **Location:** `cmd/velocity-ctl`
 
-#### Quick Start Examples
+#### Quick start examples
 
 ```bash
 # Check status
@@ -321,27 +321,27 @@ sudo velocity-ctl rollback
 
 #### Subcommands
 
-**`upgrade`** — Download and install latest release from GitHub
+**`upgrade`**: Download and install latest release from GitHub
 
-**`rollback`** — Revert to previous binary version
+**`rollback`**: Revert to previous binary version
 
-**`backup`** — Back up database and configuration
+**`backup`**: Back up database and configuration
 
-**`--output .`** — Output directory for backup
+**`--output .`**: Output directory for backup
 
-**`status`** — Show service status and version info
+**`status`**: Show service status and version info
 
-**`version`** — Show velocity-ctl version
+**`version`**: Show velocity-ctl version
 
 ---
 
-### 4. Transit Backfill (Removed)
+### 4. Transit backfill (removed)
 
 > Transit backfill functionality is now part of the main binary via the `velocity-report transits migrate` subcommand. The standalone `transit-backfill` binary has been deleted.
 
 ---
 
-### 5. Backfill Ring Elevations Binary (`cmd/tools/backfill_ring_elevations`)
+### 5. Backfill ring elevations binary (`cmd/tools/backfill_ring_elevations`)
 
 **Description:** Backfill ring elevation data for lidar background snapshots using embedded parser config.
 
@@ -349,7 +349,7 @@ sudo velocity-ctl rollback
 
 **Location:** `cmd/tools/backfill_ring_elevations`
 
-#### Quick Start Examples
+#### Quick start examples
 
 ```bash
 # Dry run (preview)
@@ -359,14 +359,14 @@ backfill_ring_elevations --db sensor_data.db --dry-run
 backfill_ring_elevations --db sensor_data.db
 ```
 
-#### CLI Flags
+#### CLI flags
 
 - `--db sensor_data.db` - Path to SQLite database
 - `--dry-run` - Don't write changes; just report
 
 ---
 
-### Makefile Targets (101 total)
+### Makefile targets (101 total)
 
 **Build Targets (15):**
 
@@ -452,11 +452,11 @@ backfill_ring_elevations --db sensor_data.db
 
 ---
 
-## Quick Reference
+## Quick reference
 
-### Common Workflows
+### Common workflows
 
-#### Development Setup
+#### Development setup
 
 ```bash
 # Clone and build
@@ -471,7 +471,7 @@ make build-radar-local
 open http://localhost:8080/app/
 ```
 
-#### Remote Deployment
+#### Remote deployment
 
 ```bash
 # Build for Raspberry Pi
@@ -484,7 +484,7 @@ sudo velocity-ctl upgrade
 sudo velocity-ctl status
 ```
 
-#### PDF Report Generation
+#### PDF report generation
 
 ```bash
 # Via HTTP API
@@ -502,7 +502,7 @@ cd tools/pdf-generator
 make pdf-report CONFIG=my-config.json
 ```
 
-#### Parameter Sweep Testing
+#### Parameter sweep testing
 
 ```bash
 # Multi-parameter sweep
@@ -518,7 +518,7 @@ sweep \
 make plot-multisweep INPUT=sweep-results.csv
 ```
 
-### Environment Variables
+### Environment variables
 
 **PDF Generator:**
 
@@ -530,7 +530,7 @@ make plot-multisweep INPUT=sweep-results.csv
 - `GOARCH` - Target architecture (e.g., `arm64`)
 - `GOOS` - Target OS (e.g., `linux`)
 
-### Tips & Best Practices
+### Tips & best practices
 
 **Database Management:**
 
@@ -548,4 +548,4 @@ make plot-multisweep INPUT=sweep-results.csv
 
 **Performance Tuning:**
 
-LiDAR background subtraction parameters (frame buffer timeout, flush interval, noise threshold) are configured via the [tuning config file](../../config/README.md), adjustable at runtime via the HTTP API.
+LiDAR background subtraction parameters (frame buffer timeout, flush interval, noise threshold) are configured via the [tuning config file](../../config/CONFIG.md), adjustable at runtime via the HTTP API.

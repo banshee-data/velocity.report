@@ -1,20 +1,21 @@
-# Code Coverage
+# Code coverage
 
-This project uses [Codecov](https://codecov.io) to track code coverage across all three main components: Go server, Python PDF generator, and Web frontend.
+This project uses [Codecov](https://codecov.io) to track code coverage across all
+three main components: Go server, Python PDF generator, and Web frontend.
 
-## Coverage Badges
+## Coverage badges
 
 The README displays live coverage badges for each component:
 
 - **Go Coverage**: Test coverage for `internal/` packages (~89% average)
-- **Python Coverage**: Test coverage for the PDF generator in `tools/pdf-generator/`
-- **Web Coverage**: Test coverage for the Svelte web frontend in `web/src/`
+- **Python Coverage**: Test coverage for the PDF generator in [tools/pdf-generator/](../tools/pdf-generator)
+- **Web Coverage**: Test coverage for the Svelte web frontend in [web/src/](../web/src)
 
 Each badge links to detailed coverage reports on Codecov.
 
-## Running Coverage Locally
+## Running coverage locally
 
-### All Components
+### All components
 
 Generate coverage reports for all components at once:
 
@@ -24,11 +25,11 @@ make coverage
 
 This will create HTML reports at:
 
-- Go: `coverage.html`
-- Python: `tools/pdf-generator/htmlcov/index.html`
-- Web: `web/coverage/lcov-report/index.html`
+- Go: [`coverage.html`](../coverage.html) <!-- link-ignore -->
+- Python: [`tools/pdf-generator/htmlcov/index.html`](../tools/pdf-generator/htmlcov/index.html) <!-- link-ignore -->
+- Web: [`web/coverage/lcov-report/index.html`](../web/coverage/lcov-report/index.html) <!-- link-ignore -->
 
-### Individual Components
+### Individual components
 
 **Go:**
 
@@ -54,26 +55,26 @@ open web/coverage/lcov-report/index.html  # macOS
 xdg-open web/coverage/lcov-report/index.html  # Linux
 ```
 
-## CI/CD Integration
+## CI/CD integration
 
-### GitHub Actions
+### GitHub actions
 
 Coverage is automatically generated and uploaded to Codecov on every pull request:
 
-- **Go CI** (`.github/workflows/go-ci.yml`): Runs tests with `-coverprofile=coverage.out`
-- **Python CI** (`.github/workflows/python-ci.yml`): Uses `pytest-cov` to generate XML reports
-- **Web CI** (`.github/workflows/web-ci.yml`): Uses Jest's built-in coverage to generate lcov reports
+- **Go CI** ([.github/workflows/go-ci.yml](../.github/workflows/go-ci.yml)): Runs tests with `-coverprofile=coverage.out`
+- **Python CI** ([.github/workflows/python-ci.yml](../.github/workflows/python-ci.yml)): Uses `pytest-cov` to generate XML reports
+- **Web CI** ([.github/workflows/web-ci.yml](../.github/workflows/web-ci.yml)): Uses Jest's built-in coverage to generate lcov reports
 
-### Codecov Configuration
+### Codecov configuration
 
-The repository includes a `codecov.yml` configuration that:
+The repository includes a [codecov.yml](../codecov.yml) configuration that:
 
 - Defines separate flags for `go`, `python`, and `web` components
 - Configures path-based coverage tracking
 - Sets coverage thresholds
 - Enables PR comments with coverage diffs
 
-### Setting Up Codecov Token
+### Setting up codecov token
 
 For CI to upload coverage data, a `CODECOV_TOKEN` secret must be configured:
 
@@ -84,7 +85,7 @@ For CI to upload coverage data, a `CODECOV_TOKEN` secret must be configured:
    - Go to GitHub repository → Settings → Secrets and variables → Actions
    - Create a new secret named `CODECOV_TOKEN` with the token value
 
-## Coverage Goals
+## Coverage goals
 
 The project aims for:
 
@@ -92,7 +93,7 @@ The project aims for:
 - **Python**: 90%+ coverage (enforced via `pytest-cov`)
 - **Web**: 90%+ coverage (enforced via Jest threshold in `jest.config.js`)
 
-## Excluding Files from Coverage
+## Excluding files from coverage
 
 ### Go
 
@@ -112,17 +113,17 @@ Configure `.coveragerc` or use inline comments:
 
 ### Web
 
-Configure exclusions in `web/jest.config.js` under `collectCoverageFrom`.
+Configure exclusions in [web/jest.config.js](../web/jest.config.js) under `collectCoverageFrom`.
 
 ## Troubleshooting
 
-### Coverage Not Uploading to Codecov
+### Coverage not uploading to codecov
 
 1. Verify `CODECOV_TOKEN` is set in repository secrets
 2. Check that the workflow has `permissions: write` for `pull-requests`
 3. Review the CI logs for any Codecov upload errors
 
-### Local Coverage Reports Not Generating
+### Local coverage reports not generating
 
 Ensure dependencies are installed:
 
@@ -137,7 +138,7 @@ make install-python
 make install-web
 ```
 
-### Coverage Percentage Seems Wrong
+### Coverage percentage seems wrong
 
 - **Go**: Make sure you're running tests with `-covermode=atomic` for accurate concurrency coverage
 - **Python**: Check that `PYTHONPATH` includes the package root

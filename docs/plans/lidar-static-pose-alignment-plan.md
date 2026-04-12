@@ -1,4 +1,4 @@
-# Hesai LIDAR 7DOF Track Production - Future AV Integration
+# Hesai LIDAR 7DOF track production - future AV integration
 
 - **Status:** DEFERRED - See Simplification Notes Below
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
@@ -14,23 +14,23 @@
 
 ---
 
-## Phased Implementation Plan
+## Phased implementation plan
 
 This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
-### Phase 1: Read Hesai PCAP/Live → 7DOF Tracks (Current Release)
+### Phase 1: read hesai pCAP/Live → 7DOF tracks (current release)
 
 **Goal:** Process Hesai Pandar40P data and produce 7-DOF bounding box tracks
 
 **Deliverables:**
 
 1. Extend tracking to produce 7-DOF outputs (add heading, Z coordinate)
-2. Visualize 7-DOF tracks in Svelte UI (oriented bounding boxes with heading arrows)
+2. Visualise 7-DOF tracks in Svelte UI (oriented bounding boxes with heading arrows)
 3. Store 7-DOF tracks in database (conforming to av-lidar-integration-plan.md schema)
 
 **Timeline:** 2-3 weeks
 
-### Phase 2: Extract 9-Frame Sequences (Future)
+### Phase 2: extract 9-Frame sequences (future)
 
 **Goal:** Extract training sequences from Hesai PCAPs that match AV dataset format
 
@@ -42,7 +42,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 **Timeline:** 1-2 weeks (after Phase 1)
 
-### Phase 3: Build Classifier (Future)
+### Phase 3: build classifier (future)
 
 **Goal:** Train ML classifier using AV dataset + labeled Hesai sequences
 
@@ -57,7 +57,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 **Timeline:** 4-6 weeks (requires labeled data)
 
-### Phase 4: Enhance Track Pipeline (Future)
+### Phase 4: enhance track pipeline (future)
 
 **Goal:** Integrate ML classifier into real-time tracking pipeline
 
@@ -71,9 +71,9 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 ---
 
-## Phase 1 Details: Hesai → 7DOF Tracks
+## Phase 1 details: hesai → 7DOF tracks
 
-### Current Implementation Status
+### Current implementation status
 
 **What Works Today:**
 
@@ -93,7 +93,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 - ❌ UI shows axis-aligned boxes, not oriented
 - ❌ Database schema doesn't match av-lidar-integration-plan.md
 
-### Target Schema (from av-lidar-integration-plan.md)
+### Target schema (from av-lidar-integration-plan.md)
 
 **BoundingBox7DOF (target format):**
 
@@ -121,7 +121,7 @@ type BoundingBox7DOF struct {
 - Heading = yaw angle to rotate +X to object's forward axis
 - Coordinate frame: vehicle/world frame (not sensor frame)
 
-### Current Data Structures (to be extended)
+### Current data structures (to be extended)
 
 **WorldCluster (existing):**
 
@@ -161,9 +161,9 @@ type TrackedObject struct {
 
 ---
 
-## Implementation: Hesai → 7DOF Tracks
+## Implementation: hesai → 7DOF tracks
 
-### Task 1.1: Extend Database Schema for 7-DOF
+### Task 1.1: extend database schema for 7-DOF
 
 **Goal:** Add columns to match BoundingBox7DOF from av-lidar-integration-plan.md
 
@@ -266,7 +266,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 -- For now, leaving columns is acceptable (they're just NULL)
 ```
 
-### Phase 2: Go Struct Updates
+### Phase 2: Go struct updates
 
 **Goal:** Add 7-variable 3D bounding box fields to Go structs
 
@@ -398,7 +398,7 @@ type WorldCluster struct {
 - ✅ Heading can start at 0 (will be estimated from velocity)
 - ✅ Existing APIs don't need changes
 
-### Phase 3: Implement 7-Variable Format
+### Phase 3: implement 7-Variable format
 
 **Goal:** Compute and store x, y, z, length, width, height, heading (See `av-lidar-integration-plan.md`)
 
@@ -565,9 +565,9 @@ func updateTrackWith7Variables(
 
 ---
 
-## Implementation Plan
+## Implementation plan
 
-### PR #1: Database Schema (Static-Safe)
+### PR #1: database schema (static-safe)
 
 **Scope:** Add pose_id columns without changing functionality
 
@@ -593,7 +593,7 @@ func updateTrackWith7Variables(
 
 ---
 
-### PR #2: Go Struct Updates (Static-Safe)
+### PR #2: Go struct updates (static-safe)
 
 **Scope:** Add pose_id fields to structs without changing APIs
 
@@ -619,7 +619,7 @@ func updateTrackWith7Variables(
 
 ---
 
-### PR #3: Populate Static Pose References
+### PR #3: populate static pose references
 
 **Scope:** Start storing pose_id for static sensors
 
@@ -648,7 +648,7 @@ func updateTrackWith7Variables(
 
 ## Validation
 
-### Test Cases (Static Only)
+### Test cases (static only)
 
 **Test 1: Backward Compatibility**
 
@@ -699,25 +699,25 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NO
 
 ---
 
-## Out of Scope (Future Work)
+## Out of scope (future work)
 
 The following are **explicitly NOT included** in this release:
 
-### Moving Sensor Support
+### Moving sensor support
 
 - ❌ Ego-motion compensation in tracking
 - ❌ Velocity de-biasing (removing sensor velocity)
 - ❌ Pose interpolation between measurements
 - ❌ IMU integration
 
-### 3D Tracking with Orientation
+### 3D tracking with orientation
 
 - ❌ 13-state Kalman filter [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]
 - ❌ Quaternion state handling
 - ❌ 3D orientation tracking
 - ❌ Object rotation estimation
 
-### 7DOF Pose Representation
+### 7DOF pose representation
 
 - ❌ Quaternion storage (position + quaternion)
 - ❌ SLERP interpolation
@@ -748,7 +748,7 @@ Week 1:
 
 ---
 
-## Success Criteria
+## Success criteria
 
 **Technical:**
 
@@ -771,9 +771,9 @@ Week 1:
 
 ---
 
-## Migration for Existing Deployments
+## Migration for existing deployments
 
-### Production Deployment Steps
+### Production deployment steps
 
 1. **Backup database:**
 
@@ -827,7 +827,7 @@ sudo systemctl start velocity-report
 
 ---
 
-## Related Documents
+## Related documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
 - **Current Tracking:** `../lidar/architecture/foreground-tracking.md` (existing implementation)
@@ -835,9 +835,9 @@ sudo systemctl start velocity-report
 
 ---
 
-## Phase 1 Implementation Checklist
+## Phase 1 implementation checklist
 
-### PR #1: Database Schema + BoundingBox7DOF Type (Week 1)
+### PR #1: database schema + boundingBox7DOF type (week 1)
 
 **Files:**
 
@@ -861,7 +861,7 @@ sudo systemctl start velocity-report
 
 ---
 
-### PR #2: Extend Kalman Tracker to 3D + Heading (Week 2)
+### PR #2: extend Kalman tracker to 3D + heading (week 2)
 
 **Files:**
 
@@ -885,7 +885,7 @@ sudo systemctl start velocity-report
 
 ---
 
-### PR #3: Compute Oriented Bounding Boxes (Week 2-3)
+### PR #3: compute oriented bounding boxes (week 2-3)
 
 **Files:**
 
@@ -908,7 +908,7 @@ sudo systemctl start velocity-report
 
 ---
 
-### PR #4: Svelte UI Visualisation (Week 3)
+### PR #4: Svelte UI visualisation (week 3)
 
 **Files:**
 
@@ -920,7 +920,7 @@ sudo systemctl start velocity-report
 - [ ] Render oriented rectangles (rotate by heading angle)
 - [ ] Add heading arrow indicators
 - [ ] Display 7DOF values in track detail panel (center_x/y/z, length, width, height, heading)
-- [ ] Color-code by object class
+- [ ] Colour-code by object class
 - [ ] Add Z-height visualisation (colour gradient or label)
 
 **Exit Criteria:**
@@ -931,7 +931,7 @@ sudo systemctl start velocity-report
 
 ---
 
-## Success Criteria (Phase 1 Complete)
+## Success criteria (phase 1 complete)
 
 **Functional:**
 
@@ -962,7 +962,7 @@ sudo systemctl start velocity-report
 
 ---
 
-## Next Steps After Phase 1
+## Next steps after phase 1
 
 **Phase 2:** Extract 9-frame sequences (1-2 weeks)
 

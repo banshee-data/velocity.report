@@ -1,4 +1,4 @@
-# LiDAR Pipeline Performance Measurement Harness Plan
+# LiDAR pipeline performance measurement harness plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1–L6, CI infrastructure)
@@ -166,6 +166,6 @@ Extend the current benchmark output with per-layer fields:
 
 ## References
 
-- [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md) — clustering-specific benchmarks
-- [Test corpus plan](lidar-test-corpus-plan.md) — five-site PCAP corpus
-- [Config evidence levels](../../config/README.maths.md) — evidence classification and sweep experiments
+- [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md): clustering-specific benchmarks
+- [Test corpus plan](lidar-test-corpus-plan.md): five-site PCAP corpus
+- [Config evidence levels](../../config/CONFIG.md#config-to-maths-cross-reference): evidence classification and sweep experiments

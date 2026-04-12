@@ -1,6 +1,6 @@
 # Building VelocityVisualiser
 
-## Quick Start
+## Quick start
 
 ```bash
 # From repository root
@@ -23,7 +23,7 @@ tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 - Xcode 16.0+ – required for the macOS 15 SDK and Swift 5.9+ used by grpc-swift 2.x (async/await)
 - Apple Silicon or Intel Mac with Metal support
 
-## Swift Package Dependencies
+## Swift package dependencies
 
 The Xcode project includes these package dependencies which are resolved automatically:
 
@@ -33,7 +33,7 @@ The Xcode project includes these package dependencies which are resolved automat
 | grpc-swift-nio-transport | 2.4.1+  | https://github.com/grpc/grpc-swift-nio-transport.git |
 | grpc-swift-protobuf      | 2.1.2+  | https://github.com/grpc/grpc-swift-protobuf.git      |
 
-### First-Time Setup
+### First-Time setup
 
 When opening the project for the first time, Xcode will fetch and build the Swift packages. This may take several minutes.
 
@@ -44,16 +44,16 @@ If packages don't resolve automatically:
 3. Clean build folder (⇧⌘K)
 4. Build (⌘B)
 
-## Testing End-to-End
+## Testing end-to-end
 
-### 1. Start the Go gRPC Server
+### 1. Start the Go gRPC server
 
 ```bash
 # Terminal 1
 go run ./cmd/tools/visualiser-server -addr localhost:50051 -rate 10 -points 10000 -tracks 10
 ```
 
-### 2. Launch the macOS App
+### 2. Launch the macOS app
 
 ```bash
 # Terminal 2 - or use make dev-mac for Xcode
@@ -72,7 +72,7 @@ In the app:
 
 See [Troubleshooting Guide](../../TROUBLESHOOTING.md#macos-visualiser-issues) for common issues and solutions.
 
-## Regenerating Protobuf Stubs
+## Regenerating Protobuf stubs
 
 When the protobuf schema changes:
 
@@ -84,7 +84,7 @@ make proto-gen
 This generates both Go and Swift files. The Swift files are placed in:
 `tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`
 
-## Creating a Release DMG
+## Creating a release DMG
 
 To package VelocityVisualiser.app into a versioned DMG for distribution:
 

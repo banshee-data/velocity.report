@@ -45,43 +45,45 @@ go build ./cmd/lidar
 
 The radar binary exposes several CLI flags (see `cmd/radar/radar.go` for exact defaults). Key options are listed below.
 
-- `--fixture` (bool) — Load fixture data into the local DB instead of opening a serial port.
-- `--debug` (bool) — Run in debug mode (uses a mock serial mux and enables extra debug logging).
-- `--db-path` (string) — Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services).
-- `--listen` (string) — HTTP listen address for the API server (default: `:8080`). In production, nginx terminates TLS on port 443 and proxies to this address.
-  - `--port` (string) — Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--debug` or `--disable-radar`.
-- `--units` (string) — Display units (mps, mph, kmph). Default: `mph`.
-- `--timezone` (string) — Timezone for display (default: `UTC`).
-- `--disable-radar` (bool) — Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
-- `--pdf-latex-flow` (string) — PDF LaTeX mode: `inherit` (default), `precompiled`, or `full`.
+- `--fixture` (bool): Load fixture data into the local DB instead of opening a serial port.
+- `--debug` (bool): Run in debug mode (uses a mock serial mux and enables extra debug logging).
+- `--db-path` (string): Path to SQLite DB file (default: `sensor_data.db`). Use this when your DB file lives outside the current working directory (for example, systemd services).
+- `--listen` (string): HTTP listen address for the API server (default: `:8080`). In production, nginx terminates TLS on port 443 and proxies to this address.
+  - `--port` (string): Serial device path for the radar (default: `/dev/ttySC1`). Ignored in `--debug` or `--disable-radar`.
+- `--units` (string): Display units (mps, mph, kmph). Default: `mph`.
+- `--timezone` (string): Timezone for display (default: `UTC`).
+- `--disable-radar` (bool): Disable radar serial I/O; useful when running without radar hardware. The HTTP server and DB remain active.
+- `--pdf-latex-flow` (string): PDF LaTeX mode: `inherit` (default), `precompiled`, or `full`.
   - `inherit`: leave `VELOCITY_TEX_ROOT` unchanged unless `--pdf-tex-root` is provided.
   - `precompiled`: validate and set `VELOCITY_TEX_ROOT` to the minimal TeX tree.
   - `full`: unset `VELOCITY_TEX_ROOT` and force full system TeX.
-- `--pdf-tex-root` (string) — TeX root directory used by `precompiled` flow (expects `bin/xelatex` inside). In `inherit` mode, this can be used as an explicit override.
+- `--pdf-tex-root` (string): TeX root directory used by `precompiled` flow (expects `bin/xelatex` inside). In `inherit` mode, this can be used as an explicit override.
 - `--listen` and `--port` must be set sensibly; the binary validates units/timezone on startup.
 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
-- `--enable-lidar` (bool) — Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string) — HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
-- `--lidar-no-parse` (bool) — Disable LiDAR packet parsing (useful when only forwarding packets).
-- `--lidar-forward` (bool) — Forward incoming LiDAR packets to another port (useful for LidarView).
-- `--lidar-forward-addr` (string) — Forward destination address (default: `localhost`).
-- `--lidar-forward-mode` (string) — Forward mode: `lidarview` (UDP only), `grpc` (gRPC only), or `both` (default: `lidarview`).
-- `--lidar-foreground-forward` (bool) — Forward foreground-only LiDAR packets to a separate port.
-- `--lidar-foreground-forward-addr` (string) — Address to forward foreground LiDAR packets to (default: `localhost`).
-- `--lidar-grpc-listen` (string) — gRPC server listen address for visualiser streaming (default: `localhost:50051`).
-- `--lidar-pcap-dir` (string) — Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
+- `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
+- `--lidar-listen` (string): HTTP listen address for the LiDAR monitor webserver (default: `:8081`).
+- `--lidar-no-parse` (bool): Disable LiDAR packet parsing (useful when only forwarding packets).
+- `--lidar-forward` (bool): Forward incoming LiDAR packets to another port (useful for LidarView).
+- `--lidar-forward-addr` (string): Forward destination address (default: `localhost`).
+- `--lidar-forward-mode` (string): Forward mode: `lidarview` (UDP only), `grpc` (gRPC only), or `both` (default: `lidarview`).
+- `--lidar-foreground-forward` (bool): Forward foreground-only LiDAR packets to a separate port.
+- `--lidar-foreground-forward-addr` (string): Address to forward foreground LiDAR packets to (default: `localhost`).
+- `--lidar-grpc-listen` (string): gRPC server listen address for visualiser streaming (default: `localhost:50051`).
+- `--lidar-pcap-dir` (string): Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 **Sensor/network settings (config file only):** The following settings are
-configured via the [tuning config file](../../config/README.md), not CLI flags:
+configured via the [tuning config file](../../config/CONFIG.md), not CLI flags:
 
-- `l1.sensor` — Sensor identifier (default: `hesai-pandar40p`).
-- `l1.udp_port` — UDP port to listen for LiDAR packets (default: `2369`).
-- `l1.forward_port` — Raw packet forward port (default: `2368`).
-- `l1.foreground_forward_port` — Foreground packet forward port (default: `2370`).
+For the canonical port register and numeric rationale, see [MAGIC_NUMBERS.md](../../MAGIC_NUMBERS.md).
 
-## PCAP Replay Setup
+- `l1.sensor`: Sensor identifier (default: `hesai-pandar40p`).
+- `l1.udp_port`: UDP port to listen for LiDAR packets (default: `2369`).
+- `l1.forward_port`: Raw packet forward port (default: `2368`).
+- `l1.foreground_forward_port`: Foreground packet forward port (default: `2370`).
+
+## PCAP replay setup
 
 Runtime switching lets you replay captures without special startup flags:
 
@@ -125,22 +127,22 @@ You can provide either a bare filename (`"pcap_file": "file.pcap"`) or a relativ
 
 ## Architecture
 
-The application is organized into separate components under `internal/` for maintainability:
+The application is organised into separate components under `internal/` for maintainability:
 
-- `internal/serialmux` — Serial port abstraction and event handlers (real, mock, disabled implementations).
-- `internal/api` — Central HTTP server, static assets, and admin endpoints.
-- `internal/db` — SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity-report/sensor_data.db`).
-- `internal/lidar` — LiDAR parsers, frame builders, background model, monitor webserver, and DB persistence.
+- `internal/serialmux`: Serial port abstraction and event handlers (real, mock, disabled implementations).
+- `internal/api`: Central HTTP server, static assets, and admin endpoints.
+- `internal/db`: SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity-report/sensor_data.db`).
+- `internal/lidar`: LiDAR parsers, frame builders, background model, monitor webserver, and DB persistence.
 
 ### LiDAR core components
 
-- `forwarder.go` — Asynchronous packet forwarding with drop counting.
-- `listener.go` — UDP packet reception and listener orchestration.
-- `webserver.go` / monitor — HTTP UI for LiDAR stats and manual snapshot triggers.
-- `parser.go` — Pandar40P LiDAR packet parsing.
-- `stats.go` — Thread-safe packet/statistics tracking.
+- `forwarder.go`: Asynchronous packet forwarding with drop counting.
+- `listener.go`: UDP packet reception and listener orchestration.
+- `webserver.go` / monitor: HTTP UI for LiDAR stats and manual snapshot triggers.
+- `parser.go`: Pandar40P LiDAR packet parsing.
+- `stats.go`: Thread-safe packet/statistics tracking.
 
-## Features & Performance
+## Features & performance
 
 - High-performance UDP packet reception with configurable buffer sizes.
 - Optional built-in parsing for Pandar40P into 3D points.
@@ -153,17 +155,17 @@ Performance notes (observed in production):
 - **Data Rate**: ~2.17 MB/sec with ~700k points/sec when parsing enabled
 - **Point Processing**: ~700,000 3D points/sec from parsed Pandar40P packets
 - **Forwarding Latency**: Microsecond-level with dedicated forwarding goroutine
-- **Memory Usage**: Optimized buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
+- **Memory Usage**: Optimised buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
 - **CPU Usage**: Minimal overhead with direct packet processing (no per-packet goroutines)
-- **Statistics Logging**: Configurable intervals (1-60 seconds) with colored output for errors
+- **Statistics Logging**: Configurable intervals (1-60 seconds) with coloured output for errors
 
-## Embedded Configuration
+## Embedded configuration
 
 Both binaries include embedded Pandar40P sensor configuration files (angle and firetime corrections), so parsing works without external files.
 
-## LidarView Integration
+## LidarView integration
 
-To visualize incoming LiDAR data, forward packets to LidarView's listening port (2368 by default) or configure a custom port and use the `--lidar-forward` flag.
+To visualise incoming LiDAR data, forward packets to LidarView's listening port (2368 by default) or configure a custom port and use the `--lidar-forward` flag.
 
 ## Command & DB notes
 
@@ -171,7 +173,7 @@ To visualize incoming LiDAR data, forward packets to LidarView's listening port 
 - When `--disable-radar` is set, a `DisabledSerialMux` keeps the HTTP/DB APIs available while disabling serial I/O.
 - When `--enable-lidar` is used, the LiDAR components reuse the same DB instance for snapshot persistence and event storage. A `BackgroundManager` is created per sensor and will persist background snapshots into the `lidar_bg_snapshot` table if the manager was constructed with a DB-backed `BgStore`.
 
-## Systemd Service Setup
+## Systemd service setup
 
 When running as a systemd service, the included `velocity-report.service` file:
 
@@ -196,17 +198,17 @@ sudo systemctl start velocity-report
 - If LiDAR snapshots do not appear in the DB, confirm `--enable-lidar` is used and the `BackgroundManager` was created with a DB-backed store.
 - No packets received: check firewall, UDP bind address, and network interface; use `netstat -un` to verify listeners.
 
-### Port Conflicts
+### Port conflicts
 
 - **Error**: "bind: address already in use"
 - **Solution**: Check for other processes using the UDP port with `lsof -i UDP:2369`
 
-### LidarView Socket Errors
+### LidarView socket errors
 
 - **Error**: "Error while opening socket!" in LidarView
 - **Solution**: Use different forwarding ports (avoid 2368 if LidarView binds to it)
 
-### No Packets Received
+### No packets received
 
 - **Check**: Firewall settings, UDP port configuration, network interface binding
 - **Debug**: Use `netstat -un` to verify UDP listener is active

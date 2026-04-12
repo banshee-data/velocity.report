@@ -1,4 +1,4 @@
-# Light Mode
+# Light mode
 
 - **Source plan:** `docs/plans/lidar-visualiser-light-mode-plan.md`
 
@@ -8,7 +8,7 @@ Light-mode appearance for the macOS VelocityVisualiser 3D scene, following syste
 
 Dual-palette semantic colour tokens that switch between dark and light variants based on `NSApp.effectiveAppearance`. The palette is defined once and referenced by all rendering and UI code.
 
-## Colour Tokens
+## Colour tokens
 
 | Token             | Dark Value    | Light Value  | Usage                    |
 | ----------------- | ------------- | ------------ | ------------------------ |
@@ -23,12 +23,12 @@ Dual-palette semantic colour tokens that switch between dark and light variants 
 | `warningOverlay`  | amber         | amber-dark   | Threshold warnings       |
 | `errorOverlay`    | red           | red-dark     | Threshold errors         |
 
-## Files Affected
+## Files affected
 
-- `MetalRenderer.swift` — palette lookup for clear colour, grid, overlays
-- `AppState.swift` — appearance change observer, palette storage
-- `ContentView.swift` — SwiftUI colour bindings for inspector and controls
+- `MetalRenderer.swift`: palette lookup for clear colour, grid, overlays
+- `AppState.swift`: appearance change observer, palette storage
+- `ContentView.swift`: SwiftUI colour bindings for inspector and controls
 
-## Accessibility Requirement
+## Accessibility requirement
 
-V1 palette must be **colour-blind-safe** (tested against deuteranopia and protanopia simulations). No semantic information may be conveyed by hue alone — shape, pattern, or label must accompany colour.
+V1 palette must be **colour-blind-safe** (tested against deuteranopia and protanopia simulations). No semantic information may be conveyed by hue alone: shape, pattern, or label must accompany colour.

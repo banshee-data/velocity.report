@@ -1,4 +1,4 @@
-# LiDAR Visualiser Proto Contract and Debug Overlay Fixes Plan
+# LiDAR visualiser proto contract and debug overlay fixes plan
 
 - **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.2
 - **Layers:** L9 Endpoints
@@ -51,7 +51,7 @@ in the proto as a contract.
 2. Large UI workflow changes beyond inspector label/value updates.
 3. Backward compatibility guarantees for pre-`v0.5.0` proto consumers.
 
-## 4. Current Gaps (Observed)
+## 4. Current gaps (observed)
 
 ### 4.1 Debug overlays
 
@@ -88,21 +88,21 @@ Notes:
 by `frameBundleToProto(...)` in `grpc_server.go`. The original gap list and
 current status:
 
-1. ~~`Track.covariance_4x4`~~ — ✅ serialised (copied from `Covariance4x4` slice)
-2. ~~`Track.height_p95_max`~~ — ✅ serialised
-3. ~~`Track.intensity_mean_avg`~~ — ✅ serialised
-4. ~~`Track` speed summary fields~~ — Branch-local serialisation exists for the
+1. ~~`Track.covariance_4x4`~~: ✅ serialised (copied from `Covariance4x4` slice)
+2. ~~`Track.height_p95_max`~~: ✅ serialised
+3. ~~`Track.intensity_mean_avg`~~: ✅ serialised
+4. ~~`Track` speed summary fields~~: Branch-local serialisation exists for the
    superseded percentile-field direction, but that contract reset still needs
    to be backed out before merge. The stable merge-target direction remains
    `avg_speed_mps` plus the raw maximum field for now.
-5. ~~`Track.peak_speed_mps`~~ — ✅ serialised
-6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
+5. ~~`Track.peak_speed_mps`~~: ✅ serialised
+6. ~~`Track.class_label`~~: **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
-7. ~~`Track.class_confidence`~~ — ✅ serialised
-8. ~~`Track.track_length_metres`~~ — ✅ serialised
-9. ~~`Track.track_duration_secs`~~ — ✅ serialised
-10. ~~`Track.occlusion_count`~~ — ✅ serialised
-11. ~~`Track.occlusion_state`~~ — ✅ serialised (as `pb.OcclusionState` enum)
+7. ~~`Track.class_confidence`~~: ✅ serialised
+8. ~~`Track.track_length_metres`~~: ✅ serialised
+9. ~~`Track.track_duration_secs`~~: ✅ serialised
+10. ~~`Track.occlusion_count`~~: ✅ serialised
+11. ~~`Track.occlusion_state`~~: ✅ serialised (as `pb.OcclusionState` enum)
 
 Test coverage: `TestFrameBundleToProto_TrackFieldCompleteness` in
 `grpc_server_test.go` asserts every Track field round-trips correctly.
@@ -129,9 +129,9 @@ enum ObjectClass {
 
 Conversion is handled by two functions in `grpc_server.go`:
 
-- `objectClassFromString(s string) pb.ObjectClass` — maps canonical class strings
+- `objectClassFromString(s string) pb.ObjectClass`: maps canonical class strings
   (e.g. `"car"`, `"pedestrian"`) to the proto enum.
-- `classifyOrConvert(t Track) pb.ObjectClass` — returns the stored class if
+- `classifyOrConvert(t Track) pb.ObjectClass`: returns the stored class if
   present; for VRLOG recordings that pre-date classification, re-classifies from
   per-frame features as a fallback.
 
@@ -140,15 +140,15 @@ The Swift client converts the proto enum back to display strings via a private
 
 Test coverage:
 
-- `TestObjectClassFromString` — all 9 classes + unknown → UNSPECIFIED.
-- `TestTrackObjectClassPropagation` — `l6objects.Class*` constants round-trip correctly.
-- `TestObjectClassRoundtrip` — string → enum → proto name → verify no loss.
-- `TestEmptyObjectClassToUnspecified` — empty/uninitialised → UNSPECIFIED.
-- `TestAllObjectClassConstantsConvertible` — meta-test ensures no `l6objects` constant is missed.
-- `TestObjectClassConversionInProtoMessages` — full proto message round-trip.
+- `TestObjectClassFromString`: all 9 classes + unknown → UNSPECIFIED.
+- `TestTrackObjectClassPropagation`: `l6objects.Class*` constants round-trip correctly.
+- `TestObjectClassRoundtrip`: string → enum → proto name → verify no loss.
+- `TestEmptyObjectClassToUnspecified`: empty/uninitialised → UNSPECIFIED.
+- `TestAllObjectClassConstantsConvertible`: meta-test ensures no `l6objects` constant is missed.
+- `TestObjectClassConversionInProtoMessages`: full proto message round-trip.
 - Swift: `ObjectClassConversionTests` in `VisualiserClientTests.swift`.
 
-## 5. Protocol Change Direction (Pre-`v0.5.0`)
+## 5. Protocol change direction (pre-`v0.5.0`)
 
 ### 5.1 Track speed summary fields
 
@@ -171,9 +171,9 @@ Percentile computation still applies to grouped/report surfaces, but not to the
 terminology. The branch-local `speedPercentiles()` helper and related bindings
 should not be treated as the merge target for the visualiser contract.
 
-## 6. Implementation Plan
+## 6. Implementation plan
 
-### Phase A: gRPC serialiser parity (P0)
+### Phase a: gRPC serialiser parity (P0)
 
 1. Update `frameBundleToProto(...)` to serialise `FrameBundle.debug` when
    `StreamRequest.include_debug=true`.
@@ -181,15 +181,15 @@ should not be treated as the merge target for the visualiser contract.
    internal model (`height_p95`, `intensity_mean`; `sample_points` requires
    adapter propagation first).
 3. ~~Serialize all currently-dropped `Track` fields that are already populated in
-   the internal model.~~ ✅ Complete — all Track fields are now serialised
+   the internal model.~~ ✅ Complete: all Track fields are now serialised
    including `ObjectClass` enum via `classifyOrConvert()`.
 4. ~~Add/expand tests for `FrameBundle.background`, `frame_type`, and
-   `background_seq`.~~ ✅ Complete — background snapshot serialisation implemented
+   `background_seq`.~~ ✅ Complete: background snapshot serialisation implemented
    in `frameBundleToProto(...)` (M3.5).
 5. ~~Add `ObjectClass` enum conversion with `objectClassFromString()` and
    `classifyOrConvert()` for VRLOG backward compatibility.~~ ✅ Complete.
 
-### Phase B: Overlay mode behaviour (P1)
+### Phase b: overlay mode behaviour (P1)
 
 Decision recorded in [DECISIONS.md](../DECISIONS.md): `include_debug` gates
 whether debug payloads are emitted by the server. `SetOverlayModes(...)`
@@ -203,19 +203,19 @@ remains client-side/advisory and does not drive server-side subset filtering.
 3. Document `supports_debug` as stream-level capability, not per-overlay
    server-side filtering support.
 
-### Phase C: Track speed summary schema — Retired
+### Phase c: track speed summary schema; retired
 
 **Retired:** This scope is now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0
 under "Visualiser track proto parity". The proto rename, percentile back-out, and
 binding regeneration are owned by that backlog item.
 
-### Phase D: Swift client/UI parity — Retired
+### Phase d: Swift client/UI parity; retired
 
 **Retired:** Swift-side `peak` → `max` rename and inspector label updates are
 now tracked in [BACKLOG.md](../BACKLOG.md) v0.5.0 under "Visualiser track proto
 parity".
 
-### Phase E: Test hardening (P1)
+### Phase e: test hardening (P1)
 
 1. Replace "debug not converted" tests with positive serialisation tests.
    `TestFrameBundleToProto_DebugNotConverted` and
@@ -231,7 +231,7 @@ parity".
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
-### Phase E.1: SeekToTimestamp diagnostic logging behind debug flag (#381)
+### Phase E.1: seekToTimestamp diagnostic logging behind debug flag (#381)
 
 `SeekToTimestamp()` currently logs index entry dumps and seek diagnostics
 unconditionally on every call. This should be gated behind the existing
@@ -252,9 +252,9 @@ timestamp index at `NewReplayer` load time:
    by index position for stability)
 2. Use `sort.Search()` for O(log n) binary search on seek
 3. Add a loading/indexing state to the macOS UI (spinner) while the index
-   is being built — visible when loading large VRLOGs
+   is being built: visible when loading large VRLOGs
 
-## 7. Acceptance Criteria
+## 7. Acceptance criteria
 
 1. Enabling debug overlays in stream requests produces non-empty `FrameBundle.debug`
    when debug data exists upstream.
@@ -266,7 +266,7 @@ timestamp index at `NewReplayer` load time:
    defined by the current schema.
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
 
-## 8. Risks and Open Questions
+## 8. Risks and open questions
 
 1. Mixed-version client/server compatibility during local development:
    backing out the branch-local speed-summary expansion can temporarily leave
@@ -278,7 +278,7 @@ timestamp index at `NewReplayer` load time:
    `supports_debug` and overlay-mode docs must make the client-side/advisory
    behaviour explicit to avoid implying server-side subset filtering.
 
-## 9. Task Checklist
+## 9. Task checklist
 
 - [ ] Add debug overlay protobuf serialisation in `frameBundleToProto(...)`
 - [ ] Gate debug serialisation by `include_debug`
@@ -288,8 +288,8 @@ timestamp index at `NewReplayer` load time:
 - [x] Add ObjectClass conversion tests (`object_class_conversion_test.go`, `VisualiserClientTests.swift`)
 - [x] Serialize background snapshot and frame type in `frameBundleToProto(...)` (M3.5)
 - [x] Add `TestFrameBundleToProto_TrackFieldCompleteness` test covering all Track fields
-- ~~Back out the branch-local track speed-summary field expansion before merge~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
-- ~~Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
-- ~~Remove branch-local percentile-style track computation and propagation from the merge-target contract work~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
-- ~~Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields~~ — retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Back out the branch-local track speed-summary field expansion before merge~~: retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Regenerate protobuf bindings (Go + Swift) after removing superseded percentile-style track fields~~: retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Remove branch-local percentile-style track computation and propagation from the merge-target contract work~~: retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
+- ~~Update Swift visualiser inspector labels and values to the stable non-percentile track speed fields~~: retired to [BACKLOG.md](../BACKLOG.md) v0.5.0
 - [ ] Replace negative debug tests with positive end-to-end serialisation tests

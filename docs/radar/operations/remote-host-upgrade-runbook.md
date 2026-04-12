@@ -1,4 +1,4 @@
-# Remote Host Upgrade Runbook
+# Remote host upgrade runbook
 
 This runbook upgrades an already-installed `velocity.report` host over SSH
 without using `velocity-ctl` or the removed legacy `velocity-deploy` tool.
@@ -25,7 +25,7 @@ paths:
 Do not use this runbook for first-time installs. Do not overwrite the systemd
 unit unless there is a deliberate service configuration change.
 
-## Ask-Mode Guardrails
+## Ask-Mode guardrails
 
 Stop and ask before continuing if any of these are true:
 
@@ -118,14 +118,14 @@ Paste the output back to the agent. The agent should check for:
 - Whether the binary exists and which version is installed.
 - Whether the service is active and which user it runs as.
 - Whether the database exists, its size, and whether migrations are clean
-  (`Dirty: false`). A dirty migration is a guardrail — stop and ask.
+  (`Dirty: false`). A dirty migration is a guardrail: stop and ask.
 - Whether `/opt/velocity-report` is present, clean, and at which commit.
   If `git status --short` printed any paths before `(working tree clean)`,
-  the checkout is dirty — stop and ask.
+  the checkout is dirty: stop and ask.
 - Whether `config/tuning.defaults.json` exists in `/opt/velocity-report`.
   If missing, the checkout predates the config restructure and must be
   updated before the service can start.
-- Directory ownership of `/opt/velocity-report` — determines whether later
+- Directory ownership of `/opt/velocity-report`: determines whether later
   `git` and `make` steps need `sudo -u`.
 - Whether `sudo` is available without a password (affects later steps).
 - The listen port printed at the end of the service block.
@@ -159,7 +159,7 @@ echo "SERVICE_USER=$SERVICE_USER  SSH_USER=$(id -un)  sudo-u needed: $([ "$(id -
 If the service file shows a custom `--listen :PORT`, keep that port for the
 HTTP verification step later. If no `--listen` flag is present, assume `8080`.
 
-## Build and Transfer (on the dev machine)
+## Build and transfer (on the dev machine)
 
 Run these on the **local Mac**, not the host. This builds the web frontend
 into the Go binary and cross-compiles for linux/arm64, then copies the
@@ -206,7 +206,7 @@ ssh radar.local 'mkdir -p /tmp/vr'
 scp "$BINARY" radar.local:/tmp/vr/
 ```
 
-## Prepare the New Binary (on the host)
+## Prepare the new binary (on the host)
 
 Paste this on the host to verify the transferred artifact:
 
@@ -272,7 +272,7 @@ make build-web
 make build-radar-linux
 ```
 
-## Optional: Sync `/opt/velocity-report`
+## Optional: sync `/opt/velocity-report`
 
 The canonical service template sets:
 
@@ -294,7 +294,7 @@ RUN_AS make install-python
 
 If that checkout is dirty, stop and ask instead of force-resetting it.
 
-## Backup and Stop the Service
+## Backup and stop the service
 
 Create a rollback point before replacing anything:
 
@@ -317,7 +317,7 @@ fi
 
 Do not continue until the service has actually stopped.
 
-## Install and Migrate
+## Install and migrate
 
 Install the new binary in place:
 
@@ -354,7 +354,7 @@ fi
 `sudo -u "$SERVICE_USER"` otherwise. Prefer it over `su - velocity` because
 the service user is normally created with a non-login shell.
 
-## Update Service Configuration
+## Update service configuration
 
 From v0.5.0 onwards the binary requires a `--config` flag pointing at the
 tuning defaults file. The old `ExecStart` line does not include this flag.
@@ -377,7 +377,7 @@ systemctl cat velocity-report.service | grep ExecStart
 Verify the `ExecStart` line now includes both `--db-path` and `--config`
 before restarting.
 
-## Pre-Restart Verification
+## Pre-Restart verification
 
 Before starting the service, verify that the three common startup failures
 cannot occur. This block is read-only and safe to run at any time:
@@ -395,15 +395,15 @@ echo "=== binary version ==="
 
 All three must pass before restarting:
 
-- **Config file exists** — the `--config` path in `ExecStart` must resolve.
+- **Config file exists**: the `--config` path in `ExecStart` must resolve.
   If missing, the `/opt/velocity-report` checkout is stale or the
   `git checkout` step failed (check permissions).
-- **Migrations clean** — `Dirty: false` and the current version matches the
+- **Migrations clean**: `Dirty: false` and the current version matches the
   latest migration the binary knows about. If the version is behind, run
   `migrate up` again. If `Dirty: true`, stop and recover.
-- **Binary version** — confirms the installed binary is the expected release.
+- **Binary version**: confirms the installed binary is the expected release.
 
-## Restart and Verify
+## Restart and verify
 
 Bring the service back and verify both systemd and HTTP health:
 
@@ -470,7 +470,7 @@ journalctl -u velocity-report.service -n 50 --no-pager
 If `/opt/velocity-report` was also upgraded, roll that checkout back to the
 previous ref before retrying report generation.
 
-## Known Pitfalls
+## Known pitfalls
 
 Lessons learned from real upgrades:
 
@@ -505,10 +505,10 @@ If the checkout was originally cloned or updated as `root`, some files under
 `Permission denied` when run as the service user. Fix with:
 `sudo chown -R david:david /opt/velocity-report`.
 
-## Suggested Agent Prompt
+## Suggested agent prompt
 
 Use this with a VS Code SSH agent in Ask mode. The agent does not have direct
-command access — it analyses output you paste and gives you blocks to run.
+command access: it analyses output you paste and gives you blocks to run.
 
 ```text
 Open docs/radar/operations/remote-host-upgrade-runbook.md and follow it exactly.

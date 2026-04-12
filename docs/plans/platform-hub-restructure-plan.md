@@ -1,4 +1,4 @@
-# Hub Restructure Plan
+# Hub restructure plan
 
 - **Status:** Active
 - **Canonical:** [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md)
@@ -12,7 +12,7 @@ all substantial project documentation. Collapse the previously proposed `docs/se
 and `docs/engineering/` concepts into a single `docs/platform/` hub covering both
 shared codebase structure and development methodology.
 
-## Hub Structure
+## Hub structure
 
 Five hubs total. Three existing, one new, one renamed.
 
@@ -20,10 +20,10 @@ Five hubs total. Three existing, one new, one renamed.
 | ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `docs/lidar/`    | EXISTS     | LiDAR pipeline layer, algorithm, sensor-specific workflow, or LiDAR-specific storage                                                       |
 | `docs/radar/`    | EXISTS     | Radar sensing, speed measurement, site configuration                                                                                       |
-| `docs/ui/`       | EXISTS     | What a user sees or interacts with — web, macOS app chrome, homepage, design language                                                      |
+| `docs/ui/`       | EXISTS     | What a user sees or interacts with: web, macOS app chrome, homepage, design language                                                       |
 | `docs/platform/` | **EXPAND** | Shared codebase structure (Go packages, DB schema, deployment, release) AND development methodology (docs rules, metrics, tooling, agents) |
 
-### Mutual Exclusivity Test
+### Mutual exclusivity test
 
 Ask in order. First match wins.
 
@@ -33,35 +33,35 @@ Ask in order. First match wins.
 3. Does it describe what a user sees or interacts with? → `docs/ui/`
 4. Everything else → `docs/platform/`
 
-## Canonical File Tree
+## Canonical file tree
 
 `EXISTS` = already in the repo. `NEW` = needs creating. `MOVE` = relocating from `docs/server/`.
 
 Plans that feed multiple canonical docs are marked with `†`.
 
-### `docs/lidar/` — 38 plans
+### `docs/lidar/`: 38 plans
 
 #### `docs/lidar/architecture/`
 
 | Canonical file                                           | Status | Fed by plan(s)                                        | Notes                                 |
 | -------------------------------------------------------- | ------ | ----------------------------------------------------- | ------------------------------------- |
-| `lidar-data-layer-model.md`                              | EXISTS | `lidar-layer-dependency-hygiene-plan`                 | Layer ownership rules absorb          |
+| `LIDAR_ARCHITECTURE.md`                                  | EXISTS | `lidar-layer-dependency-hygiene-plan`                 | Layer ownership rules absorb          |
 | `lidar-pipeline-reference.md`                            | EXISTS | `lidar-architecture-graph-plan`                       | Graph becomes asset of this doc       |
-| `lidar-sidecar-overview.md`                              | EXISTS | —                                                     | Already canonical                     |
+| `lidar-sidecar-overview.md`                              | EXISTS | -                                                     | Already canonical                     |
 | `foreground-tracking.md`                                 | EXISTS | `lidar-bodies-in-motion-plan`                         | Kinematic prediction extends tracking |
 | `vector-scene-map.md`                                    | EXISTS | `lidar-l7-scene-plan`                                 | L7 world model merges                 |
-| `ground-plane-extraction.md`                             | EXISTS | —                                                     | Already canonical                     |
-| `coordinate-flow-audit.md`                               | EXISTS | —                                                     | Already canonical                     |
-| `lidar-background-grid-standards.md`                     | EXISTS | —                                                     | Already canonical                     |
-| `network-configuration.md`                               | EXISTS | —                                                     | Already canonical                     |
-| `gps-ethernet-parsing.md`                                | EXISTS | —                                                     | Already canonical                     |
+| `ground-plane-extraction.md`                             | EXISTS | -                                                     | Already canonical                     |
+| `coordinate-flow-audit.md`                               | EXISTS | -                                                     | Already canonical                     |
+| `lidar-background-grid-standards.md`                     | EXISTS | -                                                     | Already canonical                     |
+| `network-configuration.md`                               | EXISTS | -                                                     | Already canonical                     |
+| `gps-ethernet-parsing.md`                                | EXISTS | -                                                     | Already canonical                     |
 | `ml-solver-expansion.md`                                 | EXISTS | `lidar-ml-classifier-training-plan`                   | Training plan merges                  |
-| `multi-model-ingestion-and-configuration.md`             | EXISTS | —                                                     | Already canonical                     |
+| `multi-model-ingestion-and-configuration.md`             | EXISTS | -                                                     | Already canonical                     |
 | `av-range-image-format-alignment.md`                     | EXISTS | `lidar-av-lidar-integration-plan`                     | AV integration merges                 |
-| `arena-go-deprecation-and-layered-type-layout-design.md` | EXISTS | —                                                     | Already canonical                     |
-| `math-foundations-audit.md`                              | EXISTS | —                                                     | Already canonical                     |
+| `arena-go-deprecation-and-layered-type-layout-design.md` | EXISTS | -                                                     | Already canonical                     |
+| `math-foundations-audit.md`                              | EXISTS | -                                                     | Already canonical                     |
 | `l8-l9-l10-migration-notes.md`                           | EXISTS | `lidar-l8-analytics-l9-endpoints-l10-clients-plan`    | Upper-layer refactor merges           |
-| `lidar-logging-stream-split-and-rubric-design.md`        | EXISTS | —                                                     | Already canonical                     |
+| `lidar-logging-stream-split-and-rubric-design.md`        | EXISTS | -                                                     | Already canonical                     |
 | `l2-dual-representation.md`                              | DONE   | `lidar-l2-dual-representation-plan`                   | Polar/Cartesian dual storage          |
 | `velocity-foreground-extraction.md`                      | DONE   | `lidar-velocity-coherent-foreground-extraction-plan`  | Alternative FG algorithm              |
 | `pluggable-algorithm-selection.md`                       | DONE   | `lidar-architecture-dynamic-algorithm-selection-plan` | Algorithm registry                    |
@@ -78,7 +78,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 | `track-labelling-auto-aware-tuning.md`     | EXISTS | `lidar-track-labelling-auto-aware-tuning-plan`      | Labelling workflow merges        |
 | `performance-regression-testing.md`        | EXISTS | `lidar-performance-measurement-harness-plan`        | Timing harness merges            |
 | `pcap-analysis-mode.md`                    | EXISTS | `lidar-analysis-run-infrastructure-plan`            | Run infrastructure merges        |
-| `settling-time-optimisation.md`            | EXISTS | —                                                   | Already canonical                |
+| `settling-time-optimisation.md`            | EXISTS | -                                                   | Already canonical                |
 | `foundations-fixit-progress.md`            | EXISTS | `lidar-architecture-foundations-fixit-plan`         | Fixit status merges              |
 | `replay-case-management-implementation.md` | EXISTS | `lidar-replay-case-management-plan`                 | Replay case terminology + schema |
 | `immutable-run-config.md`                  | DONE   | `lidar-immutable-run-config-asset-plan`             | Deterministic config + lineage   |
@@ -109,32 +109,32 @@ subdirectory to keep `operations/` navigable.
 | `proto-contract.md`                   | DONE   | `lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan`        |
 | `performance-and-timeline-metrics.md` | DONE   | `lidar-visualiser-performance-and-scene-health-timeline-metrics-plan` |
 
-### `docs/radar/` — 2 plans
+### `docs/radar/`: 2 plans
 
 | Canonical file                                       | Status | Fed by plan(s)                                  | Notes                            |
 | ---------------------------------------------------- | ------ | ----------------------------------------------- | -------------------------------- |
-| `architecture/time-partitioned-data-tables.md`       | EXISTS | —                                               | Already canonical                |
-| `architecture/networking.md`                         | EXISTS | —                                               | Already canonical                |
-| `architecture/serial-configuration-ui.md`            | EXISTS | —                                               | Already canonical                |
-| `architecture/site-config-cosine-correction-spec.md` | EXISTS | —                                               | Already canonical                |
-| `architecture/speed-limit-schedules.md`              | EXISTS | —                                               | Already canonical                |
-| `architecture/transit-deduplication.md`              | EXISTS | —                                               | Already canonical                |
+| `architecture/time-partitioned-data-tables.md`       | EXISTS | -                                               | Already canonical                |
+| `architecture/networking.md`                         | EXISTS | -                                               | Already canonical                |
+| `architecture/serial-configuration-ui.md`            | EXISTS | -                                               | Already canonical                |
+| `architecture/site-config-cosine-correction-spec.md` | EXISTS | -                                               | Already canonical                |
+| `architecture/speed-limit-schedules.md`              | EXISTS | -                                               | Already canonical                |
+| `architecture/transit-deduplication.md`              | EXISTS | -                                               | Already canonical                |
 | `architecture/percentile-aggregation-semantics.md`   | DONE   | `speed-percentile-aggregation-alignment-plan` † | Percentile = aggregate not track |
 
-### `docs/ui/` — 6 plans
+### `docs/ui/`: 6 plans
 
 | Canonical file                          | Status | Fed by plan(s)                                | Notes                                |
 | --------------------------------------- | ------ | --------------------------------------------- | ------------------------------------ |
-| `DESIGN.md`                             | EXISTS | —                                             | Already canonical                    |
-| `design-review-and-improvement.md`      | EXISTS | —                                             | Already canonical                    |
+| `DESIGN.md`                             | EXISTS | -                                             | Already canonical                    |
+| `design-review-and-improvement.md`      | EXISTS | -                                             | Already canonical                    |
 | `velocity-visualiser-architecture.md`   | EXISTS | `server-manager`                              | Connection lifecycle merges          |
 | `velocity-visualiser-implementation.md` | EXISTS | `web-frontend-background-debug-surfaces-plan` | Background debug surfaces merge      |
-| `velocity-visualiser-app/*`             | EXISTS | —                                             | Already canonical (5 files)          |
+| `velocity-visualiser-app/*`             | EXISTS | -                                             | Already canonical (5 files)          |
 | `web-frontend-consolidation.md`         | DONE   | `web-frontend-consolidation-plan` †           | Port consolidation + SPA unification |
 | `homepage.md`                           | DONE   | `homepage-responsive-gif-strategies`          | Static site responsive media         |
 | `macos-menu-layout-design.md`           | DONE   | `wireshark-menu-alignment`                    | macOS menu layout design             |
 
-### `docs/platform/` — 22 plans (was engineering + platform)
+### `docs/platform/`: 22 plans (was engineering + platform)
 
 #### `docs/platform/architecture/`
 
@@ -165,7 +165,7 @@ subdirectory to keep `operations/` navigable.
 | `agent-preparedness.md`         | DONE   | `agent-claude-preparedness-review-plan`                                          | AI agent knowledge architecture   |
 | `simplification-deprecation.md` | DONE   | `platform-simplification-and-deprecation-plan`                                   | Tech debt reduction register      |
 
-## Plans That Split Across Hubs
+## Plans that split across hubs
 
 | Plan                                          | Concept A → Hub                                                                 | Concept B → Hub                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -174,15 +174,15 @@ subdirectory to keep `operations/` navigable.
 | `pdf-go-chart-migration-plan`                 | All concepts stay in `platform/operations/pdf-reporting.md`                     | (phases, not separate hubs)                                         |
 | `web-frontend-consolidation-plan`             | All concepts stay in `ui/web-frontend-consolidation.md`                         | Port consolidation noted in platform                                |
 
-## Immediate Actions
+## Immediate actions
 
 All completed on branch `dd/docs/merge-canonical`:
 
 1. [x] Rename `docs/server/` → moved contents to `docs/platform/`
-2. [x] Update `docs/platform/README.md` — expanded scope
+2. [x] Update `docs/platform/README.md`: expanded scope
 3. [x] Update `Canonical:` links in 3 data-\* plans from `../server/` → `../platform/` <!-- link-ignore -->
-4. [x] Update `ALLOWED_HUB_PREFIXES` — removed `docs/server/`
-5. [x] Verified `make report-plan-hygiene` — 0 gate violations, 6 advisory notes
+4. [x] Update `ALLOWED_HUB_PREFIXES`: removed `docs/server/`
+5. [x] Verified `make report-plan-hygiene`: 0 gate violations, 6 advisory notes
 
 ## Counts
 
@@ -193,7 +193,7 @@ All completed on branch `dd/docs/merge-canonical`:
 | `docs/ui/`       | 9             | 3                  | 6              | 9%         |
 | `docs/platform/` | 1             | 19                 | 22             | 32%        |
 
-## Implementation Sequence
+## Implementation sequence
 
 1. [x] Land this plan and the immediate actions (section above)
 2. [x] Phase 2 of parent plan: `Canonical` metadata added to all 69 plans

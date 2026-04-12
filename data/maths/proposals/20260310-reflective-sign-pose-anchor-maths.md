@@ -1,10 +1,10 @@
-# Reflective Sign and Static Surface Pose Anchors for Static-Sensor Shake Estimation
+# Reflective sign and static surface pose anchors for static-sensor shake estimation
 
 - **Status:** Proposal Math (Not Active in Current Runtime)
 - **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene, L8 Analytics
 - **Related:** [Clustering Maths](../clustering-maths.md), [Ground Plane and Vector-Scene Maths](20260221-ground-plane-vector-scene-maths.md), [`docs/lidar/architecture/vector-scene-map.md`](../../../docs/lidar/architecture/vector-scene-map.md), [`docs/plans/lidar-l7-scene-plan.md`](../../../docs/plans/lidar-l7-scene-plan.md), [`docs/plans/lidar-static-pose-alignment-plan.md`](../../../docs/plans/lidar-static-pose-alignment-plan.md), [`data/structures/HESAI_PACKET_FORMAT.md`](../../structures/HESAI_PACKET_FORMAT.md)
 
-## 1. Scope and Design Intent
+## 1. Scope and design intent
 
 This proposal uses highly reflective traffic signs as the preferred static scene
 anchors, but extends to other persistent background surfaces when the scene has
@@ -42,7 +42,7 @@ This is **not** a full SLAM proposal and **not** a moving-sensor ego-motion
 system. It is a static-sensor micro-alignment proposal for neighbourhood
 monitoring.
 
-## 2. Architectural Boundary and Runtime Control
+## 2. Architectural boundary and runtime control
 
 The proposal keeps the existing ten-layer model intact, but it should be read
 in two stages: a strict base case and a cache-backed reference case.
@@ -109,7 +109,7 @@ In the reference case, lower-layer consumers still read only a narrow cached
 `FrameStabilitySignal`, not the full L7 anchor geometry. That is the intended
 containment boundary if the cache is adopted at all.
 
-## 3. Anchor Representation
+## 3. Anchor representation
 
 For anchor `A_j`, maintain:
 
@@ -138,7 +138,7 @@ whose plane, edge, and footprint are themselves useful for alignment and
 export. Ground/road anchors are useful too, but they should not be trusted as
 the sole basis for full 6-DOF correction.
 
-## 4. Candidate Extraction from Reflectivity and Surface Shape
+## 4. Candidate extraction from reflectivity and surface shape
 
 For frame `t`, let raw point set be `P_t = {p_i, I_i}` where `I_i in [0,255]`
 is the LiDAR reflectivity/intensity.
@@ -198,7 +198,7 @@ At each threshold band, search anchor families in this order:
 1. sign polygons with strong reflectivity and bounded footprint;
 2. reflective but non-semantic planar patches;
 3. large persistent wall/building planes and facade corners;
-4. ground/road support surfaces used only to stabilize `z`, `roll`, and
+4. ground/road support surfaces used only to stabilise `z`, `roll`, and
    `pitch`.
 
 The anchor estimator should record which family produced the current solution.
@@ -305,7 +305,7 @@ This means one blocked sign removes one constraint set, not the whole scene.
 The frame only loses anchor authority when redundancy drops below the minimum
 needed for a stable estimate.
 
-## 5. Pose Estimation Against Static Anchors
+## 5. Pose estimation against static anchors
 
 Let the frame-local micro-pose correction be small twist vector:
 
@@ -411,7 +411,7 @@ Independence should mean more than raw count. Require diversity across:
 A good practical guard is: do not trust three clusters on the same wall plane
 as equivalent to three anchors spread across different parts of the scene.
 
-## 6. Reference Extension: FrameStabilitySignal Cached Runtime Contract
+## 6. Reference extension: frameStabilitySignal cached runtime contract
 
 The base case of this proposal stops at L7/L8 anchor persistence and
 diagnostics. Everything in this section is the stronger reference design where
@@ -539,7 +539,7 @@ flowchart TD
     M --> H
 ```
 
-## 7. Unification with EWA / Grid Signals
+## 7. Unification with EWA / grid signals
 
 In the reference case, the cached anchor signal should not replace existing L3
 EWA/EMA evidence. It should modulate it.
@@ -638,7 +638,7 @@ Instead:
 
 This avoids turning "truck parked in front of sign" into a false global reset.
 
-## 8. State Machine and Reset Lifecycle
+## 8. State machine and reset lifecycle
 
 The grid and regions should react differently to brief shake versus sustained
 motion.
@@ -738,7 +738,7 @@ Hard reset should require both:
 1. strong `moving` confidence, and
 2. sustained duration above a configurable threshold.
 
-## 9. Expected Benefits
+## 9. Expected benefits
 
 If the anchor model is good, the main gains should be:
 
@@ -755,7 +755,7 @@ is already common in roadside deployments, but it also gives the system a
 controlled fallback path into non-sign static structure rather than leaving
 sign-poor scenes unsupported.
 
-## 10. Proposed Runtime Contracts and Data Outputs
+## 10. Proposed runtime contracts and data outputs
 
 Minimum outputs:
 
@@ -789,7 +789,7 @@ Minimum outputs:
 The key runtime contract for lower layers is `FrameStabilitySignal`, not the
 full anchor store.
 
-## 11. Config Contract (Proposed)
+## 11. Config contract (proposed)
 
 Suggested future tuning keys:
 
@@ -836,7 +836,7 @@ Suggested rollout policy:
 5. offline replay correction fifth,
 6. runtime correction only after replay scorecards are stable.
 
-## 12. Evaluation Protocol
+## 12. Evaluation protocol
 
 Validation should use fixed replay packs spanning:
 
@@ -871,7 +871,7 @@ Required comparisons:
 5. sign + wall/facade + ground-support model,
 6. bent/occluded-anchor tolerant model with inflated covariance.
 
-## 13. Limits and Non-Goals
+## 13. Limits and non-goals
 
 This proposal does **not** attempt to:
 
@@ -893,7 +893,7 @@ Known failure modes:
 6. long blank walls that provide weak yaw observability,
 7. open road scenes where ground-only support cannot resolve lateral drift.
 
-## 14. Recommended Sequencing
+## 14. Recommended sequencing
 
 1. **Phase A - Analytics first**
    Detect candidates, persist anchor observations, and publish shake metrics
@@ -921,7 +921,7 @@ anchor ladder to explain and measure sensor shake first, then let lower layers
 react to that instability, and only then earn the right to correct runtime
 geometry.
 
-## 15. Open Questions
+## 15. Open questions
 
 1. **Is the cache worth the layering cost?**
    The strict base case keeps the one-direction layer guarantee intact: anchors

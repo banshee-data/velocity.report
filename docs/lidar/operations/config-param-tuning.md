@@ -1,15 +1,15 @@
-# LiDAR Config Parameter Tuning Guide
+# LiDAR config parameter tuning guide
 
 How to tune the LiDAR processing pipeline's configuration parameters at runtime, covering foreground extraction, clustering, and tracking settings.
 
-## 1. Tuning Workflow
+## 1. Tuning workflow
 
 1. Start from baseline config (`config/tuning.defaults.json` or your site baseline).
 2. Change one parameter group at a time.
 3. Validate with live metrics and/or PCAP replay.
 4. Persist only parameter sets that improve quality without regressions.
 
-## 2. Core Parameter Groups
+## 2. Core parameter groups
 
 | Group                 | Primary Keys                                                                                    | Typical Effect                                         |
 | --------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -17,7 +17,7 @@ How to tune the LiDAR processing pipeline's configuration parameters at runtime,
 | Clustering            | `foreground_dbscan_eps`, `foreground_min_cluster_points`                                        | Fragmentation vs merge risk                            |
 | Tracking/association  | `gating_distance_squared`, `measurement_noise`, `process_noise_pos`, `process_noise_vel`        | ID stability, jitter, velocity alignment               |
 
-## 3. Apply Runtime Changes
+## 3. Apply runtime changes
 
 ```bash
 curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" \
@@ -39,7 +39,7 @@ Read back:
 curl -s "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" | jq .
 ```
 
-## 4. Validate and Compare
+## 4. Validate and compare
 
 1. Run a representative live session or replay golden PCAP.
 2. Check jitter, fragmentation, misalignment, and empty-box behaviour.
@@ -61,14 +61,14 @@ curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40
   -d @config/tuning.defaults.json | jq .
 ```
 
-## 6. Deep References
+## 6. Deep references
 
 For a guided progression through all tuning tools, start with the
 [Tuning Guide](tuning-guide.md).
 
-- [Parameter Comparison](parameter-comparison.md) — defaults vs optimised side-by-side
-- [Pipeline Diagnosis](../troubleshooting/pipeline-diagnosis.md) — root cause analysis and quick fixes
-- [Sweep Tool](sweep-tool.md) — automated grid search
-- [Auto-Tuning](auto-tuning.md) — multi-round iterative optimisation
-- [HINT Mode](hint-sweep-mode.md) — human-in-the-loop tuning
-- `data/maths/README.md` §Config Mapping — complete key-to-source mapping for algorithm researchers
+- [Parameter Comparison](parameter-comparison.md): side-by-side evaluation of parameter sets
+- [Pipeline Diagnosis](../troubleshooting/pipeline-diagnosis.md): root cause analysis and quick fixes
+- [Sweep Tool](sweep-tool.md): automated grid search
+- [Auto-Tuning](auto-tuning.md): multi-round iterative optimisation
+- [HINT Mode](hint-sweep-mode.md): human-in-the-loop tuning
+- [MATHS.md](../../../data/maths/MATHS.md) §Config Mapping: complete key-to-source mapping for algorithm researchers

@@ -38,7 +38,17 @@ make check-agent-drift
 
 Report any agents present in `.github/agents/` but missing from `.claude/agents/`, or vice versa. Report content drift between paired files (persona methodology, coordination rules, forbidden actions). Acceptable divergence: platform-specific metadata (YAML frontmatter differences, tool restriction syntax).
 
-### 3. Plan consistency audit
+### 3. Prose-width check (advisory)
+
+```bash
+make check-prose-width
+```
+
+Report the totals. This never blocks merges or releases: it tracks drift
+toward the 100-column standard. If the violation count has risen since
+last week, note the files responsible.
+
+### 4. Plan consistency audit
 
 For each plan in `docs/plans/` modified in the last 14 days:
 
@@ -53,7 +63,7 @@ Flag three classes of issue:
 2. Multiple active plans pointing at the same canonical hub doc
 3. Graduated plans that should now be symlinks but still contain duplicated body text
 
-### 4. Backlog health
+### 5. Backlog health
 
 Read `docs/BACKLOG.md` and assess:
 
@@ -62,7 +72,7 @@ Read `docs/BACKLOG.md` and assess:
 - Are there items that should be merged, split, or moved?
 - Is the current milestone realistic given recent velocity?
 
-### 5. Decisions audit
+### 6. Decisions audit
 
 Read `docs/DECISIONS.md`:
 
@@ -70,7 +80,7 @@ Read `docs/DECISIONS.md`:
 - Do any recently merged plans imply decisions not yet recorded?
 - Are there contradictions between decisions and active plans?
 
-### 6. Produce weekly review
+### 7. Produce weekly review
 
 ```markdown
 # Weekly Planning Review — [date]
@@ -78,6 +88,10 @@ Read `docs/DECISIONS.md`:
 ## Agent Drift
 
 [drift check results — missing pairs, content drift, acceptable divergence]
+
+## Prose Width (advisory)
+
+[violation count, trend vs last week, files with new violations]
 
 ## New Or Changed Plans (last 14 days)
 
@@ -118,4 +132,4 @@ Read `docs/DECISIONS.md`:
 
 - This skill reads only. It does not modify backlog, decisions, or agent files. Recommendations are for the human or for Flo/Appius to act on.
 - If `scripts/flo-planning-review.sh` produces output, include it in the review rather than replacing it.
-- Flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission — these contradict `TENETS.md` and should be marked for revision regardless of milestone.
+- Flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission: these contradict `TENETS.md` and should be marked for revision regardless of milestone.

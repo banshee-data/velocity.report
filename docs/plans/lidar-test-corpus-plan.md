@@ -1,8 +1,8 @@
-# LiDAR Test Corpus Plan
+# LiDAR test corpus plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting
-- **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/README.maths.md)
+- **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
 
 ## Goal
@@ -13,7 +13,7 @@ tuning defaults and detect overfitting to a single site.
 
 ## Problem
 
-All provisional config defaults were tuned on kirk0 — a single capture
+All provisional config defaults were tuned on kirk0: a single capture
 at one site. The overfitting risk is real:
 
 - Road geometry: kirk0 may be flat; sloped-road defaults are untested.
@@ -102,15 +102,15 @@ results.
 
 ## Non-goals
 
-- Multi-sensor corpus (different LiDAR models) — deferred until
+- Multi-sensor corpus (different LiDAR models): deferred until
   single-sensor defaults are validated
-- Weather variation within the initial corpus — one clear-weather
+- Weather variation within the initial corpus: one clear-weather
   capture per site; weather studies are a future extension
-- Synthetic PCAPs — all captures must be real-world data
+- Synthetic PCAPs: all captures must be real-world data
 
 ## References
 
-- [Pipeline review Q11](../../data/maths/pipeline-review-open-questions.md) — overfitting analysis
-- [Config evidence levels](../../config/README.maths.md) — evidence classification and sweep experiments
-- [Performance harness plan](lidar-performance-measurement-harness-plan.md) — CI integration
-- [Parameter tuning plan](lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure
+- [Pipeline review Q11](../../data/maths/pipeline-review-open-questions.md): overfitting analysis
+- [Config evidence levels](../../config/CONFIG.md#config-to-maths-cross-reference): evidence classification and sweep experiments
+- [Performance harness plan](lidar-performance-measurement-harness-plan.md): CI integration
+- [Parameter tuning plan](lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

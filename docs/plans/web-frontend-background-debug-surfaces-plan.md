@@ -1,9 +1,9 @@
-# Frontend Background Debug Surfaces Plan
+# Frontend background debug surfaces plan
 
 - **Status:** Planning-only (no implementation in this branch)
 - **Layers:** L3 Grid, L9 Endpoints, L10 Clients
 - **Scope:** Swift visualiser debugging outputs for background settlement
-- **Related:** [api-contracts.md](../ui/visualiser/api-contracts.md), [architecture.md](../ui/visualiser/architecture.md), [implementation.md](../ui/visualiser/implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
+- **Related:** [api-contracts.md](../ui/visualiser/api-contracts.md), [architecture.md](../ui/visualiser/architecture.md), [implementation.md](../ui/visualiser/implementation.md), [`config/CONFIG.md`](../../config/CONFIG.md)
 - **Canonical:** [implementation.md](../ui/visualiser/implementation.md)
 
 ## 1. Problem
@@ -12,7 +12,7 @@ Current visualiser debugging focuses on tracks/clusters. Background settling is
 hard to diagnose because polar-cell state, Cartesian projection, and region
 assignment are not exposed as first-class debug views.
 
-## 2. Planned Outputs
+## 2. Planned outputs
 
 1. **Polar background debug points**
    - ring, azimuth bin, representative range, spread, confidence, settle state
@@ -21,19 +21,19 @@ assignment are not exposed as first-class debug views.
 3. **Region map**
    - per-cell region assignment and per-region lifecycle/state
 
-## 3. Why Three Views
+## 3. Why three views
 
 1. Polar view validates L3 math directly (cell-level thresholds and confidence).
 2. Cartesian view validates geometric transforms and renderer alignment.
 3. Region map validates L3/L4 merge logic and boundary-aware assignment.
 
-## 4. Data Contract Direction (Planned)
+## 4. Data contract direction (planned)
 
 Use a debug bundle extension in gRPC stream messages with independent include
 flags for each view. Keep these flags orthogonal to existing point/cluster/track
 toggles.
 
-## 5. UI Direction (Planned)
+## 5. UI direction (planned)
 
 1. Add mode selector: `off | polar | cartesian | region-map`.
 2. Add inspector panel for selected point/cell:
@@ -47,17 +47,17 @@ toggles.
 2. No new tuning keys in this phase.
 3. No persistence format changes required for MVP debug mode.
 
-## 7. Validation Criteria
+## 7. Validation criteria
 
 1. Debug mode off has no measurable behaviour change in output pipeline.
 2. Every rendered Cartesian debug point maps to a valid polar source cell.
 3. Region-map transitions are auditable frame-to-frame.
 
-## 8. Canonical Mapping Source
+## 8. Canonical mapping source
 
 Config/math coupling for this plan is canonical in:
 
-- [`config/README.maths.md`](../../config/README.maths.md)
+- [`config/CONFIG.md`](../../config/CONFIG.md)
 
 Downstream mapping docs must sync from that file via:
 

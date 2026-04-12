@@ -1,4 +1,4 @@
-# Velocity Visualiser for macOS
+# VelocityVisualiser for macOS
 
 A native macOS application for visualising LiDAR point clouds, tracks, and debug overlays from the velocity.report tracking pipeline.
 
@@ -42,7 +42,7 @@ make build-mac
 open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 ```
 
-### Connecting to Live Pipeline
+### Connecting to live pipeline
 
 1. Start the Go pipeline with gRPC enabled:
 
@@ -54,19 +54,19 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 3. Click "Connect" (or press ⌘⇧C)
 4. The visualiser will start rendering live data
 
-### Replaying Recorded Logs
+### Replaying recorded logs
 
 1. File → Open Recording (⌘O)
 2. Select a `.vrlog` directory
 3. Use playback controls to navigate
 
-### Labelling Tracks
+### Labelling tracks
 
 1. Click on a track in the 3D view to select it
 2. Use the Label panel (press L) to assign a class
 3. Export labels via File → Export Labels (⌘E)
 
-## Keyboard Shortcuts
+## Keyboard shortcuts
 
 | Action             | Shortcut |
 | ------------------ | -------- |
@@ -98,7 +98,7 @@ VelocityVisualiser/
 └── Models/              # Swift data models
 ```
 
-### Rendering Pipeline
+### Rendering pipeline
 
 1. gRPC client receives `FrameBundle` stream
 2. Frames are decoded based on `frame_type`:
@@ -113,7 +113,7 @@ VelocityVisualiser/
    - Overlays as 2D layer
 4. SwiftUI displays Metal view + controls + cache status
 
-### M3.5 Split Streaming
+### M3.5 split streaming
 
 The visualiser supports bandwidth-optimised streaming:
 
@@ -124,7 +124,7 @@ The visualiser supports bandwidth-optimised streaming:
 
 See [implementation plan](../../docs/ui/visualiser/implementation.md) and [architecture](../../docs/ui/visualiser/architecture.md) for details.
 
-### M4 Cluster Rendering
+### M4 cluster rendering
 
 Clusters (detected foreground objects) are rendered as:
 
@@ -148,13 +148,13 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 
 ## Development
 
-### Running Tests
+### Running tests
 
 ```bash
 xcodebuild test -project VelocityVisualiser.xcodeproj -scheme VelocityVisualiser
 ```
 
-### Regenerating Protobuf Stubs
+### Regenerating Protobuf stubs
 
 When the protobuf schema changes:
 
@@ -165,7 +165,7 @@ protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
        proto/velocity_visualiser/v1/visualiser.proto
 ```
 
-## Related Documentation
+## Related documentation
 
 - [UI docs](../../docs/ui/)
 - [API contract](../../docs/ui/visualiser/api-contracts.md)

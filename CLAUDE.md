@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII — by architecture, not policy.
+**velocity.report** is a privacy-preserving traffic monitoring platform. It measures vehicle speeds using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no PII: by architecture, not policy.
 
 Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -124,7 +124,7 @@ Ten-layer pipeline, L1–L6 implemented; L8 and L9 present as analytics and endp
 | L8    | `l8analytics/`  | Run stats, track labelling, HINT parameter tuner                      |
 | L9    | `l9endpoints/`  | gRPC streaming, HTTP API, chart rendering                             |
 
-Parameter tuning: `internal/lidar/sweep/` — combinatorial sweep, auto-tuner, and HINT (human-involved) tuner.
+Parameter tuning: `internal/lidar/sweep/`; combinatorial sweep, auto-tuner, and HINT (human-involved) tuner.
 
 Mathematical references for each layer: `data/maths/`.
 

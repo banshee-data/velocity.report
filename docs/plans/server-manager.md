@@ -1,4 +1,4 @@
-# Server Manager — Plan
+# Server manager: plan
 
 - **Layers:** L10 Clients (macOS visualiser)
 - **Canonical:** [architecture.md](../ui/visualiser/architecture.md)
@@ -8,10 +8,10 @@
 
 ---
 
-## Current State
+## Current state
 
 - **Hardcoded address:** `serverAddress` defaults to `"localhost:50051"` in
-  `AppState` — no UI to change it.
+  `AppState`: no UI to change it.
 - **Auto-connect:** App connects to `serverAddress` 500 ms after launch.
 - **Status indicator:** Small coloured circle (`ConnectionStatusView`) —
   green when connected, red on error, grey when disconnected. Hover tooltip
@@ -25,7 +25,7 @@
 
 ## Requirements
 
-### 1. Server Configuration Model
+### 1. Server configuration model
 
 A saved server entry contains:
 
@@ -41,7 +41,7 @@ A saved server entry contains:
 
 Derived: `address` → `"\(host):\(port)"`
 
-### 2. Server List Menu
+### 2. Server list menu
 
 Add a **Servers** `CommandMenu` to the menu bar:
 
@@ -63,25 +63,25 @@ Servers
 Clicking a server name connects to it (disconnecting from the current server
 first if needed).
 
-### 3. Connection Status Callout
+### 3. Connection status callout
 
 Improve the existing `ConnectionStatusView` to provide richer feedback:
 
-#### 3a. Toast / Callout on Connect & Disconnect
+#### 3a. Toast / callout on connect & disconnect
 
 When the connection state changes, show a brief transient callout (2–3 seconds)
 overlaid on the main view:
 
-- **Connected:** `"Connected to Office Pi (192.168.1.42:50051)"` — green
+- **Connected:** `"Connected to Office Pi (192.168.1.42:50051)"`; green
   background, checkmark icon.
-- **Disconnected:** `"Disconnected from Office Pi"` — grey background, xmark
+- **Disconnected:** `"Disconnected from Office Pi"`; grey background, xmark
   icon.
-- **Error:** `"Connection failed: cannot reach 192.168.1.42:50051"` — red
+- **Error:** `"Connection failed: cannot reach 192.168.1.42:50051"`; red
   background, exclamationmark icon.
 
 Use SwiftUI `.overlay()` with animation, auto-dismiss via `Task.sleep`.
 
-#### 3b. Status Indicator with Hover Detail
+#### 3b. Status indicator with hover detail
 
 Replace the plain circle with a richer status badge in the toolbar:
 
@@ -100,7 +100,7 @@ Uptime:  2h 14m
 Frames:  12,847
 ```
 
-### 4. Add / Edit Server Panel
+### 4. Add / edit server panel
 
 A sheet (modal) or settings tab with:
 
@@ -108,7 +108,7 @@ A sheet (modal) or settings tab with:
 - **Host** text field (with placeholder "e.g. 192.168.1.42 or raspberrypi.local")
 - **Port** stepper/text field (default 50051)
 - **Notes** text field (optional)
-- **Test Connection** button — attempts a quick connect/disconnect, shows
+- **Test Connection** button: attempts a quick connect/disconnect, shows
   ✅ reachable or ❌ unreachable with latency
 - **Set as Default** toggle
 - **Save** / **Cancel** buttons
@@ -120,12 +120,12 @@ Use `UserDefaults` (or a JSON file in `~/Library/Application Support/VelocityVis
 to store the server list. Persist on every change (add, edit, delete, set default,
 update `lastConnected`).
 
-Suggested key: `savedServers` — array of `Codable` `ServerConfig` structs.
+Suggested key: `savedServers`; array of `Codable` `ServerConfig` structs.
 
 On first launch with no saved servers, auto-create a default entry:
 `{ name: "Local", host: "localhost", port: 50051, isDefault: true }`.
 
-### 6. Default Server & Auto-Connect
+### 6. Default server & auto-connect
 
 - Exactly one server can be marked `isDefault`.
 - On app launch, auto-connect to the default server (preserve current 500 ms
@@ -135,7 +135,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## UI Placement
+## UI placement
 
 | Component                | Location                                          |
 | ------------------------ | ------------------------------------------------- |
@@ -147,9 +147,9 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## Implementation Plan
+## Implementation plan
 
-### Phase 1 — Model & Persistence
+### Phase 1: model & persistence
 
 1. Create `ServerConfig` struct (`Codable`, `Identifiable`, `Equatable`)
 2. Create `ServerManager` class (`@Observable` / `ObservableObject`)
@@ -161,7 +161,7 @@ On first launch with no saved servers, auto-create a default entry:
 3. Seed default "Local" entry on first launch
 4. Wire `AppState.serverAddress` to read from `ServerManager.activeServer`
 
-### Phase 2 — Server Menu
+### Phase 2: server menu
 
 5. Add `CommandMenu("Servers")` to `AppCommands`
    - List saved servers with status dot
@@ -171,7 +171,7 @@ On first launch with no saved servers, auto-create a default entry:
    - "Set Default" submenu
 6. Add keyboard shortcuts (⇧⌘N for Add, ⇧⌘E for Edit)
 
-### Phase 3 — Add / Edit UI
+### Phase 3: add / edit UI
 
 7. Create `ServerEditorView` (sheet)
    - Name, host, port, notes fields
@@ -182,9 +182,9 @@ On first launch with no saved servers, auto-create a default entry:
    - Edit, delete, reorder
    - Set default toggle per row
 
-### Phase 4 — Connection Status Callout
+### Phase 4: connection status callout
 
-9. Create `ConnectionToastView` — transient overlay
+9. Create `ConnectionToastView`: transient overlay
    - Triggered by `AppState.isConnected` changes
    - Auto-dismiss after 2.5 seconds
    - Animated slide-in/fade-out
@@ -192,7 +192,7 @@ On first launch with no saved servers, auto-create a default entry:
     - Show server name + dot
     - Popover on click with full details (address, uptime, frames)
 
-### Phase 5 — Polish
+### Phase 5: polish
 
 11. Handle edge cases:
     - Delete the currently connected server → disconnect first
@@ -204,7 +204,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## Data Flow
+## Data flow
 
 ```
 ┌──────────────┐      ┌──────────────┐      ┌─────────────────┐
@@ -231,7 +231,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## File Plan
+## File plan
 
 | File                              | Purpose                                 |
 | --------------------------------- | --------------------------------------- |
@@ -246,7 +246,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard shortcuts
 
 | Shortcut | Action                        |
 | -------- | ----------------------------- |
@@ -256,7 +256,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## Test Coverage
+## Test coverage
 
 | Test                                         | Type  |
 | -------------------------------------------- | ----- |
@@ -273,7 +273,7 @@ On first launch with no saved servers, auto-create a default entry:
 
 ---
 
-## Open Questions
+## Open questions
 
 1. **Persistence format:** `UserDefaults` (simplest) vs JSON file in
    `Application Support` (more portable, visible)? Recommendation: start with

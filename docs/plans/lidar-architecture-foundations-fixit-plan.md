@@ -1,12 +1,12 @@
-# LiDAR Foundations Fix-It Plan
+# LiDAR foundations fix-it plan
 
-- **Status:** In Progress — Phase 1 partially complete; Phases 2–3 outstanding
+- **Status:** In Progress; Phase 1 partially complete; Phases 2–3 outstanding
 - **Layers:** Cross-cutting (documentation and configuration)
 - **Canonical:** [foundations-fixit-progress.md](../lidar/operations/foundations-fixit-progress.md)
 
 Planned follow-up execution to align LiDAR documentation with implementation truth and close outstanding foundation gaps.
 
-## Phase 1: Documentation Truth Alignment
+## Phase 1: documentation truth alignment
 
 1. Add explicit `Implemented vs Planned` sections in core LiDAR and maths docs.
 2. Link all velocity-coherent planning docs to the canonical maths proposal path.
@@ -16,7 +16,7 @@ Exit criteria:
 
 - No core LiDAR/maths doc claims an algorithm is active unless it is in current runtime path.
 
-## Phase 2: Runtime Config Parity
+## Phase 2: runtime config parity
 
 1. Extend `/api/lidar/params` POST support toward canonical tuning schema fields.
    Missing keys: `buffer_timeout`, `min_frame_points`, `flush_interval`, `background_flush`, `max_tracks`, `height_band_floor`, `height_band_ceiling`, `remove_ground`, `max_cluster_diameter`, `min_cluster_diameter`, `max_cluster_aspect_ratio`. (Consolidated from `webserver-tuning-schema-parity.md`, now deleted.)
@@ -29,7 +29,7 @@ Exit criteria:
 
 - `GET /api/lidar/params` and `POST /api/lidar/params` are symmetric for supported keys.
 
-## Phase 3: Vector Workstream Hardening
+## Phase 3: vector workstream hardening
 
 1. Keep region-adaptive behaviour validated on `ProcessFramePolarWithMask`.
 2. Add regression checks for region override behaviour in replay/golden tests.
@@ -39,7 +39,7 @@ Exit criteria:
 
 - Region-adaptive behaviour remains covered by tests on production path.
 
-## Phase 4: Velocity Workstream Pre-Implementation Gate
+## Phase 4: velocity workstream pre-implementation gate
 
 1. Define extractor boundary interface and metrics schema.
 2. Build side-by-side replay harness before enabling any default mode change.
@@ -49,7 +49,7 @@ Exit criteria:
 
 - Velocity path can be evaluated against baseline without altering default runtime mode.
 
-## Phase 5: Adoption Decision
+## Phase 5: adoption decision
 
 1. Compare baseline vs velocity-coherent path on agreed replay suite.
 2. Decide: keep proposal, ship optional mode, or promote default.

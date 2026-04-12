@@ -1,4 +1,4 @@
-# Line-Width Standardisation Plan
+# Line-Width standardisation plan
 
 - **Status:** Proposed (March 2026)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
@@ -14,7 +14,7 @@ The repository currently uses five different line widths:
 
 | Component            | Width | Formatter                        |
 | -------------------- | ----: | -------------------------------- |
-| Go                   |     — | gofmt (no width enforcement)     |
+| Go                   |     - | gofmt (no width enforcement)     |
 | Python               |    88 | black                            |
 | TypeScript/JS/Svelte |   100 | prettier                         |
 | Swift                |   100 | swift-format                     |
@@ -52,7 +52,7 @@ Most string literals should be exempt from a width linter.
 | Width   | Effect                                                                                        |
 | ------- | --------------------------------------------------------------------------------------------- |
 | 80      | Fights every formatter in use. Forces 3,783 Go and 1,929 Swift lines to wrap.                 |
-| 90      | Still wraps 825 natural Swift lines. Gains two columns over black's 88 — not worth the churn. |
+| 90      | Still wraps 825 natural Swift lines. Gains two columns over black's 88: not worth the churn.  |
 | **100** | Matches three of five formatters. Every language ≥98.9% compliant. Natural convergence point. |
 | 110     | Non-standard. No formatter defaults here. Marginal gain.                                      |
 | 120     | Too wide for side-by-side diff review.                                                        |
@@ -65,7 +65,7 @@ converge.
 
 Three of five formatters already use it. Every language reaches
 ≥98.9% compliance at this width. The remaining Go violations
-are predominantly string literals — best handled by linter
+are predominantly string literals: best handled by linter
 exemption, not forced wrapping.
 
 100 also aligns with established external standards: Google
@@ -75,7 +75,7 @@ majority of projects using prettier.
 ### Architectural perspective (Grace)
 
 A single number means a single mental model. The formatters
-do not care — black accepts `--line-length`, prettier accepts
+do not care: black accepts `--line-length`, prettier accepts
 `printWidth`, swift-format accepts `lineLength`. The only
 holdout is gofmt, which enforces nothing, making it the
 easiest to align rather than the hardest. Layer a linter
@@ -84,7 +84,7 @@ beside it.
 The Raspberry Pi is a deployment target, not a development
 environment. Operators read logs over SSH, not source code.
 At 100 the overflow past a standard 80-column terminal is
-20 columns — the terminal soft-wraps at the edge.
+20 columns: the terminal soft-wraps at the edge.
 
 ### Infrastructure perspective (Appius)
 
@@ -96,7 +96,7 @@ automatically. One mechanical reformat PR with
 
 ## Implementation
 
-### Phase 1 — Adopt configs
+### Phase 1: adopt configs
 
 One PR. Only config files change; no source reformatting yet.
 
@@ -107,14 +107,14 @@ One PR. Only config files change; no source reformatting yet.
 | `pyproject.toml` (new, root)           | `[tool.black] line-length = 100`               |
 |                                        | `[tool.ruff] line-length = 100`                |
 | `.golangci.yml` (new, root)            | Enable `lll` linter, `line-length: 100`        |
-| `web/.prettierrc`                      | Already 100 — no change                        |
-| `tools/visualiser-macos/.swift-format` | Already 100 — no change                        |
+| `web/.prettierrc`                      | Already 100: no change                         |
+| `tools/visualiser-macos/.swift-format` | Already 100: no change                         |
 | `.sql-formatter.json`                  | Leave at 70 (expression width, not line width) |
 
-### Phase 2 — Reformat
+### Phase 2: reformat
 
 One PR. Run `make format` under the new configs. The diff is
-large but mechanical — reviewers verify the config, not every
+large but mechanical: reviewers verify the config, not every
 line.
 
 Create `.git-blame-ignore-revs` at the repo root containing
@@ -126,7 +126,7 @@ automatically. Document the one-time local setup in
 git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
-### Phase 3 — Weekly nag PR
+### Phase 3: weekly nag PR
 
 A scheduled GitHub Actions workflow runs weekly (e.g. Sunday
 night). It checks all code and documentation against the 100-
@@ -179,7 +179,7 @@ The workflow uses `--report` mode so it never blocks other
 work. It simply keeps the current state visible via a
 standing PR that is easy to review and merge.
 
-### Phase 4 — Optional CI gate
+### Phase 4: optional CI gate
 
 Add a `check-line-width` job to the main CI workflow, gated
 behind a `continue-on-error: true` flag. This makes width
@@ -201,7 +201,7 @@ check-line-width:
     # Future: golangci-lint lll check here too
 ```
 
-### Phase 5 — Opt-in pre-commit hook
+### Phase 5: opt-in pre-commit hook
 
 The existing `.pre-commit-config.yaml` already delegates to
 `make format-*` targets. Add a new local hook for width
@@ -221,7 +221,7 @@ checking that contributors can opt into:
 
 This hook runs only on staged Markdown files. Contributors
 enable it by running `pre-commit install`. It is not
-required — the weekly nag and CI catch anything missed.
+required: the weekly nag and CI catch anything missed.
 
 For code width, the existing `format-go`, `format-python`,
 `format-web`, and `format-mac` hooks already reformat to the
@@ -231,13 +231,13 @@ has pre-commit installed.
 
 ## What stays exempt
 
-- **Tables** in Markdown — excluded by the prose linter
-- **Lists** in Markdown — excluded by the prose linter
-- **Code blocks** in Markdown — excluded by the prose linter
-- **Headings** in Markdown — excluded by the prose linter
-- **String literals** in Go — configure `lll` to skip them
-- **SQL expression width** — separate concern, stays at 70
-- **Vendored/minified files** — excluded by directory skips
+- **Tables** in Markdown: excluded by the prose linter
+- **Lists** in Markdown: excluded by the prose linter
+- **Code blocks** in Markdown: excluded by the prose linter
+- **Headings** in Markdown: excluded by the prose linter
+- **String literals** in Go: configure `lll` to skip them
+- **SQL expression width**: separate concern, stays at 70
+- **Vendored/minified files**: excluded by directory skips
 
 ## Rollout order
 

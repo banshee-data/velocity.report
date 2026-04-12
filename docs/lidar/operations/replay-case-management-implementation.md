@@ -1,4 +1,4 @@
-# Phase 2 (Replay Case Management) Implementation
+# Phase 2 (replay case management) implementation
 
 - **Status:** ✅ Complete
 - **Design Document:** `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md`
@@ -8,9 +8,9 @@ Implementation of replay case management: structured evaluation environments fro
 
 ## Overview
 
-Implemented Phase 2 of the track labelling system, which introduces **replay cases** — evaluation environments captured in PCAP files that can be tied to sensors, reference ground truth runs, and optimal parameter configurations.
+Implemented Phase 2 of the track labelling system, which introduces **replay cases**: evaluation environments captured in PCAP files that can be tied to sensors, reference ground truth runs, and optimal parameter configurations.
 
-## What is a Replay Case?
+## What is a replay case?
 
 A **replay case** represents a specific environment captured in a PCAP file:
 
@@ -22,9 +22,9 @@ A **replay case** represents a specific environment captured in a PCAP file:
 
 Different replay cases from the same PCAP (e.g., different time segments) can have different optimal parameters.
 
-## Implementation Details
+## Implementation details
 
-### Phase 2.1: Database Schema (v0.5.x Migrations)
+### Phase 2.1: database schema (v0.5.x migrations)
 
 Replay cases are persisted in the `lidar_replay_cases` table, created by migration 031 (which renamed the earlier `lidar_scenes` table):
 
@@ -54,11 +54,11 @@ CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
 - `internal/db/migrations/000031_table_naming.up.sql` (renames from `lidar_scenes`)
 - `internal/db/migrations/000031_table_naming.down.sql`
 
-### Phase 2.2: ReplayCaseStore
+### Phase 2.2: replayCaseStore
 
 Created `internal/lidar/storage/sqlite/scene_store.go` with comprehensive CRUD operations (file rename pending in v0.5.1+).
 
-#### ReplayCase Struct
+#### ReplayCase struct
 
 ```go
 type ReplayCase struct {
@@ -75,7 +75,7 @@ type ReplayCase struct {
 }
 ```
 
-#### Store Methods
+#### Store methods
 
 Current method names (pending rename to `ReplayCase*` prefix):
 
@@ -84,8 +84,8 @@ Current method names (pending rename to `ReplayCase*` prefix):
 - `ListScenes(sensorID)` → retrieve as `[]*ReplayCase`, method name pending
 - `UpdateScene(scene)` → update with `ReplayCase`, method name pending
 - `DeleteScene(replayCaseID)` → delete by ID, method name pending
-- `SetReferenceRun(replayCaseID, runID)` — Sets reference run (ground truth)
-- `SetOptimalParams(replayCaseID, paramsJSON)` — Updates optimal parameters JSON (via `recommended_param_set_id` link)
+- `SetReferenceRun(replayCaseID, runID)`: Sets reference run (ground truth)
+- `SetOptimalParams(replayCaseID, paramsJSON)`: Updates optimal parameters JSON (via `recommended_param_set_id` link)
 
 **Nullable Field Handling:**
 
@@ -111,8 +111,8 @@ Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handl
 
 **Request/Response Types:**
 
-- `CreateSceneRequest` — validated required fields (sensor_id, pcap_file) — handler name pending rename
-- `UpdateSceneRequest` — uses pointers to distinguish "not set" from "set to empty" — handler name pending rename
+- `CreateSceneRequest`: validated required fields (sensor_id, pcap_file); handler name pending rename
+- `UpdateSceneRequest`: uses pointers to distinguish "not set" from "set to empty"; handler name pending rename
 
 **Routes Registration:**
 
@@ -124,7 +124,7 @@ mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
 mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
 ```
 
-### Phase 2.4 & 2.5: Replay and Sweep Integration
+### Phase 2.4 & 2.5: replay and sweep integration
 
 Phase 2.4 (replay) is now implemented. The `/replay` endpoint creates an analysis run and initiates PCAP replay using the replay case's parameters:
 
@@ -136,25 +136,25 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 
 ## Testing
 
-### ReplayCaseStore Tests (`scene_store_test.go`)
+### ReplayCaseStore tests (`scene_store_test.go`)
 
 7 test cases covering:
 
-1. **TestSceneStore_InsertAndGet** — Basic CRUD, UUID generation, timestamp handling
-2. **TestSceneStore_ListScenes** — Filtering by sensor_id, ordering (newest first)
-3. **TestSceneStore_UpdateScene** — Field updates, updated_at_ns tracking
-4. **TestSceneStore_DeleteScene** — Deletion, non-existent replay case handling
-5. **TestSceneStore_SetReferenceRun** — Reference run setting/clearing
-6. **TestSceneStore_SetOptimalParams** — Optimal params JSON storage
-7. **TestSceneStore_NullableFields** — Verify nullable fields remain nil when not set
+1. **TestSceneStore_InsertAndGet**: Basic CRUD, UUID generation, timestamp handling
+2. **TestSceneStore_ListScenes**: Filtering by sensor_id, ordering (newest first)
+3. **TestSceneStore_UpdateScene**: Field updates, updated_at_ns tracking
+4. **TestSceneStore_DeleteScene**: Deletion, non-existent replay case handling
+5. **TestSceneStore_SetReferenceRun**: Reference run setting/clearing
+6. **TestSceneStore_SetOptimalParams**: Optimal params JSON storage
+7. **TestSceneStore_NullableFields**: Verify nullable fields remain nil when not set
 
-### Replay Case API Tests (`scene_api_test.go`)
+### Replay case API tests (`scene_api_test.go`)
 
 8 test cases (15 total sub-tests) covering all REST endpoints with validation.
 
 **Test Results:** ✅ All 15 tests passing
 
-## Code Quality
+## Code quality
 
 - ✅ British English in all comments ("labelling", "optimisation")
 - ✅ UUID generation using `github.com/google/uuid`
@@ -164,7 +164,7 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 - ✅ Go formatting (gofmt) passes
 - ✅ Full test coverage of success and error paths
 
-## API Design Decisions
+## API design decisions
 
 1. **UUID for replay case ID:** Global uniqueness, generated client-side or server-side
 2. **Empty array on no results:** List endpoint returns `[]` not `null` for consistency
@@ -172,7 +172,7 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 4. **404 for missing resources:** Delete/update operations return 404 for non-existent replay cases
 5. **Database check:** All endpoints verify db != nil before proceeding (503 if not)
 
-## Integration Points
+## Integration points
 
 ### Current
 
@@ -185,20 +185,20 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 - Auto-tuning: Sweep runner will create replay cases and link optimal params
 - Ground truth evaluation: Compare runs against replay case's reference run
 
-## Next Steps
+## Next steps
 
 **Phase 3 (Svelte UI):** Add replay case selector and track labelling controls to tracks page
 **Phase 4 (Ground Truth Evaluation):** Implement track matching algorithm and scoring
 **Phase 5 (Label-Aware Auto-Tuning):** Connect auto-tuner to use reference runs for optimisation
 
-## Files Changed
+## Files changed
 
 **Migration Files:**
 
-- `internal/db/migrations/000020_create_lidar_scenes.up.sql` — Original table creation (v0.5.0)
-- `internal/db/migrations/000020_create_lidar_scenes.down.sql` — Rollback
-- `internal/db/migrations/000031_table_naming.up.sql` — Renames table to `lidar_replay_cases` and columns (v0.5.x)
-- `internal/db/migrations/000031_table_naming.down.sql` — Rollback to `scene` names
+- `internal/db/migrations/000020_create_lidar_scenes.up.sql`: Original table creation (v0.5.0)
+- `internal/db/migrations/000020_create_lidar_scenes.down.sql`: Rollback
+- `internal/db/migrations/000031_table_naming.up.sql`: Renames table to `lidar_replay_cases` and columns (v0.5.x)
+- `internal/db/migrations/000031_table_naming.down.sql`: Rollback to `scene` names
 
 **Store Layer:**
 
@@ -211,7 +211,7 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 - `internal/lidar/server/scene_api.go` → File rename pending; handlers use `ReplayCase` internally
 - `internal/lidar/server/scene_api_test.go` → File rename pending
 - `internal/lidar/server/scene_api_coverage_test.go` → File rename pending
-- `internal/lidar/server/routes.go` — Routes still use `/api/lidar/scenes` paths (pending rename)
+- `internal/lidar/server/routes.go`: Routes still use `/api/lidar/scenes` paths (pending rename)
 
 **Lines of Code:**
 

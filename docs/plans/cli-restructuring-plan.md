@@ -1,4 +1,4 @@
-# CLI Restructuring Plan
+# CLI restructuring plan
 
 Proposed improvements to the velocity.report CLI architecture: subcommand hierarchy, API versioning, configuration file support, and utility consolidation.
 
@@ -6,9 +6,9 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
 
 ---
 
-## Problems & Opportunities
+## Problems & opportunities
 
-### Current Architecture Observations
+### Current architecture observations
 
 **Strengths:**
 
@@ -21,7 +21,7 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
 
 **Areas for Improvement:**
 
-1. **Flag Organization** (Priority: High)
+1. **Flag Organisation** (Priority: High)
    - **Issue:** 30+ flags with no logical grouping, making discovery difficult
    - **Impact:** Users struggle to find relevant flags, documentation is scattered
 
@@ -47,9 +47,9 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
 
 ---
 
-## Proposed Solution
+## Proposed solution
 
-### Core Principles
+### Core principles
 
 1. **Single Executable Model** - Maintain unified production binary
 2. **Backward Compatibility** - Phased migration, no breaking changes initially
@@ -58,7 +58,7 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
 5. **Progressive Enhancement** - Add new patterns alongside old ones
 6. **Clear Deprecation** - Explicit warnings with migration paths
 
-### Target CLI Structure
+### Target CLI structure
 
 ```bash
 # Production binary
@@ -81,7 +81,7 @@ Commands:
   help                     Show help message
 ```
 
-### Target HTTP API Structure
+### Target HTTP API structure
 
 ```bash
 # Production API - Versioned
@@ -109,7 +109,7 @@ Commands:
 /api/datasource
 ```
 
-### Target Makefile Structure
+### Target makefile structure
 
 ```makefile
 # Pattern: <action>-<component>[-<variant>]
@@ -145,7 +145,7 @@ db-migrate-status         # Check status
 db-backup                 # Backup database
 ```
 
-### Before & After Examples
+### Before & after examples
 
 **Current (Before):**
 
@@ -176,11 +176,11 @@ velocity-tools backfill-transits --start 2024-01-01T00:00:00Z --end 2024-01-31T2
 
 ---
 
-## Long-Term Stable Architecture
+## Long-Term stable architecture
 
 The ideal target state for velocity.report CLI and API design, optimised for long-term stability, consistency, and ease of use. None of this is implemented yet.
 
-### Design Philosophy
+### Design philosophy
 
 **Core Tenets:**
 
@@ -191,7 +191,7 @@ The ideal target state for velocity.report CLI and API design, optimised for lon
 5. **Single Source of Truth** - Configuration file as canonical state
 6. **Composable Operations** - Small, focused commands that combine well
 
-### Unified Command Structure
+### Unified command structure
 
 ```bash
 velocity-report <command> [subcommand] [options]
@@ -205,9 +205,9 @@ velocity-report <command> [subcommand] [options]
 - `--format <format>` - Output format (text/json/yaml)
 - `--dry-run` - Show what would be done without executing
 
-### Core Commands
+### Core commands
 
-#### 1. `serve` - Run Production Server (Default)
+#### 1. `serve` - run production server (default)
 
 **Purpose:** Start the main production service with radar and optional lidar.
 
@@ -260,7 +260,7 @@ port = 2368
 
 ---
 
-#### 2. `sensor` - Sensor Operations
+#### 2. `sensor` - sensor operations
 
 **Purpose:** Manage and configure radar and lidar sensors.
 
@@ -318,7 +318,7 @@ velocity-report sensor lidar source --mode pcap --file recording.pcap
 
 ---
 
-#### 3. `data` - Data Management
+#### 3. `data` - data management
 
 **Purpose:** Query, export, and manage collected data.
 
@@ -388,7 +388,7 @@ velocity-report data stats --live --interval 5s
 
 ---
 
-#### 4. `site` - Site Management
+#### 4. `site` - site management
 
 **Purpose:** Manage monitoring sites (locations).
 
@@ -438,7 +438,7 @@ velocity-report site delete <site-id> --confirm
 
 ---
 
-#### 5. `report` - Report Generation
+#### 5. `report` - report generation
 
 **Purpose:** Generate PDF reports from collected data.
 
@@ -489,7 +489,7 @@ velocity-report report delete <report-id> --confirm
 
 ---
 
-#### 6. `db` - Database Operations
+#### 6. `db` - database operations
 
 **Purpose:** Database administration and maintenance.
 
@@ -537,7 +537,7 @@ velocity-report db stats --format json
 velocity-report db stats --detailed
 ```
 
-**`db vacuum`** - Optimize database
+**`db vacuum`** - Optimise database
 
 ```bash
 velocity-report db vacuum
@@ -545,7 +545,7 @@ velocity-report db vacuum
 
 ---
 
-#### 7. `config` - Configuration Management
+#### 7. `config` - configuration management
 
 **Purpose:** Manage configuration files and validate settings.
 
@@ -598,7 +598,7 @@ velocity-report config get server.listen --file config.toml
 
 ---
 
-#### 8. `deploy` - Deployment Operations
+#### 8. `deploy` - deployment operations
 
 **Purpose:** Deploy and manage remote installations.
 
@@ -649,7 +649,7 @@ velocity-report deploy config edit --target mypi
 
 ---
 
-#### 9. `test` - Testing and Diagnostics
+#### 9. `test` - testing and diagnostics
 
 **Purpose:** Test system components and diagnose issues.
 
@@ -697,7 +697,7 @@ velocity-report test health --comprehensive
 
 ---
 
-#### 10. `admin` - Administrative Operations
+#### 10. `admin` - administrative operations
 
 **Purpose:** Administrative and maintenance tasks.
 
@@ -743,7 +743,7 @@ velocity-report admin maintenance disable
 
 ---
 
-### JSON Parameter Pattern
+### JSON parameter pattern
 
 **Philosophy:** Use JSON for any parameter group with 3+ related fields or nested structure.
 
@@ -788,7 +788,7 @@ velocity-report sensor lidar configure --params @lidar-config.json
 
 ---
 
-### HTTP API Alignment
+### HTTP API alignment
 
 **Principle:** CLI commands should map directly to HTTP endpoints.
 
@@ -812,7 +812,7 @@ velocity-report sensor lidar configure --params @lidar-config.json
 
 ---
 
-### Configuration Priority
+### Configuration priority
 
 **Order (highest to lowest):**
 
@@ -833,7 +833,7 @@ velocity-report serve --config config.toml --listen :9090
 
 ---
 
-### Output Formats
+### Output formats
 
 **Support multiple output formats for machine and human consumption:**
 
@@ -869,7 +869,7 @@ velocity-report site list --format csv --output sites.csv
 
 ---
 
-### Security Architecture
+### Security architecture
 
 **Authentication & Authorization (Future):**
 
@@ -902,13 +902,13 @@ token = "vrt_abc123..."
 
 ---
 
-### Migration Path Summary
+### Migration path summary
 
 **Current → Long-Term:**
 
 | Current                          | Long-Term                                 | Benefit                       |
 | -------------------------------- | ----------------------------------------- | ----------------------------- |
-| 30+ flat flags                   | Subcommands + JSON params                 | Organization, discoverability |
+| 30+ flat flags                   | Subcommands + JSON params                 | Organisation, discoverability |
 | `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP         |
 | 4 separate binaries              | Single binary with commands               | Unified interface             |
 | Multiple HTTP patterns           | Versioned API with consistent structure   | Predictability                |
@@ -917,7 +917,7 @@ token = "vrt_abc123..."
 
 ---
 
-## Implementation Plan
+## Implementation plan
 
 **Goal:** Document current state and design future structure
 **Duration:** Completed
@@ -926,7 +926,7 @@ token = "vrt_abc123..."
 **Tasks:**
 
 - ✅ Inventory all CLI flags, subcommands, HTTP endpoints
-- ✅ Categorize and document current patterns
+- ✅ Categorise and document current patterns
 - ✅ Design target structure with backward compatibility
 - ✅ Create comprehensive guide and implementation plan
 
@@ -936,13 +936,13 @@ token = "vrt_abc123..."
 
 ---
 
-### Phase 2: Non-Breaking Improvements (4-6 weeks)
+### Phase 2: non-breaking improvements (4-6 weeks)
 
 **Goal:** Add new patterns alongside existing ones
 **Duration:** 4-6 weeks
 **Risk:** Low (additive only, no removals)
 
-#### Step 1: Add Subcommand Structure (Week 1-2)
+#### Step 1: add subcommand structure (week 1-2)
 
 **Tasks:**
 
@@ -982,7 +982,7 @@ velocity-report migrate status
 velocity-report help
 ```
 
-#### Step 2: Version HTTP APIs (Week 2-3)
+#### Step 2: version HTTP APIs (week 2-3)
 
 **Tasks:**
 
@@ -1019,7 +1019,7 @@ curl http://localhost:8080/api/v1/sites
 curl -I http://localhost:8080/api/v1/sites | grep X-API-Version
 ```
 
-#### Step 3: Reorganize Makefile (Week 3-4)
+#### Step 3: reorganize makefile (week 3-4)
 
 **Tasks:**
 
@@ -1056,7 +1056,7 @@ make build-server
 make help | grep "Build Targets"
 ```
 
-#### Step 4: Configuration File Support (Week 4-6)
+#### Step 4: configuration file support (week 4-6)
 
 **Tasks:**
 
@@ -1110,7 +1110,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 ---
 
-### Phase 3: Consolidation (6-8 weeks)
+### Phase 3: consolidation (6-8 weeks)
 
 **Goal:** Create unified `velocity-tools` binary for all utilities
 **Duration:** 6-8 weeks
@@ -1160,7 +1160,7 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 ---
 
-### Phase 4: Breaking Changes (Major Version)
+### Phase 4: breaking changes (major version)
 
 **Goal:** Remove deprecated patterns, finalize new structure
 **Duration:** 8-12 weeks (after 2-3 release cycles)
@@ -1204,9 +1204,9 @@ velocity-report --config bad.toml serve  # Should show clear error
 
 ---
 
-## Configuration File Support
+## Configuration file support
 
-### Proposed Format
+### Proposed format
 
 **Format:** TOML (primary), YAML, or JSON support
 
@@ -1250,7 +1250,7 @@ buffer_timeout = "500ms"
 min_points = 1000
 ```
 
-### Usage Examples
+### Usage examples
 
 ```bash
 # Use config file
@@ -1263,7 +1263,7 @@ velocity-report --config config.toml serve --listen :9090
 velocity-report --config base.toml --config local.toml serve
 ```
 
-### Priority Order
+### Priority order
 
 1. **Default values** - Hard-coded in application
 2. **Configuration file** - From `--config` flag or default locations
@@ -1276,10 +1276,10 @@ velocity-report --config base.toml --config local.toml serve
 
 The key principles for the restructuring:
 
-1. **Single Executable Model** — maintain for production (`velocity-report`)
-2. **Utility Consolidation** — group utilities under `velocity-tools`
-3. **Subcommand Organisation** — clear command hierarchy
-4. **Consistent Naming** — predictable patterns for flags, endpoints, and targets
-5. **Backward Compatibility** — phased migration with deprecation warnings
-6. **Configuration Files** — reduce flag clutter for complex deployments
-7. **API Versioning** — enable evolution without breaking changes
+1. **Single Executable Model**: maintain for production (`velocity-report`)
+2. **Utility Consolidation**: group utilities under `velocity-tools`
+3. **Subcommand Organisation**: clear command hierarchy
+4. **Consistent Naming**: predictable patterns for flags, endpoints, and targets
+5. **Backward Compatibility**: phased migration with deprecation warnings
+6. **Configuration Files**: reduce flag clutter for complex deployments
+7. **API Versioning**: enable evolution without breaking changes

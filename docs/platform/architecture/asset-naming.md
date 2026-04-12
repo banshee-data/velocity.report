@@ -1,9 +1,9 @@
-# Asset Naming Conventions
+# Asset naming conventions
 
 Canonical naming patterns for release artefacts, development builds, and
 platform-specific binaries across the velocity.report project.
 
-## Product Names
+## Product names
 
 | Product          | Asset name           | Case rule  |
 | ---------------- | -------------------- | ---------- |
@@ -15,7 +15,7 @@ The macOS visualiser keeps PascalCase because it is the user-facing
 application name (Finder, DMG volume, menu bar, About dialog). See
 `.github/knowledge/coding-standards.md` § Product Names.
 
-## Version String
+## Version string
 
 Single source of truth: `VERSION` in `Makefile`.
 
@@ -24,12 +24,12 @@ Pre-release tags append a hyphen suffix: `0.5.1-pre1`, `0.6.0-rc1`.
 
 **No leading zeros in version segments.** `web/package.json` and
 `public_html/package.json` are validated by npm's strict SemVer parser.
-A version like `0.5.04` is invalid — the patch segment `04` has a leading
+A version like `0.5.04` is invalid: the patch segment `04` has a leading
 zero. Use `0.5.4` instead. See § Version Validity Analysis.
 
-## Two Filename Tiers
+## Two filename tiers
 
-### Release — tagged GitHub Releases
+### Release: tagged GitHub releases
 
 Human-readable, stable, linkable. No date, no SHA.
 
@@ -41,7 +41,7 @@ velocity-report-0.5.1.img.xz
 VelocityVisualiser-0.5.1.dmg
 ```
 
-### Dev — CI artefacts and local builds
+### Dev: CI artefacts and local builds
 
 Date-time prefix for sortability; 7-char git SHA suffix for traceability.
 
@@ -52,7 +52,7 @@ Date-time prefix for sortability; 7-char git SHA suffix for traceability.
 20260407T142345Z-VelocityVisualiser-0.5.1.pre1-a1b2c3d.dmg
 ```
 
-## Naming Grammar
+## Naming grammar
 
 ```
 Release:  {product}-{version}[-{os}-{arch}]{ext}
@@ -69,7 +69,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 | `sha7`     | 7-char short SHA     | `a1b2c3d`          | Dev only                                                |
 | `ext`      | file extension       | `.img.xz`, `.dmg`  | Binaries have no extension (Unix convention)            |
 
-## Full Asset Catalogue
+## Full asset catalogue
 
 ### Release filenames
 
@@ -95,23 +95,23 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 — they are never published.
 
-## Version Validity Analysis
+## Version validity analysis
 
-| Surface         | File                                 | Validates SemVer?    | Effect of `0.5.04`                 |
-| --------------- | ------------------------------------ | -------------------- | ---------------------------------- |
-| npm (web)       | `web/package.json`                   | **Yes — strict**     | **Rejects with parse error**       |
-| npm (docs)      | `public_html/package.json`           | **Yes — strict**     | **Rejects with parse error**       |
-| Go version pkg  | `internal/version/version.go`        | No — display only    | Passes                             |
-| Makefile        | `Makefile`                           | No — string constant | Passes                             |
-| CI workflows    | `.github/workflows/*.yml`            | No — substitution    | Passes                             |
-| Xcode           | `project.pbxproj` MARKETING_VERSION  | No — string          | Passes                             |
-| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)    | Passes; PyPI normalises to `0.5.4` |
-| rpi-imager JSON | `image/os-list-velocity.json`        | No                   | Passes                             |
+| Surface         | File                                 | Validates SemVer?   | Effect of `0.5.04`                 |
+| --------------- | ------------------------------------ | ------------------- | ---------------------------------- |
+| npm (web)       | `web/package.json`                   | **Yes: strict**     | **Rejects with parse error**       |
+| npm (docs)      | `public_html/package.json`           | **Yes: strict**     | **Rejects with parse error**       |
+| Go version pkg  | `internal/version/version.go`        | No: display only    | Passes                             |
+| Makefile        | `Makefile`                           | No: string constant | Passes                             |
+| CI workflows    | `.github/workflows/*.yml`            | No: substitution    | Passes                             |
+| Xcode           | `project.pbxproj` MARKETING_VERSION  | No: string          | Passes                             |
+| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)   | Passes; PyPI normalises to `0.5.4` |
+| rpi-imager JSON | `image/os-list-velocity.json`        | No                  | Passes                             |
 
 Two surfaces hard-block: `web/package.json` and `public_html/package.json`.
 Every CI run validates the version field against strict SemVer.
 
-## Makefile Variables
+## Makefile variables
 
 All naming derives from `Makefile` § VERSION INFORMATION:
 
@@ -124,7 +124,7 @@ BUILD_TS_COMPACT := $(subst -,,$(subst :,,$(BUILD_TIME)))
 DEV_VERSION := $(subst -,.,$(VERSION))
 ```
 
-`BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst` — one `date`
+`BUILD_TS_COMPACT` is derived from `BUILD_TIME` via `subst`: one `date`
 call per build invocation, one source of truth within that invocation.
 
 **Compute-once rule.** Each build environment computes the timestamp
@@ -138,11 +138,11 @@ exactly once at the start of its run, then threads it to every consumer:
 | CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step           |
 
 Different build environments (Make vs CI vs script) may produce
-different timestamps — that is expected because they are separate runs.
+different timestamps: that is expected because they are separate runs.
 The invariant is: **within a single run, every artefact carries the
 same timestamp.**
 
-## Boundary Diagram
+## Boundary diagram
 
 ```
      ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
@@ -161,7 +161,7 @@ same timestamp.**
 Each column is a separate build environment. The invariant is
 one `date -u` call per environment, threaded to every consumer.
 
-## Alternatives Considered
+## Alternatives considered
 
 | Alternative                        | Verdict      | Reason                                                            |
 | ---------------------------------- | ------------ | ----------------------------------------------------------------- |
@@ -173,7 +173,7 @@ one `date -u` call per environment, threaded to every consumer.
 | Separate `date` call for timestamp | Rejected     | Multiple calls within one run can disagree at minute boundary     |
 | Minute precision in timestamp      | Rejected     | Two builds in the same minute collide; seconds costs 2 characters |
 
-## Failure Registry
+## Failure registry
 
 | Failure                                  | Impact                           | Recovery                                                        |
 | ---------------------------------------- | -------------------------------- | --------------------------------------------------------------- |
@@ -182,7 +182,7 @@ one `date -u` call per environment, threaded to every consumer.
 | DMG artefact glob mismatch in CI         | Artefact upload fails            | Update glob in `mac-ci.yml`                                     |
 | Duplicate `date` calls within one run    | Timestamp drift across artefacts | Compute once at start of each build environment; thread via env |
 
-## Implementation Phases
+## Implementation phases
 
 | Phase | Scope                                                | Status   |
 | ----- | ---------------------------------------------------- | -------- |

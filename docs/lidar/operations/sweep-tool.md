@@ -1,6 +1,6 @@
-# Sweep Tool Guide
+# Sweep tool guide
 
-The sweep tool (`cmd/sweep`) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics — allowing you to identify the settings that best suit your deployment site.
+The sweep tool (`cmd/sweep`) automates parameter optimisation for the background subtraction and tracking pipelines. It systematically varies configuration values, replays a golden PCAP capture, and records quality metrics: allowing you to identify the settings that best suit your deployment site.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ The sweep tool (`cmd/sweep`) automates parameter optimisation for the background
 
 ## Concepts
 
-### Background Detection Parameters
+### Background detection parameters
 
 The background subtraction model classifies each LiDAR point as background (static) or foreground (moving). Three parameters control its sensitivity:
 
@@ -26,7 +26,7 @@ The background subtraction model classifies each LiDAR point as background (stat
 | **Closeness multiplier**   | `closeness_multiplier`        | Spatial threshold for matching a point to its background voxel. Lower = stricter matching (more points classified as foreground).                                  | 1.5 – 3.0     |
 | **Neighbour confirmation** | `neighbor_confirmation_count` | Minimum number of neighbouring voxels that must also consider a point foreground before it is accepted. Higher = fewer false positives but may miss small objects. | 0 – 3         |
 
-### Tracker Parameters
+### Tracker parameters
 
 The tracker uses a Kalman filter with Hungarian association to follow objects across frames. Key tuneable parameters:
 
@@ -36,7 +36,7 @@ The tracker uses a Kalman filter with Hungarian association to follow objects ac
 | **Process noise (position)** | `process_noise_pos`       | How much the model expects position to drift between frames. Higher = more tolerance for erratic motion.        | 0.05 – 0.5    |
 | **Measurement noise**        | `measurement_noise`       | Expected variance in the cluster centroid measurement. Higher = smoother but less responsive tracks.            | 0.1 – 0.5     |
 
-## Sweep Modes
+## Sweep modes
 
 ### 1. Multi-sweep (default)
 
@@ -80,7 +80,7 @@ When you want to isolate one parameter while holding the others fixed:
 
 ### 3. Tracking sweep
 
-Sweeps tracker (Kalman filter) parameters and measures velocity-trail alignment — how well the estimated velocity vector matches the actual direction of travel:
+Sweeps tracker (Kalman filter) parameters and measures velocity-trail alignment: how well the estimated velocity vector matches the actual direction of travel:
 
 ```bash
 ./sweep -mode tracking \
@@ -97,7 +97,7 @@ The output CSV contains per-combination metrics:
 - **misalignment_ratio**: Fraction of samples where the error exceeds 45° (lower is better)
 - **active_tracks**: Number of active tracks at the end of the replay
 
-## Common Options
+## Common options
 
 | Flag           | Default                 | Description                                  |
 | -------------- | ----------------------- | -------------------------------------------- |
@@ -111,13 +111,13 @@ The output CSV contains per-combination metrics:
 | `-seed`        | `true`                  | Seed behaviour: `true`, `false`, or `toggle` |
 | `-output`      | auto-generated          | Output CSV filename                          |
 
-## Interpreting Results
+## Interpreting results
 
-### Background Sweep Output
+### Background sweep output
 
 The summary CSV contains one row per parameter combination with columns:
 
-- `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count` — the parameter values
+- `noise_relative`, `closeness_multiplier`, `neighbor_confirmation_count`: the parameter values
 - Per speed-bucket acceptance rates (e.g. `0-5_accept_rate`, `5-10_accept_rate`, etc.)
 - Standard deviations of acceptance rates
 
@@ -129,17 +129,17 @@ The summary CSV contains one row per parameter combination with columns:
 
 A raw CSV with individual samples is also produced for deeper analysis.
 
-### Tracking Sweep Output
+### Tracking sweep output
 
 **What to look for:**
 
-- **Low `mean_alignment_deg`** (< 15°) — velocity estimates closely track actual movement
-- **Low `misalignment_ratio`** (< 0.1) — fewer than 10% of samples have wildly wrong velocity
-- **Reasonable `active_tracks`** — not too many (track splitting) or too few (track merging)
+- **Low `mean_alignment_deg`** (< 15°): velocity estimates closely track actual movement
+- **Low `misalignment_ratio`** (< 0.1): fewer than 10% of samples have wildly wrong velocity
+- **Reasonable `active_tracks`**: not too many (track splitting) or too few (track merging)
 
-## Applying Optimised Parameters
+## Applying optimised parameters
 
-### Background Parameters
+### Background parameters
 
 Background parameters are set via the HTTP API. They are **not** currently exposed in the web frontend:
 
@@ -164,7 +164,7 @@ Or use the provided script:
 scripts/api/lidar/set_params.sh
 ```
 
-### Tracker Parameters
+### Tracker parameters
 
 Tracker configuration is now part of the unified `/api/lidar/params` endpoint alongside background parameters:
 
@@ -182,7 +182,7 @@ curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p
   }'
 ```
 
-### Persisting Configuration
+### Persisting configuration
 
 Parameters set via the API are applied at runtime but **not persisted across restarts**. To make changes permanent, update the server configuration or startup flags. The recommended workflow:
 
@@ -191,7 +191,7 @@ Parameters set via the API are applied at runtime but **not persisted across res
 3. Update your deployment configuration/startup script with the chosen values
 4. Restart the server to apply
 
-### Resetting the Background Grid
+### Resetting the background grid
 
 After changing background parameters, you should reset the background grid to let it rebuild with the new settings:
 
@@ -201,7 +201,7 @@ curl -s -X POST http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-panda
 
 The sweep tool does this automatically between combinations.
 
-## Workflow Example
+## Workflow example
 
 A typical optimisation session:
 
@@ -248,10 +248,10 @@ curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p
   }'
 ```
 
-## Analysis Scripts
+## Analysis scripts
 
 The repository includes Python scripts for visualising sweep results:
 
-- [data/multisweep-graph/plot_noise_sweep.py](../../../data/explore/multisweep-graph/plot_noise_sweep.py) — Plot acceptance rates vs noise values
-- [data/multisweep-graph/plot_noise_buckets.py](../../../data/explore/multisweep-graph/plot_noise_buckets.py) — Plot per-bucket acceptance distributions
-- [data/convergence-neighbour/analyse_convergence.py](../../../data/explore/convergence-neighbour/analyse_convergence.py) — Analyse neighbour convergence behaviour
+- [data/multisweep-graph/plot_noise_sweep.py](../../../data/explore/multisweep-graph/plot_noise_sweep.py): Plot acceptance rates vs noise values
+- [data/multisweep-graph/plot_noise_buckets.py](../../../data/explore/multisweep-graph/plot_noise_buckets.py): Plot per-bucket acceptance distributions
+- [data/convergence-neighbour/analyse_convergence.py](../../../data/explore/convergence-neighbour/analyse_convergence.py): Analyse neighbour convergence behaviour

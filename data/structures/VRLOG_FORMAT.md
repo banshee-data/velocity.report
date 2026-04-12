@@ -1,4 +1,4 @@
-# VRLOG Wire Format Specification
+# VRLOG wire format specification
 
 ## Overview
 
@@ -9,7 +9,7 @@ seekable replay, labelling, and offline analysis.
 **Version:** 0.5
 **Source:** [`internal/lidar/l9endpoints/recorder/recorder.go`](../../internal/lidar/l9endpoints/recorder/recorder.go)
 
-## Directory Layout
+## Directory layout
 
 ```
 <name>.vrlog/
@@ -71,10 +71,10 @@ JSON object written when the recorder closes. Contains log-level metadata.
 
 ## index.bin
 
-Fixed-size binary seek index — one entry per frame, written in order. All fields
+Fixed-size binary seek index: one entry per frame, written in order. All fields
 are **little-endian**.
 
-### Entry Layout (24 bytes)
+### Entry layout (24 bytes)
 
 | Offset | Size | Type   | Field         | Description                               |
 | ------ | ---- | ------ | ------------- | ----------------------------------------- |
@@ -87,11 +87,11 @@ The total file size is `24 × total_frames` bytes. To seek to frame _N_, read
 `index.bin` at offset `24 × N`, extract `ChunkID` and `Offset`, then read
 the frame from the corresponding chunk file.
 
-## Chunk Files (`frames/chunk_NNNN.pb`)
+## Chunk files (`frames/chunk_NNNN.pb`)
 
 Each chunk file contains a sequence of length-prefixed serialised frames.
 
-### Frame Encoding
+### Frame encoding
 
 ```
 ┌──────────────┬────────────────────────────────┐
@@ -104,7 +104,7 @@ Each chunk file contains a sequence of length-prefixed serialised frames.
 Frames are concatenated sequentially within the chunk with no padding or
 delimiters beyond the length prefix.
 
-### Serialisation Format
+### Serialisation format
 
 **Current (v0.5):** JSON-serialised `FrameBundle` (Go `encoding/json`).
 
@@ -114,7 +114,7 @@ delimiters beyond the length prefix.
 > [protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto)
 > for the target wire format.
 
-### Chunk Rotation Policy
+### Chunk rotation policy
 
 A new chunk file is created when **any** of the following conditions are met:
 
@@ -126,7 +126,7 @@ A new chunk file is created when **any** of the following conditions are met:
 The read-side hard limit is **200 MB** per chunk (rejects chunks larger than
 this to prevent excessive memory allocation).
 
-## FrameBundle Model
+## FrameBundle model
 
 The `FrameBundle` struct is the canonical internal model. Key fields serialised
 into each chunk frame:
@@ -145,7 +145,7 @@ into each chunk frame:
 | `Background`      | BackgroundSnapshot? | Background grid state (split streaming)  |
 | `FrameType`       | int                 | Frame type (see below)                   |
 
-### FrameType Values
+### FrameType values
 
 | Value | Constant              | Description                                          |
 | ----- | --------------------- | ---------------------------------------------------- |
@@ -162,40 +162,40 @@ PCAP-to-VRLOG mapping and must be preserved during replay/seek.
 
 Full model definition: [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)
 
-## Deterministic Recording Guarantee (v0.5+)
+## Deterministic recording guarantee (v0.5+)
 
 When recording from a PCAP source, the VRLOG guarantees a **1:1 mapping from
 sensor rotations to VRLOG frames**. Given the same PCAP file, tuning
 parameters, and build version, repeated recordings produce identical frame
 counts.
 
-### Variable Rotation Rate
+### Variable rotation rate
 
 The Hesai Pandar40P operates at 10–20 Hz depending on motor configuration.
 The motor speed can vary within a single capture session. A frame boundary
 is defined by **azimuth wrap-around** (360° rotation detected by the
 FrameBuilder), not by a fixed time interval. Consequently:
 
-- Inter-frame intervals are **not uniform** — they vary with motor speed.
+- Inter-frame intervals are **not uniform**: they vary with motor speed.
 - Each `TimestampNs` in the index reflects the actual rotation start time.
 - Replay tools must use per-frame timestamps for pacing, not assumed Hz.
 
 ### Mechanism
 
-1. **Rotation-triggered framing** — the FrameBuilder detects the end of each
+1. **Rotation-triggered framing**: the FrameBuilder detects the end of each
    sensor rotation via azimuth wrap-around (≥ 340° coverage, ≥ 10 000 points).
    One rotation produces exactly one frame, regardless of rotation duration.
 
-2. **Blocking frame channel** — the FrameBuilder uses a blocking channel send
+2. **Blocking frame channel**: the FrameBuilder uses a blocking channel send
    for all PCAP replay modes (analysis and scaled), providing back-pressure
    to the PCAP reader. No frames are silently dropped at the channel level.
 
-3. **Empty frame recording** — when the perception pipeline determines a
+3. **Empty frame recording**: when the perception pipeline determines a
    sensor rotation has no foreground objects (no moving targets), it still
    records a `FrameTypeEmpty` placeholder. The frame preserves the rotation's
    timestamp and monotonic ID.
 
-4. **Throttle-safe recording** — when the pipeline's frame-rate throttle skips
+4. **Throttle-safe recording**: when the pipeline's frame-rate throttle skips
    expensive clustering/tracking, the throttled frame is still recorded as a
    `FrameTypeEmpty` placeholder.
 
@@ -212,22 +212,22 @@ This invariant holds regardless of playback speed, motor RPM, background model
 configuration, or pipeline processing latency. Inter-frame intervals vary
 with the sensor's actual rotation rate.
 
-## Replay Mechanics
+## Replay mechanics
 
 The `Replayer` supports:
 
-- **Sequential playback** — `ReadFrame()` advances `currentFrame` and returns
+- **Sequential playback**: `ReadFrame()` advances `currentFrame` and returns
   the next `FrameBundle` with `PlaybackInfo` injected.
-- **Random seek by frame** — `Seek(frameIdx)` sets the read cursor.
-- **Seek by timestamp** — `SeekToTimestamp(ns)` finds the nearest frame via
+- **Random seek by frame**: `Seek(frameIdx)` sets the read cursor.
+- **Seek by timestamp**: `SeekToTimestamp(ns)` finds the nearest frame via
   linear scan (binary search planned).
-- **Rate control** — `SetRate(rate)` adjusts playback speed (consumed by
+- **Rate control**: `SetRate(rate)` adjusts playback speed (consumed by
   the gRPC streaming loop).
-- **Pause/resume** — `SetPaused(paused)` pauses the streaming loop.
+- **Pause/resume**: `SetPaused(paused)` pauses the streaming loop.
 
 ## Related
 
-- [Protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto) — gRPC API contract and target serialisation format
-- [FrameBundle model](../../internal/lidar/l9endpoints/model.go) — canonical Go struct
-- [Recorder / Replayer](../../internal/lidar/l9endpoints/recorder/recorder.go) — read/write implementation
-- [gen-vrlog tool](../../cmd/tools/gen-vrlog/main.go) — CLI tool to generate sample recordings
+- [Protobuf schema](../../proto/velocity_visualiser/v1/visualiser.proto): gRPC API contract and target serialisation format
+- [FrameBundle model](../../internal/lidar/l9endpoints/model.go): canonical Go struct
+- [Recorder / Replayer](../../internal/lidar/l9endpoints/recorder/recorder.go): read/write implementation
+- [gen-vrlog tool](../../cmd/tools/gen-vrlog/main.go): CLI tool to generate sample recordings

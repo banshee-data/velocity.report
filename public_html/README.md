@@ -14,7 +14,7 @@ Public-facing documentation site for the velocity.report citizen radar system, b
 - [Node.js](https://nodejs.org/) (v16 or higher)
 - [pnpm](https://pnpm.io/) package manager
 
-## Quick Start
+## Quick start
 
 ```bash
 # Install dependencies
@@ -39,7 +39,7 @@ Outputs optimised files to the `_site/` directory.
 
 The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.
 
-## Project Structure
+## Project structure
 
 ```
 public_html/
@@ -53,7 +53,7 @@ public_html/
 └── README.md           # This file
 ```
 
-## Architecture: Markdown + Nunjucks Pattern
+## Architecture: Markdown + nunjucks pattern
 
 The docs site uses the **modern Eleventy pattern**: **Markdown for content, Nunjucks for layouts**.
 
@@ -65,7 +65,7 @@ This gives you:
 - ✅ **Typography optimised** for readability
 - ✅ **Component reusability** with layouts and includes
 
-### Content Flow
+### Content flow
 
 ```
 .md file (Markdown content)
@@ -79,15 +79,15 @@ Base layout adds structure
 Final HTML with Tailwind styles
 ```
 
-### File Types
+### File types
 
 1. **`.md` files** - Your content (guides, docs, pages)
 2. **`.njk` files** - Templates and layouts (structure + styling)
 3. **`.css` files** - Global styles with Tailwind
 
-## Creating New Content
+## Creating new content
 
-### 1. Markdown Guide (Recommended for most docs)
+### 1. Markdown guide (recommended for most docs)
 
 Create `src/guides/new-guide.md`:
 
@@ -120,7 +120,7 @@ npm install something
 Use standard Markdown syntax.
 ```
 
-### 2. Nunjucks Page (For custom layouts)
+### 2. Nunjucks page (for custom layouts)
 
 Create `src/custom-page.njk`:
 
@@ -142,7 +142,7 @@ title: Custom Page
 </div>
 ```
 
-## Available Layouts
+## Available layouts
 
 ### `base.njk`
 
@@ -184,9 +184,9 @@ section: guides
 ---
 ```
 
-## Front Matter Variables
+## Front matter variables
 
-### Common to All Pages
+### Common to all pages
 
 ```yaml
 ---
@@ -197,7 +197,7 @@ date: 2025-10-21 # Optional - publication date
 ---
 ```
 
-### Documentation Pages (doc.njk)
+### Documentation pages (doc.njk)
 
 ```yaml
 ---
@@ -211,7 +211,7 @@ nextPage:
 ---
 ```
 
-## Tailwind Typography (Prose)
+## Tailwind typography (prose)
 
 All Markdown content in `doc.njk` layout automatically gets beautiful typography:
 
@@ -224,13 +224,13 @@ All Markdown content in `doc.njk` layout automatically gets beautiful typography
 This styles:
 
 - Headings with proper hierarchy
-- Links in brand colors
+- Links in brand colours
 - Code blocks with syntax highlighting
 - Tables with borders
 - Lists with proper spacing
 - Blockquotes with left border
 
-## Code Syntax Highlighting
+## Code syntax highlighting
 
 Automatically enabled for all code blocks:
 
@@ -255,13 +255,13 @@ def calculate_speed(distance, time):
 
 Collections group related content for navigation:
 
-### Available Collections
+### Available collections
 
 - `collections.guides` - All files in `/src/guides/`
 - `collections.gettingStarted` - All files in `/src/getting-started/`
 - `collections.reference` - All files in `/src/reference/`
 
-### Using Collections
+### Using collections
 
 In any `.njk` file:
 
@@ -271,7 +271,7 @@ In any `.njk` file:
 {% endfor %}
 ```
 
-## Custom Filters
+## Custom filters
 
 ### `readingTime`
 
@@ -290,9 +290,9 @@ Formats dates nicely:
 <!-- Output: October 21, 2025 -->
 ```
 
-## Styling Components
+## Styling components
 
-### Using Tailwind Classes
+### Using tailwind classes
 
 In Markdown files, you can use HTML with Tailwind:
 
@@ -307,7 +307,7 @@ In Markdown files, you can use HTML with Tailwind:
 Back to regular Markdown...
 ```
 
-### Custom Components
+### Custom components
 
 Define reusable components in `_includes/`:
 
@@ -329,9 +329,9 @@ Use in Markdown:
    content: "This is a reusable callout!" %}
 ```
 
-## Development Workflow
+## Development workflow
 
-### 1. Start Dev Server
+### 1. Start dev server
 
 ```bash
 cd public_html
@@ -340,13 +340,13 @@ pnpm start
 
 Visit: http://localhost:8090
 
-### 2. Edit Content
+### 2. Edit content
 
 - **Edit `.md` files** - Changes auto-reload
 - **Edit `.njk` layouts** - Changes auto-reload
 - **Edit `.css` files** - Tailwind rebuilds automatically
 
-### 3. Build for Production
+### 3. Build for production
 
 ```bash
 pnpm run build
@@ -354,7 +354,7 @@ pnpm run build
 
 Output in `_site/` directory.
 
-## Best Practices
+## Best practices
 
 ### ✅ DO
 
@@ -372,9 +372,9 @@ Output in `_site/` directory.
 - Don't create `.njk` files when `.md` would work
 - Don't forget front matter (layout, title, etc)
 
-## Common Patterns
+## Common patterns
 
-### Pattern 1: Simple Guide Page
+### Pattern 1: simple guide page
 
 ```markdown
 ---
@@ -386,7 +386,7 @@ section: guides
 Your Markdown content here...
 ```
 
-### Pattern 2: Landing Page with Custom Layout
+### Pattern 2: landing page with custom layout
 
 ```njk
 ---
@@ -402,7 +402,7 @@ layout: page.njk
 </div>
 ```
 
-### Pattern 3: Index/Listing Page
+### Pattern 3: index/Listing page
 
 ```markdown
 ---
@@ -457,7 +457,7 @@ code here
 
 2. Check `@11ty/eleventy-plugin-syntaxhighlight` is installed
 
-## Next Steps
+## Next steps
 
 1. **Create more guides** - Use `first-report.md` as template
 2. **Add images** - Create `src/images/` with screenshots

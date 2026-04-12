@@ -1,28 +1,28 @@
-# LiDAR Sidecar — Technical Implementation Overview
+# LiDAR sidecar: technical implementation overview
 
-- **Status:** Phase 3.9 completed — All core features operational
+- **Status:** Phase 3.9 completed; All core features operational
 - **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
 
 Technical overview of the LiDAR sidecar: Hesai UDP ingestion through background subtraction, clustering, tracking, classification, and sweep-based parameter tuning.
 
 ---
 
-## Implementation Status
+## Implementation status
 
 Phases 1–3.9 complete: UDP ingestion, Hesai Pandar40P parsing, time-based frame assembly, background subtraction (EMA learning, neighbour voting, cell freezing), foreground mask extraction, polar→world transform, DBSCAN clustering, Kalman tracking (Hungarian assignment, OBB estimation, occlusion coasting, ground removal), rule-based classification (pedestrian/car/bird/other), SQL persistence, REST API endpoints, PCAP replay with runtime source switching, classification research data export, analysis run infrastructure, adaptive region segmentation, parameter sweep system with auto-tuner, and debug overlays via gRPC.
 
-### Phase 4 (Planned)
+### Phase 4 (planned)
 
-- **Phase 4.0: Track Labelling UI** — Wire existing label API routes, scene management, Svelte labelling controls
-- **Phase 4.0: LiDAR Transit Table** — `lidar_transits` table for dashboard integration
-- **Phase 4.1: Optional Classification Benchmarking** — feature extraction, offline comparisons, and deployment only if the transparent baseline is beaten reproducibly
+- **Phase 4.0: Track Labelling UI**; Wire existing label API routes, scene management, Svelte labelling controls
+- **Phase 4.0: LiDAR Transit Table**; `lidar_transits` table for dashboard integration
+- **Phase 4.1: Optional Classification Benchmarking**; feature extraction, offline comparisons, and deployment only if the transparent baseline is beaten reproducibly
 - **Multi-Sensor Architecture**: Support multiple LiDAR sensors per machine
 - **Local Persistence**: Each sensor stores data in local SQLite database
 - **Database Unification**: Merge data from multiple local databases for analysis
 - **World Frame Tracking**: Unified tracking across multiple intersections
 - **Cross-Sensor Association**: Track objects as they move between sensor coverage areas
 - **Distributed Storage**: Copy/consolidate data from edge nodes for whole-street analysis
-- **Performance Profiling**: Optimize for multi-sensor concurrent processing
+- **Performance Profiling**: Optimise for multi-sensor concurrent processing
 - **Memory Optimisation**: Efficient handling of 100+ tracks across multiple sensors
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
@@ -31,7 +31,7 @@ Phases 1–3.9 complete: UDP ingestion, Hesai Pandar40P parsing, time-based fram
 
 ---
 
-## Module Structure
+## Module structure
 
 ```
 cmd/radar/radar.go                 ✅ # LiDAR integration with --enable-lidar flag
@@ -93,9 +93,9 @@ web/src/routes/lidar/tracks/       ✅ # Track history playback page with pagina
 
 ---
 
-## Core Algorithm Implementation
+## Core algorithm implementation
 
-### UDP Ingestion & Parsing (✅ Complete)
+### UDP ingestion & parsing (✅ complete)
 
 - **UDP Listener**: Configurable port (default 2369), 4MB receive buffer
 - **Packet Validation**: 1262-byte (standard) or 1266-byte (with sequence) packets
@@ -104,7 +104,7 @@ web/src/routes/lidar/tracks/       ✅ # Track history playback page with pagina
 - **Calibration**: Embedded per-channel angle and firetime corrections
 - **Coordinate Transform**: Spherical → Cartesian with calibration applied
 
-### Frame Assembly (✅ Complete)
+### Frame assembly (✅ complete)
 
 - **Hybrid Frame Detection**: Motor speed-adaptive timing + azimuth validation (prevents timing anomalies)
 - **Time-based Primary**: Frame completion when duration exceeds expected time (RPM-based) + 10% tolerance
@@ -117,12 +117,12 @@ web/src/routes/lidar/tracks/       ✅ # Track history playback page with pagina
 - **Frame Buffer**: Holds up to 100 frames with 500ms timeout before cleanup
 - **Cleanup Interval**: 250ms periodic sweep for frame finalization (configurable for PCAP mode)
 
-### Database Persistence (✅ Complete)
+### Database persistence (✅ complete)
 
 - **SQLite with WAL**: High-performance concurrent access
 - **Performance Optimised**: Prepared statements, batch inserts
 
-### Background Model & Classification (✅ Complete)
+### Background model & classification (✅ complete)
 
 **Current State:**
 
@@ -162,7 +162,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - ✅ **Foreground mask extraction** (`ProcessFramePolarWithMask()`)
 - ✅ **Foreground point filtering** (`ExtractForegroundPoints()`)
 
-### Polar → World Transform (✅ Complete)
+### Polar → world transform (✅ complete)
 
 - **Location**: `internal/lidar/clustering.go`
 - **`TransformToWorld()`**: Converts polar points to world-frame Cartesian coordinates
@@ -171,7 +171,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 > **Future Work:** Pose-based transformations using 4x4 homogeneous matrices are planned for a future phase.
 
-### Clustering (✅ Complete)
+### Clustering (✅ complete)
 
 - **Location**: `internal/lidar/clustering.go`
 - **Algorithm**: DBSCAN with required spatial index
@@ -181,7 +181,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **`WorldCluster`** struct with all required features
 - **2D Clustering**: Uses (x, y) for clustering, z for height features only
 
-### Tracking (✅ Complete)
+### Tracking (✅ complete)
 
 - **Location**: `internal/lidar/tracking.go`
 - **State vector**: [x, y, velocity_x, velocity_y]
@@ -198,7 +198,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 - **Speed Statistics**: Average speed, max speed, history for percentile computation
 - **Aggregated Features**: Bounding box averages, height P95 max, intensity mean average
 
-### Classification Research Data (✅ Complete)
+### Classification research data (✅ complete)
 
 - **Location**: `internal/lidar/training_data.go`
 - **`ForegroundFrame`**: Export struct for foreground points with metadata
@@ -212,7 +212,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 ## Configuration
 
-### ✅ Current Flags (Implemented)
+### ✅ current flags (implemented)
 
 The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `--enable-lidar` flag:
 
@@ -239,7 +239,7 @@ The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and e
 --lidar-bg-noise-relative 0.315       # NoiseRelativeFraction: fraction of range treated as measurement noise
 ```
 
-### PCAP Replay Workflow
+### PCAP replay workflow
 
 PCAP replay now happens via runtime data source switching:
 
@@ -277,9 +277,9 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40
 
 ---
 
-## Grid Analysis & Visualisation
+## Grid analysis & visualisation
 
-### Grid Heatmap API
+### Grid heatmap API
 
 The grid heatmap API aggregates the fine-grained background grid (40 rings × 1800 azimuth bins = 72,000 cells) into coarse spatial buckets for visualisation and analysis.
 
@@ -330,7 +330,7 @@ The grid heatmap API aggregates the fine-grained background grid (40 rings × 18
 }
 ```
 
-### Visualisation Tools
+### Visualisation tools
 
 **Polar Heatmap**: Ring vs Azimuth visualisation showing fill/settle rates
 
@@ -387,9 +387,9 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
 - `mean_times_seen`: Average observation count per filled cell
 - `frozen_cells`: Cells currently frozen due to dynamic obstacle detection
 
-### Noise Analysis Scripts
+### Noise analysis scripts
 
-**Noise Sweep Plotting**: Visualize acceptance rates vs noise parameters
+**Noise Sweep Plotting**: Visualise acceptance rates vs noise parameters
 
 ```bash
 python3 plot_noise_sweep.py sweep-results.csv
@@ -403,10 +403,10 @@ python3 plot_noise_buckets.py sweep-results.csv
 tools/data-analysis/*.py
 ```
 
-### Use Cases
+### Use cases
 
 1. **Spatial Pattern Analysis**: Identify regions not filling or settling properly
-2. **Parameter Tuning**: Visualize impact of noise/closeness/neighbour parameters
+2. **Parameter Tuning**: Visualise impact of noise/closeness/neighbour parameters
 3. **Diagnostic Visualisation**: Create heatmaps for filled vs settled cells
 4. **Anomaly Detection**: Find unexpected patterns in grid population
 5. **Temporal Analysis**: Track grid settlement progress during warmup
@@ -415,9 +415,9 @@ tools/data-analysis/*.py
 
 ---
 
-## Debugging & Diagnostics
+## Debugging & diagnostics
 
-### Critical Bug Fixes
+### Critical bug fixes
 
 **FrameBuilder Eviction Bug** (Fixed):
 
@@ -426,7 +426,7 @@ tools/data-analysis/*.py
 - **Fix**: Added `fb.finalizeFrame(oldestFrame)` to eviction path
 - **Location**: `internal/lidar/frame_builder.go:~436`
 
-### Debug Logging Strategy
+### Debug logging strategy
 
 The system includes comprehensive debug logging for diagnosing issues with grid reset, acceptance rates, and frame delivery.
 
@@ -482,7 +482,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
   - Cold start rejection: Empty cells (TimesSeenCount=0) reject observations until seeded
   - Empty cells rejecting before seeding (check `SeedFromFirstObservation` via `--lidar-seed-from-first` flag)
   - Tight thresholds at long range (check `NoiseRelativeFraction`)
-  - Strict neighbour confirmation (check `NeighborConfirmationCount` - neighbor=2 requires 2 of 2 neighbors)
+  - Strict neighbour confirmation (check `NeighborConfirmationCount` - neighbour=2 requires 2 of 2 neighbours)
   - NoiseRelativeFraction too strict (0.01 = 1% may be too tight for real sensor noise at long ranges)
 - Analysis: After settling period, rates typically converge to 99.8%+
 
@@ -507,7 +507,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
   - Fix applied: `evictOldestBufferedFrame()` now calls `finalizeFrame(oldestFrame)`
 - Verification: Check logs for frame completion, callback invocation, and background snapshot persistence
 
-### Performance Tuning
+### Performance tuning
 
 **PCAP Replay Optimisation**:
 
@@ -594,7 +594,7 @@ make plot-grid-heatmap URL=http://localhost:8081 SENSOR=hesai-pandar40p
 
 ## Security
 
-### PCAP File Access Restriction
+### PCAP file access restriction
 
 PCAP file access is restricted to a designated safe directory to prevent path traversal attacks.
 
@@ -653,7 +653,7 @@ These parameters are configured at startup and can be adjusted at runtime via th
 ```go
 BackgroundUpdateFraction       float32  // EMA learning rate (default: 0.02)
 ClosenessSensitivityMultiplier float32  // Motion threshold multiplier (default: 3.0)
-SafetyMarginMeters             float32  // Safety buffer in meters (default: 0.5)
+SafetyMarginMeters             float32  // Safety buffer in metres (default: 0.5)
 FreezeDurationNanos            int64    // Freeze after detection (default: 5s)
 NeighborConfirmationCount      int      // Spatial filtering votes (default: 3)
 NoiseRelativeFraction          float32  // Distance-adaptive noise (default: 0.315)

@@ -1,4 +1,4 @@
-# LiDAR Pipeline Getting Started
+# LiDAR pipeline getting started
 
 Quick-start runbook for starting, validating, and switching LiDAR pipeline data sources.
 
@@ -8,7 +8,7 @@ Quick-start runbook for starting, validating, and switching LiDAR pipeline data 
 2. A valid LiDAR tuning config (for example `config/tuning.defaults.json`).
 3. Optional PCAP file available under your configured PCAP directory.
 
-## 2. Start the Pipeline (Live Sensor)
+## 2. Start the pipeline (live sensor)
 
 ```bash
 make dev-go-lidar
@@ -19,7 +19,7 @@ Expected:
 - Radar/web server and LiDAR monitor start.
 - LiDAR monitor API is available on `http://127.0.0.1:8081`.
 
-## 3. Verify Health
+## 3. Verify health
 
 ```bash
 curl -s "http://127.0.0.1:8081/api/lidar/status?sensor_id=hesai-pandar40p" | jq .
@@ -31,7 +31,7 @@ Expected:
 - `data_source` should be `live` after startup.
 - No API errors from status endpoints.
 
-## 4. Switch to PCAP Replay
+## 4. Switch to PCAP replay
 
 ```bash
 curl -s -X POST "http://127.0.0.1:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
@@ -45,7 +45,7 @@ Check source:
 curl -s "http://127.0.0.1:8081/api/lidar/data_source?sensor_id=hesai-pandar40p" | jq .
 ```
 
-## 5. Switch Back to Live
+## 5. Switch back to live
 
 ```bash
 curl -s "http://127.0.0.1:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40p" | jq .
@@ -57,7 +57,7 @@ Confirm:
 curl -s "http://127.0.0.1:8081/api/lidar/data_source?sensor_id=hesai-pandar40p" | jq .
 ```
 
-## 6. Useful Commands
+## 6. Useful commands
 
 ```bash
 # Live grid snapshots
@@ -67,7 +67,7 @@ make stats-live
 make stats-pcap PCAP=/absolute/path/to/capture.pcap
 ```
 
-## 7. Next Docs
+## 7. Next docs
 
 - `docs/lidar/operations/data-source-switching.md`
 - `docs/lidar/operations/pcap-analysis-mode.md`

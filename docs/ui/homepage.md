@@ -1,8 +1,8 @@
-# Homepage — Responsive GIF Strategy
+# Homepage: responsive GIF strategy
 
 Records the chosen strategy for displaying the LiDAR visualiser demo GIF on the public homepage in a responsive, performant way across device sizes.
 
-## Chosen Approach: Simple Responsive `<img>`
+## Chosen approach: simple responsive `<img>`
 
 ```html
 <div class="mx-auto max-w-3xl mb-8">
@@ -23,7 +23,7 @@ Records the chosen strategy for displaying the LiDAR visualiser demo GIF on the 
 - `loading="lazy"` defers download until near viewport.
 - Zero JavaScript, all browsers, no build step.
 
-## GIF Optimisation Checklist
+## GIF optimisation checklist
 
 1. Resize to max 1536px wide (2× retina for `max-w-3xl`).
 2. Frame rate: 10–15 fps (sufficient for UI demos).
@@ -31,7 +31,7 @@ Records the chosen strategy for displaying the LiDAR visualiser demo GIF on the 
 4. Duration: under 10 seconds.
 5. Target size: under 2 MB. If larger, convert to video.
 
-## Upgrade Path: Video
+## Upgrade path: video
 
 If the GIF exceeds ~3 MB, convert to MP4/WebM:
 
@@ -51,7 +51,7 @@ If the GIF exceeds ~3 MB, convert to MP4/WebM:
 
 10–20× smaller than GIF at equivalent quality.
 
-## File Placement
+## File placement
 
 - GIF asset: `public_html/src/images/visualiser-demo.gif`
 - Served at: `/img/visualiser-demo.gif` (Eleventy passthrough copy)

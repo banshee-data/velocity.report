@@ -1,4 +1,4 @@
-# Track Description Language (TDL)
+# Track description language (TDL)
 
 - **Status:** Proposed
 - **Layers:** L8 Analytics
@@ -19,7 +19,7 @@ TDL is not SQL. It uses human-readable terms grounded in traffic-engineering
 vocabulary so that neighbourhood advocates and community groups can describe
 what they want to see without learning a query language.
 
-## Design Decisions
+## Design decisions
 
 | Decision          | Choice                                                | Rationale                                     |
 | ----------------- | ----------------------------------------------------- | --------------------------------------------- |

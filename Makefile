@@ -112,8 +112,8 @@ help:
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
-	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
-	@echo "  check-config-maths-strict Validate README.maths keys with strict webserver parity"
+	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
+	@echo "  check-config-maths-strict Validate config maths keys with strict webserver parity"
 	@echo ""
 	@echo "PDF GENERATOR:"
 	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
@@ -173,7 +173,7 @@ help:
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-VERSION := 0.5.1-pre3
+VERSION := 0.5.1-pre4
 GIT_SHA := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 GIT_SHA_SHORT := $(shell printf '%.7s' '$(GIT_SHA)')
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -1139,14 +1139,14 @@ check-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
 		--discover \
-		--md-target config/README.md \
+		--md-target config/CONFIG.md \
 		--check
 
 sync-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
 		--discover \
-		--md-target config/README.md
+		--md-target config/CONFIG.md
 
 config-order-check: check-config-order
 

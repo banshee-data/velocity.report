@@ -1,4 +1,4 @@
-# Velocity-Coherent Foreground Extraction
+# Velocity-Coherent foreground extraction
 
 Active plan: [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
 
@@ -10,19 +10,19 @@ Mathematical model: [data/maths/proposals/20260220-velocity-coherent-foreground-
 ## Problem
 
 Background-subtraction (`ProcessFramePolarWithMask`) produces foreground
-trails — persistent false-positive points behind vehicles after they pass.
+trails: persistent false-positive points behind vehicles after they pass.
 EMA-based background model reconverges too slowly after freeze expiry.
 Additionally, DBSCAN `MinPts=12` discards valid objects with sparse returns.
 
 Human observers can identify moving objects with as few as 3 points by
 leveraging motion continuity, spatial coherence, and temporal persistence.
 
-## Core Concept
+## Core concept
 
 1. **Estimate per-point velocities** from frame-to-frame correspondence.
-2. **Cluster in 6D** (position + velocity) — group points moving together.
+2. **Cluster in 6D** (position + velocity): group points moving together.
 3. **Associate with tracks** via velocity matching.
-4. **Extend track boundaries** — pre-entry and post-exit via prediction.
+4. **Extend track boundaries**: pre-entry and post-exit via prediction.
 
 | Feature        | Background Subtraction  | Velocity-Coherent        |
 | -------------- | ----------------------- | ------------------------ |
@@ -33,9 +33,9 @@ leveraging motion continuity, spatial coherence, and temporal persistence.
 | Post-exit      | Deleted after MaxMisses | Continued via prediction |
 | Fragmentation  | Multiple tracks         | Kinematic merge          |
 
-## Algorithm Phases
+## Algorithm phases
 
-### Phase 1: Point-Level Velocity Estimation
+### Phase 1: point-level velocity estimation
 
 Nearest-neighbour correspondence with velocity constraint. For each point
 in frame N, search previous frame within `SearchRadius` (2.0 m), score by
@@ -44,7 +44,7 @@ and confidence.
 
 Config: `SearchRadius` 2.0 m, `MaxVelocityMps` 50.0, `MinConfidence` 0.3.
 
-### Phase 2: 6D DBSCAN Clustering
+### Phase 2: 6D DBSCAN clustering
 
 Extend standard 3D DBSCAN to 6D: $(x, y, z, v_x, v_y, v_z)$.
 
@@ -53,7 +53,7 @@ $$D_{6D}(p, q) = \sqrt{\alpha(\Delta x^2 + \Delta y^2 + \Delta z^2) + \beta(\Del
 Where $\alpha = 1.0$ (position weight), $\beta = 2.0$ (velocity weight).
 `MinPts=3` (reduced from 12).
 
-### Phase 3: Long-Tail Track Management
+### Phase 3: long-tail track management
 
 Extended state machine:
 
@@ -67,7 +67,7 @@ PRE_TAIL (≥3 pts) → TENTATIVE → CONFIRMED → POST_TAIL → DELETED
 - **Post-tail**: Continue prediction up to 30 frames (3 s at 10 Hz)
   with growing uncertainty radius, max 10.0 m.
 
-### Phase 4: Sparse Continuation
+### Phase 4: sparse continuation
 
 Adaptive tolerances by point count:
 
@@ -76,9 +76,9 @@ Adaptive tolerances by point count:
 | ≥12    | ±2.0 m/s           | ±1.0 m            |
 | 6–11   | ±1.5 m/s           | ±0.8 m            |
 | 3–5    | ±0.5 m/s           | ±0.5 m            |
-| <3     | Prediction only    | —                 |
+| <3     | Prediction only    | -                 |
 
-### Phase 5: Track Fragment Merging
+### Phase 5: track fragment merging
 
 Reconnect split tracks via kinematic trajectory matching. Score by
 position error, velocity match, and trajectory alignment:
@@ -88,24 +88,24 @@ $$S_{\text{trajectory}} = \cos(\theta_{\text{exit}}, \theta_{\text{entry}}) \cdo
 Merge config: `MaxTimeGap` 5.0 s, `MaxPositionError` 3.0 m,
 `MaxVelocityDiff` 2.0 m/s, `MinAlignment` 0.7.
 
-## Dual-Source Architecture
+## Dual-Source architecture
 
 Parallels the radar pattern (`radar_objects` vs `radar_data_transits`):
 
-- `lidar_tracks` — background-subtraction + DBSCAN (existing)
-- `lidar_velocity_coherent_tracks` — velocity-coherent extraction (new)
+- `lidar_tracks`: background-subtraction + DBSCAN (existing)
+- `lidar_velocity_coherent_tracks`: velocity-coherent extraction (new)
 
 Both stored independently, queryable via `?source=` parameter,
 comparable in dashboards.
 
-## Database Extensions
+## Database extensions
 
-- `lidar_velocity_coherent_clusters` — 6D DBSCAN output per frame.
-- `lidar_velocity_coherent_tracks` — parallel track table with velocity
+- `lidar_velocity_coherent_clusters`: 6D DBSCAN output per frame.
+- `lidar_velocity_coherent_tracks`: parallel track table with velocity
   confidence, consistency scores, and sparse-tracking metrics.
-- `lidar_track_merges` — auditable merge history.
+- `lidar_track_merges`: auditable merge history.
 
-## Prototype Simplifications (vs Original Design)
+## Prototype simplifications (vs original design)
 
 | Area           | Original      | Prototype                 |
 | -------------- | ------------- | ------------------------- |
@@ -115,7 +115,7 @@ comparable in dashboards.
 | Z-axis         | Tracked       | Stored as statistic       |
 | Batch mode     | Supported     | Real-time only            |
 
-## Acceptance Metrics (Hypotheses)
+## Acceptance metrics (hypotheses)
 
 | Metric                           | Target       |
 | -------------------------------- | ------------ |

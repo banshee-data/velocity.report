@@ -1,4 +1,4 @@
-# TicTacTail Library
+# TicTacTail library
 
 A generic platform library that takes flat key/value samples, refreshes a live
 surface quickly, emits aligned history rows for one active aggregate window,
@@ -6,13 +6,13 @@ and keeps the heavy logic outside app-specific code.
 
 Active plan: [tictactail-platform-plan.md](../../plans/tictactail-platform-plan.md)
 
-## Working Name
+## Working name
 
-`TicTacTail` — `tic tac` captures cadence and regular refresh; `tail`
+`TicTacTail`: `tic tac` captures cadence and regular refresh; `tail`
 captures persistent history output. Distinctive enough for a standalone
 package/repo name.
 
-## Ownership Split
+## Ownership split
 
 1. `tictactail`: all aggregation, live refresh, history rendering, alignment,
    colours, spinner, and output mechanics
@@ -35,9 +35,9 @@ TicTacTail owns all generic behaviour:
 - startup schema scan, fixed-size allocation, and hard byte limits
 - performance-sensitive local aggregation
 
-## Repo / Module Strategy
+## Repo / module strategy
 
-### Phase 1: Incubate Here
+### Phase 1: incubate here
 
 Public package path: `pkg/tictactail/`
 
@@ -48,12 +48,12 @@ Rules:
 - no key mapping or alias tables
 - no app-specific metric names inside the engine
 
-### Phase 2: Split Out
+### Phase 2: split out
 
 Once there is a second real consumer, split to
 `github.com/banshee-data/tictactail`.
 
-## Core Contract
+## Core contract
 
 TicTacTail accepts only flat rows:
 
@@ -79,7 +79,7 @@ Everything else is application payload and must remain unchanged.
 
 `ts_nanos` is mandatory on every input row. Rows without it are rejected.
 
-## No Mapping
+## No mapping
 
 TicTacTail never renames keys.
 
@@ -89,13 +89,13 @@ it emits longer keys. TicTacTail stores and renders whatever keys it is given.
 There is no special `ag` alias; aggregate rows carry raw `win_s=<seconds>`,
 though a single-pane renderer may hide it by default.
 
-## Value Semantics
+## Value semantics
 
 Two application field kinds only:
 
-1. **Measure** — all non-reserved keys not ending in `_inc`; keeps latest
+1. **Measure**: all non-reserved keys not ending in `_inc`; keeps latest
    value seen in the active window
-2. **Increment counter** — keys ending in `_inc`; summed within the active
+2. **Increment counter**: keys ending in `_inc`; summed within the active
    window as integer counters
 
 Rules:
@@ -119,7 +119,7 @@ Rules:
 - `SpinnerStyle` selects `moon`, `braille8`, or `ascii`. Zero value defaults
   to `moon`; falls back to `ascii` when Unicode output is disabled.
 
-## Input Examples
+## Input examples
 
 ### Sample
 
@@ -161,13 +161,13 @@ Rules:
 }
 ```
 
-## Aggregation Model
+## Aggregation model
 
 One active aggregate window; emit one row when that window closes.
 
 Default window: `30` seconds.
 
-### Window Rules
+### Window rules
 
 For the active window:
 
@@ -189,7 +189,7 @@ At live refresh:
 If `WindowSeconds` changes, drop the partial bucket, reset measures and
 counters, and start a fresh window immediately.
 
-## Local Aggregation Implementation
+## Local aggregation implementation
 
 Single-owner aggregation loop:
 
@@ -203,7 +203,7 @@ Single-owner aggregation loop:
   state ingest
 - after schema freeze, allocations are fixed and bounded by `MaxBytes`
 
-### Internal State
+### Internal state
 
 > **Source:** Same package. `fieldSpec` pairs a key name with a `fieldKind` (measure vs increment). `windowState` tracks the active WindowSeconds, WindowID, a `Latest []ScalarValue` for measures, and `Sums []int64` for `_inc` counters. All slices are fixed-size after schema freeze.
 
@@ -211,7 +211,7 @@ Renderer-side cache:
 
 > **Source:** Same package. `rowCache` is a bounded ring buffer of `Row` values (newest last) with Head, Count, and MaxBytes fields. Capacity is fixed at startup.
 
-### Update Rule
+### Update rule
 
 - reserved key → route specially
 - `ts_nanos` → must parse as `int64`, source of truth
@@ -219,7 +219,7 @@ Renderer-side cache:
 - otherwise → overwrite indexed `Latest`
 - unknown keys or type drift after schema freeze → reject row
 
-### Cutover Rule
+### Cutover rule
 
 ```
 windowID := tsNanos / (int64(windowSeconds) * 1_000_000_000)
@@ -237,9 +237,9 @@ If the ID changed, flush previous row and rotate state.
 - resize cost bounded by cache size rather than replay length
 - no unbounded buffer growth in steady state
 
-## Rendering Contract
+## Rendering contract
 
-### Output Shape
+### Output shape
 
 Default interactive TTY layout:
 
@@ -253,7 +253,7 @@ once. A single bounded cache is used only to repaint recent rows after a
 resize; the renderer uses the normal screen with scrollback rather than an
 alternate screen.
 
-### Refresh Cadence
+### Refresh cadence
 
 Supported targets: `5 Hz`, `10 Hz`, `20 Hz`.
 
@@ -295,7 +295,7 @@ TicTacTail aligns main history and live-row columns to the same row shape:
 status src=vrlog win=30 rows=200 tty=on
 ```
 
-### Pair Formatting
+### Pair formatting
 
 Generic suffix conventions in the renderer (formatting, not key remapping):
 
@@ -308,7 +308,7 @@ Examples:
 - `frame_cur` + `frame_tot` → `frame=6341/18210`
 - `fr_inc` → `fr=6014`
 
-### Resize And Cache
+### Resize and cache
 
 - cache size fixed at startup from `HistoryRows` and discovered row shape
 - total allocated bytes stay within `MaxBytes`
@@ -317,15 +317,15 @@ Examples:
 - if new size exceeds cached history, show newest rows and leave older in
   scrollback
 
-### Non-TTY Mode
+### Non-TTY mode
 
 - disable TTY compositor
 - emit aggregate and event rows as line-oriented output
 - optionally sample live rows at lower cadence for logs
 
-## Output Examples
+## Output examples
 
-### Aggregate Row
+### Aggregate row
 
 ```json
 {
@@ -348,7 +348,7 @@ Examples:
 }
 ```
 
-### Live Row
+### Live row
 
 ```json
 {
@@ -372,9 +372,9 @@ Examples:
 }
 ```
 
-## Performance Validation
+## Performance validation
 
-### Test Matrix
+### Test matrix
 
 Run the same file-processing workload with live/status refresh at 5, 10, and
 20 Hz. Validate:
@@ -386,14 +386,14 @@ Run the same file-processing workload with live/status refresh at 5, 10, and
 - predictable resize reflow cost from one bounded cache
 - no allocation growth after schema freeze
 
-### Required Benchmarks
+### Required benchmarks
 
 - `BenchmarkEngineAdd_FileReplay`
 - `BenchmarkLiveRowRender_{5,10,20}Hz`
 - `BenchmarkMainPaneResizeReflow`
 - `BenchmarkFileReplayWithUI_{5,10,20}Hz`
 
-### Required Tests
+### Required tests
 
 - live row updates at configured cadence
 - aggregate rows cut over correctly for the configured window
@@ -405,7 +405,7 @@ Run the same file-processing workload with live/status refresh at 5, 10, and
 - aggregate rows are identical regardless of refresh rate
 - internal buffers stay within `MaxBytes`
 
-### Acceptance Criteria
+### Acceptance criteria
 
 - renderer work stays decoupled from ingest
 - `20 Hz` live/status redraw is responsive
@@ -414,7 +414,7 @@ Run the same file-processing workload with live/status refresh at 5, 10, and
 - no unbounded allocation growth after schema freeze
 - `20 Hz` does not materially distort file replay throughput
 
-## App Integration
+## App integration
 
 Applications should have very little code around TicTacTail:
 
@@ -441,7 +441,7 @@ tail := tictactail.New(tictactail.Config{
 The renderer shows aggregate history in the main pane, one live row, and one
 status bar. The adapter feeds projected samples and starts the renderer.
 
-## Design Review
+## Design review
 
 ### Benefits
 
@@ -454,7 +454,7 @@ status bar. The adapter feeds projected samples and starts the renderer.
   predictable
 - normal-screen rendering keeps scrollback available without extra TTY policy
 
-### Costs And Shortcomings
+### Costs and shortcomings
 
 - the public row contract is still runtime-validated rather than compile-time
   enforced
@@ -466,7 +466,7 @@ status bar. The adapter feeds projected samples and starts the renderer.
 - a generic library can still grow too much UI policy if renderer options are
   not kept disciplined
 
-### Resolved V1 Decisions
+### Resolved V1 decisions
 
 - `ts_nanos` mandatory on every input row
 - live row shows latest measures plus current in-window counts before flush

@@ -1,8 +1,8 @@
-# Binary Size Reduction Plan (v0.5.x)
+# Binary size reduction plan (v0.5.x)
 
 - **Status:** Active
 - **Layers:** Cross-cutting (Go build, web frontend, CI)
-- **Target:** v0.5.0 — ship a binary < 40 MB, with CI enforcement to prevent regression
+- **Target:** v0.5.0; ship a binary < 40 MB, with CI enforcement to prevent regression
 - **Companion plans:**
   [web-frontend-consolidation-plan.md](web-frontend-consolidation-plan.md)
 - **Canonical:** [simplification-deprecation §Binary Size](../platform/operations/simplification-deprecation.md#binary-size)
@@ -10,7 +10,7 @@
 ## Motivation
 
 The Linux ARM64 binary is **211 MB**. The intended ceiling is < 40 MB. The cause is
-now understood and almost entirely mechanical — this is not a framework problem.
+now understood and almost entirely mechanical: this is not a framework problem.
 
 GSA analysis (`gsa velocity-report-{version}-linux-arm64 -f json --compact`) reveals:
 
@@ -25,7 +25,7 @@ almost entirely stale build artifacts in `static/` that were embedded alongside 
 current build because `go:embed static/*` globs everything in the directory, and
 SvelteKit's content-hashed filenames mean old builds coexist with new ones.
 
-## Root Cause
+## Root cause
 
 ```
 assets.go:
@@ -51,9 +51,9 @@ and serves `/app/` routes in production mode.
 
 `StaticFiles` is used in production **only for `/favicon.ico`**. Everything else
 under `/app/` is served from `WebBuildFiles`. In dev mode, `StaticFiles` is not
-used — the server reads from the filesystem (`http.Dir("./static")`).
+used: the server reads from the filesystem (`http.Dir("./static")`).
 
-## Current Frontend Profile
+## Current frontend profile
 
 | Metric                               | Value                                   |
 | ------------------------------------ | --------------------------------------- |
@@ -69,9 +69,9 @@ used — the server reads from the filesystem (`http.Dir("./static")`).
 | Node chunks (9 pages)                | 874 B                                   |
 
 **Verdict:** The frontend is already small. No framework change is needed. The problem is
-entirely in the build pipeline — stale files accumulating in `static/`.
+entirely in the build pipeline: stale files accumulating in `static/`.
 
-## Phase 1: Eliminate Stale Embeds (v0.5.0) — saves ~172 MB
+## Phase 1: eliminate stale embeds (v0.5.0); saves ~172 MB
 
 This phase alone drops the binary from 211 MB to ~39 MB.
 
@@ -129,7 +129,7 @@ if devMode {
 }
 ```
 
-### Expected result after Phase 1
+### Expected result after phase 1
 
 | Segment         | Before     | After      |
 | --------------- | ---------- | ---------- |
@@ -138,7 +138,7 @@ if devMode {
 | Go code + deps  | 38.2 MB    | 38.2 MB    |
 | **Total**       | **211 MB** | **~39 MB** |
 
-## Phase 2: Strip Debug Symbols — saves ~8–12 MB
+## Phase 2: strip debug symbols; saves ~8–12 MB
 
 The current `LDFLAGS` do not include `-s -w` (strip symbol table and DWARF debug info).
 Adding these to production builds is standard practice:
@@ -152,7 +152,7 @@ symbols for local/dev builds).
 
 Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 
-### Expected result after Phase 2
+### Expected result after phase 2
 
 | Segment            | Size       |
 | ------------------ | ---------- |
@@ -160,7 +160,7 @@ Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 | Go code (stripped) | ~27 MB     |
 | **Total**          | **~28 MB** |
 
-## Phase 3: CI Binary Size Gate — prevent regression
+## Phase 3: CI binary size gate; prevent regression
 
 Add a CI check that fails if the binary exceeds a threshold:
 
@@ -206,7 +206,7 @@ Wire into `make lint`:
 lint: lint-go lint-python lint-web check-binary-size
 ```
 
-## Phase 4: Further Reductions (optional, v0.5.x)
+## Phase 4: further reductions (optional, v0.5.x)
 
 These are diminishing returns but worth considering:
 
@@ -222,33 +222,33 @@ be removed from the Go binary. Saving: ~1 MB.
 `upx --best` typically achieves 50–60% compression on Go binaries. Would reduce a
 28 MB stripped binary to ~12–15 MB. Trade-off: slower startup (decompression), harder
 to debug crashes, some security scanners flag UPX-compressed binaries. **Not recommended
-for production** on resource-constrained Raspberry Pi — the decompression overhead
+for production** on resource-constrained Raspberry Pi: the decompression overhead
 matters on ARM64 with limited RAM.
 
-### 4.3 Lazy-load Leaflet
+### 4.3 Lazy-load leaflet
 
 The 1 MB `start.js` bundle includes Leaflet (map library). If the map is only used on
 the site detail page, Leaflet could be dynamically imported (`import('leaflet')`) so it
 is code-split into a separate chunk loaded on demand. This does not reduce binary size
 (the chunk is still embedded) but improves initial page load. Worth doing independently.
 
-## Framework Assessment
+## Framework assessment
 
 The user asked whether Svelte is the right framework given the small footprint. Summary:
 
 | Factor                  | Assessment                                                                             |
 | ----------------------- | -------------------------------------------------------------------------------------- |
-| Build output            | 1.1 MB (348 KB gzipped) — already tiny                                                 |
-| Runtime complexity      | 9 pages, 6 components, minimal state — well within Svelte's sweet spot                 |
+| Build output            | 1.1 MB (348 KB gzipped): already tiny                                                  |
+| Runtime complexity      | 9 pages, 6 components, minimal state: well within Svelte's sweet spot                  |
 | Alternative: Preact     | Similar output size (~1 MB), less ecosystem, migration cost                            |
-| Alternative: vanilla JS | Smaller runtime, but manual routing/reactivity — maintenance burden                    |
-| Alternative: htmx       | ~14 KB runtime, but requires server-rendered HTML — architectural shift                |
+| Alternative: vanilla JS | Smaller runtime, but manual routing/reactivity; maintenance burden                     |
+| Alternative: htmx       | ~14 KB runtime, but requires server-rendered HTML; architectural shift                 |
 | Verdict                 | **Keep Svelte.** The framework is not the problem. The build artifact accumulation is. |
 
 No functionality needs to be removed. The frontend is lean. The only thing that was
 excessive was the build hygiene.
 
-## What Gets Sacrificed
+## What gets sacrificed
 
 | Sacrifice                             | Impact                                                                                           |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -274,11 +274,11 @@ excessive was the build hygiene.
 - [ ] Add `rm -rf web/build` to `build-web` target for clean builds (`S` effort)
 - [ ] Add `-s -w` to `LDFLAGS` for production build targets (`S` effort)
 - [ ] Create `scripts/check-binary-size.sh` and wire into `make lint` (`S` effort)
-- [ ] Validate binary size after changes — target < 40 MB (`S` effort)
+- [ ] Validate binary size after changes: target < 40 MB (`S` effort)
 - [ ] Update `web/` README if dev workflow changes (`S` effort)
 
 ### Deferred
 
-- [ ] Remove embedded `echarts.min.js` — gated on LiDAR status page migration to Svelte
-- [ ] Evaluate UPX for deployments where binary size is critical — not recommended for RPi
-- [ ] Lazy-load Leaflet via dynamic import — tracked as general frontend optimisation
+- [ ] Remove embedded `echarts.min.js`: gated on LiDAR status page migration to Svelte
+- [ ] Evaluate UPX for deployments where binary size is critical: not recommended for RPi
+- [ ] Lazy-load Leaflet via dynamic import: tracked as general frontend optimisation

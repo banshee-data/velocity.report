@@ -14,7 +14,7 @@ Bring `docs/DEVLOG.md` up to date by reading git history across all branches and
 /devlog-update
 ```
 
-## Format Reference
+## Format reference
 
 The devlog uses H2 headers for entries:
 
@@ -202,7 +202,7 @@ grep "^## " docs/DEVLOG.md | sort | uniq -d
 - This skill **writes** to `docs/DEVLOG.md`. It does not modify any other files.
 - Existing bullets within an entry are never modified or deleted. New bullets may be **appended** to an existing entry to fill gaps, and the theme title may be broadened to reflect added content.
 - Commits on `backup/*` branches should be ignored (these are rescue snapshots, not development work).
-- Coverage-update commits (`Update coverage data`) should be ignored — they are automated.
+- Coverage-update commits (`Update coverage data`) should be ignored: they are automated.
 - When multiple branches have work on the same day, group by theme rather than by branch. Mention the branch in the metadata line.
 - Keep bullets concise. A day with 60 commits should produce 5-10 bullets, not 60.
 - Use British English spelling consistent with the rest of the repository (e.g. "standardisation" not "standardization", "colour" not "color").

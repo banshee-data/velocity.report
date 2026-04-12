@@ -63,7 +63,7 @@ make api-export-next-frame [SENSOR=hesai-pandar40p] [OUT=/path/to/output.asc]
 make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
 ```
 
-## API Endpoints Reference
+## API endpoints reference
 
 All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
 

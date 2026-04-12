@@ -4,7 +4,7 @@ System architecture for the macOS LiDAR visualiser and the supporting pipeline r
 
 ---
 
-## Industry Standards Alignment
+## Industry standards alignment
 
 This architecture aligns with industry-standard LiDAR perception formats:
 
@@ -18,9 +18,9 @@ The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layo
 
 ---
 
-## 1. Split Plan: Two Parallel Tracks
+## 1. Split plan: two parallel tracks
 
-### Track A: Visualiser (Primary)
+### Track a: visualiser (primary)
 
 The macOS application that renders point clouds, tracks, and debug overlays.
 
@@ -34,7 +34,7 @@ The macOS application that renders point clouds, tracks, and debug overlays.
 
 **Unblocked by**: Synthetic data generators and recorded logs. Track A can progress **before** Track B completes the pipeline refactor.
 
-### Track B: Pipeline API + Tracking Refactor (Supporting)
+### Track b: pipeline API + tracking refactor (supporting)
 
 The Go server-side changes to emit a stable API for the visualiser.
 
@@ -103,9 +103,9 @@ The Go server-side changes to emit a stable API for the visualiser.
 
 ---
 
-## 2. Module Diagrams
+## 2. Module diagrams
 
-### 2.1 Visualiser Modules (Track A)
+### 2.1 Visualiser modules (track a)
 
 ```
 tools/visualiser-macos/
@@ -155,7 +155,7 @@ tools/visualiser-macos/
 └── README.md
 ```
 
-### 2.2 Pipeline Modules (Track B)
+### 2.2 Pipeline modules (track b)
 
 ```
 internal/
@@ -200,7 +200,7 @@ proto/
 
 ---
 
-### 2.3 Planned Background Debug Channels (Polar/Cartesian/Region Map)
+### 2.3 Planned background debug channels (polar/Cartesian/Region map)
 
 **Status:** Planned (docs-only).
 
@@ -239,13 +239,13 @@ Math coupling reference:
 
 Canonical config/maths mapping source:
 
-- `config/README.maths.md`
+- `config/CONFIG.md`
 
 ---
 
-## 3. Transport Choice
+## 3. Transport choice
 
-### 3.1 Why gRPC for Point Cloud Streaming
+### 3.1 Why gRPC for point cloud streaming
 
 | Requirement         | gRPC Advantage                |
 | ------------------- | ----------------------------- |
@@ -253,7 +253,7 @@ Canonical config/maths mapping source:
 | **Streaming**       | Built-in server-streaming RPC |
 | **Type safety**     | Generated Swift + Go stubs    |
 
-### 3.2 Why REST for Labelling and Metadata
+### 3.2 Why REST for labelling and metadata
 
 | Requirement               | REST Advantage                            |
 | ------------------------- | ----------------------------------------- |
@@ -275,9 +275,9 @@ Canonical config/maths mapping source:
 > - **Centralised backup**: All data lives in the Go server's SQLite database
 > - **Shared access**: Web UI and visualiser can see each other's labels immediately
 >
-> The visualiser's `LabelAPIClient.swift` is a REST client only — it performs HTTP requests to the Go backend and does not access any local database.
+> The visualiser's `LabelAPIClient.swift` is a REST client only: it performs HTTP requests to the Go backend and does not access any local database.
 
-### 3.3 Alternatives Considered
+### 3.3 Alternatives considered
 
 | Option       | Rejected Because                            |
 | ------------ | ------------------------------------------- |
@@ -286,7 +286,7 @@ Canonical config/maths mapping source:
 | REST polling | High latency, inefficient for streaming     |
 | Unix socket  | Less portable, harder tooling               |
 
-### 3.3 Future Remote Access
+### 3.3 Future remote access
 
 Current scope: **localhost only** (127.0.0.1:50051).
 
@@ -294,9 +294,9 @@ Future option: Enable TLS + authentication for remote access from field laptops.
 
 ---
 
-## 4. macOS Rendering Approach
+## 4. macOS rendering approach
 
-### 4.1 Framework Evaluation
+### 4.1 Framework evaluation
 
 | Framework      | Point Count | Instancing | Custom Shaders | Verdict                  |
 | -------------- | ----------- | ---------- | -------------- | ------------------------ |
@@ -304,7 +304,7 @@ Future option: Enable TLS + authentication for remote access from field laptops.
 | **RealityKit** | ~100k       | Good       | Limited        | AR-focused, not ideal    |
 | **Metal**      | 500k+       | Excellent  | Full control   | **Selected**             |
 
-### 4.2 Metal Implementation Strategy
+### 4.2 Metal implementation strategy
 
 **Chosen approach**: Direct Metal with `MTKView` for maximum control.
 
@@ -333,7 +333,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 }
 ```
 
-### 4.3 Rendering Techniques
+### 4.3 Rendering techniques
 
 **Point Sprites / Point Shading**:
 
@@ -383,9 +383,9 @@ vertex BoxOutput boxVertex(
 
 ---
 
-## 5. Threading Model
+## 5. Threading model
 
-### 5.1 Visualiser Threading
+### 5.1 Visualiser threading
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -428,7 +428,7 @@ vertex BoxOutput boxVertex(
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 Backpressure Strategy
+### 5.2 Backpressure strategy
 
 - Frame queue bounded to **10 frames** (~0.5-1 second at 10-20 Hz)
 - If queue is full, **drop oldest frame**
@@ -437,9 +437,9 @@ vertex BoxOutput boxVertex(
 
 ---
 
-## 6. Comparison / A-B Workflow
+## 6. Comparison / A-B workflow
 
-### 6.1 Parallel Output
+### 6.1 Parallel output
 
 During development and testing:
 
@@ -451,7 +451,7 @@ velocity-report --lidar-forward-enabled --grpc-enabled
 # Visualiser receives FrameBundles on port 50051
 ```
 
-### 6.2 Comparison Metrics
+### 6.2 Comparison metrics
 
 Since LidarView shows raw points and the visualiser shows semantic data, direct visual comparison isn't possible. Instead, compare:
 
@@ -462,7 +462,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 | Track count       | N/A                          | `TrackSet.tracks.len()`     | Compare with DB                 |
 | Cluster count     | N/A                          | `ClusterSet.clusters.len()` | Compare with DB                 |
 
-### 6.3 Regression Testing
+### 6.3 Regression testing
 
 1. Record known-good log with track IDs and timestamps
 2. Replay through pipeline
@@ -474,9 +474,9 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ---
 
-## 7. Key File References (Existing Code)
+## 7. Key file references (existing code)
 
-### 7.1 LiDAR Ingestion
+### 7.1 LiDAR ingestion
 
 | File                                 | Purpose                  |
 | ------------------------------------ | ------------------------ |
@@ -484,14 +484,14 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 | `internal/lidar/parse/extract.go`    | Pandar40P packet parsing |
 | `internal/lidar/frame_builder.go`    | Rotation accumulation    |
 
-### 7.2 Foreground Extraction
+### 7.2 Foreground extraction
 
 | File                           | Purpose                                       |
 | ------------------------------ | --------------------------------------------- |
 | `internal/lidar/background.go` | Background model (polar grid) + M3.5 snapshot |
 | `internal/lidar/foreground.go` | Foreground/background classification          |
 
-### 7.3 Clustering and Tracking
+### 7.3 Clustering and tracking
 
 | File                                    | Purpose                                 |
 | --------------------------------------- | --------------------------------------- |
@@ -503,14 +503,14 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 | `internal/lidar/tracking_pipeline.go`   | Pipeline orchestration + frame throttle |
 | `internal/lidar/golden_replay_test.go`  | M4: Golden determinism tests            |
 
-### 7.4 LidarView Forwarding
+### 7.4 LidarView forwarding
 
 | File                                             | Purpose                       |
 | ------------------------------------------------ | ----------------------------- |
 | `internal/lidar/network/foreground_forwarder.go` | Encode + forward to port 2370 |
 | `internal/lidar/network/forwarder.go`            | Raw packet forwarding         |
 
-### 7.5 Transform and Types
+### 7.5 Transform and types
 
 | File                          | Purpose                                 |
 | ----------------------------- | --------------------------------------- |
@@ -519,7 +519,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ---
 
-## 8. Known Issues & Deferred Optimisations
+## 8. Known issues & deferred optimisations
 
 This section documents known limitations and deferred work from the M2/M3/M3.5/M4 implementation that will be addressed in M7 (Performance Hardening).
 
@@ -533,7 +533,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Deferred Solution**: Reference counting (see [velocity-visualiser-implementation.md §7.2](./implementation.md#72-pointcloudframe-memory-pool-release-strategy)).
 
-### 8.2 Swift Buffer Allocation Per Frame
+### 8.2 Swift buffer allocation per frame
 
 **Issue**: `MetalRenderer.updatePointBuffer()` allocates a new `vertices` array (350 KB for 70k points) on every frame.
 
@@ -541,7 +541,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Deferred Solution**: Buffer pooling or pre-allocation (see [velocity-visualiser-implementation.md §7.1](./implementation.md#71-swift-buffer-pooling)).
 
-### 8.3 Frame Skipping Lacks Cooldown
+### 8.3 Frame skipping lacks cooldown
 
 **Issue**: When gRPC streaming detects slow clients, it aggressively skips frames. However, there's no hysteresis to prevent oscillation between skip and normal modes.
 
@@ -549,7 +549,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Deferred Solution**: Add cooldown counter (see [velocity-visualiser-implementation.md §7.3](./implementation.md#73-frame-skipping-cooldown)).
 
-### 8.4 Decimation Ratio Edge Cases
+### 8.4 Decimation ratio edge cases
 
 **Issue**: Very small decimation ratios (< 0.01) can result in only 1 point being kept.
 
@@ -557,11 +557,11 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Documentation**: Added to [velocity-visualiser-implementation.md §7.4](./implementation.md#74-decimation-edge-cases).
 
-### 8.5 Go 1.21+ Dependency
+### 8.5 Go 1.21+ dependency
 
 **Note**: The code uses the built-in `max()` function introduced in Go 1.21. This is compatible with the project's Go 1.21+ requirement (see `go.mod`). No action needed, but noted for reference.
 
-### 8.6 PCAP Catch-Up Burst Processing (Partially Addressed)
+### 8.6 PCAP catch-up burst processing (partially addressed)
 
 **Issue**: During PCAP replay, when the pipeline blocks on a heavy frame (>16k foreground points), PCAP buffers packets. When the pipeline unblocks, PCAP dumps the backlog at 33+ fps, causing dropped frames on the client.
 
@@ -573,13 +573,13 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 ---
 
-## 9. Related Documents
+## 9. Related documents
 
 - [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)
 - [velocity-visualiser-implementation.md](./implementation.md) – Milestones and tasks
 - [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 
-## 10. Performance Investigation — Key Results
+## 10. Performance investigation: key results
 
 Investigation of gRPC streaming bandwidth under Pandar40P replay at 10–20 fps
 (35–70k points/frame). The full investigation is archived in git history; its
@@ -591,7 +591,7 @@ SLOW SEND warnings (>50 ms, up to 600 ms), frame drops, and FPS collapse from
 10–20 fps to 1.4–3 fps. Root cause: sending all ~70k points per frame when only
 ~3% (foreground) change between frames.
 
-### Solution — Background/Foreground Split Streaming (M3.5)
+### Solution: background/Foreground split streaming (M3.5)
 
 For static LiDAR deployments, the scene decomposes into background (97%,
 rarely changes) and foreground (3%, every frame). The implemented solution
@@ -604,11 +604,11 @@ sends a background snapshot every 30 s and foreground-only points per frame.
 | Dropped frames/min | 19+          | ~0             |
 | FG points/frame    | 35–70k (all) | 1–2k (FG only) |
 
-### Implementation Priority (deferred items)
+### Implementation priority (deferred items)
 
 - **Tier 2:** Client async receive processing, Metal buffer pooling, binary
-  protocol optimisation — consider for M7.
+  protocol optimisation: consider for M7.
 - **Tier 3:** Multi-resolution streaming, clusters-only mode, adaptive
-  decimation — niche use cases.
+  decimation: niche use cases.
 - **Tier 4:** Delta encoding, domain-specific compression, temporal
-  subsampling — superseded or redundant given M3.5 gains.
+  subsampling: superseded or redundant given M3.5 gains.

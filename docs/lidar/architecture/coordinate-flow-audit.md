@@ -1,13 +1,13 @@
-# LiDAR Coordinate Flow Audit
+# LiDAR coordinate flow audit
 
-- **Status:** Informational — findings are confirmed and intentional. The described coordinate bounce preserves original polar metadata and does not introduce floating-point accuracy penalties. See [l2-dual-representation.md](l2-dual-representation.md) for the design rationale.
+- **Status:** Informational; findings are confirmed and intentional. The described coordinate bounce preserves original polar metadata and does not introduce floating-point accuracy penalties. See [l2-dual-representation.md](l2-dual-representation.md) for the design rationale.
 
 - **Scope:** exact runtime movement of LiDAR data between polar, sensor Cartesian, and world Cartesian forms
 - **Index:** LiDAR architecture → coordinate systems → audits. See [docs/lidar/architecture/README.md](./README.md) for the full list.
 
 This audit traces every coordinate transformation in the LiDAR pipeline, from sensor-polar parsing through world-Cartesian tracking, to verify that no lossy representation flip-flops occur in the critical data path.
 
-## Executive Conclusion
+## Executive conclusion
 
 The live LiDAR tracking path does contain a representation bounce:
 
@@ -26,7 +26,7 @@ So the current critical chain has:
 This means the current design has redundant coordinate work and extra conceptual complexity, but not a meaningful
 floating-point accuracy penalty from repeated back-and-forth inversion.
 
-## Canonical Coordinate Forms
+## Canonical coordinate forms
 
 | Form            | Struct(s)                                     | Package(s)                                                                           | Meaning                                                                                                                                                              |
 | --------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -34,7 +34,7 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 | Frame Cartesian | `Point`, `LiDARFrame.Points`                  | `internal/lidar/l2frames`                                                            | Sensor-local Cartesian point cloud with original polar metadata still attached                                                                                       |
 | World Cartesian | `WorldPoint`, `WorldCluster`, `TrackedObject` | `internal/lidar/l4perception`, `internal/lidar/l5tracks`, `internal/lidar/l6objects` | Cartesian geometry used for clustering, tracking, persistence                                                                                                        |
 
-## Critical Path Flowchart
+## Critical path flowchart
 
 ```mermaid
 flowchart TD
@@ -49,7 +49,7 @@ flowchart TD
     I --> J["L6 Objects + DB: world Cartesian summaries"]
 ```
 
-## Branch Flowchart
+## Branch flowchart
 
 These are not all part of the tracking-critical chain.
 
@@ -65,7 +65,7 @@ flowchart TD
     H["L3 background grid cells (polar grid)"] --> I["Background ASC export (polar grid → Cartesian for export only)"]
 ```
 
-## Critical Chain Matrix
+## Critical chain matrix
 
 | Step                         | Module / file                                                  | Input form             | Output form                   | Critical tracking chain | Transform performed                            | Accuracy note                                              |
 | ---------------------------- | -------------------------------------------------------------- | ---------------------- | ----------------------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
@@ -81,7 +81,7 @@ flowchart TD
 | Tracking                     | `internal/lidar/l5tracks/tracking.go`                          | `[]WorldCluster`       | `TrackedObject`               | Yes                     | None                                           | Track state stored as `float32`                            |
 | Classification / persistence | `internal/lidar/l6objects`, `storage/sqlite`, pipeline         | tracks / clusters      | DB rows, labels               | Yes                     | None                                           | World-frame outputs only                                   |
 
-## Side-Branch Matrix
+## Side-Branch matrix
 
 | Branch                           | Module / file                                                                                                | Input form                           | Output form         | In critical chain | Transform performed            | Note                                                                                           |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------- | ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
@@ -91,7 +91,7 @@ flowchart TD
 | Background ASC export            | `internal/lidar/l3grid/background_export.go`                                                                 | polar grid cells                     | ASC XYZ points      | No                | Polar grid -> Cartesian        | Export-only projection                                                                         |
 | Frame ASC export                 | `internal/lidar/l2frames/export.go`                                                                          | Cartesian points                     | ASC XYZ points      | No                | Conditional polar -> Cartesian | Reprojects XYZ from stored polar when Z is all zero; otherwise uses existing L2 frame geometry |
 
-## Exact Transform Count
+## Exact transform count
 
 ### Foreground point that reaches tracking
 
@@ -117,7 +117,7 @@ Net result:
 - one forward projection in the critical runtime path
 - optional later export/debug projections off the critical path
 
-## Accuracy Audit
+## Accuracy audit
 
 ### 1. Is there a lossy flip-flop in the critical chain?
 
@@ -182,7 +182,7 @@ The main risk is semantic and architectural, not numeric:
 - the same point may exist as both L2 sensor Cartesian and L3/L4 polar-derived geometry
 - future pose work could make the boundary harder to reason about if both forms continue to be recomputed ad hoc
 
-## Accuracy Verdict
+## Accuracy verdict
 
 | Concern                                                            | Verdict                                       |
 | ------------------------------------------------------------------ | --------------------------------------------- |
@@ -192,7 +192,7 @@ The main risk is semantic and architectural, not numeric:
 | CPU / allocation overhead from duplicated representation work      | Yes                                           |
 | Later float32 summary / track state narrowing                      | Yes, but minor relative to LiDAR quantisation |
 
-## What To Change If The Goal Is "One Projection"
+## What to change if the goal is "One projection"
 
 If the design goal is exactly one `polar -> Cartesian` projection for tracked points, the cleanest options are:
 
@@ -203,17 +203,17 @@ If the design goal is exactly one `polar -> Cartesian` projection for tracked po
 The current implementation already preserves enough metadata to avoid numeric harm; the remaining win is simplification
 and avoiding duplicated forward trig in the hot path.
 
-### Adopted direction (✅ Implemented)
+### Adopted direction (✅ implemented)
 
 Option 2 was implemented:
 
 - `LiDARFrame` stores both `PolarPoints []PointPolar` and `Points []Point`, populated once by `AddPointsPolar()`
-- L3 consumes `frame.PolarPoints` directly — no per-frame polar rebuild in the pipeline callback
+- L3 consumes `frame.PolarPoints` directly: no per-frame polar rebuild in the pipeline callback
 - the former `frame.Points -> []PointPolar` re-wrap step in `tracking_pipeline.go` has been deleted
 
 See [lidar-l2-dual-representation-plan.md](../../plans/lidar-l2-dual-representation-plan.md) for the full plan.
 
-## Important Caveats
+## Important caveats
 
 ### Coordinate-frame semantic caveat
 

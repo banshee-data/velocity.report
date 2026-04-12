@@ -1,10 +1,10 @@
-# API Contracts
+# API contracts
 
 Canonical data model and communication protocol between the Go pipeline (server) and the macOS visualiser (client).
 
 ---
 
-## Industry Standards Alignment
+## Industry standards alignment
 
 This API is designed to align with the **7-DOF industry standard** for 3D bounding boxes used in autonomous vehicle (AV) perception systems:
 
@@ -23,7 +23,7 @@ This API is designed to align with the **7-DOF industry standard** for 3D boundi
 
 ---
 
-## 1. Canonical Conceptual Model
+## 1. Canonical conceptual model
 
 The visualiser consumes a **frame-oriented data stream** from the pipeline. Each frame represents one complete LiDAR rotation (~50-100ms at 10-20 Hz, depending on motor speed) and contains:
 
@@ -49,7 +49,7 @@ The visualiser consumes a **frame-oriented data stream** from the pipeline. Each
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.1 Frame Timebase and Coordinate Frames
+### 1.1 Frame timebase and coordinate frames
 
 **Timebase**:
 
@@ -65,7 +65,7 @@ The visualiser consumes a **frame-oriented data stream** from the pipeline. Each
 
 `CoordinateFrameInfo` is a 6-field message: `frame_id`, `reference_frame`, optional `origin_lat`/`origin_lon`/`origin_alt`, and `rotation_deg` (X-axis rotation from East in ENU). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 1.2 Point Clouds
+### 1.2 Point clouds
 
 Points are emitted in world frame. Full fidelity or downsampled modes are supported.
 
@@ -81,7 +81,7 @@ Points are emitted in world frame. Full fidelity or downsampled modes are suppor
 
 See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 1.3 Clusters (Foreground Objects)
+### 1.3 Clusters (foreground objects)
 
 Clusters are detected objects before tracking association.
 
@@ -91,7 +91,7 @@ Clusters are detected objects before tracking association.
 | -------------------------- | --------------------- | --------------------------------------------------------------------- |
 | `centroid_x/y/z`           | float                 | Centroid position in world frame (metres)                             |
 | `aabb_length/width/height` | float                 | Axis-aligned bounding box extents (metres)                            |
-| `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (center xyz + length/width/height + `heading_rad`) |
+| `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (centre xyz + length/width/height + `heading_rad`) |
 | `points_count`             | int32                 | Number of points in cluster                                           |
 | `sample_points`            | packed float[]        | Optional xyz-interleaved sample points for debug rendering            |
 
@@ -99,7 +99,7 @@ Clusters are detected objects before tracking association.
 
 See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 1.4 Tracks (State, Velocity, Lifecycle)
+### 1.4 Tracks (state, velocity, lifecycle)
 
 Tracks are persistent object identities across frames.
 
@@ -118,13 +118,13 @@ Tracks are persistent object identities across frames.
 
 Track speed contract is non-percentile. See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 1.5 Debug Overlays
+### 1.5 Debug overlays
 
 Optional debug artifacts for algorithm tuning.
 
 `DebugOverlaySet` carries four types of optional debug artifact per frame: **AssociationCandidate** (cluster-to-track pairing with Mahalanobis distance and accept/reject), **GatingEllipse** (Mahalanobis gate ellipse geometry per track), **InnovationResidual** (Kalman filter predicted-vs-measured position and residual magnitude), and **StatePrediction** (predicted position and velocity for each track). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 1.5.1 Planned: Background Debug Surfaces for Swift Frontend
+### 1.5.1 Planned: background debug surfaces for Swift frontend
 
 **Status:** Planned (docs-only), not implemented in current protobuf/API yet.
 
@@ -142,7 +142,7 @@ Planned frontend modes:
 - `Cartesian`: world/sensor-frame point overlay for geometric inspection
 - `Region Map`: colourised region IDs and lifecycle state overlay
 
-### 1.6 Labels (User Annotations)
+### 1.6 Labels (user annotations)
 
 Labels are created by the user in the visualiser and stored in the Go backend SQLite database via REST API.
 
@@ -178,9 +178,9 @@ Indexed on `track_id`, timestamp range, `class_label`, and `scene_id`.
 
 ---
 
-## 2. Protobuf Schema
+## 2. Protobuf schema
 
-### 2.1 File Location
+### 2.1 File location
 
 ```
 proto/
@@ -189,11 +189,11 @@ proto/
         └── visualiser.proto
 ```
 
-### 2.2 Full Schema
+### 2.2 Full schema
 
 See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) for the complete protobuf definition.
 
-### 2.3 Versioning Policy
+### 2.3 Versioning policy
 
 - Schema version: `v1`
 - Package: `velocity.visualiser.v1`
@@ -201,7 +201,7 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 - **Forward compatibility**: Old servers respond with subset of fields
 - **Breaking changes**: Bump to `v2` with new package name
 
-### 2.4 Field Semantics
+### 2.4 Field semantics
 
 | Field        | Type  | Units       | Convention               |
 | ------------ | ----- | ----------- | ------------------------ |
@@ -216,13 +216,13 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 
 ---
 
-## 3. gRPC Service Design
+## 3. gRPC service design
 
-### 3.1 Service Definition
+### 3.1 Service definition
 
 `VisualiserService` defines 9 RPCs: `StreamFrames` (server-streaming frame bundles), `Pause`/`Play`/`Seek`/`SetRate` (playback control, all return `PlaybackStatus`), `SetOverlayModes` (toggle debug overlays), `GetCapabilities` (query server features), and `StartRecording`/`StopRecording` (live capture control). See [`visualiser.proto`](../../../proto/velocity_visualiser/v1/visualiser.proto).
 
-### 3.2 Message Definitions
+### 3.2 Message definitions
 
 | Message                | Purpose                            | Key fields                                                                                                      |
 | ---------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -240,9 +240,9 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 
 ---
 
-## 4. Recording/Replay Format
+## 4. Recording/Replay format
 
-### 4.1 Log Format
+### 4.1 Log format
 
 Logs are stored as **chunked protobuf streams** with an index for efficient seeking.
 
@@ -270,7 +270,7 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
 - Each chunk contains up to 1000 `FrameBundle` messages
 - Length-prefixed format: `[4-byte length][FrameBundle proto bytes]`
 
-### 4.2 Determinism Rules
+### 4.2 Determinism rules
 
 For reproducible replay:
 
@@ -281,11 +281,11 @@ For reproducible replay:
 
 ---
 
-## 5. LidarView Adapter
+## 5. LidarView adapter
 
 The existing LidarView forwarding path is **preserved unchanged**.
 
-### 5.1 Adapter Architecture
+### 5.1 Adapter architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -309,7 +309,7 @@ The existing LidarView forwarding path is **preserved unchanged**.
     └───────────────┘ └───────────────┘ └───────────────┘
 ```
 
-### 5.2 Adapter Implementation
+### 5.2 Adapter implementation
 
 The LidarView adapter (`internal/lidar/network/foreground_forwarder.go`) continues to:
 
@@ -319,7 +319,7 @@ The LidarView adapter (`internal/lidar/network/foreground_forwarder.go`) continu
 
 **No changes required** to the adapter. It consumes polar points directly from `TrackingPipelineConfig.FgForwarder`.
 
-### 5.3 Comparison Workflow
+### 5.3 Comparison workflow
 
 For regression testing:
 
@@ -331,9 +331,9 @@ For regression testing:
 
 ---
 
-## 6. Bandwidth/Performance Modes
+## 6. Bandwidth/Performance modes
 
-### 6.1 Full Mode
+### 6.1 Full mode
 
 All data at full fidelity:
 
@@ -342,28 +342,28 @@ All data at full fidelity:
 - Tracks: ~20 × 200 bytes = ~4 KB/frame
 - **Total**: ~1.1 MB/frame × 10-20 Hz = ~11-22 MB/s
 
-### 6.2 Foreground-Only Mode
+### 6.2 Foreground-Only mode
 
 Only foreground points (typically 5-10% of total):
 
 - Points: 7,000 per frame × 16 bytes = ~112 KB/frame
 - **Total**: ~120 KB/frame × 10-20 Hz = ~1.2-2.4 MB/s
 
-### 6.3 Tracks-Only Mode
+### 6.3 Tracks-Only mode
 
 No point cloud, clusters/tracks only:
 
 - **Total**: ~10 KB/frame × 10-20 Hz = ~100-200 KB/s
 
-### 6.4 Overlay Toggles
+### 6.4 Overlay toggles
 
 Client can request specific overlays to reduce payload:
 
-Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `show_points` and `show_gating` (expensive debug overlay) — see `OverlayModeRequest` in section 3.2.
+Example: set `show_clusters`, `show_tracks`, `show_trails` to true; disable `show_points` and `show_gating` (expensive debug overlay); see `OverlayModeRequest` in section 3.2.
 
 ---
 
-## 7. Related Documents
+## 7. Related documents
 
 - [velocity-visualiser-architecture.md](./architecture.md) – System architecture (includes problem statement)
 - [velocity-visualiser-implementation.md](./implementation.md) – Implementation milestones

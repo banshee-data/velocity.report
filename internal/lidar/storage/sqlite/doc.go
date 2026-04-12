@@ -23,7 +23,7 @@
 //   - track_measurement_sql.go — shared SQL column list, scan helpers, and insert args
 //   - lidar_all_tracks VIEW — UNION ALL for ad-hoc cross-table queries
 //
-// See docs/lidar/architecture/lidar-data-layer-model.md §L5/L8 for the
+// See docs/lidar/architecture/LIDAR_ARCHITECTURE.md §L5/L8 for the
 // full layer context.
 //
 // See docs/lidar/architecture/lidar-layer-alignment-refactor-review.md §2

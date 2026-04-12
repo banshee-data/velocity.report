@@ -1,16 +1,16 @@
-# LiDAR Foundations Fix-It
+# LiDAR foundations fix-it
 
 Progress of the LiDAR foundations fix-it pass, which stabilises documentation accuracy and closes implementation gaps in the production pipeline.
 
 ## Goal
 
-Stabilize documentation and implementation boundaries so downstream work depends on explicit, accurate foundations.
+Stabilise documentation and implementation boundaries so downstream work depends on explicit, accurate foundations.
 
-## Completed in This Pass
+## Completed in this pass
 
 1. Region-adaptive parameter parity fixed on the production path:
    - `internal/lidar/l3grid/foreground.go`
-   - `ProcessFramePolarWithMask` now applies per-region noise/neighbor/alpha overrides.
+   - `ProcessFramePolarWithMask` now applies per-region noise/neighbour/alpha overrides.
 2. Runtime tuning parity improvement:
    - `internal/lidar/monitor/webserver.go`
    - `/api/lidar/params` POST now supports `max_tracks`.
@@ -20,7 +20,7 @@ Stabilize documentation and implementation boundaries so downstream work depends
 4. Validation:
    - `go test ./internal/lidar/...` passed.
 
-## Remaining Gaps (Write-Up + Follow-Up)
+## Remaining gaps (write-up + follow-up)
 
 ### High
 
@@ -37,7 +37,7 @@ Stabilize documentation and implementation boundaries so downstream work depends
 
 1. Several non-foundational placeholders and partial tooling paths are still present (export/visualiser ancillary flows).
 
-## Foundation Policy (Effective Now)
+## Foundation policy (effective now)
 
 1. Mark every algorithm doc section as one of: `Implemented`, `Planned`, `Deprecated`.
 2. Keep vector-grid and velocity-coherent workstreams separated by a mask-level contract.

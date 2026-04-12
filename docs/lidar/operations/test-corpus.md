@@ -1,4 +1,4 @@
-# Test Corpus
+# Test corpus
 
 Five-PCAP test corpus using the Hesai P40 sensor, covering enough road geometry, traffic class, and scene diversity to validate tuning defaults and detect overfitting to a single site.
 
@@ -9,9 +9,9 @@ Five-PCAP test corpus using the Hesai P40 sensor, covering enough road geometry,
 
 ## Problem
 
-All provisional config defaults were tuned on kirk0 — a single capture at one site. The overfitting risk is real: kirk0 may be flat (sloped-road defaults untested), may over-represent one vehicle class, may lack kerbs/junctions/long-range views, and one capture cannot cover wet/dry/wind conditions.
+All provisional config defaults were tuned on kirk0: a single capture at one site. The overfitting risk is real: kirk0 may be flat (sloped-road defaults untested), may over-represent one vehicle class, may lack kerbs/junctions/long-range views, and one capture cannot cover wet/dry/wind conditions.
 
-## Corpus Specification
+## Corpus specification
 
 All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually labelled tracks covering car, truck, cyclist, and pedestrian at minimum.
 
@@ -23,14 +23,14 @@ All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually label
 | 4   | junction1 | Multi-lane road or junction               | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned    |
 | 5   | rural1    | Rural or semi-rural road                  | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned    |
 
-### Site Selection Criteria
+### Site selection criteria
 
 - Each site should exercise a different failure mode of the current pipeline
 - At least two sites with visible kerbs for ground-plane validation
 - At least one site with pedestrians and cyclists for classification validation
 - At least one site with vehicles at > 20 m/s for high-speed tracking validation
 
-### Capture Requirements
+### Capture requirements
 
 - Sensor: Hesai P40 at 10 Hz
 - Duration: ≥ 5 minutes continuous traffic (≥ 3,000 frames)
@@ -38,7 +38,7 @@ All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually label
 - Storage: Git LFS under `internal/lidar/perf/pcap/`
 - GPS: Record GPS fix alongside capture (for geo-referencing, not pipeline processing)
 
-### Labelling Requirements
+### Labelling requirements
 
 Per PCAP, create a labelled reference analysis run: ≥ 20 vehicle tracks, ≥ 5 cyclist tracks, ≥ 5 pedestrian tracks (where present). Labels stored via track-labelling UI. Scene `reference_run_id` set for `GroundTruthEvaluator` comparison.
 
@@ -63,6 +63,6 @@ Per PCAP, create a labelled reference analysis run: ≥ 20 vehicle tracks, ≥ 5
 
 ## Non-Goals
 
-- Multi-sensor corpus (different LiDAR models) — deferred until single-sensor defaults validated
-- Weather variation within initial corpus — one clear-weather capture per site
-- Synthetic PCAPs — all captures must be real-world data
+- Multi-sensor corpus (different LiDAR models): deferred until single-sensor defaults validated
+- Weather variation within initial corpus: one clear-weather capture per site
+- Synthetic PCAPs: all captures must be real-world data

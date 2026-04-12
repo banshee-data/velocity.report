@@ -1,8 +1,8 @@
-# Go Logging Streams Unification Plan (v0.6+)
+# Go logging streams unification plan (v0.6+)
 
 - **Status:** Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.6.0 — unified logging streams and configuration across the Go codebase
+- **Target:** v0.6.0; unified logging streams and configuration across the Go codebase
 - **Prerequisite plans:**
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (v0.5.x)
 - **Existing design:**
@@ -13,9 +13,9 @@
 
 The Go codebase uses three distinct logging mechanisms:
 
-1. `log.Printf()` — standard library, no levels, no structure
-2. `fmt.Printf()` — not logging at all, just prints to stdout
-3. `monitoring.Logf` — package-level function pointer, replaceable but not structured
+1. `log.Printf()`: standard library, no levels, no structure
+2. `fmt.Printf()`: not logging at all, just prints to stdout
+3. `monitoring.Logf`: package-level function pointer, replaceable but not structured
 
 Emoji appears in log output (`⚠️ WARNING`). Outside the LiDAR pipeline, logs have no consistent levels and no structured key-value pairs.
 There is no correlation between a request and its log lines. On a Raspberry Pi running as a systemd service,
@@ -28,13 +28,13 @@ replaced the single `Debugf` stream with three explicit streams (`Opsf`, `Diagf`
 routed by a severity × volume rubric. That migration is complete for the LiDAR packages
 (55 call sites across `l1packets`, `l2frames`, `l3grid`, `pipeline`, `visualiser`).
 
-This plan extends the same three-stream model to the rest of the Go codebase — the HTTP
-API layer, the database package, the serial multiplexer, and the deployment tools — and
+This plan extends the same three-stream model to the rest of the Go codebase: the HTTP
+API layer, the database package, the serial multiplexer, and the deployment tools: and
 wires the streams to a unified output configuration.
 
-## Design Principles
+## Design principles
 
-### Align with the LiDAR Rubric
+### Align with the LiDAR rubric
 
 The LiDAR logging rubric defines three streams:
 
@@ -54,30 +54,30 @@ This plan applies the same model to non-LiDAR packages. The streams are the same
 routing rubric is the same. The only difference is that most non-LiDAR code produces `ops`
 and `diag` messages; `trace` is rare outside the pipeline.
 
-### Do Not Introduce a Fourth Pattern
+### Do not introduce a fourth pattern
 
 The LiDAR packages use `Opsf`/`Diagf`/`Tracef` function-pointer loggers set via
 `SetLogWriters`. This plan does not layer `log/slog` on top. The existing stream model is
 the target. The migration replaces `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls
-with the appropriate stream function — it does not introduce a new logging framework.
+with the appropriate stream function: it does not introduce a new logging framework.
 
 Structured logging (JSON fields, correlation IDs, external log pipeline integration) remains
 out of scope, consistent with the LiDAR rubric design document.
 
-### One Configuration Surface
+### One configuration surface
 
 The LiDAR rubric defines two runtime controls:
 
-- `--log-level ops|diag|trace` (CLI flag, default: `ops`) — verbosity threshold
-- `VELOCITY_DEBUG_LOG` (env var) — file path for debug output
+- `--log-level ops|diag|trace` (CLI flag, default: `ops`); verbosity threshold
+- `VELOCITY_DEBUG_LOG` (env var): file path for debug output
 
 These controls should apply to the entire process, not just LiDAR packages. The
 configuration surface is set once at startup in `cmd/radar/radar.go` and propagated to all
 packages.
 
-## Backlog Items
+## Backlog items
 
-### Item 1: Extend Stream API to Non-LiDAR Packages
+### Item 1: extend stream API to non-LiDAR packages
 
 **Summary:** Expose the `ops`/`diag`/`trace` stream functions to packages outside
 `internal/lidar/`. Migrate `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls to the
@@ -90,15 +90,15 @@ appropriate stream.
    - Promote the stream API to a shared package (e.g. `internal/logstreams/`)
    - Re-export from `internal/monitoring/` which already exists as the cross-cutting
      logging package
-2. **Migrate `internal/api/`** — replace `log.Printf` calls in HTTP handlers with `Opsf`
+2. **Migrate `internal/api/`**: replace `log.Printf` calls in HTTP handlers with `Opsf`
    (errors) or `Diagf` (lifecycle/request diagnostics)
-3. **Migrate `internal/db/`** — replace `log.Printf` calls with `Opsf` (migration warnings,
+3. **Migrate `internal/db/`**: replace `log.Printf` calls with `Opsf` (migration warnings,
    schema sync failures) or `Diagf` (transit worker progress, stats)
-4. **Migrate `internal/serialmux/`** — replace `log.Printf` calls with `Opsf` (parse
+4. **Migrate `internal/serialmux/`**: replace `log.Printf` calls with `Opsf` (parse
    errors, dropped data) or `Diagf` (device state changes, connection lifecycle)
-5. **Migrate `cmd/radar/`** — replace `log.Printf`/`fmt.Printf` calls in startup code with
+5. **Migrate `cmd/radar/`**: replace `log.Printf`/`fmt.Printf` calls in startup code with
    `Opsf` (startup failures) or `Diagf` (configuration summary, version banner)
-6. **Retire `monitoring.Logf`** — once all call sites are migrated, remove the function
+6. **Retire `monitoring.Logf`**: once all call sites are migrated, remove the function
    pointer and `SetLogger` API
 7. **Remove emoji** from all log messages
 
@@ -111,7 +111,7 @@ The following is an indicative audit. Exact line numbers will shift as v0.5.x ch
 | `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
 | `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
 | `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
-| `monitoring/` | `Logf` (function pointer)   | 1     | — (remove)     |
+| `monitoring/` | `Logf` (function pointer)   | 1     | : (remove)     |
 | `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
 | `cmd/deploy/` | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
 | `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
@@ -123,10 +123,10 @@ the migration applies to the final file layout.
 
 ---
 
-### Item 2: Unified Stream Configuration
+### Item 2: unified stream configuration
 
 **Summary:** Wire the `--log-level` flag and `VELOCITY_DEBUG_LOG` env var to configure all
-streams — LiDAR and non-LiDAR — from a single startup path.
+streams: LiDAR and non-LiDAR; from a single startup path.
 
 **Scope:**
 
@@ -147,7 +147,7 @@ the wiring to the rest of the process.
 
 ---
 
-### Item 3: Test Infrastructure — Flaky Sleep Elimination
+### Item 3: test infrastructure; flaky sleep elimination
 
 **Summary:** Replace `time.Sleep` synchronisation in test files with deterministic polling
 helpers.
@@ -162,7 +162,7 @@ for eliminating `time.Sleep` in tests across the codebase.
 1. Add `WaitFor(t, condition func() bool, timeout)` to `internal/testutil/`
 2. Migrate the 9 `time.Sleep` test files to use polling helpers or `MockClock.Advance()`
 3. Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical DB test helpers
-4. Standardise database test setup — deprecate raw `sql.Open` patterns
+4. Standardise database test setup: deprecate raw `sql.Open` patterns
 
 **Estimated effort:** 2–3 days. Incremental, no functional changes.
 
@@ -173,7 +173,7 @@ once Phase A lands.
 
 ---
 
-## Scheduling Recommendation
+## Scheduling recommendation
 
 | Milestone | Items                                      | Rationale                                           |
 | --------- | ------------------------------------------ | --------------------------------------------------- |
@@ -183,20 +183,20 @@ once Phase A lands.
 Items 1 and 2 are sequential (2 depends on 1). Item 3 is independent and can proceed in
 parallel.
 
-## What This Plan Does Not Cover
+## What this plan does not cover
 
-- **Structured logging** (JSON fields, correlation IDs, external log pipelines) — the
+- **Structured logging** (JSON fields, correlation IDs, external log pipelines): the
   LiDAR rubric design explicitly marks this out of scope. If needed later, it can be layered
   on top of the three-stream model without changing call sites.
-- **LiDAR package logging** — already migrated per the
+- **LiDAR package logging**: already migrated per the
   [rubric design](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md).
   This plan only extends the model to non-LiDAR packages.
-- **v0.5.x structural issues** — covered in the
+- **v0.5.x structural issues**: covered in the
   [hygiene plan](go-codebase-structural-hygiene-plan.md).
 
 ## Verification
 
-1. `make lint-go && make test-go` — no regressions
+1. `make lint-go && make test-go`: no regressions
 2. `grep -RInE 'log\.Printf|fmt\.Printf|monitoring\.Logf' internal/ cmd/` returns zero
    matches (excluding generated code and test files that legitimately use `log` for test
    output)

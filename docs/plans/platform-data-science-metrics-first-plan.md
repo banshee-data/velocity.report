@@ -1,4 +1,4 @@
-# Metrics-First Data Science Plan
+# Metrics-First data science plan
 
 - **Canonical:** [data-science-methodology.md](../platform/operations/data-science-methodology.md)
 
@@ -12,7 +12,7 @@ This document defines velocity.report's repo-wide data science stance: the criti
 
 Give contributors one consistent contract for data science work across the repo: what is critical path, what evidence is required for algorithm changes, and how future classification research is allowed to proceed without turning the runtime into a black box.
 
-## Critical-Path Position
+## Critical-Path position
 
 1. **No black boxes in the live pipeline.**
    Runtime perception, tracking, scoring, and reporting paths must remain spec-driven and inspectable.
@@ -23,7 +23,7 @@ Give contributors one consistent contract for data science work across the repo:
 4. **Metrics beat intuition.**
    Tuning, tradeoffs, and regressions must be discussed through explicit benchmark metrics, not anecdotal screenshots or one-off scenes.
 
-## What Data Science Means In This Repo
+## What data science means in this repo
 
 The near-term data science role is primarily:
 
@@ -36,7 +36,7 @@ The near-term data science role is primarily:
 
 This is deliberately closer to actuarial analysis, experimental design, and quantitative QA than to model-centric ML engineering.
 
-## Reproducibility Contract
+## Reproducibility contract
 
 Every benchmarkable experiment should record:
 
@@ -50,7 +50,7 @@ Every benchmarkable experiment should record:
 
 Winning a comparison means improving the agreed scorecard on the same replay pack, not merely looking better in an isolated session.
 
-## Evidence Package Contract
+## Evidence package contract
 
 Every investigation that influences defaults, thresholds, or roadmap priority should also answer:
 
@@ -63,43 +63,43 @@ Every investigation that influences defaults, thresholds, or roadmap priority sh
 
 If the write-up cannot identify the input artifact set and comparison date, it is not strong enough to justify a runtime or documentation change.
 
-## Current Evidence Inventory
+## Current evidence inventory
 
 The repo already contains the beginnings of a reproducible data-science corpus. As of March 10, 2026, the most important pieces are:
 
-- `internal/lidar/perf/pcap/kirk0.pcapng` plus `scripts/validate-lfs-files.sh` — the main LFS-backed replay artifact currently called out for validation.
-- `internal/lidar/perf/baseline/baseline-kirk0.json` and `internal/lidar/perf/baseline/baseline-kirk0-ci.json` — saved performance baselines for replay comparison.
-- `data/explore/kirk0-lifecycle/` — parameter-permutation investigation outputs tied to `kirk0.pcapng`.
-- `data/explore/convergence-neighbour/` — neighbour-confirmation sweep analysis and findings.
-- `docs/lidar/operations/parameter-comparison.md`, `docs/lidar/operations/config-param-tuning.md`, and `docs/lidar/operations/auto-tuning.md` — the current parameter-study and scoring guidance.
-- `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` — the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
-- `data/structures/VRLOG_FORMAT.md` and `data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md` — the current `.vrlog` recording contract and exploratory analysis/report format.
+- `internal/lidar/perf/pcap/kirk0.pcapng` plus `scripts/validate-lfs-files.sh`: the main LFS-backed replay artifact currently called out for validation.
+- `internal/lidar/perf/baseline/baseline-kirk0.json` and `internal/lidar/perf/baseline/baseline-kirk0-ci.json`: saved performance baselines for replay comparison.
+- `data/explore/kirk0-lifecycle/`: parameter-permutation investigation outputs tied to `kirk0.pcapng`.
+- `data/explore/convergence-neighbour/`: neighbour-confirmation sweep analysis and findings.
+- `docs/lidar/operations/parameter-comparison.md`, `docs/lidar/operations/config-param-tuning.md`, and `docs/lidar/operations/auto-tuning.md`: the current parameter-study and scoring guidance.
+- `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md`: the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
+- `data/structures/VRLOG_FORMAT.md` and `data/structures/VRLOG_ANALYSIS_FORMAT.md`: the current `.vrlog` recording contract and exploratory analysis/report format.
 
 This inventory is not complete. One standing task for data-science work is to keep a clearer map of which investigations, scorecards, and artifact packs are canonical versus exploratory.
 
-## Core Workstreams
+## Core workstreams
 
-### 1. Scorecards and Specs
+### 1. Scorecards and specs
 
 Define the metrics that matter for the product: detection coverage, fragmentation, false positives, velocity coverage, stability, calibration of labels, and traffic-engineering aggregates that appear in reports.
 
-### 2. Replayable Benchmark Packs
+### 2. Replayable benchmark packs
 
 Maintain fixed scenes, labelled runs, and comparison procedures so that algorithm changes can be measured under repeatable conditions.
 
-### 3. Threshold and Parameter Studies
+### 3. Threshold and parameter studies
 
 Prefer explicit, documented threshold studies and parameter sweeps over opaque fitting. When a threshold changes, the supporting metrics should be easy to inspect and explain.
 
-### 4. User-Facing Metric Design
+### 4. User-Facing metric design
 
 Shape the transit schema, report metrics, and comparison summaries so they match traffic-engineering language and can be audited by non-ML contributors.
 
-### 5. Optional Classification Research
+### 5. Optional classification research
 
 Future classification work is allowed, but only as an offline research lane that compares candidate approaches against the current transparent baseline on fixed benchmarks.
 
-## Model Policy
+## Model policy
 
 If classification research proceeds, it must follow these rules:
 
@@ -118,7 +118,7 @@ Opaque end-to-end models, hidden embeddings, or cloud-only training loops are ou
 - Shipping auto-tuning logic that cannot explain its score inputs.
 - Optimising for leaderboard metrics that do not map to product-visible outcomes.
 
-## Open Questions
+## Open questions
 
 As of March 10, 2026, the highest-value open questions are:
 
@@ -147,7 +147,7 @@ As of March 10, 2026, the highest-value open questions are:
 
 These questions are intended to produce dated answers with artifact-backed comparisons, not discussion-only design notes.
 
-## Near-Term Alignment
+## Near-Term alignment
 
 1. Rename the contributor persona from `ML & Data Scientist` to `Data Scientist`.
 2. Treat labelled runs, scorecards, and reproducible tuning as the main data science work.

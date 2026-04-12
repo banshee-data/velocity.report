@@ -1,4 +1,4 @@
-# Experiment: Multi-Key Parameter Interaction Grid Search
+# Experiment: multi-key parameter interaction grid search
 
 - **Status:** Proposed (depends on per-layer sweep results)
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks
@@ -20,7 +20,7 @@ The per-layer sweep experiments
 [L4](l4-clustering-parameter-sweep.md),
 [L5](l5-tracking-noise-parameter-sweep.md))
 each sweep one key at a time while holding others at defaults. This is
-efficient but can miss interactions — for example, a smaller
+efficient but can miss interactions: for example, a smaller
 `foreground_dbscan_eps` might need a compensating reduction in
 `foreground_min_cluster_points` to maintain recall.
 
@@ -93,5 +93,5 @@ Depends on completion of per-layer sweeps. Cannot start until at least
 - [L3 background settling sweep](l3-background-settling-sweep.md)
 - [L4 clustering parameter sweep](l4-clustering-parameter-sweep.md)
 - [L5 tracking noise parameter sweep](l5-tracking-noise-parameter-sweep.md)
-- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md) — sweep infrastructure
-- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md) — evidence classification
+- [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure
+- [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification

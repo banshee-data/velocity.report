@@ -21,19 +21,20 @@ accurate, navigable, and sized for purpose.
 ## Goals
 
 1. Every Markdown link resolves to a real file.
-2. Every completed plan is graduated (symlink + hub-doc consolidation).
-3. No spec document exceeds the length target without justification.
-4. Large documents with distinct topics are split into focused files.
-5. Open design questions are surfaced; answered questions are recorded.
-6. Design decision tables reflect current implementation, not stale drafts.
-7. Documentation included in the disk image is complete and correct.
+2. Key document references use Markdown links, not backtick-quoted file paths.
+3. Every completed plan is graduated (symlink + hub-doc consolidation).
+4. No spec document exceeds the length target without justification.
+5. Large documents with distinct topics are split into focused files.
+6. Open design questions are surfaced; answered questions are recorded.
+7. Design decision tables reflect current implementation, not stale drafts.
+8. Documentation included in the disk image is complete and correct.
 
 ## Rubrics
 
-### Length Target: 800 Lines
+### Length target: 800 lines
 
 Specification and architecture documents should target **≤ 800 lines**. This
-is a guideline, not a hard wall — a 900-line doc with dense tables is fine;
+is a guideline, not a hard wall: a 900-line doc with dense tables is fine;
 a 2,000-line doc that wanders is not.
 
 **What to cut / what to keep:** see STYLE.md § Documentation Structure for the
@@ -41,7 +42,7 @@ canonical rule on code blocks in docs. The short version: if a block could be
 pasted into a source file and compiled, replace it with prose, a field table,
 or a file reference.
 
-### Split Threshold
+### Split threshold
 
 If a document covers two or more clearly independent topics and exceeds
 800 lines, split it:
@@ -53,25 +54,25 @@ If a document covers two or more clearly independent topics and exceeds
 Example: a vector scene map doc that also specifies the geometry-prior
 service should split the prior service into its own file.
 
-### Open Questions
+### Open questions
 
 Every spec should have an **Open Questions** section (or confirm none remain).
 Questions fall into two categories:
 
-- **Open** — genuinely unanswered. State the question, the trade-offs, and
+- **Open**: genuinely unanswered. State the question, the trade-offs, and
   any recommendations. Do not fabricate answers.
-- **Resolved** — answered by the author or through implementation. Move to a
+- **Resolved**: answered by the author or through implementation. Move to a
   **Resolved Design Questions** or **Design Decisions** table with the
   actual resolution.
 
 **Never invent answers to open questions.** If the answer is unknown, leave
 the question open and surface it to the operator.
 
-### Plan Files vs Reference Docs
+### Plan files vs reference docs
 
 Reference documents (architecture overviews, CLI guides, API references,
 configuration docs) describe the system **as it is implemented right now**.
-Plan files (`docs/plans/`) describe **future work** — proposed features,
+Plan files (`docs/plans/`) describe **future work**: proposed features,
 restructuring ideas, phased rollouts, aspirational architectures.
 
 **The boundary rule:** if a section describes something that does not exist
@@ -89,13 +90,13 @@ in the codebase today, it belongs in a plan file, not in a reference doc.
    move **from** the plan file **into** the reference doc. The plan file
    then becomes a candidate for graduation (symlink).
 
-**Ghost entries** — features documented as current but actually deleted,
-renamed, or never implemented — are the most dangerous form of stale
+**Ghost entries**: features documented as current but actually deleted,
+renamed, or never implemented: are the most dangerous form of stale
 content. Each audit pass should verify implementation status against the
 source code, ideally by checking the actual flag definitions, route
 registrations, or binary directories.
 
-### Design Decision Tables
+### Design decision tables
 
 Every spec with non-trivial design choices should have a decision table:
 
@@ -109,9 +110,9 @@ each entry against the codebase or the author's stated intent.
 
 ## Procedure
 
-### 1. Fix Links
+### 1. Fix links
 
-Run the fix-links skill first — broken links undermine every subsequent step.
+Run the fix-links skill first: broken links undermine every subsequent step.
 
 ```
 /fix-links
@@ -122,12 +123,40 @@ Or manually:
 ```bash
 python3 scripts/check-relative-links.py --report 2>&1
 python3 scripts/check-backtick-paths.py --report 2>&1
+python3 scripts/check-backtick-file-links.py --report 2>&1
+```
+
+Key documents gate (README "🔑 key documents" section):
+
+- Every document reference in that section must be a Markdown link
+  (`[label](path)`), not a standalone backtick-quoted file path. <!-- link-ignore -->
+- Every linked target must resolve to an existing file.
+
+```bash
+# Should print "No standalone backtick file references found."
+python3 scripts/check-backtick-file-links.py --report \
+  TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
+  CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
+  docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
+  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  CODE_OF_CONDUCT.md
+
+# Auto-fix resolvable standalone backtick file refs to Markdown links
+python3 scripts/check-backtick-file-links.py --fix \
+  TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
+  CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
+  docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
+  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  CODE_OF_CONDUCT.md
+
+# Validate links in README (includes key-docs section)
+python3 scripts/check-relative-links.py --report README.md
 ```
 
 Fix all automatically resolvable links. Surface ambiguous cases to the
 operator.
 
-### 2. Graduate Completed Plans
+### 2. Graduate completed plans
 
 List all plan files and check for graduation eligibility:
 
@@ -150,7 +179,7 @@ If it is a regular file (not a symlink), run:
 Respect the two-PR rule: a plan must be Complete on `main` before the
 symlink PR. If the completion hasn't landed yet, note it for the next cycle.
 
-### 3. Audit Document Length
+### 3. Audit document length
 
 ```bash
 find docs/ -name '*.md' -not -path '*/plans/*' | while read f; do
@@ -172,7 +201,7 @@ For each document over the target:
 
 Report the before/after line counts.
 
-### 4. Resolve Open Questions
+### 4. Resolve open questions
 
 For each spec under `docs/`:
 
@@ -187,7 +216,7 @@ Read each Open Questions section. For each question:
 - If it is still genuinely open, leave it and surface to the operator.
 - **Do not fabricate answers.**
 
-### 5. Update Design Decision Tables
+### 5. Update design decision tables
 
 For each spec with a Design Decisions or Resolved Design Questions table:
 
@@ -195,11 +224,36 @@ For each spec with a Design Decisions or Resolved Design Questions table:
 - Update entries that have drifted from implementation.
 - Add new decisions that were made during implementation but not recorded.
 
-### 6. Tone and Style Pass
+### 6. Prose width check
+
+Run the advisory prose-width check and review the output. This never blocks
+CI: it is a quality signal, not a gate.
+
+```bash
+make check-prose-width
+```
+
+Or directly:
+
+```bash
+python3 scripts/check-prose-line-width.py --report
+```
+
+The script checks running prose only. Fenced code blocks, tables, headings,
+image references, and link definitions are excluded. The limit is 100 columns.
+
+For each violation: assess whether it is a long URL (acceptable), a list item
+that cannot wrap cleanly (acceptable), or genuine overlong prose (fix it).
+Do not wrap lines mid-sentence to hit the number; Prettier handles that on
+`make format-docs`.
+
+### 7. Tone and style pass
 
 Quick scan for the most common tone issues:
 
 - [ ] **Heading case:** sentence case, not title case (except brand names).
+- [ ] **File references in prose:** use Markdown links for files and paths,
+      not backtick-only file references.
 - [ ] **Anti-phrases:** replace `utilise`, `leverages`, `cutting-edge`,
       `seamless`, `end-to-end` on sight.
 - [ ] **Passive voice accumulation:** rewrite passages with 3+ consecutive
@@ -207,7 +261,7 @@ Quick scan for the most common tone issues:
 - [ ] **Product name:** `velocity.report` (lowercase v, no spaces).
 - [ ] **British English:** `-ise` not `-ize`, `-our` not `-or`.
 
-### 7. Disk Image Readiness
+### 8. Disk image readiness
 
 Check that documentation referenced by the disk image build is present and
 correct:
@@ -231,7 +285,7 @@ Verify:
 - [ ] `TROUBLESHOOTING.md` covers known deployment issues.
 - [ ] Any docs bundled in the image (`static/`, `web/build/`) are up to date.
 
-### 8. Report
+### 9. Report
 
 Print a summary:
 
@@ -250,16 +304,16 @@ Print a summary:
 Next: review changes, then /ship-change
 ```
 
-## When to Run
+## When to run
 
 - Before every point release (part of the release checklist).
 - Before building a disk image for deployment.
 - After a major documentation branch lands on `main`.
 - Quarterly, as a documentation health check.
 
-## What This Skill Does Not Do
+## What this skill does not do
 
 - Does not write new documentation from scratch.
-- Does not make architectural decisions — surfaces them to the operator.
-- Does not commit or push — leaves changes staged for review.
-- Does not restructure code — only documentation files.
+- Does not make architectural decisions: surfaces them to the operator.
+- Does not commit or push: leaves changes staged for review.
+- Does not restructure code: only documentation files.

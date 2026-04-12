@@ -1,4 +1,4 @@
-# L2 Dual Representation (Polar and Cartesian)
+# L2 dual representation (polar and cartesian)
 
 - **Status:** Implemented
 
@@ -12,7 +12,7 @@ stored polar slice directly; L2/L9 consumers continue reading Cartesian.
 This removes the per-frame `frame.Points → []PointPolar` rebuild in the
 tracking callback without changing clustering/tracking maths.
 
-## LiDARFrame Shape
+## LiDARFrame shape
 
 ```go
 type LiDARFrame struct {
@@ -30,7 +30,7 @@ type LiDARFrame struct {
 - `len(frame.PolarPoints) == len(frame.Points)` for every completed frame.
 - Per-index metadata matches between views.
 
-## Consumer Access
+## Consumer access
 
 | Consumer                    | Reads                                   |
 | --------------------------- | --------------------------------------- |
@@ -43,7 +43,7 @@ type LiDARFrame struct {
 
 ## Risks
 
-- **Memory growth** — two views per frame. Acceptable only if transient
+- **Memory growth**: two views per frame. Acceptable only if transient
   hot-path allocations are removed.
-- **Partial migration** — no consumer should silently rebuild its own polar
+- **Partial migration**: no consumer should silently rebuild its own polar
   slice. The old rebuild path must be deleted.

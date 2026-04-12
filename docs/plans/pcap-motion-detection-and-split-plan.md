@@ -1,4 +1,4 @@
-# PCAP Motion Detection and Scene Split Plan
+# PCAP motion detection and scene split plan
 
 - **Status:** Proposed
 - **Layers:** L1 Packets, L3 Grid, CLI Tools
@@ -8,34 +8,34 @@
 
 ## 1. Problem
 
-Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods — motion segments are unusable for perception but still occupy analysis time. Today an operator must manually scrub through captures, guess transition points, and split files with external tools (tcpdump, editcap). This is slow, error-prone, and blocks the mobile-observation workflow.
+Long PCAP captures from mobile observation sessions contain mixed driving and parked data. The background model only functions during static periods: motion segments are unusable for perception but still occupy analysis time. Today an operator must manually scrub through captures, guess transition points, and split files with external tools (tcpdump, editcap). This is slow, error-prone, and blocks the mobile-observation workflow.
 
-## 2. What Already Exists
+## 2. What already exists
 
-| Capability                  | Location                                      | Status                                                             |
-| --------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| `CheckForSensorMovement()`  | `internal/lidar/l3grid/background_drift.go`   | Implemented — foreground-ratio spike detector (>20% threshold)     |
-| `IsSettlingComplete()`      | `internal/lidar/l3grid/background_manager.go` | Implemented — settling convergence check                           |
-| `GetGridStatus()`           | `internal/lidar/l3grid/background_manager.go` | Implemented — total/frozen/times-seen cell stats                   |
-| Region classification       | `internal/lidar/l3grid/background_region.go`  | Implemented — stable/variable/volatile regions after settling      |
-| Scene hash matching         | `internal/lidar/l3grid/background.go`         | Implemented — SHA256 hash for location fingerprinting              |
-| pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented — full pipeline with stats, benchmark, CSV/JSON export |
-| pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                   |
+| Capability                  | Location                                      | Status                                                            |
+| --------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| `CheckForSensorMovement()`  | `internal/lidar/l3grid/background_drift.go`   | Implemented: foreground-ratio spike detector (>20% threshold)     |
+| `IsSettlingComplete()`      | `internal/lidar/l3grid/background_manager.go` | Implemented: settling convergence check                           |
+| `GetGridStatus()`           | `internal/lidar/l3grid/background_manager.go` | Implemented: total/frozen/times-seen cell stats                   |
+| Region classification       | `internal/lidar/l3grid/background_region.go`  | Implemented: stable/variable/volatile regions after settling      |
+| Scene hash matching         | `internal/lidar/l3grid/background.go`         | Implemented: SHA256 hash for location fingerprinting              |
+| pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented: full pipeline with stats, benchmark, CSV/JSON export |
+| pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                  |
 
-### Gap Analysis
+### Gap analysis
 
 The pcap-split design doc is comprehensive and sound. The primary gaps before shipping are:
 
-1. **No per-frame settling metrics API** — `BackgroundManager` exposes settling completion and grid status but not the per-frame `FrameSettlingMetrics` struct the analyser needs (settled cell count, percent settled, noise deviation). These metrics exist internally but are not surfaced.
-2. **No noise bounds deviation API** — the design calls for `GetNoiseBoundsDeviation()` and `IsWithinNoiseBounds()`; neither exists.
-3. **No PCAP writer** — the project reads PCAPs (via gopacket) but never writes them. A new `SegmentWriter` with proper PCAP header handling is needed.
-4. **pcap-analyse has no motion awareness** — it processes every frame identically regardless of sensor movement. Adding a `--motion` flag that tags frames and reports static/motion periods is a lightweight prerequisite that validates the detection algorithm before building the full splitter.
+1. **No per-frame settling metrics API**: `BackgroundManager` exposes settling completion and grid status but not the per-frame `FrameSettlingMetrics` struct the analyser needs (settled cell count, percent settled, noise deviation). These metrics exist internally but are not surfaced.
+2. **No noise bounds deviation API**: the design calls for `GetNoiseBoundsDeviation()` and `IsWithinNoiseBounds()`; neither exists.
+3. **No PCAP writer**: the project reads PCAPs (via gopacket) but never writes them. A new `SegmentWriter` with proper PCAP header handling is needed.
+4. **pcap-analyse has no motion awareness**: it processes every frame identically regardless of sensor movement. Adding a `--motion` flag that tags frames and reports static/motion periods is a lightweight prerequisite that validates the detection algorithm before building the full splitter.
 
 ## 3. Design
 
-### 3.1 Phased Delivery
+### 3.1 Phased delivery
 
-**Phase 1 — Motion Detection in pcap-analyse** (`S`)
+**Phase 1: Motion Detection in pcap-analyse** (`S`)
 
 Add a `--motion` flag to pcap-analyse that:
 
@@ -53,9 +53,9 @@ Motion Timeline:
   [630.0s –  677.0s]  static   (0m 47s, settled after 60s)
 ```
 
-This is safe to ship without the splitter — it gives operators immediate visibility into capture quality and validates the detection heuristics against real-world PCAPs.
+This is safe to ship without the splitter: it gives operators immediate visibility into capture quality and validates the detection heuristics against real-world PCAPs.
 
-**Phase 2 — BackgroundManager API Extensions** (`S`)
+**Phase 2: BackgroundManager API Extensions** (`S`)
 
 Expose the three new APIs the settling analyser requires:
 
@@ -67,12 +67,12 @@ Expose the three new APIs the settling analyser requires:
 
 These are read-only accessors over existing grid data. No state changes, no new storage.
 
-**Phase 3 — pcap-split Tool** (`M`)
+**Phase 3: pcap-split Tool** (`M`)
 
 Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/pcap-analysis-mode.md#pcap-split-tool-planned):
 
-- `internal/lidar/pcapsplit/analyser.go` — settling analyser implementing `FrameBuilder`, state machine, metric tracking
-- `internal/lidar/pcapsplit/writer.go` — segment PCAP writer with sequential naming and packet buffering
+- `internal/lidar/pcapsplit/analyser.go`: settling analyser implementing `FrameBuilder`, state machine, metric tracking
+- `internal/lidar/pcapsplit/writer.go`: segment PCAP writer with sequential naming and packet buffering
 - CLI orchestrator with flags from the design doc
 - JSON/CSV metadata export and human-readable summary
 - Makefile target: `build-pcap-split`
@@ -105,7 +105,7 @@ Implement `cmd/tools/pcap-split/` per the [existing design](../lidar/operations/
 
 Phase 1 can use the existing `CheckForSensorMovement()` and `GetGridStatus()` for a simpler initial classifier. Phase 3 upgrades to the full settling analyser with the Phase 2 API extensions.
 
-### 3.3 State Machine (from pcap-split design)
+### 3.3 State machine (from pcap-split design)
 
 ```
       ┌──────────┐
@@ -125,7 +125,7 @@ Phase 1 can use the existing `CheckForSensorMovement()` and `GetGridStatus()` fo
 - Static → Motion: 5s sustained motion
 - Intersection bridging: stops < 30s stay in motion (configurable via `--max-motion-gap-sec`)
 
-### 3.4 Detection Criteria
+### 3.4 Detection criteria
 
 A frame is classified as **stable** when all four conditions hold:
 
@@ -136,16 +136,16 @@ A frame is classified as **stable** when all four conditions hold:
 
 Phase 1 uses a simplified version: conditions 1 and 2 only (available from existing APIs). Phase 3 adds conditions 3 and 4 via Phase 2 API extensions.
 
-## 4. Failure Modes
+## 4. Failure modes
 
 | Failure                                | Impact                                | Mitigation                                                  |
 | -------------------------------------- | ------------------------------------- | ----------------------------------------------------------- |
 | False motion trigger (wind, tree sway) | Over-segmentation                     | Hysteresis (60s sustained stability requirement)            |
 | Missed short stops at intersections    | Short static segments in motion data  | `--max-motion-gap-sec` bridges stops under threshold        |
 | PCAP ends mid-settling                 | Incomplete final segment              | Write partial segment with `incomplete: true` metadata flag |
-| Very large PCAP (>100 GB)              | Memory pressure from packet buffering | Streaming write — flush segment to disk on each transition  |
+| Very large PCAP (>100 GB)              | Memory pressure from packet buffering | Streaming write: flush segment to disk on each transition   |
 
-## 5. Testing Strategy
+## 5. Testing strategy
 
 | Phase   | Tests                                                                                                                                                       |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -153,19 +153,19 @@ Phase 1 uses a simplified version: conditions 1 and 2 only (available from exist
 | Phase 2 | Unit tests for each new `BackgroundManager` method; property: metrics are consistent with existing `GetGridStatus()`                                        |
 | Phase 3 | State machine unit tests (all transitions, edge cases); integration tests with crafted PCAPs; output PCAP integrity validation; metadata consistency checks |
 
-## 6. Effort and Dependencies
+## 6. Effort and dependencies
 
-| Phase                                | Effort | Dependencies                             |
-| ------------------------------------ | ------ | ---------------------------------------- |
-| Phase 1 — `--motion` in pcap-analyse | `S`    | None — uses existing APIs                |
-| Phase 2 — BackgroundManager API      | `S`    | None                                     |
-| Phase 3 — pcap-split tool            | `M`    | Phase 2; gopacket PCAP writer capability |
+| Phase                               | Effort | Dependencies                             |
+| ----------------------------------- | ------ | ---------------------------------------- |
+| Phase 1: `--motion` in pcap-analyse | `S`    | None; uses existing APIs                 |
+| Phase 2: BackgroundManager API      | `S`    | None                                     |
+| Phase 3: pcap-split tool            | `M`    | Phase 2; gopacket PCAP writer capability |
 
 Total: `M` (Phases 1+2 are `S` each and can ship independently; Phase 3 is the bulk).
 
-## 7. What This Plan Does Not Cover
+## 7. What this plan does not cover
 
-- **Real-time splitting** — live UDP stream segmentation (future Phase 5 in the design doc)
-- **ML-based classification** — the rule-based state machine is sufficient for the mobile-observation use case
-- **SLAM/odometry for motion segments** — motion segments are split out for future processing, not processed here
-- **Multi-sensor fusion** — single-sensor only
+- **Real-time splitting**: live UDP stream segmentation (future Phase 5 in the design doc)
+- **ML-based classification**: the rule-based state machine is sufficient for the mobile-observation use case
+- **SLAM/odometry for motion segments**: motion segments are split out for future processing, not processed here
+- **Multi-sensor fusion**: single-sensor only

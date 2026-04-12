@@ -1,4 +1,4 @@
-# Clustering Maths
+# Clustering maths
 
 - **Status:** Implementation-aligned math note
 - **Layers:** L4 Perception (`internal/lidar/l4perception`)
@@ -12,10 +12,10 @@ Pipeline math components:
 
 1. coordinate transform,
 2. optional voxel downsampling,
-3. DBSCAN neighborhood clustering,
+3. DBSCAN neighbourhood clustering,
 4. cluster feature extraction (medoid + OBB/PCA).
 
-## 2. Coordinate Transform
+## 2. Coordinate transform
 
 For polar point `(r, az, el)`:
 
@@ -29,7 +29,7 @@ World transform with row-major homogeneous matrix `T`:
 - `wy = T10*x + T11*y + T12*z + T13`
 - `wz = T20*x + T21*y + T22*z + T23`
 
-## 3. Optional Voxel Downsampling
+## 3. Optional voxel downsampling
 
 Voxel key for leaf size `l`:
 
@@ -42,9 +42,9 @@ For each occupied voxel:
 
 This preserves observed geometry better than stride decimation.
 
-## 4. DBSCAN Formulation
+## 4. DBSCAN formulation
 
-### 4.1 Neighborhood
+### 4.1 Neighbourhood
 
 Distance is 2D Euclidean in `(x,y)`:
 
@@ -62,9 +62,9 @@ Clusters are connected components grown from core points; noise points receive l
 
 A uniform grid with cell size near `eps` stores point indices.
 
-Neighborhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behaviour in typical scenes.
+Neighbourhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behaviour in typical scenes.
 
-## 5. Cluster-Level Geometry
+## 5. Cluster-Level geometry
 
 ## 5.1 Centroid as medoid
 
@@ -104,7 +104,7 @@ For `N` points:
 
 Memory is linear in `N`.
 
-## 7. Assumptions and Limits
+## 7. Assumptions and limits
 
 1. **2D density criterion (XY only)**
    - Works for road users; may merge vertically separated but planarly overlapping returns.
@@ -117,7 +117,7 @@ Memory is linear in `N`.
 5. **Density-based model sensitivity**
    - Sparse long-range points and occlusion edges can be labeled noise.
 
-## 8. Interface to Tracking
+## 8. Interface to tracking
 
 Tracking consumes:
 
@@ -127,7 +127,7 @@ Tracking consumes:
 
 Association quality is therefore jointly constrained by clustering noise and tracker gating math.
 
-## 9. Observability and Performance Benchmarking
+## 9. Observability and performance benchmarking
 
 Per-frame and per-track diagnostic metrics, a CI benchmark harness for DBSCAN/pipeline performance regression, and Raspberry Pi tuning guidance are specified in the companion plan:
 
@@ -143,12 +143,12 @@ Key areas covered:
 
 ## 10. References
 
-| Reference                       | BibTeX key         | Relevance                                                          |
-| ------------------------------- | ------------------ | ------------------------------------------------------------------ |
-| Ester et al. (1996)             | `Ester1996`        | Original DBSCAN algorithm (Section 4)                              |
-| Rusu & Cousins (2011)           | `Rusu2011`         | PCL VoxelGrid downsampling lineage (Section 3)                     |
-| Jolliffe (2002)                 | `Jolliffe2002`     | PCA eigenvector decomposition for OBB heading (Section 5.2)        |
-| Bogoslavskyi & Stachniss (2017) | `Bogoslavskyi2017` | Range-image connectivity as a future optimisation path to DBSCAN   |
-| Campello et al. (2013)          | `Campello2013`     | HDBSCAN — planned alternative engine for variable-density clusters |
+| Reference                       | BibTeX key         | Relevance                                                         |
+| ------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| Ester et al. (1996)             | `Ester1996`        | Original DBSCAN algorithm (Section 4)                             |
+| Rusu & Cousins (2011)           | `Rusu2011`         | PCL VoxelGrid downsampling lineage (Section 3)                    |
+| Jolliffe (2002)                 | `Jolliffe2002`     | PCA eigenvector decomposition for OBB heading (Section 5.2)       |
+| Bogoslavskyi & Stachniss (2017) | `Bogoslavskyi2017` | Range-image connectivity as a future optimisation path to DBSCAN  |
+| Campello et al. (2013)          | `Campello2013`     | HDBSCAN: planned alternative engine for variable-density clusters |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)

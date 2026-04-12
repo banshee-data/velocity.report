@@ -42,23 +42,23 @@ If file paths are given, read the files directly.
 - Read the test files alongside the changed code.
 - Read any plan or design doc linked in the PR.
 
-### 3. Security pass (Malory's lens — read-only, gate classification)
+### 3. Security pass (malory's lens: read-only, gate classification)
 
 Check in priority order:
 
-1. **Input validation** — are all external inputs validated? (radar JSON, LiDAR UDP, API request bodies, config files)
-2. **Privacy leaks** — could PII reach a log, response body, or export? Flag CRITICAL if yes.
-3. **Injection vectors** — SQL, command, path traversal, LaTeX injection
-4. **Auth & access** — are new API routes authenticated? Can unauthenticated users reach sensor data?
-5. **Error messages** — do error messages leak internal state or sensitive data?
-6. **Dependencies** — are new dependencies introduced? Any known CVEs?
+1. **Input validation**: are all external inputs validated? (radar JSON, LiDAR UDP, API request bodies, config files)
+2. **Privacy leaks**: could PII reach a log, response body, or export? Flag CRITICAL if yes.
+3. **Injection vectors**: SQL, command, path traversal, LaTeX injection
+4. **Auth & access**: are new API routes authenticated? Can unauthenticated users reach sensor data?
+5. **Error messages**: do error messages leak internal state or sensitive data?
+6. **Dependencies**: are new dependencies introduced? Any known CVEs?
 
 Apply gate classification:
 
 - **CRITICAL**: must fix before merge (RCE, auth bypass, PII exposure, data exfiltration)
 - **INFO**: note for backlog (minor misconfig, stale dep, non-sensitive info disclosure)
 
-### 4. Correctness pass (Appius's lens)
+### 4. Correctness pass (appius's lens)
 
 - Are the invariants named and preserved?
 - Are failure modes visible and handled?
@@ -102,7 +102,7 @@ make build-radar-local  # or build-radar-linux if pcap unavailable
 **Advisory notes (INFO):** [list, or "none"]
 ```
 
-## Output Format
+## Output format
 
 ```markdown
 # PR Review: [title or number]
@@ -136,12 +136,12 @@ make build-radar-local  # or build-radar-linux if pcap unavailable
 
 Do NOT flag:
 
-- Go's explicit error handling verbosity — it is deliberate
-- HTTP without TLS on localhost — local-only deployment
-- SQLite without encryption at rest — local-only device, out of threat model
+- Go's explicit error handling verbosity: it is deliberate
+- HTTP without TLS on localhost: local-only deployment
+- SQLite without encryption at rest: local-only device, out of threat model
 - Standard Go interface size choices unless the interface exceeds its documented contract
-- `os.exec` calls in Makefile-invoked scripts — build tooling, not runtime code
-- Formatting issues — handled by `make format`
+- `os.exec` calls in Makefile-invoked scripts: build tooling, not runtime code
+- Formatting issues: handled by `make format`
 
 ## Notes
 

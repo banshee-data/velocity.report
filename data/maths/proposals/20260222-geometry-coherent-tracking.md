@@ -1,16 +1,16 @@
-# Geometry-Coherent Track State for Stable Bounding Boxes
+# Geometry-Coherent track state for stable bounding boxes
 
 - **Status:** Proposal Math (Not Active in Current Runtime)
 - **Author:** velocity.report contributors
 - **Related:**
 
-- [OBB heading stability review](20260222-obb-heading-stability-review.md) — current guards
-- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — upstream per-point velocity
-- [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md) — ground model
+- [OBB heading stability review](20260222-obb-heading-stability-review.md): current guards
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): upstream per-point velocity
+- [Ground plane and vector-scene maths](20260221-ground-plane-vector-scene-maths.md): ground model
 
 ---
 
-## 1. Problem Statement
+## 1. Problem statement
 
 The current LiDAR tracking system computes oriented bounding boxes (OBB) from Principal Component Analysis (PCA) on each frame's cluster points independently (`l4perception/obb.go`). To address instability, four guards are applied at the tracker level (`l5tracks/tracking.go`):
 
@@ -21,7 +21,7 @@ The current LiDAR tracking system computes oriented bounding boxes (OBB) from Pr
 
 Despite these guards, two fundamental problems persist:
 
-### 1.1 Shape Instability
+### 1.1 Shape instability
 
 Dimensions (length, width, height) change dramatically frame-to-frame because PCA axes shift as points appear and disappear due to:
 
@@ -32,7 +32,7 @@ Dimensions (length, width, height) change dramatically frame-to-frame because PC
 
 A vehicle's bounding box might oscillate between 4.2 m × 1.8 m and 3.8 m × 2.1 m within seconds, even though the physical object is constant.
 
-### 1.2 Heading Rotation
+### 1.2 Heading rotation
 
 Guards reject discrete 90° jumps but allow gradual drift. Near-square clusters (pedestrians, slow-moving vehicles) cause frequent axis ambiguity:
 
@@ -41,7 +41,7 @@ Guards reject discrete 90° jumps but allow gradual drift. Near-square clusters 
 - Heading can drift continuously or flip unexpectedly
 - EMA smoothing dampens but doesn't eliminate rotation
 
-### 1.3 Root Cause
+### 1.3 Root cause
 
 **The system has no temporal model of object geometry.** Each frame recomputes geometry from scratch. Guards are reactive patches that detect and suppress symptoms, not a coherent model that maintains geometric consistency.
 
@@ -53,11 +53,11 @@ The fundamental insight: **object shapes are persistent**. A vehicle doesn't cha
 
 ---
 
-## 2. Proposed Model: Geometry-Coherent Track State
+## 2. Proposed model: geometry-coherent track state
 
-We extend each `TrackedObject` with a **geometry prior** — a persistent model of the object's true shape and orientation that evolves over the track lifetime through Bayesian updates.
+We extend each `TrackedObject` with a **geometry prior**: a persistent model of the object's true shape and orientation that evolves over the track lifetime through Bayesian updates.
 
-### 2.1 Track Geometry State
+### 2.1 Track geometry state
 
 Define per-track geometry state vector $\mathbf{G}$:
 
@@ -73,7 +73,7 @@ Where:
 - $n_{\text{obs}}$: cumulative observation count (for prior weight)
 - $c_{\text{shape}} \in \{\text{elongated}, \text{square}, \text{unknown}\}$: inferred shape classification
 
-### 2.2 Observation Model
+### 2.2 Observation model
 
 Each frame produces a cluster observation $\mathbf{z}$ from DBSCAN clustering followed by PCA-based OBB estimation:
 
@@ -81,7 +81,7 @@ $$
 \mathbf{z} = (L_{\text{obs}}, W_{\text{obs}}, H_{\text{obs}}, \theta_{\text{obs}})
 $$
 
-**Key challenge:** PCA has inherent 90° ambiguity. The principal axes have no canonical orientation — swapping "length" and "width" axes produces an equally valid OBB rotated by 90°.
+**Key challenge:** PCA has inherent 90° ambiguity. The principal axes have no canonical orientation; swapping "length" and "width" axes produces an equally valid OBB rotated by 90°.
 
 Therefore, each observation has **two valid interpretations**:
 
@@ -94,7 +94,7 @@ $$
 
 Current guards attempt to detect when the wrong interpretation was chosen. The geometry-coherent model instead **selects the correct interpretation** using the track's prior geometry.
 
-### 2.3 Axis Selection via Likelihood Test
+### 2.3 Axis selection via likelihood test
 
 For each interpretation, compute a Mahalanobis-like residual measuring how well the observation matches the track's current geometry estimate:
 
@@ -120,7 +120,7 @@ $$
 
 The threshold $d_{\text{threshold}}$ gates outlier observations (e.g., $d_{\text{threshold}} = 6.0$ corresponds to ~2.5σ in each dimension).
 
-### 2.4 Exponential Moving Average Update
+### 2.4 Exponential moving average update
 
 After selecting the best interpretation $\mathbf{z}^* = (L^*, W^*, H^*, \theta^*)$, update the geometry estimate:
 
@@ -145,7 +145,7 @@ Dimension updates are intentionally slower than heading updates because:
 - Dimension measurement noise is higher (depends on visible surface area)
 - Rapid dimension changes likely indicate observation errors, not true geometry changes
 
-### 2.5 Uncertainty Shrinkage with Observations
+### 2.5 Uncertainty shrinkage with observations
 
 Uncertainties shrink as observations accumulate, implementing the Bayesian principle that confidence increases with evidence:
 
@@ -173,11 +173,11 @@ This naturally handles the exploration-exploitation trade-off: early frames esta
 
 ---
 
-## 3. Heading-Motion Coupling
+## 3. Heading-Motion coupling
 
 When velocity-coherent data is available (from the [velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) proposal), the heading model strengthens significantly.
 
-### 3.1 Motion-Informed Heading Prior
+### 3.1 Motion-Informed heading prior
 
 For tracks with estimated speed $v > v_{\min}$ (e.g., $v_{\min} = 0.5$ m/s):
 
@@ -212,7 +212,7 @@ $$
 \text{stationary} \rightarrow \text{moving} \rightarrow \text{stationary}
 $$
 
-### 3.2 Stationary Object Handling
+### 3.2 Stationary object handling
 
 For tracks with speed $v \approx 0$ (below $v_{\min}$):
 
@@ -232,11 +232,11 @@ This prevents stationary objects (parked vehicles, stationary pedestrians) from 
 
 ---
 
-## 4. Shape Classification
+## 4. Shape classification
 
 After $n_{\text{classify}}$ observations (e.g., 10 frames), infer shape classification $c_{\text{shape}}$ from aspect ratio history.
 
-### 4.1 Classification Rule
+### 4.1 Classification rule
 
 Compute aspect ratio history:
 
@@ -264,7 +264,7 @@ Where:
 - $r_{\text{square}} = 1.3$: threshold for pedestrian-like objects
 - Intermediate ratios remain unclassified (cautious approach)
 
-### 4.2 Shape-Modulated Updates
+### 4.2 Shape-Modulated updates
 
 Shape classification modulates the update rule:
 
@@ -303,9 +303,9 @@ $$
 
 ---
 
-## 5. Integration with Existing Pipeline
+## 5. Integration with existing pipeline
 
-### 5.1 Pipeline Position
+### 5.1 Pipeline position
 
 ```
 L3 Segmentation
@@ -324,7 +324,7 @@ L5 Tracking (proposed changes)
        └─ motion_couple(): incorporate velocity prior (if available)
 ```
 
-### 5.2 What This Replaces
+### 5.2 What this replaces
 
 The geometry-coherent model **replaces four existing guard mechanisms**:
 
@@ -335,11 +335,11 @@ The geometry-coherent model **replaces four existing guard mechanisms**:
 | Dimension sync logic                     | Unified in ema_update()                           | ~1124-1141           |
 | HeadingSource enum complexity            | Simplified: aligned / swapped / rejected / motion | Various              |
 
-**Guard 1** (minimum point count) **remains** as a data-quality gate — it prevents OBB estimation when insufficient points are available.
+**Guard 1** (minimum point count) **remains** as a data-quality gate: it prevents OBB estimation when insufficient points are available.
 
 **Guard 4** (EMA heading smoothing) is **retained** but becomes part of the coherent model rather than a reactive patch.
 
-### 5.3 Synergy with Velocity-Coherent Extraction
+### 5.3 Synergy with velocity-coherent extraction
 
 When [velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) is active:
 
@@ -369,7 +369,7 @@ The geometry-coherent model is designed to **work well standalone** and **improv
 
 ---
 
-## 6. Configuration Parameters
+## 6. Configuration parameters
 
 New tuning parameters with proposed defaults:
 
@@ -407,9 +407,9 @@ Parameters should be validated and tuned through:
 
 ---
 
-## 7. Expected Outcomes
+## 7. Expected outcomes
 
-### 7.1 Quantitative Improvements
+### 7.1 Quantitative improvements
 
 | Metric                                            | Current System | Expected with Geometry-Coherent |
 | ------------------------------------------------- | -------------- | ------------------------------- |
@@ -419,13 +419,13 @@ Parameters should be validated and tuned through:
 | **Aspect ratio flip frequency** (per track)       | 0.2-0.5        | < 0.02                          |
 | **Convergence time** (frames to stable geometry)  | 15-20          | 5-10                            |
 
-### 7.2 Qualitative Improvements
+### 7.2 Qualitative improvements
 
 1. **Stable shapes:** Dimensions converge to consistent values within 5-10 frames; outlier frames are rejected rather than averaged in
 
 2. **No more spinning:** Axis selection replaces reactive guards; 90° jumps are mathematically impossible because the wrong axis interpretation always has higher residual
 
-3. **Pedestrian-friendly:** Square clusters are classified and handled appropriately — heading trust is reduced, shape variation is expected
+3. **Pedestrian-friendly:** Square clusters are classified and handled appropriately; heading trust is reduced, shape variation is expected
 
 4. **Graceful degradation:** Without velocity-coherent data, the model still improves significantly over current guards. With velocity data, heading prior becomes much tighter.
 
@@ -433,7 +433,7 @@ Parameters should be validated and tuned through:
 
 6. **Explainability:** Residual values and axis selection decisions are interpretable; can log which interpretation was chosen and why
 
-### 7.3 Edge Cases Handled
+### 7.3 Edge cases handled
 
 - **Near-square vehicles** (vans, SUVs): Shape classification identifies as elongated after 10 frames; heading trust remains high
 - **Pedestrian groups:** Initially classified as unknown; may stabilise as square or remain unknown (conservative)
@@ -443,7 +443,7 @@ Parameters should be validated and tuned through:
 
 ---
 
-## 8. Implementation Estimate
+## 8. Implementation estimate
 
 | Component                              | Effort           | Files                                      |
 | -------------------------------------- | ---------------- | ------------------------------------------ |
@@ -467,9 +467,9 @@ Parameters should be validated and tuned through:
 
 **Enhanced by:**
 
-- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md) — provides per-cluster velocity for tighter heading priors
+- [Velocity-coherent foreground extraction](20260220-velocity-coherent-foreground-extraction.md): provides per-cluster velocity for tighter heading priors
 
-### 8.2 Testing Strategy
+### 8.2 Testing strategy
 
 1. **Unit tests:**
    - Axis selection with known geometry + observations
@@ -495,7 +495,7 @@ Parameters should be validated and tuned through:
    - High-speed objects (motion dominance)
    - Stationary periods (uncertainty inflation)
 
-### 8.3 Rollout Plan
+### 8.3 Rollout plan
 
 **Phase 1:** Implement core geometry state + axis selection
 
@@ -521,9 +521,9 @@ Parameters should be validated and tuned through:
 
 ---
 
-## 9. Alternatives Considered
+## 9. Alternatives considered
 
-### 9.1 Alternative: Stricter Guards
+### 9.1 Alternative: stricter guards
 
 **Approach:** Tighten thresholds on existing guards (e.g., reject aspect ratio changes > 10%, reject heading changes > 5°).
 
@@ -531,22 +531,22 @@ Parameters should be validated and tuned through:
 
 - Doesn't address root cause (no temporal model)
 - Creates rigidity: true geometry changes (pedestrian arm movement) would be rejected
-- Doesn't solve axis ambiguity — just suppresses symptoms more aggressively
+- Doesn't solve axis ambiguity: just suppresses symptoms more aggressively
 - More parameters to tune without principled foundation
 
-### 9.2 Alternative: Kalman Filter for Geometry
+### 9.2 Alternative: Kalman filter for geometry
 
 **Approach:** Full Kalman filter with state vector $[\mathbf{x}, \mathbf{v}, \mathbf{G}]$ (position, velocity, geometry).
 
 **Rejected because:**
 
 - Overkill: geometry evolves much slower than position/velocity
-- Kalman assumes Gaussian noise and linear dynamics — PCA axis ambiguity is discrete, not Gaussian
+- Kalman assumes Gaussian noise and linear dynamics: PCA axis ambiguity is discrete, not Gaussian
 - Requires process noise covariance tuning (complex)
 - EMA with axis selection achieves similar result with less complexity
 - Can revisit if EMA proves insufficient
 
-### 9.3 Alternative: RANSAC-Based OBB Fitting
+### 9.3 Alternative: RANSAC-based OBB fitting
 
 **Approach:** Use RANSAC to fit OBB directly to all points in track history, not just current frame.
 
@@ -560,9 +560,9 @@ Parameters should be validated and tuned through:
 
 ---
 
-## 10. Future Enhancements
+## 10. Future enhancements
 
-### 10.1 Geometry-Aware Data Association
+### 10.1 Geometry-Aware data association
 
 Once tracks maintain stable geometry:
 
@@ -570,7 +570,7 @@ Once tracks maintain stable geometry:
 - Reject associations with incompatible shapes (dimension mismatch > 1 m)
 - Reduce ID switches caused by geometry confusion
 
-### 10.2 Object Class Inference
+### 10.2 Object class inference
 
 Shape classification naturally extends to:
 
@@ -585,7 +585,7 @@ Class priors could inform:
 - Typical motion patterns
 - Sensor detection characteristics
 
-### 10.3 Multi-Hypothesis Tracking
+### 10.3 Multi-Hypothesis tracking
 
 For ambiguous tracks, maintain multiple geometry hypotheses:
 
@@ -597,7 +597,7 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 
 ## 11. References
 
-### 11.1 Theoretical Foundation
+### 11.1 Theoretical foundation
 
 - **Kalman Filtering and Data Association:** Bar-Shalom, Y., Fortmann, T. E. (1988)
   Foundation for Bayesian state estimation with uncertain observations.
@@ -608,7 +608,7 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 - **RANSAC for Robust Estimation:** Fischler, M. A., Bolles, R. C. (1981)
   Alternative approach to outlier rejection (considered but not adopted).
 
-### 11.2 Related Work in LiDAR Tracking
+### 11.2 Related work in LiDAR tracking
 
 - **L-Shape Fitting for Vehicles:** Zhang, X., et al. (2017), "Real-Time Vehicle Detection and Tracking Using 3D LiDAR"
   Alternative to PCA for elongated objects; assumes L-shaped returns.
@@ -616,7 +616,7 @@ For ambiguous tracks, maintain multiple geometry hypotheses:
 - **Track-Level Shape Refinement:** Held, D., et al. (2016), "Robust Real-Time Tracking Combining 3D Shape, Colour, and Motion"
   Uses shape consistency across frames; similar philosophy to this proposal.
 
-### 11.3 Internal References
+### 11.3 Internal references
 
 - `l4perception/obb.go`: Current PCA-based OBB estimation
 - `l5tracks/tracking.go`: Current guard mechanisms (lines 950-1141)

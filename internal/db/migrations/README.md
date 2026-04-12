@@ -1,8 +1,8 @@
-# Database Migrations Guide
+# Database migrations guide
 
 This folder contains SQL migration scripts for the velocity.report SQLite database.
 
-## Table of Contents
+## Table of contents
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
@@ -40,9 +40,9 @@ Example:
 000001_initial_schema.down.sql
 ```
 
-## Quick Start
+## Quick start
 
-### New Database Setup
+### New database setup
 
 When you create a new database, velocity.report automatically:
 
@@ -53,7 +53,7 @@ When you create a new database, velocity.report automatically:
 
 **No manual migration needed for fresh installations!**
 
-### Check Migration Status
+### Check migration status
 
 ```bash
 velocity-report migrate status
@@ -68,13 +68,13 @@ Dirty: false
 Schema migrations table exists: true
 ```
 
-### Apply Pending Migrations
+### Apply pending migrations
 
 ```bash
 velocity-report migrate up
 ```
 
-### Existing Database Migration
+### Existing database migration
 
 If you have an existing database:
 
@@ -95,7 +95,7 @@ If you have an existing database:
    velocity-report migrate up
    ```
 
-## Migration Commands
+## Migration commands
 
 ### `migrate status`
 
@@ -191,27 +191,27 @@ velocity-report migrate force 7
 velocity-report migrate down
 ```
 
-### Migrate to Specific Version
+### Migrate to specific version
 
 ```bash
 velocity-report migrate version 3
 ```
 
-### Baseline Database (Legacy Upgrade)
+### Baseline database (legacy upgrade)
 
 ```bash
 # Set starting version without running migrations
 velocity-report migrate baseline 3
 ```
 
-### Force Version (Recovery)
+### Force version (recovery)
 
 ```bash
 # Use only to recover from failed migrations
 velocity-report migrate force 2
 ```
 
-## Safety Checklist
+## Safety checklist
 
 **Always before applying migrations:**
 
@@ -245,7 +245,7 @@ velocity-report migrate force 2
    sudo systemctl start velocity-report.service
    ```
 
-## Manual Migration (Advanced)
+## Manual migration (advanced)
 
 Migrations can still be applied manually if needed:
 
@@ -259,7 +259,7 @@ sqlite3 sensor_data.db < internal/db/migrations/000001_rename_tables_column.down
 
 **Note:** Manual application bypasses the migration tracking system. Use the CLI commands instead.
 
-## Baselining Existing Databases
+## Baselining existing databases
 
 If you have an existing database that already has all migrations applied (through manual application), you can baseline it:
 
@@ -270,9 +270,9 @@ velocity-report migrate baseline 8
 
 This sets the migration version without re-running migrations.
 
-## Creating New Migrations
+## Creating new migrations
 
-### Step 1: Determine Next Version
+### Step 1: determine next version
 
 The next migration should be **000026** (current latest is 000025).
 
@@ -282,14 +282,14 @@ ls -1 internal/db/migrations/*.up.sql | tail -1
 # Next: 000026
 ```
 
-### Step 2: Create Migration Files
+### Step 2: create migration files
 
 ```bash
 touch internal/db/migrations/000026_your_change.up.sql
 touch internal/db/migrations/000026_your_change.down.sql
 ```
 
-### Step 3: Write the SQL
+### Step 3: write the SQL
 
 **000026_your_change.up.sql:**
 
@@ -319,7 +319,7 @@ DROP INDEX IF EXISTS idx_new_table_name;
 DROP TABLE IF EXISTS new_table;
 ```
 
-### Step 4: Test Thoroughly
+### Step 4: test thoroughly
 
 ```bash
 # Create test database
@@ -344,20 +344,20 @@ velocity-report --db-path test.db migrate up
 rm test.db*
 ```
 
-### Step 5: Update Documentation
+### Step 5: update documentation
 
 Update the [Migration History](#migration-history) table in this README.
 
-### Step 6: Commit Both Files
+### Step 6: commit both files
 
 ```bash
 git add internal/db/migrations/000026_your_change.*.sql
 git commit -m "[sql] add migration: your_change"
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Always Create Both Up and Down Migrations
+### 1. Always create both up and down migrations
 
 Every migration needs both forward and rollback SQL:
 
@@ -367,7 +367,7 @@ touch internal/db/migrations/000026_change.up.sql
 touch internal/db/migrations/000026_change.down.sql
 ```
 
-### 2. Backup Before Production Migrations
+### 2. Backup before production migrations
 
 For production systems:
 
@@ -385,7 +385,7 @@ velocity-report migrate up --db-path /var/lib/velocity-report/sensor_data.db
 sudo systemctl start velocity-report.service
 ```
 
-### 3. Make Migrations Idempotent
+### 3. Make migrations idempotent
 
 Use `IF EXISTS` and `IF NOT EXISTS` to allow re-running migrations:
 
@@ -403,7 +403,7 @@ CREATE TABLE my_table (id INTEGER PRIMARY KEY);
 ALTER TABLE my_table ADD COLUMN new_col TEXT;
 ```
 
-### 4. Test Rollbacks
+### 4. Test rollbacks
 
 Always verify your `.down.sql` works:
 
@@ -424,7 +424,7 @@ velocity-report --db-path test.db migrate up
 rm test.db*
 ```
 
-### 5. Keep Migrations Focused
+### 5. Keep migrations focused
 
 One logical change per migration - don't combine unrelated schema changes.
 
@@ -437,7 +437,7 @@ One logical change per migration - don't combine unrelated schema changes.
 
 - `000009_various_changes.up.sql` - adds email, creates notifications, renames columns
 
-### 6. Document Data Transformations
+### 6. Document data transformations
 
 If your migration transforms data, document:
 
@@ -457,11 +457,11 @@ If your migration transforms data, document:
 ALTER TABLE site_reports ADD COLUMN IF NOT EXISTS speed_limit INTEGER DEFAULT 25;
 ```
 
-### 7. Don't Put PRAGMAs in Migrations
+### 7. Don't put pRAGMAs in migrations
 
 Essential SQLite PRAGMAs (journal_mode, busy_timeout, etc.) are applied in Go code (`internal/db/db.go/applyPragmas()`), not in migrations. This ensures consistency regardless of how the database is created.
 
-### 8. Use DROP COLUMN Directly
+### 8. Use DROP COLUMN directly
 
 As of `modernc.org/sqlite v1.44.3`, the bundled SQLite engine (v3.51.2) supports `ALTER TABLE DROP COLUMN` (available since SQLite 3.35.0). New migrations that need to remove columns should use this directly:
 
@@ -477,7 +477,7 @@ Older migrations in this repository still use the table-recreation workaround be
 
 ## Troubleshooting
 
-### "Dirty migration" Error
+### "Dirty migration" error
 
 **Symptom:**
 
@@ -512,7 +512,7 @@ Dirty: true
    velocity-report migrate up
    ```
 
-### Rollback Fails
+### Rollback fails
 
 **Symptom:** `migrate down` fails or warns about data loss.
 
@@ -520,7 +520,7 @@ Dirty: true
 
 **Solution:** Check the `.down.sql` file for warnings. If data loss is expected, ensure you have backups before rolling back.
 
-### Schema Drift
+### Schema drift
 
 **Symptom:** Manual changes were made to the database schema outside migrations.
 
@@ -546,7 +546,7 @@ Dirty: true
    velocity-report migrate up
    ```
 
-### Version Mismatch on Startup
+### Version mismatch on startup
 
 **Symptom:** Application exits with migration version mismatch error.
 
@@ -565,9 +565,9 @@ velocity-report migrate up
 velocity-report migrate status
 ```
 
-## Production Deployment
+## Production deployment
 
-### Pre-Deployment Checklist
+### Pre-deployment checklist
 
 Before deploying migrations to production:
 
@@ -578,7 +578,7 @@ Before deploying migrations to production:
 - [ ] Plan maintenance window if needed
 - [ ] Test migration with `--db-path` pointing to backup copy
 
-### Deployment Steps
+### Deployment steps
 
 1. **Stop the service:**
 
@@ -622,7 +622,7 @@ Before deploying migrations to production:
    sudo journalctl -u velocity-report.service -f
    ```
 
-### Rollback Procedure
+### Rollback procedure
 
 If a migration causes issues:
 
@@ -652,23 +652,23 @@ If a migration causes issues:
 
 ## Architecture
 
-### Migration Framework
+### Migration framework
 
 velocity.report uses [golang-migrate](https://github.com/golang-migrate/migrate) for database migrations. Key components:
 
 - **Migration files:** SQL files embedded in binary via Go's `embed.FS`
-- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO) — bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
+- **Driver:** `modernc.org/sqlite v1.44.3` (pure-Go, no CGO); bundles SQLite 3.51.2, which supports `ALTER TABLE DROP COLUMN`
 - **Tracking:** `schema_migrations` table stores version and dirty state
 - **Commands:** Exposed via `velocity-report migrate` CLI
 
-### Migration File Format
+### Migration file format
 
 Migrations follow sequential naming: `00000N_description.up.sql` and `00000N_description.down.sql`
 
 - **Up migrations:** `000001_initial_schema.up.sql` - apply changes
 - **Down migrations:** `000001_initial_schema.down.sql` - rollback changes
 
-### Schema Tracking
+### Schema tracking
 
 The `schema_migrations` table tracks applied migrations:
 
@@ -682,7 +682,7 @@ CREATE TABLE schema_migrations (
 - **version:** Migration number (1-8 currently)
 - **dirty:** True if migration failed mid-execution (needs manual recovery)
 
-### PRAGMA Handling
+### PRAGMA handling
 
 Essential SQLite PRAGMAs are applied in Go code (`internal/db/db.go/applyPragmas()`), not in migration files:
 
@@ -693,7 +693,7 @@ Essential SQLite PRAGMAs are applied in Go code (`internal/db/db.go/applyPragmas
 
 This ensures consistent PRAGMA application regardless of database creation method.
 
-### Automatic Migration Detection
+### Automatic migration detection
 
 When starting with an existing database:
 
@@ -708,7 +708,7 @@ For new databases:
 3. Baseline at version 8 (latest)
 4. No manual migration needed
 
-## Legacy Migrations
+## Legacy migrations
 
 **Historical Note:** Original migrations used `YYYYMMDD_` format:
 

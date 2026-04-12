@@ -26,7 +26,7 @@ MAPPING = {
     "data-track-description-language-plan": "docs/platform/architecture/track-description-language.md",
     "platform-hub-restructure-plan": "docs/platform/architecture/canonical-plan-graduation.md",
     # ── docs/lidar/architecture/ ──
-    "lidar-layer-dependency-hygiene-plan": "docs/lidar/architecture/lidar-data-layer-model.md",
+    "lidar-layer-dependency-hygiene-plan": "docs/lidar/architecture/LIDAR_ARCHITECTURE.md",
     "lidar-architecture-graph-plan": "docs/lidar/architecture/lidar-pipeline-reference.md",
     "lidar-bodies-in-motion-plan": "docs/lidar/architecture/foreground-tracking.md",
     "lidar-l7-scene-plan": "docs/lidar/architecture/vector-scene-map.md",

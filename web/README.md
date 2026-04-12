@@ -1,22 +1,22 @@
 # velocity.report/web
 
-Svelte-based frontend for real-time traffic data visualization.
+Svelte-based frontend for real-time traffic data visualisation.
 
 - **Location**: `web/`
 - **Framework**: Svelte 5
 - **Build**: Vite
 - **Package Manager**: pnpm
 
-## Tech Stack
+## Tech stack
 
 - **[Svelte 5](https://svelte.dev/)** - Fast, reactive UI framework
 - **[@sveltejs/adapter-static](https://www.npmjs.com/package/@sveltejs/adapter-static)** - Static
   site generation
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first styling
 - **[svelte-ux 2](https://svelte-ux.techniq.dev/)** - UI components
-- **[LayerChart 2](https://www.layerchart.com/)** - Data visualization
+- **[LayerChart 2](https://www.layerchart.com/)** - Data visualisation
 
-## Getting Started
+## Getting started
 
 Install [pnpm](https://pnpm.io/installation) if not already installed.
 
@@ -30,7 +30,7 @@ pnpm run dev
 
 App runs at [http://localhost:5173](http://localhost:5173) (or next available port).
 
-### Production Build
+### Production build
 
 Create an optimised build:
 

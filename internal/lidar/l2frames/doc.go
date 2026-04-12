@@ -6,6 +6,6 @@
 //
 // Dependency rule: L2 may depend on L1, but never on L3+.
 //
-// See docs/lidar/architecture/lidar-data-layer-model.md for the full
+// See docs/lidar/architecture/LIDAR_ARCHITECTURE.md for the full
 // layer model.
 package l2frames

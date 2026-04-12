@@ -1,4 +1,4 @@
-# Data Alignment Tools
+# Data alignment tools
 
 This directory contains Python tools for aligning and processing velocity report data.
 
@@ -29,6 +29,6 @@ pip install -e ".[dev]"
 python cctv.py
 ```
 
-## Modern Python Project Structure
+## Modern Python project structure
 
 This project uses `pyproject.toml` (PEP 621) for dependency management - the modern standard that replaces `requirements.txt` and `setup.py`.

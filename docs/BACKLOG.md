@@ -1,18 +1,21 @@
 # Backlog
 
-Single source of truth for project-wide work items in velocity.report. Where available, tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task design doc: <url>`; tasks without a design doc use just the backlog entry and effort tag. Individual docs in `plans/` describe single projects, not priority lists.
+Single source of truth for project-wide work items in velocity.report.
+Tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`; <!-- link-ignore -->
+tasks without a design doc fill the other fields.
+Individual docs in `plans/` describe single projects, not priority lists.
 
 **Governance:** Never delete agreed backlog items: split, consolidate, or complete them. Outstanding agreed work stays tracked here until delivered. When consolidating overlapping items, create distinct non-overlapping work units and move completed sub-tasks to the Complete section. Design documents may retire scope by marking phases complete or out-of-scope and linking to the PR where the scope change landed.
 
 **Formatting:** Backlog items describe outstanding work only. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline: the Complete section is the record of delivered work.
 
-## 05x Sunny Southeast 🌞
+## 05x Sunny southeast 🌞
 
-### v0.5.1 - Raspberry Pi Image (051)
+### v0.5.1 - Raspberry Pi image (051)
 
-- [#445] Setup guide refresh: update `public_html/src/guides/setup.md` with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
+- [#445] Setup guide refresh: update [public_html/src/guides/setup.md](../public_html/src/guides/setup.md) with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 
-### v0.5.2 - Housekeeping + Cleanup (052)
+### v0.5.2 - Housekeeping + cleanup (052)
 
 - PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
 - PCAP motion detection and scene split: add `--motion` flag to pcap-analyse for motion/static timeline reporting (Phase 1), expose per-frame settling metrics from `BackgroundManager` (Phase 2), implement pcap-split tool for automated PCAP segmentation into motion and static segments (Phase 3): [design doc](plans/pcap-motion-detection-and-split-plan.md), [reference design](plans/pcap-split-tool-plan.md) `M`
@@ -24,14 +27,14 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
 
-### v0.5.3 - Data Contracts + Metrics (053)
+### v0.5.3 - Data contracts + metrics (053)
 
 - Track speed metric redesign + aggregate-only percentiles: reserve `p50/p85/p98` for report/group aggregates, keep `p98` over historical `p95`, and define replacement non-percentile track-level speed metrics: [design doc](plans/speed-percentile-aggregation-alignment-plan.md) `L`
 - Metric registry + naming enforcement: establish canonical metric ids/definitions, cross-strata consistency checks, and Prometheus export/tagging stubs with user-defined prefix support: [design doc](plans/metrics-registry-and-observability-plan.md) `M`
 - Unpopulated data structure remediation Phases 1–3: wire `statistics_json` to run persistence, populate 6 track quality columns and 3 cluster quality columns on existing empty DB fields: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `M`
 - [#430] Capabilities API multi-sensor redesign: restructure `/api/capabilities` response into named `radar`/`lidar` objects with per-sensor state; smart polling; frontend store and layout updates: `S`
 
-### v0.5.4 - Perception Pipeline + Algorithm Foundations (054)
+### v0.5.4 - Perception pipeline + algorithm foundations (054)
 
 - LiDAR pipeline performance measurement harness: per-layer timing instrumentation, CI regression detection, reproducible PCAP-based benchmarks: [design doc](plans/lidar-performance-measurement-harness-plan.md) `M`
 - LiDAR foundations fix-it Phases 1–3: documentation truth alignment, runtime config parity, vector workstream hardening: [design doc](plans/lidar-architecture-foundations-fixit-plan.md) `M`
@@ -40,17 +43,17 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#388] Dynamic segmentation for LiDAR background regions: adaptive background region boundaries based on scene geometry rather than fixed grid `M`
 - [#390] ForegroundExtractor interface + background adapter (dynamic algorithm selection Phase 1): additive extractor abstraction wrapping existing `BackgroundManager.ProcessFramePolarWithMask`: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `S`
 
-### v0.5.5 - Algorithm Correctness + Gap Remediation (055)
+### v0.5.5 - Algorithm correctness + gap remediation (055)
 
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Paper-implementation gap remediation P1a — Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
-- Paper-implementation gap remediation P1b — background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1a, Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1b, background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
-- [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391 — close without merge if those branches land first: `S`
+- [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391; close without merge if those branches land first: `S`
 
-### v0.5.6 - Structural Hygiene + Layer Foundations (056)
+### v0.5.6 - Structural hygiene + layer foundations (056)
 
 - Go codebase structural hygiene: label SQL query-boundary move, silent error drops, and test infrastructure consistency (god files done, `EventAPI` pulled to v0.5.0): [design doc](plans/go-codebase-structural-hygiene-plan.md) `M`
 - Go cmd/ business logic extraction: move ~1,050 LOC of testable logic from `cmd/` into `internal/`: capabilities provider, LiDAR helpers, adapter bridges, transits CLI dispatch, config migration, backfill SQL, settling eval: [design doc](plans/go-cmd-extraction-plan.md) `M`
@@ -61,7 +64,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Rename `visualiser/` → `l9endpoints/` and update all import paths (L8/L9/L10 Phase 4a): [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md) `S`
 - SSE backpressure handling: Server-Sent Events backpressure for slow clients; subscriber channel buffer landed in #380, full drop/notify policy still outstanding `S`
 
-### v0.5.7 - Replay/Runtime Stabilisation (057)
+### v0.5.7 - Replay/Runtime stabilisation (057)
 
 - Visualiser debug overlay + cluster proto follow-through: finish `FrameBundle.debug` streaming, cluster field serialisation, and positive serialiser tests: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `M`
 - Visualiser performance and scene health metrics: timeline and VR log metrics; macOS: 30fps frame throttle, per-frame perf logging, scene name/hex ID in RunBrowser, replay epoch tracking: [design doc](plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md) `M`
@@ -71,7 +74,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Unpopulated data structure remediation Phase 4: `GET /api/lidar/runs/{run_id}/statistics` endpoint for UI consumption of run statistics; depends on Phase 1 (v0.5.3): [design doc](plans/unpopulated-data-structures-remediation-plan.md) `S`
 - [#381] SeekToTimestamp diagnostic logging behind debug flag: guard verbose per-seek index dumps behind `showDebug`/`include_debug`; currently logs unconditionally on every seek: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md) `S`
 
-### v0.5.8 - Product Polish + Release Readiness (058)
+### v0.5.8 - Product polish + release readiness (058)
 
 - [#290] (#11) Serial port configuration UI: configure and test radar serial ports via web interface at `/settings/serial`; database-backed, replaces manual systemd service file edits; CLI flag fallback maintained: [design doc](radar/serial-config-quickref.md) `M`
 - Cosine error correction remaining items: delete endpoint, report angle annotation, speed limit field migration: [design doc](radar/architecture/site-config-cosine-correction-spec.md) `M`
@@ -80,25 +83,25 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Light mode theme compliance: fix hardcoded white colours in TrackList (hex ID invisible), MapPane (canvas legend, grid labels), TimelinePane (SVG labels/strokes), and MapPane overlay panels; replace with theme-aware CSS variables: [design doc §12](ui/design-review-and-improvement.md) `S`
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
-### v0.5.9 - Sweep & Experimentation Infrastructure (059)
+### v0.5.9 - Sweep & experimentation infrastructure (059)
 
 - Distributed sweep workers: implement parallel sweep execution across multiple cores or nodes; plan landed in #382: [design doc](plans/lidar-distributed-sweep-workers-plan.md) `S`
 - HINT metric observability (Batch A): surface per-track and per-run diagnostics to labellers and HINT history; combo breakdowns and ComboResult persistence: [design doc](plans/hint-metric-observability-plan.md) `S`
 - Evaluation persistence API: `GET /api/lidar/scenes/{id}/evaluations` endpoint and persisted `lidar_evaluations` records for reproducible experiment comparison: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md) `S`
 
-## 06x Ceilí Calling 🎻
+## 06x Ceilí calling 🎻
 
-### v0.6.0 - Deployment & Packaging (060)
+### v0.6.0 - Deployment & packaging (060)
 
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - `velocity-report` unified binary scaffold: main entrypoint + subcommand dispatcher: [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - `radar`/`lidar`/`pdf` subcommand wiring into unified binary: [design doc](plans/deploy-distribution-packaging-plan.md) `M`
 - RPi image Phase 2: precompiled LaTeX `.fmt` for faster PDF generation; vendored TeX tree already shipped in v0.5.1: [design doc](plans/deploy-rpi-imager-fork-plan.md) § 4.6, [LaTeX plan](plans/pdf-latex-precompiled-format-plan.md) `S`
-- `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see `internal/ctl/manager.go` TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
+- `velocity-ctl upgrade` checksum verification: fetch `SHA256SUMS` release asset and verify downloaded binary before installing; see [internal/ctl/manager.go](../internal/ctl/manager.go) TODO and [design doc](plans/deploy-rpi-imager-fork-plan.md) §4 step 2 `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`
 - [#425] macOS app signing readiness: prepare code-signing/notarisation prerequisites and release-signing checks for packaged artifacts `S`
 
-### v0.6.1 - macOS Local Server (061)
+### v0.6.1 - macOS local server (061)
 
 - macOS local server Phases 1–3: embed Go server binary in VelocityVisualiser.app bundle, add ServerProcessManager (start/stop/restart lifecycle), Server menu with status and keyboard shortcuts, build pipeline integration (`build-server-for-mac` Makefile target, Xcode bundled resource): [design doc](plans/macos-local-server-plan.md) `M`
 - VelocityVisualiser server manager Phases 1–3: `ServerConfig` model, `ServerManager` persistence, Servers CommandMenu, Add/Edit server sheet with test-connection: [design doc](plans/server-manager.md) `M`
@@ -106,9 +109,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
-## 07x Rebel Realm ⛰️
+## 07x Rebel realm ⛰️
 
-### v0.7.0 - United Frontend (070)
+### v0.7.0 - United frontend (070)
 
 - (#252) Frontend unification (Phases 0–5): migrate status/regions/sweep to Svelte, retire port 8081: [design doc](plans/web-frontend-consolidation-plan.md) `L`
 - ECharts → LayerChart rewrite (8 charts, D-11): migrate all radar/lidar charts to Svelte LayerChart: [design doc](ui/DESIGN.md) `L`
@@ -123,9 +126,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - macOS palette constants: prepare shared palette definition when metric charts added to visualiser: [design doc §1.2](ui/design-review-and-improvement.md) `S`
 - LayerChart policy in LiDAR routes: enforce chart rendering policy (no ad-hoc SVG) when charts added to tracks/scenes/runs/sweeps: [design doc §4.2](ui/design-review-and-improvement.md) `S`
 
-## 08x Mobile Mesh 📶
+## 08x Mobile mesh 📶
 
-### v0.8.0 - Radar Polish + Automation (080)
+### v0.8.0 - Radar polish + automation (080)
 
 - (#323) Speed limit schedules (D-16): time-based speed limits for school zones and weekday/weekend variation: [design doc](radar/architecture/speed-limit-schedules.md) `L`
 - Unpopulated data structure remediation Phases 5–6, 8: training data export endpoint, run comparison API, and scaffolding struct cleanup; schedule when ML classifier training and comparison UI are active: [design doc](plans/unpopulated-data-structures-remediation-plan.md) `L`
@@ -135,7 +138,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Transit deduplication (D-03): duplicate transit record prevention: [design doc](radar/architecture/transit-deduplication.md) `M`
 - TicTacTail Phase 1 incubation (D-23): in-repo pkg/tictactail engine + bounded cache + VRLOG thin adapter extraction: [design doc](plans/tictactail-platform-plan.md) `M`
 
-## 09x Banter Belt 💬
+## 09x Banter belt 💬
 
 ### v0.9.0 - Production-Ready (090)
 
@@ -149,7 +152,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - E2E test infrastructure: Playwright smoke tests: [design doc](ui/design-review-and-improvement.md) `M`
 - Threshold-based speed alerts: configurable alerting for speed threshold violations `M`
 
-## v1.0 (Vector Scene + VC)
+## v1.0 (Vector scene + VC)
 
 - L7 Scene layer: persistent evidence-accumulated world model, static geometry, canonical objects, OSM priors, multi-sensor fusion architecture: [design doc](plans/lidar-l7-scene-plan.md) `XL`
 - Velocity-coherent foreground extraction (P2, D-05): 6D DBSCAN alternative for moving object detection: [proposal](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) `L`
@@ -158,7 +161,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Visualiser colour-blind-safe palette (V1): accessible point cloud/trails/box colours validated for common deficiencies: [design doc](plans/lidar-visualiser-light-mode-plan.md) `M`
 - Data export (CSV, GeoJSON): export vehicle transits and scene geometry for external analysis: design doc not yet written `M`
 
-## v2.0 (Advanced Perception & Connected)
+## v2.0 (Advanced perception & connected)
 
 - (#325) Ground-plane vector-scene maths (P3, D-05): 3D scene reconstruction with ground-plane constraints: [proposal](../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) `L`
 - Visualiser QC programme (Features 1–10): comprehensive quality control tooling for LiDAR data: [design doc](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) `XL`
@@ -169,9 +172,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - Metrics-first data science programme: benchmark packs, scorecards, explicit specs, and reproducible experiment bundles: [plan](plans/platform-data-science-metrics-first-plan.md) `M`
 - Dynamic algorithm selection runtime integration (Phase 5): TrackingPipeline wrapper for runtime algorithm switching based on scene conditions; high conflict risk, depends on v0.5.5 extractor work: [design doc](plans/lidar-architecture-dynamic-algorithm-selection-plan.md) `M`
 - Peak-hour and seasonal trend analysis: temporal pattern detection and analysis: [design doc](plans/platform-data-science-metrics-first-plan.md) `M`
-- Config restructure Phase 3: expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled: [design doc](../config/CONFIG-RESTRUCTURE.md) `S`
+- Config restructure Phase 3: expose L2/L5/pipeline constants and L6 classification thresholds once classifier strategy is settled: [design doc](plans/config-restructure-plan.md) `S`
 
-## v∞.0 (Deferred, waybacklog)
+## v∞.0 (deferred, waybacklog)
 
 - (#322) Motion capture architecture: moving sensor support: [design doc](plans/lidar-motion-capture-architecture-plan.md) `XL`
 - (#326) AV dataset integration: 28-class taxonomy, Parquet ingestion: [design doc](plans/lidar-av-lidar-integration-plan.md) `XL`
@@ -225,9 +228,9 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#352] PCAP analysis replay hardening: blocking frame channel for zero-drop analysis, speed-mode rename (fastest→analysis, fixed→scaled), SpeedRatio API, per-phase backoff logging with SubLogger, batched track DB writes, disable persistence during analysis runs, replay epoch tracking, FrameBuilder deadlock fix: [design doc](lidar/operations/pcap-analysis-mode.md)
 - [#352] Proto `peak_speed_mps` → `max_speed_mps` rename (D-19): proto field 25, Go/Swift/TS model rename, regenerated bindings; SQL column deferred to migration 000030: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 - [#352] Visualiser track proto parity: branch-local percentile fields not merged; `peak_speed_mps` → `max_speed_mps` rename landed on proto/Go/Swift/TS; SQL column deferred to migration 000030: [design doc](plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
-- [#356] VRLOG analysis §12.1 metrics: `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics: [design doc](../data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md)
+- [#356] VRLOG analysis §12.1 metrics: `analyse-vrlog` command with `GenerateReport` and `CompareReports` for implementable-now track quality metrics and distribution statistics: [design doc](../data/structures/VRLOG_ANALYSIS_FORMAT.md)
 - [#360] Shared web cache for worktrees: activated shared Vite cache directory for git worktree workflows
-- [#364] Layer dependency hygiene: moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files: [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
+- [#364] Layer dependency hygiene: moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files: [design doc](lidar/architecture/LIDAR_ARCHITECTURE.md)
 - [#364] LiDAR L2 dual representation: `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated: [design doc](plans/lidar-l2-dual-representation-plan.md)
 - [#379] Pipeline mathematical review: full correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs
 - [#381] macOS visualiser replay enhancements: seekable VRLOG replay with `seekToTimestamp`, frame stepping, UI throttling, background frame skipping, frame coalescing, performance tracing, and replay epoch tracking: [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
@@ -242,17 +245,17 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#400] Schema simplification migrations 000030 + 000031: dropped dead per-track percentile columns (`p50/p85/p95_speed_mps`), renamed `peak_speed_mps` → `max_speed_mps`; renamed `world_frame` → `frame_id`, `scene_hash` → `grid_hash`; renamed 7 tables into coherent `track_*/run_*/replay_*/tuning_*` families; `scene_id` → `replay_case_id` on replay and annotation tables; Go stores, types, API handlers, and web TypeScript updated: [design doc](plans/schema-simplification-migration-030-plan.md)
 - [#401] LiDAR debug test coverage: added `debug_test.go` for 6 LiDAR packages, 2,900 lines of test additions
 - [#406] Database SQL boundary enforcement: sealed `database/sql` import boundary to two packages, type aliases, sentinel errors, and CI lint check: [design doc](plans/data-database-alignment-plan.md)
-- [#407] Config restructure Phase 1: flat-to-nested realignment with versioned schema, engine selection, strict validation, spelling corrections, factory function updates, dot-path sweep params, config-migrate/config-validate tooling, README updates: [design doc](../config/CONFIG-RESTRUCTURE.md)
-- [#407] Config restructure Phase 2 (struct + wiring): L1Config struct, 16 new L3 fields, regenerated config files, updated documentation; CLI flag deprecation pending: [design doc](../config/CONFIG-RESTRUCTURE.md)
-- [#409] Go logging streams unification (LiDAR packages): migrated all `log.Printf` to `diagf`, `fmt.Printf` to `opsf`, created `recorder/debug.go`, wired logging into `cmd/radar/`: [design doc](plans/go-structured-logging-plan.md)
+- [#407] Config restructure Phase 1: flat-to-nested realignment with versioned schema, engine selection, strict validation, spelling corrections, factory function updates, dot-path sweep params, config-migrate/config-validate tooling, README updates: [design doc](plans/config-restructure-plan.md)
+- [#407] Config restructure Phase 2 (struct + wiring): L1Config struct, 16 new L3 fields, regenerated config files, updated documentation; CLI flag deprecation pending: [design doc](plans/config-restructure-plan.md)
+- [#409] Go logging streams unification (LiDAR packages): migrated all `log.Printf` to `diagf`, `fmt.Printf` to `opsf`, created `recorder/debug.go`, wired logging into [cmd/radar/](../cmd/radar): [design doc](plans/go-structured-logging-plan.md)
 - [#409] L8/L9/L10 layer refactor Phases 1–3: package split (`monitor/` → `server/` + `l9endpoints/`), package renames, unified tuning endpoint with mime.ParseMediaType, heatmap value/max consistency fix, 98%+ coverage on 6 files: [design doc](plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)
 - [#411] `transit-backfill` and `scan-transits` removal: removed `cmd/transit-backfill` and `cmd/tools/scan_transits.go`; `velocity-report transits rebuild` is the replacement: [design doc](plans/platform-simplification-and-deprecation-plan.md)
 - [#412] [#417] Go god file splitting Phase 1 (1A–1G): all seven Tier 1 god files split; remaining Tier 2/3 large-file splits are Phase 2 stretch goals: [design doc](plans/go-god-file-split-plan.md)
 - [#413] `serialmux.CurrentState` race condition: replaced unsynchronised package-global map with `sync.RWMutex`-backed private state; exported `CurrentStateSnapshot()`; unexported test helper `resetCurrentState`; clarified shallow-copy doc comment: [design doc](plans/go-codebase-structural-hygiene-plan.md)
-- [#413] Context propagation in HTTP handlers: removed 8 `_ = r` placeholders from `internal/api/server.go`; added `context.Context` to 10 DB methods in `site.go`/`site_report.go`; switched to `*Context` SQL variants; added cancellation test; added `rows.Err()` checks to all iteration functions in `site_report.go`: [design doc](plans/go-codebase-structural-hygiene-plan.md)
-- [#416] Config restructure Phase 2 CLI flag deprecation: `--lidar-sensor` removed; network port flags (`--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) reclassified as active runtime flags: [design doc](../config/CONFIG-RESTRUCTURE.md)
+- [#413] Context propagation in HTTP handlers: removed 8 `_ = r` placeholders from [internal/api/server.go](../internal/api/server.go); added `context.Context` to 10 DB methods in `site.go`/`site_report.go`; switched to `*Context` SQL variants; added cancellation test; added `rows.Err()` checks to all iteration functions in `site_report.go`: [design doc](plans/go-codebase-structural-hygiene-plan.md)
+- [#416] Config restructure Phase 2 CLI flag deprecation: `--lidar-sensor` removed; network port flags (`--lidar-udp-port`, `--lidar-forward-port`, `--lidar-foreground-forward-port`) reclassified as active runtime flags: [design doc](plans/config-restructure-plan.md)
 - [#416] v0.5.0 tech debt removal: all Category A shim removals complete (A1–A6); `--lidar-sensor` flag removed, network port flags reclassified as active; transit tools removed; sweep dashboard aliases removed: [design doc](plans/v050-tech-debt-removal-plan.md)
-- [#418] SQLite client standardisation: unified DB client interfaces across `internal/db`, `internal/api`, and `internal/lidar/storage`, moved label SQL out of the API layer, and replaced duplicated SQLite test bootstraps with the shared helper: [design doc](plans/data-sqlite-client-standardisation-plan.md) [follow-up](plans/data-database-alignment-plan.md)
+- [#418] SQLite client standardisation: unified DB client interfaces across [internal/db](../internal/db), [internal/api](../internal/api), and [internal/lidar/storage](../internal/lidar/storage), moved label SQL out of the API layer, and replaced duplicated SQLite test bootstraps with the shared helper: [design doc](plans/data-sqlite-client-standardisation-plan.md) [follow-up](plans/data-database-alignment-plan.md)
 - [#419] LiDAR tracks table consolidation: shared `TrackMeasurement` model/SQL helpers and the `lidar_all_tracks` VIEW landed; separate live and run tables remain intentionally distinct: [design doc](plans/lidar-tracks-table-consolidation-plan.md)
 - [#419] Profile comparison data layer hardening: analysis-run compare APIs and contract stabilisation implemented; ongoing scope is now UI delivery: [design doc](plans/lidar-analysis-run-infrastructure-plan.md)
 - [#420] Schema integrity audit/report tooling: schema hardening migrated into main, orphan/constraint audit tooling implemented and available in release branch head: [design doc](plans/lidar-schema-robustness-plan.md)
@@ -264,6 +267,6 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#436] (#210) Raspberry Pi image pipeline: test image on physical Raspberry Pi 4 hardware and produce first `.img.xz` release asset: [design doc](plans/deploy-rpi-imager-fork-plan.md) `XS`
 - [#436] PDF map quality parity with web: the SVG map stored in `site.map_svg_data` is rendered at a fixed 600×400 viewBox from Overpass API vector data, but the web UI shows raster tiles from OSM at zoom 15 with far more detail; raise SVG viewBox to 1200×800, increase road stroke widths proportionally, add Overpass queries for missing feature types (amenity labels, place names, POI markers), and match tile-layer detail at the configured zoom level; the marker overlay and SVG→PDF conversion path are already vector-clean: `S`
 - [#436] Stale localStorage date range: `reportSettings` persists absolute `dateRange.from`/`dateRange.to` ISO strings with no TTL; returning after days shows old dates; add freshness check or persist relative period instead of absolute timestamps: `S`
-- [#447] Agent knowledge architecture (all phases): `../TENETS.md`, `.github/knowledge/` shared modules, condensed Copilot agent files, `CLAUDE.md`, `.claude/agents/` (7 Claude-native personas), `.claude/skills/` (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
+- [#447] Agent knowledge architecture (all phases): [../TENETS.md](../TENETS.md), [.github/knowledge/](../.github/knowledge) shared modules, condensed Copilot agent files, [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 Claude-native personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
 - [#457] Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 - [#459] Documentation and data DRY audit (Groups 1–4): 14 gate violations fixed, 14 plans graduated to symlinks, visualiser-app subdirectory consolidated, PCAP ops docs unified, tailscale guide relocated, playback-speed doc moved, config cross-references added, warmup-trails-fix resolved, architecture review artefacts classified, 58 docs given narrative openings, link checker symlink resolution fixed, dead link checks moved to nightly CI, image build includes docs site: [design doc](plans/docs-data-dry-audit-plan.md)

@@ -1,4 +1,4 @@
-# Python Virtual Environment — Single Shared `.venv`
+# Python virtual environment: single shared `.venv`
 
 - **Status:** Complete
 
@@ -19,14 +19,14 @@ velocity.report/
 └── data/multisweep-graph/     # Uses root .venv
 ```
 
-### Key Facts
+### Key facts
 
 - **One command:** `make install-python` sets up everything
 - **Single source of truth:** `requirements.in` at repository root
 - **Pinned dependencies:** `requirements.txt` generated with `pip-compile`
 - All Makefile Python targets use `VENV_PYTHON = .venv/bin/python3`
 
-## Dependency Management
+## Dependency management
 
 Root `requirements.in` includes all packages for all Python tools:
 
@@ -36,7 +36,7 @@ Root `requirements.in` includes all packages for all Python tools:
 - Testing: pytest, pytest-cov
 - Formatting: black, ruff
 
-## Go Server Integration
+## Go server integration
 
 The Go server finds the Python binary at:
 
@@ -44,7 +44,7 @@ The Go server finds the Python binary at:
 defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
 ```
 
-## Makefile Variables
+## Makefile variables
 
 ```makefile
 VENV_DIR    = .venv
@@ -53,7 +53,7 @@ VENV_PIP    = $(VENV_DIR)/bin/pip
 VENV_PYTEST = $(VENV_DIR)/bin/pytest
 ```
 
-## Consolidation Background
+## Consolidation background
 
 Previously the repo had two conflicting venv approaches: a root-level `.venv/`
 for data visualisation and a `tools/pdf-generator/.venv/` for PDF generation.

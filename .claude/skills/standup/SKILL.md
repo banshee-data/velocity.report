@@ -41,7 +41,7 @@ Surface these conditions explicitly before proposing any work:
 - Dirty worktrees (uncommitted changes)
 - Branches behind upstream
 - Branches behind `origin/main`
-- Detached HEAD worktrees — map to the containing local/remote ref
+- Detached HEAD worktrees: map to the containing local/remote ref
 - Duplicate or overlapping work across worktrees
 
 Do not move to priorities until sync issues are identified.
@@ -86,6 +86,6 @@ After the snapshot:
 ## Notes
 
 - This skill reads only. It does not modify any files or plans.
-- Treat worktrees as first-class — include detached worktrees and call out branch ambiguity explicitly.
+- Treat worktrees as first-class: include detached worktrees and call out branch ambiguity explicitly.
 - If priorities are clear and there are no sync issues, keep options brief.
-- Do not load all plan docs — only those relevant to active branches.
+- Do not load all plan docs: only those relevant to active branches.

@@ -1,10 +1,10 @@
-# Clock Abstraction Adoption and Time-Domain Model
+# Clock abstraction adoption and time-domain model
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (L1 Packets, L2 Frames, Pipeline, L9 Endpoints)
 - **Canonical:** [multi-model-ingestion-and-configuration.md](../lidar/architecture/multi-model-ingestion-and-configuration.md)
 - **Related:** [`timeutil/clock.go`](../../internal/timeutil/clock.go),
-  [`lidar-data-layer-model.md`](../lidar/architecture/lidar-data-layer-model.md),
+  [`LIDAR_ARCHITECTURE.md`](../lidar/architecture/LIDAR_ARCHITECTURE.md),
   [`go-structured-logging-plan.md`](go-structured-logging-plan.md) (Item 3)
 
 Adopt the existing `timeutil.Clock` interface into the critical-path
@@ -12,7 +12,7 @@ subsystems where wall-time coupling prevents testability, eliminate
 `time.Sleep` synchronisation in tests, and formalise the sensor-time
 vs wall-time boundary before multi-sensor support lands.
 
-## Problem Statement
+## Problem statement
 
 The `timeutil.Clock` interface (`internal/timeutil/clock.go`) provides a
 complete clock abstraction with `RealClock`, `MockClock`, `MockTimer`,
@@ -31,14 +31,14 @@ rg 'time\.Now\(\)' internal/ cmd/ --type go -g '!*_test.go' -c
 rg 'timeutil\.Clock|MockClock' internal/ --type go -c
 ```
 
-Separately, the pipeline conflates two distinct time domains — sensor
-timestamps from device packets and host wall-clock timestamps — which
+Separately, the pipeline conflates two distinct time domains: sensor
+timestamps from device packets and host wall-clock timestamps: which
 works today with a single Hesai Pandar40P in `TimestampModeSystemTime`,
 but will break under GPS/PTP modes or multi-sensor configurations.
 
 ## Findings
 
-### F1: Clock Abstraction Exists but Is Almost Entirely Unused
+### F1: clock abstraction exists but is almost entirely unused
 
 Key hotspots where bare `time.Now()` creates testability risk:
 
@@ -52,24 +52,24 @@ Key hotspots where bare `time.Now()` creates testability risk:
 | `l9endpoints/replay.go:98`                   | Replay `time.Sleep` pacing   | High   |
 | `serialmux/serialmux.go:109,115`             | Radar device clock sync      | Low    |
 
-### F2: Two Time Domains Are Conflated
+### F2: two time domains are conflated
 
-**Sensor time** — timestamps embedded in LiDAR packets
+**Sensor time**: timestamps embedded in LiDAR packets
 (`CombinedTimestamp`, `TimestampMode` in `extract.go`) or radar
 serial data. Source: device clock (GPS, PTP, internal, or native
 LiDAR DateTime+Timestamp).
 
-**Wall time** — timestamps from the host's `time.Now()`. Used for
+**Wall time**: timestamps from the host's `time.Now()`. Used for
 ingest timing (`LiDARFrame.StartWallTime/EndWallTime`), throttle
 decisions, and DB audit fields.
 
 Conflation points:
 
-- `extract.go:226` — `bootTime: time.Now()` initialises
+- `extract.go:226`: `bootTime: time.Now()` initialises
   device-internal offset from wall clock
-- `extract.go:467,498` — falls back to `packetTime = time.Now()`
+- `extract.go:467,498`: falls back to `packetTime = time.Now()`
   when sensor timestamp unavailable
-- `l5tracks/tracking.go:192` — `dt` computed from
+- `l5tracks/tracking.go:192`: `dt` computed from
   `timestamp.UnixNano()`, which may be sensor or wall time
   depending on upstream `TimestampMode`
 
@@ -78,7 +78,7 @@ and all timestamps are effectively wall time. Under GPS/PTP modes,
 or in replay, the tracker's `dt` and the pipeline throttle would
 use different time bases.
 
-### F3: Frame-Rate Throttle Is Wall-Time Coupled
+### F3: frame-rate throttle is wall-time coupled
 
 `pipeline/tracking_pipeline.go:215-219`:
 
@@ -96,7 +96,7 @@ Cannot unit-test without waiting real milliseconds. During PCAP
 replay, throttle decisions are wall-time based, not replay-time
 based.
 
-### F4: FrameBuilder Uses `time.AfterFunc` Directly
+### F4: frameBuilder uses `time.AfterFunc` directly
 
 `l2frames/frame_builder.go:163` and `frame_builder_cleanup.go:315`:
 
@@ -116,16 +116,16 @@ synchronously on `Advance()`. This preserves the callback-based
 semantics of `time.AfterFunc` while making the schedule
 controllable in tests. Implementation reference: the existing
 `MockTimer.checkAndFire` in `clock.go` already fires on
-`Advance()` — `AfterFunc` follows the same pattern but invokes
+`Advance()`: `AfterFunc` follows the same pattern but invokes
 `f()` instead of sending on a channel.
 
-### F5: Radar Serial Path Is Fine as Is
+### F5: radar serial path is fine as is
 
 `serialmux/serialmux.go:109,115` syncs the radar device clock to
-the host's wall time — a one-shot initialisation command. No clock
+the host's wall time: a one-shot initialisation command. No clock
 abstraction needed.
 
-### F6: Multi-Sensor Future Needs Timestamp Alignment
+### F6: multi-sensor future needs timestamp alignment
 
 The [multi-model ingestion design](../lidar/architecture/multi-model-ingestion-and-configuration.md)
 describes supporting 3–10 LiDAR models with different packet
@@ -160,25 +160,25 @@ injection. The remaining ~60 `time.Now()` call sites in `l3grid`,
 **Decision: A now, B later.** Conceptual clarity first, then
 optional type-level enforcement when multi-sensor lands.
 
-### Open questions — resolved
+### Open questions: resolved
 
 1. **Should `pipeline/frame_timer.go` accept a `Clock`?**
    Yes. Inject `Clock` for consistency; benchmarks pass
    `RealClock{}`.
 
 2. **Should `l3grid` background timestamps migrate to `Clock`?**
-   Phase C (future work) — diagnostic/audit timestamps with low
+   Phase C (future work): diagnostic/audit timestamps with low
    testability risk.
 
 3. **Should each sensor's `FrameBuilder` have an independent
    `Clock` or share one?**
-   Independent by default — sensors have different spin rates.
+   Independent by default: sensors have different spin rates.
    However, the API should accept an optional shared `Clock` for
    sensors that require frame-rate synchronisation. Each sensor
    gets its own `Clock` instance unless explicitly wired to
    another sensor's clock.
 
-## System Boundary Diagram
+## System boundary diagram
 
 ```
               SENSOR TIME DOMAIN              WALL TIME DOMAIN
@@ -201,7 +201,7 @@ optional type-level enforcement when multi-sensor lands.
         └──────────────────────────┘   └──────────────────────────┘
 ```
 
-## Failure Registry
+## Failure registry
 
 | Component         | Failure Mode            | Recovery               |
 | ----------------- | ----------------------- | ---------------------- |
@@ -210,9 +210,9 @@ optional type-level enforcement when multi-sensor lands.
 | MockClock.Advance | Forget → test hangs     | Document; use timeouts |
 | Time-domain drift | Tracker dt vs wall time | SystemTime is default  |
 
-## Implementation Plan
+## Implementation plan
 
-### Phase A: Wire Clock into Critical-Path Code
+### Phase a: wire clock into critical-path code
 
 - [ ] **A1.** Add `Clock timeutil.Clock` to `FrameBuilderConfig`.
       Default to `RealClock{}` in `NewFrameBuilder` if nil. Add
@@ -229,13 +229,13 @@ optional type-level enforcement when multi-sensor lands.
       `streamFromReader`. Replace `time.Sleep()` and `time.Time{}`
       pacing with clock-driven intervals.
 - [ ] **A5.** Write tests for throttle behaviour using
-      `MockClock.Advance()` — verify frames within
+      `MockClock.Advance()`: verify frames within
       `minFrameInterval` are skipped without waiting real time.
 - [ ] **A6.** Write tests for FrameBuilder cleanup using
-      `MockClock` — verify stale frames are cleaned up after
+      `MockClock`: verify stale frames are cleaned up after
       advancing mock time past `CleanupInterval`.
 
-### Phase B: Eliminate `time.Sleep` in Tests
+### Phase b: eliminate `time.Sleep` in tests
 
 Companion to [go-structured-logging-plan.md](go-structured-logging-plan.md)
 Item 3 (flaky sleep elimination). That plan identifies the
@@ -249,33 +249,33 @@ mechanism.
       available, or `WaitFor` polling where it is not.
 - [ ] **B3.** Replace production `time.Sleep` in
       `l9endpoints/replay.go` with `clock.Sleep()` (covered by A4
-      above) — verify replay tests no longer depend on wall time.
+      above): verify replay tests no longer depend on wall time.
 - [ ] **B4.** Document the `MockClock.Advance()` test pattern
       and `WaitFor` helper in a short section in
       `docs/platform/architecture/structured-logging.md` or a
       dedicated test-patterns doc.
 
-### Phase C: Full Migration (Future Work)
+### Phase c: full migration (future work)
 
 Migrate the remaining `time.Now()` call sites not covered by
 Phase A. These are lower-risk diagnostic, audit, and logging
 timestamps. Included here for completeness; schedule when
 testability benefits justify the review surface.
 
-- [ ] **C1.** `l3grid/` — ~17 background model timestamps
+- [ ] **C1.** `l3grid/`: ~17 background model timestamps
       (audit/diagnostic). Migrate to `Clock.Now()`.
-- [ ] **C2.** `l1packets/parse/extract.go` — boot-time and
+- [ ] **C2.** `l1packets/parse/extract.go`: boot-time and
       fallback packet timestamping (4 calls). Requires careful
       handling of `TimestampMode` interactions.
-- [ ] **C3.** `serialmux/serialmux.go` — radar clock sync
+- [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
-- [ ] **C4.** `cmd/radar/` and `cmd/tools/` — startup/CLI
+- [ ] **C4.** `cmd/radar/` and `cmd/tools/`: startup/CLI
       timestamps. Low testability benefit.
-- [ ] **C5.** `internal/db/` — DB audit timestamps. Low
+- [ ] **C5.** `internal/db/`: DB audit timestamps. Low
       testability benefit but may be useful for deterministic
       test snapshots.
 
-### Phase D: Multi-Sensor Preparation (Deferred)
+### Phase d: multi-sensor preparation (deferred)
 
 - [ ] **D1.** When L7 Scene is designed, define a
       `TimestampAligner` interface accepting frames from N sensors
@@ -288,7 +288,7 @@ testability benefits justify the review surface.
 - [ ] **D3.** Evaluate whether radar serial timestamps need
       alignment with LiDAR timestamps for sensor-fusion use cases.
 
-### Phase E: Formalise Time-Domain Boundary
+### Phase e: formalise time-domain boundary
 
 - [ ] **E1.** Add doc comment block to `LiDARFrame` in
       `l2frames/types.go` explaining the two timestamp domains:
@@ -304,7 +304,7 @@ testability benefits justify the review surface.
       time-domain model and identifying cross-sensor timestamp
       alignment as an open question for L7 Scene.
 
-### Phase F: Validate and Harden
+### Phase f: validate and harden
 
 - [ ] **F1.** Audit all five `TimestampMode` code paths in
       `extract.go` (lines 460–510). Verify that the `dt` computed
@@ -317,7 +317,7 @@ testability benefits justify the review surface.
       FrameBuilder does not regress race tests
       (`toasc_race_test.go`).
 
-## Size Estimates
+## Size estimates
 
 | Phase | Scope                                | Effort          |
 | ----- | ------------------------------------ | --------------- |

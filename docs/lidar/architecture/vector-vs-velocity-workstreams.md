@@ -1,12 +1,12 @@
-# Vector-Grid vs Velocity Algorithm Workstreams
+# Vector-Grid vs velocity algorithm workstreams
 
-Boundary between two independent LiDAR development streams — vector-grid foundations and velocity-coherent algorithms — so that motion-algorithm research does not destabilise static-scene reliability.
+Boundary between two independent LiDAR development streams: vector-grid foundations and velocity-coherent algorithms; so that motion-algorithm research does not destabilise static-scene reliability.
 
 ## Purpose
 
 Separate foundational LiDAR work into two independent streams so the project can evolve motion algorithms without destabilizing static-scene reliability.
 
-## Current Runtime Baseline (Implemented)
+## Current runtime baseline (implemented)
 
 1. Foreground extraction uses L3 mask path:
    - `internal/lidar/l3grid/foreground.go` (`ProcessFramePolarWithMask`)
@@ -15,7 +15,7 @@ Separate foundational LiDAR work into two independent streams so the project can
 3. Tracking and assignment:
    - `internal/lidar/l5tracks/tracking.go`
 
-## Workstream A: Vector-Grid Foundations
+## Workstream a: vector-grid foundations
 
 Scope:
 
@@ -34,7 +34,7 @@ Current status:
 - Implemented core L3/L4/L5 pipeline is production active.
 - Region-adaptive params now apply in the production mask path (`foreground.go`) as of 2026-02-21.
 
-## Workstream B: Velocity-Coherent Algorithm
+## Workstream b: velocity-coherent algorithm
 
 Scope:
 
@@ -54,7 +54,7 @@ Current status:
   - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
   - `data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
 
-## Required Boundary Between A and B
+## Required boundary between a and b
 
 Keep one narrow contract:
 
@@ -67,7 +67,7 @@ Rules:
 2. Workstream B must not reach into region-manager internals.
 3. Pipeline stages after foreground mask (transform, clustering, tracking, storage, UI) remain unchanged.
 
-## Dependency Policy
+## Dependency policy
 
 1. Treat vector-grid docs as foundation references.
 2. Treat velocity docs as proposal/plan until production wiring and tests land.

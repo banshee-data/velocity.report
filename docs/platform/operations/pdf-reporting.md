@@ -1,4 +1,4 @@
-# PDF Reporting — Go Migration
+# PDF reporting: Go migration
 
 Active plan: [pdf-go-chart-migration-plan.md](../../plans/pdf-go-chart-migration-plan.md)
 
@@ -15,7 +15,7 @@ images ship Python, and it complicates the single-binary goal (D-09).
 Generate SVG charts in Go, emit `.tex` files from Go `text/template`, and
 invoke `xelatex` to produce the final PDF. No Python required.
 
-### Key Changes
+### Key changes
 
 | Component           | Before (Python)                         | After (Go)                                       |
 | ------------------- | --------------------------------------- | ------------------------------------------------ |
@@ -27,9 +27,9 @@ invoke `xelatex` to produce the final PDF. No Python required.
 | **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)            |
 | **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                  |
 
-## Current vs Proposed Architecture
+## Current vs proposed architecture
 
-### Current Data Path
+### Current data path
 
 ```
 Web UI → POST /api/generate_report → Go writes config.json
@@ -43,7 +43,7 @@ Web UI → POST /api/generate_report → Go writes config.json
 The Python process makes an HTTP request back to the Go server that spawned
 it. This round-trip is eliminated in the new design.
 
-### Proposed Data Path
+### Proposed data path
 
 ```
 Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
@@ -53,7 +53,7 @@ Web UI → POST /api/generate_report (or CLI: velocity-report pdf)
   → Go: os/exec → xelatex → .pdf
 ```
 
-## Package Layout
+## Package layout
 
 ```
 internal/report/
@@ -76,9 +76,9 @@ internal/report/
 └── archive.go          # .zip packaging
 ```
 
-## Chart-by-Chart Migration
+## Chart-by-Chart migration
 
-### 1. Time-Series Chart (Dual-Axis Percentile + Count)
+### 1. Time-Series chart (dual-axis percentile + count)
 
 Current: 24.0 × 8.0 inch matplotlib figure with left Y-axis (P50/P85/P98/Max
 speed lines with markers), right Y-axis (count bars, translucent), orange
@@ -90,23 +90,23 @@ Go approach: `gonum/plot` with `vgsvg` backend, or direct SVG via
 gonum/plot does not have built-in dual-axis support; render two plots to
 the same SVG canvas sharing the X dimension.
 
-### 2. Histogram (Single Period)
+### 2. Histogram (single period)
 
 Straightforward bar chart: steelblue bars (α=0.7, black edge), speed bucket
 labels ("20–25", "70+"). `gonum/plot` with `plotter.BarChart` handles
 directly.
 
-### 3. Comparison Histogram
+### 3. Comparison histogram
 
 Side-by-side grouped bars (primary vs comparison, normalised to percentage).
 `gonum/plot` supports grouped bar charts with offset positioning.
 
-### 4. Map Overlay
+### 4. Map overlay
 
 SVG marker injection (radar-coverage triangles into site map SVGs) via Go
 `encoding/xml`. Same `rsvg-convert` pipeline for SVG→PDF.
 
-## SVG-to-PDF Strategy (Chosen: rsvg-convert)
+## SVG-to-PDF strategy (chosen: rsvg-convert)
 
 XeTeX's `\includegraphics` does not natively handle SVG. Use `rsvg-convert`
 (from `librsvg`, ~2 MB) as a lightweight converter:
@@ -122,13 +122,13 @@ cmd := exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")
 
 Fallback: gonum/plot `vgpdf` for direct PDF output (skips SVG artefact).
 
-## LaTeX Template Design
+## LaTeX template design
 
 Replace PyLaTeX's programmatic construction with Go `text/template` files
 embedded via `go:embed`. Use custom delimiters `<<` and `>>` (via
 `template.Delims`) to avoid clashing with LaTeX `{`/`}`.
 
-### Template Data Structure
+### Template data structure
 
 ```go
 type TemplateData struct {
@@ -147,14 +147,14 @@ type TemplateData struct {
 }
 ```
 
-### Advantages Over PyLaTeX
+### Advantages over PyLaTeX
 
 - Templates are plain `.tex` files, editable by anyone who knows LaTeX
-- `go:embed` at compile time — zero disk I/O at runtime
-- Deterministic output — byte-for-byte comparison in tests
+- `go:embed` at compile time: zero disk I/O at runtime
+- Deterministic output: byte-for-byte comparison in tests
 - Go `text/template` is widely understood
 
-## Colour Palette (Shared with Web)
+## Colour palette (shared with web)
 
 ```latex
 \definecolor{vrP50}{HTML}{fbd92f}
@@ -165,7 +165,7 @@ type TemplateData struct {
 
 Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 
-## Python Modules to Replace
+## Python modules to replace
 
 | Module                 | Lines | Replacement                                    |
 | ---------------------- | ----- | ---------------------------------------------- |
@@ -182,7 +182,7 @@ Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 | `zip_utils.py`         | ~80   | Go `archive/zip` (stdlib)                      |
 | `cli/main.py`          | ~60   | Go `pdf` subcommand                            |
 
-## Relationship to Other Decisions
+## Relationship to other decisions
 
 - **D-08 (Precompiled LaTeX):** Complementary. D-08 reduces TeX from ~800 MB
   to ~30–60 MB. This plan eliminates Python (~450 MB). Together: ~1.25 GB →

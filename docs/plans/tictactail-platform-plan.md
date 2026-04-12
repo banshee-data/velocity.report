@@ -1,14 +1,14 @@
-# TicTacTail Platform Plan
+# TicTacTail platform plan
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting (platform library)
-- **Decision:** D-23 — [DECISIONS.md](../DECISIONS.md)
-- **Backlog:** v0.8 — [BACKLOG.md](../BACKLOG.md)
+- **Decision:** D-23; [DECISIONS.md](../DECISIONS.md)
+- **Backlog:** v0.8; [BACKLOG.md](../BACKLOG.md)
 - **Canonical:** [tictactail-library.md](../platform/architecture/tictactail-library.md)
 
 - **Design specification (working name, ownership, core contract, aggregation, rendering, performance):** see [tictactail-library.md](../platform/architecture/tictactail-library.md).
 
-## Working Name
+## Working name
 
 Selected working name: `TicTacTail`
 
@@ -37,7 +37,7 @@ The VRLOG checker should be a small import/config layer on top of this.
 
 ---
 
-## Likely Consumers
+## Likely consumers
 
 Beyond VRLOG:
 

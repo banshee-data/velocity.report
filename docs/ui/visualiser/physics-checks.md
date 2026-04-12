@@ -1,10 +1,10 @@
-# Physics Checks and Confirmation Gates
+# Physics checks and confirmation gates
 
 - **Source plan:** `docs/plans/lidar-visualiser-physics-checks-and-confirmation-gates-plan.md`
 
 Automatic physics violation detection and review-gate state model for track confirmation.
 
-## Violation Types
+## Violation types
 
 6 automatic physics violation detectors:
 
@@ -19,7 +19,7 @@ Automatic physics violation detection and review-gate state model for track conf
 
 Thresholds are class-specific (e.g. pedestrian vs car vs cyclist).
 
-## Review State Model
+## Review state model
 
 Each track has a review state derived from its violations:
 
@@ -33,7 +33,7 @@ PENDING → BLOCKED → CONFIRMED
 - **CONFIRMED:** All violations resolved and track accepted by reviewer.
 - **OVERRIDDEN:** Reviewer explicitly accepted the track despite unresolved violations (mandatory reason required).
 
-### Gate Logic
+### Gate logic
 
 - Unresolved ERROR violations → state = `BLOCKED`.
 - WARN violations do not block confirmation but are visible in the UI.

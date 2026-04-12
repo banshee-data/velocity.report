@@ -4,9 +4,9 @@
 ┻┛┗┛┗┛┻┗┛┛┗•┛┗┗┗┻
 ```
 
-# Frontend and Visualisation Design Language
+# Frontend and visualisation design language
 
-## 1. One Strict Goal
+## 1. One strict goal
 
 Design for **operational clarity and cross-platform comparability**.
 
@@ -23,21 +23,21 @@ Core philosophy:
 - DRY is mandatory for layout, styling, and chart semantics.
 - Reuse component primitives and shared style definitions before introducing one-off markup.
 
-## 2. Scope (Three Platforms)
+## 2. Scope (three platforms)
 
 This document applies to exactly these three surfaces:
 
 1. Web app (Svelte): `web/`
-2. macOS app (SwiftUI + Metal): `tools/visualiser-macos/VelocityVisualiser/`
+2. macOS app (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
 3. Chart/rendering stack:
    - interactive web charts (LayerChart/d3-scale in web routes/components)
-   - static report charts (matplotlib in `tools/pdf-generator/`)
+   - static report charts (matplotlib in [tools/pdf-generator/](../../tools/pdf-generator))
 
 Out of scope for new design work:
 
 - legacy Go-embedded LiDAR dashboards under `internal/lidar/monitor/` (migration target, not style baseline)
 
-## 3. Shared Design Language (Cross-Platform Contract)
+## 3. Shared design language (cross-platform contract)
 
 ### 3.1 Information hierarchy
 
@@ -68,18 +68,24 @@ For percentile charts, keep the same metric-to-colour mapping across chart stack
 - `count_bar`: `#2d1e2f`
 - `low_sample`: `#f7b32b`
 
-These hex values are the **canonical percentile palette** for all chart stacks (web LayerChart, macOS visualiser, and Python PDF generator). The current PDF configuration (`tools/pdf-generator/pdf_generator/core/config_manager.py`) already uses this mapping.
+These hex values are the **canonical percentile palette** for all chart stacks (web LayerChart,
+macOS visualiser, and Python PDF generator).
+The current PDF configuration ([tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)) already
+uses this mapping.
 
-**Current discrepancy (to be migrated):** the web UI speed percentile chart in `web/src/routes/+page.svelte` still uses an older palette:
+**Current discrepancy (to be migrated):** the web UI speed percentile chart in [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) still uses an older palette:
 
 - `p50`: `#ece111`
 - `p85`: `#ed7648`
 - `p98`: `#d50734`
 - `max`: `#000000`
 
-That web implementation is **non-compliant** with this design contract and must be migrated to the canonical mapping above. Track and complete this migration via a follow-up issue in the web/frontend tracker, and update this document once the web palette is aligned.
+That web implementation is **non-compliant** with this design contract and must be migrated to the
+canonical mapping above.
+Track and complete this migration via a follow-up issue in the web/frontend tracker,
+and update this document once the web palette is aligned.
 
-## 4. Chart Alignment Rules (Required vs Allowed)
+## 4. Chart alignment rules (required vs allowed)
 
 ### 4.1 Required alignment
 
@@ -102,7 +108,7 @@ That web implementation is **non-compliant** with this design contract and must 
 
 Charts do not need to be 100% identical; meaning and readability must be aligned.
 
-## 5. Web UI Style System
+## 5. Web UI style system
 
 ### 5.1 Existing canonical web styles
 
@@ -130,7 +136,7 @@ Use classic stack for linear form/settings pages with minimal real-time data beh
 For web UI primitives, use this priority order:
 
 1. Existing `svelte-ux` components.
-2. Existing shared local wrapper components in `web/src/lib/components`.
+2. Existing shared local wrapper components in [web/src/lib/components](../../web/src/lib/components).
 3. Native HTML elements only when component capability/performance/accessibility requires it.
 
 When using native elements instead of `svelte-ux`, add a short code comment explaining why.
@@ -140,7 +146,7 @@ When using native elements instead of `svelte-ux`, add a short code comment expl
 For web charts, use this priority order:
 
 1. Existing LayerChart/d3-scale component patterns.
-2. Shared chart components under `web/src/lib/components` (or add one).
+2. Shared chart components under [web/src/lib/components](../../web/src/lib/components) (or add one).
 3. Native `<svg>` only as a temporary fallback during migration, or when a required chart type is unsupported.
 4. Canvas only where it is clearly the right tool (for example high-density or heatmap rendering).
 
@@ -156,7 +162,7 @@ Create and reuse standard classes in shared CSS rather than repeating long utili
 
 Standards:
 
-- Shared class definitions live in the web-level standards CSS (`web/src/routes/app.css`, which may import additional shared stylesheets as needed).
+- Shared class definitions live in the web-level standards CSS ([web/src/routes/app.css](../../web/src/routes/app.css), which may import additional shared stylesheets as needed).
 - Extract repeated class patterns (containers, headers, control rows, stat grids, chart cards, pane shells) into named standard classes.
 - Route files should compose standard classes first, with minimal local overrides.
 - Do not copy-paste identical class bundles across multiple pages.
@@ -182,7 +188,7 @@ Enforcement guidance:
 - Keep analytical workspace bounded (roughly 2200-2600px max canvas zone).
 - Spend extra width on side panes/gutters/charts, not long unbroken form rows.
 
-## 6. macOS Swift Style System
+## 6. macOS Swift style system
 
 The macOS visualiser follows native platform conventions:
 
@@ -192,12 +198,12 @@ The macOS visualiser follows native platform conventions:
 - Keep inspector/detail pane widths practical (about 480-560px where possible).
 - When showing percentile metrics in charts/sparklines, use the shared metric palette mapping.
 
-## 7. Chart Stack Notes
+## 7. Chart stack notes
 
 - Web chart baseline: LayerChart/d3-scale patterns in Svelte routes/components.
 - Report chart baseline: matplotlib defaults in:
-  - `tools/pdf-generator/pdf_generator/core/config_manager.py`
-  - `tools/pdf-generator/pdf_generator/core/chart_builder.py`
+  - [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)
+  - [tools/pdf-generator/pdf_generator/core/chart_builder.py](../../tools/pdf-generator/pdf_generator/core/chart_builder.py)
 - If palette/tick/legend semantics change in one chart stack, update the other stack in the same PR or log a linked follow-up issue.
 
 ## 8. Non-Goals
@@ -206,7 +212,7 @@ The macOS visualiser follows native platform conventions:
 - Replacing native macOS UI language with web-like styling.
 - Introducing a third visual style family beyond modern workspace and classic stack.
 
-## 9. PR Checklist
+## 9. PR checklist
 
 A UI/chart PR is complete only if:
 

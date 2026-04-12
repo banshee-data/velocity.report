@@ -1,4 +1,4 @@
-# Serial Configuration and Testing via UI
+# Serial configuration and testing via UI
 
 - **Status:** Draft
 - **Issue:** Serial config + test (baud, port) via UI
@@ -29,9 +29,9 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Troubleshooting Aid:** Built-in diagnostics help users identify serial communication problems
 - **Safer Deployments:** Validate settings before committing changes, reducing downtime
 
-## Current System Capabilities
+## Current system capabilities
 
-### Serial Port Management (Existing)
+### Serial port management (existing)
 
 **Component:** `internal/serialmux`
 
@@ -42,13 +42,13 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
-> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()` — fatal on failure.
+> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
 > **Source:** `internal/serialmux/port.go`. `SerialPorter` interface embeds `io.ReadWriter` and `io.Closer`.
 
-### Database Configuration (Existing)
+### Database configuration (existing)
 
 **Schema:** SQLite database at `/var/lib/velocity-report/sensor_data.db`
 
@@ -56,7 +56,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Pattern:** Configuration stored in DB, consumed by application at runtime
 - **Migration System:** Timestamped SQL files in `internal/db/migrations/`
 
-### Web Interface (Existing)
+### Web interface (existing)
 
 **Framework:** Svelte/TypeScript with svelte-ux component library
 
@@ -70,7 +70,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - Loading states and user feedback messages
 - Server default override with localStorage
 
-### HTTP API (Existing)
+### HTTP API (existing)
 
 **Server:** `internal/api/server.go`
 
@@ -78,11 +78,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Pattern:** JSON responses with error handling
 - **Admin Routes:** Attached via `AttachAdminRoutes(*http.ServeMux)`
 
-## Feature Requirements
+## Feature requirements
 
-### Functional Requirements
+### Functional requirements
 
-#### FR1: Database Schema for Serial Configuration
+#### FR1: database schema for serial configuration
 
 **Requirement:** Create database table to store serial port configurations
 
@@ -107,25 +107,25 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 > **Source:** Sensor model registry in `internal/radar/` (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
 
-#### FR2: Go API Endpoints for Serial Configuration
+#### FR2: Go API endpoints for serial configuration
 
 Seven REST endpoints under `/api/serial/` manage the configuration lifecycle: CRUD for `radar_serial_config` entries, device enumeration (filtering out already-assigned ports), and sensor model metadata from application code. Implementation in `internal/api/serial_config.go`.
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full endpoint specification with request/response schemas and error contracts.
 
-#### FR3: Serial Port Testing Endpoint
+#### FR3: serial port testing endpoint
 
 A `POST /api/serial/test` endpoint validates serial port configuration before saving. Sends non-destructive query commands (`??`, `I?`), reads with configurable timeout, optionally auto-corrects baud rate if the device reports a different rate via `I?`. Returns diagnostic information including raw responses (JSON and non-JSON) and actionable suggestions for common failures (port not found, permission denied, timeout, baud mismatch). Implementation in `internal/api/serial_test.go`.
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the testing algorithm, diagnostic suggestion table, and OPS243 baud rate commands.
 
-#### FR4: Serial Auto-Detection (Port + Baud)
+#### FR4: serial auto-detection (port + baud)
 
 Two endpoints help users find connected radar devices: `POST /api/serial/auto-detect` probes all unassigned serial ports across common baud rates to find a responsive OPS243 device, and `POST /api/serial/detect-baud` tests a known port at common rates. Both use non-destructive query commands and return diagnostic data including ports tested and ports excluded. Implementation in `internal/api/serial_test.go`.
 
 See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the auto-detection algorithm and response schemas.
 
-#### FR5: Web UI for Serial Configuration
+#### FR5: web UI for serial configuration
 
 **Requirement:** User interface to view, edit, test, and manage serial configurations
 
@@ -185,7 +185,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 - Screen reader announcements for test results
 - Focus management in modals
 
-#### FR6: Server Integration with Database Configuration
+#### FR6: server integration with database configuration
 
 **Requirement:** Load serial configuration from database at startup
 
@@ -224,46 +224,46 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 - Log warning if both database config and CLI flag are present
 - Existing deployments continue working without migration
 
-### Non-Functional Requirements
+### Non-Functional requirements
 
-#### NFR1: Performance
+#### NFR1: performance
 
 - **API Response Time:** < 200ms for config CRUD operations
 - **Test Operation:** < 5 seconds timeout for serial port test
 - **Auto-Detection:** < 15 seconds to test all common baud rates
 - **UI Responsiveness:** No blocking operations, loading states for all async actions
 
-#### NFR2: Security
+#### NFR2: security
 
 - **Input Validation:** Sanitize all port paths to prevent command injection
 - **Path Restrictions:** Only allow `/dev/tty*` and `/dev/serial*` patterns
 - **Permission Checks:** Validate serial port permissions before testing
 - **Rate Limiting:** Prevent DoS via repeated test operations
 
-#### NFR3: Reliability
+#### NFR3: reliability
 
 - **Port Lock Prevention:** Ensure test operations release port even on timeout/error
 - **Concurrent Access:** Mutex protection for serial port access during tests
 - **Database Transactions:** Atomic config updates to prevent corruption
 - **Graceful Degradation:** Continue serving data even if serial config fails to load
 
-#### NFR4: Usability
+#### NFR4: usability
 
 - **Clear Error Messages:** User-friendly explanations for all failure modes
 - **Guided Troubleshooting:** Actionable suggestions for common issues
 - **Visual Feedback:** Loading spinners, success/error indicators, progress for long operations
 - **Help Documentation:** Inline help text for technical fields (baud rate, parity, etc.)
 
-#### NFR5: Maintainability
+#### NFR5: maintainability
 
-- **Code Organization:** Separate concerns (DB, API, UI) into appropriate modules
+- **Code Organisation:** Separate concerns (DB, API, UI) into appropriate modules
 - **Test Coverage:** Unit tests for all serial testing logic and API endpoints
 - **Documentation:** API documentation, user guide, troubleshooting section
 - **Consistent Patterns:** Follow existing codebase conventions (migrations, API structure, UI components)
 
-## Implementation Phases
+## Implementation phases
 
-### Phase 1: Database Foundation (Minimal Viable Product)
+### Phase 1: database foundation (minimal viable product)
 
 **Goal:** Enable database-driven serial configuration without UI
 
@@ -283,7 +283,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Timeline:** 1-2 days
 
-### Phase 2: API Endpoints (Backend Complete)
+### Phase 2: API endpoints (backend complete)
 
 **Goal:** Full CRUD operations and testing capabilities via API
 
@@ -306,7 +306,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Timeline:** 3-4 days
 
-### Phase 3: Web UI (Full Feature)
+### Phase 3: web UI (full feature)
 
 **Goal:** User-friendly interface for all serial configuration tasks
 
@@ -331,7 +331,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Timeline:** 4-5 days
 
-### Phase 4: Multi-Sensor Support (Future Enhancement)
+### Phase 4: multi-sensor support (future enhancement)
 
 **Goal:** Support multiple radar sensors simultaneously
 
@@ -339,14 +339,14 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 1. Multiple SerialMux instances in server
 2. Data tagging with sensor ID
-3. UI for sensor selection in visualizations
+3. UI for sensor selection in visualisations
 4. Documentation for multi-sensor setups
 
 **Timeline:** 5-7 days (future work)
 
-## Technical Design Decisions
+## Technical design decisions
 
-### Decision 1: Database vs. Configuration File
+### Decision 1: database vs. configuration file
 
 **Options:**
 
@@ -365,7 +365,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Configuration files would require file parsing, permission management, and would be harder to expose via REST API.
 
-### Decision 2: Testing Strategy
+### Decision 2: testing strategy
 
 **Options:**
 
@@ -383,7 +383,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Full initialisation could disrupt live data collection. No testing provides poor user experience.
 
-### Decision 3: Baud Rate Configuration
+### Decision 3: baud rate configuration
 
 **Options:**
 
@@ -401,7 +401,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Auto-detect only is too slow for every configuration. Freeform entry prone to errors.
 
-### Decision 4: Multi-Sensor Architecture
+### Decision 4: multi-sensor architecture
 
 **Options:**
 
@@ -419,7 +419,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Rejected:** Single multiplexed instance is complex. Separate processes complicate deployment.
 
-### Decision 5: Sensor Model Storage (Application vs Database)
+### Decision 5: sensor model storage (application vs database)
 
 **Options:**
 
@@ -440,9 +440,9 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 The CHECK constraint in the migration validates sensor model slugs at the database level. Adding new sensor models requires both an application update and a migration to update the CHECK constraint.
 
-## Migration Path for Existing Deployments
+## Migration path for existing deployments
 
-### For Users on systemd (Production)
+### For users on systemd (production)
 
 **Current Setup:**
 
@@ -476,7 +476,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart velocity-report
 ```
 
-### For Users on Manual Deployment
+### For users on manual deployment
 
 **Current Setup:**
 
@@ -490,31 +490,31 @@ sudo systemctl restart velocity-report
 2. **Optional Database Config:** Can configure via UI once running
 3. **Auto-Detect Helper:** Use UI to auto-detect baud rate
 
-## Success Metrics
+## Success metrics
 
-### User Experience Metrics
+### User experience metrics
 
 - **Time to Configure:** < 2 minutes from opening UI to working serial connection
 - **Configuration Success Rate:** > 95% of users successfully configure serial port
 - **Error Recovery:** < 1 minute from error to solution with diagnostic suggestions
 - **Multi-Sensor Adoption:** % of users configuring multiple radars (baseline: 0%, target: 10%)
 
-### Technical Metrics
+### Technical metrics
 
 - **API Performance:** < 200ms for config operations, < 5s for testing
 - **Test Accuracy:** 100% detection of non-working configurations
 - **Auto-Detect Success:** > 90% correct baud rate detection for OPS243A
 - **Zero Downtime:** No data collection interruption during config changes
 
-### Support Metrics
+### Support metrics
 
 - **Issue Reduction:** 50% reduction in serial configuration support requests
 - **Self-Service Rate:** 80% of serial issues resolved without manual intervention
 - **Documentation Clarity:** < 5% of users request additional help after reading guide
 
-## Documentation Requirements
+## Documentation requirements
 
-### User Documentation
+### User documentation
 
 1. **Setup Guide:** Step-by-step serial configuration for new deployments
 2. **Troubleshooting Guide:** Common issues and solutions
@@ -523,7 +523,7 @@ sudo systemctl restart velocity-report
 
 **Location:** `docs/src/guides/serial-configuration.md`
 
-### Developer Documentation
+### Developer documentation
 
 1. **API Reference:** OpenAPI/Swagger spec for serial endpoints
 2. **Database Schema:** ERD and migration history
@@ -532,15 +532,15 @@ sudo systemctl restart velocity-report
 
 **Location:** `docs/api/serial-endpoints.md`, `ARCHITECTURE.md` update
 
-### In-App Help
+### In-App help
 
 1. **Tooltips:** Explain technical terms (baud rate, parity, stop bits)
 2. **Field Validation:** Real-time feedback on invalid values
 3. **Help Links:** Context-sensitive links to documentation
 
-## Privacy & Security Considerations
+## Privacy & security considerations
 
-### Privacy (Maintained)
+### Privacy (maintained)
 
 - ✅ **No PII Collection:** Serial configuration contains no personally identifiable information
 - ✅ **Local-Only Storage:** All data remains in local SQLite database
@@ -570,15 +570,15 @@ sudo systemctl restart velocity-report
 - Track configuration changes with `created_at` and `updated_at` timestamps
 - Future: Add audit log for who changed what (if user management added)
 
-## Open Questions & Future Considerations
+## Open questions & future considerations
 
-### Resolved Design Questions
+### Resolved design questions
 
 | Question                                      | Resolution                                                                                       |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Allow configuration of serial timeout values? | No. Hardcoded sensible defaults in `Initialise()`. Add configurability only if users request it. |
 
-### Open Questions
+### Open questions
 
 1. **Q: Should we support hot-swapping serial configurations without restart?**
    - Current: Changes require server restart
@@ -588,9 +588,9 @@ sudo systemctl restart velocity-report
 2. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
    - Trade-off: Simplicity vs. advanced use cases
-   - Recommendation: Explore options now — this needs addressing soon, not deferring to Phase 4
+   - Recommendation: Explore options now; this needs addressing soon, not deferring to Phase 4
 
-### Future Enhancements
+### Future enhancements
 
 1. **Serial Port Health Monitoring:**
    - Track connection uptime
@@ -616,9 +616,9 @@ sudo systemctl restart velocity-report
    - Import configs from another installation
    - Backup/restore functionality
 
-## Appendix: Technical References
+## Appendix: technical references
 
-### OPS243A Serial Configuration
+### OPS243A serial configuration
 
 **Documented Settings:**
 
@@ -640,7 +640,7 @@ sudo systemctl restart velocity-report
 
 **Reference:** [Waveshare SC16IS762 HAT Wiki](https://www.waveshare.com/wiki/Serial_Expansion_HAT)
 
-### Common Serial Adapters
+### Common serial adapters
 
 **USB-Serial Adapters:**
 

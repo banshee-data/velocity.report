@@ -1,4 +1,4 @@
-# Velocity Report Source Files
+# Velocity report source files
 
 This ZIP file contains the LaTeX source and chart PDFs for your velocity report.
 
@@ -11,7 +11,7 @@ This ZIP file contains the LaTeX source and chart PDFs for your velocity report.
 - `*_histogram.pdf` - Velocity distribution histogram
 - `*.log` - LaTeX compilation log (if available)
 
-## Quick Start (Portable Version)
+## Quick start (portable version)
 
 The portable version uses standard LaTeX fonts and works out-of-box:
 
@@ -19,7 +19,7 @@ The portable version uses standard LaTeX fonts and works out-of-box:
 pdflatex *_report.tex
 ```
 
-## Using Custom Fonts (Original Version)
+## Using custom fonts (original version)
 
 To compile with the original custom fonts (Atkinson Hyperlegible):
 
@@ -51,7 +51,7 @@ xelatex *_report_fonts.tex
 
 The `*_report_fonts.tex` file expects fonts in `./fonts/` relative to the TEX file.
 
-## Editing Charts
+## Editing charts
 
 The chart PDFs are included so you can:
 
