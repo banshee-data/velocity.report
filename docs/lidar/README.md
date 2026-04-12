@@ -1,1 +1,0 @@
-architecture/LIDAR_ARCHITECTURE.md
