@@ -1,4 +1,33 @@
-# LiDAR terminology
+# LiDAR documentation
+
+Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P).
+
+For the canonical ten-layer processing architecture, implementation status,
+and literature alignment, see
+[architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
+
+## Folder structure
+
+| Folder             | Scope                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `architecture/`    | System design, layer specifications, and the canonical ten-layer model |
+| `operations/`      | Runtime operations: data source switching, auto-tuning, debugging      |
+| `troubleshooting/` | Resolved investigation notes for reference                             |
+
+## Quick links
+
+| Topic                   | Document                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| Ten-layer architecture  | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
+| System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                   |
+| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
+| Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
+| Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
+| Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
+| macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
+| Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
+
+## Terminology
 
 Core terms used across the LiDAR tracking system.
 
@@ -12,25 +41,6 @@ Core terms used across the LiDAR tracking system.
 | **Run** (Analysis Run) | A single processing pass over a data source (live or PCAP) with fixed parameters, producing tracks that can be compared against a scene's ground truth.      |
 | **Sweep**              | A batch execution that varies parameter combinations, running one analysis per combination and collecting metrics for comparison.                            |
 | **Auto-Tune**          | An iterative sweep that narrows parameter bounds across rounds, converging on optimal parameters via objective scoring.                                      |
-
-## Related architecture models
-
-- [LiDAR Data Layer Model (OSI-Style)](architecture/LIDAR_ARCHITECTURE.md): ten-layer model from L1 Packets through L10 Clients.
-
-## Layer summary
-
-| Layer | Label      | Package (Go)                      | Responsibility                                               |
-| ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
-| L1    | Packets    | `internal/lidar/l1packets/`       | Wire transport, UDP capture, PCAP replay, packet parsing     |
-| L2    | Frames     | `internal/lidar/l2frames/`        | Frame assembly, timestamps, geometry conversion              |
-| L3    | Grid       | `internal/lidar/l3grid/`          | Background model, foreground masking, persistence, regions   |
-| L4    | Perception | `internal/lidar/l4perception/`    | Per-frame clustering, OBBs, ground removal                   |
-| L5    | Tracks     | `internal/lidar/l5tracks/`        | Temporal association, identity, lifecycle, motion estimation |
-| L6    | Objects    | `internal/lidar/l6objects/`       | Semantic classification, per-object quality                  |
-| L7    | Scene      | _(planned)_                       | Persistent world model, multi-sensor fusion                  |
-| L8    | Analytics  | `internal/lidar/l8analytics/`     | Canonical metrics, summaries, comparisons, scoring           |
-| L9    | Endpoints  | `internal/lidar/l9endpoints/`     | gRPC streams, chart payload shaping, debug views             |
-| L10   | Clients    | `web/`, `tools/visualiser-macos/` | Browser, native, and report-generation consumers             |
 
 ## Label taxonomy
 
