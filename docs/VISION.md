@@ -138,8 +138,7 @@ A **Track Description Language (TDL)** provides a textual query interface over t
 database: an abstract schema, a JSON filter API,
 and an optional DSL for report templates and CLI queries.
 
-Full design:
-[Track Description Language and Description Interface plan](plans/data-track-description-language-plan.md).
+Full design: [TDL plan](plans/data-track-description-language-plan.md).
 
 ## 6. Reporting
 
@@ -158,8 +157,7 @@ reports. The vision extends it to:
 A web-based interface over the transit database for browsing, aggregating, replaying,
 and exporting transit data.
 
-Full design:
-[Track Description Language and Description Interface plan](plans/data-track-description-language-plan.md).
+Full design: [TDL plan](plans/data-track-description-language-plan.md).
 
 ## 7. Backlog alignment
 

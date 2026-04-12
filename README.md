@@ -131,7 +131,8 @@ engineering team ahead of their October planning meeting. The city repaved in De
 A second survey in January 2026 showed what parents feared: speeds had climbed, not fallen.
 The repaving, funded to improve safety, had made the school run more dangerous.
 
-The team [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026. The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
+The team [presented the findings at a San Francisco City Hall street safety hearing](https://www.youtube.com/watch?v=ZTJOI5gYZM4) in January 2026.
+The [full PDF is available at banshee-data.com](https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf).
 
 | Metric        | Period 1  | Period 2  | Change |
 | ------------- | --------- | --------- | ------ |

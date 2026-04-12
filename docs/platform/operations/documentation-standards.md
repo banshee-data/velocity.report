@@ -87,6 +87,17 @@ Three of five formatters already default to 100. Every language reaches
 - SQL expression width (separate concern, stays at 70)
 - Vendored/minified files
 
+### Excluded files
+
+Two files are excluded from prose-width checking entirely:
+
+- **`CHANGELOG.md`** — almost entirely list items (already excluded by
+  the checker); the few remaining prose lines are release intro paragraphs
+  that read better long.
+- **`docs/DECISIONS.md`** — single-line register entries with dense link
+  references; wrapping them hurts scanability more than it helps
+  readability.
+
 ### Enforcement rollout
 
 1. **Phase 1**: Config changes (no source reformatting)

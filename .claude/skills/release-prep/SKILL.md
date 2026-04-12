@@ -153,6 +153,15 @@ done
 
 If any links are broken or docs are over-length, note in the report.
 
+#### Prose width (advisory)
+
+```bash
+make check-prose-width
+```
+
+This is advisory: it never blocks a release. Include the violation count
+in the report so the trend is visible.
+
 ### 8. Changelog verification
 
 Read `CHANGELOG.md` and verify:

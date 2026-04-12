@@ -31,6 +31,9 @@ Running prose only. Excluded from the count:
 - Horizontal rules (`---`, `***`)
 - Bold metadata lines (`**key:**`)
 
+Two files are excluded entirely: `CHANGELOG.md` (register of list items)
+and `docs/DECISIONS.md` (single-line register entries with dense links).
+
 The default limit is 100 columns. Pass `--width 80` to check against a
 stricter limit (useful for ASCII art context).
 
