@@ -29,12 +29,6 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                                  | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | ✅ Implemented |
 | L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift; deprecated: Python PDF generator, Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python, deprecated)          | ✅ Implemented |
 
-## Canonical L1-L10 stack reference
-
-The table above is the canonical L1-L10 stack reference. This section remains
-as the stable anchor for summaries that refer to the locked layer ordering.
-The concept chart below is the primary visual reference.
-
 ## Segmented concept status chart
 
 This is the primary visual breakdown for the layer model. Green nodes show
