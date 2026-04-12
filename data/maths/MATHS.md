@@ -237,11 +237,13 @@ they improve will be removed.
 ## Config mapping
 
 Note on naming: this repository does **not** contain a `config/tracking.json` file.
-Runtime tuning is loaded from [config/tuning.defaults.json](../../config/tuning.defaults.json) (or another JSON passed with `--config`)
-via [internal/config/tuning.go](../../internal/config/tuning.go).
+Runtime tuning is loaded from [config/tuning.defaults.json](../../config/tuning.defaults.json)
+(or another JSON passed with `--config`) via
+[internal/config/tuning.go](../../internal/config/tuning.go).
 
-See also: [docs/lidar/operations/config-param-tuning.md](../../docs/lidar/operations/config-param-tuning.md) for the operational tuning workflow aimed
-at operators (grouped by tuning task rather than mathematical source).
+See also: [docs/lidar/operations/config-param-tuning.md](../../docs/lidar/operations/config-param-tuning.md)
+for the operational tuning workflow aimed at operators (grouped by tuning task
+rather than mathematical source).
 
 ### L3 background grid settling maths [`background-grid-settling-maths.md`](background-grid-settling-maths.md)
 

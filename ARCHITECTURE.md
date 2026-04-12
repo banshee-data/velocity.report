@@ -550,9 +550,9 @@ changes over time. Key aspects:
 
 The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame:
 background subtraction, clustering, tracking, and classification.
-Each layer is a separate Go package under [internal/lidar/](internal/lidar), with its own parameters, tests,
-and maths reference.
-The pipeline processes ~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
+Each layer is a separate Go package under [internal/lidar/](internal/lidar),
+with its own parameters, tests, and maths reference. The pipeline aims to process
+~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
 
 ### L3: background model
 

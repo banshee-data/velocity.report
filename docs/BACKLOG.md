@@ -1,6 +1,9 @@
 # Backlog
 
-Single source of truth for project-wide work items in velocity.report. Where available, tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task design doc: <url>`; tasks without a design doc use just the backlog entry and effort tag. Individual docs in `plans/` describe single projects, not priority lists.
+Single source of truth for project-wide work items in velocity.report.
+Tasks link to a design document using syntax `[#$pr] (#$issue) $title - $task [design doc]($url)`;
+tasks without a design doc fill the other fields.
+Individual docs in `plans/` describe single projects, not priority lists.
 
 **Governance:** Never delete agreed backlog items: split, consolidate, or complete them. Outstanding agreed work stays tracked here until delivered. When consolidating overlapping items, create distinct non-overlapping work units and move completed sub-tasks to the Complete section. Design documents may retire scope by marking phases complete or out-of-scope and linking to the PR where the scope change landed.
 
