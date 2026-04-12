@@ -13,7 +13,7 @@ working on, read on.
 
 ## Community & discussion
 
-[Join us on Discord](https://discord.gg/XXh6jXVFkt)
+### [Join us on Discord](https://discord.gg/XXh6jXVFkt)
 
 - **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt)
   for real-time conversation, questions, and the occasional
