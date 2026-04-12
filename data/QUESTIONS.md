@@ -164,18 +164,29 @@ rotation) with feature-matched confidence.
 Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
 
-### Q10. should radar + LiDAR fusion happen at L5 or L7?
+### Q10. should radar-LiDAR speed fusion live at L5 or L7?
 
-Current design associates radar speed at the per-track level
-(L5). The alternative is scene-level fusion at L7 where
-canonical objects from multiple sensors are merged.
+OPS243-A is a Doppler-only radar with no spatial coordinates,
+so **L4 is not viable** for point-level fusion. The active
+architecture question is L5 vs L7.
 
-- **Evidence needed:** Speed accuracy comparison (L5
-  per-track association vs L7 canonical-object fusion) on
-  scenes with both radar and LiDAR coverage. Latency and
-  complexity comparison.
-- **Reference:** [tracking-maths.md §fusion](maths/tracking-maths.md),
-  [lidar-l7-scene-plan.md](../docs/plans/lidar-l7-scene-plan.md)
+- **L5 hypothesis:** associate radar speed to LiDAR tracks via
+  beam geometry + gating; lower latency and simpler integration.
+- **L7 hypothesis:** attach radar speed at canonical-scene level
+  using broader context; potentially better disambiguation in
+  crowded beams at higher implementation complexity.
+- **Dependency:** L6 classification shape is still open, so final
+  L5/L7 placement should be decided with stable L6 input/output
+  contracts.
+
+- **Evidence needed:**
+  1. Beam-ambiguity rate: how often multiple objects occupy the
+     radar cone simultaneously
+  2. Speed error comparison: L5 strategy vs L7 strategy vs
+     Kalman-only baseline
+  3. Latency and implementation complexity impact for each option
+- **Reference:**
+  [lidar-l7-scene-plan.md § Radar-LiDAR fusion](../docs/plans/lidar-l7-scene-plan.md#radar-lidar-fusion-open-l5-vs-l7-decision-l4-ruled-out)
 
 ### Q11. how should conflicting multi-sensor observations be resolved?
 
