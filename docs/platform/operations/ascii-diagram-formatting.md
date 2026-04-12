@@ -1,6 +1,6 @@
 # ASCII Diagram Formatting — Tooling Rejected
 
-**Status:** Closed (no tooling adopted)
+- **Status:** Closed (no tooling adopted)
 
 This note records the investigation into automated ASCII diagram formatting
 and why it was abandoned. It exists so the question is not re-opened without
@@ -12,7 +12,7 @@ Two PyPI tools were installed and run against the repository:
 
 | Tool | Version | Command |
 |---|---|---|
-| `ascfix` | latest | `ascfix --mode diagram docs/ ...` |
+| `ascfix` | not pinned (installed as `latest` during trial) | `ascfix --mode diagram docs/ ...` |
 | `ascii-guard` | 2.3.0 | `ascii-guard lint .` / `ascii-guard fix .` |
 
 Both tools are general-purpose ASCII art formatters designed for stand-alone,
