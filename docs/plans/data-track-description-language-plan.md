@@ -313,7 +313,7 @@ Behaviour labels (L2) are derived, not manually applied. The labelling pipeline 
 3. **Run the stop detector** to set `behaviour.stopped` and `behaviour.yielded` flags.
 4. **Run the conflict detector** over concurrent tracks to populate `context.nearest_object_distance_m` and `context.nearest_object_class`.
 
-This is distinct from the human-applied detection/quality labels (`user_label`, `quality_label`) defined in the LiDAR [label taxonomy](../lidar/terminology.md). Those labels evaluate _tracker correctness_; behaviour labels evaluate _driving style_.
+This is distinct from the human-applied detection/quality labels (`user_label`, `quality_label`) defined in the LiDAR [label taxonomy](../lidar/LIDAR.md). Those labels evaluate _tracker correctness_; behaviour labels evaluate _driving style_.
 
 ## 6. Storage, indexing, and retrieval
 

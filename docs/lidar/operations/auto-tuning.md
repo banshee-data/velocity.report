@@ -21,7 +21,7 @@ Covers tunable parameters, collected metrics, scoring objectives, operational wo
 
 - [Settling Time Optimisation](settling-time-optimisation.md): Region persistence and settle modes
 - [Adaptive Region Parameters](adaptive-region-parameters.md): Per-region parameter scaling
-- [LiDAR Terminology](../terminology.md): Core terms (point, cluster, track, scene, run, sweep)
+- [LiDAR Terminology](../LIDAR.md): Core terms (point, cluster, track, scene, run, sweep)
 
 ---
 
