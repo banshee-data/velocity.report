@@ -183,39 +183,25 @@ inside a block keyed by the engine name. The block is required when that
 engine is selected and absent otherwise. New `optimisation` block controls
 sweep strategy:
 
-```json
-{
-  "l3": {
-    "engine": "ema_track_assist_v2",
-    "ema_track_assist_v2": {
-      "background_update_fraction": 0.02,
-      "promotion_near_gate_low": 0.7,
-      "...": "(29 fields total: 26 common + 3 track-assist)"
-    }
-  },
-  "l4": {
-    "engine": "two_stage_mahalanobis_v2",
-    "two_stage_mahalanobis_v2": {
-      "foreground_dbscan_eps": 0.8,
-      "velocity_coherence_gate": 4.0,
-      "...": "(11 fields total: 9 common + 2 VC)"
-    }
-  },
-  "l5": {
-    "engine": "imm_cv_ca_v2",
-    "imm_cv_ca_v2": {
-      "gating_distance_squared": 36.0,
-      "transition_cv_to_ca": 0.05,
-      "...": "(27 fields total: 23 common + 4 IMM)"
-    }
-  },
-  "optimisation": {
-    "strategy": "accuracy_first_v1",
-    "search_engine": "hybrid_grid_stochastic_v1",
-    "layer_scope": "full"
-  }
-}
-```
+The tuning config uses layer-scoped sub-objects. Each layer has an `engine` field selecting the algorithm variant and a nested block (keyed by engine name) containing all parameters. An `optimisation` block controls sweep strategy.
+
+**Layer engines and parameter counts:**
+
+| Layer | Engine field | Default engine             | Parameter count             |
+| ----- | ------------ | -------------------------- | --------------------------- |
+| `l3`  | `l3.engine`  | `ema_track_assist_v2`      | 29 (26 common + 3 specific) |
+| `l4`  | `l4.engine`  | `two_stage_mahalanobis_v2` | 11 (9 common + 2 specific)  |
+| `l5`  | `l5.engine`  | `imm_cv_ca_v2`             | 27 (23 common + 4 specific) |
+
+**Optimisation settings:**
+
+| Setting                      | Allowed values                                                       |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `optimisation.strategy`      | `accuracy_first_v1`, `balanced_v1`, `realtime_v1`                    |
+| `optimisation.search_engine` | `grid_narrowing_v1`, `hybrid_grid_stochastic_v1`, `local_perturb_v1` |
+| `optimisation.layer_scope`   | `full`, `l3_only`, `l4_only`, `l5_only`                              |
+
+Only the selected engine’s block may be present; other engine blocks must be absent. The full field set per engine is defined in `config-restructure-plan.md` §5.
 
 All engine parameters live inside the engine block: the block is a self-describing snapshot where
 every field is enforced when present. Only the selected engine's block may be present

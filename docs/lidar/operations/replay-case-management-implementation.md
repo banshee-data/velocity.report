@@ -28,20 +28,18 @@ Different replay cases from the same PCAP (e.g., different time segments) can ha
 
 Replay cases are persisted in the `lidar_replay_cases` table, created by migration 031 (which renamed the earlier `lidar_scenes` table):
 
-```sql
-CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
-    replay_case_id TEXT PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    pcap_file TEXT NOT NULL,
-    pcap_start_secs REAL,
-    pcap_duration_secs REAL,
-    description TEXT,
-    reference_run_id TEXT,
-    created_at_ns INTEGER NOT NULL,
-    updated_at_ns INTEGER,
-    recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
-);
-```
+| Column                     | Type    | Constraint                                                     |
+| -------------------------- | ------- | -------------------------------------------------------------- |
+| `replay_case_id`           | TEXT    | PRIMARY KEY                                                    |
+| `sensor_id`                | TEXT    | NOT NULL                                                       |
+| `pcap_file`                | TEXT    | NOT NULL                                                       |
+| `pcap_start_secs`          | REAL    |                                                                |
+| `pcap_duration_secs`       | REAL    |                                                                |
+| `description`              | TEXT    |                                                                |
+| `reference_run_id`         | TEXT    |                                                                |
+| `created_at_ns`            | INTEGER | NOT NULL                                                       |
+| `updated_at_ns`            | INTEGER |                                                                |
+| `recommended_param_set_id` | TEXT    | REFERENCES `lidar_param_sets(param_set_id)` ON DELETE SET NULL |
 
 **Indexes:**
 
@@ -60,20 +58,18 @@ Created [internal/lidar/storage/sqlite/scene_store.go](../../../internal/lidar/s
 
 #### ReplayCase struct
 
-```go
-type ReplayCase struct {
-    ReplayCaseID           string          `json:"replay_case_id"`
-    SensorID               string          `json:"sensor_id"`
-    PCAPFile               string          `json:"pcap_file"`
-    PCAPStartSecs          *float64        `json:"pcap_start_secs,omitempty"`
-    PCAPDurationSecs       *float64        `json:"pcap_duration_secs,omitempty"`
-    Description            string          `json:"description,omitempty"`
-    ReferenceRunID         string          `json:"reference_run_id,omitempty"`
-    RecommendedParamSetID  string          `json:"recommended_param_set_id,omitempty"`
-    CreatedAtNs            int64           `json:"created_at_ns"`
-    UpdatedAtNs            *int64          `json:"updated_at_ns,omitempty"`
-}
-```
+| Field                   | Type       | JSON                                 |
+| ----------------------- | ---------- | ------------------------------------ |
+| `ReplayCaseID`          | `string`   | `replay_case_id`                     |
+| `SensorID`              | `string`   | `sensor_id`                          |
+| `PCAPFile`              | `string`   | `pcap_file`                          |
+| `PCAPStartSecs`         | `*float64` | `pcap_start_secs,omitempty`          |
+| `PCAPDurationSecs`      | `*float64` | `pcap_duration_secs,omitempty`       |
+| `Description`           | `string`   | `description,omitempty`              |
+| `ReferenceRunID`        | `string`   | `reference_run_id,omitempty`         |
+| `RecommendedParamSetID` | `string`   | `recommended_param_set_id,omitempty` |
+| `CreatedAtNs`           | `int64`    | `created_at_ns`                      |
+| `UpdatedAtNs`           | `*int64`   | `updated_at_ns,omitempty`            |
 
 #### Store methods
 
@@ -118,11 +114,7 @@ Created [internal/lidar/server/scene_api.go](../../../internal/lidar/server/scen
 
 Routes added to `server/routes.go` RegisterRoutes():
 
-```go
-// Scene API routes (scene management for track labelling and auto-tuning)
-mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
-mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
-```
+Routes are registered in `server/routes.go` within `RegisterRoutes()`: `/api/lidar/scenes` maps to `ws.withDB(ws.handleScenes)`, and `/api/lidar/scenes/` (with trailing slash) maps to `ws.withDB(ws.handleSceneByID)`.
 
 ### Phase 2.4 & 2.5: replay and sweep integration
 

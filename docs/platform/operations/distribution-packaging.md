@@ -140,20 +140,7 @@ velocity-report-backfill-rings --db sensor_data.db
 
 ## Version management
 
-```go
-package version
-
-var (
-    Version   = "dev"
-    GitCommit = "unknown"
-    BuildTime = "unknown"
-)
-```
-
-Set via linker flags: `-X .../version.Version=$(VERSION)`
-
-Git revision and build time populated from `debug.ReadBuildInfo()` VCS
-settings at runtime.
+The `version` package (`internal/version/`) exports three variables: `Version` (default `"dev"`), `GitCommit` (default `"unknown"`), and `BuildTime` (default `"unknown"`). `Version` is set via linker flag `-X .../version.Version=$(VERSION)`. `GitCommit` and `BuildTime` are populated from `debug.ReadBuildInfo()` VCS settings at runtime.
 
 ## Source layout (proposed)
 

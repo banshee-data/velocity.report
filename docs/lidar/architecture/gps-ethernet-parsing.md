@@ -419,11 +419,7 @@ tcpdump -r gps_only.pcap -A | grep '^\$GP'
 
 **In-code filtering:**
 
-```go
-// BPF filter for packet capture
-filter := "udp and (dst port 2368 or dst port 10110)"
-err := handle.SetBPFFilter(filter)
-```
+The BPF filter expression `"udp and (dst port 2368 or dst port 10110)"` is applied via `handle.SetBPFFilter()` to capture both LiDAR and GPS traffic in a single PCAP.
 
 ### Replay considerations
 
@@ -473,33 +469,37 @@ export GPS_POLL_INTERVAL=1s
 
 ### Configuration file
 
-JSON configuration for site-specific deployments:
+JSON configuration for site-specific deployments. Top-level sections:
 
-```json
-{
-  "site": {
-    "name": "Oak Street Residential",
-    "latitude": 47.6062,
-    "longitude": -122.3321,
-    "altitude_msl": 50.0,
-    "timezone": "America/Los_Angeles"
-  },
-  "gps": {
-    "enabled": true,
-    "source": "udp",
-    "udp_port": 10110,
-    "sentence_types": ["GPGGA", "GPRMC", "GPGSA"],
-    "min_satellites": 4,
-    "max_hdop": 5.0,
-    "timeout_sec": 60
-  },
-  "lidar": {
-    "model": "Hesai Pandar40P",
-    "ip_address": "192.168.100.201",
-    "udp_port": 2368
-  }
-}
-```
+**`site` section:**
+
+| Field          | Type   | Example                    | Description           |
+| -------------- | ------ | -------------------------- | --------------------- |
+| `name`         | string | `"Oak Street Residential"` | Site display name     |
+| `latitude`     | float  | `47.6062`                  | WGS84 latitude        |
+| `longitude`    | float  | `-122.3321`                | WGS84 longitude       |
+| `altitude_msl` | float  | `50.0`                     | Altitude (metres MSL) |
+| `timezone`     | string | `"America/Los_Angeles"`    | IANA timezone         |
+
+**`gps` section:**
+
+| Field            | Type     | Default     | Description                |
+| ---------------- | -------- | ----------- | -------------------------- |
+| `enabled`        | bool     | `true`      | Enable GPS ingestion       |
+| `source`         | string   | `"udp"`     | Source type                |
+| `udp_port`       | int      | `10110`     | UDP listen port            |
+| `sentence_types` | []string | GGA,RMC,GSA | NMEA sentence filter       |
+| `min_satellites` | int      | `4`         | Minimum satellite count    |
+| `max_hdop`       | float    | `5.0`       | Maximum HDOP for valid fix |
+| `timeout_sec`    | int      | `60`        | Fallback timeout (seconds) |
+
+**`lidar` section:**
+
+| Field        | Type   | Example             | Description     |
+| ------------ | ------ | ------------------- | --------------- |
+| `model`      | string | `"Hesai Pandar40P"` | LiDAR model     |
+| `ip_address` | string | `"192.168.100.201"` | Sensor IP       |
+| `udp_port`   | int    | `2368`              | LiDAR data port |
 
 ### Fallback strategy
 

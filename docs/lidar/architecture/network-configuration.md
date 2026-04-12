@@ -170,52 +170,32 @@ New endpoints under `/api/lidar/network/`, mirroring the `/api/serial/` pattern:
 
 **POST `/api/lidar/network/probe`**
 
-```json
-{
-  "interface_name": "eth0",
-  "port": 2369,
-  "duration_ms": 2000
-}
-```
+The probe request body contains:
+
+| Field            | Type   | Purpose                        |
+| ---------------- | ------ | ------------------------------ |
+| `interface_name` | string | Network interface to probe     |
+| `port`           | int    | UDP port to listen on          |
+| `duration_ms`    | int    | Probe duration in milliseconds |
 
 Response:
 
-```json
-{
-  "port": 2369,
-  "interface_name": "eth0",
-  "bind_address": "192.168.1.100",
-  "packets_found": 2847,
-  "bytes_received": 3597054,
-  "source_addresses": ["192.168.1.201"],
-  "probe_duration_ms": 2000,
-  "listener_active": false
-}
-```
+The probe response contains:
+
+| Field               | Type     | Purpose                                 |
+| ------------------- | -------- | --------------------------------------- |
+| `port`              | int      | Probed UDP port                         |
+| `interface_name`    | string   | Probed interface                        |
+| `bind_address`      | string   | Resolved bind address                   |
+| `packets_found`     | int      | Number of packets received              |
+| `bytes_received`    | int      | Total bytes received                    |
+| `source_addresses`  | string[] | Observed source IP addresses            |
+| `probe_duration_ms` | int      | Actual probe duration in milliseconds   |
+| `listener_active`   | bool     | Whether a persistent listener is active |
 
 **GET `/api/lidar/network/status`**
 
-```json
-{
-  "active": true,
-  "config": {
-    "config_id": 1,
-    "name": "Hesai eth0",
-    "interface_name": "eth0",
-    "bind_address": "192.168.1.100",
-    "udp_port": 2369,
-    "receive_buffer": 4194304,
-    "source": "database"
-  },
-  "traffic": {
-    "packets_per_sec": 1412.3,
-    "mb_per_sec": 1.69,
-    "points_per_sec": 564920.0,
-    "dropped_recent": 0,
-    "parse_enabled": true
-  }
-}
-```
+The status response contains a top-level `active` boolean, a `config` object with the active listener configuration (`config_id`, `name`, `interface_name`, `bind_address`, `udp_port`, `receive_buffer`, `source`), and a `traffic` object with live statistics (`packets_per_sec`, `mb_per_sec`, `points_per_sec`, `dropped_recent`, `parse_enabled`).
 
 ### Settings UI
 

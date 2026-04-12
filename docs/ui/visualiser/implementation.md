@@ -491,36 +491,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 **Original Implementation Sketch (Option A)** (preserved for reference):
 
-```go
-type PointCloudFrame struct {
-    // ... existing fields ...
-    refCount atomic.Int32
-}
-
-func (pc *PointCloudFrame) Retain() {
-    pc.refCount.Add(1)
-}
-
-func (pc *PointCloudFrame) Release() {
-    if pc.refCount.Add(-1) == 0 {
-        putFloat32Slice(pc.X)
-        // ... return other slices ...
-    }
-}
-
-// In broadcastLoop:
-for _, client := range p.clients {
-    frame.PointCloud.Retain()
-    select {
-    case client.frameCh <- frame:
-    default:
-        frame.PointCloud.Release() // Wasn't sent
-    }
-}
-
-// In streamFromPublisher after protobuf conversion:
-frame.PointCloud.Release()
-```
+The `PointCloudFrame` struct gains a `refCount atomic.Int32` field. `Retain()` increments the count; `Release()` decrements it and returns slices to the pool when the count reaches zero. In `broadcastLoop`, each client channel send is preceded by `Retain()`; on drop (channel full), `Release()` is called immediately. In `streamFromPublisher`, `Release()` is called after protobuf conversion.
 
 #### 7.3 Frame skipping cooldown ✅
 

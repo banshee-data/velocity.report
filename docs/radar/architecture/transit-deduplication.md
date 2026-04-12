@@ -25,13 +25,7 @@ This can lead to double-counting of transits in statistics and reports.
 
 **Current Upsert Logic:**
 
-```sql
-INSERT INTO radar_data_transits (...)
-VALUES (...)
-ON CONFLICT(transit_key) DO UPDATE SET
-  transit_end_unix = excluded.transit_end_unix,
-  ...
-```
+The upsert uses `INSERT ... ON CONFLICT(transit_key) DO UPDATE SET` to update `transit_end_unix` and other fields when a conflicting `transit_key` already exists.
 
 **Issues:**
 

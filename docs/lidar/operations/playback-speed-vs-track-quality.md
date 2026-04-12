@@ -105,11 +105,7 @@ when frames slow to processable rates.
 
 ### 4. Kalman filter dt sensitivity (`tracking.go:370–381`)
 
-The tracker computes `dt` from the nanosecond timestamps of successive frames:
-
-```go
-dt = float32(nowNanos - t.LastUpdateNanos) / 1e9
-```
+The tracker computes `dt` from the nanosecond timestamps of successive frames: `dt = float32(nowNanos - t.LastUpdateNanos) / 1e9`.
 
 Clamped at `MaxPredictDt=0.5s` to prevent covariance explosion.
 

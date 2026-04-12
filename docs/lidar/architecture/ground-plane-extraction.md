@@ -523,50 +523,19 @@ NODATA_value -9999
 
 **2. VTK StructuredGrid** (for ParaView/LidarView):
 
-```xml
-<VTKFile type="StructuredGrid">
-  <StructuredGrid WholeExtent="0 99 0 99 0 0">
-    <Piece Extent="0 99 0 99 0 0">
-      <Points>
-        <DataArray Name="Points" NumberOfComponents="3" format="ascii">
-          <!-- X Y Z for each grid vertex -->
-        </DataArray>
-      </Points>
-      <CellData>
-        <DataArray Name="PlaneNormalX" ... />
-        <DataArray Name="PlaneNormalZ" ... />
-        <DataArray Name="Planarity" ... />
-        <DataArray Name="PointCount" ... />
-      </CellData>
-    </Piece>
-  </StructuredGrid>
-</VTKFile>
-```
+A VTK `StructuredGrid` file with `WholeExtent` matching the grid dimensions (e.g. `0 99 0 99 0 0`). The `Points` array contains X/Y/Z coordinates for each grid vertex. `CellData` arrays carry per-tile attributes: `PlaneNormalX`, `PlaneNormalZ`, `Planarity`, and `PointCount`.
 
 **3. GeoJSON** (for GIS tools):
 
-```json
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[lon1, lat1], [lon2, lat2], ...] // tile corners
-      },
-      "properties": {
-        "z_offset": -2.85,
-        "plane_normal": [0.01, 0.02, 0.999],
-        "planarity": 0.98,
-        "point_count": 145,
-        "settled": true
-      }
-    },
-    ...
-  ]
-}
-```
+A GeoJSON `FeatureCollection` where each feature represents one ground tile. Each feature's `geometry` is a `Polygon` with tile corner coordinates (longitude, latitude). Feature `properties` include:
+
+| Property       | Type     | Description                     |
+| -------------- | -------- | ------------------------------- |
+| `z_offset`     | float    | Ground height (e.g. −2.85 m)    |
+| `plane_normal` | [3]float | Unit normal vector (nx, ny, nz) |
+| `planarity`    | float    | Planarity score (0–1)           |
+| `point_count`  | int      | Observation count               |
+| `settled`      | bool     | Whether the tile has converged  |
 
 **4. PCD (Point Cloud Data)**: Export tile centres with attributes:
 

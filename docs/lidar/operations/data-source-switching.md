@@ -31,29 +31,17 @@ Replace the CLI flag with a runtime-configurable data source that can be switche
 
 Add data source state to `WebServer`:
 
-```go
-type DataSource string
+The `DataSource` type is a string enum with two values: `"live"` and `"pcap"`. The `WebServer` struct gains the following fields for data-source management:
 
-const (
-    DataSourceLive DataSource = "live"
-    DataSourcePCAP DataSource = "pcap"
-)
-
-type WebServer struct {
-    // ... existing fields ...
-
-    // Data source state
-    dataSourceMu      sync.RWMutex
-    currentSource     DataSource
-    currentPCAPFile   string  // Track current PCAP file for status endpoint
-    udpListener       *network.UDPListener
-    udpListenerCancel context.CancelFunc
-
-    // PCAP state (keep existing)
-    pcapMu            sync.Mutex
-    pcapInProgress    bool
-}
-```
+| Field               | Type                   | Purpose                             |
+| ------------------- | ---------------------- | ----------------------------------- |
+| `dataSourceMu`      | `sync.RWMutex`         | Guards data-source state            |
+| `currentSource`     | `DataSource`           | Current active source (live/pcap)   |
+| `currentPCAPFile`   | `string`               | Active PCAP file path (if any)      |
+| `udpListener`       | `*network.UDPListener` | Managed UDP listener reference      |
+| `udpListenerCancel` | `context.CancelFunc`   | Cancel function for live listener   |
+| `pcapMu`            | `sync.Mutex`           | Guards PCAP replay state (existing) |
+| `pcapInProgress`    | `bool`                 | Whether a replay is running         |
 
 **Rationale**: Centralize data source management in WebServer since it already handles PCAP replay and has access to all necessary components.
 
@@ -132,16 +120,7 @@ curl -X POST "http://localhost:8081/api/lidar/pcap/stop?sensor_id=hesai-pandar40
 
 **File**: `internal/lidar/monitor/webserver.go`
 
-```go
-type WebServerConfig struct {
-    // ... existing fields ...
-
-    // UDP listener configuration (WebServer will start it in live mode)
-    UDPListenerConfig network.UDPListenerConfig
-}
-
-// Remove InitialDataSource - always starts in live mode
-```
+`WebServerConfig` gains a `UDPListenerConfig` field of type `network.UDPListenerConfig`, which provides the UDP listener settings so that the `WebServer` can start and stop the listener at runtime. The `InitialDataSource` field is removed — the server always starts in live mode.
 
 ### 6. Status endpoint updates
 
@@ -149,16 +128,13 @@ type WebServerConfig struct {
 
 Update `/api/lidar/status` response to include data source information:
 
-```go
-type StatusResponse struct {
-    // ... existing fields ...
+The `StatusResponse` struct gains three fields for data-source observability:
 
-    // New fields
-    DataSource    string  `json:"data_source"`     // "live" or "pcap"
-    PCAPFile      string  `json:"pcap_file,omitempty"`  // Current PCAP file if source=pcap
-    PCAPInProgress bool   `json:"pcap_in_progress"` // Whether PCAP replay is currently running
-}
-```
+| Field            | Type     | JSON                  | Purpose                              |
+| ---------------- | -------- | --------------------- | ------------------------------------ |
+| `DataSource`     | `string` | `data_source`         | Current source: `"live"` or `"pcap"` |
+| `PCAPFile`       | `string` | `pcap_file,omitempty` | Active PCAP file (if source is pcap) |
+| `PCAPInProgress` | `bool`   | `pcap_in_progress`    | Whether a PCAP replay is running     |
 
 This allows clients to:
 

@@ -51,23 +51,10 @@ replacement with `runy_`/`runs_` + full UUID is safe because:
 
 ## Central helper design
 
-```go
-package id
+The `id` package (in `internal/id/`) provides two functions:
 
-import "github.com/google/uuid"
-
-// New returns a prefixed UUID v4 string: "{prefix}_{uuid}".
-func New(prefix string) string {
-    return prefix + "_" + uuid.NewString()
-}
-```
-
-Optional validation:
-
-```go
-// Parse splits on the first '_' and validates the UUID portion.
-func Parse(s string) (prefix, uuid string, err error)
-```
+- **`New(prefix string) string`** — returns a prefixed UUID v4 string in the form `{prefix}_{uuid}`, using `github.com/google/uuid`.
+- **`Parse(s string) (prefix, uuid string, err error)`** — splits on the first `_` and validates the UUID portion. Optional validation helper.
 
 ## Call sites (11 total)
 

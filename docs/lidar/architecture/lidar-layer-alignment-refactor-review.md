@@ -137,20 +137,7 @@ Opportunity:
 - Use grouped route tables with method+pattern (Go 1.22+ `ServeMux` patterns).
 - Add wrappers: `withDB`, `method`, `featureGate`.
 
-Example direction:
-
-```go
-type route struct {
-    pattern string
-    h       http.HandlerFunc
-}
-
-var playbackRoutes = []route{
-    {"GET /api/lidar/playback/status", ws.handlePlaybackStatus},
-    {"POST /api/lidar/playback/pause", ws.handlePlaybackPause},
-    {"POST /api/lidar/playback/play", ws.handlePlaybackPlay},
-}
-```
+Example direction: define a `route` struct with `pattern string` and `h http.HandlerFunc` fields, then group related endpoints into named slices (e.g. `playbackRoutes`). Each entry uses Go 1.22+ method-prefixed patterns such as `"GET /api/lidar/playback/status"` and `"POST /api/lidar/playback/pause"`.
 
 Outcome:
 

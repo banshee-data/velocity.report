@@ -36,17 +36,15 @@ For static roadside sensors, the current 2D+velocity model is adequate.
 
 Advantages over 4×4 matrix: more compact (7 vs 16 values), no gimbal lock, efficient interpolation (SLERP), standard in robotics.
 
-```go
-type Pose7DOF struct {
-    TX, TY, TZ float64              // Position (metres)
-    QW, QX, QY, QZ float64          // Orientation (unit quaternion)
-    VX, VY, VZ float64              // Linear velocity (m/s)
-    WX, WY, WZ float64              // Angular velocity (rad/s)
-    Covariance [36]float64           // 6×6 position+orientation
-    ValidFromNanos int64
-    ValidToNanos   *int64
-}
-```
+| Field            | Type        | Purpose                           |
+| ---------------- | ----------- | --------------------------------- |
+| `TX, TY, TZ`     | float64     | Position (metres)                 |
+| `QW, QX, QY, QZ` | float64     | Orientation (unit quaternion)     |
+| `VX, VY, VZ`     | float64     | Linear velocity (m/s)             |
+| `WX, WY, WZ`     | float64     | Angular velocity (rad/s)          |
+| `Covariance`     | [36]float64 | 6×6 position+orientation matrix   |
+| `ValidFromNanos` | int64       | Validity start (Unix nanoseconds) |
+| `ValidToNanos`   | \*int64     | Validity end (nil = open-ended)   |
 
 ## Ego-Motion compensation
 
@@ -97,13 +95,13 @@ Total: 14–19 weeks (3.5–5 months). Sequential dependencies: each phase requi
 
 Pose estimation sources: GPS+IMU (most common, 10–100 Hz), visual odometry (30–60 Hz), wheel odometry+IMU (100+ Hz), SLAM (LiDAR-based, most expensive).
 
-```go
-type PoseProvider interface {
-    GetCurrentPose() (*Pose7DOF, error)
-    GetPoseAtTime(t time.Time) (*Pose7DOF, error)
-    SubscribeToPoses(callback func(*Pose7DOF))
-}
-```
+The `PoseProvider` interface defines three methods:
+
+| Method             | Signature                          | Purpose                                   |
+| ------------------ | ---------------------------------- | ----------------------------------------- |
+| `GetCurrentPose`   | `() (*Pose7DOF, error)`            | Returns the most recent pose estimate     |
+| `GetPoseAtTime`    | `(t time.Time) (*Pose7DOF, error)` | Returns interpolated pose at a given time |
+| `SubscribeToPoses` | `(callback func(*Pose7DOF))`       | Registers a callback for real-time poses  |
 
 ## Migration path
 

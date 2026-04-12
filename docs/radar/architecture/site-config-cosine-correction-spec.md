@@ -71,20 +71,19 @@ Users need the ability to:
 
 ### Proposed schema
 
-```sql
-CREATE TABLE site_config_periods (
-    id INTEGER PRIMARY KEY,
-    site_id INTEGER NOT NULL,
-    effective_start_unix DOUBLE NOT NULL,
-    effective_end_unix DOUBLE,           -- NULL = currently active/open-ended
-    is_active INTEGER NOT NULL DEFAULT 0, -- 1 if active for new data
-    notes TEXT,
-    created_at DOUBLE,
-    updated_at DOUBLE,
-    cosine_error_angle DOUBLE NOT NULL DEFAULT 0, -- Store angle here for history
-    FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
-);
-```
+The `site_config_periods` table uses a Type 6 SCD pattern:
+
+| Column                 | Type    | Constraint / Default                                 |
+| ---------------------- | ------- | ---------------------------------------------------- |
+| `id`                   | INTEGER | PRIMARY KEY                                          |
+| `site_id`              | INTEGER | NOT NULL, FOREIGN KEY → `site(id)` ON DELETE CASCADE |
+| `effective_start_unix` | DOUBLE  | NOT NULL                                             |
+| `effective_end_unix`   | DOUBLE  | NULL = currently active / open-ended                 |
+| `is_active`            | INTEGER | NOT NULL DEFAULT 0 (1 = active for new data)         |
+| `notes`                | TEXT    |                                                      |
+| `created_at`           | DOUBLE  |                                                      |
+| `updated_at`           | DOUBLE  |                                                      |
+| `cosine_error_angle`   | DOUBLE  | NOT NULL DEFAULT 0                                   |
 
 **Key Design Choices:**
 

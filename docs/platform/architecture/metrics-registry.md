@@ -180,15 +180,13 @@ suffixes intact, keep registry id deployment-neutral.
 
 ### Proposed config shape
 
-```yaml
-observability:
-  prometheus:
-    enabled: false
-    listen_addr: ":9108"
-    prefix: "velocity_report"
-    include_families: ["ops", "performance", "scene", "aggregate"]
-    exclude_source_modes: ["vrlog"]
-```
+| Setting                                         | Type     | Default                                        | Description                         |
+| ----------------------------------------------- | -------- | ---------------------------------------------- | ----------------------------------- |
+| `observability.prometheus.enabled`              | bool     | `false`                                        | Enable Prometheus export            |
+| `observability.prometheus.listen_addr`          | string   | `":9108"`                                      | Listen address for metrics endpoint |
+| `observability.prometheus.prefix`               | string   | `"velocity_report"`                            | Metric name prefix                  |
+| `observability.prometheus.include_families`     | []string | `["ops", "performance", "scene", "aggregate"]` | Metric families to export           |
+| `observability.prometheus.exclude_source_modes` | []string | `["vrlog"]`                                    | Source modes excluded from export   |
 
 ### Default export policy
 

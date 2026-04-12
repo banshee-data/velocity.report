@@ -93,16 +93,7 @@ internal/lidar/vrreport/
   report.go         # final summaries / exit policy
 ```
 
-Pattern in `main()`:
-
-```go
-if subcommand == "vrlog" {
-    runVRLogCommand(flag.Args()[1:])
-    return
-}
-```
-
-This matches the current `migrate` and `transits` handling style.
+Pattern in `main()`: if the first argument is `"vrlog"`, call `runVRLogCommand(flag.Args()[1:])` and return. This matches the current `migrate` and `transits` handling style.
 
 ## Modes
 

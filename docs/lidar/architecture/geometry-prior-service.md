@@ -142,24 +142,14 @@ priors/
 
 **`_trust/manifest.json` structure:**
 
-```jsonc
-{
-  "generated_at": "2026-02-23T12:00:00Z",
-  "files": {
-    "51/-1/51.75_-1.26.geojson": {
-      "signed": true,
-      "gpg_fingerprint": "A1B2C3D4E5F6...",
-      "contributor_name": "Alice Smith",
-      "verified_at": "2026-02-23T12:00:00Z",
-    },
-    "51/-1/51.76_-1.26.geojson": {
-      "signed": false,
-      "contributor_name": "Bob Jones",
-      "verified_at": null,
-    },
-  },
-}
-```
+The manifest is a JSON object with a `generated_at` ISO 8601 timestamp and a `files` map. Each key is a relative file path; each value contains:
+
+| Field              | Type    | Description                                           |
+| ------------------ | ------- | ----------------------------------------------------- |
+| `signed`           | bool    | Whether a valid GPG signature exists                  |
+| `gpg_fingerprint`  | string  | Signing key fingerprint (if signed)                   |
+| `contributor_name` | string  | Display name of the contributor                       |
+| `verified_at`      | string? | ISO 8601 timestamp of verification (null if unsigned) |
 
 The manifest is the **only** place `signed` status is recorded. Clients fetch `_trust/manifest.json` once per session (or cache it) and consult it when deciding whether to trust a prior file. The data files carry no trust annotation: their content is exactly what the contributor submitted.
 
@@ -177,13 +167,11 @@ Host operators can mirror or gate the public repository to expose only the files
 
 Configuration:
 
-```json
-"prior_service": {
-  "enabled": true,
-  "base_url": "https://priors.velocity.report",
-  "require_signed": true
-}
-```
+| Setting                        | Type   | Default                            | Description                                       |
+| ------------------------------ | ------ | ---------------------------------- | ------------------------------------------------- |
+| `prior_service.enabled`        | bool   | `true`                             | Enable remote prior fetching                      |
+| `prior_service.base_url`       | string | `"https://priors.velocity.report"` | CDN base URL for prior files                      |
+| `prior_service.require_signed` | bool   | `true`                             | Only load files marked `signed: true` in manifest |
 
 With `require_signed: true` the Prior Loader fetches `_trust/manifest.json` first, then only loads data files that appear with `signed: true`. With `require_signed: false` all files are loaded, but the Prior Loader logs a warning for each unsigned or manifest-absent file.
 

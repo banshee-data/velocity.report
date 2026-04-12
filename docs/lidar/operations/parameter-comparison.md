@@ -111,43 +111,27 @@ velocity-report --config config/tuning.defaults.json
 
 ## Further tuning
 
-If the optimised configuration still shows quality issues, use auto-tuning to refine:
+If the optimised configuration still shows quality issues, use auto-tuning to refine. The sweep configuration specifies parameter ranges and an objective function:
 
-```json
-{
-  "params": [
-    {
-      "name": "foreground_dbscan_eps",
-      "type": "float64",
-      "start": 0.5,
-      "end": 0.9,
-      "step": 0.1
-    },
-    {
-      "name": "gating_distance_squared",
-      "type": "float64",
-      "start": 16.0,
-      "end": 36.0,
-      "step": 4.0
-    },
-    {
-      "name": "measurement_noise",
-      "type": "float64",
-      "start": 0.1,
-      "end": 0.25,
-      "step": 0.05
-    }
-  ],
-  "objective": "weighted",
-  "weights": {
-    "acceptance": 1.0,
-    "fragmentation": -5.0,
-    "empty_boxes": -3.0,
-    "heading_jitter": -2.0,
-    "speed_jitter": -2.0
-  }
-}
-```
+**Parameter ranges:**
+
+| Parameter                 | Start | End  | Step |
+| ------------------------- | ----- | ---- | ---- |
+| `foreground_dbscan_eps`   | 0.5   | 0.9  | 0.1  |
+| `gating_distance_squared` | 16.0  | 36.0 | 4.0  |
+| `measurement_noise`       | 0.1   | 0.25 | 0.05 |
+
+**Objective weights:**
+
+| Metric           | Weight |
+| ---------------- | ------ |
+| `acceptance`     | 1.0    |
+| `fragmentation`  | −5.0   |
+| `empty_boxes`    | −3.0   |
+| `heading_jitter` | −2.0   |
+| `speed_jitter`   | −2.0   |
+
+Objective strategy: `weighted`.
 
 ## References
 

@@ -446,9 +446,7 @@ The CHECK constraint in the migration validates sensor model slugs at the databa
 
 **Current Setup:**
 
-```ini
-ExecStart=/usr/local/bin/velocity-report --port /dev/ttySC1 --db-path /var/lib/velocity-report/sensor_data.db
-```
+The systemd unit file uses `ExecStart=/usr/local/bin/velocity-report --port /dev/ttySC1 --db-path /var/lib/velocity-report/sensor_data.db`.
 
 **After Migration:**
 

@@ -111,9 +111,7 @@ SVG marker injection (radar-coverage triangles into site map SVGs) via Go
 XeTeX's `\includegraphics` does not natively handle SVG. Use `rsvg-convert`
 (from `librsvg`, ~2 MB) as a lightweight converter:
 
-```go
-cmd := exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")
-```
+The conversion is performed by calling `rsvg-convert -f pdf -o chart.pdf chart.svg`.
 
 - Already available on most Linux distributions (`librsvg2-bin`)
 - ~2 MB installed (vs ~300 MB for inkscape)
@@ -130,22 +128,30 @@ embedded via `go:embed`. Use custom delimiters `<<` and `>>` (via
 
 ### Template data structure
 
-```go
-type TemplateData struct {
-    Location, Surveyor, Contact, Description string
-    SpeedLimit int
-    StartDate, EndDate, Timezone, Units      string
-    P50, P85, P98, MaxSpeed                  string
-    TotalCount, HoursCount                   int
-    TimeSeriesChart, HistogramChart           string  // relative paths
-    CompareChart, MapChart                    string  // optional
-    FontDir                                  string
-    HourlyTable []HourlyRow
-    DailyTable  []DailyRow
-    CosineAngle, CosineFactor                float64
-    ModelVersion                             string
-}
-```
+| Field              | Type          | Purpose                             |
+| ------------------ | ------------- | ----------------------------------- |
+| `Location`         | `string`      | Site name                           |
+| `Surveyor`         | `string`      | Surveyor name                       |
+| `Contact`          | `string`      | Contact information                 |
+| `Description`      | `string`      | Site description                    |
+| `SpeedLimit`       | `int`         | Posted speed limit                  |
+| `StartDate`        | `string`      | Report period start                 |
+| `EndDate`          | `string`      | Report period end                   |
+| `Timezone`         | `string`      | Display timezone                    |
+| `Units`            | `string`      | Speed units                         |
+| `P50`, `P85`, etc. | `string`      | Formatted speed percentiles and max |
+| `TotalCount`       | `int`         | Total vehicle count                 |
+| `HoursCount`       | `int`         | Number of hours with data           |
+| `TimeSeriesChart`  | `string`      | Relative path to time-series chart  |
+| `HistogramChart`   | `string`      | Relative path to histogram chart    |
+| `CompareChart`     | `string`      | Optional comparison chart path      |
+| `MapChart`         | `string`      | Optional map chart path             |
+| `FontDir`          | `string`      | Font directory path                 |
+| `HourlyTable`      | `[]HourlyRow` | Hourly breakdown rows               |
+| `DailyTable`       | `[]DailyRow`  | Daily breakdown rows                |
+| `CosineAngle`      | `float64`     | Angle correction value              |
+| `CosineFactor`     | `float64`     | Cosine correction factor            |
+| `ModelVersion`     | `string`      | Software version                    |
 
 ### Advantages over PyLaTeX
 
@@ -156,12 +162,12 @@ type TemplateData struct {
 
 ## Colour palette (shared with web)
 
-```latex
-\definecolor{vrP50}{HTML}{fbd92f}
-\definecolor{vrP85}{HTML}{f7b32b}
-\definecolor{vrP98}{HTML}{f25f5c}
-\definecolor{vrMax}{HTML}{2d1e2f}
-```
+| Colour Name | Hex       | Usage           |
+| ----------- | --------- | --------------- |
+| `vrP50`     | `#fbd92f` | 50th percentile |
+| `vrP85`     | `#f7b32b` | 85th percentile |
+| `vrP98`     | `#f25f5c` | 98th percentile |
+| `vrMax`     | `#2d1e2f` | Maximum speed   |
 
 Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 
