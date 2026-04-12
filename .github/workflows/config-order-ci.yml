@@ -41,6 +41,6 @@ jobs:
 
       # @TODO(config-parity): remove continue-on-error once webserver POST input
       # reaches full key + order parity with tuning defaults/schema.
-      - name: Run README.maths strict parity check (optional for now)
+      - name: Run config maths strict parity check (optional for now)
         continue-on-error: true
         run: make check-config-maths-strict
