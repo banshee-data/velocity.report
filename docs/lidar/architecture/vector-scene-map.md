@@ -124,6 +124,47 @@ Trees, hedges, and overhanging features don't conform to single planes. They pro
 
 **Point density** is the distinguishing attribute: a tree canopy has high spatial extent but low density (many gaps between returns), while a solid pole has small extent but high density. This attribute helps L6 classification without storing raw point clouds.
 
+### 2.4 Waymo scene-type alignment
+
+The Waymo `CameraSegmentation.Type` enum defines eight static
+scene types (#19–26) that are removed by L3 background subtraction
+before L6 labelling. Each maps to exactly one vector scene feature
+class. The canonical Waymo → v.r mapping is in
+[classification-maths.md §11.1](../../../data/maths/classification-maths.md#111-waymo--vr-master-mapping).
+
+| #   | Waymo type         | Feature class | Scene sub-class       | Notes                                                            |
+| --- | ------------------ | ------------- | --------------------- | ---------------------------------------------------------------- |
+| 19  | `TYPE_BUILDING`    | **Structure** | building, wall, fence | SemanticKITTI `fence` and `other-structure` fold here            |
+| 20  | `TYPE_ROAD`        | **Ground**    | `road`                | Flat driveable surface                                           |
+| 21  | `TYPE_LANE_MARKER` | **Ground**    | `road`                | Painted; detected via intensity, not geometry                    |
+| 22  | `TYPE_ROAD_MARKER` | **Ground**    | `road`                | Painted; same treatment as lane markers                          |
+| 23  | `TYPE_SIDEWALK`    | **Ground**    | `pavement`            | Elevated relative to road; kerb boundary between them            |
+| 24  | `TYPE_VEGETATION`  | **Volume**    | `tree`, `hedge`       | Canopy → Volume; dense hedge may also act as Structure (barrier) |
+| 25  | `TYPE_SKY`         | —             | —                     | Not a physical surface; no scene feature                         |
+| 26  | `TYPE_GROUND`      | **Ground**    | `unknown`             | Catch-all: terrain, parking lots, unpaved                        |
+
+Three additional Waymo types are **reserved** as L6 foreground labels
+(see classification-maths.md §11.1) but also appear as persistent
+scene features when stationary:
+
+| #   | Waymo type    | Foreground (L6)      | Scene (L4)                    | Resolution                                                      |
+| --- | ------------- | -------------------- | ----------------------------- | --------------------------------------------------------------- |
+| 15  | `TYPE_POLE`   | `pole` ⚠️ reserved   | Volume (`tree` density proxy) | L3 classifies as static → scene feature; if it moves → L6 label |
+| 17  | `TYPE_SIGN`   | `sign` ⚠️ reserved   | Volume (`sign_cluster`)       | Same dual path; reflective-sign detection may anchor pose       |
+| 28  | `TYPE_STATIC` | `static` ⚠️ reserved | Ground, Structure, or Volume  | Catch-all; resolved by geometry at scene-map construction time  |
+
+**Dual-identity resolution.** A pole, sign, or other normally-static
+object follows two paths depending on L3 background classification:
+
+1. **Static** (L3 background): enters the vector scene map as a
+   Volume or Structure feature. No L6 label is assigned.
+2. **Moving** (L3 foreground): enters the L5 → L6 pipeline and
+   receives an L6 classification label if the reserved class is
+   activated.
+
+This avoids double-counting: an object is either a scene feature
+**or** a tracked foreground object, never both simultaneously.
+
 ---
 
 ## 3. Hierarchical levels of detail

@@ -10,8 +10,8 @@ This document covers the **implemented** runtime ground-removal math used by the
 
 Current runtime path:
 
-- `internal/lidar/pipeline/tracking_pipeline.go`
-- `internal/lidar/l4perception/ground.go`
+- [pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go)
+- [l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
 
 ## Implemented model
 

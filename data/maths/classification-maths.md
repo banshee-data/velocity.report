@@ -261,7 +261,7 @@ recordings or live data) are converted directly without re-classification.
 
 ## 10. Future work
 
-- Activate reserved labels: `truck` and `motorcyclist` (v0.6+); `pole`,
+- Activate reserved labels: `truck`, `motorcyclist`, `pole`,
   `sign`, and `static` (future; see §11.1 master table)
 - Replace rule-based classifier with ML model (feature vector is
   designed to be export-compatible)
@@ -278,42 +278,45 @@ framing), whereas Waymo's `TYPE_CYCLIST` covers bicycle riders only.
 
 Static scene elements (types 19–26) are removed by L3 background
 subtraction before clustering. They never receive an L6 label but are
-included in the table below for completeness.
+included in the table below for completeness. Their geometric
+representation as scene features (Ground, Structure, Volume) is
+specified in
+[vector-scene-map.md §2.4](../../docs/lidar/architecture/vector-scene-map.md#24-waymo-scene-type-alignment).
 
 [waymo-proto]: https://github.com/waymo-research/waymo-open-dataset/blob/99a4cb3ff07e2fe06c2ce73da001f850f628e45a/src/waymo_open_dataset/protos/camera_segmentation.proto#L42
 
 ### 11.1 Waymo → v.r master mapping
 
-| #   | Waymo `CameraSegmentation.Type` | v.r class      | Status               | SemanticKITTI     |
-| --- | ------------------------------- | -------------- | -------------------- | ----------------- |
-| 1   | `TYPE_EGO_VEHICLE`              | —              | n/a                  | —                 |
-| 2   | `TYPE_CAR`                      | `car`          | ✅ active            | car               |
-| 3   | `TYPE_TRUCK`                    | `truck`        | ⚠️ reserved (v0.6+)  | truck             |
-| 4   | `TYPE_BUS`                      | `bus`          | ✅ active            | —                 |
-| 5   | `TYPE_OTHER_LARGE_VEHICLE`      | —              | ❌ not covered       | other-vehicle     |
-| 6   | `TYPE_BICYCLE`                  | —              | ❌ not covered       | bicycle           |
-| 7   | `TYPE_MOTORCYCLE`               | —              | ❌ not covered       | motorcycle        |
-| 8   | `TYPE_TRAILER`                  | —              | ❌ not covered       | —                 |
-| 9   | `TYPE_PEDESTRIAN`               | `pedestrian`   | ✅ active            | person            |
-| 10  | `TYPE_CYCLIST`                  | `cyclist`      | ✅ active            | bicyclist         |
-| 11  | `TYPE_MOTORCYCLIST`             | `motorcyclist` | ⚠️ reserved (v0.6+)  | motorcyclist      |
-| 12  | `TYPE_BIRD`                     | `bird`         | ✅ active            | —                 |
-| 13  | `TYPE_GROUND_ANIMAL`            | —              | ❌ not covered       | —                 |
-| 14  | `TYPE_CONSTRUCTION_CONE_POLE`   | —              | ❌ not covered       | —                 |
-| 15  | `TYPE_POLE`                     | `pole`         | ⚠️ reserved (future) | pole              |
-| 16  | `TYPE_PEDESTRIAN_OBJECT`        | —              | ❌ not covered       | —                 |
-| 17  | `TYPE_SIGN`                     | `sign`         | ⚠️ reserved (future) | traffic sign      |
-| 18  | `TYPE_TRAFFIC_LIGHT`            | —              | ❌ not covered       | —                 |
-| 19  | `TYPE_BUILDING`                 | —              | BG subtraction       | building          |
-| 20  | `TYPE_ROAD`                     | —              | BG subtraction       | road              |
-| 21  | `TYPE_LANE_MARKER`              | —              | BG subtraction       | —                 |
-| 22  | `TYPE_ROAD_MARKER`              | —              | BG subtraction       | —                 |
-| 23  | `TYPE_SIDEWALK`                 | —              | BG subtraction       | sidewalk          |
-| 24  | `TYPE_VEGETATION`               | —              | BG subtraction       | vegetation, trunk |
-| 25  | `TYPE_SKY`                      | —              | BG subtraction       | —                 |
-| 26  | `TYPE_GROUND`                   | —              | BG subtraction       | parking, terrain  |
-| 27  | `TYPE_DYNAMIC`                  | `dynamic`      | ✅ active            | —                 |
-| 28  | `TYPE_STATIC`                   | `static`       | ⚠️ reserved (future) | other-object      |
+| #   | Waymo `CameraSegmentation.Type` | v.r class      | Status         | SemanticKITTI     |
+| --- | ------------------------------- | -------------- | -------------- | ----------------- |
+| 1   | `TYPE_EGO_VEHICLE`              | —              | n/a            | —                 |
+| 2   | `TYPE_CAR`                      | `car`          | ✅ active      | car               |
+| 3   | `TYPE_TRUCK`                    | `truck`        | ⚠️ reserved    | truck             |
+| 4   | `TYPE_BUS`                      | `bus`          | ✅ active      | —                 |
+| 5   | `TYPE_OTHER_LARGE_VEHICLE`      | —              | ❌ not covered | other-vehicle     |
+| 6   | `TYPE_BICYCLE`                  | —              | ❌ not covered | bicycle           |
+| 7   | `TYPE_MOTORCYCLE`               | —              | ❌ not covered | motorcycle        |
+| 8   | `TYPE_TRAILER`                  | —              | ❌ not covered | —                 |
+| 9   | `TYPE_PEDESTRIAN`               | `pedestrian`   | ✅ active      | person            |
+| 10  | `TYPE_CYCLIST`                  | `cyclist`      | ✅ active      | bicyclist         |
+| 11  | `TYPE_MOTORCYCLIST`             | `motorcyclist` | ⚠️ reserved    | motorcyclist      |
+| 12  | `TYPE_BIRD`                     | `bird`         | ✅ active      | —                 |
+| 13  | `TYPE_GROUND_ANIMAL`            | —              | ❌ not covered | —                 |
+| 14  | `TYPE_CONSTRUCTION_CONE_POLE`   | —              | ❌ not covered | —                 |
+| 15  | `TYPE_POLE`                     | `pole`         | ⚠️ reserved    | pole              |
+| 16  | `TYPE_PEDESTRIAN_OBJECT`        | —              | ❌ not covered | —                 |
+| 17  | `TYPE_SIGN`                     | `sign`         | ⚠️ reserved    | traffic sign      |
+| 18  | `TYPE_TRAFFIC_LIGHT`            | —              | ❌ not covered | —                 |
+| 19  | `TYPE_BUILDING`                 | —              | BG subtraction | building          |
+| 20  | `TYPE_ROAD`                     | —              | BG subtraction | road              |
+| 21  | `TYPE_LANE_MARKER`              | —              | BG subtraction | —                 |
+| 22  | `TYPE_ROAD_MARKER`              | —              | BG subtraction | —                 |
+| 23  | `TYPE_SIDEWALK`                 | —              | BG subtraction | sidewalk          |
+| 24  | `TYPE_VEGETATION`               | —              | BG subtraction | vegetation, trunk |
+| 25  | `TYPE_SKY`                      | —              | BG subtraction | —                 |
+| 26  | `TYPE_GROUND`                   | —              | BG subtraction | parking, terrain  |
+| 27  | `TYPE_DYNAMIC`                  | `dynamic`      | ✅ active      | —                 |
+| 28  | `TYPE_STATIC`                   | `static`       | ⚠️ reserved    | other-object      |
 
 `noise` is a v.r-only class (user-assignable label for sensor
 artefacts). It has no Waymo equivalent; the nearest analogues are
