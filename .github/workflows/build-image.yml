@@ -126,6 +126,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Build Darwin ARM64 radar binary
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -156,6 +162,7 @@ jobs:
 
   build-image:
     name: Build Raspberry Pi image
+    if: github.event_name == 'push'
     needs:
       - prepare-release
       - build-binaries
@@ -211,7 +218,6 @@ jobs:
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image to release
-        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -219,8 +225,62 @@ jobs:
             ${{ env.IMAGE_PATH }}
             ${{ env.CHECKSUM_PATH }}
 
+  build-image-manual:
+    name: Build Raspberry Pi image (manual)
+    if: github.event_name == 'workflow_dispatch'
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js with pnpm (web)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Setup Node.js with pnpm (public_html)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: public_html
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: velocity-binaries
+          path: image/velocity-binaries
+
+      - name: Rename staged binaries
+        run: |
+          mv image/velocity-binaries/velocity-report-arm64 image/velocity-binaries/velocity-report
+          mv image/velocity-binaries/velocity-ctl-arm64 image/velocity-binaries/velocity-ctl
+          chmod +x image/velocity-binaries/*
+
+      - name: Build image with repo helper
+        run: ./image/scripts/build-image.sh --skip-binaries
+
+      - name: Normalise image artifact
+        run: |
+          IMAGE_PATH="$(find image/.pi-gen/deploy -name '*.img.xz' -type f | sort | tail -1)"
+          if [ -z "$IMAGE_PATH" ]; then
+            echo "::error::No .img.xz file found in image/.pi-gen/deploy"
+            exit 1
+          fi
+
+          rm -f "${IMAGE_PATH}.sha256"
+          FINAL_IMAGE_PATH="$IMAGE_PATH"
+
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG#v}"
+            FINAL_IMAGE_PATH="$(dirname "$IMAGE_PATH")/velocity-report-${VERSION}.img.xz"
+            mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
+          fi
+
+          sha256sum "$FINAL_IMAGE_PATH" > "${FINAL_IMAGE_PATH}.sha256"
+
+          echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
+          echo "CHECKSUM_PATH=${FINAL_IMAGE_PATH}.sha256" >> "$GITHUB_ENV"
+          echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
+
       - name: Upload image as artifact
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: velocity-report-image
