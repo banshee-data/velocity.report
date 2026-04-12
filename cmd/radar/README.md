@@ -76,6 +76,8 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 **Sensor/network settings (config file only):** The following settings are
 configured via the [tuning config file](../../config/README.md), not CLI flags:
 
+For the canonical port register and numeric rationale, see [MAGIC_NUMBERS.md](../../MAGIC_NUMBERS.md).
+
 - `l1.sensor`: Sensor identifier (default: `hesai-pandar40p`).
 - `l1.udp_port`: UDP port to listen for LiDAR packets (default: `2369`).
 - `l1.forward_port`: Raw packet forward port (default: `2368`).

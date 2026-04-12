@@ -3,6 +3,9 @@
 This document describes the system architecture, component relationships, data flow,
 and integration points for the velocity.report traffic monitoring system.
 
+For canonical numeric constants (ports, tuning defaults, and hard-coded thresholds),
+see [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md).
+
 ### How to read this document
 
 - **Perception / ML engineers:** Start with [Perception pipeline](#perception-pipeline) and [Data & evaluation](#data--evaluation), then [Component status](#component-status) for the layer table.

@@ -11,6 +11,9 @@ _|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
 
 Documentation structure, scope, and naming conventions.
 
+For project-wide numeric constants and default thresholds, see
+[MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
+
 ## /docs/ root structure
 
 - `/data/` # Stable data references, maths notes, and explorations

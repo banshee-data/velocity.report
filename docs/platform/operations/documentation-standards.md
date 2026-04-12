@@ -55,6 +55,8 @@ No automated checker exists yet.
 ## Line-Width standard: 100 columns
 
 100 is the single line-width standard across all code and documentation.
+For the canonical constants register, see
+[MAGIC_NUMBERS.md](../../../MAGIC_NUMBERS.md).
 
 ### Data supporting the choice
 

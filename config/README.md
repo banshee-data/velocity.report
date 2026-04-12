@@ -3,6 +3,9 @@
 This directory contains the canonical LiDAR tuning config files used by
 `velocity.report`.
 
+For a project-wide register of ports, thresholds, and fixed constants, see
+[MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
+
 ## Schema
 
 The runtime now accepts a versioned nested schema.

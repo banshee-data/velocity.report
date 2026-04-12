@@ -274,6 +274,7 @@ navigation.
 - 📐 [TENETS.md](TENETS.md): the six tenets that guide the project: privacy, safety, evidence, local-first, simplicity, DRY
 - 🔭 [VISION.md](docs/VISION.md): where this is going, and what it looks like when it gets there
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): how the parts fit together: sensors, server, database, frontend
+- ✨ [MAGIC_NUMBERS.md](MAGIC_NUMBERS.md): canonical constants for ports, limits, and tuning defaults
 - 🔢 [MATHS.md](data/maths/MATHS.md): the maths behind tracking, clustering, and classification, with no handwaving
 - 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute without producing an exciting new class of bug
 - 🧱 [COMMANDS.md](COMMANDS.md): every make target, in one place
