@@ -133,7 +133,7 @@ night). It checks all code and documentation against the 100-
 column standard, and if violations exist, opens or updates a
 standing PR with the fixes applied.
 
-**Workflow:** `.github/workflows/line-width-nag.yml`
+**Workflow:** `.github/workflows/line-width-nag.yml` <!-- link-ignore -->
 
 | Setting  | Value                          |
 | -------- | ------------------------------ |
@@ -167,7 +167,7 @@ When the team is ready to enforce, flip `continue-on-error`
 to `false`. The Makefile target `check-prose-width` also
 drops its `--report` flag at that point.
 
-Add a `check-line-width` job to `.github/workflows/ci.yml`:
+Add a `check-line-width` CI job:
 
 | Setting             | Value                                                   |
 | ------------------- | ------------------------------------------------------- |
