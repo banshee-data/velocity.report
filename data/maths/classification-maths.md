@@ -1,7 +1,7 @@
 # Classification maths
 
 - **Status:** Implementation-aligned math note
-- **Layers:** L6 Objects (`internal/lidar/l6objects`)
+- **Layers:** L6 Objects ([l6objects](../../internal/lidar/l6objects))
 - **Related:** [Tracking Maths](tracking-maths.md)
 
 ## 1. Purpose
@@ -10,7 +10,7 @@ Classification assigns a semantic label to each tracked object using
 rule-based thresholds on spatial and kinematic features extracted from
 the track's observation history.
 
-**Source of truth:** `internal/lidar/l6objects/classification.go`
+**Source of truth:** [l6objects/classification.go](../../internal/lidar/l6objects/classification.go)
 **Model version:** `rule-based-v1.2`
 
 ## 2. Object classes
@@ -221,44 +221,33 @@ Confidence is always clamped to $[0, 1]$.
 
 Classification is deferred until the track accumulates
 $n \ge n_{\text{min}}$ observations (configurable via
-`min_observations_for_classification` in tuning.json). Below
+`min_observations_for_classification` in [tuning.example.json](../../config/tuning.example.json)). Below
 this threshold, the result is `"dynamic"` with very low confidence
 ($0.25$).
 
-## 8. Unified label vocabulary
+## 8. Label vocabulary
 
-As of v1.2, the classifier output and user-label vocabularies are
-aligned. Both use canonical full-word strings. The wire protocol uses
-a proto3 enum (`ObjectClass`) for forward compatibility.
-
-| Label            | Classifier output | User-assignable | Status           |
-| ---------------- | ----------------- | --------------- | ---------------- |
-| `"noise"`        | -                 | ✓               | Active           |
-| `"dynamic"`      | ✓                 | ✓               | Active           |
-| `"pedestrian"`   | ✓                 | ✓               | Active           |
-| `"cyclist"`      | ✓                 | ✓               | Active           |
-| `"bird"`         | ✓                 | ✓               | Active           |
-| `"bus"`          | ✓                 | ✓               | Active           |
-| `"car"`          | ✓                 | ✓               | Active           |
-| `"truck"`        | -                 | -               | Reserved (v0.6+) |
-| `"motorcyclist"` | -                 | -               | Reserved (v0.6+) |
+The canonical class list and proto enum are in §2. All seven active
+labels are both classifier outputs and user-assignable; `noise` is
+user-assignable only. Reserved labels will be activated in future
+releases. See §11 for the full AV taxonomy alignment.
 
 **Canonical locations:**
 
-- Proto enum definition: `proto/velocity_visualiser/v1/visualiser.proto`
-- Go classifier constants: `internal/lidar/l6objects/classification.go`
-- Go feature-based API: `ClassifyFeatures()` in `internal/lidar/l6objects/classification.go`
-- Go user-label validation: `internal/api/lidar_labels.go`
-- Go VRLOG replay bridge: `classifyOrConvert()` in `internal/lidar/visualiser/grpc_server.go`
-- TypeScript types: `web/src/lib/types/lidar.ts`
-- Swift labels: `ContentView.swift` → `LabelPanelView.classificationLabels`
+- Proto enum: [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto)
+- Go constants: [l6objects/classification.go](../../internal/lidar/l6objects/classification.go)
+- Go classifier: `ClassifyFeatures()` in [classification.go](../../internal/lidar/l6objects/classification.go)
+- Go user-label validation: [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go)
+- Go VRLOG replay bridge: `classifyOrConvert()` in [l9endpoints/grpc_frames.go](../../internal/lidar/l9endpoints/grpc_frames.go)
+- TypeScript: [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
+- Swift: [ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift) → `LabelPanelView.classificationLabels`
 
 ## 9. VRLOG replay re-classification
 
 VRLOG recordings made before classification was added contain tracks
 with empty `ObjectClass` strings. When these recordings are replayed,
 the gRPC server re-classifies tracks on-the-fly using
-`classifyOrConvert()` in `grpc_server.go`.
+`classifyOrConvert()` in [grpc_frames.go](../../internal/lidar/l9endpoints/grpc_frames.go).
 
 The function builds a `ClassificationFeatures` struct from the Track's
 available per-frame metrics (bounding box dimensions, speed, height,
@@ -272,17 +261,122 @@ recordings or live data) are converted directly without re-classification.
 
 ## 10. Future work
 
+- Activate reserved labels: `truck` and `motorcyclist` (v0.6+); `pole`,
+  `sign`, and `static` (future; see §11.1 master table)
 - Replace rule-based classifier with ML model (feature vector is
   designed to be export-compatible)
 - Expose label taxonomy via API endpoint for frontend consumption
 
-## 11. References
+## 11. AV dataset taxonomy alignment
 
-| Reference            | BibTeX key   | Relevance                                                                                                               |
-| -------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Geiger et al. (2012) | `Geiger2012` | KITTI 3D object detection benchmark; class definitions (car, pedestrian, cyclist) used in threshold calibration         |
-| Caesar et al. (2020) | `Caesar2020` | nuScenes 23-class AV taxonomy; our local classes map to this for evaluation compatibility                               |
-| Behley et al. (2019) | `Behley2019` | SemanticKITTI 28-class taxonomy; AV compatibility mapping target                                                        |
-| Lang et al. (2019)   | `Lang2019`   | PointPillars: learned detector occupying the same architectural slot as our rule-based L6; future replacement candidate |
+velocity.report's label vocabulary (§2) is derived from the Waymo Open
+Dataset [`CameraSegmentation.Type`][waymo-proto] enum (28 named
+classes; Mei et al. 2022). Waymo naming is adopted directly where a
+v.r class exists. The one deliberate broadening: v.r's `cyclist`
+covers bicycle riders **and** e-scooter riders (UK road-safety
+framing), whereas Waymo's `TYPE_CYCLIST` covers bicycle riders only.
+
+Static scene elements (types 19–26) are removed by L3 background
+subtraction before clustering. They never receive an L6 label but are
+included in the table below for completeness.
+
+[waymo-proto]: https://github.com/waymo-research/waymo-open-dataset/blob/99a4cb3ff07e2fe06c2ce73da001f850f628e45a/src/waymo_open_dataset/protos/camera_segmentation.proto#L42
+
+### 11.1 Waymo → v.r master mapping
+
+| #   | Waymo `CameraSegmentation.Type` | v.r class      | Status               | SemanticKITTI     |
+| --- | ------------------------------- | -------------- | -------------------- | ----------------- |
+| 1   | `TYPE_EGO_VEHICLE`              | —              | n/a                  | —                 |
+| 2   | `TYPE_CAR`                      | `car`          | ✅ active            | car               |
+| 3   | `TYPE_TRUCK`                    | `truck`        | ⚠️ reserved (v0.6+)  | truck             |
+| 4   | `TYPE_BUS`                      | `bus`          | ✅ active            | —                 |
+| 5   | `TYPE_OTHER_LARGE_VEHICLE`      | —              | ❌ not covered       | other-vehicle     |
+| 6   | `TYPE_BICYCLE`                  | —              | ❌ not covered       | bicycle           |
+| 7   | `TYPE_MOTORCYCLE`               | —              | ❌ not covered       | motorcycle        |
+| 8   | `TYPE_TRAILER`                  | —              | ❌ not covered       | —                 |
+| 9   | `TYPE_PEDESTRIAN`               | `pedestrian`   | ✅ active            | person            |
+| 10  | `TYPE_CYCLIST`                  | `cyclist`      | ✅ active            | bicyclist         |
+| 11  | `TYPE_MOTORCYCLIST`             | `motorcyclist` | ⚠️ reserved (v0.6+)  | motorcyclist      |
+| 12  | `TYPE_BIRD`                     | `bird`         | ✅ active            | —                 |
+| 13  | `TYPE_GROUND_ANIMAL`            | —              | ❌ not covered       | —                 |
+| 14  | `TYPE_CONSTRUCTION_CONE_POLE`   | —              | ❌ not covered       | —                 |
+| 15  | `TYPE_POLE`                     | `pole`         | ⚠️ reserved (future) | pole              |
+| 16  | `TYPE_PEDESTRIAN_OBJECT`        | —              | ❌ not covered       | —                 |
+| 17  | `TYPE_SIGN`                     | `sign`         | ⚠️ reserved (future) | traffic sign      |
+| 18  | `TYPE_TRAFFIC_LIGHT`            | —              | ❌ not covered       | —                 |
+| 19  | `TYPE_BUILDING`                 | —              | BG subtraction       | building          |
+| 20  | `TYPE_ROAD`                     | —              | BG subtraction       | road              |
+| 21  | `TYPE_LANE_MARKER`              | —              | BG subtraction       | —                 |
+| 22  | `TYPE_ROAD_MARKER`              | —              | BG subtraction       | —                 |
+| 23  | `TYPE_SIDEWALK`                 | —              | BG subtraction       | sidewalk          |
+| 24  | `TYPE_VEGETATION`               | —              | BG subtraction       | vegetation, trunk |
+| 25  | `TYPE_SKY`                      | —              | BG subtraction       | —                 |
+| 26  | `TYPE_GROUND`                   | —              | BG subtraction       | parking, terrain  |
+| 27  | `TYPE_DYNAMIC`                  | `dynamic`      | ✅ active            | —                 |
+| 28  | `TYPE_STATIC`                   | `static`       | ⚠️ reserved (future) | other-object      |
+
+`noise` is a v.r-only class (user-assignable label for sensor
+artefacts). It has no Waymo equivalent; the nearest analogues are
+nuScenes `noise → void` and SemanticKITTI `outlier`.
+
+**Coverage:** 6 active, 5 reserved (`truck`, `motorcyclist`, `pole`,
+`sign`, `static`), 8 uncovered foreground, 8 scene/BG, 1 n/a
+(ego_vehicle). v.r maps **11 of 28** Waymo classes (6 active +
+5 reserved). The 8 uncovered foreground classes are candidates for
+Phase 3 of the AV integration plan.
+
+Three SemanticKITTI classes have no direct Waymo equivalent:
+`other-structure` and `fence` fold into `TYPE_BUILDING`; `outlier`
+maps to v.r's `noise`.
+
+### 11.2 nuScenes mapping
+
+nuScenes (Caesar et al. 2020; Fong et al. 2021) uses 32 hierarchical
+categories that merge into 16 evaluation classes. The many-to-one
+relationship does not map cleanly to a single Waymo/v.r row, so a
+separate table is warranted.
+
+| nuScenes category                                                             | Eval class (idx)         | v.r class            |
+| ----------------------------------------------------------------------------- | ------------------------ | -------------------- |
+| vehicle.car                                                                   | car (4)                  | `car`                |
+| vehicle.truck                                                                 | truck (10)               | `truck` _(reserved)_ |
+| vehicle.bus.bendy, vehicle.bus.rigid                                          | bus (3)                  | `bus`                |
+| vehicle.construction                                                          | construction_vehicle (5) | —                    |
+| vehicle.trailer                                                               | trailer (9)              | —                    |
+| vehicle.bicycle                                                               | bicycle (2)              | —                    |
+| vehicle.motorcycle                                                            | motorcycle (6)           | —                    |
+| vehicle.emergency.ambulance, vehicle.emergency.police, vehicle.ego            | void (0)                 | —                    |
+| human.pedestrian.{adult, child, construction_worker, police_officer}          | pedestrian (7)           | `pedestrian`         |
+| human.pedestrian.{personal_mobility, stroller, wheelchair}                    | void (0)                 | —                    |
+| animal                                                                        | void (0)                 | —                    |
+| movable_object.trafficcone                                                    | traffic_cone (8)         | —                    |
+| movable_object.barrier                                                        | barrier (1)              | —                    |
+| movable_object.{pushable_pullable, debris}, static_object.bicycle_rack, noise | void (0)                 | `noise` (noise only) |
+| flat.driveable_surface, flat.sidewalk, flat.terrain, flat.other               | (11–14)                  | BG subtraction       |
+| static.manmade, static.vegetation, static.other                               | (15–16, void)            | BG subtraction       |
+
+### 11.3 The "28-class" source
+
+The 28 named semantic classes are defined in the Waymo Open Dataset
+[`CameraSegmentation.Type`][waymo-proto] enum (Mei et al. 2022). The
+LiDAR-specific `Segmentation.Type` in
+[`segmentation.proto`](https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/protos/segmentation.proto)
+defines a 22-type subset (it omits ego_vehicle, trailer,
+pedestrian_object, sky, road_marker, and lane_marker). Earlier
+velocity.report documentation attributed "28 classes" to SemanticKITTI
+(Behley 2019), which actually defines 19 evaluation classes (28 raw
+label IDs including `moving-*` variants). The attribution has been
+corrected in `references.bib`.
+
+## 12. References
+
+| Reference            | BibTeX key                 | Relevance                                                                                                         |
+| -------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Geiger et al. (2012) | `Geiger2012`               | KITTI 3D object detection benchmark; class definitions used in threshold calibration                              |
+| Behley et al. (2019) | `Behley2019`               | SemanticKITTI: 19 eval-class point-level semantic segmentation for outdoor LiDAR                                  |
+| Caesar et al. (2020) | `Caesar2020`               | nuScenes: 32-class AV taxonomy; candidate for future learned classifier in L6                                     |
+| Fong et al. (2021)   | `Fong2021PanopticNuScenes` | Panoptic nuScenes: 32 raw → 16 eval LiDAR panoptic segmentation and tracking                                      |
+| Mei et al. (2022)    | `Mei2022Waymo`             | Waymo panoptic: 28 classes in `CameraSegmentation.Type` (north star); 22-type LiDAR subset in `Segmentation.Type` |
+| Lang et al. (2019)   | `Lang2019`                 | PointPillars: learned detector occupying the same architectural slot as our rule-based L6                         |
 
 Full BibTeX entries: [data/maths/references.bib](references.bib)
