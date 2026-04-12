@@ -73,8 +73,14 @@ def _is_excluded_dir(name: str) -> bool:
 
 
 def _resolve_excluded_files() -> set[Path]:
-    """Return resolved paths for EXCLUDED_FILES so comparison is reliable."""
-    return {Path(p).resolve() for p in EXCLUDED_FILES}
+    """Return resolved paths for EXCLUDED_FILES, always relative to the repo root.
+
+    Resolving relative to __file__ (scripts/) rather than the current working
+    directory ensures exclusions like ``docs/DECISIONS.md`` match correctly even
+    when the script is invoked from a subdirectory.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    return {(repo_root / p).resolve() for p in EXCLUDED_FILES}
 
 
 def iter_markdown_paths(paths: list[str]) -> list[Path]:
