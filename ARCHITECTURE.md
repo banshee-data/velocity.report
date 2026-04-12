@@ -260,41 +260,41 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
 
 **Key Modules**:
 
-- **`cmd/radar/`** - Main server entry point
+- **[cmd/radar/](cmd/radar)** - Main server entry point
   - Sensor data collection (radar/LiDAR)
   - HTTP API server
   - Background task scheduler
   - Systemd service integration
 
-- **`internal/api/`** - HTTP API endpoints
+- **[internal/api/](internal/api)** - HTTP API endpoints
   - `/api/radar_stats` - Statistical summaries and rollups
   - `/api/config` - Configuration retrieval
   - `/command` - Send radar commands
   - RESTful design with JSON responses
 
-- **`internal/radar/`** - Radar sensor integration
+- **[internal/radar/](internal/radar)** - Radar sensor integration
   - Serial port communication
   - Data parsing and validation
   - Error handling and retry logic
 
-- **`internal/lidar/`** - LiDAR sensor integration
+- **[internal/lidar/](internal/lidar)** - LiDAR sensor integration
   - UDP packet listener and decoder (Hesai Pandar40P)
   - `FrameBuilder` accumulates complete 360° rotations with sequence checks
   - `BackgroundManager` maintains EMA grid (40 rings × 1800 azimuth bins)
   - Persists `lidar_bg_snapshot` rows and emits `frame_stats` into `system_events`
   - Tooling for ASC export, pose transforms, and background tuning APIs
 
-- **`internal/lidar/sweep/`** - Parameter sweep and tuning
+- **[internal/lidar/sweep/](internal/lidar/sweep)** - Parameter sweep and tuning
   - `Runner`: runs combinatorial parameter sweeps (manual mode)
   - `AutoTuner`: iterative bounds-narrowing with proxy or ground truth scoring (auto mode)
   - `HINTTuner`: human-involved numerical tuning: creates reference runs, waits for human track labelling, then sweeps with ground truth scores (hint mode)
 
-- **`internal/monitoring/`** - System monitoring
+- **[internal/monitoring/](internal/monitoring)** - System monitoring
   - Health checks
   - Performance metrics
   - Error logging
 
-- **`internal/units/`** - Unit conversion
+- **[internal/units/](internal/units)** - Unit conversion
   - Speed conversions (MPH ↔ KPH)
   - Distance conversions
   - Timezone handling
@@ -406,7 +406,7 @@ Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug ove
 - ✅ Overlay toggles (show/hide tracks, trails, boxes)
 - ✅ Deterministic replay of `.vrlog` recordings
 
-**Go Backend** (`internal/lidar/l9endpoints/`):
+**Go Backend** ([internal/lidar/l9endpoints/](internal/lidar/l9endpoints)):
 
 - `grpc_server.go` - gRPC streaming server implementing VisualiserService
 - `replay.go` - ReplayServer for streaming `.vrlog` files with seek/rate control
@@ -415,7 +415,7 @@ Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug ove
 - `adapter.go` - Convert pipeline data to FrameBundle proto
 - `model.go` - Canonical FrameBundle data structures
 
-**Swift Client** (`tools/visualiser-macos/VelocityVisualiser/`):
+**Swift Client** ([tools/visualiser-macos/VelocityVisualiser/](tools/visualiser-macos/VelocityVisualiser)):
 
 - `App/` - Application entry point and global state
 - `gRPC/` - gRPC client wrapper and proto decoding
@@ -425,10 +425,10 @@ Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug ove
 
 **Command-Line Tools**:
 
-- `cmd/tools/visualiser-server` - Multi-mode server (synthetic/replay/live)
-- `cmd/tools/gen-vrlog` - Generate sample `.vrlog` recordings
+- [cmd/tools/visualiser-server](cmd/tools/visualiser-server) - Multi-mode server (synthetic/replay/live)
+- [cmd/tools/gen-vrlog](cmd/tools/gen-vrlog) - Generate sample `.vrlog` recordings
 
-**Protocol Buffer Schema** (`proto/velocity_visualiser/v1/visualiser.proto`):
+**Protocol Buffer Schema** ([proto/velocity_visualiser/v1/visualiser.proto](proto/velocity_visualiser/v1/visualiser.proto)):
 
 ```protobuf
 service VisualiserService {
@@ -454,7 +454,7 @@ service VisualiserService {
 
 ### Database layer
 
-**Location**: `/data/`, managed by `internal/db/`
+**Location**: `./sensor_data.db`, managed by [internal/db/](internal/db)
 
 **Database**: SQLite 3.51.2 (via `modernc.org/sqlite v1.44.3`)
 
@@ -547,7 +547,7 @@ changes over time. Key aspects:
 
 The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame:
 background subtraction, clustering, tracking, and classification.
-Each layer is a separate Go package under `internal/lidar/`, with its own parameters, tests,
+Each layer is a separate Go package under [internal/lidar/](internal/lidar), with its own parameters, tests,
 and maths reference.
 The pipeline processes ~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
 
@@ -1116,7 +1116,7 @@ Web Development:
 ### LiDAR pipeline layers
 
 The perception pipeline is organised as ten layers (L1–L10),
-each a distinct Go package under `internal/lidar/`.
+each a distinct Go package under [internal/lidar/](internal/lidar).
 Layers L1–L6 form a complete stack from raw UDP frames to classified objects:
 DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment,
 and rule-based classification, all tuneable and inspectable end to end.
@@ -1194,7 +1194,7 @@ Each version has a design document per work item; the backlog links to all of th
 
 ## Mathematical references
 
-The perception algorithms are documented in standalone mathematical references under `data/maths/`.
+The perception algorithms are documented in standalone mathematical references under [data/maths/](data/maths).
 Each document covers the theory, parameter choices,
 and implementation mapping for one pipeline stage.
 

@@ -237,13 +237,13 @@ they improve will be removed.
 ## Config mapping
 
 Note on naming: this repository does **not** contain a `config/tracking.json` file.
-Runtime tuning is loaded from `config/tuning.defaults.json` (or another JSON passed with `--config`)
-via `internal/config/tuning.go`.
+Runtime tuning is loaded from [config/tuning.defaults.json](../../config/tuning.defaults.json) (or another JSON passed with `--config`)
+via [internal/config/tuning.go](../../internal/config/tuning.go).
 
-See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed
+See also: [docs/lidar/operations/config-param-tuning.md](../../docs/lidar/operations/config-param-tuning.md) for the operational tuning workflow aimed
 at operators (grouped by tuning task rather than mathematical source).
 
-### L3 background grid settling maths (`background-grid-settling-maths.md`)
+### L3 background grid settling maths [`background-grid-settling-maths.md`](background-grid-settling-maths.md)
 
 - Keys:
   - `background_update_fraction`
@@ -256,14 +256,14 @@ at operators (grouped by tuning task rather than mathematical source).
   - `warmup_min_frames`
   - `post_settle_update_fraction`
 - Getter/source path:
-  - `internal/config/tuning.go`
+  - [internal/config/tuning.go](../../internal/config/tuning.go)
 - Runtime mapping:
-  - `internal/lidar/l3grid/config.go` (`BackgroundConfigFromTuning`)
-  - `internal/lidar/l3grid/foreground.go` and `internal/lidar/l3grid/background.go`
+  - [internal/lidar/l3grid/config.go](../../internal/lidar/l3grid/config.go) (`BackgroundConfigFromTuning`)
+  - [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go) and [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go)
 - Important non-file defaults still applied in code:
-  - freeze duration, lock thresholds, reacquisition boost (`internal/lidar/l3grid/config.go`, `internal/lidar/l3grid/foreground.go`)
+  - freeze duration, lock thresholds, reacquisition boost ([internal/lidar/l3grid/config.go](../../internal/lidar/l3grid/config.go), [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go))
 
-### L4 ground surface maths (`ground-plane-maths.md`)
+### L4 ground surface maths ([ground-plane-maths.md](ground-plane-maths.md))
 
 - Current config status:
   - No dedicated ground-plane tuning block is wired yet.
@@ -272,9 +272,9 @@ at operators (grouped by tuning task rather than mathematical source).
   - `height_band_floor`, `height_band_ceiling`, `remove_ground`
   - region-selection gates derived from `noise_relative`, `safety_margin_meters`, `closeness_multiplier`, and `neighbor_confirmation_count`
 - Runtime mapping:
-  - `cmd/radar/radar.go` -> `internal/lidar/pipeline/tracking_pipeline.go` -> `internal/lidar/l4perception/ground.go`
+  - [cmd/radar/radar.go](../../cmd/radar/radar.go) -> [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) -> [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
 
-### L4 clustering maths (`clustering-maths.md`)
+### L4 clustering maths ([clustering-maths.md](clustering-maths.md))
 
 - Keys:
   - `foreground_dbscan_eps`
@@ -283,12 +283,12 @@ at operators (grouped by tuning task rather than mathematical source).
   - `min_cluster_diameter`
   - `max_cluster_aspect_ratio`
 - Getter/source path:
-  - `internal/config/tuning.go`
+  - [internal/config/tuning.go](../../internal/config/tuning.go)
 - Runtime mapping:
-  - `internal/lidar/l4perception/cluster.go` (`DefaultDBSCANParams`)
-  - pipeline use in `internal/lidar/pipeline/tracking_pipeline.go`
+  - [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go) (`DefaultDBSCANParams`)
+  - pipeline use in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go)
 
-### L5 tracking maths (`tracking-maths.md`)
+### L5 tracking maths ([tracking-maths.md](tracking-maths.md))
 
 - Keys:
   - `gating_distance_squared`
@@ -314,10 +314,10 @@ at operators (grouped by tuning task rather than mathematical source).
   - `deleted_track_grace_period`
   - `min_observations_for_classification`
 - Getter/source path:
-  - `internal/config/tuning.go`
+  - [internal/config/tuning.go](../../internal/config/tuning.go)
 - Runtime mapping:
-  - `internal/lidar/l5tracks/tracking.go` (`TrackerConfigFromTuning`)
-  - tracker wiring in `cmd/radar/radar.go`
+  - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go) (`TrackerConfigFromTuning`)
+  - tracker wiring in [cmd/radar/radar.go](../../cmd/radar/radar.go)
 
 ### Pipeline timing/persistence controls (cross-cutting)
 
@@ -328,8 +328,8 @@ at operators (grouped by tuning task rather than mathematical source).
   - `background_flush`
   - `enable_diagnostics`
 - Runtime mapping:
-  - pipeline/bootstrap in `cmd/radar/radar.go`
-  - background flusher in `internal/lidar/l3grid/background_flusher.go`
+  - pipeline/bootstrap in [cmd/radar/radar.go](../../cmd/radar/radar.go)
+  - background flusher in [internal/lidar/l3grid/background_flusher.go](../../internal/lidar/l3grid/background_flusher.go)
 
 ## What is intentionally not here
 

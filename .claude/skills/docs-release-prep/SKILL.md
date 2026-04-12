@@ -21,12 +21,13 @@ accurate, navigable, and sized for purpose.
 ## Goals
 
 1. Every Markdown link resolves to a real file.
-2. Every completed plan is graduated (symlink + hub-doc consolidation).
-3. No spec document exceeds the length target without justification.
-4. Large documents with distinct topics are split into focused files.
-5. Open design questions are surfaced; answered questions are recorded.
-6. Design decision tables reflect current implementation, not stale drafts.
-7. Documentation included in the disk image is complete and correct.
+2. Key document references use Markdown links, not backtick-quoted file paths.
+3. Every completed plan is graduated (symlink + hub-doc consolidation).
+4. No spec document exceeds the length target without justification.
+5. Large documents with distinct topics are split into focused files.
+6. Open design questions are surfaced; answered questions are recorded.
+7. Design decision tables reflect current implementation, not stale drafts.
+8. Documentation included in the disk image is complete and correct.
 
 ## Rubrics
 
@@ -122,6 +123,34 @@ Or manually:
 ```bash
 python3 scripts/check-relative-links.py --report 2>&1
 python3 scripts/check-backtick-paths.py --report 2>&1
+python3 scripts/check-backtick-file-links.py --report 2>&1
+```
+
+Key documents gate (README "🔑 key documents" section):
+
+- Every document reference in that section must be a Markdown link
+  (`[label](path)`), not a standalone backtick-quoted file path.
+- Every linked target must resolve to an existing file.
+
+```bash
+# Should print "No standalone backtick file references found."
+python3 scripts/check-backtick-file-links.py --report \
+  TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
+  CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
+  docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
+  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  CODE_OF_CONDUCT.md
+
+# Auto-fix resolvable standalone backtick file refs to Markdown links
+python3 scripts/check-backtick-file-links.py --fix \
+  TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
+  CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
+  docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
+  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  CODE_OF_CONDUCT.md
+
+# Validate links in README (includes key-docs section)
+python3 scripts/check-relative-links.py --report README.md
 ```
 
 Fix all automatically resolvable links. Surface ambiguous cases to the
@@ -223,6 +252,8 @@ Do not wrap lines mid-sentence to hit the number; Prettier handles that on
 Quick scan for the most common tone issues:
 
 - [ ] **Heading case:** sentence case, not title case (except brand names).
+- [ ] **File references in prose:** use Markdown links for files and paths,
+      not backtick-only file references.
 - [ ] **Anti-phrases:** replace `utilise`, `leverages`, `cutting-edge`,
       `seamless`, `end-to-end` on sight.
 - [ ] **Passive voice accumulation:** rewrite passages with 3+ consecutive

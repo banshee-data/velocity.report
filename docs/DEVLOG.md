@@ -36,20 +36,20 @@
 
 ## April 6, 2026 - Claude code init, security fixes, paper gap analysis & CI linting
 
-- Initialised Claude Code configuration (#447): `CLAUDE.md`, `.claude/agents/` (7 personas), `.claude/skills/` (8 workflow slash commands), and shared knowledge modules in `.github/knowledge/`.
+- Initialised Claude Code configuration (#447): [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), and shared knowledge modules in [.github/knowledge/](../.github/knowledge).
 - Updated vulnerable dependencies across Go, npm, and Python ecosystems (#441). Fixed a dev-mode path traversal vulnerability by normalising `requestedPath` before joining with `buildDir`.
-- Added paper-vs-implementation gap analysis (`data/maths/paper-implementation-gap-analysis.md`): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers.
+- Added paper-vs-implementation gap analysis ([data/maths/paper-implementation-gap-analysis.md](../data/maths/paper-implementation-gap-analysis.md)): reviewed 24 papers across 11 subsystems, identified 35 gaps with P1/P2/P3 priority tiers.
 - Added `download-papers.py` script with DOI/URL resolution, SSRF guards, and dry-run mode (#446).
 - Merged Go clock abstraction plan (#428): `timeutil.Clock` interface for pipeline timing, replay pacing, and benchmark instrumentation.
 - Added Markdown CI workflows: `check-md-links` for dead link detection, `check-backtick-paths.py` for stale file path references, `public_html` CI for docs site linting. Wired into `make lint-docs`.
-- Refreshed `README.md` with sample PDF report and visualiser demo images (#443, #444). Added `STYLE.md` with writing conventions and British English guidelines.
+- Refreshed [README.md](README.md) with sample PDF report and visualiser demo images (#443, #444). Added `STYLE.md` with writing conventions and British English guidelines.
 - Added wiring diagrams and YAML configuration for OPS243-A radar sensor (`docs/hw/`).
 - Updated agent preparedness documentation, added `fix-links` skill, and expanded coding standards with configuration and media guidelines.
 - Added `age-color` terminal script and new Makefile log convenience targets.
 
 ## April 5, 2026 - README & ASCII art refresh
 
-- Refreshed `README.md` structure: reorganised sections, updated project description and feature list.
+- Refreshed [README.md](README.md) structure: reorganised sections, updated project description and feature list.
 - Iterated on ASCII art header designs across documentation files.
 
 ## April 1, 2026 - ASCII art update
@@ -58,7 +58,7 @@
 
 ## March 31, 2026 - voice quality audit & error message rewrite
 
-- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, `cmd/radar` CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
+- {copilot/update-error-surface-voice-audit-plan} Completed the error surface voice audit across all subsystems: rewrote user-facing error messages in Go HTTP handlers, [cmd/radar](../cmd/radar) CLI, Python PDF tools, and Svelte web frontend to match the project voice (concise, helpful, no blame, diagnostic hints where useful).
 - {copilot/update-error-surface-voice-audit-plan} Rewrote shell script messages and marked the voice audit plan complete.
 - Centralised API error handling in the web frontend for consistent error message display.
 - Fixed TLS certificate generation to persist the CA across server certificate renewals, preventing trust breakage when the server cert is regenerated.
@@ -77,16 +77,16 @@
 - Added Raspberry Pi download section to the homepage (#437): `release.json` data source, per-platform SHA256 hashes, clipboard fallback for copy buttons.
 - Fixed homepage mobile layout (#439): resolved light/dark theming split and download card spacing.
 - Refined Terry agent coaching workshop documentation (#438).
-- Fixed "Web Frontend Not Built" in the RPi image: whitelisted `web/build/` in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`.
+- Fixed "Web Frontend Not Built" in the RPi image: whitelisted [web/build/](../web/build) in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`.
 - Moved TLS termination from Go server to nginx reverse proxy. Go server stays on `:8080` (plain HTTP), nginx handles HTTPS on port 443.
 - Added first-boot TLS certificate generation (`velocity-generate-tls.sh`): per-device ECDSA P-256 local CA (10-year) and server cert (825-day). Idempotent, regenerates on expiry.
 - Exposed CA certificate at `GET /ca.crt` via nginx for browser trust installation.
 - Installed root-level project documents into the image for on-device reference.
-- Documented the TLS strategy in `docs/platform/operations/tls-local-certificates.md`.
+- Documented the TLS strategy in [docs/platform/operations/tls-local-certificates.md](platform/operations/tls-local-certificates.md).
 
 ## March 28, 2026 - RPi image: build pipeline, flash target & first-boot polish
 
-- Consolidated Go version information printing into a single function across `cmd/radar` and `cmd/velocity-ctl`.
+- Consolidated Go version information printing into a single function across [cmd/radar](../cmd/radar) and [cmd/velocity-ctl](../cmd/velocity-ctl).
 - Updated build process and documentation for RPi images: clarified `build-image.sh` sections and improved error handling.
 - Added timestamps to image filenames to prevent collisions during rebuilds.
 - Added installation step for `tuning.defaults.json` in the pi-gen run script so the service starts with a valid config.
@@ -99,7 +99,7 @@
 - Enhanced the image build with reference data installation (alignment CSVs, sample VRLOGs) so the appliance ships with test datasets.
 - Added `make clean-images` to remove old `.img`, `.zip`, and older `.xz`/`.sha256`/`.info` files from the deploy directory, keeping only the latest build. Recovered 18 GB → 529 MB on first run.
 - Updated `.dockerignore` to clarify web frontend asset inclusion.
-- Moved `TENETS.md` to the repository root and updated all cross-references in `.github/copilot-instructions.md`, agent files, and documentation.
+- Moved [TENETS.md](../TENETS.md) to the repository root and updated all cross-references in [.github/copilot-instructions.md](../.github/copilot-instructions.md), agent files, and documentation.
 
 ## March 27, 2026 - RPi image: Pi-gen integration & ARM64 cross-compilation
 
@@ -121,8 +121,8 @@
 
 ## March 25, 2026 - documentation refresh & RPi image planning
 
-- Added `data/QUESTIONS.md` with open research questions about hourly comparison data and speed distributions.
-- Refactored `README.md` structure and added `COMMANDS.md` with make targets reference and ASCII art headers.
+- Added [data/QUESTIONS.md](../data/QUESTIONS.md) with open research questions about hourly comparison data and speed distributions.
+- Refactored [README.md](README.md) structure and added [COMMANDS.md](../COMMANDS.md) with make targets reference and ASCII art headers.
 - Split the Raspberry Pi image plan into phased delivery (Phase 1 bootable image, Phase 2 OTA, Phase 3 fleet management).
 - {dd/mac/dmg-signing} Added macOS code-signing and notarisation to the CI workflow and Makefile (#425): `codesign --deep`, `notarytool`, and `stapler`.
 - {dd/mac/dmg-signing} Fixed notarisation auth handling for macOS 13+ keychain profiles and removed the unreliable `spctl` DMG check.
@@ -132,7 +132,7 @@
 ## March 24, 2026 - config consolidation, ERD refresh & workflow docs
 
 - Consolidated LiDAR immutable/run-config plumbing across radar startup, storage, replay-case management, and backfill tooling.
-- Extracted testable helper paths in `cmd/radar` and added focused coverage for the run-config backfill tool.
+- Extracted testable helper paths in [cmd/radar](../cmd/radar) and added focused coverage for the run-config backfill tool.
 - Updated immutable run-config and replay-case operations docs, and replaced older scene-management implementation notes with the newer asset plan.
 - Switched plan-hygiene reporting to an advisory workflow in CI rather than a hard PR gate.
 - Refreshed schema visualisation tooling: added configurable SQLite ERD grouping, updated graph scripts, and regenerated `SCHEMA.svg`.
@@ -166,8 +166,8 @@
 
 - Landed the large L8-L10 refactor across Go packages and docs: reshaped server/package boundaries, updated routes, and continued the monitor → endpoint/client split.
 - Moved LiDAR network settings fully to CLI/runtime flags, trimming duplicated config-file state and updating radar/config docs and tests.
-- Broke up large `internal/api` server files into narrower admin, middleware, radar, reports, sites, and timeline units.
-- Broke up large `internal/db`, `internal/lidar/l2frames`, and `internal/lidar/l5tracks` files into more focused storage, frame-builder, and tracking units.
+- Broke up large [internal/api](../internal/api) server files into narrower admin, middleware, radar, reports, sites, and timeline units.
+- Broke up large [internal/db](../internal/db), [internal/lidar/l2frames](../internal/lidar/l2frames), and [internal/lidar/l5tracks](../internal/lidar/l5tracks) files into more focused storage, frame-builder, and tracking units.
 - Split tuning/background internals into cleaner accessors, codec, validation, background-manager, and region-specific files.
 - Refactored SQLite access through shared storage interfaces for labels and server-facing codepaths.
 - Continued general tech-debt cleanup across reports, tracking update logic, transit tooling, and plan/backlog alignment.
@@ -176,7 +176,7 @@
 
 ## March 20, 2026 - config refactor & migration tooling
 
-- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in `cmd/radar`.
+- Reworked the radar/LiDAR configuration model around cleaner startup plumbing and helper extraction in [cmd/radar](../cmd/radar).
 - Added `config-migrate` with broad coverage for moving existing configs onto the new layout.
 - Added `config-validate` to check migrated/runtime configs before deployment.
 - Expanded radar flag and config-path test coverage substantially.
@@ -196,7 +196,7 @@
 
 ## March 18, 2026 - contributor refresh, schema planning & homepage download
 
-- Rewrote `CONTRIBUTING.md` with updated contributor guidance, personas, and workflow expectations.
+- Rewrote [CONTRIBUTING.md](../CONTRIBUTING.md) with updated contributor guidance, personas, and workflow expectations.
 - Expanded the v0.5.0 breaking-schema update plan to cover migration sequencing and cleanup scope.
 - Added `VelocityVisualiser.app` download and promo assets to the homepage, including supporting media/conversion tooling.
 - {copilot/add-bumper-sticker-designs} Added a Cairo-based bumper sticker generator tool (#403): Python CLI producing SVG/PNG stickers with configurable text and gradient backgrounds.
@@ -222,13 +222,13 @@
 - Reworked VRLOG labelling and replay contracts across Go, Swift, and tooling: refreshed label APIs, run-track endpoints, replay handlers, recorder encoding, analysis/report typing, and `gen-vrlog` / `vrlog-analyse` support.
 - Expanded macOS visualiser run-browser and labelling flows alongside the VRLOG changes.
 - Added and refreshed VRLOG analysis / format documentation, terminology notes, and related backlog references.
-- Reshaped the `data/` tree: moved structures and maths material into `data/structures/` and `data/maths/`, added `data/explore/`, and relocated exploratory analysis outputs.
+- Reshaped the `data/` tree: moved structures and maths material into [data/structures/](../data/structures) and [data/maths/](../data/maths), added [data/explore/](../data/explore), and relocated exploratory analysis outputs.
 - Normalised British English and refreshed repo-wide cross-references, including `convergence-neighbour` naming and documentation path fixes.
 
 ## March 12, 2026 - agent stack refresh, light-mode plan & SSE delivery fix
 
 - Reworked AI-agent tooling into the current Appius/Euler/Flo/Grace/Malory/Ruth/Terry stack.
-- Added `.github/knowledge/`, `TENETS.md`, portraits, and refreshed agent/instruction docs around the new stack.
+- Added [.github/knowledge/](../.github/knowledge), [TENETS.md](../TENETS.md), portraits, and refreshed agent/instruction docs around the new stack.
 - Added the macOS visualiser [light-mode plan](plans/lidar-visualiser-light-mode-plan.md) and linked it into the backlog.
 - Fixed SSE subscribers receiving test payloads end-to-end: buffered serialmux subscriber channels, tightened subscriber registration timing, and updated replay reset handling in `AppState`.
 
@@ -236,7 +236,7 @@
 
 - Added [L2 dual representation](plans/lidar-l2-dual-representation-plan.md) in `LiDARFrame` (`Points` + `PolarPoints`), removed repeated polar rebuild work, propagated through adapters, PCAP/network ingestion, perception, pipeline stages, and tests.
 - Renamed `PeakSpeedMps` to `MaxSpeedMps` across analysis/reporting, classification, proto, Swift visualiser, and tests; CI fix for remaining references missed in the initial rename.
-- Standardised docs naming conventions: all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from `internal/db/`.
+- Standardised docs naming conventions: all files to `lowercase-with-hyphens.md`, moved schema ERD SVG from [internal/db/](../internal/db).
 - Overhauled LiDAR architecture Mermaid layer diagram with enhanced documentation and added Mermaid flowchart readability utility script.
 - Added [coordinate-flow audit](lidar/architecture/coordinate-flow-audit.md) documenting polar/Cartesian transitions per tracking stage with flowcharts, matrices, and single-projection strategies.
 - Added 52-entry BibTeX bibliography (`docs/references.bib`) covering L3f, L5h, L6e planned work and existing references.
@@ -247,12 +247,12 @@
 
 - Hardened PCAP playback and analysis paths: replay timing fixes, speed-ratio controls, datasource/monitor/dashboard updates, database write cleanup, per-frame timing traces in `pcap-analyse`, and matching macOS visualiser model/client changes.
 - Implemented all §12.1 "implementable now" VRLOG analysis metrics: per-track detail fields, comparison report, and supporting `vrlog-analyse` code and tests.
-- Documented outstanding data-science questions in `CONTRIBUTING.md`, linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
+- Documented outstanding data-science questions in [CONTRIBUTING.md](../CONTRIBUTING.md), linked reflective-sign pose-anchor proposal from maths README, added Mermaid validation tooling notes.
 
 ## March 9, 2026 - LiDAR L7-L10 & metrics-first documentation
 
 - Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
-- Rewrote contributor personas in `CONTRIBUTING.md`, expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
+- Rewrote contributor personas in [CONTRIBUTING.md](../CONTRIBUTING.md), expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
 - Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification: CLI shape, package layout, modes, metrics, and aggregation windows.
 - Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
 - Updated 0.5.0 proto plan: [percentile aggregation](plans/speed-percentile-aggregation-alignment-plan.md) decisions, [metrics registry](plans/metrics-registry-and-observability-plan.md) strategy, tagging guidance, and observability/export mapping.
@@ -273,7 +273,7 @@
 
 ## March 5, 2026 - contributor guidance, agent prototyping & cleanup
 
-- Added contributor personas and general work themes to `CONTRIBUTING.md`.
+- Added contributor personas and general work themes to [CONTRIBUTING.md](../CONTRIBUTING.md).
 - Added Jess (PM) agent; renamed existing agents with role context: Hadaly→Hadaly (Dev), Ictinus→Ictinus (Architect), Malory→Malory (Pen Test), Thompson→Thompson (Writer).
 - Removed tracked binaries (`gen-vrlog`, `replay-server`, `visualiser-server`), added to `.gitignore`, cleaned misplaced scripts.
 - Bumped application dependency group: `go-echarts/v2`, `go-sqlite3`, `google.golang.org/grpc`, `modernc.org/sqlite`.
@@ -297,7 +297,7 @@
 
 ## February 26, 2026 - replay EOF debugging, build metadata cI/Test plumbing & format docs
 
-- Added `data/structures/README.md` and `data/structures/VRLOG_FORMAT.md`, and updated LiDAR architecture/documentation references to the new data format docs.
+- Added [data/structures/README.md](../data/structures/README.md) and [data/structures/VRLOG_FORMAT.md](../data/structures/VRLOG_FORMAT.md), and updated LiDAR architecture/documentation references to the new data format docs.
 - Expanded macOS visualiser diagnostics while debugging replay EOF behaviour: added `DevLogger` (replacing `os.Logger`) and increased logging coverage in `AppState`, `ContentView`, `RunBrowserView`, and `RunBrowserState`.
 - Simplified debug log output in `AppState` by removing privacy-attribute noise and improving message formatting clarity.
 - Added detailed `VisualiserClient` replay RPC diagnostics (`seek()` / `play()` / stream restart path) including connection-state and response logging.
@@ -378,9 +378,9 @@
 
 ## February 21, 2026 - documentation reorganisation & maths specifications
 
-- Reorganised `docs/plans/` directory (PR #308, 35 files): consolidated and restructured plan documents.
+- Reorganised [docs/plans/](plans) directory (PR #308, 35 files): consolidated and restructured plan documents.
 - Comprehensive LiDAR documentation overhaul (PR #295, 90 files): created [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths spec, added status fields to docs, created getting started guide and config parameter tuning guide.
-- Moved maths proposals to `data/maths/proposals/` with consistent naming convention.
+- Moved maths proposals to [data/maths/proposals/](../data/maths/proposals) with consistent naming convention.
 - Added [documentation standardisation plan](plans/platform-documentation-standardisation-plan.md) with metadata and validation gates.
 - Updated ROADMAP.md (PR #312): aligned roadmap entries with BACKLOG.md priorities.
 - Added macOS process profiling script (`macos_profile_lidar.sh`) and corresponding Makefile targets.
@@ -452,7 +452,7 @@
 
 - Fixed sweep parameter schema and config compatibility issues from PR review.
 - Updated documentation to reflect current code state: corrected Makefile target count (59→101), Go version (1.21+→1.25+), SQLite version (3.51.2), Python version (3.11+).
-- Fixed broken doc links and wrong paths in `TROUBLESHOOTING.md`.
+- Fixed broken doc links and wrong paths in [TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
 - Expanded repo structure in `copilot-instructions.md` (5→15 internal packages).
 - Fixed setup guide frontmatter cost and typos.
 - Dependency update: bumped `markdown-it` 14.1.0→14.1.1 in docs site.
@@ -742,7 +742,7 @@
 
 ## December 1, 2025 - ML pipeline roadmap
 
-- Created comprehensive ML Pipeline Roadmap documentation (now tracked in `docs/lidar/operations/track-labelling-ui-implementation.md` and related LiDAR plan docs).
+- Created comprehensive ML Pipeline Roadmap documentation (now tracked in [docs/lidar/operations/track-labelling-ui-implementation.md](lidar/operations/track-labelling-ui-implementation.md) and related LiDAR plan docs).
 - Planned Phase 4.0 Track Labelling UI: SvelteKit routes, track browser, trajectory viewer, labelling panel.
 - Planned Phase 4.1 ML Classifier Training: feature extraction, Python training pipeline, Go model deployment.
 - Planned Phase 4.2 Parameter Tuning: grid search, quality metrics, objective function optimisation.
@@ -923,7 +923,7 @@
 
 ## September 23, 2025 - background diagnostics & monitor APIs
 
-- Centralised runtime diagnostics with `internal/monitoring` logger and per-manager `EnableDiagnostics` flag.
+- Centralised runtime diagnostics with [internal/monitoring](../internal/monitoring) logger and per-manager `EnableDiagnostics` flag.
 - Added BackgroundManager helpers: `SetNoiseRelativeFraction`, `SetEnableDiagnostics`, `GetAcceptanceMetrics`, `ResetAcceptanceMetrics`, `GridStatus`, `ResetGrid`.
 - Added monitor API endpoints: `GET/POST /api/lidar/params`, `GET /api/lidar/acceptance`, `POST /api/lidar/acceptance/reset`, `GET /api/lidar/grid_status`, `POST /api/lidar/grid_reset`.
 - Created `cmd/bg-sweep` CLI: incremental & settle modes, per-noise grid reset, live bucket discovery, CSV output.
@@ -939,12 +939,12 @@
 
 ## September 21, 2025 - server & serialMux consolidation
 
-- Centralised HTTP server and UI paths into `internal/api`.
-- Standardised on single SQLite DB (`sensor_data.db`) in `internal/db`.
+- Centralised HTTP server and UI paths into [internal/api](../internal/api).
+- Standardised on single SQLite DB (`sensor_data.db`) in [internal/db](../internal/db).
 - Added LiDAR background snapshot persistence with manual HTTP trigger.
 - Added `--disable-radar` flag and robust `DisabledSerialMux`.
 - Merged duplicate LiDAR webservers; canonical monitor accepts injected `*db.DB` and `SensorID`.
-- Moved radar event handlers to `internal/serialmux/handlers.go`, classification to `parse.go`.
+- Moved radar event handlers to [internal/serialmux/handlers.go](../internal/serialmux/handlers.go), classification to `parse.go`.
 - Added unit tests for serialmux (DisabledSerialMux, classification, config parsing, event handlers).
 
 ## September 20, 2025 - snapshot & persistence improvements
@@ -992,7 +992,7 @@
 ## September 12, 2025 - frame builder tests & time-based detection
 
 - Fixed 3 previously failing frame builder tests with realistic production data patterns.
-- Moved PCAP integration test to `internal/lidar/integration_test.go`.
+- Moved PCAP integration test to [internal/lidar/integration_test.go](../internal/lidar/integration_test.go).
 - Created `internal/lidar/testdata/` directory following Go conventions.
 - Increased test point counts to 60,000 points matching production.
 - Implemented hybrid frame detection: time-based primary with azimuth validation.
@@ -1065,7 +1065,7 @@
 ## June 27, 2025 - radarObject parsing & project structure
 
 - Rebased and implemented RadarObject parsing.
-- Restructured into `cmd/radar/`, `internal/*` packages.
+- Restructured into [cmd/radar/](../cmd/radar), `internal/*` packages.
 - Renamed project to velocity.report.
 - Added Apache 2.0 license.
 - Implemented JSON parsing for radar data.

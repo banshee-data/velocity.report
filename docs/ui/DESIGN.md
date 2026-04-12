@@ -28,10 +28,10 @@ Core philosophy:
 This document applies to exactly these three surfaces:
 
 1. Web app (Svelte): `web/`
-2. macOS app (SwiftUI + Metal): `tools/visualiser-macos/VelocityVisualiser/`
+2. macOS app (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
 3. Chart/rendering stack:
    - interactive web charts (LayerChart/d3-scale in web routes/components)
-   - static report charts (matplotlib in `tools/pdf-generator/`)
+   - static report charts (matplotlib in [tools/pdf-generator/](../../tools/pdf-generator))
 
 Out of scope for new design work:
 
@@ -70,10 +70,10 @@ For percentile charts, keep the same metric-to-colour mapping across chart stack
 
 These hex values are the **canonical percentile palette** for all chart stacks (web LayerChart,
 macOS visualiser, and Python PDF generator).
-The current PDF configuration (`tools/pdf-generator/pdf_generator/core/config_manager.py`) already
+The current PDF configuration ([tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)) already
 uses this mapping.
 
-**Current discrepancy (to be migrated):** the web UI speed percentile chart in `web/src/routes/+page.svelte` still uses an older palette:
+**Current discrepancy (to be migrated):** the web UI speed percentile chart in [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) still uses an older palette:
 
 - `p50`: `#ece111`
 - `p85`: `#ed7648`
@@ -136,7 +136,7 @@ Use classic stack for linear form/settings pages with minimal real-time data beh
 For web UI primitives, use this priority order:
 
 1. Existing `svelte-ux` components.
-2. Existing shared local wrapper components in `web/src/lib/components`.
+2. Existing shared local wrapper components in [web/src/lib/components](../../web/src/lib/components).
 3. Native HTML elements only when component capability/performance/accessibility requires it.
 
 When using native elements instead of `svelte-ux`, add a short code comment explaining why.
@@ -146,7 +146,7 @@ When using native elements instead of `svelte-ux`, add a short code comment expl
 For web charts, use this priority order:
 
 1. Existing LayerChart/d3-scale component patterns.
-2. Shared chart components under `web/src/lib/components` (or add one).
+2. Shared chart components under [web/src/lib/components](../../web/src/lib/components) (or add one).
 3. Native `<svg>` only as a temporary fallback during migration, or when a required chart type is unsupported.
 4. Canvas only where it is clearly the right tool (for example high-density or heatmap rendering).
 
@@ -162,7 +162,7 @@ Create and reuse standard classes in shared CSS rather than repeating long utili
 
 Standards:
 
-- Shared class definitions live in the web-level standards CSS (`web/src/routes/app.css`, which may import additional shared stylesheets as needed).
+- Shared class definitions live in the web-level standards CSS ([web/src/routes/app.css](../../web/src/routes/app.css), which may import additional shared stylesheets as needed).
 - Extract repeated class patterns (containers, headers, control rows, stat grids, chart cards, pane shells) into named standard classes.
 - Route files should compose standard classes first, with minimal local overrides.
 - Do not copy-paste identical class bundles across multiple pages.
@@ -202,8 +202,8 @@ The macOS visualiser follows native platform conventions:
 
 - Web chart baseline: LayerChart/d3-scale patterns in Svelte routes/components.
 - Report chart baseline: matplotlib defaults in:
-  - `tools/pdf-generator/pdf_generator/core/config_manager.py`
-  - `tools/pdf-generator/pdf_generator/core/chart_builder.py`
+  - [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)
+  - [tools/pdf-generator/pdf_generator/core/chart_builder.py](../../tools/pdf-generator/pdf_generator/core/chart_builder.py)
 - If palette/tick/legend semantics change in one chart stack, update the other stack in the same PR or log a linked follow-up issue.
 
 ## 8. Non-Goals

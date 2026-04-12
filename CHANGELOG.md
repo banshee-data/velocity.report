@@ -37,8 +37,8 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 **Version Locations:**
 
 - Radar: `Makefile` → `VERSION := X.Y.Z` (injected via ldflags at build time)
-- PDF Generator: `tools/pdf-generator/pyproject.toml` → `version = "X.Y.Z"`
-- Web Frontend: `web/package.json` → `"version": "X.Y.Z"`
+- PDF Generator: [tools/pdf-generator/pyproject.toml](tools/pdf-generator/pyproject.toml) → `version = "X.Y.Z"`
+- Web Frontend: [web/package.json](web/package.json) → `"version": "X.Y.Z"`
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 

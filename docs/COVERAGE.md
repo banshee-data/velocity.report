@@ -7,8 +7,8 @@ This project uses [Codecov](https://codecov.io) to track code coverage across al
 The README displays live coverage badges for each component:
 
 - **Go Coverage**: Test coverage for `internal/` packages (~89% average)
-- **Python Coverage**: Test coverage for the PDF generator in `tools/pdf-generator/`
-- **Web Coverage**: Test coverage for the Svelte web frontend in `web/src/`
+- **Python Coverage**: Test coverage for the PDF generator in [tools/pdf-generator/](../tools/pdf-generator)
+- **Web Coverage**: Test coverage for the Svelte web frontend in [web/src/](../web/src)
 
 Each badge links to detailed coverage reports on Codecov.
 
@@ -25,8 +25,8 @@ make coverage
 This will create HTML reports at:
 
 - Go: `coverage.html`
-- Python: `tools/pdf-generator/htmlcov/index.html`
-- Web: `web/coverage/lcov-report/index.html`
+- Python: [tools/pdf-generator/htmlcov/index.html](../tools/pdf-generator/htmlcov/index.html)
+- Web: [web/coverage/lcov-report/index.html](../web/coverage/lcov-report/index.html)
 
 ### Individual components
 
@@ -60,13 +60,13 @@ xdg-open web/coverage/lcov-report/index.html  # Linux
 
 Coverage is automatically generated and uploaded to Codecov on every pull request:
 
-- **Go CI** (`.github/workflows/go-ci.yml`): Runs tests with `-coverprofile=coverage.out`
-- **Python CI** (`.github/workflows/python-ci.yml`): Uses `pytest-cov` to generate XML reports
-- **Web CI** (`.github/workflows/web-ci.yml`): Uses Jest's built-in coverage to generate lcov reports
+- **Go CI** ([.github/workflows/go-ci.yml](../.github/workflows/go-ci.yml)): Runs tests with `-coverprofile=coverage.out`
+- **Python CI** ([.github/workflows/python-ci.yml](../.github/workflows/python-ci.yml)): Uses `pytest-cov` to generate XML reports
+- **Web CI** ([.github/workflows/web-ci.yml](../.github/workflows/web-ci.yml)): Uses Jest's built-in coverage to generate lcov reports
 
 ### Codecov configuration
 
-The repository includes a `codecov.yml` configuration that:
+The repository includes a [codecov.yml](../codecov.yml) configuration that:
 
 - Defines separate flags for `go`, `python`, and `web` components
 - Configures path-based coverage tracking
@@ -112,7 +112,7 @@ Configure `.coveragerc` or use inline comments:
 
 ### Web
 
-Configure exclusions in `web/jest.config.js` under `collectCoverageFrom`.
+Configure exclusions in [web/jest.config.js](../web/jest.config.js) under `collectCoverageFrom`.
 
 ## Troubleshooting
 

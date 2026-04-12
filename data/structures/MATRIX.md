@@ -13,8 +13,8 @@ which surfaces consume each item: **DB** (SQLite persistence), **Web**
 visualiser via gRPC).
 
 - **Source:** Full-codebase audit (March 2026)
-- **Inventory script:** `scripts/list-matrix-fields.py`: `--checklist` generates the LLM-consumable tracing checklist
-- **Update workflow:** `/trace-matrix` skill (`.claude/skills/trace-matrix/SKILL.md`)
+- **Inventory script:** [scripts/list-matrix-fields.py](../../scripts/list-matrix-fields.py): `--checklist` generates the LLM-consumable tracing checklist
+- **Update workflow:** `/trace-matrix` skill ([.claude/skills/trace-matrix/SKILL.md](../../.claude/skills/trace-matrix/SKILL.md))
 - **Related:** [Remediation plan](../../docs/plans/unpopulated-data-structures-remediation-plan.md) · [Clustering observability](../../docs/plans/lidar-clustering-observability-and-benchmark-plan.md) · [HINT metric observability](../../docs/plans/hint-metric-observability-plan.md)
 
 ---
@@ -33,30 +33,30 @@ visualiser via gRPC).
 
 ## 1. HTTP API endpoints: radar / main server
 
-**Source:** `cmd/radar/radar.go`, `internal/api/server.go`
+**Source:** [cmd/radar/radar.go](../../cmd/radar/radar.go), [internal/api/server.go](../../internal/api/server.go)
 
-| Folder         | File        | Endpoint                             | DB  | Web | PDF | Mac |
-| -------------- | ----------- | ------------------------------------ | --- | --- | --- | --- |
-| `internal/api` | `server.go` | `GET /events`                        | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `POST /command`                      | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET /api/config`                    | -   | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET /api/db_stats`                  | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET /api/radar_stats`               | ✅  | ✅  | ✅  | -   |
-| `internal/api` | `server.go` | `POST /api/generate_report`          | ✅  | ✅  | ✅  | -   |
-| `internal/api` | `server.go` | `GET/POST /api/sites`                | ✅  | ✅  | ✅  | -   |
-| `internal/api` | `server.go` | `GET/PUT/DEL /api/sites/{id}`        | ✅  | ✅  | ✅  | -   |
-| `internal/api` | `server.go` | `GET/POST /api/site_config_periods`  | ✅  | ✅  | ✅  | -   |
-| `internal/api` | `server.go` | `GET /api/timeline`                  | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET/POST/DEL /api/reports/`         | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET /api/reports/site/{siteId}`     | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET /api/reports/{id}/download/{f}` | ✅  | ✅  | -   | -   |
-| `internal/api` | `server.go` | `GET/POST /api/transit_worker`       | ✅  | ✅  | -   | -   |
+| Folder                             | File        | Endpoint                             | DB  | Web | PDF | Mac |
+| ---------------------------------- | ----------- | ------------------------------------ | --- | --- | --- | --- |
+| [internal/api](../../internal/api) | `server.go` | `GET /events`                        | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `POST /command`                      | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/config`                    | -   | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/db_stats`                  | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/radar_stats`               | ✅  | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go` | `POST /api/generate_report`          | ✅  | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET/POST /api/sites`                | ✅  | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET/PUT/DEL /api/sites/{id}`        | ✅  | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET/POST /api/site_config_periods`  | ✅  | ✅  | ✅  | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/timeline`                  | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET/POST/DEL /api/reports/`         | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/reports/site/{siteId}`     | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET /api/reports/{id}/download/{f}` | ✅  | ✅  | -   | -   |
+| [internal/api](../../internal/api) | `server.go` | `GET/POST /api/transit_worker`       | ✅  | ✅  | -   | -   |
 
 ---
 
 ## 2. HTTP API endpoints: LiDAR monitor
 
-**Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, `internal/api/lidar_labels.go`\
+**Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go)\
 **Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
 
 | Layer          | File               | Endpoint                                        | DB  | Web | PDF | Mac |
@@ -143,7 +143,7 @@ visualiser via gRPC).
 
 ## 3. gRPC service: macOS visualiser
 
-**Source:** `proto/velocity_visualiser/v1/visualiser.proto`
+**Source:** [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto)
 
 | Layer     | File               | Method                            | DB  | Web | PDF | Mac |
 | --------- | ------------------ | --------------------------------- | --- | --- | --- | --- |
@@ -161,7 +161,7 @@ visualiser via gRPC).
 
 ## 4. Database tables
 
-**Source:** `internal/db/schema.sql`
+**Source:** [internal/db/schema.sql](../../internal/db/schema.sql)
 
 | Layer  | Table                      | Web | PDF | Mac | Notes                                                  |
 | ------ | -------------------------- | --- | --- | --- | ------------------------------------------------------ |
@@ -500,21 +500,21 @@ visualiser via gRPC).
 
 ## 6. Pipeline stages
 
-| Folder                        | File               | Stage                                      | DB  | Web | PDF | Mac |
-| ----------------------------- | ------------------ | ------------------------------------------ | --- | --- | --- | --- |
-| `internal/lidar/l2frames`     | `frame_builder.go` | L2 Frame Builder (UDP → point clouds)      | -   | -   | -   | -   |
-| `internal/lidar/l3grid`       | `background.go`    | L3 Background Grid (foreground/background) | ✅  | ✅  | -   | -   |
-| `internal/lidar/l3grid`       | `foreground.go`    | L3 FrameMetrics (foreground fraction)      | -   | -   | -   | -   |
-| `internal/lidar/l4perception` | `dbscan.go`        | L4 Clustering (DBSCAN → world clusters)    | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks`     | `tracking.go`      | L5 Tracking (Kalman → tracked objects)     | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks`     | `tracking.go`      | L5 TrackingMetrics (fragmentation, jitter) | -   | ✅  | -   | -   |
-| `internal/lidar/adapters`     | `ground_truth.go`  | L6 Evaluation (quality metrics)            | ✅  | ✅  | -   | -   |
-| `internal/lidar/l6objects`    | `quality.go`       | L6 RunStatistics (12 fields)               | 📋  | 📋  | -   | -   |
-| `internal/lidar/l6objects`    | `quality.go`       | L6 TrackQualityMetrics (8 fields)          | ✅  | 📋  | -   | -   |
-| `internal/lidar/l6objects`    | `quality.go`       | L6 NoiseCoverageMetrics (7 fields)         | 📋  | 📋  | -   | -   |
-| `internal/lidar/l6objects`    | `quality.go`       | L6 TrainingDatasetSummary (7 fields)       | -   | -   | -   | -   |
-| `internal/lidar/l6objects`    | `features.go`      | L6 TrackFeatures (20 features)             | -   | -   | -   | -   |
-| `internal/lidar/l6objects`    | `features.go`      | L6 ClusterFeatures (10 features)           | -   | -   | -   | -   |
+| Folder                                                           | File               | Stage                                      | DB  | Web | PDF | Mac |
+| ---------------------------------------------------------------- | ------------------ | ------------------------------------------ | --- | --- | --- | --- |
+| [internal/lidar/l2frames](../../internal/lidar/l2frames)         | `frame_builder.go` | L2 Frame Builder (UDP → point clouds)      | -   | -   | -   | -   |
+| [internal/lidar/l3grid](../../internal/lidar/l3grid)             | `background.go`    | L3 Background Grid (foreground/background) | ✅  | ✅  | -   | -   |
+| [internal/lidar/l3grid](../../internal/lidar/l3grid)             | `foreground.go`    | L3 FrameMetrics (foreground fraction)      | -   | -   | -   | -   |
+| [internal/lidar/l4perception](../../internal/lidar/l4perception) | `dbscan.go`        | L4 Clustering (DBSCAN → world clusters)    | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks)         | `tracking.go`      | L5 Tracking (Kalman → tracked objects)     | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks)         | `tracking.go`      | L5 TrackingMetrics (fragmentation, jitter) | -   | ✅  | -   | -   |
+| [internal/lidar/adapters](../../internal/lidar/adapters)         | `ground_truth.go`  | L6 Evaluation (quality metrics)            | ✅  | ✅  | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`       | L6 RunStatistics (12 fields)               | 📋  | 📋  | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`       | L6 TrackQualityMetrics (8 fields)          | ✅  | 📋  | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`       | L6 NoiseCoverageMetrics (7 fields)         | 📋  | 📋  | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `quality.go`       | L6 TrainingDatasetSummary (7 fields)       | -   | -   | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `features.go`      | L6 TrackFeatures (20 features)             | -   | -   | -   | -   |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)       | `features.go`      | L6 ClusterFeatures (10 features)           | -   | -   | -   | -   |
 
 ---
 
@@ -523,26 +523,26 @@ visualiser via gRPC).
 These structs are computed in-memory but have no persistence layer, no API
 endpoint, and no export path.
 
-| Folder                     | File            | Struct                              | DB  | Web | PDF | Mac | Notes                                                                                                                                |
-| -------------------------- | --------------- | ----------------------------------- | --- | --- | --- | --- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `internal/lidar/l6objects` | `quality.go`    | `NoiseCoverageMetrics` (7 fields)   | 📋  | 📋  | -   | -   | Partially implemented (TODOs)                                                                                                        |
-| `internal/lidar/l6objects` | `quality.go`    | `TrainingDatasetSummary` (7 fields) | -   | -   | -   | -   | No consumer; separate project                                                                                                        |
-| `internal/lidar/l6objects` | `features.go`   | `TrackFeatures` (20 features)       | -   | -   | -   | -   | Used in-memory by classifier                                                                                                         |
-| `internal/lidar/l6objects` | `features.go`   | `ClusterFeatures` (10 features)     | -   | -   | -   | -   | Used in-memory by classifier                                                                                                         |
-| `internal/lidar/l3grid`    | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | -   | -   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md)                                                        |
-| `internal/lidar/l5tracks`  | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | ✅  | -   | -   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md); nested in `GET /api/lidar/tracks/metrics?include_per_track=true` |
-| `internal/lidar/sweep`     | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | -   | -   | Only `BestScore` persisted                                                                                                           |
+| Folder                                                     | File            | Struct                              | DB  | Web | PDF | Mac | Notes                                                                                                                                |
+| ---------------------------------------------------------- | --------------- | ----------------------------------- | --- | --- | --- | --- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `quality.go`    | `NoiseCoverageMetrics` (7 fields)   | 📋  | 📋  | -   | -   | Partially implemented (TODOs)                                                                                                        |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `quality.go`    | `TrainingDatasetSummary` (7 fields) | -   | -   | -   | -   | No consumer; separate project                                                                                                        |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `features.go`   | `TrackFeatures` (20 features)       | -   | -   | -   | -   | Used in-memory by classifier                                                                                                         |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `features.go`   | `ClusterFeatures` (10 features)     | -   | -   | -   | -   | Used in-memory by classifier                                                                                                         |
+| [internal/lidar/l3grid](../../internal/lidar/l3grid)       | `foreground.go` | `FrameMetrics` (5 fields)           | 📋  | 📋  | -   | -   | Transient; [HINT plan C1](../../docs/plans/hint-metric-observability-plan.md)                                                        |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks)   | `tracking.go`   | `TrackAlignmentMetrics` (per-track) | 📋  | ✅  | -   | -   | [HINT plan D2](../../docs/plans/hint-metric-observability-plan.md); nested in `GET /api/lidar/tracks/metrics?include_per_track=true` |
+| [internal/lidar/sweep](../../internal/lidar/sweep)         | `runner.go`     | `ComboResult` (32 fields)           | 🔶  | 🔶  | -   | -   | Only `BestScore` persisted                                                                                                           |
 
 ---
 
 ## 8. Go data structures: comparison logic (no triggering endpoint)
 
-| Folder                          | File                      | Function                  | DB  | Web | PDF | Mac | Notes                       |
-| ------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --- | --------------------------- |
-| `internal/lidar/storage/sqlite` | `analysis_run_compare.go` | `compareParams()`         | ✅  | 📋  | -   | -   | Needs API endpoint          |
-| `internal/lidar/storage/sqlite` | `analysis_run_compare.go` | `computeTemporalIoU()`    | ✅  | 📋  | -   | -   | Needs API endpoint          |
-| `internal/lidar/storage/sqlite` | `analysis_run_compare.go` | `is_split_candidate` flag | ✅  | ✅  | -   | -   | Written but not triggerable |
-| `internal/lidar/storage/sqlite` | `analysis_run_compare.go` | `is_merge_candidate` flag | ✅  | ✅  | -   | -   | Written but not triggerable |
+| Folder                                                               | File                      | Function                  | DB  | Web | PDF | Mac | Notes                       |
+| -------------------------------------------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --- | --------------------------- |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `compareParams()`         | ✅  | 📋  | -   | -   | Needs API endpoint          |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `computeTemporalIoU()`    | ✅  | 📋  | -   | -   | Needs API endpoint          |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `is_split_candidate` flag | ✅  | ✅  | -   | -   | Written but not triggerable |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `is_merge_candidate` flag | ✅  | ✅  | -   | -   | Written but not triggerable |
 
 ---
 
@@ -550,48 +550,48 @@ endpoint, and no export path.
 
 Fields that flow correctly from pipeline through all applicable surfaces.
 
-| Folder                    | File          | Field                  | DB  | Web | PDF | Mac |
-| ------------------------- | ------------- | ---------------------- | --- | --- | --- | --- |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_id`             | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `sensor_id`            | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_state`          | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `position (x, y, z)`   | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `velocity (vx, vy)`    | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `speed_mps`            | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `heading_rad`          | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `observation_count`    | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `avg_speed_mps`        | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `max_speed_mps`        | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `bounding_box_*`       | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `height_p95_max`       | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `intensity_mean_avg`   | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `object_class`         | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `object_confidence`    | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `classification_model` | ✅  | ✅  | -   | -   |
-| `internal/lidar/l5tracks` | `tracking.go` | `heading_source`       | -   | ✅  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_length_meters`  | 🔶  | 📋  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `track_duration_secs`  | 🔶  | 📋  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `occlusion_count`      | 🔶  | 📋  | -   | ✅  |
-| `internal/lidar/l5tracks` | `tracking.go` | `max_occlusion_frames` | 🔶  | 📋  | -   | -   |
-| `internal/lidar/l5tracks` | `tracking.go` | `spatial_coverage`     | 🔶  | 📋  | -   | -   |
-| `internal/lidar/l5tracks` | `tracking.go` | `noise_point_ratio`    | 🔶  | 📋  | -   | -   |
+| Folder                                                   | File          | Field                  | DB  | Web | PDF | Mac |
+| -------------------------------------------------------- | ------------- | ---------------------- | --- | --- | --- | --- |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_id`             | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `sensor_id`            | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_state`          | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `position (x, y, z)`   | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `velocity (vx, vy)`    | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `speed_mps`            | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `heading_rad`          | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `observation_count`    | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `avg_speed_mps`        | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `max_speed_mps`        | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `bounding_box_*`       | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `height_p95_max`       | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `intensity_mean_avg`   | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `object_class`         | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `object_confidence`    | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `classification_model` | ✅  | ✅  | -   | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `heading_source`       | -   | ✅  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_length_meters`  | 🔶  | 📋  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `track_duration_secs`  | 🔶  | 📋  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `occlusion_count`      | 🔶  | 📋  | -   | ✅  |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `max_occlusion_frames` | 🔶  | 📋  | -   | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `spatial_coverage`     | 🔶  | 📋  | -   | -   |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | `tracking.go` | `noise_point_ratio`    | 🔶  | 📋  | -   | -   |
 
 ---
 
 ## 10. Tuning parameters
 
-| Folder            | File                   | Parameter Group          | DB  | Web | PDF | Mac |
-| ----------------- | ---------------------- | ------------------------ | --- | --- | --- | --- |
-| `internal/config` | `tuning.go`            | L3 Background (8 params) | ✅  | ✅  | -   | -   |
-| `internal/config` | `tuning.go`            | L4 Perception (3 params) | ✅  | ✅  | -   | -   |
-| `internal/config` | `tuning.go`            | L5 Tracker (14 params)   | ✅  | ✅  | -   | -   |
-| `config`          | `tuning.defaults.json` | Default values           | -   | -   | -   | -   |
+| Folder                                   | File                   | Parameter Group          | DB  | Web | PDF | Mac |
+| ---------------------------------------- | ---------------------- | ------------------------ | --- | --- | --- | --- |
+| [internal/config](../../internal/config) | `tuning.go`            | L3 Background (8 params) | ✅  | ✅  | -   | -   |
+| [internal/config](../../internal/config) | `tuning.go`            | L4 Perception (3 params) | ✅  | ✅  | -   | -   |
+| [internal/config](../../internal/config) | `tuning.go`            | L5 Tracker (14 params)   | ✅  | ✅  | -   | -   |
+| `config`                                 | `tuning.defaults.json` | Default values           | -   | -   | -   | -   |
 
 ---
 
 ## 11. PDF generator: Python surfaces
 
-**Source:** `tools/pdf-generator/pdf_generator/core/api_client.py`
+**Source:** [tools/pdf-generator/pdf_generator/core/api_client.py](../../tools/pdf-generator/pdf_generator/core/api_client.py)
 
 | Folder                       | File                  | Consumer                                                 | DB  | Web | PDF | Mac |
 | ---------------------------- | --------------------- | -------------------------------------------------------- | --- | --- | --- | --- |
@@ -606,29 +606,29 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ## 12. macOS visualiser: Swift surfaces
 
-**Source:** `tools/visualiser-macos/VelocityVisualiser/`
+**Source:** [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
 
-| Folder                   | File                         | Consumer                                    | DB  | Web | PDF | Mac |
-| ------------------------ | ---------------------------- | ------------------------------------------- | --- | --- | --- | --- |
-| `tools/visualiser-macos` | `GRPCClient.swift`           | `StreamFrames` subscriber                   | -   | -   | -   | ✅  |
-| `tools/visualiser-macos` | `GRPCClient.swift`           | Playback controls (Pause/Play/Seek/SetRate) | -   | -   | -   | ✅  |
-| `tools/visualiser-macos` | `GRPCClient.swift`           | Overlay mode toggles                        | -   | -   | -   | ✅  |
-| `tools/visualiser-macos` | `PointCloudRenderer.swift`   | Point cloud rendering (Metal)               | -   | -   | -   | ✅  |
-| `tools/visualiser-macos` | `TrackRenderer.swift`        | Track boxes + velocity vectors              | -   | -   | -   | ✅  |
-| `tools/visualiser-macos` | `DebugOverlayRenderer.swift` | Gating ellipses, residuals, predictions     | -   | -   | -   | ✅  |
+| Folder                                                 | File                         | Consumer                                    | DB  | Web | PDF | Mac |
+| ------------------------------------------------------ | ---------------------------- | ------------------------------------------- | --- | --- | --- | --- |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `GRPCClient.swift`           | `StreamFrames` subscriber                   | -   | -   | -   | ✅  |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `GRPCClient.swift`           | Playback controls (Pause/Play/Seek/SetRate) | -   | -   | -   | ✅  |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `GRPCClient.swift`           | Overlay mode toggles                        | -   | -   | -   | ✅  |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `PointCloudRenderer.swift`   | Point cloud rendering (Metal)               | -   | -   | -   | ✅  |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `TrackRenderer.swift`        | Track boxes + velocity vectors              | -   | -   | -   | ✅  |
+| [tools/visualiser-macos](../../tools/visualiser-macos) | `DebugOverlayRenderer.swift` | Gating ellipses, residuals, predictions     | -   | -   | -   | ✅  |
 
 ---
 
 ## 13. Classification pipeline: fully wired (reference)
 
-**Go source:** `internal/lidar/l6objects/classification.go`: `TrackClassifier` (27 usages)
+**Go source:** [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go): `TrackClassifier` (27 usages)
 
-| Folder                     | File                | Component                 | DB  | Web | PDF | Mac |
-| -------------------------- | ------------------- | ------------------------- | --- | --- | --- | --- |
-| `internal/lidar/l6objects` | `classification.go` | `ObjectClass` (8 classes) | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l6objects` | `classification.go` | `ClassificationResult`    | ✅  | ✅  | -   | ✅  |
-| `internal/lidar/l6objects` | `classification.go` | `ClassificationFeatures`  | -   | -   | -   | 🔶  |
-| `internal/lidar/l6objects` | `classification.go` | `TrackClassifier`         | -   | ✅  | -   | ✅  |
+| Folder                                                     | File                | Component                 | DB  | Web | PDF | Mac |
+| ---------------------------------------------------------- | ------------------- | ------------------------- | --- | --- | --- | --- |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `classification.go` | `ObjectClass` (8 classes) | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `classification.go` | `ClassificationResult`    | ✅  | ✅  | -   | ✅  |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `classification.go` | `ClassificationFeatures`  | -   | -   | -   | 🔶  |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects) | `classification.go` | `TrackClassifier`         | -   | ✅  | -   | ✅  |
 
 **Notes:** `ObjectClass` + `ClassificationResult` (class + confidence) flow
 through the full pipeline: tracker → DB → Web API → gRPC → Mac.
@@ -641,7 +641,7 @@ server as a service object, not persisted data.
 
 ## 14. FrameBundle: macOS-only proto fields
 
-**Proto:** `proto/velocity_visualiser/v1/visualiser.proto`: `FrameBundle`
+**Proto:** [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto): `FrameBundle`
 **Consumer:** macOS Metal visualiser via `StreamFrames` gRPC stream (~30 fps)
 
 These fields are **only** consumed by the macOS visualiser. They are not
@@ -690,17 +690,17 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 
 ## 16. cmd/ entry points
 
-| Binary                | Location                              | Consumers                                    |
-| --------------------- | ------------------------------------- | -------------------------------------------- |
-| `velocity-report`     | `cmd/radar/radar.go`                  | Full server: API, DB, serial, LiDAR pipeline |
-| `velocity-sweep`      | `cmd/sweep/main.go`                   | LiDAR monitor, sweep engine, PCAP replay     |
-| `velocity-ctl`        | `cmd/velocity-ctl/main.go`            | Device management: upgrade, rollback, backup |
-| `gen-vrlog`           | `cmd/tools/gen-vrlog/main.go`         | Synthetic VRLOG generation (no DB)           |
-| `vrlog-analyse`       | `cmd/tools/vrlog-analyse/main.go`     | VRLOG file analysis and comparison           |
-| `visualiser-server`   | `cmd/tools/visualiser-server/main.go` | Standalone gRPC (synthetic/replay/live)      |
-| `settling-eval`       | `cmd/tools/settling-eval/main.go`     | Background grid settling evaluation          |
-| `pcap-analyse`        | `cmd/tools/pcap-analyse/main.go`      | PCAP file analysis                           |
-| `backfill-elevations` | `cmd/tools/backfill_ring_elevations/` | Backfill ring elevation data                 |
+| Binary                | Location                                                                         | Consumers                                    |
+| --------------------- | -------------------------------------------------------------------------------- | -------------------------------------------- |
+| `velocity-report`     | [cmd/radar/radar.go](../../cmd/radar/radar.go)                                   | Full server: API, DB, serial, LiDAR pipeline |
+| `velocity-sweep`      | [cmd/sweep/main.go](../../cmd/sweep/main.go)                                     | LiDAR monitor, sweep engine, PCAP replay     |
+| `velocity-ctl`        | [cmd/velocity-ctl/main.go](../../cmd/velocity-ctl/main.go)                       | Device management: upgrade, rollback, backup |
+| `gen-vrlog`           | [cmd/tools/gen-vrlog/main.go](../../cmd/tools/gen-vrlog/main.go)                 | Synthetic VRLOG generation (no DB)           |
+| `vrlog-analyse`       | [cmd/tools/vrlog-analyse/main.go](../../cmd/tools/vrlog-analyse/main.go)         | VRLOG file analysis and comparison           |
+| `visualiser-server`   | [cmd/tools/visualiser-server/main.go](../../cmd/tools/visualiser-server/main.go) | Standalone gRPC (synthetic/replay/live)      |
+| `settling-eval`       | [cmd/tools/settling-eval/main.go](../../cmd/tools/settling-eval/main.go)         | Background grid settling evaluation          |
+| `pcap-analyse`        | [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go)           | PCAP file analysis                           |
+| `backfill-elevations` | [cmd/tools/backfill_ring_elevations/](../../cmd/tools/backfill_ring_elevations)  | Backfill ring elevation data                 |
 
 **Notes:** Only `velocity-report` writes to the production SQLite
 database. The sweep and eval tools operate on temporary/in-memory
@@ -725,7 +725,7 @@ design debt is now retired in the live database schema.
 Embedded HTML dashboards and diagnostic endpoints. Not part of the
 application API but served by the same HTTP servers.
 
-### Radar server (`internal/api/server.go`)
+### Radar server ([internal/api/server.go](../../internal/api/server.go))
 
 | Route                 | Purpose                            |
 | --------------------- | ---------------------------------- |

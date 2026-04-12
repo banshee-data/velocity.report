@@ -553,7 +553,7 @@ make test-web          # Web tests (Jest)
 ### Writing tests
 
 - **Go**: `*_test.go` files alongside the code they test.
-- **Python**: `tools/pdf-generator/pdf_generator/tests/`.
+- **Python**: [tools/pdf-generator/pdf_generator/tests/](tools/pdf-generator/pdf_generator/tests).
 - **Web**: Jest, with test files matching
   `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`.
 

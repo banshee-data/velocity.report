@@ -900,7 +900,7 @@ cat config.json
 ### Support channels
 
 - **GitHub Issues**: https://github.com/banshee-data/velocity.report/issues
-- **Documentation**: See `docs/README.md` for all documentation
+- **Documentation**: See [docs/README.md](docs/README.md) for all documentation
 - **Email**: david@banshee-data.com
 
 ### Useful log commands
@@ -939,7 +939,7 @@ during which normal surface noise exceeded the threshold.
 closeness threshold ramps from ~4× normal at count 0 down to 1× at count 100.
 Vehicles (>1 m deviation) are still detected during warmup.
 
-**Files:** `internal/lidar/l3grid/foreground.go`, `internal/lidar/l3grid/foreground_warmup_test.go`.
+**Files:** [internal/lidar/l3grid/foreground.go](internal/lidar/l3grid/foreground.go), [internal/lidar/l3grid/foreground_warmup_test.go](internal/lidar/l3grid/foreground_warmup_test.go).
 
 ---
 
@@ -1010,7 +1010,7 @@ make proto-gen
 ```
 
 Generated Swift files are placed in
-`tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/`.
+[tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/](tools/visualiser-macos/VelocityVisualiser/gRPC/Generated).
 
 ---
 
