@@ -37,10 +37,21 @@ Specification and architecture documents should target **≤ 800 lines**. This
 is a guideline, not a hard wall: a 900-line doc with dense tables is fine;
 a 2,000-line doc that wanders is not.
 
-**What to cut / what to keep:** see STYLE.md § Documentation Structure for the
-canonical rule on code blocks in docs. The short version: if a block could be
-pasted into a source file and compiled, replace it with prose, a field table,
-or a file reference.
+### No compilable code blocks
+
+Plan files and design documents must not contain fenced code blocks in
+compilable languages. See STYLE.md § Documentation Structure for the full
+banned/allowed lists. The short version:
+
+**Banned:** Go, SQL, Protocol Buffers, TypeScript, Swift, Python, JSON,
+JSONC, YAML, TOML, XML, CSV, HTML, CSS, LaTeX, Makefile, Dockerfile.
+
+**Allowed:** `bash`/`sh` (operational commands), `mermaid` (diagrams),
+`text` (ASCII art, directory trees).
+
+Replace banned blocks with prose descriptions, field tables
+(`| Field | Type | Purpose |`), or file references. Keep the information;
+change the format.
 
 ### Split threshold
 
@@ -176,7 +187,32 @@ The checker enforces:
 See `docs/platform/operations/documentation-standards.md` for the full
 rules and rationale.
 
-### 3. Graduate completed plans
+### 3. Code-block audit
+
+Scan plan files and design docs for banned code-block languages:
+
+````bash
+# List banned code blocks in docs/plans/
+grep -rn '^```' docs/plans/ --include='*.md' \
+  | grep -v '```$' \
+  | grep -Ev '^[^:]+:[0-9]+:```(bash|sh|mermaid|text)$'
+````
+
+Any output means banned blocks remain. For each file:
+
+1. **Go structs / interfaces** → field table (`| Field | Type | Purpose |`).
+2. **SQL DDL** → column table (`| Column | Type | Constraint |`).
+3. **JSON / YAML / TOML config** → settings table or prose description.
+4. **Protobuf messages** → message/field table.
+5. **Makefile targets** → target table (`| Target | Purpose |`).
+6. **Other compilable languages** → prose or a file reference.
+
+Keep `bash`/`sh` blocks (build steps, CLI examples), `mermaid` blocks
+(diagrams), and `text` blocks (ASCII art, directory trees).
+
+See STYLE.md § Documentation Structure for the full banned/allowed lists.
+
+### 4. Graduate completed plans
 
 List all plan files and check for graduation eligibility:
 
@@ -199,7 +235,7 @@ If it is a regular file (not a symlink), run:
 Respect the two-PR rule: a plan must be Complete on `main` before the
 symlink PR. If the completion hasn't landed yet, note it for the next cycle.
 
-### 4. Audit document length
+### 5. Audit document length
 
 ```bash
 find docs/ -name '*.md' -not -path '*/plans/*' | while read f; do
@@ -221,7 +257,7 @@ For each document over the target:
 
 Report the before/after line counts.
 
-### 5. Resolve open questions
+### 6. Resolve open questions
 
 For each spec under `docs/`:
 
@@ -236,7 +272,7 @@ Read each Open Questions section. For each question:
 - If it is still genuinely open, leave it and surface to the operator.
 - **Do not fabricate answers.**
 
-### 6. Update design decision tables
+### 7. Update design decision tables
 
 For each spec with a Design Decisions or Resolved Design Questions table:
 
@@ -244,7 +280,7 @@ For each spec with a Design Decisions or Resolved Design Questions table:
 - Update entries that have drifted from implementation.
 - Add new decisions that were made during implementation but not recorded.
 
-### 7. Prose width check
+### 8. Prose width check
 
 Run the advisory prose-width check and review the output. This never blocks
 CI: it is a quality signal, not a gate.
@@ -267,7 +303,7 @@ that cannot wrap cleanly (acceptable), or genuine overlong prose (fix it).
 Do not wrap lines mid-sentence to hit the number; Prettier handles that on
 `make format-docs`.
 
-### 8. Tone and style pass
+### 9. Tone and style pass
 
 Quick scan for the most common tone issues:
 
@@ -281,7 +317,7 @@ Quick scan for the most common tone issues:
 - [ ] **Product name:** `velocity.report` (lowercase v, no spaces).
 - [ ] **British English:** `-ise` not `-ize`, `-our` not `-or`.
 
-### 9. Disk image readiness
+### 10. Disk image readiness
 
 Check that documentation referenced by the disk image build is present and
 correct:
@@ -305,7 +341,7 @@ Verify:
 - [ ] `TROUBLESHOOTING.md` covers known deployment issues.
 - [ ] Any docs bundled in the image (`static/`, `web/build/`) are up to date.
 
-### 10. Report
+### 11. Report
 
 Print a summary:
 
@@ -314,6 +350,7 @@ Print a summary:
 
 - Links fixed:           N (N ambiguous, surfaced to operator)
 - Metadata fixed:        N issues across N files
+- Code blocks removed:   N blocks across N files
 - Plans graduated:       N
 - Documents simplified:  N (before/after line counts)
 - Documents split:       N (new files created)

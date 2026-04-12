@@ -72,27 +72,38 @@ Design documents and specifications describe _what_ a system should do and _why_
 
 ### Code blocks in documentation
 
-If a block could be pasted into a source file and compiled or executed, it is pre-built code and does not belong in a design document. Replace it with prose, a field table, or a file reference.
+If a block could be pasted into a source file and compiled, it is pre-built code and does not
+belong in a design document. Replace it with prose, a field table, or a file reference.
 
-**Does not belong in docs:**
+**Banned code-block languages in docs:**
 
-- Go structs or interface definitions
-- SQL DDL or migration scripts
-- TypeScript/Svelte component code
-- Full JSON request/response payloads
-- HTML/CSS templates
-- Shell scripts beyond a one-liner
+- Go (structs, interfaces, function bodies)
+- SQL (DDL, migrations, queries)
+- Protocol Buffers / gRPC definitions
+- TypeScript, Svelte, Swift, Python
+- JSON, JSONC, YAML, TOML, XML, CSV
+- HTML, CSS, LaTeX
+- Makefile targets (use prose or a target table)
+- Dockerfile
 
-**Belongs in docs:**
+**Allowed code-block languages:**
+
+- `bash` / `sh`: operational commands, build steps, CLI examples
+- `mermaid`: rendered diagrams
+- `text`: ASCII diagrams, directory trees, plain-text tables
+- Pseudocode (unfenced or fenced as `text`)
+
+**Belongs in docs (any format):**
 
 - Prose descriptions of behaviour and rationale
 - ASCII diagrams (system boundaries, data flow, UI mockups)
-- Pseudocode describing algorithm flow (when prose alone is unclear)
-- Tables: API endpoints with methods/paths/status codes, field schemas, error contracts, decision matrices, timing parameters
+- Tables: field schemas, API endpoints, error contracts, decision matrices
 - Worked examples with brief inline values (not full payloads)
 - Security considerations and threat mitigations
+- Shell commands showing how to build, test, or deploy
 
-**Rule of thumb:** if it describes _what_ and _why_, it stays. If it could be copied into a source file verbatim, extract it to a companion reference file or replace it with a table.
+**Rule of thumb:** if it could be copied into a source file and compiled, replace it with
+a table or prose. Shell commands that show how to _use_ the system are fine.
 
 ### Length target
 
