@@ -109,9 +109,10 @@ gitignored.
 ## CI pipeline
 
 The GitHub Actions workflow at `.github/workflows/build-image.yml` builds
-the image on release publication or manual dispatch. It cross-compiles Go
-binaries, bundles the Python PDF generator, runs pi-gen inside Docker,
-compresses the output with xz, and uploads the `.img.xz` to the GitHub
+the image on version-tag pushes or manual dispatch. It cross-compiles the
+Linux release binaries, publishes the tagged radar binaries for Linux and
+macOS, runs the repo's `build-image.sh` helper inside CI, compresses the
+final image with xz, and uploads the `.img.xz` to the matching GitHub
 Release.
 
 ## Flashing
