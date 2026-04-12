@@ -457,7 +457,7 @@ service VisualiserService {
 
 ### Database layer
 
-**Location**: `./sensor_data.db`, managed by [internal/db/](internal/db)
+**Location**: `./sensor_data.db`, managed by [internal/db/](internal/db) <!-- link-ignore -->
 
 **Database**: SQLite 3.51.2 (via `modernc.org/sqlite v1.44.3`)
 

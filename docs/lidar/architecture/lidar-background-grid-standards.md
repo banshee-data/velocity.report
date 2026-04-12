@@ -18,7 +18,7 @@ Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK
 | **Point cloud files** (PCD, LAS, PLY)       | Unstructured points                                   | Supported by LidarView exports.                                                         | Ubiquitous viewers and libs; easy interchange.                                                   | No native notion of background grid; needs custom attributes to mark background cells.                                                           |
 | Kitware **SLAM** outputs                    | Aggregated point clouds + pose graphs                 | Library is pose/SLAM-centric; mapping can be fed into occupancy/TSDF backends.          | Compatible with common map backends; supports loop-closure maps.                                 | Still requires a chosen map representation for background; not a drop-in replacement for our grid.                                               |
 
-## VTK export shape (lidarView/ParaView/CloudCompare)
+## VTK export shape (LidarView/ParaView/CloudCompare)
 
 - **vtkImageData (fast path):** Treat the polar grid as a 2D image (x = azimuth bin, y = ring, z = 1). Cell data arrays: `avg_range_m`, `range_spread_m`, `times_seen`, `frozen_until_ns`. Spacing: `(360/azBins deg, 1 ring, 1)`; origin at `(0, 0, 0)`. Suited for heatmaps and quick inspection.
 - **vtkStructuredGrid (geometry-aware):** Convert each cell to 3D Cartesian using mean range + azimuth + optional ring elevation; attach the same cell-data arrays. Better for spatial overlays and merging with other clouds.

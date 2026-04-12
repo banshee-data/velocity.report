@@ -1,4 +1,4 @@
-# Design: one-click split/Merge repair workbench (feature 3)
+# Design: one-click split/merge repair workbench (feature 3)
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
