@@ -8,7 +8,7 @@ Scope:
 - Covers subsystem-level assumptions and approximation limits.
 - Excludes CRUD/data-shape plumbing and API transport details.
 
-## High-Level System View
+## High-level system view
 
 The production pipeline uses four math-heavy layers:
 
@@ -25,7 +25,7 @@ The production pipeline uses four math-heavy layers:
    - Predicts and updates object states with a CV Kalman filter.
    - Solves global data association with Hungarian assignment.
 
-## Core Assumptions (Cross-Cutting)
+## Core assumptions (cross-cutting)
 
 1. **Primary deployment is stationary-sensor traffic monitoring.**
    Long-running convergence and conservative adaptation are preferred over fast but noisy adaptation.
@@ -38,7 +38,7 @@ The production pipeline uses four math-heavy layers:
 5. **Kinematics are bounded.**
    Tracking gates rely on plausible position jumps and speeds.
 
-## Architecture-Level Couplings
+## Architecture-level couplings
 
 1. **Background grid to ground plane:**
    - L3 confidence (`TimesSeenCount`, spread, freeze/locked state) gates which points are trusted for L4 fitting.
@@ -50,14 +50,14 @@ The production pipeline uses four math-heavy layers:
 4. **Tracking to diagnostics/tuning:**
    - Alignment, jitter, fragmentation, and gating metrics close the loop on parameter quality.
 
-## Detailed Documents
+## Detailed documents
 
 ### Reviews
 
 - [Pipeline Review: Open Questions and High-Value Work](pipeline-review-open-questions.md):
   Mathematical audit of L1–L6 implementations, addresses open questions from plans and proposals, synthesises ground plane and priors alignment, builds the dependency graph, and defines a prioritised high-value work list.
 
-### Active Maths (implemented in current runtime)
+### Active maths (implemented in current runtime)
 
 - [Background Grid Settling Maths](background-grid-settling-maths.md):
   Polar-cell EWA/EMA update equations, warmup/settling state machine, freeze/lock behaviour, and confidence dynamics.
@@ -87,13 +87,13 @@ The production pipeline uses four math-heavy layers:
 
 ---
 
-## Prioritised Proposal Roadmap
+## Prioritised proposal roadmap
 
 Work items drawn from the proposals above, ordered by user-visible impact and
 dependency readiness. Each item can be implemented independently, but earlier
 items improve later ones.
 
-### P1: Geometry-Coherent Track State _(highest priority)_
+### P1: Geometry-coherent track state _(highest priority)_
 
 **Source:** [geometry-coherent-tracking.md](proposals/20260222-geometry-coherent-tracking.md)
 **Layer:** L5 tracking
@@ -117,7 +117,7 @@ consistency), and F (debug cluster rendering) from the
 [OBB heading stability review](proposals/20260222-obb-heading-stability-review.md)
 become unnecessary once the geometry-coherent model replaces the guards.
 
-### P2: Velocity-Coherent Foreground Extraction
+### P2: Velocity-coherent foreground extraction
 
 **Source:** [velocity-coherent-foreground-extraction.md](proposals/20260220-velocity-coherent-foreground-extraction.md)
 **Layer:** L4 perception (pre-clustering)
@@ -137,7 +137,7 @@ heading-motion prior. Also independently improves sparse object recall by
 20–40 % and reduces fragmentation by 10–25 % (hypothesised, pending
 validation).
 
-### P3: Ground Plane and Vector-Scene Maths
+### P3: Ground plane and vector-scene maths
 
 **Source:** [ground-plane-vector-scene-maths.md](proposals/20260221-ground-plane-vector-scene-maths.md)
 **Layer:** L4 perception (ground surface)
@@ -156,7 +156,7 @@ into clustering (P2) and tracking (P1). Important for long-running
 deployment accuracy and drift resistance. Less immediately visible to
 end users than P1/P2.
 
-### P4: Unify L3/L4 Settling
+### P4: unify L3/L4 settling
 
 **Source:** [unify-l3-l4-settling.md](proposals/20260219-unify-l3-l4-settling.md)
 **Layer:** L3–L4 boundary (infrastructure)
@@ -172,7 +172,7 @@ one freeze/thaw policy, one confidence substrate, two model outputs.
 complexity and config coupling drift. Less user-visible impact on its own,
 but lowers the complexity cost of P3.
 
-### Candidate Add-on: Reflective Sign and Static Surface Pose Anchors
+### Candidate add-on: reflective sign and static surface pose anchors
 
 **Source:** [reflective-sign-pose-anchor-maths.md](proposals/20260310-reflective-sign-pose-anchor-maths.md)
 **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene, L8 Analytics
@@ -193,7 +193,7 @@ reference for mount vibration, transform drift, and noise diagnosis even in
 sign-poor scenes, provided there is enough persistent wall, facade, or ground
 structure to build a redundant anchor set.
 
-### Maintenance: OBB Heading Stability Review (remaining items)
+### Maintenance: OBB heading stability review (remaining items)
 
 **Source:** [obb-heading-stability-review.md](proposals/20260222-obb-heading-stability-review.md)
 **Status:** Guard 3, fixes B, C, G **implemented**. Fix D (config-only), E, F not started.
@@ -203,13 +203,13 @@ can be applied any time. Fixes E and F provide incremental improvement but
 are **superseded by P1**: once the geometry-coherent model lands, the guards
 they improve will be removed.
 
-## Config Mapping
+## Config mapping
 
 Note on naming: this repository does **not** contain a `config/tracking.json` file. Runtime tuning is loaded from `config/tuning.defaults.json` (or another JSON passed with `--config`) via `internal/config/tuning.go`.
 
 See also: `docs/lidar/operations/config-param-tuning.md` for the operational tuning workflow aimed at operators (grouped by tuning task rather than mathematical source).
 
-### L3 Background Grid Settling Maths (`background-grid-settling-maths.md`)
+### L3 Background grid settling maths (`background-grid-settling-maths.md`)
 
 - Keys:
   - `background_update_fraction`
@@ -229,7 +229,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
 - Important non-file defaults still applied in code:
   - freeze duration, lock thresholds, reacquisition boost (`internal/lidar/l3grid/config.go`, `internal/lidar/l3grid/foreground.go`)
 
-### L4 Ground Surface Maths (`ground-plane-maths.md`)
+### L4 Ground surface maths (`ground-plane-maths.md`)
 
 - Current config status:
   - No dedicated ground-plane tuning block is wired yet.
@@ -240,7 +240,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
 - Runtime mapping:
   - `cmd/radar/radar.go` -> `internal/lidar/pipeline/tracking_pipeline.go` -> `internal/lidar/l4perception/ground.go`
 
-### L4 Clustering Maths (`clustering-maths.md`)
+### L4 Clustering maths (`clustering-maths.md`)
 
 - Keys:
   - `foreground_dbscan_eps`
@@ -254,7 +254,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
   - `internal/lidar/l4perception/cluster.go` (`DefaultDBSCANParams`)
   - pipeline use in `internal/lidar/pipeline/tracking_pipeline.go`
 
-### L5 Tracking Maths (`tracking-maths.md`)
+### L5 Tracking maths (`tracking-maths.md`)
 
 - Keys:
   - `gating_distance_squared`
@@ -285,7 +285,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
   - `internal/lidar/l5tracks/tracking.go` (`TrackerConfigFromTuning`)
   - tracker wiring in `cmd/radar/radar.go`
 
-### Pipeline Timing/Persistence Controls (cross-cutting)
+### Pipeline timing/persistence controls (cross-cutting)
 
 - Keys:
   - `buffer_timeout`
@@ -297,7 +297,7 @@ See also: `docs/lidar/operations/config-param-tuning.md` for the operational tun
   - pipeline/bootstrap in `cmd/radar/radar.go`
   - background flusher in `internal/lidar/l3grid/background_flusher.go`
 
-## What Is Intentionally Not Here
+## What is intentionally not here
 
 - Endpoint contracts, serialisation schemas, and UI payload shaping.
 - Storage-oriented table/column walkthroughs unless mathematically required.
