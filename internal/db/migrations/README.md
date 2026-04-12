@@ -567,7 +567,7 @@ velocity-report migrate status
 
 ## Production deployment
 
-### Pre-Deployment checklist
+### Pre-deployment checklist
 
 Before deploying migrations to production:
 
