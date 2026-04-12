@@ -8,22 +8,21 @@
  ░▒▓██████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓██████▓▒░
 ```
 
-This directory contains the canonical LiDAR tuning config files used by
-`velocity.report`.
+This directory holds the canonical LiDAR tuning configuration for
+velocity.report.
 
-For a project-wide register of ports, thresholds, and fixed constants, see
+For ports, thresholds, and fixed constants outside the tuning schema, see
 [MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
 
 ## Schema
 
-The runtime now accepts a versioned nested schema.
+The runtime uses a versioned nested schema.
 
-- `$.version` must equal `2`
-- `$.l1` holds sensor identity and runtime data-source settings
-- `$.l3`, `$.l4`, and `$.l5` each contain:
-  - an engine selector
-  - exactly one engine block matching that selector
-- `$.pipeline` holds cross-cutting runtime settings
+- `$.version`: must equal `2`
+- `$.l1`: sensor identity and data-source selection
+- `$.l3`, `$.l4`, `$.l5`: each carries an engine selector and exactly one
+  engine block matching it
+- `$.pipeline`: cross-cutting runtime settings
 
 The runtime rejects:
 
@@ -41,12 +40,15 @@ The runtime rejects:
 make config-validate TUNING_CONFIG=config/tuning.defaults.json
 ```
 
-LiDAR networking remains process-level CLI configuration for now:
+LiDAR networking is process-level CLI configuration:
 `--lidar-udp-port`, `--lidar-udp-rcv-buf`, `--lidar-forward-port`, and
-`--lidar-foreground-forward-port` are startup-only and are not part of the
-JSON tuning schema or `/api/lidar/params` hot reload flow.
+`--lidar-foreground-forward-port` are startup-only and do not appear in the
+JSON tuning schema or the `/api/lidar/params` hot-reload flow.
 
 ## Canonical example
+
+This block mirrors [tuning.example.json](tuning.example.json). CI validates
+parity between them.
 
 ```json
 {
@@ -138,7 +140,9 @@ JSON tuning schema or `/api/lidar/params` hot reload flow.
 
 ## Runtime updates
 
-`POST /api/lidar/params` accepts partial updates as nested JSON objects matching the `tuning.defaults.json` structure. Legacy dot-path keys are normalised internally but nested format is preferred.
+`POST /api/lidar/params` accepts partial updates as nested JSON matching
+the [tuning.defaults.json](tuning.defaults.json) structure. The server
+normalises legacy dot-path keys, but nested format is preferred.
 
 Example:
 
@@ -158,15 +162,13 @@ Example:
 }
 ```
 
-Runtime updates are limited on this branch to:
+Hot-reloadable parameters:
 
 - L3 engine parameters (`l3.ema_baseline_v1.*`)
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
 - L5 tracker parameters (`l5.cv_kf_v1.*`)
 
-`l1.*`, `pipeline.*`, and engine selectors remain startup-only.
-LiDAR listener/forwarding ports and the UDP receive buffer are process-level
-CLI flags and do not appear in this schema.
+`l1.*`, `pipeline.*`, and engine selectors are startup-only.
 
 ## Key order
 
@@ -179,6 +181,9 @@ make check-config-maths
 ```
 
 ## Field reference
+
+Schema sources: [tuning.defaults.json](tuning.defaults.json),
+[internal/config/tuning.go](../internal/config/tuning.go).
 
 ### Root
 
@@ -199,6 +204,9 @@ make check-config-maths
 | `l1.data_source` | string | `live`            | One of `live`, `pcap`, `pcap_analysis` |
 
 ### L3
+
+Maths: [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md),
+[20260219-unify-l3-l4-settling.md](../data/maths/proposals/20260219-unify-l3-l4-settling.md)
 
 | Path                                                      | Type    | Default           | Notes                                           |
 | --------------------------------------------------------- | ------- | ----------------- | ----------------------------------------------- |
@@ -232,6 +240,9 @@ make check-config-maths
 
 ### L4
 
+Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
+[ground-plane-maths.md](../data/maths/ground-plane-maths.md)
+
 | Path                                            | Type    | Default        | Notes                                  |
 | ----------------------------------------------- | ------- | -------------- | -------------------------------------- |
 | `l4.engine`                                     | string  | `dbscan_xy_v1` | Active L4 engine.                      |
@@ -246,6 +257,8 @@ make check-config-maths
 | `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | `15`           | Maximum accepted cluster aspect ratio. |
 
 ### L5
+
+Maths: [tracking-maths.md](../data/maths/tracking-maths.md)
 
 | Path                                              | Type    | Default    | Notes                                       |
 | ------------------------------------------------- | ------- | ---------- | ------------------------------------------- |
@@ -281,111 +294,3 @@ make check-config-maths
 | `pipeline.min_frame_points` | int    | `1000`  | Minimum points required to process a frame. |
 | `pipeline.flush_interval`   | string | `60s`   | Background snapshot cadence.                |
 | `pipeline.background_flush` | bool   | `false` | Background snapshot master switch.          |
-
----
-
-## Config-to-maths cross reference
-
-Primary schema sources:
-
-- `config/tuning.defaults.json`
-- `internal/config/tuning.go`
-
-This section lists the canonical v2 leaf paths used by the runtime and their
-mathematical references.
-
-### Pipeline
-
-- `pipeline.buffer_timeout`
-- `pipeline.min_frame_points`
-- `pipeline.flush_interval`
-- `pipeline.background_flush`
-
-### L1 packets / source
-
-- `version`
-- `l1.sensor`
-- `l1.data_source`
-
-### L3 background settling
-
-Math references:
-
-- [`../data/maths/background-grid-settling-maths.md`](../data/maths/background-grid-settling-maths.md)
-- [`../data/maths/proposals/20260219-unify-l3-l4-settling.md`](../data/maths/proposals/20260219-unify-l3-l4-settling.md)
-
-- `l3.engine`
-- `l3.ema_baseline_v1.background_update_fraction`
-- `l3.ema_baseline_v1.closeness_multiplier`
-- `l3.ema_baseline_v1.safety_margin_metres`
-- `l3.ema_baseline_v1.noise_relative`
-- `l3.ema_baseline_v1.neighbour_confirmation_count`
-- `l3.ema_baseline_v1.seed_from_first`
-- `l3.ema_baseline_v1.warmup_duration_nanos`
-- `l3.ema_baseline_v1.warmup_min_frames`
-- `l3.ema_baseline_v1.post_settle_update_fraction`
-- `l3.ema_baseline_v1.enable_diagnostics`
-- `l3.ema_baseline_v1.freeze_duration`
-- `l3.ema_baseline_v1.freeze_threshold_multiplier`
-- `l3.ema_baseline_v1.settling_period`
-- `l3.ema_baseline_v1.snapshot_interval`
-- `l3.ema_baseline_v1.change_threshold_snapshot`
-- `l3.ema_baseline_v1.reacquisition_boost_multiplier`
-- `l3.ema_baseline_v1.min_confidence_floor`
-- `l3.ema_baseline_v1.locked_baseline_threshold`
-- `l3.ema_baseline_v1.locked_baseline_multiplier`
-- `l3.ema_baseline_v1.sensor_movement_foreground_threshold`
-- `l3.ema_baseline_v1.background_drift_threshold_metres`
-- `l3.ema_baseline_v1.background_drift_ratio_threshold`
-- `l3.ema_baseline_v1.settling_min_coverage`
-- `l3.ema_baseline_v1.settling_max_spread_delta`
-- `l3.ema_baseline_v1.settling_min_region_stability`
-- `l3.ema_baseline_v1.settling_min_confidence`
-
-### L4 clustering / ground filtering
-
-Math references:
-
-- [`../data/maths/clustering-maths.md`](../data/maths/clustering-maths.md)
-- [`../data/maths/ground-plane-maths.md`](../data/maths/ground-plane-maths.md)
-
-- `l4.engine`
-- `l4.dbscan_xy_v1.foreground_dbscan_eps`
-- `l4.dbscan_xy_v1.foreground_min_cluster_points`
-- `l4.dbscan_xy_v1.foreground_max_input_points`
-- `l4.dbscan_xy_v1.height_band_floor`
-- `l4.dbscan_xy_v1.height_band_ceiling`
-- `l4.dbscan_xy_v1.remove_ground`
-- `l4.dbscan_xy_v1.max_cluster_diameter`
-- `l4.dbscan_xy_v1.min_cluster_diameter`
-- `l4.dbscan_xy_v1.max_cluster_aspect_ratio`
-
-### L5 tracking
-
-Math reference:
-
-- [`../data/maths/tracking-maths.md`](../data/maths/tracking-maths.md)
-
-- `l5.engine`
-- `l5.cv_kf_v1.gating_distance_squared`
-- `l5.cv_kf_v1.process_noise_pos`
-- `l5.cv_kf_v1.process_noise_vel`
-- `l5.cv_kf_v1.measurement_noise`
-- `l5.cv_kf_v1.occlusion_cov_inflation`
-- `l5.cv_kf_v1.hits_to_confirm`
-- `l5.cv_kf_v1.max_misses`
-- `l5.cv_kf_v1.max_misses_confirmed`
-- `l5.cv_kf_v1.max_tracks`
-- `l5.cv_kf_v1.max_reasonable_speed_mps`
-- `l5.cv_kf_v1.max_position_jump_metres`
-- `l5.cv_kf_v1.max_predict_dt`
-- `l5.cv_kf_v1.max_covariance_diag`
-- `l5.cv_kf_v1.min_points_for_pca`
-- `l5.cv_kf_v1.obb_heading_smoothing_alpha`
-- `l5.cv_kf_v1.obb_aspect_ratio_lock_threshold`
-- `l5.cv_kf_v1.max_track_history_length`
-- `l5.cv_kf_v1.max_speed_history_length`
-- `l5.cv_kf_v1.merge_size_ratio`
-- `l5.cv_kf_v1.split_size_ratio`
-- `l5.cv_kf_v1.deleted_track_grace_period`
-- `l5.cv_kf_v1.min_observations_for_classification`
