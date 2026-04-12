@@ -95,7 +95,7 @@ out of scope for the critical path.
 - `docs/lidar/operations/parameter-comparison.md`, `config-param-tuning.md`,
   `auto-tuning.md`: parameter study guidance
 - `data/structures/VRLOG_FORMAT.md` and
-  `data/explore/vrlog-analysis-runs/VRLOG_ANALYSIS.md`: recording contract
+  `data/structures/VRLOG_ANALYSIS_FORMAT.md`: recording contract
 
 ## Non-Goals
 
