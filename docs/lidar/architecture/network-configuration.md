@@ -9,7 +9,7 @@ Architecture for interface-aware UDP binding, network diagnostics, hot-reload co
 
 ### Current state
 
-The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on `cmd/radar` (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
+The velocity.report LiDAR subsystem binds its UDP listener to a wildcard address (`:port`) at startup, accepting Hesai Pandar40P packets on whichever network interface they arrive. The listening port (default 2369), forwarding targets, and interface addresses are configured entirely through CLI flags on [cmd/radar](../../../cmd/radar) (the unified binary that hosts both radar and LiDAR subsystems). Changing any network parameter requires a process restart.
 
 **Current CLI flags:**
 
@@ -73,7 +73,7 @@ The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on i
 
 A new `lidar_network_config` table stores the network binding configuration, following the `radar_serial_config` pattern:
 
-> **Source:** Migration in `internal/db/migrations/` (when implemented). Table `lidar_network_config` with columns: id, name, interface_name, bind_address, udp_port (default 2369, CHECK 1024–65535), receive_buffer (default 4 MiB, CHECK 64 KiB – 64 MiB), enabled, description, sensor_model (CHECK `LIKE 'hesai-%'`), forward_enabled, forward_address, forward_port, created_at, updated_at. An AFTER UPDATE trigger maintains `updated_at`.
+> **Source:** Migration in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Table `lidar_network_config` with columns: id, name, interface_name, bind_address, udp_port (default 2369, CHECK 1024–65535), receive_buffer (default 4 MiB, CHECK 64 KiB – 64 MiB), enabled, description, sensor_model (CHECK `LIKE 'hesai-%'`), forward_enabled, forward_address, forward_port, created_at, updated_at. An AFTER UPDATE trigger maintains `updated_at`.
 
 **Key fields:**
 
@@ -268,11 +268,11 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 ### Phase 4: settings UI
 
-| Task                                                               | Effort |
-| ------------------------------------------------------------------ | ------ |
-| `web/src/routes/(constrained)/settings/lidar-network/+page.svelte` | L      |
-| `web/src/lib/api.ts`: lidar network API functions                  | S      |
-| Settings page link from `/settings`                                | S      |
+| Task                                                                           | Effort |
+| ------------------------------------------------------------------------------ | ------ |
+| `web/src/routes/(constrained)/settings/lidar-network/+page.svelte`             | L      |
+| [web/src/lib/api.ts](../../../web/src/lib/api.ts): lidar network API functions | S      |
+| Settings page link from `/settings`                                            | S      |
 
 ### Phase 5: integration & testing
 

@@ -73,7 +73,7 @@ RMSE, objective function), plus:
    optima are sufficient; no joint tuning needed.
 2. If interactions are > 5%: document the interaction, recommend a joint
    default, and update `tuning.defaults.json` accordingly.
-3. Results recorded in `data/explore/` with full sweep data.
+3. Results recorded in [data/explore/](../../explore) with full sweep data.
 
 ## Resources required
 

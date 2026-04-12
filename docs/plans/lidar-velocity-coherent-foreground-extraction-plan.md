@@ -5,7 +5,7 @@
 - **Plan Version:** 2.0
 - **Canonical:** [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md)
 
-- **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; the active clustering is DBSCAN in `internal/lidar/l4perception/cluster.go`. No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications; see [Implementation Notes](#implementation-notes-january-2026) for detail.
+- **Note:** This is the living design document and implementation checklist. The active foreground extractor is `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); the active clustering is DBSCAN in [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go). No `VelocityCoherentTracker` exists yet in the codebase. Core phases 1–5 have prototype implementations with simplifications; see [Implementation Notes](#implementation-notes-january-2026) for detail.
   > The mathematical model and parameter tradeoffs are also documented in:
   > [`data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 

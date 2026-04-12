@@ -384,7 +384,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 - `internal/db/migrations/000012_add_pose_references.up.sql` (NEW)
 - `internal/db/migrations/000012_add_pose_references.down.sql` (NEW)
-- `internal/db/schema.sql` (update with new columns)
+- [internal/db/schema.sql](../../internal/db/schema.sql) (update with new columns)
 
 **Testing:**
 
@@ -434,7 +434,7 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 **Files Changed:**
 
-- `cmd/radar/radar.go` (load static pose at startup, populate pose_id)
+- [cmd/radar/radar.go](../../cmd/radar/radar.go) (load static pose at startup, populate pose_id)
 - `internal/lidar/track_store.go` (add GetCurrentPoses, InsertPose if missing)
 - `internal/lidar/track_store_test.go` (test pose loading)
 
@@ -575,8 +575,8 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 ## Related documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** `../lidar/architecture/foreground-tracking.md` (existing implementation)
-- **Schema:** `../../internal/db/schema.sql` (database structure)
+- **Current Tracking:** [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md) (existing implementation)
+- **Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql) (database structure)
 
 ---
 
@@ -588,7 +588,7 @@ Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_
 
 - `internal/db/migrations/000013_add_7dof_schema.up.sql` (NEW)
 - `internal/lidar/av_types.go` (NEW - BoundingBox7DOF from av-lidar-integration-plan.md)
-- `internal/db/schema.sql` (UPDATE - add 7DOF columns)
+- [internal/db/schema.sql](../../internal/db/schema.sql) (UPDATE - add 7DOF columns)
 
 **Tasks:**
 

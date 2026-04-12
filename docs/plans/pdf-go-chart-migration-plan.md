@@ -402,15 +402,15 @@ Go-native pipeline.
 
 Remove the Python PDF stack:
 
-1. Mark `tools/pdf-generator/` as deprecated (one release cycle)
+1. Mark [tools/pdf-generator/](../../tools/pdf-generator) as deprecated (one release cycle)
 2. Remove Python execution path from `server.go`
 3. Remove `make install-python` dependency from report generation targets
-4. Update `ARCHITECTURE.md`, component READMEs
-5. Retain `tools/pdf-generator/` in repository history (do not delete
+4. Update [ARCHITECTURE.md](../../ARCHITECTURE.md), component READMEs
+5. Retain [tools/pdf-generator/](../../tools/pdf-generator) in repository history (do not delete
    immediately: keep for reference during the transition)
 
 **Acceptance:** `make test` passes with no Python dependencies for report
-generation. Python venv is only needed for `tools/grid-heatmap/` (if still
+generation. Python venv is only needed for [tools/grid-heatmap/](../../tools/grid-heatmap) (if still
 in use).
 
 ### Phase 6: map overlay migration; `S`
@@ -524,6 +524,6 @@ vendored TeX tree + `rsvg-convert`.
    normalises counts to percentages. Does the Go API already return
    normalised histogram data, or must the report package compute percentages?
 
-7. **`grid-heatmap` tool:** `tools/grid-heatmap/` also uses matplotlib. Is
+7. **`grid-heatmap` tool:** [tools/grid-heatmap/](../../tools/grid-heatmap) also uses matplotlib. Is
    it in scope for this migration, or does it remain as a standalone Python
    tool?

@@ -1,13 +1,13 @@
 # Ground plane export for pcap-analyse tool
 
 - **Status:** Planning
-- **Target:** `cmd/tools/pcap-analyse`
+- **Target:** [cmd/tools/pcap-analyse](../../cmd/tools/pcap-analyse)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 - **Related:**
 
-- `docs/lidar/architecture/ground-plane-extraction.md`
-- `docs/lidar/architecture/gps-ethernet-parsing.md`
-- `data/maths/ground-plane-maths.md`
+- [docs/lidar/architecture/ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)
+- [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md)
+- [data/maths/ground-plane-maths.md](../../data/maths/ground-plane-maths.md)
 
 ## Objective
 
@@ -25,7 +25,7 @@ The ground plane extraction reuses the existing L1→L2→L3 background grid pip
 
 ## Background
 
-The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
+The current `pcap-analyse` tool ([cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
 
 - CSV tracks (vehicle trajectories)
 - JSON results (detection summary)
@@ -33,9 +33,9 @@ The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) proce
 
 Existing export infrastructure:
 
-- `ExportBackgroundGridToASC()` in `internal/lidar/l3grid/export_bg_snapshot.go`: ASC format for CloudCompare
+- `ExportBackgroundGridToASC()` in [internal/lidar/l3grid/export_bg_snapshot.go](../../internal/lidar/l3grid/export_bg_snapshot.go): ASC format for CloudCompare
 - Web API endpoints: `/api/lidar/export/frame-sequence-asc`, `handleExportSnapshotASC`
-- VTK export recommended in `docs/lidar/architecture/lidar-background-grid-standards.md`
+- VTK export recommended in [docs/lidar/architecture/lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md)
 
 GPS support exists but is unused:
 
@@ -45,7 +45,7 @@ GPS support exists but is unused:
 
 ## New CLI flags
 
-Add the following flags to `cmd/tools/pcap-analyse/main.go`:
+Add the following flags to [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
 ### Ground plane extraction
 
@@ -174,7 +174,7 @@ NODATA_value -9999
 
 **Implementation Notes**:
 
-- Reuse existing `ExportBackgroundGridToASC()` from `internal/lidar/l3grid/export_bg_snapshot.go`
+- Reuse existing `ExportBackgroundGridToASC()` from [internal/lidar/l3grid/export_bg_snapshot.go](../../internal/lidar/l3grid/export_bg_snapshot.go)
 - Z values are fitted plane heights, not raw point heights
 - Tiles below confidence threshold written as `NODATA_value`
 - If GPS coordinates available, use ENU X/Y for xllcorner/yllcorner (metres from GPS origin)
@@ -233,7 +233,7 @@ A VTK `StructuredGrid` file (XML format, version 1.0, little-endian) with extent
 ### Coordinate fallback chain
 
 1. **PCAP GPS** (if `--gps-from-pcap` enabled):
-   - Parse GPS ethernet packets using `docs/lidar/architecture/gps-ethernet-parsing.md` spec
+   - Parse GPS ethernet packets using [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md) spec
    - Extract first valid GNGGA or GNRMC sentence with 3D fix
    - Use lat/lon/alt from GPS, heading from `--gps-heading` or NMEA course-over-ground
 

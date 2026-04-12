@@ -512,30 +512,30 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 
 ## Current repository alignment
 
-| Layer         | Canonical package              | Key files                                                                                                                                                  | Status |
-| ------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                 | ✅     |
-| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                 | ✅     |
-| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                  | ✅     |
-| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                             | ✅     |
-| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                      | ✅     |
-| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                          | ✅     |
-| L7 Scene      | `internal/lidar/l7scene/`      | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
-| L8 Analytics  | `internal/lidar/l8analytics/`  | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
-| L9 Endpoints  | `internal/lidar/l9endpoints/`  | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
-| L10 Clients   | _(no Go package)_              | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                                        | 📄     |
+| Layer         | Canonical package                                                    | Key files                                                                                                                                                  | Status |
+| ------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| L1 Packets    | [internal/lidar/l1packets/](../../../internal/lidar/l1packets)       | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                 | ✅     |
+| L2 Frames     | [internal/lidar/l2frames/](../../../internal/lidar/l2frames)         | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                 | ✅     |
+| L3 Grid       | [internal/lidar/l3grid/](../../../internal/lidar/l3grid)             | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                  | ✅     |
+| L4 Perception | [internal/lidar/l4perception/](../../../internal/lidar/l4perception) | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                             | ✅     |
+| L5 Tracks     | [internal/lidar/l5tracks/](../../../internal/lidar/l5tracks)         | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                      | ✅     |
+| L6 Objects    | [internal/lidar/l6objects/](../../../internal/lidar/l6objects)       | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                          | ✅     |
+| L7 Scene      | `internal/lidar/l7scene/`                                            | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
+| L8 Analytics  | [internal/lidar/l8analytics/](../../../internal/lidar/l8analytics)   | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
+| L9 Endpoints  | [internal/lidar/l9endpoints/](../../../internal/lidar/l9endpoints)   | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
+| L10 Clients   | _(no Go package)_                                                    | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [tools/pdf-generator/](../../../tools/pdf-generator) (Python)         | 📄     |
 
 Cross-cutting packages:
 
-| Package                          | Purpose                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                                                                                                                          |
-| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
-| `internal/lidar/adapters/`       | Transport and IO boundaries                                                                                                                                               |
-| `internal/lidar/monitor/`        | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                              |
-| `internal/lidar/sweep/`          | Parameter sweep and auto-tuning                                                                                                                                           |
+| Package                                                                  | Purpose                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [internal/lidar/pipeline/](../../../internal/lidar/pipeline)             | Orchestration (stage interfaces)                                                                                                                                          |
+| [internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite) | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
+| [internal/lidar/adapters/](../../../internal/lidar/adapters)             | Transport and IO boundaries                                                                                                                                               |
+| `internal/lidar/monitor/`                                                | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                              |
+| [internal/lidar/sweep/](../../../internal/lidar/sweep)                   | Parameter sweep and auto-tuning                                                                                                                                           |
 
-Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
+Backward-compatible type aliases remain in the parent [internal/lidar/](../../../internal/lidar) package so existing callers continue to work.
 
 ### Layer dependency rule
 

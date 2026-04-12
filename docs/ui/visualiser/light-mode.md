@@ -1,6 +1,6 @@
 # Light mode
 
-- **Source plan:** `docs/plans/lidar-visualiser-light-mode-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-light-mode-plan.md](../../plans/lidar-visualiser-light-mode-plan.md)
 
 Light-mode appearance for the macOS VelocityVisualiser 3D scene, following system appearance preference.
 

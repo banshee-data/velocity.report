@@ -3,7 +3,7 @@
 The public-facing documentation site at [velocity.report](https://velocity.report), built with Eleventy and Tailwind CSS.
 
 **Source:** `public_html/`
-**Build output:** `public_html/_site/`
+**Build output:** [public_html/\_site/](../../public_html/_site)
 **Framework:** Eleventy (11ty) + Tailwind CSS
 **Package manager:** pnpm
 
@@ -50,10 +50,10 @@ cd public_html && pnpm run dev
 
 ## OS image list
 
-The site hosts the Raspberry Pi Imager custom OS list at `os-list-velocity.json`. The JSON is defined in `image/os-list-velocity.json` and copied to the built site during the Eleventy build. Raspberry Pi Imager fetches this JSON from the public URL to offer velocity.report as a custom OS option.
+The site hosts the Raspberry Pi Imager custom OS list at `os-list-velocity.json`. The JSON is defined in [image/os-list-velocity.json](../../image/os-list-velocity.json) and copied to the built site during the Eleventy build. Raspberry Pi Imager fetches this JSON from the public URL to offer velocity.report as a custom OS option.
 
 ## Content guidelines
 
-- British English spelling and punctuation (see `.github/STYLE.md`)
-- Setup guide (`src/guides/setup.md`) must stay in sync with `TROUBLESHOOTING.md` and `COMMANDS.md`
+- British English spelling and punctuation (see [.github/STYLE.md](../../.github/STYLE.md))
+- Setup guide (`src/guides/setup.md`) must stay in sync with [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) and [COMMANDS.md](../../COMMANDS.md)
 - Release metadata in `src/_data/release.json` is updated manually at release time

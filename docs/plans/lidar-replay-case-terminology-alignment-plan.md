@@ -30,7 +30,7 @@ This plan consolidates the "replay case" terminology across the system while pre
 ### Documentation (complete: v0.5.0)
 
 - [x] `docs/lidar/operations/scene-management-implementation.md` → `replay-case-management-implementation.md` (content updated, rename staged in git)
-- [x] Update stale reference in `docs/plans/platform-hub-restructure-plan.md` (line 83)
+- [x] Update stale reference in [docs/plans/platform-hub-restructure-plan.md](platform-hub-restructure-plan.md) (line 83)
 
 ### Store/API layer (outstanding: rename batch 1)
 
@@ -52,18 +52,18 @@ Breaking change: All consumers (Svelte, tests, integration) must update API URLs
 
 ### Sweep layer (outstanding: rename batch 2)
 
-- `internal/lidar/sweep/hint.go`: `SceneGetter` → `ReplayCaseGetter`, `HINTScene` → `HINTReplayCase`, `sceneStore`/`sceneGetter` fields
-- `internal/lidar/sweep/auto.go`: `SceneStoreSaver` → `ReplayCaseStoreSaver`, setter methods
-- `internal/lidar/sweep/hint_notifications.go`: Helper functions `scenePCAPStart` → `casePCAPStart`, `scenePCAPDuration` → `casePCAPDuration`
+- [internal/lidar/sweep/hint.go](../../internal/lidar/sweep/hint.go): `SceneGetter` → `ReplayCaseGetter`, `HINTScene` → `HINTReplayCase`, `sceneStore`/`sceneGetter` fields
+- [internal/lidar/sweep/auto.go](../../internal/lidar/sweep/auto.go): `SceneStoreSaver` → `ReplayCaseStoreSaver`, setter methods
+- [internal/lidar/sweep/hint_notifications.go](../../internal/lidar/sweep/hint_notifications.go): Helper functions `scenePCAPStart` → `casePCAPStart`, `scenePCAPDuration` → `casePCAPDuration`
 - Test files: `hint_test.go`, `hint_coverage_test.go`, `auto_test.go`, `auto_coverage_test.go`
-- `cmd/radar/radar.go`: `sceneStore`, `hintSceneAdapter`, wiring logic
+- [cmd/radar/radar.go](../../cmd/radar/radar.go): `sceneStore`, `hintSceneAdapter`, wiring logic
 
 ### Web/Svelte (outstanding: rename batch 3)
 
-- `web/src/lib/api.ts`: Response var `scenes` → `replayCases`, param name `scene` → `replayCase`, preserve API contract URLs (handled by backend)
-- `web/src/routes/lidar/replay-cases/+page.svelte`: Local vars `scenes` → `replayCases`, `selectedScene` → `selectedCase`, `loadScenes` → `loadReplayCases`, comments/labels
-- `web/src/routes/lidar/tracks/+page.svelte`: Scene selector dropdown; label "Scene" → "Replay Case", local vars sync
-- `web/src/routes/lidar/runs/+page.svelte`: Similar updates
+- [web/src/lib/api.ts](../../web/src/lib/api.ts): Response var `scenes` → `replayCases`, param name `scene` → `replayCase`, preserve API contract URLs (handled by backend)
+- [web/src/routes/lidar/replay-cases/+page.svelte](../../web/src/routes/lidar/replay-cases/+page.svelte): Local vars `scenes` → `replayCases`, `selectedScene` → `selectedCase`, `loadScenes` → `loadReplayCases`, comments/labels
+- [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte): Scene selector dropdown; label "Scene" → "Replay Case", local vars sync
+- [web/src/routes/lidar/runs/+page.svelte](../../web/src/routes/lidar/runs/+page.svelte): Similar updates
 - Status page HTML: Remove scene-related UI text
 
 ### Database layer (complete: already renamed in v0.5.x migrations)
@@ -109,8 +109,8 @@ All consumers (Svelte, testing, integration) must update. This is a deliberate b
 
 These files/uses of "scene" remain unchanged:
 
-- L3 grid layer (`internal/lidar/l3grid/`): `SceneSignature()`, scene hash matching
-- Background persistence (`internal/lidar/l3grid/background_persistence.go`)
+- L3 grid layer ([internal/lidar/l3grid/](../../internal/lidar/l3grid)): `SceneSignature()`, scene hash matching
+- Background persistence ([internal/lidar/l3grid/background_persistence.go](../../internal/lidar/l3grid/background_persistence.go))
 - L4 perception, L5 tracking geometric operations
 - Sweep metrics: "Scene-level foreground capture" (refers to full sensor view, not replay case)
 - Database migrations (immutable history)

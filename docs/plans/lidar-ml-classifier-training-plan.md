@@ -24,7 +24,7 @@ Evaluate whether future classification methods can improve on the current transp
 
 - Phase 4.0 track labelling must continue producing reference-quality labels.
 - Analysis runs must persist params, metrics, and dataset provenance so comparisons can be replayed later.
-- The rule-based baseline in `internal/lidar/l6objects/classification.go` remains the comparison target for every experiment.
+- The rule-based baseline in [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go) remains the comparison target for every experiment.
 
 ## Benchmark data flow
 

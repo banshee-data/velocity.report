@@ -16,13 +16,13 @@ clean up backward compatibility debt, focusing on:
 4. Consolidation of metrics/stats/frontend surfaces
 5. Data model and API backward compatibility shims ([sub-plan](v050-backward-compatibility-shim-removal-plan.md))
 
-This plan is scoped to capabilities that are not essential to the core query-serving path (`cmd/radar` on `:8080` + SQLite-backed APIs).
+This plan is scoped to capabilities that are not essential to the core query-serving path ([cmd/radar](../../cmd/radar) on `:8080` + SQLite-backed APIs).
 
 ## Baseline (2026-02-21)
 
 - Make targets: 118 (`Makefile`)
 - Top-level `cmd/` applications: `radar`, `deploy`, `sweep`, `transit-backfill`, `tools/*`
-- `cmd/radar` CLI flags: 32 (`cmd/radar/radar.go`)
+- [cmd/radar](../../cmd/radar) CLI flags: 32 ([cmd/radar/radar.go](../../cmd/radar/radar.go))
 - Existing strategic dependencies:
   - Raspberry Pi image pipeline: [#210](../BACKLOG.md)
   - Frontend consolidation: [#252](../BACKLOG.md)
@@ -31,7 +31,7 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 
 ### Core to serving queries
 
-- `cmd/radar` binary and its API serving path (`--listen`, DB path, units/timezone, radar/LiDAR runtime enablement)
+- [cmd/radar](../../cmd/radar) binary and its API serving path (`--listen`, DB path, units/timezone, radar/LiDAR runtime enablement)
 - Database migration, schema, and query paths used by HTTP APIs
 - Web app surface on `:8080` used by operators
 
@@ -72,7 +72,7 @@ Rationale: useful for development, but not required as first-class public workfl
 
 #### A. `cmd/deploy` (replaced by `velocity-ctl` in v0.5.1): ✅ complete
 
-- Replaced by `cmd/velocity-ctl/`: purpose-built on-device management binary.
+- Replaced by [cmd/velocity-ctl/](../../cmd/velocity-ctl): purpose-built on-device management binary.
 - Reduction: one binary + 3,678 LOC + SSH surface + associated Make targets + duplicated deployment docs.
 - See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl).
 
@@ -81,15 +81,15 @@ Rationale: useful for development, but not required as first-class public workfl
 - Removed `cmd/transit-backfill/` and `cmd/tools/scan_transits.go`.
 - `velocity-report transits rebuild` is the supported replacement.
 
-#### C. `cmd/sweep` and ad hoc `cmd/tools/*` utilities (medium priority)
+#### C. [cmd/sweep](../../cmd/sweep) and ad hoc `cmd/tools/*` utilities (medium priority)
 
-- `cmd/sweep` remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
+- [cmd/sweep](../../cmd/sweep) remains useful during transition, but should be reviewed after frontend sweep migration in [#252](../BACKLOG.md).
 - `cmd/tools/scan_transits.go`: ✅ removed alongside `transit-backfill`.
 - Other narrow-scope helper tools should be either:
   - promoted and maintained as supported tooling, or
   - explicitly marked deprecated and removed.
 
-### 3) CLI flag candidates (`cmd/radar`)
+### 3) CLI flag candidates ([cmd/radar](../../cmd/radar))
 
 #### A. transitional/debug LiDAR forwarding flags (high priority)
 
@@ -167,7 +167,7 @@ shipped to end users yet, so there are no existing deploy-tool users to migrate.
 
 ## Deploy retirement: complete
 
-`cmd/deploy/` was deleted in v0.5.1 and replaced by `cmd/velocity-ctl/`. The
+`cmd/deploy/` was deleted in v0.5.1 and replaced by [cmd/velocity-ctl/](../../cmd/velocity-ctl). The
 four-gate retirement plan below is superseded: retained for historical
 reference only.
 
@@ -180,7 +180,7 @@ reference only.
 
 - **Current status:** One-off batch tool for backfilling `radar_data_transits` from historical `radar_data` events.
 - **Active production need:** None confirmed. The built-in hourly transit worker (`--enable-transit-worker`) and the `velocity-report transits rebuild` subcommand now cover the same use case.
-- **Recommendation:** Deprecate after v0.5.0. The `transits rebuild` subcommand in `cmd/radar` is the supported replacement.
+- **Recommendation:** Deprecate after v0.5.0. The `transits rebuild` subcommand in [cmd/radar](../../cmd/radar) is the supported replacement.
 
 ### `cmd/tools/scan_transits.go`
 
@@ -188,13 +188,13 @@ reference only.
 - **Active production need:** None confirmed. Duplicates `cmd/transit-backfill` capability at a different granularity.
 - **Recommendation:** Deprecate alongside `cmd/transit-backfill`.
 
-### `cmd/sweep`
+### [cmd/sweep](../../cmd/sweep)
 
 - **Current status:** Parameter sweep utility for LiDAR tuning. Actively used for iterative sensor calibration.
 - **Active production need:** Yes; required until frontend sweep migration ([#252](../BACKLOG.md)) provides equivalent capability.
 - **Recommendation:** Retain until #252 parity, then review.
 
-### `cmd/tools/backfill_ring_elevations`
+### [cmd/tools/backfill_ring_elevations](../../cmd/tools/backfill_ring_elevations)
 
 - **Current status:** Backfills ring elevation data for LiDAR background grid.
 - **Active production need:** Low. Used during initial LiDAR setup, not ongoing operations.
@@ -215,7 +215,7 @@ Once all four conditions are met, the following will be removed:
 - `internal/deploy/` package
 - Makefile targets: `setup-radar`, `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`, `build-deploy`, `build-deploy-linux`, `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`; all replaced by `build-ctl`, `build-ctl-linux`
 - `scripts/setup-radar-host.sh`
-- Deployment section from `README.md` (replaced by image pipeline instructions)
+- Deployment section from [README.md](../../README.md) (replaced by image pipeline instructions)
 
 </details>
 
@@ -237,7 +237,7 @@ sub-plan:
 
 ### 2. Deployment surface replaced
 
-- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets are **deleted** in v0.5.1. Replaced by `velocity-ctl` (`cmd/velocity-ctl/`).
+- **What:** `cmd/deploy`, `setup-radar`, and all `deploy-*` Make targets are **deleted** in v0.5.1. Replaced by `velocity-ctl` ([cmd/velocity-ctl/](../../cmd/velocity-ctl)).
 - **Impact:** `velocity-deploy` binary no longer exists. `velocity-update` wrapper script no longer exists. Users run `sudo velocity-ctl upgrade` instead.
 - **Migration:** See [deploy-rpi-imager-fork-plan.md § 8](deploy-rpi-imager-fork-plan.md#8-deploy-tool-replacement--velocity-ctl) for the replacement.
 - **Migration:** Begin planning migration to the image pipeline (#210) when available.

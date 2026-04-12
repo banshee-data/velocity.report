@@ -4,7 +4,7 @@ How to tune the LiDAR processing pipeline's configuration parameters at runtime,
 
 ## 1. Tuning workflow
 
-1. Start from baseline config (`config/tuning.defaults.json` or your site baseline).
+1. Start from baseline config ([config/tuning.defaults.json](../../../config/tuning.defaults.json) or your site baseline).
 2. Change one parameter group at a time.
 3. Validate with live metrics and/or PCAP replay.
 4. Persist only parameter sets that improve quality without regressions.

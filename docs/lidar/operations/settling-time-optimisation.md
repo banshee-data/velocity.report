@@ -13,7 +13,7 @@ This document proposes two complementary approaches to address the loss of ~30 s
 
 **Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
 
-**Cross-reference**: The sweep runner (`internal/lidar/sweep/runner.go`) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This uses region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
+**Cross-reference**: The sweep runner ([internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This uses region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
 
 ## Overview
 
@@ -67,9 +67,9 @@ Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
    > **Source:** Same file. `BgStore` interface adds `InsertRegionSnapshot()` and `GetLatestRegionSnapshot()` alongside the existing `InsertBgSnapshot()`.
 
-4. **PCAP Analysis Integration** (`cmd/tools/pcap-analyse/main.go`):
+4. **PCAP Analysis Integration** ([cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go)):
 
-   > **Source:** `cmd/tools/pcap-analyse/main.go`. When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()`; foreground detection begins immediately without settling.
+   > **Source:** [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go). When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()`; foreground detection begins immediately without settling.
 
 #### Scene similarity detection (optional enhancement)
 
@@ -103,13 +103,13 @@ Define metrics to determine when settling can end early:
 3. **Region Stability**: Variance in region classification across consecutive evaluations
 4. **Background Model Confidence**: Aggregate `TimesSeenCount` across all cells
 
-> **Source:** `internal/lidar/l3grid/settling_eval.go`. `SettlingMetrics` struct tracks CoverageRate, SpreadDeltaRate, RegionStability, MeanConfidence, EvaluatedAt, and FrameNumber. `BackgroundManager.EvaluateSettling()` computes the metrics; `SettlingMetrics.IsConverged()` checks them against `SettlingThresholds`.
+> **Source:** [internal/lidar/l3grid/settling_eval.go](../../../internal/lidar/l3grid/settling_eval.go). `SettlingMetrics` struct tracks CoverageRate, SpreadDeltaRate, RegionStability, MeanConfidence, EvaluatedAt, and FrameNumber. `BackgroundManager.EvaluateSettling()` computes the metrics; `SettlingMetrics.IsConverged()` checks them against `SettlingThresholds`.
 
 #### Test harness tool
 
-Create `cmd/tools/settling-eval/main.go`:
+Create [cmd/tools/settling-eval/main.go](../../../cmd/tools/settling-eval/main.go):
 
-> **Source:** `cmd/tools/settling-eval/main.go`. `SettlingEvaluation` struct with fields: PcapFile, SensorID, TotalFrames, MetricsHistory (per-frame convergence snapshots), RecommendedFrame, RecommendedTime, and Rationale. The tool processes all frames with settling suppressed, computes convergence metrics at each, and reports the optimal settling point.
+> **Source:** [cmd/tools/settling-eval/main.go](../../../cmd/tools/settling-eval/main.go). `SettlingEvaluation` struct with fields: PcapFile, SensorID, TotalFrames, MetricsHistory (per-frame convergence snapshots), RecommendedFrame, RecommendedTime, and Rationale. The tool processes all frames with settling suppressed, computes convergence metrics at each, and reports the optimal settling point.
 
 #### Dynamic settling mode
 
@@ -177,7 +177,7 @@ Implement both options in phases:
 - **Automatic Persistence**: Regions saved when settling completes, independent of periodic background flusher
 - **Lock-Safe**: Uses `sceneSignatureUnlocked()` for use within locked sections
 
-**DB Methods** (`internal/db/db.go`):
+**DB Methods** ([internal/db/db.go](../../../internal/db/db.go)):
 
 - `InsertRegionSnapshot()`
 - `GetRegionSnapshotByGridHash()`
@@ -192,7 +192,7 @@ Implement both options in phases:
 **Implementation**:
 
 1. ✅ Create `settling-eval` CLI tool
-   - Location: `cmd/tools/settling-eval/main.go`
+   - Location: [cmd/tools/settling-eval/main.go](../../../cmd/tools/settling-eval/main.go)
    - Connects to running server via `/api/lidar/settling_eval` endpoint
    - Polls convergence metrics at configurable interval
    - Outputs JSON evaluation with recommended `WarmupMinFrames`
@@ -203,7 +203,7 @@ Implement both options in phases:
    - `SettlingThresholds` struct with `DefaultSettlingThresholds()`
    - `EvaluateSettling(frameNumber)` method on `BackgroundManager`
    - `IsConverged(thresholds)` method on `SettlingMetrics`
-   - Location: `internal/lidar/l3grid/settling_eval.go`
+   - Location: [internal/lidar/l3grid/settling_eval.go](../../../internal/lidar/l3grid/settling_eval.go)
 
 3. ✅ Generate recommendations for `WarmupMinFrames` tuning
    - CLI outputs recommended frame count and duration
@@ -313,8 +313,8 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 
 - `internal/lidar/background.go`: `BackgroundManager`, `BackgroundGrid`, `RegionManager`
 - `internal/lidar/config.go`: `BackgroundConfig`, settling parameters
-- `internal/db/db.go`: `GetLatestBgSnapshot`, `InsertBgSnapshot`
-- `cmd/tools/pcap-analyse/main.go`: PCAP analysis tool
+- [internal/db/db.go](../../../internal/db/db.go): `GetLatestBgSnapshot`, `InsertBgSnapshot`
+- [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go): PCAP analysis tool
 
 ## Appendix: current settling parameters
 

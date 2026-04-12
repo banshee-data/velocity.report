@@ -14,10 +14,10 @@ vs wall-time boundary before multi-sensor support lands.
 
 ## Problem statement
 
-The `timeutil.Clock` interface (`internal/timeutil/clock.go`) provides a
+The `timeutil.Clock` interface ([internal/timeutil/clock.go](../../internal/timeutil/clock.go)) provides a
 complete clock abstraction with `RealClock`, `MockClock`, `MockTimer`,
 and `MockTicker`. As of March 2026 it is used in only a handful of test
-call sites (`internal/lidar/logutil/tagged_logger_test.go`). Meanwhile,
+call sites ([internal/lidar/logutil/tagged_logger_test.go](../../internal/lidar/logutil/tagged_logger_test.go)). Meanwhile,
 the majority of non-test call sites use `time.Now()` directly, and key
 subsystems (pipeline throttle, frame cleanup, replay pacing, benchmark
 timing) are untestable without waiting for real wall-clock intervals.
@@ -232,7 +232,7 @@ problem and scope; this phase provides the `Clock`-based
 mechanism.
 
 - [ ] **B1.** Add `testutil.WaitFor(t, condition, timeout)`
-      polling helper to `internal/testutil/`.
+      polling helper to [internal/testutil/](../../internal/testutil).
 - [ ] **B2.** Audit all `time.Sleep` calls in `_test.go` files.
       Replace with `MockClock.Advance()` where a `Clock` is
       available, or `WaitFor` polling where it is not.
@@ -241,7 +241,7 @@ mechanism.
       above): verify replay tests no longer depend on wall time.
 - [ ] **B4.** Document the `MockClock.Advance()` test pattern
       and `WaitFor` helper in a short section in
-      `docs/platform/architecture/structured-logging.md` or a
+      [docs/platform/architecture/structured-logging.md](../platform/architecture/structured-logging.md) or a
       dedicated test-patterns doc.
 
 ### Phase c: full migration (future work)
@@ -258,9 +258,9 @@ testability benefits justify the review surface.
       handling of `TimestampMode` interactions.
 - [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
-- [ ] **C4.** `cmd/radar/` and `cmd/tools/`: startup/CLI
+- [ ] **C4.** [cmd/radar/](../../cmd/radar) and [cmd/tools/](../../cmd/tools): startup/CLI
       timestamps. Low testability benefit.
-- [ ] **C5.** `internal/db/`: DB audit timestamps. Low
+- [ ] **C5.** [internal/db/](../../internal/db): DB audit timestamps. Low
       testability benefit but may be useful for deterministic
       test snapshots.
 

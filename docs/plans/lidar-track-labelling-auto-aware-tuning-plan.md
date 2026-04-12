@@ -47,7 +47,7 @@ The end goal is a `lidar_transits` table (analogous to `radar_data_transits`) fo
 - `TransitStore`: insert/query for `lidar_transits`, REST API in `transit_api.go`
 - Sweep runner replays PCAPs, applies params, collects metrics: no ground truth comparison yet
 
-### Svelte tracks UI (`web/src/routes/lidar/tracks/`)
+### Svelte tracks UI ([web/src/routes/lidar/tracks/](../../web/src/routes/lidar/tracks))
 
 - Canvas map + SVG timeline + TrackList sidebar
 - Playback with scrubbing (10 Hz)
@@ -181,11 +181,11 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 **Files:**
 
 - `internal/lidar/monitor/webserver.go` (route registration)
-- `internal/api/lidar_labels.go` (label struct + handlers, add enum validation)
+- [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go) (label struct + handlers, add enum validation)
 - `internal/lidar/analysis_run.go` (run track API handlers, add quality_label support)
 - `internal/db/migrations/000017_*.up.sql` (quality_label column)
 - `internal/db/migrations/000018_*.up.sql` (scene_id, source_file on lidar_labels)
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/LabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/LabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/LabelAPIClient.swift)
 
 ### Phase 2: scene management
 
@@ -209,7 +209,7 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 - `internal/lidar/monitor/scene_api.go` (new: REST handlers)
 - `internal/lidar/monitor/webserver.go` (route registration)
 - `internal/db/migrations/000019_*.up.sql`
-- `internal/lidar/sweep/runner.go` (create runs per combo)
+- [internal/lidar/sweep/runner.go](../../internal/lidar/sweep/runner.go) (create runs per combo)
 
 ### Phase 3: Svelte track labelling UI
 
@@ -236,12 +236,12 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 **Files:**
 
-- `web/src/routes/lidar/tracks/+page.svelte` (scene + run selectors)
-- `web/src/lib/components/lidar/TrackList.svelte` (label controls)
-- `web/src/lib/components/lidar/TimelinePane.svelte` (linked track connectors)
-- `web/src/lib/components/lidar/MapPane.svelte` (label colour coding)
-- `web/src/lib/api.ts` (new API calls)
-- `web/src/lib/types/lidar.ts` (label types)
+- [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte) (scene + run selectors)
+- [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte) (label controls)
+- [web/src/lib/components/lidar/TimelinePane.svelte](../../web/src/lib/components/lidar/TimelinePane.svelte) (linked track connectors)
+- [web/src/lib/components/lidar/MapPane.svelte](../../web/src/lib/components/lidar/MapPane.svelte) (label colour coding)
+- [web/src/lib/api.ts](../../web/src/lib/api.ts) (new API calls)
+- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) (label types)
 
 ### Phase 4: ground truth evaluation engine
 
@@ -290,8 +290,8 @@ Populated from confirmed `lidar_tracks` that pass `TrainingDataFilter` threshold
 
 **Files:**
 
-- `internal/lidar/sweep/auto.go` (scene_id, ground truth objective)
-- `internal/lidar/sweep/runner.go` (analysis run creation, track clearing)
+- [internal/lidar/sweep/auto.go](../../internal/lidar/sweep/auto.go) (scene_id, ground truth objective)
+- [internal/lidar/sweep/runner.go](../../internal/lidar/sweep/runner.go) (analysis run creation, track clearing)
 - `internal/lidar/monitor/html/sweep_dashboard.html` (ground truth UI)
 - `internal/lidar/scene_store.go` (save optimal params)
 

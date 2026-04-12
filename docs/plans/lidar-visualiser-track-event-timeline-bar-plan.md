@@ -124,9 +124,9 @@ Response shape:
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 
 UI additions:
 
@@ -140,9 +140,9 @@ UI additions:
 
 Files:
 
-- `web/src/lib/components/lidar/TimelinePane.svelte`
-- `web/src/lib/api.ts`
-- `web/src/lib/types/lidar.ts`
+- [web/src/lib/components/lidar/TimelinePane.svelte](../../web/src/lib/components/lidar/TimelinePane.svelte)
+- [web/src/lib/api.ts](../../web/src/lib/api.ts)
+- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
 
 Add event lane and event-filter controls.
 

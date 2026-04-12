@@ -44,7 +44,7 @@ Current architecture supports this partially (results + metrics + dashboard), bu
 - Better separation between feature engineering, scoring rules, and optimisation strategy.
 - Stronger experiment reproducibility contracts.
 
-### 1.3 HINT plan status assessment (`docs/lidar/operations/hint-sweep-mode.md`)
+### 1.3 HINT plan status assessment ([docs/lidar/operations/hint-sweep-mode.md](../operations/hint-sweep-mode.md))
 
 The HINT plan is comprehensive and implementation-ready at design level. It already specifies:
 

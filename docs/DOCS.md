@@ -33,30 +33,30 @@ For project-wide numeric constants and default thresholds, see
 - Capability docs live under the owning root hub (`lidar`, `radar`).
   - Architecture and design specifications live under `<hub>/architecture/`.
   - Operational guides and implementation status live under `<hub>/operations/`.
-- UI/client surface docs for web/mac/pdf live under `docs/ui/`.
-- `docs/plans/` contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
+- UI/client surface docs for web/mac/pdf live under [docs/ui/](ui).
+- [docs/plans/](plans) contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
 - Data science and maths references live under `data/`.
-  - Specification-grade structures live under `data/structures/`.
-  - Maths foundations live under `data/maths/` with proposals in `data/maths/proposals/`.
-  - Exploratory analyses and revisit-worthy deep dives live under `data/explore/`.
+  - Specification-grade structures live under [data/structures/](../data/structures).
+  - Maths foundations live under [data/maths/](../data/maths) with proposals in [data/maths/proposals/](../data/maths/proposals).
+  - Exploratory analyses and revisit-worthy deep dives live under [data/explore/](../data/explore).
 
 ## Naming conventions
 
 Default naming is **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
 Documented exceptions apply for canonical `UPPER_CASE.md` files and dated maths proposals.
 
-| Rule                    | Scope                                  | Example                                               |
-| ----------------------- | -------------------------------------- | ----------------------------------------------------- |
-| No underscores          | everywhere                             | `foreground-tracking.md` not `foreground_tracking.md` |
-| No dates in filenames   | general docs                           | use git history for chronology                        |
-| UPPER_CASE filenames    | `data/structures/`, project-level docs | `VRLOG_FORMAT.md`, `README.md`, `BACKLOG.md`          |
-| Date prefix `YYYYMMDD-` | `data/maths/proposals/` only           | `20260222-geometry-coherent-tracking.md`              |
+| Rule                    | Scope                                                      | Example                                                           |
+| ----------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| No underscores          | everywhere                                                 | `foreground-tracking.md` not `foreground_tracking.md`             |
+| No dates in filenames   | general docs                                               | use git history for chronology                                    |
+| UPPER_CASE filenames    | [data/structures/](../data/structures), project-level docs | `VRLOG_FORMAT.md`, [README.md](DOCS.md), [BACKLOG.md](BACKLOG.md) |
+| Date prefix `YYYYMMDD-` | [data/maths/proposals/](../data/maths/proposals) only      | `20260222-geometry-coherent-tracking.md`                          |
 
 ### Path patterns
 
-- `data/structures/`: `UPPER_CASE.md` for specification-grade content.
-- `docs/plans/`: `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
-- `data/maths/proposals/`: `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
+- [data/structures/](../data/structures): `UPPER_CASE.md` for specification-grade content.
+- [docs/plans/](plans): `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
+- [data/maths/proposals/](../data/maths/proposals): `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
 - `<hub>/architecture/`: `<topic>.md`
 - `<hub>/operations/`: `<topic>.md`
 

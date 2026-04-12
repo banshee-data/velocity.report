@@ -17,7 +17,7 @@ Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (
 
 ### 1.1 Web dashboard uses non-canonical palette: critical
 
-**Location:** `web/src/routes/+page.svelte` lines 49–57
+**Location:** [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) lines 49–57
 
 The dashboard defines two competing palettes, neither matching DESIGN.md §3.3:
 
@@ -37,13 +37,13 @@ cRange={['#2563eb', '#16a34a', '#f59e0b', '#ef4444']}
 
 DESIGN.md explicitly flags this as non-compliant and requires migration.
 
-**Action:** Replace both palettes with the canonical values from DESIGN.md §3.3. Extract the palette to a shared constant (e.g. `web/src/lib/palette.ts`) so that any future chart component can import it.
+**Action:** Replace both palettes with the canonical values from DESIGN.md §3.3. Extract the palette to a shared constant (e.g. [web/src/lib/palette.ts](../../web/src/lib/palette.ts)) so that any future chart component can import it.
 
 **Effort:** 1–2 hours
 
 ### 1.2 macOS visualiser has no percentile palette: low
 
-**Location:** `tools/visualiser-macos/VelocityVisualiser/`
+**Location:** [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
 
 The macOS visualiser uses system/semantic colours only and currently renders no percentile metric charts. No palette violation exists today, but there is no shared palette constant prepared for when percentile sparklines are added.
 
@@ -55,13 +55,13 @@ The macOS visualiser uses system/semantic colours only and currently renders no 
 
 **Location:** Three independent definitions exist:
 
-- Python: `tools/pdf-generator/pdf_generator/core/config_manager.py` (canonical)
-- Web: `web/src/routes/+page.svelte` (non-compliant)
+- Python: [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) (canonical)
+- Web: [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) (non-compliant)
 - DESIGN.md §3.3 (specification)
 
 There is no machine-readable single-source file that all platforms import or generate from.
 
-**Action:** Create `web/src/lib/palette.ts` exporting the canonical palette. Document in DESIGN.md that Python's `config_manager.py` and the new `palette.ts` are the two authoritative sources. Consider a future shared JSON/YAML palette that both stacks can derive from.
+**Action:** Create [web/src/lib/palette.ts](../../web/src/lib/palette.ts) exporting the canonical palette. Document in DESIGN.md that Python's `config_manager.py` and the new `palette.ts` are the two authoritative sources. Consider a future shared JSON/YAML palette that both stacks can derive from.
 
 **Effort:** 2–4 hours
 
@@ -71,7 +71,7 @@ There is no machine-readable single-source file that all platforms import or gen
 
 ### 2.1 No shared standard classes exist: high
 
-**Location:** `web/src/routes/app.css` (20 lines: Tailwind imports, 2 CSS variables, 1 SVG rule)
+**Location:** [web/src/routes/app.css](../../web/src/routes/app.css) (20 lines: Tailwind imports, 2 CSS variables, 1 SVG rule)
 
 DESIGN.md §5.5 requires extracting repeated class bundles into named standard classes such as `vr-page`, `vr-toolbar`, `vr-control-row`, `vr-stat-grid`, and `vr-chart-card`. None of these exist.
 
@@ -88,7 +88,7 @@ Current state:
 - `vr-stat-grid` (responsive stat cards grid)
 - `vr-chart-card` (chart container with border and height)
 
-Add these to `web/src/routes/app.css` or a new `web/src/lib/styles/standards.css` imported from `app.css`.
+Add these to [web/src/routes/app.css](../../web/src/routes/app.css) or a new `web/src/lib/styles/standards.css` imported from `app.css`.
 
 **Effort:** 1–2 days
 
@@ -108,7 +108,7 @@ DESIGN.md §5.7 specifies that at ≥3000 px the UI should centre an internal co
 
 ### 3.1 Chart empty-state placeholder missing: critical
 
-**Location:** `web/src/routes/+page.svelte`
+**Location:** [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte)
 
 DESIGN.md §4.1 requires explicit loading/empty/error states for charts. The dashboard conditionally renders the chart only when `chartData.length > 0` but shows **no empty-state placeholder** when there is no data. Users see blank space.
 
@@ -118,7 +118,7 @@ DESIGN.md §4.1 requires explicit loading/empty/error states for charts. The das
 
 ### 3.2 Legend order not enforced in chart component: medium
 
-**Location:** `web/src/routes/+page.svelte` `cDomain` definition (currently around lines 495–496, after chart state)
+**Location:** [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) `cDomain` definition (currently around lines 495–496, after chart state)
 
 DESIGN.md §4.1 requires legend order `p50, p85, p98, max, then count/auxiliary`. The current `cDomain` array follows this order, but there is no programmatic enforcement or shared constant.
 
@@ -150,7 +150,7 @@ All route files import from `svelte-ux` for UI primitives (Button, Card, SelectF
 
 ### 4.2 LayerChart usage limited to dashboard: medium
 
-**Location:** `web/src/routes/+page.svelte`
+**Location:** [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte)
 
 LayerChart is only used on the main dashboard. The LiDAR routes (`tracks`, `scenes`, `runs`, `sweeps`) do not yet render charts. This is not a violation, but as charts are added to LiDAR routes, the chart rendering policy (DESIGN.md §5.4) must be followed.
 
@@ -179,7 +179,7 @@ The modern workspace routes (`tracks`, `scenes`, `runs`, `sweeps`) implement:
 
 ### 5.2 Dashboard lacks explicit context header: low
 
-**Location:** `web/src/routes/+page.svelte`
+**Location:** [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte)
 
 The main dashboard does not show the current site name, data range, or sensor context prominently. Users must infer context from filter controls.
 
@@ -213,7 +213,7 @@ Combines HTTP handler registration, PCAP replay control, live UDP listening, ECh
 
 **Location:** `internal/lidar/background.go`
 
-Mixes persistence, export, drift detection, and spatial region management with core grid processing. This is flagged in the layer alignment review (Future Work item 14). The layer migration plan targets moving this into `l3grid/`, but the file currently resides in the parent `internal/lidar/` package.
+Mixes persistence, export, drift detection, and spatial region management with core grid processing. This is flagged in the layer alignment review (Future Work item 14). The layer migration plan targets moving this into `l3grid/`, but the file currently resides in the parent [internal/lidar/](../../internal/lidar) package.
 
 **Action:** Split into:
 
@@ -272,7 +272,7 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 ### 7.5 Code coverage thresholds are informational only: low
 
-`codecov.yml` sets a 1% threshold, effectively disabling coverage gates. The web Jest config has 90% thresholds but only for `web/src/lib/`.
+[codecov.yml](../../codecov.yml) sets a 1% threshold, effectively disabling coverage gates. The web Jest config has 90% thresholds but only for [web/src/lib/](../../web/src/lib).
 
 **Action:** After improving test coverage, increase codecov thresholds to meaningful levels (e.g. 60–70% for Go, 80% for web lib, 50% for Python).
 
@@ -284,9 +284,9 @@ No Cypress, Playwright, or other E2E framework is configured. API integration is
 
 ### 8.1 DESIGN.md not referenced from cONTRIBUTING.md or rEADME.md: high
 
-Neither `CONTRIBUTING.md` nor `README.md` mentions `DESIGN.md`. Contributors can submit UI PRs without awareness of the design contract.
+Neither [CONTRIBUTING.md](../../CONTRIBUTING.md) nor [README.md](DESIGN.md) mentions [DESIGN.md](DESIGN.md). Contributors can submit UI PRs without awareness of the design contract.
 
-**Action:** Add a "Design Language" section to `CONTRIBUTING.md` that references DESIGN.md and summarises the PR checklist (DESIGN.md §9). Add a link to DESIGN.md in the README's documentation section.
+**Action:** Add a "Design Language" section to [CONTRIBUTING.md](../../CONTRIBUTING.md) that references DESIGN.md and summarises the PR checklist (DESIGN.md §9). Add a link to DESIGN.md in the README's documentation section.
 
 **Effort:** 30 minutes
 
@@ -294,13 +294,13 @@ Neither `CONTRIBUTING.md` nor `README.md` mentions `DESIGN.md`. Contributors can
 
 DESIGN.md §9 defines a detailed UI/chart PR checklist, but this is not included in the GitHub PR template.
 
-**Action:** Create or update `.github/PULL_REQUEST_TEMPLATE.md` to include the DESIGN.md §9 checklist as a default section for UI/chart PRs.
+**Action:** Create or update [.github/PULL_REQUEST_TEMPLATE.md](../../.github/PULL_REQUEST_TEMPLATE.md) to include the DESIGN.md §9 checklist as a default section for UI/chart PRs.
 
 **Effort:** 30 minutes
 
 ### 8.3 Frontend consolidation plan lacks palette alignment requirement: low
 
-**Location:** `docs/plans/web-frontend-consolidation-plan.md`
+**Location:** [docs/plans/web-frontend-consolidation-plan.md](../plans/web-frontend-consolidation-plan.md)
 
 The plan details the Phase 3 ECharts-to-LayerChart migration but does not explicitly require palette alignment with DESIGN.md §3.3 during migration.
 
@@ -322,7 +322,7 @@ DESIGN.md §4.1 requires 6–10 visible X-axis labels and 4–6 Y-axis labels wi
 
 ### 9.2 Time formatting does not verify timezone respect: low
 
-DESIGN.md §4.1 requires time formatting to respect selected timezone. The web frontend has timezone stores (`web/src/lib/stores/timezone.ts`) with tests, but the chart axis labels are not verified to use the selected timezone.
+DESIGN.md §4.1 requires time formatting to respect selected timezone. The web frontend has timezone stores ([web/src/lib/stores/timezone.ts](../../web/src/lib/stores/timezone.ts)) with tests, but the chart axis labels are not verified to use the selected timezone.
 
 **Action:** Add a unit test verifying that chart axis labels format timestamps in the user-selected timezone, not UTC or local browser timezone.
 
@@ -366,9 +366,9 @@ Both `github.com/mattn/go-sqlite3` (CGO-based) and `modernc.org/sqlite` (pure Go
 
 ### 11.2 Python version inconsistency: low
 
-`ARCHITECTURE.md` states Python 3.9+, `CONTRIBUTING.md` states Python 3.11+, `tox.ini` targets Python 3.12, and `requirements.txt` pins modern versions that may not support 3.9.
+[ARCHITECTURE.md](../../ARCHITECTURE.md) states Python 3.9+, [CONTRIBUTING.md](../../CONTRIBUTING.md) states Python 3.11+, [tox.ini](../../tox.ini) targets Python 3.12, and [requirements.txt](../../requirements.txt) pins modern versions that may not support 3.9.
 
-**Action:** Align all documentation to the actual minimum version (3.12 per `tox.ini`). Update ARCHITECTURE.md and CONTRIBUTING.md accordingly.
+**Action:** Align all documentation to the actual minimum version (3.12 per [tox.ini](../../tox.ini)). Update ARCHITECTURE.md and CONTRIBUTING.md accordingly.
 
 **Effort:** 15 minutes
 

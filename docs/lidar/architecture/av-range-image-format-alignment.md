@@ -155,7 +155,7 @@ Create `internal/lidar/l2frames/range_image.go` with a `RangeImage` struct: sens
 
 ### Phase 3: frame builder updates
 
-Add `ToRangeImages()` to `LiDARFrame` in `internal/lidar/l2frames/frame_builder.go`. Maps each point's channel to a row and azimuth to a column (0.2° bins, 1800 columns). Returns two `RangeImage` instances: one per return. AV convention: column 0 = rear (−X axis), centre = front (+X). NLZ always −1.
+Add `ToRangeImages()` to `LiDARFrame` in [internal/lidar/l2frames/frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go). Maps each point's channel to a row and azimuth to a column (0.2° bins, 1800 columns). Returns two `RangeImage` instances: one per return. AV convention: column 0 = rear (−X axis), centre = front (+X). NLZ always −1.
 
 ### Phase 4: web configuration
 
@@ -292,4 +292,4 @@ FrameBuilder.AddPointsPolar() → Accumulate into LiDARFrame with return trackin
 1. Open AV Dataset LiDAR specification (dual returns, elongation, range images)
 2. [Hesai Pandar40P User Manual](https://www.hesaitech.com/wp-content/uploads/2025/04/Pandar40P_User_Manual_402-en-250410.pdf)
 3. Internal: `internal/lidar/parse/extract.go` - Current parser implementation
-4. Internal: `data/structures/HESAI_PACKET_FORMAT.md` - Packet structure analysis
+4. Internal: [data/structures/HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md) - Packet structure analysis

@@ -12,7 +12,7 @@ This specification extends the ground-plane tiled-grid model into a polygon-base
 
 ### From tiled grid to vector polygons
 
-The existing ground plane specification (`ground-plane-extraction.md`) models the road surface as a **uniform tiled grid**: a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
+The existing ground plane specification ([ground-plane-extraction.md](ground-plane-extraction.md)) models the road surface as a **uniform tiled grid**: a mosaic of 1 m × 1 m tiles, each with an independent plane equation. This approach is efficient for flat-ish road surfaces but has inherent limitations when extended to describe the full observable scene:
 
 1. **Tile uniformity wastes storage on homogeneous regions**: A straight, flat stretch of road produces hundreds of nearly-identical 1 m tiles where a single polygon would suffice.
 2. **Buildings and walls are vertical surfaces**: Tiles are inherently horizontal (Z-up plane fits). Vertical structures require a fundamentally different representation: wall-plane parameters or bounding polygons with corner coordinates.
@@ -108,7 +108,7 @@ Structures are vertical surfaces observed as reflective returns from building fa
 - **Vertical plane equation**: For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
 - **Height range**: [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
 
-> **Source:** `StructureFeature` and `WallSegment` structs in `internal/lidar/` (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
+> **Source:** `StructureFeature` and `WallSegment` structs in [internal/lidar/](../../../internal/lidar) (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
 **Why not store full 3D meshes?** We don't need photorealistic building models. A few wall planes with corner coordinates capture the coarse structure visible to LiDAR, sufficient for:
 
@@ -120,7 +120,7 @@ Structures are vertical surfaces observed as reflective returns from building fa
 
 Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse, scattered returns. Model them as **approximate bounding volumes**:
 
-> **Source:** `VolumeFeature` and `BoundingKind` in `internal/lidar/` (when implemented). Fields: BoundingType (OBB/ConvexHull/Sphere), Centre, Dimensions, Orientation, HullVertices, PointCount, PointDensity, ApproxVolume, Class (tree/hedge/sign_cluster/awning/unknown), LOD, Confidence.
+> **Source:** `VolumeFeature` and `BoundingKind` in [internal/lidar/](../../../internal/lidar) (when implemented). Fields: BoundingType (OBB/ConvexHull/Sphere), Centre, Dimensions, Orientation, HullVertices, PointCount, PointDensity, ApproxVolume, Class (tree/hedge/sign_cluster/awning/unknown), LOD, Confidence.
 
 **Point density** is the distinguishing attribute: a tree canopy has high spatial extent but low density (many gaps between returns), while a solid pole has small extent but high density. This attribute helps L6 classification without storing raw point clouds.
 
@@ -213,7 +213,7 @@ LOD 0: Road_Segment_Main_Street
 
 ### LOD data model
 
-> **Source:** `SceneFeature`, `FeatureID`, and `FeatureClass` in `internal/lidar/` (when implemented). `SceneFeature` wraps ID, Class (Ground/Structure/Volume), LOD (0–3), ParentID, and exactly one of `*GroundFeature`, `*StructureFeature`, `*VolumeFeature`. Common metadata: PointCount, Confidence, LastUpdatedNanos, Settled.
+> **Source:** `SceneFeature`, `FeatureID`, and `FeatureClass` in [internal/lidar/](../../../internal/lidar) (when implemented). `SceneFeature` wraps ID, Class (Ground/Structure/Volume), LOD (0–3), ParentID, and exactly one of `*GroundFeature`, `*StructureFeature`, `*VolumeFeature`. Common metadata: PointCount, Confidence, LastUpdatedNanos, Settled.
 
 ---
 
@@ -315,7 +315,7 @@ This ensures coarse polygons are extremely compact (4–6 vertices for a road bl
 
 ### 5.1 In-Memory representation
 
-> **Source:** `VectorSceneMap` struct in `internal/lidar/` (when implemented). Holds `map[FeatureID]*SceneFeature` with RWMutex, spatial index (QuadTree or R-tree), per-LOD feature ID lists, and per-class counters.
+> **Source:** `VectorSceneMap` struct in [internal/lidar/](../../../internal/lidar) (when implemented). Holds `map[FeatureID]*SceneFeature` with RWMutex, spatial index (QuadTree or R-tree), per-LOD feature ID lists, and per-class counters.
 
 ### 5.2 Storage budget
 
@@ -344,7 +344,7 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 
 ### 5.3 SQLite persistence schema
 
-> **Source:** Schema in `internal/db/migrations/` (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
+> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
 
 ### 5.4 Export formats
 
@@ -449,7 +449,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 The vector scene map publishes a query interface that extends `GroundSurface`:
 
-> **Source:** `SceneSurface` interface in `internal/lidar/` (when implemented). Embeds `GroundSurface` and adds: `FeaturesAt(x, y, maxLOD)`, `GroundPolygonAt(x, y, maxLOD)`, `NearestStructure(x, y, radius)`, `VolumesInRadius(x, y, radius)`, `FeaturesInBBox(xMin, yMin, xMax, yMax, maxLOD)`.
+> **Source:** `SceneSurface` interface in [internal/lidar/](../../../internal/lidar) (when implemented). Embeds `GroundSurface` and adds: `FeaturesAt(x, y, maxLOD)`, `GroundPolygonAt(x, y, maxLOD)`, `NearestStructure(x, y, radius)`, `VolumesInRadius(x, y, radius)`, `FeaturesInBBox(xMin, yMin, xMax, yMax, maxLOD)`.
 
 ### 7.2 LOD fallback semantics
 
@@ -541,7 +541,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 
 ### Default parameters
 
-> **Source:** `VectorSceneParams` struct in `internal/lidar/` (when implemented). Key defaults: merge angle 2°, merge Z-offset 3 cm, LOD 0 min area 50 m², LOD 1 min area 5 m², refinement curvature 5°, refinement Z-step 10 cm, min confidence 0.70, Douglas-Peucker tolerances [2.0, 0.5, 0.1, 0.02] m per LOD, structure min height 1.0 m, volume min persistence 30 s.
+> **Source:** `VectorSceneParams` struct in [internal/lidar/](../../../internal/lidar) (when implemented). Key defaults: merge angle 2°, merge Z-offset 3 cm, LOD 0 min area 50 m², LOD 1 min area 5 m², refinement curvature 5°, refinement Z-step 10 cm, min confidence 0.70, Douglas-Peucker tolerances [2.0, 0.5, 0.1, 0.02] m per LOD, structure min height 1.0 m, volume min persistence 30 s.
 
 ---
 
@@ -649,7 +649,7 @@ Implementation notes:
 
 #### Scan-Derived OSM update proposal tooling (contribute back upstream)
 
-The V2 OSM write-back workflow from `ground-plane-extraction.md`
+The V2 OSM write-back workflow from [ground-plane-extraction.md](ground-plane-extraction.md)
 should be extended for S3DB-aware building updates. The key design requirement
 is **human-reviewed proposals by default** (not autonomous uploads).
 

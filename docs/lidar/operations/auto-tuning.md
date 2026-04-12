@@ -8,14 +8,14 @@ Covers tunable parameters, collected metrics, scoring objectives, operational wo
 
 **Implementation files:**
 
-| Component               | File                                               |
-| ----------------------- | -------------------------------------------------- |
-| AutoTuner               | `internal/lidar/sweep/auto.go`                     |
-| Runner + Settle Mode    | `internal/lidar/sweep/runner.go`                   |
-| Multi-objective Scoring | `internal/lidar/sweep/objective.go`                |
-| Sampler                 | `internal/lidar/sweep/sampler.go`                  |
-| Parameter Schema (JS)   | `internal/lidar/monitor/assets/sweep_dashboard.js` |
-| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html` |
+| Component               | File                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| AutoTuner               | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)           |
+| Runner + Settle Mode    | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)       |
+| Multi-objective Scoring | [internal/lidar/sweep/objective.go](../../../internal/lidar/sweep/objective.go) |
+| Sampler                 | [internal/lidar/sweep/sampler.go](../../../internal/lidar/sweep/sampler.go)     |
+| Parameter Schema (JS)   | `internal/lidar/monitor/assets/sweep_dashboard.js`                              |
+| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html`                              |
 
 **Related documentation:**
 
@@ -617,6 +617,6 @@ When interpreting auto-tuning results, keep in mind that the recommended values 
 
 ## Changelog
 
-- **2026-02-10**: Consolidated from `auto-tuning.md`, `label-aware-auto-tuning-implementation.md`, and `label-aware-auto-tuning-usage.md` into unified guide
+- **2026-02-10**: Consolidated from [auto-tuning.md](auto-tuning.md), `label-aware-auto-tuning-implementation.md`, and `label-aware-auto-tuning-usage.md` into unified guide
 - **2026-02**: Phase 5 (ground truth evaluation) implemented
 - **2026-02**: Phases 1–2 (iterative grid narrowing, multi-objective scoring) implemented

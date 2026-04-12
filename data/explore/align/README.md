@@ -31,4 +31,4 @@ python cctv.py
 
 ## Modern Python project structure
 
-This project uses `pyproject.toml` (PEP 621) for dependency management - the modern standard that replaces `requirements.txt` and `setup.py`.
+This project uses [pyproject.toml](pyproject.toml) (PEP 621) for dependency management - the modern standard that replaces [requirements.txt](../../../requirements.txt) and `setup.py`.

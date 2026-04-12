@@ -1,6 +1,6 @@
 # Canonical plan graduation
 
-How `docs/plans/` relates to the hub documentation tree, and the lifecycle by which
+How [docs/plans/](../../plans) relates to the hub documentation tree, and the lifecycle by which
 plan files graduate into stable hub docs.
 
 ## Problem
@@ -21,22 +21,22 @@ questions quickly:
 
 ## Document roles
 
-| Role                 | Purpose                                              | Path                     |
-| -------------------- | ---------------------------------------------------- | ------------------------ |
-| Canonical hub doc    | Stable architecture, implementation record, or model | Hub paths below          |
-| Active plan          | Temporary sequencing, phases, checklists             | `docs/plans/*.md`        |
-| Graduated plan alias | Preserve legacy URLs after consolidation             | Symlink in `docs/plans/` |
+| Role                 | Purpose                                              | Path                                  |
+| -------------------- | ---------------------------------------------------- | ------------------------------------- |
+| Canonical hub doc    | Stable architecture, implementation record, or model | Hub paths below                       |
+| Active plan          | Temporary sequencing, phases, checklists             | `docs/plans/*.md`                     |
+| Graduated plan alias | Preserve legacy URLs after consolidation             | Symlink in [docs/plans/](../../plans) |
 
 ## Hub structure
 
 Four mutually exclusive hubs, chosen by domain-first sorting:
 
-| Hub              | Scope                                   |
-| ---------------- | --------------------------------------- |
-| `docs/lidar/`    | LiDAR pipeline, clustering, QC          |
-| `docs/radar/`    | Radar pipeline, time-series             |
-| `docs/ui/`       | Web frontend, macOS app, PDF generation |
-| `docs/platform/` | Go packages, deploy, DB, tooling        |
+| Hub                        | Scope                                   |
+| -------------------------- | --------------------------------------- |
+| [docs/lidar/](../../lidar) | LiDAR pipeline, clustering, QC          |
+| [docs/radar/](../../radar) | Radar pipeline, time-series             |
+| [docs/ui/](../../ui)       | Web frontend, macOS app, PDF generation |
+| [docs/platform/](..)       | Go packages, deploy, DB, tooling        |
 
 Additional prefixes `config/` and `data/` are allowed for docs that live beside
 the artefacts they describe.
@@ -66,7 +66,7 @@ active plan.
 ## Lifecycle
 
 Three phases: incubation, consolidation, graduation; described in the
-`/plan-graduation` skill (`.claude/skills/plan-graduation/SKILL.md`).
+`/plan-graduation` skill ([.claude/skills/plan-graduation/SKILL.md](../../../.claude/skills/plan-graduation/SKILL.md)).
 
 **Two-PR rule:** A plan must be marked Complete on `main` before it can be
 replaced with a symlink. Never complete a plan and create its symlink on the
@@ -76,15 +76,15 @@ the final plan state in the commit log.
 
 ## Enforcement
 
-`scripts/check-plan-canonical-links.py` enforces 8 gates in `--check` mode
+[scripts/check-plan-canonical-links.py](../../../scripts/check-plan-canonical-links.py) enforces 8 gates in `--check` mode
 (run via `make check-plan-hygiene`):
 
 | #   | Gate                                                        |
 | --- | ----------------------------------------------------------- |
 | 1   | Non-symlink plan missing `- **Canonical:**` link            |
-| 2   | `Canonical` target points under `docs/plans/`               |
+| 2   | `Canonical` target points under [docs/plans/](../../plans)  |
 | 3   | `Canonical` target points outside repo or to a missing file |
-| 5   | Symlink resolves under `docs/plans/`                        |
+| 5   | Symlink resolves under [docs/plans/](../../plans)           |
 | 6   | Symlink resolves outside the repository                     |
 | 7   | Symlink resolves to a missing target                        |
 | 8   | `Canonical` link appears more than once in the same header  |

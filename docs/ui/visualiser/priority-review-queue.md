@@ -1,6 +1,6 @@
 # Priority review queue
 
-- **Source plan:** `docs/plans/lidar-visualiser-priority-review-queue-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-priority-review-queue-plan.md](../../plans/lidar-visualiser-priority-review-queue-plan.md)
 
 Priority-ranked queue of tracks requiring human review, ordered by composite scoring.
 

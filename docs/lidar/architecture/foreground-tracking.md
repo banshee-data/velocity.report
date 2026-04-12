@@ -609,28 +609,28 @@ Target: **<100ms end-to-end** at 10 Hz (10,000-20,000 points per frame)
 
 ### Implementation files
 
-| Phase   | File                                                       | Description                                      |
-| ------- | ---------------------------------------------------------- | ------------------------------------------------ |
-| 2.9     | `internal/lidar/foreground.go`                             | Foreground mask generation and extraction        |
-| 2.9     | `internal/lidar/foreground_test.go`                        | Unit tests for foreground extraction             |
-| 3.0-3.1 | `internal/lidar/clustering.go`                             | Transform and DBSCAN clustering                  |
-| 3.0-3.1 | `internal/lidar/clustering_test.go`                        | Unit tests for transform and clustering          |
-| 3.2     | `internal/lidar/tracking.go`                               | Kalman tracking with lifecycle management        |
-| 3.2     | `internal/lidar/tracking_test.go`                          | Unit tests for tracking                          |
-| 3.3     | `internal/db/migrations/000009_create_lidar_tracks.up.sql` | Database schema for clusters/tracks/observations |
-| 3.3     | `internal/lidar/track_store.go`                            | Database persistence functions                   |
-| 3.3     | `internal/lidar/track_store_test.go`                       | Unit tests for track persistence                 |
-| 3.4     | `internal/lidar/classification.go`                         | Rule-based track classification                  |
-| 3.4     | `internal/lidar/classification_test.go`                    | Unit tests for classification                    |
-| 3.5     | `internal/lidar/monitor/track_api.go`                      | HTTP handlers for track/cluster queries          |
-| 3.5     | `internal/lidar/monitor/track_api_test.go`                 | Unit tests for track API                         |
-| 3.6     | `cmd/tools/pcap-analyze/main.go`                           | PCAP analysis tool for batch processing          |
-| 3.8     | `web/src/lib/components/lidar/MapPane.svelte`              | Canvas-based track visualisation                 |
-| 3.8     | `web/src/lib/components/lidar/TrackList.svelte`            | Track list with filters and pagination           |
-| 3.8     | `web/src/lib/components/lidar/TimelinePane.svelte`         | Timeline with playback controls                  |
-| 3.8     | `web/src/routes/lidar/tracks/+page.svelte`                 | Track history playback page                      |
-| ML      | `internal/lidar/training_data.go`                          | Classification research export and encoding      |
-| ML      | `internal/lidar/training_data_test.go`                     | Unit tests for research export encoding          |
+| Phase   | File                                                                                                          | Description                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 2.9     | `internal/lidar/foreground.go`                                                                                | Foreground mask generation and extraction        |
+| 2.9     | `internal/lidar/foreground_test.go`                                                                           | Unit tests for foreground extraction             |
+| 3.0-3.1 | `internal/lidar/clustering.go`                                                                                | Transform and DBSCAN clustering                  |
+| 3.0-3.1 | `internal/lidar/clustering_test.go`                                                                           | Unit tests for transform and clustering          |
+| 3.2     | `internal/lidar/tracking.go`                                                                                  | Kalman tracking with lifecycle management        |
+| 3.2     | `internal/lidar/tracking_test.go`                                                                             | Unit tests for tracking                          |
+| 3.3     | `internal/db/migrations/000009_create_lidar_tracks.up.sql`                                                    | Database schema for clusters/tracks/observations |
+| 3.3     | `internal/lidar/track_store.go`                                                                               | Database persistence functions                   |
+| 3.3     | `internal/lidar/track_store_test.go`                                                                          | Unit tests for track persistence                 |
+| 3.4     | `internal/lidar/classification.go`                                                                            | Rule-based track classification                  |
+| 3.4     | `internal/lidar/classification_test.go`                                                                       | Unit tests for classification                    |
+| 3.5     | `internal/lidar/monitor/track_api.go`                                                                         | HTTP handlers for track/cluster queries          |
+| 3.5     | `internal/lidar/monitor/track_api_test.go`                                                                    | Unit tests for track API                         |
+| 3.6     | `cmd/tools/pcap-analyze/main.go`                                                                              | PCAP analysis tool for batch processing          |
+| 3.8     | [web/src/lib/components/lidar/MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte)           | Canvas-based track visualisation                 |
+| 3.8     | [web/src/lib/components/lidar/TrackList.svelte](../../../web/src/lib/components/lidar/TrackList.svelte)       | Track list with filters and pagination           |
+| 3.8     | [web/src/lib/components/lidar/TimelinePane.svelte](../../../web/src/lib/components/lidar/TimelinePane.svelte) | Timeline with playback controls                  |
+| 3.8     | [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte)                 | Track history playback page                      |
+| ML      | `internal/lidar/training_data.go`                                                                             | Classification research export and encoding      |
+| ML      | `internal/lidar/training_data_test.go`                                                                        | Unit tests for research export encoding          |
 
 ---
 
@@ -665,11 +665,11 @@ See [Configuration Reference](#configuration-reference) below for runtime parame
 
 ### C. related documentation
 
-- `ARCHITECTURE.md` - System architecture overview
-- `docs/lidar/architecture/lidar-sidecar-overview.md` - LIDAR implementation details
-- `docs/DEVLOG.md` - Development history
-- `internal/lidar/l3grid/background.go` - Background grid implementation
-- `internal/lidar/l5tracks/types.go` - Track data structures
+- [ARCHITECTURE.md](../../../ARCHITECTURE.md) - System architecture overview
+- [docs/lidar/architecture/lidar-sidecar-overview.md](lidar-sidecar-overview.md) - LIDAR implementation details
+- [docs/DEVLOG.md](../../DEVLOG.md) - Development history
+- [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go) - Background grid implementation
+- [internal/lidar/l5tracks/types.go](../../../internal/lidar/l5tracks/types.go) - Track data structures
 
 ### D. classification research data storage
 

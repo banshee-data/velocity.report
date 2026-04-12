@@ -68,9 +68,9 @@ Optional protocol extension (if needed after profiling):
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift`
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
+- [tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift](../../tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift)
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
 
 Implementation:
 
@@ -127,7 +127,7 @@ Targets on Apple Silicon baseline:
 ### Protocol and mapping (optional)
 
 - [ ] Evaluate need for protobuf `Track` extension
-- [ ] If needed, update `proto/velocity_visualiser/v1/visualiser.proto`
+- [ ] If needed, update [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto)
 - [ ] Update Go adapter mapping and Swift decoder models
 
 ### Web parity

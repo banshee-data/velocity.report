@@ -15,15 +15,15 @@ GPS data **may** be ingested over ethernet to enable optional geographic feature
 
 ### Current state
 
-The velocity.report system currently stores site-level GPS coordinates in the database (`internal/db/site.go`) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic geo-referencing capability.
+The velocity.report system currently stores site-level GPS coordinates in the database ([internal/db/site.go](../../../internal/db/site.go)) for map markers and report generation. LiDAR data operates in a sensor-local coordinate frame (X=right, Y=forward, Z=up) with no automatic geo-referencing capability.
 
-The L1 packet parsing layer (`internal/lidar/l1packets/parse/`) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
+The L1 packet parsing layer ([internal/lidar/l1packets/parse/](../../../internal/lidar/l1packets/parse)) already handles Hesai Pandar40P UDP packets with multiple timestamp modes including `TimestampModePTP` and `TimestampModeGPS`. The `resolvePacketTime()` function supports PTP/GPS timestamps with static-detection fallback, but does not ingest GPS position data.
 
 ### What GPS enables (when available)
 
 Geographic referencing of LiDAR data is **optional but valuable** for:
 
-1. **Tier 2 Global Ground Grid**: Populate the persistent lat/long-aligned ground plane grid (see `ground-plane-extraction.md`) that accumulates across observation sessions
+1. **Tier 2 Global Ground Grid**: Populate the persistent lat/long-aligned ground plane grid (see [ground-plane-extraction.md](ground-plane-extraction.md)) that accumulates across observation sessions
 2. **Multi-location PCAP Analysis**: Process captures from different deployment sites with absolute geographic context
 3. **GeoJSON Exports**: Export ground plane tiles and other data with lat/long coordinates for GIS tools
 4. **OSM Integration** (future): Anchor LiDAR observations to OpenStreetMap features for validation
@@ -507,7 +507,7 @@ Graceful degradation when GPS unavailable:
 
 1. **Primary**: Real-time GPS from UDP stream
 2. **Secondary**: GPS from PCAP replay (if present)
-3. **Tertiary**: Manual site config from database (`internal/db/site.go`)
+3. **Tertiary**: Manual site config from database ([internal/db/site.go](../../../internal/db/site.go))
 4. **Quaternary**: No geo-reference (sensor-local coordinates only)
 
 **Decision Logic:** `GeoReference.GetPosition(t)` in `internal/gps/` implements a cascaded fallback: first attempts the real-time GPS receiver via `GetFixAtTime(t)`, then falls back to constructing a fix from the database site config (with `FixQuality: 0` to indicate manual origin), and finally returns `ErrNoGeoReference` if neither source is available.
@@ -518,7 +518,7 @@ Graceful degradation when GPS unavailable:
 
 For mobile deployments or multi-session analysis:
 
-`gps_fix_history` table (in `internal/db/migrations/`) stores timestamped GPS fixes with WGS84 coordinates (`latitude`, `longitude`, `altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Indexed on `timestamp` and `session_id`.
+`gps_fix_history` table (in [internal/db/migrations/](../../../internal/db/migrations)) stores timestamped GPS fixes with WGS84 coordinates (`latitude`, `longitude`, `altitude_msl`, `altitude_hae`), precision metrics (`fix_quality`, `satellite_count`, `hdop`, `pdop`), motion data (`speed`, `course`), and a `session_id` foreign key to `capture_session`. Indexed on `timestamp` and `session_id`.
 
 ### Session-Level GPS metadata
 
@@ -677,9 +677,9 @@ All GPS work is **additive** and should not modify any existing LiDAR-only code 
 
 1. Implement NMEA parser with checksum validation (`internal/gps/nmea/`)
 2. Create `GPSReceiver` for UDP ingestion (`internal/gps/receiver.go`)
-3. Extend L1 packet pipeline with **optional** GPS correlation (`internal/lidar/l1packets/`)
-4. Add GPS schema to SQLite database (`internal/db/migrations/`)
-5. Implement PCAP replay with GPS extraction (`cmd/tools/pcap-analyse/`)
+3. Extend L1 packet pipeline with **optional** GPS correlation ([internal/lidar/l1packets/](../../../internal/lidar/l1packets))
+4. Add GPS schema to SQLite database ([internal/db/migrations/](../../../internal/db/migrations))
+5. Implement PCAP replay with GPS extraction ([cmd/tools/pcap-analyse/](../../../cmd/tools/pcap-analyse))
 6. Document user-facing GPS configuration (`docs/src/guides/gps-setup.md`)
 
 **Design invariant:** Every feature must have a clean no-GPS fallback. If GPS is absent, disabled, or failing, the system operates identically to today's LiDAR-only pipeline.

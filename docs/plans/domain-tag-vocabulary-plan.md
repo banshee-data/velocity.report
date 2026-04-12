@@ -104,7 +104,7 @@ Update the backlog-prune skill to:
 
 ### Effort
 
-Edit `.claude/skills/backlog-prune/SKILL.md`. Trivial.
+Edit [.claude/skills/backlog-prune/SKILL.md](../../.claude/skills/backlog-prune/SKILL.md). Trivial.
 
 ## Effort summary
 

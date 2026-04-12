@@ -58,10 +58,10 @@ Constraints:
 
 ## 5. Structure rule
 
-1. Capability docs remain under `docs/lidar` and `docs/radar`.
-2. Client docs remain under `docs/ui`.
-3. Data science references live under `data/`, with stable maths docs in `data/maths` and proposals in `data/maths/proposals`.
-4. Execution work remains under `docs/plans`.
+1. Capability docs remain under [docs/lidar](../lidar) and [docs/radar](../radar).
+2. Client docs remain under [docs/ui](../ui).
+3. Data science references live under `data/`, with stable maths docs in [data/maths](../../data/maths) and proposals in [data/maths/proposals](../../data/maths/proposals).
+4. Execution work remains under [docs/plans](.).
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
 
 ## 6. Edit governance

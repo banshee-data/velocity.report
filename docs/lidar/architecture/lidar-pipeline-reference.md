@@ -16,28 +16,28 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 
 ## Existing components
 
-| Component             | Location                                           | Status      |
-| --------------------- | -------------------------------------------------- | ----------- |
-| PCAP Reader           | `internal/lidar/l1packets/network/pcap.go`         | ✅ Complete |
-| Frame Builder         | `internal/lidar/l2frames/frame_builder.go`         | ✅ Complete |
-| Background Manager    | `internal/lidar/l3grid/background.go`              | ✅ Complete |
-| Foreground Extraction | `internal/lidar/l3grid/foreground.go`              | ✅ Complete |
-| DBSCAN Clustering     | `internal/lidar/l4perception/cluster.go`           | ✅ Complete |
-| Kalman Tracking       | `internal/lidar/l5tracks/tracking.go`              | ✅ Complete |
-| Rule-Based Classifier | `internal/lidar/l6objects/classification.go`       | ✅ Complete |
-| Track Store           | `internal/lidar/storage/sqlite/track_store.go`     | ✅ Complete |
-| REST API              | `internal/lidar/monitor/track_api.go`              | ✅ Complete |
-| PCAP Analyse Tool     | `cmd/tools/pcap-analyze/main.go`                   | ✅ Complete |
-| Research Data Export  | `internal/lidar/adapters/training_data.go`         | ✅ Complete |
-| Analysis Run Store    | `internal/lidar/storage/sqlite/analysis_run.go`    | ✅ Complete |
-| Sweep Runner          | `internal/lidar/sweep/runner.go`                   | ✅ Complete |
-| Auto-Tuner            | `internal/lidar/sweep/auto.go`                     | ✅ Complete |
-| Sweep Scoring         | `internal/lidar/sweep/scoring.go`                  | ✅ Complete |
-| Sweep Dashboard       | `internal/lidar/monitor/html/sweep_dashboard.html` | ✅ Complete |
-| Hungarian Solver      | `internal/lidar/l5tracks/hungarian.go`             | ✅ Complete |
-| Ground Removal        | `internal/lidar/l4perception/ground.go`            | ✅ Complete |
-| OBB Estimation        | `internal/lidar/l4perception/obb.go`               | ✅ Complete |
-| Debug Collector       | `internal/lidar/debug/collector.go`                | ✅ Complete |
+| Component             | Location                                                                                                | Status      |
+| --------------------- | ------------------------------------------------------------------------------------------------------- | ----------- |
+| PCAP Reader           | [internal/lidar/l1packets/network/pcap.go](../../../internal/lidar/l1packets/network/pcap.go)           | ✅ Complete |
+| Frame Builder         | [internal/lidar/l2frames/frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)           | ✅ Complete |
+| Background Manager    | [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go)                     | ✅ Complete |
+| Foreground Extraction | [internal/lidar/l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go)                     | ✅ Complete |
+| DBSCAN Clustering     | [internal/lidar/l4perception/cluster.go](../../../internal/lidar/l4perception/cluster.go)               | ✅ Complete |
+| Kalman Tracking       | [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go)                     | ✅ Complete |
+| Rule-Based Classifier | [internal/lidar/l6objects/classification.go](../../../internal/lidar/l6objects/classification.go)       | ✅ Complete |
+| Track Store           | [internal/lidar/storage/sqlite/track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)   | ✅ Complete |
+| REST API              | `internal/lidar/monitor/track_api.go`                                                                   | ✅ Complete |
+| PCAP Analyse Tool     | `cmd/tools/pcap-analyze/main.go`                                                                        | ✅ Complete |
+| Research Data Export  | [internal/lidar/adapters/training_data.go](../../../internal/lidar/adapters/training_data.go)           | ✅ Complete |
+| Analysis Run Store    | [internal/lidar/storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go) | ✅ Complete |
+| Sweep Runner          | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)                               | ✅ Complete |
+| Auto-Tuner            | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)                                   | ✅ Complete |
+| Sweep Scoring         | `internal/lidar/sweep/scoring.go`                                                                       | ✅ Complete |
+| Sweep Dashboard       | `internal/lidar/monitor/html/sweep_dashboard.html`                                                      | ✅ Complete |
+| Hungarian Solver      | [internal/lidar/l5tracks/hungarian.go](../../../internal/lidar/l5tracks/hungarian.go)                   | ✅ Complete |
+| Ground Removal        | [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)                 | ✅ Complete |
+| OBB Estimation        | [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                       | ✅ Complete |
+| Debug Collector       | [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go)                         | ✅ Complete |
 
 ## Production deployment architecture (phase 4.3)
 

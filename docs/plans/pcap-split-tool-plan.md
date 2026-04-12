@@ -157,7 +157,7 @@ Analysts can then:
 
 **NFR4: Maintainability**
 
-- Reuse existing `internal/lidar` components
+- Reuse existing [internal/lidar](../../internal/lidar) components
 - Follow repository conventions (Makefile, testing, docs)
 - Comprehensive unit tests (target: 80%+ coverage)
 

@@ -41,6 +41,6 @@ primary and MP4 (`/img/visualiser-demo.mp4`) as fallback.
 
 ## File placement
 
-- GIF asset: `public_html/src/images/visualiser-demo.gif`
+- GIF asset: [public_html/src/images/visualiser-demo.gif](../../public_html/src/images/visualiser-demo.gif)
 - Served at: `/img/visualiser-demo.gif` (Eleventy passthrough copy)
-- Placeholder: `public_html/src/images/visualiser-demo-placeholder.svg`
+- Placeholder: [public_html/src/images/visualiser-demo-placeholder.svg](../../public_html/src/images/visualiser-demo-placeholder.svg)

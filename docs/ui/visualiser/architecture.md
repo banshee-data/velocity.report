@@ -233,13 +233,13 @@ Planned frontend controls:
 
 Math coupling reference:
 
-- `data/maths/background-grid-settling-maths.md`
-- `data/maths/ground-plane-maths.md`
-- `data/maths/proposals/20260219-unify-l3-l4-settling.md`
+- [data/maths/background-grid-settling-maths.md](../../../data/maths/background-grid-settling-maths.md)
+- [data/maths/ground-plane-maths.md](../../../data/maths/ground-plane-maths.md)
+- [data/maths/proposals/20260219-unify-l3-l4-settling.md](../../../data/maths/proposals/20260219-unify-l3-l4-settling.md)
 
 Canonical config/maths mapping source:
 
-- `config/CONFIG.md`
+- [config/CONFIG.md](../../../config/CONFIG.md)
 
 ---
 
@@ -493,15 +493,15 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 ### 7.3 Clustering and tracking
 
-| File                                    | Purpose                                 |
-| --------------------------------------- | --------------------------------------- |
-| `internal/lidar/clustering.go`          | DBSCAN clustering                       |
-| `internal/lidar/clusterer_interface.go` | M4: ClustererInterface                  |
-| `internal/lidar/dbscan_clusterer.go`    | M4: Deterministic DBSCAN wrapper        |
-| `internal/lidar/tracking.go`            | Kalman tracker (Tracker, TrackedObject) |
-| `internal/lidar/tracker_interface.go`   | M4: TrackerInterface                    |
-| `internal/lidar/tracking_pipeline.go`   | Pipeline orchestration + frame throttle |
-| `internal/lidar/golden_replay_test.go`  | M4: Golden determinism tests            |
+| File                                                                                  | Purpose                                 |
+| ------------------------------------------------------------------------------------- | --------------------------------------- |
+| `internal/lidar/clustering.go`                                                        | DBSCAN clustering                       |
+| `internal/lidar/clusterer_interface.go`                                               | M4: ClustererInterface                  |
+| `internal/lidar/dbscan_clusterer.go`                                                  | M4: Deterministic DBSCAN wrapper        |
+| `internal/lidar/tracking.go`                                                          | Kalman tracker (Tracker, TrackedObject) |
+| `internal/lidar/tracker_interface.go`                                                 | M4: TrackerInterface                    |
+| `internal/lidar/tracking_pipeline.go`                                                 | Pipeline orchestration + frame throttle |
+| [internal/lidar/golden_replay_test.go](../../../internal/lidar/golden_replay_test.go) | M4: Golden determinism tests            |
 
 ### 7.4 LidarView forwarding
 

@@ -154,8 +154,8 @@ Record in `Publish()` after frame type/background metadata assignment and before
 
 New migration:
 
-- `internal/db/migrations/000023_add_vrlog_path.up.sql`
-- `internal/db/migrations/000023_add_vrlog_path.down.sql`
+- [internal/db/migrations/000023_add_vrlog_path.up.sql](../../../internal/db/migrations/000023_add_vrlog_path.up.sql)
+- [internal/db/migrations/000023_add_vrlog_path.down.sql](../../../internal/db/migrations/000023_add_vrlog_path.down.sql)
 
 `internal/lidar/analysis_run.go`:
 
@@ -178,7 +178,7 @@ In PCAP analysis goroutine:
 - call `OnRecordingStop` **before** `CompleteRun()`
 - persist returned path with `UpdateRunVRLogPath`
 
-`cmd/radar/radar.go`:
+[cmd/radar/radar.go](../../../cmd/radar/radar.go):
 
 - hold active `*recorder.Recorder`
 - start recorder under `<pcapDir>/vrlog/<runID>`
@@ -272,7 +272,7 @@ Routes:
 - `POST /api/lidar/vrlog/load` (input `run_id`, resolves stored `vrlog_path`)
 - `POST /api/lidar/vrlog/stop`
 
-`cmd/radar/radar.go` wires callbacks to server/publisher.
+[cmd/radar/radar.go](../../../cmd/radar/radar.go) wires callbacks to server/publisher.
 
 ## Phase 4: Swift app as primary labelling UI
 
@@ -311,10 +311,10 @@ Connect 3D selection to run-track labelling actions in side panel.
 
 Keep or extend web playback controls for parity/fallback:
 
-- `web/src/lib/types/lidar.ts`: playback status type + `vrlog_path` on run
-- `web/src/lib/api.ts`: playback/vrlog functions
-- `web/src/routes/lidar/tracks/+page.svelte`: optional backend playback sync
-- `web/src/routes/lidar/runs/+page.svelte`: replay entry affordance
+- [web/src/lib/types/lidar.ts](../../../web/src/lib/types/lidar.ts): playback status type + `vrlog_path` on run
+- [web/src/lib/api.ts](../../../web/src/lib/api.ts): playback/vrlog functions
+- [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte): optional backend playback sync
+- [web/src/routes/lidar/runs/+page.svelte](../../../web/src/routes/lidar/runs/+page.svelte): replay entry affordance
 
 Web is secondary; Swift is primary labelling workflow.
 
@@ -364,16 +364,16 @@ Phase 0 (label contract)
 
 ## Files to modify
 
-| Area                    | File(s)                                                                                                                                  | Changes                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                 | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
-| gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                               | Implement seek delegation, VRLOG mode routing                        |
-| Run persistence         | `internal/lidar/analysis_run.go`                                                                                                         | `vrlog_path` field + store updates                                   |
-| DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                     | Add/drop `vrlog_path`                                                |
-| Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                    | recording/playback callbacks + routes + status model                 |
-| Wiring                  | `cmd/radar/radar.go`                                                                                                                     | recorder lifecycle + replay callback wiring                          |
-| Swift app               | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` and new API client(s)                                                     | run browser state, replay load flow, run-track labelling integration |
-| Optional web parity     | `web/src/lib/types/lidar.ts`, `web/src/lib/api.ts`, `web/src/routes/lidar/tracks/+page.svelte`, `web/src/routes/lidar/runs/+page.svelte` | playback status sync and replay controls                             |
+| Area                    | File(s)                                                                                                                                                                                                                                                                                                        | Changes                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                                                                                                                                                                                       | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
+| gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                                                                                                                                                                                                     | Implement seek delegation, VRLOG mode routing                        |
+| Run persistence         | `internal/lidar/analysis_run.go`                                                                                                                                                                                                                                                                               | `vrlog_path` field + store updates                                   |
+| DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                                                                                                                                                                                           | Add/drop `vrlog_path`                                                |
+| Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                                                                                                                                                                                          | recording/playback callbacks + routes + status model                 |
+| Wiring                  | [cmd/radar/radar.go](../../../cmd/radar/radar.go)                                                                                                                                                                                                                                                              | recorder lifecycle + replay callback wiring                          |
+| Swift app               | [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift) and new API client(s)                                                                                                                                                    | run browser state, replay load flow, run-track labelling integration |
+| Optional web parity     | [web/src/lib/types/lidar.ts](../../../web/src/lib/types/lidar.ts), [web/src/lib/api.ts](../../../web/src/lib/api.ts), [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte), [web/src/routes/lidar/runs/+page.svelte](../../../web/src/routes/lidar/runs/+page.svelte) | playback status sync and replay controls                             |
 
 ---
 

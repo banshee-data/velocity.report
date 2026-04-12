@@ -39,13 +39,13 @@ These packages need only a handful of additional test cases.
 
 ### Go
 
-| Package                   | Current | Gap  | What to Test                                                |
-| ------------------------- | ------- | ---- | ----------------------------------------------------------- |
-| `internal/serialmux`      | 94.9%   | 0.6% | Edge cases in port option validation                        |
-| `internal/lidar` (root)   | 94.4%   | 1.1% | Uncovered branches in alias helpers                         |
-| `internal/lidar/l5tracks` | 94.1%   | 1.4% | Track expiry and miss-count edge paths                      |
-| `internal/httputil`       | 93.9%   | 1.6% | Error paths in `Get`/`Post`/`WriteJSON` helpers (mock HTTP) |
-| `internal/deploy`         | 93.4%   | 2.1% | `RunSudo` error branch, `ParseSSHConfigFrom` edge cases     |
+| Package                                                  | Current | Gap  | What to Test                                                |
+| -------------------------------------------------------- | ------- | ---- | ----------------------------------------------------------- |
+| [internal/serialmux](../../internal/serialmux)           | 94.9%   | 0.6% | Edge cases in port option validation                        |
+| [internal/lidar](../../internal/lidar) (root)            | 94.4%   | 1.1% | Uncovered branches in alias helpers                         |
+| [internal/lidar/l5tracks](../../internal/lidar/l5tracks) | 94.1%   | 1.4% | Track expiry and miss-count edge paths                      |
+| [internal/httputil](../../internal/httputil)             | 93.9%   | 1.6% | Error paths in `Get`/`Post`/`WriteJSON` helpers (mock HTTP) |
+| `internal/deploy`                                        | 93.4%   | 2.1% | `RunSudo` error branch, `ParseSSHConfigFrom` edge cases     |
 
 ### Web
 
@@ -71,20 +71,20 @@ These packages need only a handful of additional test cases.
 
 ### Go
 
-| Package                              | Current | Gap  | Key Uncovered Functions                                                                                         |
-| ------------------------------------ | ------- | ---- | --------------------------------------------------------------------------------------------------------------- |
-| `internal/lidar/l3grid`              | 93.2%   | 2.3% | `serializeGrid` (66.7%), `NewBackgroundManager` (72.2%), `WithForeground*` option funcs                         |
-| `internal/lidar/l6objects`           | 92.5%   | 3.0% | `birdConfidence` (66.7%), `NewTrackClassifierWithMinObservations` (66.7%), classification edge cases            |
-| `internal/lidar/storage/sqlite`      | 92.1%   | 3.4% | Transaction rollback paths, bulk-insert error recovery                                                          |
-| `internal/lidar/visualiser`          | 92.0%   | 3.5% | Protobuf serialisation edge cases, frame rendering                                                              |
-| `internal/lidar/sweep`               | 91.7%   | 3.8% | Parameter combination overflow guards, result aggregation                                                       |
-| `internal/lidar/l2frames`            | 91.6%   | 3.9% | Frame assembly timeouts, malformed-packet recovery                                                              |
-| `internal/lidar/visualiser/recorder` | 91.6%   | 3.9% | File-rotation, write-error handling                                                                             |
-| `internal/lidar/adapters`            | 91.4%   | 4.1% | `Evaluate` (0%), `NewGroundTruthEvaluator` (0%), `SetSequenceID` (0%)                                           |
-| `internal/lidar/pipeline`            | 91.4%   | 4.1% | Pipeline shutdown ordering, error propagation                                                                   |
-| `internal/db`                        | 90.8%   | 4.7% | `NewDBWithMigrationCheck` (77.5%), `DetectSchemaVersion` (82.6%), `withDB` (20%), migration force/rollback      |
-| `internal/lidar/monitor`             | 90.4%   | 5.1% | PCAP replay handlers (0%), auto-tune suspend/resume (0%), `handleDataSource` (65%), `WaitForGridSettle` (70.6%) |
-| `internal/security`                  | 90.5%   | 5.0% | Path-traversal rejection for edge-case payloads                                                                 |
+| Package                                                              | Current | Gap  | Key Uncovered Functions                                                                                         |
+| -------------------------------------------------------------------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------- |
+| [internal/lidar/l3grid](../../internal/lidar/l3grid)                 | 93.2%   | 2.3% | `serializeGrid` (66.7%), `NewBackgroundManager` (72.2%), `WithForeground*` option funcs                         |
+| [internal/lidar/l6objects](../../internal/lidar/l6objects)           | 92.5%   | 3.0% | `birdConfidence` (66.7%), `NewTrackClassifierWithMinObservations` (66.7%), classification edge cases            |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | 92.1%   | 3.4% | Transaction rollback paths, bulk-insert error recovery                                                          |
+| `internal/lidar/visualiser`                                          | 92.0%   | 3.5% | Protobuf serialisation edge cases, frame rendering                                                              |
+| [internal/lidar/sweep](../../internal/lidar/sweep)                   | 91.7%   | 3.8% | Parameter combination overflow guards, result aggregation                                                       |
+| [internal/lidar/l2frames](../../internal/lidar/l2frames)             | 91.6%   | 3.9% | Frame assembly timeouts, malformed-packet recovery                                                              |
+| `internal/lidar/visualiser/recorder`                                 | 91.6%   | 3.9% | File-rotation, write-error handling                                                                             |
+| [internal/lidar/adapters](../../internal/lidar/adapters)             | 91.4%   | 4.1% | `Evaluate` (0%), `NewGroundTruthEvaluator` (0%), `SetSequenceID` (0%)                                           |
+| [internal/lidar/pipeline](../../internal/lidar/pipeline)             | 91.4%   | 4.1% | Pipeline shutdown ordering, error propagation                                                                   |
+| [internal/db](../../internal/db)                                     | 90.8%   | 4.7% | `NewDBWithMigrationCheck` (77.5%), `DetectSchemaVersion` (82.6%), `withDB` (20%), migration force/rollback      |
+| `internal/lidar/monitor`                                             | 90.4%   | 5.1% | PCAP replay handlers (0%), auto-tune suspend/resume (0%), `handleDataSource` (65%), `WaitForGridSettle` (70.6%) |
+| [internal/security](../../internal/security)                         | 90.5%   | 5.0% | Path-traversal rejection for edge-case payloads                                                                 |
 
 ### Python
 
@@ -103,10 +103,10 @@ These packages need only a handful of additional test cases.
 
 ### Go
 
-| Package           | Current | Gap   | Challenge                                                                                                                      |
-| ----------------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `internal/api`    | 88.2%   | 7.3%  | Label CRUD handlers (80–84%), `handleExport` (68.4%), `sendCommandHandler` (66.7%): needs more HTTP handler tests with mock DB |
-| `internal/config` | 74.7%   | 20.8% | 40+ `Get*` accessor functions at 0%: trivial to test but high count; `LoadTuningConfig` (90%), `MustLoadDefaultConfig` (80%)   |
+| Package                                  | Current | Gap   | Challenge                                                                                                                      |
+| ---------------------------------------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [internal/api](../../internal/api)       | 88.2%   | 7.3%  | Label CRUD handlers (80–84%), `handleExport` (68.4%), `sendCommandHandler` (66.7%): needs more HTTP handler tests with mock DB |
+| [internal/config](../../internal/config) | 74.7%   | 20.8% | 40+ `Get*` accessor functions at 0%: trivial to test but high count; `LoadTuningConfig` (90%), `MustLoadDefaultConfig` (80%)   |
 
 ### Python
 
@@ -124,16 +124,16 @@ testable business logic must be extracted into `internal/` packages where
 it is covered by the target. The remaining `cmd/` code should be thin CLI
 wiring (flag parsing, `main()`, output formatting).
 
-| Package                       | Testable LOC | Target `internal/` Package           | Extraction Scope                                                                                                                                       |
-| ----------------------------- | ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `cmd/deploy`                  | ~2,500       | `internal/deploy` (exists)           | **HIGH**: `Installer`, `Upgrader`, `Rollback`, `Fixer`, `Monitor` are pure business logic. Unify the two `Executor` implementations (cmd vs internal). |
-| `cmd/radar`                   | ~200         | `internal/config`                    | **MEDIUM**: `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                   |
-| `cmd/tools` (scan_transits)   | ~65          | `internal/db`                        | **MEDIUM**: `findTransitGaps()` is pure SQL+result-processing; belongs alongside `TransitWorker`.                                                      |
-| `cmd/tools/pcap-analyse`      | ~300         | `internal/lidar/pipeline`            | **LOW**: PCAP processing + ML export pipeline; tightly coupled to build tags.                                                                          |
-| `cmd/sweep`                   | ~150         | (already in `internal/lidar/sweep`)  | LOW: only `toFloat64()` helper remains in cmd.                                                                                                         |
-| `cmd/transit-backfill`        | ~30          | (already delegates to `internal/db`) | NONE: already a thin wrapper.                                                                                                                          |
-| `cmd/tools/gen-vrlog`         | ~100         | `internal/lidar/visualiser/recorder` | LOW: synthetic VRLog generation.                                                                                                                       |
-| `cmd/tools/visualiser-server` | ~150         | `internal/lidar/visualiser`          | LOW: gRPC server modes.                                                                                                                                |
+| Package                                                          | Testable LOC | Target `internal/` Package                                      | Extraction Scope                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cmd/deploy`                                                     | ~2,500       | `internal/deploy` (exists)                                      | **HIGH**: `Installer`, `Upgrader`, `Rollback`, `Fixer`, `Monitor` are pure business logic. Unify the two `Executor` implementations (cmd vs internal). |
+| [cmd/radar](../../cmd/radar)                                     | ~200         | [internal/config](../../internal/config)                        | **MEDIUM**: `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                   |
+| [cmd/tools](../../cmd/tools) (scan_transits)                     | ~65          | [internal/db](../../internal/db)                                | **MEDIUM**: `findTransitGaps()` is pure SQL+result-processing; belongs alongside `TransitWorker`.                                                      |
+| [cmd/tools/pcap-analyse](../../cmd/tools/pcap-analyse)           | ~300         | [internal/lidar/pipeline](../../internal/lidar/pipeline)        | **LOW**: PCAP processing + ML export pipeline; tightly coupled to build tags.                                                                          |
+| [cmd/sweep](../../cmd/sweep)                                     | ~150         | (already in [internal/lidar/sweep](../../internal/lidar/sweep)) | LOW: only `toFloat64()` helper remains in cmd.                                                                                                         |
+| `cmd/transit-backfill`                                           | ~30          | (already delegates to [internal/db](../../internal/db))         | NONE: already a thin wrapper.                                                                                                                          |
+| [cmd/tools/gen-vrlog](../../cmd/tools/gen-vrlog)                 | ~100         | `internal/lidar/visualiser/recorder`                            | LOW: synthetic VRLog generation.                                                                                                                       |
+| [cmd/tools/visualiser-server](../../cmd/tools/visualiser-server) | ~150         | `internal/lidar/visualiser`                                     | LOW: gRPC server modes.                                                                                                                                |
 
 **Extraction strategy:**
 
@@ -143,13 +143,13 @@ wiring (flag parsing, `main()`, output formatting).
    95.5% target).
 3. The `cmd/` package itself needs only a minimal smoke test
    (`--help` exits 0, invalid flags exit non-zero).
-4. **Priority:** `cmd/deploy` → `cmd/radar` → `cmd/tools` (by LOC impact).
+4. **Priority:** `cmd/deploy` → [cmd/radar](../../cmd/radar) → [cmd/tools](../../cmd/tools) (by LOC impact).
 
 ### macOS Swift app
 
 <a id="macos-swift-app"></a>
 
-The macOS LiDAR visualiser at `tools/visualiser-macos/` is a SwiftUI +
+The macOS LiDAR visualiser at [tools/visualiser-macos/](../../tools/visualiser-macos) is a SwiftUI +
 Metal application (~5,900 LOC across 11 source files) with an existing
 test suite (14 unit-test files, 2 UI-test files). Coverage is collected
 via `make test-mac-cov` using `xcodebuild -enableCodeCoverage YES` and
@@ -211,7 +211,7 @@ coverage requires a macOS runner with Metal support).
 
 ### Phase 1: raise the floor (weeks 1–2)
 
-1. **`internal/config`**: Write table-driven tests for all 40+ `Get*` accessors.
+1. **[internal/config](../../internal/config)**: Write table-driven tests for all 40+ `Get*` accessors.
    Each accessor reads one field from the config struct; a single
    `TestGetAccessors` with a sub-test per field closes the entire 20.8% gap.
 
@@ -223,10 +223,10 @@ coverage requires a macOS runner with Metal support).
 
 ### Phase 2: strengthen the core (weeks 2–4)
 
-4. **`internal/db`**: Add migration-path tests (`MigrateForce`, `BaselineAtVersion`)
+4. **[internal/db](../../internal/db)**: Add migration-path tests (`MigrateForce`, `BaselineAtVersion`)
    and error-injection tests for `NewDBWithMigrationCheck` / `withDB`.
 
-5. **`internal/api`**: Expand HTTP handler tests for label CRUD, export, and
+5. **[internal/api](../../internal/api)**: Expand HTTP handler tests for label CRUD, export, and
    command dispatch. Use existing `httptest` patterns from the package.
 
 6. **`internal/lidar/*`** sub-packages: Work through Tier 2 packages by
@@ -243,12 +243,12 @@ coverage requires a macOS runner with Metal support).
    `Executor` implementations. Write tests against extracted code (~2,500
    LOC gaining coverage under the 95.5% target).
 
-9. **`cmd/radar` → `internal/config`**: Extract `resolvePrecompiledTeXRoot`,
+9. **[cmd/radar](../../cmd/radar) → [internal/config](../../internal/config)**: Extract `resolvePrecompiledTeXRoot`,
    `configurePDFLaTeXFlow`, and environment-config helpers. Test in
-   `internal/config`.
+   [internal/config](../../internal/config).
 
-10. **`cmd/tools` → `internal/db`**: Move `findTransitGaps()` to
-    `internal/db` alongside `TransitWorker`.
+10. **[cmd/tools](../../cmd/tools) → [internal/db](../../internal/db)**: Move `findTransitGaps()` to
+    [internal/db](../../internal/db) alongside `TransitWorker`.
 
 11. **macOS Swift app**: Expand `AppState` tests, add network-error
     injection for API clients, extract testable Metal helpers. Upgrade
@@ -272,7 +272,7 @@ coverage requires a macOS runner with Metal support).
   separately (CI with a local SSH server container).
 - `cmd/deploy/main.go` remains a thin CLI wrapper: no 95.5% target.
 
-### Database error paths (`internal/db`)
+### Database error paths ([internal/db](../../internal/db))
 
 - Use `testutil.NewTestDB()` with deliberate schema corruption to trigger
   migration errors.
@@ -285,7 +285,7 @@ coverage requires a macOS runner with Metal support).
 - Create a `FakeBackend` implementing `ClientBackend` for PCAP replay and
   auto-tune handlers.
 
-### Config accessors (`internal/config`)
+### Config accessors ([internal/config](../../internal/config))
 
 - Single table-driven test: populate a `TuningConfig` struct with known values,
   call every `Get*` function, assert against expected output.
@@ -327,7 +327,7 @@ coverage requires a macOS runner with Metal support).
 
 ## Coverage infrastructure improvements
 
-1. **Raise Codecov target** from 1% to 95.5% (in `codecov.yml`), with a
+1. **Raise Codecov target** from 1% to 95.5% (in [codecov.yml](../../codecov.yml)), with a
    ramp schedule: 90% → 92% → 95.5% over three milestones. Apply to the
    `go`, `web`, `python`, and `mac` flags (not `go-cli`).
 
@@ -336,7 +336,7 @@ coverage requires a macOS runner with Metal support).
    drops below the target.
 
 3. **Web coverage thresholds** in `jest.config.js`: raise from 90% to 95.5%
-   for `web/src/lib/`.
+   for [web/src/lib/](../../web/src/lib).
 
 4. **Python coverage threshold**: add `--cov-fail-under=95.5` to the pytest
    invocation in CI.
@@ -352,22 +352,22 @@ coverage requires a macOS runner with Metal support).
 
 ## Packages already at target (no action needed)
 
-| Package                            | Coverage |
-| ---------------------------------- | -------- |
-| `internal/fsutil`                  | 99.0%    |
-| `internal/lidar/debug`             | 100.0%   |
-| `internal/lidar/l1packets/network` | 97.3%    |
-| `internal/lidar/l4perception`      | 97.7%    |
-| `internal/monitoring`              | 100.0%   |
-| `internal/testutil`                | 100.0%   |
-| `internal/timeutil`                | 95.5%    |
-| `internal/units`                   | 100.0%   |
+| Package                                                                    | Coverage |
+| -------------------------------------------------------------------------- | -------- |
+| [internal/fsutil](../../internal/fsutil)                                   | 99.0%    |
+| [internal/lidar/debug](../../internal/lidar/debug)                         | 100.0%   |
+| [internal/lidar/l1packets/network](../../internal/lidar/l1packets/network) | 97.3%    |
+| [internal/lidar/l4perception](../../internal/lidar/l4perception)           | 97.7%    |
+| [internal/monitoring](../../internal/monitoring)                           | 100.0%   |
+| [internal/testutil](../../internal/testutil)                               | 100.0%   |
+| [internal/timeutil](../../internal/timeutil)                               | 95.5%    |
+| [internal/units](../../internal/units)                                     | 100.0%   |
 
 ### Borderline (just below target: 1–2 tests needed)
 
-| Package                          | Coverage | Gap  |
-| -------------------------------- | -------- | ---- |
-| `internal/lidar/l1packets/parse` | 95.1%    | 0.4% |
+| Package                                                                | Coverage | Gap  |
+| ---------------------------------------------------------------------- | -------- | ---- |
+| [internal/lidar/l1packets/parse](../../internal/lidar/l1packets/parse) | 95.1%    | 0.4% |
 
 ---
 

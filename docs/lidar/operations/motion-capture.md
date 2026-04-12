@@ -4,7 +4,7 @@ Future architecture specification for moving LiDAR sensors (vehicle-mounted, bik
 
 ## Source
 
-- Plan: `docs/plans/lidar-motion-capture-architecture-plan.md`
+- Plan: [docs/plans/lidar-motion-capture-architecture-plan.md](../../plans/lidar-motion-capture-architecture-plan.md)
 - Status: Future Work (not in current release)
 - Layers: L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 
@@ -17,7 +17,7 @@ Architecture for **moving LiDAR sensors**. Current traffic monitoring uses:
 - Identity transform (sensor frame = world frame)
 - Heading derived from velocity: `θ = atan2(vy, vx)`
 
-See `docs/lidar/architecture/foreground-tracking.md` for the implemented tracking architecture.
+See [docs/lidar/architecture/foreground-tracking.md](../architecture/foreground-tracking.md) for the implemented tracking architecture.
 
 ## When motion capture is needed
 

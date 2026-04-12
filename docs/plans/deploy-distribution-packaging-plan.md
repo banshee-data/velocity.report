@@ -20,13 +20,13 @@
 **Tasks:**
 
 1. **Rename and restructure main entry point**
-   - Move `cmd/radar/` → `cmd/velocity-report/`
+   - Move [cmd/radar/](../../cmd/radar) → `cmd/velocity-report/`
    - Rename `radar.go` → `main.go` with subcommand dispatcher
    - Extract server logic to `serve.go`
    - Keep existing flags for `serve` subcommand
 
 2. **Integrate existing subcommands**
-   - `migrate` - Already exists in `internal/db/migrate_cli.go` ✅
+   - `migrate` - Already exists in [internal/db/migrate_cli.go](../../internal/db/migrate_cli.go) ✅
    - Keep current integration pattern
 
 3. **Add new subcommands**
@@ -36,7 +36,7 @@
    - `velocity-report help` - Unified help system
 
    Note: upgrade/rollback/backup are handled by `velocity-ctl`
-   (`cmd/velocity-ctl/`) which ships as a separate binary. These may be
+   ([cmd/velocity-ctl/](../../cmd/velocity-ctl)) which ships as a separate binary. These may be
    absorbed into `velocity-report` in a future release if eliminating one
    binary is worth the mixed privilege model.
 
@@ -65,7 +65,7 @@
    ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db
 
 6. **Update assets.go**
-   - Move `assets.go` from root to `cmd/velocity-report/`
+   - Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`
    - Update package declaration
    - Fix import paths in server code
 
@@ -118,7 +118,7 @@
 5. **Update setup-radar-host.sh**
    - Add step to install Python tools
    - Set up venv in `/usr/local/share/velocity-report/python/.venv`
-   - Install dependencies from `requirements.txt`
+   - Install dependencies from [requirements.txt](../../requirements.txt)
 
 6. **Testing**
    - Test `velocity-report pdf` from Go binary
@@ -285,7 +285,7 @@
 
 2.  **Create version management**
 
-    File: `internal/version/version.go` — defines `Version`, `GitCommit`, and `BuildTime` variables (defaulting to "dev"/"unknown"). An `init()` function populates `GitCommit` and `BuildTime` from `debug.ReadBuildInfo()` VCS settings. Exports `Full()` returning a string like `"v0.2.0 (abc12345, 2025-01-15T10:00:00Z)"`.
+    File: [internal/version/version.go](../../internal/version/version.go) — defines `Version`, `GitCommit`, and `BuildTime` variables (defaulting to "dev"/"unknown"). An `init()` function populates `GitCommit` and `BuildTime` from `debug.ReadBuildInfo()` VCS settings. Exports `Full()` returning a string like `"v0.2.0 (abc12345, 2025-01-15T10:00:00Z)"`.
 
     Use in `velocity-report version`: call `version.Full()` and print.
 
@@ -888,7 +888,7 @@ Run `./app-sweep --mode multi --iterations 30`
 
 **⚠️ Minor Breaking Changes**
 
-- `cmd/radar/` moved to `cmd/velocity-report/`
+- [cmd/radar/](../../cmd/radar) moved to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only cmd/ structure changed)
 

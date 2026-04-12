@@ -8,7 +8,7 @@
 
 ## Summary
 
-Generate and maintain a DOT graph of the LiDAR package dependency structure under `internal/lidar/`. This was originally a final-verification item in the L8/L9/L10 refactor plan; it is extracted here because it is an independent deliverable that does not block the refactor landing.
+Generate and maintain a DOT graph of the LiDAR package dependency structure under [internal/lidar/](../../internal/lidar). This was originally a final-verification item in the L8/L9/L10 refactor plan; it is extracted here because it is an independent deliverable that does not block the refactor landing.
 
 ## Scope
 
@@ -19,7 +19,7 @@ Generate and maintain a DOT graph of the LiDAR package dependency structure unde
 
 ## Checklist
 
-- [ ] DOT graph added under `docs/lidar/architecture/` or equivalent location
+- [ ] DOT graph added under [docs/lidar/architecture/](../lidar/architecture) or equivalent location
 - [ ] SVG rendered from DOT and checked in alongside
 - [ ] generation script added (e.g. `scripts/generate-lidar-graph.sh` using `go list` + `dot`)
 - [ ] `make lint-docs` or equivalent target verifies graph freshness

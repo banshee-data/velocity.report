@@ -1,6 +1,6 @@
 # QC enhancements overview
 
-- **Source plan:** `docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)
 
 Umbrella architecture for seven QC features that share tables, conventions, and dependency ordering.
 

@@ -4,7 +4,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 
 ## Source
 
-- Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
+- Plan: [docs/plans/lidar-immutable-run-config-asset-plan.md](immutable-run-config.md)
 - Status: Complete; all phases delivered (P0/P1 + P2)
 - Migrations: 000035 (schema additions), 000036 (legacy column removal)
 
@@ -101,7 +101,7 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 
 ## Config asset package
 
-`internal/lidar/storage/configasset/`: captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
+[internal/lidar/storage/configasset/](../../../internal/lidar/storage/configasset): captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
 
 ## Data ownership after migration
 
@@ -115,12 +115,12 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 ### P0/P1: introduce and adopt (migration 000035)
 
 - Schema additions: `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
-- Config asset package (`internal/lidar/storage/configasset/`)
+- Config asset package ([internal/lidar/storage/configasset/](../../../internal/lidar/storage/configasset))
 - Effective runtime surface definition (background, clustering, tracker, classification tunables)
 - Timestamp removal from deterministic config identity
 - Single-source run creation (no duplicate run rows in replay/reprocess)
 - Requested vs effective vs execution metadata separation
-- Backfill tool (`cmd/tools/backfill_lidar_run_config`)
+- Backfill tool ([cmd/tools/backfill_lidar_run_config](../../../cmd/tools/backfill_lidar_run_config))
 - API exposure of config identity on run and replay-case responses
 - UI diff of exact composed configs, grouping by `params_hash`
 - Recording provenance (`config_hash` and `params_hash` in VRLOG metadata)

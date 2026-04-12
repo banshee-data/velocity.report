@@ -50,10 +50,10 @@ format for convenience, but the binary only accepts the new schema.
 
 ## 2. Current flat structure (for reference)
 
-44 keys, all at root level. Comment-grouped in `internal/config/tuning.go`
+44 keys, all at root level. Comment-grouped in [internal/config/tuning.go](../../internal/config/tuning.go)
 but with no structural hierarchy in JSON or Go.
 
-44 root-level keys (e.g. `background_update_fraction`, `closeness_multiplier`, … `min_observations_for_classification`), comment-grouped in `internal/config/tuning.go` but with no structural hierarchy in JSON or Go.
+44 root-level keys (e.g. `background_update_fraction`, `closeness_multiplier`, … `min_observations_for_classification`), comment-grouped in [internal/config/tuning.go](../../internal/config/tuning.go) but with no structural hierarchy in JSON or Go.
 
 Full key listing and documentation: [`config/CONFIG.md`](../../config/CONFIG.md).
 

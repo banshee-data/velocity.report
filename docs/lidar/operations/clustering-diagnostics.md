@@ -4,7 +4,7 @@ Observability metrics and benchmark harness for the LiDAR clustering and trackin
 
 ## Source
 
-- Plan: `docs/plans/lidar-clustering-observability-and-benchmark-plan.md`
+- Plan: [docs/plans/lidar-clustering-observability-and-benchmark-plan.md](../../plans/lidar-clustering-observability-and-benchmark-plan.md)
 - Status: Proposed (February 2026)
 - Layers: L4 Perception, L8 Analytics
 
@@ -20,7 +20,7 @@ Two classes of problem lack tooling:
 
 ### A.1 per-frame pipeline stage timing
 
-Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
+Instrument `NewFrameCallback()` in [internal/lidar/pipeline/tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go) with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
 | Field                | Type     | Description                         |
 | -------------------- | -------- | ----------------------------------- |
@@ -79,7 +79,7 @@ On track deletion, emit a `diagf`-level summary including duration, length, obse
 
 ### A.4 cluster quality metrics
 
-Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
+Add to `WorldCluster` in [internal/lidar/l4perception/types.go](../../../internal/lidar/l4perception/types.go):
 
 | Field                     | Type      | Description                                |
 | ------------------------- | --------- | ------------------------------------------ |
@@ -102,7 +102,7 @@ Proposed additions to `DebugOverlaySet` (all optional, populated only when debug
 
 ### B.1 new metrics in pcap-analyse
 
-Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go` with `ClusteringMetrics`:
+Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../../cmd/tools/pcap-analyse/main.go) with `ClusteringMetrics`:
 
 - Per-frame distributions (percentiles): foreground points, filtered points, cluster count, points-per-cluster, cluster area
 - DBSCAN-specific: call count, total/avg/p95/p99 time, subsample count and rate
@@ -117,7 +117,7 @@ Extend the existing `baseline-{name}.json` format with a `clustering` key. Backw
 
 ### B.3 CI regression gating
 
-Add a `bench-clustering` step to `.github/workflows/go-ci.yml` running only on pushes to `main` and PRs modifying `internal/lidar/l4perception/`, `l5tracks/`, or `pipeline/`.
+Add a `bench-clustering` step to [.github/workflows/go-ci.yml](../../../.github/workflows/go-ci.yml) running only on pushes to `main` and PRs modifying [internal/lidar/l4perception/](../../../internal/lidar/l4perception), `l5tracks/`, or `pipeline/`.
 
 **Regression thresholds:**
 

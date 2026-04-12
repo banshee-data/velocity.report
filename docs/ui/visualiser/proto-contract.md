@@ -1,6 +1,6 @@
 # Proto contract and debug overlays
 
-- **Source plan:** `docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
 gRPC/protobuf contract parity for visualiser streaming, ensuring the proto schema matches actual serialisation.
 
@@ -76,10 +76,10 @@ Tracked in BACKLOG.md:
 
 ## Key files
 
-| File                                                | Role                                              |
-| --------------------------------------------------- | ------------------------------------------------- |
-| `proto/velocity_visualiser/v1/visualiser.proto`     | Schema definition                                 |
-| `internal/lidar/visualiser/grpc_server.go`          | `frameBundleToProto()` serialiser                 |
-| `internal/lidar/visualiser/adapter.go`              | Frame adapter (internal model → visualiser model) |
-| `tools/visualiser-macos/.../VisualiserClient.swift` | Swift gRPC client                                 |
-| `tools/visualiser-macos/.../ContentView.swift`      | macOS UI bindings                                 |
+| File                                                                                                    | Role                                              |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [proto/velocity_visualiser/v1/visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) | Schema definition                                 |
+| `internal/lidar/visualiser/grpc_server.go`                                                              | `frameBundleToProto()` serialiser                 |
+| `internal/lidar/visualiser/adapter.go`                                                                  | Frame adapter (internal model → visualiser model) |
+| `tools/visualiser-macos/.../VisualiserClient.swift`                                                     | Swift gRPC client                                 |
+| `tools/visualiser-macos/.../ContentView.swift`                                                          | macOS UI bindings                                 |

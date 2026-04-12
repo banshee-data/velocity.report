@@ -319,7 +319,7 @@ This is distinct from the human-applied detection/quality labels (`user_label`, 
 
 ### 6.1 SQLite as the query engine
 
-SQLite is the project's single database (see `ARCHITECTURE.md`). The existing deployment runs on Raspberry Pi 4 with WAL mode, `PRAGMA synchronous = NORMAL`, and `busy_timeout = 30000`. The TDL query engine builds on this: no additional database is needed.
+SQLite is the project's single database (see [ARCHITECTURE.md](../../ARCHITECTURE.md)). The existing deployment runs on Raspberry Pi 4 with WAL mode, `PRAGMA synchronous = NORMAL`, and `busy_timeout = 30000`. The TDL query engine builds on this: no additional database is needed.
 
 SQLite's strengths for TDL:
 
@@ -390,7 +390,7 @@ Two approaches:
 
 **Approach B (Go):** Fetches `max_speed_mph` sorted from `fused_transits` with filters, then computes percentiles in Go: `p50 = speeds[n/2]`, `p85 = speeds[floor(n*0.85)]`, etc. Matches the existing `ComputeSpeedPercentiles` pattern.
 
-Approach B is simpler and matches the existing pattern in `internal/lidar/l6objects/classification.go`. For small-to-medium result sets (< 50,000 transits: roughly a year of data on a residential street at ~150 transits/day), the sorted slice fits comfortably in Raspberry Pi memory.
+Approach B is simpler and matches the existing pattern in [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go). For small-to-medium result sets (< 50,000 transits: roughly a year of data on a residential street at ~150 transits/day), the sorted slice fits comfortably in Raspberry Pi memory.
 
 **Count / percentage**: scalar aggregates:
 

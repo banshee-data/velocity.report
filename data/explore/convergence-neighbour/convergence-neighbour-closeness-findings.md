@@ -215,7 +215,7 @@ From 800+ samples across 16 configurations:
 
 - `convergence-neighbour-closeness-40min.csv` - Summary statistics (16 configurations)
 - `convergence-neighbour-closeness-40min-raw.csv` - Time-series data (800 samples)
-- `convergence-neighbour-closeness-findings.md` - This analysis document
+- [convergence-neighbour-closeness-findings.md](convergence-neighbour-closeness-findings.md) - This analysis document
 
 ## Appendix: statistical summary
 

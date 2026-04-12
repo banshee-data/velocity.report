@@ -12,15 +12,15 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 ## 2. What already exists
 
-| Capability                  | Location                                      | Status                                                            |
-| --------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| `CheckForSensorMovement()`  | `internal/lidar/l3grid/background_drift.go`   | Implemented: foreground-ratio spike detector (>20% threshold)     |
-| `IsSettlingComplete()`      | `internal/lidar/l3grid/background_manager.go` | Implemented: settling convergence check                           |
-| `GetGridStatus()`           | `internal/lidar/l3grid/background_manager.go` | Implemented: total/frozen/times-seen cell stats                   |
-| Region classification       | `internal/lidar/l3grid/background_region.go`  | Implemented: stable/variable/volatile regions after settling      |
-| Scene hash matching         | `internal/lidar/l3grid/background.go`         | Implemented: SHA256 hash for location fingerprinting              |
-| pcap-analyse L1–L6 pipeline | `cmd/tools/pcap-analyse/main.go`              | Implemented: full pipeline with stats, benchmark, CSV/JSON export |
-| pcap-split reference design | `docs/lidar/operations/pcap-analysis-mode.md` | Design section in the PCAP analysis mode hub doc                  |
+| Capability                  | Location                                                                                         | Status                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `CheckForSensorMovement()`  | [internal/lidar/l3grid/background_drift.go](../../internal/lidar/l3grid/background_drift.go)     | Implemented: foreground-ratio spike detector (>20% threshold)     |
+| `IsSettlingComplete()`      | [internal/lidar/l3grid/background_manager.go](../../internal/lidar/l3grid/background_manager.go) | Implemented: settling convergence check                           |
+| `GetGridStatus()`           | [internal/lidar/l3grid/background_manager.go](../../internal/lidar/l3grid/background_manager.go) | Implemented: total/frozen/times-seen cell stats                   |
+| Region classification       | [internal/lidar/l3grid/background_region.go](../../internal/lidar/l3grid/background_region.go)   | Implemented: stable/variable/volatile regions after settling      |
+| Scene hash matching         | [internal/lidar/l3grid/background.go](../../internal/lidar/l3grid/background.go)                 | Implemented: SHA256 hash for location fingerprinting              |
+| pcap-analyse L1–L6 pipeline | [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go)                           | Implemented: full pipeline with stats, benchmark, CSV/JSON export |
+| pcap-split reference design | [docs/lidar/operations/pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)         | Design section in the PCAP analysis mode hub doc                  |
 
 ### Gap analysis
 

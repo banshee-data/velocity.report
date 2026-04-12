@@ -506,18 +506,18 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 
 ## Current repository alignment
 
-| Layer         | Canonical package | Key files                                                                                                                          | Status |
-| ------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L1 Packets    | `l1packets`       | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                         | ✅     |
-| L2 Frames     | `l2frames`        | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                         | ✅     |
-| L3 Grid       | `l3grid`          | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`          | ✅     |
-| L4 Perception | `l4perception`    | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                     | ✅     |
-| L5 Tracks     | `l5tracks`        | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                              | ✅     |
-| L6 Objects    | `l6objects`       | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                  | ✅     |
-| L7 Scene      | `l7scene`         | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                       | 📋     |
-| L8 Analytics  | `l8analytics`     | `comparison.go`, `summary.go`, `labels.go`; additional analytics logic in `server/chart_api.go`, `storage/sqlite/analysis_run*.go` | 🔄     |
-| L9 Endpoints  | `l9endpoints`     | `grpc_server.go`, `publisher.go`, `frame_codec.go`, `adapter.go`, `chart_data.go`, `replay.go`, `synthetic.go`, `legacy_assets.go` | ✅     |
-| L10 Clients   | _(no Go package)_ | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                | 📄     |
+| Layer         | Canonical package | Key files                                                                                                                                          | Status |
+| ------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| L1 Packets    | `l1packets`       | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                         | ✅     |
+| L2 Frames     | `l2frames`        | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                         | ✅     |
+| L3 Grid       | `l3grid`          | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                          | ✅     |
+| L4 Perception | `l4perception`    | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                     | ✅     |
+| L5 Tracks     | `l5tracks`        | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                              | ✅     |
+| L6 Objects    | `l6objects`       | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                  | ✅     |
+| L7 Scene      | `l7scene`         | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                       | 📋     |
+| L8 Analytics  | `l8analytics`     | `comparison.go`, `summary.go`, `labels.go`; additional analytics logic in `server/chart_api.go`, `storage/sqlite/analysis_run*.go`                 | 🔄     |
+| L9 Endpoints  | `l9endpoints`     | `grpc_server.go`, `publisher.go`, `frame_codec.go`, `adapter.go`, `chart_data.go`, `replay.go`, `synthetic.go`, `legacy_assets.go`                 | 🔄     |
+| L10 Clients   | _(no Go package)_ | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [tools/pdf-generator/](../../../tools/pdf-generator) (Python) | 🔄     |
 
 Cross-cutting packages:
 
@@ -529,11 +529,11 @@ Cross-cutting packages:
 | `server/`         | HTTP server, API handlers, data source management (REST counterpart to L9's gRPC)                                                                                         |
 | `sweep/`          | Parameter sweep and auto-tuning                                                                                                                                           |
 
-Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
+Backward-compatible type aliases remain in the parent [internal/lidar/](../../../internal/lidar) package so existing callers continue to work.
 
 ## Documentation map
 
-Documentation for the LiDAR subsystem lives under `docs/lidar/`.
+Documentation for the LiDAR subsystem lives under [docs/lidar/](..).
 
 | Folder             | Scope                                                             |
 | ------------------ | ----------------------------------------------------------------- |

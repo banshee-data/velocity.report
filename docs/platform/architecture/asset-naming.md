@@ -13,7 +13,7 @@ platform-specific binaries across the velocity.report project.
 
 The macOS visualiser keeps PascalCase because it is the user-facing
 application name (Finder, DMG volume, menu bar, About dialog). See
-`.github/knowledge/coding-standards.md` § Product Names.
+[.github/knowledge/coding-standards.md](../../../.github/knowledge/coding-standards.md) § Product Names.
 
 ## Version string
 
@@ -22,8 +22,8 @@ Single source of truth: `VERSION` in `Makefile`.
 Release versions follow SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`).
 Pre-release tags append a hyphen suffix: `0.5.1-pre1`, `0.6.0-rc1`.
 
-**No leading zeros in version segments.** `web/package.json` and
-`public_html/package.json` are validated by npm's strict SemVer parser.
+**No leading zeros in version segments.** [web/package.json](../../../web/package.json) and
+[public_html/package.json](../../../public_html/package.json) are validated by npm's strict SemVer parser.
 A version like `0.5.04` is invalid: the patch segment `04` has a leading
 zero. Use `0.5.4` instead. See § Version Validity Analysis.
 
@@ -97,18 +97,18 @@ Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 
 ## Version validity analysis
 
-| Surface         | File                                 | Validates SemVer?   | Effect of `0.5.04`                 |
-| --------------- | ------------------------------------ | ------------------- | ---------------------------------- |
-| npm (web)       | `web/package.json`                   | **Yes: strict**     | **Rejects with parse error**       |
-| npm (docs)      | `public_html/package.json`           | **Yes: strict**     | **Rejects with parse error**       |
-| Go version pkg  | `internal/version/version.go`        | No: display only    | Passes                             |
-| Makefile        | `Makefile`                           | No: string constant | Passes                             |
-| CI workflows    | `.github/workflows/*.yml`            | No: substitution    | Passes                             |
-| Xcode           | `project.pbxproj` MARKETING_VERSION  | No: string          | Passes                             |
-| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)   | Passes; PyPI normalises to `0.5.4` |
-| rpi-imager JSON | `image/os-list-velocity.json`        | No                  | Passes                             |
+| Surface         | File                                                                              | Validates SemVer?   | Effect of `0.5.04`                 |
+| --------------- | --------------------------------------------------------------------------------- | ------------------- | ---------------------------------- |
+| npm (web)       | [web/package.json](../../../web/package.json)                                     | **Yes: strict**     | **Rejects with parse error**       |
+| npm (docs)      | [public_html/package.json](../../../public_html/package.json)                     | **Yes: strict**     | **Rejects with parse error**       |
+| Go version pkg  | [internal/version/version.go](../../../internal/version/version.go)               | No: display only    | Passes                             |
+| Makefile        | `Makefile`                                                                        | No: string constant | Passes                             |
+| CI workflows    | `.github/workflows/*.yml`                                                         | No: substitution    | Passes                             |
+| Xcode           | `project.pbxproj` MARKETING_VERSION                                               | No: string          | Passes                             |
+| Python          | [tools/pdf-generator/pyproject.toml](../../../tools/pdf-generator/pyproject.toml) | Lenient (PEP 440)   | Passes; PyPI normalises to `0.5.4` |
+| rpi-imager JSON | [image/os-list-velocity.json](../../../image/os-list-velocity.json)               | No                  | Passes                             |
 
-Two surfaces hard-block: `web/package.json` and `public_html/package.json`.
+Two surfaces hard-block: [web/package.json](../../../web/package.json) and [public_html/package.json](../../../public_html/package.json).
 Every CI run validates the version field against strict SemVer.
 
 ## Makefile variables

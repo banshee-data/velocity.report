@@ -214,7 +214,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 ### ✅ current flags (implemented)
 
-The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `--enable-lidar` flag:
+The LiDAR functionality is integrated into the [cmd/radar/radar.go](../../../cmd/radar/radar.go) binary and enabled via the `--enable-lidar` flag:
 
 ```bash
 # Radar binary with LiDAR integration

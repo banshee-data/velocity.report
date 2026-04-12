@@ -14,11 +14,11 @@ now understood and almost entirely mechanical: this is not a framework problem.
 
 GSA analysis (`gsa velocity-report-{version}-linux-arm64 -f json --compact`) reveals:
 
-| Segment                      | Size     | % of binary | What it is                                                       |
-| ---------------------------- | -------- | ----------- | ---------------------------------------------------------------- |
-| `static/` embed (stale)      | 172.0 MB | 81%         | 200 accumulated SvelteKit builds never cleaned before `go build` |
-| Go code + all dependencies   | 38.2 MB  | 18%         | SQLite, gRPC, protobuf, gonum, echarts, crypto, runtime, etc.    |
-| `web/build/` embed (current) | 1.1 MB   | 1%          | The actual single-version SvelteKit build                        |
+| Segment                                       | Size     | % of binary | What it is                                                       |
+| --------------------------------------------- | -------- | ----------- | ---------------------------------------------------------------- |
+| `static/` embed (stale)                       | 172.0 MB | 81%         | 200 accumulated SvelteKit builds never cleaned before `go build` |
+| Go code + all dependencies                    | 38.2 MB  | 18%         | SQLite, gRPC, protobuf, gonum, echarts, crypto, runtime, etc.    |
+| [web/build/](../../web/build) embed (current) | 1.1 MB   | 1%          | The actual single-version SvelteKit build                        |
 
 **The frontend is 1.1 MB.** The 175 MB attributed to the frontend in the GSA output is
 almost entirely stale build artifacts in `static/` that were embedded alongside the
@@ -37,15 +37,15 @@ assets.go:
 ```
 
 `static/` is in `.gitignore` but is not cleaned before `go build`. Each `pnpm run build`
-(in dev mode, serving from `./static`) writes content-hashed files
+(in dev mode, serving from [./static](../../static)) writes content-hashed files
 (`start.<hash>.js`, `start.<hash>.css`, `app.<hash>.js`, `nodes/<N>.<hash>.js`) into
-`static/_app/immutable/`. Old files are never removed. At the time of measurement:
+[static/\_app/immutable/](../../static/_app/immutable). Old files are never removed. At the time of measurement:
 
 - 200 versions of `start.<hash>.js` (each ~1 MB) = **~167 MB** in `entry/` alone
 - 134 stale CSS files = **~4.8 MB** in `assets/`
 - 1,890 stale node chunk files = **~7.4 MB** in `nodes/`
 
-`web/build/` (the SvelteKit `adapter-static` output) contains only the current build:
+[web/build/](../../web/build) (the SvelteKit `adapter-static` output) contains only the current build:
 28 files, 1.1 MB total (348 KB gzipped). It is already referenced by `WebBuildFiles`
 and serves `/app/` routes in production mode.
 
@@ -80,10 +80,10 @@ This phase alone drops the binary from 211 MB to ~39 MB.
 `StaticFiles` is used in production only for `/favicon.ico`. That can be served from
 `WebBuildFiles` (which already contains `favicon.ico`). After the change:
 
-After the change, `assets.go` contains only the `WebBuildFiles` embed directive (`//go:embed web/build/*`). The `StaticFiles` variable and `//go:embed static/*` directive are removed entirely.
+After the change, [assets.go](../../assets.go) contains only the `WebBuildFiles` embed directive (`//go:embed web/build/*`). The `StaticFiles` variable and `//go:embed static/*` directive are removed entirely.
 
-Update `internal/api/server.go` to serve `/favicon.ico` from `WebBuildFiles` (production)
-or `./web/build` (dev) instead of `StaticFiles`.
+Update [internal/api/server.go](../../internal/api/server.go) to serve `/favicon.ico` from `WebBuildFiles` (production)
+or [./web/build](../../web/build) (dev) instead of `StaticFiles`.
 
 **Functionality sacrificed:** None. `static/` was a dev convenience that leaked into the
 production binary. Dev mode already reads from the filesystem.
@@ -92,29 +92,29 @@ production binary. Dev mode already reads from the filesystem.
 
 Add to the web build script or Makefile:
 
-The `build-web` target should clean `web/build/` before building (`rm -rf web/build`), then run the existing build command.
+The `build-web` target should clean [web/build/](../../web/build) before building (`rm -rf web/build`), then run the existing build command.
 
 For dev mode, add a `clean-static` target or modify the dev server startup to clean
-`static/_app/immutable/` before rebuilding:
+[static/\_app/immutable/](../../static/_app/immutable) before rebuilding:
 
 A `clean-static` target removes stale immutable assets: `rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*`.
 
-### 1.3 Dev mode: serve from `web/build/` not `static/`
+### 1.3 Dev mode: serve from [web/build/](../../web/build) not `static/`
 
-Change the dev-mode file server to read from `./web/build` instead of `./static`.
+Change the dev-mode file server to read from [./web/build](../../web/build) instead of [./static](../../static).
 This eliminates the need for `static/` entirely and means dev and production share
 the same file tree.
 
-In dev mode, the handler serves from the local filesystem at `./web/build` via `http.FileServer(http.Dir("./web/build"))`. In production, it serves from the embedded `radar.WebBuildFiles` via `http.FileServer(http.FS(radar.WebBuildFiles))`.
+In dev mode, the handler serves from the local filesystem at [./web/build](../../web/build) via `http.FileServer(http.Dir("./web/build"))`. In production, it serves from the embedded `radar.WebBuildFiles` via `http.FileServer(http.FS(radar.WebBuildFiles))`.
 
 ### Expected result after phase 1
 
-| Segment         | Before     | After      |
-| --------------- | ---------- | ---------- |
-| Stale `static/` | 172.0 MB   | 0 MB       |
-| `web/build/`    | 1.1 MB     | 1.1 MB     |
-| Go code + deps  | 38.2 MB    | 38.2 MB    |
-| **Total**       | **211 MB** | **~39 MB** |
+| Segment                       | Before     | After      |
+| ----------------------------- | ---------- | ---------- |
+| Stale `static/`               | 172.0 MB   | 0 MB       |
+| [web/build/](../../web/build) | 1.1 MB     | 1.1 MB     |
+| Go code + deps                | 38.2 MB    | 38.2 MB    |
+| **Total**                     | **211 MB** | **~39 MB** |
 
 ## Phase 2: strip debug symbols; saves ~8–12 MB
 
@@ -130,11 +130,11 @@ Expected saving: ~25–30% of the Go code segment = **~8–12 MB**.
 
 ### Expected result after phase 2
 
-| Segment            | Size       |
-| ------------------ | ---------- |
-| `web/build/`       | 1.1 MB     |
-| Go code (stripped) | ~27 MB     |
-| **Total**          | **~28 MB** |
+| Segment                       | Size       |
+| ----------------------------- | ---------- |
+| [web/build/](../../web/build) | 1.1 MB     |
+| Go code (stripped)            | ~27 MB     |
+| **Total**                     | **~28 MB** |
 
 ## Phase 3: CI binary size gate; prevent regression
 
@@ -188,7 +188,7 @@ These are diminishing returns but worth considering:
 
 ### 4.1 Replace embedded `echarts.min.js` with lightweight alternative
 
-`internal/lidar/l9endpoints/l10clients/assets/echarts.min.js` is 1.1 MB embedded for
+[internal/lidar/l9endpoints/l10clients/assets/echarts.min.js](../../internal/lidar/l9endpoints/l10clients/assets/echarts.min.js) is 1.1 MB embedded for
 the LiDAR status/dashboard pages. If these pages migrate to the Svelte frontend (tracked
 by [web-frontend-consolidation-plan](web-frontend-consolidation-plan.md)), echarts can
 be removed from the Go binary. Saving: ~1 MB.
@@ -236,7 +236,7 @@ excessive was the build hygiene.
 
 | Risk                                         | Likelihood | Impact | Mitigation                                                            |
 | -------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------- |
-| Dev mode behaviour change breaks workflow    | Medium     | Low    | Test dev mode with `./web/build` path before merging                  |
+| Dev mode behaviour change breaks workflow    | Medium     | Low    | Test dev mode with [./web/build](../../web/build) path before merging |
 | CI size gate too tight, blocks valid PRs     | Low        | Low    | Set threshold at 45 MB (60% headroom above ~28 MB target)             |
 | Stripped binary makes crash debugging harder | Low        | Medium | Keep debug symbols in local/dev builds; deploy with `GOTRACEBACK=all` |
 
@@ -244,9 +244,9 @@ excessive was the build hygiene.
 
 ### Outstanding
 
-- [ ] Remove `//go:embed static/*` from `assets.go` and delete `StaticFiles` var (`S` effort)
-- [ ] Update `internal/api/server.go` to serve favicon from `WebBuildFiles` (`S` effort)
-- [ ] Change dev-mode handler to read from `./web/build` instead of `./static` (`S` effort)
+- [ ] Remove `//go:embed static/*` from [assets.go](../../assets.go) and delete `StaticFiles` var (`S` effort)
+- [ ] Update [internal/api/server.go](../../internal/api/server.go) to serve favicon from `WebBuildFiles` (`S` effort)
+- [ ] Change dev-mode handler to read from [./web/build](../../web/build) instead of [./static](../../static) (`S` effort)
 - [ ] Add `rm -rf web/build` to `build-web` target for clean builds (`S` effort)
 - [ ] Add `-s -w` to `LDFLAGS` for production build targets (`S` effort)
 - [ ] Create `scripts/check-binary-size.sh` and wire into `make lint` (`S` effort)

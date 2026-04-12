@@ -7,18 +7,18 @@ alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
 
 ## Layer summary
 
-| Layer | Label      | Package (Go)                      | Responsibility                                               |
-| ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
-| L1    | Packets    | `l1packets`                       | Wire transport, UDP capture, PCAP replay, packet parsing     |
-| L2    | Frames     | `l2frames`                        | Frame assembly, timestamps, geometry conversion              |
-| L3    | Grid       | `l3grid`                          | Background model, foreground masking, persistence, regions   |
-| L4    | Perception | `l4perception`                    | Per-frame clustering, OBBs, ground removal                   |
-| L5    | Tracks     | `l5tracks`                        | Temporal association, identity, lifecycle, motion estimation |
-| L6    | Objects    | `l6objects`                       | Semantic classification, per-object quality                  |
-| L7    | Scene      | _(planned)_                       | Persistent world model, multi-sensor fusion                  |
-| L8    | Analytics  | `l8analytics`                     | Canonical metrics, summaries, comparisons, scoring           |
-| L9    | Endpoints  | `l9endpoints`                     | gRPC streams, chart payload shaping, debug views             |
-| L10   | Clients    | `web/`, `tools/visualiser-macos/` | Browser, native, and report-generation consumers             |
+| Layer | Label      | Package (Go)                                                    | Responsibility                                               |
+| ----- | ---------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| L1    | Packets    | `l1packets`                                                     | Wire transport, UDP capture, PCAP replay, packet parsing     |
+| L2    | Frames     | `l2frames`                                                      | Frame assembly, timestamps, geometry conversion              |
+| L3    | Grid       | `l3grid`                                                        | Background model, foreground masking, persistence, regions   |
+| L4    | Perception | `l4perception`                                                  | Per-frame clustering, OBBs, ground removal                   |
+| L5    | Tracks     | `l5tracks`                                                      | Temporal association, identity, lifecycle, motion estimation |
+| L6    | Objects    | `l6objects`                                                     | Semantic classification, per-object quality                  |
+| L7    | Scene      | _(planned)_                                                     | Persistent world model, multi-sensor fusion                  |
+| L8    | Analytics  | `l8analytics`                                                   | Canonical metrics, summaries, comparisons, scoring           |
+| L9    | Endpoints  | `l9endpoints`                                                   | gRPC streams, chart payload shaping, debug views             |
+| L10   | Clients    | `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos) | Browser, native, and report-generation consumers             |
 
 ## Folder structure
 
@@ -95,8 +95,8 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 
 ### Canonical sources
 
-- **Go backend:** `internal/api/lidar_labels.go`; `validUserLabels`, `validQualityLabels`
-- **Svelte frontend:** `web/src/lib/types/lidar.ts`; `DetectionLabel`, `QualityLabel`
-- **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`; `LabelPanelView`
+- **Go backend:** [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go); `validUserLabels`, `validQualityLabels`
+- **Svelte frontend:** [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts); `DetectionLabel`, `QualityLabel`
+- **macOS app:** [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift); `LabelPanelView`
 
 > **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. Ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).

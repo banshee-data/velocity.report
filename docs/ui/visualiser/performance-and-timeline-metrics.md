@@ -1,6 +1,6 @@
 # Performance and timeline metrics
 
-- **Source plan:** `docs/plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md](../../plans/lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md)
 
 First-class metrics channel for the visualiser: per-frame performance and scene health signals with timeline rendering, comparison harness, and `.vrlog` persistence.
 

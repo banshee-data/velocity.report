@@ -164,7 +164,7 @@ tiles and exported as GeoJSON for vector-scene polygons.
 
 This alignment is confirmed across all four source documents:
 
-- `ground-plane-maths.md` → height-band filter (current runtime)
+- [ground-plane-maths.md](ground-plane-maths.md) → height-band filter (current runtime)
 - `ground-plane-extraction.md` → tile-plane fitting (§2, proposed)
 - `20260221-ground-plane-vector-scene-maths.md` → streaming PCA + settlement
 - `vector-scene-map.md` → region-grown polygons + LOD hierarchy

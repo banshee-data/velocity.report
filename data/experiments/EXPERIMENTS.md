@@ -1,13 +1,13 @@
 # EXPERIMENTS
 
-- `data/experiments/try/`: proposed experiments awaiting execution.
+- [data/experiments/try/](try): proposed experiments awaiting execution.
   Each file describes a hypothesis, method, acceptance criteria, and
-  required resources. Promote successful experiments to `data/explore/`
+  required resources. Promote successful experiments to [data/explore/](../explore)
   with results.
 
 ## Try form template
 
-Use this template for new files in `data/experiments/try/`.
+Use this template for new files in [data/experiments/try/](try).
 
 ```md
 # Experiment: <short-title>

@@ -101,7 +101,7 @@ These endpoints preserve the existing `/api/lidar/pcap/*` contract while adding 
 
 **New State**: UDP listener lifecycle managed by WebServer, always starts in live mode.
 
-**File**: `cmd/radar/radar.go`
+**File**: [cmd/radar/radar.go](../../../cmd/radar/radar.go)
 
 **Changes** (BREAKING):
 
@@ -214,7 +214,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 
 ### Phase 2: remove CLI flag (BREAKING)
 
-1. Remove `--lidar-pcap-mode` flag from `cmd/radar/radar.go`
+1. Remove `--lidar-pcap-mode` flag from [cmd/radar/radar.go](../../../cmd/radar/radar.go)
 2. Remove all PCAP mode conditionals from main()
 3. WebServer always starts in live mode (UDP listener running)
 4. Update build targets and documentation
@@ -227,13 +227,13 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - `stats-live`: No changes needed (default mode)
    - `stats-pcap`: Call API to switch before running
    - `dev-go-pcap`: Remove this target (no longer needed)
-4. Update helper scripts in `scripts/api/lidar/`
+4. Update helper scripts in [scripts/api/lidar/](../../../scripts/api/lidar)
 5. Add new script: `switch_data_source.sh`
 
 ### Phase 4: documentation & migration guide
 
-1. Update `../architecture/lidar-sidecar-overview.md` to remove PCAP mode flag
-2. Update `cmd/radar/README.md` with new workflow
+1. Update [../architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) to remove PCAP mode flag
+2. Update [cmd/radar/README.md](../../../cmd/radar/README.md) with new workflow
 3. Add migration guide for users of `--lidar-pcap-mode`
 4. Update API documentation with new endpoint
 
@@ -253,14 +253,14 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Modify `Start()` to initialise in live mode (start UDP listener)
    - Update status endpoint to include data_source, pcap_file, pcap_in_progress
 
-2. **`cmd/radar/radar.go`** (~40 lines changed)
+2. **[cmd/radar/radar.go](../../../cmd/radar/radar.go)** (~40 lines changed)
    - **REMOVE** `lidarPCAPMode` flag declaration
    - Remove conditional UDP listener startup logic
    - Always pass UDP listener config to WebServer
    - Remove PCAP mode references from main()
    - WebServer now manages UDP listener lifecycle
 
-3. **`tools/grid-heatmap/plot_grid_heatmap.py`** (~20 lines changed)
+3. **[tools/grid-heatmap/plot_grid_heatmap.py](../../../tools/grid-heatmap/plot_grid_heatmap.py)** (~20 lines changed)
    - Call `/api/lidar/pcap/start` and `/api/lidar/pcap/stop` with retry logic
    - Automatically restore live mode after snapshot capture
 
@@ -273,9 +273,9 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
    - Update `stats-pcap` / API targets to call start/stop helpers
 
 6. **Documentation Updates** (~100 lines changed)
-   - `docs/lidar/architecture/lidar-sidecar-overview.md` - remove PCAP mode flag references
-   - `cmd/radar/README.md` - update with new API workflow
-   - `scripts/api/README.md` - document new endpoint
+   - [docs/lidar/architecture/lidar-sidecar-overview.md](../architecture/lidar-sidecar-overview.md) - remove PCAP mode flag references
+   - [cmd/radar/README.md](../../../cmd/radar/README.md) - update with new API workflow
+   - [scripts/api/README.md](../../../scripts/api/README.md) - document new endpoint
    - Add migration guide for `--lidar-pcap-mode` users
 
 ## Testing strategy

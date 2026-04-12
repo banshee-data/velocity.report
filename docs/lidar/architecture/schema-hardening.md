@@ -87,7 +87,7 @@ Principles:
 
 ### 2. Enable foreign keys and make delete semantics real
 
-- `PRAGMA foreign_keys = ON` in `internal/db/db.go`.
+- `PRAGMA foreign_keys = ON` in [internal/db/db.go](../../../internal/db/db.go).
 - `lidar_track_observations → lidar_tracks ON DELETE CASCADE`.
 - `parent_run_id → lidar_run_records ON DELETE SET NULL`.
 - Replay evaluations scoped by `(replay_case_id, reference_run_id, candidate_run_id)`.
@@ -133,7 +133,7 @@ to match existing Go-side validation:
 ## What shipped
 
 - Migrations `000033` and `000034` landed.
-- `internal/db/db.go` enables `PRAGMA foreign_keys = ON`.
+- [internal/db/db.go](../../../internal/db/db.go) enables `PRAGMA foreign_keys = ON`.
 - Label API and storage target `lidar_replay_annotations`.
 - Regression coverage for replay-case delete, run delete, null-site
   reports, paired annotation links, and transit-link persistence under FK

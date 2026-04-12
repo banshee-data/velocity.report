@@ -1,6 +1,6 @@
 # QC dashboard and audit export
 
-- **Source plan:** `docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md](../../plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md)
 
 Run-level and session-level QC dashboard with full audit trail and CSV export.
 

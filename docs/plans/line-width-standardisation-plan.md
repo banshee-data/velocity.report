@@ -100,16 +100,16 @@ automatically. One mechanical reformat PR with
 
 One PR. Only config files change; no source reformatting yet.
 
-| File                                   | Change                                         |
-| -------------------------------------- | ---------------------------------------------- |
-| `scripts/check-prose-line-width.py`    | `DEFAULT_WIDTH = 90` → `100`                   |
-| Makefile `check-prose-width` comment   | Update "90" → "100"                            |
-| `pyproject.toml` (new, root)           | `[tool.black] line-length = 100`               |
-|                                        | `[tool.ruff] line-length = 100`                |
-| `.golangci.yml` (new, root)            | Enable `lll` linter, `line-length: 100`        |
-| `web/.prettierrc`                      | Already 100: no change                         |
-| `tools/visualiser-macos/.swift-format` | Already 100: no change                         |
-| `.sql-formatter.json`                  | Leave at 70 (expression width, not line width) |
+| File                                                                               | Change                                         |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [scripts/check-prose-line-width.py](../../scripts/check-prose-line-width.py)       | `DEFAULT_WIDTH = 90` → `100`                   |
+| Makefile `check-prose-width` comment                                               | Update "90" → "100"                            |
+| `pyproject.toml` (new, root)                                                       | `[tool.black] line-length = 100`               |
+|                                                                                    | `[tool.ruff] line-length = 100`                |
+| `.golangci.yml` (new, root)                                                        | Enable `lll` linter, `line-length: 100`        |
+| [web/.prettierrc](../../web/.prettierrc)                                           | Already 100: no change                         |
+| [tools/visualiser-macos/.swift-format](../../tools/visualiser-macos/.swift-format) | Already 100: no change                         |
+| [.sql-formatter.json](../../.sql-formatter.json)                                   | Leave at 70 (expression width, not line width) |
 
 ### Phase 2: reformat
 
@@ -120,7 +120,7 @@ line.
 Create `.git-blame-ignore-revs` at the repo root containing
 the reformat commit SHA. GitHub honours this file
 automatically. Document the one-time local setup in
-`CONTRIBUTING.md`:
+[CONTRIBUTING.md](../../CONTRIBUTING.md):
 
 ```bash
 git config blame.ignoreRevsFile .git-blame-ignore-revs
@@ -177,7 +177,7 @@ Add a `check-line-width` job to `.github/workflows/ci.yml`:
 
 ### Phase 5: opt-in pre-commit hook
 
-The existing `.pre-commit-config.yaml` already delegates to
+The existing [.pre-commit-config.yaml](../../.pre-commit-config.yaml) already delegates to
 `make format-*` targets. Add a new local hook for width
 checking that contributors can opt into:
 

@@ -23,7 +23,7 @@ velocity.report/
 
 - **One command:** `make install-python` sets up everything
 - **Single source of truth:** `requirements.in` at repository root
-- **Pinned dependencies:** `requirements.txt` generated with `pip-compile`
+- **Pinned dependencies:** [requirements.txt](../../../requirements.txt) generated with `pip-compile`
 - All Makefile Python targets use `VENV_PYTHON = .venv/bin/python3`
 
 ## Dependency management

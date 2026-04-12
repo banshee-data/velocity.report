@@ -9,11 +9,11 @@ Separate foundational LiDAR work into two independent streams so the project can
 ## Current runtime baseline (implemented)
 
 1. Foreground extraction uses L3 mask path:
-   - `internal/lidar/l3grid/foreground.go` (`ProcessFramePolarWithMask`)
+   - [internal/lidar/l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go) (`ProcessFramePolarWithMask`)
 2. Perception and clustering:
-   - `internal/lidar/l4perception/cluster.go`
+   - [internal/lidar/l4perception/cluster.go](../../../internal/lidar/l4perception/cluster.go)
 3. Tracking and assignment:
-   - `internal/lidar/l5tracks/tracking.go`
+   - [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go)
 
 ## Workstream a: vector-grid foundations
 
@@ -26,7 +26,7 @@ Scope:
 Code ownership:
 
 - `internal/lidar/l3grid/*`
-- `internal/lidar/l4perception/ground.go` (current height-band path)
+- [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go) (current height-band path)
 - future ground/vector modules
 
 Current status:
@@ -51,8 +51,8 @@ Current status:
 
 - Planning only. No velocity-coherent extractor is active in `main` runtime.
 - Design references:
-  - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
-  - `data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
+  - [docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
+  - [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](../../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 
 ## Required boundary between a and b
 

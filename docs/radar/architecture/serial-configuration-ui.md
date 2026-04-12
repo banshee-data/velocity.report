@@ -33,7 +33,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 ### Serial port management (existing)
 
-**Component:** `internal/serialmux`
+**Component:** [internal/serialmux](../../../internal/serialmux)
 
 - **Purpose:** Abstraction over serial port with multiplexing for multiple subscribers
 - **Implementation:** Generic `SerialMux[T SerialPorter]` with real, mock, and disabled modes
@@ -42,11 +42,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
-> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
+> **Source:** [cmd/radar/radar.go](../../../cmd/radar/radar.go). Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()`; fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
-> **Source:** `internal/serialmux/port.go`. `SerialPorter` interface embeds `io.ReadWriter` and `io.Closer`.
+> **Source:** [internal/serialmux/port.go](../../../internal/serialmux/port.go). `SerialPorter` interface embeds `io.ReadWriter` and `io.Closer`.
 
 ### Database configuration (existing)
 
@@ -54,7 +54,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 - **Site Configuration:** `site` table stores location and report settings
 - **Pattern:** Configuration stored in DB, consumed by application at runtime
-- **Migration System:** Timestamped SQL files in `internal/db/migrations/`
+- **Migration System:** Timestamped SQL files in [internal/db/migrations/](../../../internal/db/migrations)
 
 ### Web interface (existing)
 
@@ -72,7 +72,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 ### HTTP API (existing)
 
-**Server:** `internal/api/server.go`
+**Server:** [internal/api/server.go](../../../internal/api/server.go)
 
 - **Config Endpoint:** `/api/config` returns units and timezone
 - **Pattern:** JSON responses with error handling
@@ -88,7 +88,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Schema Design:**
 
-> **Source:** Schema in `internal/db/migrations/` (when implemented). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. CHECK constraint validates sensor_model. Default config inserts HAT entry (`/dev/ttySC1`, 19200 baud, `ops243-a`).
+> **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. CHECK constraint validates sensor_model. Default config inserts HAT entry (`/dev/ttySC1`, 19200 baud, `ops243-a`).
 
 **Rationale:**
 
@@ -105,7 +105,7 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Sensor Model Information (Application Code):**
 
-> **Source:** Sensor model registry in `internal/radar/` (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
+> **Source:** Sensor model registry in [internal/radar/](../../../internal/radar) (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
 
 #### FR2: Go API endpoints for serial configuration
 
@@ -168,7 +168,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 **Implementation:**
 
 - **Route File:** `web/src/routes/settings/serial/+page.svelte`
-- **API Client:** `web/src/lib/api.ts` (extend existing API helpers)
+- **API Client:** [web/src/lib/api.ts](../../../web/src/lib/api.ts) (extend existing API helpers)
 - **TypeScript Types:** `web/src/lib/types/serial.ts` (new file)
 
 **Design Pattern:** Follow existing settings page patterns
@@ -213,7 +213,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 **Implementation Changes:**
 
-- **File:** `cmd/radar/radar.go`
+- **File:** [cmd/radar/radar.go](../../../cmd/radar/radar.go)
 - **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
 
 > **Source:** `SerialConfig` struct, `SensorModel` struct, and `GetSensorModel()` defined in sensor model registry (see FR1). Application-side model registry eliminates the need for database migrations when adding new sensor support.
@@ -530,7 +530,7 @@ sudo systemctl restart velocity-report
 3. **Testing Guide:** How to run serial tests without hardware
 4. **Architecture Decision Record:** Rationale for key design choices
 
-**Location:** `docs/api/serial-endpoints.md`, `ARCHITECTURE.md` update
+**Location:** `docs/api/serial-endpoints.md`, [ARCHITECTURE.md](../../../ARCHITECTURE.md) update
 
 ### In-App help
 

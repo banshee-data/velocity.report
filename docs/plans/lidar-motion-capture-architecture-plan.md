@@ -532,8 +532,8 @@ type VisualOdometryProvider struct { ... }
 type SLAMProvider struct { ... }
 ---\n\n## Related Documents
 
-- **Current Implementation:** `../lidar/architecture/foreground-tracking.md` (3DOF/2D+velocity tracking - what's actually deployed)
+- **Current Implementation:** [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md) (3DOF/2D+velocity tracking - what's actually deployed)
 - **Deferred - Static Pose:** `static-pose-alignment-plan.md` (future static sensor calibration)
 - **Deferred - AV Integration:** `av-lidar-integration-plan.md` (AV dataset integration, not current traffic monitoring)
-- **Database Schema:** `../../internal/db/schema.sql` (current and future tables)
+- **Database Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql) (current and future tables)
 - **ML Pipeline:** [LiDAR Pipeline Reference](../lidar/architecture/lidar-pipeline-reference.md) (classification pipeline)

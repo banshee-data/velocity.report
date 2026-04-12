@@ -309,7 +309,7 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
 
 **Scope:**
 
-- Add `--worker` flag to `cmd/radar/radar.go`
+- Add `--worker` flag to [cmd/radar/radar.go](../../cmd/radar/radar.go)
   - When set: skip radar init, skip dashboard, skip gRPC visualiser, skip transit worker
   - Start LiDAR pipeline (L1–L5) for PCAP replay capability
   - Start minimal HTTP server on `--worker-listen` (default `:8082`)
@@ -330,7 +330,7 @@ web/src/routes/(constrained)/settings/+page.svelte         (worker CRUD section)
 
 **Key design decisions:**
 
-- No separate binary: `--worker` is a flag on the existing `cmd/radar/radar.go` entry point, consistent with `--enable-lidar`, `--disable-radar`, `--debug`
+- No separate binary: `--worker` is a flag on the existing [cmd/radar/radar.go](../../cmd/radar/radar.go) entry point, consistent with `--enable-lidar`, `--disable-radar`, `--debug`
 - Worker is not stateless: it caches results locally until the driver confirms retrieval. This survives transient network issues and driver restarts.
 - Workers run their own LiDAR pipeline (L1–L5) for PCAP replay: they need sensor processing, not just an API client
 - `--pcap-root` must match the shared filesystem mount; the driver sends validated relative PCAP paths from this root (e.g. `site-01/capture-2026-03-10.pcap`), workers reject absolute/`..` paths and resolve full paths under `--pcap-root`

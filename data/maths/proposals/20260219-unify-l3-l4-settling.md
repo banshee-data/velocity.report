@@ -117,7 +117,7 @@ Keep model-specific parameters separate:
 
 ### 7.1 Immediate mapping to existing config
 
-With current schema (`config/tuning.defaults.json`), merged settling should map:
+With current schema ([config/tuning.defaults.json](../../../config/tuning.defaults.json)), merged settling should map:
 
 - lifecycle timing:
   - `warmup_duration_nanos`

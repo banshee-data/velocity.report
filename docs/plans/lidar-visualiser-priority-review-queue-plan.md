@@ -89,10 +89,10 @@ Response includes jump context:
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 
 UI additions:
 
@@ -107,8 +107,8 @@ UI additions:
 
 Files:
 
-- `web/src/routes/lidar/tracks/+page.svelte`
-- `web/src/lib/components/lidar/TrackList.svelte`
+- [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte)
+- [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte)
 
 Add optional queue mode and claim/resolve actions.
 

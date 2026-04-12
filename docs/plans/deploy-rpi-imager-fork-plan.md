@@ -155,7 +155,7 @@ curl                   # health checks
 | `velocity-ctl` (device management) | Cross-compiled ARM64 binary                                                       | `/usr/local/bin/velocity-ctl`                        |
 | PDF generator (Python)             | Wheel + vendored deps in venv                                                     | `/opt/velocity-report/tools/pdf-generator/`          |
 | Python venv                        | Pre-built `.venv/`                                                                | `/opt/velocity-report/.venv/`                        |
-| Web frontend (static assets)       | Pre-built `web/build/`                                                            | Embedded in Go binary or `/opt/velocity-report/web/` |
+| Web frontend (static assets)       | Pre-built [web/build/](../../web/build)                                           | Embedded in Go binary or `/opt/velocity-report/web/` |
 
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**; users
@@ -206,7 +206,7 @@ If `--check` is passed, only step 1 runs and the result is printed. If
 
 ##### Implementation scope for v0.5.1
 
-New binary at `cmd/velocity-ctl/` (~500 lines). This replaces `cmd/deploy/`
+New binary at [cmd/velocity-ctl/](../../cmd/velocity-ctl) (~500 lines). This replaces `cmd/deploy/`
 entirely: no SSH surface, no remote execution, no install/fix/config
 subcommands. Only the on-device capabilities that matter:
 
@@ -364,7 +364,7 @@ pi-gen/
 
 ### 4.4 CI pipeline (GitHub actions)
 
-The CI pipeline (`.github/workflows/build-image.yml`) triggers on published releases and manual `workflow_dispatch`. It runs three sequential jobs:
+The CI pipeline ([.github/workflows/build-image.yml](../../.github/workflows/build-image.yml)) triggers on published releases and manual `workflow_dispatch`. It runs three sequential jobs:
 
 | Job                | Runner                                   | Steps                                                                                                                                                                                                                                                          |
 | ------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -436,7 +436,7 @@ without changing the image build pipeline.
 
 1. ✅ **Audit template dependencies**: `dependency-manifest.txt` lists every
    `.sty`, `.cls`, font, and binary the PDF generator uses
-2. ✅ **Build a minimal TeX tree**: `scripts/build-minimal-texlive.sh` extracts
+2. ✅ **Build a minimal TeX tree**: [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) extracts
    only the required files from the full TeX Live distribution into
    `/opt/velocity-report/texlive/` (~143 MB). Pi-gen stage
    `00-install-packages/01-run.sh` runs this at image build time and purges
@@ -557,7 +557,7 @@ easily mitigated by:
 
 - Documenting path conventions in both repos
 - Using GitHub release tags to coordinate versions
-- Referencing `image/stage-velocity/03-velocity-config/files/velocity-report.service`
+- Referencing [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service)
   as the canonical service definition
 
 ### 6.4 What stays in the monorepo
@@ -565,15 +565,15 @@ easily mitigated by:
 Even with the imager in a separate repository, the following **must** remain in
 the `velocity.report` monorepo:
 
-| Asset                   | Location                                                                | Reason                                                             |
-| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| pi-gen stage scripts    | `image/stage-velocity/`                                                 | Defines what goes in the image; tightly coupled to server releases |
-| OS-list repository JSON | `image/os-list-velocity.json`                                           | Catalogue of available images; updated by CI on release            |
-| Image CI workflow       | `.github/workflows/build-image.yml`                                     | Triggered by monorepo releases                                     |
-| systemd service file    | `image/stage-velocity/03-velocity-config/files/velocity-report.service` | Canonical source                                                   |
-| udev rules              | `image/stage-velocity/03-velocity-config/files/`                        | Device permission rules                                            |
-| Management binary       | `cmd/velocity-ctl/`                                                     | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
-| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf`       | Static IP for 192.168.100.x subnet (disabled by default)           |
+| Asset                   | Location                                                                                                                                             | Reason                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| pi-gen stage scripts    | [image/stage-velocity/](../../image/stage-velocity)                                                                                                  | Defines what goes in the image; tightly coupled to server releases |
+| OS-list repository JSON | [image/os-list-velocity.json](../../image/os-list-velocity.json)                                                                                     | Catalogue of available images; updated by CI on release            |
+| Image CI workflow       | [.github/workflows/build-image.yml](../../.github/workflows/build-image.yml)                                                                         | Triggered by monorepo releases                                     |
+| systemd service file    | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) | Canonical source                                                   |
+| udev rules              | [image/stage-velocity/03-velocity-config/files/](../../image/stage-velocity/03-velocity-config/files)                                                | Device permission rules                                            |
+| Management binary       | [cmd/velocity-ctl/](../../cmd/velocity-ctl)                                                                                                          | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
+| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)             | Static IP for 192.168.100.x subnet (disabled by default)           |
 
 ---
 
@@ -618,7 +618,7 @@ the `velocity.report` monorepo:
 ## 8. Deploy tool replacement: `velocity-ctl`
 
 `cmd/deploy/` (the `velocity-deploy` binary) is **deleted in v0.5.1** and
-replaced by `cmd/velocity-ctl/` (the `velocity-ctl` binary). This is a clean
+replaced by [cmd/velocity-ctl/](../../cmd/velocity-ctl) (the `velocity-ctl` binary). This is a clean
 break, not a gradual deprecation: there are no existing image users to
 migrate, and shipping both binaries creates a limbo state where two tools
 with overlapping names do different things.
@@ -671,7 +671,7 @@ Two Go binaries, no wrapper scripts:
 The following are removed from the repository in v0.5.1:
 
 - `cmd/deploy/`: entire directory (10 source files, 10 test files, README)
-- `image/stage-velocity/01-velocity-binaries/files/velocity-update`: bash wrapper
+- [image/stage-velocity/01-velocity-binaries/files/velocity-update](../../image/stage-velocity/01-velocity-binaries/files/velocity-update): bash wrapper
 - Makefile targets: `build-deploy`, `build-deploy-linux`, `deploy-install`,
   `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`,
   `deploy-install-latex-minimal`, `deploy-update-deps`, `setup-radar`
@@ -707,7 +707,7 @@ subcommands in a non-root binary).
 - [x] Configure US Wi-Fi regulatory domain fallback
 - [x] Include LiDAR support (libpcap, network config) disabled by default
 - [x] Create GitHub Actions workflow for image building
-- [x] Create `image/os-list-velocity.json` with schema-compliant entries
+- [x] Create [image/os-list-velocity.json](../../image/os-list-velocity.json) with schema-compliant entries
 - [ ] Test image on physical Raspberry Pi 4 hardware
 - [ ] Produce first `.img.xz` release asset
 
@@ -718,7 +718,7 @@ deferred to Phase 2 (v0.6.0).
 
 ### Phase 2: custom repository JSON (2–3 days)
 
-- [x] Create `image/os-list-velocity.json` with schema-compliant entries
+- [x] Create [image/os-list-velocity.json](../../image/os-list-velocity.json) with schema-compliant entries
 - [ ] Host JSON on GitHub Pages or alongside releases
 - [ ] Write end-user documentation: "How to flash velocity.report"
 - [ ] Add `--repo` instructions to main README

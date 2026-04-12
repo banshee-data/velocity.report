@@ -131,12 +131,12 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - Migration: `internal/db/migrations/20251106_create_radar_serial_config.sql`
 - API handlers: `internal/api/serial_config.go`
 - Serial testing: `internal/api/serial_test.go`
-- Server changes: `cmd/radar/radar.go`
+- Server changes: [cmd/radar/radar.go](../../cmd/radar/radar.go)
 
 **Frontend:**
 
 - Route: `web/src/routes/settings/serial/+page.svelte`
-- API client: `web/src/lib/api.ts` (extend)
+- API client: [web/src/lib/api.ts](../../web/src/lib/api.ts) (extend)
 - Types: `web/src/lib/types/serial.ts`
 
 **Documentation:**

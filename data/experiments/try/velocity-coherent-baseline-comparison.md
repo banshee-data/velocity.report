@@ -36,7 +36,7 @@ pedestrian classes.
 ### Protocol
 
 1. Run the baseline extractor (background-subtraction + DBSCAN) on each
-   PCAP with the production default config (`config/tuning.defaults.json`).
+   PCAP with the production default config ([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
 2. Run the velocity-coherent extractor on the same PCAPs with the same
    downstream parameters (same DBSCAN ε, same tracker config).
 3. Record both runs as analysis runs (via `pcap-analyse`) and label

@@ -30,7 +30,7 @@ and validation rules.
 
 - Keeps operator entry points consistent: one binary, many subcommands.
 - Reuses the existing manual subcommand dispatch pattern in
-  `cmd/radar/radar.go`.
+  [cmd/radar/radar.go](../../../cmd/radar/radar.go).
 - Lets file analysis and live-pipeline analysis share runtime types already used
   by the server (`visualiser.FrameBundle`, `recorder.Replayer`, publisher stats).
 - Avoids duplicating config, logging, and sensor/runtime wiring in separate
@@ -72,7 +72,7 @@ Recommended flags for `vrlog check`:
 
 ## Dispatch / package layout
 
-Keep command dispatch in `cmd/radar/radar.go`, but split generic aggregation
+Keep command dispatch in [cmd/radar/radar.go](../../../cmd/radar/radar.go), but split generic aggregation
 from VRLOG-specific reporting.
 
 Proposed layout:

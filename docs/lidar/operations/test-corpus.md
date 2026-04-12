@@ -4,7 +4,7 @@ Five-PCAP test corpus using the Hesai P40 sensor, covering enough road geometry,
 
 ## Source
 
-- Plan: `docs/plans/lidar-test-corpus-plan.md`
+- Plan: [docs/plans/lidar-test-corpus-plan.md](../../plans/lidar-test-corpus-plan.md)
 - Status: Proposed
 
 ## Problem
@@ -35,7 +35,7 @@ All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually label
 - Sensor: Hesai P40 at 10 Hz
 - Duration: ≥ 5 minutes continuous traffic (≥ 3,000 frames)
 - Format: PCAP-NG (`.pcapng`)
-- Storage: Git LFS under `internal/lidar/perf/pcap/`
+- Storage: Git LFS under [internal/lidar/perf/pcap/](../../../internal/lidar/perf/pcap)
 - GPS: Record GPS fix alongside capture (for geo-referencing, not pipeline processing)
 
 ### Labelling requirements

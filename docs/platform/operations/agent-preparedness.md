@@ -72,15 +72,15 @@ All three problems are resolved. The architecture is now live across both Copilo
 
 ## Agent roster
 
-| Agent      | Domain               | Class     | Copilot                          | Claude                     |
-| ---------- | -------------------- | --------- | -------------------------------- | -------------------------- |
-| **Appius** | Execution            | Technical | `.github/agents/appius.agent.md` | `.claude/agents/appius.md` |
-| **Euler**  | Algorithms           | Technical | `.github/agents/euler.agent.md`  | `.claude/agents/euler.md`  |
-| **Grace**  | System architecture  | Technical | `.github/agents/grace.agent.md`  | `.claude/agents/grace.md`  |
-| **Malory** | Adversarial thinking | Technical | `.github/agents/malory.agent.md` | `.claude/agents/malory.md` |
-| **Flo**    | Coordination         | Editorial | `.github/agents/flo.agent.md`    | `.claude/agents/flo.md`    |
-| **Terry**  | Narrative            | Editorial | `.github/agents/terry.agent.md`  | `.claude/agents/terry.md`  |
-| **Ruth**   | Judgment             | Both      | `.github/agents/ruth.agent.md`   | `.claude/agents/ruth.md`   |
+| Agent      | Domain               | Class     | Copilot                                                                   | Claude                                                        |
+| ---------- | -------------------- | --------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Appius** | Execution            | Technical | [.github/agents/appius.agent.md](../../../.github/agents/appius.agent.md) | [.claude/agents/appius.md](../../../.claude/agents/appius.md) |
+| **Euler**  | Algorithms           | Technical | [.github/agents/euler.agent.md](../../../.github/agents/euler.agent.md)   | [.claude/agents/euler.md](../../../.claude/agents/euler.md)   |
+| **Grace**  | System architecture  | Technical | [.github/agents/grace.agent.md](../../../.github/agents/grace.agent.md)   | [.claude/agents/grace.md](../../../.claude/agents/grace.md)   |
+| **Malory** | Adversarial thinking | Technical | [.github/agents/malory.agent.md](../../../.github/agents/malory.agent.md) | [.claude/agents/malory.md](../../../.claude/agents/malory.md) |
+| **Flo**    | Coordination         | Editorial | [.github/agents/flo.agent.md](../../../.github/agents/flo.agent.md)       | [.claude/agents/flo.md](../../../.claude/agents/flo.md)       |
+| **Terry**  | Narrative            | Editorial | [.github/agents/terry.agent.md](../../../.github/agents/terry.agent.md)   | [.claude/agents/terry.md](../../../.claude/agents/terry.md)   |
+| **Ruth**   | Judgment             | Both      | [.github/agents/ruth.agent.md](../../../.github/agents/ruth.agent.md)     | [.claude/agents/ruth.md](../../../.claude/agents/ruth.md)     |
 
 ### Role class boundaries
 
@@ -92,7 +92,7 @@ All three problems are resolved. The architecture is now live across both Copilo
 
 ## Workflow skills
 
-Eight slash-command skills live in `.claude/skills/`. They are the canonical workflow layer: single-source, invocable from both Claude Code and VS Code.
+Eight slash-command skills live in [.claude/skills/](../../../.claude/skills). They are the canonical workflow layer: single-source, invocable from both Claude Code and VS Code.
 
 | Skill           | Command                      | Purpose                                                  |
 | --------------- | ---------------------------- | -------------------------------------------------------- |
@@ -113,27 +113,27 @@ Agent personas are defined natively for each platform. Shared project knowledge 
 
 ### What gets duplicated (bounded)
 
-| Content                    | Duplicated?        | Copilot                       | Claude                                     |
-| -------------------------- | ------------------ | ----------------------------- | ------------------------------------------ |
-| Project tenets             | No                 | `TENETS.md`                   | `TENETS.md` (same file)                    |
-| Build/test knowledge       | No                 | `.github/knowledge/`          | `.github/knowledge/` (same files)          |
-| Role mixins                | No                 | `.github/knowledge/role-*.md` | `.github/knowledge/role-*.md` (same files) |
-| Persona name + description | Yes (~2 lines)     | YAML frontmatter              | Inline in `.claude/agents/*.md`            |
-| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
-| Tool restrictions          | Copilot-only       | YAML `tools:` field           | n/a                                        |
-| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body              | `.claude/agents/*.md`                      |
+| Content                    | Duplicated?        | Copilot                                          | Claude                                                        |
+| -------------------------- | ------------------ | ------------------------------------------------ | ------------------------------------------------------------- |
+| Project tenets             | No                 | [TENETS.md](../../../TENETS.md)                  | [TENETS.md](../../../TENETS.md) (same file)                   |
+| Build/test knowledge       | No                 | [.github/knowledge/](../../../.github/knowledge) | [.github/knowledge/](../../../.github/knowledge) (same files) |
+| Role mixins                | No                 | `.github/knowledge/role-*.md`                    | `.github/knowledge/role-*.md` (same files)                    |
+| Persona name + description | Yes (~2 lines)     | YAML frontmatter                                 | Inline in `.claude/agents/*.md`                               |
+| Persona methodology        | Yes (~30–60 lines) | `.agent.md` body                                 | `.claude/agents/*.md`                                         |
+| Tool restrictions          | Copilot-only       | YAML `tools:` field                              | n/a                                                           |
+| Coordination rules         | Yes (~10–20 lines) | `.agent.md` body                                 | `.claude/agents/*.md`                                         |
 
 Total bounded duplication per agent: ~40–80 lines.
 
 ### Drift detection
 
-`scripts/check-agent-drift.sh` compares paired definitions:
+[scripts/check-agent-drift.sh](../../../scripts/check-agent-drift.sh) compares paired definitions:
 
 1. Enumerates all `.github/agents/*.agent.md` files
 2. Looks for a corresponding `.claude/agents/*.md` file
 3. Extracts persona sections (strips YAML and platform-specific directives)
 4. Reports missing pairs, content drift, and acceptable divergence
-5. Integrated into `scripts/flo-planning-review.sh` and `/weekly-retro` skill
+5. Integrated into [scripts/flo-planning-review.sh](../../../scripts/flo-planning-review.sh) and `/weekly-retro` skill
 
 Make target: `make check-agent-drift`
 
@@ -218,8 +218,8 @@ scripts/
 
 Adding a new agent requires:
 
-1. One new file in `.github/agents/` (~50–100 lines of role-specific content)
-2. One paired file in `.claude/agents/` (~50–100 lines)
+1. One new file in [.github/agents/](../../../.github/agents) (~50–100 lines of role-specific content)
+2. One paired file in [.claude/agents/](../../../.claude/agents) (~50–100 lines)
 3. An `includes: role-technical.md` or `includes: role-editorial.md` reference in each
 4. Zero changes to Layer 0 or Layer 1 unless the project itself changed
 

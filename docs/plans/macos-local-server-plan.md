@@ -213,10 +213,10 @@ No entitlement escape is needed if we use the container path.
 
 ### Makefile changes
 
-| Target                 | Purpose                                                                                                                                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `build-server-for-mac` | Cross-compile Go server for macOS ARM64 (`GOOS=darwin GOARCH=arm64 CGO_ENABLED=1`), output to `tools/visualiser-macos/VelocityVisualiser/Resources/velocity-report-server` via `./cmd/radar` |
-| `build-mac`            | Existing target, updated to depend on `build-server-for-mac`; runs `xcodebuild`                                                                                                              |
+| Target                 | Purpose                                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-server-for-mac` | Cross-compile Go server for macOS ARM64 (`GOOS=darwin GOARCH=arm64 CGO_ENABLED=1`), output to `tools/visualiser-macos/VelocityVisualiser/Resources/velocity-report-server` via [./cmd/radar](../../cmd/radar) |
+| `build-mac`            | Existing target, updated to depend on `build-server-for-mac`; runs `xcodebuild`                                                                                                                               |
 
 ### Xcode project changes
 

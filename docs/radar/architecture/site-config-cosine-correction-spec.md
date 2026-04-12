@@ -116,7 +116,7 @@ Where:
 
 ### 2. Backend query refactoring (Go)
 
-Modify all speed-related queries in `internal/db/` to join with `site_config_periods`:
+Modify all speed-related queries in [internal/db/](../../../internal/db) to join with `site_config_periods`:
 
 - **Logic:** `LEFT JOIN site_config_periods ON ... AND timestamp >= start AND (timestamp < end OR end IS NULL)`
 - **Correction:** Return `speed / COS(angle)` as the authoritative speed column.

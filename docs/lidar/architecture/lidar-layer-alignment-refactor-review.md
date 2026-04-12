@@ -6,7 +6,7 @@ This review audits the codebase against the six-layer LiDAR model, identifying b
 
 ## Goal
 
-Make the codebase more logical and readable by aligning implementation with the six-layer model in `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`.
+Make the codebase more logical and readable by aligning implementation with the six-layer model in [docs/lidar/architecture/LIDAR_ARCHITECTURE.md](LIDAR_ARCHITECTURE.md).
 
 This review focuses on:
 
@@ -51,13 +51,13 @@ This review focuses on:
 ### Large files reduce local comprehensibility
 
 - `internal/lidar/monitor/webserver.go` ~3909 lines
-- `web/src/lib/components/lidar/TrackList.svelte` ~1013 lines
-- `web/src/lib/components/lidar/MapPane.svelte` ~883 lines
-- `web/src/routes/lidar/tracks/+page.svelte` ~786 lines
+- [web/src/lib/components/lidar/TrackList.svelte](../../../web/src/lib/components/lidar/TrackList.svelte) ~1013 lines
+- [web/src/lib/components/lidar/MapPane.svelte](../../../web/src/lib/components/lidar/MapPane.svelte) ~883 lines
+- [web/src/routes/lidar/tracks/+page.svelte](../../../web/src/routes/lidar/tracks/+page.svelte) ~786 lines
 
 ## Target structure aligned to L1-L6
 
-Use layer-first package ownership inside `internal/lidar`:
+Use layer-first package ownership inside [internal/lidar](../../../internal/lidar):
 
 | Layer         | Current anchors                                                | Proposed package ownership                                         |
 | ------------- | -------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -70,8 +70,8 @@ Use layer-first package ownership inside `internal/lidar`:
 
 Cross-cutting packages:
 
-- `internal/lidar/pipeline`: orchestration only (realtime + replay use cases)
-- `internal/lidar/storage/sqlite`: DB repositories/adapters
+- [internal/lidar/pipeline](../../../internal/lidar/pipeline): orchestration only (realtime + replay use cases)
+- [internal/lidar/storage/sqlite](../../../internal/lidar/storage/sqlite): DB repositories/adapters
 - `internal/lidar/adapters/{http,grpc,udp}`: transport and IO boundaries
 
 ## Dependency rules (to keep layers clean)
@@ -85,9 +85,9 @@ Cross-cutting packages:
 
 ### Task-specific follow-on design docs
 
-- `docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design.md`
+- [docs/lidar/architecture/arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md)
   - Deprecates `internal/lidar/arena.go` and relocates active shared models by L2/L3/L4 ownership.
-- `docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design.md`
+- [docs/lidar/architecture/lidar-logging-stream-split-and-rubric-design.md](lidar-logging-stream-split-and-rubric-design.md)
   - Splits LiDAR logging into `ops`/`debug`/`trace` streams and defines routing rubric.
 
 ### 1) Split `tracking_pipeline` into explicit stage interfaces
@@ -119,7 +119,7 @@ Problem:
 Opportunity:
 
 - Keep domain structs in layer packages.
-- Move DB operations to `internal/lidar/storage/sqlite`.
+- Move DB operations to [internal/lidar/storage/sqlite](../../../internal/lidar/storage/sqlite).
 
 Outcome:
 
@@ -164,7 +164,7 @@ Problem:
 
 Opportunity:
 
-- Build a per-sensor runtime container in `cmd/radar` and pass explicit dependencies through constructors.
+- Build a per-sensor runtime container in [cmd/radar](../../../cmd/radar) and pass explicit dependencies through constructors.
 
 Outcome:
 
@@ -241,8 +241,8 @@ Outcome:
 ### Remaining
 
 6. **L1 Packets migration**: move `network/` and `parse/` into `l1packets/`: ✅
-   - Moved `internal/lidar/network/` → `internal/lidar/l1packets/network/`
-   - Moved `internal/lidar/parse/` → `internal/lidar/l1packets/parse/`
+   - Moved `internal/lidar/network/` → [internal/lidar/l1packets/network/](../../../internal/lidar/l1packets/network)
+   - Moved `internal/lidar/parse/` → [internal/lidar/l1packets/parse/](../../../internal/lidar/l1packets/parse)
    - Updated all callers (cmd/radar, cmd/tools, monitor)
 
 7. **Pipeline migration**: move `tracking_pipeline.go` → `pipeline/`: ✅
@@ -257,7 +257,7 @@ Outcome:
    - Parent files replaced with backward-compatible type aliases
 
 9. **Shim removal and caller update**: remove all backward-compat alias files: ✅
-   - Removed 27 individual shim files from `internal/lidar/`
+   - Removed 27 individual shim files from [internal/lidar/](../../../internal/lidar)
    - Updated all sub-package callers (l1packets, monitor, visualiser) to use layer imports
    - Updated all external callers (cmd/radar, internal/db) to use layer imports
    - Remaining `lidar.` imports are only for logging (`Opsf`/`Diagf`/`Tracef`/`SetLogWriters` in debug.go)
@@ -267,7 +267,7 @@ Outcome:
     - Removed `arena.go`, `arena_test.go`, `arena_extended_test.go`
     - All legacy types deleted (RingBuffer, SidecarState, Track, TrackObs, etc.)
     - Active types (Pose, Point, PointPolar, etc.) already migrated to layer packages
-    - See `arena-go-deprecation-and-layered-type-layout-design.md` for details
+    - See [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) for details
 
 11. **Routing enhancements**: ✅
     - Added Go 1.22+ HTTP method prefixes to 40+ route patterns (`"GET /path"`, `"POST /path"`)

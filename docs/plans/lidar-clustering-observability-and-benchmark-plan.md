@@ -33,7 +33,7 @@ Two classes of problem lack tooling:
 
 ### A.1 per-frame pipeline stage timing
 
-Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
+Instrument `NewFrameCallback()` in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
 | Field                | Type     | Description                         |
 | -------------------- | -------- | ----------------------------------- |
@@ -116,7 +116,7 @@ All fields already exist on `TrackedObject`. This is a formatting change, not ne
 
 ### A.4 cluster quality metrics (new fields on worldCluster)
 
-Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
+Add to `WorldCluster` in [internal/lidar/l4perception/types.go](../../internal/lidar/l4perception/types.go):
 
 | Field                     | Type      | Description                                |
 | ------------------------- | --------- | ------------------------------------------ |
@@ -150,9 +150,9 @@ This keeps the VRLOG self-contained: when replaying a recording, all diagnostic 
 
 ### B.1 new metrics in `pcap-analyse`
 
-Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go`:
+Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
-**`ClusteringMetrics` struct** — extends `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go`:
+**`ClusteringMetrics` struct** — extends `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
 | Field                   | Type              | JSON key                   | Notes                                         |
 | ----------------------- | ----------------- | -------------------------- | --------------------------------------------- |
@@ -216,9 +216,9 @@ Each `DistributionStats` object contains `min`, `max`, `avg`, `p50`, `p95`, `p99
 
 ### B.3 CI regression gating
 
-Add a `bench-clustering` step to `.github/workflows/go-ci.yml` (runs only on pushes to `main` and PRs that modify `internal/lidar/l4perception/`, `internal/lidar/l5tracks/`, or `internal/lidar/pipeline/`):
+Add a `bench-clustering` step to [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml) (runs only on pushes to `main` and PRs that modify [internal/lidar/l4perception/](../../internal/lidar/l4perception), [internal/lidar/l5tracks/](../../internal/lidar/l5tracks), or [internal/lidar/pipeline/](../../internal/lidar/pipeline)):
 
-Add a `bench-clustering` job to `.github/workflows/go-ci.yml`. It runs on `ubuntu-latest` after the `build` job, gated on pushes to `main` and PRs modifying `internal/lidar/l4perception/`, `internal/lidar/l5tracks/`, or `internal/lidar/pipeline/`. Steps: checkout (with LFS), setup Go (from `go.mod`), install `libpcap-dev`, then run `make test-perf NAME=kirk0` (exits 1 on regression: >15% wall-clock or >25% DBSCAN p99).
+Add a `bench-clustering` job to [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml). It runs on `ubuntu-latest` after the `build` job, gated on pushes to `main` and PRs modifying [internal/lidar/l4perception/](../../internal/lidar/l4perception), [internal/lidar/l5tracks/](../../internal/lidar/l5tracks), or [internal/lidar/pipeline/](../../internal/lidar/pipeline). Steps: checkout (with LFS), setup Go (from `go.mod`), install `libpcap-dev`, then run `make test-perf NAME=kirk0` (exits 1 on regression: >15% wall-clock or >25% DBSCAN p99).
 
 **Regression thresholds** (configurable via `pcap-analyse` flags):
 
@@ -287,7 +287,7 @@ Add a Makefile target:
 
 ### C.1 tuning parameters with Pi impact
 
-These parameters in `config/tuning.defaults.json` directly affect computational cost. Documented here for operators deploying on Pi:
+These parameters in [config/tuning.defaults.json](../../config/tuning.defaults.json) directly affect computational cost. Documented here for operators deploying on Pi:
 
 | Parameter                       | Default | Pi Recommendation | Impact                                           |
 | ------------------------------- | ------- | ----------------- | ------------------------------------------------ |
@@ -334,7 +334,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 3. Emit `tracef` per-frame and `diagf` summary every 100 frames.
 4. Wire timing into VRLOG `DebugOverlaySet`.
 
-**Files:** `internal/lidar/pipeline/tracking_pipeline.go`, `internal/lidar/visualiser/model.go`
+**Files:** [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go), `internal/lidar/visualiser/model.go`
 
 ### Phase 2: clustering metrics in pcap-analyse (medium risk)
 
@@ -344,7 +344,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 4. Add comparison logic with per-metric thresholds.
 5. Update `baseline-kirk0.json` and `baseline-kirk0-ci.json`.
 
-**Files:** `cmd/tools/pcap-analyse/main.go`, `internal/lidar/perf/baseline/*.json`
+**Files:** [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), `internal/lidar/perf/baseline/*.json`
 
 ### Phase 3: per-track association logging (low risk)
 
@@ -352,7 +352,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 2. Add `diagf` track lifecycle summary on deletion.
 3. Optionally populate `DebugOverlaySet.AssociationDecisions` in VRLOG.
 
-**Files:** `internal/lidar/l5tracks/tracking.go`, `internal/lidar/visualiser/adapter.go`
+**Files:** [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go), `internal/lidar/visualiser/adapter.go`
 
 ### Phase 4: Go micro-benchmarks (low risk)
 
@@ -368,16 +368,16 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 2. Store PCAP fixtures in Git LFS (already done for `kirk0.pcapng`).
 3. Set regression thresholds, tune after 2–3 weeks of data.
 
-**Files:** `.github/workflows/go-ci.yml`, `Makefile`
+**Files:** [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml), `Makefile`
 
 ### Phase 6: Pi baseline (requires hardware)
 
 1. Cross-compile and deploy to Pi 4.
 2. Run `make test-perf NAME=kirk0 PROFILE=pi`.
 3. Check in `baseline-kirk0-pi.json`.
-4. Document tuning recommendations in `config/CONFIG.md`.
+4. Document tuning recommendations in [config/CONFIG.md](../../config/CONFIG.md).
 
-**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, `config/CONFIG.md`
+**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, [config/CONFIG.md](../../config/CONFIG.md)
 
 ---
 

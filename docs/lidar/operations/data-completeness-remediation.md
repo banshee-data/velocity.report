@@ -4,9 +4,9 @@ Phased plan to wire up data structures that are computed on the Go backend but n
 
 ## Source
 
-- Plan: `docs/plans/unpopulated-data-structures-remediation-plan.md`
+- Plan: [docs/plans/unpopulated-data-structures-remediation-plan.md](../../plans/unpopulated-data-structures-remediation-plan.md)
 - Status: Active; Phases 1–3 proposed; Phases 4–10 proposed
-- Related: Backend → Surface Matrix (`data/structures/MATRIX.md`)
+- Related: Backend → Surface Matrix ([data/structures/MATRIX.md](../../../data/structures/MATRIX.md))
 
 ## Problem
 

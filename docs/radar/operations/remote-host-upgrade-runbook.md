@@ -37,7 +37,7 @@ Stop and ask before continuing if any of these are true:
   reports `Dirty: true`.
 - `/opt/velocity-report` exists but `git status --short` is not clean.
 - The only available build output was produced from a checkout whose
-  `web/build/index.html` is the stub page.
+  [web/build/index.html](../../../web/build/index.html) is the stub page.
 - The host cannot provide `sudo` for service stop/start, file install, and
   backup steps.
 
@@ -122,7 +122,7 @@ Paste the output back to the agent. The agent should check for:
 - Whether `/opt/velocity-report` is present, clean, and at which commit.
   If `git status --short` printed any paths before `(working tree clean)`,
   the checkout is dirty: stop and ask.
-- Whether `config/tuning.defaults.json` exists in `/opt/velocity-report`.
+- Whether [config/tuning.defaults.json](../../../config/tuning.defaults.json) exists in `/opt/velocity-report`.
   If missing, the checkout predates the config restructure and must be
   updated before the service can start.
 - Directory ownership of `/opt/velocity-report`: determines whether later
@@ -264,7 +264,7 @@ export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
 
-If `web/build/index.html` is missing, you need a real web build first:
+If [web/build/index.html](../../../web/build/index.html) is missing, you need a real web build first:
 
 ```bash
 make install-web
@@ -494,7 +494,7 @@ reports migrations as up-to-date while the real database remains untouched.
 ### Tuning config required
 
 The binary requires `--config` pointing at
-`config/tuning.defaults.json` (or the file must exist relative to the working
+[config/tuning.defaults.json](../../../config/tuning.defaults.json) (or the file must exist relative to the working
 directory). Older binaries had no `--config` flag. Upgrades crossing this
 boundary must update the `ExecStart` line in the systemd unit.
 
