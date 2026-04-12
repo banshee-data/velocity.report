@@ -1,10 +1,9 @@
-# LiDAR documentation
+# LiDAR
 
 Documentation for the velocity.report LiDAR subsystem (Hesai Pandar40P).
 
-For the canonical ten-layer processing architecture, implementation status,
-and literature alignment, see
-[architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
+For the canonical ten-layer processing architecture, implementation status, and literature
+alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
 
 ## Layer summary
 
