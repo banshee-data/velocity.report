@@ -561,11 +561,62 @@ Documentation for the LiDAR subsystem lives under `docs/lidar/`.
 | Data science plan       | [platform-data-science-metrics-first-plan.md](../../plans/platform-data-science-metrics-first-plan.md) |
 | Backlog                 | [BACKLOG.md](../../BACKLOG.md)                                                                         |
 
+### Architecture documents
+
+#### Current (active)
+
+| Document                                                                                           | Scope                                                                                        |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [LIDAR_ARCHITECTURE.md](LIDAR_ARCHITECTURE.md)                                                     | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
+| [lidar-layer-alignment-refactor-review.md](lidar-layer-alignment-refactor-review.md)               | Layer alignment review: completed migration, complexity analysis, file splits                |
+| [lidar-logging-stream-split-and-rubric-design.md](lidar-logging-stream-split-and-rubric-design.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams                    |
+| [foreground-tracking.md](foreground-tracking.md)                                                   | Foreground extraction and tracking pipeline design                                           |
+| [lidar-background-grid-standards.md](lidar-background-grid-standards.md)                           | Background grid format comparison with industry standards                                    |
+| [HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md)                          | Hesai Pandar40P UDP packet format reference (moved to data/structures/)                      |
+| [lidar-sidecar-overview.md](lidar-sidecar-overview.md)                                             | System-level overview of the LiDAR sidecar architecture                                      |
+| [network-configuration.md](network-configuration.md)                                               | Network interface selection, diagnostics, and hot-reload plan for UDP listener               |
+| [multi-model-ingestion-and-configuration.md](multi-model-ingestion-and-configuration.md)           | Proposed path for supporting 3–10 LiDAR models with distinct packet formats                  |
+
+#### Historical (completed designs)
+
+| Document                                                                                                         | Status                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete: arena.go removed, types migrated to layer packages |
+
+#### Future / research
+
+| Document                                                                                                                                 | Scope                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [av-range-image-format-alignment.md](av-range-image-format-alignment.md)                                                                 | AV dual-return range image format (deferred) |
+| [../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md](../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md) | Runtime algorithm switching (deferred)       |
+
 ### Layer dependency rule
 
 Each layer package may only import from lower-numbered layers: never upward or sideways. For example: L2 may import L1 (for return types); L3 may import L1–L2; L4 may import L1–L3; and so on. Cross-cutting packages (`pipeline/`, `storage/`, `adapters/`) are exempt.
 
 **Former violations (✅ resolved):** L1–L3 files previously imported `PointPolar`, `Point`, and `SphericalToCartesian` from L4. These sensor-frame primitives now live canonically in L2 (`l2frames/types.go`), with backward-compatible aliases in L4.
+
+### Implementation status
+
+The layer alignment migration is **complete** (items 1–12, 14 in [the review doc](lidar-layer-alignment-refactor-review.md)). Remaining:
+
+- **Item 13**: Frontend decomposition (tracksStore, runsStore, missedRegionStore); see [BACKLOG.md](../../BACKLOG.md)
+
+Post-migration file sizes:
+
+| File                               | Lines | Notes                                            |
+| ---------------------------------- | ----- | ------------------------------------------------ |
+| `l3grid/background.go`             | 1,628 | Core grid processing (split from 2,610)          |
+| `l3grid/background_persistence.go` | 450   | Snapshot serialisation, DB restore/persist       |
+| `l3grid/background_export.go`      | 350   | Heatmaps, ASC export, region debug info          |
+| `l3grid/background_drift.go`       | 245   | M3.5 sensor movement and drift detection         |
+| `monitor/webserver.go`             | 2,746 | Server init, routes, handlers (split from 4,067) |
+| `monitor/datasource_handlers.go`   | 682   | UDP/PCAP data source management                  |
+| `monitor/playback_handlers.go`     | 589   | PCAP/VRLOG playback controls                     |
+| `storage/sqlite/analysis_run.go`   | 1,325 | Run CRUD (domain logic moved to l6objects)       |
+| `l6objects/comparison.go`          | 81    | ComputeTemporalIoU, comparison types             |
+
+Further size/complexity reduction opportunities are documented in the [review doc's "Further Opportunities" section](lidar-layer-alignment-refactor-review.md#further-opportunities-to-reduce-size-and-complexity), covering ECharts handler extraction, sweep file splits, Go-embedded dashboard retirement, and visualiser codec consolidation.
 
 ---
 
