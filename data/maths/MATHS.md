@@ -238,14 +238,13 @@ they improve will be removed.
 
 Note on naming: this repository does **not** contain a `config/tracking.json` file.
 Runtime tuning is loaded from [config/tuning.defaults.json](../../config/tuning.defaults.json)
-(or another JSON passed with `--config`) via
-[internal/config/tuning.go](../../internal/config/tuning.go).
+(or another JSON passed with `--config`) via [internal/config/tuning.go](../../internal/config/tuning.go).
 
 See also: [docs/lidar/operations/config-param-tuning.md](../../docs/lidar/operations/config-param-tuning.md)
 for the operational tuning workflow aimed at operators (grouped by tuning task
 rather than mathematical source).
 
-### L3 background grid settling maths [`background-grid-settling-maths.md`](background-grid-settling-maths.md)
+### L3 background grid settling maths ([`background-grid-settling-maths.md`](background-grid-settling-maths.md))
 
 - Keys:
   - `background_update_fraction`
@@ -265,7 +264,7 @@ rather than mathematical source).
 - Important non-file defaults still applied in code:
   - freeze duration, lock thresholds, reacquisition boost ([internal/lidar/l3grid/config.go](../../internal/lidar/l3grid/config.go), [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go))
 
-### L4 ground surface maths ([ground-plane-maths.md](ground-plane-maths.md))
+### L4 ground surface maths ([`ground-plane-maths.md`](ground-plane-maths.md))
 
 - Current config status:
   - No dedicated ground-plane tuning block is wired yet.
@@ -276,7 +275,7 @@ rather than mathematical source).
 - Runtime mapping:
   - [cmd/radar/radar.go](../../cmd/radar/radar.go) -> [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) -> [internal/lidar/l4perception/ground.go](../../internal/lidar/l4perception/ground.go)
 
-### L4 clustering maths ([clustering-maths.md](clustering-maths.md))
+### L4 clustering maths ([`clustering-maths.md`](clustering-maths.md))
 
 - Keys:
   - `foreground_dbscan_eps`
@@ -290,7 +289,7 @@ rather than mathematical source).
   - [internal/lidar/l4perception/cluster.go](../../internal/lidar/l4perception/cluster.go) (`DefaultDBSCANParams`)
   - pipeline use in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go)
 
-### L5 tracking maths ([tracking-maths.md](tracking-maths.md))
+### L5 tracking maths ([`tracking-maths.md`](tracking-maths.md))
 
 - Keys:
   - `gating_distance_squared`
