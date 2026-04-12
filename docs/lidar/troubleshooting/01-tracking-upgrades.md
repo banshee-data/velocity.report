@@ -4,17 +4,17 @@
 
 Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
 
-| Upgrade                           | Status         | Implementation                                                                     |
-| --------------------------------- | -------------- | ---------------------------------------------------------------------------------- |
-| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go`: `HeightBandFilter` with `FilterVertical()`             |
-| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go`: `EstimateOBBFromCluster()`                                |
-| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go`: EMA heading (α=0.3)                                       |
-| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go`: Kuhn-Munkres solver                                 |
-| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go`: `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` |
-| Debug artifacts                   | ✅ Implemented | `internal/lidar/debug/collector.go`: `DebugOverlaySet` via gRPC                    |
-| Voxel grid preprocessing          | 📋 Planned     | -                                                                                  |
-| Constant acceleration model       | 📋 Planned     | -                                                                                  |
-| Feature extraction for ML         | 📋 Planned     | -                                                                                  |
+| Upgrade                           | Status         | Implementation                                                                                              |
+| --------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------- |
+| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go`: `HeightBandFilter` with `FilterVertical()`                                      |
+| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go`: `EstimateOBBFromCluster()`                                                         |
+| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go`: EMA heading (α=0.3)                                                                |
+| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go`: Kuhn-Munkres solver                                                          |
+| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go`: `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5`                          |
+| Debug artifacts                   | ✅ Implemented | [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go): `DebugOverlaySet` via gRPC |
+| Voxel grid preprocessing          | 📋 Planned     | -                                                                                                           |
+| Constant acceleration model       | 📋 Planned     | -                                                                                                           |
+| Feature extraction for ML         | 📋 Planned     | -                                                                                                           |
 
 This document proposes concrete improvements to the LiDAR tracking pipeline for street scenes, mapping each proposal to existing code and new API outputs.
 
@@ -102,7 +102,7 @@ Lifecycle Management (tentative → confirmed → deleted)
 | RANSAC plane fit    | Handles slope        | More compute        | Use for accuracy |
 | Ring-based gradient | Uses sensor geometry | Complex             | Deferred         |
 
-**Implementation**: `internal/lidar/l4perception/ground.go`; `HeightBandFilter` implementing a `GroundRemover` interface. Filters points outside a configurable height band (default min 0.2 m wheel height, max 3.0 m truck height). Called from `tracking_pipeline.go` after `TransformToWorld()`.
+**Implementation**: [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go); `HeightBandFilter` implementing a `GroundRemover` interface. Filters points outside a configurable height band (default min 0.2 m wheel height, max 3.0 m truck height). Called from `tracking_pipeline.go` after `TransformToWorld()`.
 
 **API Output**: `ground_removed: bool` flag in `PointCloudFrame`.
 
@@ -116,13 +116,13 @@ Lifecycle Management (tentative → confirmed → deleted)
 
 #### 2.2.1 Voxel grid downsampling
 
-Reduce point count before clustering by hashing points to voxel cells (e.g. 0.1 m resolution) and returning one representative per cell. New file `internal/lidar/l4perception/voxel.go`.
+Reduce point count before clustering by hashing points to voxel cells (e.g. 0.1 m resolution) and returning one representative per cell. New file [internal/lidar/l4perception/voxel.go](../../../internal/lidar/l4perception/voxel.go).
 
 **Tradeoff**: Voxel grid loses density information but improves clustering speed.
 
 #### 2.2.2 Connected components alternative
 
-For dense point clouds, connected components on voxel grid via flood fill may be faster than DBSCAN. Add as an extension to `internal/lidar/l4perception/cluster.go`.
+For dense point clouds, connected components on voxel grid via flood fill may be faster than DBSCAN. Add as an extension to [internal/lidar/l4perception/cluster.go](../../../internal/lidar/l4perception/cluster.go).
 
 **Recommendation**: Keep DBSCAN as default, add voxel grid preprocessing option.
 
@@ -138,7 +138,7 @@ For dense point clouds, connected components on voxel grid via flood fill may be
 
 #### 2.3.1 Hungarian (jonker-volgenant) algorithm
 
-Define an `Associator` interface in `internal/lidar/l5tracks/hungarian.go` with `Associate(tracks, clusters, dt) → []Assignment` where each `Assignment` carries track index, cluster index, and cost. Two implementations: `GreedyAssociator` (current nearest-neighbour) and `HungarianAssociator` (Kuhn-Munkres solver with max-cost rejection).
+Define an `Associator` interface in [internal/lidar/l5tracks/hungarian.go](../../../internal/lidar/l5tracks/hungarian.go) with `Associate(tracks, clusters, dt) → []Assignment` where each `Assignment` carries track index, cluster index, and cost. Two implementations: `GreedyAssociator` (current nearest-neighbour) and `HungarianAssociator` (Kuhn-Munkres solver with max-cost rejection).
 
 **Mahalanobis Gating**: Current implementation at `tracking.go:317-360` is preserved. Hungarian operates on the cost matrix after gating.
 
@@ -164,7 +164,7 @@ Blend CV + CA based on motion likelihood.
 
 **Recommendation**: Keep CV as default. Add CA as configuration option. IMM is future work.
 
-Add a `MotionModel` string enum (`cv`, `ca`) to `TrackerConfig` in `internal/lidar/l5tracks/tracking.go`. The CA model extends the Kalman state from 4-state `[x, y, vx, vy]` to 6-state `[x, y, vx, vy, ax, ay]`.
+Add a `MotionModel` string enum (`cv`, `ca`) to `TrackerConfig` in [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go). The CA model extends the Kalman state from 4-state `[x, y, vx, vy]` to 6-state `[x, y, vx, vy, ax, ay]`.
 
 **API Output**: `Track.motion_model` field in proto.
 
@@ -178,11 +178,11 @@ Add a `MotionModel` string enum (`cv`, `ca`) to `TrackerConfig` in `internal/lid
 
 #### 2.5.1 Confidence-based lifecycle
 
-Extend `TrackedObject` in `internal/lidar/l5tracks/tracking.go` with `Confidence float32` (0–1, based on hit ratio, observation count, track age, covariance magnitude) and `OcclusionState` enum (`none`, `partial`, `full`). `MaxMisses` adapts based on confidence: confirmed high-confidence tracks coast longer.
+Extend `TrackedObject` in [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go) with `Confidence float32` (0–1, based on hit ratio, observation count, track age, covariance magnitude) and `OcclusionState` enum (`none`, `partial`, `full`). `MaxMisses` adapts based on confidence: confirmed high-confidence tracks coast longer.
 
 #### 2.5.2 Occlusion detection
 
-Detect when a track is likely occluded by casting a ray from sensor origin to each track and checking whether another track's bounding box intersects the ray. Implemented as `Tracker.DetectOcclusions()` in `internal/lidar/l5tracks/tracking.go`.
+Detect when a track is likely occluded by casting a ray from sensor origin to each track and checking whether another track's bounding box intersects the ray. Implemented as `Tracker.DetectOcclusions()` in [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go).
 
 **API Output**: `Track.occlusion_state` field, `Track.confidence` field.
 
@@ -196,11 +196,11 @@ Detect when a track is likely occluded by casting a ray from sensor origin to ea
 
 #### 2.6.1 PCA-based OBB
 
-`EstimateOBBFromCluster()` in `internal/lidar/l4perception/obb.go` computes an OBB with fields: centre (x, y, z), extents (length, width, height), and heading (radians around Z). Algorithm: compute centroid → build 2D covariance matrix → eigen decomposition → rotate to principal frame → compute extents → heading from atan2 of first eigenvector.
+`EstimateOBBFromCluster()` in [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go) computes an OBB with fields: centre (x, y, z), extents (length, width, height), and heading (radians around Z). Algorithm: compute centroid → build 2D covariance matrix → eigen decomposition → rotate to principal frame → compute extents → heading from atan2 of first eigenvector.
 
 #### 2.6.2 Temporal smoothing
 
-EMA smoothing on OBB heading (α = 0.3) with circular wraparound (−π to π). Implemented in `internal/lidar/l4perception/obb.go`.
+EMA smoothing on OBB heading (α = 0.3) with circular wraparound (−π to π). Implemented in [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go).
 
 **API Output**: `OrientedBoundingBox` message in `Cluster` proto.
 
@@ -214,7 +214,7 @@ EMA smoothing on OBB heading (α = 0.3) with circular wraparound (−π to π). 
 
 #### 2.7.1 Feature vector
 
-Two feature structs in `internal/lidar/l6objects/features.go`:
+Two feature structs in [internal/lidar/l6objects/features.go](../../../internal/lidar/l6objects/features.go):
 
 - **ClusterFeatures** (per-frame): point count, bbox extents (L/W/H), height p95, intensity mean/std, elongation (L/W), compactness (pts/volume), vertical spread (σ of Z).
 - **TrackFeatures** (aggregated): embeds `ClusterFeatures` plus avg/max speed, speed variance, duration, track length, heading variance, occlusion ratio.
@@ -233,7 +233,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 
 #### 2.8.1 Debug collector
 
-`DebugCollector` in `internal/lidar/debug/collector.go` accumulates per-frame debug artifacts: association candidates, gating ellipses, innovation residuals, and state predictions. Four recording methods (`RecordAssociation`, `RecordGating`, `RecordResidual`, `RecordPrediction`) plus `Emit()` to flush the frame.
+`DebugCollector` in [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go) accumulates per-frame debug artifacts: association candidates, gating ellipses, innovation residuals, and state predictions. Four recording methods (`RecordAssociation`, `RecordGating`, `RecordResidual`, `RecordPrediction`) plus `Emit()` to flush the frame.
 
 #### 2.8.2 Integration points
 

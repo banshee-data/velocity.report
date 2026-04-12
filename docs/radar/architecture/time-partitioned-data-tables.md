@@ -283,87 +283,50 @@ Once rotated, partitions become read-only:
 
 **Phase 1: Active Partition (Main Database)**
 
-```sql
--- Current month's data written to main database
-INSERT INTO radar_data (raw_event) VALUES (?);
-INSERT INTO radar_objects (raw_event) VALUES (?);
-```
+During Phase 1, the current month’s data is written directly to the main database via `INSERT INTO radar_data (raw_event)` and `INSERT INTO radar_objects (raw_event)`.
 
 **Phase 2: Rotation Trigger (2nd of Month 00:00:00 UTC)**
 
-```sql
--- Automated rotation process:
+Automated rotation process:
+
 1. Create new partition database file
-2. Copy previous month's data to partition
+2. Copy previous month’s data to partition
 3. Delete copied data from main database
 4. Set partition to read-only
 5. Update union views
-```
 
 **Phase 3: Archived Partition (Read-Only)**
 
-```sql
--- Queries automatically use union views
-SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?;
--- SQLite query planner handles partition selection based on timestamps
-```
+Queries automatically use union views. A query such as `SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?` lets SQLite’s query planner handle partition selection based on timestamps.
 
 ### Schema consistency
 
 **Each Partition Database Contains:**
 
-```sql
--- Same schema as main database for raw data tables
-CREATE TABLE radar_data (...);
-CREATE TABLE radar_objects (...);
-CREATE TABLE lidar_bg_snapshot (...);
-CREATE TABLE radar_data_transits (...);
-CREATE TABLE radar_transit_links (...);
+Same schema as main database for raw data tables:
 
--- Indexes for performance
-CREATE INDEX idx_radar_data_time ON radar_data(write_timestamp);
-```
+| Table / Index         | Purpose                                |
+| --------------------- | -------------------------------------- |
+| `radar_data`          | Raw radar speed readings               |
+| `radar_objects`       | Radar hardware classifier detections   |
+| `lidar_bg_snapshot`   | LiDAR background grid snapshots        |
+| `radar_data_transits` | Sessionised vehicle transits           |
+| `radar_transit_links` | Many-to-many transit links             |
+| `idx_radar_data_time` | Index on `radar_data(write_timestamp)` |
 
 **Main Database Retains:**
 
-```sql
--- Current period raw data (current month)
-CREATE TABLE radar_data (...);
-
--- Configuration tables (all time periods)
-CREATE TABLE site (...);
-CREATE TABLE site_reports (...);
-```
+The main database retains the current period’s raw data tables (`radar_data`) and all configuration tables (`site`, `site_reports`).
 
 ### Union views for queries
 
 **Automatically Generated Views:**
 
-```sql
--- radar_data_all: Union of all radar_data partitions
-CREATE VIEW radar_data_all AS
-  SELECT *, 'main' AS partition_source FROM main.radar_data
-  UNION ALL
-  SELECT *, 'm01' AS partition_source FROM m01.radar_data
-  UNION ALL
-  SELECT *, 'm02' AS partition_source FROM m02.radar_data
-  -- ... dynamically extended as new partitions are added
-;
-
--- Similar views for:
--- radar_objects_all
--- lidar_bg_snapshot_all
--- radar_data_transits_all
-```
+A `radar_data_all` view is created as a `UNION ALL` across `main.radar_data` and each attached partition’s `radar_data` table, with a `partition_source` column identifying the origin. Each new partition extends the view dynamically. Similar views are created for `radar_objects_all`, `lidar_bg_snapshot_all`, and `radar_data_transits_all`.
 
 **Query Optimisation:**
 
-```sql
--- SQLite query planner uses WHERE clauses to skip irrelevant partitions
-SELECT * FROM radar_data_all
-WHERE write_timestamp BETWEEN 1704067200.0 AND 1706745600.0;
--- Only queries partitions containing Jan 2024 data
-```
+SQLite’s query planner uses WHERE clauses to skip irrelevant partitions. For example, filtering by `write_timestamp BETWEEN 1704067200.0 AND 1706745600.0` only touches partitions containing January 2024 data.
 
 ### Rotation process details
 
@@ -435,36 +398,17 @@ HTTP endpoints for managing attached database partitions. All partition manageme
 
 **Example response (`GET /api/partitions`):**
 
-```json
-{
-  "main": {
-    "alias": "main",
-    "writable": true,
-    "size_bytes": 2847583234,
-    "status": "active"
-  },
-  "attached": [
-    {
-      "alias": "m01",
-      "writable": false,
-      "size_bytes": 2641583234,
-      "status": "attached",
-      "can_detach": true
-    }
-  ],
-  "available": [
-    {
-      "path": "/var/lib/velocity-report/archives/2024-12_data.db",
-      "status": "detached"
-    }
-  ],
-  "limits": {
-    "max_attached": 125,
-    "current_attached": 3,
-    "available_slots": 122
-  }
-}
-```
+| Field                     | Type   | Description                                                                                                                              |
+| ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `main.alias`              | string | `"main"`                                                                                                                                 |
+| `main.writable`           | bool   | `true`                                                                                                                                   |
+| `main.size_bytes`         | int    | Active database size                                                                                                                     |
+| `main.status`             | string | `"active"`                                                                                                                               |
+| `attached[]`              | array  | List of attached read-only partitions, each with `alias`, `writable` (false), `size_bytes`, `status` (`"attached"`), `can_detach` (bool) |
+| `available[]`             | array  | Detached partition files, each with `path` and `status` (`"detached"`)                                                                   |
+| `limits.max_attached`     | int    | Compile-time SQLITE_MAX_ATTACHED limit                                                                                                   |
+| `limits.current_attached` | int    | Currently attached count                                                                                                                 |
+| `limits.available_slots`  | int    | Remaining attachment slots                                                                                                               |
 
 ### Partition workflows
 
@@ -504,16 +448,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 
 **Unmount algorithm:** Find all partitions on mount → check for active queries (block unless `force`) → detach partitions if requested → sync filesystem → unmount → optionally disable systemd unit.
 
-**systemd integration:** Generate persistent mount units via `systemd-mount` for USB drives that should survive reboot:
-
-```ini
-# /etc/systemd/system/mnt-usb\x2darchives.mount
-[Mount]
-What=/dev/sdb1
-Where=/mnt/usb-archives
-Type=ext4
-Options=nosuid,nodev,noexec,noatime,ro
-```
+**systemd integration:** Generate persistent mount units via `systemd-mount` for USB drives that should survive reboot. The unit file at `/etc/systemd/system/mnt-usb\x2darchives.mount` specifies `What=/dev/sdb1`, `Where=/mnt/usb-archives`, `Type=ext4`, and secure mount options: `nosuid,nodev,noexec,noatime,ro`.
 
 ### Growth projection
 
@@ -757,33 +692,21 @@ Disable partitioning: `velocity-report --disable-partitioning`. Union views rema
 
 **Scenario 1: Single-Month Query (Most Common)**
 
-```sql
--- Query current month's data
-SELECT * FROM radar_data_all
-WHERE write_timestamp BETWEEN <current_month_start> AND <now>;
-```
+A query filtering the current month’s data (e.g. `WHERE write_timestamp BETWEEN <current_month_start> AND <now>`) touches only the active partition.
 
 **Current:** Query touches entire database (slower)
 **Partitioned:** ✅ Query touches only active partition (faster)
 
 **Scenario 2: Multi-Month Query**
 
-```sql
--- Query last 3 months
-SELECT * FROM radar_data_all
-WHERE write_timestamp BETWEEN <3_months_ago> AND <now>;
-```
+A query spanning the last 3 months (e.g. `WHERE write_timestamp BETWEEN <3_months_ago> AND <now>`) touches 3 partitions.
 
 **Current:** Single database (faster)
 **Partitioned:** ⚠️ Queries 3 partitions (slower due to UNION)
 
 **Scenario 3: Historical Query (6+ months)**
 
-```sql
--- Query last year
-SELECT * FROM radar_data_all
-WHERE write_timestamp BETWEEN <1_year_ago> AND <now>;
-```
+A query spanning the last year (e.g. `WHERE write_timestamp BETWEEN <1_year_ago> AND <now>`) touches 12 partitions.
 
 **Current:** ⚠️ Slow due to large database size
 **Partitioned:** ⚠️ Slower due to 12 partitions, but predictable

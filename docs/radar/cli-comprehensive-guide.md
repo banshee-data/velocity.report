@@ -29,13 +29,13 @@ This document covers what exists and works today.
 
 ## Current state inventory
 
-### 1. Radar binary (`cmd/radar`)
+### 1. Radar binary ([cmd/radar](../../cmd/radar))
 
 **Description:** Main production service that runs radar serial monitoring, HTTP API server, and optional lidar components.
 
 **Mode:** Long-running service
 
-**Location:** `cmd/radar`
+**Location:** [cmd/radar](../../cmd/radar)
 
 #### Quick start examples
 
@@ -225,13 +225,13 @@ Background subtraction parameters (flush interval, noise threshold, frame buffer
 
 ---
 
-### 2. Sweep binary (`cmd/sweep`)
+### 2. Sweep binary ([cmd/sweep](../../cmd/sweep))
 
 **Description:** Parameter sweep utility for testing lidar background model with different configurations.
 
 **Mode:** Batch job (runs sweep, writes CSV, exits)
 
-**Location:** `cmd/sweep`
+**Location:** [cmd/sweep](../../cmd/sweep)
 
 #### Quick start examples
 
@@ -295,16 +295,16 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ---
 
-### 3. Device management binary (`cmd/velocity-ctl`)
+### 3. Device management binary ([cmd/velocity-ctl](../../cmd/velocity-ctl))
 
-> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary (v0.5.1).
+> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary.
 > See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
 
 **Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status; no SSH, no remote targets.
 
 **Mode:** Interactive CLI tool (subcommand-based)
 
-**Location:** `cmd/velocity-ctl`
+**Location:** [cmd/velocity-ctl](../../cmd/velocity-ctl)
 
 #### Quick start examples
 
@@ -341,13 +341,13 @@ sudo velocity-ctl rollback
 
 ---
 
-### 5. Backfill ring elevations binary (`cmd/tools/backfill_ring_elevations`)
+### 5. Backfill ring elevations binary ([cmd/tools/backfill_ring_elevations](../../cmd/tools/backfill_ring_elevations))
 
 **Description:** Backfill ring elevation data for lidar background snapshots using embedded parser config.
 
 **Mode:** Batch job (updates DB, exits)
 
-**Location:** `cmd/tools/backfill_ring_elevations`
+**Location:** [cmd/tools/backfill_ring_elevations](../../cmd/tools/backfill_ring_elevations)
 
 #### Quick start examples
 

@@ -1,8 +1,8 @@
 # Phase 2 (replay case management) implementation
 
 - **Status:** ✅ Complete
-- **Design Document:** `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md`
-- **Terminology note:** Database schema renamed to `lidar_replay_cases` in v0.5.x migration 031. API paths and Go types (`Scene`, `SceneStore`) still use the old "scene" term pending code rename in v0.5.1+. Dashboard frontend already migrated.
+- **Design Document:** [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md)
+- **Terminology note:** Database schema renamed to `lidar_replay_cases` in migration 031. API paths and Go types (`Scene`, `SceneStore`) still use the old "scene" term pending code rename. Dashboard frontend already migrated.
 
 Implementation of replay case management: structured evaluation environments from PCAP captures tied to sensors, ground truth runs, and optimal parameter sets.
 
@@ -24,24 +24,22 @@ Different replay cases from the same PCAP (e.g., different time segments) can ha
 
 ## Implementation details
 
-### Phase 2.1: database schema (v0.5.x migrations)
+### Phase 2.1: database schema (migrations 020, 031)
 
 Replay cases are persisted in the `lidar_replay_cases` table, created by migration 031 (which renamed the earlier `lidar_scenes` table):
 
-```sql
-CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
-    replay_case_id TEXT PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    pcap_file TEXT NOT NULL,
-    pcap_start_secs REAL,
-    pcap_duration_secs REAL,
-    description TEXT,
-    reference_run_id TEXT,
-    created_at_ns INTEGER NOT NULL,
-    updated_at_ns INTEGER,
-    recommended_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
-);
-```
+| Column                     | Type    | Constraint                                                     |
+| -------------------------- | ------- | -------------------------------------------------------------- |
+| `replay_case_id`           | TEXT    | PRIMARY KEY                                                    |
+| `sensor_id`                | TEXT    | NOT NULL                                                       |
+| `pcap_file`                | TEXT    | NOT NULL                                                       |
+| `pcap_start_secs`          | REAL    |                                                                |
+| `pcap_duration_secs`       | REAL    |                                                                |
+| `description`              | TEXT    |                                                                |
+| `reference_run_id`         | TEXT    |                                                                |
+| `created_at_ns`            | INTEGER | NOT NULL                                                       |
+| `updated_at_ns`            | INTEGER |                                                                |
+| `recommended_param_set_id` | TEXT    | REFERENCES `lidar_param_sets(param_set_id)` ON DELETE SET NULL |
 
 **Indexes:**
 
@@ -51,29 +49,27 @@ CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
 
 **Files:**
 
-- `internal/db/migrations/000031_table_naming.up.sql` (renames from `lidar_scenes`)
-- `internal/db/migrations/000031_table_naming.down.sql`
+- [internal/db/migrations/000031_table_naming.up.sql](../../../internal/db/migrations/000031_table_naming.up.sql) (renames from `lidar_scenes`)
+- [internal/db/migrations/000031_table_naming.down.sql](../../../internal/db/migrations/000031_table_naming.down.sql)
 
 ### Phase 2.2: replayCaseStore
 
-Created `internal/lidar/storage/sqlite/scene_store.go` with comprehensive CRUD operations (file rename pending in v0.5.1+).
+Created [internal/lidar/storage/sqlite/scene_store.go](../../../internal/lidar/storage/sqlite/scene_store.go) with comprehensive CRUD operations (file rename pending).
 
 #### ReplayCase struct
 
-```go
-type ReplayCase struct {
-    ReplayCaseID           string          `json:"replay_case_id"`
-    SensorID               string          `json:"sensor_id"`
-    PCAPFile               string          `json:"pcap_file"`
-    PCAPStartSecs          *float64        `json:"pcap_start_secs,omitempty"`
-    PCAPDurationSecs       *float64        `json:"pcap_duration_secs,omitempty"`
-    Description            string          `json:"description,omitempty"`
-    ReferenceRunID         string          `json:"reference_run_id,omitempty"`
-    RecommendedParamSetID  string          `json:"recommended_param_set_id,omitempty"`
-    CreatedAtNs            int64           `json:"created_at_ns"`
-    UpdatedAtNs            *int64          `json:"updated_at_ns,omitempty"`
-}
-```
+| Field                   | Type       | JSON                                 |
+| ----------------------- | ---------- | ------------------------------------ |
+| `ReplayCaseID`          | `string`   | `replay_case_id`                     |
+| `SensorID`              | `string`   | `sensor_id`                          |
+| `PCAPFile`              | `string`   | `pcap_file`                          |
+| `PCAPStartSecs`         | `*float64` | `pcap_start_secs,omitempty`          |
+| `PCAPDurationSecs`      | `*float64` | `pcap_duration_secs,omitempty`       |
+| `Description`           | `string`   | `description,omitempty`              |
+| `ReferenceRunID`        | `string`   | `reference_run_id,omitempty`         |
+| `RecommendedParamSetID` | `string`   | `recommended_param_set_id,omitempty` |
+| `CreatedAtNs`           | `int64`    | `created_at_ns`                      |
+| `UpdatedAtNs`           | `*int64`   | `updated_at_ns,omitempty`            |
 
 #### Store methods
 
@@ -96,7 +92,7 @@ Current method names (pending rename to `ReplayCase*` prefix):
 
 ### Phase 2.3: REST API
 
-Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handler names pending rename in v0.5.1+):
+Created [internal/lidar/server/scene_api.go](../../../internal/lidar/server/scene_api.go) with HTTP endpoints (file and handler names pending rename):
 
 | Method | Endpoint                                    | Description                              |
 | ------ | ------------------------------------------- | ---------------------------------------- |
@@ -107,7 +103,7 @@ Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handl
 | DELETE | `/api/lidar/scenes/{replay_case_id}`        | Delete replay case                       |
 | POST   | `/api/lidar/scenes/{replay_case_id}/replay` | Replay PCAP, creating analysis run (202) |
 
-> **Pending rename (v0.5.1+):** API paths will change from `/api/lidar/scenes` to `/api/lidar/replay-cases`. This is a breaking change planned for the v0.5.1 code rename. See [lidar-replay-case-terminology-alignment-plan.md](../../plans/lidar-replay-case-terminology-alignment-plan.md).
+> **Pending rename:** API paths will change from `/api/lidar/scenes` to `/api/lidar/replay-cases`. This is a breaking change planned for the code rename. See [lidar-replay-case-terminology-alignment-plan.md](../../plans/lidar-replay-case-terminology-alignment-plan.md).
 
 **Request/Response Types:**
 
@@ -118,11 +114,7 @@ Created `internal/lidar/server/scene_api.go` with HTTP endpoints (file and handl
 
 Routes added to `server/routes.go` RegisterRoutes():
 
-```go
-// Scene API routes (scene management for track labelling and auto-tuning)
-mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
-mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
-```
+Routes are registered in `server/routes.go` within `RegisterRoutes()`: `/api/lidar/scenes` maps to `ws.withDB(ws.handleScenes)`, and `/api/lidar/scenes/` (with trailing slash) maps to `ws.withDB(ws.handleSceneByID)`.
 
 ### Phase 2.4 & 2.5: replay and sweep integration
 
@@ -195,23 +187,23 @@ Phase 2.5 (sweep integration) adds the `AnalysisRunCreator` interface and `RunID
 
 **Migration Files:**
 
-- `internal/db/migrations/000020_create_lidar_scenes.up.sql`: Original table creation (v0.5.0)
-- `internal/db/migrations/000020_create_lidar_scenes.down.sql`: Rollback
-- `internal/db/migrations/000031_table_naming.up.sql`: Renames table to `lidar_replay_cases` and columns (v0.5.x)
-- `internal/db/migrations/000031_table_naming.down.sql`: Rollback to `scene` names
+- [internal/db/migrations/000020_create_lidar_scenes.up.sql](../../../internal/db/migrations/000020_create_lidar_scenes.up.sql): Original table creation
+- [internal/db/migrations/000020_create_lidar_scenes.down.sql](../../../internal/db/migrations/000020_create_lidar_scenes.down.sql): Rollback
+- [internal/db/migrations/000031_table_naming.up.sql](../../../internal/db/migrations/000031_table_naming.up.sql): Renames table to `lidar_replay_cases` and columns
+- [internal/db/migrations/000031_table_naming.down.sql](../../../internal/db/migrations/000031_table_naming.down.sql): Rollback to `scene` names
 
 **Store Layer:**
 
-- `internal/lidar/storage/sqlite/scene_store.go` → File rename pending; type `ReplayCase` fully migrated
-- `internal/lidar/storage/sqlite/scene_store_test.go` → File rename pending; tests use `ReplayCase` type
-- `internal/lidar/storage/sqlite/scene_store_coverage_test.go` → File rename pending
+- [internal/lidar/storage/sqlite/scene_store.go](../../../internal/lidar/storage/sqlite/scene_store.go) → File rename pending; type `ReplayCase` fully migrated
+- [internal/lidar/storage/sqlite/scene_store_test.go](../../../internal/lidar/storage/sqlite/scene_store_test.go) → File rename pending; tests use `ReplayCase` type
+- [internal/lidar/storage/sqlite/scene_store_coverage_test.go](../../../internal/lidar/storage/sqlite/scene_store_coverage_test.go) → File rename pending
 
 **API Layer:**
 
-- `internal/lidar/server/scene_api.go` → File rename pending; handlers use `ReplayCase` internally
-- `internal/lidar/server/scene_api_test.go` → File rename pending
-- `internal/lidar/server/scene_api_coverage_test.go` → File rename pending
-- `internal/lidar/server/routes.go`: Routes still use `/api/lidar/scenes` paths (pending rename)
+- [internal/lidar/server/scene_api.go](../../../internal/lidar/server/scene_api.go) → File rename pending; handlers use `ReplayCase` internally
+- [internal/lidar/server/scene_api_test.go](../../../internal/lidar/server/scene_api_test.go) → File rename pending
+- [internal/lidar/server/scene_api_coverage_test.go](../../../internal/lidar/server/scene_api_coverage_test.go) → File rename pending
+- [internal/lidar/server/routes.go](../../../internal/lidar/server/routes.go): Routes still use `/api/lidar/scenes` paths (pending rename)
 
 **Lines of Code:**
 

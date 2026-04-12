@@ -8,14 +8,14 @@ Covers tunable parameters, collected metrics, scoring objectives, operational wo
 
 **Implementation files:**
 
-| Component               | File                                               |
-| ----------------------- | -------------------------------------------------- |
-| AutoTuner               | `internal/lidar/sweep/auto.go`                     |
-| Runner + Settle Mode    | `internal/lidar/sweep/runner.go`                   |
-| Multi-objective Scoring | `internal/lidar/sweep/objective.go`                |
-| Sampler                 | `internal/lidar/sweep/sampler.go`                  |
-| Parameter Schema (JS)   | `internal/lidar/monitor/assets/sweep_dashboard.js` |
-| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html` |
+| Component               | File                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| AutoTuner               | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)           |
+| Runner + Settle Mode    | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)       |
+| Multi-objective Scoring | [internal/lidar/sweep/objective.go](../../../internal/lidar/sweep/objective.go) |
+| Sampler                 | [internal/lidar/sweep/sampler.go](../../../internal/lidar/sweep/sampler.go)     |
+| Parameter Schema (JS)   | `internal/lidar/monitor/assets/sweep_dashboard.js`                              |
+| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html`                              |
 
 **Related documentation:**
 
@@ -215,31 +215,27 @@ The scene-level weights (`foreground_capture`, `empty_boxes`, `fragmentation`, `
 
 For general vehicle tracking:
 
-```json
-{
-  "acceptance": 1.0,
-  "misalignment": -0.5,
-  "alignment": -0.01,
-  "nonzero_cells": 0.1,
-  "active_tracks": 0.3,
-  "fragmentation": -0.3,
-  "heading_jitter": -0.1
-}
-```
+| Weight           | Value   |
+| ---------------- | ------- |
+| `acceptance`     | `1.0`   |
+| `misalignment`   | `-0.5`  |
+| `alignment`      | `-0.01` |
+| `nonzero_cells`  | `0.1`   |
+| `active_tracks`  | `0.3`   |
+| `fragmentation`  | `-0.3`  |
+| `heading_jitter` | `-0.1`  |
 
 For high-quality speed measurement:
 
-```json
-{
-  "acceptance": 0.5,
-  "misalignment": -1.0,
-  "alignment": -0.05,
-  "active_tracks": 0.3,
-  "fragmentation": -0.5,
-  "heading_jitter": -0.3,
-  "empty_boxes": -0.2
-}
-```
+| Weight           | Value   |
+| ---------------- | ------- |
+| `acceptance`     | `0.5`   |
+| `misalignment`   | `-1.0`  |
+| `alignment`      | `-0.05` |
+| `active_tracks`  | `0.3`   |
+| `fragmentation`  | `-0.5`  |
+| `heading_jitter` | `-0.3`  |
+| `empty_boxes`    | `-0.2`  |
 
 ### Acceptance criteria
 
@@ -253,13 +249,11 @@ Acceptance criteria are **hard thresholds** that reject parameter combinations b
 
 All fields are optional (nil = no constraint). Example:
 
-```json
-{
-  "max_fragmentation_ratio": 0.5,
-  "max_unbounded_point_ratio": 0.3,
-  "max_empty_box_ratio": 0.4
-}
-```
+| Criterion                   | Value |
+| --------------------------- | ----- |
+| `max_fragmentation_ratio`   | `0.5` |
+| `max_unbounded_point_ratio` | `0.3` |
+| `max_empty_box_ratio`       | `0.4` |
 
 ### Ground truth scoring
 
@@ -412,25 +406,29 @@ These are conservative thresholds. Tighten them once you have a baseline underst
 
 Tune the two most impactful parameters with acceptance-only scoring:
 
-```json
-POST /api/lidar/sweep/auto
-{
-  "params": [
-    { "name": "noise_relative", "type": "float64", "start": 0.01, "end": 0.15 },
-    { "name": "closeness_multiplier", "type": "float64", "start": 2.0, "end": 16.0 }
-  ],
-  "max_rounds": 3,
-  "values_per_param": 5,
-  "top_k": 5,
-  "objective": "acceptance",
-  "iterations": 10,
-  "settle_time": "5s",
-  "interval": "2s",
-  "data_source": "pcap",
-  "pcap_file": "capture.pcap",
-  "settle_mode": "once"
-}
-```
+**Endpoint:** `POST /api/lidar/sweep/auto`
+
+**Parameters:**
+
+| Name                   | Type    | Start | End  |
+| ---------------------- | ------- | ----- | ---- |
+| `noise_relative`       | float64 | 0.01  | 0.15 |
+| `closeness_multiplier` | float64 | 2.0   | 16.0 |
+
+**Settings:**
+
+| Setting            | Value            |
+| ------------------ | ---------------- |
+| `max_rounds`       | `3`              |
+| `values_per_param` | `5`              |
+| `top_k`            | `5`              |
+| `objective`        | `"acceptance"`   |
+| `iterations`       | `10`             |
+| `settle_time`      | `"5s"`           |
+| `interval`         | `"2s"`           |
+| `data_source`      | `"pcap"`         |
+| `pcap_file`        | `"capture.pcap"` |
+| `settle_mode`      | `"once"`         |
 
 75 total combinations. With `settle_mode: "once"` and 10 iterations at 2s intervals, each combo takes ~20s. Total: ~25 minutes.
 
@@ -438,37 +436,42 @@ POST /api/lidar/sweep/auto
 
 Tune background + foreground + key tracker params with weighted scoring and acceptance criteria:
 
-```json
-POST /api/lidar/sweep/auto
-{
-  "params": [
-    { "name": "noise_relative", "type": "float64", "start": 0.01, "end": 0.1 },
-    { "name": "closeness_multiplier", "type": "float64", "start": 2.0, "end": 12.0 },
-    { "name": "foreground_dbscan_eps", "type": "float64", "start": 0.3, "end": 1.5 },
-    { "name": "hits_to_confirm", "type": "int", "start": 2, "end": 6 }
-  ],
-  "max_rounds": 3,
-  "values_per_param": 4,
-  "top_k": 5,
-  "objective": "weighted",
-  "weights": {
-    "acceptance": 1.0,
-    "misalignment": -0.5,
-    "active_tracks": 0.3,
-    "fragmentation": -0.3,
-    "heading_jitter": -0.1
-  },
-  "acceptance_criteria": {
-    "max_fragmentation_ratio": 0.5,
-    "max_unbounded_point_ratio": 0.3
-  },
-  "iterations": 15,
-  "settle_time": "10s",
-  "interval": "2s",
-  "data_source": "pcap",
-  "pcap_file": "capture.pcap"
-}
-```
+**Endpoint:** `POST /api/lidar/sweep/auto`
+
+**Parameters:**
+
+| Name                    | Type    | Start | End  |
+| ----------------------- | ------- | ----- | ---- |
+| `noise_relative`        | float64 | 0.01  | 0.1  |
+| `closeness_multiplier`  | float64 | 2.0   | 12.0 |
+| `foreground_dbscan_eps` | float64 | 0.3   | 1.5  |
+| `hits_to_confirm`       | int     | 2     | 6    |
+
+**Weights:**
+
+| Weight           | Value  |
+| ---------------- | ------ |
+| `acceptance`     | `1.0`  |
+| `misalignment`   | `-0.5` |
+| `active_tracks`  | `0.3`  |
+| `fragmentation`  | `-0.3` |
+| `heading_jitter` | `-0.1` |
+
+**Acceptance criteria:** `max_fragmentation_ratio` = 0.5, `max_unbounded_point_ratio` = 0.3
+
+**Settings:**
+
+| Setting            | Value            |
+| ------------------ | ---------------- |
+| `max_rounds`       | `3`              |
+| `values_per_param` | `4`              |
+| `top_k`            | `5`              |
+| `objective`        | `"weighted"`     |
+| `iterations`       | `15`             |
+| `settle_time`      | `"10s"`          |
+| `interval`         | `"2s"`           |
+| `data_source`      | `"pcap"`         |
+| `pcap_file`        | `"capture.pcap"` |
 
 256 combinations per round, 768 total. This is a long run; use `settle_mode: "once"` to reduce runtime.
 
@@ -476,35 +479,42 @@ POST /api/lidar/sweep/auto
 
 Requires a scene with labelled reference tracks:
 
-```json
-POST /api/lidar/sweep/auto
-{
-  "params": [
-    { "name": "noise_relative", "type": "float64", "start": 0.01, "end": 0.1 },
-    { "name": "closeness_multiplier", "type": "float64", "start": 2.0, "end": 10.0 }
-  ],
-  "max_rounds": 3,
-  "values_per_param": 5,
-  "top_k": 5,
-  "objective": "ground_truth",
-  "scene_id": "scene-123",
-  "ground_truth_weights": {
-    "detection_rate": 1.0,
-    "fragmentation": 5.0,
-    "false_positives": 2.0,
-    "velocity_coverage": 0.5,
-    "quality_premium": 0.3,
-    "truncation_rate": 0.4,
-    "velocity_noise_rate": 0.4,
-    "stopped_recovery": 0.2
-  },
-  "iterations": 10,
-  "settle_time": "5s",
-  "interval": "2s",
-  "data_source": "pcap",
-  "pcap_file": "urban-intersection.pcap"
-}
-```
+**Endpoint:** `POST /api/lidar/sweep/auto`
+
+**Parameters:**
+
+| Name                   | Type    | Start | End  |
+| ---------------------- | ------- | ----- | ---- |
+| `noise_relative`       | float64 | 0.01  | 0.1  |
+| `closeness_multiplier` | float64 | 2.0   | 10.0 |
+
+**Ground truth weights:**
+
+| Weight                | Value |
+| --------------------- | ----- |
+| `detection_rate`      | `1.0` |
+| `fragmentation`       | `5.0` |
+| `false_positives`     | `2.0` |
+| `velocity_coverage`   | `0.5` |
+| `quality_premium`     | `0.3` |
+| `truncation_rate`     | `0.4` |
+| `velocity_noise_rate` | `0.4` |
+| `stopped_recovery`    | `0.2` |
+
+**Settings:**
+
+| Setting            | Value                       |
+| ------------------ | --------------------------- |
+| `max_rounds`       | `3`                         |
+| `values_per_param` | `5`                         |
+| `top_k`            | `5`                         |
+| `objective`        | `"ground_truth"`            |
+| `scene_id`         | `"scene-123"`               |
+| `iterations`       | `10`                        |
+| `settle_time`      | `"5s"`                      |
+| `interval`         | `"2s"`                      |
+| `data_source`      | `"pcap"`                    |
+| `pcap_file`        | `"urban-intersection.pcap"` |
 
 **Ground truth workflow:**
 
@@ -517,17 +527,14 @@ POST /api/lidar/sweep/auto
 
 ### Applying results
 
-After auto-tuning completes, the status response includes a `recommendation` object with the best parameter values. Apply them to the live system:
+After auto-tuning completes, the status response includes a `recommendation` object with the best parameter values. Apply them to the live system via `POST /api/lidar/params`:
 
-```json
-POST /api/lidar/params
-{
-  "noise_relative": 0.035,
-  "closeness_multiplier": 6.2,
-  "foreground_dbscan_eps": 0.8,
-  "hits_to_confirm": 3
-}
-```
+| Parameter               | Value   |
+| ----------------------- | ------- |
+| `noise_relative`        | `0.035` |
+| `closeness_multiplier`  | `6.2`   |
+| `foreground_dbscan_eps` | `0.8`   |
+| `hits_to_confirm`       | `3`     |
 
 Only the parameters included in the request are updated; others retain their current values.
 
@@ -617,6 +624,6 @@ When interpreting auto-tuning results, keep in mind that the recommended values 
 
 ## Changelog
 
-- **2026-02-10**: Consolidated from `auto-tuning.md`, `label-aware-auto-tuning-implementation.md`, and `label-aware-auto-tuning-usage.md` into unified guide
+- **2026-02-10**: Consolidated from [auto-tuning.md](auto-tuning.md), `label-aware-auto-tuning-implementation.md`, and `label-aware-auto-tuning-usage.md` into unified guide
 - **2026-02**: Phase 5 (ground truth evaluation) implemented
 - **2026-02**: Phases 1–2 (iterative grid narrowing, multi-objective scoring) implemented

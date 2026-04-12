@@ -61,24 +61,22 @@ Users can configure and test radar serial ports through a web interface instead 
 
 ## Database schema (FR1)
 
-```sql
--- Serial port configurations table
-CREATE TABLE IF NOT EXISTS radar_serial_config (
-       id INTEGER PRIMARY KEY AUTOINCREMENT
-     , name TEXT NOT NULL UNIQUE
-     , port_path TEXT NOT NULL
-     , baud_rate INTEGER NOT NULL DEFAULT 19200
-     , data_bits INTEGER NOT NULL DEFAULT 8
-     , stop_bits INTEGER NOT NULL DEFAULT 1
-     , parity TEXT NOT NULL DEFAULT 'N'
-     , enabled INTEGER NOT NULL DEFAULT 1
-     , description TEXT
-     , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
-     , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
-     );
-```
+The `radar_serial_config` table stores serial port configurations:
+
+| Column         | Type    | Constraint / Default                                                 |
+| -------------- | ------- | -------------------------------------------------------------------- |
+| `id`           | INTEGER | PRIMARY KEY AUTOINCREMENT                                            |
+| `name`         | TEXT    | NOT NULL UNIQUE                                                      |
+| `port_path`    | TEXT    | NOT NULL                                                             |
+| `baud_rate`    | INTEGER | NOT NULL DEFAULT 19200                                               |
+| `data_bits`    | INTEGER | NOT NULL DEFAULT 8                                                   |
+| `stop_bits`    | INTEGER | NOT NULL DEFAULT 1                                                   |
+| `parity`       | TEXT    | NOT NULL DEFAULT `'N'`                                               |
+| `enabled`      | INTEGER | NOT NULL DEFAULT 1                                                   |
+| `description`  | TEXT    |                                                                      |
+| `sensor_model` | TEXT    | NOT NULL DEFAULT `'ops243-a'`, CHECK IN (`'ops243-a'`, `'ops243-c'`) |
+| `created_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                             |
+| `updated_at`   | INTEGER | NOT NULL DEFAULT `STRFTIME('%s', 'now')`                             |
 
 **Note:** Sensor model information (capabilities, init commands) is stored in application code, not the database. The CHECK constraint validates that only supported sensor models are used.
 
@@ -131,12 +129,12 @@ All command responses are logged, including both JSON and non-JSON formats. This
 - Migration: `internal/db/migrations/20251106_create_radar_serial_config.sql`
 - API handlers: `internal/api/serial_config.go`
 - Serial testing: `internal/api/serial_test.go`
-- Server changes: `cmd/radar/radar.go`
+- Server changes: [cmd/radar/radar.go](../../cmd/radar/radar.go)
 
 **Frontend:**
 
 - Route: `web/src/routes/settings/serial/+page.svelte`
-- API client: `web/src/lib/api.ts` (extend)
+- API client: [web/src/lib/api.ts](../../web/src/lib/api.ts) (extend)
 - Types: `web/src/lib/types/serial.ts`
 
 **Documentation:**

@@ -91,7 +91,7 @@ The primary access control mechanism is **network-level segmentation** using [Ta
 
 2. **`featureGate`**: Destructive endpoints (e.g. `runs/clear`) are wrapped with `featureGate("VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API", handler)`, requiring an explicit environment variable to be set. In production deployments this variable is unset, so the endpoint returns 404.
 
-3. **Path-traversal protection**: PCAP file endpoints validate paths against `--lidar-pcap-dir` to prevent directory traversal attacks (see `internal/security`).
+3. **Path-traversal protection**: PCAP file endpoints validate paths against `--lidar-pcap-dir` to prevent directory traversal attacks (see [internal/security](../../../internal/security)).
 
 ### Current limitations
 

@@ -176,52 +176,13 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 
 ### GitHub actions example
 
-```yaml
-name: Performance Regression Test
+A GitHub Actions workflow triggers on pull requests that modify `internal/lidar/**` or `cmd/tools/pcap-analyze/**`. The job runs on `ubuntu-latest` with Go 1.22 and `libpcap-dev` installed. Steps:
 
-on:
-  pull_request:
-    paths:
-      - "internal/lidar/**"
-      - "cmd/tools/pcap-analyze/**"
-
-jobs:
-  benchmark:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-
-      - name: Install libpcap
-        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
-
-      - name: Build pcap-analyze
-        run: go build -tags=pcap -o pcap-analyze ./cmd/tools/pcap-analyze
-
-      - name: Download gold standard PCAP
-        run: |
-          # Download from shared storage or use cached file
-          curl -L -o gold-standard.pcapng "${{ secrets.PCAP_STORAGE_URL }}/gold-standard.pcapng"
-
-      - name: Run performance benchmark
-        run: |
-          ./pcap-analyze -pcap gold-standard.pcapng \
-            -benchmark \
-            -compare-baseline baselines/gold-standard-baseline.json \
-            -quiet
-        continue-on-error: false
-
-      - name: Upload benchmark results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: gold-standard_benchmark.json
-```
+1. Check out the repository.
+2. Build `pcap-analyze` with the `pcap` build tag.
+3. Download the gold standard PCAP file from shared storage (`$PCAP_STORAGE_URL`).
+4. Run the performance benchmark with `-compare-baseline` pointing at the committed baseline JSON; the step fails on regression.
+5. Upload the benchmark results JSON as a build artifact (always, regardless of pass/fail).
 
 ### Baseline management
 
@@ -244,48 +205,45 @@ Update baselines when:
 
 ### Benchmark JSON schema (v1.0)
 
-```json
-{
-  "version": "1.0",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "pcap_file": "gold-standard.pcapng",
-  "system_info": {
-    "goos": "linux",
-    "goarch": "amd64",
-    "num_cpu": 8,
-    "go_version": "go1.22.0",
-    "commit_hash": "abc123def456"
-  },
-  "metrics": {
-    "wall_clock_ms": 1523,
-    "frame_time_stats": {
-      "min_ms": 0.45,
-      "max_ms": 12.34,
-      "avg_ms": 2.45,
-      "p50_ms": 2.12,
-      "p95_ms": 5.67,
-      "p99_ms": 8.91,
-      "samples": 1200
-    },
-    "frames_per_second": 164.2,
-    "packets_per_second": 12500.0,
-    "points_per_second": 875000.0,
-    "heap_alloc_bytes": 52428800,
-    "total_alloc_bytes": 104857600,
-    "num_gc": 12,
-    "gc_pause_ns": 450000,
-    "pipeline_time_ms": 234,
-    "cluster_time_ms": 456,
-    "tracking_time_ms": 321,
-    "classify_time_ms": 45
-  },
-  "comparison": {
-    "baseline_file": "baseline.json",
-    "regressions": [],
-    "improvements": []
-  }
-}
-```
+The benchmark output file (version `1.0`) contains three top-level sections:
+
+**Top-level fields:**
+
+| Field       | Type   | Description                        |
+| ----------- | ------ | ---------------------------------- |
+| `version`   | string | Schema version (`"1.0"`)           |
+| `timestamp` | string | ISO 8601 time of the benchmark run |
+| `pcap_file` | string | PCAP filename used                 |
+
+**`system_info` section:**
+
+| Field         | Type   | Description                 |
+| ------------- | ------ | --------------------------- |
+| `goos`        | string | OS (e.g. `linux`)           |
+| `goarch`      | string | Architecture (e.g. `amd64`) |
+| `num_cpu`     | int    | CPU count                   |
+| `go_version`  | string | Go version                  |
+| `commit_hash` | string | Git commit SHA              |
+
+**`metrics` section:**
+
+| Field                | Type  | Description                                                       |
+| -------------------- | ----- | ----------------------------------------------------------------- |
+| `wall_clock_ms`      | int   | Total processing time                                             |
+| `frame_time_stats.*` | float | Per-frame stats: min, max, avg, p50, p95, p99 (ms), samples (int) |
+| `frames_per_second`  | float | Processing throughput                                             |
+| `packets_per_second` | float | Packet parsing rate                                               |
+| `points_per_second`  | float | Point cloud throughput                                            |
+| `heap_alloc_bytes`   | int   | Current heap memory                                               |
+| `total_alloc_bytes`  | int   | Cumulative allocation                                             |
+| `num_gc`             | int   | GC cycle count                                                    |
+| `gc_pause_ns`        | int   | GC pause duration                                                 |
+| `pipeline_time_ms`   | int   | Pipeline stage time                                               |
+| `cluster_time_ms`    | int   | Clustering stage time                                             |
+| `tracking_time_ms`   | int   | Tracking stage time                                               |
+| `classify_time_ms`   | int   | Classification stage time                                         |
+
+**`comparison` section:** Contains `baseline_file` (string), `regressions` (array), and `improvements` (array).
 
 ### Metric descriptions
 

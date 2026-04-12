@@ -4,7 +4,7 @@ Evaluation of external background-grid representations (OccupancyGrid, TSDF, VTK
 
 ## Context
 
-- Current implementation stores background as a **polar range image** (`BackgroundGrid` in `internal/lidar/l3grid/background.go`): rings × azimuth bins with per-cell average range, spread, last-updated timestamp, freeze window, and acceptance counters. Snapshots persist to `lidar_bg_snapshot` with compressed `[]BackgroundCell` blobs (`internal/db/schema.sql`).
+- Current implementation stores background as a **polar range image** (`BackgroundGrid` in [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go)): rings × azimuth bins with per-cell average range, spread, last-updated timestamp, freeze window, and acceptance counters. Snapshots persist to `lidar_bg_snapshot` with compressed `[]BackgroundCell` blobs ([internal/db/schema.sql](../../../internal/db/schema.sql)).
 - The grid is tuned for single-sensor, streaming foreground/background separation with EMA updates, neighbour confirmation, and runtime-adjustable thresholds.
 - Question: should we align the background geometry with external standards (e.g., SLAM/LidarView ecosystems), and what are the tradeoffs?
 

@@ -123,43 +123,37 @@ Rules:
 
 ### Sample
 
-```json
-{
-  "ts_nanos": 1741435234123000000,
-  "fps": 201.0,
-  "tr": 15,
-  "cl": 24,
-  "fg": 6620,
-  "bg": 41201,
-  "fr_inc": 1
-}
-```
+| Key        | Value                 | Type    |
+| ---------- | --------------------- | ------- |
+| `ts_nanos` | `1741435234123000000` | int64   |
+| `fps`      | `201.0`               | float64 |
+| `tr`       | `15`                  | int64   |
+| `cl`       | `24`                  | int64   |
+| `fg`       | `6620`                | int64   |
+| `bg`       | `41201`               | int64   |
+| `fr_inc`   | `1`                   | int64   |
 
 ### Event
 
-```json
-{
-  "ts_nanos": 1741435235123000000,
-  "kind": "event",
-  "sev": "warn",
-  "msg": "missing_bg_snapshot",
-  "er_inc": 1
-}
-```
+| Key        | Value                   | Type   |
+| ---------- | ----------------------- | ------ |
+| `ts_nanos` | `1741435235123000000`   | int64  |
+| `kind`     | `"event"`               | string |
+| `sev`      | `"warn"`                | string |
+| `msg`      | `"missing_bg_snapshot"` | string |
+| `er_inc`   | `1`                     | int64  |
 
 ### Init
 
-```json
-{
-  "ts_nanos": 1741435200000000000,
-  "kind": "init",
-  "src": "vrlog",
-  "ver": "1.0",
-  "hd": true,
-  "ix": true,
-  "frame_tot": 18210
-}
-```
+| Key         | Value                 | Type   |
+| ----------- | --------------------- | ------ |
+| `ts_nanos`  | `1741435200000000000` | int64  |
+| `kind`      | `"init"`              | string |
+| `src`       | `"vrlog"`             | string |
+| `ver`       | `"1.0"`               | string |
+| `hd`        | `true`                | bool   |
+| `ix`        | `true`                | bool   |
+| `frame_tot` | `18210`               | int64  |
 
 ## Aggregation model
 
@@ -327,50 +321,46 @@ Examples:
 
 ### Aggregate row
 
-```json
-{
-  "kind": "agg",
-  "ts_nanos": 1741435230000000000,
-  "win_s": 30,
-  "sev": "ok",
-  "src": "vrlog",
-  "fr_inc": 6014,
-  "fps": 200.4,
-  "ch_cur": 7,
-  "ch_tot": 19,
-  "tr": 13,
-  "cl": 21,
-  "fg": 6312,
-  "bg": 41077,
-  "st": 0.87,
-  "dr_inc": 0,
-  "er_inc": 1
-}
-```
+| Key        | Value                 | Type    |
+| ---------- | --------------------- | ------- |
+| `kind`     | `"agg"`               | string  |
+| `ts_nanos` | `1741435230000000000` | int64   |
+| `win_s`    | `30`                  | int64   |
+| `sev`      | `"ok"`                | string  |
+| `src`      | `"vrlog"`             | string  |
+| `fr_inc`   | `6014`                | int64   |
+| `fps`      | `200.4`               | float64 |
+| `ch_cur`   | `7`                   | int64   |
+| `ch_tot`   | `19`                  | int64   |
+| `tr`       | `13`                  | int64   |
+| `cl`       | `21`                  | int64   |
+| `fg`       | `6312`                | int64   |
+| `bg`       | `41077`               | int64   |
+| `st`       | `0.87`                | float64 |
+| `dr_inc`   | `0`                   | int64   |
+| `er_inc`   | `1`                   | int64   |
 
 ### Live row
 
-```json
-{
-  "kind": "live",
-  "ts_nanos": 1741435234123000000,
-  "sev": "ok",
-  "src": "vrlog",
-  "frame_cur": 6341,
-  "frame_tot": 18210,
-  "fps": 201.0,
-  "ch_cur": 7,
-  "ch_tot": 19,
-  "tr": 15,
-  "cl": 24,
-  "fg": 6620,
-  "bg": 41201,
-  "st": null,
-  "fr_inc": 311,
-  "dr_inc": 0,
-  "er_inc": 1
-}
-```
+| Key         | Value                 | Type    |
+| ----------- | --------------------- | ------- |
+| `kind`      | `"live"`              | string  |
+| `ts_nanos`  | `1741435234123000000` | int64   |
+| `sev`       | `"ok"`                | string  |
+| `src`       | `"vrlog"`             | string  |
+| `frame_cur` | `6341`                | int64   |
+| `frame_tot` | `18210`               | int64   |
+| `fps`       | `201.0`               | float64 |
+| `ch_cur`    | `7`                   | int64   |
+| `ch_tot`    | `19`                  | int64   |
+| `tr`        | `15`                  | int64   |
+| `cl`        | `24`                  | int64   |
+| `fg`        | `6620`                | int64   |
+| `bg`        | `41201`               | int64   |
+| `st`        | `null`                | null    |
+| `fr_inc`    | `311`                 | int64   |
+| `dr_inc`    | `0`                   | int64   |
+| `er_inc`    | `1`                   | int64   |
 
 ## Performance validation
 
@@ -424,19 +414,17 @@ internal/lidar/vrreport/    # projector + config only
 cmd/radar/radar.go          # dispatch only
 ```
 
-Minimal integration:
+Minimal integration creates a `tictactail.Engine` with a `Config` struct:
 
-```go
-tail := tictactail.New(tictactail.Config{
-  Source:        "vrlog",
-  WindowSeconds: 30,
-  RefreshHz:     20,
-  SpinnerStyle:  "moon",
-  Columns:       []string{"fr", "fps", "ch", "tr", "cl", "fg", "bg", "st", "dr", "er"},
-  HistoryRows:   200,
-  MaxBytes:      1 << 20,
-})
-```
+| Field           | Value                                     | Purpose                    |
+| --------------- | ----------------------------------------- | -------------------------- |
+| `Source`        | `"vrlog"`                                 | Source identifier          |
+| `WindowSeconds` | `30`                                      | Aggregate window duration  |
+| `RefreshHz`     | `20`                                      | Live refresh rate          |
+| `SpinnerStyle`  | `"moon"`                                  | Spinner animation style    |
+| `Columns`       | `fr, fps, ch, tr, cl, fg, bg, st, dr, er` | Column display order       |
+| `HistoryRows`   | `200`                                     | Bounded history cache rows |
+| `MaxBytes`      | `1048576` (1 MiB)                         | Hard allocation ceiling    |
 
 The renderer shows aggregate history in the main pane, one live row, and one
 status bar. The adapter feeds projected samples and starts the renderer.

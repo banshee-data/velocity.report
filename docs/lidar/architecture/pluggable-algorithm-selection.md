@@ -15,22 +15,17 @@ to reconverge after freeze expiry.
 
 ## ForegroundExtractor interface
 
-```go
-type ForegroundExtractor interface {
-    Name() string
-    ProcessFrame(points []PointPolar, timestamp time.Time) (
-        foregroundMask []bool,
-        metrics ExtractorMetrics,
-        err error,
-    )
-    GetParams() map[string]interface{}
-    SetParams(params map[string]interface{}) error
-    Reset()
-}
-```
+The `ForegroundExtractor` interface defines five methods:
 
-Returns `[]bool` foreground mask (same length as input points) preserving
-index correspondence for downstream processing.
+| Method         | Signature                                                                      | Purpose                                          |
+| -------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `Name`         | `() string`                                                                    | Returns the extractor's display name             |
+| `ProcessFrame` | `(points []PointPolar, timestamp time.Time) ([]bool, ExtractorMetrics, error)` | Returns a foreground mask (same length as input) |
+| `GetParams`    | `() map[string]interface{}`                                                    | Returns current parameter values                 |
+| `SetParams`    | `(params map[string]interface{}) error`                                        | Updates parameters at runtime                    |
+| `Reset`        | `()`                                                                           | Resets internal state                            |
+
+The `[]bool` foreground mask preserves index correspondence with the input points for downstream processing.
 
 ## Extractor implementations
 
@@ -62,11 +57,11 @@ Runs multiple extractors in parallel, merges results via configurable mode:
 `TrackingPipeline` wraps `TrackingPipelineConfig` with dynamic algorithm
 selection. New fields on config:
 
-```go
-ExtractorMode       string   // "background" (default), "velocity", "hybrid"
-HybridMergeMode     string   // "union" (default), "intersection", "primary"
-ForegroundExtractor ForegroundExtractor  // custom injection override
-```
+| Field                 | Type                | Default        | Purpose                                                  |
+| --------------------- | ------------------- | -------------- | -------------------------------------------------------- |
+| `ExtractorMode`       | string              | `"background"` | Algorithm mode: `"background"`, `"velocity"`, `"hybrid"` |
+| `HybridMergeMode`     | string              | `"union"`      | Merge strategy: `"union"`, `"intersection"`, `"primary"` |
+| `ForegroundExtractor` | ForegroundExtractor | nil            | Custom injection override                                |
 
 Frame callback delegates to extractor when present; all downstream logic
 (ground removal, voxel downsampling, visualiser) unchanged.

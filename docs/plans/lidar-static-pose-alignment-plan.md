@@ -50,7 +50,9 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 1. Ingest AV dataset labels (see av-lidar-integration-plan.md Phase 2)
 2. Combine AV dataset + Hesai sequences for training
-3. Train object classifier supporting AV industry standard 28-class taxonomy:
+3. Train object classifier supporting AV industry standard taxonomy
+   (see §11 of [classification-maths.md](../../data/maths/classification-maths.md)
+   for the full three-way mapping):
    - **Priority 0 (Core):** Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
    - **Priority 1 (Safety):** Bicycle, Motorcycle, Ground Animal, Bird
    - **Priority 2 (Infrastructure):** Sign, Pole, Traffic Light, Construction Cone
@@ -97,23 +99,17 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 
 **BoundingBox7DOF (target format):**
 
-```go
-// From av-lidar-integration-plan.md Section 1.1
-type BoundingBox7DOF struct {
-    // Center position (meters)
-    CenterX float64 `json:"center_x"`
-    CenterY float64 `json:"center_y"`
-    CenterZ float64 `json:"center_z"`
+**BoundingBox7DOF** fields:
 
-    // Dimensions (meters)
-    Length float64 `json:"length"` // Extent along local X
-    Width  float64 `json:"width"`  // Extent along local Y
-    Height float64 `json:"height"` // Extent along local Z
-
-    // Heading (radians, [-π, π])
-    Heading float64 `json:"heading"`
-}
-```
+| Field   | Type      | Description                |
+| ------- | --------- | -------------------------- |
+| CenterX | `float64` | Center position (meters)   |
+| CenterY | `float64` |                            |
+| CenterZ | `float64` |                            |
+| Length  | `float64` | Extent along local X       |
+| Width   | `float64` | Extent along local Y       |
+| Height  | `float64` | Extent along local Z       |
+| Heading | `float64` | Heading (radians, [-π, π]) |
 
 **Key Properties:**
 
@@ -125,39 +121,35 @@ type BoundingBox7DOF struct {
 
 **WorldCluster (existing):**
 
-```go
-type WorldCluster struct {
-    ClusterID         int64
-    SensorID          string
-    TSUnixNanos       int64
-    CentroidX         float32  // ✅ Have X
-    CentroidY         float32  // ✅ Have Y
-    CentroidZ         float32  // ✅ Have Z
-    BoundingBoxLength float32  // ⚠️ Axis-aligned, not oriented
-    BoundingBoxWidth  float32  // ⚠️ Axis-aligned, not oriented
-    BoundingBoxHeight float32  // ✅ Have height
-    // ❌ Missing: Heading angle
-}
-```
+**WorldCluster** fields:
+
+| Field             | Type      | Description                   |
+| ----------------- | --------- | ----------------------------- |
+| ClusterID         | `int64`   |                               |
+| SensorID          | `string`  |                               |
+| TSUnixNanos       | `int64`   |                               |
+| CentroidX         | `float32` | ✅ Have X                     |
+| CentroidY         | `float32` | ✅ Have Y                     |
+| CentroidZ         | `float32` | ✅ Have Z                     |
+| BoundingBoxLength | `float32` | ⚠️ Axis-aligned, not oriented |
+| BoundingBoxWidth  | `float32` | ⚠️ Axis-aligned, not oriented |
+| BoundingBoxHeight | `float32` | ✅ Have height                |
 
 **TrackedObject (existing):**
 
-```go
-type TrackedObject struct {
-    TrackID  string
-    SensorID string
-    X, Y     float32  // ❌ Missing Z coordinate
-    VX, VY   float32  // ❌ Missing VZ component
-    P        [16]float32  // ⚠️ 4x4 covariance (2D + velocity)
+**TrackedObject** fields:
 
-    BoundingBoxLengthAvg float32  // ⚠️ Averaged, not oriented
-    BoundingBoxWidthAvg  float32  // ⚠️ Averaged, not oriented
-    BoundingBoxHeightAvg float32  // ✅ Have height
-    // ❌ Missing: Heading angle
-
-    ObjectClass string  // ⚠️ Only 4 classes (car, pedestrian, bird, other)
-}
-```
+| Field                | Type          | Description                                      |
+| -------------------- | ------------- | ------------------------------------------------ |
+| TrackID              | `string`      |                                                  |
+| SensorID             | `string`      |                                                  |
+| X, Y                 | `float32`     | ❌ Missing Z coordinate                          |
+| VX, VY               | `float32`     | ❌ Missing VZ component                          |
+| P                    | `[16]float32` | ⚠️ 4x4 covariance (2D + velocity)                |
+| BoundingBoxLengthAvg | `float32`     | ⚠️ Averaged, not oriented                        |
+| BoundingBoxWidthAvg  | `float32`     | ⚠️ Averaged, not oriented                        |
+| BoundingBoxHeightAvg | `float32`     | ✅ Have height                                   |
+| ObjectClass          | `string`      | ⚠️ Only 4 classes (car, pedestrian, bird, other) |
 
 ---
 
@@ -171,56 +163,30 @@ type TrackedObject struct {
 
 1. **Add 3D position and heading to lidar_tracks:**
 
-```sql
--- Add Z coordinate (currently only X, Y tracked)
-ALTER TABLE lidar_tracks ADD COLUMN centroid_z REAL;
-
--- Add velocity Z component
-ALTER TABLE lidar_tracks ADD COLUMN velocity_z REAL;
-
--- Add oriented bounding box dimensions
-ALTER TABLE lidar_tracks ADD COLUMN bbox_length REAL;  -- Along heading
-ALTER TABLE lidar_tracks ADD COLUMN bbox_width REAL;   -- Perpendicular
-ALTER TABLE lidar_tracks ADD COLUMN bbox_height REAL;  -- Rename from height_p95_max
-ALTER TABLE lidar_tracks ADD COLUMN bbox_heading REAL; -- Yaw angle (radians)
-
--- Add pose_id for future motion/calibration updates
-ALTER TABLE lidar_tracks ADD COLUMN pose_id INTEGER;
-ALTER TABLE lidar_tracks ADD FOREIGN KEY (pose_id)
-    REFERENCES sensor_poses (pose_id);
-```
+- Add `centroid_z` (REAL) to `lidar_tracks`
+- Add `velocity_z` (REAL) to `lidar_tracks`
+- Add `bbox_length` (REAL) to `lidar_tracks`
+- Add `bbox_width` (REAL) to `lidar_tracks`
+- Add `bbox_height` (REAL) to `lidar_tracks`
+- Add `bbox_heading` (REAL) to `lidar_tracks`
+- Add `pose_id` (INTEGER) to `lidar_tracks`, foreign key referencing `sensor_poses`
 
 2. **Add 7-variable format to lidar_track_obs:**
 
-```sql
--- Add Z coordinate
-ALTER TABLE lidar_track_obs ADD COLUMN z REAL;
-
--- Add velocity Z component
-ALTER TABLE lidar_track_obs ADD COLUMN velocity_z REAL;
-
--- Add oriented bounding box
-ALTER TABLE lidar_track_obs ADD COLUMN bbox_length REAL;
-ALTER TABLE lidar_track_obs ADD COLUMN bbox_width REAL;
-ALTER TABLE lidar_track_obs ADD COLUMN bbox_height REAL;  -- Rename from bounding_box_height
-ALTER TABLE lidar_track_obs ADD COLUMN bbox_heading REAL;
-
--- Add pose_id
-ALTER TABLE lidar_track_obs ADD COLUMN pose_id INTEGER;
-ALTER TABLE lidar_track_obs ADD FOREIGN KEY (pose_id)
-    REFERENCES sensor_poses (pose_id);
-```
+- Add `z` (REAL) to `lidar_track_obs`
+- Add `velocity_z` (REAL) to `lidar_track_obs`
+- Add `bbox_length` (REAL) to `lidar_track_obs`
+- Add `bbox_width` (REAL) to `lidar_track_obs`
+- Add `bbox_height` (REAL) to `lidar_track_obs`
+- Add `bbox_heading` (REAL) to `lidar_track_obs`
+- Add `pose_id` (INTEGER) to `lidar_track_obs`, foreign key referencing `sensor_poses`
 
 3. **Add sensor-frame storage to lidar_clusters (for re-transformation):**
 
-```sql
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_x REAL;
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_y REAL;
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_z REAL;
-ALTER TABLE lidar_clusters ADD COLUMN pose_id INTEGER;
-ALTER TABLE lidar_clusters ADD FOREIGN KEY (pose_id)
-    REFERENCES sensor_poses (pose_id);
-```
+- Add `sensor_centroid_x` (REAL) to `lidar_clusters`
+- Add `sensor_centroid_y` (REAL) to `lidar_clusters`
+- Add `sensor_centroid_z` (REAL) to `lidar_clusters`
+- Add `pose_id` (INTEGER) to `lidar_clusters`, foreign key referencing `sensor_poses`
 
 **Backward Compatibility:**
 
@@ -230,32 +196,13 @@ ALTER TABLE lidar_clusters ADD FOREIGN KEY (pose_id)
 
 **Migration Script:**
 
-```sql
--- Migration: 000012_add_pose_references.up.sql
+- Add `pose_id` (INTEGER) to `lidar_clusters`
+- Add `sensor_centroid_x` (REAL) to `lidar_clusters`
+- Add `sensor_centroid_y` (REAL) to `lidar_clusters`
+- Add `sensor_centroid_z` (REAL) to `lidar_clusters`
+- Add `pose_id` (INTEGER) to `lidar_track_obs`
+  **Rollback Script:**
 
--- Add pose_id to clusters (nullable for backward compatibility)
-ALTER TABLE lidar_clusters ADD COLUMN pose_id INTEGER
-    REFERENCES sensor_poses (pose_id);
-
--- Add sensor-frame coordinates (nullable)
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_x REAL;
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_y REAL;
-ALTER TABLE lidar_clusters ADD COLUMN sensor_centroid_z REAL;
-
--- Add pose_id to track observations (nullable)
-ALTER TABLE lidar_track_obs ADD COLUMN pose_id INTEGER
-    REFERENCES sensor_poses (pose_id);
-
--- Create index for faster pose lookups
-CREATE INDEX IF NOT EXISTS idx_lidar_clusters_pose
-    ON lidar_clusters (pose_id);
-CREATE INDEX IF NOT EXISTS idx_lidar_track_obs_pose
-    ON lidar_track_obs (pose_id);
-```
-
-**Rollback Script:**
-
-```sql
 -- Migration: 000012_add_pose_references.down.sql
 
 DROP INDEX IF EXISTS idx_lidar_track_obs_pose;
@@ -264,7 +211,6 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 -- SQLite doesn't support DROP COLUMN directly in older versions
 -- For rollback, we'd need to recreate tables without these columns
 -- For now, leaving columns is acceptable (they're just NULL)
-```
 
 ### Phase 2: Go struct updates
 
@@ -272,124 +218,80 @@ DROP INDEX IF EXISTS idx_lidar_clusters_pose;
 
 **TrackedObject (updated to match AV spec):**
 
-```go
-type TrackedObject struct {
-    TrackID  string
-    SensorID string
-    State    TrackState
+**TrackedObject** fields:
 
-    // Lifecycle
-    Hits   int
-    Misses int
-    FirstUnixNanos int64
-    LastUnixNanos  int64
-
-    // 3D Position (world frame) - EXPANDED from 2D
-    X, Y, Z float32  // Add Z coordinate
-
-    // 3D Velocity (world frame) - EXPANDED from 2D
-    VX, VY, VZ float32  // Add VZ component
-
-    // Kalman covariance - EXPANDED from 4x4 to 6x6
-    P [36]float32  // 6x6 for [x, y, z, vx, vy, vz]
-
-    // Oriented Bounding Box (7-variable AV format) - NEW
-    Length  float32  // Along heading direction
-    Width   float32  // Perpendicular to heading
-    Height  float32  // Vertical dimension
-    Heading float32  // Yaw angle (radians)
-
-    // Heading tracking - NEW
-    HeadingRate float32  // Angular velocity (rad/s)
-
-    // Pose reference (for future motion/calibration)
-    PoseID *int64  // NULL for now (static identity pose)
-
-    // Classification (unchanged, 23-class expansion is Phase 3)
-    ObjectClass      string
-    ObjectConfidence float32
-    ClassificationModel string
-
-    // Speed statistics (unchanged)
-    AvgSpeedMps  float32
-    MaxSpeedMps float32
-    speedHistory []float32
-
-    // Quality metrics (unchanged)
-    ObservationCount int
-    TrackLengthMeters float32
-    TrackDurationSecs float32
-    // ... other quality fields
-
-    // History
-    History []TrackPoint
-}
-```
+| Field               | Type           | Description                                               |
+| ------------------- | -------------- | --------------------------------------------------------- |
+| TrackID             | `string`       |                                                           |
+| SensorID            | `string`       |                                                           |
+| State               | `TrackState`   |                                                           |
+| Hits                | `int`          | Lifecycle                                                 |
+| Misses              | `int`          |                                                           |
+| FirstUnixNanos      | `int64`        |                                                           |
+| LastUnixNanos       | `int64`        |                                                           |
+| X, Y, Z             | `float32`      | Add Z coordinate                                          |
+| VX, VY, VZ          | `float32`      | Add VZ component                                          |
+| P                   | `[36]float32`  | 6x6 for [x, y, z, vx, vy, vz]                             |
+| Length              | `float32`      | Along heading direction                                   |
+| Width               | `float32`      | Perpendicular to heading                                  |
+| Height              | `float32`      | Vertical dimension                                        |
+| Heading             | `float32`      | Yaw angle (radians)                                       |
+| HeadingRate         | `float32`      | Angular velocity (rad/s)                                  |
+| PoseID              | `*int64`       | NULL for now (static identity pose)                       |
+| ObjectClass         | `string`       | Classification (unchanged, 23-class expansion is Phase 3) |
+| ObjectConfidence    | `float32`      |                                                           |
+| ClassificationModel | `string`       |                                                           |
+| AvgSpeedMps         | `float32`      | Speed statistics (unchanged)                              |
+| MaxSpeedMps         | `float32`      |                                                           |
+| speedHistory        | `[]float32`    |                                                           |
+| ObservationCount    | `int`          | Quality metrics (unchanged)                               |
+| TrackLengthMeters   | `float32`      |                                                           |
+| TrackDurationSecs   | `float32`      |                                                           |
+| History             | `[]TrackPoint` | History                                                   |
 
 **TrackObservation (updated to match AV spec):**
 
-```go
-type TrackObservation struct {
-    TrackID     string
-    TSUnixNanos int64
-    FrameID  string
+**TrackObservation** fields:
 
-    // 3D Position - EXPANDED
-    X, Y, Z float32  // Add Z coordinate
-
-    // 3D Velocity - EXPANDED
-    VelocityX, VelocityY, VelocityZ float32  // Add VZ
-    SpeedMps float32
-
-    // Oriented Bounding Box (7-variable format) - NEW
-    BBoxLength  float32  // Along heading
-    BBoxWidth   float32  // Perpendicular
-    BBoxHeight  float32  // Vertical
-    BBoxHeading float32  // Yaw angle (radians)
-
-    // Features (unchanged)
-    HeightP95     float32
-    IntensityMean float32
-
-    // Pose reference
-    PoseID *int64  // NULL for static sensors
-}
-```
+| Field                           | Type      | Description             |
+| ------------------------------- | --------- | ----------------------- |
+| TrackID                         | `string`  |                         |
+| TSUnixNanos                     | `int64`   |                         |
+| FrameID                         | `string`  |                         |
+| X, Y, Z                         | `float32` | Add Z coordinate        |
+| VelocityX, VelocityY, VelocityZ | `float32` | Add VZ                  |
+| SpeedMps                        | `float32` |                         |
+| BBoxLength                      | `float32` | Along heading           |
+| BBoxWidth                       | `float32` | Perpendicular           |
+| BBoxHeight                      | `float32` | Vertical                |
+| BBoxHeading                     | `float32` | Yaw angle (radians)     |
+| HeightP95                       | `float32` | Features (unchanged)    |
+| IntensityMean                   | `float32` |                         |
+| PoseID                          | `*int64`  | NULL for static sensors |
 
 **WorldCluster (updated for sensor-frame storage):**
 
-```go
-type WorldCluster struct {
-    ClusterID   int64
-    SensorID    string
-    FrameID  FrameID
-    TSUnixNanos int64
+**WorldCluster** fields:
 
-    // World coordinates (unchanged)
-    CentroidX   float32
-    CentroidY   float32
-    CentroidZ   float32
-
-    // Bounding box (unchanged)
-    BoundingBoxLength float32
-    BoundingBoxWidth  float32
-    BoundingBoxHeight float32
-
-    // NEW: Sensor-frame coordinates (for re-transformation)
-    SensorCentroidX *float32
-    SensorCentroidY *float32
-    SensorCentroidZ *float32
-
-    // NEW: Pose reference
-    PoseID *int64
-
-    // Features (unchanged)
-    PointsCount   int
-    HeightP95     float32
-    IntensityMean float32
-    // ... other features
-}
-```
+| Field             | Type       | Description                                           |
+| ----------------- | ---------- | ----------------------------------------------------- |
+| ClusterID         | `int64`    |                                                       |
+| SensorID          | `string`   |                                                       |
+| FrameID           | `FrameID`  |                                                       |
+| TSUnixNanos       | `int64`    |                                                       |
+| CentroidX         | `float32`  | World coordinates (unchanged)                         |
+| CentroidY         | `float32`  |                                                       |
+| CentroidZ         | `float32`  |                                                       |
+| BoundingBoxLength | `float32`  | Bounding box (unchanged)                              |
+| BoundingBoxWidth  | `float32`  |                                                       |
+| BoundingBoxHeight | `float32`  |                                                       |
+| SensorCentroidX   | `*float32` | NEW: Sensor-frame coordinates (for re-transformation) |
+| SensorCentroidY   | `*float32` |                                                       |
+| SensorCentroidZ   | `*float32` |                                                       |
+| PoseID            | `*int64`   | NEW: Pose reference                                   |
+| PointsCount       | `int`      | Features (unchanged)                                  |
+| HeightP95         | `float32`  |                                                       |
+| IntensityMean     | `float32`  |                                                       |
 
 **Backward Compatibility:**
 
@@ -406,156 +308,63 @@ type WorldCluster struct {
 
 1. **Add Z Position Tracking (Kalman Filter):**
 
-```go
-// Extend Kalman filter from 4-state to 6-state
-// Old: [x, y, vx, vy]
-// New: [x, y, z, vx, vy, vz]
+- Extend Kalman filter from 4-state to 6-state
+- Old: [x, y, vx, vy]
+- New: [x, y, z, vx, vy, vz]
 
-func (t *TrackedObject) Predict(dt float32) {
-    // Position prediction (now 3D)
-    t.X += t.VX * dt
-    t.Y += t.VY * dt
-    t.Z += t.VZ * dt  // NEW: Z prediction
+**Predict** algorithm:
 
-    // Velocity prediction (constant velocity)
-    // VX, VY, VZ remain constant
-
-    // Covariance prediction (6x6 matrix)
-    // F = [I3x3  dt*I3x3]
-    //     [03x3  I3x3   ]
-    t.P = F·t.P·Fᵀ + Q  // Updated to 6x6 dimensions
-}
-```
+- Position prediction (now 3D)
+- Velocity prediction (constant velocity)
+- VX, VY, VZ remain constant
+- Covariance prediction (6x6 matrix)
+- F = [I3x3 dt*I3x3]
+- [03x3 I3x3 ]
 
 2. **Estimate Heading from Velocity:**
 
-```go
-// In internal/lidar/tracking.go
-func EstimateHeadingFromVelocity(vx, vy float32) float32 {
-    if vx == 0 && vy == 0 {
-        return 0  // Stationary, keep previous heading
-    }
-    return atan2(vy, vx)  // Heading in radians
-}
+- In internal/lidar/tracking.go
 
-// Update heading each frame
-func (t *TrackedObject) UpdateHeading() {
-    if t.VX != 0 || t.VY != 0 {
-        newHeading := EstimateHeadingFromVelocity(t.VX, t.VY)
-        // Smooth heading changes
-        t.Heading = smoothAngle(t.Heading, newHeading, 0.3)
-    }
-}
-```
+**EstimateHeadingFromVelocity** algorithm:
+
+- Update heading each frame
+
+**UpdateHeading** algorithm:
+
+- Smooth heading changes
 
 3. **Compute Oriented Bounding Box:**
 
-```go
-// In internal/lidar/clustering.go
-func ComputeOrientedBBox(points []WorldPoint, heading float32) (length, width, height float32) {
-    if len(points) == 0 {
-        return 0, 0, 0
-    }
+- In internal/lidar/clustering.go
 
-    // Transform to box-aligned coordinate system
-    cos_h := cos(heading)
-    sin_h := sin(heading)
+**ComputeOrientedBBox** algorithm:
 
-    var minAlong, maxAlong, minPerp, maxPerp, minZ, maxZ float32
-    minAlong, minPerp, minZ = math.MaxFloat32, math.MaxFloat32, math.MaxFloat32
-    maxAlong, maxPerp, maxZ = -math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32
-
-    for _, p := range points {
-        // Rotate to box-aligned frame
-        along := p.X*cos_h + p.Y*sin_h      // Along heading
-        perp  := -p.X*sin_h + p.Y*cos_h     // Perpendicular
-
-        minAlong = min(minAlong, along)
-        maxAlong = max(maxAlong, along)
-        minPerp = min(minPerp, perp)
-        maxPerp = max(maxPerp, perp)
-        minZ = min(minZ, p.Z)
-        maxZ = max(maxZ, p.Z)
-    }
-
-    length = maxAlong - minAlong  // Along heading (forward)
-    width  = maxPerp - minPerp    // Perpendicular (side-to-side)
-    height = maxZ - minZ          // Vertical
-
-    return length, width, height
-}
-```
+- Transform to box-aligned coordinate system
+- Rotate to box-aligned frame
 
 4. **Alternative: PCA-Based Heading (for Parked Vehicles):**
 
-```go
-// Better for stationary objects
-func EstimateHeadingFromPCA(points []WorldPoint) float32 {
-    // Compute covariance matrix of XY positions
-    meanX, meanY := computeMean(points)
+- Better for stationary objects
 
-    var cov_xx, cov_xy, cov_yy float32
-    for _, p := range points {
-        dx := p.X - meanX
-        dy := p.Y - meanY
-        cov_xx += dx * dx
-        cov_xy += dx * dy
-        cov_yy += dy * dy
-    }
+**EstimateHeadingFromPCA** algorithm:
 
-    // Principal axis (largest eigenvector)
-    heading := 0.5 * atan2(2*cov_xy, cov_xx - cov_yy)
-    return heading
-}
-```
+- Compute covariance matrix of XY positions
+- Principal axis (largest eigenvector)
 
 5. **Store 7-Variable Format:**
 
-```go
-// In cmd/radar/radar.go when updating tracks
-func updateTrackWith7Variables(
-    track *lidar.TrackedObject,
-    cluster *lidar.WorldCluster,
-    clusterPoints []lidar.WorldPoint,
-) {
-    // Update 3D position
-    track.X = cluster.CentroidX
-    track.Y = cluster.CentroidY
-    track.UpdateZ(cluster.CentroidZ)  // Kalman smoothing
+- In cmd/radar/radar.go when updating tracks
 
-    // Estimate heading
-    if track.VX != 0 || track.VY != 0 {
-        // Moving: use velocity heading
-        track.Heading = EstimateHeadingFromVelocity(track.VX, track.VY)
-    } else if len(clusterPoints) > 10 {
-        // Stationary: use PCA heading
-        track.Heading = EstimateHeadingFromPCA(clusterPoints)
-    }
+**updateTrackWith7Variables** algorithm:
 
-    // Compute oriented bounding box (7-variable format)
-    track.Length, track.Width, track.Height =
-        ComputeOrientedBBox(clusterPoints, track.Heading)
-
-    // Store pose reference (static identity for now)
-    track.PoseID = &currentStaticPose.PoseID
-
-    // Store observation with 7-variable format
-    obs := &lidar.TrackObservation{
-        TrackID:     track.TrackID,
-        TSUnixNanos: timestamp,
-        X: track.X, Y: track.Y, Z: track.Z,
-        VelocityX: track.VX, VelocityY: track.VY, VelocityZ: track.VZ,
-        BBoxLength:  track.Length,
-        BBoxWidth:   track.Width,
-        BBoxHeight:  track.Height,
-        BBoxHeading: track.Heading,
-        PoseID:      &currentStaticPose.PoseID,
-    }
-    lidar.InsertTrackObservation(db, obs)
-}
-```
-
-**For Static Sensors:**
+- Update 3D position
+- Estimate heading
+- Moving: use velocity heading
+- Stationary: use PCA heading
+- Compute oriented bounding box (7-variable format)
+- Store pose reference (static identity for now)
+- Store observation with 7-variable format
+  **For Static Sensors:**
 
 - ✅ Z position from cluster centroids (not just ground plane)
 - ✅ Heading from velocity (moving) or PCA (stationary)
@@ -575,7 +384,7 @@ func updateTrackWith7Variables(
 
 - `internal/db/migrations/000012_add_pose_references.up.sql` (NEW)
 - `internal/db/migrations/000012_add_pose_references.down.sql` (NEW)
-- `internal/db/schema.sql` (update with new columns)
+- [internal/db/schema.sql](../../internal/db/schema.sql) (update with new columns)
 
 **Testing:**
 
@@ -625,7 +434,7 @@ func updateTrackWith7Variables(
 
 **Files Changed:**
 
-- `cmd/radar/radar.go` (load static pose at startup, populate pose_id)
+- [cmd/radar/radar.go](../../cmd/radar/radar.go) (load static pose at startup, populate pose_id)
 - `internal/lidar/track_store.go` (add GetCurrentPoses, InsertPose if missing)
 - `internal/lidar/track_store_test.go` (test pose loading)
 
@@ -652,52 +461,20 @@ func updateTrackWith7Variables(
 
 **Test 1: Backward Compatibility**
 
-```bash
-# Start system without migration (old schema)
-./velocity-report --lidar-sensor-id=test-01
+- Start system without migration (old schema): `./velocity-report --lidar-sensor-id=test-01`
+- Verify tracking works: `curl http://localhost:8082/api/lidar/tracks`
+- Apply migration: `sqlite3 sensor_data.db < migrations/000012_add_pose_references.up.sql`
+- Restart system (new schema, NULL pose_id): `./velocity-report --lidar-sensor-id=test-01`
+- Verify tracking still works: `curl http://localhost:8082/api/lidar/tracks`
+  **Test 2: Static Pose Population**
 
-# Verify tracking works
-curl http://localhost:8082/api/lidar/tracks
+- Start system with new code: `./velocity-report --lidar-sensor-id=test-01`
+- Verify static pose created: `sqlite3 sensor_data.db "SELECT * FROM sensor_poses WHERE sensor_id='test-01';"`
+- Verify clusters reference pose: `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_clusters WHERE pose_id IS NOT NULL;"`
+- Verify observations reference pose: `sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NOT NULL;"`
+  **Test 3: Tracking Accuracy (Unchanged)**
 
-# Apply migration
-sqlite3 sensor_data.db < migrations/000012_add_pose_references.up.sql
-
-# Restart system (new schema, NULL pose_id)
-./velocity-report --lidar-sensor-id=test-01
-
-# Verify tracking still works
-curl http://localhost:8082/api/lidar/tracks
-```
-
-**Test 2: Static Pose Population**
-
-```bash
-# Start system with new code
-./velocity-report --lidar-sensor-id=test-01
-
-# Verify static pose created
-sqlite3 sensor_data.db "SELECT * FROM sensor_poses WHERE sensor_id='test-01';"
-
-# Verify clusters reference pose
-sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_clusters WHERE pose_id IS NOT NULL;"
-
-# Verify observations reference pose
-sqlite3 sensor_data.db "SELECT COUNT(*) FROM lidar_track_obs WHERE pose_id IS NOT NULL;"
-```
-
-**Test 3: Tracking Accuracy (Unchanged)**
-
-```bash
-# Process test PCAP with known tracks
-./pcap-analyse --pcap test-data/static-capture.pcap --output results/
-
-# Compare track statistics with baseline
-# - Track count should match
-# - Speed statistics should match
-# - Classification should match
-```
-
----
+## Process test PCAP with known tracks: `./pcap-analyse --pcap test-data/static-capture.pcap --output results/`
 
 ## Out of scope (future work)
 
@@ -734,14 +511,11 @@ The following are **explicitly NOT included** in this release:
 
 **Total Effort:** 5-8 days (1-2 weeks)
 
-```
 Week 1:
-  Day 1-2:  PR #1 - Database schema updates
-  Day 3-4:  PR #2 - Go struct updates
-  Day 5-6:  PR #3 - Populate static pose references
-  Day 7-8:  Testing and documentation
-```
-
+Day 1-2: PR #1 - Database schema updates
+Day 3-4: PR #2 - Go struct updates
+Day 5-6: PR #3 - Populate static pose references
+Day 7-8: Testing and documentation
 **Dependencies:** None (all changes are additive)
 
 **Risk:** Very low (backward compatible, no functional changes)
@@ -777,61 +551,37 @@ Week 1:
 
 1. **Backup database:**
 
-```bash
-cp /var/lib/velocity-report/sensor_data.db \
-   /var/lib/velocity-report/sensor_data.db.backup
-```
+Run `cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup`
 
 2. **Apply migration (system offline):**
 
-```bash
-sqlite3 /var/lib/velocity-report/sensor_data.db \
-   < /path/to/000012_add_pose_references.up.sql
-```
+Run `sqlite3 /var/lib/velocity-report/sensor_data.db < /path/to/000012_add_pose_references.up.sql`
 
 3. **Update binary:**
 
-```bash
-sudo systemctl stop velocity-report
-sudo cp velocity-report /usr/local/bin/velocity-report
-sudo systemctl start velocity-report
-```
+- `sudo systemctl stop velocity-report`
+- `sudo cp velocity-report /usr/local/bin/velocity-report`
+- `sudo systemctl start velocity-report`
 
 4. **Verify:**
 
-```bash
-# Check static pose created
-sqlite3 /var/lib/velocity-report/sensor_data.db \
-   "SELECT * FROM sensor_poses;"
-
-# Check tracking works
-curl http://localhost:8082/api/lidar/tracks
-```
+- Check static pose created: `sqlite3 /var/lib/velocity-report/sensor_data.db "SELECT * FROM sensor_poses;"`
+- Check tracking works: `curl http://localhost:8082/api/lidar/tracks`
 
 **Rollback Plan:**
 
-```bash
-# Stop service
-sudo systemctl stop velocity-report
-
-# Restore backup
-cp /var/lib/velocity-report/sensor_data.db.backup \
-   /var/lib/velocity-report/sensor_data.db
-
-# Restore old binary
-sudo cp velocity-report.old /usr/local/bin/velocity-report
-
-# Start service
-sudo systemctl start velocity-report
-```
+- Stop service: `sudo systemctl stop velocity-report`
+- Restore backup: `cp /var/lib/velocity-report/sensor_data.db.backup /var/lib/velocity-report/sensor_data.db`
+- Restore old binary: `sudo cp velocity-report.old /usr/local/bin/velocity-report`
+- Start service: `sudo systemctl start velocity-report`
 
 ---
 
 ## Related documents
 
 - **Future Architecture:** `motion-capture-architecture.md` (complete future spec)
-- **Current Tracking:** `../lidar/architecture/foreground-tracking.md` (existing implementation)
-- **Schema:** `../../internal/db/schema.sql` (database structure)
+- **Current Tracking:** [../lidar/architecture/foreground-tracking.md](../lidar/architecture/foreground-tracking.md) (existing implementation)
+- **Schema:** [../../internal/db/schema.sql](../../internal/db/schema.sql) (database structure)
 
 ---
 
@@ -843,7 +593,7 @@ sudo systemctl start velocity-report
 
 - `internal/db/migrations/000013_add_7dof_schema.up.sql` (NEW)
 - `internal/lidar/av_types.go` (NEW - BoundingBox7DOF from av-lidar-integration-plan.md)
-- `internal/db/schema.sql` (UPDATE - add 7DOF columns)
+- [internal/db/schema.sql](../../internal/db/schema.sql) (UPDATE - add 7DOF columns)
 
 **Tasks:**
 
@@ -974,7 +724,9 @@ sudo systemctl start velocity-report
 
 - Ingest AV dataset labels (see av-lidar-integration-plan.md)
 - Train classifier on AV + Hesai data
-- Support full AV industry standard 28-class taxonomy with priority focus:
+- Support full AV industry standard taxonomy with priority focus
+  (see §11 of [classification-maths.md](../../data/maths/classification-maths.md)
+  for the three-way mapping):
   - P0: Car, Truck, Bus, Pedestrian, Cyclist, Motorcyclist
   - P1: Bicycle, Motorcycle, Ground Animal, Bird
   - P2: Sign, Pole, Traffic Light, Construction Cone

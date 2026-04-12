@@ -750,7 +750,7 @@ If the anchor model is good, the main gains should be:
 5. usable stability estimates in scenes with few signs but strong walls,
    facades, or road geometry.
 
-The proposal is especially attractive because it leverages a scene element that
+The proposal is especially attractive because it uses a scene element that
 is already common in roadside deployments, but it also gives the system a
 controlled fallback path into non-sign static structure rather than leaving
 sign-poor scenes unsupported.

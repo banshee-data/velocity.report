@@ -36,7 +36,7 @@ with `user_label` per class via the
 
 For each key listed below, run `pcap-analyse` on each corpus PCAP with ≥ 5
 sweep values, holding all other keys at production defaults
-(`config/tuning.defaults.json`).
+([config/tuning.defaults.json](../../../config/tuning.defaults.json)).
 
 #### Keys under test
 
@@ -79,7 +79,7 @@ A key graduates from "provisional" to "empirical" when:
 2. Optimal value is consistent (within 10% of the chosen default) across
    all sites
 3. Objective function sensitivity is documented (slope near the default)
-4. Results are recorded in a dated entry under `data/explore/`
+4. Results are recorded in a dated entry under [data/explore/](../../explore)
 
 If any key shows ≥ 15% variation in optimal value across sites, escalate to
 a site-adaptive approach rather than a single default.

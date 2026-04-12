@@ -1,6 +1,6 @@
 # LiDAR Architecture
 
-- **Status:** Canonical reference; layer numbers are locked for codebase stability from v0.5.0 onwards.
+- **Status:** Canonical reference; layer numbers are locked for codebase stability.
 
 This is the canonical reference for the ten-layer LiDAR data processing model used throughout velocity.report, defining the scope, data forms, and stability guarantees for layers L1 through L10.
 
@@ -12,22 +12,22 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## Stability guarantee
 
-**Layer numbers L1–L10 are frozen from v0.5.0.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
+**Layer numbers L1–L10 are frozen.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
 
 ## The ten layers
 
-| Layer | Label          | Scope                                                                                                   | Typical forms                                                                             | Status         |
-| ----- | -------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------- |
-| L1    | **Packets**    | Sensor-wire transport and capture                                                                       | Hesai UDP payloads, PCAP packets, radar serial frames                                     | ✅ Implemented |
-| L2    | **Frames**     | Time-coherent frame assembly and geometry exports                                                       | `PointPolar`, `LiDARFrame`, Cartesian points, ASC/LidarView export                        | ✅ Implemented |
-| L3    | **Grid**       | Background/foreground separation state                                                                  | `BackgroundGrid`, ring/azimuth bins, foreground mask                                      | ✅ Implemented |
-| L4    | **Perception** | Per-frame object primitives and measurements                                                            | `WorldCluster`, `TrackObservation`, `HeightBandFilter` (ground removal)                   | ✅ Implemented |
-| L5    | **Tracks**     | Multi-frame identity and motion continuity                                                              | `TrackedObject`, `TrackSet`                                                               | ✅ Implemented |
-| L6    | **Objects**    | Semantic object interpretation and dataset mapping                                                      | Local classes (`car`, `pedestrian`, `bird`, `other`), AV taxonomy mapping                 | ✅ Implemented |
-| L7    | **Scene**      | Persistent canonical world model: accumulated geometry, priors, and multi-sensor fusion                 | `SceneFeature`, `CanonicalObject`, vector polygons, OSM priors, multi-sensor merged scene | 📋 Planned     |
-| L8    | **Analytics**  | Canonical traffic metrics, run comparison, scoring                                                      | `RunStatistics`, speed percentiles, temporal IoU, parameter diffs                         | � Partial      |
-| L9    | **Endpoints**  | Server-side payload shaping, gRPC streams, dashboards, and report APIs                                  | gRPC `FrameUpdate`, chart view-models, report/download payloads                           | ✅ Implemented |
-| L10   | **Clients**    | Downstream rendering consumers (Svelte, Swift; deprecated: Python PDF generator, Go-embedded dashboard) | Browser (Svelte), native app (Swift/VeloVis), PDF generator (Python, deprecated)          | ✅ Implemented |
+| Layer | Label          | Tier        | Scope                                                         | Go package     | Status         |
+| ----- | -------------- | ----------- | ------------------------------------------------------------- | -------------- | -------------- |
+| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                             | `l1packets`    | ✅ Implemented |
+| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports             | `l2frames`     | ✅ Implemented |
+| L3    | **Grid**       | Sensor      | Background/foreground separation state                        | `l3grid`       | ✅ Implemented |
+| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                  | `l4perception` | ✅ Implemented |
+| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                    | `l5tracks`     | ✅ Implemented |
+| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping            | `l6objects`    | ✅ Implemented |
+| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion     | `l7scene`      | 💭 Planning    |
+| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring            | `l8analytics`  | 🔄 Refactoring |
+| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs    | `l9endpoints`  | 🔄 Refactoring |
+| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, PDF generator) | –              | 🔄 Refactoring |
 
 ## Segmented concept status chart
 
@@ -296,40 +296,40 @@ block.
 > concept names match the chart node labels exactly (e.g. "Accumulator"
 > not "Polar grid accumulation").
 
-| Block | Concept                       | Standard                                                                                                                                                                                                                                                                                                                                                                               | Code                                                                                                 | Impl | Spec / plan                                                                                                                                                              |
-| ----- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| L1a   | Radar ingest                  | Serial sensor ingest and telemetry logging patterns                                                                                                                                                                                                                                                                                                                                    | [serialmux/](../../../internal/serialmux/)                                                           | ✅   | [Radar serial spec](../../radar/architecture/serial-configuration-ui.md)                                                                                                 |
-| L1b   | LiDAR ingest                  | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula`                                                                                                                                                                                                                                                                                                                             | [l1packets/network/listener.go](../../../internal/lidar/l1packets/network/listener.go)               | ✅   | [LiDAR network design](network-configuration.md)                                                                                                                         |
-| L1c   | PCAP replay                   | libpcap / tcpdump capture and replay tooling                                                                                                                                                                                                                                                                                                                                           | [l1packets/network/pcap.go](../../../internal/lidar/l1packets/network/pcap.go)                       | ✅   | [Sidecar overview](lidar-sidecar-overview.md)                                                                                                                            |
-| L2a   | Frame assembly                | RangeNet++, SemanticKITTI temporal framing                                                                                                                                                                                                                                                                                                                                             | [l2frames/frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)                       | ✅   | [Pipeline reference](lidar-pipeline-reference.md)                                                                                                                        |
-| L2b   | Sensor transform              | Standard LiDAR spherical-to-Cartesian geometry                                                                                                                                                                                                                                                                                                                                         | [l2frames/geometry.go](../../../internal/lidar/l2frames/geometry.go)                                 | ✅   | [AV range-image design](av-range-image-format-alignment.md)                                                                                                              |
-| L2c   | Frame export (LidarView, ASC) | ASC and point-cloud export conventions                                                                                                                                                                                                                                                                                                                                                 | [l2frames/export.go](../../../internal/lidar/l2frames/export.go)                                     | ✅   | [AV range-image design](av-range-image-format-alignment.md)                                                                                                              |
-| L3a   | Accumulator                   | Range-image / occupancy-style spatial binning                                                                                                                                                                                                                                                                                                                                          | [l3grid/background.go](../../../internal/lidar/l3grid/background.go)                                 | ✅   | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
-| L3b   | EMA background                | Stauffer-Grimson adaptive background lineage                                                                                                                                                                                                                                                                                                                                           | [l3grid/background.go](../../../internal/lidar/l3grid/background.go)                                 | ✅   | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
-| L3c   | Foreground gating             | Background subtraction and neighbour-confirmation heuristics                                                                                                                                                                                                                                                                                                                           | [l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go)                                 | ✅   | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
-| L3d   | Region cache                  | Persistent background snapshots and scene-signature restore                                                                                                                                                                                                                                                                                                                            | [l3grid/background_persistence.go](../../../internal/lidar/l3grid/background_persistence.go)         | ✅   | [Sidecar overview](lidar-sidecar-overview.md)                                                                                                                            |
-| L3f   | VC Foreground                 | Doppler/velocity-consistent foreground extraction                                                                                                                                                                                                                                                                                                                                      | -                                                                                                    | 📋   | [Velocity-coherent FG plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)                                                                           |
-| L4ad  | Cluster extraction            | **a.** Rigid transforms and homogeneous pose geometry <br> **b.** Ground-plane removal via vertical band gating <br> **c.** PCL `VoxelGrid` downsampling family <br> **d.** DBSCAN with spatial index; auto-subsample above cap                                                                                                                                                        | [l4perception/](../../../internal/lidar/l4perception/)                                               | ✅   | [Foreground-tracking design](foreground-tracking.md), [Ground-plane extraction](ground-plane-extraction.md), [Clustering maths](../../../data/maths/clustering-maths.md) |
-| L4e   | OBB geometry                  | PCA / OBB fitting; embedded in DBSCAN output builder                                                                                                                                                                                                                                                                                                                                   | [l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                                   | ✅   | [Clustering maths](../../../data/maths/clustering-maths.md)                                                                                                              |
-| L5a   | Radar sessions                | Temporal event segmentation and transit/session building                                                                                                                                                                                                                                                                                                                               | [db/transit_worker.go](../../../internal/db/transit_worker.go)                                       | ✅   | [Transit deduplication](../../radar/architecture/transit-deduplication.md)                                                                                               |
-| L5bg  | LiDAR tracking                | **b.** CV predict: X′ = FX, P′ = FPFᵀ + Q <br> **c.** Kuhn Hungarian on Mahalanobis cost matrix <br> **d.** Measurement update with velocity and OBB heading smoothing <br> **e.** Merge/split coherence flags on cluster area deviation <br> **f.** SORT-style birth / confirm / coast / delete lifecycle <br> **g.** Velocity-trail alignment, jitter, capture ratios, fragmentation | [l5tracks/](../../../internal/lidar/l5tracks/)                                                       | ✅   | [Tracking maths](../../../data/maths/tracking-maths.md)                                                                                                                  |
-| L5h   | Motion extensions             | CA / CTRV / IMM multi-model tracking literature                                                                                                                                                                                                                                                                                                                                        | -                                                                                                    | 📋   | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md)                                                                                                      |
-| L6a   | Feature aggregation           | Classical feature engineering for traffic objects                                                                                                                                                                                                                                                                                                                                      | [l6objects/features.go](../../../internal/lidar/l6objects/features.go)                               | ✅   | [Classification maths](../../../data/maths/classification-maths.md)                                                                                                      |
-| L6b   | Classification                | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage                                                                                                                                                                                                                                                                                                                      | [l6objects/classification.go](../../../internal/lidar/l6objects/classification.go)                   | ✅   | [Classification maths](../../../data/maths/classification-maths.md)                                                                                                      |
-| L6c   | Run stats                     | Experiment and run summarisation patterns                                                                                                                                                                                                                                                                                                                                              | [storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go)             | ✅   | [Analysis-run infrastructure](../../plans/lidar-analysis-run-infrastructure-plan.md)                                                                                     |
-| L6e   | ML classifier                 | Learned classification research lane; KITTI/nuScenes training pipeline                                                                                                                                                                                                                                                                                                                 | -                                                                                                    | 📋   | [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md)                                                                                                   |
-| L6f   | Radar objects                 | Transit-level speed, direction, and event metadata from sessionised radar data                                                                                                                                                                                                                                                                                                         | [db/transit_controller.go](../../../internal/db/transit_controller.go)                               | ✅   | [Transit deduplication](../../radar/architecture/transit-deduplication.md)                                                                                               |
-| L7a   | Reserved                      | HD-map, scene accumulation, OSM prior literature                                                                                                                                                                                                                                                                                                                                       | -                                                                                                    | 📋   | [L7 scene plan](../../plans/lidar-l7-scene-plan.md)                                                                                                                      |
-| L8a   | Radar metrics                 | Traffic histograms, percentiles, report rollups                                                                                                                                                                                                                                                                                                                                        | [db/db.go](../../../internal/db/db.go)                                                               | 🔄   | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md)                                                                                      |
-| L8b   | LiDAR metrics                 | Traffic engineering reporting and nearest-rank percentiles                                                                                                                                                                                                                                                                                                                             | [server/chart_api.go](../../../internal/lidar/server/chart_api.go)                                   | 🔄   | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md)                                                                                      |
-| L8c   | Sweep tuning / HINT           | Parameter sweeps and experiment evaluation                                                                                                                                                                                                                                                                                                                                             | [sweep/hint.go](../../../internal/lidar/sweep/hint.go)                                               | 🔄   | [Tuning optimisation plan](../../plans/lidar-parameter-tuning-optimisation-plan.md)                                                                                      |
-| L9a   | Radar REST APIs               | REST / JSON reporting surfaces                                                                                                                                                                                                                                                                                                                                                         | [api/server.go](../../../internal/api/server.go)                                                     | 🔄   | [Radar networking design](../../radar/architecture/networking.md)                                                                                                        |
-| L9b   | LiDAR REST APIs               | REST / JSON dashboard, replay, scene, and track APIs                                                                                                                                                                                                                                                                                                                                   | [server/](../../../internal/lidar/server/)                                                           | 🔄   | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
-| L9c   | gRPC streams                  | gRPC streaming with frame codec, overlay preferences, and replay                                                                                                                                                                                                                                                                                                                       | [l9endpoints/grpc_server.go](../../../internal/lidar/l9endpoints/grpc_server.go)                     | 🔄   | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
-| L10a  | pdf-generator                 | PyLaTeX report generation with charts, maps, and statistical tables                                                                                                                                                                                                                                                                                                                    | [tools/pdf-generator/](../../../tools/pdf-generator/)                                                | 🔄   | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md)                                                                                                         |
-| L10b  | Svelte clients                | Svelte 5 dashboard with site management, radar reports, and LiDAR run views                                                                                                                                                                                                                                                                                                            | [web/](../../../web/)                                                                                | 🔄   | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md)                                                                                            |
-| L10c  | VelocityVisualiser.app        | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client                                                                                                                                                                                                                                                                                                             | [tools/visualiser-macos/](../../../tools/visualiser-macos/)                                          | 🔄   | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
-| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`)                                                                                                                                                                                                                                                                                                              | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔   | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
+| Block | Concept                       | Standard                                                                                                                                                                                                                                                                                                                                                                               | Code                                                                                                 | ❓  | Spec / plan                                                                                                                                                              |
+| ----- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| L1a   | Radar ingest                  | Serial sensor ingest and telemetry logging patterns                                                                                                                                                                                                                                                                                                                                    | [serialmux/](../../../internal/serialmux/)                                                           | ✅  | [Radar serial spec](../../radar/architecture/serial-configuration-ui.md)                                                                                                 |
+| L1b   | LiDAR ingest                  | Velodyne HDL convention, ROS `velodyne`, Autoware `nebula`                                                                                                                                                                                                                                                                                                                             | [l1packets/network/listener.go](../../../internal/lidar/l1packets/network/listener.go)               | ✅  | [LiDAR network design](network-configuration.md)                                                                                                                         |
+| L1c   | PCAP replay                   | libpcap / tcpdump capture and replay tooling                                                                                                                                                                                                                                                                                                                                           | [l1packets/network/pcap.go](../../../internal/lidar/l1packets/network/pcap.go)                       | ✅  | [Sidecar overview](lidar-sidecar-overview.md)                                                                                                                            |
+| L2a   | Frame assembly                | RangeNet++, SemanticKITTI temporal framing                                                                                                                                                                                                                                                                                                                                             | [l2frames/frame_builder.go](../../../internal/lidar/l2frames/frame_builder.go)                       | ✅  | [Pipeline reference](lidar-pipeline-reference.md)                                                                                                                        |
+| L2b   | Sensor transform              | Standard LiDAR spherical-to-Cartesian geometry                                                                                                                                                                                                                                                                                                                                         | [l2frames/geometry.go](../../../internal/lidar/l2frames/geometry.go)                                 | ✅  | [AV range-image design](av-range-image-format-alignment.md)                                                                                                              |
+| L2c   | Frame export (LidarView, ASC) | ASC and point-cloud export conventions                                                                                                                                                                                                                                                                                                                                                 | [l2frames/export.go](../../../internal/lidar/l2frames/export.go)                                     | ✅  | [AV range-image design](av-range-image-format-alignment.md)                                                                                                              |
+| L3a   | Accumulator                   | Range-image / occupancy-style spatial binning                                                                                                                                                                                                                                                                                                                                          | [l3grid/background.go](../../../internal/lidar/l3grid/background.go)                                 | ✅  | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
+| L3b   | EMA background                | Stauffer-Grimson adaptive background lineage                                                                                                                                                                                                                                                                                                                                           | [l3grid/background.go](../../../internal/lidar/l3grid/background.go)                                 | ✅  | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
+| L3c   | Foreground gating             | Background subtraction and neighbour-confirmation heuristics                                                                                                                                                                                                                                                                                                                           | [l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go)                                 | ✅  | [Background-grid maths](../../../data/maths/background-grid-settling-maths.md)                                                                                           |
+| L3d   | Region cache                  | Persistent background snapshots and scene-signature restore                                                                                                                                                                                                                                                                                                                            | [l3grid/background_persistence.go](../../../internal/lidar/l3grid/background_persistence.go)         | ✅  | [Sidecar overview](lidar-sidecar-overview.md)                                                                                                                            |
+| L3f   | VC Foreground                 | Doppler/velocity-consistent foreground extraction                                                                                                                                                                                                                                                                                                                                      | -                                                                                                    | 💭  | [Velocity-coherent FG plan](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)                                                                           |
+| L4ad  | Cluster extraction            | **a.** Rigid transforms and homogeneous pose geometry <br> **b.** Ground-plane removal via vertical band gating <br> **c.** PCL `VoxelGrid` downsampling family <br> **d.** DBSCAN with spatial index; auto-subsample above cap                                                                                                                                                        | [l4perception/](../../../internal/lidar/l4perception/)                                               | ✅  | [Foreground-tracking design](foreground-tracking.md), [Ground-plane extraction](ground-plane-extraction.md), [Clustering maths](../../../data/maths/clustering-maths.md) |
+| L4e   | OBB geometry                  | PCA / OBB fitting; embedded in DBSCAN output builder                                                                                                                                                                                                                                                                                                                                   | [l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                                   | ✅  | [Clustering maths](../../../data/maths/clustering-maths.md)                                                                                                              |
+| L5a   | Radar sessions                | Temporal event segmentation and transit/session building                                                                                                                                                                                                                                                                                                                               | [db/transit_worker.go](../../../internal/db/transit_worker.go)                                       | ✅  | [Transit deduplication](../../radar/architecture/transit-deduplication.md)                                                                                               |
+| L5bg  | LiDAR tracking                | **b.** CV predict: X′ = FX, P′ = FPFᵀ + Q <br> **c.** Kuhn Hungarian on Mahalanobis cost matrix <br> **d.** Measurement update with velocity and OBB heading smoothing <br> **e.** Merge/split coherence flags on cluster area deviation <br> **f.** SORT-style birth / confirm / coast / delete lifecycle <br> **g.** Velocity-trail alignment, jitter, capture ratios, fragmentation | [l5tracks/](../../../internal/lidar/l5tracks/)                                                       | ✅  | [Tracking maths](../../../data/maths/tracking-maths.md)                                                                                                                  |
+| L5h   | Motion extensions             | CA / CTRV / IMM multi-model tracking literature                                                                                                                                                                                                                                                                                                                                        | -                                                                                                    | 💭  | [Bodies-in-motion plan](../../plans/lidar-bodies-in-motion-plan.md)                                                                                                      |
+| L6a   | Feature aggregation           | Classical feature engineering for traffic objects                                                                                                                                                                                                                                                                                                                                      | [l6objects/features.go](../../../internal/lidar/l6objects/features.go)                               | ✅  | [Classification maths](../../../data/maths/classification-maths.md)                                                                                                      |
+| L6b   | Classification                | Local heuristic classifier; KITTI / SemanticKITTI mapping lineage                                                                                                                                                                                                                                                                                                                      | [l6objects/classification.go](../../../internal/lidar/l6objects/classification.go)                   | ✅  | [Classification maths](../../../data/maths/classification-maths.md)                                                                                                      |
+| L6c   | Run stats                     | Experiment and run summarisation patterns                                                                                                                                                                                                                                                                                                                                              | [storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go)             | ✅  | [Analysis-run infrastructure](../../plans/lidar-analysis-run-infrastructure-plan.md)                                                                                     |
+| L6e   | ML classifier                 | Learned classification research lane; KITTI/nuScenes training pipeline                                                                                                                                                                                                                                                                                                                 | -                                                                                                    | 💭  | [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md)                                                                                                   |
+| L6f   | Radar objects                 | Transit-level speed, direction, and event metadata from sessionised radar data                                                                                                                                                                                                                                                                                                         | [db/transit_controller.go](../../../internal/db/transit_controller.go)                               | ✅  | [Transit deduplication](../../radar/architecture/transit-deduplication.md)                                                                                               |
+| L7a   | Reserved                      | HD-map, scene accumulation, OSM prior literature                                                                                                                                                                                                                                                                                                                                       | -                                                                                                    | 💭  | [L7 scene plan](../../plans/lidar-l7-scene-plan.md)                                                                                                                      |
+| L8a   | Radar metrics                 | Traffic histograms, percentiles, report rollups                                                                                                                                                                                                                                                                                                                                        | [db/db.go](../../../internal/db/db.go)                                                               | 🔄  | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md)                                                                                      |
+| L8b   | LiDAR metrics                 | Traffic engineering reporting and nearest-rank percentiles                                                                                                                                                                                                                                                                                                                             | [server/chart_api.go](../../../internal/lidar/server/chart_api.go)                                   | 🔄  | [Speed-percentile plan](../../plans/speed-percentile-aggregation-alignment-plan.md)                                                                                      |
+| L8c   | Sweep tuning / HINT           | Parameter sweeps and experiment evaluation                                                                                                                                                                                                                                                                                                                                             | [sweep/hint.go](../../../internal/lidar/sweep/hint.go)                                               | 🔄  | [Tuning optimisation plan](../../plans/lidar-parameter-tuning-optimisation-plan.md)                                                                                      |
+| L9a   | Radar REST APIs               | REST / JSON reporting surfaces                                                                                                                                                                                                                                                                                                                                                         | [api/server.go](../../../internal/api/server.go)                                                     | 🔄  | [Radar networking design](../../radar/architecture/networking.md)                                                                                                        |
+| L9b   | LiDAR REST APIs               | REST / JSON dashboard, replay, scene, and track APIs                                                                                                                                                                                                                                                                                                                                   | [server/](../../../internal/lidar/server/)                                                           | 🔄  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
+| L9c   | gRPC streams                  | gRPC streaming with frame codec, overlay preferences, and replay                                                                                                                                                                                                                                                                                                                       | [l9endpoints/grpc_server.go](../../../internal/lidar/l9endpoints/grpc_server.go)                     | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
+| L10a  | pdf-generator                 | PyLaTeX report generation with charts, maps, and statistical tables                                                                                                                                                                                                                                                                                                                    | [tools/pdf-generator/](../../../tools/pdf-generator/)                                                | 🔄  | [PDF migration plan](../../plans/pdf-go-chart-migration-plan.md)                                                                                                         |
+| L10b  | Svelte clients                | Svelte 5 dashboard with site management, radar reports, and LiDAR run views                                                                                                                                                                                                                                                                                                            | [web/](../../../web/)                                                                                | 🔄  | [Frontend consolidation plan](../../plans/web-frontend-consolidation-plan.md)                                                                                            |
+| L10c  | VelocityVisualiser.app        | Native macOS Metal 3D point-cloud visualisation with gRPC streaming client                                                                                                                                                                                                                                                                                                             | [tools/visualiser-macos/](../../../tools/visualiser-macos/)                                          | 🔄  | [Visualiser proto plan](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)                                                                     |
+| L10d  | HTML dashboard                | Legacy Go-embedded LiDAR monitoring dashboard (`internal/lidar/monitor/`)                                                                                                                                                                                                                                                                                                              | [l10clients/html/dashboard.html](../../../internal/lidar/l9endpoints/l10clients/html/dashboard.html) | ⛔  | [L8-L10 refactor plan](../../plans/lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)                                                                                  |
 
 ### Design rationale for ten layers
 
@@ -378,81 +378,9 @@ The macOS VelocityVisualiser renders each layer simultaneously in a single 3D Me
 | Track ID labels        | **White**              | L5 Tracks     | Short hex identifier (e.g. `4269`, `7cc0`) projected to screen coordinates above each track box.                                                                                                                                           |
 | Class labels           | **Yellow**             | L6 Objects    | Classification label (e.g. `car`, `pedestrian`) shown below the track ID once the classifier has enough observations.                                                                                                                      |
 
-### Pipeline flow: full ten-layer data flow
+### Pipeline flow
 
-The core processing pipeline runs once per LiDAR frame (~10 Hz for Hesai Pandar40P). L7–L10 operate at lower frequencies or on-demand.
-
-```
-═══════════════════════════════════════════════════════════════════════════
- SENSOR TIER (per-sensor, real-time, ~10 Hz)
-═══════════════════════════════════════════════════════════════════════════
-
-L1  Packets ─── UDP payloads arrive from sensor (or PCAP replay)
- │               Hesai Pandar40P: 40-ring returns, ~700K pts/sec
- │               Radar: serial frames (OmniPreSense OPS243-A)
- │               Future: additional LiDAR/radar on separate ports
- │
-L2  Frames ──── Frame assembly: polar points → time-coherent LiDARFrame
- │               40 rings × 1800 azimuth bins → single rotation
- │               Polar → Cartesian coordinate transform
- │               Timestamp alignment, frame sequencing
- │
-L3  Grid ────── Background model: per-cell EMA range baseline
- │               Each point tested against learned background
- │  ├── within threshold ──→ background point (suppressed)
- │  └── outside threshold ─→ foreground point (passed on)
- │               Settling: 100 frames + 30s warmup before extraction
- │               Region identification, persistence to SQLite
- │
-L4  Perception  Ground removal → voxel downsampling → DBSCAN clustering
- │               Each cluster → OBB with PCA heading
- │               Ground plane tiling → vector polygon extraction (planned)
- │               Per-frame, single-sensor observations only
- │
-L5  Tracks ──── Hungarian assignment: clusters → Kalman-filtered tracks
- │  ├── matched + hits < threshold ──→ tentative track
- │  ├── matched + hits ≥ threshold ──→ confirmed track
- │  ├── unmatched cluster ───────────→ new tentative track
- │  └── unmatched track ─────────────→ miss counter → deletion
- │               Track lifecycle: tentative → confirmed → deleted
- │               Smoothed position, velocity, heading
- │
-L6  Objects ─── Classification: feature accumulation → class label
-                 car │ pedestrian │ cyclist │ bird │ other
-                 AV taxonomy mapping (28-class compatibility)
-                 Per-track quality scoring
-
-═══════════════════════════════════════════════════════════════════════════
- SCENE TIER (multi-frame, multi-sensor, persistent)
-═══════════════════════════════════════════════════════════════════════════
-
-L7  Scene ───── Canonical world model
- │               Static geometry: ground polygons, structures, volumes
- │               Dynamic objects: canonical vehicles (merged tracks)
- │               Evidence accumulation across frames and sensors
- │               OSM/map priors: S3DB buildings, road geometry
- │               Multi-sensor fusion: unified coordinate frame
- │               Uncertainty bounds, edit history, provenance
-
-═══════════════════════════════════════════════════════════════════════════
- CONSUMPTION TIER (on-demand, variable frequency)
-═══════════════════════════════════════════════════════════════════════════
-
-L8  Analytics ─ Traffic metrics, run comparison, scoring
- │               Speed percentiles, volume counts, temporal IoU
- │               Scene-contextualised statistics ("speed on Main St")
- │               Parameter sweep evaluation, run diffing
- │
-L9  Endpoints ─ Server-side payload shaping
- │               gRPC FrameUpdate stream to VelocityVisualiser
- │               ECharts data, chart view-models, debug overlays
- │               Dashboard API responses
- │
-L10 Clients ─── Downstream renderers (no Go package)
-                 Browser: Svelte web frontend
-                 Native: Swift/Metal VelocityVisualiser
-                 Reports: Python PDF generator
-```
+The per-block breakdown for each layer lives in [§ Layered concept and literature status](#layered-concept-and-literature-status). The current single-sensor implementation flow is shown in the simplified diagram below.
 
 ### Simplified single-sensor flow (current implementation)
 
@@ -504,36 +432,23 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 | **L**  | L   | Labels (track ID + class)                |
 | **G**  | G   | Ground grid overlay                      |
 
-## Current repository alignment
+## Cross-cutting packages
 
-| Layer         | Canonical package              | Key files                                                                                                                          | Status |
-| ------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                         | ✅     |
-| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                         | ✅     |
-| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`          | ✅     |
-| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                     | ✅     |
-| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                              | ✅     |
-| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                  | ✅     |
-| L7 Scene      | `internal/lidar/l7scene/`      | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                       | 📋     |
-| L8 Analytics  | `internal/lidar/l8analytics/`  | `comparison.go`, `summary.go`, `labels.go`; additional analytics logic in `server/chart_api.go`, `storage/sqlite/analysis_run*.go` | 🔄     |
-| L9 Endpoints  | `internal/lidar/l9endpoints/`  | `grpc_server.go`, `publisher.go`, `frame_codec.go`, `adapter.go`, `chart_data.go`, `replay.go`, `synthetic.go`, `legacy_assets.go` | ✅     |
-| L10 Clients   | _(no Go package)_              | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                | 📄     |
+Layer-specific Go packages (`l1packets/` through `l9endpoints/`) are listed in the [ten-layer summary table](#the-ten-layers). The following packages cut across layer boundaries:
 
-Cross-cutting packages:
+| Package           | Purpose                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pipeline/`       | Orchestration (stage interfaces)                                                                                                                                          |
+| `storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
+| `adapters/`       | Transport and IO boundaries                                                                                                                                               |
+| `server/`         | HTTP server, API handlers, data source management (REST counterpart to L9's gRPC)                                                                                         |
+| `sweep/`          | Parameter sweep and auto-tuning                                                                                                                                           |
 
-| Package                          | Purpose                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                                                                                                                          |
-| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
-| `internal/lidar/adapters/`       | Transport and IO boundaries                                                                                                                                               |
-| `internal/lidar/server/`         | HTTP server, API handlers, data source management (REST counterpart to L9's gRPC)                                                                                         |
-| `internal/lidar/sweep/`          | Parameter sweep and auto-tuning                                                                                                                                           |
-
-Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
+Backward-compatible type aliases remain in the parent [internal/lidar/](../../../internal/lidar) package so existing callers continue to work.
 
 ## Documentation map
 
-Documentation for the LiDAR subsystem lives under `docs/lidar/`.
+Documentation for the LiDAR subsystem lives under [docs/lidar/](..).
 
 | Folder             | Scope                                                             |
 | ------------------ | ----------------------------------------------------------------- |
@@ -730,16 +645,18 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 ### L6 objects: semantic classification
 
-**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV 28-class taxonomy mapping as an export concern.
+**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV taxonomy mapping as an export concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping).
 
 **Literature context:** Our current classifier is heuristic rather than learned, occupying the same architectural slot as deep-learning detectors (PointPillars, CenterPoint) but with deterministic rules suited to our privacy-first, edge-compute constraints.
 
-| Reference                                                          | Relevance                                                                                                             |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline |
-| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility              |
-| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                  |
-| Behley et al. (2019): SemanticKITTI                                | 28-class point-wise semantic labels; our AV compatibility mapping targets this taxonomy                               |
+| Reference                                                          | Relevance                                                                                                                                                      |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline                                          |
+| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility                                                       |
+| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                                                           |
+| Behley et al. (2019): SemanticKITTI                                | 19 eval-class point-level semantic segmentation benchmark; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the full mapping |
+| Mei et al. (2022): Waymo Panoptic                                  | 22 semantic classes; source of the "28 semantic categories" count in earlier docs                                                                              |
+| Fong et al. (2021): Panoptic nuScenes                              | 32-class (16 things + 16 stuff) LiDAR panoptic segmentation and tracking benchmark                                                                             |
 
 ### L6e ML classifier (planned)
 
@@ -747,12 +664,12 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Literature context:** The architectural slot we occupy (features from tracked clusters → class label) is equivalent to the "object proposal → classification" stage in detector pipelines. Our heuristic classifier is an interpretable baseline; learned classifiers improve on recall for ambiguous object types (cyclists vs. pedestrians at low speed, motorcyclists vs. cyclists at medium speed) at the cost of requiring labelled training data.
 
-| Reference                           | Relevance                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features |
-| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions          |
-| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training            |
-| Behley et al. (2019): SemanticKITTI | 28-class point-level semantic labels; AV compatibility mapping targets this taxonomy                                 |
+| Reference                           | Relevance                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features                                      |
+| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions                                               |
+| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training                                                 |
+| Behley et al. (2019): SemanticKITTI | 19 eval-class point-level semantic segmentation; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping |
 
 **Design plan:** [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md).
 
@@ -762,7 +679,7 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 L7 introduces a **persistent, evidence-accumulated world model** that transcends individual frames, tracks, and sensors. It is the boundary between the per-sensor real-time pipeline (L1–L6) and the consumption layers (L8–L10).
 
-**Scope:** Static geometry (ground polygons, structures, volumes), dynamic canonical objects (merged tracks → refined vehicle/pedestrian models), external priors (OSM, GeoJSON), and multi-sensor fusion into a single coherent scene.
+**Scope:** Static geometry (ground polygons, structures, volumes), dynamic canonical objects (merged tracks → refined vehicle/pedestrian models), external priors (OSM, GeoJSON), and multi-position sensor fusion into a single coherent scene.
 
 **Key relationships:**
 
@@ -774,9 +691,11 @@ L7 introduces a **persistent, evidence-accumulated world model** that transcends
 
 ---
 
-## Multi-sensor architecture
+## Multi-position sensor architecture
 
-L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusively at L7, where observations from all sensors merge into a single canonical scene. This keeps the real-time per-sensor pipeline simple and avoids premature coordinate transforms in the low-level layers.
+When multiple sensors are deployed at **different mounting positions** (e.g. opposite corners of an intersection), each runs an independent L1–L6 pipeline in its own sensor-local coordinate frame. L7 is where these independent pipelines merge into a single canonical scene — it owns the unified coordinate frame, cross-sensor track handoff, and canonical object identity.
+
+This section covers multi-position. Multi-modality (combining different sensor types such as radar and LiDAR) is a separate, unsettled concern — see [§ Multi-modality: radar + LiDAR](#multi-modality-radar--lidar) below.
 
 | Layer        | Single-sensor (today)               | Multi-sensor (future)                                                                               |
 | ------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -790,22 +709,22 @@ L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusiv
 
 ## Long-term layer designation stability
 
-### Frozen designations (v0.5.0 onwards)
+### Frozen designations
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code  | Notes                                           |
-| ------ | ---------- | ------------------------------------ | -------------- | ----------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0         | One instance per physical sensor                |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0         | Sensor-local coordinates                        |
-| L3     | Grid       | Background/foreground separation     | v0.1.0         | Sensor-local polar grid                         |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0         | Clusters, ground tiles, OBBs                    |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0         | Kalman + Hungarian per sensor                   |
-| L6     | Objects    | Semantic classification              | v0.4.0         | Per-track class labels                          |
-| L7     | Scene      | Persistent canonical world model     | v1.0 (planned) | Multi-frame, multi-sensor, priors               |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0         | `l8analytics/` + `server/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0         | `l9endpoints/` gRPC; `server/` REST             |
-| L10    | Clients    | Downstream renderers                 | v0.1.0         | Web frontend shipped with first release         |
+| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                           |
+| ------ | ---------- | ------------------------------------ | ------------- | ----------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor                |
+| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                        |
+| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                         |
+| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                    |
+| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                   |
+| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                          |
+| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors               |
+| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
+| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
+| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release         |
 
 ### Rules for future evolution
 
@@ -821,23 +740,76 @@ The following layer numbers and names are **permanently assigned**. Implementati
 
 ### Potential future expansions (reserved concepts, no layer assigned)
 
-These capabilities might emerge in future years. They would extend existing layers or occupy new advisory sub-layers, never displace L1–L10:
+These capabilities might emerge in the future. They would extend existing layers or occupy new advisory sub-layers, never displace L1–L10:
 
-| Concept                                            | Likely home | Rationale                                                               |
-| -------------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
-| Deep-learning detector (PointPillars, CenterPoint) | L4 or L6    | Replaces heuristic clustering/classification; same architectural slot   |
-| SLAM / ego-motion (mobile sensor)                  | L2–L3       | Frame motion compensation and grid update in ego-moving frame           |
-| Radar-LiDAR point-level fusion                     | L4          | Combined cluster formation from heterogeneous sensor types              |
-| Predictive trajectory (motion forecasting)         | L5 or L7    | Extends track state with predicted future positions                     |
-| Multi-intersection corridor analytics              | L8          | Aggregation across multiple L7 scene instances                          |
-| Federated learning (edge-to-cloud)                 | L8          | Model updates from distributed deployments; no raw data leaves the edge |
-| Real-time alerting / notification                  | L9          | Threshold-triggered events pushed to clients                            |
+| Concept                                            | Likely home   | Rationale                                                                                                |
+| -------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| Deep-learning detector (PointPillars, CenterPoint) | L4 or L6      | Replaces heuristic clustering/classification; same architectural slot                                    |
+| SLAM / ego-motion (mobile sensor)                  | L2–L3         | Frame motion compensation and grid update in ego-moving frame                                            |
+| Radar speed annotation                             | L5, L6, or L7 | See [§ Multi-modality: radar + LiDAR](#multi-modality-radar--lidar) — open tradeoff with current sensors |
+| Predictive trajectory (motion forecasting)         | L5 or L7      | Extends track state with predicted future positions                                                      |
+| Multi-intersection corridor analytics              | L8            | Aggregation across multiple L7 scene instances                                                           |
+| Real-time alerting / notification                  | L9            | Threshold-triggered events pushed to clients                                                             |
+
+#### Multi-position vs multi-modality
+
+The "Multi-sensor architecture" section above describes **multi-position** fusion: spatially separated sensors with different coordinate frames whose independently tracked objects must be merged into a single canonical scene at L7. That concern is settled — only L7 holds the persistent world model, the unified coordinate frame, and the authority to assign canonical object identity across sensors.
+
+Multi-modality — combining different sensor _types_ (radar + LiDAR) — is a separate, unsettled question. It does not require L7 unless the sensors are also spatially separated. The two concerns are independent:
+
+| Concern        | What varies                  | Core problem                                           | Settled? |
+| -------------- | ---------------------------- | ------------------------------------------------------ | -------- |
+| Multi-position | Mounting location, FOV angle | Coordinate transform, track handoff, re-identification | Yes: L7  |
+| Multi-modality | Sensor physics, data format  | Bridging incompatible measurement types                | No       |
+
+A deployment could have both (e.g. two sensor clusters, each containing co-located radar+LiDAR, on opposite sides of an intersection). Multi-position fusion at L7 merges the two clusters; multi-modality fusion within each cluster is a separate, lower-layer concern.
+
+#### Multi-modality: radar + LiDAR
+
+The OPS243-A radar is a Doppler-only sensor. Its output per frame is a set of FFT-derived speed bins — "something in my beam is moving at $v$ m/s" — with signal magnitude. It produces no spatial coordinates: no range, no azimuth, no elevation, no point cloud.
+
+The radar and LiDAR operate in fundamentally different domains:
+
+| Property             | Hesai Pandar40P (LiDAR)                    | OPS243-A (Radar)                                |
+| -------------------- | ------------------------------------------ | ----------------------------------------------- |
+| Output per frame     | ~70K points with $(r, \theta, \phi, I)$    | Speed bins with $(v, \text{magnitude})$         |
+| Spatial resolution   | 0.2° azimuth, 40 elevation rings           | ~20°×24° beam cone, no angular discrimination   |
+| Velocity information | None (derived by L5 track differentiation) | Direct Doppler measurement, beam-aggregate      |
+| Data transport       | UDP packets (L1), frame assembly (L2)      | Serial JSON, separate ingest path               |
+| Clock source         | Sensor PTP/internal                        | Sensor uptime counter                           |
+| Pipeline             | L1–L6 LiDAR perception pipeline            | `internal/radar/` → `radar_data` table directly |
+
+**Layer tradeoffs with the current sensor footprint (OPS243-A + Pandar40P):**
+
+| Layer | Status     | Tradeoffs                                                                                                                                                                                                                               |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L4    | Not viable | L4 requires spatially resolved measurements suitable for geometric clustering. OPS243-A provides no range/azimuth/elevation, so no common measurement space exists for point-level fusion.                                              |
+| L5    | Candidate  | Pros: uses existing Kalman track state and gating machinery; can improve early-track speed estimates quickly. Cons: beam-to-track ambiguity when multiple objects are inside the radar cone; tighter coupling to L5 tracking internals. |
+| L6    | Candidate  | Pros: keeps speed evidence close to semantic feature aggregation and classification confidence handling. Cons: depends on still-evolving L6 shape and contracts; risks coupling fusion placement to classifier refactors.               |
+| L7    | Candidate  | Pros: can use scene context, persistent identity, and cross-sensor history to disambiguate assignments. Cons: higher implementation complexity, added latency, and potential overreach for single-site deployments.                     |
+
+**Open decision: L5 vs L6 vs L7.**
+
+- L4 is ruled out with current hardware.
+- L5, L6, and L7 are all defensible depending on where association confidence, semantic feature aggregation, and scene context are best handled.
+- The unsettled L6 classification shape is a dependency: if L6 remains thin over L5, L5 fusion is simpler; if L6 grows into richer feature aggregation, the L5↔L6↔L7 interface should be decided alongside L6 data contracts.
+- Keep this decision open until beam-ambiguity measurements and end-to-end error analysis are available (see [QUESTIONS.md Q10](../../../data/QUESTIONS.md)).
+
+The inverse-variance weighted fusion formula applies regardless of placement:
+
+$$v_{\text{fused}} = \frac{\sigma_{\text{doppler}}^{-2} \cdot v_{\text{doppler}} + \sigma_{\text{kalman}}^{-2} \cdot v_{\text{kalman}}}{\sigma_{\text{doppler}}^{-2} + \sigma_{\text{kalman}}^{-2}}$$
+
+Key unresolved evidence:
+
+- How robust beam-to-track association is when multiple objects occupy the radar beam cone simultaneously
+- How much speed-error reduction radar contributes over Kalman-only estimates in the first N frames of a track
+- Whether L6 feature-level integration or L7 scene-level context materially outperforms track-level gating on real capture runs
 
 ---
 
 ## AV compatibility note
 
-This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV 28-class compatibility remains an **L6 Objects** concern. HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
+This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
 
 The layer boundaries are intentionally aligned with common AV pipeline decompositions (sensor → detection → tracking → prediction → planning) but stop before planning/control since velocity.report is an observation system, not a vehicle control system.
 
@@ -845,82 +817,95 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 ## References (consolidated)
 
-> The full bibliography in BibTeX format is maintained at [data/maths/references.bib](../../../data/maths/references.bib). BibTeX citation keys follow the `LastnameYYYY` convention used throughout this document.
+> The full bibliography in BibTeX format is maintained at
+> [data/maths/references.bib](../../../data/maths/references.bib).
+> BibTeX citation keys follow the `LastnameYYYY` convention used
+> throughout this document.
 
 ### Foundational algorithms
 
-- Ester, M., Kriegel, H.-P., Sander, J., & Xu, X. (1996). A density-based algorithm for discovering clusters in large spatial databases with noise. _KDD-96_.
-- Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. _Journal of Basic Engineering_, 82(1), 35–45.
-- Kuhn, H. W. (1955). The Hungarian method for the assignment problem. _Naval Research Logistics Quarterly_, 2(1–2), 83–97.
-- Munkres, J. (1957). Algorithms for the assignment and transportation problems. _Journal of the Society for Industrial and Applied Mathematics_, 5(1), 32–38.
-- Jolliffe, I. T. (2002). _Principal Component Analysis_ (2nd ed.). Springer.
-- Stauffer, C., & Grimson, W. E. L. (1999). Adaptive background mixture models for real-time tracking. _CVPR 1999_.
-- Welford, B. P. (1962). Note on a method for calculating corrected sums of squares and products. _Technometrics_, 4(3), 419–420.
-- Mahalanobis, P. C. (1936). On the generalised distance in statistics. _Proceedings of the National Institute of Sciences of India_, 2(1), 49–55.
-- Fischler, M. A., & Bolles, R. C. (1981). Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography. _Communications of the ACM_, 24(6), 381–395.
+| Key             | Description                                 | Layers |
+| --------------- | ------------------------------------------- | ------ |
+| Ester1996       | DBSCAN density-based clustering             | L4     |
+| Kalman1960      | Linear filtering and prediction             | L5     |
+| Kuhn1955        | Hungarian assignment method                 | L5     |
+| Munkres1957     | Assignment and transportation algorithms    | L5     |
+| Jolliffe2002    | Principal Component Analysis (2nd ed.)      | L4     |
+| Stauffer1999    | Adaptive background mixture models          | L3     |
+| Welford1962     | Online variance (corrected sums of squares) | L3     |
+| Mahalanobis1936 | Generalised distance in statistics          | L5     |
+| Fischler1981    | RANSAC model fitting                        | L4, L7 |
 
 ### LiDAR processing and detection
 
-- Lang, A. H., Vora, S., Caesar, H., Zhou, L., Yang, J., & Beijbom, O. (2019). PointPillars: Fast encoders for object detection from point clouds. _CVPR 2019_. arXiv:1812.05784.
-- Milioto, A., Vizzo, I., Behley, J., & Stachniss, C. (2019). RangeNet++: Fast and accurate LiDAR semantic segmentation. _IROS 2019_.
-- Bogoslavskyi, I., & Stachniss, C. (2017). Fast range image-based segmentation of sparse 3D laser scans for online operation. _IROS 2017_.
-- Zermas, D., Izzat, I., & Papanikolopoulos, N. (2017). Fast segmentation of 3D point clouds: A paradigm on LiDAR data for autonomous vehicle applications. _IEEE IV 2017_.
-- Lim, H., Oh, M., & Myung, H. (2021). Patchwork: Concentric zone-based region-wise ground segmentation with tilted LiDAR. _RA-L 2021_.
-- Rusu, R. B., & Cousins, S. (2011). 3D is here: Point Cloud Library (PCL). _ICRA 2011_.
-
-### Clustering alternatives (planned: L4)
-
-- Campello, R. J. G. B., Moulavi, D., & Sander, J. (2013). Density-based clustering based on hierarchical density estimates. _PAKDD 2013_. (HDBSCAN: alternative to DBSCAN for variable-density clusters)
+| Key              | Description                                    | Layers |
+| ---------------- | ---------------------------------------------- | ------ |
+| Lang2019         | PointPillars fast point-cloud encoder          | L4     |
+| Milioto2019      | RangeNet++ LiDAR semantic segmentation         | L2, L4 |
+| Bogoslavskyi2017 | Fast range-image segmentation for sparse scans | L2, L4 |
+| Zermas2017       | Fast 3D point-cloud segmentation               | L4     |
+| Lim2021          | Patchwork concentric-zone ground segmentation  | L4     |
+| Lim2022Patchwork | Patchwork++ robust ground segmentation         | L4     |
+| Rusu2011         | Point Cloud Library (PCL) framework            | L4     |
+| Campello2013     | HDBSCAN hierarchical density clustering        | L4     |
 
 ### Tracking
 
-- Bewley, A., Ge, Z., Ott, L., Ramos, F., & Upcroft, B. (2016). Simple online and realtime tracking. _ICIP 2016_. arXiv:1602.00763.
-- Weng, X., Wang, J., Held, D., & Kitani, K. (2020). AB3DMOT: A baseline for 3D multi-object tracking and new evaluation metrics. _ECCVW 2020_. arXiv:2008.08063.
-- Yin, T., Zhou, X., & Krähenbühl, P. (2021). Centre-based 3D object detection and tracking. _CVPR 2021_. arXiv:2006.11275.
-- Bernardin, K., & Stiefelhagen, R. (2008). Evaluating multiple object tracking performance: The CLEAR MOT metrics. _EURASIP JIVP_, 2008.
+| Key           | Description                               | Layers |
+| ------------- | ----------------------------------------- | ------ |
+| Bewley2016    | SORT: simple online real-time tracking    | L5     |
+| Weng2020      | AB3DMOT baseline 3D multi-object tracking | L5     |
+| Yin2021       | Centre-based 3D detection and tracking    | L5     |
+| Bernardin2008 | CLEAR MOT evaluation metrics              | L5, L8 |
 
-### Advanced motion models and smoothers (planned: l5h)
+### Advanced motion models and smoothers (planned: L5h)
 
-- Bar-Shalom, Y., & Fortmann, T. E. (1988). _Tracking and Data Association_. Academic Press.
-- Blom, H. A. P., & Bar-Shalom, Y. (1988). The interacting multiple model algorithm for systems with Markovian switching coefficients. _IEEE Transactions on Automatic Control_, 33(8), 780–783. (IMM: foundation of planned `imm_cv_ca_v2` engine)
-- Julier, S. J., & Uhlmann, J. K. (1997). A new extension of the Kalman filter to nonlinear systems. _SPIE AeroSense 1997_, vol. 3068, 182–193. (UKF: for CTRV nonlinear motion model)
-- Rauch, H. E., Tung, F., & Striebel, C. T. (1965). Maximum likelihood estimates of linear dynamic systems. _AIAA Journal_, 3(8), 1445–1450. (RTS smoother: evaluation-only `rts_eval` engine variant)
+| Key            | Description                         | Layers |
+| -------------- | ----------------------------------- | ------ |
+| BarShalom1988a | Tracking and data association       | L5     |
+| Blom1988       | IMM algorithm for switching models  | L5     |
+| Julier1997     | UKF extension to nonlinear systems  | L5     |
+| Rauch1965      | RTS smoother for offline evaluation | L5, L8 |
 
 ### Scene understanding and mapping
 
-- Behley, J., Garbade, M., Milioto, A., Quenzel, J., Behnke, S., Stachniss, C., & Gall, J. (2019). SemanticKITTI: A dataset for semantic scene understanding of LiDAR sequences. _ICCV 2019_. arXiv:1904.01416.
-- Hornung, A., Wurm, K. M., Bennewitz, M., Stachniss, C., & Burgard, W. (2013). OctoMap: An efficient probabilistic 3D mapping framework based on octrees. _Autonomous Robots_, 34(3). doi:10.1007/s10514-012-9321-0.
-- Pomerleau, F., Krüsi, P., Colas, F., Furgale, P., & Siegwart, R. (2014). Long-term 3D map maintenance in dynamic environments. _ICRA 2014_.
-- Pannen, D., Liebner, M., Hempel, W., & Stiller, C. (2020). How to keep HD maps for automated driving up to date. _ICRA 2020_.
-- Liu, Y., Yuan, Z., & Liu, M. (2020). High-definition map generation technologies for autonomous driving: A review. arXiv:2206.05400. (HD map construction survey)
-- Li, Q., Wang, Y., Wang, Y., & Zhao, H. (2022). HDMapNet: An online HD map construction and evaluation framework. _ICRA 2022_. arXiv:2107.06307.
-- Caesar, H., et al. (2020). nuScenes: A multimodal dataset for autonomous driving. _CVPR 2020_. arXiv:1912.08142.
-- Geiger, A., Lenz, P., & Urtasun, R. (2012). Are we ready for autonomous driving? The KITTI vision benchmark suite. _CVPR 2012_.
-- Schönemann, P. H. (1966). A generalised solution of the orthogonal Procrustes problem. _Psychometrika_, 31(1), 1–10. (Rigid alignment via SVD: used in L7 prior-to-observation registration)
+| Key            | Description                                     | Layers |
+| -------------- | ----------------------------------------------- | ------ |
+| Behley2019     | SemanticKITTI LiDAR scene understanding         | L6, L7 |
+| Hornung2013    | OctoMap probabilistic 3D mapping                | L7     |
+| Pomerleau2014  | Long-term 3D map maintenance                    | L7     |
+| Pannen2020     | Keeping HD maps up to date                      | L7     |
+| Liu2020HDMap   | HD map construction survey                      | L7     |
+| Li2022HDMap    | HDMapNet online HD map framework                | L7     |
+| Caesar2020     | nuScenes multimodal driving dataset             | L6, L7 |
+| Geiger2012     | KITTI autonomous driving benchmark              | L5, L6 |
+| Schonemann1966 | Orthogonal Procrustes (rigid alignment via SVD) | L7     |
 
 ### Trajectory prediction and scene-constrained motion (L7 planned)
 
-- Lefèvre, S., Vasquez, D., & Laugier, C. (2014). A survey on motion prediction and risk assessment for intelligent vehicles. _ROBOMECH Journal_, 1(1), 1.
-- Schöller, C., Aravantinos, V., Lay, F., & Knoll, A. (2020). What the constant velocity model can teach us about pedestrian motion prediction. _RA-L_, 5(2), 1696–1703. arXiv:1903.07933.
-- Salzmann, T., Ivanovic, B., Chakravarty, P., & Pavone, M. (2020). Trajectron++: Dynamically-feasible trajectory forecasting with heterogeneous data. _ECCV 2020_. arXiv:2001.03093.
-- Liang, M., Yang, B., Hu, R., Chen, Y., Liao, R., Feng, S., & Urtasun, R. (2020). Learning lane graph representations for motion forecasting. _ECCV 2020_.
+| Key          | Description                                       | Layers |
+| ------------ | ------------------------------------------------- | ------ |
+| Lefevre2014  | Motion prediction and risk assessment survey      | L7     |
+| Scholler2020 | Constant velocity model for pedestrian motion     | L5, L7 |
+| Salzmann2020 | Trajectron++ trajectory forecasting               | L7     |
+| Liang2020    | Lane graph representations for motion forecasting | L7     |
 
 ### Multi-sensor fusion
 
-- Bar-Shalom, Y., Willett, P. K., & Tian, X. (2011). _Tracking and Data Fusion_. YBS Publishing.
-- Dames, P., & Kumar, V. (2017). Detecting, localising, and tracking an unknown number of targets using a decentralised PHD filter. _ICRA 2017_.
-- Kim, J., & Liu, S. (2017). Cooperative multi-robot observation of multiple moving targets. _IROS 2017_.
-- Reid, D. B. (1979). An algorithm for tracking multiple targets. _IEEE Transactions on Automatic Control_, 24(6), 843–854.
-- Sack, D., & Burgard, W. (2004). A comparison of methods for line extraction from range data. _IFAC Proceedings Volumes_, 37(8).
-
-### LiDAR processing and detection (additional)
-
-- Lim, H., Jung, S., & Myung, H. (2022). Patchwork++: Fast and robust ground segmentation solving partial under-segmentation. _IROS 2022_. arXiv:2207.11919.
+| Key                | Description                                      | Layers |
+| ------------------ | ------------------------------------------------ | ------ |
+| BarShalom2011      | Tracking and data fusion                         | L5, L7 |
+| Dames2017          | Decentralised PHD filter for multi-robot targets | L7     |
+| Kim2017Cooperative | Cooperative multi-robot target observation       | L7     |
+| Reid1979           | MHT algorithm for multiple target tracking       | L5     |
+| Sack2004           | Line extraction from range data                  | L4, L7 |
 
 ### Standards and datasets
 
-- OpenStreetMap Simple 3D Buildings (S3DB): wiki.openstreetmap.org/wiki/Simple_3D_buildings
-- CityJSON specification v1.1: cityjson.org
-- Velodyne HDL-64E S2 User's Manual (2007): established the UDP point-return packet convention
-- Hesai Pandar40P User Manual v4.02 (2025): our specific sensor; hesaitech.com
-- Hesai Technology (2022). HesaiLidar_ROS2_Driver: github.com/HesaiTechnology/HesaiLidar_ROS2_Driver
+| Key                  | Description                                     | Layers |
+| -------------------- | ----------------------------------------------- | ------ |
+| VelodyneHDL64E       | Velodyne HDL-64E manual (UDP packet convention) | L1     |
+| HesaiPandar40P       | Hesai Pandar40P user manual                     | L1     |
+| HesaiROS2            | Hesai ROS2 driver reference                     | L1     |
+| OSMSimple3DBuildings | OpenStreetMap Simple 3D Buildings (S3DB)        | L7     |
+| CityJSON             | CityJSON specification v1.1                     | L7     |

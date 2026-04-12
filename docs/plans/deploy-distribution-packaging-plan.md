@@ -20,13 +20,13 @@
 **Tasks:**
 
 1. **Rename and restructure main entry point**
-   - Move `cmd/radar/` → `cmd/velocity-report/`
+   - Move [cmd/radar/](../../cmd/radar) → `cmd/velocity-report/`
    - Rename `radar.go` → `main.go` with subcommand dispatcher
    - Extract server logic to `serve.go`
    - Keep existing flags for `serve` subcommand
 
 2. **Integrate existing subcommands**
-   - `migrate` - Already exists in `internal/db/migrate_cli.go` ✅
+   - `migrate` - Already exists in [internal/db/migrate_cli.go](../../internal/db/migrate_cli.go) ✅
    - Keep current integration pattern
 
 3. **Add new subcommands**
@@ -36,40 +36,36 @@
    - `velocity-report help` - Unified help system
 
    Note: upgrade/rollback/backup are handled by `velocity-ctl`
-   (`cmd/velocity-ctl/`) which ships as a separate binary. These may be
+   ([cmd/velocity-ctl/](../../cmd/velocity-ctl)) which ships as a separate binary. These may be
    absorbed into `velocity-report` in a future release if eliminating one
    binary is worth the mixed privilege model.
 
 4. **Update build targets in Makefile**
 
-   ```makefile
-   build-radar-linux:
-       GOOS=linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report
-
-   build-sweep:
-       GOOS=linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep
-
-   build-backfill-rings:
-       GOOS=linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings
-
-   build-all:
-       $(MAKE) build-radar-linux
-       $(MAKE) build-sweep
-       $(MAKE) build-backfill-rings
-   ```
+   | Target/Variable        | Description                                                                                                    |
+   | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+   | `build-radar-linux`    |                                                                                                                |
+   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report                    |
+   | `build-sweep`          |                                                                                                                |
+   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-sweep-linux-arm64 ./cmd/velocity-report-sweep                   |
+   | `build-backfill-rings` |                                                                                                                |
+   | `GOOS`                 | linux GOARCH=arm64 go build -o velocity-report-backfill-rings-linux-arm64 ./cmd/velocity-report-backfill-rings |
+   | `build-all`            |                                                                                                                |
 
 5. **Update systemd service file**
 
-   ```ini
    [Service]
+
    # Change from:
+
    # ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
+
    # To:
+
    ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db
-   ```
 
 6. **Update assets.go**
-   - Move `assets.go` from root to `cmd/velocity-report/`
+   - Move [assets.go](../../assets.go) from root to `cmd/velocity-report/`
    - Update package declaration
    - Fix import paths in server code
 
@@ -100,48 +96,29 @@
 2. **Update PDF generator for standalone installation**
    - Add `tools/pdf-generator/setup.py` or use `pyproject.toml`
    - Create console_scripts entry point:
-     ```python
      [project.scripts]
      pdf-generator = "pdf_generator.cli.main:main"
-     ```
    - Test: `pip install -e tools/pdf-generator/`
 
 3. **Create installation script for Python tools**
-
-   ```bash
-   # scripts/install-python-tools.sh
-   #!/bin/bash
-   INSTALL_DIR=${1:-/usr/local/share/velocity-report/python}
-   VENV_DIR=$INSTALL_DIR/.venv
-
-   # Create venv
-   python3 -m venv $VENV_DIR
-
-   # Install dependencies
-   $VENV_DIR/bin/pip install -r requirements.txt
-
-   # Copy Python packages
-   cp -r tools/pdf-generator/pdf_generator $INSTALL_DIR/
-   cp -r tools/grid-heatmap $INSTALL_DIR/
-   ```
+   - !/bin/bash: `INSTALL_DIR=${1:-/usr/local/share/velocity-report/python}`
+   - `VENV_DIR=$INSTALL_DIR/.venv`
+   - Create venv: `python3 -m venv $VENV_DIR`
+   - Install dependencies: `$VENV_DIR/bin/pip install -r requirements.txt`
+   - Copy Python packages: `cp -r tools/pdf-generator/pdf_generator $INSTALL_DIR/`
+   - `cp -r tools/grid-heatmap $INSTALL_DIR/`
 
 4. **Update Makefile targets**
 
-   ```makefile
-   install-python-system:
-       sudo ./scripts/install-python-tools.sh
-
-   pdf-report:
-       # Option 1: Use installed tools
-       velocity-report pdf $(CONFIG)
-       # Option 2: Use development setup (existing)
-       cd $(PDF_DIR) && PYTHONPATH=. ../../$(VENV_PYTHON) -m pdf_generator.cli.main $(CONFIG)
-   ```
+   | Target/Variable         | Description |
+   | ----------------------- | ----------- |
+   | `install-python-system` |             |
+   | `pdf-report`            |             |
 
 5. **Update setup-radar-host.sh**
    - Add step to install Python tools
    - Set up venv in `/usr/local/share/velocity-report/python/.venv`
-   - Install dependencies from `requirements.txt`
+   - Install dependencies from [requirements.txt](../../requirements.txt)
 
 6. **Testing**
    - Test `velocity-report pdf` from Go binary
@@ -157,236 +134,174 @@
 
 **Tasks:**
 
-1. **Create GitHub Actions release workflow**
+1.  **Create GitHub Actions release workflow**
 
-   File: `.github/workflows/release.yml` <!-- link-ignore -->
+    File: `.github/workflows/release.yml` <!-- link-ignore -->
 
-   ````yaml
-   name: Release
+    name: Release
 
-   on:
-     push:
-       tags:
-         - "v*"
+    on:
+    push:
+    tags: - "v\*"
 
-   jobs:
-     build-binaries:
-       runs-on: ubuntu-latest
-       strategy:
-         matrix:
-           include:
-             - goos: linux
-               goarch: arm64
-               output: velocity-report-${VERSION_NUM}-linux-arm64
-             - goos: darwin
-               goarch: arm64
-               output: velocity-report-${VERSION_NUM}-darwin-arm64
-             - goos: darwin
-               goarch: amd64
-               output: velocity-report-${VERSION_NUM}-darwin-amd64
+    jobs:
+    build-binaries:
+    runs-on: ubuntu-latest
+    strategy:
+    matrix:
+    include: - goos: linux
+    goarch: arm64
+    output: velocity-report-${VERSION_NUM}-linux-arm64
+                - goos: darwin
+                  goarch: arm64
+                  output: velocity-report-${VERSION_NUM}-darwin-arm64 - goos: darwin
+    goarch: amd64
+    output: velocity-report-${VERSION_NUM}-darwin-amd64
 
-       steps:
-         - uses: actions/checkout@v4
+           steps:
+             - uses: actions/checkout@v4
 
-         - name: Derive version (strip v prefix)
-           run: echo "VERSION_NUM=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+             - name: Derive version (strip v prefix)
+               run: echo "VERSION_NUM=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
-         - name: Set up Go
-           uses: actions/setup-go@v5
-           with:
-             go-version-file: go.mod
+             - name: Set up Go
+               uses: actions/setup-go@v5
+               with:
+                 go-version-file: go.mod
 
-         - name: Set up Node.js
-           uses: actions/setup-node@v4
-           with:
-             node-version: "20"
+             - name: Set up Node.js
+               uses: actions/setup-node@v4
+               with:
+                 node-version: "20"
 
-         - name: Build web frontend
-           run: |
-             cd web
-             npm install
-             npm run build
+             - name: Build web frontend
+               run: |
+                 cd web
+                 npm install
+                 npm run build
 
-         - name: Build Go binary
-           env:
-             GOOS: ${{ matrix.goos }}
-             GOARCH: ${{ matrix.goarch }}
-           run: |
-             go build -tags=pcap -o ${{ matrix.output }} ./cmd/velocity-report
+             - name: Build Go binary
+               env:
+                 GOOS: ${{ matrix.goos }}
+                 GOARCH: ${{ matrix.goarch }}
+               run: |
+                 go build -tags=pcap -o ${{ matrix.output }} ./cmd/velocity-report
 
-         - name: Upload artifact
-           uses: actions/upload-artifact@v4
-           with:
-             name: ${{ matrix.output }}
-             path: ${{ matrix.output }}
+             - name: Upload artifact
+               uses: actions/upload-artifact@v4
+               with:
+                 name: ${{ matrix.output }}
+                 path: ${{ matrix.output }}
 
-     build-sweep:
-       runs-on: ubuntu-latest
-       strategy:
-         matrix:
-           include:
-             - goos: linux
-               goarch: arm64
-               output: velocity-report-sweep-linux-arm64
+         build-sweep:
+           runs-on: ubuntu-latest
+           strategy:
+             matrix:
+               include:
+                 - goos: linux
+                   goarch: arm64
+                   output: velocity-report-sweep-linux-arm64
 
-       steps:
-         - uses: actions/checkout@v4
+           steps:
+             - uses: actions/checkout@v4
 
-         - name: Set up Go
-           uses: actions/setup-go@v5
-           with:
-             go-version: "1.25"
+             - name: Set up Go
+               uses: actions/setup-go@v5
+               with:
+                 go-version: "1.25"
 
-         - name: Build sweep binary
-           env:
-             GOOS: ${{ matrix.goos }}
-             GOARCH: ${{ matrix.goarch }}
-           run: |
-             go build -o ${{ matrix.output }} ./cmd/velocity-report-sweep
+             - name: Build sweep binary
+               env:
+                 GOOS: ${{ matrix.goos }}
+                 GOARCH: ${{ matrix.goarch }}
+               run: |
+                 go build -o ${{ matrix.output }} ./cmd/velocity-report-sweep
 
-         - name: Upload artifact
-           uses: actions/upload-artifact@v4
-           with:
-             name: ${{ matrix.output }}
-             path: ${{ matrix.output }}
+             - name: Upload artifact
+               uses: actions/upload-artifact@v4
+               with:
+                 name: ${{ matrix.output }}
+                 path: ${{ matrix.output }}
 
-     package-python:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
+         package-python:
+           runs-on: ubuntu-latest
+           steps:
+             - uses: actions/checkout@v4
 
-         - name: Set up Python
-           uses: actions/setup-python@v5
-           with:
-             python-version: "3.12"
+             - name: Set up Python
+               uses: actions/setup-python@v5
+               with:
+                 python-version: "3.12"
 
-         - name: Package Python tools
-           run: |
-             tar czf velocity-report-python-tools.tar.gz \
-               tools/pdf-generator/pdf_generator \
-               tools/grid-heatmap \
-               requirements.txt
+             - name: Package Python tools
+               run: |
+                 tar czf velocity-report-python-tools.tar.gz \
+                   tools/pdf-generator/pdf_generator \
+                   tools/grid-heatmap \
+                   requirements.txt
 
-         - name: Upload artifact
-           uses: actions/upload-artifact@v4
-           with:
-             name: velocity-report-python-tools.tar.gz
-             path: velocity-report-python-tools.tar.gz
+             - name: Upload artifact
+               uses: actions/upload-artifact@v4
+               with:
+                 name: velocity-report-python-tools.tar.gz
+                 path: velocity-report-python-tools.tar.gz
 
-     create-release:
-       needs: [build-binaries, build-sweep, package-python]
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
+         create-release:
+           needs: [build-binaries, build-sweep, package-python]
+           runs-on: ubuntu-latest
+           steps:
+             - uses: actions/checkout@v4
 
-         - name: Download all artifacts
-           uses: actions/download-artifact@v4
+             - name: Download all artifacts
+               uses: actions/download-artifact@v4
 
-         - name: Create checksums
-           run: |
-             for file in velocity-report-* *.tar.gz; do
-               sha256sum "$file" >> SHA256SUMS.txt
-             done
+             - name: Create checksums
+               run: |
+                 for file in velocity-report-* *.tar.gz; do
+                   sha256sum "$file" >> SHA256SUMS.txt
+                 done
 
-         - name: Create GitHub Release
-           uses: softprops/action-gh-release@v2
-           with:
-             files: |
-               velocity-report-*
-               *.tar.gz
-               SHA256SUMS.txt
-             body: |
-               ## Installation
+             - name: Create GitHub Release
+               uses: softprops/action-gh-release@v2
+               with:
+                 files: |
+                   velocity-report-*
+                   *.tar.gz
+                   SHA256SUMS.txt
+                 body: |
+                   ## Installation
 
-               ### Linux (Raspberry Pi ARM64)
-               ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION_NUM}-linux-arm64
-               chmod +x velocity-report-${VERSION_NUM}-linux-arm64
-               sudo mv velocity-report-${VERSION_NUM}-linux-arm64 /usr/local/bin/velocity-report
-               ```
+                   ### Linux (Raspberry Pi ARM64)
+                   Download the ARM64 binary, make executable, and move to /usr/local/bin/velocity-report.
 
-               ### macOS (Apple Silicon)
-               ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-${VERSION_NUM}-darwin-arm64
-               chmod +x velocity-report-${VERSION_NUM}-darwin-arm64
-               sudo mv velocity-report-${VERSION_NUM}-darwin-arm64 /usr/local/bin/velocity-report
-               ```
+                   ### macOS (Apple Silicon)
+                   Download the Darwin ARM64 binary, make executable, and move to /usr/local/bin/velocity-report.
 
-               ### Python Tools
-               ```bash
-               curl -LO https://github.com/banshee-data/velocity.report/releases/download/${{ github.ref_name }}/velocity-report-python-tools.tar.gz
-               sudo tar xzf velocity-report-python-tools.tar.gz -C /usr/local/share/velocity-report/
-               ```
+                   ### Python Tools
+                   Download velocity-report-python-tools.tar.gz and extract to /usr/local/share/velocity-report/.
 
-               ## What's Changed
-               See [CHANGELOG.md](https://github.com/banshee-data/velocity.report/blob/main/CHANGELOG.md)
-   ````
+                   ## What's Changed
+                   See [CHANGELOG.md](https://github.com/banshee-data/velocity.report/blob/main/CHANGELOG.md)
 
-2. **Create version management**
+2.  **Create version management**
 
-   File: `internal/version/version.go`
+    File: [internal/version/version.go](../../internal/version/version.go) — defines `Version`, `GitCommit`, and `BuildTime` variables (defaulting to "dev"/"unknown"). An `init()` function populates `GitCommit` and `BuildTime` from `debug.ReadBuildInfo()` VCS settings. Exports `Full()` returning a string like `"v0.2.0 (abc12345, 2025-01-15T10:00:00Z)"`.
 
-   ```go
-   package version
+    Use in `velocity-report version`: call `version.Full()` and print.
 
-   import "runtime/debug"
+3.  **Update Makefile for release builds**
 
-   var (
-       Version   = "dev"
-       GitCommit = "unknown"
-       BuildTime = "unknown"
-   )
+    Add Makefile variables and targets: `VERSION` (from `git describe`), `LDFLAGS` (injecting version into binary via `-X`), `build-radar-linux` (cross-compile with ldflags for ARM64), and `release-tag` (tag and push).
 
-   func init() {
-       if info, ok := debug.ReadBuildInfo(); ok {
-           for _, setting := range info.Settings {
-               switch setting.Key {
-               case "vcs.revision":
-                   GitCommit = setting.Value[:8]
-               case "vcs.time":
-                   BuildTime = setting.Value
-               }
-           }
-       }
-   }
+4.  **Create CHANGELOG.md**
+    - Document all changes per release
+    - Reference in GitHub Release body
 
-   func Full() string {
-       return Version + " (" + GitCommit + ", " + BuildTime + ")"
-   }
-   ```
-
-   Use in `velocity-report version`:
-
-   ```go
-   func runVersion() {
-       fmt.Printf("velocity.report %s\n", version.Full())
-   }
-   ```
-
-3. **Update Makefile for release builds**
-
-   ```makefile
-   VERSION ?= $(shell git describe --tags --always --dirty)
-   LDFLAGS = -X github.com/banshee-data/velocity.report/internal/version.Version=$(VERSION)
-
-   build-radar-linux:
-       GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o velocity-report-$(VERSION)-linux-arm64 ./cmd/velocity-report
-
-   release-tag:
-       @echo "Creating release tag $(VERSION)"
-       git tag -a $(VERSION) -m "Release $(VERSION)"
-       git push origin $(VERSION)
-   ```
-
-4. **Create CHANGELOG.md**
-   - Document all changes per release
-   - Reference in GitHub Release body
-
-5. **Testing**
-   - Create test tag: `git tag v0.1.0-alpha && git push origin v0.1.0-alpha`
-   - Verify workflow runs
-   - Download and test binaries from release
-   - Verify checksums
+5.  **Testing**
+    - Create test tag: `git tag v0.1.0-alpha && git push origin v0.1.0-alpha`
+    - Verify workflow runs
+    - Download and test binaries from release
+    - Verify checksums
 
 ---
 
@@ -399,107 +314,71 @@
 1. **Create unified installation script**
 
    File: `scripts/install.sh`
-
-   ```bash
-   #!/bin/bash
-   # Install script for velocity.report
-   # Usage: curl -sSL https://velocity.report/install.sh | sudo bash
-
-   set -euo pipefail
-
-   # Configuration
-   INSTALL_DIR="/usr/local"
-   DATA_DIR="/var/lib/velocity-report"
-   SHARE_DIR="$INSTALL_DIR/share/velocity-report"
-   VERSION="${VERSION:-latest}"
-
-   # Detect architecture
-   ARCH=$(uname -m)
-   case "$ARCH" in
-       aarch64|arm64) GOARCH="arm64" ;;
-       x86_64|amd64) GOARCH="amd64" ;;
-       *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-   esac
-
-   # Detect OS
-   OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-   BINARY="velocity-report-${OS}-${GOARCH}"
-
-   echo "Installing velocity.report ${VERSION} for ${OS}/${GOARCH}"
-
-   # Download binary
-   if [ "$VERSION" = "latest" ]; then
-       DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/latest/download/${BINARY}"
-   else
-       DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/${BINARY}"
-   fi
-
-   echo "Downloading from ${DOWNLOAD_URL}..."
-   curl -fsSL "$DOWNLOAD_URL" -o /tmp/velocity-report
-   chmod +x /tmp/velocity-report
-
-   # Install binary
-   echo "Installing binary to ${INSTALL_DIR}/bin/velocity-report..."
-   mv /tmp/velocity-report "${INSTALL_DIR}/bin/velocity-report"
-
-   # Download Python tools (optional)
-   read -p "Install Python tools (PDF generator)? [Y/n] " -n 1 -r
-   echo
-   if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-       echo "Installing Python tools..."
-       mkdir -p "$SHARE_DIR"
-
-       PYTHON_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-python-tools.tar.gz"
-       curl -fsSL "$PYTHON_URL" | tar xz -C "$SHARE_DIR"
-
-       # Set up Python venv
-       python3 -m venv "${SHARE_DIR}/python/.venv"
-       "${SHARE_DIR}/python/.venv/bin/pip" install -r "${SHARE_DIR}/requirements.txt"
-
-       echo "Python tools installed."
-   fi
-
-   # Create service user and data directory
-   if ! id velocity &>/dev/null; then
-       useradd --system --no-create-home --shell /usr/sbin/nologin velocity
-   fi
-
-   mkdir -p "$DATA_DIR"
-   chown velocity:velocity "$DATA_DIR"
-
-   # Install systemd service (Linux only)
-   if [ "$OS" = "linux" ] && command -v systemctl &>/dev/null; then
-       cat > /etc/systemd/system/velocity-report.service <<EOF
-   [Unit]
-   Description=Velocity.report radar monitor service
-   After=network.target
-
-   [Service]
-   User=velocity
-   Group=velocity
-   Type=simple
-   ExecStart=${INSTALL_DIR}/bin/velocity-report serve --db-path ${DATA_DIR}/sensor_data.db
-   WorkingDirectory=${DATA_DIR}
-   Restart=on-failure
-   RestartSec=5
-   StandardOutput=journal
-   StandardError=journal
-   SyslogIdentifier=velocity-report
-
-   [Install]
-   WantedBy=multi-user.target
-   EOF
-
-       systemctl daemon-reload
-       systemctl enable velocity-report.service
-
-       echo "Systemd service installed. Start with: sudo systemctl start velocity-report"
-   fi
-
-   echo "Installation complete!"
-   echo "Run 'velocity-report --help' to get started."
-   ```
+   - Usage: curl -sSL https://velocity.report/install.sh | sudo bash: `set -euo pipefail`
+   - Configuration: `INSTALL_DIR="/usr/local"`
+   - `DATA_DIR="/var/lib/velocity-report"`
+   - `SHARE_DIR="$INSTALL_DIR/share/velocity-report"`
+   - `VERSION="${VERSION:-latest}"`
+   - Detect architecture: `ARCH=$(uname -m)`
+   - `case "$ARCH" in`
+   - `aarch64|arm64) GOARCH="arm64" ;;`
+   - `x86_64|amd64) GOARCH="amd64" ;;`
+   - `*) echo "Unsupported architecture: $ARCH"; exit 1 ;;`
+   - `esac`
+   - Detect OS: `OS=$(uname -s | tr '[:upper:]' '[:lower:]')`
+   - `BINARY="velocity-report-${OS}-${GOARCH}"`
+   - `echo "Installing velocity.report ${VERSION} for ${OS}/${GOARCH}"`
+   - Download binary: `if [ "$VERSION" = "latest" ]; then`
+   - `DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/latest/download/${BINARY}"`
+   - `else`
+   - `DOWNLOAD_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/${BINARY}"`
+   - `fi`
+   - `echo "Downloading from ${DOWNLOAD_URL}..."`
+   - `curl -fsSL "$DOWNLOAD_URL" -o /tmp/velocity-report`
+   - `chmod +x /tmp/velocity-report`
+   - Install binary: `echo "Installing binary to ${INSTALL_DIR}/bin/velocity-report..."`
+   - `mv /tmp/velocity-report "${INSTALL_DIR}/bin/velocity-report"`
+   - Download Python tools (optional): `read -p "Install Python tools (PDF generator)? [Y/n] " -n 1 -r`
+   - `echo`
+   - `if [[ ! $REPLY =~ ^[Nn]$ ]]; then`
+   - `echo "Installing Python tools..."`
+   - `mkdir -p "$SHARE_DIR"`
+   - `PYTHON_URL="https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-python-tools...`
+   - `curl -fsSL "$PYTHON_URL" | tar xz -C "$SHARE_DIR"`
+   - Set up Python venv: `python3 -m venv "${SHARE_DIR}/python/.venv"`
+   - `"${SHARE_DIR}/python/.venv/bin/pip" install -r "${SHARE_DIR}/requirements.txt"`
+   - `echo "Python tools installed."`
+   - `fi`
+   - Create service user and data directory: `if ! id velocity &>/dev/null; then`
+   - `useradd --system --no-create-home --shell /usr/sbin/nologin velocity`
+   - `fi`
+   - `mkdir -p "$DATA_DIR"`
+   - `chown velocity:velocity "$DATA_DIR"`
+   - Install systemd service (Linux only): `if [ "$OS" = "linux" ] && command -v systemctl &>/dev/null; then`
+   - `cat > /etc/systemd/system/velocity-report.service <<EOF`
+   - `[Unit]`
+   - `Description=Velocity.report radar monitor service`
+   - `After=network.target`
+   - `[Service]`
+   - `User=velocity`
+   - `Group=velocity`
+   - `Type=simple`
+   - `ExecStart=${INSTALL_DIR}/bin/velocity-report serve --db-path ${DATA_DIR}/sensor_data.db`
+   - `WorkingDirectory=${DATA_DIR}`
+   - `Restart=on-failure`
+   - `RestartSec=5`
+   - `StandardOutput=journal`
+   - `StandardError=journal`
+   - `SyslogIdentifier=velocity-report`
+   - `[Install]`
+   - `WantedBy=multi-user.target`
+   - `EOF`
+   - `systemctl daemon-reload`
+   - `systemctl enable velocity-report.service`
+   - `echo "Systemd service installed. Start with: sudo systemctl start velocity-report"`
+   - `fi`
+   - `echo "Installation complete!"`
+   - `echo "Run 'velocity-report --help' to get started."`
 
 2. **Update setup-radar-host.sh**
    - Simplify to download from GitHub releases
@@ -597,110 +476,60 @@
 
 **Current Setup:**
 
-```
-/usr/local/bin/velocity-report    # Old binary (cmd/radar)
+/usr/local/bin/velocity-report # Old binary (cmd/radar)
 /var/lib/velocity-report/sensor_data.db
-```
-
 **Migration Steps:**
 
 1. **Backup database**
-
-   ```bash
-   sudo systemctl stop velocity-report
-   sudo cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup
-   ```
+   - `sudo systemctl stop velocity-report`
+   - `sudo cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.backup`
 
 2. **Download new binary**
-
-   ```bash
-   VERSION=v1.0.0
-   VERSION_NUM="${VERSION#v}"
-   curl -LO https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-${VERSION_NUM}-linux-arm64
-   chmod +x velocity-report-${VERSION_NUM}-linux-arm64
-   ```
+   - `VERSION=v1.0.0`
+   - `VERSION_NUM="${VERSION#v}"`
+   - `curl -LO https://github.com/banshee-data/velocity.report/releases/download/${VERSION}/velocity-report-${VERSION_NUM}-...`
+   - `chmod +x velocity-report-${VERSION_NUM}-linux-arm64`
 
 3. **Test new binary**
-
-   ```bash
-   # Test migrate command
-   ./velocity-report-${VERSION_NUM}-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db
-
-   # Test serve (don't background yet)
-   ./velocity-report-${VERSION_NUM}-linux-arm64 serve --db-path /var/lib/velocity-report/sensor_data.db --disable-radar
-   # Ctrl+C to stop
-   ```
+   - Test migrate command: `./velocity-report-${VERSION_NUM}-linux-arm64 migrate status --db-path /var/lib/velocity-report/sensor_data.db`
+   - Test serve (don't background yet): `./velocity-report-${VERSION_NUM}-linux-arm64 serve --db-path /var/lib/velocity-report/sensor_data.db --disable-radar`
 
 4. **Update systemd service**
-
-   ```bash
-   sudo vi /etc/systemd/system/velocity-report.service
-   # Change:
-   #   ExecStart=/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
-   # To:
-   #   ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db
-
-   sudo systemctl daemon-reload
-   ```
+   - `sudo vi /etc/systemd/system/velocity-report.service`
+   - ExecStart=/usr/local/bin/velocity-report serve --db-path /var/lib/velocity-report/sensor_data.db: `sudo systemctl daemon-reload`
 
 5. **Install new binary**
-
-   ```bash
-   sudo mv velocity-report-${VERSION_NUM}-linux-arm64 /usr/local/bin/velocity-report
-   sudo chown root:root /usr/local/bin/velocity-report
-   sudo chmod 755 /usr/local/bin/velocity-report
-   ```
+   - `sudo mv velocity-report-${VERSION_NUM}-linux-arm64 /usr/local/bin/velocity-report`
+   - `sudo chown root:root /usr/local/bin/velocity-report`
+   - `sudo chmod 755 /usr/local/bin/velocity-report`
 
 6. **Restart service**
-
-   ```bash
-   sudo systemctl start velocity-report
-   sudo systemctl status velocity-report
-   ```
+   - `sudo systemctl start velocity-report`
+   - `sudo systemctl status velocity-report`
 
 7. **Verify operation**
+   - Check logs: `sudo journalctl -u velocity-report -f`
+   - Test web UI: `curl http://localhost:8080/`
+   - Test migrate command: `velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db`
+     **Rollback Plan:**
 
-   ```bash
-   # Check logs
-   sudo journalctl -u velocity-report -f
-
-   # Test web UI
-   curl http://localhost:8080/
-
-   # Test migrate command
-   velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db
-   ```
-
-**Rollback Plan:**
-
-```bash
-# If issues occur, restore old binary
-sudo systemctl stop velocity-report
-sudo cp /path/to/old/velocity-report /usr/local/bin/velocity-report
-# Restore old service file (remove "serve" from ExecStart)
-sudo systemctl daemon-reload
-sudo systemctl start velocity-report
-```
+- If issues occur, restore old binary: `sudo systemctl stop velocity-report`
+- `sudo cp /path/to/old/velocity-report /usr/local/bin/velocity-report`
+- Restore old service file (remove "serve" from ExecStart): `sudo systemctl daemon-reload`
+- `sudo systemctl start velocity-report`
 
 ### 6.2 For developers
 
 **Current Workflow:**
 
-```bash
-make build-radar-local
-./velocity-report-local --disable-radar
-```
+- `make build-radar-local`
+- `./velocity-report-local --disable-radar`
+  **New Workflow:**
 
-**New Workflow:**
-
-```bash
-make build-radar-local
-./velocity-report-local serve --disable-radar
-# OR (serve is default)
-./velocity-report-local --disable-radar
-```
-
-**Makefile Changes:**
+- `make build-radar-local`
+- `./velocity-report-local serve --disable-radar`
+- OR (serve is default): `./velocity-report-local --disable-radar`
+  **Makefile Changes:**
 
 - `build-radar-*` targets now build from `cmd/velocity-report/`
 - `dev-go` target updated to use `serve` subcommand
@@ -717,32 +546,17 @@ make build-radar-local
 
 **Current Workflow:**
 
-```bash
-cd tools/pdf-generator
-PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json
-```
+- `cd tools/pdf-generator`
+- `PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json`
+  **New Workflow (Development):**
 
-**New Workflow (Development):**
+- Option 1: Via Go wrapper: `velocity-report pdf config.json`
+- Option 2: Direct Python (still works): `cd tools/pdf-generator`
+- `PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json`
+- Option 3: Makefile (still works): `make pdf-report CONFIG=config.json`
+  **New Workflow (Production):**
 
-```bash
-# Option 1: Via Go wrapper
-velocity-report pdf config.json
-
-# Option 2: Direct Python (still works)
-cd tools/pdf-generator
-PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json
-
-# Option 3: Makefile (still works)
-make pdf-report CONFIG=config.json
-```
-
-**New Workflow (Production):**
-
-```bash
-# After installation via install.sh
-velocity-report pdf /path/to/config.json
-```
-
+After installation via install.sh: `velocity-report pdf /path/to/config.json`
 **No Breaking Changes:**
 
 - Existing Makefile commands still work
@@ -759,72 +573,28 @@ velocity-report pdf /path/to/config.json
 
 1. **Subcommand Dispatcher** (`cmd/velocity-report/main_test.go`)
 
-   ```go
-   func TestSubcommandDispatch(t *testing.T) {
-       tests := []struct {
-           args []string
-           wantSubcommand string
-       }{
-           {[]string{"velocity-report"}, "serve"},
-           {[]string{"velocity-report", "serve"}, "serve"},
-           {[]string{"velocity-report", "migrate", "up"}, "migrate"},
-           {[]string{"velocity-report", "pdf", "config.json"}, "pdf"},
-       }
-       // ...
-   }
-   ```
+   | Field          | Type       | Description |
+   | -------------- | ---------- | ----------- |
+   | args           | `[]string` |             |
+   | wantSubcommand | `string`   |             |
 
 2. **Python Discovery** (`cmd/velocity-report/pdf_test.go`)
-
-   ```go
-   func TestFindPython(t *testing.T) {
-       // Test venv discovery
-       // Test system python fallback
-       // Test error handling
-   }
-   ```
+   - `TestFindPython`: verify venv discovery, system python fallback, and error handling
 
 3. **Version Command** (`cmd/velocity-report/version_test.go`)
-   ```go
-   func TestVersionCommand(t *testing.T) {
-       // Verify version output format
-       // Verify git commit included
-   }
-   ```
+   - `TestVersionCommand`: verify version output format and git commit inclusion
 
 ### 7.2 Integration tests
 
 **Add to existing test suite:**
 
 1. **Subcommand Integration** (`integration_test.go`)
-
-   ```go
-   func TestServeSubcommand(t *testing.T) {
-       // Start server via "serve" subcommand
-       // Verify HTTP endpoints respond
-       // Stop server
-   }
-
-   func TestMigrateSubcommand(t *testing.T) {
-       // Run migrate up
-       // Verify schema version
-       // Run migrate down
-   }
-
-   func TestPDFSubcommand(t *testing.T) {
-       // Create test config
-       // Run velocity-report pdf
-       // Verify PDF generated
-   }
-   ```
+   - `TestServeSubcommand`: start server via "serve" subcommand, verify HTTP endpoints, stop
+   - `TestMigrateSubcommand`: run migrate up, verify schema version, run migrate down
+   - `TestPDFSubcommand`: create test config, run `velocity-report pdf`, verify PDF generated
 
 2. **Backward Compatibility** (`compat_test.go`)
-   ```go
-   func TestBackwardCompatNoArgs(t *testing.T) {
-       // velocity-report (no args)
-       // Should start server (old behaviour)
-   }
-   ```
+   - `TestBackwardCompatNoArgs`: run `velocity-report` with no args, verify it starts server (old behaviour)
 
 ### 7.3 End-to-End tests
 
@@ -874,14 +644,13 @@ velocity-report pdf /path/to/config.json
 
 **Architecture:**
 
-```dockerfile
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    texlive-latex-base \
-    && rm -rf /var/lib/apt/lists/*
+ python3 \
+ python3-pip \
+ texlive-latex-base \
+ && rm -rf /var/lib/apt/lists/\*
 
 COPY velocity-report /usr/local/bin/
 COPY python/ /usr/local/share/velocity-report/python/
@@ -891,18 +660,9 @@ VOLUME /var/lib/velocity-report
 EXPOSE 8080
 
 CMD ["velocity-report", "serve", "--db-path", "/var/lib/velocity-report/sensor_data.db"]
-```
-
 **Usage:**
 
-```bash
-docker run -d \
-  --name velocity-report \
-  --device=/dev/ttyUSB0 \
-  -v /var/lib/velocity-report:/var/lib/velocity-report \
-  -p 8080:8080 \
-  velocity-report:latest
-```
+Run `docker run -d --name velocity-report --device=/dev/ttyUSB0 -v /var/lib/velocity-report:/var/lib/velocity-report -p 8080:8080 velocity-report:latest`
 
 ### 8.2 Raspberry Pi image
 
@@ -923,18 +683,12 @@ docker run -d \
 
 **APT/DEB Package:**
 
-```bash
-sudo apt-get install velocity-report
-```
-
+Run `sudo apt-get install velocity-report`
 **Homebrew (macOS):**
 
-```bash
-brew tap banshee-data/tap
-brew install velocity-report
-```
-
-**Implementation:**
+- `brew tap banshee-data/tap`
+- `brew install velocity-report`
+  **Implementation:**
 
 - Create `.deb` package in GitHub Actions
 - Host on GitHub Releases or packagecloud.io
@@ -953,20 +707,17 @@ brew install velocity-report
 
 **Architecture:**
 
-```
 velocity-report serve --enable-config-ui
+
 # Access at http://localhost:8080/config
-```
 
 ### 8.5 Plugin system
 
 **Allow third-party extensions:**
 
-```bash
-velocity-report plugin install lidar-advanced-analytics
-velocity-report plugin list
-velocity-report lidar-advanced-analytics analyse --input data.csv
-```
+- `velocity-report plugin install lidar-advanced-analytics`
+- `velocity-report plugin list`
+- `velocity-report lidar-advanced-analytics analyse --input data.csv`
 
 ---
 
@@ -974,77 +725,71 @@ velocity-report lidar-advanced-analytics analyse --input data.csv
 
 ### Current structure
 
-```
 velocity.report/
 ├── cmd/
-│   ├── radar/                      # Main server
-│   ├── sweep/                      # Sweep tool
-│   ├── transit-backfill/          # Backfill utility
-│   └── tools/
-│       └── backfill_ring_elevations/
+│ ├── radar/ # Main server
+│ ├── sweep/ # Sweep tool
+│ ├── transit-backfill/ # Backfill utility
+│ └── tools/
+│ └── backfill_ring_elevations/
 ├── tools/
-│   ├── pdf-generator/             # Python PDF generator
-│   └── grid-heatmap/              # Python heatmaps
+│ ├── pdf-generator/ # Python PDF generator
+│ └── grid-heatmap/ # Python heatmaps
 └── internal/
-    ├── api/
-    ├── db/
-    └── radar/
+├── api/
+├── db/
+└── radar/
 
 Binary outputs (after build):
-├── velocity-report-{version}-linux-arm64    # Main server
-└── app-sweep                       # Sweep tool
-```
+├── velocity-report-{version}-linux-arm64 # Main server
+└── app-sweep # Sweep tool
 
 ### Proposed structure
 
-```
 velocity.report/
 ├── cmd/
-│   ├── velocity-report/           # Main binary (was cmd/radar)
-│   │   ├── main.go               # Subcommand dispatcher
-│   │   ├── serve.go              # Server logic
-│   │   ├── pdf.go                # PDF wrapper
-│   │   ├── backfill.go           # Backfill (moved from separate cmd)
-│   │   └── version.go            # Version info
-│   ├── velocity-report-sweep/    # Sweep tool (renamed)
-│   └── velocity-report-backfill-rings/  # Utility (renamed)
+│ ├── velocity-report/ # Main binary (was cmd/radar)
+│ │ ├── main.go # Subcommand dispatcher
+│ │ ├── serve.go # Server logic
+│ │ ├── pdf.go # PDF wrapper
+│ │ ├── backfill.go # Backfill (moved from separate cmd)
+│ │ └── version.go # Version info
+│ ├── velocity-report-sweep/ # Sweep tool (renamed)
+│ └── velocity-report-backfill-rings/ # Utility (renamed)
 ├── tools/
-│   ├── pdf-generator/            # Python PDF generator
-│   └── grid-heatmap/             # Python heatmaps
+│ ├── pdf-generator/ # Python PDF generator
+│ └── grid-heatmap/ # Python heatmaps
 └── internal/
-    ├── api/
-    ├── db/
-    ├── radar/
-    └── version/                   # New: version management
+├── api/
+├── db/
+├── radar/
+└── version/ # New: version management
 
 Binary outputs (after build):
-├── velocity-report-{version}-linux-arm64                 # Main binary
-├── velocity-report-sweep-linux-arm64          # Sweep binary
+├── velocity-report-{version}-linux-arm64 # Main binary
+├── velocity-report-sweep-linux-arm64 # Sweep binary
 └── velocity-report-backfill-rings-linux-arm64 # Utility binary
-```
 
 ### Installed system layout
 
-```
 /usr/local/bin/
-├── velocity-report                    # Main binary
-├── velocity-report-sweep              # Sweep binary (optional)
-└── velocity-report-backfill-rings     # Utility binary (optional)
+├── velocity-report # Main binary
+├── velocity-report-sweep # Sweep binary (optional)
+└── velocity-report-backfill-rings # Utility binary (optional)
 
 /usr/local/share/velocity-report/
 ├── python/
-│   ├── .venv/                        # Python virtual environment
-│   ├── pdf_generator/                # Python package
-│   ├── grid_heatmap/                 # Python scripts
-│   └── requirements.txt              # Python dependencies
-└── docs/                             # Documentation
+│ ├── .venv/ # Python virtual environment
+│ ├── pdf_generator/ # Python package
+│ ├── grid_heatmap/ # Python scripts
+│ └── requirements.txt # Python dependencies
+└── docs/ # Documentation
 
 /var/lib/velocity-report/
-└── sensor_data.db                    # SQLite database
+└── sensor_data.db # SQLite database
 
 /etc/systemd/system/
-└── velocity-report.service           # Systemd service
-```
+└── velocity-report.service # Systemd service
 
 ---
 
@@ -1054,60 +799,40 @@ Binary outputs (after build):
 
 **Main server:**
 
-```bash
-velocity-report --db-path /path/to/db          # Start server
-velocity-report migrate up --db-path /path     # Database migration
-```
+- `velocity-report --db-path /path/to/db          # Start server`
+- `velocity-report migrate up --db-path /path     # Database migration`
+  **PDF generator:**
 
-**PDF generator:**
+- `cd tools/pdf-generator`
+- `PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json`
+- OR: `make pdf-report CONFIG=config.json`
+  **Sweep tool:**
 
-```bash
-cd tools/pdf-generator
-PYTHONPATH=. ../../.venv/bin/python -m pdf_generator.cli.main config.json
-# OR
-make pdf-report CONFIG=config.json
-```
-
-**Sweep tool:**
-
-```bash
-./app-sweep --mode multi --iterations 30
-```
-
+Run `./app-sweep --mode multi --iterations 30`
 **Utilities:**
 
-```bash
-go run cmd/transit-backfill/main.go --db sensor_data.db --start 2024-01-01 --end 2024-12-31
-go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db
-```
+- `go run cmd/transit-backfill/main.go --db sensor_data.db --start 2024-01-01 --end 2024-12-31`
+- `go run cmd/tools/backfill_ring_elevations/main.go --db sensor_data.db`
 
 ### Proposed commands (after migration)
 
 **Main binary:**
 
-```bash
-velocity-report                                 # Start server (default)
-velocity-report serve                           # Start server (explicit)
-velocity-report migrate up                      # Database migration
-velocity-report pdf config.json                 # Generate PDF report
-velocity-report backfill --start 2024-01-01 --end 2024-12-31  # Backfill transits
-velocity-report version                         # Show version
-velocity-report help                            # Show help
-```
+- `velocity-report                                 # Start server (default)`
+- `velocity-report serve                           # Start server (explicit)`
+- `velocity-report migrate up                      # Database migration`
+- `velocity-report pdf config.json                 # Generate PDF report`
+- `velocity-report backfill --start 2024-01-01 --end 2024-12-31  # Backfill transits`
+- `velocity-report version                         # Show version`
+- `velocity-report help                            # Show help`
+  **Additional binaries:**
 
-**Additional binaries:**
+- `velocity-report-sweep --mode multi --iterations 30           # Parameter sweep`
+- `velocity-report-backfill-rings --db sensor_data.db          # Ring elevations`
+  **Python tools (if installed separately):**
 
-```bash
-velocity-report-sweep --mode multi --iterations 30           # Parameter sweep
-velocity-report-backfill-rings --db sensor_data.db          # Ring elevations
-```
-
-**Python tools (if installed separately):**
-
-```bash
-pdf-generator config.json                       # Direct Python command
-grid-heatmap --input data.csv --output plot.png # Heatmap visualization
-```
+- `pdf-generator config.json                       # Direct Python command`
+- `grid-heatmap --input data.csv --output plot.png # Heatmap visualization`
 
 ---
 
@@ -1163,7 +888,7 @@ grid-heatmap --input data.csv --output plot.png # Heatmap visualization
 
 **⚠️ Minor Breaking Changes**
 
-- `cmd/radar/` moved to `cmd/velocity-report/`
+- [cmd/radar/](../../cmd/radar) moved to `cmd/velocity-report/`
 - Binary name includes version: `velocity-report-{version}-linux-arm64`
 - Import paths unchanged (only cmd/ structure changed)
 

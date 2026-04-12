@@ -72,7 +72,7 @@ The LiDAR rubric defines two runtime controls:
 - `VELOCITY_DEBUG_LOG` (env var): file path for debug output
 
 These controls should apply to the entire process, not just LiDAR packages. The
-configuration surface is set once at startup in `cmd/radar/radar.go` and propagated to all
+configuration surface is set once at startup in [cmd/radar/radar.go](../../cmd/radar/radar.go) and propagated to all
 packages.
 
 ## Backlog items
@@ -80,23 +80,23 @@ packages.
 ### Item 1: extend stream API to non-LiDAR packages
 
 **Summary:** Expose the `ops`/`diag`/`trace` stream functions to packages outside
-`internal/lidar/`. Migrate `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls to the
+[internal/lidar/](../../internal/lidar). Migrate `log.Printf`, `fmt.Printf`, and `monitoring.Logf` calls to the
 appropriate stream.
 
 **Scope:**
 
-1. **Move or re-export stream API** so that packages outside `internal/lidar/` can call
+1. **Move or re-export stream API** so that packages outside [internal/lidar/](../../internal/lidar) can call
    `Opsf`/`Diagf`/`Tracef` without importing a LiDAR-internal package. Options:
    - Promote the stream API to a shared package (e.g. `internal/logstreams/`)
-   - Re-export from `internal/monitoring/` which already exists as the cross-cutting
+   - Re-export from [internal/monitoring/](../../internal/monitoring) which already exists as the cross-cutting
      logging package
-2. **Migrate `internal/api/`**: replace `log.Printf` calls in HTTP handlers with `Opsf`
+2. **Migrate [internal/api/](../../internal/api)**: replace `log.Printf` calls in HTTP handlers with `Opsf`
    (errors) or `Diagf` (lifecycle/request diagnostics)
-3. **Migrate `internal/db/`**: replace `log.Printf` calls with `Opsf` (migration warnings,
+3. **Migrate [internal/db/](../../internal/db)**: replace `log.Printf` calls with `Opsf` (migration warnings,
    schema sync failures) or `Diagf` (transit worker progress, stats)
-4. **Migrate `internal/serialmux/`**: replace `log.Printf` calls with `Opsf` (parse
+4. **Migrate [internal/serialmux/](../../internal/serialmux)**: replace `log.Printf` calls with `Opsf` (parse
    errors, dropped data) or `Diagf` (device state changes, connection lifecycle)
-5. **Migrate `cmd/radar/`**: replace `log.Printf`/`fmt.Printf` calls in startup code with
+5. **Migrate [cmd/radar/](../../cmd/radar)**: replace `log.Printf`/`fmt.Printf` calls in startup code with
    `Opsf` (startup failures) or `Diagf` (configuration summary, version banner)
 6. **Retire `monitoring.Logf`**: once all call sites are migrated, remove the function
    pointer and `SetLogger` API
@@ -106,15 +106,15 @@ appropriate stream.
 
 The following is an indicative audit. Exact line numbers will shift as v0.5.x changes land.
 
-| Package       | Current pattern             | Count | Target stream  |
-| ------------- | --------------------------- | ----- | -------------- |
-| `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
-| `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
-| `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
-| `monitoring/` | `Logf` (function pointer)   | 1     | : (remove)     |
-| `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
-| `cmd/deploy/` | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
-| `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
+| Package                       | Current pattern             | Count | Target stream  |
+| ----------------------------- | --------------------------- | ----- | -------------- |
+| `api/`                        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
+| `db/`                         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
+| `serialmux/`                  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
+| `monitoring/`                 | `Logf` (function pointer)   | 1     | : (remove)     |
+| [cmd/radar/](../../cmd/radar) | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
+| `cmd/deploy/`                 | `log.Printf` + `fmt.Printf` | ~20   | ops/diag       |
+| `cmd/tools/*`                 | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
 **Estimated effort:** 3–5 days. Mechanical migration with clear routing rubric.
 
@@ -130,7 +130,7 @@ streams: LiDAR and non-LiDAR; from a single startup path.
 
 **Scope:**
 
-1. **Centralise writer setup** in `cmd/radar/radar.go`: parse `--log-level`, open
+1. **Centralise writer setup** in [cmd/radar/radar.go](../../cmd/radar/radar.go): parse `--log-level`, open
    `VELOCITY_DEBUG_LOG` if set, and call `SetLogWriters` for every package that has one
 2. **Propagate to non-LiDAR packages**: call the new shared `SetLogWriters` (or equivalent)
    for `api`, `db`, `serialmux`
@@ -159,7 +159,7 @@ for eliminating `time.Sleep` in tests across the codebase.
 
 **Scope:**
 
-1. Add `WaitFor(t, condition func() bool, timeout)` to `internal/testutil/`
+1. Add `WaitFor(t, condition func() bool, timeout)` to [internal/testutil/](../../internal/testutil)
 2. Migrate the 9 `time.Sleep` test files to use polling helpers or `MockClock.Advance()`
 3. Add `SetupTestDB(t) *db.DB` and `CleanupTestDB(t, *db.DB)` as canonical DB test helpers
 4. Standardise database test setup: deprecate raw `sql.Open` patterns

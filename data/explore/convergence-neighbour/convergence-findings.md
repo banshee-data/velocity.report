@@ -110,4 +110,4 @@ The counterintuitive result likely occurs because:
 
 - `noise-distance-convergence.csv` - Summary statistics by noise level
 - `noise-distance-convergence-raw.csv` - Time-series data (350 samples)
-- `convergence-findings.md` - This analysis document
+- [convergence-findings.md](convergence-findings.md) - This analysis document

@@ -4,7 +4,7 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 
 ## Source
 
-- Plan: `docs/plans/lidar-immutable-run-config-asset-plan.md`
+- Plan: [docs/plans/lidar-immutable-run-config-asset-plan.md](immutable-run-config.md)
 - Status: Complete; all phases delivered (P0/P1 + P2)
 - Migrations: 000035 (schema additions), 000036 (legacy column removal)
 
@@ -46,26 +46,29 @@ Single mutable execution envelope: `run_config_id` for exact executed config, op
 
 ## Schema
 
-```sql
-CREATE TABLE lidar_param_sets (
-    param_set_id TEXT PRIMARY KEY,
-    params_hash TEXT NOT NULL UNIQUE,
-    schema_version TEXT NOT NULL,
-    param_set_type TEXT NOT NULL,
-    params_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-);
+**`lidar_param_sets`**
 
-CREATE TABLE lidar_run_configs (
-    run_config_id TEXT PRIMARY KEY,
-    config_hash TEXT NOT NULL UNIQUE,
-    param_set_id TEXT NOT NULL REFERENCES lidar_param_sets(param_set_id),
-    build_version TEXT NOT NULL,
-    build_git_sha TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    UNIQUE (param_set_id, build_version, build_git_sha)
-);
-```
+| Column           | Type      | Constraint        | Notes                                 |
+| ---------------- | --------- | ----------------- | ------------------------------------- |
+| `param_set_id`   | `TEXT`    | `PRIMARY KEY`     | Unique identifier                     |
+| `params_hash`    | `TEXT`    | `NOT NULL UNIQUE` | SHA-256 of canonical JSON             |
+| `schema_version` | `TEXT`    | `NOT NULL`        | Schema version string                 |
+| `param_set_type` | `TEXT`    | `NOT NULL`        | `requested`, `effective`, or `legacy` |
+| `params_json`    | `TEXT`    | `NOT NULL`        | Canonical parameter JSON              |
+| `created_at`     | `INTEGER` | `NOT NULL`        | Row-bookkeeping timestamp             |
+
+**`lidar_run_configs`**
+
+| Column          | Type      | Constraint                          | Notes                              |
+| --------------- | --------- | ----------------------------------- | ---------------------------------- |
+| `run_config_id` | `TEXT`    | `PRIMARY KEY`                       | Unique identifier                  |
+| `config_hash`   | `TEXT`    | `NOT NULL UNIQUE`                   | SHA-256 of composed config         |
+| `param_set_id`  | `TEXT`    | `NOT NULL`, `FK → lidar_param_sets` | References the effective param set |
+| `build_version` | `TEXT`    | `NOT NULL`                          | Build version string               |
+| `build_git_sha` | `TEXT`    | `NOT NULL`                          | Build git SHA                      |
+| `created_at`    | `INTEGER` | `NOT NULL`                          | Row-bookkeeping timestamp          |
+
+Additional constraint: `UNIQUE (param_set_id, build_version, build_git_sha)`.
 
 `lidar_run_records` gains `run_config_id` (NOT NULL after P2), `requested_param_set_id` (optional), and `replay_case_id`.
 
@@ -78,51 +81,27 @@ CREATE TABLE lidar_run_configs (
 
 ## Canonical JSON shapes
 
-**Requested parameter set** (stored in `lidar_param_sets.params_json`):
+**Requested parameter set** (stored in `lidar_param_sets.params_json`): a
+JSON object with `schema_version: "requested/v1"`, `param_set_type: "requested"`,
+and a `params` object containing only the user-specified overrides. Example
+keys: `background.background_update_fraction` (0.02), `clustering.eps` (0.7),
+`clustering.min_pts` (5), `tracking.max_tracks` (128).
 
-```json
-{
-  "schema_version": "requested/v1",
-  "param_set_type": "requested",
-  "params": {
-    "background": { "background_update_fraction": 0.02 },
-    "clustering": { "eps": 0.7, "min_pts": 5 },
-    "tracking": { "max_tracks": 128 }
-  }
-}
-```
-
-**Effective parameter set** (complete: every layer, every key):
-
-```json
-{
-  "schema_version": "effective/v1",
-  "param_set_type": "effective",
-  "params": {
-    "background": { ... all keys ... },
-    "clustering": { ... all keys ... },
-    "tracking": { ... all keys ... },
-    "classification": { ... all keys ... }
-  }
-}
-```
+**Effective parameter set** (complete: every layer, every key): a JSON object
+with `schema_version: "effective/v1"`, `param_set_type: "effective"`, and a
+`params` object containing every key for all layers (`background`, `clustering`,
+`tracking`, `classification`).
 
 **Composed run config** (composed on read/export: never stored in `lidar_param_sets`):
-
-```json
-{
-  "schema_version": "run_config/v1",
-  "param_set_type": "effective",
-  "build": { "build_version": "0.5.0-pre6", "build_git_sha": "7b5242213" },
-  "params": { ... }
-}
-```
+a JSON object with `schema_version: "run_config/v1"`, `param_set_type: "effective"`,
+a `build` object containing `build_version` (e.g. `"0.5.0-pre6"`) and
+`build_git_sha` (e.g. `"7b5242213"`), and the full `params` object.
 
 The `build` block is the structural distinguisher: if present, it is a composed run config, not a standalone param set.
 
 ## Config asset package
 
-`internal/lidar/storage/configasset/`: captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
+[internal/lidar/storage/configasset/](../../../internal/lidar/storage/configasset): captures full effective runtime parameters, reusable requested params, current build identity. Builds canonical JSON deterministically, computes hashes, validates absence of forbidden fields, inserts or reuses deduplicated rows.
 
 ## Data ownership after migration
 
@@ -136,12 +115,12 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 ### P0/P1: introduce and adopt (migration 000035)
 
 - Schema additions: `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
-- Config asset package (`internal/lidar/storage/configasset/`)
+- Config asset package ([internal/lidar/storage/configasset/](../../../internal/lidar/storage/configasset))
 - Effective runtime surface definition (background, clustering, tracker, classification tunables)
 - Timestamp removal from deterministic config identity
 - Single-source run creation (no duplicate run rows in replay/reprocess)
 - Requested vs effective vs execution metadata separation
-- Backfill tool (`cmd/tools/backfill_lidar_run_config`)
+- Backfill tool ([cmd/tools/backfill_lidar_run_config](../../../cmd/tools/backfill_lidar_run_config))
 - API exposure of config identity on run and replay-case responses
 - UI diff of exact composed configs, grouping by `params_hash`
 - Recording provenance (`config_hash` and `params_hash` in VRLOG metadata)

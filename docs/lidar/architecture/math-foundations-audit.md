@@ -1,6 +1,6 @@
 # LiDAR math foundations audit
 
-- **Status:** Reference; resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and `data/maths/MATHS.md`.
+- **Status:** Reference; resolved items are marked inline; open gaps are tracked by [lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md), [lidar-architecture-foundations-fixit-plan.md](../../plans/lidar-architecture-foundations-fixit-plan.md), and [data/maths/MATHS.md](../../../data/maths/MATHS.md).
 
 Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**` implementation.
 
@@ -10,17 +10,17 @@ Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
 
 1. L3 foreground/background extraction math is implemented in the production path:
    - `internal/lidar/pipeline/tracking_pipeline.go:240` calls `ProcessFramePolarWithMask`.
-   - Core logic exists in `internal/lidar/l3grid/foreground.go`.
+   - Core logic exists in [internal/lidar/l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go).
 2. L4 clustering math is implemented:
-   - world transform and DBSCAN in `internal/lidar/l4perception/cluster.go`.
+   - world transform and DBSCAN in [internal/lidar/l4perception/cluster.go](../../../internal/lidar/l4perception/cluster.go).
 3. L5 tracking math is implemented:
-   - Kalman + gating + assignment in `internal/lidar/l5tracks/tracking.go`.
+   - Kalman + gating + assignment in [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go).
 
 ### Proposed (not implemented yet)
 
 1. Velocity-coherent foreground extraction:
    - explicitly marked planning-only in `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md:3`.
-   - no velocity-coherent extractor files currently exist under `internal/lidar/`.
+   - no velocity-coherent extractor files currently exist under [internal/lidar/](../../../internal/lidar).
 2. L4 ground plane tile fitting and vector scene map:
    - `docs/lidar/architecture/vector-scene-map.md:3` is `Status: Proposed`.
    - current runtime L4 ground removal is still height-band filtering (`internal/lidar/l4perception/ground.go:18`).
@@ -82,8 +82,8 @@ Pipeline keeps downstream behaviour identical (transform, ground filter, cluster
 
 Resolution:
 
-- `ProcessFramePolarWithMask` now applies per-region overrides for noise, neighbour confirmation, and settle alpha (`internal/lidar/l3grid/foreground.go`).
-- Added regression test: `internal/lidar/l3grid/foreground_test.go`.
+- `ProcessFramePolarWithMask` now applies per-region overrides for noise, neighbour confirmation, and settle alpha ([internal/lidar/l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go)).
+- Added regression test: [internal/lidar/l3grid/foreground_test.go](../../../internal/lidar/l3grid/foreground_test.go).
 
 Impact:
 
@@ -95,7 +95,7 @@ Evidence:
 
 - planning doc says not implemented (`docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md:3`).
 - architecture spec includes branch-complete tables that can be misread without full context (`docs/plans/lidar-architecture-dynamic-algorithm-selection-plan.md:25`).
-- no extractor files exist in `internal/lidar/` despite referenced names.
+- no extractor files exist in [internal/lidar/](../../../internal/lidar) despite referenced names.
 - pipeline config has no `ExtractorMode`/hybrid fields (`internal/lidar/pipeline/tracking_pipeline.go:109`).
 
 Impact:
@@ -107,8 +107,8 @@ Impact:
 Resolution:
 
 - Updated velocity plan links to canonical maths proposal:
-  - `docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md`
-  - `data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md`
+  - [docs/plans/lidar-velocity-coherent-foreground-extraction-plan.md](../../plans/lidar-velocity-coherent-foreground-extraction-plan.md)
+  - [data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md](../../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 
 Impact:
 

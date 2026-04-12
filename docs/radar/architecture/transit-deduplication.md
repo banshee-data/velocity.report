@@ -14,7 +14,7 @@ This can lead to double-counting of transits in statistics and reports.
 
 ## Current behaviour
 
-### Transit worker (`internal/db/transit_worker.go`)
+### Transit worker ([internal/db/transit_worker.go](../../../internal/db/transit_worker.go))
 
 **Data Model:**
 
@@ -25,13 +25,7 @@ This can lead to double-counting of transits in statistics and reports.
 
 **Current Upsert Logic:**
 
-```sql
-INSERT INTO radar_data_transits (...)
-VALUES (...)
-ON CONFLICT(transit_key) DO UPDATE SET
-  transit_end_unix = excluded.transit_end_unix,
-  ...
-```
+The upsert uses `INSERT ... ON CONFLICT(transit_key) DO UPDATE SET` to update `transit_end_unix` and other fields when a conflicting `transit_key` already exists.
 
 **Issues:**
 
@@ -53,11 +47,11 @@ ON CONFLICT(transit_key) DO UPDATE SET
 
 #### Phase 1: pre-processing step in `RunRange()`
 
-Before processing transits, delete existing transits with the same `model_version` that overlap the target time range. Uses a three-way overlap check (starts-in, ends-in, spans-entire) within a transaction. See `internal/db/transit_worker.go` `RunRange()`.
+Before processing transits, delete existing transits with the same `model_version` that overlap the target time range. Uses a three-way overlap check (starts-in, ends-in, spans-entire) within a transaction. See [internal/db/transit_worker.go](../../../internal/db/transit_worker.go) `RunRange()`.
 
 #### Phase 2: model version migration
 
-`MigrateModelVersion()` deletes all transits with the old model version, then re-runs the worker over the full history with the new version. See `internal/db/transit_worker.go`.
+`MigrateModelVersion()` deletes all transits with the old model version, then re-runs the worker over the full history with the new version. See [internal/db/transit_worker.go](../../../internal/db/transit_worker.go).
 
 #### Phase 3: CLI commands
 

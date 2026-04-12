@@ -1,7 +1,6 @@
 # Site configuration with time-based cosine error correction
 
 - **Status:** Implemented
-- **Remaining:** Delete endpoint, report angle annotation, speed limit field migration
 
 Specifies how radar sites store and apply cosine angle correction factors to compensate for sensors that are not perpendicular to the traffic flow, including time-based configuration periods so corrections can change when a sensor is repositioned.
 
@@ -72,20 +71,19 @@ Users need the ability to:
 
 ### Proposed schema
 
-```sql
-CREATE TABLE site_config_periods (
-    id INTEGER PRIMARY KEY,
-    site_id INTEGER NOT NULL,
-    effective_start_unix DOUBLE NOT NULL,
-    effective_end_unix DOUBLE,           -- NULL = currently active/open-ended
-    is_active INTEGER NOT NULL DEFAULT 0, -- 1 if active for new data
-    notes TEXT,
-    created_at DOUBLE,
-    updated_at DOUBLE,
-    cosine_error_angle DOUBLE NOT NULL DEFAULT 0, -- Store angle here for history
-    FOREIGN KEY (site_id) REFERENCES site (id) ON DELETE CASCADE
-);
-```
+The `site_config_periods` table uses a Type 6 SCD pattern:
+
+| Column                 | Type    | Constraint / Default                                 |
+| ---------------------- | ------- | ---------------------------------------------------- |
+| `id`                   | INTEGER | PRIMARY KEY                                          |
+| `site_id`              | INTEGER | NOT NULL, FOREIGN KEY → `site(id)` ON DELETE CASCADE |
+| `effective_start_unix` | DOUBLE  | NOT NULL                                             |
+| `effective_end_unix`   | DOUBLE  | NULL = currently active / open-ended                 |
+| `is_active`            | INTEGER | NOT NULL DEFAULT 0 (1 = active for new data)         |
+| `notes`                | TEXT    |                                                      |
+| `created_at`           | DOUBLE  |                                                      |
+| `updated_at`           | DOUBLE  |                                                      |
+| `cosine_error_angle`   | DOUBLE  | NOT NULL DEFAULT 0                                   |
 
 **Key Design Choices:**
 
@@ -117,7 +115,7 @@ Where:
 
 ### 2. Backend query refactoring (Go)
 
-Modify all speed-related queries in `internal/db/` to join with `site_config_periods`:
+Modify all speed-related queries in [internal/db/](../../../internal/db) to join with `site_config_periods`:
 
 - **Logic:** `LEFT JOIN site_config_periods ON ... AND timestamp >= start AND (timestamp < end OR end IS NULL)`
 - **Correction:** Return `speed / COS(angle)` as the authoritative speed column.

@@ -1,6 +1,6 @@
 # Track quality scoring
 
-- **Source plan:** `docs/plans/lidar-visualiser-track-quality-score-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-track-quality-score-plan.md](../../plans/lidar-visualiser-track-quality-score-plan.md)
 
 Per-track quality score (0–100) with reason codes and grade classification.
 

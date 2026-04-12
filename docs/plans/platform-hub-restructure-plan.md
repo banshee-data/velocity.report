@@ -9,29 +9,29 @@
 
 Establish four hub directories under `docs/` as the long-term canonical homes for
 all substantial project documentation. Collapse the previously proposed `docs/server/`
-and `docs/engineering/` concepts into a single `docs/platform/` hub covering both
+and `docs/engineering/` concepts into a single [docs/platform/](../platform) hub covering both
 shared codebase structure and development methodology.
 
 ## Hub structure
 
 Five hubs total. Three existing, one new, one renamed.
 
-| Hub              | Scope      | Sorting test                                                                                                                               |
-| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `docs/lidar/`    | EXISTS     | LiDAR pipeline layer, algorithm, sensor-specific workflow, or LiDAR-specific storage                                                       |
-| `docs/radar/`    | EXISTS     | Radar sensing, speed measurement, site configuration                                                                                       |
-| `docs/ui/`       | EXISTS     | What a user sees or interacts with: web, macOS app chrome, homepage, design language                                                       |
-| `docs/platform/` | **EXPAND** | Shared codebase structure (Go packages, DB schema, deployment, release) AND development methodology (docs rules, metrics, tooling, agents) |
+| Hub                           | Scope      | Sorting test                                                                                                                               |
+| ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [docs/lidar/](../lidar)       | EXISTS     | LiDAR pipeline layer, algorithm, sensor-specific workflow, or LiDAR-specific storage                                                       |
+| [docs/radar/](../radar)       | EXISTS     | Radar sensing, speed measurement, site configuration                                                                                       |
+| [docs/ui/](../ui)             | EXISTS     | What a user sees or interacts with: web, macOS app chrome, homepage, design language                                                       |
+| [docs/platform/](../platform) | **EXPAND** | Shared codebase structure (Go packages, DB schema, deployment, release) AND development methodology (docs rules, metrics, tooling, agents) |
 
 ### Mutual exclusivity test
 
 Ask in order. First match wins.
 
 1. Does the lasting knowledge describe a LiDAR pipeline layer, algorithm, sensor-specific
-   workflow, or LiDAR-specific storage? → `docs/lidar/`
-2. Does it describe radar sensing, speed measurement, or site configuration? → `docs/radar/`
-3. Does it describe what a user sees or interacts with? → `docs/ui/`
-4. Everything else → `docs/platform/`
+   workflow, or LiDAR-specific storage? → [docs/lidar/](../lidar)
+2. Does it describe radar sensing, speed measurement, or site configuration? → [docs/radar/](../radar)
+3. Does it describe what a user sees or interacts with? → [docs/ui/](../ui)
+4. Everything else → [docs/platform/](../platform)
 
 ## Canonical file tree
 
@@ -39,9 +39,9 @@ Ask in order. First match wins.
 
 Plans that feed multiple canonical docs are marked with `†`.
 
-### `docs/lidar/`: 38 plans
+### [docs/lidar/](../lidar): 38 plans
 
-#### `docs/lidar/architecture/`
+#### [docs/lidar/architecture/](../lidar/architecture)
 
 | Canonical file                                           | Status | Fed by plan(s)                                        | Notes                                 |
 | -------------------------------------------------------- | ------ | ----------------------------------------------------- | ------------------------------------- |
@@ -69,7 +69,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 | `track-storage-consolidation.md`                         | DONE   | `lidar-tracks-table-consolidation-plan`               | Live/analysis merge                   |
 | `label-vocabulary.md`                                    | DONE   | `label-vocabulary-consolidation-plan`                 | Unified L6 classification             |
 
-#### `docs/lidar/operations/`
+#### [docs/lidar/operations/](../lidar/operations)
 
 | Canonical file                             | Status | Fed by plan(s)                                      | Notes                            |
 | ------------------------------------------ | ------ | --------------------------------------------------- | -------------------------------- |
@@ -109,7 +109,7 @@ subdirectory to keep `operations/` navigable.
 | `proto-contract.md`                   | DONE   | `lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan`        |
 | `performance-and-timeline-metrics.md` | DONE   | `lidar-visualiser-performance-and-scene-health-timeline-metrics-plan` |
 
-### `docs/radar/`: 2 plans
+### [docs/radar/](../radar): 2 plans
 
 | Canonical file                                       | Status | Fed by plan(s)                                  | Notes                            |
 | ---------------------------------------------------- | ------ | ----------------------------------------------- | -------------------------------- |
@@ -121,7 +121,7 @@ subdirectory to keep `operations/` navigable.
 | `architecture/transit-deduplication.md`              | EXISTS | -                                               | Already canonical                |
 | `architecture/percentile-aggregation-semantics.md`   | DONE   | `speed-percentile-aggregation-alignment-plan` † | Percentile = aggregate not track |
 
-### `docs/ui/`: 6 plans
+### [docs/ui/](../ui): 6 plans
 
 | Canonical file                          | Status | Fed by plan(s)                                | Notes                                |
 | --------------------------------------- | ------ | --------------------------------------------- | ------------------------------------ |
@@ -134,9 +134,9 @@ subdirectory to keep `operations/` navigable.
 | `homepage.md`                           | DONE   | `homepage-responsive-gif-strategies`          | Static site responsive media         |
 | `macos-menu-layout-design.md`           | DONE   | `wireshark-menu-alignment`                    | macOS menu layout design             |
 
-### `docs/platform/`: 22 plans (was engineering + platform)
+### [docs/platform/](../platform): 22 plans (was engineering + platform)
 
-#### `docs/platform/architecture/`
+#### [docs/platform/architecture/](../platform/architecture)
 
 | Canonical file                  | Status | Fed by plan(s)                                                            | Notes                                   |
 | ------------------------------- | ------ | ------------------------------------------------------------------------- | --------------------------------------- |
@@ -149,7 +149,7 @@ subdirectory to keep `operations/` navigable.
 | `metrics-registry.md`           | DONE   | `metrics-registry-and-observability-plan` †                               | Naming rules + lifecycle                |
 | `canonical-plan-graduation.md`  | DONE   | `platform-canonical-project-files-plan`                                   | This graduation model (self-graduating) |
 
-#### `docs/platform/operations/`
+#### [docs/platform/operations/](../platform/operations)
 
 | Canonical file                  | Status | Fed by plan(s)                                                                   | Notes                             |
 | ------------------------------- | ------ | -------------------------------------------------------------------------------- | --------------------------------- |
@@ -178,20 +178,20 @@ subdirectory to keep `operations/` navigable.
 
 All completed on branch `dd/docs/merge-canonical`:
 
-1. [x] Rename `docs/server/` → moved contents to `docs/platform/`
-2. [x] Update `docs/platform/README.md`: expanded scope
+1. [x] Rename `docs/server/` → moved contents to [docs/platform/](../platform)
+2. [x] Update [docs/platform/README.md](../platform/PLATFORM.md): expanded scope
 3. [x] Update `Canonical:` links in 3 data-\* plans from `../server/` → `../platform/` <!-- link-ignore -->
 4. [x] Update `ALLOWED_HUB_PREFIXES`: removed `docs/server/`
 5. [x] Verified `make report-plan-hygiene`: 0 gate violations, 6 advisory notes
 
 ## Counts
 
-| Hub              | Existing docs | New canonical docs | Plans absorbed | % of plans |
-| ---------------- | ------------- | ------------------ | -------------- | ---------- |
-| `docs/lidar/`    | ~42           | ~18                | 38             | 56%        |
-| `docs/radar/`    | 8             | 1                  | 2              | 3%         |
-| `docs/ui/`       | 9             | 3                  | 6              | 9%         |
-| `docs/platform/` | 1             | 19                 | 22             | 32%        |
+| Hub                           | Existing docs | New canonical docs | Plans absorbed | % of plans |
+| ----------------------------- | ------------- | ------------------ | -------------- | ---------- |
+| [docs/lidar/](../lidar)       | ~42           | ~18                | 38             | 56%        |
+| [docs/radar/](../radar)       | 8             | 1                  | 2              | 3%         |
+| [docs/ui/](../ui)             | 9             | 3                  | 6              | 9%         |
+| [docs/platform/](../platform) | 1             | 19                 | 22             | 32%        |
 
 ## Implementation sequence
 

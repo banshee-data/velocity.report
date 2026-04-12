@@ -1,6 +1,6 @@
 # Track event timeline
 
-- **Source plan:** `docs/plans/lidar-visualiser-track-event-timeline-bar-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-track-event-timeline-bar-plan.md](../../plans/lidar-visualiser-track-event-timeline-bar-plan.md)
 
 Event lane rendered below the replay slider, showing lifecycle and diagnostic events per track.
 

@@ -100,16 +100,16 @@ automatically. One mechanical reformat PR with
 
 One PR. Only config files change; no source reformatting yet.
 
-| File                                   | Change                                         |
-| -------------------------------------- | ---------------------------------------------- |
-| `scripts/check-prose-line-width.py`    | `DEFAULT_WIDTH = 90` → `100`                   |
-| Makefile `check-prose-width` comment   | Update "90" → "100"                            |
-| `pyproject.toml` (new, root)           | `[tool.black] line-length = 100`               |
-|                                        | `[tool.ruff] line-length = 100`                |
-| `.golangci.yml` (new, root)            | Enable `lll` linter, `line-length: 100`        |
-| `web/.prettierrc`                      | Already 100: no change                         |
-| `tools/visualiser-macos/.swift-format` | Already 100: no change                         |
-| `.sql-formatter.json`                  | Leave at 70 (expression width, not line width) |
+| File                                                                               | Change                                         |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [scripts/check-prose-line-width.py](../../scripts/check-prose-line-width.py)       | `DEFAULT_WIDTH = 90` → `100`                   |
+| Makefile `check-prose-width` comment                                               | Update "90" → "100"                            |
+| `pyproject.toml` (new, root)                                                       | `[tool.black] line-length = 100`               |
+|                                                                                    | `[tool.ruff] line-length = 100`                |
+| `.golangci.yml` (new, root)                                                        | Enable `lll` linter, `line-length: 100`        |
+| [web/.prettierrc](../../web/.prettierrc)                                           | Already 100: no change                         |
+| [tools/visualiser-macos/.swift-format](../../tools/visualiser-macos/.swift-format) | Already 100: no change                         |
+| [.sql-formatter.json](../../.sql-formatter.json)                                   | Leave at 70 (expression width, not line width) |
 
 ### Phase 2: reformat
 
@@ -120,9 +120,9 @@ line.
 Create `.git-blame-ignore-revs` at the repo root containing
 the reformat commit SHA. GitHub honours this file
 automatically. Document the one-time local setup in
-`CONTRIBUTING.md`:
+[CONTRIBUTING.md](../../CONTRIBUTING.md):
 
-```
+```bash
 git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
@@ -133,47 +133,25 @@ night). It checks all code and documentation against the 100-
 column standard, and if violations exist, opens or updates a
 standing PR with the fixes applied.
 
-```yaml
-# .github/workflows/line-width-nag.yml
-name: Line-width nag
+**Workflow:** `.github/workflows/line-width-nag.yml` <!-- link-ignore -->
 
-on:
-  schedule:
-    - cron: "0 3 * * 0" # Sunday 03:00 UTC
-  workflow_dispatch: {}
+| Setting  | Value                          |
+| -------- | ------------------------------ |
+| Name     | Line-width nag                 |
+| Schedule | `0 3 * * 0` (Sunday 03:00 UTC) |
+| Trigger  | schedule + workflow_dispatch   |
+| Runner   | `ubuntu-latest`                |
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+**Steps:**
 
-      - name: Check prose width
-        run: |
-          python3 scripts/check-prose-line-width.py \
-            --width 100 --report > /tmp/prose-report.txt
-          cat /tmp/prose-report.txt
-
-      - name: Check Go width
-        run: |
-          # Once golangci-lint is wired in:
-          # golangci-lint run --out-format line-number \
-          #   2>&1 | tee /tmp/go-report.txt || true
-          echo "Go lll check placeholder" > /tmp/go-report.txt
-
-      - name: Auto-format and open nag PR
-        uses: peter-evans/create-pull-request@v7
-        with:
-          title: "style: weekly line-width cleanup"
-          body: |
-            Automated weekly PR to fix line-width violations.
-            See `docs/plans/line-width-standardisation-plan.md`
-            for the 100-column standard.
-          branch: chore/line-width-nag
-          commit-message: "[ai][style] auto-fix line-width violations"
-          labels: housekeeping, style
-          delete-branch: true
-```
+1. Checkout via `actions/checkout@v4`.
+2. Run `python3 scripts/check-prose-line-width.py --width 100 --report` and capture output.
+3. Run Go `lll` check via golangci-lint (placeholder until wired in).
+4. Auto-format and open nag PR via `peter-evans/create-pull-request@v7`:
+   - Branch: `chore/line-width-nag`
+   - Commit message: `[ai][style] auto-fix line-width violations`
+   - Labels: `housekeeping`, `style`
+   - Delete branch after merge.
 
 The workflow uses `--report` mode so it never blocks other
 work. It simply keeps the current state visible via a
@@ -189,35 +167,27 @@ When the team is ready to enforce, flip `continue-on-error`
 to `false`. The Makefile target `check-prose-width` also
 drops its `--report` flag at that point.
 
-```yaml
-# In .github/workflows/ci.yml (addition)
-check-line-width:
-  runs-on: ubuntu-latest
-  continue-on-error: true # advisory until enforced
-  steps:
-    - uses: actions/checkout@v4
-    - name: Prose width
-      run: python3 scripts/check-prose-line-width.py --width 100
-    # Future: golangci-lint lll check here too
-```
+Add a `check-line-width` CI job:
+
+| Setting             | Value                                                   |
+| ------------------- | ------------------------------------------------------- |
+| Runner              | `ubuntu-latest`                                         |
+| `continue-on-error` | `true` (advisory until enforced)                        |
+| Step                | `python3 scripts/check-prose-line-width.py --width 100` |
 
 ### Phase 5: opt-in pre-commit hook
 
-The existing `.pre-commit-config.yaml` already delegates to
+The existing [.pre-commit-config.yaml](../../.pre-commit-config.yaml) already delegates to
 `make format-*` targets. Add a new local hook for width
 checking that contributors can opt into:
 
-```yaml
-# Addition to .pre-commit-config.yaml
-- repo: local
-  hooks:
-    - id: check-prose-width
-      name: Check prose line width (100 cols)
-      entry: python3 scripts/check-prose-line-width.py
-      language: system
-      types: [markdown]
-      pass_filenames: true
-```
+| Setting          | Value                                       |
+| ---------------- | ------------------------------------------- |
+| Hook ID          | `check-prose-width`                         |
+| Entry            | `python3 scripts/check-prose-line-width.py` |
+| Language         | `system`                                    |
+| Types            | `[markdown]`                                |
+| `pass_filenames` | `true`                                      |
 
 This hook runs only on staged Markdown files. Contributors
 enable it by running `pre-commit install`. It is not

@@ -102,12 +102,12 @@ Intersections with other parent-plan projects:
 
 ### 1. Go server: track speed contract reset
 
-| Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                   |
-| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed   | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
-| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved  | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
-| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                             |
+| Item                                     | Location                                                                                                                                    | Status       | Detail                                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Stable public track field                | `internal/lidar/monitor/track_api.go`, [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto) | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                   |
+| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto) | ✅ Renamed   | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
+| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                                                                            | ✅ Resolved  | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
+| Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                                                                          | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                             |
 
 **Decision:** Keep `avg_speed_mps` and the raw maximum as the only stable public
 track speed fields for now. Reserve aggregate percentile labels for grouped/report aggregates
@@ -129,11 +129,11 @@ non-percentile names and formulas.
 
 ### 2. Go server: sweep legacy request format
 
-| Item                             | Location                               | Status  | Detail                                                                          |
-| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------- |
-| Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone |
-| Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed            |
-| Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                |
+| Item                             | Location                                                                           | Status  | Detail                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| Legacy multi-mode request fields | [internal/lidar/sweep/runner.go](../../internal/lidar/sweep/runner.go)             | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone |
+| Legacy result fields             | [internal/lidar/sweep/runner.go](../../internal/lidar/sweep/runner.go)             | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed            |
+| Legacy combination helper        | [internal/lidar/sweep/sweep_params.go](../../internal/lidar/sweep/sweep_params.go) | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                |
 
 **Action:** No further action needed; sweep request/result compat cleanup is
 complete. Dashboard fallback cleanup in §14 is also done.
@@ -142,11 +142,11 @@ complete. Dashboard fallback cleanup in §14 is also done.
 
 ### 3. Go server + web: legacy download endpoint format
 
-| Item                                    | Location                                                         | Status  | Detail                                                                                                 |
-| --------------------------------------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| Path-based route enforcement            | `internal/api/server.go`                                         | Removed | `/api/reports/{id}/download/{filename}` is now the only accepted route; missing filenames are rejected |
-| Legacy query-param callers              | `web/src/lib/api.ts`                                             | Removed | Web helper uses filename-based path; no `file_type` query parameter remains                            |
-| Legacy `file_type` wording and coverage | `internal/api/server.go`, `internal/api/server_coverage_test.go` | Removed | No `file_type` parameter references remain in server or test code                                      |
+| Item                                    | Location                                                                                                                                   | Status  | Detail                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------ |
+| Path-based route enforcement            | [internal/api/server.go](../../internal/api/server.go)                                                                                     | Removed | `/api/reports/{id}/download/{filename}` is now the only accepted route; missing filenames are rejected |
+| Legacy query-param callers              | [web/src/lib/api.ts](../../web/src/lib/api.ts)                                                                                             | Removed | Web helper uses filename-based path; no `file_type` query parameter remains                            |
+| Legacy `file_type` wording and coverage | [internal/api/server.go](../../internal/api/server.go), [internal/api/server_coverage_test.go](../../internal/api/server_coverage_test.go) | Removed | No `file_type` parameter references remain in server or test code                                      |
 
 **Action:** No further action needed; the download endpoint migration is complete.
 
@@ -178,9 +178,9 @@ warning.
 
 ### 6. Go server: deprecated packet header struct
 
-| Item                  | Location                                    | Status  | Detail                                                |
-| --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------- |
-| `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Removed | The deprecated reference-only struct has been deleted |
+| Item                  | Location                                                                                     | Status  | Detail                                                |
+| --------------------- | -------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------- |
+| `PacketHeader` struct | [internal/lidar/l1packets/parse/extract.go](../../internal/lidar/l1packets/parse/extract.go) | Removed | The deprecated reference-only struct has been deleted |
 
 **Action:** No further action needed.
 
@@ -188,9 +188,9 @@ warning.
 
 ### 7. Go server: removed method comment
 
-| Item                     | Location                                   | Status  | Detail                                                   |
-| ------------------------ | ------------------------------------------ | ------- | -------------------------------------------------------- |
-| `AddPoints` removal note | `internal/lidar/l2frames/frame_builder.go` | Removed | The stale compat comment has been deleted on this branch |
+| Item                     | Location                                                                                   | Status  | Detail                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------- |
+| `AddPoints` removal note | [internal/lidar/l2frames/frame_builder.go](../../internal/lidar/l2frames/frame_builder.go) | Removed | The stale compat comment has been deleted on this branch |
 
 **Action:** None.
 
@@ -198,9 +198,9 @@ warning.
 
 ### 8. Go server: type aliases in `lidar/aliases.go`
 
-| Item                | Location                    | Status   | Detail                                                                                                                   |
-| ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Cross-layer aliases | `internal/lidar/aliases.go` | Retained | Still actively used by integration tests and adapter-style callers; this is a documented package-boundary choice for now |
+| Item                | Location                                                     | Status   | Detail                                                                                                                   |
+| ------------------- | ------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Cross-layer aliases | [internal/lidar/aliases.go](../../internal/lidar/aliases.go) | Retained | Still actively used by integration tests and adapter-style callers; this is a documented package-boundary choice for now |
 
 **Action:** Evaluate whether these are still needed. If integration tests can
 import from the correct sub-package directly, remove the aliases. If the aliases
@@ -211,11 +211,11 @@ document the intent.
 
 ### 9. Python: legacy API response format handling
 
-| Item                        | Location                                                     | Status  | Detail                                                                   |
-| --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
-| Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`       | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
-| Legacy list-format handling | `tools/pdf-generator/pdf_generator/cli/main.py`              | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
-| Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Removed | `test_get_stats_legacy_format()` no longer exists                        |
+| Item                        | Location                                                                                                                       | Status  | Detail                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
+| Dual-format parsing         | [tools/pdf-generator/pdf_generator/core/api_client.py](../../tools/pdf-generator/pdf_generator/core/api_client.py)             | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
+| Legacy list-format handling | [tools/pdf-generator/pdf_generator/cli/main.py](../../tools/pdf-generator/pdf_generator/cli/main.py)                           | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
+| Legacy-format test coverage | [tools/pdf-generator/pdf_generator/tests/test_api_client.py](../../tools/pdf-generator/pdf_generator/tests/test_api_client.py) | Removed | `test_get_stats_legacy_format()` no longer exists                        |
 
 **Action:** No further action needed.
 
@@ -223,10 +223,10 @@ document the intent.
 
 ### 10. Python: config dict-conversion backward compatibility
 
-| Item                    | Location                                                   | Status  | Detail                                                                                     |
-| ----------------------- | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
-| `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
-| Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
+| Item                    | Location                                                                                                                   | Status  | Detail                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `geometry` property     | [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
+| Dict conversion helpers | [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
 
 **Action:** No further action needed.
 
@@ -234,9 +234,9 @@ document the intent.
 
 ### 11. Python: PyLaTeX fallback stubs
 
-| Item         | Location                                                     | Status  | Detail                                                                |
-| ------------ | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
-| Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
+| Item         | Location                                                                                                                       | Status  | Detail                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
+| Stub classes | [tools/pdf-generator/pdf_generator/core/document_builder.py](../../tools/pdf-generator/pdf_generator/core/document_builder.py) | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
 generator is non-functional without pylatex: the stubs just defer the error.
@@ -245,9 +245,9 @@ generator is non-functional without pylatex: the stubs just defer the error.
 
 ### 12. Svelte/Web: legacy `BackgroundCell` fields
 
-| Item                   | Location                     | Status  | Detail                                                               |
-| ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------- |
-| Legacy optional fields | `web/src/lib/types/lidar.ts` | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist |
+| Item                   | Location                                                       | Status  | Detail                                                               |
+| ---------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------- |
+| Legacy optional fields | [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist |
 
 **Action:** No further action needed.
 
@@ -255,10 +255,10 @@ generator is non-functional without pylatex: the stubs just defer the error.
 
 ### 13. Svelte/Web: API response envelope migration
 
-| Item                             | Location                      | Status  | Detail                                                                        |
-| -------------------------------- | ----------------------------- | ------- | ----------------------------------------------------------------------------- |
-| Fetch helper root-object parsing | `web/src/lib/api.ts`          | Removed | Runtime fetch code now expects the `{ metrics, histogram }` response envelope |
-| Dual-format cache handling       | `web/src/routes/+page.svelte` | Removed | No `Array.isArray(cached)` dual-format branch; cache uses envelope only       |
+| Item                             | Location                                                         | Status  | Detail                                                                        |
+| -------------------------------- | ---------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------- |
+| Fetch helper root-object parsing | [web/src/lib/api.ts](../../web/src/lib/api.ts)                   | Removed | Runtime fetch code now expects the `{ metrics, histogram }` response envelope |
+| Dual-format cache handling       | [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) | Removed | No `Array.isArray(cached)` dual-format branch; cache uses envelope only       |
 
 **Action:** No further action needed.
 
@@ -266,11 +266,11 @@ generator is non-functional without pylatex: the stubs just defer the error.
 
 ### 14. Web / sweep dashboard: sweep results legacy field names
 
-| Item                           | Location                                           | Status  | Detail                                                                                                           |
-| ------------------------------ | -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js` | Removed | `downloadCSV()` and `renderTable()` param lookups use `param_values` only; `extractValue()` retained for metrics |
-| Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                            |
-| Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                         |
+| Item                           | Location                                                                                             | Status  | Detail                                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js`                                                   | Removed | `downloadCSV()` and `renderTable()` param lookups use `param_values` only; `extractValue()` retained for metrics |
+| Legacy Svelte tests            | [web/src/lib/**tests**/sweep_dashboard.test.ts](../../web/src/lib/__tests__/sweep_dashboard.test.ts) | Removed | Test data updated to use `param_values` format or metric-only objects                                            |
+| Legacy CSV export expectations | [web/src/lib/**tests**/sweep_dashboard.test.ts](../../web/src/lib/__tests__/sweep_dashboard.test.ts) | Removed | CSV tests use `param_values` format only                                                                         |
 
 **Action:** Legacy `downloadCSV()` and `renderTable()` fallbacks are removed. The
 `LEGACY_PARAM_ALIASES` map (`neighbor_confirmation_count` → dot-path,
@@ -284,12 +284,12 @@ removal in the [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md)
 
 ### 15. macOS visualiser: branch-local track speed-label surfaces
 
-| Item                                        | Location                                                                  | Status      | Detail                                                             |
-| ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
-| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved | Branch-local aggregate-percentile-labelled fields were not merged  |
-| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved | No superseded speed-label field mappings in the shipped proto      |
-| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated  | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352) |
-| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed  | `peak` → `max` terminology updated on unshipped surfaces (#352)    |
+| Item                                        | Location                                                                                                                                             | Status      | Detail                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| Swift track model legacy speed-label fields | [tools/visualiser-macos/VelocityVisualiser/Models/Models.swift](../../tools/visualiser-macos/VelocityVisualiser/Models/Models.swift)                 | ✅ Resolved | Branch-local aggregate-percentile-labelled fields were not merged  |
+| Client mapping for legacy speed labels      | [tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift](../../tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift) | ✅ Resolved | No superseded speed-label field mappings in the shipped proto      |
+| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift`                                                                            | ✅ Updated  | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352) |
+| Raw-max terminology in helpers and UI       | [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)               | ✅ Renamed  | `peak` → `max` terminology updated on unshipped surfaces (#352)    |
 
 **Action:** ✅ Complete. Branch-local speed-label surfaces were not merged.
 The `peak` → `max` rename landed in #352 across proto, Go, Swift, and TS.
@@ -299,9 +299,9 @@ SQL column rename is deferred to migration 000030.
 
 ### 16. macOS visualiser: legacy point buffer
 
-| Item                         | Location                                                                  | Status       | Detail                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pointBuffer` rendering path | `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift` | Reclassified | `CompositePointCloudRenderer` is the active rendering path; `pointBuffer` is a rendering fallback (not a data-model compat shim). Reclassified as renderer-retirement work |
+| Item                         | Location                                                                                                                                                 | Status       | Detail                                                                                                                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pointBuffer` rendering path | [tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift](../../tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift) | Reclassified | `CompositePointCloudRenderer` is the active rendering path; `pointBuffer` is a rendering fallback (not a data-model compat shim). Reclassified as renderer-retirement work |
 
 **Action:** No action in this plan. `pointBuffer` is not a backward-compatibility
 shim: it is a legacy rendering path that serves as a fallback when
@@ -312,9 +312,9 @@ shim removal.
 
 ### 17. macOS visualiser: legacy playback defaults
 
-| Item                      | Location                                                       | Status  | Detail                                                                                                         |
-| ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| Legacy field preservation | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` | Removed | `.unknown` resets `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode` without boolean fallback |
+| Item                      | Location                                                                                                                           | Status  | Detail                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| Legacy field preservation | [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift) | Removed | `.unknown` resets `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode` without boolean fallback |
 
 **Action:** The legacy branch and flag preservation are removed.
 `setPlaybackMode` is now `internal` (was `fileprivate`) so `RunBrowserView`
@@ -325,14 +325,14 @@ uses it directly instead of mutating `isLive`. Tests updated for the new
 
 ### 18. Go/macOS: VRLOG legacy speed-key fallback
 
-| Item                             | Location                                                         | Status  | Detail                                                                                                                                                |
-| -------------------------------- | ---------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Track.UnmarshalJSON` fallback   | `internal/lidar/visualiser/model.go`                             | Pending | Remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps` for pre-#352 `.vrlog` files                                                                    |
-| Legacy unmarshal tests           | `internal/lidar/visualiser/model_test.go`                        | Pending | `TestTrack_UnmarshalJSON_LegacyPeakSpeedMps`, `TestTrack_UnmarshalJSON_LegacySnakeCasePeakSpeedMps`, `TestTrack_UnmarshalJSON_NoSpeedFieldLeavesZero` |
-| Legacy recorder deserialise test | `internal/lidar/visualiser/recorder/recorder_test.go`            | Pending | `TestDeserializeFrameLegacySpeedField`                                                                                                                |
-| Legacy analysis fallback test    | `internal/lidar/analysis/compat_test.go`                         | Pending | `TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing`                                                                                               |
-| Deprecation log message          | `cmd/radar/radar.go`                                             | Pending | `legacy JSON decode path; replay may be slower`                                                                                                       |
-| macOS UI deprecation tooltip     | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | Pending | `Legacy JSON VRLOG detected: replay will be slower`                                                                                                   |
+| Item                             | Location                                                                                                                               | Status  | Detail                                                                                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Track.UnmarshalJSON` fallback   | `internal/lidar/visualiser/model.go`                                                                                                   | Pending | Remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps` for pre-#352 `.vrlog` files                                                                    |
+| Legacy unmarshal tests           | `internal/lidar/visualiser/model_test.go`                                                                                              | Pending | `TestTrack_UnmarshalJSON_LegacyPeakSpeedMps`, `TestTrack_UnmarshalJSON_LegacySnakeCasePeakSpeedMps`, `TestTrack_UnmarshalJSON_NoSpeedFieldLeavesZero` |
+| Legacy recorder deserialise test | `internal/lidar/visualiser/recorder/recorder_test.go`                                                                                  | Pending | `TestDeserializeFrameLegacySpeedField`                                                                                                                |
+| Legacy analysis fallback test    | [internal/lidar/analysis/compat_test.go](../../internal/lidar/analysis/compat_test.go)                                                 | Pending | `TestGenerateReportFallsBackToFrameSpeedWhenMaxMissing`                                                                                               |
+| Deprecation log message          | [cmd/radar/radar.go](../../cmd/radar/radar.go)                                                                                         | Pending | `legacy JSON decode path; replay may be slower`                                                                                                       |
+| macOS UI deprecation tooltip     | [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift) | Pending | `Legacy JSON VRLOG detected: replay will be slower`                                                                                                   |
 
 **Action:** Remove the `UnmarshalJSON` fallback, associated tests, and UI
 deprecation strings. Deferred to v0.5.2 to allow the migration window for

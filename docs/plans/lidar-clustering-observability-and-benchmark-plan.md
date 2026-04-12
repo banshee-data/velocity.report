@@ -33,7 +33,7 @@ Two classes of problem lack tooling:
 
 ### A.1 per-frame pipeline stage timing
 
-Instrument `NewFrameCallback()` in `internal/lidar/pipeline/tracking_pipeline.go` with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
+Instrument `NewFrameCallback()` in [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go) with `time.Now()` checkpoints at each stage boundary. Collect as a `FrameStageTiming` struct:
 
 | Field                | Type     | Description                         |
 | -------------------- | -------- | ----------------------------------- |
@@ -116,7 +116,7 @@ All fields already exist on `TrackedObject`. This is a formatting change, not ne
 
 ### A.4 cluster quality metrics (new fields on worldCluster)
 
-Add to `WorldCluster` in `internal/lidar/l4perception/types.go`:
+Add to `WorldCluster` in [internal/lidar/l4perception/types.go](../../internal/lidar/l4perception/types.go):
 
 | Field                     | Type      | Description                                |
 | ------------------------- | --------- | ------------------------------------------ |
@@ -150,129 +150,75 @@ This keeps the VRLOG self-contained: when replaying a recording, all diagnostic 
 
 ### B.1 new metrics in `pcap-analyse`
 
-Extend `PerformanceMetrics` in `cmd/tools/pcap-analyse/main.go`:
+Extend `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
-```go
-type ClusteringMetrics struct {
-    // Per-frame distributions (percentiles computed from all frames)
-    ForegroundPointsStats  DistributionStats `json:"foreground_points_stats"`
-    FilteredPointsStats    DistributionStats `json:"filtered_points_stats"`
-    ClusterCountStats      DistributionStats `json:"cluster_count_stats"`
-    PointsPerClusterStats  DistributionStats `json:"points_per_cluster_stats"`
-    ClusterAreaStats       DistributionStats `json:"cluster_area_stats"`
+**`ClusteringMetrics` struct** — extends `PerformanceMetrics` in [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
-    // DBSCAN-specific
-    DBSCANCallCount        int64   `json:"dbscan_call_count"`
-    DBSCANTotalUs          int64   `json:"dbscan_total_us"`
-    DBSCANAvgUs            float64 `json:"dbscan_avg_us"`
-    DBSCANP95Us            float64 `json:"dbscan_p95_us"`
-    DBSCANP99Us            float64 `json:"dbscan_p99_us"`
-    SubsampleCount         int64   `json:"subsample_count"`           // frames where MaxInputPoints was exceeded
-    SubsampleRate          float64 `json:"subsample_rate_pct"`        // % of frames subsampled
+| Field                   | Type              | JSON key                   | Notes                                         |
+| ----------------------- | ----------------- | -------------------------- | --------------------------------------------- |
+| `ForegroundPointsStats` | DistributionStats | `foreground_points_stats`  | Per-frame foreground point count distribution |
+| `FilteredPointsStats`   | DistributionStats | `filtered_points_stats`    | Per-frame filtered point count distribution   |
+| `ClusterCountStats`     | DistributionStats | `cluster_count_stats`      | Per-frame cluster count distribution          |
+| `PointsPerClusterStats` | DistributionStats | `points_per_cluster_stats` | Points per cluster distribution               |
+| `ClusterAreaStats`      | DistributionStats | `cluster_area_stats`       | Cluster area distribution                     |
+| `DBSCANCallCount`       | int64             | `dbscan_call_count`        | Total DBSCAN invocations                      |
+| `DBSCANTotalUs`         | int64             | `dbscan_total_us`          | Cumulative DBSCAN wall time (µs)              |
+| `DBSCANAvgUs`           | float64           | `dbscan_avg_us`            | Mean DBSCAN time per call                     |
+| `DBSCANP95Us`           | float64           | `dbscan_p95_us`            | 95th percentile DBSCAN time                   |
+| `DBSCANP99Us`           | float64           | `dbscan_p99_us`            | 99th percentile DBSCAN time                   |
+| `SubsampleCount`        | int64             | `subsample_count`          | Frames where MaxInputPoints exceeded          |
+| `SubsampleRate`         | float64           | `subsample_rate_pct`       | % of frames subsampled                        |
+| `ConfirmedTrackCount`   | int               | `confirmed_track_count`    | Tracks reaching confirmed state               |
+| `TentativeTrackCount`   | int               | `tentative_track_count`    | Tracks still tentative                        |
+| `FragmentationRatio`    | float64           | `fragmentation_ratio`      | tentative / (tentative + confirmed)           |
+| `MeanTrackDurationSecs` | float64           | `mean_track_duration_secs` | Average track lifetime                        |
+| `MeanTrackLengthMeters` | float64           | `mean_track_length_meters` | Average track spatial length                  |
+| `HeadingJitterRMSDeg`   | float64           | `heading_jitter_rms_deg`   | Heading stability (RMS degrees)               |
+| `SpeedJitterRMSMps`     | float64           | `speed_jitter_rms_mps`     | Speed stability (RMS m/s)                     |
+| `SpatialIndexPeakCells` | int64             | `spatial_index_peak_cells` | Max grid cells in any frame                   |
 
-    // Tracking-derived (quality proxies)
-    ConfirmedTrackCount    int     `json:"confirmed_track_count"`
-    TentativeTrackCount    int     `json:"tentative_track_count"`
-    FragmentationRatio     float64 `json:"fragmentation_ratio"`       // tentative / (tentative + confirmed)
-    MeanTrackDurationSecs  float64 `json:"mean_track_duration_secs"`
-    MeanTrackLengthMeters  float64 `json:"mean_track_length_meters"`
-    HeadingJitterRMSDeg    float64 `json:"heading_jitter_rms_deg"`
-    SpeedJitterRMSMps      float64 `json:"speed_jitter_rms_mps"`
+**`DistributionStats` struct** — used for per-frame histogram summaries:
 
-    // Memory (clustering-specific)
-    SpatialIndexPeakCells  int64   `json:"spatial_index_peak_cells"`  // max grid cells in any frame
-}
-
-type DistributionStats struct {
-    Min     float64 `json:"min"`
-    Max     float64 `json:"max"`
-    Avg     float64 `json:"avg"`
-    P50     float64 `json:"p50"`
-    P95     float64 `json:"p95"`
-    P99     float64 `json:"p99"`
-    Samples int64   `json:"samples"`
-}
-```
+| Field     | Type    | Notes                  |
+| --------- | ------- | ---------------------- |
+| `Min`     | float64 | Minimum value          |
+| `Max`     | float64 | Maximum value          |
+| `Avg`     | float64 | Mean                   |
+| `P50`     | float64 | Median                 |
+| `P95`     | float64 | 95th percentile        |
+| `P99`     | float64 | 99th percentile        |
+| `Samples` | int64   | Number of observations |
 
 ### B.2 benchmark baseline format (v2)
 
 Extend the existing `baseline-{name}.json` format with a `clustering` key. This is backward-compatible: the comparison logic skips missing keys.
 
-```jsonc
-{
-  "version": "2.0",
-  "timestamp": "2026-02-22T23:00:00Z",
-  "pcap_file": "kirk0.pcapng",
-  "system_info": {
-    /* unchanged */
-  },
-  "metrics": {
-    /* existing fields: wall_clock_ms, frame_time_stats, etc. */
-    "clustering": {
-      "foreground_points_stats": {
-        "min": 0,
-        "max": 8200,
-        "avg": 1450,
-        "p50": 1200,
-        "p95": 3800,
-        "p99": 6100,
-        "samples": 2604,
-      },
-      "cluster_count_stats": {
-        "min": 0,
-        "max": 42,
-        "avg": 18.3,
-        "p50": 17,
-        "p95": 35,
-        "p99": 40,
-        "samples": 2604,
-      },
-      "points_per_cluster_stats": {
-        "min": 3,
-        "max": 620,
-        "avg": 78,
-        "p50": 55,
-        "p95": 280,
-        "p99": 450,
-        "samples": 47820,
-      },
-      "dbscan_call_count": 2604,
-      "dbscan_total_us": 312000,
-      "dbscan_avg_us": 119.8,
-      "dbscan_p95_us": 450.0,
-      "dbscan_p99_us": 1200.0,
-      "subsample_count": 3,
-      "subsample_rate_pct": 0.12,
-      "confirmed_track_count": 312,
-      "fragmentation_ratio": 0.23,
-      "heading_jitter_rms_deg": 4.2,
-      "speed_jitter_rms_mps": 0.8,
-    },
-  },
-}
-```
+The `baseline-{name}.json` format gains a `clustering` key (v2, backward-compatible — comparison skips missing keys). Example entries under `metrics.clustering`:
+
+| Key                            | Example | Notes                            |
+| ------------------------------ | ------- | -------------------------------- |
+| `foreground_points_stats.avg`  | 1450    | Mean foreground points per frame |
+| `foreground_points_stats.p95`  | 3800    | 95th percentile                  |
+| `cluster_count_stats.avg`      | 18.3    | Mean clusters per frame          |
+| `points_per_cluster_stats.avg` | 78      | Mean points per cluster          |
+| `dbscan_call_count`            | 2604    | Total DBSCAN calls               |
+| `dbscan_avg_us`                | 119.8   | Mean DBSCAN time (µs)            |
+| `dbscan_p95_us`                | 450.0   | 95th percentile (µs)             |
+| `dbscan_p99_us`                | 1200.0  | 99th percentile (µs)             |
+| `subsample_count`              | 3       | Frames subsampled                |
+| `subsample_rate_pct`           | 0.12    | % frames subsampled              |
+| `confirmed_track_count`        | 312     | Confirmed tracks                 |
+| `fragmentation_ratio`          | 0.23    | Fragmentation metric             |
+| `heading_jitter_rms_deg`       | 4.2     | Heading jitter (degrees)         |
+| `speed_jitter_rms_mps`         | 0.8     | Speed jitter (m/s)               |
+
+Each `DistributionStats` object contains `min`, `max`, `avg`, `p50`, `p95`, `p99`, and `samples`.
 
 ### B.3 CI regression gating
 
-Add a `bench-clustering` step to `.github/workflows/go-ci.yml` (runs only on pushes to `main` and PRs that modify `internal/lidar/l4perception/`, `internal/lidar/l5tracks/`, or `internal/lidar/pipeline/`):
+Add a `bench-clustering` step to [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml) (runs only on pushes to `main` and PRs that modify [internal/lidar/l4perception/](../../internal/lidar/l4perception), [internal/lidar/l5tracks/](../../internal/lidar/l5tracks), or [internal/lidar/pipeline/](../../internal/lidar/pipeline)):
 
-```yaml
-bench-clustering:
-  runs-on: ubuntu-latest
-  needs: [build]
-  if: >-
-    contains(github.event.head_commit.modified, 'internal/lidar/l4perception') ||
-    contains(github.event.head_commit.modified, 'internal/lidar/l5tracks') ||
-    contains(github.event.head_commit.modified, 'internal/lidar/pipeline')
-  steps:
-    - uses: actions/checkout@v4
-      with: { lfs: true }
-    - uses: actions/setup-go@v5
-      with: { go-version-file: go.mod }
-    - run: sudo apt-get install -y libpcap-dev
-    - run: make test-perf NAME=kirk0
-    # test-perf exits 1 on regression (>15% wall-clock or >25% DBSCAN p99 regression)
-```
+Add a `bench-clustering` job to [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml). It runs on `ubuntu-latest` after the `build` job, gated on pushes to `main` and PRs modifying [internal/lidar/l4perception/](../../internal/lidar/l4perception), [internal/lidar/l5tracks/](../../internal/lidar/l5tracks), or [internal/lidar/pipeline/](../../internal/lidar/pipeline). Steps: checkout (with LFS), setup Go (from `go.mod`), install `libpcap-dev`, then run `make test-perf NAME=kirk0` (exits 1 on regression: >15% wall-clock or >25% DBSCAN p99).
 
 **Regression thresholds** (configurable via `pcap-analyse` flags):
 
@@ -298,19 +244,14 @@ internal/lidar/perf/baseline/
 
 **Makefile targets:**
 
-```makefile
-bench-clustering:                  ## Run clustering benchmark (local)
-    @make test-perf NAME=kirk0
+| Target                  | Purpose                                                        |
+| ----------------------- | -------------------------------------------------------------- |
+| `bench-clustering`      | Run clustering benchmark locally (`make test-perf NAME=kirk0`) |
+| `bench-clustering-save` | Save a new local baseline (`make test-perf-save NAME=kirk0`)   |
+| `bench-clustering-ci`   | Run benchmark with CI profile (`PROFILE=ci`)                   |
+| `bench-clustering-pi`   | Run benchmark with Raspberry Pi profile (`PROFILE=pi`)         |
 
-bench-clustering-save:             ## Save new baseline (local)
-    @make test-perf-save NAME=kirk0
-
-bench-clustering-ci:               ## Run clustering benchmark (CI profile)
-    @make test-perf NAME=kirk0 PROFILE=ci
-
-bench-clustering-pi:               ## Run clustering benchmark (Pi profile)
-    @make test-perf NAME=kirk0 PROFILE=pi
-```
+The `PROFILE` variable selects the baseline file suffix (`-ci`, `-pi`) for comparison.
 
 The `PROFILE` variable selects the baseline file suffix (`-ci`, `-pi`) for comparison.
 
@@ -318,27 +259,27 @@ The `PROFILE` variable selects the baseline file suffix (`-ci`, `-pi`) for compa
 
 Add targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
-```go
-func BenchmarkDBSCAN_500pts(b *testing.B)  { benchDBSCAN(b, 500) }
-func BenchmarkDBSCAN_2000pts(b *testing.B) { benchDBSCAN(b, 2000) }
-func BenchmarkDBSCAN_5000pts(b *testing.B) { benchDBSCAN(b, 5000) }
-func BenchmarkDBSCAN_8000pts(b *testing.B) { benchDBSCAN(b, 8000) }
+Benchmark functions in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 
-func BenchmarkSpatialIndexBuild_5000pts(b *testing.B) { benchSIBuild(b, 5000) }
-func BenchmarkSpatialIndexQuery_5000pts(b *testing.B) { benchSIQuery(b, 5000) }
+| Benchmark                               | Input size   |
+| --------------------------------------- | ------------ |
+| `BenchmarkDBSCAN_500pts`                | 500 points   |
+| `BenchmarkDBSCAN_2000pts`               | 2000 points  |
+| `BenchmarkDBSCAN_5000pts`               | 5000 points  |
+| `BenchmarkDBSCAN_8000pts`               | 8000 points  |
+| `BenchmarkSpatialIndexBuild_5000pts`    | 5000 points  |
+| `BenchmarkSpatialIndexQuery_5000pts`    | 5000 points  |
+| `BenchmarkUniformSubsample_10000to8000` | 10000 → 8000 |
 
-func BenchmarkUniformSubsample_10000to8000(b *testing.B) { benchSubsample(b, 10000, 8000) }
-```
+These provide isolated signal for DBSCAN algorithmic performance independent of the full pipeline.
 
 These provide isolated signal for DBSCAN algorithmic performance independent of the full pipeline.
 
 Add a Makefile target:
 
-```makefile
-bench-go:                          ## Run all Go micro-benchmarks
-    go test -bench=. -benchmem -count=3 ./internal/lidar/l4perception/ \
-        ./internal/lidar/l5tracks/ ./internal/lidar/l3grid/ | tee bench-results.txt
-```
+| Target     | Purpose                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bench-go` | Run all Go micro-benchmarks (`-bench=. -benchmem -count=3`) across `l4perception/`, `l5tracks/`, and `l3grid/`, writing results to `bench-results.txt` |
 
 ---
 
@@ -346,7 +287,7 @@ bench-go:                          ## Run all Go micro-benchmarks
 
 ### C.1 tuning parameters with Pi impact
 
-These parameters in `config/tuning.defaults.json` directly affect computational cost. Documented here for operators deploying on Pi:
+These parameters in [config/tuning.defaults.json](../../config/tuning.defaults.json) directly affect computational cost. Documented here for operators deploying on Pi:
 
 | Parameter                       | Default | Pi Recommendation | Impact                                           |
 | ------------------------------- | ------- | ----------------- | ------------------------------------------------ |
@@ -393,7 +334,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 3. Emit `tracef` per-frame and `diagf` summary every 100 frames.
 4. Wire timing into VRLOG `DebugOverlaySet`.
 
-**Files:** `internal/lidar/pipeline/tracking_pipeline.go`, `internal/lidar/visualiser/model.go`
+**Files:** [internal/lidar/pipeline/tracking_pipeline.go](../../internal/lidar/pipeline/tracking_pipeline.go), `internal/lidar/visualiser/model.go`
 
 ### Phase 2: clustering metrics in pcap-analyse (medium risk)
 
@@ -403,7 +344,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 4. Add comparison logic with per-metric thresholds.
 5. Update `baseline-kirk0.json` and `baseline-kirk0-ci.json`.
 
-**Files:** `cmd/tools/pcap-analyse/main.go`, `internal/lidar/perf/baseline/*.json`
+**Files:** [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), `internal/lidar/perf/baseline/*.json`
 
 ### Phase 3: per-track association logging (low risk)
 
@@ -411,7 +352,7 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 2. Add `diagf` track lifecycle summary on deletion.
 3. Optionally populate `DebugOverlaySet.AssociationDecisions` in VRLOG.
 
-**Files:** `internal/lidar/l5tracks/tracking.go`, `internal/lidar/visualiser/adapter.go`
+**Files:** [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go), `internal/lidar/visualiser/adapter.go`
 
 ### Phase 4: Go micro-benchmarks (low risk)
 
@@ -427,16 +368,16 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 2. Store PCAP fixtures in Git LFS (already done for `kirk0.pcapng`).
 3. Set regression thresholds, tune after 2–3 weeks of data.
 
-**Files:** `.github/workflows/go-ci.yml`, `Makefile`
+**Files:** [.github/workflows/go-ci.yml](../../.github/workflows/go-ci.yml), `Makefile`
 
 ### Phase 6: Pi baseline (requires hardware)
 
 1. Cross-compile and deploy to Pi 4.
 2. Run `make test-perf NAME=kirk0 PROFILE=pi`.
 3. Check in `baseline-kirk0-pi.json`.
-4. Document tuning recommendations in `config/CONFIG.md`.
+4. Document tuning recommendations in [config/CONFIG.md](../../config/CONFIG.md).
 
-**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, `config/CONFIG.md`
+**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, [config/CONFIG.md](../../config/CONFIG.md)
 
 ---
 

@@ -103,10 +103,10 @@ CSV export set:
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/RunBrowserView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 
 UI additions:
 
@@ -125,8 +125,8 @@ UI additions:
 
 Files:
 
-- `web/src/routes/lidar/tracks/+page.svelte`
-- `web/src/lib/api.ts`
+- [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte)
+- [web/src/lib/api.ts](../../web/src/lib/api.ts)
 
 Add read-only summary widgets and export button.
 

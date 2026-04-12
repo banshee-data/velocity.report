@@ -6,10 +6,10 @@ Active plan: [go-codebase-structural-hygiene-plan.md](../../plans/go-codebase-st
 
 ## Import boundary: `database/sql`
 
-Non-test imports of `database/sql` are restricted to `internal/db/` and
-`internal/lidar/storage/`. Enforced by `scripts/check-db-sql-imports.sh` in CI.
+Non-test imports of `database/sql` are restricted to [internal/db/](../../../internal/db) and
+[internal/lidar/storage/](../../../internal/lidar/storage). Enforced by [scripts/check-db-sql-imports.sh](../../../scripts/check-db-sql-imports.sh) in CI.
 
-`internal/lidar/storage/sqlite/dbconn.go` exports `sqlite.SQLDB`, `sqlite.SQLTx`, and
+[internal/lidar/storage/sqlite/dbconn.go](../../../internal/lidar/storage/sqlite/dbconn.go) exports `sqlite.SQLDB`, `sqlite.SQLTx`, and
 `sqlite.ErrNotFound` so callers do not need `database/sql` directly.
 
 ## Single SQLite driver policy
@@ -17,7 +17,7 @@ Non-test imports of `database/sql` are restricted to `internal/db/` and
 The project uses `modernc.org/sqlite` exclusively (v1.44.3, SQLite 3.51.2). The duplicate
 `github.com/mattn/go-sqlite3` dependency has been removed.
 
-Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The driver name is
+Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-single-sqlite-driver.sh) in `make lint-go`. The driver name is
 `"sqlite"` everywhere.
 
 ## God file discipline
@@ -31,30 +31,30 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 
 ### Tier 1: god files (all complete)
 
-| Original file                                   | Was       | Split into                                                                                                                                                                       |
-| ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `internal/db/db.go`                             | 1,420 LOC | `db.go` (337), `db_radar.go` (562), `db_bg_snapshots.go` (278), `db_regions.go` (94), `db_admin.go` (183)                                                                        |
-| `internal/api/server.go`                        | 1,711 LOC | `server.go` (260), `server_middleware.go` (75), `server_radar.go` (269), `server_sites.go` (231), `server_reports.go` (644), `server_timeline.go` (123), `server_admin.go` (177) |
-| `internal/lidar/monitor/webserver.go`           | 1,905 LOC | Renamed to `server/` package: `server.go` (426), `state.go` (174), `routes.go` (219), `tuning.go` (104), `status.go` (690)                                                       |
-| `internal/lidar/l5tracks/tracking.go`           | 1,676 LOC | `tracking.go` (515), `tracking_association.go` (297), `tracking_update.go` (370), `tracking_metrics.go` (441), `tracking_config.go` (115)                                        |
-| `internal/lidar/storage/sqlite/analysis_run.go` | 1,400 LOC | `analysis_run.go` (391), `analysis_run_queries.go` (599), `analysis_run_mutations.go` (246), `analysis_run_compare.go` (282), `analysis_run_manager.go` (260)                    |
-| `internal/lidar/l3grid/background.go`           | 1,672 LOC | `background.go` (352), `background_region.go` (474), `background_manager.go` (860)                                                                                               |
-| `internal/config/tuning.go`                     | 1,303 LOC | `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361)                                                                              |
+| Original file                                                                                           | Was       | Split into                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [internal/db/db.go](../../../internal/db/db.go)                                                         | 1,420 LOC | `db.go` (337), `db_radar.go` (562), `db_bg_snapshots.go` (278), `db_regions.go` (94), `db_admin.go` (183)                                                                        |
+| [internal/api/server.go](../../../internal/api/server.go)                                               | 1,711 LOC | `server.go` (260), `server_middleware.go` (75), `server_radar.go` (269), `server_sites.go` (231), `server_reports.go` (644), `server_timeline.go` (123), `server_admin.go` (177) |
+| `internal/lidar/monitor/webserver.go`                                                                   | 1,905 LOC | Renamed to `server/` package: `server.go` (426), `state.go` (174), `routes.go` (219), `tuning.go` (104), `status.go` (690)                                                       |
+| [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go)                     | 1,676 LOC | `tracking.go` (515), `tracking_association.go` (297), `tracking_update.go` (370), `tracking_metrics.go` (441), `tracking_config.go` (115)                                        |
+| [internal/lidar/storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go) | 1,400 LOC | `analysis_run.go` (391), `analysis_run_queries.go` (599), `analysis_run_mutations.go` (246), `analysis_run_compare.go` (282), `analysis_run_manager.go` (260)                    |
+| [internal/lidar/l3grid/background.go](../../../internal/lidar/l3grid/background.go)                     | 1,672 LOC | `background.go` (352), `background_region.go` (474), `background_manager.go` (860)                                                                                               |
+| [internal/config/tuning.go](../../../internal/config/tuning.go)                                         | 1,303 LOC | `tuning.go` (250), `tuning_validate.go` (391), `tuning_codec.go` (280), `tuning_accessors.go` (361)                                                                              |
 
 ### Tier 2: large files (700–860 LOC, watch list)
 
-| File                                              | LOC | Notes                               |
-| ------------------------------------------------- | --- | ----------------------------------- |
-| `internal/lidar/l3grid/background_manager.go`     | 861 | From Tier 1 split, exceeds target   |
-| `internal/lidar/sweep/hint.go`                    | 798 | HINT algorithm + state machine      |
-| `internal/lidar/storage/sqlite/track_store.go`    | 774 | Track persistence + queries         |
-| `internal/lidar/server/track_api.go`              | 763 | Track query handlers + formatting   |
-| `internal/lidar/sweep/auto.go`                    | 762 | Auto-tune algorithm + state machine |
-| `internal/lidar/server/run_track_api.go`          | 752 | Run-level track query handlers      |
-| `internal/lidar/pipeline/tracking_pipeline.go`    | 733 | Pipeline orchestration + state      |
-| `internal/lidar/sweep/runner.go`                  | 720 | Sweep orchestration + lifecycle     |
-| `internal/lidar/l9endpoints/recorder/recorder.go` | 711 | Recorder                            |
-| `internal/lidar/server/datasource_handlers.go`    | 702 | Data source switching               |
+| File                                                                                                        | LOC | Notes                               |
+| ----------------------------------------------------------------------------------------------------------- | --- | ----------------------------------- |
+| [internal/lidar/l3grid/background_manager.go](../../../internal/lidar/l3grid/background_manager.go)         | 861 | From Tier 1 split, exceeds target   |
+| [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go)                                       | 798 | HINT algorithm + state machine      |
+| [internal/lidar/storage/sqlite/track_store.go](../../../internal/lidar/storage/sqlite/track_store.go)       | 774 | Track persistence + queries         |
+| [internal/lidar/server/track_api.go](../../../internal/lidar/server/track_api.go)                           | 763 | Track query handlers + formatting   |
+| [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)                                       | 762 | Auto-tune algorithm + state machine |
+| [internal/lidar/server/run_track_api.go](../../../internal/lidar/server/run_track_api.go)                   | 752 | Run-level track query handlers      |
+| [internal/lidar/pipeline/tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go)       | 733 | Pipeline orchestration + state      |
+| [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)                                   | 720 | Sweep orchestration + lifecycle     |
+| [internal/lidar/l9endpoints/recorder/recorder.go](../../../internal/lidar/l9endpoints/recorder/recorder.go) | 711 | Recorder                            |
+| [internal/lidar/server/datasource_handlers.go](../../../internal/lidar/server/datasource_handlers.go)       | 702 | Data source switching               |
 
 ## Direct dependency inventory
 
@@ -87,11 +87,11 @@ Enforced by `scripts/check-single-sqlite-driver.sh` in `make lint-go`. The drive
 
 ## Open structural items
 
-- **Query boundary:** `internal/api/lidar_labels.go` still contains raw SQL (7 call sites)
-  that should move to `internal/lidar/storage/sqlite/label_store.go`
-- **`EventAPI` JSON tags:** `internal/db/db.go` still uses PascalCase JSON tags; should be
+- **Query boundary:** [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go) still contains raw SQL (7 call sites)
+  that should move to [internal/lidar/storage/sqlite/label_store.go](../../../internal/lidar/storage/sqlite/label_store.go)
+- **`EventAPI` JSON tags:** [internal/db/db.go](../../../internal/db/db.go) still uses PascalCase JSON tags; should be
   `snake_case` before API freeze
-- **Silent error drops:** concentrated in `internal/db/db.go`, `l3grid/export_bg_snapshot.go`,
+- **Silent error drops:** concentrated in [internal/db/db.go](../../../internal/db/db.go), `l3grid/export_bg_snapshot.go`,
   `server/datasource_handlers.go`, `server/echarts_handlers.go`
 - **Test infrastructure:** 40 internal test files use `time.Sleep` (199 call sites); needs
   shared polling helper and phased reduction

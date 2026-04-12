@@ -9,13 +9,13 @@ Stabilise documentation and implementation boundaries so downstream work depends
 ## Completed in this pass
 
 1. Region-adaptive parameter parity fixed on the production path:
-   - `internal/lidar/l3grid/foreground.go`
+   - [internal/lidar/l3grid/foreground.go](../../../internal/lidar/l3grid/foreground.go)
    - `ProcessFramePolarWithMask` now applies per-region noise/neighbour/alpha overrides.
 2. Runtime tuning parity improvement:
    - `internal/lidar/monitor/webserver.go`
    - `/api/lidar/params` POST now supports `max_tracks`.
 3. Tests added/updated:
-   - `internal/lidar/l3grid/foreground_test.go`
+   - [internal/lidar/l3grid/foreground_test.go](../../../internal/lidar/l3grid/foreground_test.go)
    - `internal/lidar/monitor/webserver_test.go`
 4. Validation:
    - `go test ./internal/lidar/...` passed.
@@ -41,4 +41,4 @@ Stabilise documentation and implementation boundaries so downstream work depends
 
 1. Mark every algorithm doc section as one of: `Implemented`, `Planned`, `Deprecated`.
 2. Keep vector-grid and velocity-coherent workstreams separated by a mask-level contract.
-3. Only claim “implemented” when code path is active in `internal/lidar/pipeline/tracking_pipeline.go`.
+3. Only claim “implemented” when code path is active in [internal/lidar/pipeline/tracking_pipeline.go](../../../internal/lidar/pipeline/tracking_pipeline.go).

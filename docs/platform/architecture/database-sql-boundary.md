@@ -9,31 +9,31 @@ Sealed import boundary for `database/sql` usage in the codebase, restricting dir
 
 The SQLite database access boundary follows a two-package model:
 
-1. **`internal/db/`**: radar/core domain: radar objects, events, sites,
+1. **[internal/db/](../../../internal/db)**: radar/core domain: radar objects, events, sites,
    config periods, reports, transits, background snapshots, migrations,
    admin/debug routes.
-2. **`internal/lidar/storage/sqlite/`**: LiDAR domain: tracks,
+2. **[internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite)**: LiDAR domain: tracks,
    observations, clusters, analysis runs, replay cases, evaluations,
    missed regions, sweeps.
 
 Other packages use type aliases (`sqlite.SQLDB`, `sqlite.SQLTx`) and
 sentinel values (`sqlite.ErrNotFound`) from the storage layer.
-`scripts/check-db-sql-imports.sh` enforces this boundary in CI via
+[scripts/check-db-sql-imports.sh](../../../scripts/check-db-sql-imports.sh) enforces this boundary in CI via
 `make lint-go`.
 
 ## SQL operation count
 
-| Package                                                 | Files | SQL ops | Domain             |
-| ------------------------------------------------------- | ----: | ------: | ------------------ |
-| `internal/db/` (db.go, site, config, report, transit…)  |     8 |     ~72 | Radar/core + infra |
-| `internal/lidar/storage/sqlite/` (tracks, runs, sweep…) |     7 |     ~55 | LiDAR              |
-| **Grand total**                                         |    15 |    ~127 |                    |
+| Package                                                                                         | Files | SQL ops | Domain             |
+| ----------------------------------------------------------------------------------------------- | ----: | ------: | ------------------ |
+| [internal/db/](../../../internal/db) (db.go, site, config, report, transit…)                    |     8 |     ~72 | Radar/core + infra |
+| [internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite) (tracks, runs, sweep…) |     7 |     ~55 | LiDAR              |
+| **Grand total**                                                                                 |    15 |    ~127 |                    |
 
 ## Options evaluated
 
-### Option a: single package (`internal/db/`)
+### Option a: single package ([internal/db/](../../../internal/db))
 
-All ~127 SQL operations in one package. **Rejected**: `internal/db/` is
+All ~127 SQL operations in one package. **Rejected**: [internal/db/](../../../internal/db) is
 already 1,400+ lines; adding LiDAR operations creates import cycle risk
 (`db` → `l3grid` → `db`) and means the core carries LiDAR domain
 knowledge even when LiDAR is disabled.
@@ -60,17 +60,17 @@ adding clarity.
 
 ## Remaining gaps
 
-| Gap                          | Size | Priority | Notes                                               |
-| ---------------------------- | ---- | -------- | --------------------------------------------------- |
-| Label SQL in `internal/api/` | S    | High     | Last query-boundary violation; 8 queries to move    |
-| Unified PRAGMA bootstrap     | XS   | Medium   | Test helpers vs production differ on busy_timeout   |
-| BgSnapshot crossover docs    | XS   | Low      | Comment block in `db.go`                            |
-| Migration version discovery  | XS   | Low      | Replace hardcoded `latestMigrationVersion` in tests |
-| `cmd/tools/` DB access       | XS   | High     | `backfill_ring_elevations` bypasses boundary        |
+| Gap                                                 | Size | Priority | Notes                                               |
+| --------------------------------------------------- | ---- | -------- | --------------------------------------------------- |
+| Label SQL in [internal/api/](../../../internal/api) | S    | High     | Last query-boundary violation; 8 queries to move    |
+| Unified PRAGMA bootstrap                            | XS   | Medium   | Test helpers vs production differ on busy_timeout   |
+| BgSnapshot crossover docs                           | XS   | Low      | Comment block in `db.go`                            |
+| Migration version discovery                         | XS   | Low      | Replace hardcoded `latestMigrationVersion` in tests |
+| [cmd/tools/](../../../cmd/tools) DB access          | XS   | High     | `backfill_ring_elevations` bypasses boundary        |
 
 ## Enforcement
 
-- **Import boundary script:** `scripts/check-db-sql-imports.sh`
+- **Import boundary script:** [scripts/check-db-sql-imports.sh](../../../scripts/check-db-sql-imports.sh)
 - **CI integration:** `make lint-go`
 - **Exemptions:** `*_test.go` files
 
@@ -80,13 +80,13 @@ adding clarity.
   packages instead of one). Phases 0, 2, 4, 5 still relevant; phases 1, 3
   replaced.
 - **deploy-distribution-packaging**: single-binary plan eliminates
-  `cmd/tools/` exemption by construction.
+  [cmd/tools/](../../../cmd/tools) exemption by construction.
 - **lidar-tracks-table-consolidation**: orthogonal (Go-level struct
   duplication, not SQL package boundary).
 
 ## History
 
-- Original proposal: collapse all SQL into `internal/db/`
+- Original proposal: collapse all SQL into [internal/db/](../../../internal/db)
   ([sqlite-client-standardisation plan](../../plans/data-sqlite-client-standardisation-plan.md))
 - Replaced by two-package model
   ([database-alignment plan](../../plans/data-database-alignment-plan.md))

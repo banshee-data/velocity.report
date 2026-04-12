@@ -103,13 +103,7 @@ cp config/tuning.defaults.json /path/to/your/active/config.json
 
 From `tracking.go:786-838` and `obb.go:1-300`:
 
-```go
-// OBB heading computation via PCA on cluster points
-heading := math.Atan2(eigenvector_y, eigenvector_x)
-
-// Exponential smoothing with α=0.15
-smoothedHeading = 0.85*oldHeading + 0.15*newHeading
-```
+OBB heading is computed via PCA on cluster points: `heading = atan2(eigenvector_y, eigenvector_x)`. The result is exponentially smoothed with α = 0.15 (i.e. `smoothedHeading = 0.85 × oldHeading + 0.15 × newHeading`).
 
 **Problem:** When `measurement_noise` is high (default 0.3):
 
@@ -138,16 +132,7 @@ smoothedHeading = 0.85*oldHeading + 0.15*newHeading
 
 From `clustering.go:1-100` and `tracking.go:535-612`:
 
-```go
-// DBSCAN clustering with default eps=0.3m, min_pts=2
-clusters := DBSCANCluster(foregroundPoints, eps, minPts)
-
-// Association via Mahalanobis distance
-gatingDistSq := 4.0 // default (2m radius)
-if mahalanobisDistSq < gatingDistSq {
-    // Associate cluster to track
-}
-```
+DBSCAN clusters foreground points with default eps = 0.3 m and min_pts = 2. Track association uses Mahalanobis distance with a default gating threshold of 4.0 (2 m radius); clusters within the gate are associated to the nearest track.
 
 **Problem Chain:**
 
@@ -158,13 +143,11 @@ if mahalanobisDistSq < gatingDistSq {
 
 **Evidence from tuning.defaults.json:**
 
-```json
-{
-  "foreground_dbscan_eps": 0.3, // Too small for distant objects
-  "foreground_min_cluster_points": 2, // Too permissive for noise
-  "gating_distance_squared": 4.0 // Too tight for occlusion gaps
-}
-```
+| Parameter                       | Value | Issue                         |
+| ------------------------------- | ----- | ----------------------------- |
+| `foreground_dbscan_eps`         | `0.3` | Too small for distant objects |
+| `foreground_min_cluster_points` | `2`   | Too permissive for noise      |
+| `gating_distance_squared`       | `4.0` | Too tight for occlusion gaps  |
 
 **Expected vs. Actual:**
 
@@ -181,19 +164,7 @@ if mahalanobisDistSq < gatingDistSq {
 
 From `tracking.go:752-784`:
 
-```go
-// Compute displacement heading from last 2 trail positions
-trailHeading := atan2(deltaY, deltaX)
-
-// Compare with Kalman velocity heading
-velocityHeading := atan2(track.VY, track.VX)
-angularDiff := abs(trailHeading - velocityHeading)
-
-// Misalignment if angular difference > 45°
-if angularDiff > π/4 {
-    track.AlignmentMisaligned++
-}
-```
+Displacement heading is computed from the last two trail positions: `trailHeading = atan2(deltaY, deltaX)`. Kalman velocity heading is `atan2(VY, VX)`. The angular difference between these two headings is compared against 45° (π/4 radians); exceeding the threshold increments the track’s `AlignmentMisaligned` counter.
 
 **Problem:** High `process_noise_vel` (default 0.5) allows velocity to **drift independently** of position updates:
 
@@ -221,16 +192,7 @@ if angularDiff > π/4 {
 
 From `foreground.go:34-100` and `background.go:22-86`:
 
-```go
-// Closeness threshold for foreground classification
-closenessThreshold = closenessMultiplier * (spread + noise_relative*distance) + safety_margin_meters
-
-if abs(observed - baseline) > closenessThreshold {
-    // Classify as foreground
-} else {
-    // Classify as background (suppress)
-}
-```
+The foreground classification formula is: `closenessThreshold = closenessMultiplier × (spread + noise_relative × distance) + safety_margin_meters`. Points where `|observed − baseline| > closenessThreshold` are classified as foreground; the remainder are classified as background (suppressed).
 
 **Problem:** Conservative thresholds cause **false negatives**:
 
@@ -246,13 +208,11 @@ if abs(observed - baseline) > closenessThreshold {
 
 **Evidence from tuning.defaults.json:**
 
-```json
-{
-  "closeness_multiplier": 8.0, // Much higher than default 3.0
-  "safety_margin_meters": 0.4, // Typical is 0.1-0.2
-  "neighbor_confirmation_count": 7 // High threshold for foreground voting
-}
-```
+| Parameter                     | Value | Issue                                |
+| ----------------------------- | ----- | ------------------------------------ |
+| `closeness_multiplier`        | `8.0` | Much higher than default 3.0         |
+| `safety_margin_meters`        | `0.4` | Typical is 0.1–0.2                   |
+| `neighbor_confirmation_count` | `7`   | High threshold for foreground voting |
 
 **Expected vs. Actual:**
 
@@ -267,14 +227,12 @@ if abs(observed - baseline) > closenessThreshold {
 
 **Current Configuration:**
 
-```json
-{
-  "noise_relative": 0.04, // 4% relative noise (high)
-  "closeness_multiplier": 8.0, // Very loose acceptance
-  "neighbor_confirmation_count": 7, // Strict voting requirement
-  "safety_margin_meters": 0.4 // Large fixed margin
-}
-```
+| Parameter                     | Value  | Issue                     |
+| ----------------------------- | ------ | ------------------------- |
+| `noise_relative`              | `0.04` | 4% relative noise (high)  |
+| `closeness_multiplier`        | `8.0`  | Very loose acceptance     |
+| `neighbor_confirmation_count` | `7`    | Strict voting requirement |
+| `safety_margin_meters`        | `0.4`  | Large fixed margin        |
 
 **Conflict:**
 
@@ -294,13 +252,11 @@ if abs(observed - baseline) > closenessThreshold {
 
 **Current Configuration:**
 
-```json
-{
-  "foreground_dbscan_eps": 0.3, // Small clustering radius
-  "gating_distance_squared": 4.0, // Tight association gate (2m)
-  "hits_to_confirm": 3 // Quick confirmation
-}
-```
+| Parameter                 | Value | Issue                        |
+| ------------------------- | ----- | ---------------------------- |
+| `foreground_dbscan_eps`   | `0.3` | Small clustering radius      |
+| `gating_distance_squared` | `4.0` | Tight association gate (2 m) |
+| `hits_to_confirm`         | `3`   | Quick confirmation           |
 
 **Problem:**
 
@@ -320,13 +276,11 @@ if abs(observed - baseline) > closenessThreshold {
 
 **Current Configuration:**
 
-```json
-{
-  "process_noise_pos": 0.1, // Low position uncertainty
-  "process_noise_vel": 0.5, // High velocity uncertainty
-  "measurement_noise": 0.3 // High observation uncertainty
-}
-```
+| Parameter           | Value | Issue                        |
+| ------------------- | ----- | ---------------------------- |
+| `process_noise_pos` | `0.1` | Low position uncertainty     |
+| `process_noise_vel` | `0.5` | High velocity uncertainty    |
+| `measurement_noise` | `0.3` | High observation uncertainty |
 
 **Problem:**
 
@@ -347,38 +301,36 @@ if abs(observed - baseline) > closenessThreshold {
 
 Based on analysis, here's a balanced configuration for **urban street scenarios** (moderate density, mixed speeds):
 
-```json
-{
-  "noise_relative": 0.02,
-  "closeness_multiplier": 3.0,
-  "neighbor_confirmation_count": 3,
-  "seed_from_first": true,
-  "warmup_duration_nanos": 30000000000,
-  "warmup_min_frames": 100,
-  "post_settle_update_fraction": 0,
-  "background_update_fraction": 0.02,
-  "safety_margin_meters": 0.15,
-  "enable_diagnostics": false,
-  "foreground_min_cluster_points": 5,
-  "foreground_dbscan_eps": 0.7,
-  "buffer_timeout": "500ms",
-  "min_frame_points": 1000,
-  "flush_interval": "60s",
-  "background_flush": false,
-  "gating_distance_squared": 25.0,
-  "process_noise_pos": 0.1,
-  "process_noise_vel": 0.3,
-  "measurement_noise": 0.15,
-  "occlusion_cov_inflation": 0.5,
-  "hits_to_confirm": 4,
-  "max_misses": 3,
-  "max_misses_confirmed": 15,
-  "max_tracks": 100,
-  "height_band_floor": -2.8,
-  "height_band_ceiling": 1.5,
-  "remove_ground": true
-}
-```
+| Parameter                       | Value         |
+| ------------------------------- | ------------- |
+| `noise_relative`                | `0.02`        |
+| `closeness_multiplier`          | `3.0`         |
+| `neighbor_confirmation_count`   | `3`           |
+| `seed_from_first`               | `true`        |
+| `warmup_duration_nanos`         | `30000000000` |
+| `warmup_min_frames`             | `100`         |
+| `post_settle_update_fraction`   | `0`           |
+| `background_update_fraction`    | `0.02`        |
+| `safety_margin_meters`          | `0.15`        |
+| `enable_diagnostics`            | `false`       |
+| `foreground_min_cluster_points` | `5`           |
+| `foreground_dbscan_eps`         | `0.7`         |
+| `buffer_timeout`                | `"500ms"`     |
+| `min_frame_points`              | `1000`        |
+| `flush_interval`                | `"60s"`       |
+| `background_flush`              | `false`       |
+| `gating_distance_squared`       | `25.0`        |
+| `process_noise_pos`             | `0.1`         |
+| `process_noise_vel`             | `0.3`         |
+| `measurement_noise`             | `0.15`        |
+| `occlusion_cov_inflation`       | `0.5`         |
+| `hits_to_confirm`               | `4`           |
+| `max_misses`                    | `3`           |
+| `max_misses_confirmed`          | `15`          |
+| `max_tracks`                    | `100`         |
+| `height_band_floor`             | `-2.8`        |
+| `height_band_ceiling`           | `1.5`         |
+| `remove_ground`                 | `true`        |
 
 ### 3.2 Change justification
 
@@ -454,13 +406,7 @@ sweep_config = {
 
 ### 4.3 Diagnostic logging
 
-Enable detailed metrics during test:
-
-```json
-{
-  "enable_diagnostics": true
-}
-```
+Enable detailed metrics during test by setting `enable_diagnostics` to `true` in the configuration.
 
 **Review logs for:**
 
@@ -476,43 +422,35 @@ Enable detailed metrics during test:
 
 **Adjustments:**
 
-```json
-{
-  "foreground_dbscan_eps": 0.9, // Wider clustering for speed
-  "gating_distance_squared": 49.0, // 7m radius for fast motion
-  "process_noise_vel": 0.2, // Lower noise for smooth coasting
-  "max_misses_confirmed": 20, // Longer occlusion tolerance
-  "hits_to_confirm": 3 // Faster confirmation (less crowding)
-}
-```
-
-### 5.2 Dense urban (slow, crowded)
+| Parameter                 | Value  | Reason                              |
+| ------------------------- | ------ | ----------------------------------- |
+| `foreground_dbscan_eps`   | `0.9`  | Wider clustering for speed          |
+| `gating_distance_squared` | `49.0` | 7 m radius for fast motion          |
+| `process_noise_vel`       | `0.2`  | Lower noise for smooth coasting     |
+| `max_misses_confirmed`    | `20`   | Longer occlusion tolerance          |
+| `hits_to_confirm`         | `3`    | Faster confirmation (less crowding) |
 
 **Adjustments:**
 
-```json
-{
-  "foreground_dbscan_eps": 0.5, // Tighter to avoid merging pedestrians
-  "gating_distance_squared": 16.0, // 4m radius to prevent cross-association
-  "neighbor_confirmation_count": 4, // Higher voting for noise rejection
-  "hits_to_confirm": 5, // Delay confirmation in clutter
-  "max_tracks": 150 // Allow more concurrent objects
-}
-```
+| Parameter                     | Value  | Reason                                  |
+| ----------------------------- | ------ | --------------------------------------- |
+| `foreground_dbscan_eps`       | `0.5`  | Tighter to avoid merging pedestrians    |
+| `gating_distance_squared`     | `16.0` | 4 m radius to prevent cross-association |
+| `neighbor_confirmation_count` | `4`    | Higher voting for noise rejection       |
+| `hits_to_confirm`             | `5`    | Delay confirmation in clutter           |
+| `max_tracks`                  | `150`  | Allow more concurrent objects           |
 
 ### 5.3 Nighttime/Low-Visibility
 
 **Adjustments:**
 
-```json
-{
-  "noise_relative": 0.03, // Higher noise tolerance
-  "closeness_multiplier": 4.0, // Slightly looser background
-  "measurement_noise": 0.25, // Trust measurements less
-  "foreground_min_cluster_points": 3, // Lower threshold for sparse returns
-  "safety_margin_meters": 0.2 // Moderate margin
-}
-```
+| Parameter                       | Value  | Reason                             |
+| ------------------------------- | ------ | ---------------------------------- |
+| `noise_relative`                | `0.03` | Higher noise tolerance             |
+| `closeness_multiplier`          | `4.0`  | Slightly looser background         |
+| `measurement_noise`             | `0.25` | Trust measurements less            |
+| `foreground_min_cluster_points` | `3`    | Lower threshold for sparse returns |
+| `safety_margin_meters`          | `0.2`  | Moderate margin                    |
 
 ---
 
@@ -541,54 +479,18 @@ Enable detailed metrics during test:
 
 ### 6.2 Sweep configuration for auto-tuning
 
-If further refinement needed, run auto-tuning sweep:
+If further refinement needed, run auto-tuning sweep via `POST /api/lidar/sweep/auto`:
 
-```json
-{
-  "params": [
-    {
-      "name": "foreground_dbscan_eps",
-      "type": "float64",
-      "start": 0.5,
-      "end": 0.9,
-      "step": 0.1
-    },
-    {
-      "name": "gating_distance_squared",
-      "type": "float64",
-      "start": 16.0,
-      "end": 36.0,
-      "step": 4.0
-    },
-    {
-      "name": "measurement_noise",
-      "type": "float64",
-      "start": 0.1,
-      "end": 0.25,
-      "step": 0.05
-    },
-    {
-      "name": "process_noise_vel",
-      "type": "float64",
-      "start": 0.2,
-      "end": 0.5,
-      "step": 0.1
-    }
-  ],
-  "objective": "weighted",
-  "weights": {
-    "acceptance": 1.0,
-    "fragmentation": -5.0,
-    "empty_boxes": -3.0,
-    "heading_jitter": -2.0,
-    "speed_jitter": -2.0
-  },
-  "acceptance_criteria": {
-    "max_fragmentation_ratio": 0.2,
-    "max_empty_box_ratio": 0.12
-  }
-}
-```
+**Parameters:**
+
+| Name                      | Type    | Start | End  | Step |
+| ------------------------- | ------- | ----- | ---- | ---- |
+| `foreground_dbscan_eps`   | float64 | 0.5   | 0.9  | 0.1  |
+| `gating_distance_squared` | float64 | 16.0  | 36.0 | 4.0  |
+| `measurement_noise`       | float64 | 0.1   | 0.25 | 0.05 |
+| `process_noise_vel`       | float64 | 0.2   | 0.5  | 0.1  |
+
+**Settings:** `objective` = `"weighted"`, with weights: `acceptance` = 1.0, `fragmentation` = −5.0, `empty_boxes` = −3.0, `heading_jitter` = −2.0, `speed_jitter` = −2.0. Acceptance criteria: `max_fragmentation_ratio` = 0.2, `max_empty_box_ratio` = 0.12.
 
 ---
 

@@ -16,7 +16,7 @@
 
 This document specifies the design for **pluggable foreground extraction algorithms** in the LiDAR tracking pipeline. The work enables runtime switching between background subtraction (existing), velocity-coherent extraction (new), and hybrid approaches: supporting A/B evaluation and gradual algorithm migration.
 
-Current runtime note (2026-02-21): the production pipeline on `main` still uses `ProcessFramePolarWithMask` in `internal/lidar/l3grid/foreground.go`; this document should be treated as implementation guidance, not implemented-state documentation.
+Current runtime note (2026-02-21): the production pipeline on `main` still uses `ProcessFramePolarWithMask` in [internal/lidar/l3grid/foreground.go](../../internal/lidar/l3grid/foreground.go); this document should be treated as implementation guidance, not implemented-state documentation.
 
 ### Motivation
 
@@ -49,7 +49,7 @@ Several bug fixes and foundational changes from this branch were separately cher
 - ✅ `track_export.go` (TrackPointCloudExporter)
 - ✅ `analysis_run_manager.go`
 - ✅ Grid plotter (`monitor/gridplotter.go`)
-- ✅ Version package (`internal/version/version.go`)
+- ✅ Version package ([internal/version/version.go](../../internal/version/version.go))
 - ✅ Foreground freeze/thaw fixes in `foreground.go`
 
 ### What needs to be applied to `main`
@@ -73,21 +73,15 @@ The following features are **NOT** on `main` and need to be re-implemented:
 
 ### 2.1 ForegroundExtractor interface
 
-```go
-// internal/lidar/extractor.go
+**`ForegroundExtractor` interface** (in `internal/lidar/extractor.go`):
 
-type ForegroundExtractor interface {
-    Name() string
-    ProcessFrame(points []PointPolar, timestamp time.Time) (
-        foregroundMask []bool,
-        metrics ExtractorMetrics,
-        err error,
-    )
-    GetParams() map[string]interface{}
-    SetParams(params map[string]interface{}) error
-    Reset()
-}
-```
+| Method           | Signature                                                                                                 | Notes                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Name()`         | `string`                                                                                                  | Algorithm identifier                                                          |
+| `ProcessFrame()` | `(points []PointPolar, timestamp time.Time) (foregroundMask []bool, metrics ExtractorMetrics, err error)` | Returns `[]bool` mask (same length as input), preserving index correspondence |
+| `GetParams()`    | `map[string]interface{}`                                                                                  | Current parameter snapshot                                                    |
+| `SetParams()`    | `(params map[string]interface{}) error`                                                                   | Runtime parameter tuning via API                                              |
+| `Reset()`        |                                                                                                           | Enables PCAP replay restart without recreating extractors                     |
 
 **Design decisions:**
 
@@ -102,12 +96,7 @@ type ForegroundExtractor interface {
 
 Wraps existing `BackgroundManager.ProcessFramePolarWithMask()` to conform to the `ForegroundExtractor` interface. Zero-copy adapter: delegates entirely to the existing code path.
 
-```go
-type BackgroundSubtractorExtractor struct {
-    Manager  *BackgroundManager
-    SensorID string
-}
-```
+**`BackgroundSubtractorExtractor` struct** — wraps existing `BackgroundManager.ProcessFramePolarWithMask()`. Fields: `Manager` (`*BackgroundManager`), `SensorID` (string). Zero-copy adapter.
 
 #### VelocityCoherentExtractor (`extractor_velocity_coherent.go`, ~240 lines)
 
@@ -119,16 +108,16 @@ Implements motion-based foreground extraction using frame-to-frame point corresp
 4. Filter clusters by velocity coherence score
 5. Mark points in coherent clusters as foreground
 
-```go
-type VelocityCoherentConfig struct {
-    VelocityEstimation   VelocityEstimationConfig
-    DBSCANEps            float64  // Default: 0.6m
-    DBSCANMinPts         int      // Default: 3 (reduced from 12)
-    MinVelocityCoherence float64  // Default: 0.3
-    MinVelocityPoints    int      // Default: 2
-    FrameHistoryCapacity int      // Default: 10
-}
-```
+**`VelocityCoherentConfig` struct:**
+
+| Field                  | Type                     | Default | Purpose                                                |
+| ---------------------- | ------------------------ | ------- | ------------------------------------------------------ |
+| `VelocityEstimation`   | VelocityEstimationConfig |         | Nested config                                          |
+| `DBSCANEps`            | float64                  | 0.6 m   | Clustering radius                                      |
+| `DBSCANMinPts`         | int                      | 3       | Reduced from 12 (velocity coherence confirms identity) |
+| `MinVelocityCoherence` | float64                  | 0.3     | Minimum coherence score                                |
+| `MinVelocityPoints`    | int                      | 2       | Minimum velocity-confirmed points                      |
+| `FrameHistoryCapacity` | int                      | 10      | Circular buffer size                                   |
 
 **Dependencies:**
 
@@ -139,13 +128,7 @@ type VelocityCoherentConfig struct {
 
 Runs multiple extractors in parallel and merges results:
 
-```go
-type HybridExtractor struct {
-    Config     HybridExtractorConfig
-    Extractors []ForegroundExtractor
-    SensorID   string
-}
-```
+**`HybridExtractor` struct** — fields: `Config` (HybridExtractorConfig), `Extractors` ([]ForegroundExtractor), `SensorID` (string). Runs multiple extractors in parallel and merges results.
 
 **Merge modes:**
 
@@ -155,26 +138,21 @@ type HybridExtractor struct {
 
 ### 2.3 Mask merge utilities (`extractor.go`)
 
-```go
-func MergeForegroundMasks(masks [][]bool, mode MergeMode) []bool
-func CountForeground(mask []bool) int
-func ComputeMaskAgreement(mask1, mask2 []bool) float64
-func ComputePrecisionRecall(predicted, groundTruth []bool) (precision, recall float64)
-```
+Utility functions: `MergeForegroundMasks(masks [][]bool, mode MergeMode) []bool`, `CountForeground(mask []bool) int`, `ComputeMaskAgreement(mask1, mask2 []bool) float64`, `ComputePrecisionRecall(predicted, groundTruth []bool) (precision, recall float64)`.
 
 ### 2.4 Velocity estimation (`velocity_estimation.go`, ~420 lines)
 
 Per-point velocity estimation via frame-to-frame correspondence:
 
-```go
-type VelocityEstimationConfig struct {
-    SearchRadius         float64  // 2.0m — max correspondence search distance
-    MaxVelocityMps       float64  // 50.0 m/s (~180 km/h)
-    VelocityWeight       float64  // 2.0 — weight for velocity consistency in scoring
-    MinConfidence        float32  // 0.3 — minimum confidence threshold
-    SpatialIndexCellSize float64  // 0.6m — matches DBSCAN eps
-}
-```
+**`VelocityEstimationConfig` struct:**
+
+| Field                  | Type    | Default | Purpose                                    |
+| ---------------------- | ------- | ------- | ------------------------------------------ |
+| `SearchRadius`         | float64 | 2.0 m   | Max correspondence search distance         |
+| `MaxVelocityMps`       | float64 | 50.0    | ~180 km/h limit                            |
+| `VelocityWeight`       | float64 | 2.0     | Weight for velocity consistency in scoring |
+| `MinConfidence`        | float32 | 0.3     | Minimum confidence threshold               |
+| `SpatialIndexCellSize` | float64 | 0.6 m   | Matches DBSCAN eps                         |
 
 **Algorithm:**
 
@@ -188,36 +166,15 @@ type VelocityEstimationConfig struct {
 
 Circular buffer of processed frames for multi-frame correspondence:
 
-```go
-type FrameHistory struct {
-    frames   []*VelocityFrame
-    capacity int
-    head     int
-    size     int
-}
+**`FrameHistory` struct** — circular buffer of `*VelocityFrame` with `capacity`, `head`, and `size` fields.
 
-type VelocityFrame struct {
-    Points       []PointWithVelocity
-    SpatialIndex *SpatialIndex
-    Timestamp    time.Time
-    FrameID      string
-}
-```
+**`VelocityFrame` struct** — fields: `Points` ([]PointWithVelocity), `SpatialIndex` (\*SpatialIndex), `Timestamp` (time.Time), `FrameID` (string).
 
 ### 2.6 Evaluation harness (`evaluation_harness.go`, ~310 lines)
 
 Runs multiple extractors on the same frames and collects comparison metrics:
 
-```go
-type EvaluationHarness struct {
-    Config     EvaluationHarnessConfig
-    Extractors []ForegroundExtractor
-    // Accumulated statistics per extractor
-    PerExtractorStats map[string]*ExtractorStats
-    // Comparison results buffer (ring buffer)
-    ComparisonBuffer []*FrameComparison
-}
-```
+**`EvaluationHarness` struct** — fields: `Config` (EvaluationHarnessConfig), `Extractors` ([]ForegroundExtractor), `PerExtractorStats` (map[string]*ExtractorStats), `ComparisonBuffer` ([]*FrameComparison, ring buffer). Supports optional `GroundTruthProvider` interface for precision/recall computation.
 
 Supports optional `GroundTruthProvider` interface for precision/recall computation.
 
@@ -232,33 +189,17 @@ Supports optional `GroundTruthProvider` interface for precision/recall computati
 
 > **Important (main compatibility):** On `main`, `TrackingPipelineConfig` has been significantly expanded with `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, `FeatureExportFunc`, and uses `TrackerInterface` (not `*Tracker`). The re-implementation must integrate with these additions rather than replacing them.
 
-```go
-type TrackingPipeline struct {
-    config    *TrackingPipelineConfig
-    extractor ForegroundExtractor
-    mu        sync.RWMutex
-}
-
-func NewTrackingPipeline(config *TrackingPipelineConfig) *TrackingPipeline
-func (tp *TrackingPipeline) SetExtractorMode(mode string)
-func (tp *TrackingPipeline) GetExtractorMode() string
-func (tp *TrackingPipeline) FrameCallback() func(*LiDARFrame)
-```
+**`TrackingPipeline` struct** — wraps `*TrackingPipelineConfig` with a `ForegroundExtractor` and `sync.RWMutex`. Methods: `NewTrackingPipeline(config)`, `SetExtractorMode(mode string)`, `GetExtractorMode() string`, `FrameCallback() func(*LiDARFrame)`.
 
 **New fields on `TrackingPipelineConfig`:**
 
-```go
-// ExtractorMode selects which foreground extraction algorithm to use.
-// Options: "background" (default), "velocity", "hybrid"
-ExtractorMode string
+New fields on `TrackingPipelineConfig`:
 
-// HybridMergeMode specifies how to merge results when ExtractorMode is "hybrid".
-// Options: "union" (default), "intersection", "primary"
-HybridMergeMode string
-
-// ForegroundExtractor allows injecting a custom extractor (overrides ExtractorMode)
-ForegroundExtractor ForegroundExtractor
-```
+| Field                 | Type                | Default        | Purpose                                                       |
+| --------------------- | ------------------- | -------------- | ------------------------------------------------------------- |
+| `ExtractorMode`       | string              | `"background"` | Active algorithm: `"background"`, `"velocity"`, or `"hybrid"` |
+| `HybridMergeMode`     | string              | `"union"`      | Merge strategy: `"union"`, `"intersection"`, or `"primary"`   |
+| `ForegroundExtractor` | ForegroundExtractor | nil            | Custom injected extractor (overrides `ExtractorMode`)         |
 
 **Frame callback changes:**
 
@@ -278,19 +219,9 @@ The branch changed `DBSCAN()` to return `([]WorldCluster, []int)` (clusters + la
 
 **Recommendation:** Add the labels return value on `main` as a separate preparatory PR since it affects tests.
 
-### 3.3 Main program integration (`cmd/radar/radar.go`)
+### 3.3 Main program integration ([cmd/radar/radar.go](../../cmd/radar/radar.go))
 
-```go
-// Create pipeline wrapper instead of direct callback
-pipeline = lidar.NewTrackingPipeline(pipelineConfig)
-callback := pipeline.FrameCallback()
-
-// Pass pipeline to webserver for dynamic algorithm selection
-lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
-    // ...existing fields...
-    TrackingPipeline: pipeline,
-})
-```
+In [cmd/radar/radar.go](../../cmd/radar/radar.go), create `pipeline = lidar.NewTrackingPipeline(pipelineConfig)` and use `pipeline.FrameCallback()` as the callback. Pass `pipeline` to `monitor.NewWebServer` via a new `TrackingPipeline` field for dynamic algorithm selection.
 
 ---
 
@@ -300,17 +231,9 @@ lidarWebServer = monitor.NewWebServer(monitor.WebServerConfig{
 
 Returns current algorithm mode:
 
-```json
-{ "mode": "background" }
-```
+`GET /api/lidar/algorithm` returns the current mode (e.g. `{ "mode": "background" }`).
 
-### `POST /api/lidar/algorithm`
-
-Switches algorithm at runtime:
-
-```json
-{ "mode": "velocity" }
-```
+`POST /api/lidar/algorithm` switches the algorithm at runtime. Accepts a JSON body with a `mode` field. Valid modes: `background`, `velocity`, `hybrid`. Also accepts form-encoded POST (redirects to monitor page).
 
 Valid modes: `background`, `velocity`, `hybrid`
 
@@ -322,34 +245,38 @@ Accepts both `application/json` and form-encoded POST. Form POST redirects to mo
 
 ## 5. Database schema (migration 013)
 
-```sql
-CREATE TABLE IF NOT EXISTS lidar_algorithm_runs (
-    run_id TEXT PRIMARY KEY,
-    start_unix_nanos INTEGER NOT NULL,
-    end_unix_nanos INTEGER,
-    algorithms_json TEXT,
-    params_json TEXT,
-    pcap_file TEXT,
-    total_frames INTEGER DEFAULT 0,
-    total_processing_time_us INTEGER DEFAULT 0,
-    summary_json TEXT
-);
+**`lidar_algorithm_runs` table:**
 
-CREATE TABLE IF NOT EXISTS lidar_algorithm_frame_results (
-    run_id TEXT NOT NULL,
-    frame_unix_nanos INTEGER NOT NULL,
-    algorithm_name TEXT NOT NULL,
-    foreground_count INTEGER,
-    background_count INTEGER,
-    cluster_count INTEGER,
-    processing_time_us INTEGER,
-    precision REAL,
-    recall REAL,
-    extra_json TEXT,
-    PRIMARY KEY (run_id, frame_unix_nanos, algorithm_name),
-    FOREIGN KEY (run_id) REFERENCES lidar_algorithm_runs(run_id) ON DELETE CASCADE
-);
-```
+| Column                     | Type    | Constraint  | Notes                         |
+| -------------------------- | ------- | ----------- | ----------------------------- |
+| `run_id`                   | TEXT    | PRIMARY KEY |                               |
+| `start_unix_nanos`         | INTEGER | NOT NULL    | Run start time                |
+| `end_unix_nanos`           | INTEGER |             | Run end time                  |
+| `algorithms_json`          | TEXT    |             | JSON array of algorithm names |
+| `params_json`              | TEXT    |             | JSON config snapshot          |
+| `pcap_file`                | TEXT    |             | Source PCAP (if replay)       |
+| `total_frames`             | INTEGER | DEFAULT 0   | Frames processed              |
+| `total_processing_time_us` | INTEGER | DEFAULT 0   | Cumulative time               |
+| `summary_json`             | TEXT    |             | Final summary                 |
+
+**`lidar_algorithm_frame_results` table:**
+
+| Column               | Type    | Constraint                                              | Notes                     |
+| -------------------- | ------- | ------------------------------------------------------- | ------------------------- |
+| `run_id`             | TEXT    | NOT NULL, FK → `lidar_algorithm_runs` ON DELETE CASCADE |                           |
+| `frame_unix_nanos`   | INTEGER | NOT NULL                                                | Frame timestamp           |
+| `algorithm_name`     | TEXT    | NOT NULL                                                | Algorithm identifier      |
+| `foreground_count`   | INTEGER |                                                         | Foreground points         |
+| `background_count`   | INTEGER |                                                         | Background points         |
+| `cluster_count`      | INTEGER |                                                         | Clusters found            |
+| `processing_time_us` | INTEGER |                                                         | Per-frame time            |
+| `precision`          | REAL    |                                                         | If ground truth available |
+| `recall`             | REAL    |                                                         | If ground truth available |
+| `extra_json`         | TEXT    |                                                         | Algorithm-specific data   |
+
+Primary key: `(run_id, frame_unix_nanos, algorithm_name)`.
+
+**Note:** On `main`, migration numbering may have advanced. Check current migration count before applying.
 
 **Note:** On `main`, migration numbering may have advanced. Check current migration count before applying.
 
@@ -477,7 +404,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 
 **Modified files:**
 
-- `internal/db/schema.sql`: Add table definitions (sync with migration)
+- [internal/db/schema.sql](../../internal/db/schema.sql): Add table definitions (sync with migration)
 
 ---
 
@@ -536,11 +463,11 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 
 ### Modified files (require conflict resolution)
 
-| File                                       | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
-| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `internal/lidar/tracking_pipeline.go`      | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
-| `internal/lidar/monitor/webserver.go`      | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
-| `internal/lidar/clustering.go`             | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |
-| `cmd/radar/radar.go`                       | Add `NewTrackingPipeline`, pass to webserver                          | Extensive refactoring (config loading, tuning params, dependency injection)                                                              | **MEDIUM**         |
-| `internal/db/schema.sql`                   | Add algorithm tables                                                  | Schema has evolved                                                                                                                       | **LOW**            |
-| `internal/lidar/tracking_pipeline_test.go` | New tests (149 lines)                                                 | Existing 1,248 lines of tests                                                                                                            | **LOW** (additive) |
+| File                                                   | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
+| ------------------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `internal/lidar/tracking_pipeline.go`                  | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
+| `internal/lidar/monitor/webserver.go`                  | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
+| `internal/lidar/clustering.go`                         | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |
+| [cmd/radar/radar.go](../../cmd/radar/radar.go)         | Add `NewTrackingPipeline`, pass to webserver                          | Extensive refactoring (config loading, tuning params, dependency injection)                                                              | **MEDIUM**         |
+| [internal/db/schema.sql](../../internal/db/schema.sql) | Add algorithm tables                                                  | Schema has evolved                                                                                                                       | **LOW**            |
+| `internal/lidar/tracking_pipeline_test.go`             | New tests (149 lines)                                                 | Existing 1,248 lines of tests                                                                                                            | **LOW** (additive) |

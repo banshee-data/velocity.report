@@ -66,40 +66,35 @@ PCAP replay. N-dimensional sweeps grow multiplicatively.
 
 ### lidar_sweep_jobs (driver-side)
 
-```sql
-CREATE TABLE lidar_sweep_jobs (
-    job_id       TEXT PRIMARY KEY,
-    sweep_id     TEXT NOT NULL,
-    worker_id    TEXT,
-    status       TEXT NOT NULL DEFAULT 'pending',
-    combo_start  INTEGER NOT NULL,
-    combo_end    INTEGER NOT NULL,
-    combos_json  TEXT NOT NULL,
-    results_json TEXT,
-    error_message TEXT,
-    assigned_at  DATETIME,
-    started_at   DATETIME,
-    completed_at DATETIME,
-    heartbeat_at DATETIME,
-    FOREIGN KEY (sweep_id) REFERENCES lidar_sweeps(sweep_id)
-);
-```
+| Column          | Type     | Constraint                                       |
+| --------------- | -------- | ------------------------------------------------ |
+| `job_id`        | TEXT     | PRIMARY KEY                                      |
+| `sweep_id`      | TEXT     | NOT NULL, FOREIGN KEY → `lidar_sweeps(sweep_id)` |
+| `worker_id`     | TEXT     |                                                  |
+| `status`        | TEXT     | NOT NULL DEFAULT `'pending'`                     |
+| `combo_start`   | INTEGER  | NOT NULL                                         |
+| `combo_end`     | INTEGER  | NOT NULL                                         |
+| `combos_json`   | TEXT     | NOT NULL                                         |
+| `results_json`  | TEXT     |                                                  |
+| `error_message` | TEXT     |                                                  |
+| `assigned_at`   | DATETIME |                                                  |
+| `started_at`    | DATETIME |                                                  |
+| `completed_at`  | DATETIME |                                                  |
+| `heartbeat_at`  | DATETIME |                                                  |
 
 ### lidar_sweep_workers (driver-side, CRUD)
 
-```sql
-CREATE TABLE lidar_sweep_workers (
-    worker_id  TEXT PRIMARY KEY,
-    name       TEXT NOT NULL,
-    host       TEXT NOT NULL,
-    port       INTEGER NOT NULL DEFAULT 8082,
-    pcap_root  TEXT NOT NULL DEFAULT '/mnt/pcap',
-    enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-    notes      TEXT,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
+| Column       | Type     | Constraint                         |
+| ------------ | -------- | ---------------------------------- |
+| `worker_id`  | TEXT     | PRIMARY KEY                        |
+| `name`       | TEXT     | NOT NULL                           |
+| `host`       | TEXT     | NOT NULL                           |
+| `port`       | INTEGER  | NOT NULL DEFAULT 8082              |
+| `pcap_root`  | TEXT     | NOT NULL DEFAULT `'/mnt/pcap'`     |
+| `enabled`    | BOOLEAN  | NOT NULL DEFAULT TRUE              |
+| `notes`      | TEXT     |                                    |
+| `created_at` | DATETIME | NOT NULL DEFAULT CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL DEFAULT CURRENT_TIMESTAMP |
 
 ### worker_result_cache (worker-side)
 

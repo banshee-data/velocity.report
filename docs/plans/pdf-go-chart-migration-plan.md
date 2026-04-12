@@ -249,9 +249,7 @@ compilation. This adds a ~300 MB dependency: counterproductive.
 Use `rsvg-convert` (from `librsvg`, ~2 MB) as a lightweight SVG→PDF
 converter:
 
-```go
-cmd := exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")
-```
+A single `exec.Command("rsvg-convert", "-f", "pdf", "-o", "chart.pdf", "chart.svg")` call converts each SVG chart to PDF.
 
 `rsvg-convert` is:
 
@@ -287,108 +285,48 @@ files embedded via `go:embed`.
 
 ### Preamble template (`templates/preamble.tex`)
 
-```latex
-\documentclass[11pt,a4paper]{article}
+The preamble uses `\documentclass[11pt,a4paper]{article}` with packages: `geometry` (1.8 cm top, 1.0 cm bottom/left/right), `graphicx`, `tabularx`, `supertabular`, `xcolor`, `colortbl`, `fancyhdr`, `hyperref`, `fontspec`, `amsmath`, `titlesec`, `caption`, `multicol`, and `float`. Fonts are set via `\setmainfont{AtkinsonHyperlegible}` loaded from the `<<.FontDir>>` template variable with Regular/Bold/Italic/BoldItalic TTF variants. Colours match the web palette:
 
-% Geometry
-\usepackage[top=1.8cm, bottom=1.0cm, left=1.0cm, right=1.0cm]{geometry}
-
-% Packages
-\usepackage{graphicx}
-\usepackage{tabularx}
-\usepackage{supertabular}
-\usepackage{xcolor}
-\usepackage{colortbl}
-\usepackage{fancyhdr}
-\usepackage{hyperref}
-\usepackage{fontspec}
-\usepackage{amsmath}
-\usepackage{titlesec}
-\usepackage{caption}
-\usepackage{multicol}
-\usepackage{float}
-
-% Fonts
-\setmainfont{AtkinsonHyperlegible}[
-  Path = <<.FontDir>>/,
-  Extension = .ttf,
-  UprightFont = *-Regular,
-  BoldFont = *-Bold,
-  ItalicFont = *-Italic,
-  BoldItalicFont = *-BoldItalic
-]
-
-% Colours (matching web palette)
-\definecolor{vrP50}{HTML}{fbd92f}
-\definecolor{vrP85}{HTML}{f7b32b}
-\definecolor{vrP98}{HTML}{f25f5c}
-\definecolor{vrMax}{HTML}{2d1e2f}
-```
+| Colour | Name    | Hex     |
+| ------ | ------- | ------- |
+| P50    | `vrP50` | #fbd92f |
+| P85    | `vrP85` | #f7b32b |
+| P98    | `vrP98` | #f25f5c |
+| Max    | `vrMax` | #2d1e2f |
 
 ### Main template (`templates/report.tex`)
 
-```latex
-<<template "preamble" .>>
-
-\begin{document}
-\begin{multicols}{2}
-
-<<template "overview" .>>
-<<template "site_info" .>>
-
-\end{multicols}
-
-<<template "chart_section" .>>
-<<template "statistics" .>>
-<<template "science" .>>
-
-\end{document}
-```
+The main template includes the preamble, opens a two-column layout for the overview and site info sections, then switches to single-column for chart section, statistics, and science sections. Template composition uses `<<template "name" .>>` syntax (Go `text/template` with `<<>>` delimiters to avoid clashing with LaTeX braces).
 
 ### Template data structure
 
-```go
-type TemplateData struct {
-    // Site information
-    Location    string
-    Surveyor    string
-    Contact     string
-    SpeedLimit  int
-    Description string
-
-    // Survey period
-    StartDate   string
-    EndDate     string
-    Timezone    string
-    Units       string
-
-    // Statistics
-    P50         string  // formatted
-    P85         string
-    P98         string
-    MaxSpeed    string
-    TotalCount  int
-    HoursCount  int
-
-    // Chart file paths (relative to .tex directory)
-    TimeSeriesChart string  // "timeseries.pdf"
-    HistogramChart  string  // "histogram.pdf"
-    CompareChart    string  // "comparison.pdf" (optional)
-    MapChart        string  // "map.pdf" (optional)
-
-    // Font directory
-    FontDir string
-
-    // Table data
-    HourlyTable  []HourlyRow
-    DailyTable   []DailyRow
-
-    // Radar configuration
-    CosineAngle float64
-    CosineFactor float64
-    ModelVersion string
-}
-```
+| Field             | Type        | Purpose                           |
+| ----------------- | ----------- | --------------------------------- |
+| `Location`        | string      | Site location name                |
+| `Surveyor`        | string      | Surveyor name                     |
+| `Contact`         | string      | Contact details                   |
+| `SpeedLimit`      | int         | Posted speed limit                |
+| `Description`     | string      | Site description                  |
+| `StartDate`       | string      | Survey start (formatted)          |
+| `EndDate`         | string      | Survey end (formatted)            |
+| `Timezone`        | string      | IANA timezone                     |
+| `Units`           | string      | Speed unit label                  |
+| `P50`             | string      | 50th percentile (formatted)       |
+| `P85`             | string      | 85th percentile (formatted)       |
+| `P98`             | string      | 98th percentile (formatted)       |
+| `MaxSpeed`        | string      | Maximum speed (formatted)         |
+| `TotalCount`      | int         | Total vehicle count               |
+| `HoursCount`      | int         | Total survey hours                |
+| `TimeSeriesChart` | string      | Path to timeseries PDF            |
+| `HistogramChart`  | string      | Path to histogram PDF             |
+| `CompareChart`    | string      | Path to comparison PDF (optional) |
+| `MapChart`        | string      | Path to map PDF (optional)        |
+| `FontDir`         | string      | Font directory path               |
+| `HourlyTable`     | []HourlyRow | Hourly breakdown rows             |
+| `DailyTable`      | []DailyRow  | Daily breakdown rows              |
+| `CosineAngle`     | float64     | Radar cosine angle                |
+| `CosineFactor`    | float64     | Cosine correction factor          |
+| `ModelVersion`    | string      | Radar model version               |
 
 ### Template advantages over PyLaTeX
 
@@ -464,15 +402,15 @@ Go-native pipeline.
 
 Remove the Python PDF stack:
 
-1. Mark `tools/pdf-generator/` as deprecated (one release cycle)
+1. Mark [tools/pdf-generator/](../../tools/pdf-generator) as deprecated (one release cycle)
 2. Remove Python execution path from `server.go`
 3. Remove `make install-python` dependency from report generation targets
-4. Update `ARCHITECTURE.md`, component READMEs
-5. Retain `tools/pdf-generator/` in repository history (do not delete
+4. Update [ARCHITECTURE.md](../../ARCHITECTURE.md), component READMEs
+5. Retain [tools/pdf-generator/](../../tools/pdf-generator) in repository history (do not delete
    immediately: keep for reference during the transition)
 
 **Acceptance:** `make test` passes with no Python dependencies for report
-generation. Python venv is only needed for `tools/grid-heatmap/` (if still
+generation. Python venv is only needed for [tools/grid-heatmap/](../../tools/grid-heatmap) (if still
 in use).
 
 ### Phase 6: map overlay migration; `S`
@@ -586,6 +524,6 @@ vendored TeX tree + `rsvg-convert`.
    normalises counts to percentages. Does the Go API already return
    normalised histogram data, or must the report package compute percentages?
 
-7. **`grid-heatmap` tool:** `tools/grid-heatmap/` also uses matplotlib. Is
+7. **`grid-heatmap` tool:** [tools/grid-heatmap/](../../tools/grid-heatmap) also uses matplotlib. Is
    it in scope for this migration, or does it remain as a standalone Python
    tool?

@@ -37,7 +37,7 @@ assets.go:
 ```
 
 `static/` is in `.gitignore` but is not cleaned before `go build`. Each `pnpm run build`
-(in dev mode, serving from `./static`) writes content-hashed files
+(in dev mode, serving from [./static](../../static)) writes content-hashed files
 (`start.<hash>.js`, `start.<hash>.css`, `app.<hash>.js`, `nodes/<N>.<hash>.js`) into
 `static/_app/immutable/`. Old files are never removed. At the time of measurement:
 
@@ -80,17 +80,9 @@ This phase alone drops the binary from 211 MB to ~39 MB.
 `StaticFiles` is used in production only for `/favicon.ico`. That can be served from
 `WebBuildFiles` (which already contains `favicon.ico`). After the change:
 
-```go
-// assets.go — after
-package radar
+After the change, [assets.go](../../assets.go) contains only the `WebBuildFiles` embed directive (`//go:embed web/build/*`). The `StaticFiles` variable and `//go:embed static/*` directive are removed entirely.
 
-import "embed"
-
-//go:embed web/build/*
-var WebBuildFiles embed.FS
-```
-
-Update `internal/api/server.go` to serve `/favicon.ico` from `WebBuildFiles` (production)
+Update [internal/api/server.go](../../internal/api/server.go) to serve `/favicon.ico` from `WebBuildFiles` (production)
 or `./web/build` (dev) instead of `StaticFiles`.
 
 **Functionality sacrificed:** None. `static/` was a dev convenience that leaked into the
@@ -100,34 +92,20 @@ production binary. Dev mode already reads from the filesystem.
 
 Add to the web build script or Makefile:
 
-```makefile
-build-web:
-	@rm -rf web/build
-	@echo "Building web frontend..."
-	...existing build command...
-```
+The `build-web` target should clean `web/build/` before building (`rm -rf web/build`), then run the existing build command.
 
 For dev mode, add a `clean-static` target or modify the dev server startup to clean
 `static/_app/immutable/` before rebuilding:
 
-```makefile
-clean-static:
-	rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*
-```
+A `clean-static` target removes stale immutable assets: `rm -rf static/_app/immutable/entry/* static/_app/immutable/assets/* static/_app/immutable/nodes/*`.
 
 ### 1.3 Dev mode: serve from `web/build/` not `static/`
 
-Change the dev-mode file server to read from `./web/build` instead of `./static`.
+Change the dev-mode file server to read from `./web/build` instead of [./static](../../static).
 This eliminates the need for `static/` entirely and means dev and production share
 the same file tree.
 
-```go
-if devMode {
-    staticHandler = http.FileServer(http.Dir("./web/build"))
-} else {
-    staticHandler = http.FileServer(http.FS(radar.WebBuildFiles))
-}
-```
+In dev mode, the handler serves from the local filesystem at `./web/build` via `http.FileServer(http.Dir("./web/build"))`. In production, it serves from the embedded `radar.WebBuildFiles` via `http.FileServer(http.FS(radar.WebBuildFiles))`.
 
 ### Expected result after phase 1
 
@@ -143,9 +121,7 @@ if devMode {
 The current `LDFLAGS` do not include `-s -w` (strip symbol table and DWARF debug info).
 Adding these to production builds is standard practice:
 
-```makefile
-LDFLAGS_PROD := -s -w $(LDFLAGS)
-```
+Add `-s -w` (strip symbol table and DWARF debug info) to production link flags: `LDFLAGS_PROD := -s -w $(LDFLAGS)`.
 
 Apply to `build-radar-linux` and `build-radar-linux-pcap` targets only (keep debug
 symbols for local/dev builds).
@@ -202,9 +178,9 @@ echo "OK: Binary is ${SIZE_MB} MB (limit: ${MAX_SIZE_MB} MB)"
 
 Wire into `make lint`:
 
-```makefile
-lint: lint-go lint-python lint-web check-binary-size
-```
+| Target | Purpose                                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| `lint` | Add `check-binary-size` to the existing lint dependencies: `lint-go lint-python lint-web check-binary-size` |
 
 ## Phase 4: further reductions (optional, v0.5.x)
 
@@ -212,7 +188,7 @@ These are diminishing returns but worth considering:
 
 ### 4.1 Replace embedded `echarts.min.js` with lightweight alternative
 
-`internal/lidar/l9endpoints/l10clients/assets/echarts.min.js` is 1.1 MB embedded for
+[internal/lidar/l9endpoints/l10clients/assets/echarts.min.js](../../internal/lidar/l9endpoints/l10clients/assets/echarts.min.js) is 1.1 MB embedded for
 the LiDAR status/dashboard pages. If these pages migrate to the Svelte frontend (tracked
 by [web-frontend-consolidation-plan](web-frontend-consolidation-plan.md)), echarts can
 be removed from the Go binary. Saving: ~1 MB.
@@ -268,9 +244,9 @@ excessive was the build hygiene.
 
 ### Outstanding
 
-- [ ] Remove `//go:embed static/*` from `assets.go` and delete `StaticFiles` var (`S` effort)
-- [ ] Update `internal/api/server.go` to serve favicon from `WebBuildFiles` (`S` effort)
-- [ ] Change dev-mode handler to read from `./web/build` instead of `./static` (`S` effort)
+- [ ] Remove `//go:embed static/*` from [assets.go](../../assets.go) and delete `StaticFiles` var (`S` effort)
+- [ ] Update [internal/api/server.go](../../internal/api/server.go) to serve favicon from `WebBuildFiles` (`S` effort)
+- [ ] Change dev-mode handler to read from `./web/build` instead of [./static](../../static) (`S` effort)
 - [ ] Add `rm -rf web/build` to `build-web` target for clean builds (`S` effort)
 - [ ] Add `-s -w` to `LDFLAGS` for production build targets (`S` effort)
 - [ ] Create `scripts/check-binary-size.sh` and wire into `make lint` (`S` effort)

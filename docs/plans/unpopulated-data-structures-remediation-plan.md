@@ -69,7 +69,7 @@ observability plan §4.
       `RecordTrack()` and compute `RunStatistics` at completion.
 - [ ] Update `handleGetRun()` API handler so the JSON response includes
       `statistics_json` when present.
-- [ ] Add a TypeScript `RunStatistics` interface to `web/src/lib/types/lidar.ts`.
+- [ ] Add a TypeScript `RunStatistics` interface to [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
 - [ ] Add the field to the `AnalysisRun` TypeScript interface.
 - [ ] Verify backward compatibility: existing rows with `NULL`
       `statistics_json` do not break `GetRun()`.
@@ -101,7 +101,7 @@ distribution). This is a separate UI task.
 - [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
       6 new columns.
 - [ ] Add the 6 fields to the `Track` TypeScript interface in
-      `web/src/lib/types/lidar.ts`.
+      [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts).
 - [ ] Update the live-tracks API handler (`handleListTracks`) to include the
       fields in the JSON response (verify the Go struct already has them).
 - [ ] All existing Go tests pass with new column writes.
@@ -149,7 +149,7 @@ become a priority.
 - [ ] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
       `run_track_api.go` returning `RunStatistics` JSON.
 - [ ] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs).
-- [ ] Add `getRunStatistics(runId)` function to `web/src/lib/api.ts`.
+- [ ] Add `getRunStatistics(runId)` function to [web/src/lib/api.ts](../../web/src/lib/api.ts).
 - [ ] Write handler tests with populated and NULL statistics.
 
 ---
@@ -173,7 +173,7 @@ Depends on Phases 1 and 2.
 - [ ] Optional: support `Accept: text/csv` for direct CSV export.
 - [ ] Wire `FilterTracksForTraining()` and `SummarizeTrainingDataset()`.
 - [ ] Write handler tests with filtered and unfiltered exports.
-- [ ] Document the endpoint in `data/structures/README.md`.
+- [ ] Document the endpoint in [data/structures/DATA_STRUCTURES.md](../../data/structures/DATA_STRUCTURES.md).
 
 ---
 

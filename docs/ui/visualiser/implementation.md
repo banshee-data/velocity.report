@@ -61,7 +61,7 @@ Incremental, API-first implementation with explicit milestones and acceptance cr
 
 **Track B (Pipeline)**:
 
-- [x] `proto/velocity_visualiser/v1/visualiser.proto` schema
+- [x] [proto/velocity_visualiser/v1/visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) schema
 - [~] `buf.gen.yaml` for Go + Swift codegen
 - [x] `Makefile` target: `make proto-gen`
 - [x] Synthetic data generator (rotating points, moving boxes)
@@ -306,7 +306,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 
 **Test Coverage**:
 
-- `internal/lidar`: 89.6% coverage
+- [internal/lidar](../../../internal/lidar): 89.6% coverage
 - `internal/lidar/visualiser`: 76.8% coverage
 - 4 golden replay tests, 7 DBSCANClusterer tests, 7 TrackerInterface tests
 
@@ -325,7 +325,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - `internal/lidar/ground.go` implements height-based ground removal (MinHeight 0.2m, MaxHeight 3.0m)
 - `internal/lidar/obb.go` implements PCA-based oriented bounding box estimation
 - OBB smoothing integrated into `TrackedObject` with exponential moving average (α=0.3)
-- `internal/lidar/debug/collector.go` provides debug artifact collection framework
+- [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go) provides debug artifact collection framework
 
 **Track B (Pipeline)**:
 
@@ -362,10 +362,10 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 **Implementation Notes**:
 
-- Debug collector in `internal/lidar/debug/collector.go` records association candidates, gating ellipses, innovation residuals, and state predictions
+- Debug collector in [internal/lidar/debug/collector.go](../../../internal/lidar/debug/collector.go) records association candidates, gating ellipses, innovation residuals, and state predictions
 - Tracking integration captures debug data at predict(), associate(), mahalanobisDistanceSquared(), and update() steps
 - Database migration 000016 adds `lidar_labels` table
-- REST API in `internal/api/lidar_labels.go` provides full CRUD + export for labels
+- REST API in [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go) provides full CRUD + export for labels
 - `SetOverlayModes` gRPC RPC implemented in `grpc_server.go`
 
 **Track B (Pipeline)**:
@@ -395,7 +395,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 - [x] JSON export endpoint for benchmark and classification research tooling
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go) and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
@@ -491,36 +491,7 @@ See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.m
 
 **Original Implementation Sketch (Option A)** (preserved for reference):
 
-```go
-type PointCloudFrame struct {
-    // ... existing fields ...
-    refCount atomic.Int32
-}
-
-func (pc *PointCloudFrame) Retain() {
-    pc.refCount.Add(1)
-}
-
-func (pc *PointCloudFrame) Release() {
-    if pc.refCount.Add(-1) == 0 {
-        putFloat32Slice(pc.X)
-        // ... return other slices ...
-    }
-}
-
-// In broadcastLoop:
-for _, client := range p.clients {
-    frame.PointCloud.Retain()
-    select {
-    case client.frameCh <- frame:
-    default:
-        frame.PointCloud.Release() // Wasn't sent
-    }
-}
-
-// In streamFromPublisher after protobuf conversion:
-frame.PointCloud.Release()
-```
+The `PointCloudFrame` struct gains a `refCount atomic.Int32` field. `Retain()` increments the count; `Release()` decrements it and returns slices to the pool when the count reaches zero. In `broadcastLoop`, each client channel send is preceded by `Retain()`; on drop (channel full), `Release()` is called immediately. In `streamFromPublisher`, `Release()` is called after protobuf conversion.
 
 #### 7.3 Frame skipping cooldown ✅
 

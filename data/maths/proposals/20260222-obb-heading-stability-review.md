@@ -84,12 +84,9 @@ square that PCA can still swap axes between frames when a few points shift.
 ### 2.3 Dimension averaging without heading-locked axes
 
 `BoundingBoxLengthAvg` and `BoundingBoxWidthAvg` are running averages
-computed from per-frame OBB dimensions (`tracking.go:886–890`):
-
-```go
-track.BoundingBoxLengthAvg = ((n-1)*track.BoundingBoxLengthAvg + cluster.BoundingBoxLength) / n
-track.BoundingBoxWidthAvg  = ((n-1)*track.BoundingBoxWidthAvg  + cluster.BoundingBoxWidth)  / n
-```
+computed from per-frame OBB dimensions (`tracking.go:886–890`). Each frame,
+the track’s average length and width are updated incrementally:
+`avg = ((n-1)*avg + cluster_dimension) / n`.
 
 Because `cluster.BoundingBoxLength` is the OBB extent along the **current
 frame's** principal axis, and the principal axis can flip between frames
@@ -128,13 +125,8 @@ better, but the per-frame dimensions still swap when PCA axes swap (§2.2).
 ### 2.5 Why unassociated (DBSCAN) cluster boxes are not visible
 
 The adapter (`adapter.go:212–259`) intentionally skips clusters that have been
-associated with a track:
-
-```go
-if i < len(associations) && associations[i] != "" {
-    continue  // Skip — rendered via the track instead
-}
-```
+associated with a track: if the cluster index has a non-empty association, the
+adapter continues to the next cluster (rendering it via the track instead).
 
 When tracking works well, **all** clusters associate with tracks, leaving zero
 unassociated clusters. The cyan cluster boxes are therefore not rendered: only
@@ -246,16 +238,9 @@ dimensions are consistent with the heading. When the heading is locked
 (Guard 1/2/3), only update height: length and width are held to avoid
 desynchronising dimensions from the locked heading.
 
-```go
-if updateHeading {
-    track.OBBLength = cluster.OBB.Length
-    track.OBBWidth  = cluster.OBB.Width
-    track.OBBHeight = cluster.OBB.Height
-} else {
-    // Only update height (axis-independent)
-    track.OBBHeight = cluster.OBB.Height
-}
-```
+When `updateHeading` is true, set `track.OBBLength`, `track.OBBWidth`, and
+`track.OBBHeight` from the cluster’s OBB. When `updateHeading` is false
+(heading locked), update only `track.OBBHeight` (axis-independent).
 
 This avoids the axis-mixing problem because the tracker-level 90° heading
 jump rejection (Guard 3) prevents sudden relabelling of axes, and dimensions
@@ -273,21 +258,12 @@ anisotropic for elongated objects instead of converging towards a square.
 
 **Fix:** When speed is below the threshold, use the track's own recent
 displacement vector (from position history) as the reference direction
-instead of the Kalman velocity:
+instead of the Kalman velocity.
 
-```go
-if speed <= 0.5 && len(track.History) >= 2 {
-    last := track.History[len(track.History)-1]
-    prev := track.History[len(track.History)-2]
-    dx := last.X - prev.X
-    dy := last.Y - prev.Y
-    displacement := sqrt(dx*dx + dy*dy)
-    if displacement > 0.1 {  // 10 cm minimum displacement
-        refHeading = atan2(dy, dx)
-        // use refHeading for disambiguation
-    }
-}
-```
+If `speed ≤ 0.5` and at least two history entries exist, compute the
+displacement between the last two positions. If that displacement exceeds
+0.1 m (10 cm minimum), derive `refHeading = atan2(dy, dx)` and use it for
+disambiguation.
 
 As a fallback when both speed and displacement are insufficient (truly
 stationary object), lock heading to the previous smoothed value (do not
@@ -318,16 +294,10 @@ Validate against replay data.
 **Problem:** macOS renderer uses averaged dimensions; web renderer uses
 per-frame dimensions.
 
-**Fix:** Both renderers should use the same smoothed dimensions from Fix B:
-
-```swift
-// MetalRenderer.swift — use per-frame (smoothed by tracker) dimensions
-let scale = simd_float4x4(
-    diagonal: simd_float4(
-        track.bboxLength > 0 ? track.bboxLength : 1.0,
-        track.bboxWidth  > 0 ? track.bboxWidth  : 1.0,
-        track.bboxHeight > 0 ? track.bboxHeight : 1.0, 1.0))
-```
+**Fix:** Both renderers should use the same smoothed dimensions from Fix B.
+In `MetalRenderer.swift`, build the scale transform from the track’s
+per-frame `bboxLength`, `bboxWidth`, and `bboxHeight` (falling back to 1.0
+if any dimension is zero).
 
 **Impact:** Box dimensions and heading are synchronised from the same
 smoothing pipeline.

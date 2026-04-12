@@ -14,10 +14,10 @@ vs wall-time boundary before multi-sensor support lands.
 
 ## Problem statement
 
-The `timeutil.Clock` interface (`internal/timeutil/clock.go`) provides a
+The `timeutil.Clock` interface ([internal/timeutil/clock.go](../../internal/timeutil/clock.go)) provides a
 complete clock abstraction with `RealClock`, `MockClock`, `MockTimer`,
 and `MockTicker`. As of March 2026 it is used in only a handful of test
-call sites (`internal/lidar/logutil/tagged_logger_test.go`). Meanwhile,
+call sites ([internal/lidar/logutil/tagged_logger_test.go](../../internal/lidar/logutil/tagged_logger_test.go)). Meanwhile,
 the majority of non-test call sites use `time.Now()` directly, and key
 subsystems (pipeline throttle, frame cleanup, replay pacing, benchmark
 timing) are untestable without waiting for real wall-clock intervals.
@@ -82,15 +82,7 @@ use different time bases.
 
 `pipeline/tracking_pipeline.go:215-219`:
 
-```go
-var lastProcessedTime time.Time
-now := time.Now()
-if !lastProcessedTime.IsZero() &&
-    now.Sub(lastProcessedTime) < minFrameInterval {
-    // skip expensive path
-}
-lastProcessedTime = now
-```
+The throttle stores a `lastProcessedTime` timestamp. On each frame it calls `time.Now()`, checks whether the elapsed time since `lastProcessedTime` is less than `minFrameInterval`, and skips the expensive processing path if so. It then updates `lastProcessedTime` to the current wall time.
 
 Cannot unit-test without waiting real milliseconds. During PCAP
 replay, throttle decisions are wall-time based, not replay-time
@@ -100,10 +92,7 @@ based.
 
 `l2frames/frame_builder.go:163` and `frame_builder_cleanup.go:315`:
 
-```go
-fb.cleanupTimer = time.AfterFunc(
-    fb.cleanupInterval, fb.cleanupFrames)
-```
+The frame builder calls `time.AfterFunc(fb.cleanupInterval, fb.cleanupFrames)` to schedule a stale-frame cleanup callback after `cleanupInterval`.
 
 The only way to test frame-expiry behaviour is to wait for real
 milliseconds. `FrameBuilderConfig` already has `CleanupInterval`
@@ -243,7 +232,7 @@ problem and scope; this phase provides the `Clock`-based
 mechanism.
 
 - [ ] **B1.** Add `testutil.WaitFor(t, condition, timeout)`
-      polling helper to `internal/testutil/`.
+      polling helper to [internal/testutil/](../../internal/testutil).
 - [ ] **B2.** Audit all `time.Sleep` calls in `_test.go` files.
       Replace with `MockClock.Advance()` where a `Clock` is
       available, or `WaitFor` polling where it is not.
@@ -252,7 +241,7 @@ mechanism.
       above): verify replay tests no longer depend on wall time.
 - [ ] **B4.** Document the `MockClock.Advance()` test pattern
       and `WaitFor` helper in a short section in
-      `docs/platform/architecture/structured-logging.md` or a
+      [docs/platform/architecture/structured-logging.md](../platform/architecture/structured-logging.md) or a
       dedicated test-patterns doc.
 
 ### Phase c: full migration (future work)
@@ -269,9 +258,9 @@ testability benefits justify the review surface.
       handling of `TimestampMode` interactions.
 - [ ] **C3.** `serialmux/serialmux.go`: radar clock sync
       (2 calls). Low priority; one-shot init.
-- [ ] **C4.** `cmd/radar/` and `cmd/tools/`: startup/CLI
+- [ ] **C4.** [cmd/radar/](../../cmd/radar) and [cmd/tools/](../../cmd/tools): startup/CLI
       timestamps. Low testability benefit.
-- [ ] **C5.** `internal/db/`: DB audit timestamps. Low
+- [ ] **C5.** [internal/db/](../../internal/db): DB audit timestamps. Low
       testability benefit but may be useful for deterministic
       test snapshots.
 

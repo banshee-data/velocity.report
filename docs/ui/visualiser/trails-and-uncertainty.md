@@ -1,6 +1,6 @@
 # Trails and uncertainty visualisation
 
-- **Source plan:** `docs/plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md](../../plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md)
 
 Ghost trails and uncertainty cones rendered in the 3D scene for tracked objects.
 

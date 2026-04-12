@@ -1,6 +1,6 @@
 # Proto contract and debug overlays
 
-- **Source plan:** `docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md`
+- **Source plan:** [docs/plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md](../../plans/lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
 
 gRPC/protobuf contract parity for visualiser streaming, ensuring the proto schema matches actual serialisation.
 
@@ -8,7 +8,7 @@ gRPC/protobuf contract parity for visualiser streaming, ensuring the proto schem
 
 The visualiser protobuf schema (`visualiser.proto`) declares fields and controls that are not fully implemented in the gRPC stream path. This creates UI/runtime mismatch and weakens trust in the proto as a contract.
 
-## Current state (post v0.5.0)
+## Current state
 
 ### Track field serialisation: complete
 
@@ -45,7 +45,7 @@ Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and meta-te
 
 ## Remaining gaps
 
-### Debug overlays (deferred to v0.5.2)
+### Debug overlays (pending)
 
 - `FrameAdapter.adaptDebugFrame()` builds `DebugOverlaySet` correctly.
 - `frameBundleToProto()` does **not** yet map `frame.Debug` into `pb.FrameBundle.Debug`.
@@ -56,7 +56,7 @@ Tests: 6 dedicated tests including round-trip, empty-to-unspecified, and meta-te
 - Decision recorded: `include_debug` gates server-side emission. `SetOverlayModes()` remains client-side/advisory only; no server-side subset filtering.
 - `supports_debug=true` in capabilities should be treated as capability declaration, not per-overlay filtering support.
 
-### Cluster field parity (deferred to v0.5.2)
+### Cluster field parity (pending)
 
 Declared but not yet serialised:
 
@@ -66,7 +66,7 @@ Declared but not yet serialised:
 
 ## Deferred items
 
-Tracked in BACKLOG.md under v0.5.2:
+Tracked in BACKLOG.md:
 
 - Debug overlay serialisation in `frameBundleToProto()`
 - Positive integration serialisation tests replacing negative debug tests
@@ -76,10 +76,10 @@ Tracked in BACKLOG.md under v0.5.2:
 
 ## Key files
 
-| File                                                | Role                                              |
-| --------------------------------------------------- | ------------------------------------------------- |
-| `proto/velocity_visualiser/v1/visualiser.proto`     | Schema definition                                 |
-| `internal/lidar/visualiser/grpc_server.go`          | `frameBundleToProto()` serialiser                 |
-| `internal/lidar/visualiser/adapter.go`              | Frame adapter (internal model → visualiser model) |
-| `tools/visualiser-macos/.../VisualiserClient.swift` | Swift gRPC client                                 |
-| `tools/visualiser-macos/.../ContentView.swift`      | macOS UI bindings                                 |
+| File                                                                                                    | Role                                              |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [proto/velocity_visualiser/v1/visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) | Schema definition                                 |
+| `internal/lidar/visualiser/grpc_server.go`                                                              | `frameBundleToProto()` serialiser                 |
+| `internal/lidar/visualiser/adapter.go`                                                                  | Frame adapter (internal model → visualiser model) |
+| `tools/visualiser-macos/.../VisualiserClient.swift`                                                     | Swift gRPC client                                 |
+| `tools/visualiser-macos/.../ContentView.swift`                                                          | macOS UI bindings                                 |

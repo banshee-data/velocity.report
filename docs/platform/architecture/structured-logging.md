@@ -51,7 +51,7 @@ changing call sites.
 
 ### One configuration surface
 
-Two runtime controls, set once at startup in `cmd/radar/radar.go`:
+Two runtime controls, set once at startup in [cmd/radar/radar.go](../../../cmd/radar/radar.go):
 
 - `--log-level ops|diag|trace` (CLI flag, default: `ops`); verbosity threshold
 - `VELOCITY_DEBUG_LOG` (env var): file path for debug output
@@ -70,14 +70,14 @@ Behaviour:
 
 ### Package-level stream assignment
 
-| Package       | Current pattern             | Count | Target stream  |
-| ------------- | --------------------------- | ----- | -------------- |
-| `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
-| `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
-| `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
-| `monitoring/` | `Logf` (function pointer)   | 1     | : (remove)     |
-| `cmd/radar/`  | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
-| `cmd/tools/*` | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
+| Package                          | Current pattern             | Count | Target stream  |
+| -------------------------------- | --------------------------- | ----- | -------------- |
+| `api/`                           | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
+| `db/`                            | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
+| `serialmux/`                     | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
+| `monitoring/`                    | `Logf` (function pointer)   | 1     | : (remove)     |
+| [cmd/radar/](../../../cmd/radar) | `log.Printf` + `fmt.Printf` | ~12   | ops/diag       |
+| `cmd/tools/*`                    | `log.Printf` + `fmt.Printf` | ~15   | ops/diag       |
 
 ### Stream API location
 
@@ -85,7 +85,7 @@ The `Opsf`/`Diagf`/`Tracef` functions must be accessible to non-LiDAR packages.
 Options:
 
 - Promote to a shared package (e.g. `internal/logstreams/`)
-- Re-export from `internal/monitoring/`
+- Re-export from [internal/monitoring/](../../../internal/monitoring)
 
 ### Existing design reference
 
@@ -99,7 +99,7 @@ That migration is complete for the LiDAR packages (55 call sites across `l1packe
 
 - Structured logging (JSON fields, correlation IDs, external log pipelines)
 - LiDAR package logging (already migrated per the rubric design)
-- v0.5.x structural issues (covered in the hygiene plan)
+- Structural issues (covered in the hygiene plan)
 
 ## Verification
 

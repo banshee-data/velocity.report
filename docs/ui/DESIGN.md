@@ -23,15 +23,27 @@ Core philosophy:
 - DRY is mandatory for layout, styling, and chart semantics.
 - Reuse component primitives and shared style definitions before introducing one-off markup.
 
-## 2. Scope (three platforms)
+## 2. Scope
 
-This document applies to exactly these three surfaces:
+### 2.1 Surfaces
 
-1. Web app (Svelte): `web/`
-2. macOS app (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
-3. Chart/rendering stack:
-   - interactive web charts (LayerChart/d3-scale in web routes/components)
-   - static report charts (matplotlib in [tools/pdf-generator/](../../tools/pdf-generator))
+This document applies to exactly three **surfaces** — places a user sees charts or operational data:
+
+1. **Web app** (Svelte): `web/`
+2. **macOS app** (SwiftUI + Metal): [tools/visualiser-macos/VelocityVisualiser/](../../tools/visualiser-macos/VelocityVisualiser)
+3. **PDF reports** — generated documents delivered as `.pdf`
+
+PDF is a surface, not a rendering engine. The mechanism that produces the charts inside a PDF is a separate concern (see §7).
+
+### 2.2 Chart rendering (separate from surfaces)
+
+Chart rendering is converging on a single SVG-first pipeline:
+
+- **Web:** LayerChart/d3-scale components producing inline SVG in Svelte
+- **PDF (current):** Python matplotlib → PDF figures embedded via PyLaTeX — **deprecated**
+- **PDF (target):** Go native SVG generation (`internal/report/chart/`) → `rsvg-convert` → PDF figures embedded via `text/template` LaTeX — [migration plan](../plans/pdf-go-chart-migration-plan.md) (D-17)
+
+The Python matplotlib stack is being replaced. New chart work should not add matplotlib dependencies. The PDF surface remains; only its chart generation backend changes.
 
 Out of scope for new design work:
 
@@ -68,22 +80,13 @@ For percentile charts, keep the same metric-to-colour mapping across chart stack
 - `count_bar`: `#2d1e2f`
 - `low_sample`: `#f7b32b`
 
-These hex values are the **canonical percentile palette** for all chart stacks (web LayerChart,
-macOS visualiser, and Python PDF generator).
-The current PDF configuration ([tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)) already
-uses this mapping.
+These hex values are the **canonical percentile palette** for all chart renderers and surfaces.
 
-**Current discrepancy (to be migrated):** the web UI speed percentile chart in [web/src/routes/+page.svelte](../../web/src/routes/+page.svelte) still uses an older palette:
+The single source of truth for each renderer:
 
-- `p50`: `#ece111`
-- `p85`: `#ed7648`
-- `p98`: `#d50734`
-- `max`: `#000000`
-
-That web implementation is **non-compliant** with this design contract and must be migrated to the
-canonical mapping above.
-Track and complete this migration via a follow-up issue in the web/frontend tracker,
-and update this document once the web palette is aligned.
+- **Web:** [web/src/lib/palette.ts](../../web/src/lib/palette.ts) (`PERCENTILE_COLOURS`)
+- **Python PDF (deprecated):** [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py) (`ColorConfig`)
+- **Go PDF (target):** `internal/report/chart/palette.go` (planned; will import the same hex values)
 
 ## 4. Chart alignment rules (required vs allowed)
 
@@ -198,19 +201,60 @@ The macOS visualiser follows native platform conventions:
 - Keep inspector/detail pane widths practical (about 480-560px where possible).
 - When showing percentile metrics in charts/sparklines, use the shared metric palette mapping.
 
-## 7. Chart stack notes
+## 7. Chart architecture and cross-platform consistency
 
-- Web chart baseline: LayerChart/d3-scale patterns in Svelte routes/components.
-- Report chart baseline: matplotlib defaults in:
-  - [tools/pdf-generator/pdf_generator/core/config_manager.py](../../tools/pdf-generator/pdf_generator/core/config_manager.py)
-  - [tools/pdf-generator/pdf_generator/core/chart_builder.py](../../tools/pdf-generator/pdf_generator/core/chart_builder.py)
-- If palette/tick/legend semantics change in one chart stack, update the other stack in the same PR or log a linked follow-up issue.
+### 7.1 Rendering engines (current → target)
+
+| Surface | Current renderer                          | Target renderer                              | Status           |
+| ------- | ----------------------------------------- | -------------------------------------------- | ---------------- |
+| Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)             | Stable           |
+| PDF     | Python matplotlib → PDF figures           | Go native SVG → `rsvg-convert` → PDF figures | Migration (D-17) |
+| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D  | Stable           |
+
+The Python matplotlib stack ([tools/pdf-generator/](../../tools/pdf-generator)) is **deprecated**. It will be retained for reference during transition but receives no new chart features. The migration plan is at [pdf-go-chart-migration-plan.md](../plans/pdf-go-chart-migration-plan.md).
+
+### 7.2 SVG as the shared intermediate format
+
+Both the web frontend and the future Go PDF pipeline render charts as SVG. This shared format is the key to consistent output:
+
+- **Pixel-perfect control:** SVG elements are positioned in code with explicit coordinates, stroke widths, font sizes, and viewBox dimensions. There is no renderer-dependent layout negotiation.
+- **Testable:** SVG output can be parsed, diffed, and snapshot-tested as structured XML.
+- **Debuggable:** SVG files open in any browser for visual inspection.
+- **Dual use:** The same SVG can be displayed inline on the web and converted to PDF via `rsvg-convert` for print.
+
+### 7.3 Shared chart abstractions
+
+To keep charts visually consistent across web and PDF, the following properties must be governed by shared constants or equivalent configuration — not left to renderer defaults.
+
+| Property                   | What it controls                             | Web source                                 | Go PDF source (planned)                    |
+| -------------------------- | -------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
+| **Palette**                | Metric-to-colour mapping                     | [palette.ts](../../web/src/lib/palette.ts) | `chart/palette.go`                         |
+| **Legend order**           | Series stacking and legend sequence          | `palette.ts` (`LEGEND_ORDER`)              | `chart/palette.go`                         |
+| **Tick density**           | Target number of X and Y axis labels         | `RadarOverviewChart` constants             | `chart/timeseries.go` style struct         |
+| **Font sizes**             | Axis labels, tick labels, legend text        | LayerChart props + CSS                     | SVG `font-size` attributes in style struct |
+| **Density/DPI**            | Element sizing relative to output dimensions | Responsive container width                 | Fixed SVG viewBox (matches PDF page width) |
+| **Low-sample threshold**   | Count below which data is flagged            | `LOW_SAMPLE_THRESHOLD = 50`                | `ChartStyle.LowSampleThreshold`            |
+| **Missing-data threshold** | Count below which percentiles are suppressed | `MISSING_COUNT_THRESHOLD = 5`              | `ChartStyle.MissingCountThreshold`         |
+| **Marker styles**          | Point shapes per series                      | LayerChart `Points` props                  | SVG marker elements in style struct        |
+| **Line styles**            | Solid vs dashed per series                   | LayerChart `Spline` props                  | SVG `stroke-dasharray` in style struct     |
+
+When a value changes in one renderer, update or verify the equivalent in the other. If the property cannot yet be shared as importable code, document the pairing in this table and keep them in sync manually.
+
+### 7.4 Why not a single renderer for both?
+
+The web needs interactive, responsive SVG inside a reactive component tree. The PDF needs fixed-dimension SVG suitable for print. These are different enough that a single rendering function serving both would over-abstract the problem. The design contract (§3–4) and the shared constants table above provide consistency without forcing a shared runtime.
+
+### 7.5 Coordination rule
+
+If palette, tick, legend, or threshold semantics change in one renderer, update the other in the same PR or log a linked follow-up issue.
 
 ## 8. Non-Goals
 
-- Pixel-perfect matching between web, SwiftUI, and matplotlib.
+- Pixel-perfect matching between web, SwiftUI, and PDF. (Consistent meaning and readability: yes. Identical rendering: no.)
 - Replacing native macOS UI language with web-like styling.
 - Introducing a third visual style family beyond modern workspace and classic stack.
+- A single shared chart rendering function for both web and PDF (see §7.4).
+- New features or investment in the Python matplotlib chart stack.
 
 ## 9. PR checklist
 
@@ -224,4 +268,5 @@ A UI/chart PR is complete only if:
 - It preserves percentile colour mapping and legend order for percentile charts.
 - It keeps tick density readable and non-overlapping.
 - It includes explicit loading/empty/error states for charts.
+- It does not add new matplotlib dependencies (Python PDF stack is deprecated; see §7.1).
 - It documents any intentional divergence from this contract.

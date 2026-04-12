@@ -201,22 +201,24 @@ The L7 scene graph encodes persistent spatial relationships between features. Th
 
 ### 6.2 Relation data model
 
-```go
-type SceneRelation struct {
-    SubjectID   FeatureID
-    ObjectID    FeatureID
-    Kind        RelationKind
-    Confidence  float32
-    Params      RelationParams
-    ObsCount    uint32
-}
+**`SceneRelation`**
 
-type RelationParams struct {
-    BaseOffset    float64   // contacts_ground: mean base-Z offset
-    CorridorWidth float64   // follows_road: observed corridor width
-    OcclusionArc  [2]float64 // occluded_by: azimuth range
-}
-```
+| Field        | Type             | Purpose                                                |
+| ------------ | ---------------- | ------------------------------------------------------ |
+| `SubjectID`  | `FeatureID`      | Source feature in the relation                         |
+| `ObjectID`   | `FeatureID`      | Target feature in the relation                         |
+| `Kind`       | `RelationKind`   | Relation type (e.g. `contacts_ground`, `follows_road`) |
+| `Confidence` | `float32`        | Accumulated confidence score                           |
+| `Params`     | `RelationParams` | Relation-specific parameters                           |
+| `ObsCount`   | `uint32`         | Number of observations supporting this relation        |
+
+**`RelationParams`**
+
+| Field           | Type         | Purpose                                 |
+| --------------- | ------------ | --------------------------------------- |
+| `BaseOffset`    | `float64`    | `contacts_ground`: mean base-Z offset   |
+| `CorridorWidth` | `float64`    | `follows_road`: observed corridor width |
+| `OcclusionArc`  | `[2]float64` | `occluded_by`: azimuth range            |
 
 ### 6.3 How relations constrain prediction
 

@@ -214,7 +214,7 @@ is_background = (cell_diff <= closeness_threshold) OR (neighbor_confirm >= requi
 
 ### ✅ current flags (implemented)
 
-The LiDAR functionality is integrated into the `cmd/radar/radar.go` binary and enabled via the `--enable-lidar` flag:
+The LiDAR functionality is integrated into the [cmd/radar/radar.go](../../../cmd/radar/radar.go) binary and enabled via the `--enable-lidar` flag:
 
 ```bash
 # Radar binary with LiDAR integration
@@ -293,42 +293,26 @@ The grid heatmap API aggregates the fine-grained background grid (40 rings × 18
 
 **Response Structure**:
 
-```json
-{
-  "sensor_id": "hesai-pandar40p",
-  "timestamp": "2025-11-01T12:00:00Z",
-  "grid_params": {
-    "total_rings": 40,
-    "total_azimuth_bins": 1800,
-    "total_cells": 72000
-  },
-  "heatmap_params": {
-    "azimuth_bucket_deg": 3.0,
-    "azimuth_buckets": 120,
-    "ring_buckets": 40,
-    "settled_threshold": 5
-  },
-  "summary": {
-    "total_filled": 58234,
-    "total_settled": 52100,
-    "fill_rate": 0.809,
-    "settle_rate": 0.724
-  },
-  "buckets": [
-    {
-      "ring": 0,
-      "azimuth_deg_start": 0.0,
-      "azimuth_deg_end": 3.0,
-      "total_cells": 15,
-      "filled_cells": 14,
-      "settled_cells": 12,
-      "mean_times_seen": 8.5,
-      "mean_range_meters": 25.3
-    }
-    // ... 4800 buckets total
-  ]
-}
-```
+The response contains:
+
+| Field                               | Type   | Purpose                              |
+| ----------------------------------- | ------ | ------------------------------------ |
+| `sensor_id`                         | string | Sensor identifier                    |
+| `timestamp`                         | string | ISO 8601 snapshot time               |
+| `grid_params.total_rings`           | int    | Number of rings in the grid          |
+| `grid_params.total_azimuth_bins`    | int    | Number of azimuth bins               |
+| `grid_params.total_cells`           | int    | Total grid cells (rings × bins)      |
+| `heatmap_params.azimuth_bucket_deg` | float  | Degrees per azimuth bucket           |
+| `heatmap_params.azimuth_buckets`    | int    | Number of azimuth buckets in output  |
+| `heatmap_params.ring_buckets`       | int    | Number of ring buckets in output     |
+| `heatmap_params.settled_threshold`  | int    | Minimum `TimesSeenCount` for settled |
+| `summary.total_filled`              | int    | Grid cells with data                 |
+| `summary.total_settled`             | int    | Grid cells past settling threshold   |
+| `summary.fill_rate`                 | float  | Fraction of cells filled             |
+| `summary.settle_rate`               | float  | Fraction of cells settled            |
+| `buckets[]`                         | array  | Per-bucket aggregates (4800 entries) |
+
+Each bucket contains `ring`, `azimuth_deg_start`, `azimuth_deg_end`, `total_cells`, `filled_cells`, `settled_cells`, `mean_times_seen`, and `mean_range_meters`.
 
 ### Visualisation tools
 
@@ -629,7 +613,7 @@ PCAP file access is restricted to a designated safe directory to prevent path tr
 **Systemd Integration**:
 The service file automatically creates the safe directory on startup:
 
-```ini
+```text
 ExecStartPre=/bin/mkdir -p /home/david/sensor-data/lidar
 ExecStart=/home/david/code/velocity.report/radar --lidar-pcap-dir /home/david/sensor-data/lidar
 ```
@@ -644,23 +628,21 @@ ExecStart=/home/david/code/velocity.report/radar --lidar-pcap-dir /home/david/se
 - Periodic background grid persistence for parameter evolution tracking
 - Sweep tools automatically trigger PCAP replay before parameter testing
 
-````
-
 ### ✅ BackgroundParams (All Fields)
 
 These parameters are configured at startup and can be adjusted at runtime via the HTTP API (`/api/lidar/params`):
 
-```go
-BackgroundUpdateFraction       float32  // EMA learning rate (default: 0.02)
-ClosenessSensitivityMultiplier float32  // Motion threshold multiplier (default: 3.0)
-SafetyMarginMeters             float32  // Safety buffer in metres (default: 0.5)
-FreezeDurationNanos            int64    // Freeze after detection (default: 5s)
-NeighborConfirmationCount      int      // Spatial filtering votes (default: 3)
-NoiseRelativeFraction          float32  // Distance-adaptive noise (default: 0.315)
-SettlingPeriodNanos            int64    // Time before first snapshot (default: 5 minutes)
-SnapshotIntervalNanos          int64    // Time between snapshots (default: 2 hours)
-ChangeThresholdForSnapshot     int      // Min changed cells to trigger snapshot (default: 100)
-````
+| Parameter                        | Type      | Default | Purpose                                   |
+| -------------------------------- | --------- | ------- | ----------------------------------------- |
+| `BackgroundUpdateFraction`       | `float32` | 0.02    | EMA learning rate                         |
+| `ClosenessSensitivityMultiplier` | `float32` | 3.0     | Motion threshold multiplier               |
+| `SafetyMarginMeters`             | `float32` | 0.5     | Safety buffer in metres                   |
+| `FreezeDurationNanos`            | `int64`   | 5 s     | Freeze after detection                    |
+| `NeighborConfirmationCount`      | `int`     | 3       | Spatial filtering votes                   |
+| `NoiseRelativeFraction`          | `float32` | 0.315   | Distance-adaptive noise                   |
+| `SettlingPeriodNanos`            | `int64`   | 5 min   | Time before first snapshot                |
+| `SnapshotIntervalNanos`          | `int64`   | 2 h     | Time between snapshots                    |
+| `ChangeThresholdForSnapshot`     | `int`     | 100     | Minimum changed cells to trigger snapshot |
 
 ### 🔄 Planned Configuration (Clustering & Tracking)
 

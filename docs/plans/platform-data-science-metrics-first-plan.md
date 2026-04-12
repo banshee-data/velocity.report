@@ -67,13 +67,13 @@ If the write-up cannot identify the input artifact set and comparison date, it i
 
 The repo already contains the beginnings of a reproducible data-science corpus. As of March 10, 2026, the most important pieces are:
 
-- `internal/lidar/perf/pcap/kirk0.pcapng` plus `scripts/validate-lfs-files.sh`: the main LFS-backed replay artifact currently called out for validation.
-- `internal/lidar/perf/baseline/baseline-kirk0.json` and `internal/lidar/perf/baseline/baseline-kirk0-ci.json`: saved performance baselines for replay comparison.
-- `data/explore/kirk0-lifecycle/`: parameter-permutation investigation outputs tied to `kirk0.pcapng`.
-- `data/explore/convergence-neighbour/`: neighbour-confirmation sweep analysis and findings.
-- `docs/lidar/operations/parameter-comparison.md`, `docs/lidar/operations/config-param-tuning.md`, and `docs/lidar/operations/auto-tuning.md`: the current parameter-study and scoring guidance.
-- `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md`: the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
-- `data/structures/VRLOG_FORMAT.md` and `data/structures/VRLOG_ANALYSIS_FORMAT.md`: the current `.vrlog` recording contract and exploratory analysis/report format.
+- [internal/lidar/perf/pcap/kirk0.pcapng](../../internal/lidar/perf/pcap/kirk0.pcapng) plus [scripts/validate-lfs-files.sh](../../scripts/validate-lfs-files.sh): the main LFS-backed replay artifact currently called out for validation.
+- [internal/lidar/perf/baseline/baseline-kirk0.json](../../internal/lidar/perf/baseline/baseline-kirk0.json) and [internal/lidar/perf/baseline/baseline-kirk0-ci.json](../../internal/lidar/perf/baseline/baseline-kirk0-ci.json): saved performance baselines for replay comparison.
+- [data/explore/kirk0-lifecycle/](../../data/explore/kirk0-lifecycle): parameter-permutation investigation outputs tied to `kirk0.pcapng`.
+- [data/explore/convergence-neighbour/](../../data/explore/convergence-neighbour): neighbour-confirmation sweep analysis and findings.
+- [docs/lidar/operations/parameter-comparison.md](../lidar/operations/parameter-comparison.md), [docs/lidar/operations/config-param-tuning.md](../lidar/operations/config-param-tuning.md), and [docs/lidar/operations/auto-tuning.md](../lidar/operations/auto-tuning.md): the current parameter-study and scoring guidance.
+- [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md): the reference-run, scene, and labelled-ground-truth workflow for replayable evaluation.
+- [data/structures/VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md) and [data/structures/VRLOG_ANALYSIS_FORMAT.md](../../data/structures/VRLOG_ANALYSIS_FORMAT.md): the current `.vrlog` recording contract and exploratory analysis/report format.
 
 This inventory is not complete. One standing task for data-science work is to keep a clearer map of which investigations, scorecards, and artifact packs are canonical versus exploratory.
 

@@ -85,9 +85,9 @@ Each token maps to values for `dark` and `light`, so render code references sema
 
 ### Primary files
 
-- `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
+- [tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift](../../tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
 
 ### Work breakdown
 

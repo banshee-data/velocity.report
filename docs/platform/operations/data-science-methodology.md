@@ -88,14 +88,14 @@ out of scope for the critical path.
 
 ## Current evidence inventory
 
-- `internal/lidar/perf/pcap/kirk0.pcapng` + `scripts/validate-lfs-files.sh`
-- `internal/lidar/perf/baseline/baseline-kirk0.json` and `baseline-kirk0-ci.json`
-- `data/explore/kirk0-lifecycle/`: parameter-permutation investigation
-- `data/explore/convergence-neighbour/`: neighbour-confirmation sweep
-- `docs/lidar/operations/parameter-comparison.md`, `config-param-tuning.md`,
+- [internal/lidar/perf/pcap/kirk0.pcapng](../../../internal/lidar/perf/pcap/kirk0.pcapng) + [scripts/validate-lfs-files.sh](../../../scripts/validate-lfs-files.sh)
+- [internal/lidar/perf/baseline/baseline-kirk0.json](../../../internal/lidar/perf/baseline/baseline-kirk0.json) and `baseline-kirk0-ci.json`
+- [data/explore/kirk0-lifecycle/](../../../data/explore/kirk0-lifecycle): parameter-permutation investigation
+- [data/explore/convergence-neighbour/](../../../data/explore/convergence-neighbour): neighbour-confirmation sweep
+- [docs/lidar/operations/parameter-comparison.md](../../lidar/operations/parameter-comparison.md), `config-param-tuning.md`,
   `auto-tuning.md`: parameter study guidance
-- `data/structures/VRLOG_FORMAT.md` and
-  `data/structures/VRLOG_ANALYSIS_FORMAT.md`: recording contract
+- [data/structures/VRLOG_FORMAT.md](../../../data/structures/VRLOG_FORMAT.md) and
+  [data/structures/VRLOG_ANALYSIS_FORMAT.md](../../../data/structures/VRLOG_ANALYSIS_FORMAT.md): recording contract
 
 ## Non-Goals
 

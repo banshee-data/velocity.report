@@ -58,4 +58,4 @@ organisation:
 - Full evaluation aggregation move to `l8analytics` (adapters is correct boundary for now)
 - `ChartDataProvider` interface design (current `Prepare*()` delegation pattern works)
 - Handler interface conversion and route-table interface wiring (structural hardening)
-- Architecture DOT graph, SVG artefact, generation script, CI guardrails → see `docs/plans/lidar-architecture-graph-plan.md`
+- Architecture DOT graph, SVG artefact, generation script, CI guardrails → see [docs/plans/lidar-architecture-graph-plan.md](../../plans/lidar-architecture-graph-plan.md)

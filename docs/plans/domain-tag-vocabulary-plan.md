@@ -62,14 +62,12 @@ Tag all ~80 pending backlog items. Mechanical: read each item, assign 1–2 tags
 
 Add a `- **Domains:**` metadata field to plan document headers:
 
-```markdown
 # My Plan Title
 
 - **Status:** Proposed
 - **Layers:** L4 Perception, L5 Tracks
 - **Domains:** go-lidar, algorithm
 - **Canonical:** [hub-doc.md](../path/to/hub.md) <!-- link-ignore -->
-```
 
 Rules:
 
@@ -106,7 +104,7 @@ Update the backlog-prune skill to:
 
 ### Effort
 
-Edit `.claude/skills/backlog-prune/SKILL.md`. Trivial.
+Edit [.claude/skills/backlog-prune/SKILL.md](../../.claude/skills/backlog-prune/SKILL.md). Trivial.
 
 ## Effort summary
 

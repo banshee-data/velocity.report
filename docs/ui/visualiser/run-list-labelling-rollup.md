@@ -39,7 +39,7 @@ Explicitly excluded from green/accent: `carried_over`, `auto_suggested`.
 
 Rollups are computed from `lidar_run_tracks` using one grouped query for
 run lists (no per-run follow-up queries). Store helpers live in
-`internal/lidar/storage/sqlite/analysis_run.go`.
+[internal/lidar/storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go).
 
 ### API contract
 

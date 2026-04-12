@@ -1,7 +1,7 @@
 # Tracking maths
 
 - **Status:** Implementation-aligned math note
-- **Layers:** L5 Tracks (`internal/lidar/l5tracks`)
+- **Layers:** L5 Tracks ([internal/lidar/l5tracks](../../internal/lidar/l5tracks))
 - **Related:** [Clustering Maths](clustering-maths.md)
 
 ## 1. Purpose

@@ -51,7 +51,7 @@ covering the major classes (car, truck, cyclist, pedestrian at minimum).
 - Sensor: Hesai P40 at 10 Hz
 - Duration: ≥ 5 minutes of continuous traffic (≥ 3,000 frames)
 - Format: PCAP-NG (`.pcapng`)
-- Storage: Git LFS under `internal/lidar/perf/pcap/`
+- Storage: Git LFS under [internal/lidar/perf/pcap/](../../internal/lidar/perf/pcap)
 - GPS: Record GPS fix alongside capture (for geo-referencing, not for
   pipeline processing)
 

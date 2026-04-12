@@ -5,7 +5,7 @@ Quick-start runbook for starting, validating, and switching LiDAR pipeline data 
 ## 1. Prerequisites
 
 1. Repository checked out and dependencies installed.
-2. A valid LiDAR tuning config (for example `config/tuning.defaults.json`).
+2. A valid LiDAR tuning config (for example [config/tuning.defaults.json](../../../config/tuning.defaults.json)).
 3. Optional PCAP file available under your configured PCAP directory.
 
 ## 2. Start the pipeline (live sensor)
@@ -69,7 +69,7 @@ make stats-pcap PCAP=/absolute/path/to/capture.pcap
 
 ## 7. Next docs
 
-- `docs/lidar/operations/data-source-switching.md`
-- `docs/lidar/operations/pcap-analysis-mode.md`
-- `docs/lidar/troubleshooting/pipeline-diagnosis.md`
-- `docs/lidar/operations/config-param-tuning.md`
+- [docs/lidar/operations/data-source-switching.md](data-source-switching.md)
+- [docs/lidar/operations/pcap-analysis-mode.md](pcap-analysis-mode.md)
+- [docs/lidar/troubleshooting/pipeline-diagnosis.md](../troubleshooting/pipeline-diagnosis.md)
+- [docs/lidar/operations/config-param-tuning.md](config-param-tuning.md)

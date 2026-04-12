@@ -124,7 +124,7 @@ the sweep if intermediate results look promising.
 
 ### `HINTSweepRequest`
 
-Defined in `internal/lidar/sweep/hint.go`. Fields:
+Defined in [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go). Fields:
 
 - `ReplayCaseID`: replay case to use (provides PCAP, sensor ID)
 - `NumRounds`: number of label-then-sweep cycles
@@ -138,7 +138,7 @@ Defined in `internal/lidar/sweep/hint.go`. Fields:
 
 ### `HINTState`
 
-Defined in `internal/lidar/sweep/hint.go`. Fields:
+Defined in [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go). Fields:
 
 - `Status`: `"idle"`, `"running_reference"`, `"awaiting_labels"`, `"running_sweep"`, `"completed"`, `"failed"`
 - `CurrentRound`, `TotalRounds`: round tracking
@@ -198,8 +198,8 @@ carryover"`).
 
 **Files:**
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`: `LabelPanelView`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`: track selection
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift): `LabelPanelView`
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift): track selection
 
 ### P2. remove export labels button
 
@@ -216,8 +216,8 @@ labels via a server endpoint (e.g. `GET /api/lidar/runs/{run_id}/labels/export`)
 
 **Files:**
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`: remove button (~line 467)
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`: remove `exportLabels()`
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift): remove button (~line 467)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift): remove `exportLabels()`
 
 ### P3. auto-save labels on click (already implemented)
 
@@ -230,7 +230,7 @@ requirement.
 
 ### Phase 1: backend; `HINTTuner` engine
 
-**File:** `internal/lidar/sweep/hint.go` (new)
+**File:** [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go) (new)
 
 1. Define `HINTSweepRequest` and `HINTState` structs.
 2. Implement `HINTTuner` struct:
@@ -324,7 +324,7 @@ labelling UI.
 
 - Add `hintTuner *HINTTuner` field to `WebServer`.
 - Wire dependencies (analysisRunManager, analysisRunStore, replayCaseStore,
-  groundTruthScorer) in `cmd/radar/radar.go`.
+  groundTruthScorer) in [cmd/radar/radar.go](../../../cmd/radar/radar.go).
 - Register routes with `mux.HandleFunc`.
 
 ### Phase 3: dashboard UI; third mode
@@ -532,7 +532,7 @@ Update the page subtitle and add mode-specific descriptions:
 - [x] `GET /api/lidar/sweep/hint`: poll current `HINTState`
 - [x] `POST /api/lidar/sweep/hint/continue`: signal labels done (with threshold check)
 - [x] `POST /api/lidar/sweep/hint/stop`: cancel HINT run
-- [x] Wire `hintTuner` into `WebServer` and `cmd/radar/radar.go`
+- [x] Wire `hintTuner` into `WebServer` and [cmd/radar/radar.go](../../../cmd/radar/radar.go)
 - [x] Write API handler tests
 
 ### Phase 3: dashboard UI; third mode
@@ -585,21 +585,21 @@ Update the page subtitle and add mode-specific descriptions:
 
 ## File manifest
 
-| File                                                             | Action     | Description                                                              |
-| ---------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
-| `internal/lidar/sweep/hint.go`                                   | **Create** | `HINTTuner`, `HINTSweepRequest`, `HINTState`, core loop, label carryover |
-| `internal/lidar/sweep/hint_test.go`                              | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
-| `internal/lidar/monitor/sweep_handlers.go`                       | **Modify** | Add 4 HINT endpoints (with continue body parsing)                        |
-| `internal/lidar/monitor/webserver.go`                            | **Modify** | Wire `hintTuner` field + routes                                          |
-| `cmd/radar/radar.go`                                             | **Modify** | Create `HINTTuner`, inject dependencies                                  |
-| `internal/lidar/monitor/html/sweep_dashboard.html`               | **Modify** | Third mode button, HINT config/progress cards, notification permission   |
-| `internal/lidar/monitor/assets/sweep_dashboard.js`               | **Modify** | `setMode` three-way, `handleStartHINT`, `pollHINTStatus`, notifications  |
-| `internal/lidar/monitor/assets/sweep_dashboard.css`              | **Modify** | `.hint-mode`, `.hint-only`, `.auto-or-hint` classes                      |
-| `web/src/routes/lidar/sweeps/+page.svelte`                       | **Modify** | HINT mode badge, round history, label link, carryover count              |
-| `web/src/lib/api.ts`                                             | **Modify** | Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT`              |
-| `web/src/lib/types/lidar.ts`                                     | **Modify** | Add `HINTState`, `HINTRound`, `LabelProgress` types                      |
-| `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift` | **Modify** | Show existing labels in panel, remove Export Labels button               |
-| `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`   | **Modify** | Remove `exportLabels()`, wire selected RunTrack to LabelPanelView        |
+| File                                                                                                                                      | Action     | Description                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
+| [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go)                                                                     | **Create** | `HINTTuner`, `HINTSweepRequest`, `HINTState`, core loop, label carryover |
+| [internal/lidar/sweep/hint_test.go](../../../internal/lidar/sweep/hint_test.go)                                                           | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
+| `internal/lidar/monitor/sweep_handlers.go`                                                                                                | **Modify** | Add 4 HINT endpoints (with continue body parsing)                        |
+| `internal/lidar/monitor/webserver.go`                                                                                                     | **Modify** | Wire `hintTuner` field + routes                                          |
+| [cmd/radar/radar.go](../../../cmd/radar/radar.go)                                                                                         | **Modify** | Create `HINTTuner`, inject dependencies                                  |
+| `internal/lidar/monitor/html/sweep_dashboard.html`                                                                                        | **Modify** | Third mode button, HINT config/progress cards, notification permission   |
+| `internal/lidar/monitor/assets/sweep_dashboard.js`                                                                                        | **Modify** | `setMode` three-way, `handleStartHINT`, `pollHINTStatus`, notifications  |
+| `internal/lidar/monitor/assets/sweep_dashboard.css`                                                                                       | **Modify** | `.hint-mode`, `.hint-only`, `.auto-or-hint` classes                      |
+| [web/src/routes/lidar/sweeps/+page.svelte](../../../web/src/routes/lidar/sweeps/+page.svelte)                                             | **Modify** | HINT mode badge, round history, label link, carryover count              |
+| [web/src/lib/api.ts](../../../web/src/lib/api.ts)                                                                                         | **Modify** | Add `startHINT`, `getHINTState`, `continueHINT`, `stopHINT`              |
+| [web/src/lib/types/lidar.ts](../../../web/src/lib/types/lidar.ts)                                                                         | **Modify** | Add `HINTState`, `HINTRound`, `LabelProgress` types                      |
+| [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift) | **Modify** | Show existing labels in panel, remove Export Labels button               |
+| [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)     | **Modify** | Remove `exportLabels()`, wire selected RunTrack to LabelPanelView        |
 
 ## Testing strategy
 

@@ -2,7 +2,6 @@
 
 - **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 targeting v0.6.0
 - **Layers:** Cross-cutting (deployment infrastructure)
-- **Author:** Ictinus (Product Architecture)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency)
 - **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)
 
@@ -207,7 +206,7 @@ If `--check` is passed, only step 1 runs and the result is printed. If
 
 ##### Implementation scope for v0.5.1
 
-New binary at `cmd/velocity-ctl/` (~500 lines). This replaces `cmd/deploy/`
+New binary at [cmd/velocity-ctl/](../../cmd/velocity-ctl) (~500 lines). This replaces `cmd/deploy/`
 entirely: no SSH surface, no remote execution, no install/fix/config
 subcommands. Only the on-device capabilities that matter:
 
@@ -365,61 +364,13 @@ pi-gen/
 
 ### 4.4 CI pipeline (GitHub actions)
 
-```yaml
-# .github/workflows/build-image.yml (conceptual)
-name: Build Raspberry Pi Image
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
+The CI pipeline ([.github/workflows/build-image.yml](../../.github/workflows/build-image.yml)) triggers on published releases and manual `workflow_dispatch`. It runs three sequential jobs:
 
-jobs:
-  build-binaries:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cross-compile Go binaries (ARM64)
-        run: make build-radar-linux-pcap build-ctl-linux
-      - name: Build Python wheel
-        run: make build-python-wheel
-      - uses: actions/upload-artifact@v4
-        with:
-          name: velocity-binaries
-          path: |
-            velocity-report-*-linux-arm64*
-            velocity-ctl-*-linux-arm64*
-            tools/pdf-generator/dist/*.whl
-
-  build-image:
-    needs: build-binaries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: { name: velocity-binaries }
-      - name: Build pi-gen image
-        uses: usimd/pi-gen-action@v1
-        with:
-          image-name: velocity-report
-          stage-list: stage0 stage1 stage2 stage-velocity
-          # ... additional config
-      - name: Compress image
-        run: xz -9 deploy/velocity-report.img
-      - name: Upload to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: deploy/velocity-report.img.xz
-
-  update-repo-json:
-    needs: build-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Update os-list JSON with new image URL and checksum
-        run: |
-          # Generate SHA256 checksum
-          # Update os-list-velocity.json with new download URL
-          # Commit and push to gh-pages or releases
-```
+| Job                | Runner                                   | Steps                                                                                                                                                                                                                                                          |
+| ------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-binaries`   | `ubuntu-latest`                          | Check out source; cross-compile Go binaries (ARM64) via `make build-radar-linux-pcap build-ctl-linux`; build Python wheel via `make build-python-wheel`; upload `velocity-report-*-linux-arm64*`, `velocity-ctl-*-linux-arm64*`, and `dist/*.whl` as artefacts |
+| `build-image`      | `ubuntu-latest` (needs `build-binaries`) | Check out source; download binary artefacts; build pi-gen image via `usimd/pi-gen-action@v1` with stages `stage0 stage1 stage2 stage-velocity`; compress with `xz -9`; upload `.img.xz` to GitHub Release via `softprops/action-gh-release@v1`                 |
+| `update-repo-json` | `ubuntu-latest` (needs `build-image`)    | Generate SHA-256 checksum; update `os-list-velocity.json` with new download URL; commit and push to gh-pages or releases                                                                                                                                       |
 
 ### 4.5 Image size budget
 
@@ -485,7 +436,7 @@ without changing the image build pipeline.
 
 1. ✅ **Audit template dependencies**: `dependency-manifest.txt` lists every
    `.sty`, `.cls`, font, and binary the PDF generator uses
-2. ✅ **Build a minimal TeX tree**: `scripts/build-minimal-texlive.sh` extracts
+2. ✅ **Build a minimal TeX tree**: [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) extracts
    only the required files from the full TeX Live distribution into
    `/opt/velocity-report/texlive/` (~143 MB). Pi-gen stage
    `00-install-packages/01-run.sh` runs this at image build time and purges
@@ -606,7 +557,7 @@ easily mitigated by:
 
 - Documenting path conventions in both repos
 - Using GitHub release tags to coordinate versions
-- Referencing `image/stage-velocity/03-velocity-config/files/velocity-report.service`
+- Referencing [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service)
   as the canonical service definition
 
 ### 6.4 What stays in the monorepo
@@ -614,15 +565,15 @@ easily mitigated by:
 Even with the imager in a separate repository, the following **must** remain in
 the `velocity.report` monorepo:
 
-| Asset                   | Location                                                                | Reason                                                             |
-| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| pi-gen stage scripts    | `image/stage-velocity/`                                                 | Defines what goes in the image; tightly coupled to server releases |
-| OS-list repository JSON | `image/os-list-velocity.json`                                           | Catalogue of available images; updated by CI on release            |
-| Image CI workflow       | `.github/workflows/build-image.yml`                                     | Triggered by monorepo releases                                     |
-| systemd service file    | `image/stage-velocity/03-velocity-config/files/velocity-report.service` | Canonical source                                                   |
-| udev rules              | `image/stage-velocity/03-velocity-config/files/`                        | Device permission rules                                            |
-| Management binary       | `cmd/velocity-ctl/`                                                     | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
-| LiDAR network config    | `image/stage-velocity/04-velocity-lidar/files/lidar-network.conf`       | Static IP for 192.168.100.x subnet (disabled by default)           |
+| Asset                   | Location                                                                                                                                             | Reason                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| pi-gen stage scripts    | [image/stage-velocity/](../../image/stage-velocity)                                                                                                  | Defines what goes in the image; tightly coupled to server releases |
+| OS-list repository JSON | [image/os-list-velocity.json](../../image/os-list-velocity.json)                                                                                     | Catalogue of available images; updated by CI on release            |
+| Image CI workflow       | [.github/workflows/build-image.yml](../../.github/workflows/build-image.yml)                                                                         | Triggered by monorepo releases                                     |
+| systemd service file    | [image/stage-velocity/03-velocity-config/files/velocity-report.service](../../image/stage-velocity/03-velocity-config/files/velocity-report.service) | Canonical source                                                   |
+| udev rules              | [image/stage-velocity/03-velocity-config/files/](../../image/stage-velocity/03-velocity-config/files)                                                | Device permission rules                                            |
+| Management binary       | [cmd/velocity-ctl/](../../cmd/velocity-ctl)                                                                                                          | `velocity-ctl upgrade`, `rollback`, `backup`, `status`, `version`  |
+| LiDAR network config    | [image/stage-velocity/04-velocity-lidar/files/lidar-network.conf](../../image/stage-velocity/04-velocity-lidar/files/lidar-network.conf)             | Static IP for 192.168.100.x subnet (disabled by default)           |
 
 ---
 
@@ -667,7 +618,7 @@ the `velocity.report` monorepo:
 ## 8. Deploy tool replacement: `velocity-ctl`
 
 `cmd/deploy/` (the `velocity-deploy` binary) is **deleted in v0.5.1** and
-replaced by `cmd/velocity-ctl/` (the `velocity-ctl` binary). This is a clean
+replaced by [cmd/velocity-ctl/](../../cmd/velocity-ctl) (the `velocity-ctl` binary). This is a clean
 break, not a gradual deprecation: there are no existing image users to
 migrate, and shipping both binaries creates a limbo state where two tools
 with overlapping names do different things.
@@ -720,7 +671,7 @@ Two Go binaries, no wrapper scripts:
 The following are removed from the repository in v0.5.1:
 
 - `cmd/deploy/`: entire directory (10 source files, 10 test files, README)
-- `image/stage-velocity/01-velocity-binaries/files/velocity-update`: bash wrapper
+- [image/stage-velocity/01-velocity-binaries/files/velocity-update](../../image/stage-velocity/01-velocity-binaries/files/velocity-update): bash wrapper
 - Makefile targets: `build-deploy`, `build-deploy-linux`, `deploy-install`,
   `deploy-upgrade`, `deploy-status`, `deploy-health`, `deploy-install-latex`,
   `deploy-install-latex-minimal`, `deploy-update-deps`, `setup-radar`
@@ -756,7 +707,7 @@ subcommands in a non-root binary).
 - [x] Configure US Wi-Fi regulatory domain fallback
 - [x] Include LiDAR support (libpcap, network config) disabled by default
 - [x] Create GitHub Actions workflow for image building
-- [x] Create `image/os-list-velocity.json` with schema-compliant entries
+- [x] Create [image/os-list-velocity.json](../../image/os-list-velocity.json) with schema-compliant entries
 - [ ] Test image on physical Raspberry Pi 4 hardware
 - [ ] Produce first `.img.xz` release asset
 
@@ -767,7 +718,7 @@ deferred to Phase 2 (v0.6.0).
 
 ### Phase 2: custom repository JSON (2–3 days)
 
-- [x] Create `image/os-list-velocity.json` with schema-compliant entries
+- [x] Create [image/os-list-velocity.json](../../image/os-list-velocity.json) with schema-compliant entries
 - [ ] Host JSON on GitHub Pages or alongside releases
 - [ ] Write end-user documentation: "How to flash velocity.report"
 - [ ] Add `--repo` instructions to main README
@@ -839,29 +790,21 @@ velocity.report/
 A single image entry: the full stack with radar, LiDAR (disabled), PDF
 generation, and web dashboard:
 
-```json
-{
-  "imager": {
-    "latest_version": "1.0.0",
-    "url": "https://github.com/banshee-data/velocity.report/releases"
-  },
-  "os_list": [
-    {
-      "name": "velocity.report",
-      "description": "Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit).",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v1.0.0/velocity-report-v1.0.0.img.xz",
-      "extract_size": 1073741824,
-      "extract_sha256": "<sha256-of-uncompressed-img>",
-      "image_download_size": 419430400,
-      "release_date": "2026-03-01",
-      "icon": "https://velocity.report/images/icon-256.png",
-      "init_format": "systemd",
-      "devices": ["pi4-64bit", "pi400-64bit", "pi5-64bit"],
-      "url_info": "https://velocity.report/docs/guides/setup"
-    }
-  ]
-}
-```
+| Field                            | Value                                                                                                                                                                      | Purpose                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `imager.latest_version`          | `"1.0.0"`                                                                                                                                                                  | Imager version                   |
+| `imager.url`                     | GitHub releases URL                                                                                                                                                        | Imager download location         |
+| `os_list[0].name`                | `"velocity.report"`                                                                                                                                                        | Image display name               |
+| `os_list[0].description`         | Privacy-first traffic monitoring — full stack with radar, LiDAR (disabled by default), PDF reporting, and web dashboard. Based on Raspberry Pi OS Lite (Bookworm, 64-bit). | User-facing description          |
+| `os_list[0].url`                 | GitHub release `.img.xz` asset URL                                                                                                                                         | Download URL                     |
+| `os_list[0].extract_size`        | `1073741824`                                                                                                                                                               | Uncompressed image size (bytes)  |
+| `os_list[0].extract_sha256`      | SHA-256 of uncompressed `.img`                                                                                                                                             | Integrity check                  |
+| `os_list[0].image_download_size` | `419430400`                                                                                                                                                                | Compressed download size (bytes) |
+| `os_list[0].release_date`        | `"2026-03-01"`                                                                                                                                                             | Release date                     |
+| `os_list[0].icon`                | `icon-256.png` URL                                                                                                                                                         | 256×256 icon                     |
+| `os_list[0].init_format`         | `"systemd"`                                                                                                                                                                | Init system                      |
+| `os_list[0].devices`             | `pi4-64bit`, `pi400-64bit`, `pi5-64bit`                                                                                                                                    | Supported hardware               |
+| `os_list[0].url_info`            | Setup guide URL                                                                                                                                                            | Documentation link               |
 
 ---
 

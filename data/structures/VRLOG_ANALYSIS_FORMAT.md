@@ -14,7 +14,7 @@ designed to be:
   directly in plotting libraries.
 
 **Status:** Draft; initial implementation landed; spec and code may diverge until stable.
-**Target tool:** `cmd/tools/vrlog-analyse/` (new CLI).
+**Target tool:** [cmd/tools/vrlog-analyse/](../../cmd/tools/vrlog-analyse) (new CLI).
 **Companion spec:** [`VRLOG_FORMAT.md`](VRLOG_FORMAT.md); recording wire format.
 
 ---
@@ -680,7 +680,7 @@ packets at recording time, which adds I/O overhead.
 **Implementation notes:**
 
 - Store in `LogHeader` under a `pcap_identity` nested object.
-- Populate during PCAP replay in `cmd/radar/radar.go` via the existing
+- Populate during PCAP replay in [cmd/radar/radar.go](../../cmd/radar/radar.go) via the existing
   `pcap.Reader`: capture first/last packet metadata and the file hash.
 - Comparison tool (§8) can auto-verify identity match before comparing.
 

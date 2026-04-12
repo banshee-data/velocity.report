@@ -43,16 +43,16 @@ Python: `report_sections.py`, `cli/main.py`, `chart_builder.py`,
 
 ### Tier 3: significant effort (> 5% gap)
 
-Go: `internal/api` (88.2%), `internal/config` (74.7%; 40+ `Get*` at 0%).
+Go: [internal/api](../../../internal/api) (88.2%), [internal/config](../../../internal/config) (74.7%; 40+ `Get*` at 0%).
 
 Python: `tex_environment.py` (87.5%), `zip_utils.py` (86.4%).
 
 ## cmd/ logic extraction strategy
 
-| Package     | Testable LOC | Target `internal/` | Priority |
-| ----------- | ------------ | ------------------ | -------- |
-| `cmd/radar` | ~200         | `internal/config`  | MEDIUM   |
-| `cmd/tools` | ~65          | `internal/db`      | MEDIUM   |
+| Package                         | Testable LOC | Target `internal/`                          | Priority |
+| ------------------------------- | ------------ | ------------------------------------------- | -------- |
+| [cmd/radar](../../../cmd/radar) | ~200         | [internal/config](../../../internal/config) | MEDIUM   |
+| [cmd/tools](../../../cmd/tools) | ~65          | [internal/db](../../../internal/db)         | MEDIUM   |
 
 Extraction: Move business-logic types into `internal/`, keep only flag
 parsing and `main()` in `cmd/`. Write unit tests against extracted code.
@@ -85,8 +85,8 @@ parsing and `main()` in `cmd/`. Write unit tests against extracted code.
 
 ## Execution order
 
-1. **Phase 1 (weeks 1–2):** `internal/config` accessors + all Tier 1.
-2. **Phase 2 (weeks 2–4):** `internal/db`, `internal/api`, lidar
+1. **Phase 1 (weeks 1–2):** [internal/config](../../../internal/config) accessors + all Tier 1.
+2. **Phase 2 (weeks 2–4):** [internal/db](../../../internal/db), [internal/api](../../../internal/api), lidar
    sub-packages, Python Tier 2.
-3. **Phase 3 (weeks 4–8):** `cmd/radar`
+3. **Phase 3 (weeks 4–8):** [cmd/radar](../../../cmd/radar)
    extraction, macOS Swift, Python Tier 3.

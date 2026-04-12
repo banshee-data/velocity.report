@@ -97,19 +97,11 @@ The project aims for:
 
 ### Go
 
-Use build tags or test files to exclude generated code:
-
-```go
-//go:build ignore
-```
+Use the `//go:build ignore` build tag to exclude generated code from coverage.
 
 ### Python
 
-Configure `.coveragerc` or use inline comments:
-
-```python
-# pragma: no cover
-```
+Configure `.coveragerc` or use the inline `# pragma: no cover` comment to exclude specific lines or branches.
 
 ### Web
 

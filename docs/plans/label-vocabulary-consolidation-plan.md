@@ -2,7 +2,7 @@
 
 - **Status:** Phase 1–3.2 completed · Phase 4–5 planned
 - **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
-- **Related:** [Classification Maths](../../data/maths/classification-maths.md), `proto/velocity_visualiser/v1/visualiser.proto`
+- **Related:** [Classification Maths](../../data/maths/classification-maths.md), [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto)
 - **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
 The codebase carried two overlapping enum-like vocabularies for track classification: one from the classifier, one from the labelling UI; with inconsistent string values that broke comparison logic. This plan unified them under a single proto3 `ObjectClass` enum and now tracks the remaining split: separating display-only labels (truck, motorcyclist) from user-selectable labels in the labelling UI.
@@ -39,25 +39,25 @@ in the classifier, hidden in all UIs, and rejected by the label validation API.
 
 **Phase 1–2** (unified vocabulary to full-word strings):
 
-- `internal/lidar/l6objects/classification.go`: `ClassPedestrian = "pedestrian"`, `ClassDynamic = "dynamic"`, added truck/motorcyclist
-- `internal/api/lidar_labels.go`: Updated `validUserLabels` to exclude `"impossible"`, added new classes
-- `internal/lidar/adapters/ground_truth.go`: `isPositiveLabel()` updated for all 6 positive classes
-- `web/src/lib/types/lidar.ts`: `DetectionLabel` type and `TRACK_COLORS` aligned (9 classes)
-- `web/src/lib/components/lidar/TrackList.svelte`: 7-label dropdown, removed `"impossible"`
-- `web/src/lib/components/lidar/MapPane.svelte`: Legend shows 9 object classes
+- [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go): `ClassPedestrian = "pedestrian"`, `ClassDynamic = "dynamic"`, added truck/motorcyclist
+- [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go): Updated `validUserLabels` to exclude `"impossible"`, added new classes
+- [internal/lidar/adapters/ground_truth.go](../../internal/lidar/adapters/ground_truth.go): `isPositiveLabel()` updated for all 6 positive classes
+- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts): `DetectionLabel` type and `TRACK_COLORS` aligned (9 classes)
+- [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte): 7-label dropdown, removed `"impossible"`
+- [web/src/lib/components/lidar/MapPane.svelte](../../web/src/lib/components/lidar/MapPane.svelte): Legend shows 9 object classes
 - `tools/visualiser-macos/.../ContentView.swift`: `classificationLabels` array with 7 entries
 - `internal/db/migrations/000029_...up.sql`: Converts `"ped"→"pedestrian"`, `"other"→"dynamic"`, `"impossible"→"noise"`
 
 **Phase 3** (proto3 enum wire protocol):
 
-- `proto/velocity_visualiser/v1/visualiser.proto`: Added `ObjectClass` enum (10 values, 0–9), Track field 26: `ObjectClass object_class`
+- [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto): Added `ObjectClass` enum (10 values, 0–9), Track field 26: `ObjectClass object_class`
 - `internal/lidar/visualiser/grpc_server.go`: Added `objectClassFromString()` converter (string → proto enum)
 - `tools/visualiser-macos/.../VisualiserClient.swift`: Added `objectClassLabel()` converter (proto enum → string)
 - Tests updated to reflect new enum values and string mappings
 
 **Phase 3.1** (VRLOG replay re-classification):
 
-- `internal/lidar/l6objects/classification.go`: Refactored `Classify` → `ClassifyFeatures` (exported, takes pre-built features without full `TrackedObject`)
+- [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go): Refactored `Classify` → `ClassifyFeatures` (exported, takes pre-built features without full `TrackedObject`)
 - `internal/lidar/visualiser/grpc_server.go`: Added `classifyOrConvert()` bridge function and package-level `replayClassifier`
 - `tools/visualiser-macos/.../ContentView.swift`: Track Inspector always shows Class field with "Not classified" fallback
 
@@ -154,14 +154,14 @@ Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label lis
 
 ### Phase 5: remove duplicates from frontends
 
-| Location                                       | Remove               | Replace with                                    |
-| ---------------------------------------------- | -------------------- | ----------------------------------------------- |
-| `api/lidar_labels.go` `validUserLabels`        | Hardcoded map        | Import from centralised taxonomy                |
-| `web/src/lib/types/lidar.ts` `DetectionLabel`  | Hardcoded union type | Runtime import from taxonomy API                |
-| `ContentView.swift` `classificationLabels`     | Hardcoded array      | Fetch from taxonomy API on launch               |
-| `TrackList.svelte` `DETECTION_LABELS`          | Hardcoded array      | Fetch from taxonomy API                         |
-| `MapPane.svelte` legend classes                | Hardcoded array      | Derive from `TRACK_COLORS` keys or taxonomy API |
-| `adapters/ground_truth.go` `isPositiveLabel()` | Inline function      | Centralised `IsPositive()` method               |
+| Location                                                                        | Remove               | Replace with                                    |
+| ------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------- |
+| `api/lidar_labels.go` `validUserLabels`                                         | Hardcoded map        | Import from centralised taxonomy                |
+| [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) `DetectionLabel` | Hardcoded union type | Runtime import from taxonomy API                |
+| `ContentView.swift` `classificationLabels`                                      | Hardcoded array      | Fetch from taxonomy API on launch               |
+| `TrackList.svelte` `DETECTION_LABELS`                                           | Hardcoded array      | Fetch from taxonomy API                         |
+| `MapPane.svelte` legend classes                                                 | Hardcoded array      | Derive from `TRACK_COLORS` keys or taxonomy API |
+| `adapters/ground_truth.go` `isPositiveLabel()`                                  | Inline function      | Centralised `IsPositive()` method               |
 
 ### Phase 6: public API field alignment
 

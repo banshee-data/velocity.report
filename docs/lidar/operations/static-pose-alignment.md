@@ -4,7 +4,7 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 
 ## Source
 
-- Plan: `docs/plans/lidar-static-pose-alignment-plan.md`
+- Plan: [docs/plans/lidar-static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)
 - Status: DEFERRED for traffic monitoring deployments
 
 ## Simplification applied
@@ -15,9 +15,9 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 | Oriented bounding boxes          | Axis-aligned boxes         |
 | PCA-based heading                | Heading from velocity      |
 | 6-state Kalman                   | EMA smoothing              |
-| 28-class taxonomy                | 4 classes                  |
+| AV taxonomy (19–32 classes)      | 4 classes                  |
 
-Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction.md` for the simplified approach.
+Implemented instead: see [docs/lidar/architecture/velocity-foreground-extraction.md](../architecture/velocity-foreground-extraction.md) for the simplified approach.
 
 ## When to implement
 
@@ -61,5 +61,5 @@ Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction
 
 ## Related
 
-- Motion capture architecture: `docs/lidar/operations/motion-capture.md` (full future specification)
-- Current tracking: `docs/lidar/architecture/foreground-tracking.md`
+- Motion capture architecture: [docs/lidar/operations/motion-capture.md](motion-capture.md) (full future specification)
+- Current tracking: [docs/lidar/architecture/foreground-tracking.md](../architecture/foreground-tracking.md)

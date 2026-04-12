@@ -14,8 +14,7 @@
  ██░
 ```
 
-- `data/maths/`: durable maths, proposals, bibliography
-- `data/structures/`: stable contracts and specs
-- `data/experiments/`: proposed experiments in `try/`; promote results to `explore/`
-- `data/explore/`: revisit-worthy investigations; promote hardened outcomes out of here
-- `data/align/`: external-data preparation tools
+- [data/maths/](maths): durable maths, proposals, bibliography
+- [data/structures/](structures): stable contracts and specs
+- [data/experiments/](experiments): proposed experiments in `try/`; promote results to `explore/`
+- [data/explore/](explore): revisit-worthy investigations; promote hardened outcomes out of here

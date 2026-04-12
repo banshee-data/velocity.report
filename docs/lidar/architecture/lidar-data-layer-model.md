@@ -1,6 +1,6 @@
 # LiDAR data layer model (ten layers)
 
-- **Status:** Canonical reference; layer numbers are locked for codebase stability from v0.5.0 onwards.
+- **Status:** Canonical reference; layer numbers are locked for codebase stability.
 
 This is the canonical reference for the ten-layer LiDAR data processing model used throughout velocity.report, defining the scope, data forms, and stability guarantees for layers L1 through L10.
 
@@ -12,7 +12,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## Stability guarantee
 
-**Layer numbers L1–L10 are frozen from v0.5.0.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
+**Layer numbers L1–L10 are frozen.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
 
 ## The ten layers
 
@@ -425,7 +425,7 @@ L5  Tracks ──── Hungarian assignment: clusters → Kalman-filtered track
  │
 L6  Objects ─── Classification: feature accumulation → class label
                  car │ pedestrian │ cyclist │ bird │ other
-                 AV taxonomy mapping (28-class compatibility)
+                 AV taxonomy mapping (see classification-maths.md §11)
                  Per-track quality scoring
 
 ═══════════════════════════════════════════════════════════════════════════
@@ -512,30 +512,30 @@ The visualiser toolbar provides single-key toggles for each visual layer:
 
 ## Current repository alignment
 
-| Layer         | Canonical package              | Key files                                                                                                                                                  | Status |
-| ------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| L1 Packets    | `internal/lidar/l1packets/`    | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                 | ✅     |
-| L2 Frames     | `internal/lidar/l2frames/`     | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                 | ✅     |
-| L3 Grid       | `internal/lidar/l3grid/`       | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                  | ✅     |
-| L4 Perception | `internal/lidar/l4perception/` | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                             | ✅     |
-| L5 Tracks     | `internal/lidar/l5tracks/`     | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                      | ✅     |
-| L6 Objects    | `internal/lidar/l6objects/`    | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                          | ✅     |
-| L7 Scene      | `internal/lidar/l7scene/`      | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
-| L8 Analytics  | `internal/lidar/l8analytics/`  | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
-| L9 Endpoints  | `internal/lidar/l9endpoints/`  | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
-| L10 Clients   | _(no Go package)_              | `web/` (Svelte), `tools/visualiser-macos/` (Swift), `tools/pdf-generator/` (Python)                                                                        | 📄     |
+| Layer         | Canonical package                                                    | Key files                                                                                                                                                  | Status |
+| ------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| L1 Packets    | [internal/lidar/l1packets/](../../../internal/lidar/l1packets)       | Facade over `network/` (UDP/PCAP) and `parse/` (Pandar40P)                                                                                                 | ✅     |
+| L2 Frames     | [internal/lidar/l2frames/](../../../internal/lidar/l2frames)         | `frame_builder.go`, `types.go`, `export.go`, `geometry.go`                                                                                                 | ✅     |
+| L3 Grid       | [internal/lidar/l3grid/](../../../internal/lidar/l3grid)             | `background.go`, `background_persistence.go`, `background_export.go`, `background_drift.go`, `foreground.go`, `config.go`                                  | ✅     |
+| L4 Perception | [internal/lidar/l4perception/](../../../internal/lidar/l4perception) | `cluster.go`, `dbscan_clusterer.go`, `ground.go`, `voxel.go`, `obb.go`, ground plane (planned)                                                             | ✅     |
+| L5 Tracks     | [internal/lidar/l5tracks/](../../../internal/lidar/l5tracks)         | `tracking.go`, `hungarian.go`, `tracker_interface.go`                                                                                                      | ✅     |
+| L6 Objects    | [internal/lidar/l6objects/](../../../internal/lidar/l6objects)       | `classification.go`, `features.go`, `quality.go`, `comparison.go`                                                                                          | ✅     |
+| L7 Scene      | `internal/lidar/l7scene/`                                            | _To be created_: canonical scene model, priors ingestion, multi-sensor merge                                                                               | 📋     |
+| L8 Analytics  | [internal/lidar/l8analytics/](../../../internal/lidar/l8analytics)   | _Canonical package to be created: existing analytics logic currently in `l6objects/quality.go`, `storage/sqlite/analysis_run*.go`, `monitor/scene_api.go`_ | 🔄     |
+| L9 Endpoints  | [internal/lidar/l9endpoints/](../../../internal/lidar/l9endpoints)   | _Rename from `internal/lidar/visualiser/`_: `adapter.go`, `frame_codec.go`, `grpc_server.go`, `publisher.go`                                               | 🔄     |
+| L10 Clients   | _(no Go package)_                                                    | `web/` (Svelte), [tools/visualiser-macos/](../../../tools/visualiser-macos) (Swift), [tools/pdf-generator/](../../../tools/pdf-generator) (Python)         | 📄     |
 
 Cross-cutting packages:
 
-| Package                          | Purpose                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `internal/lidar/pipeline/`       | Orchestration (stage interfaces)                                                                                                                                          |
-| `internal/lidar/storage/sqlite/` | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
-| `internal/lidar/adapters/`       | Transport and IO boundaries                                                                                                                                               |
-| `internal/lidar/monitor/`        | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                              |
-| `internal/lidar/sweep/`          | Parameter sweep and auto-tuning                                                                                                                                           |
+| Package                                                                  | Purpose                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [internal/lidar/pipeline/](../../../internal/lidar/pipeline)             | Orchestration (stage interfaces)                                                                                                                                          |
+| [internal/lidar/storage/sqlite/](../../../internal/lidar/storage/sqlite) | DB repositories (scene, track, evaluation, sweep, analysis run stores). `lidar_run_tracks` is an L8 snapshot of L5 `lidar_tracks`: see `track_measurement_sql.go` for DRY |
+| [internal/lidar/adapters/](../../../internal/lidar/adapters)             | Transport and IO boundaries                                                                                                                                               |
+| `internal/lidar/monitor/`                                                | Infrastructure monitoring (to be decomposed: analytics → L8, endpoints → L9)                                                                                              |
+| [internal/lidar/sweep/](../../../internal/lidar/sweep)                   | Parameter sweep and auto-tuning                                                                                                                                           |
 
-Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
+Backward-compatible type aliases remain in the parent [internal/lidar/](../../../internal/lidar) package so existing callers continue to work.
 
 ### Layer dependency rule
 
@@ -662,16 +662,18 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 ### L6 objects: semantic classification
 
-**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV 28-class taxonomy mapping as an export concern.
+**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV taxonomy mapping as an export concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping).
 
 **Literature context:** Our current classifier is heuristic rather than learned, occupying the same architectural slot as deep-learning detectors (PointPillars, CenterPoint) but with deterministic rules suited to our privacy-first, edge-compute constraints.
 
-| Reference                                                          | Relevance                                                                                                             |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline |
-| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility              |
-| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                  |
-| Behley et al. (2019): SemanticKITTI                                | 28-class point-wise semantic labels; our AV compatibility mapping targets this taxonomy                               |
+| Reference                                                          | Relevance                                                                                                                                            |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline                                |
+| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility                                             |
+| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                                                 |
+| Behley et al. (2019): SemanticKITTI                                | 19 eval-class point-level semantic segmentation; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the full mapping |
+| Mei et al. (2022): Waymo Panoptic                                  | 22 semantic classes; source of the "28 semantic categories" count in earlier docs                                                                    |
+| Fong et al. (2021): Panoptic nuScenes                              | 32-class (16 things + 16 stuff) LiDAR panoptic segmentation and tracking benchmark                                                                   |
 
 ### L6e ML classifier (planned)
 
@@ -679,12 +681,12 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Literature context:** The architectural slot we occupy (features from tracked clusters → class label) is equivalent to the "object proposal → classification" stage in detector pipelines. Our heuristic classifier is an interpretable baseline; learned classifiers improve on recall for ambiguous object types (cyclists vs. pedestrians at low speed, motorcyclists vs. cyclists at medium speed) at the cost of requiring labelled training data.
 
-| Reference                           | Relevance                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features |
-| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions          |
-| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training            |
-| Behley et al. (2019): SemanticKITTI | 28-class point-level semantic labels; AV compatibility mapping targets this taxonomy                                 |
+| Reference                           | Relevance                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features                                      |
+| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions                                               |
+| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training                                                 |
+| Behley et al. (2019): SemanticKITTI | 19 eval-class point-level semantic segmentation; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping |
 
 **Design plan:** [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md).
 
@@ -722,22 +724,22 @@ L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusiv
 
 ## Long-term layer designation stability
 
-### Frozen designations (v0.5.0 onwards)
+### Frozen designations
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code  | Notes                                        |
-| ------ | ---------- | ------------------------------------ | -------------- | -------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0         | One instance per physical sensor             |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0         | Sensor-local coordinates                     |
-| L3     | Grid       | Background/foreground separation     | v0.1.0         | Sensor-local polar grid                      |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0         | Clusters, ground tiles, OBBs                 |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0         | Kalman + Hungarian per sensor                |
-| L6     | Objects    | Semantic classification              | v0.4.0         | Per-track class labels                       |
-| L7     | Scene      | Persistent canonical world model     | v1.0 (planned) | Multi-frame, multi-sensor, priors            |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0         | Currently in `monitor/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0         | `monitor/` dashboards; `visualiser/` gRPC    |
-| L10    | Clients    | Downstream renderers                 | v0.1.0         | Web frontend shipped with first release      |
+| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                        |
+| ------ | ---------- | ------------------------------------ | ------------- | -------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor             |
+| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                     |
+| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                      |
+| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                 |
+| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                |
+| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                       |
+| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors            |
+| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | Currently in `monitor/`; run comparison, IoU |
+| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `monitor/` dashboards; `visualiser/` gRPC    |
+| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release      |
 
 ### Rules for future evolution
 
@@ -769,7 +771,7 @@ These capabilities might emerge in future years. They would extend existing laye
 
 ## AV compatibility note
 
-This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV 28-class compatibility remains an **L6 Objects** concern. HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
+This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
 
 The layer boundaries are intentionally aligned with common AV pipeline decompositions (sensor → detection → tracking → prediction → planning) but stop before planning/control since velocity.report is an observation system, not a vehicle control system.
 

@@ -8,7 +8,7 @@
 
 This document defines the mathematical model for long-running, high-quality ground estimation in stationary LiDAR deployments.
 
-Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in `data/maths/ground-plane-maths.md`.
+Current runtime boundary (2026-02-21): this file is proposal-only; implemented runtime ground filtering math is documented in [data/maths/ground-plane-maths.md](../ground-plane-maths.md).
 
 It is intentionally conservative:
 
@@ -239,7 +239,7 @@ This avoids one-way authority and supports long-running static operation.
 
 ### 7.3 Region-level coupling for vector scene map
 
-When polygon/polyline priors are available (`docs/lidar/architecture/vector-scene-map.md`):
+When polygon/polyline priors are available ([docs/lidar/architecture/vector-scene-map.md](../../../docs/lidar/architecture/vector-scene-map.md)):
 
 1. Use ground polygons as region seeds.
 2. Use boundary polylines as split constraints (do not blend across them).

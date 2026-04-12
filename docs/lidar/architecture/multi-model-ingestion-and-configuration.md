@@ -19,7 +19,7 @@ Current state is effectively single-model (`hesai-pandar40p`) parsing with model
 
 ### 1. L1 parser selection (generalised)
 
-Introduce a `ModelParserFactory` and `ModelRegistry` in `internal/lidar/l1packets/parse`:
+Introduce a `ModelParserFactory` and `ModelRegistry` in [internal/lidar/l1packets/parse](../../../internal/lidar/l1packets/parse):
 
 - `ModelRegistry` maps `model_key` (e.g. `hesai-pandar40p`, `ouster-os1-64`) to capabilities and parser constructor
 - `ModelParserFactory` builds the parser from a resolved model profile
@@ -95,7 +95,7 @@ UI placement should follow the constrained settings pattern:
 
 ## How this works with the current single-binary deployment
 
-For `cmd/radar` (Go monolith on Raspberry Pi):
+For [cmd/radar](../../../cmd/radar) (Go monolith on Raspberry Pi):
 
 1. Startup loads enabled `lidar_ingest_config` and resolves associated model profile.
 2. `ModelParserFactory` creates the parser for that model.

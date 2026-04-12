@@ -102,30 +102,16 @@ minimal policy for a velocity-report deployment.
 
 ### Tags
 
-```jsonc
-"tagOwners": {
-  "tag:velocity-report": ["autogroup:admin"]
-}
-```
+Set `tag:velocity-report` ownership to `autogroup:admin` in the `tagOwners` section.
 
 ### ACL rules
 
-```jsonc
-"acls": [
-  // Allow all Tailscale members to reach velocity-report Pi on all ports
-  {
-    "action": "accept",
-    "src": ["autogroup:member"],
-    "dst": ["tag:velocity-report:*"]
-  },
-  // Allow the Pi to reach nothing else (least privilege)
-  {
-    "action": "accept",
-    "src": ["tag:velocity-report"],
-    "dst": ["tag:velocity-report:*"]
-  }
-]
-```
+Add two rules to the `acls` array:
+
+| Rule | Action   | Source                | Destination             | Purpose                                                                  |
+| ---- | -------- | --------------------- | ----------------------- | ------------------------------------------------------------------------ |
+| 1    | `accept` | `autogroup:member`    | `tag:velocity-report:*` | Allow all Tailscale members to reach the Pi on all ports                 |
+| 2    | `accept` | `tag:velocity-report` | `tag:velocity-report:*` | Allow the Pi to reach only other velocity-report nodes (least privilege) |
 
 This grants all Tailscale members access to the Pi's web UI, SSH, and
 debug endpoints. The Pi itself can only talk to other velocity-report
@@ -133,15 +119,9 @@ nodes (useful if you add a second Pi).
 
 ### Restricting port access
 
-For tighter control, replace `*` with specific ports:
-
-```jsonc
-{
-  "action": "accept",
-  "src": ["autogroup:member"],
-  "dst": ["tag:velocity-report:8080,8081,22"],
-}
-```
+For tighter control, replace `*` with specific ports: set the destination
+to `tag:velocity-report:8080,8081,22` to restrict access to the web UI
+(8080), LiDAR monitor (8081), and SSH (22) only.
 
 ## 5. SSH access via Tailscale
 
@@ -154,18 +134,15 @@ ssh 100.x.y.z               # Tailscale IP
 ```
 
 Tailscale SSH authenticates via the Tailscale identity, not SSH keys. The
-SSH ACL in the admin console controls who can connect:
+SSH ACL in the admin console controls who can connect. Add a rule to the
+`ssh` array:
 
-```jsonc
-"ssh": [
-  {
-    "action": "accept",
-    "src": ["autogroup:member"],
-    "dst": ["tag:velocity-report"],
-    "users": ["pi", "root"]
-  }
-]
-```
+| Key      | Value                 | Purpose                |
+| -------- | --------------------- | ---------------------- |
+| `action` | `accept`              | Allow SSH connections  |
+| `src`    | `autogroup:member`    | All Tailscale members  |
+| `dst`    | `tag:velocity-report` | The velocity-report Pi |
+| `users`  | `pi`, `root`          | Permitted login users  |
 
 **Benefit:** No need to distribute SSH keys or manage `authorized_keys`.
 Revoking a team member's Tailscale access immediately revokes their SSH
@@ -223,4 +200,4 @@ sudo tailscale set --auto-update
   Tailscale without additional configuration.
 - **Tailscale Funnel**: exposes services to the public internet; directly
   conflicts with the privacy-first deployment model.
-- **Multi-site mesh**: coordinating multiple Pis is a v0.6.0+ concern.
+- **Multi-site mesh**: coordinating multiple Pis is a future concern.

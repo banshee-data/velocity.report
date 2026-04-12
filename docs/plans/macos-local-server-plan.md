@@ -188,11 +188,11 @@ connection management. This plan extends it:
 
 Current entitlements:
 
-```xml
-com.apple.security.app-sandbox              = true
-com.apple.security.files.user-selected.read-only = true
-com.apple.security.network.client           = true
-```
+| Entitlement                                        | Value  |
+| -------------------------------------------------- | ------ |
+| `com.apple.security.app-sandbox`                   | `true` |
+| `com.apple.security.files.user-selected.read-only` | `true` |
+| `com.apple.security.network.client`                | `true` |
 
 Additional entitlements needed:
 
@@ -213,18 +213,10 @@ No entitlement escape is needed if we use the container path.
 
 ### Makefile changes
 
-```makefile
-# Build Go server for macOS ARM64, output to visualiser resources
-build-server-for-mac:
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 \
-	go build -ldflags "..." \
-	-o tools/visualiser-macos/VelocityVisualiser/Resources/velocity-report-server \
-	./cmd/radar
-
-# Existing build-mac target: add dependency
-build-mac: build-server-for-mac
-	xcodebuild ...
-```
+| Target                 | Purpose                                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-server-for-mac` | Cross-compile Go server for macOS ARM64 (`GOOS=darwin GOARCH=arm64 CGO_ENABLED=1`), output to `tools/visualiser-macos/VelocityVisualiser/Resources/velocity-report-server` via [./cmd/radar](../../cmd/radar) |
+| `build-mac`            | Existing target, updated to depend on `build-server-for-mac`; runs `xcodebuild`                                                                                                                               |
 
 ### Xcode project changes
 
@@ -243,14 +235,9 @@ packaged into the DMG.
 
 The Go binary version must match the app version. Both are stamped from the
 same `VERSION` file and git SHA at build time. The app should verify the
-embedded binary version on launch:
-
-```swift
-// velocity-report-server --version → "0.5.2-a1b2c3d"
-// Compare with app's BuildInfo.gitSHA
-```
-
-Mismatches log a warning but do not block operation.
+embedded binary version on launch by running `velocity-report-server --version`
+(which outputs e.g. `0.5.2-a1b2c3d`) and comparing against the app's
+`BuildInfo.gitSHA`. Mismatches log a warning but do not block operation.
 
 ---
 

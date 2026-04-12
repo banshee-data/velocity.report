@@ -154,9 +154,9 @@ Extend `GET /api/lidar/runs/{run_id}/tracks` response with optional fields:
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 
 UI additions:
 
@@ -172,9 +172,9 @@ UI additions:
 
 Files:
 
-- `web/src/lib/types/lidar.ts`
-- `web/src/lib/api.ts`
-- `web/src/lib/components/lidar/TrackList.svelte`
+- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
+- [web/src/lib/api.ts](../../web/src/lib/api.ts)
+- [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte)
 
 Add optional quality fields and quality-sort/filter controls.
 
@@ -230,8 +230,8 @@ Logs:
 
 ### Web
 
-- [ ] Extend TypeScript models in `web/src/lib/types/lidar.ts`
-- [ ] Add API bindings in `web/src/lib/api.ts`
+- [ ] Extend TypeScript models in [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts)
+- [ ] Add API bindings in [web/src/lib/api.ts](../../web/src/lib/api.ts)
 - [ ] Add quality sort/filter controls in `TrackList.svelte`
 
 ### Testing and validation

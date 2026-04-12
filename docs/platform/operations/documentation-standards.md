@@ -10,7 +10,7 @@ Active plans:
 ## Metadata format
 
 All docs under `docs/` use the `- **Key:** value` canonical metadata format.
-Enforced by `scripts/check-doc-header-metadata.py` via `make lint-docs`.
+Enforced by [scripts/check-doc-header-metadata.py](../../../scripts/check-doc-header-metadata.py) via `make lint-docs`.
 
 ### Key normalisation (applied)
 
@@ -18,19 +18,26 @@ Enforced by `scripts/check-doc-header-metadata.py` via `make lint-docs`.
 - `Related variants` → `Related`
 - `Last updated` → banned (see below)
 
-### Banned date keys
+### Banned Keys
 
-Date metadata is explicitly banned: `Created`, `Date`, `Last Updated`,
-`Original Design Date`. Enforced via `BANNED_DATE_KEYS` and
-`RE_KEY_DATE_SUFFIX` in the metadata checker.
+The following metadata keys are banned and removed automatically:
+
+| Key                    | Reason                                                                |
+| ---------------------- | --------------------------------------------------------------------- |
+| `Author`, `Authors`    | Duplicates `git blame`; credits the last editor, not the right people |
+| `Created`, `Date`      | Duplicates `git log`; goes stale immediately                          |
+| `Last Updated`         | Duplicates `git log`; goes stale immediately                          |
+| `Original Design Date` | Duplicates `git log`; goes stale immediately                          |
+
+Enforced via `BANNED_KEYS` and `RE_KEY_DATE_SUFFIX` in the metadata checker.
 
 ## Structure rules
 
-1. Capability docs remain under `docs/lidar/` and `docs/radar/`.
-2. Client docs remain under `docs/ui/`.
+1. Capability docs remain under [docs/lidar/](../../lidar) and [docs/radar/](../../radar).
+2. Client docs remain under [docs/ui/](../../ui).
 3. Data science references live under `data/`, with stable maths docs in
-   `data/maths/` and proposals in `data/maths/proposals/`.
-4. Execution work remains under `docs/plans/`.
+   [data/maths/](../../../data/maths) and proposals in [data/maths/proposals/](../../../data/maths/proposals).
+4. Execution work remains under [docs/plans/](../../plans).
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
 
 ## Opening paragraph rule
@@ -73,14 +80,14 @@ Three of five formatters already default to 100. Every language reaches
 
 ### Formatter configuration
 
-| File                                | Setting                |
-| ----------------------------------- | ---------------------- |
-| `scripts/check-prose-line-width.py` | `DEFAULT_WIDTH = 100`  |
-| `pyproject.toml`                    | `line-length = 100`    |
-| `.golangci.yml`                     | `lll: line-length 100` |
-| `web/.prettierrc`                   | Already 100            |
-| `.swift-format`                     | Already 100            |
-| `.sql-formatter.json`               | Stays at 70 (expr)     |
+| File                                                                            | Setting                |
+| ------------------------------------------------------------------------------- | ---------------------- |
+| [scripts/check-prose-line-width.py](../../../scripts/check-prose-line-width.py) | `DEFAULT_WIDTH = 100`  |
+| `pyproject.toml`                                                                | `line-length = 100`    |
+| `.golangci.yml`                                                                 | `lll: line-length 100` |
+| [web/.prettierrc](../../../web/.prettierrc)                                     | Already 100            |
+| `.swift-format`                                                                 | Already 100            |
+| [.sql-formatter.json](../../../.sql-formatter.json)                             | Stays at 70 (expr)     |
 
 ### Exemptions
 
@@ -93,10 +100,10 @@ Three of five formatters already default to 100. Every language reaches
 
 Two files are excluded from prose-width checking entirely:
 
-- **`CHANGELOG.md`** — almost entirely list items (already excluded by
+- **[CHANGELOG.md](../../../CHANGELOG.md)** — almost entirely list items (already excluded by
   the checker); the few remaining prose lines are release intro paragraphs
   that read better long.
-- **`docs/DECISIONS.md`** — single-line register entries with dense link
+- **[docs/DECISIONS.md](../../DECISIONS.md)** — single-line register entries with dense link
   references; wrapping them hurts scanability more than it helps
   readability.
 
@@ -121,7 +128,7 @@ Run on every docs refactor:
 
 - Weekly lint-autofix workflow (Monday 06:00 UTC) runs `--fix` mode.
 - `make lint-docs` (check) and `make format-docs` (fix) Makefile targets.
-- Standard documented in `.github/knowledge/coding-standards.md`
+- Standard documented in [.github/knowledge/coding-standards.md](../../../.github/knowledge/coding-standards.md)
   § Documentation Metadata.
 
 ## Edit governance

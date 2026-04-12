@@ -23,7 +23,7 @@ velocity.report/
 
 - **One command:** `make install-python` sets up everything
 - **Single source of truth:** `requirements.in` at repository root
-- **Pinned dependencies:** `requirements.txt` generated with `pip-compile`
+- **Pinned dependencies:** [requirements.txt](../../../requirements.txt) generated with `pip-compile`
 - All Makefile Python targets use `VENV_PYTHON = .venv/bin/python3`
 
 ## Dependency management
@@ -38,20 +38,17 @@ Root `requirements.in` includes all packages for all Python tools:
 
 ## Go server integration
 
-The Go server finds the Python binary at:
-
-```go
-defaultPythonBin := filepath.Join(repoRoot, ".venv", "bin", "python")
-```
+The Go server finds the Python binary at the path composed from
+`filepath.Join(repoRoot, ".venv", "bin", "python")`.
 
 ## Makefile variables
 
-```makefile
-VENV_DIR    = .venv
-VENV_PYTHON = $(VENV_DIR)/bin/python3
-VENV_PIP    = $(VENV_DIR)/bin/pip
-VENV_PYTEST = $(VENV_DIR)/bin/pytest
-```
+| Variable      | Value                     |
+| ------------- | ------------------------- |
+| `VENV_DIR`    | `.venv`                   |
+| `VENV_PYTHON` | `$(VENV_DIR)/bin/python3` |
+| `VENV_PIP`    | `$(VENV_DIR)/bin/pip`     |
+| `VENV_PYTEST` | `$(VENV_DIR)/bin/pytest`  |
 
 ## Consolidation background
 

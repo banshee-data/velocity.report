@@ -75,16 +75,7 @@ this is safe to replace with `runy_`/`runs_` + full UUID because:
 
 Create `internal/id/id.go`:
 
-```go
-package id
-
-import "github.com/google/uuid"
-
-// New returns a prefixed UUID v4 string: "{prefix}_{uuid}".
-func New(prefix string) string {
-    return prefix + "_" + uuid.NewString()
-}
-```
+Create `internal/id/id.go` with a single exported function `New(prefix string) string` that returns `"{prefix}_{uuidv4}"` using `github.com/google/uuid`.
 
 ### Phase 2: migrate generation sites
 
@@ -93,17 +84,17 @@ Replace each `uuid.New().String()` / `uuid.NewString()` call with
 
 Call sites (11 total):
 
-1. `internal/lidar/l5tracks/tracking.go`: already `trk_`, switch to `id.New("trak")`
-2. `internal/lidar/storage/sqlite/analysis_run_manager.go`: `id.New("runa")`
+1. [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go): already `trk_`, switch to `id.New("trak")`
+2. [internal/lidar/storage/sqlite/analysis_run_manager.go](../../internal/lidar/storage/sqlite/analysis_run_manager.go): `id.New("runa")`
 3. `internal/lidar/monitor/scene_api.go`: replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
 4. `internal/lidar/monitor/run_track_api.go`: replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
-5. `internal/lidar/storage/sqlite/scene_store.go`: `id.New("scne")`
-6. `internal/lidar/storage/sqlite/evaluation_store.go`: `id.New("eval")`
-7. `internal/lidar/storage/sqlite/missed_region_store.go`: `id.New("regn")`
-8. `internal/api/lidar_labels.go`: `id.New("labl")`
-9. `internal/lidar/sweep/runner.go` (2 sites): `id.New("swep")`
-10. `internal/lidar/sweep/hint.go`: `id.New("swep")`
-11. `internal/lidar/sweep/auto.go`: `id.New("swep")`
+5. [internal/lidar/storage/sqlite/scene_store.go](../../internal/lidar/storage/sqlite/scene_store.go): `id.New("scne")`
+6. [internal/lidar/storage/sqlite/evaluation_store.go](../../internal/lidar/storage/sqlite/evaluation_store.go): `id.New("eval")`
+7. [internal/lidar/storage/sqlite/missed_region_store.go](../../internal/lidar/storage/sqlite/missed_region_store.go): `id.New("regn")`
+8. [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go): `id.New("labl")`
+9. [internal/lidar/sweep/runner.go](../../internal/lidar/sweep/runner.go) (2 sites): `id.New("swep")`
+10. [internal/lidar/sweep/hint.go](../../internal/lidar/sweep/hint.go): `id.New("swep")`
+11. [internal/lidar/sweep/auto.go](../../internal/lidar/sweep/auto.go): `id.New("swep")`
 
 ### Phase 3: track prefix migration (`trk_` → `trak_`)
 

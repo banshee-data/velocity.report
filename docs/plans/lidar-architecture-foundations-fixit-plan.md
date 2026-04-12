@@ -23,7 +23,7 @@ Exit criteria:
 2. Add tests for each newly supported key and response echo parity.
 3. Keep unsupported keys explicitly listed in handler comments/docs.
 4. Reorder POST body JSON-tagged fields to match canonical config order.
-5. Once complete, remove `continue-on-error` from `.github/workflows/config-order-ci.yml` to enforce strict mode.
+5. Once complete, remove `continue-on-error` from [.github/workflows/config-order-ci.yml](../../.github/workflows/config-order-ci.yml) to enforce strict mode.
 
 Exit criteria:
 

@@ -193,7 +193,7 @@ when compiling a velocity.report PDF.
    ```
 3. Parse output to extract unique `.sty`, `.cls`, `.def`, `.fd`, `.tfm`, `.cfg`
    files
-4. Save the list as `tools/pdf-generator/tex/dependency-manifest.txt`
+4. Save the list as [tools/pdf-generator/tex/dependency-manifest.txt](../../tools/pdf-generator/tex/dependency-manifest.txt)
 
 **Deliverable**: `dependency-manifest.txt`; one file path per line, relative to
 the TeX Live root.
@@ -205,7 +205,7 @@ manifest.
 
 **Steps**:
 
-1. Create `scripts/build-minimal-texlive.sh`:
+1. Create [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh):
    - Reads `dependency-manifest.txt`
    - Copies files from system TeX Live into a staging directory, preserving
      directory structure
@@ -215,7 +215,7 @@ manifest.
 2. Add Makefile target: `build-texlive-minimal`
 3. Measure and record size of the resulting tree
 
-**Deliverable**: `scripts/build-minimal-texlive.sh` + `build-texlive-minimal`
+**Deliverable**: [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) + `build-texlive-minimal`
 Makefile target.
 
 ### Phase 3: precompile format file
@@ -224,7 +224,7 @@ Makefile target.
 
 **Steps**:
 
-1. Create `tools/pdf-generator/tex/velocity-report.ini`: the format source:
+1. Create [tools/pdf-generator/tex/velocity-report.ini](../../tools/pdf-generator/tex/velocity-report.ini): the format source:
    ```tex
    % velocity-report.ini: custom XeLaTeX format for velocity.report PDFs
    % Build: xelatex -ini velocity-report.ini
@@ -242,7 +242,7 @@ Makefile target.
    \RequirePackage{array}
    \dump
    ```
-2. Extend `scripts/build-minimal-texlive.sh` to compile the `.ini` → `.fmt`
+2. Extend [scripts/build-minimal-texlive.sh](../../scripts/build-minimal-texlive.sh) to compile the `.ini` → `.fmt`
 3. Place `.fmt` in `texmf-dist/web2c/xelatex/velocity-report.fmt`
 4. Validate: `xelatex -fmt=velocity-report test.tex` produces correct output
 
@@ -255,89 +255,29 @@ modes.
 
 #### 4.1 New module: `tex_environment.py`
 
-```python
-# tools/pdf-generator/pdf_generator/core/tex_environment.py
-"""TeX environment configuration for development and production modes."""
+Create [tools/pdf-generator/pdf_generator/core/tex_environment.py](../../tools/pdf-generator/pdf_generator/core/tex_environment.py) with a `TexEnvironment` dataclass and a `resolve_tex_environment()` factory function.
 
-import os
-from dataclasses import dataclass
-from typing import Optional
+**`TexEnvironment` fields:**
 
+| Field      | Type            | Purpose                                               |
+| ---------- | --------------- | ----------------------------------------------------- |
+| `mode`     | `str`           | `"development"` or `"production"`                     |
+| `tex_root` | `Optional[str]` | `None` for development; directory path for production |
+| `compiler` | `str`           | Path to `xelatex` binary                              |
+| `fmt_name` | `Optional[str]` | `"velocity-report"` when `.fmt` exists, else `None`   |
+| `env_vars` | `dict`          | Extra environment variables for subprocess            |
 
-@dataclass
-class TexEnvironment:
-    """Resolved TeX environment paths and settings."""
+**`resolve_tex_environment()` logic:**
 
-    mode: str              # "development" or "production"
-    tex_root: Optional[str]  # None for development
-    compiler: str          # path to xelatex binary
-    fmt_name: Optional[str]  # "velocity-report" or None
-    env_vars: dict         # extra env vars for subprocess
-
-
-def resolve_tex_environment() -> TexEnvironment:
-    """Detect and resolve the TeX environment.
-
-    Checks VELOCITY_TEX_ROOT to determine mode.
-    Returns a TexEnvironment with resolved paths.
-    """
-    tex_root = os.environ.get("VELOCITY_TEX_ROOT", "").strip()
-
-    if not tex_root:
-        # Development mode — use system xelatex
-        return TexEnvironment(
-            mode="development",
-            tex_root=None,
-            compiler="xelatex",
-            fmt_name=None,
-            env_vars={},
-        )
-
-    # Production mode — use vendored minimal tree
-    bin_dir = os.path.join(tex_root, "bin")
-    compiler = os.path.join(bin_dir, "xelatex")
-    texmf_dist = os.path.join(tex_root, "texmf-dist")
-
-    env_vars = {
-        "TEXMFHOME": os.path.join(tex_root, "texmf"),
-        "TEXMFDIST": texmf_dist,
-        "TEXMFVAR": os.path.join(tex_root, "texmf-var"),
-        "PATH": bin_dir + os.pathsep + os.environ.get("PATH", ""),
-    }
-
-    # Check for precompiled format
-    fmt_path = os.path.join(
-        texmf_dist, "web2c", "xelatex", "velocity-report.fmt"
-    )
-    fmt_name = "velocity-report" if os.path.isfile(fmt_path) else None
-
-    if fmt_name:
-        # Point TEXFORMATS at the directory containing the .fmt so the
-        # engine picks it up automatically — no PyLaTeX changes needed.
-        fmt_dir = os.path.dirname(fmt_path)
-        env_vars["TEXFORMATS"] = fmt_dir + os.pathsep
-
-    return TexEnvironment(
-        mode="production",
-        tex_root=tex_root,
-        compiler=compiler,
-        fmt_name=fmt_name,
-        env_vars=env_vars,
-    )
-```
+1. Read `VELOCITY_TEX_ROOT` from environment.
+2. If unset or empty → development mode: return `compiler="xelatex"`, no extra env vars.
+3. If set → production mode: resolve `bin/xelatex` under the TeX root, set `TEXMFHOME`, `TEXMFDIST`, `TEXMFVAR`, prepend `bin/` to `PATH`.
+4. Check for `texmf-dist/web2c/xelatex/velocity-report.fmt`; if present, set `fmt_name="velocity-report"` and add the format directory to `TEXFORMATS`.
 
 #### 4.2 Changes to `document_builder.py`
 
 When using a precompiled format (`fmt_name is not None`), the packages are
-already loaded in the format. `add_packages()` must skip `\usepackage` calls
-for packages baked into the `.fmt`:
-
-```python
-def add_packages(self, doc: Document, skip_preloaded: bool = False) -> None:
-    if skip_preloaded:
-        return  # All packages are in the precompiled format — skip entirely
-    # ... existing package loading code ...
-```
+already loaded in the format. `add_packages()` accepts a `skip_preloaded` boolean parameter; when `True`, it returns immediately without emitting any `\usepackage` calls (all packages are baked into the `.fmt`).
 
 > **Invariant**: The package list in `add_packages()` and the
 > `\RequirePackage` lines in `velocity-report.ini` must stay in sync. If a
@@ -494,6 +434,6 @@ the tree is hand-curated or TinyTeX-managed.
 - [TeX format files: TeX FAQ](https://texfaq.org/FAQ-fmt)
 - [PyLaTeX documentation](https://jeltef.github.io/PyLaTeX/current/)
 - [TinyTeX: Yihui Xie](https://yihui.org/tinytex/)
-- `tools/pdf-generator/pdf_generator/core/document_builder.py`: package list
-- `tools/pdf-generator/pdf_generator/core/pdf_generator.py`: compiler invocation
-- `tools/pdf-generator/pdf_generator/core/dependency_checker.py`: LaTeX checks
+- [tools/pdf-generator/pdf_generator/core/document_builder.py](../../tools/pdf-generator/pdf_generator/core/document_builder.py): package list
+- [tools/pdf-generator/pdf_generator/core/pdf_generator.py](../../tools/pdf-generator/pdf_generator/core/pdf_generator.py): compiler invocation
+- [tools/pdf-generator/pdf_generator/core/dependency_checker.py](../../tools/pdf-generator/pdf_generator/core/dependency_checker.py): LaTeX checks

@@ -18,13 +18,13 @@ This document defines the shared architecture for the following feature designs:
 
 Feature-specific designs are in:
 
-- `docs/plans/lidar-visualiser-track-quality-score-plan.md`
-- `docs/plans/lidar-visualiser-track-event-timeline-bar-plan.md`
-- `docs/plans/lidar-visualiser-split-merge-repair-workbench-plan.md`
-- `docs/plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md`
-- `docs/plans/lidar-visualiser-physics-checks-and-confirmation-gates-plan.md`
-- `docs/plans/lidar-visualiser-priority-review-queue-plan.md`
-- `docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md`
+- [docs/plans/lidar-visualiser-track-quality-score-plan.md](lidar-visualiser-track-quality-score-plan.md)
+- [docs/plans/lidar-visualiser-track-event-timeline-bar-plan.md](lidar-visualiser-track-event-timeline-bar-plan.md)
+- [docs/plans/lidar-visualiser-split-merge-repair-workbench-plan.md](lidar-visualiser-split-merge-repair-workbench-plan.md)
+- [docs/plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md)
+- [docs/plans/lidar-visualiser-physics-checks-and-confirmation-gates-plan.md](lidar-visualiser-physics-checks-and-confirmation-gates-plan.md)
+- [docs/plans/lidar-visualiser-priority-review-queue-plan.md](lidar-visualiser-priority-review-queue-plan.md)
+- [docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md](lidar-visualiser-qc-dashboard-and-audit-export-plan.md)
 
 ## Design principles
 
@@ -37,13 +37,13 @@ Feature-specific designs are in:
 ## Shared constraints
 
 - Existing run-track API is under `/api/lidar/runs/*` in `internal/lidar/monitor/run_track_api.go`.
-- Existing run-track storage is `lidar_run_tracks` in `internal/db/schema.sql`.
+- Existing run-track storage is `lidar_run_tracks` in [internal/db/schema.sql](../../internal/db/schema.sql).
 - macOS visualiser state and controls are in:
-  - `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-  - `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-  - `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+  - [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+  - [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+  - [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 - Web tracks UI remains a parity target:
-  - `web/src/routes/lidar/tracks/+page.svelte`
+  - [web/src/routes/lidar/tracks/+page.svelte](../../web/src/routes/lidar/tracks/+page.svelte)
 
 ## Shared data additions (cross-feature)
 

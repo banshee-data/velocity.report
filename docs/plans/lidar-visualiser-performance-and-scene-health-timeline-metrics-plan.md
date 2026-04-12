@@ -77,18 +77,7 @@ Minimum label sets:
 
 Proposed annotation payload:
 
-```json
-{
-  "scene_id": "site-001-main-street",
-  "regions": [
-    { "region_id": "ground_a", "class": "ground_plane", "geometry": "..." },
-    { "region_id": "wall_east", "class": "wall", "geometry": "..." }
-  ],
-  "known_objects": [
-    { "object_id": "pole_07", "class": "static_object", "geometry": "..." }
-  ]
-}
-```
+Proposed annotation payload contains a `scene_id` string, a `regions` array (each with `region_id`, `class` such as `ground_plane` or `wall`, and `geometry`), and a `known_objects` array (each with `object_id`, `class` such as `static_object`, and `geometry`).
 
 ## API design
 
@@ -96,70 +85,50 @@ Proposed annotation payload:
 
 Extend `FrameBundle` and capability contracts in `visualiser.proto`.
 
-```protobuf
-enum MetricFamily {
-  METRIC_FAMILY_UNSPECIFIED = 0;
-  METRIC_FAMILY_PERFORMANCE = 1;
-  METRIC_FAMILY_SCENE_HEALTH = 2;
-  METRIC_FAMILY_PIPELINE_HEALTH = 3;
-}
+Extend `FrameBundle` and capability contracts in `visualiser.proto`.
 
-message MetricDefinition {
-  string metric_key = 1;           // stable key, e.g. perf.cpu_usage_pct
-  string display_name = 2;         // CPU usage
-  MetricFamily family = 3;
-  string unit = 4;                 // pct|mb|count|m|ms
-  optional double warning_threshold = 5;  // unset if none
-  optional double error_threshold = 6;    // unset if none
-}
+**`MetricFamily` enum** — UNSPECIFIED (0), PERFORMANCE (1), SCENE_HEALTH (2), PIPELINE_HEALTH (3).
 
-message MetricSample {
-  string metric_key = 1;
-  double value = 2;
-  int64 timestamp_ns = 3;          // same frame timestamp
-  uint64 frame_id = 4;
-  Enum severity = 2;             // OK|WARN|ERROR
-}
+**`MetricDefinition` message:**
 
-message FrameMetrics {
-  uint64 frame_id = 1;
-  int64 timestamp_ns = 2;
-  repeated MetricSample samples = 3;
-  repeated SubregionMetric subregion_metrics = 4;
-  repeated TrackComparisonMetric track_metrics = 5;
-}
+| Field               | Type            | Tag | Notes                                 |
+| ------------------- | --------------- | --- | ------------------------------------- |
+| `metric_key`        | string          | 1   | Stable key, e.g. `perf.cpu_usage_pct` |
+| `display_name`      | string          | 2   | Human label, e.g. "CPU usage"         |
+| `family`            | MetricFamily    | 3   | Category                              |
+| `unit`              | string          | 4   | `pct`, `mb`, `count`, `m`, `ms`       |
+| `warning_threshold` | optional double | 5   | Unset if none                         |
+| `error_threshold`   | optional double | 6   | Unset if none                         |
 
-message SubregionMetric {
-  string region_id = 1;
-  string metric_key = 2;           // e.g. scene.subregion_match_iou
-  double value = 3;
-  string severity = 4;
-}
+**`MetricSample` message:**
 
-message TrackComparisonMetric {
-  string track_id = 1;
-  string metric_key = 2;           // e.g. scene.track_drift_m
-  double value = 3;
-  uint32 points_outside_bbox = 4;
-  string severity = 5;
-}
+| Field          | Type   | Tag | Notes                  |
+| -------------- | ------ | --- | ---------------------- |
+| `metric_key`   | string | 1   | Matches definition key |
+| `value`        | double | 2   | Measured value         |
+| `timestamp_ns` | int64  | 3   | Same frame timestamp   |
+| `frame_id`     | uint64 | 4   | Frame identifier       |
+| `severity`     | string | 5   | OK, WARN, or ERROR     |
 
-message FrameBundle {
-  // existing fields...
-  FrameMetrics metrics = 13;
-}
+**`FrameMetrics` message:**
 
-message StreamRequest {
-  // existing fields...
-  bool include_metrics = 8;
-}
+| Field               | Type                           | Tag | Notes                   |
+| ------------------- | ------------------------------ | --- | ----------------------- |
+| `frame_id`          | uint64                         | 1   | Frame identifier        |
+| `timestamp_ns`      | int64                          | 2   | Nanosecond timestamp    |
+| `samples`           | repeated MetricSample          | 3   | Per-metric values       |
+| `subregion_metrics` | repeated SubregionMetric       | 4   | Per-region scene health |
+| `track_metrics`     | repeated TrackComparisonMetric | 5   | Per-track comparison    |
 
-message CapabilitiesResponse {
-  // existing fields...
-  bool supports_metrics = 8;
-  repeated MetricDefinition metric_definitions = 9;
-}
-```
+**`SubregionMetric` message** — fields: `region_id` (string, 1), `metric_key` (string, 2), `value` (double, 3), `severity` (string, 4).
+
+**`TrackComparisonMetric` message** — fields: `track_id` (string, 1), `metric_key` (string, 2), `value` (double, 3), `points_outside_bbox` (uint32, 4), `severity` (string, 5).
+
+**Additions to existing messages:**
+
+- `FrameBundle` gains `FrameMetrics metrics = 13`
+- `StreamRequest` gains `bool include_metrics = 8`
+- `CapabilitiesResponse` gains `bool supports_metrics = 8` and `repeated MetricDefinition metric_definitions = 9`
 
 ### 2) Query API (windowed fetch)
 
@@ -184,17 +153,7 @@ Allow front-end tools to request focused comparisons for debug workflows.
 
 Request body:
 
-```json
-{
-  "start_ns": 1700000000000000000,
-  "end_ns": 1700000005000000000,
-  "track_ids": ["track_42", "track_57"],
-  "region_ids": ["ground_a", "wall_east"],
-  "include_point_mismatch_samples": true
-}
-```
-
-Response includes per-track drift, points-outside-bbox counts, and per-region match metrics so the UI can inspect specific offenders.
+Request body contains `start_ns` (int64), `end_ns` (int64), `track_ids` (string array, e.g. `["track_42", "track_57"]`), `region_ids` (string array, e.g. `["ground_a", "wall_east"]`), and `include_point_mismatch_samples` (bool). Response includes per-track drift, points-outside-bbox counts, and per-region match metrics so the UI can inspect specific offenders.
 
 ## Per-frame collection and logging
 
@@ -214,20 +173,7 @@ No new file type is required; keep `.vrlog` chunking/indexing unchanged and stor
 
 Header metadata additions:
 
-```json
-{
-  "metrics_schema_version": "v1",
-  "metric_definitions": [
-    {
-      "metric_key": "perf.cpu_usage_pct",
-      "family": "PERFORMANCE",
-      "unit": "pct",
-      "warning_threshold": 75,
-      "error_threshold": 90
-    }
-  ]
-}
-```
+Header metadata additions include `metrics_schema_version` (string, e.g. `"v1"`) and `metric_definitions` (array of objects, each with `metric_key`, `family`, `unit`, `warning_threshold`, and `error_threshold`).
 
 Benefits:
 

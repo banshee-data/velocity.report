@@ -116,9 +116,9 @@ Request requirements:
 
 Files:
 
-- `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`
-- `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift`
-- `tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift`
+- [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift)
+- [tools/visualiser-macos/VelocityVisualiser/App/AppState.swift](../../tools/visualiser-macos/VelocityVisualiser/App/AppState.swift)
+- [tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift](../../tools/visualiser-macos/VelocityVisualiser/Labelling/RunTrackLabelAPIClient.swift)
 
 UI additions:
 
@@ -134,8 +134,8 @@ UI additions:
 
 Files:
 
-- `web/src/lib/components/lidar/TrackList.svelte`
-- `web/src/lib/components/lidar/TimelinePane.svelte`
+- [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte)
+- [web/src/lib/components/lidar/TimelinePane.svelte](../../web/src/lib/components/lidar/TimelinePane.svelte)
 
 Add warning badges and confirm/override actions.
 

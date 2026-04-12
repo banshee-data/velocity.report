@@ -4,7 +4,7 @@ HINT metric observability plan: surfacing already-computed quality data alongsid
 
 ## Source
 
-- Plan: `docs/plans/hint-metric-observability-plan.md`
+- Plan: [docs/plans/hint-metric-observability-plan.md](../../plans/hint-metric-observability-plan.md)
 - Status: Proposed
 - Layers: Cross-cutting (L5 Tracking, L6 Objects, L8 Analytics, Sweep, Web)
 

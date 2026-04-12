@@ -1,13 +1,13 @@
 # Ground plane export for pcap-analyse tool
 
 - **Status:** Planning
-- **Target:** `cmd/tools/pcap-analyse`
+- **Target:** [cmd/tools/pcap-analyse](../../cmd/tools/pcap-analyse)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 - **Related:**
 
-- `docs/lidar/architecture/ground-plane-extraction.md`
-- `docs/lidar/architecture/gps-ethernet-parsing.md`
-- `data/maths/ground-plane-maths.md`
+- [docs/lidar/architecture/ground-plane-extraction.md](../lidar/architecture/ground-plane-extraction.md)
+- [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md)
+- [data/maths/ground-plane-maths.md](../../data/maths/ground-plane-maths.md)
 
 ## Objective
 
@@ -25,7 +25,7 @@ The ground plane extraction reuses the existing L1→L2→L3 background grid pip
 
 ## Background
 
-The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
+The current `pcap-analyse` tool ([cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go), ~53 KB) processes PCAP files through the full L1→L2→L3→L4→L5→L6 pipeline and exports:
 
 - CSV tracks (vehicle trajectories)
 - JSON results (detection summary)
@@ -33,9 +33,9 @@ The current `pcap-analyse` tool (`cmd/tools/pcap-analyse/main.go`, ~53 KB) proce
 
 Existing export infrastructure:
 
-- `ExportBackgroundGridToASC()` in `internal/lidar/l3grid/export_bg_snapshot.go`: ASC format for CloudCompare
+- `ExportBackgroundGridToASC()` in [internal/lidar/l3grid/export_bg_snapshot.go](../../internal/lidar/l3grid/export_bg_snapshot.go): ASC format for CloudCompare
 - Web API endpoints: `/api/lidar/export/frame-sequence-asc`, `handleExportSnapshotASC`
-- VTK export recommended in `docs/lidar/architecture/lidar-background-grid-standards.md`
+- VTK export recommended in [docs/lidar/architecture/lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md)
 
 GPS support exists but is unused:
 
@@ -45,7 +45,7 @@ GPS support exists but is unused:
 
 ## New CLI flags
 
-Add the following flags to `cmd/tools/pcap-analyse/main.go`:
+Add the following flags to [cmd/tools/pcap-analyse/main.go](../../cmd/tools/pcap-analyse/main.go):
 
 ### Ground plane extraction
 
@@ -132,42 +132,21 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 
 **Format**:
 
-```json
-{
-  "type": "FeatureCollection",
-  "metadata": {
-    "sensor": "Ouster OS1-64",
-    "capture_timestamp": "2026-01-15T10:30:00Z",
-    "gps_origin": {"lat": 51.5074, "lon": -0.1278, "alt_msl": 10.0, "heading_deg": 45.0},
-    "tile_size_m": 1.0,
-    "range_max_m": 50.0,
-    "confidence_min": 0.5,
-    "coordinate_system": "WGS84"
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[lon1, lat1], [lon2, lat2], [lon3, lat3], [lon4, lat4], [lon1, lat1]]]
-      },
-      "properties": {
-        "tile_x": 10,
-        "tile_y": 5,
-        "plane_normal": [0.02, -0.01, 0.9998],
-        "plane_offset": -1.85,
-        "confidence": 0.95,
-        "curvature_class": "flat",
-        "curvature_deg": 1.2,
-        "point_count": 847,
-        "mean_height": -1.85,
-        "height_std_dev": 0.03,
-        "settlement_time_ms": 2340
-      }
-    }
-  ]
-}
-```
+A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture timestamp, GPS origin, tile size, range, confidence threshold, and coordinate system) and one `Feature` per tile. Each feature is a `Polygon` geometry (closed ring of four corners) with properties:
+
+| Property             | Type     | Example               | Notes                               |
+| -------------------- | -------- | --------------------- | ----------------------------------- |
+| `tile_x`             | int      | 10                    | Grid column index                   |
+| `tile_y`             | int      | 5                     | Grid row index                      |
+| `plane_normal`       | float[3] | [0.02, −0.01, 0.9998] | Unit normal `[a, b, c]`             |
+| `plane_offset`       | float    | −1.85                 | Plane `d` in `ax + by + cz + d = 0` |
+| `confidence`         | float    | 0.95                  | Fit confidence 0–1                  |
+| `curvature_class`    | string   | "flat"                | Classification label                |
+| `curvature_deg`      | float    | 1.2                   | Surface curvature in degrees        |
+| `point_count`        | int      | 847                   | Points in tile                      |
+| `mean_height`        | float    | −1.85                 | Mean ground height (m)              |
+| `height_std_dev`     | float    | 0.03                  | Height standard deviation (m)       |
+| `settlement_time_ms` | int      | 2340                  | Time to converge (ms)               |
 
 **Implementation Notes**:
 
@@ -195,7 +174,7 @@ NODATA_value -9999
 
 **Implementation Notes**:
 
-- Reuse existing `ExportBackgroundGridToASC()` from `internal/lidar/l3grid/export_bg_snapshot.go`
+- Reuse existing `ExportBackgroundGridToASC()` from [internal/lidar/l3grid/export_bg_snapshot.go](../../internal/lidar/l3grid/export_bg_snapshot.go)
 - Z values are fitted plane heights, not raw point heights
 - Tiles below confidence threshold written as `NODATA_value`
 - If GPS coordinates available, use ENU X/Y for xllcorner/yllcorner (metres from GPS origin)
@@ -206,11 +185,25 @@ NODATA_value -9999
 
 **Format**:
 
-```csv
-tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class,curvature_deg,point_count,mean_height,height_std_dev,settlement_time_ms
-10,5,51.507412,-0.127834,0.02,-0.01,0.9998,-1.85,0.95,flat,1.2,847,-1.85,0.03,2340
-11,5,51.507421,-0.127825,0.01,-0.02,0.9997,-1.83,0.92,flat,1.5,791,-1.83,0.04,2510
-```
+One header row followed by one row per tile. Columns:
+
+| Column               | Example   | Notes                                    |
+| -------------------- | --------- | ---------------------------------------- |
+| `tile_x`             | 10        | Grid column                              |
+| `tile_y`             | 5         | Grid row                                 |
+| `lat`                | 51.507412 | 6 decimal places (omit or `0` if no GPS) |
+| `lon`                | −0.127834 | 6 decimal places                         |
+| `plane_a`            | 0.02      | Normal x                                 |
+| `plane_b`            | −0.01     | Normal y                                 |
+| `plane_c`            | 0.9998    | Normal z                                 |
+| `plane_d`            | −1.85     | Offset (3 decimals)                      |
+| `confidence`         | 0.95      | Fit confidence 0–1                       |
+| `curvature_class`    | flat      | Classification label                     |
+| `curvature_deg`      | 1.2       | Degrees                                  |
+| `point_count`        | 847       | Points in tile                           |
+| `mean_height`        | −1.85     | Metres (3 decimals)                      |
+| `height_std_dev`     | 0.03      | Metres                                   |
+| `settlement_time_ms` | 2340      | Convergence time                         |
 
 **Implementation Notes**:
 
@@ -224,24 +217,10 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 
 **Format**: VTK StructuredGrid with scalar fields
 
-```xml
-<VTKFile type="StructuredGrid" version="1.0" byte_order="LittleEndian">
-  <StructuredGrid WholeExtent="0 100 0 100 0 0">
-    <Piece Extent="0 100 0 100 0 0">
-      <Points>
-        <DataArray type="Float32" NumberOfComponents="3" format="ascii">
-          ... x y z coordinates ...
-        </DataArray>
-      </Points>
-      <PointData Scalars="confidence">
-        <DataArray type="Float32" Name="confidence" format="ascii">...</DataArray>
-        <DataArray type="Float32" Name="curvature_deg" format="ascii">...</DataArray>
-        <DataArray type="Int32" Name="point_count" format="ascii">...</DataArray>
-      </PointData>
-    </Piece>
-  </StructuredGrid>
-</VTKFile>
-```
+A VTK `StructuredGrid` file (XML format, version 1.0, little-endian) with extent matching the tile grid dimensions. Contains a single `Piece` with:
+
+- **Points**: `Float32` array with 3 components (x, y, z coordinates per tile)
+- **PointData** scalar fields: `confidence` (Float32), `curvature_deg` (Float32), `point_count` (Int32)
 
 **Implementation Notes**:
 
@@ -254,7 +233,7 @@ tile_x,tile_y,lat,lon,plane_a,plane_b,plane_c,plane_d,confidence,curvature_class
 ### Coordinate fallback chain
 
 1. **PCAP GPS** (if `--gps-from-pcap` enabled):
-   - Parse GPS ethernet packets using `docs/lidar/architecture/gps-ethernet-parsing.md` spec
+   - Parse GPS ethernet packets using [docs/lidar/architecture/gps-ethernet-parsing.md](../lidar/architecture/gps-ethernet-parsing.md) spec
    - Extract first valid GNGGA or GNRMC sentence with 3D fix
    - Use lat/lon/alt from GPS, heading from `--gps-heading` or NMEA course-over-ground
 
@@ -306,25 +285,25 @@ output/<run-id>/
 
 **Metadata File** (`ground-plane-meta.json`): Always written when `--ground-plane` enabled:
 
-```json
-{
-  "extraction_timestamp": "2026-01-15T10:45:23Z",
-  "pcap_file": "capture-2026-01-15.pcap",
-  "sensor_model": "Hesai Pandar40P",
-  "coordinate_system": "Sensor-XY",
-  "gps_source": "none",
-  "gps_origin": null,
-  "tile_size_m": 1.0,
-  "range_max_m": 50.0,
-  "confidence_min": 0.5,
-  "total_tiles": 847,
-  "exported_tiles": 791,
-  "filtered_tiles": 56,
-  "processing_time_s": 12.4,
-  "formats": ["csv", "asc"],
-  "global_grid_merged": false
-}
-```
+The metadata file (`ground-plane-meta.json`) records extraction parameters and results:
+
+| Field                  | Type        | Example                   | Notes                             |
+| ---------------------- | ----------- | ------------------------- | --------------------------------- |
+| `extraction_timestamp` | string      | "2026-01-15T10:45:23Z"    | ISO 8601                          |
+| `pcap_file`            | string      | "capture-2026-01-15.pcap" | Source PCAP                       |
+| `sensor_model`         | string      | "Hesai Pandar40P"         | Detected sensor                   |
+| `coordinate_system`    | string      | "Sensor-XY"               | "WGS84" when GPS available        |
+| `gps_source`           | string      | "none"                    | "manual" or "pcap" when available |
+| `gps_origin`           | object/null | null                      | Populated when GPS available      |
+| `tile_size_m`          | float       | 1.0                       | Grid resolution                   |
+| `range_max_m`          | float       | 50.0                      | Max range filter                  |
+| `confidence_min`       | float       | 0.5                       | Min confidence threshold          |
+| `total_tiles`          | int         | 847                       | Tiles computed                    |
+| `exported_tiles`       | int         | 791                       | Tiles above threshold             |
+| `filtered_tiles`       | int         | 56                        | Tiles below threshold             |
+| `processing_time_s`    | float       | 12.4                      | Wall clock time                   |
+| `formats`              | string[]    | ["csv", "asc"]            | Output formats written            |
+| `global_grid_merged`   | bool        | false                     | Whether merged into global grid   |
 
 When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becomes `"manual"` or `"pcap"`, and `gps_origin` is populated.
 
