@@ -37,11 +37,11 @@ The prior service is purely additive. Without GPS or network access, the system 
 
 The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km N-S × ~0.7 km E-W at UK latitudes), matching the coarsening applied to GPS coordinates before any network request. This prevents precise deployment location disclosure while providing sufficient locality for scene priors.
 
-| Path Component        | Resolution     | Example       | Max entries per parent                  |
-|-----------------------|----------------|---------------|-----------------------------------------|
-| `{lat_int}/`          | 1° (~111 km)   | `51/`         | 180 (−90 to +89)                        |
-| `{lon_int}/`          | 1° (~70 km)    | `-1/`         | 360 (−180 to +179)                      |
-| `{lat}_{lon}.geojson` | 0.01° (~1 km)  | `51.75_-1.26` | up to 10,000 per `{lat_int}/{lon_int}/` |
+| Path Component        | Resolution    | Example       | Max entries per parent                  |
+| --------------------- | ------------- | ------------- | --------------------------------------- |
+| `{lat_int}/`          | 1° (~111 km)  | `51/`         | 180 (−90 to +89)                        |
+| `{lon_int}/`          | 1° (~70 km)   | `-1/`         | 360 (−180 to +179)                      |
+| `{lat}_{lon}.geojson` | 0.01° (~1 km) | `51.75_-1.26` | up to 10,000 per `{lat_int}/{lon_int}/` |
 
 **Negative longitudes** use the minus sign in the folder and filename (e.g. `-1/51.75_-1.26.geojson`).
 
@@ -50,7 +50,7 @@ The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km
 Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files** (the 0.01° grid over one 1°×1° block). In practice, populated cells are heavily sparse — a typical UK town produces 50–200 files across 2–4 parent directories.
 
 | Scope                  | Approximate file count                             |
-|------------------------|----------------------------------------------------|
+| ---------------------- | -------------------------------------------------- |
 | Single intersection    | 1–4 files                                          |
 | Residential street     | 5–20 files                                         |
 | Town / suburb          | 50–300 files                                       |
@@ -75,14 +75,14 @@ Contributions are submitted as **pull requests** to a public repository (or file
 
 Design choices in v1.0 that ensure the online service is additive, not a rewrite:
 
-| Decision (v1.0)                                          | Future Benefit (v2.0+)                                                                        |
-|----------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| GeoJSON file format for local priors                     | Same schema served by HTTP endpoint; no format conversion needed                              |
-| Prior weights are advisory (0–1), not hard constraints   | Service can return confidence-weighted priors; client applies them identically to local files |
-| Prior Loader abstraction separates file I/O from maths   | Swap file reader for HTTP client behind the same interface                                    |
-| Sensor-local coordinate system (no GPS required)         | GPS is additive: if present, enables location-based prior lookup; if absent, local files work |
-| Privacy by default                                       | Online fetch is opt-in; no location data transmitted without explicit user consent            |
-| `_trust/` manifest separate from data files              | CI updates trust status without touching contributor files; signatures remain verifiable      |
+| Decision (v1.0)                                        | Future Benefit (v2.0+)                                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| GeoJSON file format for local priors                   | Same schema served by HTTP endpoint; no format conversion needed                              |
+| Prior weights are advisory (0–1), not hard constraints | Service can return confidence-weighted priors; client applies them identically to local files |
+| Prior Loader abstraction separates file I/O from maths | Swap file reader for HTTP client behind the same interface                                    |
+| Sensor-local coordinate system (no GPS required)       | GPS is additive: if present, enables location-based prior lookup; if absent, local files work |
+| Privacy by default                                     | Online fetch is opt-in; no location data transmitted without explicit user consent            |
+| `_trust/` manifest separate from data files            | CI updates trust status without touching contributor files; signatures remain verifiable      |
 
 ---
 
@@ -97,7 +97,7 @@ Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and
 **Top-level metadata:**
 
 | Field               | Type   | Required | Notes                           |
-|---------------------|--------|----------|---------------------------------|
+| ------------------- | ------ | -------- | ------------------------------- |
 | `schema_version`    | string | Yes      | Currently `"1"`                 |
 | `grid_cell`         | string | Yes      | `"{lat}_{lon}"` cell identifier |
 | `created_at`        | string | Yes      | ISO 8601 timestamp              |
@@ -108,7 +108,7 @@ Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and
 **Feature properties (per feature):**
 
 | Field        | Type   | Required | Notes                                    |
-|--------------|--------|----------|------------------------------------------|
+| ------------ | ------ | -------- | ---------------------------------------- |
 | `class`      | string | Yes      | `"ground"`, `"structure"`, or `"volume"` |
 | `confidence` | real   | Yes      | 0.0–1.0                                  |
 | `updated_at` | string | Yes      | ISO 8601 timestamp                       |
@@ -170,7 +170,7 @@ The manifest is the **only** place `signed` status is recorded. Clients fetch `_
 Host operators can mirror or gate the public repository to expose only the files they trust. Because the manifest is separate from the data files, a host serves a filtered view simply by controlling which files it copies:
 
 | Trust tier    | Manifest `signed` | How to host                                          | Example base URL                            |
-|---------------|-------------------|------------------------------------------------------|---------------------------------------------|
+| ------------- | ----------------- | ---------------------------------------------------- | ------------------------------------------- |
 | **Verified**  | `true` only       | Copy only files listed as `signed: true` in manifest | `https://priors.velocity.report/`           |
 | **Community** | `false` included  | Copy all files regardless of manifest status         | `https://priors-community.velocity.report/` |
 | **Local**     | either            | Full local copy from the repo                        | `file:///var/lib/velocity-report/priors/`   |
@@ -216,7 +216,7 @@ The aggregate file is clearly labelled `source: synthetic` and signed with the *
 ## Hosting Options
 
 | Platform                             | Cost                     | Max size                | Notes                                                                                                          |
-|--------------------------------------|--------------------------|-------------------------|----------------------------------------------------------------------------------------------------------------|
+| ------------------------------------ | ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Cloudflare R2 + Worker**           | Free to ~10 GB / 1 M req | Object store (no Git)   | ~50-line Worker validates schema, rate-limits by IP, stores to R2, triggers daily aggregation. No egress fees. |
 | **Hugging Face Datasets**            | Free (public)            | Git + LFS               | Designed for research data; supports GeoJSON natively; Spaces for submission form.                             |
 | **Internet Archive**                 | Free, unlimited          | Immutable items, S3 API | Good for archival snapshots; not ideal for live incremental updates.                                           |
@@ -231,7 +231,7 @@ The aggregate file is clearly labelled `source: synthetic` and signed with the *
 LiDAR PCAP files are large (100 MB–10 GB per capture) and not suitable for Git. When a public research corpus is warranted:
 
 | Platform                  | Cost          | Notes                                                                                     |
-|---------------------------|---------------|-------------------------------------------------------------------------------------------|
+| ------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
 | **Zenodo**                | Free          | CERN/OpenAIRE backed; DOI per version; CC licensing. Preferred for a citable PCAP corpus. |
 | **Academic Torrents**     | Free          | BitTorrent-based; good for static versioned releases.                                     |
 | **Internet Archive**      | Free          | Permanent, high-bandwidth; S3-compatible upload API.                                      |
@@ -252,7 +252,7 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 ## Resolved Design Questions
 
 | Decision                     | Resolution                                                            |
-|------------------------------|-----------------------------------------------------------------------|
+| ---------------------------- | --------------------------------------------------------------------- |
 | PCAP research corpus hosting | Prefer Hugging Face Datasets; evaluate alternatives before committing |
 
 ---
@@ -260,7 +260,7 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 ## Implementation Phases
 
 | Phase  | Milestone | Scope                                                        |
-|--------|-----------|--------------------------------------------------------------|
+| ------ | --------- | ------------------------------------------------------------ |
 | **5a** | v1.0      | Define GeoJSON schema for local prior files                  |
 | **5b** | v1.0      | Implement Prior Loader with file-system backend              |
 | **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring      |

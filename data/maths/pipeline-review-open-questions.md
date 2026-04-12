@@ -14,7 +14,7 @@ The implemented pipeline (L1–L6) is mathematically sound in its core
 operations. Each layer has verified, correct implementations:
 
 | Layer | Algorithm                 | Verified | Notes                                                                                                                                                                            |
-|-------|---------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----- | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | L3    | EMA background settling   | ✓        | Correct `(1−α)·old + α·new` with warmup/freeze/lock                                                                                                                              |
 | L3    | Convergence gating        | ✓        | Four-threshold multi-condition gate (coverage, spread-delta, stability, confidence)                                                                                              |
 | L4    | Height-band ground filter | ✓        | O(n) in-place compaction, correct bounds                                                                                                                                         |
@@ -141,18 +141,17 @@ correctness gain is measurable.
 **Tile → vector-scene alignment.** The ground plane and vector scene map use
 the same underlying geometry but at different granularities:
 
-| Representation       | Source             | Granularity                        | Lifecycle                                    |
-|----------------------|--------------------|------------------------------------|----------------------------------------------|
-| 1 m Cartesian tile   | L4 streaming PCA   | Fixed grid, per-tile plane (n, d)  | Per-frame accumulation, settles in 20–50 s   |
-| Vector-scene polygon | Region-grown tiles | Variable area, simplified boundary | Constructed from settled tiles, locked       |
-| OSM prior polygon    | External GeoJSON   | Road/pavement/building outlines    | Loaded once, used as alignment reference     |
+| Representation       | Source             | Granularity                        | Lifecycle                                  |
+| -------------------- | ------------------ | ---------------------------------- | ------------------------------------------ |
+| 1 m Cartesian tile   | L4 streaming PCA   | Fixed grid, per-tile plane (n, d)  | Per-frame accumulation, settles in 20–50 s |
+| Vector-scene polygon | Region-grown tiles | Variable area, simplified boundary | Constructed from settled tiles, locked     |
+| OSM prior polygon    | External GeoJSON   | Road/pavement/building outlines    | Loaded once, used as alignment reference   |
 
 The construction path is bottom-up and additive:
 
 1. **Tiles settle independently** via streaming PCA (O(1) per point per tile).
 2. **Region growing** merges adjacent settled tiles with compatible normals
    (angle < 2°) and offsets (ΔZ < 3 cm) into polygons.
-
 3. **Polygon simplification** (Douglas–Peucker) reduces vertex count per LOD.
 4. **OSM alignment** computes a translation/rotation offset between observed
    polygons and OSM prior polygons, producing a diff for map editing.
@@ -182,10 +181,8 @@ project's role is to provide tooling that makes it easy to:
 1. **Diff** observed geometry (settled tile-plane polygons, kerb lines,
    building footprints visible to the sensor) against the current state of
    OSM for the deployment area.
-
 2. **Propose edits** that align the community map with observed ground truth,
    packaged as standard OSM changesets or JOSM-compatible `.osm` files.
-
 3. **Quantify misalignment** with translation and rotation offset metrics
    between observed and mapped geometry.
 
@@ -225,10 +222,8 @@ geometry and OSM priors is computed as a rigid transform:
   and building facades at their true elevation. The expected/predicted delta
   between OSM map elevation and observed GPS altitude should be maintained
   as a diagnostic metric.
-
 - **Rotation offset** dθ in radians — accounts for sensor heading
   misalignment relative to map north.
-
 - **Confidence** — derived from the number and spatial distribution of
   matched features (buildings, kerbs, road edges).
 
@@ -250,14 +245,11 @@ diagnostic metric.
 
 1. Each set of proposed world edits is identified as a real-world OSM edit
    — not an internal velocity.report artifact.
-
 2. Edits provide geometry and a suggested offset vector; they do not move
    100% of existing objects to a new reference frame (which may itself be
    wrong).
-
 3. Gaps between observed and mapped geometry are aligned to the external
    reference system to minimise spurious changes.
-
 4. The tool reports confidence per edit and flags low-confidence changes for
    manual review.
 
@@ -269,7 +261,6 @@ will include:
 - Per-feature alignment quality (translation/rotation residual)
 - Suggested geometry updates with provenance (sensor ID, capture time,
   number of observations, confidence)
-
 - Changeset comments referencing the velocity.report evidence package
 - A human review step before any upload — the system never modifies OSM
   autonomously
@@ -283,7 +274,7 @@ stored locally. The system maintains a strict separation between three
 data feeds:
 
 | Data feed           | Storage                   | Contents                                                                                                 | Retention                                              |
-|---------------------|---------------------------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | **Raw sensor**      | PCAP/PCAPNG files         | Raw UDP packets from the LiDAR sensor                                                                    | Kept for replay/debug; large, not in production DB     |
 | **Debug capture**   | VRLOG files               | Per-frame foreground points, full point clouds, diagnostic overlays                                      | On-demand recording; not retained in production DB     |
 | **Production data** | `sensor_data.db` (SQLite) | Background grid, settled ground plane, vector map, bounding boxes, tracks, classification, analysis runs | Persistent; exportable; the canonical production store |
@@ -347,7 +338,6 @@ ground-geometry readiness have different convergence rates:
 
 - **L3 range baseline:** Converges in ~100 frames (10 s at 10 Hz) to
   σ_range < 2 cm. Requires only repeated range observations.
-
 - **L4 ground geometry:** Converges in ~200–500 frames (20–50 s) to
   planarity > 0.95 and density > 20 points/tile. Requires spatial diversity
   of observations within each tile.
@@ -375,7 +365,6 @@ core's freeze/thaw policy must be compatible with this signal:
 - When `FrameStabilitySignal = shaky`, settlement pauses learning (freeze)
   but does not reset — transient vibration should not invalidate settled
   geometry.
-
 - When `FrameStabilitySignal = moving`, settlement triggers a hard reset
   (re-enter LEARNING) because the sensor pose has changed.
 
@@ -464,11 +453,9 @@ pursued.
 
 1. **P1: Geometry-coherent track state** — fixes bounding box instability,
    additive, no L7 dependency.
-
 2. **CA model** — extends L5 state vector, additive, no L7 dependency.
 3. **IMM (CV+CA)** — additive over CA, future-compatible with additional
    modes.
-
 4. **P4: Unified settlement core** — enables L7 corridor construction.
 5. **L7 corridors** — consumes settled geometry, constrains predictions,
    enables sparse-cluster linking and turn handling.
@@ -543,12 +530,12 @@ the dimension sync logic with a single Bayesian model.
 
 **Expected quantified improvements** (from the proposal, pending validation):
 
-| Metric                             | Current (guards) | Expected (geometry model) |
-|------------------------------------|------------------|---------------------------|
-| Dimension stability (σ per track)  | 0.3–0.5 m        | < 0.1 m                   |
-| Heading drift (stationary, °/s)    | 2–5              | < 0.5                     |
-| 90° jump frequency (per track)     | 0.1–0.3          | < 0.01                    |
-| Convergence time (frames)          | 15–20            | 5–10                      |
+| Metric                            | Current (guards) | Expected (geometry model) |
+| --------------------------------- | ---------------- | ------------------------- |
+| Dimension stability (σ per track) | 0.3–0.5 m        | < 0.1 m                   |
+| Heading drift (stationary, °/s)   | 2–5              | < 0.5                     |
+| 90° jump frequency (per track)    | 0.1–0.3          | < 0.01                    |
+| Convergence time (frames)         | 15–20            | 5–10                      |
 
 **Validation protocol:** Run geometry-coherent tracker on kirk0 PCAP and
 compare dimension stability, heading drift, and jump frequency against the
@@ -575,14 +562,14 @@ S_R(p) = w_xy · w_z · w_obs · w_geom · w_density · w_prior
 
 Each weight has a clear mathematical meaning and bounded sensitivity:
 
-| Weight    | Formula                   | Default σ or τ   | Sensitivity                                          | Justification                   |
-|-----------|---------------------------|------------------|------------------------------------------------------|---------------------------------|
-| w_xy      | exp(−d²_xy / 2σ²_xy)      | σ_xy = 0.5 m     | High — controls tile boundary softness               | Half-tile width                 |
-| w_z       | exp(−d²_z / 2σ²_z)        | σ_z = f(range)   | High — controls ground/non-ground separation         | Derived from sensor noise model |
-| w_obs     | C_obs(R) from L3          | [0, 1]           | Medium — modulates trust in under-observed regions   | Direct from L3 confidence       |
-| w_geom    | max(1 − \                 | r\               | /τ, 0)                                               | τ = 3σ_z                        |
-| w_density | C_density(R)              | [0, 1]           | Low — penalises sparse regions                       | Monotonic in observation count  |
-| w_prior   | C_prior(R)                | 1.0 (no prior)   | Low initially — grows with prior trust               | From vector-scene/OSM agreement |
+| Weight    | Formula              | Default σ or τ | Sensitivity                                        | Justification                   |
+| --------- | -------------------- | -------------- | -------------------------------------------------- | ------------------------------- |
+| w_xy      | exp(−d²_xy / 2σ²_xy) | σ_xy = 0.5 m   | High — controls tile boundary softness             | Half-tile width                 |
+| w_z       | exp(−d²_z / 2σ²_z)   | σ_z = f(range) | High — controls ground/non-ground separation       | Derived from sensor noise model |
+| w_obs     | C_obs(R) from L3     | [0, 1]         | Medium — modulates trust in under-observed regions | Direct from L3 confidence       |
+| w_geom    | max(1 − \|r\|/τ, 0)  | τ = 3σ_z       | Medium — rejects points far from fitted plane      | Standard outlier gate           |
+| w_density | C_density(R)         | [0, 1]         | Low — penalises sparse regions                     | Monotonic in observation count  |
+| w_prior   | C_prior(R)           | 1.0 (no prior) | Low initially — grows with prior trust             | From vector-scene/OSM agreement |
 
 The **coupling to existing config** (§4.5 of the proposal) is well-defined:
 
@@ -601,12 +588,10 @@ The GPS role is:
 1. **Initial alignment** — When no OSM prior is available, GPS provides
    the only geo-reference. The system uses GPS coordinates directly but
    records the fix quality (HDOP, satellite count) as a confidence metric.
-
 2. **Prior alignment bootstrap** — When an OSM prior is available, GPS
    provides the initial guess for the translation/rotation offset between
    sensor frame and map frame. Feature matching against OSM buildings and
    road edges refines this offset.
-
 3. **Conflict resolution** — If GPS position conflicts with a strong OSM
    prior (e.g. 80% of buildings in view match OSM at a different offset),
    the OSM prior takes precedence. The GPS-to-OSM discrepancy is recorded
@@ -640,30 +625,30 @@ measurement harness provides consistent regression detection.**
 The Raspberry Pi 4 (ARM Cortex-A72, 1.8 GHz, 4 cores) must process each
 frame within 100 ms at 10 Hz. The current measured budget (approximate):
 
-| Layer   | Operation                               | Time (ms)   | % Budget |
-|---------|-----------------------------------------|-------------|----------|
-| L1–L2   | Parse + frame assembly                  | 1–2         | 2%       |
-| L3      | Background update + foreground decision | 3–5         | 4%       |
-| L4      | Ground filter                           | < 1         | < 1%     |
-| L4      | DBSCAN clustering                       | 5–15        | 10%      |
-| L4      | OBB computation                         | 1–2         | 2%       |
-| L5      | Kalman predict + Hungarian + update     | 2–5         | 4%       |
-| L6      | Classification                          | < 1         | < 1%     |
-|         | **Total core pipeline**                 | **13–31**   | **23%**  |
-|         | Persistence, API, visualiser            | 10–30       | 20%      |
-|         | **Headroom**                            | **39–77**   | **57%**  |
+| Layer | Operation                               | Time (ms) | % Budget |
+| ----- | --------------------------------------- | --------- | -------- |
+| L1–L2 | Parse + frame assembly                  | 1–2       | 2%       |
+| L3    | Background update + foreground decision | 3–5       | 4%       |
+| L4    | Ground filter                           | < 1       | < 1%     |
+| L4    | DBSCAN clustering                       | 5–15      | 10%      |
+| L4    | OBB computation                         | 1–2       | 2%       |
+| L5    | Kalman predict + Hungarian + update     | 2–5       | 4%       |
+| L6    | Classification                          | < 1       | < 1%     |
+|       | **Total core pipeline**                 | **13–31** | **23%**  |
+|       | Persistence, API, visualiser            | 10–30     | 20%      |
+|       | **Headroom**                            | **39–77** | **57%**  |
 
 **Budget for proposed additions:**
 
-| Proposed                          | Estimated Cost         | Feasibility              |
-|-----------------------------------|------------------------|--------------------------|
-| P1: Geometry-coherent (per track) | +0.5 ms                | ✓ Easily within budget   |
-| P3: Tile-plane PCA (per frame)    | +0.05 ms               | ✓ Negligible             |
-| P4: Unified settlement            | ~0 (replaces existing) | ✓ No net cost            |
-| CA model (6-state Kalman)         | +1 ms                  | ✓ Within budget          |
-| IMM (2-model blend)               | +3 ms                  | ✓ Within budget          |
-| P2: Velocity-coherent (full)      | +5–10 ms               | ⚠ Needs profiling        |
-| Sign anchor detection             | +2 ms                  | ✓ Within budget          |
+| Proposed                          | Estimated Cost         | Feasibility            |
+| --------------------------------- | ---------------------- | ---------------------- |
+| P1: Geometry-coherent (per track) | +0.5 ms                | ✓ Easily within budget |
+| P3: Tile-plane PCA (per frame)    | +0.05 ms               | ✓ Negligible           |
+| P4: Unified settlement            | ~0 (replaces existing) | ✓ No net cost          |
+| CA model (6-state Kalman)         | +1 ms                  | ✓ Within budget        |
+| IMM (2-model blend)               | +3 ms                  | ✓ Within budget        |
+| P2: Velocity-coherent (full)      | +5–10 ms               | ⚠ Needs profiling      |
+| Sign anchor detection             | +2 ms                  | ✓ Within budget        |
 
 All proposed mathematical improvements fit within the available 57% headroom
 individually. The combination of all proposals would consume ~12–17 ms
@@ -691,13 +676,13 @@ defaults were tuned against it. The overfitting risk is real:
 
 **Five-PCAP test corpus plan (P40 sensor):**
 
-| # | Site description                            | Validates                                           | Status       |
-|---|---------------------------------------------|-----------------------------------------------------|--------------|
-| 1 | Kirk0 (existing) — flat urban road          | Baseline defaults                                   | ✓ Captured   |
-| 2 | Sloped residential street (≥3° gradient)    | Ground-plane tiling, height-band limits             | Planned      |
-| 3 | School zone or park entrance                | Pedestrian/cyclist classification, low-speed tracks | Planned      |
-| 4 | Multi-lane road or junction                 | Turning vehicles, lane-crossing, merge/split        | Planned      |
-| 5 | Rural or semi-rural road                    | Long-range sparse clusters, high-speed vehicles     | Planned      |
+| #   | Site description                         | Validates                                           | Status     |
+| --- | ---------------------------------------- | --------------------------------------------------- | ---------- |
+| 1   | Kirk0 (existing) — flat urban road       | Baseline defaults                                   | ✓ Captured |
+| 2   | Sloped residential street (≥3° gradient) | Ground-plane tiling, height-band limits             | Planned    |
+| 3   | School zone or park entrance             | Pedestrian/cyclist classification, low-speed tracks | Planned    |
+| 4   | Multi-lane road or junction              | Turning vehicles, lane-crossing, merge/split        | Planned    |
+| 5   | Rural or semi-rural road                 | Long-range sparse clusters, high-speed vehicles     | Planned    |
 
 All captures use the Hesai P40 sensor to control for sensor-specific noise
 characteristics. Each site needs ≥ 20 manually labelled tracks covering
@@ -762,13 +747,10 @@ be OSM-first (see Q2):
 
 1. Add an `osm_priors` config section with `enabled` (boolean) and
    `extract_path` (path to Overpass/JOSM export) fields.
-
 2. Parse OSM GeoJSON exports into the same polygon representation used by
    the vector-scene-map.
-
 3. Compute translation (dx, dy, dz) and rotation offset between observed
    polygons and OSM polygons via feature matching.
-
 4. Feed polygon containment as w_prior into region selection scoring.
 5. Default w_prior = 1.0 (neutral) when no priors are loaded.
 6. Generate diff reports identifying geometry gaps between observations
@@ -850,10 +832,8 @@ with:
 
 1. **Per-class comparison:** Report metrics separately for each class to
    detect class-specific regressions.
-
 2. **Speed accuracy:** Add RMSE of matched track speeds as a comparison
    metric alongside IoU and count metrics.
-
 3. **Geometry stability:** Add dimension and heading stability metrics for
    matched track pairs (preparation for P1 validation).
 
@@ -861,17 +841,17 @@ with:
 
 Ordered by user-visible impact and mathematical maturity:
 
-| Priority | Item                                     | Layer   | Effort         | Impact                                        | Readiness                             |
-|----------|------------------------------------------|---------|----------------|-----------------------------------------------|---------------------------------------|
-| 1        | Geometry-coherent track state (P1)       | L5      | L (6–7 days)   | **Very high** — fixes most visible artefact   | Proposal complete, ready to implement |
-| 2        | Tile-plane ground fitting (G1)           | L4      | M (3–4 days)   | **High** — correctness for sloped roads       | Maths complete, needs implementation  |
-| 3        | Unified settlement core (P4)             | L3–L4   | M (4–5 days)   | **Medium** — infrastructure simplification    | Proposal complete, enables G2 and P3  |
-| 4        | Classification config extraction (§5.1)  | L6      | S (1–2 days)   | **Medium** — removes magic numbers            | Straightforward refactor              |
-| 5        | Five-site test corpus (§Q11)             | Cross   | M (ongoing)    | **High** — validates all defaults             | Requires field data collection        |
-| 6        | Speed percentile alignment (§5.2)        | L8      | S (2–3 days)   | **Medium** — correctness for reports          | Implementation choices documented     |
-| 7        | CA model (future-forward L5 extension)   | L5      | M (5–6 days)   | **Medium** — reduces braking fragmentation    | Additive over CV, no L7 dependency    |
-| 8        | IMM CV+CA blend                          | L5      | M (4–5 days)   | **Medium** — adaptive model selection         | Additive over CA, future-compatible   |
-| 9        | L7 corridors (enables turns + linking)   | L7      | L (10+ days)   | **High** — turns, sparse linking, lanes       | Requires P4 settled geometry          |
+| Priority | Item                                    | Layer | Effort       | Impact                                      | Readiness                             |
+| -------- | --------------------------------------- | ----- | ------------ | ------------------------------------------- | ------------------------------------- |
+| 1        | Geometry-coherent track state (P1)      | L5    | L (6–7 days) | **Very high** — fixes most visible artefact | Proposal complete, ready to implement |
+| 2        | Tile-plane ground fitting (G1)          | L4    | M (3–4 days) | **High** — correctness for sloped roads     | Maths complete, needs implementation  |
+| 3        | Unified settlement core (P4)            | L3–L4 | M (4–5 days) | **Medium** — infrastructure simplification  | Proposal complete, enables G2 and P3  |
+| 4        | Classification config extraction (§5.1) | L6    | S (1–2 days) | **Medium** — removes magic numbers          | Straightforward refactor              |
+| 5        | Five-site test corpus (§Q11)            | Cross | M (ongoing)  | **High** — validates all defaults           | Requires field data collection        |
+| 6        | Speed percentile alignment (§5.2)       | L8    | S (2–3 days) | **Medium** — correctness for reports        | Implementation choices documented     |
+| 7        | CA model (future-forward L5 extension)  | L5    | M (5–6 days) | **Medium** — reduces braking fragmentation  | Additive over CV, no L7 dependency    |
+| 8        | IMM CV+CA blend                         | L5    | M (4–5 days) | **Medium** — adaptive model selection       | Additive over CA, future-compatible   |
+| 9        | L7 corridors (enables turns + linking)  | L7    | L (10+ days) | **High** — turns, sparse linking, lanes     | Requires P4 settled geometry          |
 
 **Critical path:** P1 → G1 → P4 → G2 → CA → IMM → L7 corridors.
 

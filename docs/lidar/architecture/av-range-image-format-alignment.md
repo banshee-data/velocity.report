@@ -17,13 +17,13 @@ This design document outlines the changes required to align the velocity.report 
 
 The Hesai Pandar40P sensor natively supports the core features needed for AV format alignment:
 
-| Feature      | Hesai Native Support   | Current Implementation          | AV Format Requirement     |
-|--------------|------------------------|---------------------------------|---------------------------|
-| Dual Returns | ✅ ReturnMode 0x39      | ⚠️ Only first return parsed     | ✅ Two strongest returns   |
-| Range        | ✅ 4mm resolution       | ✅ Fully implemented             | ✅ Required                |
-| Intensity    | ✅ 0-255 reflectivity   | ✅ Fully implemented             | ✅ Required                |
-| Elongation   | ❌ Not in protocol      | ❌ Not available                 | ✅ Required                |
-| is_in_nlz    | N/A (AV-specific)      | N/A                             | ⚠️ Not applicable         |
+| Feature      | Hesai Native Support  | Current Implementation      | AV Format Requirement    |
+| ------------ | --------------------- | --------------------------- | ------------------------ |
+| Dual Returns | ✅ ReturnMode 0x39    | ⚠️ Only first return parsed | ✅ Two strongest returns |
+| Range        | ✅ 4mm resolution     | ✅ Fully implemented        | ✅ Required              |
+| Intensity    | ✅ 0-255 reflectivity | ✅ Fully implemented        | ✅ Required              |
+| Elongation   | ❌ Not in protocol    | ❌ Not available            | ✅ Required              |
+| is_in_nlz    | N/A (AV-specific)     | N/A                         | ⚠️ Not applicable        |
 
 ### AV Dataset LiDAR Data Format Reference
 
@@ -170,7 +170,7 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 ## Implementation Phases Summary
 
 | Phase | Description                      | Effort | Dependencies |
-|-------|----------------------------------|--------|--------------|
+| ----- | -------------------------------- | ------ | ------------ |
 | 1.1   | Point structure updates          | 2h     | None         |
 | 1.2   | Range image structure            | 4h     | 1.1          |
 | 2.1   | Dual return parser               | 4h     | 1.1          |
@@ -189,7 +189,7 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 ### Required Settings
 
 | Setting                     | Location            | Default       | Description                      |
-|-----------------------------|---------------------|---------------|----------------------------------|
+| --------------------------- | ------------------- | ------------- | -------------------------------- |
 | `return_mode`               | `/api/lidar/params` | `0x39` (dual) | Expected return mode for parsing |
 | `range_image_azimuth_bins`  | `/api/lidar/params` | 1800          | Azimuth resolution               |
 | `enable_range_image_export` | `/api/lidar/params` | false         | Enable range image generation    |
@@ -198,7 +198,7 @@ Create `internal/lidar/l2frames/export_av_format.go` with `ExportRangeImageToAVF
 ### API Endpoints
 
 | Endpoint                             | Method | Description                         |
-|--------------------------------------|--------|-------------------------------------|
+| ------------------------------------ | ------ | ----------------------------------- |
 | `GET /api/lidar/return_mode`         | GET    | Get current return mode             |
 | `POST /api/lidar/return_mode`        | POST   | Set expected return mode            |
 | `GET /api/lidar/range_image`         | GET    | Export current frame as range image |

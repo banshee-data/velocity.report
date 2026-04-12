@@ -17,7 +17,7 @@ shared codebase structure and development methodology.
 Five hubs total. Three existing, one new, one renamed.
 
 | Hub              | Scope      | Sorting test                                                                                                                               |
-|------------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `docs/lidar/`    | EXISTS     | LiDAR pipeline layer, algorithm, sensor-specific workflow, or LiDAR-specific storage                                                       |
 | `docs/radar/`    | EXISTS     | Radar sensing, speed measurement, site configuration                                                                                       |
 | `docs/ui/`       | EXISTS     | What a user sees or interacts with — web, macOS app chrome, homepage, design language                                                      |
@@ -29,7 +29,6 @@ Ask in order. First match wins.
 
 1. Does the lasting knowledge describe a LiDAR pipeline layer, algorithm, sensor-specific
    workflow, or LiDAR-specific storage? → `docs/lidar/`
-
 2. Does it describe radar sensing, speed measurement, or site configuration? → `docs/radar/`
 3. Does it describe what a user sees or interacts with? → `docs/ui/`
 4. Everything else → `docs/platform/`
@@ -45,7 +44,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 #### `docs/lidar/architecture/`
 
 | Canonical file                                           | Status | Fed by plan(s)                                        | Notes                                 |
-|----------------------------------------------------------|--------|-------------------------------------------------------|---------------------------------------|
+| -------------------------------------------------------- | ------ | ----------------------------------------------------- | ------------------------------------- |
 | `lidar-data-layer-model.md`                              | EXISTS | `lidar-layer-dependency-hygiene-plan`                 | Layer ownership rules absorb          |
 | `lidar-pipeline-reference.md`                            | EXISTS | `lidar-architecture-graph-plan`                       | Graph becomes asset of this doc       |
 | `lidar-sidecar-overview.md`                              | EXISTS | —                                                     | Already canonical                     |
@@ -73,7 +72,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 #### `docs/lidar/operations/`
 
 | Canonical file                             | Status | Fed by plan(s)                                      | Notes                            |
-|--------------------------------------------|--------|-----------------------------------------------------|----------------------------------|
+| ------------------------------------------ | ------ | --------------------------------------------------- | -------------------------------- |
 | `auto-tuning.md`                           | EXISTS | `lidar-parameter-tuning-optimisation-plan`          | Parameter search merges          |
 | `hint-sweep-mode.md`                       | EXISTS | `lidar-sweep-hint-mode-plan`                        | Already complete                 |
 | `track-labelling-auto-aware-tuning.md`     | EXISTS | `lidar-track-labelling-auto-aware-tuning-plan`      | Labelling workflow merges        |
@@ -96,7 +95,7 @@ Twelve visualiser QC plans describe lidar-specific QC features. Grouped in a
 subdirectory to keep `operations/` navigable.
 
 | Canonical file                        | Status | Fed by plan(s)                                                        |
-|---------------------------------------|--------|-----------------------------------------------------------------------|
+| ------------------------------------- | ------ | --------------------------------------------------------------------- |
 | `qc-enhancements-overview.md`         | DONE   | `lidar-visualiser-labelling-qc-enhancements-overview-plan`            |
 | `track-quality-scoring.md`            | DONE   | `lidar-visualiser-track-quality-score-plan`                           |
 | `track-event-timeline.md`             | DONE   | `lidar-visualiser-track-event-timeline-bar-plan`                      |
@@ -112,20 +111,20 @@ subdirectory to keep `operations/` navigable.
 
 ### `docs/radar/` — 2 plans
 
-| Canonical file                                       | Status | Fed by plan(s)                                    | Notes                            |
-|------------------------------------------------------|--------|---------------------------------------------------|----------------------------------|
-| `architecture/time-partitioned-data-tables.md`       | EXISTS | —                                                 | Already canonical                |
-| `architecture/networking.md`                         | EXISTS | —                                                 | Already canonical                |
-| `architecture/serial-configuration-ui.md`            | EXISTS | —                                                 | Already canonical                |
-| `architecture/site-config-cosine-correction-spec.md` | EXISTS | —                                                 | Already canonical                |
-| `architecture/speed-limit-schedules.md`              | EXISTS | —                                                 | Already canonical                |
-| `architecture/transit-deduplication.md`              | EXISTS | —                                                 | Already canonical                |
-| `architecture/percentile-aggregation-semantics.md`   | DONE   | `speed-percentile-aggregation-alignment-plan` †   | Percentile = aggregate not track |
+| Canonical file                                       | Status | Fed by plan(s)                                  | Notes                            |
+| ---------------------------------------------------- | ------ | ----------------------------------------------- | -------------------------------- |
+| `architecture/time-partitioned-data-tables.md`       | EXISTS | —                                               | Already canonical                |
+| `architecture/networking.md`                         | EXISTS | —                                               | Already canonical                |
+| `architecture/serial-configuration-ui.md`            | EXISTS | —                                               | Already canonical                |
+| `architecture/site-config-cosine-correction-spec.md` | EXISTS | —                                               | Already canonical                |
+| `architecture/speed-limit-schedules.md`              | EXISTS | —                                               | Already canonical                |
+| `architecture/transit-deduplication.md`              | EXISTS | —                                               | Already canonical                |
+| `architecture/percentile-aggregation-semantics.md`   | DONE   | `speed-percentile-aggregation-alignment-plan` † | Percentile = aggregate not track |
 
 ### `docs/ui/` — 6 plans
 
 | Canonical file                          | Status | Fed by plan(s)                                | Notes                                |
-|-----------------------------------------|--------|-----------------------------------------------|--------------------------------------|
+| --------------------------------------- | ------ | --------------------------------------------- | ------------------------------------ |
 | `DESIGN.md`                             | EXISTS | —                                             | Already canonical                    |
 | `design-review-and-improvement.md`      | EXISTS | —                                             | Already canonical                    |
 | `velocity-visualiser-architecture.md`   | EXISTS | `server-manager`                              | Connection lifecycle merges          |
@@ -140,7 +139,7 @@ subdirectory to keep `operations/` navigable.
 #### `docs/platform/architecture/`
 
 | Canonical file                  | Status | Fed by plan(s)                                                            | Notes                                   |
-|---------------------------------|--------|---------------------------------------------------------------------------|-----------------------------------------|
+| ------------------------------- | ------ | ------------------------------------------------------------------------- | --------------------------------------- |
 | `database-sql-boundary.md`      | DONE   | `data-database-alignment-plan`, `data-sqlite-client-standardisation-plan` | Two-package DB access model             |
 | `track-description-language.md` | DONE   | `data-track-description-language-plan`                                    | Query language design                   |
 | `go-package-structure.md`       | DONE   | `go-codebase-structural-hygiene-plan` †, `go-god-file-split-plan`         | Import boundaries + file size           |
@@ -153,7 +152,7 @@ subdirectory to keep `operations/` navigable.
 #### `docs/platform/operations/`
 
 | Canonical file                  | Status | Fed by plan(s)                                                                   | Notes                             |
-|---------------------------------|--------|----------------------------------------------------------------------------------|-----------------------------------|
+| ------------------------------- | ------ | -------------------------------------------------------------------------------- | --------------------------------- |
 | `distribution-packaging.md`     | DONE   | `deploy-distribution-packaging-plan`                                             | Single-binary subcommand model    |
 | `rpi-imager.md`                 | DONE   | `deploy-rpi-imager-fork-plan`                                                    | Image building + flashing         |
 | `schema-migration-030.md`       | DONE   | `schema-simplification-migration-030-plan`                                       | Column/table renaming (transient) |
@@ -168,12 +167,12 @@ subdirectory to keep `operations/` navigable.
 
 ## Plans That Split Across Hubs
 
-| Plan                                          | Concept A → Hub                                                                   | Concept B → Hub                                                       |
-|-----------------------------------------------|-----------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| `go-codebase-structural-hygiene-plan`         | SQL boundary → `platform/architecture/database-sql-boundary.md`                   | Package structure → `platform/architecture/go-package-structure.md`   |
-| `speed-percentile-aggregation-alignment-plan` | Percentile semantics → `radar/architecture/percentile-aggregation-semantics.md`   | Metric naming → `platform/architecture/metrics-registry.md`           |
-| `pdf-go-chart-migration-plan`                 | All concepts stay in `platform/operations/pdf-reporting.md`                       | (phases, not separate hubs)                                           |
-| `web-frontend-consolidation-plan`             | All concepts stay in `ui/web-frontend-consolidation.md`                           | Port consolidation noted in platform                                  |
+| Plan                                          | Concept A → Hub                                                                 | Concept B → Hub                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `go-codebase-structural-hygiene-plan`         | SQL boundary → `platform/architecture/database-sql-boundary.md`                 | Package structure → `platform/architecture/go-package-structure.md` |
+| `speed-percentile-aggregation-alignment-plan` | Percentile semantics → `radar/architecture/percentile-aggregation-semantics.md` | Metric naming → `platform/architecture/metrics-registry.md`         |
+| `pdf-go-chart-migration-plan`                 | All concepts stay in `platform/operations/pdf-reporting.md`                     | (phases, not separate hubs)                                         |
+| `web-frontend-consolidation-plan`             | All concepts stay in `ui/web-frontend-consolidation.md`                         | Port consolidation noted in platform                                |
 
 ## Immediate Actions
 
@@ -188,7 +187,7 @@ All completed on branch `dd/docs/merge-canonical`:
 ## Counts
 
 | Hub              | Existing docs | New canonical docs | Plans absorbed | % of plans |
-|------------------|---------------|--------------------|----------------|------------|
+| ---------------- | ------------- | ------------------ | -------------- | ---------- |
 | `docs/lidar/`    | ~42           | ~18                | 38             | 56%        |
 | `docs/radar/`    | 8             | 1                  | 2              | 3%         |
 | `docs/ui/`       | 9             | 3                  | 6              | 9%         |

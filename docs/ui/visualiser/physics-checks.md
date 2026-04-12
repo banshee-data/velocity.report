@@ -9,7 +9,7 @@ Automatic physics violation detection and review-gate state model for track conf
 6 automatic physics violation detectors:
 
 | Type                    | Trigger                                                               | Severity      |
-|-------------------------|-----------------------------------------------------------------------|---------------|
+| ----------------------- | --------------------------------------------------------------------- | ------------- |
 | `ACCELERATION_EXCEEDED` | Observation-to-observation acceleration above class-specific limit    | WARN or ERROR |
 | `JERK_EXCEEDED`         | Rate of acceleration change above threshold                           | WARN          |
 | `HEADING_RATE_EXCEEDED` | Heading change rate faster than vehicle dynamics allow                | WARN          |
@@ -44,7 +44,7 @@ PENDING → BLOCKED → CONFIRMED
 `lidar_run_track_violations` table:
 
 | Column              | Type       | Description                                     |
-|---------------------|------------|-------------------------------------------------|
+| ------------------- | ---------- | ----------------------------------------------- |
 | `id`                | INTEGER PK | Auto-increment                                  |
 | `run_id`            | TEXT       | Run identifier                                  |
 | `track_id`          | TEXT       | Track identifier                                |

@@ -34,7 +34,7 @@ The LiDAR pipeline extends the picture. Where radar sees a vehicle's speed throu
 The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR provides geometry, object identity, and track continuity. Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
 | Component            | Language            | Purpose                                                            |
-|----------------------|---------------------|--------------------------------------------------------------------|
+| -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |
 | **PDF generator**    | Python + LaTeX      | Professional speed reports with charts, statistics, and formatting |
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards            |
@@ -50,10 +50,10 @@ The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR 
 
 ## Sensor Hardware
 
-| Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                      |
-|--------|-----------------------|----------------|---------------------|-----------------------------------------------------------------------------------------|
-| Radar  | OmniPreSense OPS243-A | Doppler speed  | USB-Serial (RS-232) | K-band (24 GHz), ±0.1 mph accuracy, FFT-based, configurable speed/magnitude thresholds  |
-| LiDAR  | Hesai Pandar40P       | 3D point cloud | Ethernet/UDP (PoE)  | 40 beams, 200 m range, 10 Hz rotation, 0.2° azimuth resolution, ~70,000 points/frame    |
+| Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                     |
+| ------ | --------------------- | -------------- | ------------------- | -------------------------------------------------------------------------------------- |
+| Radar  | OmniPreSense OPS243-A | Doppler speed  | USB-Serial (RS-232) | K-band (24 GHz), ±0.1 mph accuracy, FFT-based, configurable speed/magnitude thresholds |
+| LiDAR  | Hesai Pandar40P       | 3D point cloud | Ethernet/UDP (PoE)  | 40 beams, 200 m range, 10 Hz rotation, 0.2° azimuth resolution, ~70,000 points/frame   |
 
 Radar delivers Doppler-accurate speed through a narrow field of view. LiDAR delivers full-scene geometry: shape, trajectory, and classification across the entire road. The two sensors run independently today; sensor fusion via cross-sensor track handoff is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
@@ -635,7 +635,7 @@ Synthetic Mode (Testing):
 ### Go Server
 
 | Component  | Technology              | Version | Purpose                 |
-|------------|-------------------------|---------|-------------------------|
+| ---------- | ----------------------- | ------- | ----------------------- |
 | Language   | Go                      | 1.25+   | High-performance server |
 | Database   | SQLite                  | 3.51    | Data storage            |
 | HTTP       | net/http (stdlib)       | -       | API server              |
@@ -648,7 +648,7 @@ Synthetic Mode (Testing):
 ### Python PDF Generator
 
 | Component      | Technology | Version | Purpose             |
-|----------------|------------|---------|---------------------|
+| -------------- | ---------- | ------- | ------------------- |
 | Language       | Python     | 3.11+   | Report generation   |
 | Charts         | matplotlib | 3.9+    | Data visualisation  |
 | LaTeX          | PyLaTeX    | 1.4+    | Document generation |
@@ -660,7 +660,7 @@ Synthetic Mode (Testing):
 ### Web Frontend
 
 | Component       | Technology | Version | Purpose               |
-|-----------------|------------|---------|-----------------------|
+| --------------- | ---------- | ------- | --------------------- |
 | Framework       | Svelte     | 5.x     | Reactive UI           |
 | Language        | TypeScript | 5.x     | Type safety           |
 | Build Tool      | Vite       | 6.x     | Dev server & bundling |
@@ -670,7 +670,7 @@ Synthetic Mode (Testing):
 ### macOS Visualiser
 
 | Component     | Technology | Version  | Purpose              |
-|---------------|------------|----------|----------------------|
+| ------------- | ---------- | -------- | -------------------- |
 | Language      | Swift      | 5.9+     | Native macOS app     |
 | UI Framework  | SwiftUI    | macOS 14 | Declarative UI       |
 | GPU Rendering | Metal      | 3.x      | 3D point clouds      |
@@ -988,7 +988,7 @@ Web Development:
 ### What Ships Today
 
 | Capability                        | Status       | Component    |
-|-----------------------------------|--------------|--------------|
+| --------------------------------- | ------------ | ------------ |
 | Radar vehicle detection (OPS243A) | Production   | Go server    |
 | Real-time speed dashboard         | Production   | Svelte web   |
 | Professional PDF reports          | Production   | Python/LaTeX |
@@ -1006,32 +1006,32 @@ Web Development:
 
 The perception pipeline is organised as ten layers (L1–L10), each a distinct Go package under `internal/lidar/`. Layers L1–L6 form a complete stack from raw UDP frames to classified objects — DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment, and rule-based classification, all tuneable and inspectable end to end.
 
-| Layer | Package         | Capability                                                                      | Status          |
-|-------|-----------------|---------------------------------------------------------------------------------|-----------------|
-| L1    | `l1packets/`    | Sensor ingest (Hesai Pandar40P UDP, PCAP replay)                                | ✅ Implemented   |
-| L2    | `l2frames/`     | Frame assembly, rotation geometry, coordinate transforms                        | ✅ Implemented   |
-| L3    | `l3grid/`       | Background/foreground separation (EMA grid, Welford variance, adaptive regions) | ✅ Implemented   |
-| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal        | ✅ Implemented   |
-| L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting | ✅ Implemented   |
-| L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                  | ✅ Implemented   |
-| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0)  |
-| L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented   |
-| L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented   |
-| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF                           | ✅ Implemented   |
+| Layer | Package         | Capability                                                                      | Status         |
+| ----- | --------------- | ------------------------------------------------------------------------------- | -------------- |
+| L1    | `l1packets/`    | Sensor ingest (Hesai Pandar40P UDP, PCAP replay)                                | ✅ Implemented |
+| L2    | `l2frames/`     | Frame assembly, rotation geometry, coordinate transforms                        | ✅ Implemented |
+| L3    | `l3grid/`       | Background/foreground separation (EMA grid, Welford variance, adaptive regions) | ✅ Implemented |
+| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal        | ✅ Implemented |
+| L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting | ✅ Implemented |
+| L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                  | ✅ Implemented |
+| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
+| L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
+| L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF                           | ✅ Implemented |
 
 Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
 
 ### LiDAR Capability Roadmap
 
-| Capability                                               | Status          | Target | Plan                                                               |
-|----------------------------------------------------------|-----------------|--------|--------------------------------------------------------------------|
-| Analysis run infrastructure (versioned runs, comparison) | ✅ Implemented   | v0.5.0 | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)       |
-| Tracking upgrades (Hungarian, OBB, ground removal)       | ✅ Implemented   | v0.5.0 | —                                                                  |
-| Adaptive regions & HINT parameter tuner                  | ✅ Implemented   | v0.5.0 | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                   |
-| Track labelling (backend, API, Svelte + macOS UI)        | Experimental    | v0.5.2 | [plan](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) |
-| ML classifier benchmarking (optional research lane)      | Deferred        | v2.0   | [plan](docs/plans/lidar-ml-classifier-training-plan.md)            |
-| Automated hyperparameter search                          | Planned         | v2.0   | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
-| Production LiDAR deployment                              | Planned         | —      | —                                                                  |
+| Capability                                               | Status         | Target | Plan                                                               |
+| -------------------------------------------------------- | -------------- | ------ | ------------------------------------------------------------------ |
+| Analysis run infrastructure (versioned runs, comparison) | ✅ Implemented | v0.5.0 | [plan](docs/plans/lidar-analysis-run-infrastructure-plan.md)       |
+| Tracking upgrades (Hungarian, OBB, ground removal)       | ✅ Implemented | v0.5.0 | —                                                                  |
+| Adaptive regions & HINT parameter tuner                  | ✅ Implemented | v0.5.0 | [plan](docs/plans/lidar-sweep-hint-mode-plan.md)                   |
+| Track labelling (backend, API, Svelte + macOS UI)        | Experimental   | v0.5.2 | [plan](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md) |
+| ML classifier benchmarking (optional research lane)      | Deferred       | v2.0   | [plan](docs/plans/lidar-ml-classifier-training-plan.md)            |
+| Automated hyperparameter search                          | Planned        | v2.0   | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
+| Production LiDAR deployment                              | Planned        | —      | —                                                                  |
 
 ## Performance Characteristics
 
@@ -1063,7 +1063,7 @@ Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/l
 Development is tracked in the [backlog](docs/BACKLOG.md), organised by version. The versions most relevant to system architecture:
 
 | Version | Theme                  | Key Capabilities                                                                                             |
-|---------|------------------------|--------------------------------------------------------------------------------------------------------------|
+| ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
 | v0.5.2  | Data Contracts         | Track speed metric redesign, metric registry, data structure remediation, replay case terminology            |
 | v0.5.3  | Replay Stabilisation   | VRLOG timestamp index, SSE backpressure, visualiser debug overlays, dynamic background segmentation          |
 | v0.5.4  | Product Polish         | Serial port configuration UI, frontend theme compliance, metrics consolidation                               |
@@ -1079,7 +1079,7 @@ The project ships incrementally. Each version has a design document per work ite
 The perception algorithms are documented in standalone mathematical references under `data/maths/`. Each document covers the theory, parameter choices, and implementation mapping for one pipeline stage.
 
 | Document                                                                          | Pipeline Layer | Content                                                                                    |
-|-----------------------------------------------------------------------------------|----------------|--------------------------------------------------------------------------------------------|
+| --------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------ |
 | [background-grid-settling-maths.md](data/maths/background-grid-settling-maths.md) | L3 Grid        | EMA/EWA update equations, settling state machine, freeze logic                             |
 | [ground-plane-maths.md](data/maths/ground-plane-maths.md)                         | L3–L4          | Tile-based ground plane estimation, confidence scoring, curvature handling                 |
 | [clustering-maths.md](data/maths/clustering-maths.md)                             | L4 Perception  | DBSCAN parameters, OBB via PCA, geometry extraction                                        |

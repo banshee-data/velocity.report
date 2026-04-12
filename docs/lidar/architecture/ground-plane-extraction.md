@@ -128,7 +128,7 @@ When GPS coordinates are available, settled local tiles can be projected into a 
 Global tiles contain aggregate statistics from multiple observation sessions:
 
 | Field             | Description                                         |
-|-------------------|-----------------------------------------------------|
+| ----------------- | --------------------------------------------------- |
 | Mean plane normal | Weighted average of contributing local tile normals |
 | Mean Z-offset     | Weighted average ground height                      |
 | Session count     | Number of observation sessions contributing         |
@@ -158,7 +158,7 @@ Tile size trades off between:
 **Recommended tile sizes:**
 
 | Tile size | Use case                                                                 | Typical tile count |
-|-----------|--------------------------------------------------------------------------|--------------------|
+| --------- | ------------------------------------------------------------------------ | ------------------ |
 | 0.5 m     | High-resolution mapping; detect kerbs and small features                 | ~10,000 for 50 m²  |
 | 1.0 m     | **Default** — Balance between detail and performance for urban streets   | ~2,500 for 50 m²   |
 | 2.0 m     | Coarse mapping; rapid convergence for low-point-density or sparse scenes | ~625 for 50 m²     |
@@ -178,7 +178,7 @@ The ground plane subsystem **can optionally** integrate with GPS/PTP parsing (se
 The L3 `BackgroundGrid` and L4 ground plane serve complementary roles:
 
 | Aspect               | L3 Background Grid (polar)                       | L4 Ground Plane (Cartesian)                             |
-|----------------------|--------------------------------------------------|---------------------------------------------------------|
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------- |
 | **Geometry**         | Rings × azimuth bins                             | Cartesian tiles (sensor-local or lat/long aligned)      |
 | **Purpose**          | Foreground/background separation                 | Surface modelling for height-above-ground               |
 | **Representation**   | Per-cell range statistics (mean, spread, freeze) | Per-tile plane equation (normal, offset)                |
@@ -291,12 +291,12 @@ planarity = 1 - (λ₃ / λ₂)
 
 **Classification thresholds:**
 
-| Planarity   | Classification       | Use for height queries? |
-|-------------|----------------------|-------------------------|
-| ≥ 0.95      | High-confidence flat | Yes                     |
-| 0.85–0.95   | Moderate-confidence  | Yes, with caution       |
-| 0.70–0.85   | Low-confidence       | No (warn user)          |
-| < 0.70      | Non-planar/invalid   | No (exclude from map)   |
+| Planarity | Classification       | Use for height queries? |
+| --------- | -------------------- | ----------------------- |
+| ≥ 0.95    | High-confidence flat | Yes                     |
+| 0.85–0.95 | Moderate-confidence  | Yes, with caution       |
+| 0.70–0.85 | Low-confidence       | No (warn user)          |
+| < 0.70    | Non-planar/invalid   | No (exclude from map)   |
 
 ### Flatness vs Curvature Classification
 
@@ -353,7 +353,6 @@ Each tile's plane equation is **derived from and validated by the raw LiDAR poin
    distance = |n·(x,y,z) - d|
    ```
    If distance > outlierThreshold (e.g., 10 cm), mark as outlier and exclude from fit.
-
 3. **Incremental fit update** — Inlier points update the tile's running covariance statistics and re-trigger plane fitting.
 
 ### Outlier Rejection

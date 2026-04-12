@@ -55,11 +55,11 @@ The whole system is designed for permanent outdoor deployment: weatherproof hard
 
 ### What This System Does (and Does Not) Collect
 
-|                         |                                                          |
-|-------------------------|----------------------------------------------------------|
-| ✅ **Collected**         | Vehicle speed, direction, timestamp                      |
-| ❌ **Not collected**     | No licence plates, no vehicle photos, no driver identity |
-| ❌ **Not transmitted**   | No upload, all data stays on your device                 |
+|                        |                                                          |
+| ---------------------- | -------------------------------------------------------- |
+| ✅ **Collected**       | Vehicle speed, direction, timestamp                      |
+| ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity |
+| ❌ **Not transmitted** | No upload, all data stays on your device                 |
 
 The system records vehicle speed data without collecting camera images, licence plates, or other personal details. The point is to measure traffic, not to build a private surveillance habit.
 
@@ -136,7 +136,7 @@ The velocity.report Pi image includes everything pre-configured: the server, the
 ### Bill of Materials
 
 | Part                 | Recommended Model                                                                                     | Price (approx) | Notes                                                                   |
-|----------------------|-------------------------------------------------------------------------------------------------------|----------------|-------------------------------------------------------------------------|
+| -------------------- | ----------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
 | Doppler Radar Sensor | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420           | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
 | Mounting Plate       | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50            | Metal mounting bracket for OPS7243 enclosure                            |
 | M12 cable            | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17            | Connects sensor to board                                                |
@@ -210,7 +210,7 @@ ssh velocity@velocity.local
 **What the image includes** (so you do not have to):
 
 | Component              | Location                                      | Purpose                                      |
-|------------------------|-----------------------------------------------|----------------------------------------------|
+| ---------------------- | --------------------------------------------- | -------------------------------------------- |
 | velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard      |
 | velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates                |
 | PDF generator          | `/opt/velocity-report/tools/pdf-generator/`   | Professional traffic reports                 |
@@ -243,7 +243,7 @@ The OPS7243-A-CW-R2 sensor (RS232 interface) connects to the Raspberry Pi via a 
 **[PLACEHOLDER: Diagram showing RS232 wiring connections between OPS7243 sensor and Waveshare HAT, with colour-coded wires and pin labels]**
 
 | Sensor Pin (RS232) | HAT Terminal           | Wire Colour (typical) |
-|--------------------|------------------------|-----------------------|
+| ------------------ | ---------------------- | --------------------- |
 | VCC (5V)           | +5V or separate supply | Red                   |
 | GND                | GND                    | Black                 |
 | TX                 | RX (receive)           | Green/Yellow          |
@@ -519,11 +519,11 @@ When you reposition your sensor or adjust its mounting angle, historical data ne
 
 **Example scenario:**
 
-| Period                     | Cosine Angle | Notes                           |
-|----------------------------|--------------|---------------------------------|
-| 1 Jan 2025 → 15 Mar 2025   | 21°          | Initial installation            |
-| 15 Mar 2025 → 1 Jun 2025   | 35°          | Repositioned after storm damage |
-| 1 Jun 2025 → (current)     | 21°          | Restored to original position   |
+| Period                   | Cosine Angle | Notes                           |
+| ------------------------ | ------------ | ------------------------------- |
+| 1 Jan 2025 → 15 Mar 2025 | 21°          | Initial installation            |
+| 15 Mar 2025 → 1 Jun 2025 | 35°          | Repositioned after storm damage |
+| 1 Jun 2025 → (current)   | 21°          | Restored to original position   |
 
 When generating a report for April 2025, the system automatically applies the 35° correction. A comparison report spanning February (21°) vs April (35°) applies each correction independently.
 
@@ -833,7 +833,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 **Product Code Breakdown**:
 
 | Component      | Options      | Meaning                                                  |
-|----------------|--------------|----------------------------------------------------------|
+| -------------- | ------------ | -------------------------------------------------------- |
 | **203-**       | Fixed prefix | Mouser manufacturer code for OmniPreSense                |
 | **OPS[model]** | 243, 7243    | Sensor model (243 = standard PCB, 7243 = IP67 enclosure) |
 | **Data Type**  | A, C         | A = Speed only, C = Speed + Distance                     |
@@ -848,7 +848,7 @@ OmniPreSense offers radar sensors in multiple configurations. The product code f
 ### Available Models Comparison
 
 | Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price |
-|---------------------|------------|-------|----------|------------|------|-------|-------|
+| ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | ----- |
 | 203-OPS7243-A-CW-R2 | Doppler    | Yes   | No       | RS232 (R2) | Yes  | 100m  | ~$415 |
 | 203-OPS7243-C-FC-R2 | FMCW       | Yes   | Yes      | RS232 (R2) | Yes  | 60m   | ~$435 |
 

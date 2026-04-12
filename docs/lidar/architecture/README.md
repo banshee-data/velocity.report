@@ -9,7 +9,7 @@ single-sensor runtime still lives mostly in L1-L6, while L7-L10 define scene,
 analytics, endpoint, and client responsibilities.
 
 | Layer         | Package         | Responsibility                                                          |
-|---------------|-----------------|-------------------------------------------------------------------------|
+| ------------- | --------------- | ----------------------------------------------------------------------- |
 | L1 Packets    | `l1packets/`    | Sensor-wire transport: UDP ingestion, PCAP replay, Hesai packet parsing |
 | L2 Frames     | `l2frames/`     | Time-coherent frame assembly, polar/Cartesian geometry, ASC export      |
 | L3 Grid       | `l3grid/`       | Background/foreground separation: EMA grid, regions, persistence, drift |
@@ -24,7 +24,7 @@ analytics, endpoint, and client responsibilities.
 Cross-cutting packages:
 
 | Package           | Purpose                                                                         |
-|-------------------|---------------------------------------------------------------------------------|
+| ----------------- | ------------------------------------------------------------------------------- |
 | `pipeline/`       | Orchestration via stage interfaces (`ForegroundStage`, `PerceptionStage`, etc.) |
 | `storage/sqlite/` | DB repositories: scene, track, evaluation, sweep, analysis run stores           |
 | `adapters/`       | Transport and IO: export, research data, ground truth evaluation                |
@@ -43,7 +43,7 @@ implementation-vs-literature breakdown, see
 ### Current (active)
 
 | Document                                                                                           | Scope                                                                                        |
-|----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | [lidar-data-layer-model.md](lidar-data-layer-model.md)                                             | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
 | [lidar-layer-alignment-refactor-review.md](lidar-layer-alignment-refactor-review.md)               | Layer alignment review: completed migration, complexity analysis, file splits                |
 | [lidar-logging-stream-split-and-rubric-design.md](lidar-logging-stream-split-and-rubric-design.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams                    |
@@ -56,14 +56,14 @@ implementation-vs-literature breakdown, see
 
 ### Historical (completed designs)
 
-| Document                                                                                                         | Status                                                              |
-|------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
-| [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete — arena.go removed, types migrated to layer packages     |
+| Document                                                                                                         | Status                                                           |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [arena-go-deprecation-and-layered-type-layout-design.md](arena-go-deprecation-and-layered-type-layout-design.md) | ✅ Complete — arena.go removed, types migrated to layer packages |
 
 ### Future / Research
 
 | Document                                                                                                                                 | Scope                                        |
-|------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | [av-range-image-format-alignment.md](av-range-image-format-alignment.md)                                                                 | AV dual-return range image format (deferred) |
 | [../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md](../../plans/lidar-architecture-dynamic-algorithm-selection-plan.md) | Runtime algorithm switching (deferred)       |
 
@@ -76,7 +76,7 @@ The layer alignment migration is **complete** (items 1–12, 14 in the review do
 Post-migration file sizes:
 
 | File                               | Lines | Notes                                            |
-|------------------------------------|-------|--------------------------------------------------|
+| ---------------------------------- | ----- | ------------------------------------------------ |
 | `l3grid/background.go`             | 1,628 | Core grid processing (split from 2,610)          |
 | `l3grid/background_persistence.go` | 450   | Snapshot serialisation, DB restore/persist       |
 | `l3grid/background_export.go`      | 350   | Heatmaps, ASC export, region debug info          |

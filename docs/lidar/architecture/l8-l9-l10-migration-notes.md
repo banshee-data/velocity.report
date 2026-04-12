@@ -14,7 +14,7 @@ breaking-change rationale.
 ## Package Renames
 
 | Old name       | New name                                          | Reason                                     |
-|----------------|---------------------------------------------------|--------------------------------------------|
+| -------------- | ------------------------------------------------- | ------------------------------------------ |
 | `monitor/`     | (deleted)                                         | Stale, orphaned files; nothing imported it |
 | `webserver.go` | `server/server.go`                                | Reflects actual role                       |
 | (split files)  | `state.go`, `routes.go`, `tuning.go`, `status.go` | Reduced 1 573-line file to focused units   |

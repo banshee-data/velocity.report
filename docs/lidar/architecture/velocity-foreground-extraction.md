@@ -25,7 +25,7 @@ leveraging motion continuity, spatial coherence, and temporal persistence.
 4. **Extend track boundaries** — pre-entry and post-exit via prediction.
 
 | Feature        | Background Subtraction  | Velocity-Coherent        |
-|----------------|-------------------------|--------------------------|
+| -------------- | ----------------------- | ------------------------ |
 | Classification | Per-point, static       | Velocity-temporal        |
 | Min cluster    | 12 points               | 3 points                 |
 | Lifecycle      | Hits/misses counter     | Velocity prediction      |
@@ -72,7 +72,7 @@ PRE_TAIL (≥3 pts) → TENTATIVE → CONFIRMED → POST_TAIL → DELETED
 Adaptive tolerances by point count:
 
 | Points | Velocity Tolerance | Spatial Tolerance |
-|--------|--------------------|-------------------|
+| ------ | ------------------ | ----------------- |
 | ≥12    | ±2.0 m/s           | ±1.0 m            |
 | 6–11   | ±1.5 m/s           | ±0.8 m            |
 | 3–5    | ±0.5 m/s           | ±0.5 m            |
@@ -103,13 +103,12 @@ comparable in dashboards.
 - `lidar_velocity_coherent_clusters` — 6D DBSCAN output per frame.
 - `lidar_velocity_coherent_tracks` — parallel track table with velocity
   confidence, consistency scores, and sparse-tracking metrics.
-
 - `lidar_track_merges` — auditable merge history.
 
 ## Prototype Simplifications (vs Original Design)
 
 | Area           | Original      | Prototype                 |
-|----------------|---------------|---------------------------|
+| -------------- | ------------- | ------------------------- |
 | Tracking model | 6D            | 2D + velocity (x,y,vx,vy) |
 | 6D DBSCAN      | Full 6D index | 3D position + vel filter  |
 | Heading        | Explicit      | Implicit from velocity    |
@@ -118,10 +117,10 @@ comparable in dashboards.
 
 ## Acceptance Metrics (Hypotheses)
 
-| Metric                            | Target           |
-|-----------------------------------|------------------|
-| Sparse-object recall (3–11 pts)   | +20% to +40%     |
-| Track fragmentation rate          | −10% to −25%     |
-| Median track duration (boundary)  | +10% to +30%     |
-| Additional false positives        | <+10%            |
-| Throughput regression             | <20%             |
+| Metric                           | Target       |
+| -------------------------------- | ------------ |
+| Sparse-object recall (3–11 pts)  | +20% to +40% |
+| Track fragmentation rate         | −10% to −25% |
+| Median track duration (boundary) | +10% to +30% |
+| Additional false positives       | <+10%        |
+| Throughput regression            | <20%         |

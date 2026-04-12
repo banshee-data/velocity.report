@@ -23,7 +23,7 @@
 The neighbor confirmation count is the **most important parameter** for convergence stability:
 
 | Neighbor | Avg StdDev   | Stability Rating | Acceptance Rate |
-|----------|--------------|------------------|-----------------|
+| -------- | ------------ | ---------------- | --------------- |
 | **1**    | **0.001995** | **EXCELLENT**    | **99.95%**      |
 | 0        | 0.032924     | POOR             | 99.22%          |
 | 2        | 0.034843     | POOR             | 99.23%          |
@@ -60,7 +60,7 @@ The neighbor confirmation count is the **most important parameter** for converge
 When neighbor=1, closeness has **minimal impact** on stability:
 
 | Closeness | Avg StdDev   | Avg Acceptance | Stability |
-|-----------|--------------|----------------|-----------|
+| --------- | ------------ | -------------- | --------- |
 | 1.5       | 0.002554     | 99.93%         | EXCELLENT |
 | 2.0       | 0.002218     | 99.94%         | EXCELLENT |
 | **2.5**   | **0.001358** | **99.96%**     | **BEST**  |
@@ -98,17 +98,17 @@ Time to stability: >2.5 minutes, still variable
 
 ### 5. Configuration Performance Matrix
 
-| Closeness                         | Neighbor | Overall Acc  | StdDev       | Stability         | Cells StdDev |
-|-----------------------------------|----------|--------------|--------------|-------------------|--------------|
-| 2.5                               | **1**    | **99.96%**   | **0.001358** | **⭐ EXCELLENT**   | **66**       |
-| 3.0                               | 1        | 99.95%       | 0.001849     | EXCELLENT         | 58           |
-| 2.0                               | 1        | 99.94%       | 0.002218     | EXCELLENT         | 433          |
-| 1.5                               | 1        | 99.93%       | 0.002554     | EXCELLENT         | 53           |
-| 2.5                               | 3        | 99.43%       | 0.019777     | GOOD              | 47           |
-| 3.0                               | 2        | 99.39%       | 0.024263     | MODERATE          | 78           |
-| ... all neighbor=0                | ...      | 99.22%       | 0.032-0.033  | POOR              | 52-292       |
-| ... all neighbor=2 (except 2.5,3) | ...      | 99.02-99.24% | 0.033-0.049  | POOR              | 53-61        |
-| ... all neighbor=3 (except 2.5)   | ...      | 99.00-99.24% | 0.033-0.049  | POOR              | 59-65        |
+| Closeness                         | Neighbor | Overall Acc  | StdDev       | Stability        | Cells StdDev |
+| --------------------------------- | -------- | ------------ | ------------ | ---------------- | ------------ |
+| 2.5                               | **1**    | **99.96%**   | **0.001358** | **⭐ EXCELLENT** | **66**       |
+| 3.0                               | 1        | 99.95%       | 0.001849     | EXCELLENT        | 58           |
+| 2.0                               | 1        | 99.94%       | 0.002218     | EXCELLENT        | 433          |
+| 1.5                               | 1        | 99.93%       | 0.002554     | EXCELLENT        | 53           |
+| 2.5                               | 3        | 99.43%       | 0.019777     | GOOD             | 47           |
+| 3.0                               | 2        | 99.39%       | 0.024263     | MODERATE         | 78           |
+| ... all neighbor=0                | ...      | 99.22%       | 0.032-0.033  | POOR             | 52-292       |
+| ... all neighbor=2 (except 2.5,3) | ...      | 99.02-99.24% | 0.033-0.049  | POOR             | 53-61        |
+| ... all neighbor=3 (except 2.5)   | ...      | 99.00-99.24% | 0.033-0.049  | POOR             | 59-65        |
 
 ## Detailed Time-Series Convergence
 

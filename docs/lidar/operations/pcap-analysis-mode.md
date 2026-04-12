@@ -262,12 +262,12 @@ Long PCAP captures from mobile observation sessions contain mixed driving and pa
 
 **Key packages:**
 
-| Package           | Location                               | Role                                                        |
-|-------------------|----------------------------------------|-------------------------------------------------------------|
-| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing — reads PCAP, filters UDP, parses packets          |
-| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New** — implements `FrameBuilder`, drives state machine   |
-| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New** — buffers packets, writes segment PCAPs             |
-| CLI               | `cmd/tools/pcap-split/main.go`         | **New** — flag parsing, orchestration, summary output       |
+| Package           | Location                               | Role                                                      |
+| ----------------- | -------------------------------------- | --------------------------------------------------------- |
+| PCAP reader       | `internal/lidar/network/pcap.go`       | Existing — reads PCAP, filters UDP, parses packets        |
+| Settling analyser | `internal/lidar/pcapsplit/analyser.go` | **New** — implements `FrameBuilder`, drives state machine |
+| Segment writer    | `internal/lidar/pcapsplit/writer.go`   | **New** — buffers packets, writes segment PCAPs           |
+| CLI               | `cmd/tools/pcap-split/main.go`         | **New** — flag parsing, orchestration, summary output     |
 
 ### Stability Detection
 
@@ -324,15 +324,15 @@ segments/
 Three new read-only accessors on `BackgroundManager` (designed, not yet implemented):
 
 | Method                                      | Purpose                                          |
-|---------------------------------------------|--------------------------------------------------|
+| ------------------------------------------- | ------------------------------------------------ |
 | `GetFrameSettlingMetrics(settledThreshold)` | Per-frame settled/nonzero/frozen cell counts     |
 | `GetNoiseBoundsDeviation()`                 | Aggregate deviation from expected noise envelope |
 | `IsWithinNoiseBounds(threshold)`            | Boolean check for noise envelope compliance      |
 
 ### Phased Delivery
 
-| Phase | Scope                                                                   | Size | Prerequisite      |
-|-------|-------------------------------------------------------------------------|------|-------------------|
-| 1     | `--motion` flag in `pcap-analyse` — motion timeline in summary output   | S    | None              |
-| 2     | `BackgroundManager` API extensions — three new read-only accessors      | S    | Phase 1 validated |
-| 3     | Full `pcap-split` tool — analyser, writer, CLI, metadata export         | M    | Phase 2           |
+| Phase | Scope                                                                 | Size | Prerequisite      |
+| ----- | --------------------------------------------------------------------- | ---- | ----------------- |
+| 1     | `--motion` flag in `pcap-analyse` — motion timeline in summary output | S    | None              |
+| 2     | `BackgroundManager` API extensions — three new read-only accessors    | S    | Phase 1 validated |
+| 3     | Full `pcap-split` tool — analyser, writer, CLI, metadata export       | M    | Phase 2           |

@@ -23,7 +23,7 @@ The LiDAR pipeline established the target model with `Opsf`/`Diagf`/`Tracef`. Th
 extends that model to the entire Go codebase.
 
 | Stream  | Purpose                                                     | Volume | Retention |
-|---------|-------------------------------------------------------------|--------|-----------|
+| ------- | ----------------------------------------------------------- | ------ | --------- |
 | `ops`   | Actionable warnings/errors and significant lifecycle events | Low    | Longest   |
 | `diag`  | Day-to-day diagnostics for troubleshooting and tuning       | Medium | Medium    |
 | `trace` | High-frequency packet/frame telemetry and loop-level detail | High   | Shortest  |
@@ -59,7 +59,7 @@ Two runtime controls, set once at startup in `cmd/radar/radar.go`:
 Behaviour:
 
 | Flag                | Output                      |
-|---------------------|-----------------------------|
+| ------------------- | --------------------------- |
 | `--log-level ops`   | Only ops stream to stdout   |
 | `--log-level diag`  | Ops + diag to stdout        |
 | `--log-level trace` | All three streams to stdout |
@@ -71,7 +71,7 @@ Behaviour:
 ### Package-level Stream Assignment
 
 | Package       | Current pattern             | Count | Target stream  |
-|---------------|-----------------------------|-------|----------------|
+| ------------- | --------------------------- | ----- | -------------- |
 | `api/`        | `log.Printf`                | ~15   | `Opsf`/`Diagf` |
 | `db/`         | `log.Printf` + emoji        | ~10   | `Opsf`/`Diagf` |
 | `serialmux/`  | `log.Printf`                | ~8    | `Opsf`/`Diagf` |
@@ -106,7 +106,6 @@ That migration is complete for the LiDAR packages (55 call sites across `l1packe
 1. `make lint-go && make test-go` passes
 2. `grep -RInE 'log\.Printf|fmt\.Printf|monitoring\.Logf' internal/ cmd/` returns zero
    matches (excluding generated code and test files)
-
 3. `--log-level ops` produces only ops-stream output
 4. `--log-level trace` produces all three streams
 5. `VELOCITY_DEBUG_LOG` routes correctly

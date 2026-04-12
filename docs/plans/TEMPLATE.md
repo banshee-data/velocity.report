@@ -19,7 +19,7 @@ Include counts, file paths, and measurable facts — not opinions.
 ## Findings
 
 | Area | Current state | Severity | Release view |
-|------|---------------|----------|--------------|
+| ---- | ------------- | -------- | ------------ |
 |      |               |          |              |
 
 ## Design / Approach
@@ -59,7 +59,7 @@ External or internal dependencies that gate or sequence this work.
 ## Risks
 
 | Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
+| ---- | ---------- | ------ | ---------- |
 |      |            |        |            |
 
 ## Checklist

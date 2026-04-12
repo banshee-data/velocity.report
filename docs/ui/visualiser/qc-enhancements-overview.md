@@ -15,7 +15,7 @@ Umbrella architecture for seven QC features that share tables, conventions, and 
 Six new tables are introduced across the QC feature set:
 
 | Table                             | Owner Feature         | Purpose                           |
-|-----------------------------------|-----------------------|-----------------------------------|
+| --------------------------------- | --------------------- | --------------------------------- |
 | `lidar_run_track_violations`      | Physics Checks        | Per-observation violation records |
 | `lidar_run_track_events`          | Track Event Timeline  | Lifecycle and diagnostic events   |
 | `lidar_run_track_quality_history` | Track Quality Scoring | Score snapshots with reason codes |
@@ -47,7 +47,7 @@ Features must be implemented in this sequence (each depends on outputs of its pr
 ## Cross-Feature Milestones
 
 | Milestone | Content                                                      |
-|-----------|--------------------------------------------------------------|
+| --------- | ------------------------------------------------------------ |
 | M1        | Schema migration: all 6 shared tables + denormalised columns |
 | M2        | Physics checks + event emitters operational                  |
 | M3        | Quality scoring + review queue functional                    |

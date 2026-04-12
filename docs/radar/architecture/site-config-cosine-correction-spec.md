@@ -142,11 +142,11 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 
 **Requirement:**
 
-1. **Independent Correction:** Data from Range A must be corrected using the Jan 1-7 config. Data from Range B must be corrected using the Jan 14-21 config.
-2. **User Awareness:** The report must explicitly state if different angles were used.
-   - _Good Scenario:_ "Comparing Week 1 (Angle 5°) vs Week 2 (Angle 5°)"
-   - _Adjusted Scenario:_ "Comparing Week 1 (Angle 5°) vs Week 2 (Angle 12°)" - Note: "Speeds have been corrected for sensor angle change."
-3. **PDF Table:** The "Site Configuration" section in the PDF must list all configuration periods active during _any_ part of the report window (Main + Comparison).
+1.  **Independent Correction:** Data from Range A must be corrected using the Jan 1-7 config. Data from Range B must be corrected using the Jan 14-21 config.
+2.  **User Awareness:** The report must explicitly state if different angles were used.
+    - _Good Scenario:_ "Comparing Week 1 (Angle 5°) vs Week 2 (Angle 5°)"
+    - _Adjusted Scenario:_ "Comparing Week 1 (Angle 5°) vs Week 2 (Angle 12°)" - Note: "Speeds have been corrected for sensor angle change."
+3.  **PDF Table:** The "Site Configuration" section in the PDF must list all configuration periods active during _any_ part of the report window (Main + Comparison).
 
 ### 5. Frontend (Svelte)
 
@@ -172,17 +172,17 @@ A comparison report involves two distinct time ranges (e.g., Range A: Jan 1-7, R
 
 ## Testing Strategy
 
-1. **Unit Tests:**
-   - Test cosine math logic.
-   - Test period overlap prevention.
-   - Test "No Config" fallback behaviour.
-2. **Comparison Tests:**
-   - Create synthetic data with known speeds.
-   - Simulate a sensor move (Change in angle).
-   - Verify that "Pre-move" and "Post-move" data is corrected to the _same_ true speed.
+1.  **Unit Tests:**
+    - Test cosine math logic.
+    - Test period overlap prevention.
+    - Test "No Config" fallback behaviour.
+2.  **Comparison Tests:**
+    - Create synthetic data with known speeds.
+    - Simulate a sensor move (Change in angle).
+    - Verify that "Pre-move" and "Post-move" data is corrected to the _same_ true speed.
 
 ## Assumptions
 
-1. Users manually record when they moved the sensor.
-2. The effective time of a configuration change is known to the second.
-3. For "Report Comparison", users want to compare _Corrected_ speeds (true velocity), not Raw speeds (what the sensor saw).
+1.  Users manually record when they moved the sensor.
+2.  The effective time of a configuration change is known to the second.
+3.  For "Report Comparison", users want to compare _Corrected_ speeds (true velocity), not Raw speeds (what the sensor saw).

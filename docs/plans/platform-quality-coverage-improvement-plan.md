@@ -4,7 +4,6 @@
 - **Layers:** Cross-cutting (testing infrastructure)
 - **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
   to ≥ 95.5% line coverage.
-
 - **Canonical:** [quality-coverage.md](../platform/operations/quality-coverage.md)
 
 ## Scope
@@ -21,13 +20,13 @@ any testable business logic currently in `cmd/` must be extracted into
 
 ## Current State Summary
 
-| Component            | Overall | Files ≥ 95.5%   | Files < 95.5%   |
-|----------------------|---------|-----------------|-----------------|
-| Go `internal/`       | 90.3%   | 7               | 18              |
-| Go `cmd/` (excluded) | 18.6%   | 0               | 3 (+5 untested) |
-| Web (statements)     | 96.0%   | 9 of 11         | 2               |
-| Python               | 93.6%   | 9 of 19         | 10              |
-| macOS Swift          | ~85%\*  | —               | —               |
+| Component            | Overall | Files ≥ 95.5% | Files < 95.5%   |
+| -------------------- | ------- | ------------- | --------------- |
+| Go `internal/`       | 90.3%   | 7             | 18              |
+| Go `cmd/` (excluded) | 18.6%   | 0             | 3 (+5 untested) |
+| Web (statements)     | 96.0%   | 9 of 11       | 2               |
+| Python               | 93.6%   | 9 of 19       | 10              |
+| macOS Swift          | ~85%\*  | —             | —               |
 
 \* macOS coverage is estimated from CI smoke tests; full XCTest coverage
 requires a macOS runner. See [§ macOS Swift App](#macos-swift-app) below.
@@ -41,7 +40,7 @@ These packages need only a handful of additional test cases.
 ### Go
 
 | Package                   | Current | Gap  | What to Test                                                |
-|---------------------------|---------|------|-------------------------------------------------------------|
+| ------------------------- | ------- | ---- | ----------------------------------------------------------- |
 | `internal/serialmux`      | 94.9%   | 0.6% | Edge cases in port option validation                        |
 | `internal/lidar` (root)   | 94.4%   | 1.1% | Uncovered branches in alias helpers                         |
 | `internal/lidar/l5tracks` | 94.1%   | 1.4% | Track expiry and miss-count edge paths                      |
@@ -51,14 +50,14 @@ These packages need only a handful of additional test cases.
 ### Web
 
 | File                 | Current | Gap  | What to Test                                    |
-|----------------------|---------|------|-------------------------------------------------|
+| -------------------- | ------- | ---- | ----------------------------------------------- |
 | `sweep_dashboard.js` | 95.1%   | 0.4% | ~7 uncovered branches in chart-update paths     |
 | `api.ts`             | 94.8%   | 0.7% | ~5 uncovered error/retry branches in API client |
 
 ### Python
 
 | Module                       | Current | Gap  | What to Test                                     |
-|------------------------------|---------|------|--------------------------------------------------|
+| ---------------------------- | ------- | ---- | ------------------------------------------------ |
 | `core/document_builder.py`   | 94.8%   | 0.7% | LaTeX preamble fallback paths                    |
 | `core/map_utils.py`          | 94.5%   | 1.0% | Missing-data guard clauses in map tile fetching  |
 | `core/pdf_generator.py`      | 94.3%   | 1.2% | Error handling in subprocess calls               |
@@ -73,7 +72,7 @@ These packages need only a handful of additional test cases.
 ### Go
 
 | Package                              | Current | Gap  | Key Uncovered Functions                                                                                         |
-|--------------------------------------|---------|------|-----------------------------------------------------------------------------------------------------------------|
+| ------------------------------------ | ------- | ---- | --------------------------------------------------------------------------------------------------------------- |
 | `internal/lidar/l3grid`              | 93.2%   | 2.3% | `serializeGrid` (66.7%), `NewBackgroundManager` (72.2%), `WithForeground*` option funcs                         |
 | `internal/lidar/l6objects`           | 92.5%   | 3.0% | `birdConfidence` (66.7%), `NewTrackClassifierWithMinObservations` (66.7%), classification edge cases            |
 | `internal/lidar/storage/sqlite`      | 92.1%   | 3.4% | Transaction rollback paths, bulk-insert error recovery                                                          |
@@ -90,7 +89,7 @@ These packages need only a handful of additional test cases.
 ### Python
 
 | Module                    | Current | Gap  | What to Test                                                                                   |
-|---------------------------|---------|------|------------------------------------------------------------------------------------------------|
+| ------------------------- | ------- | ---- | ---------------------------------------------------------------------------------------------- |
 | `core/report_sections.py` | 91.8%   | 3.7% | Optional section rendering when data is absent                                                 |
 | `cli/main.py`             | 91.3%   | 4.2% | CLI argument parsing edge cases, subcommand dispatch errors (~47 missing lines)                |
 | `core/chart_builder.py`   | 91.3%   | 4.2% | Empty-dataset guards, axis-formatting fallbacks (~33 missing lines)                            |
@@ -104,15 +103,15 @@ These packages need only a handful of additional test cases.
 
 ### Go
 
-| Package           | Current | Gap   | Challenge                                                                                                                           |
-|-------------------|---------|-------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `internal/api`    | 88.2%   | 7.3%  | Label CRUD handlers (80–84%), `handleExport` (68.4%), `sendCommandHandler` (66.7%) — needs more HTTP handler tests with mock DB     |
-| `internal/config` | 74.7%   | 20.8% | 40+ `Get*` accessor functions at 0% — trivial to test but high count; `LoadTuningConfig` (90%), `MustLoadDefaultConfig` (80%)       |
+| Package           | Current | Gap   | Challenge                                                                                                                       |
+| ----------------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `internal/api`    | 88.2%   | 7.3%  | Label CRUD handlers (80–84%), `handleExport` (68.4%), `sendCommandHandler` (66.7%) — needs more HTTP handler tests with mock DB |
+| `internal/config` | 74.7%   | 20.8% | 40+ `Get*` accessor functions at 0% — trivial to test but high count; `LoadTuningConfig` (90%), `MustLoadDefaultConfig` (80%)   |
 
 ### Python
 
 | Module                    | Current | Gap  | Challenge                                                                      |
-|---------------------------|---------|------|--------------------------------------------------------------------------------|
+| ------------------------- | ------- | ---- | ------------------------------------------------------------------------------ |
 | `core/tex_environment.py` | 87.5%   | 8.0% | LaTeX environment detection/fallback (~5 missing lines, needs mock filesystem) |
 | `core/zip_utils.py`       | 86.4%   | 9.1% | Zip creation error paths, large-file handling (~17 missing lines)              |
 
@@ -125,27 +124,25 @@ testable business logic must be extracted into `internal/` packages where
 it is covered by the target. The remaining `cmd/` code should be thin CLI
 wiring (flag parsing, `main()`, output formatting).
 
-| Package                       | Testable LOC | Target `internal/` Package           | Extraction Scope                                                                                                                                          |
-|-------------------------------|--------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `cmd/deploy`                  | ~2,500       | `internal/deploy` (exists)           | **HIGH** — `Installer`, `Upgrader`, `Rollback`, `Fixer`, `Monitor` are pure business logic. Unify the two `Executor` implementations (cmd vs internal).   |
-| `cmd/radar`                   | ~200         | `internal/config`                    | **MEDIUM** — `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                     |
-| `cmd/tools` (scan_transits)   | ~65          | `internal/db`                        | **MEDIUM** — `findTransitGaps()` is pure SQL+result-processing; belongs alongside `TransitWorker`.                                                        |
-| `cmd/tools/pcap-analyse`      | ~300         | `internal/lidar/pipeline`            | **LOW** — PCAP processing + ML export pipeline; tightly coupled to build tags.                                                                            |
-| `cmd/sweep`                   | ~150         | (already in `internal/lidar/sweep`)  | LOW — only `toFloat64()` helper remains in cmd.                                                                                                           |
-| `cmd/transit-backfill`        | ~30          | (already delegates to `internal/db`) | NONE — already a thin wrapper.                                                                                                                            |
-| `cmd/tools/gen-vrlog`         | ~100         | `internal/lidar/visualiser/recorder` | LOW — synthetic VRLog generation.                                                                                                                         |
-| `cmd/tools/visualiser-server` | ~150         | `internal/lidar/visualiser`          | LOW — gRPC server modes.                                                                                                                                  |
+| Package                       | Testable LOC | Target `internal/` Package           | Extraction Scope                                                                                                                                        |
+| ----------------------------- | ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cmd/deploy`                  | ~2,500       | `internal/deploy` (exists)           | **HIGH** — `Installer`, `Upgrader`, `Rollback`, `Fixer`, `Monitor` are pure business logic. Unify the two `Executor` implementations (cmd vs internal). |
+| `cmd/radar`                   | ~200         | `internal/config`                    | **MEDIUM** — `resolvePrecompiledTeXRoot()`, `configurePDFLaTeXFlow()`, environment-config resolution.                                                   |
+| `cmd/tools` (scan_transits)   | ~65          | `internal/db`                        | **MEDIUM** — `findTransitGaps()` is pure SQL+result-processing; belongs alongside `TransitWorker`.                                                      |
+| `cmd/tools/pcap-analyse`      | ~300         | `internal/lidar/pipeline`            | **LOW** — PCAP processing + ML export pipeline; tightly coupled to build tags.                                                                          |
+| `cmd/sweep`                   | ~150         | (already in `internal/lidar/sweep`)  | LOW — only `toFloat64()` helper remains in cmd.                                                                                                         |
+| `cmd/transit-backfill`        | ~30          | (already delegates to `internal/db`) | NONE — already a thin wrapper.                                                                                                                          |
+| `cmd/tools/gen-vrlog`         | ~100         | `internal/lidar/visualiser/recorder` | LOW — synthetic VRLog generation.                                                                                                                       |
+| `cmd/tools/visualiser-server` | ~150         | `internal/lidar/visualiser`          | LOW — gRPC server modes.                                                                                                                                |
 
 **Extraction strategy:**
 
 1. Move business-logic types and functions into the corresponding
    `internal/` package, keeping only flag parsing and `main()` in `cmd/`.
-
 2. Write unit tests for the extracted code in `internal/` (now under the
-   95. 5% target).
+   95.5% target).
 3. The `cmd/` package itself needs only a minimal smoke test
    (`--help` exits 0, invalid flags exit non-zero).
-
 4. **Priority:** `cmd/deploy` → `cmd/radar` → `cmd/tools` (by LOC impact).
 
 ### macOS Swift App
@@ -162,7 +159,7 @@ reported to Codecov under the `mac` flag.
 coverage requires a macOS runner with Metal support).
 
 | Source File                         | LOC    | Test File                                         | Key Gaps                                                                      |
-|-------------------------------------|--------|---------------------------------------------------|-------------------------------------------------------------------------------|
+| ----------------------------------- | ------ | ------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `AppState.swift`                    | ~800   | `AppStateTests.swift`, `CoverageBoostTests.swift` | Deep playback state transitions, error-recovery paths                         |
 | `MetalRenderer.swift`               | ~1,300 | `MetalRendererTests.swift`                        | GPU pipeline creation fallbacks, draw-call edge cases (requires Metal device) |
 | `ContentView.swift`                 | ~1,800 | `ContentViewTests.swift`                          | Complex SwiftUI view hierarchy; limited testability without ViewInspector     |
@@ -269,19 +266,16 @@ coverage requires a macOS runner with Metal support).
 - **Extract an executor interface** (`Executor` with `Run`, `RunSudo`,
   `WriteFile`, `CopyFile` methods) — `internal/deploy` already has a
   partial implementation; unify with the `cmd/deploy` version.
-
 - Implement a `FakeExecutor` that records calls and returns scripted responses.
 - Test all deployment logic (Installer, Upgrader, Fixer, Monitor) against
   the fake in `internal/deploy`; integration-test the real executor
   separately (CI with a local SSH server container).
-
 - `cmd/deploy/main.go` remains a thin CLI wrapper — no 95.5% target.
 
 ### Database Error Paths (`internal/db`)
 
 - Use `testutil.NewTestDB()` with deliberate schema corruption to trigger
   migration errors.
-
 - Inject write failures via `PRAGMA journal_mode=OFF` + disk-full simulation.
 - Test `withDB` with a closed `*sql.DB` to cover the error branch.
 
@@ -295,14 +289,12 @@ coverage requires a macOS runner with Metal support).
 
 - Single table-driven test: populate a `TuningConfig` struct with known values,
   call every `Get*` function, assert against expected output.
-
 - Use `go generate` or reflection to ensure new accessors are not forgotten.
 
 ### Python CLI (`cli/main.py`)
 
 - Use `click.testing.CliRunner` (or equivalent) to invoke subcommands
   with controlled arguments.
-
 - Mock external dependencies (`subprocess`, `shutil`) for deterministic tests.
 
 ### macOS Metal Renderer (`MetalRenderer.swift`)
@@ -310,10 +302,8 @@ coverage requires a macOS runner with Metal support).
 - **Extract pure-logic helpers** (matrix maths, colour mapping, buffer
   sizing) into standalone structs/functions that can be tested without a
   Metal device.
-
 - Accept that `MTKViewDelegate.draw(in:)` and GPU pipeline creation
   remain at lower coverage — these require a real Metal device.
-
 - Use `MTLCreateSystemDefaultDevice()` availability checks in tests to
   skip GPU-dependent assertions on CI runners without Metal.
 
@@ -321,10 +311,8 @@ coverage requires a macOS runner with Metal support).
 
 - Extract complex logic into `@Observable` view models testable
   without a view hierarchy.
-
 - Consider [ViewInspector](https://github.com/nalexn/ViewInspector) for
   snapshot-free view testing if deeper view coverage is needed.
-
 - Focus on testing the view models and state management rather than the
   SwiftUI view tree itself.
 
@@ -332,7 +320,6 @@ coverage requires a macOS runner with Metal support).
 
 - Use a `URLProtocol` subclass to intercept HTTP requests and return
   scripted responses (4xx, 5xx, timeouts, malformed JSON).
-
 - Inject a mock `GRPCChannel` to test gRPC stream lifecycle (connect →
   receive → error → reconnect).
 
@@ -366,7 +353,7 @@ coverage requires a macOS runner with Metal support).
 ## Packages Already at Target (no action needed)
 
 | Package                            | Coverage |
-|------------------------------------|----------|
+| ---------------------------------- | -------- |
 | `internal/fsutil`                  | 99.0%    |
 | `internal/lidar/debug`             | 100.0%   |
 | `internal/lidar/l1packets/network` | 97.3%    |
@@ -379,19 +366,19 @@ coverage requires a macOS runner with Metal support).
 ### Borderline (just below target — 1–2 tests needed)
 
 | Package                          | Coverage | Gap  |
-|----------------------------------|----------|------|
+| -------------------------------- | -------- | ---- |
 | `internal/lidar/l1packets/parse` | 95.1%    | 0.4% |
 
 ---
 
 ## Estimated Total Effort
 
-| Phase     | Scope                                   | Effort          |
-|-----------|-----------------------------------------|-----------------|
-| Phase 1   | Quick wins + config accessors           | 2–3 days        |
-| Phase 2   | Core internal packages + Python         | 1–2 weeks       |
-| Phase 3   | cmd/ extraction + macOS + Python Tier 3 | 3–6 weeks       |
-| **Total** | **All in-scope packages ≥ 95.5%**       | **5–9 weeks**   |
+| Phase     | Scope                                   | Effort        |
+| --------- | --------------------------------------- | ------------- |
+| Phase 1   | Quick wins + config accessors           | 2–3 days      |
+| Phase 2   | Core internal packages + Python         | 1–2 weeks     |
+| Phase 3   | cmd/ extraction + macOS + Python Tier 3 | 3–6 weeks     |
+| **Total** | **All in-scope packages ≥ 95.5%**       | **5–9 weeks** |
 
 The biggest single investment is extracting `cmd/deploy` business logic
 (~2,500 LOC) into `internal/deploy` with an SSH executor fake. The macOS

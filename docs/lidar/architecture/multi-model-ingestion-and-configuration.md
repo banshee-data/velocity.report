@@ -107,7 +107,7 @@ This keeps deployment shape unchanged: no new services, no cloud coordination, n
 ## Suggested Delivery Phases
 
 | Phase | Scope                                                                                       | Effort |
-|-------|---------------------------------------------------------------------------------------------|--------|
+| ----- | ------------------------------------------------------------------------------------------- | ------ |
 | 1     | Add registry/factory abstractions and migrate Pandar40P into registry-backed implementation | M      |
 | 2     | Add SQLite tables and CRUD API for model catalogue/profile/ingest binding                   | M      |
 | 3     | Add hot-reload manager wiring parser+listener swaps from active ingest config               | M      |

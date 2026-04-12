@@ -3,7 +3,7 @@
 Core terms used across the LiDAR tracking system.
 
 | Term                   | Definition                                                                                                                                                   |
-|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Point**              | A single 3D measurement from the LiDAR sensor (x, y, z, intensity, timestamp).                                                                               |
 | **Cluster**            | A group of spatially-proximate foreground points identified by DBSCAN, representing a potential object.                                                      |
 | **Track**              | A temporally-linked sequence of clusters representing a moving object across frames, maintained by the Kalman-filter tracker.                                |
@@ -20,7 +20,7 @@ Core terms used across the LiDAR tracking system.
 ## Layer Summary
 
 | Layer | Label      | Package (Go)                      | Responsibility                                               |
-|-------|------------|-----------------------------------|--------------------------------------------------------------|
+| ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
 | L1    | Packets    | `internal/lidar/l1packets/`       | Wire transport, UDP capture, PCAP replay, packet parsing     |
 | L2    | Frames     | `internal/lidar/l2frames/`        | Frame assembly, timestamps, geometry conversion              |
 | L3    | Grid       | `internal/lidar/l3grid/`          | Background model, foreground masking, persistence, regions   |
@@ -43,7 +43,7 @@ Classify what object the track represents. v0.5.0 ships 7 active labels.
 <!-- Canonical source: internal/api/lidar_labels.go → AllDetectionLabels -->
 
 | Label        | Description                                              |
-|--------------|----------------------------------------------------------|
+| ------------ | -------------------------------------------------------- |
 | `car`        | Passenger car, SUV, van, or truck                        |
 | `bus`        | Bus, coach, or large passenger vehicle (length > 7 m)    |
 | `pedestrian` | Person walking, running, or using a mobility aid         |
@@ -59,7 +59,7 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 <!-- Canonical source: internal/api/lidar_labels.go → AllQualityFlags -->
 
 | Flag              | Description                                                              |
-|-------------------|--------------------------------------------------------------------------|
+| ----------------- | ------------------------------------------------------------------------ |
 | `good`            | Clean, accurate track with correct speed and trajectory                  |
 | `noisy`           | Track has noisy position or speed estimates                              |
 | `jitter_velocity` | Speed estimates jitter significantly                                     |

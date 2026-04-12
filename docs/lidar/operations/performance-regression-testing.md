@@ -40,7 +40,7 @@ echo "Exit code: $?"
 ### Benchmark Flags
 
 | Flag                    | Alias    | Default                 | Description                                 |
-|-------------------------|----------|-------------------------|---------------------------------------------|
+| ----------------------- | -------- | ----------------------- | ------------------------------------------- |
 | `-benchmark`            | `-bench` | `false`                 | Enable performance measurement mode         |
 | `-benchmark-output`     | —        | `{pcap}_benchmark.json` | Output file for benchmark JSON results      |
 | `-quiet`                | `-q`     | `false`                 | Suppress output to reduce measurement noise |
@@ -50,7 +50,7 @@ echo "Exit code: $?"
 ### Standard Flags (also available in benchmark mode)
 
 | Flag         | Default           | Description                  |
-|--------------|-------------------|------------------------------|
+| ------------ | ----------------- | ---------------------------- |
 | `-pcap`      | (required)        | Path to PCAP file            |
 | `-output`    | `.`               | Output directory for results |
 | `-sensor-id` | `hesai-pandar40p` | Sensor ID for configuration  |
@@ -159,7 +159,7 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 ### Recommended Test Files
 
 | File                      | Duration | Description                          | Use Case                           |
-|---------------------------|----------|--------------------------------------|------------------------------------|
+| ------------------------- | -------- | ------------------------------------ | ---------------------------------- |
 | `gold-standard.pcapng`    | 2 min    | Mixed traffic, urban intersection    | Primary regression testing         |
 | `high-density.pcapng`     | 1 min    | Rush hour, 10+ simultaneous vehicles | Stress testing clustering/tracking |
 | `pedestrian-focus.pcapng` | 1 min    | School zone, multiple pedestrians    | Classification accuracy            |
@@ -290,7 +290,7 @@ Update baselines when:
 ### Metric Descriptions
 
 | Metric                    | Unit  | Description                               | Regression Indicator                      |
-|---------------------------|-------|-------------------------------------------|-------------------------------------------|
+| ------------------------- | ----- | ----------------------------------------- | ----------------------------------------- |
 | `wall_clock_ms`           | ms    | Total processing time                     | Higher is worse                           |
 | `frame_time_stats.avg_ms` | ms    | Average per-frame processing time         | Higher is worse                           |
 | `frame_time_stats.p95_ms` | ms    | 95th percentile frame time (tail latency) | Higher is worse                           |

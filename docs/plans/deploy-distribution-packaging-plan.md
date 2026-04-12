@@ -104,8 +104,7 @@
      [project.scripts]
      pdf-generator = "pdf_generator.cli.main:main"
      ```
-
-- Test: `pip install -e tools/pdf-generator/`
+   - Test: `pip install -e tools/pdf-generator/`
 
 3. **Create installation script for Python tools**
 
@@ -510,7 +509,6 @@
 3. **Create comprehensive installation guide**
 
    File: `docs/INSTALLATION.md`
-
    - One-line install (recommended)
    - Manual installation steps
    - Raspberry Pi-specific instructions

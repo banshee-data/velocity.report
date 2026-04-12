@@ -36,7 +36,7 @@ keys at production defaults.
 #### Keys under test
 
 | Config key                      | Default | Sweep range | Evidence level | Risk if wrong                             |
-|---------------------------------|---------|-------------|----------------|-------------------------------------------|
+| ------------------------------- | ------- | ----------- | -------------- | ----------------------------------------- |
 | `foreground_dbscan_eps`         | 0.8     | [0.3, 1.5]  | Literature     | Under/over-clustering at different ranges |
 | `foreground_min_cluster_points` | 5       | [2, 8]      | Provisional    | Missed small objects (cyclists, peds)     |
 
@@ -45,14 +45,14 @@ keys at production defaults.
 **Gated metrics (available via GroundTruthEvaluator):**
 
 | Metric                | Definition                                  | Threshold                 |
-|-----------------------|---------------------------------------------|---------------------------|
+| --------------------- | ------------------------------------------- | ------------------------- |
 | Confirmed track count | Confirmed tracks downstream                 | No regression vs baseline |
 | Objective function    | Composite score from `GroundTruthEvaluator` | Within 10% of optimal     |
 
 **Future / manual diagnostics (cluster-level, not yet in evaluator):**
 
 | Metric            | Definition                                                     | Notes                               |
-|-------------------|----------------------------------------------------------------|-------------------------------------|
+| ----------------- | -------------------------------------------------------------- | ----------------------------------- |
 | Cluster precision | Clusters that map 1:1 to ground-truth objects / total clusters | Requires cluster-level ground truth |
 | Per-class recall  | Ground-truth objects with ≥ 1 matching cluster, per class      | Requires cluster-level ground truth |
 | Split rate        | Ground-truth objects matched to > 1 cluster                    | Requires cluster-level ground truth |

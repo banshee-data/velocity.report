@@ -425,7 +425,7 @@ Shape Estimation → Temporal Association → 7-DOF Box Fitting
 **Shape Priors for AV Industry Standard Classes:**
 
 | Class        | Mean Length | Mean Width | Mean Height | Aspect Ratio |
-|--------------|-------------|------------|-------------|--------------|
+| ------------ | ----------- | ---------- | ----------- | ------------ |
 | Car          | 4.5m        | 1.8m       | 1.5m        | 1.8 - 3.0    |
 | Truck        | 6.5m        | 2.2m       | 2.5m        | 2.0 - 4.0    |
 | Bus          | 12.0m       | 2.5m       | 3.2m        | 3.5 - 6.0    |

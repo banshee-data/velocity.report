@@ -10,11 +10,9 @@ Two coordinated migrations standardise the LiDAR schema before v0.5.0:
 
 - **Dropped** `p50_speed_mps`, `p85_speed_mps`, `p95_speed_mps` from
   `lidar_tracks` and `lidar_run_tracks` (dead/wrong-abstraction columns).
-
 - **Renamed** `peak_speed_mps` → `max_speed_mps` on both tables.
 - **Renamed** `world_frame` → `frame_id` on `lidar_clusters`,
   `lidar_tracks`, `lidar_track_obs`.
-
 - **Renamed** `scene_hash` → `grid_hash` on `lidar_bg_regions`.
 
 ### Migration 000031 — Table Naming Standardisation
@@ -22,7 +20,7 @@ Two coordinated migrations standardise the LiDAR schema before v0.5.0:
 7 tables renamed into coherent family groups:
 
 | Old Name               | New Name                   | Family |
-|------------------------|----------------------------|--------|
+| ---------------------- | -------------------------- | ------ |
 | `lidar_track_obs`      | `lidar_track_observations` | Track  |
 | `lidar_labels`         | `lidar_track_annotations`  | Track  |
 | `lidar_analysis_runs`  | `lidar_run_records`        | Run    |
@@ -52,7 +50,6 @@ lidar_track_annotations   lidar_tuning_sweeps
 1. Full words by default; `bg` is an allowed entrenched short form.
 2. Group tables by conceptual owner: `bg_*`, `track_*`, `run_*`,
    `replay_*`, `tuning_*`.
-
 3. Reserve `scene` for future L7 canonical scene work.
 4. Prefer plural entity names for tables.
 5. Keep already-good anchor names (`lidar_tracks`, `lidar_clusters`,
@@ -75,7 +72,6 @@ separately. They must **not** be dropped.
 
 - Dropping `height_p95`/`height_p95_max` (spatial filters, not population
   stats).
-
 - Touching `lidar_track_obs` beyond the `world_frame` rename.
 - Radar table names (LiDAR-only plan).
 - Merging live and analysis track tables (separate plan).

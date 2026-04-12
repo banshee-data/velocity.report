@@ -5,7 +5,7 @@ concerns. Anything that is not specific to a single sensor or to the user interf
 lives here.
 
 | Subdirectory                   | Contents                                                                          |
-|--------------------------------|-----------------------------------------------------------------------------------|
+| ------------------------------ | --------------------------------------------------------------------------------- |
 | [architecture/](architecture/) | Go package design, DB schema shape, logging model, ID conventions, metrics naming |
 | [operations/](operations/)     | Deployment, release lifecycle, documentation standards, tooling, reporting        |
 

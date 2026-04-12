@@ -9,7 +9,7 @@ Canonical data model and communication protocol between the Go pipeline (server)
 This API is designed to align with the **7-DOF industry standard** for 3D bounding boxes used in autonomous vehicle (AV) perception systems:
 
 | Standard Element          | Implementation                                      | Reference                                                                        |
-|---------------------------|-----------------------------------------------------|----------------------------------------------------------------------------------|
+| ------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------- |
 | **7-DOF Bounding Box**    | `OrientedBoundingBox` message                       | [av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)   |
 | **Coordinate Convention** | ENU: +X East, +Y North, +Z Up (world frame)         | [static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md) |
 | **Heading Convention**    | Radians, [-π, π], rotation around Z-axis            | AV industry standard                                                             |
@@ -72,7 +72,7 @@ Points are emitted in world frame. Full fidelity or downsampled modes are suppor
 `PointCloudFrame` carries one frame of point cloud data. Key fields:
 
 | Field              | Type             | Description                                           |
-|--------------------|------------------|-------------------------------------------------------|
+| ------------------ | ---------------- | ----------------------------------------------------- |
 | `x`, `y`, `z`      | packed float[]   | World-frame coordinates (metres)                      |
 | `intensity`        | packed uint32[]  | Per-point intensity (0-255)                           |
 | `classification`   | packed uint32[]  | Optional per-point label (0=background, 1=foreground) |
@@ -88,7 +88,7 @@ Clusters are detected objects before tracking association.
 `Cluster` represents a detected foreground object before tracking. `ClusterSet` wraps a frame's worth of clusters. Key fields:
 
 | Field                      | Type                  | Description                                                           |
-|----------------------------|-----------------------|-----------------------------------------------------------------------|
+| -------------------------- | --------------------- | --------------------------------------------------------------------- |
 | `centroid_x/y/z`           | float                 | Centroid position in world frame (metres)                             |
 | `aabb_length/width/height` | float                 | Axis-aligned bounding box extents (metres)                            |
 | `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (center xyz + length/width/height + `heading_rad`) |
@@ -106,7 +106,7 @@ Tracks are persistent object identities across frames.
 `Track` is a persistent object identity across frames (35 fields). `TrackSet` wraps a frame's tracks plus `TrackTrail` historical positions for rendering. Key field groups:
 
 | Group              | Fields                                                                        | Description                                  |
-|--------------------|-------------------------------------------------------------------------------|----------------------------------------------|
+| ------------------ | ----------------------------------------------------------------------------- | -------------------------------------------- |
 | Lifecycle          | `state` (TENTATIVE/CONFIRMED/DELETED), `hits`, `misses`, `observation_count`  | Association and confirmation state           |
 | Position/velocity  | `x/y/z`, `vx/vy/vz`                                                           | Current state in world frame (metres, m/s)   |
 | Derived kinematics | `speed_mps`, `heading_rad`                                                    | Scalar speed and heading                     |
@@ -159,20 +159,20 @@ GET    /api/lidar/labels/export       Export labels as JSON
 
 **Label schema (`lidar_labels`):**
 
-| Column               | Type    | Constraints                     | Notes                        |
-|----------------------|---------|---------------------------------|------------------------------|
-| `label_id`           | TEXT    | PK                              | UUID string                  |
-| `track_id`           | TEXT    | NOT NULL, FK → `lidar_tracks`   |                              |
-| `class_label`        | TEXT    | NOT NULL                        | e.g. `pedestrian`, `vehicle` |
-| `start_timestamp_ns` | INTEGER | NOT NULL                        | Nanosecond epoch             |
-| `end_timestamp_ns`   | INTEGER |                                 | Nanosecond epoch             |
-| `confidence`         | REAL    |                                 | 0.0–1.0                      |
-| `created_by`         | TEXT    |                                 |                              |
-| `created_at_ns`      | INTEGER | NOT NULL                        | Nanosecond epoch             |
-| `updated_at_ns`      | INTEGER |                                 | Nanosecond epoch             |
-| `notes`              | TEXT    |                                 |                              |
-| `scene_id`           | TEXT    |                                 | Added in migration 000019    |
-| `source_file`        | TEXT    |                                 | Added in migration 000019    |
+| Column               | Type    | Constraints                   | Notes                        |
+| -------------------- | ------- | ----------------------------- | ---------------------------- |
+| `label_id`           | TEXT    | PK                            | UUID string                  |
+| `track_id`           | TEXT    | NOT NULL, FK → `lidar_tracks` |                              |
+| `class_label`        | TEXT    | NOT NULL                      | e.g. `pedestrian`, `vehicle` |
+| `start_timestamp_ns` | INTEGER | NOT NULL                      | Nanosecond epoch             |
+| `end_timestamp_ns`   | INTEGER |                               | Nanosecond epoch             |
+| `confidence`         | REAL    |                               | 0.0–1.0                      |
+| `created_by`         | TEXT    |                               |                              |
+| `created_at_ns`      | INTEGER | NOT NULL                      | Nanosecond epoch             |
+| `updated_at_ns`      | INTEGER |                               | Nanosecond epoch             |
+| `notes`              | TEXT    |                               |                              |
+| `scene_id`           | TEXT    |                               | Added in migration 000019    |
+| `source_file`        | TEXT    |                               | Added in migration 000019    |
 
 Indexed on `track_id`, timestamp range, `class_label`, and `scene_id`.
 
@@ -204,7 +204,7 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 ### 2.4 Field Semantics
 
 | Field        | Type  | Units       | Convention               |
-|--------------|-------|-------------|--------------------------|
+| ------------ | ----- | ----------- | ------------------------ |
 | `*_ns`       | int64 | nanoseconds | Unix epoch               |
 | `*_mps`      | float | m/s         | speed magnitude          |
 | `*_rad`      | float | radians     | angle, CCW from +X       |
@@ -225,7 +225,7 @@ See [visualiser.proto](../../../proto/velocity_visualiser/v1/visualiser.proto) f
 ### 3.2 Message Definitions
 
 | Message                | Purpose                            | Key fields                                                                                                      |
-|------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| ---------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `StreamRequest`        | Client subscription config         | `sensor_id`, `include_points/clusters/tracks/debug`, `point_decimation`, `decimation_ratio`                     |
 | `FrameBundle`          | Top-level per-frame envelope       | `frame_id`, `timestamp_ns`, nested `PointCloudFrame`/`ClusterSet`/`TrackSet`/`DebugOverlaySet`, `playback_info` |
 | `PlaybackInfo`         | Replay metadata within FrameBundle | `is_live`, `log_start_ns`/`log_end_ns`, `playback_rate`, `paused`                                               |

@@ -7,7 +7,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 ## Current VelocityVisualiser Menu Bar
 
 | Menu         | Items                                                     |
-|--------------|-----------------------------------------------------------|
+| ------------ | --------------------------------------------------------- |
 | **App Info** | About VelocityReport.app                                  |
 | **File**     | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)          |
 | **Playback** | Play/Pause (Space), Step (./,), Rate (]/[), Time Display  |
@@ -17,7 +17,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 ## Single-Key Shortcuts (Immutable)
 
 | Key   | Action                 |
-|-------|------------------------|
+| ----- | ---------------------- |
 | Space | Play/Pause             |
 | . / , | Step Forward/Back      |
 | ] / [ | Increase/Decrease Rate |
@@ -34,16 +34,16 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 
 ## Proposed New Shortcuts (Wireshark-Aligned)
 
-| Shortcut       | Action                | Wireshark Equivalent |
-|----------------|-----------------------|----------------------|
-| ⌘G             | Go to Frame           | Go to Packet         |
-| ⌘F             | Find Track            | Find Packet          |
-| ⌘,             | Preferences           | Preferences          |
-| ⌘+/⌘-/⌘0       | Zoom In/Out/Reset     | Zoom controls        |
-| ⌘W             | Close Recording       | Close                |
-| ⌘Home          | Jump to First Frame   | First Packet         |
-| ⌘End           | Jump to Last Frame    | Last Packet          |
-| ⌥→/⌥←          | Selection History Nav | History Nav          |
+| Shortcut | Action                | Wireshark Equivalent |
+| -------- | --------------------- | -------------------- |
+| ⌘G       | Go to Frame           | Go to Packet         |
+| ⌘F       | Find Track            | Find Packet          |
+| ⌘,       | Preferences           | Preferences          |
+| ⌘+/⌘-/⌘0 | Zoom In/Out/Reset     | Zoom controls        |
+| ⌘W       | Close Recording       | Close                |
+| ⌘Home    | Jump to First Frame   | First Packet         |
+| ⌘End     | Jump to Last Frame    | Last Packet          |
+| ⌥→/⌥←    | Selection History Nav | History Nav          |
 
 ## Target Menu Structure
 

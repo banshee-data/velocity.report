@@ -9,7 +9,7 @@ Event lane rendered below the replay slider, showing lifecycle and diagnostic ev
 12 event types across three severity levels:
 
 | Event Type        | Severity | Description                                 |
-|-------------------|----------|---------------------------------------------|
+| ----------------- | -------- | ------------------------------------------- |
 | `TRACK_BIRTH`     | INFO     | Track first observed                        |
 | `TRACK_DEATH`     | INFO     | Track ended (timeout or out-of-range)       |
 | `TRACK_CONFIRM`   | INFO     | Track confirmed by reviewer                 |
@@ -28,7 +28,7 @@ Event lane rendered below the replay slider, showing lifecycle and diagnostic ev
 `lidar_run_track_events` table:
 
 | Column         | Type       | Description                       |
-|----------------|------------|-----------------------------------|
+| -------------- | ---------- | --------------------------------- |
 | `id`           | INTEGER PK | Auto-increment                    |
 | `run_id`       | TEXT       | Run identifier                    |
 | `track_id`     | TEXT       | Track identifier                  |

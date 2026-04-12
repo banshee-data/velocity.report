@@ -27,7 +27,7 @@ The current background-subtraction algorithm (`ProcessFramePolarWithMask`) produ
 The branch implemented four phases of work:
 
 | Phase | Description                                          | Files                                                                          | Status   |
-|-------|------------------------------------------------------|--------------------------------------------------------------------------------|----------|
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------ | -------- |
 | **A** | `ForegroundExtractor` interface + background adapter | `extractor.go`, `extractor_background.go`                                      | Complete |
 | **B** | Velocity-coherent extractor + frame history          | `extractor_velocity_coherent.go`, `frame_history.go`, `velocity_estimation.go` | Complete |
 | **C** | Hybrid extractor + evaluation harness                | `extractor_hybrid.go`, `evaluation_harness.go`                                 | Complete |
@@ -486,7 +486,7 @@ algo-compare -pcap transit.pcap -output-dir results/ -merge-mode union -verbose
 ### New Test Files
 
 | File                                             | Tests                                                                                                                                                                                                                     | Lines |
-|--------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------|
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `internal/lidar/extractor_test.go`               | MergeMasks (union/intersection/primary/majority), CountForeground, ComputeMaskAgreement, ComputePrecisionRecall, BackgroundSubtractorExtractor.Name, VelocityCoherentExtractor.Name, HybridExtractor interface compliance | 264   |
 | `internal/lidar/tracking_pipeline_logic_test.go` | initializeExtractor (all modes), isNilInterface edge cases                                                                                                                                                                | 136   |
 | `internal/lidar/tracking_pipeline_test.go`       | Pipeline callback with nil frame, pipeline with nil extractor, FrameCallback invocation, SetExtractorMode switching                                                                                                       | 149   |
@@ -505,7 +505,7 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 ## 9. Risk Assessment
 
 | Risk                       | Likelihood | Impact | Mitigation                                                    |
-|----------------------------|------------|--------|---------------------------------------------------------------|
+| -------------------------- | ---------- | ------ | ------------------------------------------------------------- |
 | Pipeline struct conflicts  | High       | High   | Phase 5 last; surgical additions to existing struct           |
 | DBSCAN signature change    | Medium     | Medium | Separate preparatory PR for signature change                  |
 | Webserver route conflicts  | Medium     | Low    | Additive handler + route; minimal touching existing code      |
@@ -520,7 +520,7 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 ### New Files (Pure Additions)
 
 | File                                             | Lines | Description                                                          |
-|--------------------------------------------------|-------|----------------------------------------------------------------------|
+| ------------------------------------------------ | ----- | -------------------------------------------------------------------- |
 | `internal/lidar/extractor.go`                    | 200   | `ForegroundExtractor` interface, `MergeMode`, mask utilities         |
 | `internal/lidar/extractor_background.go`         | 204   | `BackgroundSubtractorExtractor` — wraps `BackgroundManager`          |
 | `internal/lidar/extractor_hybrid.go`             | 247   | `HybridExtractor` — multi-algorithm merge                            |
@@ -537,7 +537,7 @@ On `main`, `tracking_pipeline_test.go` is 1,248 lines with extensive tests for t
 ### Modified Files (Require Conflict Resolution)
 
 | File                                       | Branch Changes                                                        | Main Changes                                                                                                                             | Conflict Risk      |
-|--------------------------------------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
+| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | `internal/lidar/tracking_pipeline.go`      | Add `TrackingPipeline`, `initializeExtractor`, `ExtractorMode` fields | Add `VisualiserPublisher`, `VisualiserAdapter`, `LidarViewAdapter`, `MaxFrameRate`, `VoxelLeafSize`, ground removal, frame rate limiting | **HIGH**           |
 | `internal/lidar/monitor/webserver.go`      | Add `handleAlgorithmConfig`, `trackingPipeline` field                 | Add sweep dashboard, auto-tuner, tuning config, single config refactor                                                                   | **MEDIUM**         |
 | `internal/lidar/clustering.go`             | Return `([]WorldCluster, []int)` from `DBSCAN`                        | Unchanged signature `[]WorldCluster`                                                                                                     | **MEDIUM**         |

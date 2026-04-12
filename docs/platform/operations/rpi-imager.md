@@ -15,7 +15,7 @@ who are not comfortable with Linux system administration.
 ## Two-Tier Solution
 
 | Tier               | Problem                                                | Tool                                           |
-|--------------------|--------------------------------------------------------|------------------------------------------------|
+| ------------------ | ------------------------------------------------------ | ---------------------------------------------- |
 | **Image Building** | Create a complete `.img` with the full stack installed | `pi-gen` or `rpi-image-gen` (CI pipeline)      |
 | **Image Flashing** | End users write image to SD card                       | Fork of `rpi-imager` or custom repository JSON |
 
@@ -45,7 +45,7 @@ The image extends Raspberry Pi OS Lite (64-bit, Bookworm) with:
 ### Binaries
 
 | Component                            | Install Path                                |
-|--------------------------------------|---------------------------------------------|
+| ------------------------------------ | ------------------------------------------- |
 | `velocity-report` (Go, pcap-enabled) | `/usr/local/bin/velocity-report`            |
 | `velocity-ctl` (device management)   | `/usr/local/bin/velocity-ctl`               |
 | PDF generator (Python)               | `/opt/velocity-report/tools/pdf-generator/` |
@@ -117,15 +117,15 @@ stabilise.
 
 ## Image Size Budget
 
-| Component                                    | Estimated Size    |
-|----------------------------------------------|-------------------|
-| Raspberry Pi OS Lite (base)                  | ~450 MB           |
-| TeX Live (before reduction)                  | ~800 MB           |
-| Python 3 + venv + PDF deps                   | ~200 MB           |
-| Go binaries (server + deploy, pcap)          | ~35 MB            |
-| LiDAR + web + system config                  | ~11 MB            |
-| **Total (compressed, before TeX reduction)** | **~600–900 MB**   |
-| **Target (after TeX reduction)**             | **~350–500 MB**   |
+| Component                                    | Estimated Size  |
+| -------------------------------------------- | --------------- |
+| Raspberry Pi OS Lite (base)                  | ~450 MB         |
+| TeX Live (before reduction)                  | ~800 MB         |
+| Python 3 + venv + PDF deps                   | ~200 MB         |
+| Go binaries (server + deploy, pcap)          | ~35 MB          |
+| LiDAR + web + system config                  | ~11 MB          |
+| **Total (compressed, before TeX reduction)** | **~600–900 MB** |
+| **Target (after TeX reduction)**             | **~350–500 MB** |
 
 ### LaTeX Size Reduction (Chosen: Pre-compiled Templates)
 
@@ -161,7 +161,7 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 ## What Stays in the Monorepo
 
 | Asset                   | Location                                                                | Reason                                                            |
-|-------------------------|-------------------------------------------------------------------------|-------------------------------------------------------------------|
+| ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | pi-gen stage scripts    | `image/stage-velocity/`                                                 | Tightly coupled to server releases                                |
 | OS-list repository JSON | `image/os-list-velocity.json`                                           | Updated by CI on release                                          |
 | Image CI workflow       | `.github/workflows/build-image.yml`                                     | Triggered by monorepo releases                                    |
@@ -185,7 +185,7 @@ port). Lives in a **separate repository** (`banshee-data/velocity.report-imager`
 ## Key Risks
 
 | Risk                       | Mitigation                                                |
-|----------------------------|-----------------------------------------------------------|
+| -------------------------- | --------------------------------------------------------- |
 | TeX Live size bloat        | Pre-compiled templates; target < 200 MB                   |
 | pi-gen build flakiness     | Pin package versions; local APT mirror in CI; retry logic |
 | ARM64 QEMU emulation speed | Native ARM64 runners or cross-compile outside chroot      |

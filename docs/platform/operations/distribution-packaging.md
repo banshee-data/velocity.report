@@ -41,18 +41,18 @@ It is a purpose-built on-device management tool with no SSH surface.
 ### Key Changes
 
 | What               | Before                         | After                                               |
-|--------------------|--------------------------------|-----------------------------------------------------|
+| ------------------ | ------------------------------ | --------------------------------------------------- |
 | **Main binary**    | `cmd/radar/`                   | `cmd/velocity-report/`                              |
 | **Start server**   | `velocity-report`              | `velocity-report serve` (or just `velocity-report`) |
 | **PDF generation** | `PYTHONPATH=... python -m ...` | `velocity-report pdf config.json`                   |
 | **Sweep tool**     | `./app-sweep`                  | `velocity-report-sweep`                             |
-| **Installation**   | Manual build + scp + script    | `curl install.sh \                                  |
+| **Installation**   | Manual build + scp + script    | `curl install.sh \| sudo bash`                      |
 | **Releases**       | None                           | GitHub Releases with CI/CD                          |
 
 ## Components Inventory
 
 | Component                    | Type          | Location                              | Current Distribution              |
-|------------------------------|---------------|---------------------------------------|-----------------------------------|
+| ---------------------------- | ------------- | ------------------------------------- | --------------------------------- |
 | **Main Server**              | Go            | `cmd/radar/`                          | Manual build + setup script       |
 | **Migrate CLI**              | Go subcommand | `internal/db/migrate_cli.go`          | Part of main binary               |
 | **Sweep Tool**               | Go            | `cmd/sweep/`                          | Manual build (`make build-tools`) |
@@ -65,7 +65,7 @@ It is a purpose-built on-device management tool with no SSH surface.
 ## User Personas
 
 | Persona                    | Needs                                                                   |
-|----------------------------|-------------------------------------------------------------------------|
+| -------------------------- | ----------------------------------------------------------------------- |
 | **Neighbourhood Advocate** | Single binary, web UI, PDF reports, systemd auto-start                  |
 | **Traffic Engineer**       | All tools (sweep, heatmap, backfill), Python available, CLI proficiency |
 | **Developer**              | Source repo with Makefile, all build targets, dev convenience           |

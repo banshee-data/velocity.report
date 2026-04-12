@@ -17,15 +17,15 @@ invoke `xelatex` to produce the final PDF. No Python required.
 
 ### Key Changes
 
-| Component           | Before (Python)                         | After (Go)                                         |
-|---------------------|-----------------------------------------|----------------------------------------------------|
-| **Charts**          | matplotlib + seaborn → PDF figures      | `gonum/plot` (vgsvg) → SVG → PDF via `rsvg`        |
-| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                   |
-| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged)   |
-| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists)   |
-| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process               |
-| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)              |
-| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                    |
+| Component           | Before (Python)                         | After (Go)                                       |
+| ------------------- | --------------------------------------- | ------------------------------------------------ |
+| **Charts**          | matplotlib + seaborn → PDF figures      | `gonum/plot` (vgsvg) → SVG → PDF via `rsvg`      |
+| **Doc assembly**    | PyLaTeX `Document` builder              | Go `text/template` → `.tex` file                 |
+| **PDF compilation** | PyLaTeX shells out to `xelatex`         | Go `os/exec` shells out to `xelatex` (unchanged) |
+| **Config**          | JSON → Python dataclasses               | JSON → Go structs (ReportRequest already exists) |
+| **Data source**     | HTTP GET `/api/radar_stats` from Python | Direct DB query from same Go process             |
+| **Runtime deps**    | Python 3.12 + .venv + 45 packages       | None (charts compiled into Go binary)            |
+| **Report archive**  | `.zip` with `.tex` + chart PDFs         | `.zip` with `.tex` + chart SVGs                  |
 
 ## Current vs Proposed Architecture
 
@@ -168,7 +168,7 @@ Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 ## Python Modules to Replace
 
 | Module                 | Lines | Replacement                                    |
-|------------------------|-------|------------------------------------------------|
+| ---------------------- | ----- | ---------------------------------------------- |
 | `chart_builder.py`     | ~900  | Go SVG chart package (`internal/report/chart`) |
 | `chart_saver.py`       | ~185  | Go SVG writer + optional SVG→PDF conversion    |
 | `pdf_generator.py`     | ~730  | Go template engine (`internal/report/tex`)     |
@@ -187,18 +187,16 @@ Font: Atkinson Hyperlegible (XeTeX `fontspec`).
 - **D-08 (Precompiled LaTeX):** Complementary. D-08 reduces TeX from ~800 MB
   to ~30–60 MB. This plan eliminates Python (~450 MB). Together: ~1.25 GB →
   ~30–60 MB.
-
 - **D-09 (Single Binary):** Enables `velocity-report pdf` without bundled
   Python.
-
 - **D-10 (RPi Image):** Simplifies image by removing Python from report path.
 
 ## Risks
 
-| Risk                                | Mitigation                                                           |
-|-------------------------------------|----------------------------------------------------------------------|
-| gonum/plot dual-axis limitation     | Fall back to direct SVG via `encoding/xml`; prototype in Phase 1     |
-| SVG→PDF fidelity via rsvg-convert   | Use `--dpi 150`; test with Atkinson Hyperlegible embedded in SVG     |
-| Chart visual parity                 | Side-by-side comparison; accept minor styling diffs if data accurate |
-| rsvg-convert not available          | Detect at startup; fall back to gonum `vgpdf` direct PDF output      |
-| `text/template` delimiter clashes   | Custom delimiters `<<`/`>>` via `template.Delims()`                  |
+| Risk                              | Mitigation                                                           |
+| --------------------------------- | -------------------------------------------------------------------- |
+| gonum/plot dual-axis limitation   | Fall back to direct SVG via `encoding/xml`; prototype in Phase 1     |
+| SVG→PDF fidelity via rsvg-convert | Use `--dpi 150`; test with Atkinson Hyperlegible embedded in SVG     |
+| Chart visual parity               | Side-by-side comparison; accept minor styling diffs if data accurate |
+| rsvg-convert not available        | Detect at startup; fall back to gonum `vgpdf` direct PDF output      |
+| `text/template` delimiter clashes | Custom delimiters `<<`/`>>` via `template.Delims()`                  |

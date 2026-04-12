@@ -8,10 +8,8 @@ designed to be:
 
 - **Comparable** — deterministic metrics enable A/B experimentation across tuning
   parameters, pipeline versions, or replay modes (analysis vs realtime).
-
 - **Composable** — a single-file report stands alone; a pair of reports can be
   fed to the overlap/distance comparator for regression testing.
-
 - **Toolable** — flat per-track rows export trivially to CSV; histograms render
   directly in plotting libraries.
 
@@ -113,7 +111,7 @@ All `DistStats` blocks (§3, §4, §6) compute distribution statistics over a
 Percentile fields are conditional on sample count:
 
 | Field | Minimum samples | Why                                                                              |
-|-------|-----------------|----------------------------------------------------------------------------------|
+| ----- | --------------- | -------------------------------------------------------------------------------- |
 | `p50` | 3               | Median is meaningless with 1–2 values                                            |
 | `p85` | 8               | 85th percentile needs a reasonable tail                                          |
 | `p98` | 50              | The headline high-speed metric; statistically meaningless below ~50 observations |
@@ -528,7 +526,7 @@ vrlog-analyse report sample.vrlog --compact
 ## 10. Relationship to Existing Infrastructure
 
 | Component                                                                          | Role                                            | Reuse                                |
-|------------------------------------------------------------------------------------|-------------------------------------------------|--------------------------------------|
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------ |
 | [`l6objects.ComputeTemporalIoU`](../../../internal/lidar/l6objects/comparison.go)  | Temporal overlap for track matching             | Direct call                          |
 | [`l5tracks.HungarianAssign`](../../../internal/lidar/l5tracks/hungarian.go)        | Optimal bipartite track matching                | Direct call                          |
 | [`l6objects.RunComparison`](../../../internal/lidar/l6objects/comparison.go)       | Split/merge/match structs                       | Extend or wrap                       |
@@ -613,7 +611,7 @@ These are computed from existing per-frame data and are now present in the
 report and comparison outputs.
 
 | Field                            | Section | Type    | Description                                                |
-|----------------------------------|---------|---------|------------------------------------------------------------|
+| -------------------------------- | ------- | ------- | ---------------------------------------------------------- |
 | `speed_variance`                 | §5      | float32 | Variance of per-frame speed samples for each track         |
 | `heading_jitter_deg`             | §5      | float32 | RMS frame-to-frame heading change (from `HeadingRad`)      |
 | `speed_jitter_mps`               | §5      | float32 | RMS frame-to-frame speed change (from `SpeedMps`)          |
@@ -630,7 +628,7 @@ These fields are stored in `LogHeader` at recording time and copied into §2
 recording metadata by the analyser.
 
 | Field           | Section | Type    | Description                                            |
-|-----------------|---------|---------|--------------------------------------------------------|
+| --------------- | ------- | ------- | ------------------------------------------------------ |
 | `source_type`   | §2      | string  | Recording source: `"live"`, `"pcap"`, or `"synthetic"` |
 | `pcap_path`     | §2      | string  | Original PCAP filename (when source is pcap)           |
 | `playback_rate` | §2      | float64 | Configured replay speed multiplier at recording time   |
@@ -645,16 +643,16 @@ frame timing. `playback_rate` from the header is authoritative when present.
 These require new fields on `visualiser.Track` propagated from
 `l5tracks.TrackedObject` or additional per-frame computation.
 
-| Field                    | Section | Type    | Prerequisite                                              |
-|--------------------------|---------|---------|-----------------------------------------------------------|
-| `merge_candidate`        | §5      | bool    | Propagate `MergeCandidate` from `l5tracks.TrackedObject`  |
-| `split_candidate`        | §5      | bool    | Propagate `SplitCandidate` from `l5tracks.TrackedObject`  |
-| `max_occlusion_frames`   | §5      | int     | Track per-gap duration in `l5tracks` or analyser          |
-| `merge_split` block      | §4      | object  | Aggregate merge/split candidate counts                    |
-| `matched_frame_pairs`    | §8.2    | int     | Frame-level nearest-timestamp pairing (±50 ms tolerance)  |
-| `spatial_distance_m`     | §8.3    | float64 | Mean Euclidean distance between interpolated positions    |
-| split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection             |
-| quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)            |
+| Field                    | Section | Type    | Prerequisite                                             |
+| ------------------------ | ------- | ------- | -------------------------------------------------------- |
+| `merge_candidate`        | §5      | bool    | Propagate `MergeCandidate` from `l5tracks.TrackedObject` |
+| `split_candidate`        | §5      | bool    | Propagate `SplitCandidate` from `l5tracks.TrackedObject` |
+| `max_occlusion_frames`   | §5      | int     | Track per-gap duration in `l5tracks` or analyser         |
+| `merge_split` block      | §4      | object  | Aggregate merge/split candidate counts                   |
+| `matched_frame_pairs`    | §8.2    | int     | Frame-level nearest-timestamp pairing (±50 ms tolerance) |
+| `spatial_distance_m`     | §8.3    | float64 | Mean Euclidean distance between interpolated positions   |
+| split/merge detection    | §8.3    | arrays  | Cross-run split and merge candidate detection            |
+| quality delta extensions | §8.5    | object  | Alignment/jitter deltas (once §4 blocks exist)           |
 
 ### 12.4 Future — PCAP Segment Identity
 
@@ -663,7 +661,7 @@ PCAP packet range (enabling high-integrity A/B comparison), store a
 fingerprint of the source PCAP segment in the header.
 
 | Field                | Type   | Description                                          |
-|----------------------|--------|------------------------------------------------------|
+| -------------------- | ------ | ---------------------------------------------------- |
 | `pcap_file_hash`     | string | SHA-256 of the entire PCAP file                      |
 | `first_packet_hash`  | string | SHA-256 of the first UDP payload in the packet range |
 | `first_packet_ts`    | int64  | Timestamp (ns) of the first packet                   |
@@ -684,7 +682,6 @@ packets at recording time, which adds I/O overhead.
 - Store in `LogHeader` under a `pcap_identity` nested object.
 - Populate during PCAP replay in `cmd/radar/radar.go` via the existing
   `pcap.Reader` — capture first/last packet metadata and the file hash.
-
 - Comparison tool (§8) can auto-verify identity match before comparing.
 
 ### 12.5 Future — Track Centroid Trajectory
@@ -694,7 +691,7 @@ fragments observations into different track IDs, store the approximate
 spatial trajectory of each track's centroid.
 
 | Field                 | Section | Type  | Description                                           |
-|-----------------------|---------|-------|-------------------------------------------------------|
+| --------------------- | ------- | ----- | ----------------------------------------------------- |
 | `centroid_trajectory` | §5      | array | Sampled `[timestamp_ns, x, y]` tuples along the track |
 
 This enables:
@@ -702,7 +699,6 @@ This enables:
 - **Cross-run track correlation:** overlay centroid paths from two recordings
   and match tracks by spatial proximity + temporal overlap, even when the
   tracker produces different fragmentation.
-
 - **Spatial clustering:** group tracks from separate runs that pass through
   the same physical region, identifying whether different track IDs likely
   correspond to the same real-world object.
@@ -711,10 +707,8 @@ This enables:
 
 - Sample at ~1 Hz (every 10th frame at 10 Hz LiDAR) to keep payload small.
   For a 60 s track at 1 Hz = 60 tuples of `[int64, float32, float32]`.
-
 - Matching algorithm: for each pair of runs, slide a temporal window and
   compute mean Euclidean distance between nearest-timestamp centroids.
   Pairs below a threshold (e.g. 2 m) are candidate matches.
-
 - Complement the existing Hungarian matching (§8.3 temporal IoU) with a
   spatial distance term weighted by centroid proximity.

@@ -175,7 +175,7 @@ make check-config-maths
 ### Root
 
 | Path       | Type   | Notes                             |
-|------------|--------|-----------------------------------|
+| ---------- | ------ | --------------------------------- |
 | `version`  | int    | Must equal `2`.                   |
 | `l1`       | object | Sensor identity and data source.  |
 | `l3`       | object | Background/foreground extraction. |
@@ -186,14 +186,14 @@ make check-config-maths
 ### L1
 
 | Path             | Type   | Default           | Notes                                   |
-|------------------|--------|-------------------|-----------------------------------------|
+| ---------------- | ------ | ----------------- | --------------------------------------- |
 | `l1.sensor`      | string | `hesai-pandar40p` | Sensor identifier.                      |
 | `l1.data_source` | string | `live`            | One of `live`, `pcap`, `pcap_analysis`. |
 
 ### L3
 
 | Path                                                      | Type    | Default           | Notes                                           |
-|-----------------------------------------------------------|---------|-------------------|-------------------------------------------------|
+| --------------------------------------------------------- | ------- | ----------------- | ----------------------------------------------- |
 | `l3.engine`                                               | string  | `ema_baseline_v1` | Active L3 engine.                               |
 | `l3.ema_baseline_v1.background_update_fraction`           | float64 | `0.02`            | Background EMA alpha.                           |
 | `l3.ema_baseline_v1.closeness_multiplier`                 | float64 | `3`               | Background acceptance multiplier.               |
@@ -225,7 +225,7 @@ make check-config-maths
 ### L4
 
 | Path                                            | Type    | Default        | Notes                                  |
-|-------------------------------------------------|---------|----------------|----------------------------------------|
+| ----------------------------------------------- | ------- | -------------- | -------------------------------------- |
 | `l4.engine`                                     | string  | `dbscan_xy_v1` | Active L4 engine.                      |
 | `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | `0.8`          | DBSCAN epsilon.                        |
 | `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | `5`            | DBSCAN min points.                     |
@@ -240,7 +240,7 @@ make check-config-maths
 ### L5
 
 | Path                                              | Type    | Default    | Notes                                       |
-|---------------------------------------------------|---------|------------|---------------------------------------------|
+| ------------------------------------------------- | ------- | ---------- | ------------------------------------------- |
 | `l5.engine`                                       | string  | `cv_kf_v1` | Active L5 engine.                           |
 | `l5.cv_kf_v1.gating_distance_squared`             | float64 | `36`       | Mahalanobis association gate.               |
 | `l5.cv_kf_v1.process_noise_pos`                   | float64 | `0.05`     | Position process noise.                     |
@@ -268,7 +268,7 @@ make check-config-maths
 ### Pipeline
 
 | Path                        | Type   | Default | Notes                                       |
-|-----------------------------|--------|---------|---------------------------------------------|
+| --------------------------- | ------ | ------- | ------------------------------------------- |
 | `pipeline.buffer_timeout`   | string | `500ms` | Frame assembly timeout.                     |
 | `pipeline.min_frame_points` | int    | `1000`  | Minimum points required to process a frame. |
 | `pipeline.flush_interval`   | string | `60s`   | Background snapshot cadence.                |

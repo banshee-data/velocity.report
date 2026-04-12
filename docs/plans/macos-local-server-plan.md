@@ -28,10 +28,8 @@ A single VelocityVisualiser.app that:
 - **Bundles** the Go server binary (ARM64) inside the app bundle.
 - **Manages** the local server lifecycle: start, stop, restart from the
   menu bar, independent of the app's own quit/launch cycle.
-
 - **Selects** between local bundled server and remote servers via the
   existing Server Manager UI (see [server-manager.md](server-manager.md)).
-
 - **Optionally starts at login** via a macOS Login Item, with easy
   enable/disable from the app.
 
@@ -145,10 +143,10 @@ the entire workflow.
 
 macOS offers two mechanisms for starting at login:
 
-| Mechanism              | Sandbox-safe | Requires helper app | User-visible                    |
-|------------------------|--------------|---------------------|---------------------------------|
-| `SMAppService.mainApp` | Yes          | No                  | System Settings → Login Items   |
-| `SMAppService.agent()` | Yes          | Yes (helper bundle) | Hidden                          |
+| Mechanism              | Sandbox-safe | Requires helper app | User-visible                  |
+| ---------------------- | ------------ | ------------------- | ----------------------------- |
+| `SMAppService.mainApp` | Yes          | No                  | System Settings → Login Items |
+| `SMAppService.agent()` | Yes          | Yes (helper bundle) | Hidden                        |
 
 **Recommendation:** Use `SMAppService.mainApp` (macOS 13+). This registers
 the _app itself_ as a Login Item. On login, macOS launches
@@ -178,11 +176,9 @@ connection management. This plan extends it:
    "Local" server entry pointing at `localhost:50051`. This entry is marked
    as special (`isLocal: true`) and cannot be deleted or have its address
    edited.
-
 2. **Connection logic:** When the user selects the "Local" server,
    `ServerProcessManager` ensures the Go process is running before the gRPC
    connection is attempted.
-
 3. **Status integration:** The "Local" entry in the Servers menu shows process
    status (● Running / ○ Stopped) in addition to connection status.
 
@@ -201,7 +197,7 @@ com.apple.security.network.client           = true
 Additional entitlements needed:
 
 | Entitlement                                         | Why                                    |
-|-----------------------------------------------------|----------------------------------------|
+| --------------------------------------------------- | -------------------------------------- |
 | `com.apple.security.network.server`                 | Go binary listens on a port            |
 | `com.apple.security.files.user-selected.read-write` | SQLite database in Application Support |
 
@@ -234,7 +230,6 @@ build-mac: build-server-for-mac
 
 - Add `velocity-report-server` to the Xcode project as a resource
   (Copy Bundle Resources build phase).
-
 - Set "Skip Install" = Yes for the Go binary.
 - Add a Run Script build phase that copies the Go binary from the build
   output, or reference the Makefile target.
@@ -267,7 +262,6 @@ Mismatches log a warning but do not block operation.
    - `start()` — locate binary via `Bundle.main`, launch `Process` with
      `--listen :50051 --grpc-only --db-path <container>/sensor_data.db
 --disable-radar`.
-
    - `stop()` — `SIGTERM` → wait 5s → `SIGKILL`.
    - `restart()` — stop then start.
    - `isRunning: Bool` — poll via `Process.isRunning`.
@@ -297,7 +291,6 @@ Mismatches log a warning but do not block operation.
 9. Update `build-mac` to depend on `build-server-for-mac`.
 10. Update `dmg-mac` and `dmg-mac-release` — no structural change needed
     since the binary is inside the `.app`.
-
 11. Add version verification on app launch.
 
 ### Phase 4 — Login Item (`S`)
@@ -308,7 +301,6 @@ Mismatches log a warning but do not block operation.
     - Start local server.
     - Suppress main window (set `NSApp.activationPolicy = .accessory`
       or check `ProcessInfo.processInfo.environment` for a launch flag).
-
     - Show menu bar status only.
 15. Clicking the Dock icon or re-launching restores normal window behaviour.
 
@@ -322,7 +314,6 @@ Current app minimum is macOS 14 — compatible.
 18. "Local" entry shows process status + connection status.
 19. Selecting "Local" in Servers menu triggers `ServerProcessManager.start()`
     before gRPC connect.
-
 20. Prevent editing/deleting the Local entry's host/port.
 
 **Depends on:** [server-manager.md](server-manager.md) Phases 1–2.
@@ -332,7 +323,7 @@ Current app minimum is macOS 14 — compatible.
 ## Failure Modes
 
 | Failure                        | Detection                                             | Recovery                                                               |
-|--------------------------------|-------------------------------------------------------|------------------------------------------------------------------------|
+| ------------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------- |
 | Go binary missing from bundle  | `Bundle.main.url(forResource:)` returns nil           | Show alert: "Server binary not found. Reinstall VelocityVisualiser."   |
 | Go binary crashes on start     | `Process.terminationHandler` fires with non-zero exit | Show error in Server menu status. Offer "View Server Log."             |
 | Port already in use            | Go binary exits with bind error                       | Parse stderr, show alert: "Port 50051 already in use."                 |
@@ -347,14 +338,11 @@ Current app minimum is macOS 14 — compatible.
 
 - **Binary provenance:** The Go binary is built from the same commit as the
   Swift app. Code-signed together as part of the app bundle.
-
 - **No privilege escalation:** Server runs as the logged-in user, same
   as the app. No `sudo`, no daemon, no elevated privileges.
-
 - **Network exposure:** Server listens on `localhost` only by default.
   The `--listen` flag is hardcoded to `:50051` (loopback).
   macOS firewall may prompt on first launch.
-
 - **Sandbox:** Child process inherits the app sandbox. Database writes go
   to the sandbox container directory.
 
@@ -389,7 +377,7 @@ Support/VelocityVisualiser/`. The sandbox container is safer but less
 ## Test Coverage
 
 | Test                                                     | Type        |
-|----------------------------------------------------------|-------------|
+| -------------------------------------------------------- | ----------- |
 | `ServerProcessManager` start/stop/restart lifecycle      | Unit        |
 | `ServerProcessManager` handles missing binary gracefully | Unit        |
 | `ServerProcessManager` handles port-in-use error         | Unit        |

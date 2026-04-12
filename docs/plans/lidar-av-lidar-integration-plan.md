@@ -94,19 +94,19 @@ type ForegroundFrame struct {
 
 ### Current ML Pipeline Status
 
-| Component                   | Status       | Description                                                                       |
-|-----------------------------|--------------|-----------------------------------------------------------------------------------|
-| Background subtraction      | ✅ Complete   | EMA grid-based                                                                    |
-| DBSCAN clustering           | ✅ Complete   | Spatial indexing                                                                  |
-| Kalman tracking             | ✅ Complete   | Multi-object tracking                                                             |
-| Rule-based classification   | ✅ Complete   | All P0 classes: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, dynamic |
-| P0 ObjectClass enum         | ✅ Complete   | Proto enum (10 values), Go/Swift/TS converters                                    |
-| Analysis Run Infrastructure | ✅ Complete   | Versioned runs with params                                                        |
-| Training data export        | ✅ Complete   | Compact binary encoding                                                           |
-| Track labelling UI (Swift)  | ✅ Complete   | Seekable replay, all 9 classes user-assignable                                    |
-| Track labelling UI (Web)    | ✅ Complete   | Run browser with label/quality assignment                                         |
-| VRLOG replay classification | ✅ Complete   | On-the-fly re-classification of legacy recordings                                 |
-| ML classifier training      | 📋 Planned    | Phase 4.1                                                                         |
+| Component                   | Status      | Description                                                                       |
+| --------------------------- | ----------- | --------------------------------------------------------------------------------- |
+| Background subtraction      | ✅ Complete | EMA grid-based                                                                    |
+| DBSCAN clustering           | ✅ Complete | Spatial indexing                                                                  |
+| Kalman tracking             | ✅ Complete | Multi-object tracking                                                             |
+| Rule-based classification   | ✅ Complete | All P0 classes: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, dynamic |
+| P0 ObjectClass enum         | ✅ Complete | Proto enum (10 values), Go/Swift/TS converters                                    |
+| Analysis Run Infrastructure | ✅ Complete | Versioned runs with params                                                        |
+| Training data export        | ✅ Complete | Compact binary encoding                                                           |
+| Track labelling UI (Swift)  | ✅ Complete | Seekable replay, all 9 classes user-assignable                                    |
+| Track labelling UI (Web)    | ✅ Complete | Run browser with label/quality assignment                                         |
+| VRLOG replay classification | ✅ Complete | On-the-fly re-classification of legacy recordings                                 |
+| ML classifier training      | 📋 Planned  | Phase 4.1                                                                         |
 
 ---
 
@@ -115,7 +115,7 @@ type ForegroundFrame struct {
 ### Required Additions for AV Standard Compatibility
 
 | Gap                            | Priority      | Effort | Description                          |
-|--------------------------------|---------------|--------|--------------------------------------|
+| ------------------------------ | ------------- | ------ | ------------------------------------ |
 | **Heading angle**              | P0 - Required | Low    | Add yaw angle to clusters and tracks |
 | **7-DOF bounding box type**    | P0 - Required | Medium | New type matching AV standard format |
 | **Ground truth labels**        | P0 - Required | Medium | Per-frame object labels with class   |
@@ -522,13 +522,13 @@ func (r *AVParquetReader) ListContexts() ([]string, error)
 
 ### 2.3 Component Support Matrix
 
-| Component            | Required     | Description                 | Priority |
-|----------------------|--------------|-----------------------------|----------|
-| `lidar_box`          | ✅ Yes        | 3D bounding box labels      | P0       |
-| `lidar_calibration`  | ✅ Yes        | Sensor extrinsics           | P0       |
-| `vehicle_pose`       | ✅ Yes        | Vehicle-to-world transforms | P0       |
-| `lidar`              | ⚪ Optional   | Raw point clouds            | P2       |
-| `lidar_segmentation` | ⚪ Optional   | Semantic segmentation       | P2       |
+| Component            | Required    | Description                 | Priority |
+| -------------------- | ----------- | --------------------------- | -------- |
+| `lidar_box`          | ✅ Yes      | 3D bounding box labels      | P0       |
+| `lidar_calibration`  | ✅ Yes      | Sensor extrinsics           | P0       |
+| `vehicle_pose`       | ✅ Yes      | Vehicle-to-world transforms | P0       |
+| `lidar`              | ⚪ Optional | Raw point clouds            | P2       |
+| `lidar_segmentation` | ⚪ Optional | Semantic segmentation       | P2       |
 
 ### 2.4 Data Validation
 
@@ -1428,29 +1428,29 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 ### Required Tools and Libraries
 
-| Tool/Library            | Purpose                        | Status     | Priority      |
-|-------------------------|--------------------------------|------------|---------------|
-| **SQLite**              | Store imported data            | ✅ Exists   | -             |
-| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New      | P0 - Required |
-| **7-DOF box math**      | IoU, containment, corners      | 🆕 New      | P0 - Required |
-| **av-import CLI**       | Import AV standard data        | 🆕 New      | P0 - Required |
-| **Polygon containment** | NLZ point checking             | 🆕 New      | P1 - High     |
-| **frame-analyzer CLI**  | Analyse frames                 | 🆕 New      | P1 - High     |
+| Tool/Library            | Purpose                        | Status    | Priority      |
+| ----------------------- | ------------------------------ | --------- | ------------- |
+| **SQLite**              | Store imported data            | ✅ Exists | -             |
+| **Parquet Go library**  | Read AV standard Parquet files | 🆕 New    | P0 - Required |
+| **7-DOF box math**      | IoU, containment, corners      | 🆕 New    | P0 - Required |
+| **av-import CLI**       | Import AV standard data        | 🆕 New    | P0 - Required |
+| **Polygon containment** | NLZ point checking             | 🆕 New    | P1 - High     |
+| **frame-analyzer CLI**  | Analyse frames                 | 🆕 New    | P1 - High     |
 
 ### Optional Tools and Libraries
 
-| Tool/Library                 | Purpose                  | Status       | Priority    |
-|------------------------------|--------------------------|--------------|-------------|
-| **TFRecord writer**          | Export TensorFlow format | ⚪ Optional   | P2 - Medium |
-| **AV dataset Python SDK**    | Reference implementation | ⚪ Optional   | P2 - Medium |
-| **Visualisation**            | Point cloud rendering    | ⚪ Optional   | P3 - Low    |
-| **Point cloud registration** | Refined pose alignment   | ⚪ Optional   | P3 - Low    |
-| **Semantic segmentation**    | Per-point labels         | ⚪ Optional   | P3 - Low    |
+| Tool/Library                 | Purpose                  | Status      | Priority    |
+| ---------------------------- | ------------------------ | ----------- | ----------- |
+| **TFRecord writer**          | Export TensorFlow format | ⚪ Optional | P2 - Medium |
+| **AV dataset Python SDK**    | Reference implementation | ⚪ Optional | P2 - Medium |
+| **Visualisation**            | Point cloud rendering    | ⚪ Optional | P3 - Low    |
+| **Point cloud registration** | Refined pose alignment   | ⚪ Optional | P3 - Low    |
+| **Semantic segmentation**    | Per-point labels         | ⚪ Optional | P3 - Low    |
 
 ### Decision Matrix: Build vs External
 
 | Capability       | Recommendation             | Rationale                           |
-|------------------|----------------------------|-------------------------------------|
+| ---------------- | -------------------------- | ----------------------------------- |
 | Parquet reading  | Use existing Go library    | Standard format, good Go support    |
 | 7-DOF box math   | Build in Go                | Simple math, no dependencies needed |
 | NLZ polygon math | Build in Go                | Simple ray-casting algorithm        |
@@ -1530,12 +1530,12 @@ func (lsf *LShapeFitter) evaluateHeading(points []WorldPoint, heading float64) f
 
 **AV Dataset Compatibility with velocity.report Privacy Principles:**
 
-| Principle         | AV Dataset Alignment                     |
-|-------------------|------------------------------------------|
-| No PII collection | ✅ AV datasets are anonymized             |
-| No license plates | ✅ LiDAR-only, no visual identification   |
-| Local storage     | ✅ Data imported locally                  |
-| User ownership    | ✅ User downloads and owns copy           |
+| Principle         | AV Dataset Alignment                    |
+| ----------------- | --------------------------------------- |
+| No PII collection | ✅ AV datasets are anonymized           |
+| No license plates | ✅ LiDAR-only, no visual identification |
+| Local storage     | ✅ Data imported locally                |
+| User ownership    | ✅ User downloads and owns copy         |
 
 ### Performance Considerations
 

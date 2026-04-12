@@ -4,17 +4,17 @@
 
 Implementation status of planned tracking pipeline improvements, from ground removal and OBB estimation through to future ML feature extraction.
 
-| Upgrade                           | Status          | Implementation                                                                        |
-|-----------------------------------|-----------------|---------------------------------------------------------------------------------------|
-| Ground removal (height threshold) | ✅ Implemented   | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`               |
-| OBB estimation (PCA)              | ✅ Implemented   | `internal/lidar/obb.go` — `EstimateOBBFromCluster()`                                  |
-| OBB temporal smoothing            | ✅ Implemented   | `internal/lidar/obb.go` — EMA heading (α=0.3)                                         |
-| Hungarian association             | ✅ Implemented   | `internal/lidar/hungarian.go` — Kuhn-Munkres solver                                   |
-| Occlusion coasting                | ✅ Implemented   | `internal/lidar/tracking.go` — `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5`   |
-| Debug artifacts                   | ✅ Implemented   | `internal/lidar/debug/collector.go` — `DebugOverlaySet` via gRPC                      |
-| Voxel grid preprocessing          | 📋 Planned       | —                                                                                     |
-| Constant acceleration model       | 📋 Planned       | —                                                                                     |
-| Feature extraction for ML         | 📋 Planned       | —                                                                                     |
+| Upgrade                           | Status         | Implementation                                                                      |
+| --------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| Ground removal (height threshold) | ✅ Implemented | `internal/lidar/ground.go` — `HeightBandFilter` with `FilterVertical()`             |
+| OBB estimation (PCA)              | ✅ Implemented | `internal/lidar/obb.go` — `EstimateOBBFromCluster()`                                |
+| OBB temporal smoothing            | ✅ Implemented | `internal/lidar/obb.go` — EMA heading (α=0.3)                                       |
+| Hungarian association             | ✅ Implemented | `internal/lidar/hungarian.go` — Kuhn-Munkres solver                                 |
+| Occlusion coasting                | ✅ Implemented | `internal/lidar/tracking.go` — `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` |
+| Debug artifacts                   | ✅ Implemented | `internal/lidar/debug/collector.go` — `DebugOverlaySet` via gRPC                    |
+| Voxel grid preprocessing          | 📋 Planned     | —                                                                                   |
+| Constant acceleration model       | 📋 Planned     | —                                                                                   |
+| Feature extraction for ML         | 📋 Planned     | —                                                                                   |
 
 This document proposes concrete improvements to the LiDAR tracking pipeline for street scenes, mapping each proposal to existing code and new API outputs.
 
@@ -25,7 +25,7 @@ This document proposes concrete improvements to the LiDAR tracking pipeline for 
 The tracking upgrades in this document are designed to align with the **7-DOF industry standard** for 3D bounding boxes:
 
 | Specification                 | Document                                                                                 |
-|-------------------------------|------------------------------------------------------------------------------------------|
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
 | **7-DOF Bounding Box Format** | [av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)           |
 | **Pose Representation**       | [static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)         |
 | **Background Grid Standards** | [lidar-background-grid-standards.md](../architecture/lidar-background-grid-standards.md) |
@@ -39,7 +39,7 @@ The `OrientedBoundingBox` output from OBB estimation (§2.6) conforms to `Boundi
 ### 1.1 Existing Implementation
 
 | Component                 | File                                  | Key Functions/Types                                        |
-|---------------------------|---------------------------------------|------------------------------------------------------------|
+| ------------------------- | ------------------------------------- | ---------------------------------------------------------- |
 | **Background Model**      | `internal/lidar/background.go`        | `BackgroundManager`, `BackgroundGrid`, `BackgroundCell`    |
 | **Foreground Extraction** | `internal/lidar/foreground.go`        | `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()` |
 | **Clustering**            | `internal/lidar/clustering.go`        | `DBSCAN()`, `WorldCluster`, `SpatialIndex`                 |
@@ -77,7 +77,7 @@ Lifecycle Management (tentative → confirmed → deleted)
 ### 1.3 Known Limitations
 
 | Issue                              | Impact                          | Cause                          |
-|------------------------------------|---------------------------------|--------------------------------|
+| ---------------------------------- | ------------------------------- | ------------------------------ |
 | Ground points leak into foreground | False clusters near sensor      | Height-based filtering missing |
 | Clusters split on large vehicles   | Track fragmentation             | DBSCAN eps too small           |
 | Tracks merge when objects cross    | ID swaps                        | Greedy association             |
@@ -97,7 +97,7 @@ Lifecycle Management (tentative → confirmed → deleted)
 **Options**:
 
 | Method              | Pros                 | Cons                | Recommendation   |
-|---------------------|----------------------|---------------------|------------------|
+| ------------------- | -------------------- | ------------------- | ---------------- |
 | Height threshold    | Simple, fast         | Assumes flat ground | Use as baseline  |
 | RANSAC plane fit    | Handles slope        | More compute        | Use for accuracy |
 | Ring-based gradient | Uses sensor geometry | Complex             | Deferred         |
@@ -238,7 +238,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 #### 2.8.2 Integration Points
 
 | Location                                   | What to Record                            |
-|--------------------------------------------|-------------------------------------------|
+| ------------------------------------------ | ----------------------------------------- |
 | `tracking.go:associate()`                  | Association candidates, accepted/rejected |
 | `tracking.go:mahalanobisDistanceSquared()` | Gating ellipse parameters                 |
 | `tracking.go:update()`                     | Innovation residuals                      |
@@ -251,7 +251,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 ## 3. Mapping to API Outputs
 
 | Upgrade        | New Proto Fields                            | Debug Overlays         |
-|----------------|---------------------------------------------|------------------------|
+| -------------- | ------------------------------------------- | ---------------------- |
 | Ground removal | `PointCloudFrame.classification`            | N/A                    |
 | Voxel grid     | `ClusterSet.clustering_method`              | N/A                    |
 | Hungarian      | N/A                                         | `AssociationCandidate` |
@@ -265,7 +265,7 @@ Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrac
 ## 4. Implementation Priority
 
 | Priority | Upgrade                           | Effort | Impact                        |
-|----------|-----------------------------------|--------|-------------------------------|
+| -------- | --------------------------------- | ------ | ----------------------------- |
 | **P0**   | Ground removal (height threshold) | Low    | High - reduces false clusters |
 | **P0**   | OBB estimation                    | Medium | High - heading visualisation  |
 | **P1**   | Debug artifacts                   | Medium | High - debugging workflow     |

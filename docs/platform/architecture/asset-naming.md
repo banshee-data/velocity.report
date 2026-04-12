@@ -6,7 +6,7 @@ platform-specific binaries across the velocity.report project.
 ## Product Names
 
 | Product          | Asset name           | Case rule  |
-|------------------|----------------------|------------|
+| ---------------- | -------------------- | ---------- |
 | Server           | `velocity-report`    | kebab-case |
 | macOS Visualiser | `VelocityVisualiser` | PascalCase |
 | Management CLI   | `velocity-ctl`       | kebab-case |
@@ -60,7 +60,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 ```
 
 | Token      | Format               | Example            | Notes                                                   |
-|------------|----------------------|--------------------|---------------------------------------------------------|
+| ---------- | -------------------- | ------------------ | ------------------------------------------------------- |
 | `product`  | lowercase-hyphenated | `velocity-report`  | Exception: `VelocityVisualiser` keeps PascalCase        |
 | `version`  | SemVer               | `0.5.1`            | Dev: dots replace hyphens in pre-release (`0.5.1.pre1`) |
 | `os`       | Go GOOS              | `linux`, `darwin`  | Omitted for single-platform assets (RPi image, DMG)     |
@@ -74,7 +74,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 ### Release filenames
 
 | Asset                      | Filename                           | Checksum         |
-|----------------------------|------------------------------------|------------------|
+| -------------------------- | ---------------------------------- | ---------------- |
 | Go server (Linux ARM64)    | `velocity-report-{v}-linux-arm64`  | `.sha256`        |
 | Go server (macOS ARM64)    | `velocity-report-{v}-darwin-arm64` | `.sha256`        |
 | Go server (macOS Intel)    | `velocity-report-{v}-darwin-amd64` | `.sha256`        |
@@ -85,7 +85,7 @@ Dev:      {datetime}-{product}-{version}[-{os}-{arch}]-{sha7}{ext}
 ### Dev filenames
 
 | Asset                      | Filename                                       |
-|----------------------------|------------------------------------------------|
+| -------------------------- | ---------------------------------------------- |
 | Go server (Linux ARM64)    | `{dt}-velocity-report-{v}-linux-arm64-{sha7}`  |
 | Go server (macOS ARM64)    | `{dt}-velocity-report-{v}-darwin-arm64-{sha7}` |
 | velocity-ctl (Linux ARM64) | `{dt}-velocity-ctl-{v}-linux-arm64-{sha7}`     |
@@ -97,16 +97,16 @@ Local dev binaries (`build-radar-local`, `build-ctl`) keep short names
 
 ## Version Validity Analysis
 
-| Surface         | File                                 | Validates SemVer?      | Effect of `0.5.04`                 |
-|-----------------|--------------------------------------|------------------------|------------------------------------|
-| npm (web)       | `web/package.json`                   | **Yes — strict**       | **Rejects with parse error**       |
-| npm (docs)      | `public_html/package.json`           | **Yes — strict**       | **Rejects with parse error**       |
-| Go version pkg  | `internal/version/version.go`        | No — display only      | Passes                             |
-| Makefile        | `Makefile`                           | No — string constant   | Passes                             |
-| CI workflows    | `.github/workflows/*.yml`            | No — substitution      | Passes                             |
-| Xcode           | `project.pbxproj` MARKETING_VERSION  | No — string            | Passes                             |
-| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)      | Passes; PyPI normalises to `0.5.4` |
-| rpi-imager JSON | `image/os-list-velocity.json`        | No                     | Passes                             |
+| Surface         | File                                 | Validates SemVer?    | Effect of `0.5.04`                 |
+| --------------- | ------------------------------------ | -------------------- | ---------------------------------- |
+| npm (web)       | `web/package.json`                   | **Yes — strict**     | **Rejects with parse error**       |
+| npm (docs)      | `public_html/package.json`           | **Yes — strict**     | **Rejects with parse error**       |
+| Go version pkg  | `internal/version/version.go`        | No — display only    | Passes                             |
+| Makefile        | `Makefile`                           | No — string constant | Passes                             |
+| CI workflows    | `.github/workflows/*.yml`            | No — substitution    | Passes                             |
+| Xcode           | `project.pbxproj` MARKETING_VERSION  | No — string          | Passes                             |
+| Python          | `tools/pdf-generator/pyproject.toml` | Lenient (PEP 440)    | Passes; PyPI normalises to `0.5.4` |
+| rpi-imager JSON | `image/os-list-velocity.json`        | No                   | Passes                             |
 
 Two surfaces hard-block: `web/package.json` and `public_html/package.json`.
 Every CI run validates the version field against strict SemVer.
@@ -130,12 +130,12 @@ call per build invocation, one source of truth within that invocation.
 **Compute-once rule.** Each build environment computes the timestamp
 exactly once at the start of its run, then threads it to every consumer:
 
-| Environment        | Where computed                    | Propagation                                |
-|--------------------|-----------------------------------|--------------------------------------------|
-| `make` targets     | `Makefile` § VERSION INFORMATION  | Shell variables → Go ldflags, filenames    |
-| `build-image.sh`   | Section 2 (after arg parsing)     | `$BUILD_TIME` / `$BUILD_TS_COMPACT` in env |
-| CI (`build-image`) | First step → `$GITHUB_ENV`        | All subsequent steps read from env         |
-| CI (`mac-ci`)      | Per-job (build vs package)        | Local shell variable within step           |
+| Environment        | Where computed                   | Propagation                                |
+| ------------------ | -------------------------------- | ------------------------------------------ |
+| `make` targets     | `Makefile` § VERSION INFORMATION | Shell variables → Go ldflags, filenames    |
+| `build-image.sh`   | Section 2 (after arg parsing)    | `$BUILD_TIME` / `$BUILD_TS_COMPACT` in env |
+| CI (`build-image`) | First step → `$GITHUB_ENV`       | All subsequent steps read from env         |
+| CI (`mac-ci`)      | Per-job (build vs package)       | Local shell variable within step           |
 
 Different build environments (Make vs CI vs script) may produce
 different timestamps — that is expected because they are separate runs.
@@ -164,7 +164,7 @@ one `date -u` call per environment, threaded to every consumer.
 ## Alternatives Considered
 
 | Alternative                        | Verdict      | Reason                                                            |
-|------------------------------------|--------------|-------------------------------------------------------------------|
+| ---------------------------------- | ------------ | ----------------------------------------------------------------- |
 | Date at end                        | Rejected     | Cannot `ls`-sort by date                                          |
 | SHA in release filenames           | Rejected     | Noisy; version tag is sufficient                                  |
 | Keep PascalCase for DMG            | **Accepted** | Brand identity in Finder, menu bar, About dialog                  |
@@ -176,7 +176,7 @@ one `date -u` call per environment, threaded to every consumer.
 ## Failure Registry
 
 | Failure                                  | Impact                           | Recovery                                                        |
-|------------------------------------------|----------------------------------|-----------------------------------------------------------------|
+| ---------------------------------------- | -------------------------------- | --------------------------------------------------------------- |
 | Stale filename reference in script or CI | Build or deploy fails            | Grep audit catches all refs; CI validates                       |
 | `os-list-velocity.json` URL mismatch     | rpi-imager cannot find the image | CI computes URL from tag; test with pre-release first           |
 | DMG artefact glob mismatch in CI         | Artefact upload fails            | Update glob in `mac-ci.yml`                                     |
@@ -185,7 +185,7 @@ one `date -u` call per environment, threaded to every consumer.
 ## Implementation Phases
 
 | Phase | Scope                                                | Status   |
-|-------|------------------------------------------------------|----------|
+| ----- | ---------------------------------------------------- | -------- |
 | 1     | Makefile variables                                   | Complete |
 | 2     | Binary output filenames + Go upgrade logic           | Complete |
 | 3     | DMG naming                                           | Complete |

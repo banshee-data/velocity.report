@@ -22,14 +22,11 @@ computed but never persisted or exposed, and **2 feature-vector structs**
 1. **Dead schema weight** — columns consume space in the SQLite page layout
    and appear in tooling (schema diagrams, migration diffs) but carry no
    data, confusing contributors and operators.
-
 2. **Lost analytical value** — `RunStatistics` quality distribution metrics
    are computed on every analysis run and immediately discarded.
-
 3. **Incomplete UI surfaces** — the web dashboard shows track counts but
    cannot display quality scores, noise ratios, or classification confidence
    distributions that the backend already calculates.
-
 4. **Blocked ML pipeline** — `TrackFeatures` and `TrainingDatasetSummary`
    are the foundation for classifier training data export, but no endpoint
    or file-export path exists.
@@ -41,11 +38,9 @@ and API layers. It does **not** cover:
 
 - New algorithmic work (e.g. implementing the full `NoiseCoverageMetrics`
   speed/size breakdown — that remains a TODO in quality.go:229).
-
 - Clustering observability metrics from the
   [observability plan](lidar-clustering-observability-and-benchmark-plan.md)
   (FrameStageTiming, AssociationDecision).
-
 - New UI components — each phase notes where UI work is needed but does not
   spec the Svelte components.
 
@@ -64,21 +59,16 @@ observability plan §4.
 - [ ] In `CompleteRun()` (`analysis_run.go:463`), call
       `l6objects.ComputeRunStatistics()` on the run's collected tracks and
       serialise the result to `statistics_json` via `RunStatistics.ToJSON()`.
-
 - [ ] Update the `CompleteRun` SQL to include `statistics_json = ?`.
 - [ ] Update `GetRun()` (`analysis_run.go:496`) to read and parse
       `statistics_json`, attaching it to the `AnalysisRun` struct.
-
 - [ ] Add a `StatisticsJSON json.RawMessage` field to the `AnalysisRun`
       struct.
-
 - [ ] Update `ListRuns()` to also read `statistics_json`.
 - [ ] Wire `AnalysisRunManager.CompleteRun()` to collect tracks during
       `RecordTrack()` and compute `RunStatistics` at completion.
-
 - [ ] Update `handleGetRun()` API handler so the JSON response includes
       `statistics_json` when present.
-
 - [ ] Add a TypeScript `RunStatistics` interface to `web/src/lib/types/lidar.ts`.
 - [ ] Add the field to the `AnalysisRun` TypeScript interface.
 - [ ] Verify backward compatibility: existing rows with `NULL`
@@ -104,22 +94,16 @@ distribution). This is a separate UI task.
 - [ ] Update `InsertTrack()` (`track_store.go:92`) to include
       `track_length_meters`, `track_duration_secs`, `occlusion_count`,
       `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio`.
-
 - [ ] Update `UpdateTrack()` (`track_store.go:154`) to write the same 6
       columns on each update.
-
 - [x] Verify that `TrackedObject` already carries these fields (it does —
       they are set by the L5 tracker).
-
 - [ ] Update `ON CONFLICT DO UPDATE` clause in `InsertTrack` to include the
       6 new columns.
-
 - [ ] Add the 6 fields to the `Track` TypeScript interface in
       `web/src/lib/types/lidar.ts`.
-
 - [ ] Update the live-tracks API handler (`handleListTracks`) to include the
       fields in the JSON response (verify the Go struct already has them).
-
 - [ ] All existing Go tests pass with new column writes.
 
 ### Downstream opportunity
@@ -144,12 +128,10 @@ become a priority.
 - [ ] Compute `noise_points_count` during clustering (it currently remains at its schema default of 0; this requires adding
       a `NoisePointsCount` field to `WorldCluster` in `l4perception/types.go`
       and populating it during the L4 clustering step).
-
 - [ ] Compute `cluster_density` as `points_count / bbox_volume`.
 - [ ] Compute `aspect_ratio` as `bbox_length / bbox_width`.
 - [ ] Update `InsertCluster()` (`track_store.go:56`) to write the 2
       computable quality columns.
-
 - [ ] Add the fields to the `ClusterResponse` TypeScript interface.
 - [ ] Write tests for edge cases (zero-volume bbox, single-point cluster).
 
@@ -166,7 +148,6 @@ become a priority.
 
 - [ ] Add `GET /api/lidar/runs/{run_id}/statistics` endpoint in
       `run_track_api.go` returning `RunStatistics` JSON.
-
 - [ ] Return `404` if `statistics_json` is NULL (pre-Phase-1 runs).
 - [ ] Add `getRunStatistics(runId)` function to `web/src/lib/api.ts`.
 - [ ] Write handler tests with populated and NULL statistics.
@@ -186,11 +167,9 @@ Depends on Phases 1 and 2.
 - [ ] Add `GET /api/lidar/runs/{run_id}/training-export` endpoint.
 - [ ] Accept query parameters: `min_quality_score`, `min_duration`,
       `min_length`, `require_class` (matching `TrackTrainingFilter` fields).
-
 - [ ] Return JSON with `TrainingDatasetSummary` header and array of
       `TrackFeatures` vectors (using `SortedFeatureNames()` for column
       headers).
-
 - [ ] Optional: support `Accept: text/csv` for direct CSV export.
 - [ ] Wire `FilterTracksForTraining()` and `SummarizeTrainingDataset()`.
 - [ ] Write handler tests with filtered and unfiltered exports.
@@ -209,10 +188,8 @@ Depends on Phases 1 and 2.
 
 - [ ] Add `GET /api/lidar/runs/compare?ref={run_id}&candidate={run_id}`
       endpoint.
-
 - [ ] Return parameter diff (from `compareParams()`), temporal IoU matrix,
       and split/merge candidates.
-
 - [ ] Add TypeScript interfaces for the comparison response.
 - [ ] Write handler tests for same-params, different-params, and
       missing-run scenarios.
@@ -242,7 +219,6 @@ surfaced.
 - [x] Proto uses `max_speed_mps` (field 25), no percentile fields.
 - [x] REST API (`track_api.go`) uses `max_speed_mps`, no per-track
       percentile fields exposed.
-
 - [x] TypeScript types — no per-track percentile fields.
 - [x] `InsertTrack()` / `UpdateTrack()` — no longer write `p50/p85/p95`.
 - [x] `ComputeSpeedPercentiles()` kept as internal-only for classifier
@@ -254,19 +230,15 @@ surfaced.
       `p85_speed_mps`, `p95_speed_mps` from `lidar_tracks` and
       `lidar_run_tracks`, and rename `peak_speed_mps` → `max_speed_mps` on
       both tables.
-
 - [ ] Update `schema.sql` to match post-migration state.
 - [ ] Rename `peak_speed_mps` → `max_speed_mps` in all SQL strings
       (`track_store.go`, `analysis_run.go`).
-
 - [ ] Update all test fixtures that reference percentile columns or
       `peak_speed_mps` (`coverage_boost_test.go`, `track_api_test.go`,
       `webserver_coverage_test.go`, `scene_api_coverage_test.go`,
       `analysis_run_extended_test.go`).
-
 - [ ] Update `pcap-analyse` `SpeedStatistics` to use `p98` not `p95`
       as the high-end aggregate percentile (D-18).
-
 - [ ] Regenerate schema ERD with `make schema-erd`.
 
 ---
@@ -283,13 +255,10 @@ surfaced.
 
 - [ ] Decide: complete `NoiseCoverageMetrics` (implement speed/size
       breakdown) or delete the struct and its placeholder computation.
-
 - [ ] If deleting: remove `NoiseCoverageMetrics`,
       `ComputeNoiseCoverageMetrics()`, and associated tests.
-
 - [ ] If completing: implement the full speed/size breakdown, add
       persistence, and add an API endpoint.
-
 - [ ] Audit `TrainingDatasetSummary.TotalPoints` — if point cloud storage
       is not on the roadmap, remove the field and its TODO comment.
 
@@ -317,11 +286,9 @@ Phases 5–8 depend on product direction:
 - **Phase 5** (training export) should be scheduled when the ML classifier
   training pipeline is active. Without it, feature vectors are computed and
   discarded.
-
 - **Phase 6** (run comparison) should be scheduled when the multi-run
   comparison UI is prioritised (see the
   [split-merge repair workbench plan](lidar-visualiser-split-merge-repair-workbench-plan.md)).
-
 - **Phase 8** (cleanup) is a housekeeping task best done after Phase 5
   resolves the future of the training data curation structs.
 
@@ -346,7 +313,7 @@ Phase 7 (percentile removal / migration 030)
 ## Risk Register
 
 | Risk                                                              | Mitigation                                                                           |
-|-------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `statistics_json` bloats DB for large runs                        | JSON is < 1 KB; negligible                                                           |
 | Track quality writes increase per-frame DB load                   | 6 extra columns in an existing UPDATE; ~µs overhead per frame                        |
 | Training export returns very large responses                      | Add pagination / streaming; apply `TrackTrainingFilter` by default                   |

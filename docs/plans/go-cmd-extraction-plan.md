@@ -6,7 +6,6 @@
 - **Companion plans:**
   [go-god-file-split-plan.md](go-god-file-split-plan.md) (Complete),
   [go-codebase-structural-hygiene-plan.md](go-codebase-structural-hygiene-plan.md) (Active)
-
 - **Canonical:** [go-package-structure.md](../platform/architecture/go-package-structure.md)
 
 ## Motivation
@@ -29,15 +28,15 @@ expand.
 
 ### Extraction targets by file
 
-| File                                             | LOC       | Extractable LOC | Contents                                    |
-|--------------------------------------------------|-----------|-----------------|---------------------------------------------|
-| `cmd/radar/radar.go`                             | 1,194     | ~350            | Adapters, transits CLI, TeX flow config     |
-| `cmd/radar/lidar_helpers.go`                     | 275       | ~250            | 24 pure functions, 8 test-double interfaces |
-| `cmd/radar/capabilities.go`                      | 75        | 75              | Thread-safe capabilities provider           |
-| `cmd/tools/config-migrate/main.go`               | 233       | ~180            | Legacy config struct + migration function   |
-| `cmd/tools/settling-eval/pcap.go`                | 182       | ~140            | PCAP settling evaluation orchestration      |
-| `cmd/tools/backfill_ring_elevations/backfill.go` | 86        | ~60             | Raw SQL backfill queries                    |
-| **Total**                                        | **2,045** | **~1,055**      |                                             |
+| File                                             |       LOC | Extractable LOC | Contents                                    |
+| ------------------------------------------------ | --------: | --------------: | ------------------------------------------- |
+| `cmd/radar/radar.go`                             |     1,194 |            ~350 | Adapters, transits CLI, TeX flow config     |
+| `cmd/radar/lidar_helpers.go`                     |       275 |            ~250 | 24 pure functions, 8 test-double interfaces |
+| `cmd/radar/capabilities.go`                      |        75 |              75 | Thread-safe capabilities provider           |
+| `cmd/tools/config-migrate/main.go`               |       233 |            ~180 | Legacy config struct + migration function   |
+| `cmd/tools/settling-eval/pcap.go`                |       182 |            ~140 | PCAP settling evaluation orchestration      |
+| `cmd/tools/backfill_ring_elevations/backfill.go` |        86 |             ~60 | Raw SQL backfill queries                    |
+| **Total**                                        | **2,045** |      **~1,055** |                                             |
 
 ### What stays in cmd/
 
@@ -58,7 +57,7 @@ prompts). Tests pass unchanged after each move.
 Destination packages follow the existing `internal/` structure:
 
 | Source                                                | Destination                      | Rationale                                     |
-|-------------------------------------------------------|----------------------------------|-----------------------------------------------|
+| ----------------------------------------------------- | -------------------------------- | --------------------------------------------- |
 | `capabilitiesProvider`                                | `internal/api/`                  | Already imports only `internal/api`           |
 | LiDAR validation helpers                              | `internal/config/`               | Tuning validation belongs with tuning types   |
 | LiDAR networking helpers                              | `internal/lidar/server/`         | Port validation belongs with the UDP listener |
@@ -100,14 +99,11 @@ homes in `internal/config/` and `internal/lidar/server/`.
 2. Move `validateLidarNetworkingFlags`, `validateOptionalLidarPortFlag`,
    `ensureValidLidarNetworkingFlags`, `ensureValidForwardMode` to
    `internal/lidar/server/validate.go`
-
 3. Move `tuningHashOrWarn`, config hash helpers to `internal/config/`
 4. Move `mustLoadValidatedPandarConfig`, `ringElevationLogMessage` to
    `internal/lidar/server/`
-
 5. Move PCAP/visualiser callbacks (`handlePCAPStartedVisualiser`,
    `publishPCAPProgress`, `pcapProgressCallback`) to `internal/lidar/server/`
-
 6. Move associated interfaces to the package that owns the consuming functions
 7. Move `isNilHelperTarget` to the package that uses it (or inline if only one caller)
 8. Add unit tests for each moved function
@@ -210,7 +206,7 @@ into the background grid package.
 ## Risks
 
 | Risk                                              | Likelihood | Impact | Mitigation                                                                                             |
-|---------------------------------------------------|------------|--------|--------------------------------------------------------------------------------------------------------|
+| ------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------ |
 | Circular import from adapter moves                | Medium     | Low    | Each destination is already downstream of its dependency; verify with `go build ./...` after each move |
 | `hintRunCreator` couples `sweep.Runner` internals | Low        | Medium | Keep adapter as thin bridge; do not absorb Runner lifecycle                                            |
 | Large PR blocks review                            | Medium     | Low    | Split into 3–4 PRs following the item groupings below                                                  |
@@ -218,11 +214,11 @@ into the background grid package.
 ## Suggested PR Grouping
 
 | PR   | Items                                                 | Estimated LOC moved |
-|------|-------------------------------------------------------|---------------------|
-| PR A | 1 (capabilities) + 5 (TeX flow)                       | ~125                |
-| PR B | 2 (lidar helpers)                                     | ~250                |
-| PR C | 3 (adapters) + 4 (transits dispatch)                  | ~315                |
-| PR D | 6 (config-migrate) + 7 (backfill) + 8 (settling-eval) | ~380                |
+| ---- | ----------------------------------------------------- | ------------------: |
+| PR A | 1 (capabilities) + 5 (TeX flow)                       |                ~125 |
+| PR B | 2 (lidar helpers)                                     |                ~250 |
+| PR C | 3 (adapters) + 4 (transits dispatch)                  |                ~315 |
+| PR D | 6 (config-migrate) + 7 (backfill) + 8 (settling-eval) |                ~380 |
 
 ## Checklist
 
@@ -242,7 +238,6 @@ into the background grid package.
 - [ ] `cmd/radar/radar.go` will still be ~800 LOC after extraction — this is legitimate
       `main()` wiring (flag parsing, component construction, shutdown) and does not
       warrant further splitting
-
 - [ ] `cmd/sweep/main.go` (265 LOC) — CLI orchestration, not business logic
 - [ ] `cmd/velocity-ctl/upgrade.go` — `loadIncludePrereleases` (30 LOC) is borderline
       but too small to justify a move

@@ -79,7 +79,6 @@ responses.
 - [ ] Add `track_length_meters`, `track_duration_secs`, `occlusion_count`,
       `max_occlusion_frames`, `spatial_coverage`, `noise_point_ratio` to
       track list and track detail API responses
-
 - [ ] Render in track detail panel alongside label controls
 - [ ] Add sortable columns to track list view
 
@@ -97,7 +96,6 @@ computed but never persisted.
 
 - [ ] Add `quality_score REAL` column to `lidar_tracks` and
       `lidar_run_tracks` (migration)
-
 - [ ] Write in `InsertTrack()` / `UpdateTrack()`
 - [ ] Include in track list and detail API responses
 - [ ] Display as suggested quality indicator during labelling
@@ -123,7 +121,6 @@ Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 - [ ] Add `GET /api/lidar/runs/{runId}/compare/{otherRunId}` endpoint
 - [ ] Return: parameter diff, per-track temporal IoU matrix, split/merge
       candidates
-
 - [ ] Render inter-round track correspondence in HINT dashboard
 - [ ] Show label carryover accuracy (IoU values for carried-over labels)
 
@@ -215,7 +212,6 @@ accumulators but only rolled up into run-level `TrackingMetrics`.
 
 - [ ] Add `heading_jitter_deg REAL`, `speed_jitter_mps REAL` columns to
       `lidar_tracks` and `lidar_run_tracks` (migration)
-
 - [ ] Compute from `HeadingJitterSumSq` / `HeadingJitterCount` accumulators
 - [ ] Write in `InsertTrack()` / `UpdateTrack()`
 - [ ] Include in track list and detail API responses
@@ -237,7 +233,6 @@ coherence.
 
 - [ ] Add `alignment_deg REAL`, `misalignment_rate REAL` columns to
       `lidar_tracks` and `lidar_run_tracks` (migration)
-
 - [ ] Write from `TrackAlignmentMetrics` in `InsertTrack()`
 - [ ] Include in track list and detail API responses
 
@@ -262,30 +257,30 @@ coherence.
 
 ### Removed from Scope
 
-| Item                                 | Reason                                                                                               |
-|--------------------------------------|------------------------------------------------------------------------------------------------------|
-| ML feature vectors → export (§4)     | No HINT benefit. Separate ML infrastructure project.                                                 |
-| Training data curation → API (§6)    | Downstream of HINT, not an input to it.                                                              |
-| Per-track speed percentiles          | Design debt — removal planned via [migration 000030](schema-simplification-migration-030-plan.md).   |
+| Item                              | Reason                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| ML feature vectors → export (§4)  | No HINT benefit. Separate ML infrastructure project.                                               |
+| Training data curation → API (§6) | Downstream of HINT, not an input to it.                                                            |
+| Per-track speed percentiles       | Design debt — removal planned via [migration 000030](schema-simplification-migration-030-plan.md). |
 
 ---
 
 ## Cross-System Benefit Map
 
 | Item                      | HINT Label | HINT Dash | Runs | Sweep | PDF | macOS | ML  |
-|---------------------------|------------|-----------|------|-------|-----|-------|-----|
-| A1 Run statistics         | ✅          | ✅         | ✅    | ✅     | ✅   | —     | —   |
-| A2 Track quality on web   | ✅          | —         | ✅    | —     | —   | 🔶     | —   |
-| A3 quality_score persist  | ✅          | —         | ✅    | —     | —   | —     | ✅   |
-| B1 Run comparison API     | ✅          | ✅         | ✅    | ✅     | —   | —     | —   |
-| B2 Noise coverage         | ✅          | ✅         | ✅    | —     | —   | —     | —   |
-| C1 Foreground fraction    | —          | ✅         | —    | ✅     | —   | —     | —   |
-| C2 State transitions      | —          | ✅         | ✅    | ✅     | —   | —     | —   |
-| C3 Full combo in history  | —          | ✅         | —    | ✅     | —   | —     | —   |
-| D1 Per-track jitter       | ✅          | —         | ✅    | —     | —   | 🔶     | —   |
-| D2 Per-track alignment    | ✅          | —         | ✅    | —     | —   | 🔶     | —   |
-| E1 Cluster quality on web | —          | —         | ✅    | —     | —   | —     | —   |
-| E2 noise_points_count     | —          | —         | ✅    | —     | —   | —     | —   |
-| E3 Speed-bucketed rates   | —          | —         | —    | ✅     | —   | —     | —   |
+| ------------------------- | ---------- | --------- | ---- | ----- | --- | ----- | --- |
+| A1 Run statistics         | ✅         | ✅        | ✅   | ✅    | ✅  | —     | —   |
+| A2 Track quality on web   | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
+| A3 quality_score persist  | ✅         | —         | ✅   | —     | —   | —     | ✅  |
+| B1 Run comparison API     | ✅         | ✅        | ✅   | ✅    | —   | —     | —   |
+| B2 Noise coverage         | ✅         | ✅        | ✅   | —     | —   | —     | —   |
+| C1 Foreground fraction    | —          | ✅        | —    | ✅    | —   | —     | —   |
+| C2 State transitions      | —          | ✅        | ✅   | ✅    | —   | —     | —   |
+| C3 Full combo in history  | —          | ✅        | —    | ✅    | —   | —     | —   |
+| D1 Per-track jitter       | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
+| D2 Per-track alignment    | ✅         | —         | ✅   | —     | —   | 🔶    | —   |
+| E1 Cluster quality on web | —          | —         | ✅   | —     | —   | —     | —   |
+| E2 noise_points_count     | —          | —         | ✅   | —     | —   | —     | —   |
+| E3 Speed-bucketed rates   | —          | —         | —    | ✅    | —   | —     | —   |
 
 ✅ = direct benefit, 🔶 = partial, — = no impact

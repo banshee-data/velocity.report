@@ -27,25 +27,22 @@ All captures use the **Hesai P40** sensor to control for sensor-specific
 noise characteristics. Each site needs ≥ 20 manually labelled tracks
 covering the major classes (car, truck, cyclist, pedestrian at minimum).
 
-| # | Name      | Site description                             | Validates                                           | Duration | Status       |
-|---|-----------|----------------------------------------------|-----------------------------------------------------|----------|--------------|
-| 1 | kirk0     | Flat urban road                              | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured   |
-| 2 | slope1    | Sloped residential street (≥ 3° gradient)    | Ground-plane tiling, height-band limits             | ~5 min   | Planned      |
-| 3 | school1   | School zone or park entrance                 | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned      |
-| 4 | junction1 | Multi-lane road or junction                  | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned      |
-| 5 | rural1    | Rural or semi-rural road                     | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned      |
+| #   | Name      | Site description                          | Validates                                           | Duration | Status     |
+| --- | --------- | ----------------------------------------- | --------------------------------------------------- | -------- | ---------- |
+| 1   | kirk0     | Flat urban road                           | Baseline defaults, straight-line vehicles           | ~5 min   | ✓ Captured |
+| 2   | slope1    | Sloped residential street (≥ 3° gradient) | Ground-plane tiling, height-band limits             | ~5 min   | Planned    |
+| 3   | school1   | School zone or park entrance              | Pedestrian/cyclist classification, low-speed tracks | ~10 min  | Planned    |
+| 4   | junction1 | Multi-lane road or junction               | Turning vehicles, lane-crossing, merge/split        | ~10 min  | Planned    |
+| 5   | rural1    | Rural or semi-rural road                  | Long-range sparse clusters, high-speed vehicles     | ~5 min   | Planned    |
 
 ### Site selection criteria
 
 - Each site should exercise a different failure mode of the current
   pipeline (see pipeline review Q1, Q5, Q11).
-
 - At least two sites should have visible kerbs for ground-plane
   validation.
-
 - At least one site should have pedestrians and cyclists for
   classification validation.
-
 - At least one site should have vehicles at > 20 m/s for high-speed
   tracking validation.
 
@@ -68,7 +65,6 @@ Per PCAP, create a labelled reference analysis run:
 - Labels stored in `lidar_run_tracks.user_label` and `quality_label`
   fields via the
   [track-labelling UI](lidar-track-labelling-auto-aware-tuning-plan.md)
-
 - Scene `reference_run_id` set to this run for
   `GroundTruthEvaluator` comparison
 
@@ -96,7 +92,7 @@ results.
 ## Schedule
 
 | Phase | Work                                     | Depends on               |
-|-------|------------------------------------------|--------------------------|
+| ----- | ---------------------------------------- | ------------------------ |
 | 1     | Identify and confirm 4 new capture sites | Site access              |
 | 2     | Capture PCAPs 2–5 with P40 sensor        | Phase 1 + hardware       |
 | 3     | Label ≥ 20 tracks per PCAP               | Phase 2 + labelling UI   |
@@ -108,10 +104,8 @@ results.
 
 - Multi-sensor corpus (different LiDAR models) — deferred until
   single-sensor defaults are validated
-
 - Weather variation within the initial corpus — one clear-weather
   capture per site; weather studies are a future extension
-
 - Synthetic PCAPs — all captures must be real-world data
 
 ## References

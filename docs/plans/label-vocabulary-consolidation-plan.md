@@ -101,11 +101,9 @@ strings. Without intervention, all replayed tracks show "Not classified".
 
 - Refactored classifier: `ClassifyFeatures()` accepts pre-built features
   without requiring a full `TrackedObject` with observation history
-
 - Added `classifyOrConvert()` bridge in gRPC server: when `ObjectClass`
   is empty, builds features from the Track's per-frame metrics and
   re-classifies on-the-fly using the same rule-based classifier
-
 - Swift Track Inspector always displays Class field ("Not classified" fallback
   when enum is UNSPECIFIED)
 
@@ -136,14 +134,13 @@ This requires splitting the label vocabulary into two tiers:
 - `DisplayLabel` — all 9 classes (noise, dynamic, pedestrian, cyclist, bird,
   bus, car, truck, motorcyclist). Used for rendering, colour lookup, and
   inspector display.
-
 - `SelectableLabel` — 7 classes (excludes truck, motorcyclist). Used for
   labelling UI, keyboard shortcuts, and label validation API.
 
 Files requiring changes:
 
 | Location                                   | Current                            | Required                                                           |
-|--------------------------------------------|------------------------------------|--------------------------------------------------------------------|
+| ------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
 | `lidar_labels.go` `AllDetectionLabels`     | 7 entries                          | No change (selectable)                                             |
 | `lidar_labels.go`                          | —                                  | Add `AllDisplayLabels` (9 entries)                                 |
 | `lidar.ts` `DetectionLabel`                | 7-value union                      | Split into `DetectionLabel` (7) + `DisplayLabel` (9)               |
@@ -158,7 +155,7 @@ Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label lis
 ### Phase 5: Remove duplicates from frontends
 
 | Location                                       | Remove               | Replace with                                    |
-|------------------------------------------------|----------------------|-------------------------------------------------|
+| ---------------------------------------------- | -------------------- | ----------------------------------------------- |
 | `api/lidar_labels.go` `validUserLabels`        | Hardcoded map        | Import from centralised taxonomy                |
 | `web/src/lib/types/lidar.ts` `DetectionLabel`  | Hardcoded union type | Runtime import from taxonomy API                |
 | `ContentView.swift` `classificationLabels`     | Hardcoded array      | Fetch from taxonomy API on launch               |
@@ -197,21 +194,16 @@ they are **disabled** across the stack:
 
 - **Proto**: Enum values 8 (TRUCK) and 9 (MOTORCYCLIST) retained with
   "reserved (v0.6+)" comments for wire-format stability.
-
 - **Classifier**: Truck and motorcyclist rules commented out in the
   cascade. Trucks fall through to CAR; motorcyclists fall through to
   CYCLIST.
-
 - **Label API**: `validUserLabels` reduced to 7 entries. Attempting to
   assign `"truck"` or `"motorcyclist"` via the API returns 400.
-
 - **macOS app**: Removed from `classificationLabels` array; car help
   text updated to include trucks, cyclist updated to include motorcycles.
-
 - **Web app**: Removed from `DetectionLabel` type, `DETECTION_LABELS`
   dropdown, and `object_class` union. `TRACK_COLORS` entries retained
   for backward-compatible rendering of existing labelled data.
-
 - **Keyboard shortcuts**: Renumbered 1–7 (car, bus, pedestrian,
   cyclist, bird, dynamic, noise).
 

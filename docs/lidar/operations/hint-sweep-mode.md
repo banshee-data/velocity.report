@@ -16,11 +16,11 @@ optimisation.
 
 ## Motivation
 
-| Existing Mode                          | Strength                                              | Weakness                                                                                                                              |
-|----------------------------------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| **Manual Sweep**                       | Full control over param grid and metric visualisation | No automated narrowing; human reads CSV manually                                                                                      |
-| **Auto-Tune**                          | Automated multi-round narrowing with weighted metrics | Metrics are proxy measures (empty_box_ratio, fragmentation) — they never test whether a real vehicle was actually tracked correctly   |
-| **Ground Truth** (hidden, scene-based) | Uses labelled tracks as the objective                 | Requires a pre-labelled reference run. Can't adapt labels round-by-round as params change                                             |
+| Existing Mode                          | Strength                                              | Weakness                                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Manual Sweep**                       | Full control over param grid and metric visualisation | No automated narrowing; human reads CSV manually                                                                                    |
+| **Auto-Tune**                          | Automated multi-round narrowing with weighted metrics | Metrics are proxy measures (empty_box_ratio, fragmentation) — they never test whether a real vehicle was actually tracked correctly |
+| **Ground Truth** (hidden, scene-based) | Uses labelled tracks as the objective                 | Requires a pre-labelled reference run. Can't adapt labels round-by-round as params change                                           |
 
 HINT mode fills the gap: the human evaluates track quality _after_ each parameter
 change, so labels always reflect the _current_ parameter regime. This avoids the
@@ -88,7 +88,7 @@ part of the optimisation loop.
 Input: `round_durations: [60, 60, 600, 60]` (minutes)
 
 | Phase           | Duration | Wall clock (if started 8pm) | Activity                           |
-|-----------------|----------|-----------------------------|------------------------------------|
+| --------------- | -------- | --------------------------- | ---------------------------------- |
 | Reference run 1 | ~2 min   | 8:00 pm                     | Automated PCAP replay              |
 | Label window 1  | 60 min   | 8:02 – 9:02 pm              | Human labels tracks                |
 | Sweep round 1   | 60 min   | 9:02 – 10:02 pm             | Automated sweep                    |
@@ -189,10 +189,8 @@ pre-populate the `LabelPanelView`'s selection state. Specifically:
 
 1. In `LabelPanelView`, accept the selected `RunTrack?` as a binding or
    environment value.
-
 2. When the selected track changes, set `lastAssignedLabel` and
    `lastAssignedQuality` from `runTrack.userLabel` and `runTrack.qualityLabel`.
-
 3. Show the checkmark on the matching button so the human sees the current state.
 4. For carried-over labels, add a small "↻ carried" badge next to the checkmark
    (requires a `label_source` field or convention, e.g. `labeler_id = "hint-
@@ -250,38 +248,30 @@ requirement.
      `progress.Pct < req.MinLabelThreshold` (default 0.9 = 90%). The HTTP
      handler returns `400 Bad Request` with a message showing the current
      progress and the required threshold.
-
    - Return when: (a) deadline expires, (b) continue signal received _and_
      threshold met, or (c) context cancelled.
-
    - On deadline expiry, if threshold is not met, transition to `"failed"`
      with an error message rather than proceeding with insufficient labels.
 
 5. Implement `continueFromLabels(nextDuration int, addRound bool)` — public
    method called by the API handler when the human clicks "Continue".
-
    - Validates label threshold is met.
    - If `nextDuration > 0`, overrides the next sweep-round duration.
    - If `addRound`, increments `TotalRounds` by 1 and appends a default
      duration entry.
-
    - Sets the atomic flag and unblocks the wait.
 
 6. Implement `carryOverLabels(prevRunID, newRunID string)`:
    - Fetches labelled tracks from `prevRunID` via
      `analysisRunStore.GetRunTracks(prevRunID)`.
-
    - Fetches unlabelled tracks from `newRunID`.
    - For each labelled track in the previous run, finds the best-matching
      track in the new run using temporal IoU (overlap of
      `[startUnixNanos, endUnixNanos]` intervals divided by their union).
-
    - Only carries a label if IoU ≥ 0.5 (sufficient temporal overlap to
      consider them the same real-world event).
-
    - Writes carried-over labels via
      `analysisRunStore.SetTrackLabel(newRunID, trackID, label)`.
-
    - Records count in `HINTState.LabelsCarriedOver` for UI display.
    - The human reviews and corrects any mismatches during the label window.
 
@@ -291,7 +281,7 @@ requirement.
    round-dependent weight multipliers:
 
    | Round | `DetectionRate` weight | `FalsePositiveRate` weight | Rationale                          |
-   |-------|------------------------|----------------------------|------------------------------------|
+   | ----- | ---------------------- | -------------------------- | ---------------------------------- |
    | 1     | 1.5× default           | 0.5× default               | Focus on finding all real vehicles |
    | 2+    | 1.0× default           | 1.0× default               | Balanced scoring with more labels  |
 
@@ -309,7 +299,7 @@ requirement.
 **File:** `internal/lidar/monitor/sweep_handlers.go` (extend)
 
 | Endpoint                         | Method | Purpose                                           |
-|----------------------------------|--------|---------------------------------------------------|
+| -------------------------------- | ------ | ------------------------------------------------- |
 | `/api/lidar/sweep/hint`          | POST   | Start HINT sweep (JSON body = `HINTSweepRequest`) |
 | `/api/lidar/sweep/hint`          | GET    | Get current `HINTState` for polling               |
 | `/api/lidar/sweep/hint/continue` | POST   | Signal "labels done, continue to sweep"           |
@@ -335,7 +325,6 @@ labelling UI.
 - Add `hintTuner *HINTTuner` field to `WebServer`.
 - Wire dependencies (analysisRunManager, analysisRunStore, replayCaseStore,
   groundTruthScorer) in `cmd/radar/radar.go`.
-
 - Register routes with `mux.HandleFunc`.
 
 ### Phase 3: Dashboard UI — Third Mode
@@ -406,24 +395,18 @@ Key elements:
 - **Threshold enforcement** — "Continue" button disabled until
   `progress_pct >= min_label_threshold`. Tooltip shows e.g.
   `"Label at least 90% of tracks (currently 67%)"`.
-
 - **Carried-over label count** — shows how many labels were pre-populated
   from the previous round.
-
 - **Countdown timer** to the deadline
 - **Link to Tracks page** — direct link to
   `/app/lidar/tracks?replay_case_id=X&run_id=Y` to label
-
 - **Editable next sweep duration** — number input pre-filled from
   `next_sweep_duration_mins` in the state response. Sent in the continue
   request body.
-
 - **Add extra round toggle** — checkbox that sends `add_round: true` in the
   continue request. Useful when the human wants more refinement.
-
 - **Continue button** — calls `POST /api/lidar/sweep/hint/continue` with
   `{ next_sweep_duration_mins, add_round }`
-
 - During "running_sweep" phase, shows sweep progress instead (reuses existing
   auto-tune progress rendering)
 
@@ -452,7 +435,6 @@ Extend `pollAutoTuneStatus()` (or add `pollHINTStatus()`) to poll
    - Enables "Continue to Sweep" button only when `progress_pct ≥ 0.9`.
    - Sends browser notification via Notification API when entering this
      phase (if permission granted and tab is not focused).
-
 3. During `running_sweep`:
    - Shows sweep progress (combo N of M, time remaining).
    - Shows intermediate results chart if available.
@@ -604,7 +586,7 @@ Update the page subtitle and add mode-specific descriptions:
 ## File Manifest
 
 | File                                                             | Action     | Description                                                              |
-|------------------------------------------------------------------|------------|--------------------------------------------------------------------------|
+| ---------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
 | `internal/lidar/sweep/hint.go`                                   | **Create** | `HINTTuner`, `HINTSweepRequest`, `HINTState`, core loop, label carryover |
 | `internal/lidar/sweep/hint_test.go`                              | **Create** | Unit tests: state machine, duration parsing, carryover, threshold        |
 | `internal/lidar/monitor/sweep_handlers.go`                       | **Modify** | Add 4 HINT endpoints (with continue body parsing)                        |
@@ -625,7 +607,6 @@ Update the page subtitle and add mode-specific descriptions:
    - Duration indexing: verify wrap-around behaviour for short duration lists.
    - State machine transitions: idle → running_reference → awaiting_labels →
      running_sweep → running_reference → … → completed.
-
    - Continue signal unblocks wait.
    - Continue rejected when below 90% threshold (returns error).
    - Label carryover: temporal IoU matching with threshold 0.5.

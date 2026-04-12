@@ -12,10 +12,8 @@ few or no usable signs. The goal is threefold in stationary LiDAR deployments:
 
 1. estimate small frame-to-frame pose perturbations caused by mast sway,
    mount vibration, thermal creep, or timestamp/transform noise;
-
 2. turn those perturbations into explicit shake diagnostics, and optionally a
    small corrective pose update for downstream replay/runtime processing.
-
 3. expose a cached runtime stability signal that lower layers can use to
    suspend learning, invalidate stale assumptions, and accelerate reset /
    reacquisition when the sensor is no longer behaving like a static frame.
@@ -56,20 +54,16 @@ proposal shape until evidence justifies anything stronger.
 
 1. **L2 Frames**
    Provide a raw-frame side tap for static-anchor extraction.
-
 2. **L4 Perception**
    Detect sign, facade, wall, and ground-support anchor candidates from the
    current frame using intensity, planarity, verticality, persistence, and
    occlusion cues.
-
 3. **L6 Objects**
    If AV-style semantics are needed, a true sign candidate may map to the
    28-class `sign` taxonomy here. Non-sign anchors do not require an L6 label.
-
 4. **L7 Scene**
    Persist the anchor as a static polygon, plane patch, edge, or support
    surface with uncertainty, provenance, and accumulated geometry.
-
 5. **L8 Analytics**
    Publish shake amplitudes, anchor residuals, confidence trends, and
    before/after comparison metrics.
@@ -101,16 +95,13 @@ reference extension rather than the assumed base architecture.
 1. **L2 Frames**
    Still provide the raw-frame side tap, and may optionally consume accepted
    micro-pose corrections before downstream transforms.
-
 2. **L3 Grid**
    Consume a cached per-frame stability signal to modulate warmup, freeze,
    lock, region restore, snapshot persistence, and reset/reacquire policy.
-
 3. **L5 Tracks**
    May optionally consume the stability state for downstream trust/debug
    decisions. Track continuity also helps explain whether apparent motion is
    global frame shake or true object motion.
-
 4. **L7 Scene / L8 Analytics**
    Continue to own anchor persistence, diagnostics, and scoring.
 
@@ -137,7 +128,6 @@ Recommended persistent representation:
 1. primary form: **polygonal sign anchor** in L7 Scene;
 2. fallback form: reflective planar patch if the surface is bent, partially
    occluded, or too sparse for a clean polygon;
-
 3. geometry-led form: large wall/facade plane or facade corner anchor;
 4. support-only form: ground/road patch or curb/edge support with restricted
    pose authority.
@@ -191,10 +181,8 @@ Operational rule:
 1. start at the conservative sign threshold;
 2. if anchor coverage stays below target for `H_eval` frames, lower the
    threshold one step;
-
 3. once minimum redundancy is met, stop relaxing and hold that band with
    hysteresis;
-
 4. if the floor threshold is reached and coverage is still poor, switch to
    geometry-first wall/building/ground-support search rather than continuing to
    lower the threshold indefinitely.
@@ -277,7 +265,6 @@ Decision policy:
 1. if `C_plane` high and `b <= tau_bend`, promote to polygon anchor;
 2. if reflectivity/static confidence is high but `b > tau_bend`, keep as a
    soft anchor with wider covariance;
-
 3. if both planarity and persistence are weak, reject as non-anchor.
 
 ### 4.7 Candidate confidence
@@ -309,11 +296,9 @@ Practical rule:
 
 1. if a dynamic cluster overlaps the expected anchor ray corridor and returns
    from the anchor drop, mark the anchor `occluded`, not failed;
-
 2. if only part of the surface remains visible, keep it with reduced weight;
 3. exclude fully occluded anchors from the current pose fit, but retain them in
    cache for `H_occ_keep` frames;
-
 4. retire only after sustained unexplained absence beyond `H_retire`.
 
 This means one blocked sign removes one constraint set, not the whole scene.
@@ -367,10 +352,8 @@ Not every anchor has a clean sign polygon.
 
 - wall/building anchors may contribute plane residuals plus optional edge or
   corner residuals when a facade edge is stable;
-
 - reflective patches may contribute plane residuals and coarse footprint
   residuals;
-
 - road/ground anchors should contribute only low-weight support residuals for
   `z`, `roll`, and `pitch`.
 
@@ -389,10 +372,8 @@ where:
 - `w_ij` is anchor/candidate confidence,
 - `lambda_*` terms activate only the residual families supported by anchor type
   `tau_j`,
-
 - `rho` is a robust loss (Huber or Tukey) to suppress partial occlusion,
   bent edges, and bad assignments,
-
 - `Lambda` is a small-motion prior discouraging implausibly large corrections.
 
 Solve with weighted Gauss-Newton or iteratively reweighted least squares.
@@ -418,7 +399,6 @@ Recommended policy:
 1. `K_visible >= 3` independent anchor groups for accepted pose correction;
 2. `K_visible == 2` may still publish a stability signal, but should not apply
    geometry correction unless coverage is unusually strong;
-
 3. `K_visible <= 1` is diagnostics-only and should never trigger a hard reset
    by anchor evidence alone.
 
@@ -476,10 +456,8 @@ Recommended analytics and runtime fields:
 
 - translational shake RMS:
   `shake_trans_rms = RMS(||t_high||)`
-
 - rotational shake RMS:
   `shake_rot_rms = RMS(||r_high||)`
-
 - per-axis RMS (`roll`, `pitch`, `yaw`, `x`, `y`, `z`)
 - anchor reprojection RMS before/after correction
 - anchor dropout rate
@@ -497,7 +475,6 @@ downstream symptoms:
 
 1. foreground ratio rises after the frame is already inconsistent with the
    settled background;
-
 2. drift against locked baselines appears after cells have already been pushed
    off their old equilibrium.
 
@@ -603,7 +580,6 @@ Let:
 
 - `M_anchor` come from rotational/translational shake relative to configured
   thresholds,
-
 - `M_fg` come from foreground-ratio excess,
 - `M_drift` come from drift-ratio excess.
 
@@ -611,7 +587,6 @@ Recommended fusion:
 
 1. if anchor confidence is high:
    `M_frame = max(M_anchor, min(M_fg, M_drift))`
-
 2. if anchor confidence is low, too occluded, or no anchors are visible:
    `M_frame = max(M_fg, M_drift)`
 
@@ -631,16 +606,12 @@ policy gate:
 
 - learning-rate modulation:
   `alpha_eff = alpha_base * g_alpha(S_frame)`
-
 - lock promotion enabled only when:
   `S_frame >= T_lock`
-
 - snapshot persistence enabled only when:
   `state in {stable}`
-
 - region restore enabled only when:
   `state in {stable, shaky}` and held stable long enough
-
 - background learning disabled when:
   `state == moving`
 
@@ -692,7 +663,7 @@ stateDiagram-v2
 ### 8.1 State meanings
 
 | State       | Meaning                                  | Grid action                                                    | Region action                                                  |
-|-------------|------------------------------------------|----------------------------------------------------------------|----------------------------------------------------------------|
+| ----------- | ---------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- |
 | `warmup`    | Initial or post-reset seeding            | Seed means/spreads, suppress FG output                         | Disable restore; do not trust prior regions yet                |
 | `stable`    | Stationary frame with high confidence    | Normal learning, normal lock/lock updates                      | Normal restore / persistence                                   |
 | `shaky`     | Static deployment, but disturbed         | Freeze lock promotion, reduce/pause learning, no snapshot save | Keep regions but lower confidence; do not commit new restores  |
@@ -776,7 +747,6 @@ If the anchor model is good, the main gains should be:
 3. better stability of static geometry exports and scene accumulation;
 4. cleaner diagnosis of whether noise comes from sensor shake, timing jitter,
    or actual scene change.
-
 5. usable stability estimates in scenes with few signs but strong walls,
    facades, or road geometry.
 
@@ -888,7 +858,6 @@ Primary scorecard:
 8. correction acceptance rate,
 9. anchor false-positive rate (license plates, wet surfaces, retroreflective
    clutter),
-
 10. time-to-first-usable-anchor in sign-poor scenes,
 11. stability retention during deliberate anchor occlusion,
 12. quality delta by anchor family (`sign`, `wall`, `ground_support`).
@@ -929,26 +898,20 @@ Known failure modes:
 1. **Phase A - Analytics first**
    Detect candidates, persist anchor observations, and publish shake metrics
    without changing runtime geometry or feeding state back to earlier layers.
-
 2. **Phase B - Sign-first threshold ladder**
    Implement the adaptive high-to-mid intensity ladder and record which anchor
    family is active in each frame.
-
 3. **Phase C - Occlusion and fallback anchors**
    Add wall/facade/ground-support families plus explicit occlusion handling and
    redundancy scorecards.
-
 4. **Phase D - Layering decision gate**
    Compare the strict base case against the cache-backed reference case and
    decide whether the runtime back-edge is justified at all.
-
 5. **Phase E - Runtime stability signal**
    Publish cached `FrameStabilitySignal` and let L3 consume it for
    warmup/freeze/reacquire/reset policy, without changing point coordinates.
-
 6. **Phase F - Replay correction**
    Apply `xi_hat_t` during offline replay/export to measure benefit safely.
-
 7. **Phase G - Runtime correction**
    Feed accepted micro-pose updates into the live transform path only if the
    replay scorecard shows a clear win and failure gating is strong.

@@ -41,7 +41,7 @@ sweep values, holding all other keys at production defaults
 #### Keys under test
 
 | Config key                    | Default | Sweep range   | Risk if wrong                                 |
-|-------------------------------|---------|---------------|-----------------------------------------------|
+| ----------------------------- | ------- | ------------- | --------------------------------------------- |
 | `closeness_multiplier`        | 3.0     | [1.5, 5.0]    | False foreground/background at range extremes |
 | `safety_margin_meters`        | 0.15    | [0.05, 0.30]  | Ground leakage into foreground                |
 | `noise_relative`              | 0.02    | [0.005, 0.05] | Incorrect range-dependent thresholds          |
@@ -52,14 +52,14 @@ sweep values, holding all other keys at production defaults
 **Gated metrics (available via GroundTruthEvaluator):**
 
 | Metric                | Definition                                  | Threshold                 |
-|-----------------------|---------------------------------------------|---------------------------|
+| --------------------- | ------------------------------------------- | ------------------------- |
 | Confirmed track count | Number of confirmed tracks downstream       | No regression vs baseline |
 | Objective function    | Composite score from `GroundTruthEvaluator` | Within 10% of optimal     |
 
 **Future / manual diagnostics (point-level, not yet in evaluator):**
 
 | Metric                | Definition                                                  | Notes                             |
-|-----------------------|-------------------------------------------------------------|-----------------------------------|
+| --------------------- | ----------------------------------------------------------- | --------------------------------- |
 | Foreground precision  | True foreground points / all foreground-classified points   | Requires point-level ground truth |
 | Foreground recall     | True foreground points / all ground-truth foreground points | Requires point-level ground truth |
 | Ground false-pos rate | Ground points incorrectly classified as foreground / total  | Requires point-level ground truth |
@@ -78,7 +78,6 @@ A key graduates from "provisional" to "empirical" when:
 1. Swept across ≥ 3 sites (target: 5)
 2. Optimal value is consistent (within 10% of the chosen default) across
    all sites
-
 3. Objective function sensitivity is documented (slope near the default)
 4. Results are recorded in a dated entry under `data/explore/`
 
@@ -90,7 +89,6 @@ a site-adaptive approach rather than a single default.
 - `pcap-analyse` for PCAP replay with parameter overrides
 - `GroundTruthEvaluator` for scored quality comparison against labelled
   reference runs
-
 - Access to Raspberry Pi 4 for throughput measurements (`pcap-analyse -benchmark`)
 
 ## Timeline

@@ -19,7 +19,7 @@ The backlog-prune skill already infers domain labels from item wording during th
 Eleven canonical domain tags. Each tag is a lowercase hyphenated slug.
 
 | Tag              | Scope                                                               |
-|------------------|---------------------------------------------------------------------|
+| ---------------- | ------------------------------------------------------------------- |
 | `go-structure`   | God-file splits, package hygiene, SQL boundary, context propagation |
 | `go-lidar`       | LiDAR pipeline layers L1–L9, perception, clustering, tracking       |
 | `go-radar`       | Radar ingest, transit worker, serial config                         |
@@ -111,7 +111,7 @@ Edit `.claude/skills/backlog-prune/SKILL.md`. Trivial.
 ## Effort Summary
 
 | Phase                  | Work                               | Effort       |
-|------------------------|------------------------------------|--------------|
+| ---------------------- | ---------------------------------- | ------------ |
 | 1. Backlog inline tags | Tag ~80 items                      | S (half day) |
 | 2. Plan doc metadata   | Add `Domains` to ~69 plans         | S (half day) |
 | 3. Lint script         | `check-domain-tags.py` + CI wiring | S (half day) |

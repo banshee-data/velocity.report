@@ -644,7 +644,7 @@ func IsSparseTrackValid(
 As point count decreases, we progressively tighten velocity constraints:
 
 | Point Count | Velocity Tolerance | Spatial Tolerance | Notes                          |
-|-------------|--------------------|-------------------|--------------------------------|
+| ----------- | ------------------ | ----------------- | ------------------------------ |
 | ≥12         | ±2.0 m/s           | ±1.0 m            | Standard DBSCAN clustering     |
 | 6-11        | ±1.5 m/s           | ±0.8 m            | Reduced tolerance              |
 | 3-5         | ±0.5 m/s           | ±0.5 m            | Strict velocity match required |
@@ -1293,21 +1293,21 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 ### Phase Timeline
 
-| Phase | Description                     | Duration    | Priority | Dependencies |
-|-------|---------------------------------|-------------|----------|--------------|
-| 0     | Instrumentation and Fixtures    | 1 week      | P0       | None         |
-| 1     | Point-Level Velocity Estimation | 1–2 weeks   | P0       | Phase 0      |
-| 2     | 6D DBSCAN Clustering            | 1 week      | P0       | Phase 1      |
-| 3     | Long-Tail Track Management      | 1–2 weeks   | P1       | Phase 2      |
-| 4     | Sparse Continuation Logic       | 1 week      | P1       | Phase 2      |
-| 5     | Track Fragment Merging          | 1–2 weeks   | P2       | Phases 3, 4  |
-| 6     | Pipeline, Storage, and API      | 1 week      | P1       | All phases   |
-| 7     | Validation and Rollout          | 1–2 weeks   | P1       | Phase 6      |
+| Phase | Description                     | Duration  | Priority | Dependencies |
+| ----- | ------------------------------- | --------- | -------- | ------------ |
+| 0     | Instrumentation and Fixtures    | 1 week    | P0       | None         |
+| 1     | Point-Level Velocity Estimation | 1–2 weeks | P0       | Phase 0      |
+| 2     | 6D DBSCAN Clustering            | 1 week    | P0       | Phase 1      |
+| 3     | Long-Tail Track Management      | 1–2 weeks | P1       | Phase 2      |
+| 4     | Sparse Continuation Logic       | 1 week    | P1       | Phase 2      |
+| 5     | Track Fragment Merging          | 1–2 weeks | P2       | Phases 3, 4  |
+| 6     | Pipeline, Storage, and API      | 1 week    | P1       | All phases   |
+| 7     | Validation and Rollout          | 1–2 weeks | P1       | Phase 6      |
 
 ### Implementation Files
 
 | Phase | File                                          | Description                    |
-|-------|-----------------------------------------------|--------------------------------|
+| ----- | --------------------------------------------- | ------------------------------ |
 | 1     | `internal/lidar/velocity_estimation.go`       | Per-point velocity computation |
 | 1     | `internal/lidar/velocity_estimation_test.go`  | Unit tests                     |
 | 2     | `internal/lidar/clustering_6d.go`             | 6D DBSCAN implementation       |
@@ -1326,20 +1326,20 @@ CREATE INDEX idx_track_merges_result ON lidar_track_merges(result_track_id);
 
 These targets are hypotheses to validate against measured outcomes, not committed production guarantees.
 
-| Metric                                              | Target                    |
-|-----------------------------------------------------|---------------------------|
-| Sparse-object recall (3–11 points)                  | +20% to +40% relative     |
-| Track fragmentation rate                            | −10% to −25% relative     |
-| Median track duration for boundary-crossing objects | +10% to +30% relative     |
-| Additional false positives vs baseline              | <+10%                     |
-| Throughput regression at target frame rate          | <20%                      |
+| Metric                                              | Target                |
+| --------------------------------------------------- | --------------------- |
+| Sparse-object recall (3–11 points)                  | +20% to +40% relative |
+| Track fragmentation rate                            | −10% to −25% relative |
+| Median track duration for boundary-crossing objects | +10% to +30% relative |
+| Additional false positives vs baseline              | <+10%                 |
+| Throughput regression at target frame rate          | <20%                  |
 
 ---
 
 ## Risks and Mitigations
 
 | Risk                                                     | Mitigation                                                                  |
-|----------------------------------------------------------|-----------------------------------------------------------------------------|
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Low `MinPts` increases noise clusters                    | Strict velocity-confidence and variance gates in sparse mode                |
 | Over-aggressive post-tail prediction causes ghost tracks | Uncertainty growth caps and hard prediction timeout                         |
 | Incorrect fragment merges corrupt track statistics       | Conservative merge threshold + auditable merge logs in `lidar_track_merges` |
@@ -1357,14 +1357,14 @@ These targets are hypotheses to validate against measured outcomes, not committe
 
 ## Milestones
 
-| Milestone | Completion Criteria                                                              |
-|-----------|----------------------------------------------------------------------------------|
-| M0        | Reproducible baseline report generated from one command                          |
-| M1        | Phase 1 complete — per-point velocities with confidence scores validated         |
-| M2        | Phase 2 complete — stable sparse clustering with MinPts=3                        |
-| M3        | Phases 3–4 complete — long-tail states and sparse continuation working           |
-| M4        | Phase 5 complete — audited fragment merging with queryable merge trail           |
-| M5        | Phases 6–7 complete — dual-source API, storage, validation, rollout decision     |
+| Milestone | Completion Criteria                                                          |
+| --------- | ---------------------------------------------------------------------------- |
+| M0        | Reproducible baseline report generated from one command                      |
+| M1        | Phase 1 complete — per-point velocities with confidence scores validated     |
+| M2        | Phase 2 complete — stable sparse clustering with MinPts=3                    |
+| M3        | Phases 3–4 complete — long-tail states and sparse continuation working       |
+| M4        | Phase 5 complete — audited fragment merging with queryable merge trail       |
+| M5        | Phases 6–7 complete — dual-source API, storage, validation, rollout decision |
 
 ---
 
@@ -1416,25 +1416,25 @@ Where:
 The prototype implementation applies practical simplifications for the traffic monitoring use case:
 
 | Design Section          | Original Spec                          | Implementation                           | Rationale                      |
-|-------------------------|----------------------------------------|------------------------------------------|--------------------------------|
+| ----------------------- | -------------------------------------- | ---------------------------------------- | ------------------------------ |
 | **Tracking Model**      | 6D (x,y,z,vx,vy,vz)                    | 2D+velocity (x,y,vx,vy)                  | Ground-plane assumption valid  |
 | **6D DBSCAN**           | Full 6D spatial index                  | Sequential 3D position + velocity filter | Simpler, reuses existing index |
-| **MinPts**              | 3                                      | 3 ✅                                      | Implemented as designed        |
-| **Velocity Estimation** | Frame correspondence + back-projection | Frame correspondence ✅                   | Implemented as designed        |
-| **Long-Tail Tracking**  | Pre-tail + post-tail states            | Implemented ✅                            | Working as designed            |
-| **Fragment Merging**    | Full kinematic matching                | Basic implementation ✅                   | Simplified merge criteria      |
-| **Sparse Continuation** | Adaptive tolerances by point count     | Implemented ✅                            | Working as designed            |
+| **MinPts**              | 3                                      | 3 ✅                                     | Implemented as designed        |
+| **Velocity Estimation** | Frame correspondence + back-projection | Frame correspondence ✅                  | Implemented as designed        |
+| **Long-Tail Tracking**  | Pre-tail + post-tail states            | Implemented ✅                           | Working as designed            |
+| **Fragment Merging**    | Full kinematic matching                | Basic implementation ✅                  | Simplified merge criteria      |
+| **Sparse Continuation** | Adaptive tolerances by point count     | Implemented ✅                           | Working as designed            |
 
 ### Key Implementation Files (Prototype)
 
-| Phase       | Design Section  | Implementation File                                |
-|-------------|-----------------|----------------------------------------------------|
-| Phase 1     | §8 above        | `velocity_estimation.go`                           |
-| Phase 2     | §9 above        | `velocity_coherent_clustering.go`                  |
-| Phase 3     | §10 above       | `velocity_coherent_tracking.go`                    |
-| Phase 4     | §11 above       | `velocity_coherent_tracking.go`                    |
-| Phase 5     | §12 above       | `velocity_coherent_merging.go`                     |
-| Integration | §13–14 above    | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
+| Phase       | Design Section | Implementation File                                |
+| ----------- | -------------- | -------------------------------------------------- |
+| Phase 1     | §8 above       | `velocity_estimation.go`                           |
+| Phase 2     | §9 above       | `velocity_coherent_clustering.go`                  |
+| Phase 3     | §10 above      | `velocity_coherent_tracking.go`                    |
+| Phase 4     | §11 above      | `velocity_coherent_tracking.go`                    |
+| Phase 5     | §12 above      | `velocity_coherent_merging.go`                     |
+| Integration | §13–14 above   | `dual_pipeline.go`, `velocity_coherent_tracker.go` |
 
 ### What Was NOT Implemented (Deferred)
 

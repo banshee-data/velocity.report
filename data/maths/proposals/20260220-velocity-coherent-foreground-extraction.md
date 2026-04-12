@@ -321,7 +321,7 @@ fragmentation quality within defined non-regression bounds.
 ## 11. References
 
 | Reference                    | BibTeX key       | Relevance                                                                                          |
-|------------------------------|------------------|----------------------------------------------------------------------------------------------------|
+| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------- |
 | Bar-Shalom & Fortmann (1988) | `BarShalom1988a` | Bayesian framework for track-assisted detection decisions (Section 3.2 covariance-gated promotion) |
 | Blom & Bar-Shalom (1988)     | `Blom1988`       | IMM algorithm — `imm_cv_ca_v2` and `imm_cv_ca_rts_eval_v2` engines (Section 5.1)                   |
 | Rauch et al. (1965)          | `Rauch1965`      | RTS fixed-interval smoother — evaluation-only `imm_cv_ca_rts_eval_v2` (Section 5.1)                |

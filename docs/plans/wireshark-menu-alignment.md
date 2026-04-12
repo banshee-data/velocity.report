@@ -13,7 +13,7 @@
 ### Wireshark Menu Bar
 
 | Menu           | Key Sections                                                                      |
-|----------------|-----------------------------------------------------------------------------------|
+| -------------- | --------------------------------------------------------------------------------- |
 | **File**       | Open, Open Recent, Merge, Close, Save, Save As, File Set, Export, Print, Quit     |
 | **Edit**       | Copy, Find, Mark/Unmark, Ignore, Time References, Time Shift, Preferences         |
 | **View**       | Toolbars, Full Screen, Panes, Time Display Format, Name Resolution, Zoom, Colours |
@@ -29,7 +29,7 @@
 ### VelocityVisualiser Menu Bar (current)
 
 | Menu         | Items                                                                         |
-|--------------|-------------------------------------------------------------------------------|
+| ------------ | ----------------------------------------------------------------------------- |
 | **App Info** | About VelocityReport.app                                                      |
 | **File**     | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)                              |
 | **Playback** | Play/Pause (Space), Step Fwd (.), Step Back (,), Rate +/- (]/[), Time Display |
@@ -50,106 +50,106 @@ or proposed). Categories:
 
 ### File Menu
 
-| Wireshark Item            | VV Equivalent            | Status | Notes                                          |
-|---------------------------|--------------------------|--------|------------------------------------------------|
-| Open                      | Open Recording... (⌘O)   | ✅      | Opens VRLOG directory                          |
-| Open Recent               | —                        | 🟡      | Submenu of recently opened VRLOGs              |
-| Merge                     | —                        | ⬜      | No packet merging concept                      |
-| Import from Hex Dump      | —                        | ⬜      | Protocol-specific                              |
-| Close                     | —                        | 🟡      | Close current VRLOG / disconnect               |
-| Save / Save As            | —                        | 🔵      | Export current recording? (read-only replayer) |
-| File Set                  | —                        | 🔵      | Navigate between related VRLOGs                |
-| Export Packet Dissections | —                        | 🔵      | Export tracks as CSV/JSON                      |
-| Export Packet Bytes       | —                        | ⬜      | Byte-level export N/A                          |
-| Export Objects            | —                        | ⬜      | Protocol-specific                              |
-| Print                     | —                        | 🔵      | Print current view / generate PDF?             |
-| Quit                      | (⌘Q — system)            | ✅      | macOS provides automatically                   |
+| Wireshark Item            | VV Equivalent          | Status | Notes                                          |
+| ------------------------- | ---------------------- | ------ | ---------------------------------------------- |
+| Open                      | Open Recording... (⌘O) | ✅     | Opens VRLOG directory                          |
+| Open Recent               | —                      | 🟡     | Submenu of recently opened VRLOGs              |
+| Merge                     | —                      | ⬜     | No packet merging concept                      |
+| Import from Hex Dump      | —                      | ⬜     | Protocol-specific                              |
+| Close                     | —                      | 🟡     | Close current VRLOG / disconnect               |
+| Save / Save As            | —                      | 🔵     | Export current recording? (read-only replayer) |
+| File Set                  | —                      | 🔵     | Navigate between related VRLOGs                |
+| Export Packet Dissections | —                      | 🔵     | Export tracks as CSV/JSON                      |
+| Export Packet Bytes       | —                      | ⬜     | Byte-level export N/A                          |
+| Export Objects            | —                      | ⬜     | Protocol-specific                              |
+| Print                     | —                      | 🔵     | Print current view / generate PDF?             |
+| Quit                      | (⌘Q — system)          | ✅     | macOS provides automatically                   |
 
 ### Edit Menu
 
 | Wireshark Item     | VV Equivalent            | Status | Notes                                         |
-|--------------------|--------------------------|--------|-----------------------------------------------|
-| Copy (submenu)     | —                        | 🔵      | Copy track details / point data to clipboard  |
-| Find Packet (⌘F)   | —                        | 🟡      | Find track by ID / velocity range             |
-| Find Next/Previous | —                        | 🔵      | Navigate between search results               |
-| Mark/Unmark        | Label Selected Track (l) | ✅      | Labelling system serves similar purpose       |
-| Ignore/Unignore    | —                        | 🔵      | Hide tracks from view?                        |
-| Set Time Reference | —                        | 🔵      | Mark a frame as t=0 reference                 |
-| Time Shift         | —                        | ⬜      | Not applicable for replay                     |
-| Packet Comments    | —                        | 🔵      | Annotate tracks / frames                      |
-| Preferences (⌘,)   | —                        | 🟡      | Settings panel (connection, display defaults) |
+| ------------------ | ------------------------ | ------ | --------------------------------------------- |
+| Copy (submenu)     | —                        | 🔵     | Copy track details / point data to clipboard  |
+| Find Packet (⌘F)   | —                        | 🟡     | Find track by ID / velocity range             |
+| Find Next/Previous | —                        | 🔵     | Navigate between search results               |
+| Mark/Unmark        | Label Selected Track (l) | ✅     | Labelling system serves similar purpose       |
+| Ignore/Unignore    | —                        | 🔵     | Hide tracks from view?                        |
+| Set Time Reference | —                        | 🔵     | Mark a frame as t=0 reference                 |
+| Time Shift         | —                        | ⬜     | Not applicable for replay                     |
+| Packet Comments    | —                        | 🔵     | Annotate tracks / frames                      |
+| Preferences (⌘,)   | —                        | 🟡     | Settings panel (connection, display defaults) |
 
 ### View Menu
 
-| Wireshark Item          | VV Equivalent          | Status | Notes                                          |
-|-------------------------|------------------------|--------|------------------------------------------------|
-| Main Toolbar            | (always visible)       | ✅      | Toolbar with playback controls                 |
-| Filter Toolbar          | —                      | 🔵      | Filter tracks by velocity / quality flags      |
-| Full Screen             | (system ⌃⌘F)           | ✅      | macOS provides automatically                   |
-| Packet List             | Track list panel       | ✅      | Side panel with track details                  |
-| Packet Details          | Track inspector        | ✅      | Selected track properties                      |
-| Packet Bytes            | —                      | ⬜      | Raw bytes not applicable                       |
-| **Time Display Format** | **Time Display modes** | ✅      | Elapsed / Remaining / Frames (Playback menu)   |
-| Name Resolution         | —                      | ⬜      | Network-specific                               |
-| Zoom In/Out/Normal      | —                      | 🟡      | Camera zoom controls; could add ⌘+/⌘-/⌘0       |
-| Expand/Collapse All     | —                      | 🔵      | Expand/collapse track detail sections          |
-| Colorize Packet List    | —                      | 🔵      | Colour tracks by classification label          |
-| Coloring Rules          | —                      | 🔵      | Custom colouring rules for tracks              |
-| Reset Layout            | —                      | 🔵      | Reset camera / panel layout to defaults        |
-| Internals > Shortcuts   | —                      | 🟡      | Show keyboard shortcut reference               |
+| Wireshark Item          | VV Equivalent          | Status | Notes                                        |
+| ----------------------- | ---------------------- | ------ | -------------------------------------------- |
+| Main Toolbar            | (always visible)       | ✅     | Toolbar with playback controls               |
+| Filter Toolbar          | —                      | 🔵     | Filter tracks by velocity / quality flags    |
+| Full Screen             | (system ⌃⌘F)           | ✅     | macOS provides automatically                 |
+| Packet List             | Track list panel       | ✅     | Side panel with track details                |
+| Packet Details          | Track inspector        | ✅     | Selected track properties                    |
+| Packet Bytes            | —                      | ⬜     | Raw bytes not applicable                     |
+| **Time Display Format** | **Time Display modes** | ✅     | Elapsed / Remaining / Frames (Playback menu) |
+| Name Resolution         | —                      | ⬜     | Network-specific                             |
+| Zoom In/Out/Normal      | —                      | 🟡     | Camera zoom controls; could add ⌘+/⌘-/⌘0     |
+| Expand/Collapse All     | —                      | 🔵     | Expand/collapse track detail sections        |
+| Colorize Packet List    | —                      | 🔵     | Colour tracks by classification label        |
+| Coloring Rules          | —                      | 🔵     | Custom colouring rules for tracks            |
+| Reset Layout            | —                      | 🔵     | Reset camera / panel layout to defaults      |
+| Internals > Shortcuts   | —                      | 🟡     | Show keyboard shortcut reference             |
 
 ### Go Menu
 
 | Wireshark Item            | VV Equivalent       | Status | Notes                                         |
-|---------------------------|---------------------|--------|-----------------------------------------------|
-| Go to Packet (⌘G)         | —                   | 🟡      | Go to frame number (seekbar provides partial) |
-| Next/Previous Packet      | Step Fwd/Back (./,) | ✅      | Frame stepping                                |
-| First/Last Packet         | —                   | 🟡      | Jump to first/last frame (Home/End keys?)     |
-| Next/Prev in Conversation | —                   | 🔵      | Next/prev frame where selected track appears  |
-| Auto Scroll               | —                   | ⬜      | Live capture auto-scroll (N/A for replay)     |
-| History Navigation        | —                   | 🔵      | Selection history (⌥←/⌥→)                     |
+| ------------------------- | ------------------- | ------ | --------------------------------------------- |
+| Go to Packet (⌘G)         | —                   | 🟡     | Go to frame number (seekbar provides partial) |
+| Next/Previous Packet      | Step Fwd/Back (./,) | ✅     | Frame stepping                                |
+| First/Last Packet         | —                   | 🟡     | Jump to first/last frame (Home/End keys?)     |
+| Next/Prev in Conversation | —                   | 🔵     | Next/prev frame where selected track appears  |
+| Auto Scroll               | —                   | ⬜     | Live capture auto-scroll (N/A for replay)     |
+| History Navigation        | —                   | 🔵     | Selection history (⌥←/⌥→)                     |
 
 ### Capture Menu
 
-| Wireshark Item     | VV Equivalent                | Status | Notes                             |
-|--------------------|------------------------------|--------|-----------------------------------|
-| Start/Stop         | Connect/Disconnect (⇧⌘C)     | ✅      | Analogous: start/stop data stream |
-| Restart            | —                            | 🔵      | Reconnect to server               |
-| Options            | —                            | 🟡      | Connection settings (host, port)  |
-| Capture Filters    | —                            | ⬜      | BPF filters N/A                   |
-| Refresh Interfaces | —                            | ⬜      | Network interfaces N/A            |
+| Wireshark Item     | VV Equivalent            | Status | Notes                             |
+| ------------------ | ------------------------ | ------ | --------------------------------- |
+| Start/Stop         | Connect/Disconnect (⇧⌘C) | ✅     | Analogous: start/stop data stream |
+| Restart            | —                        | 🔵     | Reconnect to server               |
+| Options            | —                        | 🟡     | Connection settings (host, port)  |
+| Capture Filters    | —                        | ⬜     | BPF filters N/A                   |
+| Refresh Interfaces | —                        | ⬜     | Network interfaces N/A            |
 
 ### Analyse Menu
 
 | Wireshark Item          | VV Equivalent | Status | Notes                                          |
-|-------------------------|---------------|--------|------------------------------------------------|
-| Display Filters         | —             | 🟡      | Filter expression builder for tracks           |
-| Apply/Prepare as Filter | —             | 🔵      | Apply track property as filter                 |
-| Follow Stream           | —             | 🔵      | Follow a track across frames (highlight trail) |
-| Decode As               | —             | ⬜      | Protocol-specific                              |
-| Expert Info             | —             | 🔵      | Quality flag summary / anomaly report          |
+| ----------------------- | ------------- | ------ | ---------------------------------------------- |
+| Display Filters         | —             | 🟡     | Filter expression builder for tracks           |
+| Apply/Prepare as Filter | —             | 🔵     | Apply track property as filter                 |
+| Follow Stream           | —             | 🔵     | Follow a track across frames (highlight trail) |
+| Decode As               | —             | ⬜     | Protocol-specific                              |
+| Expert Info             | —             | 🔵     | Quality flag summary / anomaly report          |
 
 ### Statistics Menu
 
 | Wireshark Item          | VV Equivalent | Status | Notes                                        |
-|-------------------------|---------------|--------|----------------------------------------------|
-| Capture File Properties | —             | 🟡      | VRLOG metadata: duration, frames, site info  |
-| Protocol Hierarchy      | —             | ⬜      | Protocol-specific                            |
-| Conversations           | —             | 🔵      | Track summary: count, avg velocity, duration |
-| Endpoints               | —             | ⬜      | Network endpoints N/A                        |
-| Packet Lengths          | —             | 🔵      | Point count per frame distribution           |
-| I/O Graphs              | —             | 🔵      | Tracks/frame over time, velocity histogram   |
-| Plots                   | —             | 🔵      | Live plotting of track properties            |
+| ----------------------- | ------------- | ------ | -------------------------------------------- |
+| Capture File Properties | —             | 🟡     | VRLOG metadata: duration, frames, site info  |
+| Protocol Hierarchy      | —             | ⬜     | Protocol-specific                            |
+| Conversations           | —             | 🔵     | Track summary: count, avg velocity, duration |
+| Endpoints               | —             | ⬜     | Network endpoints N/A                        |
+| Packet Lengths          | —             | 🔵     | Point count per frame distribution           |
+| I/O Graphs              | —             | 🔵     | Tracks/frame over time, velocity histogram   |
+| Plots                   | —             | 🔵     | Live plotting of track properties            |
 
 ### Help Menu
 
 | Wireshark Item     | VV Equivalent            | Status | Notes                         |
-|--------------------|--------------------------|--------|-------------------------------|
-| User Guide (F1)    | —                        | 🔵      | Link to docs site             |
-| Keyboard Shortcuts | —                        | 🟡      | Show shortcut reference sheet |
-| Website            | —                        | 🔵      | Open velocity.report website  |
-| Release Notes      | —                        | 🔵      | Show CHANGELOG                |
-| About              | About VelocityReport.app | ✅      | Already implemented           |
+| ------------------ | ------------------------ | ------ | ----------------------------- |
+| User Guide (F1)    | —                        | 🔵     | Link to docs site             |
+| Keyboard Shortcuts | —                        | 🟡     | Show shortcut reference sheet |
+| Website            | —                        | 🔵     | Open velocity.report website  |
+| Release Notes      | —                        | 🔵     | Show CHANGELOG                |
+| About              | About VelocityReport.app | ✅     | Already implemented           |
 
 ---
 
@@ -158,7 +158,7 @@ or proposed). Categories:
 ### Current VelocityVisualiser Shortcuts (single-key, keep as-is)
 
 | Key   | Action               | Wireshark Equivalent |
-|-------|----------------------|----------------------|
+| ----- | -------------------- | -------------------- |
 | Space | Play/Pause           | —                    |
 | .     | Step Forward         | —                    |
 | ,     | Step Backward        | —                    |
@@ -177,21 +177,21 @@ or proposed). Categories:
 
 ### Proposed New Shortcuts (multi-key combos, Wireshark-aligned)
 
-| Shortcut | Proposed Action               | Wireshark Equivalent                     |
-|----------|-------------------------------|------------------------------------------|
-| ⌘O       | Open Recording (exists)       | Open (⌘O)                                |
-| ⇧⌘C      | Connect/Disconnect (exists)   | — (Capture Start is ⌘E in Wireshark)     |
-| ⌘G       | Go to Frame                   | Go to Packet (⌘G)                        |
-| ⌘F       | Find Track                    | Find Packet (⌘F)                         |
-| ⌘,       | Preferences                   | Preferences (⌘,)                         |
-| ⌘+       | Zoom In                       | Zoom In (⌘+)                             |
-| ⌘-       | Zoom Out                      | Zoom Out (⌘-)                            |
-| ⌘0       | Reset Zoom                    | Normal Size (⌘0)                         |
-| ⌘W       | Close Recording               | Close (⌘W)                               |
-| ⌘Home    | Jump to First Frame           | First Packet (⌘Home)                     |
-| ⌘End     | Jump to Last Frame            | Last Packet (⌘End)                       |
-| ⌥→       | Next in Selection History     | Next Packet In History (⌥→)              |
-| ⌥←       | Previous in Selection History | Previous Packet In History (⌥←)          |
+| Shortcut | Proposed Action               | Wireshark Equivalent                 |
+| -------- | ----------------------------- | ------------------------------------ |
+| ⌘O       | Open Recording (exists)       | Open (⌘O)                            |
+| ⇧⌘C      | Connect/Disconnect (exists)   | — (Capture Start is ⌘E in Wireshark) |
+| ⌘G       | Go to Frame                   | Go to Packet (⌘G)                    |
+| ⌘F       | Find Track                    | Find Packet (⌘F)                     |
+| ⌘,       | Preferences                   | Preferences (⌘,)                     |
+| ⌘+       | Zoom In                       | Zoom In (⌘+)                         |
+| ⌘-       | Zoom Out                      | Zoom Out (⌘-)                        |
+| ⌘0       | Reset Zoom                    | Normal Size (⌘0)                     |
+| ⌘W       | Close Recording               | Close (⌘W)                           |
+| ⌘Home    | Jump to First Frame           | First Packet (⌘Home)                 |
+| ⌘End     | Jump to Last Frame            | Last Packet (⌘End)                   |
+| ⌥→       | Next in Selection History     | Next Packet In History (⌥→)          |
+| ⌥←       | Previous in Selection History | Previous Packet In History (⌥←)      |
 
 ---
 
@@ -314,6 +314,5 @@ VelocityReport.app
 5. **No conflict with single-key shortcuts** — all new shortcuts use modifier keys
 6. **Time Display in View** — Wireshark places time format under View; VelocityVisualiser
    keeps it under Playback (more logical for replay context)
-
 7. **Separation of concerns** — View for display options, Playback for temporal navigation,
    Labels for annotation, Statistics for aggregate analysis

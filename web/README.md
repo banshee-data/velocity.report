@@ -12,7 +12,6 @@ Svelte-based frontend for real-time traffic data visualization.
 - **[Svelte 5](https://svelte.dev/)** - Fast, reactive UI framework
 - **[@sveltejs/adapter-static](https://www.npmjs.com/package/@sveltejs/adapter-static)** - Static
   site generation
-
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first styling
 - **[svelte-ux 2](https://svelte-ux.techniq.dev/)** - UI components
 - **[LayerChart 2](https://www.layerchart.com/)** - Data visualization

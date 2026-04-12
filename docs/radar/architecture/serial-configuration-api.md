@@ -11,22 +11,22 @@ API endpoint specifications for serial port configuration, testing, and auto-det
 
 **Endpoints:**
 
-| # | Method   | Path                      | Purpose                                                 |
-|---|----------|---------------------------|---------------------------------------------------------|
-| 1 | `GET`    | `/api/serial/configs`     | List all serial configurations                          |
-| 2 | `GET`    | `/api/serial/configs/:id` | Get single configuration                                |
-| 3 | `POST`   | `/api/serial/configs`     | Create configuration                                    |
-| 4 | `PUT`    | `/api/serial/configs/:id` | Update configuration (partial updates supported)        |
-| 5 | `DELETE` | `/api/serial/configs/:id` | Delete configuration (returns `204`)                    |
-| 6 | `GET`    | `/api/serial/devices`     | List available serial devices (excludes assigned ports) |
-| 7 | `GET`    | `/api/serial/models`      | List sensor models from application code                |
+| #   | Method   | Path                      | Purpose                                                 |
+| --- | -------- | ------------------------- | ------------------------------------------------------- |
+| 1   | `GET`    | `/api/serial/configs`     | List all serial configurations                          |
+| 2   | `GET`    | `/api/serial/configs/:id` | Get single configuration                                |
+| 3   | `POST`   | `/api/serial/configs`     | Create configuration                                    |
+| 4   | `PUT`    | `/api/serial/configs/:id` | Update configuration (partial updates supported)        |
+| 5   | `DELETE` | `/api/serial/configs/:id` | Delete configuration (returns `204`)                    |
+| 6   | `GET`    | `/api/serial/devices`     | List available serial devices (excludes assigned ports) |
+| 7   | `GET`    | `/api/serial/models`      | List sensor models from application code                |
 
 ### Response schemas
 
 **Config object** (returned by endpoints 1–5):
 
 | Field          | Type    | Notes                             |
-|----------------|---------|-----------------------------------|
+| -------------- | ------- | --------------------------------- |
 | `id`           | integer | Auto-assigned                     |
 | `name`         | string  | Unique                            |
 | `port_path`    | string  | e.g. `/dev/ttySC1`                |
@@ -45,7 +45,7 @@ API endpoint specifications for serial port configuration, testing, and auto-det
 **Device object** (endpoint 6):
 
 | Field           | Type    | Notes                  |
-|-----------------|---------|------------------------|
+| --------------- | ------- | ---------------------- |
 | `port_path`     | string  | e.g. `/dev/ttyUSB0`    |
 | `friendly_name` | string  | e.g. `OPS243-A (FTDI)` |
 | `vendor_id`     | string  | USB vendor ID          |
@@ -57,7 +57,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 **Sensor model object** (endpoint 7, sourced from application code):
 
 | Field               | Type     | Notes                          |
-|---------------------|----------|--------------------------------|
+| ------------------- | -------- | ------------------------------ |
 | `slug`              | string   | `ops243-a` or `ops243-c`       |
 | `display_name`      | string   | Full product name              |
 | `has_doppler`       | boolean  |                                |
@@ -72,7 +72,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 ### Error handling
 
 | Status | Meaning                                    |
-|--------|--------------------------------------------|
+| ------ | ------------------------------------------ |
 | `400`  | Invalid values or unsupported sensor model |
 | `404`  | Config ID does not exist                   |
 | `409`  | Name already exists (unique constraint)    |
@@ -83,13 +83,13 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 **Requirement:** Validate serial port configuration before saving
 
 | Method | Path               |
-|--------|--------------------|
+| ------ | ------------------ |
 | `POST` | `/api/serial/test` |
 
 ### Request fields
 
 | Field               | Type    | Notes         |
-|---------------------|---------|---------------|
+| ------------------- | ------- | ------------- |
 | `port_path`         | string  | Required      |
 | `baud_rate`         | integer | Required      |
 | `data_bits`         | integer | Default 8     |
@@ -117,7 +117,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 ### Diagnostic suggestions
 
 | Condition          | Suggestion                                                                |
-|--------------------|---------------------------------------------------------------------------|
+| ------------------ | ------------------------------------------------------------------------- |
 | Port not found     | Check device is connected and appears in `/dev/`                          |
 | Permission denied  | `sudo usermod -a -G dialout velocity && sudo reboot`                      |
 | Timeout            | Device may be at wrong baud rate: try 9600, 115200, or other common rates |
@@ -128,7 +128,7 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 ### OPS243 baud rate commands
 
 | Command | Rate               |
-|---------|--------------------|
+| ------- | ------------------ |
 | `I1`    | 9,600              |
 | `I2`    | 19,200 (default)   |
 | `I3`    | 57,600             |
@@ -152,10 +152,10 @@ Enumerates `/dev/tty*` and `/dev/serial*` via udev/sysfs. Filters out paths alre
 
 ### Endpoints
 
-| # | Method | Path                      | Purpose                                     |
-|---|--------|---------------------------|---------------------------------------------|
-| 1 | `POST` | `/api/serial/auto-detect` | Find connected device (port + baud + model) |
-| 2 | `POST` | `/api/serial/detect-baud` | Find baud rate for a known port             |
+| #   | Method | Path                      | Purpose                                     |
+| --- | ------ | ------------------------- | ------------------------------------------- |
+| 1   | `POST` | `/api/serial/auto-detect` | Find connected device (port + baud + model) |
+| 2   | `POST` | `/api/serial/detect-baud` | Find baud rate for a known port             |
 
 ### Auto-detect request/response
 

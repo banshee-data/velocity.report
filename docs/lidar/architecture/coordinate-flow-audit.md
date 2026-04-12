@@ -29,7 +29,7 @@ floating-point accuracy penalty from repeated back-and-forth inversion.
 ## Canonical Coordinate Forms
 
 | Form            | Struct(s)                                     | Package(s)                                                                           | Meaning                                                                                                                                                              |
-|-----------------|-----------------------------------------------|--------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Packet polar    | `PointPolar`                                  | `internal/lidar/l1packets/parse`, `internal/lidar/l4perception`                      | Sensor-local spherical-style point: channel, azimuth, elevation, distance, plus intensity and packet/time hints (timestamp, block/UDP sequencing, raw block azimuth) |
 | Frame Cartesian | `Point`, `LiDARFrame.Points`                  | `internal/lidar/l2frames`                                                            | Sensor-local Cartesian point cloud with original polar metadata still attached                                                                                       |
 | World Cartesian | `WorldPoint`, `WorldCluster`, `TrackedObject` | `internal/lidar/l4perception`, `internal/lidar/l5tracks`, `internal/lidar/l6objects` | Cartesian geometry used for clustering, tracking, persistence                                                                                                        |
@@ -68,7 +68,7 @@ flowchart TD
 ## Critical Chain Matrix
 
 | Step                         | Module / file                                                  | Input form             | Output form                   | Critical tracking chain | Transform performed                            | Accuracy note                                              |
-|------------------------------|----------------------------------------------------------------|------------------------|-------------------------------|-------------------------|------------------------------------------------|------------------------------------------------------------|
+| ---------------------------- | -------------------------------------------------------------- | ---------------------- | ----------------------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
 | Packet parse                 | `internal/lidar/l1packets/parse/extract.go`                    | UDP bytes              | `[]PointPolar`                | Yes                     | No Cartesian math yet                          | Source form is polar                                       |
 | Frame ingest                 | `internal/lidar/l2frames/frame_builder.go` `AddPointsPolar()`  | `[]PointPolar`         | `[]Point` inside `LiDARFrame` | Yes                     | `polar -> sensor Cartesian`                    | First trig projection                                      |
 | Frame storage                | `internal/lidar/l2frames/frame_builder.go` `LiDARFrame.Points` | `Point`                | `Point`                       | Yes                     | None                                           | Original polar metadata is retained in each `Point`        |
@@ -84,7 +84,7 @@ flowchart TD
 ## Side-Branch Matrix
 
 | Branch                           | Module / file                                                                                                | Input form                           | Output form         | In critical chain | Transform performed            | Note                                                                                           |
-|----------------------------------|--------------------------------------------------------------------------------------------------------------|--------------------------------------|---------------------|-------------------|--------------------------------|------------------------------------------------------------------------------------------------|
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------- | ----------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
 | gRPC point cloud                 | `internal/lidar/visualiser/adapter.go`                                                                       | `frame.Points []Point`               | point cloud arrays  | No                | None                           | Uses L2 Cartesian directly                                                                     |
 | LidarView UDP foreground forward | `internal/lidar/visualiser/lidarview_adapter.go`, `internal/lidar/l1packets/network/foreground_forwarder.go` | foreground `[]PointPolar`            | rebuilt UDP packets | No                | No Cartesian math              | Preserves packet-like polar path                                                               |
 | Foreground debug snapshot        | `internal/lidar/l3grid/foreground_snapshot.go`                                                               | foreground/background `[]PointPolar` | lazy projected XYZ  | No                | Polar -> Cartesian on access   | Debug-only projection                                                                          |
@@ -156,7 +156,7 @@ Reasons:
 Order-of-magnitude comparison at `200 m` range:
 
 | Quantity                          | Approximate scale |
-|-----------------------------------|-------------------|
+| --------------------------------- | ----------------- |
 | Sensor distance quantisation      | `4e-3 m`          |
 | `float32` position ulp near 200 m | about `2.4e-5 m`  |
 | `float64` position ulp near 200 m | about `4e-14 m`   |
@@ -185,7 +185,7 @@ The main risk is semantic and architectural, not numeric:
 ## Accuracy Verdict
 
 | Concern                                                            | Verdict                                       |
-|--------------------------------------------------------------------|-----------------------------------------------|
+| ------------------------------------------------------------------ | --------------------------------------------- |
 | Multiple inverse/forward flip-flops causing cumulative point drift | No                                            |
 | Redundant forward trig projections in critical chain               | Yes                                           |
 | Material geometry loss from current double projection              | No                                            |

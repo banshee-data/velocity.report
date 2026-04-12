@@ -18,10 +18,8 @@ The L5 CV Kalman tracker uses three noise parameters:
 
 - `process_noise_pos` (0.05): position process noise, controls how much the
   filter trusts the motion model vs measurements for position.
-
 - `process_noise_vel` (0.2): velocity process noise, controls velocity
   responsiveness to acceleration.
-
 - `measurement_noise` (0.05): observation noise, should match actual sensor
   measurement uncertainty.
 
@@ -45,7 +43,7 @@ keys at production defaults.
 #### Keys under test
 
 | Config key          | Default | Sweep range  | Risk if wrong                                            |
-|---------------------|---------|--------------|----------------------------------------------------------|
+| ------------------- | ------- | ------------ | -------------------------------------------------------- |
 | `process_noise_pos` | 0.05    | [0.01, 0.5]  | Track instability or sluggish response                   |
 | `process_noise_vel` | 0.2     | [0.05, 2.0]  | Velocity estimate lag or overshoot                       |
 | `measurement_noise` | 0.05    | [0.01, 0.25] | Incorrect Kalman gain, over/under-weighting measurements |
@@ -63,16 +61,16 @@ the configured value is mismatched to the actual sensor noise.
 
 **Gated metrics (available via GroundTruthEvaluator):**
 
-| Metric             | Definition                                              | Threshold                 |
-|--------------------|---------------------------------------------------------|---------------------------|
-| Track completeness | Fraction of GT tracks matched with temporal IoU ≥ 0.5   | No regression vs baseline |
-| Fragmentation rate | Pipeline tracks per ground-truth track                  | < 1.2 for vehicles        |
-| Objective function | Composite score from `GroundTruthEvaluator`             | Within 10% of optimal     |
+| Metric             | Definition                                            | Threshold                 |
+| ------------------ | ----------------------------------------------------- | ------------------------- |
+| Track completeness | Fraction of GT tracks matched with temporal IoU ≥ 0.5 | No regression vs baseline |
+| Fragmentation rate | Pipeline tracks per ground-truth track                | < 1.2 for vehicles        |
+| Objective function | Composite score from `GroundTruthEvaluator`           | Within 10% of optimal     |
 
 **Future / manual diagnostics (not yet in evaluator):**
 
 | Metric       | Definition                                      | Notes                              |
-|--------------|-------------------------------------------------|------------------------------------|
+| ------------ | ----------------------------------------------- | ---------------------------------- |
 | Track jitter | RMS position deviation from smoothed trajectory | Requires trajectory ground truth   |
 | Speed RMSE   | RMS error of per-track speed vs ground truth    | Requires speed ground truth labels |
 

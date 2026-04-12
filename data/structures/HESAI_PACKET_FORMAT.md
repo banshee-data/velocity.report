@@ -105,7 +105,7 @@ The 22-byte data tail contains sensor status, timing, and protocol information.
 Based on packet analysis and LiDAR protocol specification:
 
 | Byte Range | Field        | Format    | Description                       | Example Value        |
-|------------|--------------|-----------|-----------------------------------|----------------------|
+| ---------- | ------------ | --------- | --------------------------------- | -------------------- |
 | 0-4        | Reserved1    | 5 bytes   | Reserved fields                   | `0007e90004`         |
 | 5          | HighTempFlag | uint8     | Temperature status                | `0x00` (normal)      |
 | 6-7        | Reserved2    | 2 bytes   | Reserved fields                   | `7000`               |

@@ -8,7 +8,6 @@ The sweep tool (`cmd/sweep`) automates parameter optimisation for the background
    ```bash
    make dev-go   # Local development server (radar disabled)
    ```
-
 2. A golden PCAP file captured at the deployment site. This file should contain representative traffic (vehicles, pedestrians, cyclists) to test detection quality.
 3. The sweep binary:
    ```bash
@@ -21,18 +20,18 @@ The sweep tool (`cmd/sweep`) automates parameter optimisation for the background
 
 The background subtraction model classifies each LiDAR point as background (static) or foreground (moving). Three parameters control its sensitivity:
 
-| Parameter                  | API Field                     | Description                                                                                                                                                        | Typical Range  |
-|----------------------------|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|
-| **Noise relative**         | `noise_relative`              | How much variance a background voxel tolerates before a point is classified as foreground. Lower = more sensitive, higher = more tolerant of environmental noise.  | 0.005 – 0.03   |
-| **Closeness multiplier**   | `closeness_multiplier`        | Spatial threshold for matching a point to its background voxel. Lower = stricter matching (more points classified as foreground).                                  | 1.5 – 3.0      |
-| **Neighbour confirmation** | `neighbor_confirmation_count` | Minimum number of neighbouring voxels that must also consider a point foreground before it is accepted. Higher = fewer false positives but may miss small objects. | 0 – 3          |
+| Parameter                  | API Field                     | Description                                                                                                                                                        | Typical Range |
+| -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| **Noise relative**         | `noise_relative`              | How much variance a background voxel tolerates before a point is classified as foreground. Lower = more sensitive, higher = more tolerant of environmental noise.  | 0.005 – 0.03  |
+| **Closeness multiplier**   | `closeness_multiplier`        | Spatial threshold for matching a point to its background voxel. Lower = stricter matching (more points classified as foreground).                                  | 1.5 – 3.0     |
+| **Neighbour confirmation** | `neighbor_confirmation_count` | Minimum number of neighbouring voxels that must also consider a point foreground before it is accepted. Higher = fewer false positives but may miss small objects. | 0 – 3         |
 
 ### Tracker Parameters
 
 The tracker uses a Kalman filter with Hungarian association to follow objects across frames. Key tuneable parameters:
 
 | Parameter                    | API Field                 | Description                                                                                                     | Typical Range |
-|------------------------------|---------------------------|-----------------------------------------------------------------------------------------------------------------|---------------|
+| ---------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------- |
 | **Gating distance²**         | `gating_distance_squared` | Maximum squared Mahalanobis distance for associating a cluster with a track. Larger = more permissive matching. | 16.0 – 64.0   |
 | **Process noise (position)** | `process_noise_pos`       | How much the model expects position to drift between frames. Higher = more tolerance for erratic motion.        | 0.05 – 0.5    |
 | **Measurement noise**        | `measurement_noise`       | Expected variance in the cluster centroid measurement. Higher = smoother but less responsive tracks.            | 0.1 – 0.5     |
@@ -101,7 +100,7 @@ The output CSV contains per-combination metrics:
 ## Common Options
 
 | Flag           | Default                 | Description                                  |
-|----------------|-------------------------|----------------------------------------------|
+| -------------- | ----------------------- | -------------------------------------------- |
 | `-monitor`     | `http://localhost:8081` | Base URL for the LiDAR monitor HTTP API      |
 | `-sensor`      | `hesai-pandar40p`       | Sensor ID                                    |
 | `-pcap`        | _(none)_                | PCAP file to replay for each combination     |

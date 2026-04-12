@@ -43,7 +43,7 @@ but will break under GPS/PTP modes or multi-sensor configurations.
 Key hotspots where bare `time.Now()` creates testability risk:
 
 | Location                                     | Category                     | Risk   |
-|----------------------------------------------|------------------------------|--------|
+| -------------------------------------------- | ---------------------------- | ------ |
 | `l1packets/parse/extract.go:226,236,467,498` | Parser boot-time / timestamp | Medium |
 | `l2frames/frame_builder.go:163`              | `time.AfterFunc` cleanup     | Medium |
 | `l3grid/` (multiple calls)                   | Background model timestamps  | Low    |
@@ -67,10 +67,8 @@ Conflation points:
 
 - `extract.go:226` — `bootTime: time.Now()` initialises
   device-internal offset from wall clock
-
 - `extract.go:467,498` — falls back to `packetTime = time.Now()`
   when sensor timestamp unavailable
-
 - `l5tracks/tracking.go:192` — `dt` computed from
   `timestamp.UnixNano()`, which may be sensor or wall time
   depending on upstream `TimestampMode`
@@ -140,7 +138,7 @@ reference.
 ### Clock adoption scope
 
 | Option | Description        | Effort | Risk   |
-|--------|--------------------|--------|--------|
+| ------ | ------------------ | ------ | ------ |
 | A      | Do nothing         | Zero   | High   |
 | B      | Critical-path only | M      | Low    |
 | C      | Full migration     | L      | Medium |
@@ -154,7 +152,7 @@ injection. The remaining ~60 `time.Now()` call sites in `l3grid`,
 ### Time-domain formalisation
 
 | Option | Description         | Effort | Risk   |
-|--------|---------------------|--------|--------|
+| ------ | ------------------- | ------ | ------ |
 | A      | Document boundary   | S      | Low    |
 | B      | Type-tag timestamps | M      | Medium |
 | C      | Alignment service   | L      | High   |
@@ -205,12 +203,12 @@ optional type-level enforcement when multi-sensor lands.
 
 ## Failure Registry
 
-| Component          | Failure Mode            | Recovery               |
-|--------------------|-------------------------|------------------------|
-| Clock → Pipeline   | Nil clock → panic       | Default `RealClock{}`  |
-| Clock → FrameBld   | Nil clock → panic       | Default `RealClock{}`  |
-| MockClock.Advance  | Forget → test hangs     | Document; use timeouts |
-| Time-domain drift  | Tracker dt vs wall time | SystemTime is default  |
+| Component         | Failure Mode            | Recovery               |
+| ----------------- | ----------------------- | ---------------------- |
+| Clock → Pipeline  | Nil clock → panic       | Default `RealClock{}`  |
+| Clock → FrameBld  | Nil clock → panic       | Default `RealClock{}`  |
+| MockClock.Advance | Forget → test hangs     | Document; use timeouts |
+| Time-domain drift | Tracker dt vs wall time | SystemTime is default  |
 
 ## Implementation Plan
 
@@ -220,24 +218,19 @@ optional type-level enforcement when multi-sensor lands.
       Default to `RealClock{}` in `NewFrameBuilder` if nil. Add
       `AfterFunc` method to `Clock` interface. Replace
       `time.AfterFunc` calls with `clock.AfterFunc()`.
-
 - [ ] **A2.** Add `Clock timeutil.Clock` to
       `TrackingPipelineConfig`. Default to `RealClock{}` in
       `NewFrameCallback` if nil. Replace `time.Now()` in throttle
       logic with `clock.Now()`.
-
 - [ ] **A3.** Add `Clock` parameter to `newFrameTimer()` in
       `pipeline/frame_timer.go`. Replace three bare `time.Now()` /
       `time.Since()` calls.
-
 - [ ] **A4.** Add `Clock` to `ReplayServer` /
       `streamFromReader`. Replace `time.Sleep()` and `time.Time{}`
       pacing with clock-driven intervals.
-
 - [ ] **A5.** Write tests for throttle behaviour using
       `MockClock.Advance()` — verify frames within
       `minFrameInterval` are skipped without waiting real time.
-
 - [ ] **A6.** Write tests for FrameBuilder cleanup using
       `MockClock` — verify stale frames are cleaned up after
       advancing mock time past `CleanupInterval`.
@@ -251,15 +244,12 @@ mechanism.
 
 - [ ] **B1.** Add `testutil.WaitFor(t, condition, timeout)`
       polling helper to `internal/testutil/`.
-
 - [ ] **B2.** Audit all `time.Sleep` calls in `_test.go` files.
       Replace with `MockClock.Advance()` where a `Clock` is
       available, or `WaitFor` polling where it is not.
-
 - [ ] **B3.** Replace production `time.Sleep` in
       `l9endpoints/replay.go` with `clock.Sleep()` (covered by A4
       above) — verify replay tests no longer depend on wall time.
-
 - [ ] **B4.** Document the `MockClock.Advance()` test pattern
       and `WaitFor` helper in a short section in
       `docs/platform/architecture/structured-logging.md` or a
@@ -274,17 +264,13 @@ testability benefits justify the review surface.
 
 - [ ] **C1.** `l3grid/` — ~17 background model timestamps
       (audit/diagnostic). Migrate to `Clock.Now()`.
-
 - [ ] **C2.** `l1packets/parse/extract.go` — boot-time and
       fallback packet timestamping (4 calls). Requires careful
       handling of `TimestampMode` interactions.
-
 - [ ] **C3.** `serialmux/serialmux.go` — radar clock sync
       (2 calls). Low priority; one-shot init.
-
 - [ ] **C4.** `cmd/radar/` and `cmd/tools/` — startup/CLI
       timestamps. Low testability benefit.
-
 - [ ] **C5.** `internal/db/` — DB audit timestamps. Low
       testability benefit but may be useful for deterministic
       test snapshots.
@@ -294,13 +280,11 @@ testability benefits justify the review surface.
 - [ ] **D1.** When L7 Scene is designed, define a
       `TimestampAligner` interface accepting frames from N sensors
       with independent clocks producing a unified timeline.
-
 - [ ] **D2.** When multi-model ingestion lands, ensure each
       `FrameBuilder` instance carries its own `Clock` for
       independent spin rates and frame timing per sensor. Provide
       an option to share a `Clock` across sensors that require
       frame-rate synchronisation.
-
 - [ ] **D3.** Evaluate whether radar serial timestamps need
       alignment with LiDAR timestamps for sensor-fusion use cases.
 
@@ -311,12 +295,10 @@ testability benefits justify the review surface.
       `StartTimestamp/EndTimestamp` (sensor, used for dt and
       Kalman) vs `StartWallTime/EndWallTime` (host, used for rate
       control and diagnostics).
-
 - [ ] **E2.** Create
       `docs/lidar/architecture/time-domain-model.md` explaining the
       sensor-time vs wall-time boundary, when each is appropriate,
       and implications for multi-sensor fusion.
-
 - [ ] **E3.** Add a note to
       `multi-model-ingestion-and-configuration.md` referencing the
       time-domain model and identifying cross-sensor timestamp
@@ -328,24 +310,22 @@ testability benefits justify the review surface.
       `extract.go` (lines 460–510). Verify that the `dt` computed
       in the tracker is monotonically increasing for each mode.
       Add a unit test per mode.
-
 - [ ] **F2.** Add a regression test: replay a VRLOG file with
       `MockClock`, verify tracker `dt` values match original sensor
       timestamp intervals (not wall-clock replay intervals).
-
 - [ ] **F3.** Verify `time.AfterFunc` replacement in
       FrameBuilder does not regress race tests
       (`toasc_race_test.go`).
 
 ## Size Estimates
 
-| Phase | Scope                                | Effort             |
-|-------|--------------------------------------|--------------------|
-| A     | Clock injection into four subsystems | M (2–3 days)       |
-| B     | time.Sleep elimination in tests      | S–M (1–2 days)     |
-| C     | Full remaining time.Now() migration  | M (future work)    |
-| D     | Multi-sensor preparation             | Deferred           |
-| E     | Documentation and type comments      | S (½ day)          |
-| F     | Timestamp mode audit and regression  | S (½ day)          |
+| Phase | Scope                                | Effort          |
+| ----- | ------------------------------------ | --------------- |
+| A     | Clock injection into four subsystems | M (2–3 days)    |
+| B     | time.Sleep elimination in tests      | S–M (1–2 days)  |
+| C     | Full remaining time.Now() migration  | M (future work) |
+| D     | Multi-sensor preparation             | Deferred        |
+| E     | Documentation and type comments      | S (½ day)       |
+| F     | Timestamp mode audit and regression  | S (½ day)       |
 
 **Size key:** S = ½ day, M = 1–3 days, L = 3+ days

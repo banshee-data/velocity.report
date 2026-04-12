@@ -22,18 +22,18 @@ The v0.5.0 release redesigned the speed contract, protobuf schema, and database 
 
 ## Tracking Snapshot
 
-| Outcome             | Sections                          | Notes                                                                                                                                                                |
-|---------------------|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Removed in code     | §2-§4, §6, §7, §9-§14, §17        | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code, sweep dashboard legacy param aliases all clean |
-| Complete / resolved | §1, §14, §15                      | Speed contract reset landed in #352; §14 alias map fully removed; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified                |
-| Deferred / retained | §5, §8                            | Either owned by another plan or still an active implementation path rather than a removable shim today                                                               |
-| Reclassified        | §16                               | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                                                        |
-| Pending removal     | §18                               | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                                                              |
+| Outcome             | Sections                   | Notes                                                                                                                                                                |
+| ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removed in code     | §2-§4, §6, §7, §9-§14, §17 | All non-SQL-migration shims removed; sweep fields, download endpoint, `PacketHeader`, Python/web/macOS fallback code, sweep dashboard legacy param aliases all clean |
+| Complete / resolved | §1, §14, §15               | Speed contract reset landed in #352; §14 alias map fully removed; branch-local percentile surfaces never merged; `avgSpeedMps`/`maxSpeedMps` verified                |
+| Deferred / retained | §5, §8                     | Either owned by another plan or still an active implementation path rather than a removable shim today                                                               |
+| Reclassified        | §16                        | `pointBuffer` is a rendering fallback, not a compat shim; tracked as renderer-retirement work                                                                        |
+| Pending removal     | §18                        | VRLOG `Track.UnmarshalJSON` legacy speed-key fallback; deferred to v0.5.2 after migration window closes                                                              |
 
 ## Shim Work Already Removed
 
 | Shim                                           | Section | Notes                                                                                                     |
-|------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------------|
+| ---------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
 | Lenient sweep JSON parsing removed             | §4      | Empty body and malformed JSON now both return `400 Bad Request`; the previous lenient path is gone        |
 | Stale `AddPoints` removal note deleted         | §7      | `frame_builder.go` no longer carries the compat comment                                                   |
 | Sweep legacy request/result fields removed     | §2      | `SweepRequest` and `ComboResult` use `ParamValues` map only; `computeCombinations()` removed              |
@@ -83,12 +83,10 @@ Intersections with other parent-plan projects:
 - **Project B (deploy retirement):** Deploy executor compat methods (§5 below)
   are deferred to Project B and will be removed when the retirement gate is met.
   No action in this plan beyond documenting them.
-
 - **Project C (#252 sweep migration):** Sweep legacy field removal (§2, §14
   below) removes the old request/result field names. Project C covers the full
   sweep UI migration to the Svelte frontend. The field-name cleanup here is a
   prerequisite for clean Project C work.
-
 - **Proto contract plan:** The track speed contract reset (§1, §15 below) is
   also tracked in the
   [proto contract plan](lidar-visualiser-proto-contract-and-debug-overlay-fixes-plan.md)
@@ -105,10 +103,10 @@ Intersections with other parent-plan projects:
 ### 1. Go Server — track speed contract reset
 
 | Item                                     | Location                                                                               | Status       | Detail                                                                                                                          |
-|------------------------------------------|----------------------------------------------------------------------------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | Stable public track field                | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | Active       | `avg_speed_mps` remains the stable running-mean field for now                                                                   |
-| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed    | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
-| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved   | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
+| Stable public raw-max field              | `internal/lidar/monitor/track_api.go`, `proto/velocity_visualiser/v1/visualiser.proto` | ✅ Renamed   | `peak_speed_mps` renamed to `max_speed_mps` on proto (field 25), Go, Swift, TS in #352; SQL column deferred to migration 000030 |
+| Branch-local percentile additions        | proto, REST, visualiser model/UI                                                       | ✅ Resolved  | Single-track aggregate-percentile label expansion was not merged; percentiles remain aggregate-only                             |
 | Existing percentile columns/calculations | `lidar_tracks`, analysis runs, classifier features                                     | Transitional | SQL columns remain until migration 000030; no new public dependency should be added                                             |
 
 **Decision:** Keep `avg_speed_mps` and the raw maximum as the only stable public
@@ -123,7 +121,6 @@ non-percentile names and formulas.
 1. ~~Back out unmerged single-track aggregate-percentile proto/REST/UI work before merge~~ — ✅ resolved; fields not merged
 2. ~~Rename public/raw `peak_speed_mps` references to `max_speed_mps` where the
    contract is still unshipped~~ — ✅ complete (#352); SQL column deferred to migration 000030
-
 3. Define replacement public track metrics in the speed percentile alignment plan
 4. Migrate any temporary internal percentile dependencies to the new track metrics
 5. Keep aggregate percentile work isolated to grouped/report surfaces
@@ -133,7 +130,7 @@ non-percentile names and formulas.
 ### 2. Go Server — Sweep legacy request format
 
 | Item                             | Location                               | Status  | Detail                                                                          |
-|----------------------------------|----------------------------------------|---------|---------------------------------------------------------------------------------|
+| -------------------------------- | -------------------------------------- | ------- | ------------------------------------------------------------------------------- |
 | Legacy multi-mode request fields | `internal/lidar/sweep/runner.go`       | Removed | `SweepRequest` uses generic `Params` only; legacy mode-specific fields are gone |
 | Legacy result fields             | `internal/lidar/sweep/runner.go`       | Removed | `ComboResult` uses `ParamValues` map only; top-level aliases removed            |
 | Legacy combination helper        | `internal/lidar/sweep/sweep_params.go` | Removed | `computeCombinations()` replaced by generic `cartesianProduct()`                |
@@ -146,7 +143,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 ### 3. Go Server + Web — Legacy download endpoint format
 
 | Item                                    | Location                                                         | Status  | Detail                                                                                                 |
-|-----------------------------------------|------------------------------------------------------------------|---------|--------------------------------------------------------------------------------------------------------|
+| --------------------------------------- | ---------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
 | Path-based route enforcement            | `internal/api/server.go`                                         | Removed | `/api/reports/{id}/download/{filename}` is now the only accepted route; missing filenames are rejected |
 | Legacy query-param callers              | `web/src/lib/api.ts`                                             | Removed | Web helper uses filename-based path; no `file_type` query parameter remains                            |
 | Legacy `file_type` wording and coverage | `internal/api/server.go`, `internal/api/server_coverage_test.go` | Removed | No `file_type` parameter references remain in server or test code                                      |
@@ -158,7 +155,7 @@ complete. Dashboard fallback cleanup in §14 is also done.
 ### 4. Go Server — Lenient JSON parsing in sweep handler
 
 | Item                  | Location                                   | Status  | Detail                                                                                     |
-|-----------------------|--------------------------------------------|---------|--------------------------------------------------------------------------------------------|
+| --------------------- | ------------------------------------------ | ------- | ------------------------------------------------------------------------------------------ |
 | Ignored decode errors | `internal/lidar/monitor/sweep_handlers.go` | Removed | The handler now allows empty request bodies only; malformed JSON returns `400 Bad Request` |
 
 **Action:** No further shim removal needed here; keep coverage that malformed
@@ -169,7 +166,7 @@ JSON is rejected.
 ### 5. Go Server — Deploy executor backward-compat methods
 
 | Item              | Location                      | Status   | Detail                                                                                        |
-|-------------------|-------------------------------|----------|-----------------------------------------------------------------------------------------------|
+| ----------------- | ----------------------------- | -------- | --------------------------------------------------------------------------------------------- |
 | `buildSSHCommand` | `internal/deploy/executor.go` | Deferred | Still kept for backward compatibility with `WriteFile`; removal is owned by deploy retirement |
 | `buildSCPArgs`    | `internal/deploy/executor.go` | Deferred | Still present for tests until deploy tooling is retired                                       |
 
@@ -182,7 +179,7 @@ warning.
 ### 6. Go Server — Deprecated packet header struct
 
 | Item                  | Location                                    | Status  | Detail                                                |
-|-----------------------|---------------------------------------------|---------|-------------------------------------------------------|
+| --------------------- | ------------------------------------------- | ------- | ----------------------------------------------------- |
 | `PacketHeader` struct | `internal/lidar/l1packets/parse/extract.go` | Removed | The deprecated reference-only struct has been deleted |
 
 **Action:** No further action needed.
@@ -192,7 +189,7 @@ warning.
 ### 7. Go Server — Removed method comment
 
 | Item                     | Location                                   | Status  | Detail                                                   |
-|--------------------------|--------------------------------------------|---------|----------------------------------------------------------|
+| ------------------------ | ------------------------------------------ | ------- | -------------------------------------------------------- |
 | `AddPoints` removal note | `internal/lidar/l2frames/frame_builder.go` | Removed | The stale compat comment has been deleted on this branch |
 
 **Action:** None.
@@ -202,7 +199,7 @@ warning.
 ### 8. Go Server — Type aliases in `lidar/aliases.go`
 
 | Item                | Location                    | Status   | Detail                                                                                                                   |
-|---------------------|-----------------------------|----------|--------------------------------------------------------------------------------------------------------------------------|
+| ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Cross-layer aliases | `internal/lidar/aliases.go` | Retained | Still actively used by integration tests and adapter-style callers; this is a documented package-boundary choice for now |
 
 **Action:** Evaluate whether these are still needed. If integration tests can
@@ -215,7 +212,7 @@ document the intent.
 ### 9. Python — Legacy API response format handling
 
 | Item                        | Location                                                     | Status  | Detail                                                                   |
-|-----------------------------|--------------------------------------------------------------|---------|--------------------------------------------------------------------------|
+| --------------------------- | ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
 | Dual-format parsing         | `tools/pdf-generator/pdf_generator/core/api_client.py`       | Removed | Client expects dict format only; `isinstance(payload, list)` branch gone |
 | Legacy list-format handling | `tools/pdf-generator/pdf_generator/cli/main.py`              | Removed | `isinstance(metrics_all, (list, tuple))` legacy branch removed           |
 | Legacy-format test coverage | `tools/pdf-generator/pdf_generator/tests/test_api_client.py` | Removed | `test_get_stats_legacy_format()` no longer exists                        |
@@ -227,7 +224,7 @@ document the intent.
 ### 10. Python — Config dict-conversion backward compatibility
 
 | Item                    | Location                                                   | Status  | Detail                                                                                     |
-|-------------------------|------------------------------------------------------------|---------|--------------------------------------------------------------------------------------------|
+| ----------------------- | ---------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
 | `geometry` property     | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | Property retained as a convenience accessor for LaTeX geometry options, not a compat shim  |
 | Dict conversion helpers | `tools/pdf-generator/pdf_generator/core/config_manager.py` | Removed | `_colors_to_dict`, `_fonts_to_dict` etc. no longer exist; callers use dataclass properties |
 
@@ -238,7 +235,7 @@ document the intent.
 ### 11. Python — PyLaTeX fallback stubs
 
 | Item         | Location                                                     | Status  | Detail                                                                |
-|--------------|--------------------------------------------------------------|---------|-----------------------------------------------------------------------|
+| ------------ | ------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
 | Stub classes | `tools/pdf-generator/pdf_generator/core/document_builder.py` | Removed | `pylatex` is a hard dependency; no fallback stubs for missing imports |
 
 **Action:** Make `pylatex` a hard dependency. Remove the fallback stubs. The PDF
@@ -249,7 +246,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 ### 12. Svelte/Web — Legacy `BackgroundCell` fields
 
 | Item                   | Location                     | Status  | Detail                                                               |
-|------------------------|------------------------------|---------|----------------------------------------------------------------------|
+| ---------------------- | ---------------------------- | ------- | -------------------------------------------------------------------- |
 | Legacy optional fields | `web/src/lib/types/lidar.ts` | Removed | `ring?`, `azimuth_deg?`, and `average_range_meters?` no longer exist |
 
 **Action:** No further action needed.
@@ -259,7 +256,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 ### 13. Svelte/Web — API response envelope migration
 
 | Item                             | Location                      | Status  | Detail                                                                        |
-|----------------------------------|-------------------------------|---------|-------------------------------------------------------------------------------|
+| -------------------------------- | ----------------------------- | ------- | ----------------------------------------------------------------------------- |
 | Fetch helper root-object parsing | `web/src/lib/api.ts`          | Removed | Runtime fetch code now expects the `{ metrics, histogram }` response envelope |
 | Dual-format cache handling       | `web/src/routes/+page.svelte` | Removed | No `Array.isArray(cached)` dual-format branch; cache uses envelope only       |
 
@@ -270,7 +267,7 @@ generator is non-functional without pylatex — the stubs just defer the error.
 ### 14. Web / sweep dashboard — Sweep results legacy field names
 
 | Item                           | Location                                           | Status  | Detail                                                                                                           |
-|--------------------------------|----------------------------------------------------|---------|------------------------------------------------------------------------------------------------------------------|
+| ------------------------------ | -------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
 | Legacy asset fallback          | `internal/lidar/monitor/assets/sweep_dashboard.js` | Removed | `downloadCSV()` and `renderTable()` param lookups use `param_values` only; `extractValue()` retained for metrics |
 | Legacy Svelte tests            | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | Test data updated to use `param_values` format or metric-only objects                                            |
 | Legacy CSV export expectations | `web/src/lib/__tests__/sweep_dashboard.test.ts`    | Removed | CSV tests use `param_values` format only                                                                         |
@@ -287,12 +284,12 @@ removal in the [v0.5.0 tech debt removal plan](v050-tech-debt-removal-plan.md)
 
 ### 15. macOS Visualiser — Branch-local track speed-label surfaces
 
-| Item                                        | Location                                                                  | Status       | Detail                                                               |
-|---------------------------------------------|---------------------------------------------------------------------------|--------------|----------------------------------------------------------------------|
-| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved   | Branch-local aggregate-percentile-labelled fields were not merged    |
-| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved   | No superseded speed-label field mappings in the shipped proto        |
-| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated    | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352)   |
-| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed    | `peak` → `max` terminology updated on unshipped surfaces (#352)      |
+| Item                                        | Location                                                                  | Status      | Detail                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| Swift track model legacy speed-label fields | `tools/visualiser-macos/VelocityVisualiser/Models/Models.swift`           | ✅ Resolved | Branch-local aggregate-percentile-labelled fields were not merged  |
+| Client mapping for legacy speed labels      | `tools/visualiser-macos/VelocityVisualiser/gRPC/VisualiserClient.swift`   | ✅ Resolved | No superseded speed-label field mappings in the shipped proto      |
+| Generated proto bindings                    | `tools/visualiser-macos/VelocityVisualiser/Generated/visualiser.pb.swift` | ✅ Updated  | Regenerated after `peak_speed_mps` → `max_speed_mps` rename (#352) |
+| Raw-max terminology in helpers and UI       | `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`          | ✅ Renamed  | `peak` → `max` terminology updated on unshipped surfaces (#352)    |
 
 **Action:** ✅ Complete. Branch-local speed-label surfaces were not merged.
 The `peak` → `max` rename landed in #352 across proto, Go, Swift, and TS.
@@ -303,7 +300,7 @@ SQL column rename is deferred to migration 000030.
 ### 16. macOS Visualiser — Legacy point buffer
 
 | Item                         | Location                                                                  | Status       | Detail                                                                                                                                                                     |
-|------------------------------|---------------------------------------------------------------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------- | ------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pointBuffer` rendering path | `tools/visualiser-macos/VelocityVisualiser/Rendering/MetalRenderer.swift` | Reclassified | `CompositePointCloudRenderer` is the active rendering path; `pointBuffer` is a rendering fallback (not a data-model compat shim). Reclassified as renderer-retirement work |
 
 **Action:** No action in this plan. `pointBuffer` is not a backward-compatibility
@@ -316,7 +313,7 @@ shim removal.
 ### 17. macOS Visualiser — Legacy playback defaults
 
 | Item                      | Location                                                       | Status  | Detail                                                                                                         |
-|---------------------------|----------------------------------------------------------------|---------|----------------------------------------------------------------------------------------------------------------|
+| ------------------------- | -------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
 | Legacy field preservation | `tools/visualiser-macos/VelocityVisualiser/App/AppState.swift` | Removed | `.unknown` resets `isLive`/`isSeekable`; `displayPlaybackMode` returns `playbackMode` without boolean fallback |
 
 **Action:** The legacy branch and flag preservation are removed.
@@ -329,7 +326,7 @@ uses it directly instead of mutating `isLive`. Tests updated for the new
 ### 18. Go/macOS — VRLOG legacy speed-key fallback
 
 | Item                             | Location                                                         | Status  | Detail                                                                                                                                                |
-|----------------------------------|------------------------------------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------------- | ---------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Track.UnmarshalJSON` fallback   | `internal/lidar/visualiser/model.go`                             | Pending | Remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps` for pre-#352 `.vrlog` files                                                                    |
 | Legacy unmarshal tests           | `internal/lidar/visualiser/model_test.go`                        | Pending | `TestTrack_UnmarshalJSON_LegacyPeakSpeedMps`, `TestTrack_UnmarshalJSON_LegacySnakeCasePeakSpeedMps`, `TestTrack_UnmarshalJSON_NoSpeedFieldLeavesZero` |
 | Legacy recorder deserialise test | `internal/lidar/visualiser/recorder/recorder_test.go`            | Pending | `TestDeserializeFrameLegacySpeedField`                                                                                                                |
@@ -348,17 +345,17 @@ pre-#352 `.vrlog` files to close. After removal, old `.vrlog` files with
 
 The following are **not** compat shims and should be retained:
 
-| Item                                                                                     | Reason to keep                                              |
-|------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`, `storage/sqlite/types.go` | Avoid import cycles — architectural necessity, not compat   |
-| `ClassPed = ClassPedestrian` short alias                                                 | Convenience alias, not legacy                               |
-| gRPC `UnimplementedServer` embedding                                                     | Required by protobuf-go for forward compat                  |
-| gRPC stream type aliases (generated)                                                     | Auto-generated by protoc, not hand-maintained               |
-| `FrameType_FRAME_TYPE_FULL` enum value                                                   | Valid operational mode, not deprecated                      |
-| SVG-to-PDF converter fallback chain                                                      | Graceful degradation for different environments             |
-| Font fallback logic in PDF generator                                                     | Operational resilience, not compat                          |
-| DB legacy detection in `db.go:296-319`                                                   | Needed for upgrades from pre-migration databases            |
-| Old migration files (000002-000019)                                                      | Immutable history; never modify applied migrations          |
+| Item                                                                                     | Reason to keep                                            |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`, `storage/sqlite/types.go` | Avoid import cycles — architectural necessity, not compat |
+| `ClassPed = ClassPedestrian` short alias                                                 | Convenience alias, not legacy                             |
+| gRPC `UnimplementedServer` embedding                                                     | Required by protobuf-go for forward compat                |
+| gRPC stream type aliases (generated)                                                     | Auto-generated by protoc, not hand-maintained             |
+| `FrameType_FRAME_TYPE_FULL` enum value                                                   | Valid operational mode, not deprecated                    |
+| SVG-to-PDF converter fallback chain                                                      | Graceful degradation for different environments           |
+| Font fallback logic in PDF generator                                                     | Operational resilience, not compat                        |
+| DB legacy detection in `db.go:296-319`                                                   | Needed for upgrades from pre-migration databases          |
+| Old migration files (000002-000019)                                                      | Immutable history; never modify applied migrations        |
 
 ---
 
@@ -366,17 +363,17 @@ The following are **not** compat shims and should be retained:
 
 ### External contract changes
 
-| Area                        | Old / branch-local state                                  | Target state                                                                  | Status              | Notes                                                               |
-|-----------------------------|-----------------------------------------------------------|-------------------------------------------------------------------------------|---------------------|---------------------------------------------------------------------|
-| Track speed public contract | `peak_speed_mps` on proto and model surfaces              | `max_speed_mps` on proto/Go/Swift/TS; SQL column deferred to migration 000030 | ✅ Complete (#352)   | Percentiles remain aggregate-only                                   |
-| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                | `/api/reports/{id}/download/{filename}.pdf`                                   | Partial             | Server route is already strict; callers/tests still need migration  |
-| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks   | `param_values` only                                                           | Partial             | Go request/result cleanup is done; dashboard fallbacks/tests remain |
-| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data | `{ "metrics": [...], "histogram": {...} }` only                               | Partial             | Fetch helper is updated; cache fallback remains                     |
+| Area                        | Old / branch-local state                                  | Target state                                                                  | Status             | Notes                                                               |
+| --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------- |
+| Track speed public contract | `peak_speed_mps` on proto and model surfaces              | `max_speed_mps` on proto/Go/Swift/TS; SQL column deferred to migration 000030 | ✅ Complete (#352) | Percentiles remain aggregate-only                                   |
+| Report downloads            | `/api/reports/{id}/download?file_type=pdf`                | `/api/reports/{id}/download/{filename}.pdf`                                   | Partial            | Server route is already strict; callers/tests still need migration  |
+| Sweep results               | Top-level `noise` / `closeness` / `neighbour` fallbacks   | `param_values` only                                                           | Partial            | Go request/result cleanup is done; dashboard fallbacks/tests remain |
+| Radar stats payload         | Bare `[...]` arrays may still exist in cached client data | `{ "metrics": [...], "histogram": {...} }` only                               | Partial            | Fetch helper is updated; cache fallback remains                     |
 
 ### Internal cleanup targets
 
 | Area                    | Target state                                                        | Status  | Notes                                                   |
-|-------------------------|---------------------------------------------------------------------|---------|---------------------------------------------------------|
+| ----------------------- | ------------------------------------------------------------------- | ------- | ------------------------------------------------------- |
 | Sweep JSON parsing      | Malformed JSON rejected with `400`                                  | Removed | Landed                                                  |
 | Packet parsing          | `PacketHeader` deleted                                              | Pending | Deprecated reference-only struct still exists on `main` |
 | Frame builder docs      | Stale `AddPoints` compat note removed                               | Removed | Landed on this branch                                   |
@@ -444,17 +441,14 @@ The following are **not** compat shims and should be retained:
 - This plan is intentionally aggressive: all shims removed in one release.
   Maintaining dual formats across a minor release boundary would require test
   matrices and documentation for both formats, which costs more than a clean break.
-
 - The speed contract reset is complete: `peak_speed_mps` → `max_speed_mps` landed in
   #352. `avg_speed_mps` remains the stable running-mean field for tracks;
   grouped/report aggregates continue to use percentile terminology. The SQL
   column rename is deferred to migration 000030.
-
 - Items gated on external dependencies (deploy retirement, frontend consolidation)
   are excluded from this plan and tracked in the parent
   [Simplification and Deprecation Plan](platform-simplification-and-deprecation-plan.md)
   Projects B and C respectively.
-
 - The breaking changes in this sub-plan are summarised in the parent plan's
   v0.5.0 Breaking Changes section (items 1, 4-7). That section is the
   consumer-facing changelog; this document is the implementation detail.

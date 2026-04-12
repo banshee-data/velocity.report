@@ -17,7 +17,6 @@ bump. No temporary dual-format shims retained after the cut.
 
 - Type aliases in `lidar/l3grid/types.go`, `l6objects/types.go`,
   `storage/sqlite/types.go` — avoid import cycles.
-
 - gRPC `UnimplementedServer` embedding — required by protobuf-go.
 - gRPC stream type aliases — auto-generated.
 - SVG-to-PDF converter fallback chain — operational resilience.
@@ -33,9 +32,9 @@ bump. No temporary dual-format shims retained after the cut.
 
 ## Config Restructure Status
 
-| Phase | Description                 | Status       |
-|-------|-----------------------------|--------------|
-| 1     | Structural realignment      | ✅ Complete   |
-| 2     | Essential variable exposure | ✅ Complete   |
-| 2B    | Experiment contract         | Proposed     |
-| 3     | Remaining variable exposure | Proposed     |
+| Phase | Description                 | Status      |
+| ----- | --------------------------- | ----------- |
+| 1     | Structural realignment      | ✅ Complete |
+| 2     | Essential variable exposure | ✅ Complete |
+| 2B    | Experiment contract         | Proposed    |
+| 3     | Remaining variable exposure | Proposed    |

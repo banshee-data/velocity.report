@@ -30,7 +30,6 @@ The split should be:
 
 1. `tictactail`: all aggregation, live refresh, history rendering, alignment,
    colours, spinner, and output mechanics
-
 2. application emitter/projector: choose keys and feed flat samples
 3. thin adapter: CLI command or route glue
 

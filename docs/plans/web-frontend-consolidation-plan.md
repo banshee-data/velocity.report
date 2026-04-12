@@ -44,7 +44,7 @@ The Svelte app was originally conceived as radar-only, with LiDAR interfaces liv
 ### Pain Points
 
 | Problem                                       | Impact                                                   |
-|-----------------------------------------------|----------------------------------------------------------|
+| --------------------------------------------- | -------------------------------------------------------- |
 | LiDAR nav items visible in radar-only deploys | Confusing UX; broken links when `--enable-lidar` is off  |
 | Sweep dashboard only on 8081                  | Users must know two ports; no unified navigation         |
 | ECharts in Go embeds, LayerChart in Svelte    | Two charting stacks to maintain                          |
@@ -142,21 +142,21 @@ Like Option B, but use SvelteKit's build configuration or a Vite plugin to strip
 
 ## Decision Matrix
 
-| Criterion                  | Weight | Option A (Two Apps)         | Option B (One App, Conditional) | Option C (One App, Build-Time) |
-|----------------------------|--------|-----------------------------|---------------------------------|--------------------------------|
-| **Level of Effort**        | High   | 🔴 High                      | 🟢 Low                           | 🟡 Medium                       |
-| **Migration risk**         | High   | 🔴 High (split + rebuild)    | 🟢 Low (incremental)             | 🟡 Medium (custom tooling)      |
-| **Code complexity**        | High   | 🔴 High (duplication)        | 🟢 Low (single codebase)         | 🟡 Medium (build plugins)       |
-| **Usability**              | High   | 🟡 Two ports, two UIs        | 🟢 Single unified UI             | 🟢 Single unified UI            |
-| **Radar-only cleanliness** | Medium | 🟢 Perfect separation        | 🟡 Hidden nav, dead routes       | 🟢 No dead code                 |
-| **Binary size**            | Low    | 🔴 Two bundles               | 🟢 One bundle                    | 🟡 One of two bundles           |
-| **Maintenance burden**     | High   | 🔴 Two of everything         | 🟢 One of everything             | 🟡 Build tooling to maintain    |
-| **Build simplicity**       | Medium | 🔴 Two pipelines             | 🟢 One pipeline                  | 🟡 Two outputs from one         |
+| Criterion                  | Weight | Option A (Two Apps)       | Option B (One App, Conditional) | Option C (One App, Build-Time) |
+| -------------------------- | ------ | ------------------------- | ------------------------------- | ------------------------------ |
+| **Level of Effort**        | High   | 🔴 High                   | 🟢 Low                          | 🟡 Medium                      |
+| **Migration risk**         | High   | 🔴 High (split + rebuild) | 🟢 Low (incremental)            | 🟡 Medium (custom tooling)     |
+| **Code complexity**        | High   | 🔴 High (duplication)     | 🟢 Low (single codebase)        | 🟡 Medium (build plugins)      |
+| **Usability**              | High   | 🟡 Two ports, two UIs     | 🟢 Single unified UI            | 🟢 Single unified UI           |
+| **Radar-only cleanliness** | Medium | 🟢 Perfect separation     | 🟡 Hidden nav, dead routes      | 🟢 No dead code                |
+| **Binary size**            | Low    | 🔴 Two bundles            | 🟢 One bundle                   | 🟡 One of two bundles          |
+| **Maintenance burden**     | High   | 🔴 Two of everything      | 🟢 One of everything            | 🟡 Build tooling to maintain   |
+| **Build simplicity**       | Medium | 🔴 Two pipelines          | 🟢 One pipeline                 | 🟡 Two outputs from one        |
 
 ### Scoring (5 = best, 1 = worst, weighted)
 
 | Criterion              | Weight | A      | B      | C      |
-|------------------------|--------|--------|--------|--------|
+| ---------------------- | ------ | ------ | ------ | ------ |
 | Level of effort        | 3      | 1      | 5      | 3      |
 | Migration risk         | 3      | 1      | 5      | 3      |
 | Code complexity        | 3      | 1      | 5      | 3      |
@@ -261,7 +261,7 @@ The sweep dashboard is the most complex embedded page (`sweep_dashboard.html`, 3
 This is the critical migration that requires rewriting all ECharts visualisations using LayerChart/d3-scale (the Svelte app's existing charting stack). Each chart type must be rebuilt:
 
 | ECharts Chart           | LayerChart Equivalent       | Complexity |
-|-------------------------|-----------------------------|------------|
+| ----------------------- | --------------------------- | ---------- |
 | Acceptance rate line    | Spline + Area               | Low        |
 | Nonzero cells line      | Spline                      | Low        |
 | Bucket distribution bar | Bar chart                   | Low        |
@@ -340,16 +340,16 @@ This reduces binary size and eliminates the dual charting stack.
 
 ## Effort Summary
 
-| Phase     | Scope                              | Effort           | Charting Rewrite                           |
-|-----------|------------------------------------|------------------|--------------------------------------------|
-| 0         | Capabilities API + conditional nav | 2–4 days         | None                                       |
-| 1         | Status page migration              | 2–3 days         | None                                       |
-| 2         | Regions dashboard migration        | 2–3 days         | None (Canvas 2D)                           |
-| 3         | Sweep dashboard migration          | 2–3 weeks        | **8 chart types** (ECharts → LayerChart)   |
-| 4         | Debug dashboard retirement         | 1 day            | None                                       |
-| 5         | Port 8081 retirement               | 3–5 days         | None                                       |
-| 6         | Go embed cleanup                   | 1 day            | None                                       |
-| **Total** |                                    | **~5–6 weeks**   |                                            |
+| Phase     | Scope                              | Effort         | Charting Rewrite                         |
+| --------- | ---------------------------------- | -------------- | ---------------------------------------- |
+| 0         | Capabilities API + conditional nav | 2–4 days       | None                                     |
+| 1         | Status page migration              | 2–3 days       | None                                     |
+| 2         | Regions dashboard migration        | 2–3 days       | None (Canvas 2D)                         |
+| 3         | Sweep dashboard migration          | 2–3 weeks      | **8 chart types** (ECharts → LayerChart) |
+| 4         | Debug dashboard retirement         | 1 day          | None                                     |
+| 5         | Port 8081 retirement               | 3–5 days       | None                                     |
+| 6         | Go embed cleanup                   | 1 day          | None                                     |
+| **Total** |                                    | **~5–6 weeks** |                                          |
 
 Phase 3 (sweep dashboard) dominates the effort due to the ECharts-to-LayerChart rewrite. All other phases are straightforward migrations of forms, tables, and Canvas-based visualisations that don't require charting library translation.
 
@@ -471,7 +471,7 @@ Checklist:
 ## Risks and Mitigations
 
 | Risk                                                       | Likelihood | Impact | Mitigation                                                                                                  |
-|------------------------------------------------------------|------------|--------|-------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
 | LayerChart lacks heatmap support for sweep charts          | High       | Medium | Use raw Canvas/SVG within Svelte component; LayerChart isn't required for every chart                       |
 | Sweep dashboard polling logic is complex to port           | Medium     | Medium | Svelte stores + `setInterval` can replicate the polling pattern; consider SSE for future improvement        |
 | Hot-enable/disable LiDAR disrupts radar logging            | Medium     | High   | Introduce a LiDAR lifecycle manager with start/stop isolation and tests that assert radar stream continuity |

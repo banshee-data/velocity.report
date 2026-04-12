@@ -27,14 +27,14 @@ breakdowns and hardware-specific regression detection.
 Add timing instrumentation to each pipeline layer so that the benchmark
 report includes per-layer breakdowns:
 
-| Layer   | Operation                           | Measured as                                      |
-|---------|-------------------------------------|--------------------------------------------------|
-| L1–L2   | Packet parse + frame assembly       | Wall-clock time from first packet to frame ready |
-| L3      | Background update + foreground mask | Wall-clock time for `ProcessFramePolarWithMask`  |
-| L4      | Ground filter + DBSCAN + OBB        | Wall-clock time for full L4 pass                 |
-| L5      | Kalman predict + Hungarian + update | Wall-clock time for tracker step                 |
-| L6      | Classification                      | Wall-clock time for classify pass                |
-| Total   | End-to-end frame processing         | Sum of above                                     |
+| Layer | Operation                           | Measured as                                      |
+| ----- | ----------------------------------- | ------------------------------------------------ |
+| L1–L2 | Packet parse + frame assembly       | Wall-clock time from first packet to frame ready |
+| L3    | Background update + foreground mask | Wall-clock time for `ProcessFramePolarWithMask`  |
+| L4    | Ground filter + DBSCAN + OBB        | Wall-clock time for full L4 pass                 |
+| L5    | Kalman predict + Hungarian + update | Wall-clock time for tracker step                 |
+| L6    | Classification                      | Wall-clock time for classify pass                |
+| Total | End-to-end frame processing         | Sum of above                                     |
 
 Each timing is recorded per-frame and aggregated as: mean, p50, p85, p98,
 max, and standard deviation. The benchmark JSON output includes both
@@ -55,7 +55,7 @@ budget (100 ms at 10 Hz). Report:
 Maintain separate baseline files for each test hardware platform:
 
 | Platform                   | Baseline file             | Where it runs          |
-|----------------------------|---------------------------|------------------------|
+| -------------------------- | ------------------------- | ---------------------- |
 | CI (GitHub Actions runner) | `baseline-{name}-ci.json` | Nightly CI             |
 | Raspberry Pi 4             | `baseline-{name}-pi.json` | Manual or scheduled    |
 | Development machine        | `baseline-{name}.json`    | Local `make test-perf` |
@@ -70,7 +70,6 @@ The harness runs as part of the existing nightly CI job. Extensions:
 
 1. Run `make test-perf` for each PCAP in the test corpus (initially kirk0,
    expanding to 5 PCAPs as the corpus grows).
-
 2. Compare per-layer timings against CI baselines.
 3. Report per-layer regressions (> 15% slower) as warnings.
 4. Report end-to-end regressions (> 10% slower) as failures.
@@ -148,23 +147,21 @@ Extend the current benchmark output with per-layer fields:
 
 ## Implementation phases
 
-| Phase | Work                                               | Effort         |
-|-------|----------------------------------------------------|----------------|
-| 1     | Add per-layer timing to `pcap-analyse` pipeline    | S (1–2 days)   |
-| 2     | Extend benchmark JSON schema with per-layer fields | S (1 day)      |
-| 3     | Add frame drop/lag detection and reporting         | S (1 day)      |
-| 4     | Update CI job to run per-layer comparisons         | S (1 day)      |
-| 5     | Create Pi 4 baseline via manual capture            | S (1 day)      |
-| 6     | Extend to full 5-PCAP corpus as captures arrive    | Ongoing        |
+| Phase | Work                                               | Effort       |
+| ----- | -------------------------------------------------- | ------------ |
+| 1     | Add per-layer timing to `pcap-analyse` pipeline    | S (1–2 days) |
+| 2     | Extend benchmark JSON schema with per-layer fields | S (1 day)    |
+| 3     | Add frame drop/lag detection and reporting         | S (1 day)    |
+| 4     | Update CI job to run per-layer comparisons         | S (1 day)    |
+| 5     | Create Pi 4 baseline via manual capture            | S (1 day)    |
+| 6     | Extend to full 5-PCAP corpus as captures arrive    | Ongoing      |
 
 ## Non-goals
 
 - Real-time performance monitoring during live deployment (separate
   concern; see metrics-registry plan)
-
 - Micro-benchmarks for individual functions (covered by Go benchmark
   tests)
-
 - Memory profiling (separate tooling; add if needed)
 
 ## References

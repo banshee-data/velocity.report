@@ -74,7 +74,7 @@ Tracking pipeline refactor and upgrade proposals.
 ## Quick Links
 
 | Topic                   | Document                                                                                                                                                     |
-|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Layer stack reference   | [architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference](architecture/lidar-data-layer-model.md#canonical-l1-l10-stack-reference)           |
 | Concept/algorithm chart | [architecture/lidar-data-layer-model.md#segmented-concept-status-chart](architecture/lidar-data-layer-model.md#segmented-concept-status-chart)               |
 | Paper/status mapping    | [architecture/lidar-data-layer-model.md#layered-concept-and-literature-status](architecture/lidar-data-layer-model.md#layered-concept-and-literature-status) |

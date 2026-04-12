@@ -6,10 +6,10 @@ Network architecture, listener segmentation, and access control model for veloci
 
 velocity.report runs on a Raspberry Pi 4 deployed on a private LAN alongside traffic sensors. The device has two network interfaces:
 
-| Interface                       | Purpose                                 | Typical address          |
-|---------------------------------|-----------------------------------------|--------------------------|
-| Ethernet (`eth0`)               | Sensor subnet — LiDAR UDP packets       | `192.168.100.x` (static) |
-| Wi-Fi/Ethernet (`wlan0`/`eth1`) | Management — HTTP API, SSH, Tailscale   | DHCP or static           |
+| Interface                       | Purpose                               | Typical address          |
+| ------------------------------- | ------------------------------------- | ------------------------ |
+| Ethernet (`eth0`)               | Sensor subnet — LiDAR UDP packets     | `192.168.100.x` (static) |
+| Wi-Fi/Ethernet (`wlan0`/`eth1`) | Management — HTTP API, SSH, Tailscale | DHCP or static           |
 
 The sensor subnet is a dedicated point-to-point link between the Raspberry Pi and the LiDAR sensor. No other hosts should be present on this subnet.
 
@@ -32,7 +32,7 @@ The LiDAR monitor HTTP server. Provides real-time LiDAR status, tuning, and data
 **Route categories and access intent**:
 
 | Category              | Example endpoints                                         | Access                                                           |
-|-----------------------|-----------------------------------------------------------|------------------------------------------------------------------|
+| --------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- |
 | Status/read-only      | `GET /api/lidar/status`, `GET /api/lidar/traffic`         | LAN                                                              |
 | Tuning                | `POST /api/lidar/params`, `POST /api/lidar/sweep/*`       | LAN                                                              |
 | Data source switching | `POST /api/lidar/pcap/start`, `POST /api/lidar/pcap/stop` | LAN                                                              |

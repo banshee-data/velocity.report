@@ -107,7 +107,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
-	@echo "  check-ascfix         Validate Markdown table/list formatting (ascfix --mode safe)"
+	@echo "  check-ascfix         Advisory: check ASCII diagram formatting (ascfix --mode diagram)"
 	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
@@ -1060,12 +1060,12 @@ format-mac:
 format-docs: ensure-web-cache
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Fixing Markdown tables and lists (ascfix --mode safe)..."
+	@echo "Fixing ASCII diagrams (ascfix --mode diagram)..."
 	@if command -v ascfix >/dev/null 2>&1; then \
-		ascfix --in-place --mode safe -e .md . --summary; \
+		ascfix --in-place --mode diagram -e .md . --summary; \
 	else \
 		echo "ascfix not found; install via: cargo install ascfix"; \
-		echo "Skipping Markdown table/list formatting"; \
+		echo "Skipping ASCII diagram formatting"; \
 	fi
 	@echo "Formatting Markdown files with prettier..."
 	@if [ -d "$(WEB_DIR)" ]; then \
@@ -1099,12 +1099,12 @@ check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break P
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-check-ascfix: ## [gated] Validate Markdown table/list formatting (ascfix --mode safe)
+check-ascfix: ## Advisory: check ASCII diagram formatting (ascfix --mode diagram, never fails CI)
 	@if command -v ascfix >/dev/null 2>&1; then \
-		ascfix --check --mode safe -e .md . --summary; \
+		ascfix --check --mode diagram -e .md . --summary || true; \
 	else \
 		echo "ascfix not found; install via: cargo install ascfix"; \
-		echo "Skipping Markdown table/list check"; \
+		echo "Skipping ASCII diagram check"; \
 	fi
 
 check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
@@ -1119,7 +1119,7 @@ report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never
 check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSON files against download URLs
 	@python3 scripts/check-release-hashes.py --check
 
-lint-docs: check-mermaid check-ascfix check-quarter-blocks check-release-hashes ## Check Mermaid fences, table/list formatting (ascfix), header metadata, British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes ## Check Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

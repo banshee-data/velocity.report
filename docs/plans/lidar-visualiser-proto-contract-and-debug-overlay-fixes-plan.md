@@ -20,20 +20,16 @@ implemented in the gRPC stream path:
 
 1. `FrameBundle.debug` exists in protobuf but is not serialised from the Go
    visualiser server.
-
 2. `StreamRequest.include_debug` and `SetOverlayModes(...)` are accepted but are
    not applied to streamed payloads.
-
 3. ~~Several `Track` and `Cluster` fields are populated in the internal model but
    are dropped during protobuf serialisation.~~ Track fields are now fully
    serialised; Cluster feature fields (`height_p95`, `intensity_mean`,
    `sample_points`) remain unserialised.
-
 4. The branch-local `Track` speed-summary expansion moved in the wrong
    direction. Aggregate percentile labels should not be added to the public
    proto contract; track speed metrics need a separate redesign with distinct
    non-percentile names.
-
 5. `Track.class_label` (string) was replaced with `ObjectClass object_class`
    (enum, field `26`) with a 10-value enumeration. ✅ Implemented.
 
@@ -46,7 +42,6 @@ in the proto as a contract.
 2. Restore debug overlays end-to-end (adapter -> gRPC -> Swift client -> renderer).
 3. Keep track-level speed fields limited to a stable non-percentile contract
    while the redesign is pending.
-
 4. Do not ship track-level aggregate-percentile label additions from this branch.
 5. Add serialisation tests that fail on future field drops.
 
@@ -83,7 +78,6 @@ Notes:
 1. `height_p95` and `intensity_mean` already exist in the internal model **and**
    are populated by `FrameAdapter.adaptClusters(...)`, but `frameBundleToProto`
    does not copy them into the proto `Cluster` message.
-
 2. `sample_points` is declared in the proto and the visualiser model
    (`Cluster.SamplePoints`) but is not currently propagated from
    `l4perception.WorldCluster.SamplePoints` into the adapter output.
@@ -101,11 +95,9 @@ current status:
    superseded percentile-field direction, but that contract reset still needs
    to be backed out before merge. The stable merge-target direction remains
    `avg_speed_mps` plus the raw maximum field for now.
-
 5. ~~`Track.peak_speed_mps`~~ — ✅ serialised
 6. ~~`Track.class_label`~~ — **Superseded.** Proto field `26` is now `ObjectClass object_class`
    (an `ObjectClass` enum, not a string). See [§4.5 ObjectClass enum](#45-objectclass-enum) below.
-
 7. ~~`Track.class_confidence`~~ — ✅ serialised
 8. ~~`Track.track_length_metres`~~ — ✅ serialised
 9. ~~`Track.track_duration_secs`~~ — ✅ serialised
@@ -139,7 +131,6 @@ Conversion is handled by two functions in `grpc_server.go`:
 
 - `objectClassFromString(s string) pb.ObjectClass` — maps canonical class strings
   (e.g. `"car"`, `"pedestrian"`) to the proto enum.
-
 - `classifyOrConvert(t Track) pb.ObjectClass` — returns the stored class if
   present; for VRLOG recordings that pre-date classification, re-classifies from
   per-frame features as a fallback.
@@ -166,13 +157,10 @@ Revised direction for `Track` speed fields in `visualiser.proto`:
 1. Keep field `24` as `avg_speed_mps` (running mean) for now.
 2. Rename the current raw `peak_speed_mps` field on `Track` to `max_speed_mps`
    before merge if the contract is still unshipped.
-
 3. Do **not** ship single-track aggregate-percentile label additions in the merge target. If
    fields `36-38` exist on this branch, they should be backed out before merge.
-
 4. Reserve the name `peak_speed_mps` for a future filtered/context-aware
    top-speed metric if that measure is later added on a new field number.
-
 5. Define any replacement track-level speed fields in a separate redesign, with
    names that are distinct from report/group percentiles.
 
@@ -189,19 +177,15 @@ should not be treated as the merge target for the visualiser contract.
 
 1. Update `frameBundleToProto(...)` to serialise `FrameBundle.debug` when
    `StreamRequest.include_debug=true`.
-
 2. Serialize all currently-dropped `Cluster` fields that are available in the
    internal model (`height_p95`, `intensity_mean`; `sample_points` requires
    adapter propagation first).
-
 3. ~~Serialize all currently-dropped `Track` fields that are already populated in
    the internal model.~~ ✅ Complete — all Track fields are now serialised
    including `ObjectClass` enum via `classifyOrConvert()`.
-
 4. ~~Add/expand tests for `FrameBundle.background`, `frame_type`, and
    `background_seq`.~~ ✅ Complete — background snapshot serialisation implemented
    in `frameBundleToProto(...)` (M3.5).
-
 5. ~~Add `ObjectClass` enum conversion with `objectClassFromString()` and
    `classifyOrConvert()` for VRLOG backward compatibility.~~ ✅ Complete.
 
@@ -213,11 +197,9 @@ remains client-side/advisory and does not drive server-side subset filtering.
 
 1. Gate `FrameBundle.debug` serialisation strictly on
    `StreamRequest.include_debug`.
-
 2. Do not apply stored overlay preferences in `frameBundleToProto(...)` or the
    stream path; the client is responsible for filtering/rendering overlay
    subsets locally.
-
 3. Document `supports_debug` as stream-level capability, not per-overlay
    server-side filtering support.
 
@@ -239,7 +221,6 @@ parity".
    `TestFrameBundleToProto_DebugNotConverted` and
    `TestFrameBundleToProto_DebugFieldAbsent` currently assert `Debug == nil`;
    update these to assert non-nil debug output once serialisation is implemented.
-
 2. Add round-trip field assertions for:
    - debug overlays (`association`, `gating`, `residuals`, `predictions`)
    - cluster feature fields
@@ -247,7 +228,6 @@ parity".
    - merge-target track speed summary fields (`avg_speed_mps` plus the raw maximum field)
 3. Add a regression test for `include_debug=false` to ensure payload omission is
    intentional and explicit.
-
 4. ~~ObjectClass conversion tests~~ ✅ Comprehensive coverage in
    `object_class_conversion_test.go` and `VisualiserClientTests.swift`.
 
@@ -270,7 +250,6 @@ timestamp index at `NewReplayer` load time:
 
 1. At `NewReplayer()`, build a `[]int` sorted by `TimestampNs` (secondary sort
    by index position for stability)
-
 2. Use `sort.Search()` for O(log n) binary search on seek
 3. Add a loading/indexing state to the macOS UI (spinner) while the index
    is being built — visible when loading large VRLOGs
@@ -279,16 +258,12 @@ timestamp index at `NewReplayer` load time:
 
 1. Enabling debug overlays in stream requests produces non-empty `FrameBundle.debug`
    when debug data exists upstream.
-
 2. Swift visualiser receives and renders debug overlays without relying on local
    test-only stub data.
-
 3. Track inspector shows the stable non-percentile track speed fields from
    streamed data and does not standardise on aggregate percentile labels for a single track.
-
 4. Protobuf serialiser tests cover all non-trivial `Track` and `Cluster` fields
    defined by the current schema.
-
 5. `visualiser.proto` field semantics for speed summaries match UI labels.
 
 ## 8. Risks and Open Questions
@@ -297,10 +272,8 @@ timestamp index at `NewReplayer` load time:
    backing out the branch-local speed-summary expansion can temporarily leave
    generated clients or local UI code out of sync until proto bindings are
    regenerated together.
-
 2. Percentile method consistency:
    `p98` may differ slightly between floor-index and interpolated definitions.
-
 3. Capability wording:
    `supports_debug` and overlay-mode docs must make the client-side/advisory
    behaviour explicit to avoid implying server-side subset filtering.

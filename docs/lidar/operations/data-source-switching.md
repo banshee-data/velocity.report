@@ -356,7 +356,7 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 ## Risks & Mitigations
 
 | Risk                              | Impact                   | Mitigation                                           |
-|-----------------------------------|--------------------------|------------------------------------------------------|
+| --------------------------------- | ------------------------ | ---------------------------------------------------- |
 | Race condition during switch      | Data corruption          | Strict mutex locking, well-tested                    |
 | UDP socket leak                   | Resource exhaustion      | Proper context cancellation, defer cleanup           |
 | **Breaking change removes flag**  | **User workflows break** | **Clear migration guide, version notes**             |

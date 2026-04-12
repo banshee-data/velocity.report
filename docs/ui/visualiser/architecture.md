@@ -9,7 +9,7 @@ System architecture for the macOS LiDAR visualiser and the supporting pipeline r
 This architecture aligns with industry-standard LiDAR perception formats:
 
 | Standard                        | Implementation                           | Reference                                                                                         |
-|---------------------------------|------------------------------------------|---------------------------------------------------------------------------------------------------|
+| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)              |
 | **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)            |
 | **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../../lidar/architecture/lidar-background-grid-standards.md) |
@@ -248,7 +248,7 @@ Canonical config/maths mapping source:
 ### 3.1 Why gRPC for Point Cloud Streaming
 
 | Requirement         | gRPC Advantage                |
-|---------------------|-------------------------------|
+| ------------------- | ----------------------------- |
 | **Structured data** | Native protobuf support       |
 | **Streaming**       | Built-in server-streaming RPC |
 | **Type safety**     | Generated Swift + Go stubs    |
@@ -256,7 +256,7 @@ Canonical config/maths mapping source:
 ### 3.2 Why REST for Labelling and Metadata
 
 | Requirement               | REST Advantage                            |
-|---------------------------|-------------------------------------------|
+| ------------------------- | ----------------------------------------- |
 | **Shared with web UI**    | Same API for macOS app and browser        |
 | **Persistent storage**    | Direct SQLite access from Go backend      |
 | **CRUD operations**       | Standard HTTP verbs (GET/POST/PUT/DELETE) |
@@ -280,7 +280,7 @@ Canonical config/maths mapping source:
 ### 3.3 Alternatives Considered
 
 | Option       | Rejected Because                            |
-|--------------|---------------------------------------------|
+| ------------ | ------------------------------------------- |
 | Raw UDP      | No reliability, no structure, no control    |
 | WebSocket    | Requires JSON or custom binary, web-centric |
 | REST polling | High latency, inefficient for streaming     |
@@ -299,7 +299,7 @@ Future option: Enable TLS + authentication for remote access from field laptops.
 ### 4.1 Framework Evaluation
 
 | Framework      | Point Count | Instancing | Custom Shaders | Verdict                  |
-|----------------|-------------|------------|----------------|--------------------------|
+| -------------- | ----------- | ---------- | -------------- | ------------------------ |
 | **SceneKit**   | ~50k        | Limited    | Possible       | Too slow for full clouds |
 | **RealityKit** | ~100k       | Good       | Limited        | AR-focused, not ideal    |
 | **Metal**      | 500k+       | Excellent  | Full control   | **Selected**             |
@@ -456,7 +456,7 @@ velocity-report --lidar-forward-enabled --grpc-enabled
 Since LidarView shows raw points and the visualiser shows semantic data, direct visual comparison isn't possible. Instead, compare:
 
 | Metric            | LidarView                    | Visualiser                  | Comparison                      |
-|-------------------|------------------------------|-----------------------------|---------------------------------|
+| ----------------- | ---------------------------- | --------------------------- | ------------------------------- |
 | Point count/frame | Packet analysis              | `PointCloudFrame.x.len()`   | Should match (if no decimation) |
 | Foreground count  | N/A (all points same colour) | Foreground classification   | N/A                             |
 | Track count       | N/A                          | `TrackSet.tracks.len()`     | Compare with DB                 |
@@ -479,7 +479,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 ### 7.1 LiDAR Ingestion
 
 | File                                 | Purpose                  |
-|--------------------------------------|--------------------------|
+| ------------------------------------ | ------------------------ |
 | `internal/lidar/network/listener.go` | UDP packet reception     |
 | `internal/lidar/parse/extract.go`    | Pandar40P packet parsing |
 | `internal/lidar/frame_builder.go`    | Rotation accumulation    |
@@ -487,14 +487,14 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 ### 7.2 Foreground Extraction
 
 | File                           | Purpose                                       |
-|--------------------------------|-----------------------------------------------|
+| ------------------------------ | --------------------------------------------- |
 | `internal/lidar/background.go` | Background model (polar grid) + M3.5 snapshot |
 | `internal/lidar/foreground.go` | Foreground/background classification          |
 
 ### 7.3 Clustering and Tracking
 
 | File                                    | Purpose                                 |
-|-----------------------------------------|-----------------------------------------|
+| --------------------------------------- | --------------------------------------- |
 | `internal/lidar/clustering.go`          | DBSCAN clustering                       |
 | `internal/lidar/clusterer_interface.go` | M4: ClustererInterface                  |
 | `internal/lidar/dbscan_clusterer.go`    | M4: Deterministic DBSCAN wrapper        |
@@ -506,16 +506,16 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 ### 7.4 LidarView Forwarding
 
 | File                                             | Purpose                       |
-|--------------------------------------------------|-------------------------------|
+| ------------------------------------------------ | ----------------------------- |
 | `internal/lidar/network/foreground_forwarder.go` | Encode + forward to port 2370 |
 | `internal/lidar/network/forwarder.go`            | Raw packet forwarding         |
 
 ### 7.5 Transform and Types
 
-| File                          | Purpose                                  |
-|-------------------------------|------------------------------------------|
-| `internal/lidar/transform.go` | Spherical ↔ Cartesian, pose transforms   |
-| `internal/lidar/arena.go`     | Core data types (Point, Cluster, Track)  |
+| File                          | Purpose                                 |
+| ----------------------------- | --------------------------------------- |
+| `internal/lidar/transform.go` | Spherical ↔ Cartesian, pose transforms  |
+| `internal/lidar/arena.go`     | Core data types (Point, Cluster, Track) |
 
 ---
 
@@ -597,20 +597,18 @@ For static LiDAR deployments, the scene decomposes into background (97%,
 rarely changes) and foreground (3%, every frame). The implemented solution
 sends a background snapshot every 30 s and foreground-only points per frame.
 
-| Metric             | Before         | After (M3.5)     |
-|--------------------|----------------|------------------|
-| Bandwidth (Mbps)   | 78–80          | ~3.25            |
-| avg send time (ms) | 1–600          | <10              |
-| Dropped frames/min | 19+            | ~0               |
-| FG points/frame    | 35–70k (all)   | 1–2k (FG only)   |
+| Metric             | Before       | After (M3.5)   |
+| ------------------ | ------------ | -------------- |
+| Bandwidth (Mbps)   | 78–80        | ~3.25          |
+| avg send time (ms) | 1–600        | <10            |
+| Dropped frames/min | 19+          | ~0             |
+| FG points/frame    | 35–70k (all) | 1–2k (FG only) |
 
 ### Implementation Priority (deferred items)
 
 - **Tier 2:** Client async receive processing, Metal buffer pooling, binary
   protocol optimisation — consider for M7.
-
 - **Tier 3:** Multi-resolution streaming, clusters-only mode, adaptive
   decimation — niche use cases.
-
 - **Tier 4:** Delta encoding, domain-specific compression, temporal
   subsampling — superseded or redundant given M3.5 gains.

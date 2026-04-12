@@ -28,7 +28,7 @@ tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
 The Xcode project includes these package dependencies which are resolved automatically:
 
 | Package                  | Version | Repository                                           |
-|--------------------------|---------|------------------------------------------------------|
+| ------------------------ | ------- | ---------------------------------------------------- |
 | grpc-swift               | 2.2.1+  | https://github.com/grpc/grpc-swift.git               |
 | grpc-swift-nio-transport | 2.4.1+  | https://github.com/grpc/grpc-swift-nio-transport.git |
 | grpc-swift-protobuf      | 2.1.2+  | https://github.com/grpc/grpc-swift-protobuf.git      |

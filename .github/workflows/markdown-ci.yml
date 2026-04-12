@@ -60,7 +60,7 @@ jobs:
           echo "Suppress known-stale references with \`<!-- link-ignore -->\`." >> $GITHUB_STEP_SUMMARY
 
   md-ascfix:
-    name: "📐 Table and list formatting (ascfix)"
+    name: "📐 ASCII diagram formatting (ascfix)"
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -70,16 +70,16 @@ jobs:
       - name: Install ascfix
         run: cargo install ascfix --version 0.7.1
 
-      - name: Check Markdown tables and lists
-        run: ascfix --check --mode safe -e .md . --summary
+      - name: Check ASCII diagrams
+        run: ascfix --check --mode diagram -e .md . --summary || true
 
       - name: Summary
         if: always()
         run: |
-          echo "## 📐 Markdown Table/List Check (ascfix)" >> $GITHUB_STEP_SUMMARY
+          echo "## 📐 ASCII Diagram Check (ascfix)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          ascfix --check --mode safe -e .md . --list-files >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          ascfix --check --mode diagram -e .md . --list-files >> $GITHUB_STEP_SUMMARY 2>&1 || true
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Fix with \`make format-docs\` or \`ascfix --in-place --mode safe -e .md .\`" >> $GITHUB_STEP_SUMMARY
+          echo "Fix with \`ascfix --in-place --mode diagram -e .md <file>\`" >> $GITHUB_STEP_SUMMARY

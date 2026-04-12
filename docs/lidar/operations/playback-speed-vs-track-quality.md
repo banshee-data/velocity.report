@@ -15,11 +15,11 @@ The speed mode determines which throttling mechanisms are active.
 
 ## PCAP Speed Modes
 
-| Mode       | SpeedMultiplier | FrameBuilder             | Pacing                  | Use Case                           |
-|------------|-----------------|--------------------------|-------------------------|------------------------------------|
-| `analysis` | N/A             | **Blocking** (zero drop) | None — `ReadPCAPFile`   | Analysis runs, every frame matters |
-| `realtime` | 1.0             | Non-blocking (drop)      | Wall-clock timing       | Live forwarding, visualiser        |
-| `scaled`   | User ratio      | Non-blocking (drop)      | Wall-clock timing       | Controlled-speed replay            |
+| Mode       | SpeedMultiplier | FrameBuilder             | Pacing                | Use Case                           |
+| ---------- | --------------- | ------------------------ | --------------------- | ---------------------------------- |
+| `analysis` | N/A             | **Blocking** (zero drop) | None — `ReadPCAPFile` | Analysis runs, every frame matters |
+| `realtime` | 1.0             | Non-blocking (drop)      | Wall-clock timing     | Live forwarding, visualiser        |
+| `scaled`   | User ratio      | Non-blocking (drop)      | Wall-clock timing     | Controlled-speed replay            |
 
 Key code: `datasource_handlers.go:508–610`.
 
@@ -57,10 +57,10 @@ whether frames are processed or dropped.
 Accumulates points into 360-degree rotational frames. Completed frames are
 pushed to a channel (capacity **32**).
 
-| Mode                   | Behaviour                          | Drop risk                   |
-|------------------------|------------------------------------|-----------------------------|
-| Non-blocking (default) | `select` on channel; drops if full | Yes — at burst speeds       |
-| Blocking (`analysis`)  | Blocks until pipeline accepts      | None — full back-pressure   |
+| Mode                   | Behaviour                          | Drop risk                 |
+| ---------------------- | ---------------------------------- | ------------------------- |
+| Non-blocking (default) | `select` on channel; drops if full | Yes — at burst speeds     |
+| Blocking (`analysis`)  | Blocks until pipeline accepts      | None — full back-pressure |
 
 **Quality impact:** Dropped frames never reach `Tracker.Update()`, so they do
 **not** increment the miss counter or directly consume the miss budget.
@@ -97,7 +97,7 @@ when frames slow to processable rates.
 **Quality impact at different speeds:**
 
 | Speed                | Effective fps | Throttle active? | Effect                                                                   |
-|----------------------|---------------|------------------|--------------------------------------------------------------------------|
+| -------------------- | ------------- | ---------------- | ------------------------------------------------------------------------ |
 | 0.5x                 | ~5 fps        | No               | Every frame processed                                                    |
 | 1.0x                 | 10-20 fps     | Rarely           | Normal operation                                                         |
 | 2.0x                 | 20-40 fps     | Sometimes        | Some frames skip tracking                                                |
@@ -124,12 +124,10 @@ Clamped at `MaxPredictDt=0.5s` to prevent covariance explosion.
   skipped (sensor rate < cap), so dt ≈ 100 ms. At higher effective frame rates
   (e.g. analysis processing a 20 Hz sensor), the throttle skips every other
   frame, doubling dt to ~100 ms.
-
 - **Realtime/Scaled mode + drops:** Dropped frames are invisible to the tracker.
   The next delivered frame's capture timestamp jumps by the drop gap, stretching
   dt. At 2× speed with occasional drops, dt might reach 200-400 ms (then
   clamped), widening the gating ellipse and increasing mis-association risk.
-
 - **Sub-1x speeds:** dt is unchanged — it reflects the fixed sensor cadence
   in the PCAP capture timestamps (e.g. ~100 ms at 10 Hz), regardless of
   wall-clock replay speed. Gating behaves identically to 1× for the same
@@ -166,7 +164,7 @@ of how fast packets arrive. The practical speed window duration is ≥4 seconds.
 ### 6. Miss Counting (`tracking.go:439–492`)
 
 | Track state | Max misses              | Effect of miss                                 |
-|-------------|-------------------------|------------------------------------------------|
+| ----------- | ----------------------- | ---------------------------------------------- |
 | Tentative   | `MaxMisses=3`           | Deleted after 3 consecutive misses             |
 | Confirmed   | `MaxMissesConfirmed=15` | Deleted after 15 consecutive misses (coasting) |
 
@@ -181,7 +179,6 @@ during speed bursts (intentional).
   Paradoxically, drops are **less damaging** to track continuity than processing
   empty frames (which would increment misses). The risk is that fast-moving
   objects move out of the gating radius during the unobserved gap.
-
 - Slow pipeline: if the pipeline callback takes >100ms, the FrameBuilder
   channel fills, dropping frames. The tracker loses observations without
   counting misses.
@@ -219,7 +216,6 @@ Use **`scaled`** with ratios:
 
 - **0.5x:** Tighter Kalman gating, fewer drops, best association accuracy.
   Good baseline for comparing against faster modes.
-
 - **1.0x:** Normal operating conditions.
 - **2.0x:** Tests pipeline resilience. Expect occasional FrameBuilder drops
   and wider Kalman dt. Watch for track breaks (tentative tracks dying) and
@@ -237,7 +233,7 @@ The `pcap-analyse` tool can run the same PCAP at different speeds and compare:
 ## Summary Table
 
 | Factor                | Sub-1x        | 1x          | 2x+                     |
-|-----------------------|---------------|-------------|-------------------------|
+| --------------------- | ------------- | ----------- | ----------------------- |
 | FrameBuilder drops    | None          | Rare        | Likely                  |
 | Pipeline throttle     | Inactive      | Inactive    | Active                  |
 | AdvanceMisses         | Every frame   | Every frame | Skipped on throttle     |

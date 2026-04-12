@@ -10,10 +10,8 @@ Three distinct web surfaces serve LiDAR functionality:
 
 1. **Svelte web app** (`/app/*`, port 8080) — radar dashboard, reports, sites,
    settings, plus LiDAR tracks/scenes/runs.
-
 2. **Go-embedded HTML dashboards** (port 8081) — LiDAR status, debug dashboard,
    parameter sweep/auto-tune, background regions.
-
 3. **macOS Metal visualiser** (gRPC 50051) — live 3D point cloud rendering.
 
 Pain points: LiDAR nav visible in radar-only deploys, split ports, two
@@ -34,16 +32,16 @@ matrix covering effort, risk, complexity, usability, and maintenance.
 
 ## Migration Plan
 
-| Phase | Scope                              | Effort       | Charting Rewrite |
-|-------|------------------------------------|--------------|------------------|
-| 0     | Capabilities API + conditional nav | 2–4 days     | None             |
-| 1     | Status page migration              | 2–3 days     | None             |
-| 2     | Regions dashboard migration        | 2–3 days     | None (Canvas 2D) |
-| 3     | Sweep dashboard migration          | 2–3 weeks    | 8 chart types    |
-| 4     | Debug dashboard retirement         | 1 day        | None             |
-| 5     | Retire port 8081                   | 3–5 days     | None             |
-| 6     | Go embed cleanup                   | 1 day        | None             |
-| Total |                                    | ~5–6 weeks   |                  |
+| Phase | Scope                              | Effort     | Charting Rewrite |
+| ----- | ---------------------------------- | ---------- | ---------------- |
+| 0     | Capabilities API + conditional nav | 2–4 days   | None             |
+| 1     | Status page migration              | 2–3 days   | None             |
+| 2     | Regions dashboard migration        | 2–3 days   | None (Canvas 2D) |
+| 3     | Sweep dashboard migration          | 2–3 weeks  | 8 chart types    |
+| 4     | Debug dashboard retirement         | 1 day      | None             |
+| 5     | Retire port 8081                   | 3–5 days   | None             |
+| 6     | Go embed cleanup                   | 1 day      | None             |
+| Total |                                    | ~5–6 weeks |                  |
 
 Phase 3 (sweep dashboard) dominates: 8 ECharts chart types must be
 rewritten to LayerChart/d3-scale.
@@ -62,7 +60,7 @@ return "LiDAR disabled" without initialising hardware.
 ### Phase 3 — Sweep Dashboard (Critical Path)
 
 | ECharts Chart          | LayerChart Equivalent  | Complexity |
-|------------------------|------------------------|------------|
+| ---------------------- | ---------------------- | ---------- |
 | Acceptance rate line   | Spline + Area          | Low        |
 | Nonzero cells line     | Spline                 | Low        |
 | Bucket distribution    | Bar chart              | Low        |
@@ -89,7 +87,7 @@ unaffected.
 ## Risks
 
 | Risk                              | Mitigation                                   |
-|-----------------------------------|----------------------------------------------|
+| --------------------------------- | -------------------------------------------- |
 | LayerChart lacks heatmap          | Custom Canvas/SVG component                  |
 | Sweep polling complexity          | Svelte stores + setInterval; consider SSE    |
 | Hot-enable/disable disrupts radar | LiDAR lifecycle manager with isolation tests |

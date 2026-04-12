@@ -29,16 +29,16 @@ It combines the original review and checklist into one maintained source.
 
 ### Completed P0/P1 remediation
 
-| Item                                   | Status   | Implemented behaviour                                                                                          |
-|----------------------------------------|----------|----------------------------------------------------------------------------------------------------------------|
-| 1.1 globally unique track identity     | ✅ Done   | `initTrack` now emits UUID-based IDs (`trk_<uuid>`), preventing reset/restart ID collisions.                   |
-| 1.2 scoped observation/history queries | ✅ Done   | `GetTracksInRange` and `GetActiveTracks` now use `GetTrackObservationsInRange` (time-bounded + sensor-scoped). |
-| 2.1 dt clamp in predict                | ✅ Done   | `predict()` clamps dt to `MaxPredictDt=0.5s`.                                                                  |
-| 2.2 covariance inflation cap           | ✅ Done   | covariance diagonal is capped (`MaxCovarianceDiag=100`) in predict and occlusion paths.                        |
-| 4.1 race-safe confirmed snapshots      | ✅ Done   | `GetConfirmedTracks()` returns deep-copied snapshots, not live pointers.                                       |
-| 4.2 serialised frame callbacks         | ✅ Done   | frame callback now uses a single worker + buffered channel in `FrameBuilder`.                                  |
-| 5.1 observation envelope parsing       | ✅ Done   | `getTrackObservations()` now returns `data.observations ?? []`.                                                |
-| 6.1 polyline gap breaking              | ✅ Done   | renderer breaks strokes on temporal (>1s) or spatial (>2m) gaps.                                               |
+| Item                                   | Status  | Implemented behaviour                                                                                          |
+| -------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| 1.1 globally unique track identity     | ✅ Done | `initTrack` now emits UUID-based IDs (`trk_<uuid>`), preventing reset/restart ID collisions.                   |
+| 1.2 scoped observation/history queries | ✅ Done | `GetTracksInRange` and `GetActiveTracks` now use `GetTrackObservationsInRange` (time-bounded + sensor-scoped). |
+| 2.1 dt clamp in predict                | ✅ Done | `predict()` clamps dt to `MaxPredictDt=0.5s`.                                                                  |
+| 2.2 covariance inflation cap           | ✅ Done | covariance diagonal is capped (`MaxCovarianceDiag=100`) in predict and occlusion paths.                        |
+| 4.1 race-safe confirmed snapshots      | ✅ Done | `GetConfirmedTracks()` returns deep-copied snapshots, not live pointers.                                       |
+| 4.2 serialised frame callbacks         | ✅ Done | frame callback now uses a single worker + buffered channel in `FrameBuilder`.                                  |
+| 5.1 observation envelope parsing       | ✅ Done | `getTrackObservations()` now returns `data.observations ?? []`.                                                |
+| 6.1 polyline gap breaking              | ✅ Done | renderer breaks strokes on temporal (>1s) or spatial (>2m) gaps.                                               |
 
 ### Validation already completed
 
