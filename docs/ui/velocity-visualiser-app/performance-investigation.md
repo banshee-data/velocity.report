@@ -103,22 +103,24 @@ The existing codebase already provides:
 
 #### 1. Background Grid (`internal/lidar/background.go`)
 
-```go
-type BackgroundGrid struct {
-    Cells             []BackgroundCell  // Per ring×azimuth cell
-    Rings             int               // 40 for Pandar40P
-    AzBins            int               // 1800 (0.2° resolution)
-    SettlingComplete  bool              // True when warmup done
-    nonzeroCellCount  int32             // Cells with TimesSeenCount > 0
-}
+**`BackgroundGrid` fields:**
 
-type BackgroundCell struct {
-    AverageRangeMeters float32   // Settled background distance
-    RangeSpreadMeters  float32   // Expected variance
-    TimesSeenCount     uint32    // Confidence (higher = more settled)
-    LockedBaseline     float32   // Stable reference after threshold
-}
-```
+| Field              | Type               | Purpose                       |
+| ------------------ | ------------------ | ----------------------------- |
+| `Cells`            | `[]BackgroundCell` | Per ring×azimuth cell         |
+| `Rings`            | int                | 40 for Pandar40P              |
+| `AzBins`           | int                | 1800 (0.2° resolution)        |
+| `SettlingComplete` | bool               | True when warmup done         |
+| `nonzeroCellCount` | int32              | Cells with TimesSeenCount > 0 |
+
+**`BackgroundCell` fields:**
+
+| Field                | Type    | Purpose                            |
+| -------------------- | ------- | ---------------------------------- |
+| `AverageRangeMeters` | float32 | Settled background distance        |
+| `RangeSpreadMeters`  | float32 | Expected variance                  |
+| `TimesSeenCount`     | uint32  | Confidence (higher = more settled) |
+| `LockedBaseline`     | float32 | Stable reference after threshold   |
 
 **What we reuse:**
 
@@ -128,11 +130,7 @@ type BackgroundCell struct {
 
 #### 2. Foreground Extraction (`internal/lidar/tracking_pipeline.go`)
 
-```go
-// Already extracts foreground mask per frame
-mask, err := cfg.BackgroundManager.ProcessFramePolarWithMask(polar)
-foregroundPoints := ExtractForegroundPoints(polar, mask)
-```
+The pipeline already extracts a foreground mask per frame via `BackgroundManager.ProcessFramePolarWithMask(polar)`, returning a `mask []bool` that identifies foreground points. `ExtractForegroundPoints(polar, mask)` filters to moving objects only.
 
 **What we reuse:**
 
@@ -141,11 +139,7 @@ foregroundPoints := ExtractForegroundPoints(polar, mask)
 
 #### 3. Cluster & Track Data
 
-```go
-// Already computed in pipeline
-clusters := ClassifyForeground(foregroundPoints, params)  // DBSCAN clusters
-tracker.Update(clusters)                                   // Kalman-filtered tracks
-```
+The pipeline already computes DBSCAN clusters via `ClassifyForeground(foregroundPoints, params)` and feeds them to the Kalman-filtered tracker via `tracker.Update(clusters)`.
 
 **What we reuse:**
 
@@ -158,183 +152,74 @@ tracker.Update(clusters)                                   // Kalman-filtered tr
 
 Convert settled `BackgroundGrid` to point cloud:
 
-```go
-// internal/lidar/visualiser/background_snapshot.go
-
-func (bm *BackgroundManager) GenerateBackgroundPointCloud() *PointCloudFrame {
-    grid := bm.Grid
-    points := make([]Point, 0, grid.nonzeroCellCount)
-
-    for ring := 0; ring < grid.Rings; ring++ {
-        elevation := bm.ringElevations[ring]
-        for azBin := 0; azBin < grid.AzBins; azBin++ {
-            cell := grid.Cells[ring*grid.AzBins + azBin]
-
-            // Skip unsettled cells
-            if cell.TimesSeenCount < settledThreshold {
-                continue
-            }
-
-            // Convert polar to Cartesian
-            azimuth := float64(azBin) * (360.0 / float64(grid.AzBins))
-            r := float64(cell.AverageRangeMeters)
-
-            x, y, z := polarToCartesian(r, azimuth, elevation)
-
-            points = append(points, Point{
-                X: x, Y: y, Z: z,
-                Intensity: uint8(min(cell.TimesSeenCount, 255)),
-                Classification: 0, // Background
-            })
-        }
-    }
-
-    return &PointCloudFrame{
-        Points:     points,
-        FrameType:  FrameTypeBackground,
-        GridSeqNum: grid.SequenceNumber, // For client cache invalidation
-    }
-}
-```
+The `GenerateBackgroundPointCloud()` method on `BackgroundManager` iterates all grid cells, skips unsettled cells (below `settledThreshold`), converts each cell’s polar coordinates (ring elevation + azimuth bin × 360° / AzBins + average range) to Cartesian (x, y, z), and sets intensity from `TimesSeenCount` (capped at 255). Classification is set to 0 (background). The returned `PointCloudFrame` carries `FrameTypeBackground` and the grid’s `SequenceNumber` for client cache invalidation.
 
 #### 2. Enhanced Frame Bundle
 
-```protobuf
-// proto/velocity_visualiser/v1/visualiser.proto
+New fields added to the `FrameBundle` protobuf message:
 
-message FrameBundle {
-  // Existing fields...
+| Field            | Number | Type                 | Purpose                                 |
+| ---------------- | ------ | -------------------- | --------------------------------------- |
+| `frame_type`     | 10     | `FrameType`          | Frame type discriminator                |
+| `background`     | 11     | `BackgroundSnapshot` | Background snapshot (sent infrequently) |
+| `background_seq` | 12     | uint64               | Sequence number for cache coherence     |
 
-  // New: Frame type discriminator
-  FrameType frame_type = 10;
+**`FrameType` enum:**
 
-  // New: Background snapshot (sent infrequently)
-  BackgroundSnapshot background = 11;
+| Value | Name                    | Meaning                             |
+| ----- | ----------------------- | ----------------------------------- |
+| 0     | `FRAME_TYPE_FULL`       | Legacy: all points                  |
+| 1     | `FRAME_TYPE_FOREGROUND` | Foreground + clusters + tracks only |
+| 2     | `FRAME_TYPE_BACKGROUND` | Background snapshot                 |
+| 3     | `FRAME_TYPE_DELTA`      | Future: incremental update          |
 
-  // New: Sequence number for cache coherence
-  uint64 background_seq = 12;
-}
+**`BackgroundSnapshot` message:**
 
-enum FrameType {
-  FRAME_TYPE_FULL = 0;           // Legacy: all points
-  FRAME_TYPE_FOREGROUND = 1;     // Foreground + clusters + tracks only
-  FRAME_TYPE_BACKGROUND = 2;     // Background snapshot
-  FRAME_TYPE_DELTA = 3;          // Future: incremental update
-}
+| Field             | Number | Type                     | Purpose                  |
+| ----------------- | ------ | ------------------------ | ------------------------ |
+| `sequence_number` | 1      | uint64                   | Increments on grid reset |
+| `timestamp_nanos` | 2      | int64                    | When snapshot was taken  |
+| `x`               | 3      | repeated float (packed)  | X coordinates            |
+| `y`               | 4      | repeated float (packed)  | Y coordinates            |
+| `z`               | 5      | repeated float (packed)  | Z coordinates            |
+| `confidence`      | 6      | repeated uint32 (packed) | TimesSeenCount per point |
+| `grid_metadata`   | 7      | `GridMetadata`           | Grid configuration       |
 
-message BackgroundSnapshot {
-  uint64 sequence_number = 1;        // Increments on grid reset
-  int64 timestamp_nanos = 2;         // When snapshot was taken
-  repeated float x = 3 [packed=true];
-  repeated float y = 4 [packed=true];
-  repeated float z = 5 [packed=true];
-  repeated uint32 confidence = 6 [packed=true]; // TimesSeenCount per point
-  GridMetadata grid_metadata = 7;
-}
+**`GridMetadata` message:**
 
-message GridMetadata {
-  int32 rings = 1;
-  int32 azimuth_bins = 2;
-  repeated float ring_elevations = 3;
-  bool settling_complete = 4;
-}
-```
+| Field               | Number | Type           | Purpose                   |
+| ------------------- | ------ | -------------- | ------------------------- |
+| `rings`             | 1      | int32          | Ring count                |
+| `azimuth_bins`      | 2      | int32          | Azimuth bin count         |
+| `ring_elevations`   | 3      | repeated float | Per-ring elevation angles |
+| `settling_complete` | 4      | bool           | Background model settled  |
 
 #### 3. Background Snapshot Publisher
 
-```go
-// internal/lidar/visualiser/publisher.go
+The `Publisher` struct adds fields for background management:
 
-type Publisher struct {
-    // Existing fields...
+| Field                | Type                 | Purpose                   |
+| -------------------- | -------------------- | ------------------------- |
+| `backgroundMgr`      | `*BackgroundManager` | Background grid reference |
+| `lastBackgroundSeq`  | uint64               | Last sent grid sequence   |
+| `lastBackgroundSent` | `time.Time`          | Last background send time |
+| `backgroundInterval` | `time.Duration`      | Default: 30 s             |
 
-    backgroundMgr       *lidar.BackgroundManager
-    lastBackgroundSeq   uint64
-    lastBackgroundSent  time.Time
-    backgroundInterval  time.Duration  // Default: 30s
-}
+The `shouldSendBackground()` method returns true if: (1) background has never been sent, (2) the configured interval has elapsed, or (3) the grid sequence number changed (indicating a reset or sensor movement).
 
-func (p *Publisher) shouldSendBackground() bool {
-    // Send if:
-    // 1. Never sent before, OR
-    // 2. Interval elapsed, OR
-    // 3. Grid sequence changed (reset/sensor moved)
-
-    currentSeq := p.backgroundMgr.Grid.SequenceNumber
-    if currentSeq != p.lastBackgroundSeq {
-        return true // Grid was reset
-    }
-
-    if time.Since(p.lastBackgroundSent) > p.backgroundInterval {
-        return true // Periodic refresh
-    }
-
-    return false
-}
-
-func (p *Publisher) Publish(frame *FrameBundle) {
-    // Check if we need to send background
-    if p.shouldSendBackground() {
-        bgFrame := p.backgroundMgr.GenerateBackgroundPointCloud()
-        p.broadcastBackground(bgFrame)
-        p.lastBackgroundSeq = p.backgroundMgr.Grid.SequenceNumber
-        p.lastBackgroundSent = time.Now()
-    }
-
-    // Always send foreground frame (lightweight)
-    p.broadcastForeground(frame)
-}
-```
+The `Publish(frame)` method checks `shouldSendBackground()` first, broadcasts a background snapshot if needed (updating the sequence and timestamp), then always broadcasts the lightweight foreground frame.
 
 #### 4. Swift Client: Composite Rendering
 
-```swift
-// VelocityVisualiser/Rendering/CompositePointCloudRenderer.swift
+The `CompositePointCloudRenderer` class maintains a cached Metal buffer for background points (rarely updated) and a per-frame buffer for foreground points.
 
-class CompositePointCloudRenderer {
-    private var backgroundBuffer: MTLBuffer?  // Cached, rarely updated
-    private var backgroundSeq: UInt64 = 0
-    private var foregroundBuffer: MTLBuffer?  // Updated every frame
+On receiving a frame, behaviour depends on the frame type:
 
-    func processFrame(_ frame: FrameBundle) {
-        switch frame.frameType {
-        case .background:
-            // Update cached background
-            backgroundBuffer = createBuffer(from: frame.background)
-            backgroundSeq = frame.backgroundSeq
+- **Background**: Update the cached background buffer and store the new sequence number.
+- **Foreground**: If `backgroundSeq` mismatches the cached value, request a background refresh. Update only the foreground buffer.
+- **Full** (legacy): Clear the background cache; treat the entire point cloud as foreground.
 
-        case .foreground:
-            // Check if we need background refresh
-            if frame.backgroundSeq != backgroundSeq {
-                requestBackgroundRefresh()
-            }
-            // Update foreground only
-            foregroundBuffer = createBuffer(from: frame.pointCloud)
-
-        case .full:
-            // Legacy mode: treat as combined
-            backgroundBuffer = nil
-            foregroundBuffer = createBuffer(from: frame.pointCloud)
-        }
-    }
-
-    func render(encoder: MTLRenderCommandEncoder) {
-        // Render background (if cached)
-        if let bg = backgroundBuffer {
-            encoder.setVertexBuffer(bg, offset: 0, index: 0)
-            encoder.drawPrimitives(type: .point, vertexStart: 0,
-                                   vertexCount: backgroundPointCount)
-        }
-
-        // Render foreground (always)
-        if let fg = foregroundBuffer {
-            encoder.setVertexBuffer(fg, offset: 0, index: 0)
-            encoder.drawPrimitives(type: .point, vertexStart: 0,
-                                   vertexCount: foregroundPointCount)
-        }
-    }
-}
-```
+During rendering, the background buffer (if cached) is drawn first as point primitives, then the foreground buffer is drawn on top. This compositing means only the foreground buffer changes each frame, keeping GPU work minimal.
 
 ---
 
@@ -348,84 +233,17 @@ For static deployments, sensor movement (bump, vibration, repositioning) invalid
 
 If suddenly >20% of points are classified as foreground, the background model is likely stale:
 
-```go
-// internal/lidar/background.go
-
-func (bm *BackgroundManager) CheckForSensorMovement(mask []bool) bool {
-    foregroundCount := 0
-    for _, isFg := range mask {
-        if isFg {
-            foregroundCount++
-        }
-    }
-
-    foregroundRatio := float64(foregroundCount) / float64(len(mask))
-
-    // Threshold: if >20% foreground for >5 consecutive frames, suspect movement
-    if foregroundRatio > 0.20 {
-        bm.highForegroundStreak++
-    } else {
-        bm.highForegroundStreak = 0
-    }
-
-    return bm.highForegroundStreak > 5
-}
-```
+The `CheckForSensorMovement(mask)` method on `BackgroundManager` counts foreground points in the mask, computes the foreground ratio, and increments a `highForegroundStreak` counter when the ratio exceeds 20%. The counter resets to zero when the ratio drops below the threshold. Sensor movement is reported when the streak exceeds 5 consecutive frames.
 
 #### 2. Background Drift Detection
 
-Monitor how much the "stable" background is shifting:
+Monitor how much the “stable” background is shifting:
 
-```go
-func (bm *BackgroundManager) CheckBackgroundDrift() (drifted bool, metrics DriftMetrics) {
-    var totalDrift float64
-    var driftingCells int
-
-    for i, cell := range bm.Grid.Cells {
-        if cell.TimesSeenCount < settledThreshold {
-            continue
-        }
-
-        // Compare current observations to locked baseline
-        drift := math.Abs(float64(cell.AverageRangeMeters - cell.LockedBaseline))
-        if drift > driftThresholdMeters { // e.g., 0.5m
-            driftingCells++
-            totalDrift += drift
-        }
-    }
-
-    driftRatio := float64(driftingCells) / float64(bm.Grid.nonzeroCellCount)
-
-    return driftRatio > 0.10, DriftMetrics{
-        DriftingCells: driftingCells,
-        AverageDrift:  totalDrift / float64(max(driftingCells, 1)),
-        DriftRatio:    driftRatio,
-    }
-}
-```
+The `CheckBackgroundDrift()` method iterates settled cells, compares each cell’s `AverageRangeMeters` against its `LockedBaseline`, and counts cells where the absolute drift exceeds `driftThresholdMeters` (e.g. 0.5 m). It returns `drifted = true` when the ratio of drifting cells to non-zero cells exceeds 10%, along with a `DriftMetrics` struct containing `DriftingCells`, `AverageDrift`, and `DriftRatio`.
 
 #### 3. Response to Detected Movement
 
-```go
-func (bm *BackgroundManager) HandleSensorMovement() {
-    log.Printf("[BackgroundManager] Sensor movement detected, resettling...")
-
-    // Option A: Full reset (aggressive)
-    bm.ResetGrid("sensor_movement_detected")
-
-    // Option B: Soft reset (preserve some history)
-    bm.SoftReset() // Reduce TimesSeenCount by 50%, keep locked baselines
-
-    // Notify visualiser clients
-    bm.Grid.SequenceNumber++  // Triggers background refresh
-
-    // Emit event for logging/alerting
-    monitoring.EmitEvent("sensor_movement", map[string]interface{}{
-        "sensor_id": bm.sensorID,
-        "action":    "resettle",
-    })
-}
-```
+The `HandleSensorMovement()` method logs the detection, then either performs a full grid reset (`ResetGrid("sensor_movement_detected")`) or a soft reset (reducing `TimesSeenCount` by 50% while preserving locked baselines). It increments the grid’s `SequenceNumber` to trigger background refresh on connected visualiser clients, and emits a `"sensor_movement"` monitoring event with the sensor ID and action taken.
 
 ---
 
@@ -531,12 +349,7 @@ Alternative to split streaming: reduce point count uniformly across full frames.
 
 #### 1a. Uniform Decimation
 
-Keep every Nth point based on target ratio.
-
-```go
-// Example: 50% decimation = 70k → 35k points = ~485 KB
-bundle.PointCloud.ApplyDecimation(DecimationUniform, 0.5)
-```
+Keep every Nth point based on target ratio. For example, 50% decimation reduces 70k → 35k points (≈ 485 KB) via `bundle.PointCloud.ApplyDecimation(DecimationUniform, 0.5)`.
 
 **Pros:** Simple, predictable reduction
 **Cons:** May lose detail in sparse regions, doesn't leverage static scene structure
@@ -552,13 +365,7 @@ Divide space into voxels, keep one point per voxel.
 
 #### 1c. Adaptive Decimation
 
-Adjust ratio based on client feedback or server queue depth.
-
-```go
-if queueDepth > 5 || consecutiveSlowSends > 2 {
-    decimationRatio *= 0.8 // Reduce points by 20%
-}
-```
+Adjust ratio based on client feedback or server queue depth. When `queueDepth > 5` or `consecutiveSlowSends > 2`, reduce `decimationRatio` by 20% (multiply by 0.8).
 
 **Pros:** Self-tuning to client capability
 **Cons:** Variable quality, added complexity, doesn't address root cause
@@ -573,18 +380,15 @@ if queueDepth > 5 || consecutiveSlowSends > 2 {
 
 Client dynamically requests detail level based on performance.
 
-```protobuf
-message StreamRequest {
-  DetailLevel detail_level = 5;
-  enum DetailLevel {
-    FULL = 0;        // All points (~70k)
-    HIGH = 1;        // 50% (~35k)
-    MEDIUM = 2;      // 25% (~17k)
-    LOW = 3;         // 10% (~7k)
-    CLUSTERS_ONLY = 4; // No points, just clusters/tracks
-  }
-}
-```
+A `StreamRequest` message adds a `detail_level` field (field 5) with these options:
+
+| Value | Name            | Points                          |
+| ----- | --------------- | ------------------------------- |
+| 0     | `FULL`          | All points (≈70k)               |
+| 1     | `HIGH`          | 50% (≈35k)                      |
+| 2     | `MEDIUM`        | 25% (≈17k)                      |
+| 3     | `LOW`           | 10% (≈7k)                       |
+| 4     | `CLUSTERS_ONLY` | No points, just clusters/tracks |
 
 **Use case:** Visualiser can request lower detail when:
 
@@ -605,14 +409,14 @@ message StreamRequest {
 
 Send only points that changed since last frame.
 
-```go
-type DeltaFrame struct {
-    BaseFrameID         uint64
-    AddedPoints         []Point
-    RemovedPointIndices []uint32
-    ModifiedPoints      []IndexedPoint
-}
-```
+**`DeltaFrame` fields:**
+
+| Field                 | Type             | Purpose                   |
+| --------------------- | ---------------- | ------------------------- |
+| `BaseFrameID`         | uint64           | Reference frame for delta |
+| `AddedPoints`         | `[]Point`        | New points since base     |
+| `RemovedPointIndices` | `[]uint32`       | Indices of removed points |
+| `ModifiedPoints`      | `[]IndexedPoint` | Changed point positions   |
 
 **Theory:** For static scenes, most points are identical frame-to-frame.
 
@@ -658,11 +462,7 @@ Current: protobuf overhead ~14 bytes/point (varint tags, field overhead)
 
 #### 4c. Quantised Integers
 
-Encode X/Y/Z as int16 with known scale factor:
-
-```go
-int16 x = (int16)(point.X * 1000) // mm precision, ±32m range
-```
+Encode X/Y/Z as int16 with known scale factor: `int16(point.X * 1000)` gives mm precision within a ±32 m range.
 
 **Saves:** 6 bytes/point = ~414 KB/frame (43% reduction)
 **Pros:** No precision loss for mm-scale resolution
@@ -680,42 +480,9 @@ int16 x = (int16)(point.X * 1000) // mm precision, ±32m range
 
 #### 5a. Async Receive Processing
 
-Ensure gRPC receive doesn't block on Metal rendering:
+Ensure gRPC receive doesn’t block on Metal rendering:
 
-```swift
-// Current (potentially blocking)
-for try await frame in stream {
-    await renderer.render(frame) // May block if Metal is slow
-}
-
-// Improved (decoupled)
-actor FrameBuffer {
-    private var latest: FrameBundle?
-
-    func store(_ frame: FrameBundle) {
-        latest = frame
-    }
-
-    func consume() -> FrameBundle? {
-        defer { latest = nil }
-        return latest
-    }
-}
-
-// Receive loop (never blocks)
-Task {
-    for try await frame in stream {
-        await frameBuffer.store(frame)
-    }
-}
-
-// Render loop (separate cadence)
-DisplayLink.onFrame {
-    if let frame = await frameBuffer.consume() {
-        renderer.render(frame)
-    }
-}
-```
+The current approach awaits each frame in the stream and calls `renderer.render(frame)` synchronously, which may block if Metal is slow. The improved approach decouples receive from render using a `FrameBuffer` actor that stores the latest frame. A dedicated async `Task` runs the receive loop (never blocks), calling `frameBuffer.store(frame)` for each arrival. A separate `DisplayLink.onFrame` render loop consumes the latest frame at display cadence via `frameBuffer.consume()`.
 
 **Pros:** Eliminates backpressure from render thread
 **Cons:** May drop frames if render is consistently slower than receive
@@ -724,15 +491,7 @@ DisplayLink.onFrame {
 
 If client is behind, skip to newest frame:
 
-```swift
-var latestFrame: FrameBundle?
-for try await frame in stream {
-    latestFrame = frame
-    if !isRendering {
-        render(latestFrame)
-    }
-}
-```
+The client stores each arriving frame in a `latestFrame` variable. Rendering is invoked only when `isRendering` is false, ensuring the client always renders the most recent frame and drops intermediate ones.
 
 **Status:** Recommended for M3.5 Track A implementation.
 
@@ -740,23 +499,7 @@ for try await frame in stream {
 
 Pre-allocate Metal buffers to avoid allocation during render:
 
-```swift
-class MetalBufferPool {
-    private let device: MTLDevice
-    private var available: [MTLBuffer] = []
-
-    func acquire(size: Int) -> MTLBuffer {
-        if let buffer = available.popLast(), buffer.length >= size {
-            return buffer
-        }
-        return device.makeBuffer(length: size)!
-    }
-
-    func release(_ buffer: MTLBuffer) {
-        available.append(buffer)
-    }
-}
-```
+A `MetalBufferPool` class maintains a pool of available `MTLBuffer` instances. `acquire(size)` pops a buffer from the pool if one of sufficient size exists, otherwise allocates a new one from the Metal device. `release(buffer)` returns the buffer to the pool.
 
 **Status:** Recommended for M3.5 Track A implementation, especially for background cache.
 
@@ -784,15 +527,13 @@ For monitoring dashboards or low-bandwidth scenarios, skip point clouds entirely
 
 **Use case:** Web dashboard showing vehicle counts and speeds without full 3D visualisation.
 
-**Implementation:** Add `StreamMode` enum to `StreamRequest`:
+**Implementation:** Add a `StreamMode` enum to `StreamRequest`:
 
-```protobuf
-enum StreamMode {
-  FULL_FRAMES = 0;       // Current behaviour
-  SPLIT_STREAMING = 1;   // M3.5 mode
-  CLUSTERS_ONLY = 2;     // Metadata only
-}
-```
+| Value | Name              | Meaning           |
+| ----- | ----------------- | ----------------- |
+| 0     | `FULL_FRAMES`     | Current behaviour |
+| 1     | `SPLIT_STREAMING` | M3.5 mode         |
+| 2     | `CLUSTERS_ONLY`   | Metadata only     |
 
 **Future milestone:** Possibly M6 (Debug + Labelling) or M8 (Web Dashboard).
 
@@ -804,13 +545,7 @@ enum StreamMode {
 
 Reduce frame rate for full point clouds, interpolate on client.
 
-```go
-// Server: Send full background at 5 fps, foreground at 10 fps
-if frameID % 2 == 0 {
-    sendBackgroundSnapshot(frame)
-}
-sendForegroundFrame(frame) // Every frame
-```
+The server sends a full background snapshot every other frame (at 5 fps) while sending foreground frames at every frame (10 fps). The client interpolates track positions between background refreshes.
 
 **Client interpolates track positions between background refreshes.**
 
@@ -829,9 +564,7 @@ sendForegroundFrame(frame) // Every frame
 
 #### 8a. gRPC Built-in Compression
 
-```go
-grpc.UseCompressor(gzip.Name)
-```
+Enable via `grpc.UseCompressor(gzip.Name)` on the server.
 
 **Expected:** 30-40% reduction for LiDAR point clouds.
 
@@ -862,18 +595,13 @@ grpc.UseCompressor(gzip.Name)
 
 #### 9a. TCP Buffer Sizes
 
-```go
-// Increase gRPC send buffer
-grpc.WriteBufferSize(4 * 1024 * 1024) // 4 MB
-```
+Increase gRPC send buffer to 4 MiB via `grpc.WriteBufferSize(4 * 1024 * 1024)`.
 
 **Status:** May help with burst traffic, test in M7.
 
 #### 9b. Use Unix Domain Socket (local only)
 
-```go
-listener, _ := net.Listen("unix", "/tmp/visualiser.sock")
-```
+Listen on a Unix socket (`net.Listen("unix", "/tmp/visualiser.sock")`) instead of TCP.
 
 **Pros:** Eliminates TCP overhead for localhost connections
 **Cons:** Not usable for remote visualiser connections
