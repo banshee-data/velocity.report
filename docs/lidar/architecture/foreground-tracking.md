@@ -141,15 +141,11 @@ Generate per-point foreground/background classification mask in polar coordinate
 
 **Current Contract:**
 
-```go
-func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) error
-```
+`ProcessFramePolar(points []PointPolar) error`
 
 **New Contract:**
 
-```go
-func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) (foregroundMask []bool, err error)
-```
+`ProcessFramePolar(points []PointPolar) (foregroundMask []bool, err error)`
 
 **Implementation:**
 
@@ -163,40 +159,13 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) (foregroundM
 
 ### Frame processing callback
 
-```go
-func onFrameComplete(frame *LidarFrame) {
-    startTime := time.Now()
-    polarPoints := frame.GetPolarPoints()
+The `onFrameComplete` callback runs the full per-frame pipeline:
 
-    // Step 1: Classify in polar (with background lock)
-    foregroundMask, err := backgroundManager.ProcessFramePolar(polarPoints)
-    if err != nil {
-        log.Printf("[ERROR] ProcessFramePolar: %v", err)
-        return
-    }
-
-    // Step 2: Extract foreground points (outside lock)
-    foregroundPolar := extractForegroundPoints(polarPoints, foregroundMask)
-
-    // Step 3: Emit metrics
-    foregroundCount := len(foregroundPolar)
-    totalCount := len(polarPoints)
-    foregroundFraction := float64(foregroundCount) / float64(totalCount)
-
-    emitFrameMetrics(FrameMetrics{
-        TotalPoints:         totalCount,
-        ForegroundPoints:    foregroundCount,
-        ForegroundFraction:  foregroundFraction,
-        ProcessingTimeUs:    time.Since(startTime).Microseconds(),
-    })
-
-    // Step 4: Pass to transform stage (Phase 3.0)
-    if len(foregroundPolar) > 0 {
-        worldPoints := transformToWorld(foregroundPolar, currentPose)
-        clusteringPipeline.Process(worldPoints)
-    }
-}
-```
+1. Obtain the frame’s polar points.
+2. **Step 1 (classify):** Call `backgroundManager.ProcessFramePolar(polarPoints)` to produce a foreground mask (holds background lock).
+3. **Step 2 (extract):** Call `extractForegroundPoints(polarPoints, foregroundMask)` outside the lock.
+4. **Step 3 (metrics):** Emit `FrameMetrics` with `TotalPoints`, `ForegroundPoints`, `ForegroundFraction`, and `ProcessingTimeUs`.
+5. **Step 4 (downstream):** If foreground points exist, transform to world frame via `transformToWorld(foregroundPolar, currentPose)` and pass to `clusteringPipeline.Process(worldPoints)`.
 
 ### Monitoring & metrics
 
@@ -424,29 +393,23 @@ GET /api/lidar/tracks/summary?sensor_id=<id>&start=<unix>&end=<unix>&group_by=ob
 
 #### Example response
 
-```json
-GET /api/lidar/tracks/active?sensor_id=hesai-01
+`GET /api/lidar/tracks/active?sensor_id=hesai-01` returns an object with `tracks` (array), `count` (integer), and `timestamp` (ISO 8601).
 
-{
-  "tracks": [
-    {
-      "track_id": "track_1234",
-      "sensor_id": "hesai-01",
-      "track_state": "confirmed",
-      "position": {"x": 12.5, "y": 3.2, "z": 0.5},
-      "velocity": {"vx": 5.2, "vy": -0.3},
-      "speed_mps": 5.21,
-      "heading_rad": -0.057,
-      "object_class": "car",
-      "object_confidence": 0.89,
-      "observation_count": 24,
-      "age_seconds": 2.4
-    }
-  ],
-  "count": 1,
-  "timestamp": "2025-11-22T05:30:00Z"
-}
-```
+Each track entry contains:
+
+| Field               | Type   | Description                         |
+| ------------------- | ------ | ----------------------------------- |
+| `track_id`          | string | Unique track identifier             |
+| `sensor_id`         | string | Source sensor                       |
+| `track_state`       | string | `confirmed` or `tentative`          |
+| `position`          | object | `{x, y, z}` in metres (world frame) |
+| `velocity`          | object | `{vx, vy}` in m/s                   |
+| `speed_mps`         | float  | Scalar speed                        |
+| `heading_rad`       | float  | Track heading in radians            |
+| `object_class`      | string | Classification label (e.g. `car`)   |
+| `object_confidence` | float  | Classification confidence (0–1)     |
+| `observation_count` | int    | Number of observations              |
+| `age_seconds`       | float  | Track age since first observation   |
 
 ---
 
@@ -687,33 +650,25 @@ See [Configuration Reference](#configuration-reference) below for runtime parame
 
 #### Research data schema
 
-```sql
--- Foreground point cloud sequences for classification research
-CREATE TABLE IF NOT EXISTS lidar_training_frames (
-    frame_id INTEGER PRIMARY KEY,
-    sensor_id TEXT NOT NULL,
-    ts_unix_nanos INTEGER NOT NULL,
-    frame_sequence_id TEXT,          -- Group frames into sequences (e.g., "seq_20251130_001")
+`lidar_training_frames` table:
 
-    -- Metadata
-    total_points INTEGER,
-    foreground_points INTEGER,
-    background_points INTEGER,
+| Column                  | Type    | Constraint / Default  | Purpose                                  |
+| ----------------------- | ------- | --------------------- | ---------------------------------------- |
+| `frame_id`              | INTEGER | PRIMARY KEY           | Unique frame identifier                  |
+| `sensor_id`             | TEXT    | NOT NULL              | Source sensor                            |
+| `ts_unix_nanos`         | INTEGER | NOT NULL              | Frame timestamp                          |
+| `frame_sequence_id`     | TEXT    |                       | Groups frames into sequences             |
+| `total_points`          | INTEGER |                       | Total point count                        |
+| `foreground_points`     | INTEGER |                       | Foreground point count                   |
+| `background_points`     | INTEGER |                       | Background point count                   |
+| `foreground_polar_blob` | BLOB    |                       | Compressed polar points (8 bytes/point)  |
+| `annotation_status`     | TEXT    | DEFAULT `'unlabeled'` | `unlabeled`, `in_progress`, or `labeled` |
+| `annotator`             | TEXT    |                       | Who annotated this frame                 |
+| `annotation_json`       | TEXT    |                       | Track labels and object classes          |
 
-    -- Polar point cloud (compressed blob)
-    -- Each point: (distance_cm uint16, azimuth_centideg uint16, elevation_centideg int16,
-    --              intensity uint8, ring uint8) = 8 bytes per point
-    foreground_polar_blob BLOB,
+Each foreground point in the blob is encoded as 8 bytes: `distance_cm` (uint16), `azimuth_centideg` (uint16), `elevation_centideg` (int16), `intensity` (uint8), `ring` (uint8).
 
-    -- Labels (filled during annotation)
-    annotation_status TEXT DEFAULT 'unlabeled',  -- 'unlabeled', 'in_progress', 'labeled'
-    annotator TEXT,
-    annotation_json TEXT              -- Track labels, object classes, etc.
-);
-
-CREATE INDEX idx_training_sensor_time ON lidar_training_frames(sensor_id, ts_unix_nanos);
-CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
-```
+Indexes: `idx_training_sensor_time` on (`sensor_id`, `ts_unix_nanos`); `idx_training_sequence` on (`frame_sequence_id`).
 
 > **Note:** Pose columns have been removed. Data is stored in polar (sensor) frame, which is pose-independent. Pose-based quality filtering is planned for a future phase.
 

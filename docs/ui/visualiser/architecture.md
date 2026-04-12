@@ -308,68 +308,30 @@ Future option: Enable TLS + authentication for remote access from field laptops.
 
 **Chosen approach**: Direct Metal with `MTKView` for maximum control.
 
-```swift
-// Core rendering pipeline
-class MetalRenderer: NSObject, MTKViewDelegate {
-    var device: MTLDevice
-    var commandQueue: MTLCommandQueue
-    var pointCloudPipeline: MTLRenderPipelineState
-    var boxPipeline: MTLRenderPipelineState
-    var trailPipeline: MTLRenderPipelineState
+`MetalRenderer` (conforms to `MTKViewDelegate`):
 
-    // Per-frame data
-    var pointBuffer: MTLBuffer?      // Interleaved xyz + intensity
-    var boxInstances: MTLBuffer?     // Transform matrices
-    var trailVertices: MTLBuffer?    // Polyline vertices
+| Property             | Type                     | Purpose                     |
+| -------------------- | ------------------------ | --------------------------- |
+| `device`             | `MTLDevice`              | GPU device                  |
+| `commandQueue`       | `MTLCommandQueue`        | Command submission queue    |
+| `pointCloudPipeline` | `MTLRenderPipelineState` | Point cloud render pipeline |
+| `boxPipeline`        | `MTLRenderPipelineState` | Box render pipeline         |
+| `trailPipeline`      | `MTLRenderPipelineState` | Trail render pipeline       |
+| `pointBuffer`        | `MTLBuffer?`             | Interleaved xyz + intensity |
+| `boxInstances`       | `MTLBuffer?`             | Transform matrices          |
+| `trailVertices`      | `MTLBuffer?`             | Polyline vertices           |
 
-    func draw(in view: MTKView) {
-        // 1. Update buffers from latest frame
-        // 2. Encode point cloud draw call
-        // 3. Encode instanced boxes
-        // 4. Encode trails
-        // 5. Encode 2D overlays
-        // 6. Present
-    }
-}
-```
+The `draw(in:)` method: (1) updates buffers from the latest frame, (2) encodes point cloud draw call, (3) encodes instanced boxes, (4) encodes trails, (5) encodes 2D overlays, (6) presents.
 
 ### 4.3 Rendering techniques
 
 **Point Sprites / Point Shading**:
 
-```metal
-vertex PointOutput pointVertex(
-    uint vid [[vertex_id]],
-    constant float4 *points [[buffer(0)]],
-    constant Uniforms &uniforms [[buffer(1)]]
-) {
-    float4 pos = points[vid];
-    PointOutput out;
-    out.position = uniforms.mvp * float4(pos.xyz, 1.0);
-    out.pointSize = uniforms.pointSize / out.position.w;
-    out.intensity = pos.w;
-    return out;
-}
-```
+The `pointVertex` shader takes a vertex ID, a buffer of `float4` points (xyz + intensity), and a `Uniforms` buffer. It transforms the position by the MVP matrix, computes point size as `uniforms.pointSize / clip_w` for perspective scaling, and passes intensity to the fragment stage.
 
 **Instanced Boxes**:
 
-```metal
-vertex BoxOutput boxVertex(
-    uint vid [[vertex_id]],
-    uint iid [[instance_id]],
-    constant float3 *boxVerts [[buffer(0)]],
-    constant BoxInstance *instances [[buffer(1)]],
-    constant Uniforms &uniforms [[buffer(2)]]
-) {
-    BoxInstance inst = instances[iid];
-    float3 worldPos = inst.transform * boxVerts[vid];
-    BoxOutput out;
-    out.position = uniforms.mvp * float4(worldPos, 1.0);
-    out.color = inst.color;
-    return out;
-}
-```
+The `boxVertex` shader takes a vertex ID, an instance ID, a buffer of box corner vertices (`float3`), a buffer of `BoxInstance` structs (each containing a transform matrix and colour), and a `Uniforms` buffer. It transforms the box vertex by the instance’s transform matrix to world space, then by the MVP matrix to clip space. The instance colour is passed through to the fragment stage.
 
 **Trail Rendering**:
 
