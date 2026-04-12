@@ -1,4 +1,10 @@
-# MAGIC_NUMBERS
+```
+ _____         _        _____           _
+|     |___ ___|_|___   |   | |_ _ _____| |_ ___ ___ ___
+| | | | .'| . | |  _|  | | | | | |     | . | -_|  _|_ -|
+|_|_|_|__,|_  |_|___|  |_|___|___|_|_|_|___|___|_| |___|
+          |___|
+```
 
 Canonical register for project-wide numeric constants in velocity.report.
 
