@@ -84,7 +84,7 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 - **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
 - **Community advocates** building a case for traffic calming, with data strong enough for a formal submission
-- **Transport agencies and government departments** running street speed surveys — whether for planning, compliance, or understanding what a road redesign actually did to driver behaviour — without the cost or lead time of traditional survey contractors
+- **Transport agencies and government departments** running street speed surveys (whether for planning, compliance, or understanding what a road redesign actually did to driver behaviour) without the cost or lead time of traditional survey contractors
 - **Academics and researchers** studying street-level vehicle behaviour with raw LiDAR point clouds, multi-object tracking, and replayable datasets
 - **Perception and robotics engineers** exploring a transparent LiDAR pipeline: DBSCAN clustering, Kalman-filtered tracking, and rule-based classification; all tuneable and documented from raw UDP frames to classified tracks
 - **Before-and-after studies** showing whether traffic calming interventions actually work
@@ -162,7 +162,7 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
                    ▼                ▼            ▼
         ┌──────────────┐ ┌───────────────┐ ┌─────────────────────┐
         │ Web Frontend │ │ PDF Generator │ │  VelocityVisualiser │
-        │   (Svelte)   │ │ ⚠️ deprecated │ │ (macOS/Metal, gRPC) │
+        │   (Svelte)   │ │  ⚠ deprecated │ │ (macOS/Metal, gRPC) │
         └──────────────┘ └───────────────┘ └─────────────────────┘
 ```
 

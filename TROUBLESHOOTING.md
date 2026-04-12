@@ -924,7 +924,7 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 Issues that were previously reported and have been resolved. Listed here
 so operators on older versions can recognise the symptom and upgrade.
 
-### LiDAR Background Grid — Warmup Trails (fixed January 2026)
+### LiDAR Background Grid: Warmup Trails (fixed January 2026)
 
 **Symptom:** False positive foreground points ("trails") appearing on walls
 and static surfaces for ~30 seconds after grid reset or service restart.
@@ -933,7 +933,7 @@ and static surfaces for ~30 seconds after grid reset or service restart.
 started at 0. The EMA took ~50–100 observations to learn true variance,
 during which normal surface noise exceeded the threshold.
 
-**Fix:** Warmup sensitivity scaling in `ProcessFramePolarWithMask()` — the
+**Fix:** Warmup sensitivity scaling in `ProcessFramePolarWithMask()`: the
 closeness threshold ramps from ~4× normal at count 0 down to 1× at count 100.
 Vehicles (>1 m deviation) are still detected during warmup.
 
