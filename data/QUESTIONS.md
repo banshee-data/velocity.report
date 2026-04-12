@@ -164,25 +164,27 @@ rotation) with feature-matched confidence.
 Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
 
-### Q10. should radar-LiDAR speed fusion live at L5 or L7?
+### Q10. should radar-LiDAR speed fusion live at L5, L6, or L7?
 
 OPS243-A is a Doppler-only radar with no spatial coordinates,
 so **L4 is not viable** for point-level fusion. The active
-architecture question is L5 vs L7.
+architecture question is L5 vs L6 vs L7.
 
 - **L5 hypothesis:** associate radar speed to LiDAR tracks via
   beam geometry + gating; lower latency and simpler integration.
+- **L6 hypothesis:** integrate radar speed as L6 feature evidence
+  for object-level confidence and class-aware filtering.
 - **L7 hypothesis:** attach radar speed at canonical-scene level
   using broader context; potentially better disambiguation in
   crowded beams at higher implementation complexity.
 - **Dependency:** L6 classification shape is still open, so final
-  L5/L7 placement should be decided with stable L6 input/output
+  L5/L6/L7 placement should be decided with stable L6 input/output
   contracts.
 
 - **Evidence needed:**
   1. Beam-ambiguity rate: how often multiple objects occupy the
      radar cone simultaneously
-  2. Speed error comparison: L5 strategy vs L7 strategy vs
+  2. Speed error comparison: L5 strategy vs L6 strategy vs L7 strategy vs
      Kalman-only baseline
   3. Latency and implementation complexity impact for each option
 - **Reference:**
@@ -452,7 +454,7 @@ See [performance-harness plan](../docs/plans/lidar-performance-measurement-harne
 | L3 Grid       | Q4, Q5, Q7, Q15, Q17               |
 | L4 Perception | Q6, Q7, Q8, Q12                    |
 | L5 Tracks     | Q1, Q2, Q3, Q4, Q10, Q18, Q19, Q20 |
-| L6 Objects    | Q12, Q13, Q14                      |
+| L6 Objects    | Q10, Q12, Q13, Q14                 |
 | L7 Scene      | Q9, Q10, Q11, Q20, Q21, Q22        |
 | L8 Analytics  | Q23, Q24, Q25                      |
 | Cross-cutting | Q15, Q16, Q17, Q26, I1–I4          |

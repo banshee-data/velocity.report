@@ -126,18 +126,19 @@ Real-world traffic monitoring benefits from multiple sensors covering different 
 
 **Key architectural principle:** L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusively at L7, where observations from all sensors merge into a single canonical scene. This keeps the real-time per-sensor pipeline simple and avoids premature coordinate transforms in the low-level layers.
 
-### Radar-LiDAR fusion: open L5 vs L7 decision (L4 ruled out)
+### Radar-LiDAR fusion: open L5 vs L6 vs L7 decision (L4 ruled out)
 
 The OPS243-A radar is a Doppler-only sensor. It outputs FFT-derived speed bins (speed + magnitude) with no spatial coordinates — no range, azimuth, or elevation. It does not produce a point cloud.
 
 **L4 is ruled out.** Point-level fusion at L4 requires a shared geometric measurement space; OPS243-A provides no per-return geometry.
 
-The active design decision is **L5 vs L7**:
+The active design decision is **L5 vs L6 vs L7**:
 
-| Candidate                  | Why it might fit                                                                     | Tradeoffs                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| L5 track-level association | Uses existing Kalman state and measurement gating to map radar speed to LiDAR tracks | Simpler and lower latency; may struggle when multiple objects occupy the radar beam cone |
-| L7 scene-level enrichment  | Uses persistent identity and broader scene context to disambiguate assignments       | More robust in ambiguous scenes; higher complexity and longer implementation path        |
+| Candidate                   | Why it might fit                                                                         | Tradeoffs                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| L5 track-level association  | Uses existing Kalman state and measurement gating to map radar speed to LiDAR tracks     | Simpler and lower latency; may struggle when multiple objects occupy the radar beam cone |
+| L6 object-level integration | Uses L6 feature aggregation and classification confidence to absorb radar speed evidence | Depends on still-evolving L6 contracts; may couple fusion placement to classifier design |
+| L7 scene-level enrichment   | Uses persistent identity and broader scene context to disambiguate assignments           | More robust in ambiguous scenes; higher complexity and longer implementation path        |
 
 L6 classification shape remains open, so this decision should stay open until L6 input contracts stabilise and we can measure ambiguity/error tradeoffs on real capture runs.
 

@@ -742,14 +742,14 @@ The following layer numbers and names are **permanently assigned**. Implementati
 
 These capabilities might emerge in the future. They would extend existing layers or occupy new advisory sub-layers, never displace L1–L10:
 
-| Concept                                            | Likely home | Rationale                                                                                                |
-| -------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| Deep-learning detector (PointPillars, CenterPoint) | L4 or L6    | Replaces heuristic clustering/classification; same architectural slot                                    |
-| SLAM / ego-motion (mobile sensor)                  | L2–L3       | Frame motion compensation and grid update in ego-moving frame                                            |
-| Radar speed annotation                             | L5 or L7    | See [§ Multi-modality: radar + LiDAR](#multi-modality-radar--lidar) — open tradeoff with current sensors |
-| Predictive trajectory (motion forecasting)         | L5 or L7    | Extends track state with predicted future positions                                                      |
-| Multi-intersection corridor analytics              | L8          | Aggregation across multiple L7 scene instances                                                           |
-| Real-time alerting / notification                  | L9          | Threshold-triggered events pushed to clients                                                             |
+| Concept                                            | Likely home   | Rationale                                                                                                |
+| -------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| Deep-learning detector (PointPillars, CenterPoint) | L4 or L6      | Replaces heuristic clustering/classification; same architectural slot                                    |
+| SLAM / ego-motion (mobile sensor)                  | L2–L3         | Frame motion compensation and grid update in ego-moving frame                                            |
+| Radar speed annotation                             | L5, L6, or L7 | See [§ Multi-modality: radar + LiDAR](#multi-modality-radar--lidar) — open tradeoff with current sensors |
+| Predictive trajectory (motion forecasting)         | L5 or L7      | Extends track state with predicted future positions                                                      |
+| Multi-intersection corridor analytics              | L8            | Aggregation across multiple L7 scene instances                                                           |
+| Real-time alerting / notification                  | L9            | Threshold-triggered events pushed to clients                                                             |
 
 #### Multi-position vs multi-modality
 
@@ -779,33 +779,31 @@ The radar and LiDAR operate in fundamentally different domains:
 | Clock source         | Sensor PTP/internal                        | Sensor uptime counter                           |
 | Pipeline             | L1–L6 LiDAR perception pipeline            | `internal/radar/` → `radar_data` table directly |
 
-**Early fusion (L4) is ruled out.** L4 operates on point clouds. Our radar produces no points and shares no coordinate space with LiDAR. There is no heterogeneous point cloud to build — the data formats are incommensurable at the measurement level.
+**Layer tradeoffs with the current sensor footprint (OPS243-A + Pandar40P):**
 
-**The remaining question is L5, L6, or L7.** This is genuinely open and depends on how the fusion problem is framed:
+| Layer | Status     | Tradeoffs                                                                                                                                                                                                                               |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L4    | Not viable | L4 requires spatially resolved measurements suitable for geometric clustering. OPS243-A provides no range/azimuth/elevation, so no common measurement space exists for point-level fusion.                                              |
+| L5    | Candidate  | Pros: uses existing Kalman track state and gating machinery; can improve early-track speed estimates quickly. Cons: beam-to-track ambiguity when multiple objects are inside the radar cone; tighter coupling to L5 tracking internals. |
+| L6    | Candidate  | Pros: keeps speed evidence close to semantic feature aggregation and classification confidence handling. Cons: depends on still-evolving L6 shape and contracts; risks coupling fusion placement to classifier refactors.               |
+| L7    | Candidate  | Pros: can use scene context, persistent identity, and cross-sensor history to disambiguate assignments. Cons: higher implementation complexity, added latency, and potential overreach for single-site deployments.                     |
 
-| Framing                               | Layer | Argument                                                                                                                    |
-| ------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------- |
-| Speed as a **track measurement**      | L5    | The association problem (which track does this Doppler reading belong to?) is measurement-to-track gating — L5's competence |
-| Speed as an **object feature**        | L6    | If L6 classification consumes radar speed as an input feature (alongside dimensions, kinematics), it belongs at L6          |
-| Speed as a **scene-level enrichment** | L7    | If radar and LiDAR are not co-located, or if the association requires scene context (multiple objects in beam), it is L7    |
+**Open decision: L5 vs L6 vs L7.**
 
-The answer may also depend on the classification architecture. If L6 evolves toward a richer feature-accumulation model, radar speed may be one of several evidence streams feeding classification — making L6 the natural home. If L6 remains a thin heuristic layer over L5 track state, pushing the radar association into L5 keeps the data path simple.
+- L4 is ruled out with current hardware.
+- L5, L6, and L7 are all defensible depending on where association confidence, semantic feature aggregation, and scene context are best handled.
+- The unsettled L6 classification shape is a dependency: if L6 remains thin over L5, L5 fusion is simpler; if L6 grows into richer feature aggregation, the L5↔L6↔L7 interface should be decided alongside L6 data contracts.
+- Keep this decision open until beam-ambiguity measurements and end-to-end error analysis are available (see [QUESTIONS.md Q10](../../../data/QUESTIONS.md)).
 
-**What is settled:**
-
-- Early fusion at L4 is not possible with the current radar hardware
-- The association problem requires knowing which objects exist and where they are, which means at least L5 track state
-- The inverse-variance weighted fusion formula applies regardless of layer placement:
+The inverse-variance weighted fusion formula applies regardless of placement:
 
 $$v_{\text{fused}} = \frac{\sigma_{\text{doppler}}^{-2} \cdot v_{\text{doppler}} + \sigma_{\text{kalman}}^{-2} \cdot v_{\text{kalman}}}{\sigma_{\text{doppler}}^{-2} + \sigma_{\text{kalman}}^{-2}}$$
 
-**What is not settled:**
+Key unresolved evidence:
 
-- Whether the radar annotation is a track concern (L5), a classification/feature concern (L6), or a scene concern (L7)
-- Whether beam-to-track association is robust enough when multiple objects occupy the beam cone simultaneously
-- How much benefit radar speed provides over Kalman-only estimation (see [QUESTIONS.md Q10](../../../data/QUESTIONS.md))
-
-**Future consideration: 4D imaging radar.** If a future sensor produces a spatially resolved radar point cloud (range + azimuth + elevation + Doppler per return), the picture changes substantially. Even then, density mismatch (radar: tens of points; LiDAR: tens of thousands), angular resolution gap, and different measurement physics make naive point concatenation questionable.
+- How robust beam-to-track association is when multiple objects occupy the radar beam cone simultaneously
+- How much speed-error reduction radar contributes over Kalman-only estimates in the first N frames of a track
+- Whether L6 feature-level integration or L7 scene-level context materially outperforms track-level gating on real capture runs
 
 ---
 
