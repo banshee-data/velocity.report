@@ -1,30 +1,56 @@
-# Build Raspberry Pi Image
+# Build Raspberry Pi release assets.
 #
-# Produces a flashable .img.xz for Raspberry Pi 4/400/5 containing the
-# full velocity.report stack (radar, LiDAR disabled, PDF generation, web
-# dashboard).
-#
-# TeX Live: builds minimal vendored tree (~143 MB) and purges APT packages.
-# Pre-compiled .fmt for faster PDF generation planned as future optimisation.
+# - Version tags publish Linux/macOS radar binaries and the flashable RPi image.
+# - Manual dispatch builds the image as an artifact for validation.
 
-name: Build RPi Image
+name: Build Release Assets
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       image_version:
-        description: "Image version tag (e.g. v0.5.1)"
+        description: "Optional image version tag for manual builds (e.g. v0.5.1)"
         required: false
         default: ""
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ (github.event_name == 'push' && github.ref_name) || github.event.inputs.image_version || '' }}
+
 jobs:
+  prepare-release:
+    name: Ensure GitHub release exists
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --prerelease \
+              --notes ""
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes ""
+          fi
+
   build-binaries:
-    name: Cross-compile Go binaries (ARM64)
+    name: Cross-compile Go binaries (Linux ARM64)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,15 +60,10 @@ jobs:
         # the Ubuntu 24.04 apt-sources gap where libpcap-dev:arm64 is not
         # available without manually adding ports.ubuntu.com/ubuntu-ports.
         run: |
-          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
+          VERSION="${RELEASE_TAG:-dev}"
           VERSION="${VERSION#v}"
           GIT_SHA="$(git rev-parse HEAD)"
           BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          BUILD_TS_COMPACT="${BUILD_TIME//[-:]/}"
-
-          # Export for downstream steps (MOTD stamp, image rename)
-          echo "BUILD_TIME=$BUILD_TIME" >> "$GITHUB_ENV"
-          echo "BUILD_TS_COMPACT=$BUILD_TS_COMPACT" >> "$GITHUB_ENV"
 
           docker build \
             --platform linux/amd64 \
@@ -55,7 +76,7 @@ jobs:
 
           CONTAINER_ID=$(docker create velocity-builder)
           docker cp "$CONTAINER_ID:/out/velocity-report" velocity-report-arm64
-          docker cp "$CONTAINER_ID:/out/velocity-ctl"    velocity-ctl-arm64
+          docker cp "$CONTAINER_ID:/out/velocity-ctl" velocity-ctl-arm64
           docker rm "$CONTAINER_ID"
           chmod +x velocity-report-arm64 velocity-ctl-arm64
 
@@ -67,106 +88,138 @@ jobs:
             velocity-ctl-arm64
           retention-days: 1
 
+  release-linux-radar:
+    name: Publish Linux ARM64 radar binary
+    if: github.event_name == 'push'
+    needs:
+      - prepare-release
+      - build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: velocity-binaries
+          path: dist/linux
+
+      - name: Package Linux release asset
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mv dist/linux/velocity-report-arm64 "dist/linux/velocity-report-${VERSION}-linux-arm64"
+          sha256sum "dist/linux/velocity-report-${VERSION}-linux-arm64" \
+            > "dist/linux/velocity-report-${VERSION}-linux-arm64.sha256"
+          echo "RADAR_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64" >> "$GITHUB_ENV"
+          echo "RADAR_SHA_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64.sha256" >> "$GITHUB_ENV"
+
+      - name: Upload Linux release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            ${{ env.RADAR_PATH }}
+            ${{ env.RADAR_SHA_PATH }}
+
+  release-darwin-radar:
+    name: Publish macOS ARM64 radar binary
+    if: github.event_name == 'push'
+    needs: prepare-release
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Darwin ARM64 radar binary
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          GIT_SHA="$(git rev-parse HEAD)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          ./scripts/ensure-web-stub.sh
+
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            go build -tags=pcap \
+            -ldflags "-X 'github.com/banshee-data/velocity.report/internal/version.Version=${VERSION}' -X 'github.com/banshee-data/velocity.report/internal/version.GitSHA=${GIT_SHA}' -X 'github.com/banshee-data/velocity.report/internal/version.BuildTime=${BUILD_TIME}'" \
+            -o "velocity-report-${VERSION}-darwin-arm64" \
+            ./cmd/radar
+
+          shasum -a 256 "velocity-report-${VERSION}-darwin-arm64" \
+            > "velocity-report-${VERSION}-darwin-arm64.sha256"
+
+          echo "RADAR_PATH=velocity-report-${VERSION}-darwin-arm64" >> "$GITHUB_ENV"
+          echo "RADAR_SHA_PATH=velocity-report-${VERSION}-darwin-arm64.sha256" >> "$GITHUB_ENV"
+
+      - name: Upload Darwin release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            ${{ env.RADAR_PATH }}
+            ${{ env.RADAR_SHA_PATH }}
+
   build-image:
-    name: Build pi-gen image
-    needs: build-binaries
+    name: Build Raspberry Pi image
+    needs:
+      - prepare-release
+      - build-binaries
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js with pnpm (web)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: web
+
+      - name: Setup Node.js with pnpm (public_html)
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          working-directory: public_html
 
       - uses: actions/download-artifact@v4
         with:
           name: velocity-binaries
           path: image/velocity-binaries
 
-      - name: Rename binaries
+      - name: Rename staged binaries
         run: |
-          mv image/velocity-binaries/velocity-report-arm64 \
-             image/velocity-binaries/velocity-report
-          mv image/velocity-binaries/velocity-ctl-arm64 \
-             image/velocity-binaries/velocity-ctl
+          mv image/velocity-binaries/velocity-report-arm64 image/velocity-binaries/velocity-report
+          mv image/velocity-binaries/velocity-ctl-arm64 image/velocity-binaries/velocity-ctl
           chmod +x image/velocity-binaries/*
 
-      - name: Copy PDF generator source
-        run: |
-          mkdir -p image/stage-velocity/02-velocity-python/files/pdf-generator
-          cp -r tools/pdf-generator/* \
-            image/stage-velocity/02-velocity-python/files/pdf-generator/
+      - name: Build image with repo helper
+        run: ./image/scripts/build-image.sh --skip-binaries
 
-      - name: Copy tuning defaults
+      - name: Normalise image artifact
         run: |
-          mkdir -p image/stage-velocity/03-velocity-config/files/config
-          cp config/tuning.defaults.json \
-            image/stage-velocity/03-velocity-config/files/config/
-
-      - name: Copy TeX Live build files
-        run: |
-          mkdir -p image/stage-velocity/00-install-packages/files
-          cp scripts/build-minimal-texlive.sh \
-            image/stage-velocity/00-install-packages/files/
-          cp tools/pdf-generator/tex/dependency-manifest.txt \
-            image/stage-velocity/00-install-packages/files/
-          cp tools/pdf-generator/tex/velocity-report.ini \
-            image/stage-velocity/00-install-packages/files/
-
-      - name: Stamp build metadata for MOTD
-        run: |
-          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
-          VERSION="${VERSION#v}"
-          GIT_SHA_SHORT="$(git rev-parse --short=7 HEAD)"
-          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          printf '# velocity.report image build metadata — stamped at image creation time.\nVR_VERSION="%s"\nVR_BUILD_TIME="%s"\nVR_GIT_SHA="%s"\n' \
-            "$VERSION" "$BUILD_TIME" "$GIT_SHA_SHORT" \
-            > image/stage-velocity/03-velocity-config/files/velocity-report-build
-
-      - name: Build image with pi-gen
-        uses: usimd/pi-gen-action@v1
-        with:
-          image-name: velocity-report
-          stage-list: "stage0 stage1 stage2 stage-velocity"
-          pi-gen-dir: image
-          verbose-output: true
-
-      - name: Compress image
-        run: |
-          IMG=$(find image/deploy -name "*.img" | head -1)
-          if [ -z "$IMG" ]; then
-            echo "::error::No .img file found in deploy directory"
+          IMAGE_PATH="$(find image/.pi-gen/deploy -name '*.img.xz' -type f | sort | tail -1)"
+          if [ -z "$IMAGE_PATH" ]; then
+            echo "::error::No .img.xz file found in image/.pi-gen/deploy"
             exit 1
           fi
 
-          VERSION="${{ github.event.release.tag_name || inputs.image_version || 'dev' }}"
-          VERSION="${VERSION#v}"
+          rm -f "${IMAGE_PATH}.sha256"
+          FINAL_IMAGE_PATH="$IMAGE_PATH"
 
-          if [ "${{ github.event_name }}" = "release" ]; then
-            # Release: velocity-report-{version}.img.xz
-            STABLE_IMG="$(dirname "$IMG")/velocity-report-${VERSION}.img"
-          else
-            # Dev: {datetime}-velocity-report-{version}-{sha7}.img.xz
-            GIT_SHA_SHORT="$(git rev-parse --short=7 HEAD)"
-            DEV_VERSION="${VERSION//-/.}"
-            STABLE_IMG="$(dirname "$IMG")/${BUILD_TS_COMPACT}-velocity-report-${DEV_VERSION}-${GIT_SHA_SHORT}.img"
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG#v}"
+            FINAL_IMAGE_PATH="$(dirname "$IMAGE_PATH")/velocity-report-${VERSION}.img.xz"
+            mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
           fi
-          mv "$IMG" "$STABLE_IMG"
-          xz -9 "$STABLE_IMG"
-          COMPRESSED="${STABLE_IMG}.xz"
 
-          # Generate checksums
-          sha256sum "$COMPRESSED" > "${COMPRESSED}.sha256"
+          sha256sum "$FINAL_IMAGE_PATH" > "${FINAL_IMAGE_PATH}.sha256"
 
-          echo "IMAGE_PATH=$COMPRESSED" >> "$GITHUB_ENV"
-          echo "CHECKSUM_PATH=${COMPRESSED}.sha256" >> "$GITHUB_ENV"
-          echo "Image size: $(du -h "$COMPRESSED" | cut -f1)"
+          echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
+          echo "CHECKSUM_PATH=${FINAL_IMAGE_PATH}.sha256" >> "$GITHUB_ENV"
+          echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image to release
-        if: github.event_name == 'release'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             ${{ env.IMAGE_PATH }}
             ${{ env.CHECKSUM_PATH }}
 
-      - name: Upload image as artifact (manual dispatch)
+      - name: Upload image as artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
@@ -178,30 +231,37 @@ jobs:
 
   update-os-list:
     name: Update os-list JSON
+    if: github.event_name == 'push'
     needs: build-image
-    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Update os-list-velocity.json
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${GITHUB_REF_NAME}"
           VERSION_NUM="${VERSION#v}"
-          DATE=$(date -u +%Y-%m-%d)
+          DATE="$(date -u +%Y-%m-%d)"
           ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/velocity-report-${VERSION_NUM}.img.xz"
 
-          # Download the compressed image to compute SHA-256 for rpi-imager verification.
           curl -L --fail -o velocity-report.img.xz "$ASSET_URL"
-          SHA256=$(sha256sum velocity-report.img.xz | awk '{print $1}')
 
-          # Update JSON with URL, date, and verified checksum.
+          IMAGE_DOWNLOAD_SIZE="$(wc -c < velocity-report.img.xz | tr -d '[:space:]')"
+          EXTRACT_SIZE="$(xz --list --robot velocity-report.img.xz | tail -1 | awk '{print $5}')"
+          EXTRACT_SHA256="$(xz -dc velocity-report.img.xz | sha256sum | awk '{print $1}')"
+
           jq --arg url "$ASSET_URL" \
              --arg date "$DATE" \
-             --arg sha256 "$SHA256" \
+             --arg extract_sha256 "$EXTRACT_SHA256" \
+             --argjson image_download_size "$IMAGE_DOWNLOAD_SIZE" \
+             --argjson extract_size "$EXTRACT_SIZE" \
              '.os_list[0].url = $url |
               .os_list[0].release_date = $date |
-              .os_list[0].extract_sha256 = $sha256' \
+              .os_list[0].extract_sha256 = $extract_sha256 |
+              .os_list[0].image_download_size = $image_download_size |
+              .os_list[0].extract_size = $extract_size' \
             image/os-list-velocity.json > image/os-list-velocity.json.tmp
           mv image/os-list-velocity.json.tmp image/os-list-velocity.json
 
@@ -211,5 +271,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add image/os-list-velocity.json
           git diff --cached --quiet || \
-            git commit -m "[ci] update os-list-velocity.json for ${{ github.event.release.tag_name }}"
-          git push
+            git commit -m "[ci] update os-list-velocity.json for ${GITHUB_REF_NAME}"
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
