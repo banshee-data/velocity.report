@@ -27,9 +27,9 @@ This document describes the system architecture, component relationships, data f
 
 ## System Overview
 
-**velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and produces professional reports ready for a city engineer's desk or a planning committee hearing. (PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras, no licence plates, no personally identifiable information — by architecture, not by policy.
+**velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and produces professional reports ready for a city engineer's desk or a planning committee hearing. (PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras, no licence plates, no personally identifiable information: by architecture, not by policy.
 
-The LiDAR pipeline extends the picture. Where radar sees a vehicle's speed through a narrow field of view, LiDAR sees the full scene: every object's shape, trajectory, and classification across the entire road. A car that enters at 25 mph, slows for a pedestrian, and exits at 35 mph is one speed reading to radar but a complete behavioural record to LiDAR. The perception stack — DBSCAN clustering, Kalman-filtered tracking, rule-based classification — runs on the same Raspberry Pi, processing 70,000 points per frame at 10 Hz with no cloud dependency.
+The LiDAR pipeline extends the picture. Where radar sees a vehicle's speed through a narrow field of view, LiDAR sees the full scene: every object's shape, trajectory, and classification across the entire road. A car that enters at 25 mph, slows for a pedestrian, and exits at 35 mph is one speed reading to radar but a complete behavioural record to LiDAR. The perception stack (DBSCAN clustering, Kalman-filtered tracking, rule-based classification) runs on the same Raspberry Pi, processing 70,000 points per frame at 10 Hz with no cloud dependency.
 
 The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR provides geometry, object identity, and track continuity. Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
 
@@ -523,33 +523,33 @@ The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame: backg
 
 ### L3: Background Model
 
-The background model separates static scene (road surface, buildings, vegetation) from moving objects. It maintains a 40 × 3,600 polar grid — one row per LiDAR beam, one column per 0.1° azimuth bin — where each cell tracks an exponentially weighted moving average of range values and a Welford online variance estimate.
+The background model separates static scene (road surface, buildings, vegetation) from moving objects. It maintains a 40 × 3,600 polar grid (one row per LiDAR beam, one column per 0.1° azimuth bin) where each cell tracks an exponentially weighted moving average of range values and a Welford online variance estimate.
 
-Cells are classified into three adaptive region types: **stable** (pavement, walls — low variance, tight foreground threshold), **variable** (parked cars, street furniture — moderate variance, relaxed threshold), and **volatile** (trees, reflective surfaces — high variance, wide threshold). The classification adapts per cell, so a parking space that empties mid-session reclassifies automatically. A point counts as foreground when its range deviates from the cell's background mean by more than a threshold scaled to the cell's region type.
+Cells are classified into three adaptive region types: **stable** (pavement, walls: low variance, tight foreground threshold), **variable** (parked cars, street furniture: moderate variance, relaxed threshold), and **volatile** (trees, reflective surfaces: high variance, wide threshold). The classification adapts per cell, so a parking space that empties mid-session reclassifies automatically. A point counts as foreground when its range deviates from the cell's background mean by more than a threshold scaled to the cell's region type.
 
-The grid settles over a configurable number of frames. Until a cell has seen enough observations, it remains unsettled and does not contribute to foreground extraction — which prevents the first vehicle through the scene from becoming part of the background.
+The grid settles over a configurable number of frames. Until a cell has seen enough observations, it remains unsettled and does not contribute to foreground extraction, which prevents the first vehicle through the scene from becoming part of the background.
 
 ### L4: Clustering and Geometry
 
 Foreground points are grouped into spatial clusters using DBSCAN with a grid-accelerated spatial index. The index maps each point to a cell via a Szudzik pairing function on signed grid coordinates, making neighbourhood queries O(1) per point instead of O(n). Clusters are filtered by size, aspect ratio, and point count to reject noise and scene artefacts.
 
-Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground-plane projection. PCA alone is ambiguous — the eigenvectors can flip 180° or swap axes between frames — so the pipeline applies heading disambiguation guards: aspect-ratio locking for near-square clusters, 90° jump rejection against the previous frame's heading, and EMA temporal smoothing (α = 0.08) to absorb jitter without lagging real turns.
+Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground-plane projection. PCA alone is ambiguous (the eigenvectors can flip 180° or swap axes between frames), so the pipeline applies heading disambiguation guards: aspect-ratio locking for near-square clusters, 90° jump rejection against the previous frame's heading, and EMA temporal smoothing (α = 0.08) to absorb jitter without lagging real turns.
 
 Ground-plane points within each cluster are removed using a local height threshold relative to the cluster's lowest points.
 
 ### L5: Multi-Object Tracking
 
-Tracking follows the predict–associate–update loop. Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 × 4 covariance matrix. The motion model assumes constant velocity between frames — simple enough to run at 10 Hz on constrained hardware, accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
+Tracking follows the predict–associate–update loop. Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 × 4 covariance matrix. The motion model assumes constant velocity between frames, simple enough to run at 10 Hz on constrained hardware, accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
 
 Association uses the Hungarian algorithm (Kuhn–Munkres) with Mahalanobis distance as the cost metric. Three gating guards reject implausible assignments before they reach the solver: a Euclidean position jump limit (5 m), an implied speed limit (30 m/s), and a Mahalanobis distance² threshold (36). Unmatched detections spawn tentative tracks; unmatched tracks enter a coasting window where the Kalman prediction runs without measurement updates.
 
-Track lifecycle: a new track is **tentative** until it accumulates 4 consecutive hits, then **confirmed**. A confirmed track tolerates up to 15 consecutive misses (coasting through brief occlusions) before deletion. Tentative tracks are deleted after 3 misses. Covariance inflates progressively during coasting, so a coasted track's association gate widens naturally — it accepts a returning detection at greater distance but with lower confidence.
+Track lifecycle: a new track is **tentative** until it accumulates 4 consecutive hits, then **confirmed**. A confirmed track tolerates up to 15 consecutive misses (coasting through brief occlusions) before deletion. Tentative tracks are deleted after 3 misses. Covariance inflates progressively during coasting, so a coasted track's association gate widens naturally: it accepts a returning detection at greater distance but with lower confidence.
 
 ### L6: Classification
 
-Each confirmed track is classified using a rule-based system (v1.2) that evaluates spatial and kinematic features: bounding box dimensions, aspect ratio, speed, point count, and height profile. The classifier assigns one of eight object types — car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and dynamic (unclassified moving object) — with confidence levels at three tiers: high (0.85), medium (0.70), and low (0.50).
+Each confirmed track is classified using a rule-based system (v1.2) that evaluates spatial and kinematic features: bounding box dimensions, aspect ratio, speed, point count, and height profile. The classifier assigns one of eight object types: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and dynamic (unclassified moving object), with confidence levels at three tiers: high (0.85), medium (0.70), and low (0.50).
 
-The rule set uses threshold ranges derived from measured vehicle dimensions and typical urban speeds. Truck and motorcyclist labels are currently display-only: visible in the visualiser and VRLOG replay but not selectable in the labelling UI, pending wider validation data. The `ClassDynamic` label catches moving objects that do not match any specific profile — useful for flagging edge cases rather than forcing a wrong classification.
+The rule set uses threshold ranges derived from measured vehicle dimensions and typical urban speeds. Truck and motorcyclist labels are currently display-only: visible in the visualiser and VRLOG replay but not selectable in the labelling UI, pending wider validation data. The `ClassDynamic` label catches moving objects that do not match any specific profile, useful for flagging edge cases rather than forcing a wrong classification.
 
 The classification is deliberately rule-based rather than learned. With single-digit labelled sessions, a trained classifier would overfit; the rule set is transparent, tuneable, and correct enough to structure the data for future ML work when the ground truth corpus is larger.
 
@@ -854,7 +854,7 @@ rpc StopRecording(RecordingRequest) returns (RecordingStatus);
 
 LiDAR sessions are recorded in the VRLOG format (v0.5), a seekable binary container for point clouds, tracks, and metadata. A recording is a directory containing chunked data files and a binary index.
 
-Each index entry is 24 bytes: an 8-byte frame ID, an 8-byte nanosecond timestamp, a 4-byte chunk ID, and a 4-byte offset within the chunk. The index is sorted by frame ID, enabling binary search for random access — the visualiser can seek to any frame in a multi-hour recording without scanning the data files. Chunks rotate at 1,000 frames or 150 MB, whichever comes first.
+Each index entry is 24 bytes: an 8-byte frame ID, an 8-byte nanosecond timestamp, a 4-byte chunk ID, and a 4-byte offset within the chunk. The index is sorted by frame ID, enabling binary search for random access: the visualiser can seek to any frame in a multi-hour recording without scanning the data files. Chunks rotate at 1,000 frames or 150 MB, whichever comes first.
 
 VRLOG recordings are the primary unit of reproducible work. Every parameter sweep, every labelling session, and every evaluation run operates on a VRLOG file, so results are deterministic and reviewable.
 
@@ -862,20 +862,20 @@ VRLOG recordings are the primary unit of reproducible work. Every parameter swee
 
 The labelling workflow produces ground truth for parameter evaluation. A human reviewer watches a VRLOG replay in the macOS visualiser or Svelte frontend, marks each track as correctly detected, fragmented, false positive, or missed, and annotates the object type. Labels are stored alongside the recording and versioned with the run that produced them.
 
-The label vocabulary distinguishes selectable labels (what a reviewer can assign) from display labels (what the classifier can output). This separation lets the classifier report fine-grained types like truck and motorcyclist without requiring reviewers to distinguish them reliably at LiDAR resolution — an honest acknowledgement that some categories are easier to classify than to label.
+The label vocabulary distinguishes selectable labels (what a reviewer can assign) from display labels (what the classifier can output). This separation lets the classifier report fine-grained types like truck and motorcyclist without requiring reviewers to distinguish them reliably at LiDAR resolution, an honest acknowledgement that some categories are easier to classify than to label.
 
 ### HINT Parameter Tuner
 
 HINT (Human-Involved Numerical Tuning) closes the loop between perception quality and parameter selection. The workflow:
 
-1. **Reference run** — process a VRLOG recording with current parameters to produce tracks.
-2. **Label** — a human labels the tracks (correct, fragmented, false positive, missed).
-3. **Sweep** — the tuner replays the same recording across a grid of parameter combinations, scoring each against the labelled ground truth.
-4. **Select** — the combination with the best composite score becomes the new parameter set.
+1. **Reference run**: process a VRLOG recording with current parameters to produce tracks.
+2. **Label**: a human labels the tracks (correct, fragmented, false positive, missed).
+3. **Sweep**: the tuner replays the same recording across a grid of parameter combinations, scoring each against the labelled ground truth.
+4. **Select**: the combination with the best composite score becomes the new parameter set.
 
 The scoring function is a weighted linear combination of detection quality metrics: acceptance rate, track fragmentation, false positive rate, heading jitter, speed jitter, and foreground capture ratio, among others. Weights are configurable; the defaults penalise fragmentation heavily (a vehicle that splits into three tracks is worse than one that is slightly misaligned) and reward detection rate.
 
-HINT is not automated optimisation — the human labelling step is deliberate. At the current data scale, a reviewer who watches the replay catches failure modes that no metric captures: a track that technically scores well but visually drifts through a wall, or a cluster that fragments because the parameters are tuned for a different scene geometry. The human stays in the loop until the ground truth corpus is large enough to trust automated evaluation.
+HINT is not automated optimisation: the human labelling step is deliberate. At the current data scale, a reviewer who watches the replay catches failure modes that no metric captures: a track that technically scores well but visually drifts through a wall, or a cluster that fragments because the parameters are tuned for a different scene geometry. The human stays in the loop until the ground truth corpus is large enough to trust automated evaluation.
 
 ## Deployment Architecture
 
@@ -1004,7 +1004,7 @@ Web Development:
 
 ### LiDAR Pipeline Layers
 
-The perception pipeline is organised as ten layers (L1–L10), each a distinct Go package under `internal/lidar/`. Layers L1–L6 form a complete stack from raw UDP frames to classified objects — DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment, and rule-based classification, all tuneable and inspectable end to end.
+The perception pipeline is organised as ten layers (L1–L10), each a distinct Go package under `internal/lidar/`. Layers L1–L6 form a complete stack from raw UDP frames to classified objects: DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment, and rule-based classification, all tuneable and inspectable end to end.
 
 | Layer | Package         | Capability                                                                      | Status         |
 | ----- | --------------- | ------------------------------------------------------------------------------- | -------------- |

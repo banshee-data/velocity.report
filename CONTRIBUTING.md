@@ -74,18 +74,18 @@ and evidence requirements lives in
 [data/QUESTIONS.md](data/QUESTIONS.md). These four are the
 highest-impact starting points for a data scientist:
 
-1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)** —
+1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)**:
    Does the Bayesian geometry-coherent model reduce
    heading drift and dimension instability enough to
    replace the reactive OBB guards?
-2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)** —
+2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)**:
    Does track-assisted foreground promotion beat the
    current baseline on track completeness and
    fragmentation across multiple sites?
-3. **[Interpretable classification](data/maths/classification-maths.md)** —
+3. **[Interpretable classification](data/maths/classification-maths.md)**:
    Can a shallow, explainable model improve per-class
    precision/recall without introducing a black box?
-4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)** —
+4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)**:
    Can reflective signs serve as reliable static pose
    anchors, and what fallback hierarchy works in
    sign-poor scenes?
@@ -134,12 +134,12 @@ did.
 
 #### Open questions
 
-1. **[Speed distribution visualisation](data/QUESTIONS.md)** —
+1. **[Speed distribution visualisation](data/QUESTIONS.md)**:
    Urban speed data is often bimodal or skewed; how
    should charts represent non-normal distributions and
    communicate sample-size confidence to non-technical
    audiences?
-2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)** —
+2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)**:
    What visual language makes it clear that p85 values
    across time bins cannot simply be averaged?
 
@@ -198,15 +198,15 @@ seagull also helps.
 
 #### Open questions
 
-1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)** —
+1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)**:
    When does the height-band filter stop being good
    enough, and what replay evidence justifies tile-plane
    fitting?
-2. **[Kinematic model extensions](data/QUESTIONS.md)** —
+2. **[Kinematic model extensions](data/QUESTIONS.md)**:
    Does adding acceleration states or IMM blending
    reduce track fragmentation enough to justify the CPU
    cost on a Raspberry Pi?
-3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)** —
+3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)**:
    Should fusion be scored at L5 per-track association
    or L7 scene-level, and how should conflicting
    observations be resolved?
@@ -241,14 +241,14 @@ shell tooling, and deployment automation is useful.
 
 #### Open questions
 
-1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)** —
+1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)**:
    Most defaults were tuned on a single PCAP; which
    survive multi-site validation and what does the
    auto-tuning objective function look like?
-2. **[Edge hardware budget](data/QUESTIONS.md)** —
+2. **[Edge hardware budget](data/QUESTIONS.md)**:
    Do all proposed algorithm improvements fit within
    the 100 ms frame budget on a Raspberry Pi 4?
-3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)** —
+3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)**:
    How should observed geometry be diffed, reviewed,
    and exported against OSM without weakening
    provenance?

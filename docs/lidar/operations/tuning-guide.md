@@ -38,4 +38,4 @@ Deferred phases (advanced labelling, extended auto-aware tuning) are tracked in:
 
 For algorithm-level detail on the parameters and their derivations:
 
-- `data/maths/README.md` §Config Mapping — complete key-to-source mapping
+- [MATHS.md](../../../data/maths/MATHS.md) §Config Mapping: complete key-to-source mapping

@@ -43,12 +43,12 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 ### v0.5.5 - Algorithm Correctness + Gap Remediation (055)
 
 - [#391] Geometry-coherent tracking (P1 maths, D-04): persistent geometry state in L5 track association for spatial consistency: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md) `M`
-- Paper-implementation gap remediation P1a — Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
-- Paper-implementation gap remediation P1b — background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1a, Kalman fixes: K1 (full-Q process noise test), K2 (Joseph-form covariance update): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
+- Paper-implementation gap remediation P1b, background + tracker metrics: B1 (MAD-vs-σ convergence test), M1 (MOTA/MOTP in l8analytics), S2/S3 (cascaded confirmed-first association): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P2 (edge-case hardening): D2 (MinPts self-inclusion), D3 (near-merge cluster separation), S2/S3 (confirmed-vs-tentative priority), P3 (heading disambiguation chain), C2 (classification boundaries), V1 (coasting prediction error), G1 (Patchwork++ evaluation): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - Paper-implementation gap remediation P3 (completeness + robustness): K3 (covariance symmetry monitoring), K4 (identity preservation unlike-class), B3/B4/B5 (bimodal/reacquisition/locked-baseline background tests), H1/H2 (Hungarian edge cases), M3 (temporal IoU), G1 (sloped-road), HW1 (noise model vs sensor spec), P1 (degenerate OBB): [gap analysis](../data/maths/paper-implementation-gap-analysis.md) `M`
 - [#397] OBB review status and heading telemetry prep: document Fix E/F completion status for oriented bounding boxes, add cluster debug flag prep, tracker heading instrumentation, and config updates for remaining OBB stability work: `S`
-- [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391 — close without merge if those branches land first: `S`
+- [#392] Track quality metrics and export: quality scoring (length, duration, occlusions, coverage), track point cloud export, and aspect ratio enhancement for clustering; likely subsumed by #390/#391; close without merge if those branches land first: `S`
 
 ### v0.5.6 - Structural Hygiene + Layer Foundations (056)
 
