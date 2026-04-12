@@ -419,7 +419,7 @@ L5  Tracks ──── Hungarian assignment: clusters → Kalman-filtered track
  │
 L6  Objects ─── Classification: feature accumulation → class label
                  car │ pedestrian │ cyclist │ bird │ other
-                 AV taxonomy mapping (28-class compatibility)
+                 AV taxonomy mapping (see classification-maths.md §11)
                  Per-track quality scoring
 
 ═══════════════════════════════════════════════════════════════════════════
@@ -730,16 +730,18 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 ### L6 objects: semantic classification
 
-**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV 28-class taxonomy mapping as an export concern.
+**Our approach:** Rule-based feature accumulation from confirmed tracks; classification by dimensional/kinematic heuristics (size, speed profile, aspect ratio). Local classes: `car`, `pedestrian`, `cyclist`, `bird`, `other`. AV taxonomy mapping as an export concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping).
 
 **Literature context:** Our current classifier is heuristic rather than learned, occupying the same architectural slot as deep-learning detectors (PointPillars, CenterPoint) but with deterministic rules suited to our privacy-first, edge-compute constraints.
 
-| Reference                                                          | Relevance                                                                                                             |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline |
-| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility              |
-| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                  |
-| Behley et al. (2019): SemanticKITTI                                | 28-class point-wise semantic labels; our AV compatibility mapping targets this taxonomy                               |
+| Reference                                                          | Relevance                                                                                                                                                      |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): **PointPillars** (arXiv:1812.05784, CVPR 2019) | Fast pillar-based 3D detection at 62 Hz; represents the learned-detection alternative to our L4+L6 heuristic pipeline                                          |
+| nuScenes detection taxonomy (Caesar et al., 2020)                  | 23-class AV taxonomy; our L6 maps local classes to this (and Waymo 4-class) for evaluation compatibility                                                       |
+| KITTI 3D Object Detection Benchmark (Geiger et al., 2012)          | Standard evaluation benchmark; our L8 Analytics run-comparison metrics derive from KITTI conventions                                                           |
+| Behley et al. (2019): SemanticKITTI                                | 19 eval-class point-level semantic segmentation benchmark; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the full mapping |
+| Mei et al. (2022): Waymo Panoptic                                  | 22 semantic classes; source of the "28 semantic categories" count in earlier docs                                                                              |
+| Fong et al. (2021): Panoptic nuScenes                              | 32-class (16 things + 16 stuff) LiDAR panoptic segmentation and tracking benchmark                                                                             |
 
 ### L6e ML classifier (planned)
 
@@ -747,12 +749,12 @@ The full bibliography in BibTeX format is at [data/maths/references.bib](../../.
 
 **Literature context:** The architectural slot we occupy (features from tracked clusters → class label) is equivalent to the "object proposal → classification" stage in detector pipelines. Our heuristic classifier is an interpretable baseline; learned classifiers improve on recall for ambiguous object types (cyclists vs. pedestrians at low speed, motorcyclists vs. cyclists at medium speed) at the cost of requiring labelled training data.
 
-| Reference                           | Relevance                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features |
-| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions          |
-| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training            |
-| Behley et al. (2019): SemanticKITTI | 28-class point-level semantic labels; AV compatibility mapping targets this taxonomy                                 |
+| Reference                           | Relevance                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lang et al. (2019): PointPillars    | Point-pillar feature extraction as an alternative feature representation; could replace our hand-crafted 13 features                                      |
+| Geiger et al. (2012): KITTI         | Training and evaluation benchmark; our classification rules were calibrated against KITTI class definitions                                               |
+| Caesar et al. (2020): nuScenes      | 23-class taxonomy and large-scale labelled dataset; primary target for future learned classifier training                                                 |
+| Behley et al. (2019): SemanticKITTI | 19 eval-class point-level semantic segmentation; see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way mapping |
 
 **Design plan:** [ML classifier plan](../../plans/lidar-ml-classifier-training-plan.md).
 
@@ -837,7 +839,7 @@ These capabilities might emerge in future years. They would extend existing laye
 
 ## AV compatibility note
 
-This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV 28-class compatibility remains an **L6 Objects** concern. HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
+This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
 
 The layer boundaries are intentionally aligned with common AV pipeline decompositions (sensor → detection → tracking → prediction → planning) but stop before planning/control since velocity.report is an observation system, not a vehicle control system.
 

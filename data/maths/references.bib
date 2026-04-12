@@ -419,8 +419,9 @@
   eprint    = {1904.01416},
   archivePrefix = {arXiv},
   doi       = {10.1109/ICCV.2019.00939},
-  note      = {28-class point-level semantic labels; {AV} compatibility mapping
-               targets this taxonomy in {L6}},
+  note      = {19 evaluation classes (from 28 raw label {IDs} including
+               \texttt{moving-*} variants); point-level semantic
+               segmentation benchmark for outdoor {LiDAR}},
 }
 
 @inproceedings{Caesar2020,
@@ -1016,6 +1017,36 @@
   doi       = {10.1109/ICRA48506.2021.9561754},
   note      = {Probabilistic multi-modal {3D} {MOT} using {EKF} with {3D}
                bounding boxes; extends {AB3DMOT} with probabilistic association},
+}
+
+@article{Mei2022Waymo,
+  author  = {Mei, Jieru and Zhu, Alex Zihao and Yan, Xinchen and Yan, Hang
+             and Qiao, Siyuan and Zhu, Yukun and Chen, Liang-Chieh and
+             Kretzschmar, Henrik and Anguelov, Dragomir},
+  title   = {{Waymo} Open Dataset: Panoramic Video Panoptic Segmentation},
+  journal = {arXiv preprint},
+  year    = {2022},
+  eprint  = {2206.07704},
+  archivePrefix = {arXiv},
+  doi     = {10.48550/arXiv.2206.07704},
+  note    = {22 semantic classes (+ undefined) for panoptic {LiDAR}
+             segmentation; the clean 28-category count in older velocity.report
+             docs traces to this dataset, not {SemanticKITTI}},
+}
+
+@inproceedings{Fong2021PanopticNuScenes,
+  author    = {Fong, Whye Kit and Mohan, Rohit and Hurtado, Juana Valeria and
+               Zhou, Lubing and Caesar, Holger and Beijbom, Oscar and Valada,
+               Abhinav},
+  title     = {Panoptic {nuScenes}: A Large-Scale Benchmark for {LiDAR}
+               Panoptic Segmentation and Tracking},
+  booktitle = {arXiv preprint},
+  year      = {2021},
+  eprint    = {2109.03805},
+  archivePrefix = {arXiv},
+  doi       = {10.48550/arXiv.2109.03805},
+  note      = {Extends {nuScenes} with 32 point-wise semantic labels (16 things
+               + 16 stuff); panoptic segmentation and tracking benchmark},
 }
 
 @article{Sun2020Waymo,

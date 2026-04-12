@@ -177,7 +177,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ## v∞.0 (deferred, waybacklog)
 
 - (#322) Motion capture architecture: moving sensor support: [design doc](plans/lidar-motion-capture-architecture-plan.md) `XL`
-- (#326) AV dataset integration: 28-class taxonomy, Parquet ingestion: [design doc](plans/lidar-av-lidar-integration-plan.md) `XL`
+- (#326) AV dataset integration: taxonomy mapping, Parquet ingestion: [design doc](plans/lidar-av-lidar-integration-plan.md) `XL`
 - (#327) AV range image format: dual-return support: [design doc](lidar/architecture/av-range-image-format-alignment.md) `L`
 - Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
 - Online geometry-prior service: opt-in community-maintained geometry priors (local-only remains default): [design doc](lidar/architecture/vector-scene-map.md) `L`

@@ -304,13 +304,13 @@ All of these can be written now against the current codebase.
 
 ### Phase 2: documentation improvements (no paper downloads needed)
 
-| ID  | Action                                                                                                         |
-| --- | -------------------------------------------------------------------------------------------------------------- |
-| B2  | Add effective EMA window formula to [background-grid-settling-maths.md](background-grid-settling-maths.md)     |
-| B1  | Document MAD-to-σ relationship in [background-grid-settling-maths.md](background-grid-settling-maths.md)       |
-| V2  | Derive effective observation window from `ProcessNoiseVel`; document in [tracking-maths.md](tracking-maths.md) |
-| C1  | Create nuScenes/KITTI class mapping table in [classification-maths.md](classification-maths.md)                |
-| HW2 | Document beam pattern non-uniformity in hardware notes                                                         |
+| ID  | Action                                                                                                                                                                           |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B2  | Add effective EMA window formula to [background-grid-settling-maths.md](background-grid-settling-maths.md)                                                                       |
+| B1  | Document MAD-to-σ relationship in [background-grid-settling-maths.md](background-grid-settling-maths.md)                                                                         |
+| V2  | Derive effective observation window from `ProcessNoiseVel`; document in [tracking-maths.md](tracking-maths.md)                                                                   |
+| C1  | ~~Create nuScenes/KITTI class mapping table in [classification-maths.md](classification-maths.md)~~ ✅ Done — §11 added with SemanticKITTI, Waymo, and Panoptic nuScenes mapping |
+| HW2 | Document beam pattern non-uniformity in hardware notes                                                                                                                           |
 
 ### Phase 3: structural improvements (may need paper downloads)
 

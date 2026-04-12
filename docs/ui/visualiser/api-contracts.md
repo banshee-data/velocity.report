@@ -19,7 +19,7 @@ This API is designed to align with the **7-DOF industry standard** for 3D boundi
 
 - `OrientedBoundingBox` matches `BoundingBox7DOF` from `av-lidar-integration-plan.md`
 - Future AV dataset import can use the same data structures
-- Compatible with the 28-class AV taxonomy (via extensible `class_label` field)
+- Compatible with the AV taxonomy (via extensible `class_label` field; see [classification-maths.md §11](../../../data/maths/classification-maths.md))
 
 ---
 

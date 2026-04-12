@@ -15,7 +15,7 @@ Deferred plan for 7DOF track production from Hesai LiDAR data. The 7DOF features
 | Oriented bounding boxes          | Axis-aligned boxes         |
 | PCA-based heading                | Heading from velocity      |
 | 6-state Kalman                   | EMA smoothing              |
-| 28-class taxonomy                | 4 classes                  |
+| AV taxonomy (19–32 classes)      | 4 classes                  |
 
 Implemented instead: see `docs/lidar/architecture/velocity-foreground-extraction.md` for the simplified approach.
 
