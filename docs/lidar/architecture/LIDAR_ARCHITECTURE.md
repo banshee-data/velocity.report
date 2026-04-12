@@ -395,7 +395,7 @@ The core processing pipeline runs once per LiDAR frame (~10 Hz for Hesai Pandar4
 
 L1  Packets ─── UDP payloads arrive from sensor (or PCAP replay)
  │               Hesai Pandar40P: 40-ring returns, ~700K pts/sec
- │               Radar: serial frames (OmniPreSense OPS243-C)
+ │               Radar: serial frames (OmniPreSense OPS243-A)
  │               Future: additional LiDAR/radar on separate ports
  │
 L2  Frames ──── Frame assembly: polar points → time-coherent LiDARFrame
