@@ -77,7 +77,7 @@
 - Added Raspberry Pi download section to the homepage (#437): `release.json` data source, per-platform SHA256 hashes, clipboard fallback for copy buttons.
 - Fixed homepage mobile layout (#439): resolved light/dark theming split and download card spacing.
 - Refined Terry agent coaching workshop documentation (#438).
-- Fixed "Web Frontend Not Built" in the RPi image: whitelisted [web/build/](../web/build) in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`.
+- Fixed "Web Frontend Not Built" in the RPi image: whitelisted [web/build/](../web/build) in `.dockerignore` and added a web build step before Go compilation in `build-image.sh`. <!-- link-ignore -->
 - Moved TLS termination from Go server to nginx reverse proxy. Go server stays on `:8080` (plain HTTP), nginx handles HTTPS on port 443.
 - Added first-boot TLS certificate generation (`velocity-generate-tls.sh`): per-device ECDSA P-256 local CA (10-year) and server cert (825-day). Idempotent, regenerates on expiry.
 - Exposed CA certificate at `GET /ca.crt` via nginx for browser trust installation.

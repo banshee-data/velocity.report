@@ -1010,7 +1010,7 @@ make proto-gen
 ```
 
 Generated Swift files are placed in:
-[tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/](tools/visualiser-macos/VelocityVisualiser/gRPC/Generated)
+[tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/](tools/visualiser-macos/VelocityVisualiser/gRPC/Generated) <!-- link-ignore-->
 
 ---
 
