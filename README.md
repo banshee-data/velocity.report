@@ -54,8 +54,21 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
-> [!WARNING]
-> **Alpha software.** velocity.report has no authentication or access control yet. Deploy only on private networks or dedicated VLANs: exposed instances risk data loss or tampering. Authentication and hardened security are on the roadmap before v1. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
+## ⚠️ Warning: Alpha Software
+
+```
+    ░██       ░██                                ░██                      ░██
+    ░██       ░██                                                         ░██
+    ░██  ░██  ░██  ░██████   ░██░████ ░████████  ░██░████████   ░████████ ░██
+    ░██ ░████ ░██       ░██  ░███     ░██    ░██ ░██░██    ░██ ░██    ░██ ░██
+    ░██░██ ░██░██  ░███████  ░██      ░██    ░██ ░██░██    ░██ ░██    ░██ ░██
+    ░████   ░████ ░██   ░██  ░██      ░██    ░██ ░██░██    ░██ ░██   ░███
+    ░███     ░███  ░█████░██ ░██      ░██    ░██ ░██░██    ░██  ░█████░██ ░██
+                                                                      ░██
+                                                                ░███████
+```
+
+> **This is alpha software.** It works. It is tested. It is not yet hardened. There is no authentication or access control, which means an exposed instance will cheerfully serve its data to anyone who asks, and its PDF generation endpoint to anyone who hammers it. PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests; a determined request loop will fill available storage and take the system down. Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem. Deploy on a private network or a dedicated VLAN with its own storage budget. Do not point it at the open internet and hope for the best: hope is not a security architecture. See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
 
 ## Why velocity.report?
 
