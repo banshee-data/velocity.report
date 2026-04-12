@@ -4,7 +4,7 @@ Design for deprecating `arena.go` and relocating its active shared types into la
 
 ## Objective
 
-Deprecate `internal/lidar/arena.go` and replace it with layer-aligned type files that match `docs/lidar/architecture/lidar-data-layer-model.md`.
+Deprecate `internal/lidar/arena.go` and replace it with layer-aligned type files that match `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`.
 
 This design keeps runtime behaviour unchanged while making ownership and intent of shared models much clearer.
 

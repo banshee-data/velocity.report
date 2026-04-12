@@ -8,7 +8,7 @@ Usage:
     python3 scripts/mermaid-crossing-checker.py [FILE]
 
 If FILE is omitted it defaults to
-    docs/lidar/architecture/lidar-data-layer-model.md
+    docs/lidar/architecture/LIDAR_ARCHITECTURE.md
 
 What this checks
 ────────────────
@@ -204,7 +204,7 @@ def lint_edge_order(
 
 
 def main() -> None:
-    default = "docs/lidar/architecture/lidar-data-layer-model.md"
+    default = "docs/lidar/architecture/LIDAR_ARCHITECTURE.md"
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(default)
 
     if not path.exists():

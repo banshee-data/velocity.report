@@ -6,7 +6,7 @@ This review audits the codebase against the six-layer LiDAR model, identifying b
 
 ## Goal
 
-Make the codebase more logical and readable by aligning implementation with the six-layer model in `docs/lidar/architecture/lidar-data-layer-model.md`.
+Make the codebase more logical and readable by aligning implementation with the six-layer model in `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`.
 
 This review focuses on:
 
@@ -19,7 +19,7 @@ This review focuses on:
 
 ### Layer model exists, but orchestration bypasses boundaries
 
-- The model defines clean L1-L6 boundaries in `docs/lidar/architecture/lidar-data-layer-model.md:9`.
+- The model defines clean L1-L6 boundaries in `docs/lidar/architecture/LIDAR_ARCHITECTURE.md:9`.
 - The runtime callback currently crosses many layers in one function:
   - L3 foreground extraction in `internal/lidar/tracking_pipeline.go:156`
   - L4 transform/clustering in `internal/lidar/tracking_pipeline.go:246` and `internal/lidar/tracking_pipeline.go:274`

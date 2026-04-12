@@ -101,7 +101,7 @@ Read next:
 - [data/QUESTIONS.md](data/QUESTIONS.md): full index of
   open research questions across the pipeline, grouped by
   theme with acceptance criteria and evidence requirements
-- [Pipeline Architecture](docs/lidar/architecture/lidar-data-layer-model.md): Ten layer data processing stack, from sensors to visualisation tools
+- [Pipeline Architecture](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): Ten layer data processing stack, from sensors to visualisation tools
 - [data/maths/MATHS.md](data/maths/MATHS.md): mathematical
   foundations across settling, ground modelling, clustering,
   tracking, and proposals

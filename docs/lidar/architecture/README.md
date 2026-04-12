@@ -36,7 +36,7 @@ Cross-cutting packages:
 For the full layer model specification, including the canonical L1→L10 stack
 reference, the detailed concept/algorithm status chart, and the
 implementation-vs-literature breakdown, see
-[lidar-data-layer-model.md](lidar-data-layer-model.md).
+[LIDAR_ARCHITECTURE.md](LIDAR_ARCHITECTURE.md).
 
 ## Architecture documents
 
@@ -44,7 +44,7 @@ implementation-vs-literature breakdown, see
 
 | Document                                                                                           | Scope                                                                                        |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [lidar-data-layer-model.md](lidar-data-layer-model.md)                                             | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
+| [LIDAR_ARCHITECTURE.md](LIDAR_ARCHITECTURE.md)                                                     | Canonical ten-layer model with stack reference, concept/algorithm chart, and package mapping |
 | [lidar-layer-alignment-refactor-review.md](lidar-layer-alignment-refactor-review.md)               | Layer alignment review: completed migration, complexity analysis, file splits                |
 | [lidar-logging-stream-split-and-rubric-design.md](lidar-logging-stream-split-and-rubric-design.md) | Complete: all 55 Debugf sites migrated to explicit ops/diag/trace streams                    |
 | [foreground-tracking.md](foreground-tracking.md)                                                   | Foreground extraction and tracking pipeline design                                           |

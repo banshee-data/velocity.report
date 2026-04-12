@@ -45,7 +45,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 
 | Canonical file                                           | Status | Fed by plan(s)                                        | Notes                                 |
 | -------------------------------------------------------- | ------ | ----------------------------------------------------- | ------------------------------------- |
-| `lidar-data-layer-model.md`                              | EXISTS | `lidar-layer-dependency-hygiene-plan`                 | Layer ownership rules absorb          |
+| `LIDAR_ARCHITECTURE.md`                                  | EXISTS | `lidar-layer-dependency-hygiene-plan`                 | Layer ownership rules absorb          |
 | `lidar-pipeline-reference.md`                            | EXISTS | `lidar-architecture-graph-plan`                       | Graph becomes asset of this doc       |
 | `lidar-sidecar-overview.md`                              | EXISTS | -                                                     | Already canonical                     |
 | `foreground-tracking.md`                                 | EXISTS | `lidar-bodies-in-motion-plan`                         | Kinematic prediction extends tracking |

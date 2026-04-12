@@ -251,7 +251,7 @@
 
 ## March 9, 2026 - LiDAR L7-L10 & metrics-first documentation
 
-- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
+- Updated [LiDAR data layer model](lidar/architecture/LIDAR_ARCHITECTURE.md) from six-layer to ten-layer architecture: added L7 analytics, L8 endpoints, L9 client, L10 scene layers to docs and backlog.
 - Rewrote contributor personas in [CONTRIBUTING.md](../CONTRIBUTING.md), expanded role guidance for Swift/macOS, Svelte/web, PDF/matplotlib, and platform/observability.
 - Added [ticTacTail](plans/tictactail-platform-plan.md) VRLOG inspection command specification: CLI shape, package layout, modes, metrics, and aggregation windows.
 - Added `internal/lidar/monitor/` deprecation and migration plan to `server/`, `l7analytics/`, `l8presentation/`.
@@ -398,7 +398,7 @@
 - Added OBB serialisation to `frameBundleToProto` with tests.
 - Added lifecycle parameter sweep scripts and kirk0 configuration permutations for tuning.
 - Fixed out-of-bounds errors and tuned tracking parameters (PR #293).
-- Updated [LiDAR data layer model](lidar/architecture/lidar-data-layer-model.md) documentation with visualisation details.
+- Updated [LiDAR data layer model](lidar/architecture/LIDAR_ARCHITECTURE.md) documentation with visualisation details.
 - {copilot/update-serial-configuration-ui} Added serial configuration backend (#290): DB layer with `serial_configs` table, API CRUD handlers, and a reload manager that hot-swaps serial port bindings without restarting the service.
 - {copilot/update-serial-configuration-ui} Added serial configuration web UI: settings page with create/edit/delete dialogs, port test dialog, and `uniquePortPaths` deduplication.
 - {copilot/update-serial-configuration-ui} Expanded Go test coverage for serial config reload and added Jest threshold enforcement for the web frontend.
@@ -444,7 +444,7 @@
 - macOS visualiser: added ground reference grid toggle, background grid points toggle, track filtering with dual-handle range slider.
 - Refactored all default parameters to load from `tuning.defaults.json` instead of hardcoded values.
 - Bumped version to 0.5.0-pre8 and 0.5.0-pre9.
-- Created [LiDAR 6-layer data model](lidar/architecture/lidar-data-layer-model.md) documentation (OSI-style).
+- Created [LiDAR 6-layer data model](lidar/architecture/LIDAR_ARCHITECTURE.md) documentation (OSI-style).
 - Added [LiDAR labelling QC enhancements](plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md) plan.
 - Created LiDAR refactor plans for package restructuring.
 

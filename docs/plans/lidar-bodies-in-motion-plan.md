@@ -2,7 +2,7 @@
 
 - **Status:** 📋 Planned; v2.0+
 - **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
-- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4
 - **Maths proposal:** to be written; `data/maths/proposals/YYYYMMDD-bodies-in-motion-maths.md`
 - **Canonical:** [foreground-tracking.md](../lidar/architecture/foreground-tracking.md)

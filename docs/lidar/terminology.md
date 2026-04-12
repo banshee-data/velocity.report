@@ -15,7 +15,7 @@ Core terms used across the LiDAR tracking system.
 
 ## Related architecture models
 
-- [LiDAR Data Layer Model (OSI-Style)](architecture/lidar-data-layer-model.md): ten-layer model from L1 Packets through L10 Clients.
+- [LiDAR Data Layer Model (OSI-Style)](architecture/LIDAR_ARCHITECTURE.md): ten-layer model from L1 Packets through L10 Clients.
 
 ## Layer summary
 

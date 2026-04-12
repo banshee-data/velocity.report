@@ -722,7 +722,7 @@ Table `ground_plane_snapshots` in `internal/lidar/storage/sqlite/schema.sql` sto
 
 ### Related documents
 
-- **LiDAR Data Layer Model**: `docs/lidar/architecture/lidar-data-layer-model.md` (six-layer model, L1–L6 definitions)
+- **LiDAR Data Layer Model**: `docs/lidar/architecture/LIDAR_ARCHITECTURE.md` (six-layer model, L1–L6 definitions)
 - **Background Grid Standards**: `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export standards, ROS interop)
 - **L3 Background Grid**: `internal/lidar/l3grid/background.go` (EMA updates, freeze mechanism, settlement detection)
 - **L4 HeightBandFilter**: `internal/lidar/l4perception/ground.go` (current Z-band filtering, replacement target)

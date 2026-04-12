@@ -4,7 +4,7 @@
 - **Layers:** Cross-cutting (L1 Packets, L2 Frames, Pipeline, L9 Endpoints)
 - **Canonical:** [multi-model-ingestion-and-configuration.md](../lidar/architecture/multi-model-ingestion-and-configuration.md)
 - **Related:** [`timeutil/clock.go`](../../internal/timeutil/clock.go),
-  [`lidar-data-layer-model.md`](../lidar/architecture/lidar-data-layer-model.md),
+  [`LIDAR_ARCHITECTURE.md`](../lidar/architecture/LIDAR_ARCHITECTURE.md),
   [`go-structured-logging-plan.md`](go-structured-logging-plan.md) (Item 3)
 
 Adopt the existing `timeutil.Clock` interface into the critical-path

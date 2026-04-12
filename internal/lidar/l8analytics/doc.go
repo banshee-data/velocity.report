@@ -9,6 +9,6 @@
 // storage), but never on HTML, Svelte, Swift, chart libraries, or
 // transport-layer response types.
 //
-// See docs/lidar/architecture/lidar-data-layer-model.md for the full
+// See docs/lidar/architecture/LIDAR_ARCHITECTURE.md for the full
 // layer model.
 package l8analytics

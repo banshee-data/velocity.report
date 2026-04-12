@@ -104,7 +104,7 @@ There is no `internal/lidar/l8analytics/` package today, and there is no explici
 
 The six-layer model is still described in multiple places, including:
 
-- `docs/lidar/architecture/lidar-data-layer-model.md`
+- `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`
 - `docs/lidar/architecture/README.md`
 - `docs/lidar/README.md`
 - `data/structures/README.md`
@@ -153,7 +153,7 @@ Backlog coverage: first half of the `v0.5.1` backlog item.
 
 Docs that must be updated in this subphase:
 
-- `docs/lidar/architecture/lidar-data-layer-model.md`
+- `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`
 - `docs/lidar/architecture/README.md`
 - `docs/lidar/README.md`
 - `data/structures/README.md`
@@ -414,7 +414,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 
 #### Docs and architecture
 
-- [x] `docs/lidar/architecture/lidar-data-layer-model.md` updated to the ten-layer model
+- [x] `docs/lidar/architecture/LIDAR_ARCHITECTURE.md` updated to the ten-layer model
 - [x] `docs/lidar/architecture/README.md` updated to describe `L1` through `L10`
 - [x] `docs/lidar/README.md` updated to the ten-layer terminology
 - [x] `data/structures/README.md` updated to the ten-layer terminology and current package layout

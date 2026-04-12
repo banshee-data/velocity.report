@@ -1138,7 +1138,7 @@ and rule-based classification, all tuneable and inspectable end to end.
 | L10   | Clients         | macOS visualiser (Metal), Svelte frontend, Python PDF (deprecated)              | ✅ Implemented |
 
 Canonical layer reference:
-[lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
+[LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md)
 
 ### LiDAR capability roadmap
 

@@ -70,7 +70,7 @@ Your posture is patient and generous. When you find a mathematical error, treat 
               → ENDPOINTS (L9) → CLIENTS (L10)
 ```
 
-Canonical reference: `docs/lidar/architecture/lidar-data-layer-model.md`
+Canonical reference: `docs/lidar/architecture/LIDAR_ARCHITECTURE.md`
 
 ### Key Mathematical Subsystems
 

@@ -537,6 +537,30 @@ Cross-cutting packages:
 
 Backward-compatible type aliases remain in the parent `internal/lidar/` package so existing callers continue to work.
 
+## Documentation map
+
+Documentation for the LiDAR subsystem lives under `docs/lidar/`.
+
+| Folder             | Scope                                                             |
+| ------------------ | ----------------------------------------------------------------- |
+| `architecture/`    | System design and layer specifications (including this document)  |
+| `operations/`      | Runtime operations: data source switching, auto-tuning, debugging |
+| `troubleshooting/` | Resolved investigation notes for reference                        |
+
+### Quick links
+
+| Topic                   | Document                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| System overview         | [lidar-sidecar-overview.md](lidar-sidecar-overview.md)                                                 |
+| Tracking implementation | [foreground-tracking.md](foreground-tracking.md)                                                       |
+| Packet format           | [HESAI_PACKET_FORMAT.md](../../../data/structures/HESAI_PACKET_FORMAT.md)                              |
+| Auto-tuning             | [auto-tuning.md](../operations/auto-tuning.md)                                                         |
+| Track labelling         | [track-labelling-ui-implementation.md](../operations/track-labelling-ui-implementation.md)             |
+| macOS visualiser        | [architecture.md](../../ui/visualiser/architecture.md)                                                 |
+| API contracts           | [api-contracts.md](../../ui/visualiser/api-contracts.md)                                               |
+| Data science plan       | [platform-data-science-metrics-first-plan.md](../../plans/platform-data-science-metrics-first-plan.md) |
+| Backlog                 | [BACKLOG.md](../../BACKLOG.md)                                                                         |
+
 ### Layer dependency rule
 
 Each layer package may only import from lower-numbered layers: never upward or sideways. For example: L2 may import L1 (for return types); L3 may import L1–L2; L4 may import L1–L3; and so on. Cross-cutting packages (`pipeline/`, `storage/`, `adapters/`) are exempt.

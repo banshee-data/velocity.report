@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
-- **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [lidar-data-layer-model.md](./lidar-data-layer-model.md)
+- **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [LIDAR_ARCHITECTURE.md](./LIDAR_ARCHITECTURE.md)
 
 This specification extends the ground-plane tiled-grid model into a polygon-based vector scene map, enabling variable-resolution representation of ground surfaces, buildings, vegetation, and other static scene features.
 
@@ -671,7 +671,7 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 
 - **Ground Plane Extraction**: [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
 - **Ground Plane Proposal Maths**: [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
-- **LiDAR Layer Model**: [lidar-data-layer-model.md](./lidar-data-layer-model.md) (L1–L6 layer definitions)
+- **LiDAR Layer Model**: [LIDAR_ARCHITECTURE.md](./LIDAR_ARCHITECTURE.md) (L1–L6 layer definitions)
 - **Background Grid Standards**: [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
 - **PCAP Export Tool**: [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
 

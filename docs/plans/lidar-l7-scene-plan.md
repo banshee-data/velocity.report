@@ -2,7 +2,7 @@
 
 - **Status:** 📋 Planned; v1.0
 - **Layers:** L7 Scene
-- **Canonical architecture:** [lidar-data-layer-model.md](../lidar/architecture/lidar-data-layer-model.md)
+- **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 

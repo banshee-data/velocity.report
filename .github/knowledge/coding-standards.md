@@ -165,8 +165,7 @@ Use `kebab-case.md` for design plans, operation guides, architecture deep-dives,
 specs, and investigations — any document that covers _one aspect_ of a topic
 rather than being the definitive reference for it.
 
-Examples: `lidar-data-layer-model.md`, `transit-deduplication.md`,
-`pdf-go-chart-migration-plan.md`, `auto-tuning.md`.
+Examples: `transit-deduplication.md`, `pdf-go-chart-migration-plan.md`, `auto-tuning.md`.
 
 **Rule:** if the filename describes _what the document covers_ rather than
 serving as the index for a topic, it is `kebab-case.md`.
