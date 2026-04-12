@@ -99,14 +99,28 @@ Acceptable divergence (handled by the normaliser):
 
 ### 6. Style compliance
 
-Spot-check documentation against STYLE.md:
+Run a full STYLE.md pass on every file listed in the **🔑 Key Documents**
+section of `README.md`. That section is the canonical list; do not duplicate
+it here.
 
-- [ ] British English (`-ise` not `-ize`, `-our` not `-or`)
+**Excluded from style and link rewrites:** `DECISIONS.md` preserves historical
+decision records. Verify its links are functional but do not reformat headings
+or prose for style compliance.
+
+Check each file against the full rule set in `.github/STYLE.md`. Common violations:
+
+- [ ] No em dashes — use colons, commas, or parentheses
+- [ ] British English (`-ise` not `-ize`, `-our` not `-or`, `-re` not `-er`)
 - [ ] Sentence-case headings (not Title Case)
+- [ ] Colons introduce lists and expansions, not dashes
 - [ ] No pre-built code blocks in design docs (see STYLE.md § Documentation Structure)
 - [ ] Product name: `velocity.report` (lowercase v, no spaces)
 - [ ] `VelocityVisualiser` (PascalCase for macOS app)
 - [ ] No date metadata in doc headers (enforced by linter)
+- [ ] Oxford comma in lists of three or more
+- [ ] Active voice preferred; no hedging language
+
+This is not a spot-check. Read each file and fix violations before proceeding.
 
 ### 7. Documentation preparedness
 
