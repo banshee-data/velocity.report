@@ -14,6 +14,14 @@ velocity.report uses seven specialised agent personas. Each brings a distinct di
 
 ## Attribution
 
+## Platform Parity
+
+Agent personas are paired across both platforms: `.github/agents/` (Copilot) and `.claude/agents/` (Claude Code). Run `make check-agent-drift` to verify alignment.
+
+**Workflow skills** live in `.claude/skills/` (13 skills) and are invoked as slash commands in Claude Code. Copilot prompts (`.github/prompts/`, 2 prompts) cover a smaller set because Copilot prompts cannot run terminal commands or orchestrate multi-step workflows. This asymmetry is intentional: skills that require tool access (`ship-change`, `release-prep`, `security-review`, etc.) have no Copilot equivalent. Prompts that are purely advisory (`svelte-ux-review`) may exist only in Copilot.
+
+## Attribution
+
 - **Leonhard Euler** — portrait by Jakob Emanuel Handmann, 1753. Kunstmuseum Basel. Public domain. [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Leonhard_Euler.jpg).
 - **Grace Hopper** — official US Navy photograph, 1984. Public domain (US government work). [Wikimedia Commons](<https://commons.wikimedia.org/wiki/File:Commodore_Grace_M._Hopper,_USN_(covered).jpg>).
 - **Appius Claudius Caecus** — Roman bust, Vatican Museums, Braccio Chiaramonti. Public domain. [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Musei_vaticani,_braccio_chiaramonti,_busto_02.JPG).

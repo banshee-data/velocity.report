@@ -12,7 +12,7 @@ Non-test imports of `database/sql` are restricted to `internal/db/` and
 `internal/lidar/storage/sqlite/dbconn.go` exports `sqlite.SQLDB`, `sqlite.SQLTx`, and
 `sqlite.ErrNotFound` so callers do not need `database/sql` directly.
 
-## Single SQLite Driver Policy
+## Single SQLite driver policy
 
 The project uses `modernc.org/sqlite` exclusively (v1.44.3, SQLite 3.51.2). The duplicate
 `github.com/mattn/go-sqlite3` dependency has been removed.

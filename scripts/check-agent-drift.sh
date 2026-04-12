@@ -107,9 +107,12 @@ extract_claude_persona() {
   ' "$file"
 }
 
-# Normalise text for comparison: lowercase, collapse whitespace, strip blank lines
+# Normalise text for comparison: lowercase, collapse whitespace, strip blank lines,
+# and canonicalise relative paths (Claude agents live at .claude/agents/ so use
+# ../../ filename.md to reach the repo root, while Copilot agents resolve from root).
 normalise() {
   tr '[:upper:]' '[:lower:]' \
+    | sed 's|\.\./\.\./||g' \
     | sed 's/[[:space:]]\{1,\}/ /g' \
     | sed 's/^[[:space:]]*//' \
     | sed 's/[[:space:]]*$//' \

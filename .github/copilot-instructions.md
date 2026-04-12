@@ -75,18 +75,18 @@ For full build setup, dev servers, and testing: see [knowledge/build-and-test.md
 
 Read these on demand when you need deeper context:
 
-| Module                                                             | Content                                        |
-| ------------------------------------------------------------------ | ---------------------------------------------- |
-| [TENETS.md](../TENETS.md)                                          | Project constitution                           |
-| [knowledge/architecture.md](knowledge/architecture.md)             | Tech stack, data flow, schema, deployment      |
-| [knowledge/build-and-test.md](knowledge/build-and-test.md)         | Make targets, dev servers, testing, setup      |
-| [STYLE.md](STYLE.md)                                               | British English, punctuation, prose mechanics  |
-| [knowledge/coding-standards.md](knowledge/coding-standards.md)     | Commits, paths, formatting                     |
-| [knowledge/hardware.md](knowledge/hardware.md)                     | Radar/LIDAR specs, serial/UDP, Raspberry Pi    |
-| [knowledge/security-surface.md](knowledge/security-surface.md)     | Attack surface map, vulnerability patterns     |
-| [knowledge/security-checklist.md](knowledge/security-checklist.md) | Review criteria, severity, gate classification |
-| [knowledge/role-technical.md](knowledge/role-technical.md)         | Shared context for technical agents            |
-| [knowledge/role-editorial.md](knowledge/role-editorial.md)         | Shared context for editorial agents            |
+| Module                                                             | Content                                               |
+| ------------------------------------------------------------------ | ----------------------------------------------------- |
+| [TENETS.md](../TENETS.md)                                          | Project constitution                                  |
+| [knowledge/architecture.md](knowledge/architecture.md)             | Tech stack, data flow, schema, deployment             |
+| [knowledge/build-and-test.md](knowledge/build-and-test.md)         | Make targets, dev servers, testing, setup             |
+| [STYLE.md](STYLE.md)                                               | British English, punctuation, documentation structure |
+| [knowledge/coding-standards.md](knowledge/coding-standards.md)     | Commits, paths, formatting                            |
+| [knowledge/hardware.md](knowledge/hardware.md)                     | Radar/LIDAR specs, serial/UDP, Raspberry Pi           |
+| [knowledge/security-surface.md](knowledge/security-surface.md)     | Attack surface map, vulnerability patterns            |
+| [knowledge/security-checklist.md](knowledge/security-checklist.md) | Review criteria, severity, gate classification        |
+| [knowledge/role-technical.md](knowledge/role-technical.md)         | Shared context for technical agents                   |
+| [knowledge/role-editorial.md](knowledge/role-editorial.md)         | Shared context for editorial agents                   |
 
 ## Task Guidance
 

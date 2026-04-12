@@ -1,6 +1,6 @@
 # PCAP Analysis Mode
 
-This guide covers the PCAP analysis mode, which replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
+PCAP analysis mode replays captured packet data through the LiDAR pipeline while preserving the background grid state for offline inspection and tuning.
 
 ## Overview
 
@@ -223,7 +223,7 @@ Live → PCAP (analysis_mode=false) → [auto-reset] → Live
 
 - [LIDAR Sidecar Overview](../architecture/lidar-sidecar-overview.md) - Background subtraction and grid management
 - [Data Source Switching](data-source-switching.md) - PCAP replay implementation
-- [Foreground Tracking Status](lidar-foreground-tracking-status.md) - Current issues and debugging
+- [Foreground Tracking Status](../architecture/foreground-tracking.md#current-operational-status) — Current issues and debugging
 - [Settling time optimisation](settling-time-optimisation.md) - Settling convergence tuning
 - [Adaptive region parameters](adaptive-region-parameters.md) - Region classification after settling
 - [Motion capture](motion-capture.md) - Sensor movement detection in L3

@@ -229,7 +229,7 @@ Single source of truth for project-wide work items in velocity.report. Where ava
 - [#360] Shared web cache for worktrees: activated shared Vite cache directory for git worktree workflows
 - [#364] Layer dependency hygiene: moved `PointPolar`, `Point`, `SphericalToCartesian`, `ApplyPose` from L4 to L2; fixed L1→L4 and L3→L4 import violations across ~30 files: [design doc](plans/lidar-layer-dependency-hygiene-plan.md)
 - [#364] LiDAR L2 dual representation: `LiDARFrame` stores both `PolarPoints` and `Points`; pipeline consumes frame-owned polar data directly; per-frame polar rebuild eliminated: [design doc](plans/lidar-l2-dual-representation-plan.md)
-- [#379] Pipeline mathematical review: end-to-end correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs
+- [#379] Pipeline mathematical review: full correctness audit of L1→L6 measurement pipeline with dimensional-analysis proofs
 - [#381] macOS visualiser replay enhancements: seekable VRLOG replay with `seekToTimestamp`, frame stepping, UI throttling, background frame skipping, frame coalescing, performance tracing, and replay epoch tracking: [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
 - [#381] Run-list track-labelling percent icon: backend `label_rollup` contract, macOS segmented green/accent-colour/grey run-browser icon, and immediate in-memory refresh after successful label writes; web runs-list parity deferred: [design doc](plans/lidar-visualiser-run-list-labelling-rollup-icon-plan.md)
 - [#381] v0.5.0 classification label trimming: truck and motorcyclist disabled from classifier cascade, all UIs, and label validation API; proto enum values retained for v0.6+ reactivation: [design doc](plans/label-vocabulary-consolidation-plan.md)

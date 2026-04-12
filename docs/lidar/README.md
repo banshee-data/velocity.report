@@ -80,11 +80,11 @@ Tracking pipeline refactor and upgrade proposals.
 | Paper/status mapping    | [architecture/lidar-data-layer-model.md#layered-concept-and-literature-status](architecture/lidar-data-layer-model.md#layered-concept-and-literature-status) |
 | System overview         | [architecture/lidar-sidecar-overview.md](architecture/lidar-sidecar-overview.md)                                                                             |
 | Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                                                                                   |
-| Current status          | [operations/lidar-foreground-tracking-status.md](operations/lidar-foreground-tracking-status.md)                                                             |
+| Current status          | [architecture/foreground-tracking.md §Operational Status](architecture/foreground-tracking.md#current-operational-status)                                    |
 | Data science plan       | [../plans/platform-data-science-metrics-first-plan.md](../plans/platform-data-science-metrics-first-plan.md)                                                 |
 | Packet format           | [HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)                                                                                       |
-| **macOS Visualiser**    | [../ui/velocity-visualiser-architecture.md](../ui/velocity-visualiser-architecture.md)                                                                       |
-| **API Contracts**       | [../ui/velocity-visualiser-api-contracts.md](../ui/velocity-visualiser-api-contracts.md)                                                                     |
+| **macOS Visualiser**    | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                                                                                         |
+| **API Contracts**       | [../ui/visualiser/api-contracts.md](../ui/visualiser/api-contracts.md)                                                                                       |
 | **Labelling + QC Plan** | [../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md](../plans/lidar-visualiser-labelling-qc-enhancements-overview-plan.md)                 |
 | **Tracking Upgrades**   | [troubleshooting/01-tracking-upgrades.md](troubleshooting/01-tracking-upgrades.md)                                                                           |
 | **Auto-Tuning Plan**    | [operations/auto-tuning.md](operations/auto-tuning.md)                                                                                                       |

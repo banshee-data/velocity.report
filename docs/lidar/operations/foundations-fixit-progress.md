@@ -1,6 +1,6 @@
 # LiDAR Foundations Fix-It
 
-This document tracks the progress of the LiDAR foundations fix-it pass, which stabilises documentation accuracy and closes implementation gaps in the production pipeline.
+Progress of the LiDAR foundations fix-it pass, which stabilises documentation accuracy and closes implementation gaps in the production pipeline.
 
 ## Goal
 

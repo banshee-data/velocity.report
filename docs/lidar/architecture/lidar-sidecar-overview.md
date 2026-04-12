@@ -3,185 +3,15 @@
 - **Status:** Phase 3.9 completed — All core features operational
 - **Scope:** Hesai UDP → parse → frame assembly → background subtraction → foreground mask → clustering → tracking → classification → HTTP API → classification research data export → Analysis Runs → Sweep/Auto-Tune
 
-This document provides a technical overview of the LiDAR sidecar implementation, covering the full pipeline from Hesai UDP ingestion through background subtraction, clustering, tracking, classification, and sweep-based parameter tuning.
+Technical overview of the LiDAR sidecar: Hesai UDP ingestion through background subtraction, clustering, tracking, classification, and sweep-based parameter tuning.
 
 ---
 
 ## Implementation Status
 
-### ✅ **Phase 1: Core Infrastructure (COMPLETED)**
+Phases 1–3.9 complete: UDP ingestion, Hesai Pandar40P parsing, time-based frame assembly, background subtraction (EMA learning, neighbour voting, cell freezing), foreground mask extraction, polar→world transform, DBSCAN clustering, Kalman tracking (Hungarian assignment, OBB estimation, occlusion coasting, ground removal), rule-based classification (pedestrian/car/bird/other), SQL persistence, REST API endpoints, PCAP replay with runtime source switching, classification research data export, analysis run infrastructure, adaptive region segmentation, parameter sweep system with auto-tuner, and debug overlays via gRPC.
 
-- UDP packet ingestion with configurable parameters (4MB buffer, 2369 port)
-- Hesai Pandar40P packet parsing (22-byte tail structure validated)
-- Time-based frame assembly with motor speed adaptation (360° detection, 1s buffer)
-- SQLite database persistence with comprehensive schema (738 lines)
-- HTTP monitoring interface with real-time statistics
-- Comprehensive test suite with real packet validation
-
-### ✅ **Phase 2: Background & Clustering (COMPLETED)**
-
-- ✅ Background grid infrastructure with EMA learning (implemented)
-- ✅ Foreground/background classification with neighbour voting (implemented)
-- ✅ Background model persistence to database (implemented)
-- ✅ Enhanced HTTP endpoints for tuning and monitoring (implemented)
-- ✅ Acceptance metrics for parameter tuning (implemented)
-- ✅ PCAP file reading for parameter identification (implemented)
-- ✅ Grid heatmap visualisation API for spatial analysis (implemented)
-- ✅ Comprehensive debug logging for diagnostics (implemented)
-
-### ✅ **Phase 2.5: PCAP-Based Parameter Tuning (COMPLETED)**
-
-- ✅ **Runtime Source Switching**: Live UDP ↔ PCAP toggled via API (no restart)
-- ✅ **API-Controlled Replay**: POST to `/api/lidar/pcap/start?sensor_id=<id>` with file path
-- ✅ **Safe Directory Restriction**: `--lidar-pcap-dir` limits file access to prevent path traversal attacks
-- ✅ **BPF Filtering**: Filters PCAP by UDP port (supports multi-sensor captures)
-- ✅ **Background Persistence**: Periodic flush every N seconds during replay
-- ✅ **Sweep Tool Integration**: bg-sweep and bg-multisweep use PCAP API
-- ✅ **No Server Restart**: Change PCAP files via API without restarting radar binary
-- ✅ **Frame Builder Fix**: Fixed eviction bug that prevented frame callback delivery
-- ✅ **Grid Visualisation**: Spatial heatmap API for analysing filled vs settled cells
-
-### ✅ **Phase 2.9: Foreground Mask Generation (COMPLETED)**
-
-- ✅ **`ProcessFramePolarWithMask()`**: Per-point foreground/background classification in polar coordinates
-- ✅ **Warmup Sensitivity Scaling**: Dynamic threshold multiplier during cell initialisation (January 2026)
-- ✅ **`ExtractForegroundPoints()`**: Helper to filter foreground points from mask
-- ✅ **`ComputeFrameMetrics()`**: Frame-level statistics (total, foreground, background counts)
-- ✅ **Unit Tests**: Comprehensive test coverage in `internal/lidar/foreground_test.go`
-- ✅ **Location**: `internal/lidar/foreground.go`
-
-### ✅ **Phase 3.0: Polar → World Transform (COMPLETED)**
-
-- ✅ **`WorldPoint`** struct for world-frame Cartesian coordinates
-- ✅ **`TransformToWorld()`**: Converts polar points to world frame
-- ✅ **`TransformPointsToWorld()`**: Convenience function for pre-computed Cartesian points
-- ✅ **Identity transform**: Currently uses identity transform (sensor frame = world frame)
-- ✅ **Unit Tests**: Transform accuracy validation in `internal/lidar/clustering_test.go`
-- ✅ **Location**: `internal/lidar/clustering.go`
-
-> **Note:** Pose-based transformations are planned for a future phase.
-
-### ✅ **Phase 3.1: DBSCAN Clustering (COMPLETED)**
-
-- ✅ **`SpatialIndex`**: Grid-based spatial indexing using Szudzik pairing with zigzag encoding
-- ✅ **`DBSCAN()`**: Density-based clustering with configurable eps and minPts
-- ✅ **`computeClusterMetrics()`**: Centroid, bounding box, height P95, intensity mean
-- ✅ **`WorldCluster`** struct with all required features
-- ✅ **Unit Tests**: Clustering validation in `internal/lidar/clustering_test.go`
-- ✅ **Location**: `internal/lidar/clustering.go`
-
-### ✅ **Phase 3.2: Kalman Tracking (COMPLETED)**
-
-- ✅ **`TrackState`** lifecycle: Tentative → Confirmed → Deleted
-- ✅ **`TrackedObject`**: Track state with Kalman filter and aggregated features
-- ✅ **`Tracker`**: Multi-object tracker with configurable parameters
-- ✅ **Mahalanobis distance gating** for cluster-to-track association
-- ✅ **Kalman predict/update** with constant velocity model
-- ✅ **Track lifecycle management**: hits/misses counting, promotion, deletion
-- ✅ **Speed statistics**: Average, raw maximum, and speed-history-derived summaries
-- ✅ **Unit Tests**: Comprehensive tracking tests in `internal/lidar/tracking_test.go`
-- ✅ **Location**: `internal/lidar/tracking.go`
-
-### ✅ **Classification Research Data Support (COMPLETED)**
-
-- ✅ **`ForegroundFrame`**: Export struct for foreground points with metadata
-- ✅ **`EncodeForegroundBlob()`/`DecodeForegroundBlob()`**: Compact binary encoding (8 bytes/point)
-- ✅ **`TrainingDataFilter`**: Filtering exported research frames by sensor, sequence, and foreground count
-- ✅ **Unit Tests**: `internal/lidar/training_data_test.go`
-- ✅ **Location**: `internal/lidar/training_data.go`
-
-> **Note:** Pose validation and quality-based filtering are planned for a future phase. Export data is stored in polar (sensor) frame for pose independence.
-
-### ✅ **Phase 3.3: SQL Schema & Database Persistence (COMPLETED)**
-
-- ✅ **Migration File**: `internal/db/migrations/000009_create_lidar_tracks.up.sql`
-- ✅ **`lidar_clusters` table**: DBSCAN cluster persistence with world-frame features
-- ✅ **`lidar_tracks` table**: Track lifecycle, kinematics, classification fields
-- ✅ **`lidar_track_obs` table**: Per-observation tracking data with foreign key to tracks
-- ✅ **Persistence Functions**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()`, `InsertTrackObservation()`
-- ✅ **Query Functions**: `GetActiveTracks()`, `GetTrackObservations()`, `GetRecentClusters()`
-- ✅ **Unit Tests**: `internal/lidar/track_store_test.go`
-- ✅ **Schema Updated**: `internal/db/schema.sql` includes all track tables
-- ✅ **Location**: `internal/lidar/track_store.go`
-
-### ✅ **Phase 3.4: Track Classification (COMPLETED)**
-
-- ✅ **`TrackClassifier`**: Rule-based classification engine
-- ✅ **Object Classes**: `pedestrian`, `car`, `bird`, `other`
-- ✅ **Classification Features**: height, length, width, speed, duration, observation count
-- ✅ **Confidence Scoring**: Per-class confidence based on feature match quality
-- ✅ **Speed Summary Features**: derived from track speed history for classification
-- ✅ **Classification Integration**: `ClassifyAndUpdate()` for track field updates
-- ✅ **Unit Tests**: `internal/lidar/classification_test.go`
-- ✅ **Location**: `internal/lidar/classification.go`
-
-### ✅ **Phase 3.5: REST API Endpoints (COMPLETED)**
-
-- ✅ **TrackAPI**: HTTP handler struct for track/cluster queries
-- ✅ **GET `/api/lidar/tracks`**: List tracks with optional state filter
-- ✅ **GET `/api/lidar/tracks/active`**: Active tracks (real-time from memory or DB)
-- ✅ **GET `/api/lidar/tracks/{track_id}`**: Get specific track details
-- ✅ **PUT `/api/lidar/tracks/{track_id}`**: Update track metadata (class, confidence)
-- ✅ **GET `/api/lidar/tracks/{track_id}/observations`**: Get track trajectory
-- ✅ **GET `/api/lidar/tracks/summary`**: Aggregated statistics by class/state
-- ✅ **GET `/api/lidar/clusters`**: Recent clusters by time range
-- ✅ **Unit Tests**: `internal/lidar/monitor/track_api_test.go`
-- ✅ **Location**: `internal/lidar/monitor/track_api.go`
-
-### ✅ **Phase 3.6: PCAP Analysis Tool (COMPLETED)**
-
-- ✅ **`pcap-analyze` CLI Tool**: Batch PCAP processing for track categorisation
-- ✅ **Full Pipeline Processing**: Parse → Frame → Background → Cluster → Track → Classify
-- ✅ **Track Categorization**: Classify tracks as pedestrian, car, bird, other
-- ✅ **Speed Statistics**: Track speed-summary feature computation
-- ✅ **Export Formats**: JSON (full analysis), CSV (track table), foreground research blobs (binary)
-- ✅ **Classification Research Export**: Foreground point-cloud blobs for offline benchmarks and experiments
-- ✅ **Database Persistence**: Optional SQLite storage for batch analysis results
-- ✅ **Location**: `cmd/tools/pcap-analyze/main.go`
-
-**Usage:**
-
-```bash
-# Basic analysis
-pcap-analyze -pcap capture.pcap -output ./results
-```
-
-### ✅ **Phase 3.7: Analysis Run Infrastructure (COMPLETED)**
-
-- ✅ **`AnalysisRun` Type**: Complete analysis session with `params_json` storing all LIDAR parameters
-- ✅ **`RunParams` Type**: Versioned parameter configuration (background, clustering, tracking, classification)
-- ✅ **`RunTrack` Type**: Track data with user labels and quality flags for reproducible ground truth and optional classification research
-- ✅ **`AnalysisRunStore`**: Database operations for runs and tracks
-  - `InsertRun()`, `CompleteRun()`, `GetRun()`, `ListRuns()`
-  - `InsertRunTrack()`, `GetRunTracks()`, `UpdateTrackLabel()`
-  - `GetLabelingProgress()`, `GetUnlabeledTracks()`
-- ✅ **Split/Merge Detection Types**: `RunComparison`, `TrackSplit`, `TrackMerge`
-- ✅ **Migration File**: `internal/db/migrations/000010_create_lidar_analysis_runs.up.sql`
-- ✅ **Unit Tests**: `internal/lidar/analysis_run_test.go`
-- ✅ **Location**: `internal/lidar/analysis_run.go`
-
-### ✅ **Phase 3.8: Tracking Upgrades (COMPLETED)**
-
-- ✅ **Hungarian association**: Optimal assignment via Kuhn-Munkres solver (`internal/lidar/hungarian.go`)
-- ✅ **Ground removal**: Height-based filtering — `HeightBandFilter` (`internal/lidar/ground.go`)
-- ✅ **OBB estimation**: PCA-oriented bounding boxes (`internal/lidar/obb.go`)
-- ✅ **OBB temporal smoothing**: EMA heading (α=0.3) in `TrackedObject`
-- ✅ **Occlusion coasting**: `MaxMissesConfirmed=15`, `OcclusionCovInflation=0.5` (`internal/lidar/tracking.go`)
-- ✅ **Debug overlays**: `DebugOverlaySet` via gRPC — gating ellipses, association lines, residuals (`internal/lidar/debug/collector.go`)
-- ✅ **Voxel grid downsampling**: (`internal/lidar/voxel.go`)
-- ✅ **Classification hooks**: Features extraction, periodic re-classification (`internal/lidar/features.go`)
-
-### ✅ **Phase 3.9: Adaptive Regions & Sweep System (COMPLETED)**
-
-- ✅ **Adaptive region segmentation**: Variance-based (stable/variable/volatile)
-- ✅ **Region persistence**: Scene hash-based restoration, skips settling on subsequent runs
-- ✅ **Parameter sweep runner**: With settle mode — `once`/`per_combo` (`internal/lidar/sweep/runner.go`)
-- ✅ **Auto-tuner**: Iterative grid narrowing (`internal/lidar/sweep/auto.go`)
-- ✅ **Multi-objective scoring**: Acceptance, alignment, tracks, cells (`internal/lidar/sweep/objective.go`)
-- ✅ **Sweep dashboard**: ECharts bar charts, heatmaps, results table (`sweep_dashboard.html`)
-- ✅ **PARAM_SCHEMA**: Sane default ranges for all numeric parameters
-
-### 📋 **Phase 4: Track Labelling, Metrics, and Optional Classification (PLANNED)**
+### Phase 4 (Planned)
 
 - **Phase 4.0: Track Labelling UI** — Wire existing label API routes, scene management, Svelte labelling controls
 - **Phase 4.0: LiDAR Transit Table** — `lidar_transits` table for dashboard integration
@@ -923,7 +753,7 @@ go test ./internal/lidar/ -v                        ✅ Complete test suite with
 === RUN   TestFrameBuilder_HybridDetection               ✅ Time-based + azimuth validation
 === RUN   TestFrameBuilder_AzimuthWrapWithTimeBased      ✅ Azimuth wrap in time-based mode
 === RUN   TestFrameBuilder_TraditionalAzimuthOnly        ✅ Traditional azimuth-only detection
-=== RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ End-to-end PCAP→parsing→framing
+=== RUN   TestHesaiLiDAR_PCAPIntegration                 ✅ Full PCAP→parsing→framing
 
 # Background subtraction tests
 go test ./internal/lidar -run TestBackground            ✅ Background grid operations
@@ -939,62 +769,14 @@ Key test coverage:
 - HTTP endpoint functionality
 - Comprehensive frame builder testing with production-level data volumes (60,000 points)
 - Both traditional azimuth-based and hybrid time-based frame detection modes
-- End-to-end integration testing with real PCAP data (76,934 points → 56,929 frame points)
+- Full integration testing with real PCAP data (76,934 points → 56,929 frame points)
 - Background grid learning and foreground detection
 - Concurrent stress testing with race detection
 - ASC point cloud export with elevation corrections
 
-### 🔄 Planned Tests
-
-- PCAP file reading and replay
-- Parameter sweep automation
-- Background settling with real-world data
-- Clustering accuracy with known ground truth
-- Tracking association and lifecycle
-- Performance benchmarks under load
-- Multi-track scenarios
-
 ---
 
 ## Development Workflow
-
-### Next Implementation Steps (Phase 2.5 - PCAP Parameter Tuning)
-
-**Goal**: Use existing PCAP captures (cars, pedestrians) to identify optimal background subtraction parameters before implementing clustering.
-
-1. **PCAP Reader Implementation**:
-   - Add PCAP file reading capability to UDP listener
-   - Support both live UDP and PCAP file modes
-   - Implement frame replay with configurable speed
-   - Add loop mode for continuous parameter testing
-
-2. **Parameter Sweep Integration**:
-   - Use `bg-sweep` tool for single-parameter sweeps (noise_relative)
-   - Use `bg-multisweep` tool for multi-parameter sweeps (noise, closeness, neighbors)
-   - Analyse acceptance metrics to identify optimal thresholds
-   - Document settling behaviour with real-world data
-
-3. **Threshold Identification**:
-   - Analyse cars PCAP for vehicle detection thresholds
-   - Analyse pedestrians PCAP for human detection thresholds
-   - Identify optimal NoiseRelativeFraction values
-   - Tune ClosenessSensitivityMultiplier for best separation
-   - Optimize NeighborConfirmationCount for noise reduction
-
-4. **Validation & Documentation**:
-   - Validate identified parameters with both PCAP files
-   - Document acceptance rates and foreground/background separation
-   - Prepare parameter recommendations for production deployment
-   - Update sweep tools with findings for future tuning
-
-### Next Implementation Steps (Phase 3 - Clustering)
-
-1. **Foreground Extraction**: Extract points classified as foreground from ProcessFramePolar
-2. **Point Collection**: Build frame-level collection of foreground points
-3. **Euclidean Clustering**: DBSCAN-style clustering with tuned parameters (eps, minPts)
-4. **Cluster Metrics**: Compute centroid, PCA bbox, height_p95, intensity_mean
-5. **World Frame Transform**: Convert clusters from sensor frame to world coordinates
-6. **Database Integration**: Persist clusters to lidar_clusters table
 
 ### Development Tools
 
@@ -1016,14 +798,6 @@ The project has real-world PCAP captures for parameter validation:
 
 - **Cars PCAP**: Vehicle traffic data for tuning vehicle detection thresholds
 - **Pedestrians PCAP**: Pedestrian movement data for tuning human detection sensitivity
-
-These PCAP files will be used to:
-
-1. Identify optimal NoiseRelativeFraction values for distance-adaptive noise handling
-2. Tune ClosenessSensitivityMultiplier for best foreground/background separation
-3. Optimize NeighborConfirmationCount for spatial filtering effectiveness
-4. Analyse background settling behaviour with real-world motion patterns
-5. Validate parameter choices across different target types (vehicles vs. pedestrians)
 
 ### Database Schema Overview
 
@@ -1061,41 +835,7 @@ The system uses a comprehensive SQLite schema with 738 lines covering:
 
 ## Production Readiness Assessment
 
-### ✅ **Current State Summary**
-
-The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure, background classification, PCAP-based tuning, foreground tracking pipeline, tracking upgrades (Hungarian, OBB, ground removal, occlusion), adaptive regions, parameter sweep system, and auto-tuning. The system is now ready for **Phase 4.0 (Track Labelling & Ground Truth)**.
-
-### ✅ **Completed Components**
-
-- ✅ **Foundation**: Solid core infrastructure ready for production use
-- ✅ **Performance**: Meets real-time processing requirements
-- ✅ **Testing**: Comprehensive test coverage for implemented components
-- ✅ **Configuration**: Flexible deployment options
-- ✅ **Background Classification**: Distance-adaptive foreground/background classification with neighbour voting
-- ✅ **Background Learning**: EMA-based background model updates with cell freezing
-- ✅ **Persistence**: Background grid snapshots with versioning
-- ✅ **Parameter Tuning**: Runtime-adjustable parameters via HTTP API
-- ✅ **Monitoring**: Acceptance metrics and grid statistics for tuning
-- ✅ **Sweep Tools**: Automated parameter sweep utilities for optimisation
-- ✅ **Foreground Mask Generation** (Phase 2.9): `ProcessFramePolarWithMask()`, `ExtractForegroundPoints()`
-- ✅ **World Transform** (Phase 3.0): `TransformToWorld()` with identity transform
-- ✅ **DBSCAN Clustering** (Phase 3.1): `SpatialIndex`, `DBSCAN()`, `WorldCluster`
-- ✅ **Kalman Tracking** (Phase 3.2): `Tracker`, `TrackedObject`, lifecycle management
-- ✅ **Classification Research Data Support**: `ForegroundFrame`, compact encoding, sensor-frame storage
-
-### ✅ **Completed (Phase 2.5, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5)**
-
-- ✅ **PCAP Reading**: File-based replay with BPF filtering (Phase 2.5)
-- ✅ **Parameter Optimisation**: Runtime-adjustable via HTTP API (Phase 2.5)
-- ✅ **Foreground Extraction**: `ProcessFramePolarWithMask()` and `ExtractForegroundPoints()` (Phase 2.9)
-- ✅ **World Transform**: `TransformToWorld()` with identity transform (Phase 3.0)
-- ✅ **Clustering**: `DBSCAN()` with `SpatialIndex` for efficient neighbour queries (Phase 3.1)
-- ✅ **Tracking**: `Tracker` with Kalman filter and lifecycle management (Phase 3.2)
-- ✅ **Classification Research Data**: `ForegroundFrame` export with compact binary encoding
-- ✅ **SQL Schema**: `lidar_clusters`, `lidar_tracks`, `lidar_track_obs` tables (Phase 3.3)
-- ✅ **Track Persistence**: `InsertCluster()`, `InsertTrack()`, `UpdateTrack()` functions (Phase 3.3)
-- ✅ **Classification**: `TrackClassifier` for pedestrian/car/bird/other labels (Phase 3.4)
-- ✅ **REST API Endpoints**: `TrackAPI` HTTP handlers for track/cluster queries (Phase 3.5)
+The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure, background classification, PCAP-based tuning, foreground tracking pipeline, tracking upgrades (Hungarian, OBB, ground removal, occlusion), adaptive regions, parameter sweep system, and auto-tuning. The system is now ready for **Phase 4.0 (Track Labelling & Ground Truth)**. See the Implementation Status section above for detailed phase coverage.
 
 ### 📋 **Future Work (Phase 4+)**
 
@@ -1109,21 +849,4 @@ The LiDAR sidecar has **completed Phases 1–3.9** including core infrastructure
 
 **Current Focus**: Phase 4.0 — Track labelling UI with ground truth evaluation. Label API routes need wiring (`internal/api/lidar_labels.go` handlers exist, routes not registered in WebServer).
 
-**Architecture**: Modular design with clear separation between:
-
-- UDP ingestion and parsing
-- Frame assembly
-- Background classification (polar frame)
-- Foreground extraction (polar frame)
-- World transform (polar → world)
-- Clustering (world frame)
-- Tracking (world frame)
-- Classification (world frame)
-- Database persistence (complete)
-- REST APIs (complete)
-
-**Pipeline Status**: The complete foreground tracking pipeline from UDP packets to tracked objects is implemented and tested. REST API endpoints are ready for UI integration.
-
-**Multi-Sensor Vision (Phase 4)**: The architecture supports a distributed edge deployment model where each machine runs multiple LiDAR sensors, storing data locally in SQLite. Data from multiple edge nodes can be consolidated later for whole-street analysis and cross-intersection tracking in world frame coordinates.
-
-The implementation is ready for Phase 4.0 (Track Labelling & Ground Truth) development. See `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` for the detailed 8-phase design.
+See `docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md` for the detailed 8-phase design.

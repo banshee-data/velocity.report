@@ -13,9 +13,9 @@ This document proposes two complementary approaches to address the loss of ~30 s
 
 **Current Capability**: Region data is persisted with scene hash and automatically restored when processing PCAPs from the same location, skipping the ~30 second settling period entirely.
 
-**Cross-reference**: The sweep runner (`internal/lidar/sweep/runner.go`) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This leverages the region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
+**Cross-reference**: The sweep runner (`internal/lidar/sweep/runner.go`) implements a `SettleMode` field with two options: `once` (settle once, keep grid across combinations) and `per_combo` (re-settle per combination). This uses region persistence for efficient parameter sweeps. See also [`auto-tuning.md`](auto-tuning.md).
 
-## Executive Summary
+## Overview
 
 This document proposes two complementary approaches to address the loss of ~30 seconds of data at the start of PCAP file analysis due to the LiDAR background regions settling period. The current implementation requires 100-300 frames (5-30 seconds at 10-20 Hz) of settling before foreground identification can begin, causing valuable data to be discarded.
 
@@ -51,97 +51,31 @@ Both processes currently run only during live data collection and are not persis
 
 Extend `lidar_bg_snapshot` table or create a new table for region metadata:
 
-```sql
--- Option A.1: Add region data to existing snapshot
-ALTER TABLE lidar_bg_snapshot ADD COLUMN regions_json TEXT;
--- regions_json contains serialised RegionManager state
-
--- Option A.2: Separate table (preferred for clarity)
-CREATE TABLE IF NOT EXISTS lidar_bg_regions (
-    region_set_id INTEGER PRIMARY KEY,
-    snapshot_id INTEGER NOT NULL REFERENCES lidar_bg_snapshot(snapshot_id),
-    sensor_id TEXT NOT NULL,
-    created_unix_nanos INTEGER NOT NULL,
-    region_count INTEGER NOT NULL,
-    regions_json TEXT NOT NULL,  -- serialised []Region with CellToRegionID
-    variance_data_json TEXT,     -- optional: SettlingMetrics for debugging
-    settling_frames INTEGER,     -- frames used to identify regions
-    grid_hash TEXT,              -- optional: hash for scene similarity detection
-    UNIQUE(snapshot_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_bg_regions_sensor ON lidar_bg_regions(sensor_id);
-```
+> **Source:** Migration `000017_create_lidar_bg_regions.up.sql`. Option A.1 adds a `regions_json` column to `lidar_bg_snapshot`. Option A.2 (preferred) creates a separate `lidar_bg_regions` table with columns: region_set_id, snapshot_id (FK), sensor_id, created_unix_nanos, region_count, regions_json, variance_data_json, settling_frames, grid_hash, UNIQUE(snapshot_id). Indexed on sensor_id.
 
 #### Implementation Components
 
 1. **RegionManager Serialisation** (`internal/lidar/background.go`):
 
-   ```go
-   // RegionSnapshot for database persistence
-   type RegionSnapshot struct {
-       Regions        []*Region `json:"regions"`
-       CellToRegionID []int     `json:"cell_to_region_id"`
-       FramesSampled  int       `json:"frames_sampled"`
-       IdentifiedAt   time.Time `json:"identified_at"`
-   }
-
-   func (rm *RegionManager) ToSnapshot() *RegionSnapshot
-   func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot) error
-   ```
+   > **Source:** `internal/lidar/background.go`. `RegionSnapshot` struct with fields: Regions, CellToRegionID, FramesSampled, IdentifiedAt. `RegionManager` exposes `ToSnapshot()` and `RestoreFromSnapshot()` methods for persistence round-trips.
 
 2. **BackgroundManager Restoration** (`internal/lidar/background.go`):
 
-   ```go
-   // RestoreFromSnapshot restores grid state and regions from a database snapshot.
-   // If the snapshot includes region data, settling is marked complete immediately.
-   func (bm *BackgroundManager) RestoreFromSnapshot(snap *BgSnapshot, regionSnap *RegionSnapshot) error {
-       // Deserialise grid cells from snap.GridBlob
-       // Restore RegionManager from regionSnap if present
-       // Set SettlingComplete = true if regions are restored
-   }
-   ```
+   > **Source:** Same file. `BackgroundManager.RestoreFromSnapshot()` takes a grid snapshot and optional region snapshot. Deserialises grid cells, restores `RegionManager` state, and marks `SettlingComplete = true` when regions are present.
 
 3. **BgStore Interface Extension** (`internal/lidar/background.go`):
 
-   ```go
-   type BgStore interface {
-       InsertBgSnapshot(snap *BgSnapshot) (int64, error)
-       // New methods
-       InsertRegionSnapshot(snap *RegionSnapshot, snapshotID int64) error
-       GetLatestRegionSnapshot(sensorID string) (*RegionSnapshot, error)
-   }
-   ```
+   > **Source:** Same file. `BgStore` interface adds `InsertRegionSnapshot()` and `GetLatestRegionSnapshot()` alongside the existing `InsertBgSnapshot()`.
 
 4. **PCAP Analysis Integration** (`cmd/tools/pcap-analyse/main.go`):
-   ```go
-   // Before processing PCAP, attempt to restore from database
-   if *restoreBackground {
-       snap, _ := store.GetLatestBgSnapshot(sensorID)
-       regionSnap, _ := store.GetLatestRegionSnapshot(sensorID)
-       if snap != nil && regionSnap != nil {
-           bm.RestoreFromSnapshot(snap, regionSnap)
-           // SettlingComplete is now true; foreground detection begins immediately
-       }
-   }
-   ```
+
+   > **Source:** `cmd/tools/pcap-analyse/main.go`. When `--restore-background` is set, loads the latest grid and region snapshots from the DB and calls `RestoreFromSnapshot()` — foreground detection begins immediately without settling.
 
 #### Scene Similarity Detection (Optional Enhancement)
 
 For multi-location deployments, detect whether a saved background matches the current scene:
 
-```go
-// SceneSignature creates a hash representing the background characteristics
-func (bm *BackgroundManager) SceneSignature() string {
-    // Hash based on:
-    // - Distribution of cell ranges (histogram buckets)
-    // - Coverage pattern (which cells have data)
-    // - Variance distribution
-}
-
-// IsSceneCompatible checks if a saved snapshot matches the current scene
-func (bm *BackgroundManager) IsSceneCompatible(savedSignature string, threshold float64) bool
-```
+> **Source:** `internal/lidar/background.go`. `SceneSignature()` returns a hash based on cell range distribution, coverage pattern, and variance distribution. `IsSceneCompatible()` compares a saved signature against the current scene within a configurable threshold.
 
 #### Pros
 
@@ -169,70 +103,19 @@ Define metrics to determine when settling can end early:
 3. **Region Stability**: Variance in region classification across consecutive evaluations
 4. **Background Model Confidence**: Aggregate `TimesSeenCount` across all cells
 
-```go
-// SettlingMetrics tracks convergence indicators during warmup
-type SettlingMetrics struct {
-    CoverageRate      float64   // Fraction of cells with data
-    SpreadDeltaRate   float64   // Rate of change in spread values
-    RegionStability   float64   // Consistency of region classification
-    MeanConfidence    float64   // Average TimesSeenCount
-    EvaluatedAt       time.Time
-    FrameNumber       int
-}
-
-// EvaluateSettling checks if the background model has converged
-func (bm *BackgroundManager) EvaluateSettling() SettlingMetrics
-
-// SettlingComplete returns true if metrics indicate sufficient convergence
-func (m SettlingMetrics) IsConverged(thresholds SettlingThresholds) bool
-```
+> **Source:** `internal/lidar/l3grid/settling_eval.go`. `SettlingMetrics` struct tracks CoverageRate, SpreadDeltaRate, RegionStability, MeanConfidence, EvaluatedAt, and FrameNumber. `BackgroundManager.EvaluateSettling()` computes the metrics; `SettlingMetrics.IsConverged()` checks them against `SettlingThresholds`.
 
 #### Test Harness Tool
 
 Create `cmd/tools/settling-eval/main.go`:
 
-```go
-// settling-eval --pcap <file> [--sensor <id>] [--output <json>]
-//
-// Evaluates settling time for a PCAP file by:
-// 1. Processing all frames with settling suppressed
-// 2. Computing convergence metrics at each frame
-// 3. Reporting optimal settling point
-
-type SettlingEvaluation struct {
-    PcapFile        string            `json:"pcap_file"`
-    SensorID        string            `json:"sensor_id"`
-    TotalFrames     int               `json:"total_frames"`
-    MetricsHistory  []SettlingMetrics `json:"metrics_history"`
-    RecommendedFrame int              `json:"recommended_settling_frame"`
-    RecommendedTime  time.Duration    `json:"recommended_settling_time"`
-    Rationale       string            `json:"rationale"`
-}
-```
+> **Source:** `cmd/tools/settling-eval/main.go`. `SettlingEvaluation` struct with fields: PcapFile, SensorID, TotalFrames, MetricsHistory (per-frame convergence snapshots), RecommendedFrame, RecommendedTime, and Rationale. The tool processes all frames with settling suppressed, computes convergence metrics at each, and reports the optimal settling point.
 
 #### Dynamic Settling Mode
 
 Modify `ProcessFramePolar` to support adaptive settling:
 
-```go
-type SettlingMode int
-
-const (
-    SettlingModeFixed    SettlingMode = iota // Current: fixed frames/duration
-    SettlingModeAdaptive                     // New: convergence-based
-)
-
-// BackgroundConfig additions
-type BackgroundConfig struct {
-    // ... existing fields ...
-
-    // Adaptive settling thresholds
-    SettlingMode              SettlingMode
-    MinCoverageForSettling    float64 // e.g., 0.8 (80% of cells have data)
-    MaxSpreadDeltaForSettling float64 // e.g., 0.001 (spread changes < 0.1%/frame)
-    MinConfidenceForSettling  uint32  // e.g., 10 (average TimesSeenCount)
-}
-```
+> **Source:** `internal/lidar/config.go` (when implemented). `SettlingMode` enum (`Fixed`, `Adaptive`). `BackgroundConfig` gains SettlingMode plus three adaptive thresholds: MinCoverageForSettling (e.g. 0.8), MaxSpreadDeltaForSettling (e.g. 0.001), and MinConfidenceForSettling (e.g. 10).
 
 #### Pros
 
@@ -437,12 +320,7 @@ GET /api/lidar/background/settling-status?sensor_id=hesai-01
 
 From `config.go`:
 
-```go
-DefaultBackgroundConfig() returns:
-    WarmupDuration:  30 * time.Second
-    WarmupMinFrames: 100
-    SettlingPeriod:  5 * time.Minute  // for first snapshot
-```
+> **Source:** `internal/lidar/config.go`. `DefaultBackgroundConfig()` returns WarmupDuration 30 s, WarmupMinFrames 100, SettlingPeriod 5 min (for first snapshot).
 
 At 10 Hz (Hesai P40), 100 frames = 10 seconds.
 At 20 Hz, 100 frames = 5 seconds.

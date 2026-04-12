@@ -1,16 +1,15 @@
-# Feature Specification: Serial Configuration and Testing via UI
+# Serial Configuration and Testing via UI
 
 - **Status:** Draft
-- **Author:** Ictinus (Product Architect)
 - **Issue:** Serial config + test (baud, port) via UI
 
 Design specification for a web-based interface that lets users configure and test radar serial port settings without manually editing systemd service files.
 
-## Executive Summary
+## Overview
 
 Enable users to configure and test radar serial port settings through the web interface, supporting multiple radar sensors and eliminating the need to manually edit configuration files or systemd service parameters.
 
-## User Value Proposition
+## Problem
 
 **Problem Statement:**
 
@@ -30,20 +29,6 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 - **Troubleshooting Aid:** Built-in diagnostics help users identify serial communication problems
 - **Safer Deployments:** Validate settings before committing changes, reducing downtime
 
-## Target Users
-
-**Primary Users:**
-
-- DIY radar operators managing Raspberry Pi deployments
-- Community advocates setting up neighborhood monitoring
-- Users with multiple radar sensors for coverage expansion
-
-**User Personas:**
-
-1. **The Tinkerer** - Experimenting with different sensor placements, needs to quickly test serial connections
-2. **The Installer** - Setting up new deployments, wants confidence settings are correct before leaving the site
-3. **The Expander** - Adding additional radars to existing installation, needs multi-sensor coordination
-
 ## Current System Capabilities
 
 ### Serial Port Management (Existing)
@@ -57,21 +42,11 @@ Currently, radar serial port configuration is hardcoded via command-line flags (
 
 **Initialisation Flow (cmd/radar/radar.go:105-118):**
 
-```go
-radarSerial, err := serialmux.NewRealSerialMux(*port)
-if err := radarSerial.Initialise(); err != nil {
-    log.Fatalf("failed to initialise device: %v", err)
-}
-```
+> **Source:** `cmd/radar/radar.go`. Creates a `RealSerialMux` from the CLI port flag, then calls `Initialise()` — fatal on failure.
 
 **Serial Port Interface (internal/serialmux/port.go):**
 
-```go
-type SerialPorter interface {
-    io.ReadWriter
-    io.Closer
-}
-```
+> **Source:** `internal/serialmux/port.go`. `SerialPorter` interface embeds `io.ReadWriter` and `io.Closer`.
 
 ### Database Configuration (Existing)
 
@@ -113,59 +88,7 @@ type SerialPorter interface {
 
 **Schema Design:**
 
-```sql
--- Serial port configurations table
-CREATE TABLE IF NOT EXISTS radar_serial_config (
-       id INTEGER PRIMARY KEY AUTOINCREMENT
-     , name TEXT NOT NULL UNIQUE
-     , port_path TEXT NOT NULL
-     , baud_rate INTEGER NOT NULL DEFAULT 19200
-     , data_bits INTEGER NOT NULL DEFAULT 8
-     , stop_bits INTEGER NOT NULL DEFAULT 1
-     , parity TEXT NOT NULL DEFAULT 'N'
-     , enabled INTEGER NOT NULL DEFAULT 1
-     , description TEXT
-     , sensor_model TEXT NOT NULL DEFAULT 'ops243-a'
-     , created_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , updated_at INTEGER NOT NULL DEFAULT (STRFTIME('%s', 'now'))
-     , CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
-     );
-
-CREATE INDEX IF NOT EXISTS idx_radar_serial_config_enabled
-    ON radar_serial_config (enabled);
-
-CREATE TRIGGER IF NOT EXISTS update_radar_serial_config_timestamp
-    AFTER UPDATE ON radar_serial_config
-BEGIN
-    UPDATE radar_serial_config
-    SET updated_at = STRFTIME('%s', 'now')
-    WHERE id = NEW.id;
-END;
-
--- Insert default configuration for HAT (Raspberry Pi header)
-INSERT INTO radar_serial_config (
-       name
-     , port_path
-     , baud_rate
-     , data_bits
-     , stop_bits
-     , parity
-     , enabled
-     , description
-     , sensor_model
-     )
-VALUES (
-       'Default HAT'
-     , '/dev/ttySC1'
-     , 19200
-     , 8
-     , 1
-     , 'N'
-     , 1
-     , 'Default serial configuration for Raspberry Pi HAT (SC16IS762)'
-     , 'ops243-a'
-     );
-```
+> **Source:** Schema in `internal/db/migrations/` (when implemented). Table `radar_serial_config` with columns: id, name, port_path, baud_rate, data_bits, stop_bits, parity, enabled, description, sensor_model, created_at, updated_at. CHECK constraint validates sensor_model. Default config inserts HAT entry (`/dev/ttySC1`, 19200 baud, `ops243-a`).
 
 **Rationale:**
 
@@ -182,352 +105,25 @@ VALUES (
 
 **Sensor Model Information (Application Code):**
 
-The application will define sensor model capabilities and initialisation commands:
-
-```go
-type SensorModel struct {
-    Slug            string
-    DisplayName     string
-    HasDoppler      bool
-    HasFMCW         bool
-    HasDistance     bool
-    DefaultBaudRate int
-    InitCommands    []string
-    Description     string
-}
-
-var SupportedSensorModels = map[string]SensorModel{
-    "ops243-a": {
-        Slug:            "ops243-a",
-        DisplayName:     "OmniPreSense OPS243-A",
-        HasDoppler:      true,
-        HasFMCW:         false,
-        HasDistance:     false,
-        DefaultBaudRate: 19200,
-        InitCommands:    []string{"AX", "OJ", "OS", "OM", "OH", "OC"},
-        Description:     "Doppler radar with speed measurement only",
-    },
-    "ops243-c": {
-        Slug:            "ops243-c",
-        DisplayName:     "OmniPreSense OPS243-C",
-        HasDoppler:      true,
-        HasFMCW:         true,
-        HasDistance:     true,
-        DefaultBaudRate: 19200,
-        InitCommands:    []string{"AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"},
-        Description:     "FMCW radar with both speed and distance measurement",
-    },
-}
-```
+> **Source:** Sensor model registry in `internal/radar/` (when implemented). Defines `SensorModel` struct and `SupportedSensorModels` map with entries for `ops243-a` (Doppler-only, 19200 baud, commands: AX/OJ/OS/OM/OH/OC) and `ops243-c` (FMCW + distance, 19200 baud, commands: AX/OJ/OS/oD/OM/oM/OH/OC).
 
 #### FR2: Go API Endpoints for Serial Configuration
 
-**Requirement:** REST endpoints to manage serial configurations
+Seven REST endpoints under `/api/serial/` manage the configuration lifecycle: CRUD for `radar_serial_config` entries, device enumeration (filtering out already-assigned ports), and sensor model metadata from application code. Implementation in `internal/api/serial_config.go`.
 
-**Endpoints:**
-
-1. **List Serial Configurations**
-   - **Method:** `GET`
-   - **Path:** `/api/serial/configs`
-   - **Response:**
-     ```json
-     [
-       {
-         "id": 1,
-         "name": "Default HAT",
-         "port_path": "/dev/ttySC1",
-         "baud_rate": 19200,
-         "data_bits": 8,
-         "stop_bits": 1,
-         "parity": "N",
-         "enabled": true,
-         "description": "Default serial configuration for Raspberry Pi HAT",
-         "sensor_model": "ops243-a",
-         "created_at": 1699123456,
-         "updated_at": 1699123456
-       }
-     ]
-     ```
-
-2. **Get Single Serial Configuration**
-   - **Method:** `GET`
-   - **Path:** `/api/serial/configs/:id`
-   - **Response:** Single config object (same structure as list item)
-
-3. **Create Serial Configuration**
-   - **Method:** `POST`
-   - **Path:** `/api/serial/configs`
-   - **Body:**
-     ```json
-     {
-       "name": "USB Radar #1",
-       "port_path": "/dev/ttyUSB0",
-       "baud_rate": 19200,
-       "description": "USB-connected OPS243A sensor",
-       "sensor_model": "ops243-a"
-     }
-     ```
-   - **Response:** Created config object with assigned ID
-
-4. **Update Serial Configuration**
-   - **Method:** `PUT`
-   - **Path:** `/api/serial/configs/:id`
-   - **Body:** Same as create (partial updates supported)
-   - **Response:** Updated config object
-
-5. **Delete Serial Configuration**
-   - **Method:** `DELETE`
-   - **Path:** `/api/serial/configs/:id`
-   - **Response:** `204 No Content` on success
-
-6. **List Available Serial Devices**
-   - **Method:** `GET`
-   - **Path:** `/api/serial/devices`
-   - **Response:** (Only includes device paths that are not already assigned to a saved configuration)
-     ```json
-     [
-       {
-         "port_path": "/dev/ttyUSB0",
-         "friendly_name": "OPS243-A (FTDI)",
-         "vendor_id": "0403",
-         "product_id": "6001",
-         "last_seen": 1699123901
-       },
-       {
-         "port_path": "/dev/ttyACM0",
-         "friendly_name": "OPS243-C (CDC)",
-         "vendor_id": "2A19",
-         "product_id": "5443",
-         "last_seen": 1699123895
-       }
-     ]
-     ```
-   - **Notes:**
-     - Enumerates `/dev/tty*` and `/dev/serial*` devices via udev/sysfs
-     - Filters out any `port_path` already present in `radar_serial_config`
-     - Includes basic USB metadata (vendor/product) when available for UI labelling
-
-7. **List Sensor Models**
-   - **Method:** `GET`
-   - **Path:** `/api/serial/models`
-   - **Response:** (Returns sensor models from application code)
-     ```json
-     [
-       {
-         "slug": "ops243-a",
-         "display_name": "OmniPreSense OPS243-A",
-         "has_doppler": true,
-         "has_fmcw": false,
-         "has_distance": false,
-         "default_baud_rate": 19200,
-         "init_commands": ["AX", "OJ", "OS", "OM", "OH", "OC"],
-         "description": "Doppler radar with speed measurement only"
-       },
-       {
-         "slug": "ops243-c",
-         "display_name": "OmniPreSense OPS243-C",
-         "has_doppler": true,
-         "has_fmcw": true,
-         "has_distance": true,
-         "default_baud_rate": 19200,
-         "init_commands": ["AX", "OJ", "OS", "oD", "OM", "oM", "OH", "OC"],
-         "description": "FMCW radar with both speed and distance measurement"
-       }
-     ]
-     ```
-
-**Implementation Location:** `internal/api/serial_config.go` (new file)
-
-**Error Handling:**
-
-- `400 Bad Request`: Invalid configuration values or unsupported sensor model
-- `404 Not Found`: Config ID does not exist
-- `409 Conflict`: Name already exists (unique constraint)
-- `500 Internal Server Error`: Database errors
-
-**Note:** The `/api/serial/models` endpoint returns sensor model information from application code, not from the database. This eliminates the need for database migrations when adding new sensor models.
+See [serial-configuration-api.md](serial-configuration-api.md) for the full endpoint specification with request/response schemas and error contracts.
 
 #### FR3: Serial Port Testing Endpoint
 
-**Requirement:** Validate serial port configuration before saving
+A `POST /api/serial/test` endpoint validates serial port configuration before saving. Sends non-destructive query commands (`??`, `I?`), reads with configurable timeout, optionally auto-corrects baud rate if the device reports a different rate via `I?`. Returns diagnostic information including raw responses (JSON and non-JSON) and actionable suggestions for common failures (port not found, permission denied, timeout, baud mismatch). Implementation in `internal/api/serial_test.go`.
 
-**Endpoint:**
-
-- **Method:** `POST`
-- **Path:** `/api/serial/test`
-- **Body:**
-  ```json
-  {
-    "port_path": "/dev/ttySC1",
-    "baud_rate": 19200,
-    "data_bits": 8,
-    "stop_bits": 1,
-    "parity": "N",
-    "timeout_seconds": 5,
-    "auto_correct_baud": true
-  }
-  ```
-- **Response (Success):**
-  ```json
-  {
-    "success": true,
-    "port_path": "/dev/ttySC1",
-    "baud_rate": 19200,
-    "test_duration_ms": 342,
-    "bytes_received": 128,
-    "sample_data": "{\"speed\": 15.2, \"magnitude\": 456, ...}",
-    "raw_responses": [
-      {
-        "command": "??",
-        "response": "{\"module\":\"OPS243-A\",\"version\":\"1.2.3\"}",
-        "is_json": true
-      },
-      { "command": "I?", "response": "19200", "is_json": false }
-    ],
-    "message": "Serial port communication successful"
-  }
-  ```
-- **Response (Failure):**
-  ```json
-  {
-    "success": false,
-    "port_path": "/dev/ttySC1",
-    "baud_rate": 19200,
-    "error": "Failed to open port: device not found",
-    "test_duration_ms": 102,
-    "suggestion": "Check that the device is connected and permissions are correct"
-  }
-  ```
-
-**Testing Algorithm:**
-
-1. **Open Port:** Attempt to open serial port with specified settings
-2. **Send Command:** Send a safe query command (e.g., `??` for firmware version)
-3. **Wait for Response:** Read with timeout (default 5 seconds)
-4. **Parse and Log Response:**
-   - Attempt to parse as JSON (OPS243A uses JSON mode after `OJ` command)
-   - If JSON parsing fails, log the raw text response (some commands like `I?` return non-JSON text)
-   - Store both JSON and non-JSON responses for diagnostics and testing verification
-   - Non-JSON responses are valid and expected for certain commands (e.g., `I?` returns just the baud rate number)
-5. **Auto-Correct Baud Rate (Optional):** If `auto_correct_baud` is true and connection succeeds:
-   - Query current baud rate with `I?` command (returns non-JSON response)
-   - Parse the numeric response to determine actual baud rate
-   - If device reports different rate than configured, update the configuration
-   - This handles cases where user issued `I1`, `I2`, `I4`, or `I5` commands manually
-6. **Close Port:** Clean up connection
-7. **Return Results:** Success/failure with diagnostic information, including captured responses (both JSON and non-JSON)
-
-**Diagnostic Suggestions:**
-
-- **Port not found:** "Check that the device is connected and appears in /dev/"
-- **Permission denied:** "Run: sudo usermod -a -G dialout velocity && sudo reboot"
-- **Timeout:** "Device may be at wrong baud rate. Try 9600, 115200, or other common rates"
-- **Invalid response:** "Device responded but data format is unexpected. Check sensor model and output mode (use `OJ` for JSON mode)"
-- **Non-JSON response:** "Device returned non-JSON response. This is normal for query commands like `I?`. Response logged for diagnostics."
-- **Baud rate mismatch:** If timeout at 19200, suggest testing other common rates
-- **Baud rate changed:** "Device reports different baud rate (detected via I? command). Configuration updated automatically."
-
-**Baud Rate Commands (OPS243 Series):**
-
-- `I1` - Set to 9,600 baud
-- `I2` - Set to 19,200 baud (default)
-- `I3` - Set to 57,600 baud
-- `I4` - Set to 115,200 baud
-- `I5` - Set to 230,400 baud
-- `I?` - Query current baud rate
-
-**Implementation Location:** `internal/api/serial_test.go` (new file)
-
-**Safety Considerations:**
-
-- Non-destructive testing only (read-only commands)
-- Timeout prevents hanging on unresponsive devices
-- Automatic cleanup even on errors
-- Concurrent test prevention (mutex on port access)
-- Log all responses (JSON and non-JSON) for diagnostics without failing the test
-- Non-JSON responses are expected and valid for certain commands (e.g., `I?` returns plain text)
+See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the testing algorithm, diagnostic suggestion table, and OPS243 baud rate commands.
 
 #### FR4: Serial Auto-Detection (Port + Baud)
 
-**Requirement:** Help users find connected radar devices without guessing port paths or baud rates
+Two endpoints help users find connected radar devices: `POST /api/serial/auto-detect` probes all unassigned serial ports across common baud rates to find a responsive OPS243 device, and `POST /api/serial/detect-baud` tests a known port at common rates. Both use non-destructive query commands and return diagnostic data including ports tested and ports excluded. Implementation in `internal/api/serial_test.go`.
 
-**Endpoints:**
-
-1. **Auto-Detect Connected Device**
-   - **Method:** `POST`
-   - **Path:** `/api/serial/auto-detect`
-   - **Body:**
-     ```json
-     {
-       "candidate_models": ["ops243-a", "ops243-c"],
-       "timeout_seconds": 15
-     }
-     ```
-   - **Response (Success):**
-     ```json
-     {
-       "success": true,
-       "port_path": "/dev/ttyUSB0",
-       "detected_baud_rate": 19200,
-       "sensor_model": "ops243-c",
-       "raw_responses": [
-         { "command": "??", "response": "OPS243-C Ready", "is_json": false },
-         { "command": "I?", "response": "19200", "is_json": false }
-       ],
-       "ports_tested": ["/dev/ttyUSB0", "/dev/ttyACM0"],
-       "excluded_assigned_ports": ["/dev/ttySC1"],
-       "message": "Detected OPS243-C on /dev/ttyUSB0 at 19200 baud"
-     }
-     ```
-   - **Response (Failure):**
-     ```json
-     {
-       "success": false,
-       "ports_tested": ["/dev/ttyUSB0"],
-       "excluded_assigned_ports": ["/dev/ttySC1"],
-       "error": "No responsive OPS243 devices found",
-       "suggestion": "Check cabling and ensure the radar is powered on"
-     }
-     ```
-
-2. **Auto-Detect Baud Rate for Known Port**
-   - **Method:** `POST`
-   - **Path:** `/api/serial/detect-baud`
-   - **Body:**
-     ```json
-     {
-       "port_path": "/dev/ttySC1",
-       "timeout_seconds": 10
-     }
-     ```
-   - **Response:**
-     ```json
-     {
-       "success": true,
-       "port_path": "/dev/ttySC1",
-       "detected_baud_rate": 19200,
-       "test_duration_ms": 1543,
-       "rates_tested": [9600, 19200, 38400, 57600, 115200],
-       "message": "Detected working baud rate: 19200",
-       "sample_data": "{\"speed\": 0.0, \"magnitude\": 12, ...}"
-     }
-     ```
-
-**Auto-Detection Algorithm:**
-
-1. **Enumerate Devices:** Call `GET /api/serial/devices` to retrieve all available `/dev/tty*` paths not already stored in `radar_serial_config`
-2. **Prioritise Likely Matches:** Sort by USB metadata (vendor/product IDs known for OPS243) and stable names (`/dev/serial/by-id/*`)
-3. **Probe Each Port:**
-   - For each unassigned port, iterate through [9600, 19200, 38400, 57600, 115200]
-   - Send safe query commands (`??`, `I?`) without changing device state
-   - Record raw responses (JSON and non-JSON)
-   - Detect sensor model based on response signatures and include in result
-4. **Return Results:** First working combination wins; include diagnostic data for UI display
-5. **Handle Failure:** If no port responds, return actionable suggestion and the list of ports tested/excluded
-
-**Implementation Location:** `internal/api/serial_test.go` (same file as FR3)
-
-**UX Benefit:** Users can click "Detect Device" to populate the form automatically, or "Auto-Detect Baud" when the port is already known
+See [serial-configuration-api.md](serial-configuration-api.md) for the full specification including the auto-detection algorithm and response schemas.
 
 #### FR5: Web UI for Serial Configuration
 
@@ -595,10 +191,7 @@ var SupportedSensorModels = map[string]SensorModel{
 
 **Current Behaviour:**
 
-```go
-// cmd/radar/radar.go:35
-port = flag.String("port", "/dev/ttySC1", "Serial port to use")
-```
+> **Source:** `cmd/radar/radar.go:35`. CLI flag `--port` defaults to `/dev/ttySC1`.
 
 **New Behaviour:**
 
@@ -622,45 +215,8 @@ port = flag.String("port", "/dev/ttySC1", "Serial port to use")
 
 - **File:** `cmd/radar/radar.go`
 - **Function:** New `loadSerialConfigs(db *db.DB) ([]SerialConfig, error)`
-- **Structure:**
 
-  ```go
-  type SerialConfig struct {
-      ID           int
-      Name         string
-      PortPath     string
-      BaudRate     int
-      DataBits     int
-      StopBits     int
-      Parity       string
-      Enabled      bool
-      Description  string
-      SensorModel  string  // Slug like "ops243-a"
-  }
-
-  type SensorModel struct {
-      Slug            string
-      DisplayName     string
-      HasDoppler      bool
-      HasFMCW         bool
-      HasDistance     bool
-      DefaultBaudRate int
-      InitCommands    []string
-      Description     string
-  }
-
-  // GetSensorModel looks up sensor model from application code
-  func GetSensorModel(slug string) (SensorModel, error) {
-      model, ok := SupportedSensorModels[slug]
-      if !ok {
-          return SensorModel{}, fmt.Errorf("unsupported sensor model: %s", slug)
-      }
-      return model, nil
-  }
-  ```
-
-**Application-Side Model Registry:**
-Sensor models are defined in the application code (as shown in the rationale section above), eliminating the need for database migrations when adding new sensor support.
+> **Source:** `SerialConfig` struct, `SensorModel` struct, and `GetSensorModel()` defined in sensor model registry (see FR1). Application-side model registry eliminates the need for database migrations when adding new sensor support.
 
 **Backward Compatibility:**
 
@@ -882,14 +438,7 @@ Sensor models are defined in the application code (as shown in the rationale sec
 
 **Rejected:** Database reference table requires migrations for new sensors. Freeform text lacks validation and type safety.
 
-**Implementation:**
-
-```sql
-sensor_model TEXT NOT NULL DEFAULT 'ops243-a',
-CHECK (sensor_model IN ('ops243-a', 'ops243-c'))
-```
-
-The CHECK constraint is updated via migration when the application adds support for new sensor models. This approach balances flexibility (easy to add sensors) with safety (database validates values).
+The CHECK constraint in the migration validates sensor model slugs at the database level. Adding new sensor models requires both an application update and a migration to update the CHECK constraint.
 
 ## Migration Path for Existing Deployments
 
@@ -1023,22 +572,23 @@ sudo systemctl restart velocity-report
 
 ## Open Questions & Future Considerations
 
+### Resolved Design Questions
+
+| Question                                      | Resolution                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Allow configuration of serial timeout values? | No. Hardcoded sensible defaults in `Initialise()`. Add configurability only if users request it. |
+
 ### Open Questions
 
-1. **Q: Should we allow configuration of serial timeout values?**
-   - Current: Hardcoded in Initialise() sequence
-   - Trade-off: Flexibility vs. complexity
-   - Recommendation: Start with sensible defaults, add if users request
-
-2. **Q: Should we support hot-swapping serial configurations without restart?**
+1. **Q: Should we support hot-swapping serial configurations without restart?**
    - Current: Changes require server restart
    - Trade-off: Complexity vs. user convenience
    - Recommendation: Phase 2 feature (after basic CRUD)
 
-3. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
+2. **Q: How do we handle multiple radars pointing at the same location vs. different locations?**
    - Current: Not addressed
    - Trade-off: Simplicity vs. advanced use cases
-   - Recommendation: Defer to multi-sensor phase (Phase 4)
+   - Recommendation: Explore options now — this needs addressing soon, not deferring to Phase 4
 
 ### Future Enhancements
 

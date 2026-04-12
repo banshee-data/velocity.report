@@ -1,6 +1,6 @@
 # VRLOG Check Subcommand Plan
 
-This document describes the planned `vrlog check` subcommand for inspecting and validating VRLOG recordings from the main `velocity-report` binary.
+Planned `vrlog check` subcommand for inspecting and validating VRLOG recordings from the main `velocity-report` binary.
 
 ## Goal
 
@@ -36,7 +36,7 @@ and validation rules.
 - Avoids duplicating config, logging, and sensor/runtime wiring in separate
   binaries.
 
-## Proposed CLI Shape
+## Proposed CLI shape
 
 Top-level dispatch:
 

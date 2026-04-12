@@ -77,7 +77,7 @@ No new file type. Metrics ride inside existing `FrameBundle` chunks. Header meta
 
 Old logs without metrics field remain readable (absent field = no metrics lane).
 
-## Timeline UI Design
+## Timeline UI design
 
 Multi-lane timeline with shared time cursor:
 

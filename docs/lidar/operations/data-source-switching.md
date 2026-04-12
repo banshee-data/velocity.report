@@ -415,10 +415,3 @@ Final design keeps the dedicated `/api/lidar/pcap/start` (POST) and `/api/lidar/
 6. **Write** migration guide
 7. **Update** documentation
 8. **Deploy** and monitor for issues
-
----
-
-**Created**: 2025-11-01
-**Updated**: 2025-11-01 (decisions finalized)
-**Author**: Development Team
-**Status**: Ready for Implementation ✅

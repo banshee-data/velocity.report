@@ -1,6 +1,8 @@
 # v0.5.0 Release Migration
 
-Active plan: [v050-backward-compatibility-shim-removal-plan.md](../../plans/v050-backward-compatibility-shim-removal-plan.md)
+- **Status:** Complete — retained as migration reference
+
+Plan: [v050-backward-compatibility-shim-removal-plan.md](../../plans/v050-backward-compatibility-shim-removal-plan.md) — Complete
 
 This document is the migration guide for the v0.5.0 release, which coordinates all breaking changes and backward-compatibility shim removals into a single version bump.
 

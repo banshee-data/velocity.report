@@ -124,6 +124,8 @@ When context is limited, prioritise:
 
 When to document: feature specs before implementation, capability maps when analysing requests, architectural proposals for system-level changes.
 
+When producing design docs, follow STYLE.md § Documentation Structure: describe systems in prose and tables, not pre-built code blocks. Extract API schemas to companion reference files rather than inlining full JSON payloads.
+
 DRY principle: reference canonical sources, link to authoritative docs, update all affected docs when making changes.
 
 ## Plan Hygiene Workflow

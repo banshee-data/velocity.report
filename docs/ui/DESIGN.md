@@ -6,8 +6,6 @@
 
 # Frontend and Visualisation Design Language
 
-Last updated: 2026-02-18
-
 ## 1. One Strict Goal
 
 Design for **operational clarity and cross-platform comparability**.

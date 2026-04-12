@@ -2,7 +2,7 @@
 
 - **Status:** Approved design (February 2026) — **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints
-- **Canonical:** [track-labelling-auto-aware-tuning.md](../lidar/operations/track-labelling-auto-aware-tuning.md)
+- **Canonical:** [tuning-guide.md](../lidar/operations/tuning-guide.md)
 
 - **Next blocker:** None for Phases 1-5. Phase 6 (transit promotion) is deferred pending design. Phase 9 (profile comparison) is next priority.
 

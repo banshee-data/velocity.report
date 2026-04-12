@@ -7,7 +7,7 @@ Backlog: [BACKLOG.md](../BACKLOG.md) — P1 item 6
 
 Comprehensive audit of the repository against the design contract in DESIGN.md, identifying gaps, non-compliance, and areas for improvement. Each finding includes a severity, effort estimate, and recommended action.
 
-This document describes a single project (design contract compliance). The project-wide priority list lives in [BACKLOG.md](../BACKLOG.md).
+Scope: design contract compliance only. The project-wide priority list lives in [BACKLOG.md](../BACKLOG.md).
 
 Severity levels: **Critical** (violates explicit DESIGN.md contract), **High** (undermines design goals), **Medium** (missed best practice), **Low** (polish/nice-to-have).
 
@@ -254,7 +254,7 @@ No snapshot, screenshot, or visual regression testing exists for the web fronten
 
 **Effort:** 4–8 hours
 
-### 7.3 No end-to-end test infrastructure — Medium
+### 7.3 No integration test infrastructure — Medium
 
 No Cypress, Playwright, or other E2E framework is configured. API integration is tested in Go, but frontend-to-API flows are untested.
 

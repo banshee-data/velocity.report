@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the system architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
+System architecture for the macOS LiDAR visualiser and the supporting pipeline refactor.
 
 ---
 
@@ -8,11 +8,11 @@ This document describes the system architecture for the macOS LiDAR visualiser a
 
 This architecture aligns with industry-standard LiDAR perception formats:
 
-| Standard                        | Implementation                           | Reference                                                                                      |
-| ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../plans/lidar-av-lidar-integration-plan.md)              |
-| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../plans/lidar-static-pose-alignment-plan.md)            |
-| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../lidar/architecture/lidar-background-grid-standards.md) |
+| Standard                        | Implementation                           | Reference                                                                                         |
+| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **7-DOF Bounding Box**          | `OrientedBoundingBox` in protobuf schema | [lidar-av-lidar-integration-plan.md](../../plans/lidar-av-lidar-integration-plan.md)              |
+| **Coordinate Frame Convention** | ENU (East-North-Up) world frame          | [lidar-static-pose-alignment-plan.md](../../plans/lidar-static-pose-alignment-plan.md)            |
+| **Background Grid**             | Polar range image with VTK export option | [lidar-background-grid-standards.md](../../lidar/architecture/lidar-background-grid-standards.md) |
 
 The `OrientedBoundingBox` message in `visualiser.proto` uses the same field layout as `BoundingBox7DOF` from the AV integration spec, enabling direct conversion for AV dataset import/export.
 
@@ -523,7 +523,7 @@ Since LidarView shows raw points and the visualiser shows semantic data, direct 
 
 This section documents known limitations and deferred work from the M2/M3/M3.5/M4 implementation that will be addressed in M7 (Performance Hardening).
 
-### 8.1 Memory Pool Not Fully Utilised (Go)
+### 8.1 Memory pool not fully used (Go)
 
 **Issue**: The `PointCloudFrame` type uses `sync.Pool` for slice allocation (`getFloat32Slice()`, `getUint8Slice()`), but the `Release()` method is not called in broadcast scenarios.
 
@@ -531,7 +531,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Pool slices are allocated but never returned; effectively defeats pooling benefit.
 
-**Deferred Solution**: Reference counting (see [velocity-visualiser-implementation.md §7.2](./velocity-visualiser-implementation.md#72-pointcloudframe-memory-pool-release-strategy)).
+**Deferred Solution**: Reference counting (see [velocity-visualiser-implementation.md §7.2](./implementation.md#72-pointcloudframe-memory-pool-release-strategy)).
 
 ### 8.2 Swift Buffer Allocation Per Frame
 
@@ -539,7 +539,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: At 10-20 fps, this creates ~5 MB/s allocation pressure, increasing GC load.
 
-**Deferred Solution**: Buffer pooling or pre-allocation (see [velocity-visualiser-implementation.md §7.1](./velocity-visualiser-implementation.md#71-swift-buffer-pooling)).
+**Deferred Solution**: Buffer pooling or pre-allocation (see [velocity-visualiser-implementation.md §7.1](./implementation.md#71-swift-buffer-pooling)).
 
 ### 8.3 Frame Skipping Lacks Cooldown
 
@@ -547,7 +547,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Impact**: Client may experience jittery frame delivery after recovering from backpressure.
 
-**Deferred Solution**: Add cooldown counter (see [velocity-visualiser-implementation.md §7.3](./velocity-visualiser-implementation.md#73-frame-skipping-cooldown)).
+**Deferred Solution**: Add cooldown counter (see [velocity-visualiser-implementation.md §7.3](./implementation.md#73-frame-skipping-cooldown)).
 
 ### 8.4 Decimation Ratio Edge Cases
 
@@ -555,7 +555,7 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 **Workaround**: Callers should validate ratios. Minimum recommended: 0.01 (1%).
 
-**Documentation**: Added to [velocity-visualiser-implementation.md §7.4](./velocity-visualiser-implementation.md#74-decimation-edge-cases).
+**Documentation**: Added to [velocity-visualiser-implementation.md §7.4](./implementation.md#74-decimation-edge-cases).
 
 ### 8.5 Go 1.21+ Dependency
 
@@ -575,9 +575,9 @@ This section documents known limitations and deferred work from the M2/M3/M3.5/M
 
 ## 9. Related Documents
 
-- [velocity-visualiser-api-contracts.md](./velocity-visualiser-api-contracts.md) – API contract (protobuf schema)
-- [velocity-visualiser-implementation.md](./velocity-visualiser-implementation.md) – Milestones and tasks
-- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)
+- [velocity-visualiser-implementation.md](./implementation.md) – Milestones and tasks
+- [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
 
 ## 10. Performance Investigation — Key Results
 

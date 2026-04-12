@@ -3,8 +3,8 @@
 - **Status:** Planning-only (no implementation in this branch)
 - **Layers:** L3 Grid, L9 Endpoints, L10 Clients
 - **Scope:** Swift visualiser debugging outputs for background settlement
-- **Related:** [`docs/ui/velocity-visualiser-api-contracts.md`](../ui/velocity-visualiser-api-contracts.md), [`docs/ui/velocity-visualiser-architecture.md`](../ui/velocity-visualiser-architecture.md), [`docs/ui/velocity-visualiser-implementation.md`](../ui/velocity-visualiser-implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
-- **Canonical:** [velocity-visualiser-implementation.md](../ui/velocity-visualiser-implementation.md)
+- **Related:** [api-contracts.md](../ui/visualiser/api-contracts.md), [architecture.md](../ui/visualiser/architecture.md), [implementation.md](../ui/visualiser/implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
+- **Canonical:** [implementation.md](../ui/visualiser/implementation.md)
 
 ## 1. Problem
 

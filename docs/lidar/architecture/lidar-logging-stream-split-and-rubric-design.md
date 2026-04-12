@@ -1,6 +1,6 @@
 # LiDAR Logging Stream Split and Rubric Design (2026-02-17)
 
-This document specifies the design for replacing the single `Debugf` logging stream in the LiDAR subsystem with three explicit streams — ops, diag, and trace — separated by severity and volume.
+Design for replacing the single `Debugf` logging stream in the LiDAR subsystem with three explicit streams — ops, diag, and trace — separated by severity and volume.
 
 ## Objective
 

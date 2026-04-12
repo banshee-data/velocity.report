@@ -2,7 +2,7 @@
 
 - **Status:** Implemented
 
-This document records the design decision to store both polar and Cartesian representations of each point at L2 frame assembly, eliminating the per-frame polar rebuild without changing downstream clustering or tracking logic.
+Design decision to store both polar and Cartesian representations of each point at L2 frame assembly, eliminating the per-frame polar rebuild without changing downstream clustering or tracking logic.
 
 ## Decision
 

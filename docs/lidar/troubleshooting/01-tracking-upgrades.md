@@ -102,35 +102,9 @@ Lifecycle Management (tentative → confirmed → deleted)
 | RANSAC plane fit    | Handles slope        | More compute        | Use for accuracy |
 | Ring-based gradient | Uses sensor geometry | Complex             | Deferred         |
 
-**Implementation**:
+**Implementation**: `internal/lidar/l4perception/ground.go` — `HeightBandFilter` implementing a `GroundRemover` interface. Filters points outside a configurable height band (default min 0.2 m wheel height, max 3.0 m truck height). Called from `tracking_pipeline.go` after `TransformToWorld()`.
 
-```go
-// internal/lidar/ground.go (NEW)
-
-type GroundRemover interface {
-    RemoveGround(points []WorldPoint) []WorldPoint
-}
-
-// Simple height threshold
-type HeightThresholdRemover struct {
-    MinHeight float32  // e.g., 0.2m (wheel height)
-    MaxHeight float32  // e.g., 3.0m (truck height)
-}
-
-func (r *HeightThresholdRemover) RemoveGround(points []WorldPoint) []WorldPoint {
-    filtered := make([]WorldPoint, 0, len(points))
-    for _, p := range points {
-        if p.Z >= float64(r.MinHeight) && p.Z <= float64(r.MaxHeight) {
-            filtered = append(filtered, p)
-        }
-    }
-    return filtered
-}
-```
-
-**API Output**: Add `ground_removed: bool` flag to `PointCloudFrame`.
-
-**Repo Location**: New file `internal/lidar/ground.go`, called from `tracking_pipeline.go` after `TransformToWorld()`.
+**API Output**: `ground_removed: bool` flag in `PointCloudFrame`.
 
 ---
 
@@ -140,38 +114,15 @@ func (r *HeightThresholdRemover) RemoveGround(points []WorldPoint) []WorldPoint 
 
 **Proposed**: Adaptive parameters + voxel grid preprocessing.
 
-#### 2.2.1 Voxel Grid Downsampling
+#### 2.2.1 Voxel grid downsampling
 
-Reduce point count before clustering for large clouds.
-
-```go
-// internal/lidar/voxel.go (NEW)
-
-type VoxelGrid struct {
-    Resolution float64  // e.g., 0.1m
-}
-
-func (v *VoxelGrid) Downsample(points []WorldPoint) []WorldPoint {
-    // Hash points to voxel cells
-    // Return one representative per cell
-}
-```
+Reduce point count before clustering by hashing points to voxel cells (e.g. 0.1 m resolution) and returning one representative per cell. New file `internal/lidar/l4perception/voxel.go`.
 
 **Tradeoff**: Voxel grid loses density information but improves clustering speed.
 
-#### 2.2.2 Connected Components Alternative
+#### 2.2.2 Connected components alternative
 
-For dense point clouds, connected components on voxel grid may be faster than DBSCAN.
-
-```go
-// internal/lidar/clustering.go (extension)
-
-func ConnectedComponents(points []WorldPoint, resolution float64) []WorldCluster {
-    // 1. Build 3D voxel grid
-    // 2. Find connected components via flood fill
-    // 3. Build clusters from components
-}
-```
+For dense point clouds, connected components on voxel grid via flood fill may be faster than DBSCAN. Add as an extension to `internal/lidar/l4perception/cluster.go`.
 
 **Recommendation**: Keep DBSCAN as default, add voxel grid preprocessing option.
 
@@ -185,32 +136,9 @@ func ConnectedComponents(points []WorldPoint, resolution float64) []WorldCluster
 
 **Proposed**: Optimal assignment via Hungarian algorithm.
 
-#### 2.3.1 Hungarian (Jonker-Volgenant) Algorithm
+#### 2.3.1 Hungarian (Jonker-Volgenant) algorithm
 
-```go
-// internal/lidar/association.go (NEW)
-
-type Associator interface {
-    Associate(tracks []*TrackedObject, clusters []WorldCluster, dt float32) []Assignment
-}
-
-type Assignment struct {
-    TrackIdx   int
-    ClusterIdx int
-    Cost       float32
-}
-
-// Greedy (current)
-type GreedyAssociator struct {
-    GatingThreshold float32
-}
-
-// Optimal (new)
-type HungarianAssociator struct {
-    GatingThreshold float32
-    MaxCost         float32  // reject if cost > threshold
-}
-```
+Define an `Associator` interface in `internal/lidar/l5tracks/hungarian.go` with `Associate(tracks, clusters, dt) → []Assignment` where each `Assignment` carries track index, cluster index, and cost. Two implementations: `GreedyAssociator` (current nearest-neighbour) and `HungarianAssociator` (Kuhn-Munkres solver with max-cost rejection).
 
 **Mahalanobis Gating**: Current implementation at `tracking.go:317-360` is preserved. Hungarian operates on the cost matrix after gating.
 
@@ -236,21 +164,7 @@ Blend CV + CA based on motion likelihood.
 
 **Recommendation**: Keep CV as default. Add CA as configuration option. IMM is future work.
 
-```go
-// internal/lidar/tracking.go (extension)
-
-type MotionModel string
-
-const (
-    MotionModelCV MotionModel = "cv"  // constant velocity (current)
-    MotionModelCA MotionModel = "ca"  // constant acceleration
-)
-
-type TrackerConfig struct {
-    // ... existing fields ...
-    MotionModel MotionModel  // NEW
-}
-```
+Add a `MotionModel` string enum (`cv`, `ca`) to `TrackerConfig` in `internal/lidar/l5tracks/tracking.go`. The CA model extends the Kalman state from 4-state `[x, y, vx, vy]` to 6-state `[x, y, vx, vy, ax, ay]`.
 
 **API Output**: `Track.motion_model` field in proto.
 
@@ -262,48 +176,13 @@ type TrackerConfig struct {
 
 **Proposed**: Adaptive lifecycle based on track confidence and occlusion detection.
 
-#### 2.5.1 Confidence-Based Lifecycle
+#### 2.5.1 Confidence-based lifecycle
 
-```go
-// internal/lidar/tracking.go (extension)
+Extend `TrackedObject` in `internal/lidar/l5tracks/tracking.go` with `Confidence float32` (0–1, based on hit ratio, observation count, track age, covariance magnitude) and `OcclusionState` enum (`none`, `partial`, `full`). `MaxMisses` adapts based on confidence: confirmed high-confidence tracks coast longer.
 
-type TrackedObject struct {
-    // ... existing fields ...
+#### 2.5.2 Occlusion detection
 
-    // NEW: Quality metrics
-    Confidence      float32  // 0.0 - 1.0, based on observation history
-    OcclusionState  OcclusionState
-}
-
-type OcclusionState string
-
-const (
-    OcclusionNone     OcclusionState = "none"
-    OcclusionPartial  OcclusionState = "partial"
-    OcclusionFull     OcclusionState = "full"
-)
-
-func (t *TrackedObject) ComputeConfidence() float32 {
-    // Factors:
-    // - hits / (hits + misses)
-    // - observation count
-    // - track age
-    // - covariance magnitude
-}
-```
-
-#### 2.5.2 Occlusion Detection
-
-Detect when a track is likely occluded (another track between sensor and target).
-
-```go
-func (t *Tracker) DetectOcclusions(tracks []*TrackedObject, sensorPos [2]float32) {
-    // For each track:
-    // - Cast ray from sensor to track
-    // - Check if another track intersects ray
-    // - Mark as occluded if blocked
-}
-```
+Detect when a track is likely occluded by casting a ray from sensor origin to each track and checking whether another track's bounding box intersects the ray. Implemented as `Tracker.DetectOcclusions()` in `internal/lidar/l5tracks/tracking.go`.
 
 **API Output**: `Track.occlusion_state` field, `Track.confidence` field.
 
@@ -315,38 +194,13 @@ func (t *Tracker) DetectOcclusions(tracks []*TrackedObject, sensorPos [2]float32
 
 **Proposed**: Oriented bounding box (OBB) via PCA + temporal smoothing.
 
-#### 2.6.1 PCA-Based OBB
+#### 2.6.1 PCA-based OBB
 
-```go
-// internal/lidar/obb.go (NEW)
+`EstimateOBBFromCluster()` in `internal/lidar/l4perception/obb.go` computes an OBB with fields: centre (x, y, z), extents (length, width, height), and heading (radians around Z). Algorithm: compute centroid → build 2D covariance matrix → eigen decomposition → rotate to principal frame → compute extents → heading from atan2 of first eigenvector.
 
-type OBB struct {
-    CenterX, CenterY, CenterZ float32
-    Length, Width, Height     float32
-    HeadingRad                float32  // rotation around Z
-}
+#### 2.6.2 Temporal smoothing
 
-func ComputeOBB(points []WorldPoint) OBB {
-    // 1. Compute centroid
-    // 2. Build covariance matrix (2D, x-y plane)
-    // 3. Eigen decomposition → principal axes
-    // 4. Rotate points to principal frame
-    // 5. Compute extents in principal frame
-    // 6. HeadingRad = atan2(eigenvector[0].y, eigenvector[0].x)
-}
-```
-
-#### 2.6.2 Temporal Smoothing
-
-Smooth OBB heading to reduce jitter.
-
-```go
-func (t *TrackedObject) SmoothOBB(newOBB OBB, alpha float32) {
-    // Exponential moving average on heading
-    // Handle angle wraparound (-π to π)
-    t.OBBHeading = circularEMA(t.OBBHeading, newOBB.HeadingRad, alpha)
-}
-```
+EMA smoothing on OBB heading (α = 0.3) with circular wraparound (−π to π). Implemented in `internal/lidar/l4perception/obb.go`.
 
 **API Output**: `OrientedBoundingBox` message in `Cluster` proto.
 
@@ -358,38 +212,14 @@ func (t *TrackedObject) SmoothOBB(newOBB OBB, alpha float32) {
 
 **Proposed**: Feature extraction hooks for ML classifier training.
 
-#### 2.7.1 Feature Vector
+#### 2.7.1 Feature vector
 
-```go
-// internal/lidar/features.go (NEW)
+Two feature structs in `internal/lidar/l6objects/features.go`:
 
-type ClusterFeatures struct {
-    PointCount       int
-    BBoxLength       float32
-    BBoxWidth        float32
-    BBoxHeight       float32
-    HeightP95        float32
-    IntensityMean    float32
-    IntensityStd     float32
-    Elongation       float32  // length / width
-    Compactness      float32  // points / bbox_volume
-    VerticalSpread   float32  // std of Z
-}
+- **ClusterFeatures** (per-frame): point count, bbox extents (L/W/H), height p95, intensity mean/std, elongation (L/W), compactness (pts/volume), vertical spread (σ of Z).
+- **TrackFeatures** (aggregated): embeds `ClusterFeatures` plus avg/max speed, speed variance, duration, track length, heading variance, occlusion ratio.
 
-type TrackFeatures struct {
-    ClusterFeatures       // aggregated over observations
-    AvgSpeedMps           float32
-    MaxSpeedMps           float32
-    SpeedVariance         float32
-    TrackDurationSecs     float32
-    TrackLengthMeters     float32
-    HeadingVariance       float32
-    OcclusionRatio        float32
-}
-
-func ExtractClusterFeatures(cluster WorldCluster, points []WorldPoint) ClusterFeatures
-func ExtractTrackFeatures(track *TrackedObject) TrackFeatures
-```
+Extraction functions: `ExtractClusterFeatures(cluster, points)` and `ExtractTrackFeatures(track)`.
 
 **API Output**: Optional `features` field in `Track` proto for offline research export.
 
@@ -401,29 +231,9 @@ func ExtractTrackFeatures(track *TrackedObject) TrackFeatures
 
 **Proposed**: Structured debug artifacts for visualiser.
 
-#### 2.8.1 Debug Collector
+#### 2.8.1 Debug collector
 
-```go
-// internal/lidar/debug/collector.go (NEW)
-
-type DebugCollector struct {
-    enabled bool
-    frame   *DebugFrame
-}
-
-type DebugFrame struct {
-    FrameID               uint64
-    AssociationCandidates []AssociationCandidate
-    GatingEllipses        []GatingEllipse
-    Residuals             []InnovationResidual
-    Predictions           []StatePrediction
-}
-
-func (c *DebugCollector) RecordAssociation(clusterIdx int, trackID string, dist float32, accepted bool)
-func (c *DebugCollector) RecordGating(trackID string, ellipse GatingEllipse)
-func (c *DebugCollector) RecordResidual(trackID string, predicted, measured [2]float32)
-func (c *DebugCollector) Emit() *DebugFrame
-```
+`DebugCollector` in `internal/lidar/debug/collector.go` accumulates per-frame debug artifacts: association candidates, gating ellipses, innovation residuals, and state predictions. Four recording methods (`RecordAssociation`, `RecordGating`, `RecordResidual`, `RecordPrediction`) plus `Emit()` to flush the frame.
 
 #### 2.8.2 Integration Points
 
@@ -494,6 +304,6 @@ Each upgrade includes unit tests for the new function.
 
 ## 6. Related Documents
 
-- [../../ui/velocity-visualiser-architecture.md](../../ui/velocity-visualiser-architecture.md) – Architecture and problem statement
-- [../../ui/velocity-visualiser-api-contracts.md](../../ui/velocity-visualiser-api-contracts.md) – API contract
-- [../../ui/velocity-visualiser-implementation.md](../../ui/velocity-visualiser-implementation.md) – Milestones
+- [architecture.md](../../ui/visualiser/architecture.md) – Architecture and problem statement
+- [api-contracts.md](../../ui/visualiser/api-contracts.md) – API contract
+- [implementation.md](../../ui/visualiser/implementation.md) – Milestones

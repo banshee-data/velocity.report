@@ -108,39 +108,7 @@ Structures are vertical surfaces observed as reflective returns from building fa
 - **Vertical plane equation** — For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
 - **Height range** — [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
 
-```go
-// StructureFeature represents a vertical scene element (building, wall, fence).
-type StructureFeature struct {
-    // Footprint polygon (2D, viewed from above)
-    FootprintVertices [][2]float64 // Ordered polygon vertices (X, Y)
-
-    // Per-wall-segment data (one entry per footprint edge)
-    WallSegments []WallSegment
-
-    // Vertical extent
-    ZMin float64 // Lowest observed return (metres, sensor frame)
-    ZMax float64 // Highest observed return
-
-    // Metadata
-    PointCount uint32
-    Confidence float32 // Aggregate planarity across wall segments
-    LOD        uint8   // Level of detail
-}
-
-// WallSegment is a single planar face of a structure.
-type WallSegment struct {
-    // Wall-plane equation: n·p = d (normal is near-horizontal)
-    Normal [3]float64
-    Offset float64
-
-    // Endpoints of this wall edge (footprint vertices i, i+1)
-    StartIdx int
-    EndIdx   int
-
-    Planarity  float32
-    PointCount uint32
-}
-```
+> **Source:** `StructureFeature` and `WallSegment` structs in `internal/lidar/` (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
 **Why not store full 3D meshes?** We don't need photorealistic building models. A few wall planes with corner coordinates capture the coarse structure visible to LiDAR, sufficient for:
 
@@ -152,36 +120,7 @@ type WallSegment struct {
 
 Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse, scattered returns. Model them as **approximate bounding volumes**:
 
-```go
-// VolumeFeature represents an irregular 3D scene element (tree, hedge, sign cluster).
-type VolumeFeature struct {
-    // Bounding representation (choose one)
-    BoundingType BoundingKind   // OBB, ConvexHull, or Sphere
-    Centre       [3]float64     // Approximate centroid
-    Dimensions   [3]float64     // Half-extents for OBB; radius for sphere
-    Orientation  [4]float64     // Quaternion rotation for OBB (identity for axis-aligned)
-    HullVertices [][3]float64   // For ConvexHull type only
-
-    // Density estimate
-    PointCount     uint32
-    PointDensity   float32 // Points per m³ (distinguishes solid vs sparse returns)
-    ApproxVolume   float32 // Bounding volume in m³
-
-    // Metadata
-    Class      VolumeClass // tree, hedge, sign_cluster, awning, unknown
-    LOD        uint8
-    Confidence float32
-}
-
-// BoundingKind specifies the bounding representation for a VolumeFeature.
-type BoundingKind uint8
-
-const (
-    BoundingBox    BoundingKind = iota // Oriented bounding box (OBB)
-    BoundingHull                       // Convex hull (compact point set)
-    BoundingSphere                     // Bounding sphere (simplest)
-)
-```
+> **Source:** `VolumeFeature` and `BoundingKind` in `internal/lidar/` (when implemented). Fields: BoundingType (OBB/ConvexHull/Sphere), Centre, Dimensions, Orientation, HullVertices, PointCount, PointDensity, ApproxVolume, Class (tree/hedge/sign_cluster/awning/unknown), LOD, Confidence.
 
 **Point density** is the distinguishing attribute: a tree canopy has high spatial extent but low density (many gaps between returns), while a solid pole has small extent but high density. This attribute helps L6 classification without storing raw point clouds.
 
@@ -233,38 +172,7 @@ LOD 0: Road_Segment_Main_Street
 
 ### LOD Data Model
 
-```go
-// SceneFeature is the common envelope for all features in the vector scene map.
-type SceneFeature struct {
-    ID       FeatureID    // Globally unique within the map
-    Class    FeatureClass // Ground, Structure, Volume
-    LOD      uint8        // 0–3
-    ParentID FeatureID    // ID of parent feature (0 = root / no parent)
-
-    // Geometry (exactly one populated, determined by Class)
-    Ground    *GroundFeature    // Non-nil for Class == Ground
-    Structure *StructureFeature // Non-nil for Class == Structure
-    Volume    *VolumeFeature    // Non-nil for Class == Volume
-
-    // Common metadata
-    PointCount       uint32
-    Confidence       float32
-    LastUpdatedNanos int64
-    Settled          bool
-}
-
-// FeatureID uniquely identifies a feature within the scene map.
-type FeatureID uint64
-
-// FeatureClass distinguishes the three geometric classes.
-type FeatureClass uint8
-
-const (
-    FeatureGround    FeatureClass = iota // Horizontal/sloped surface polygon
-    FeatureStructure                     // Vertical structure polygon(s)
-    FeatureVolume                        // 3D bounding volume
-)
-```
+> **Source:** `SceneFeature`, `FeatureID`, and `FeatureClass` in `internal/lidar/` (when implemented). `SceneFeature` wraps ID, Class (Ground/Structure/Volume), LOD (0–3), ParentID, and exactly one of `*GroundFeature`, `*StructureFeature`, `*VolumeFeature`. Common metadata: PointCount, Confidence, LastUpdatedNanos, Settled.
 
 ---
 
@@ -366,25 +274,7 @@ This ensures coarse polygons are extremely compact (4–6 vertices for a road bl
 
 ### 5.1 In-Memory Representation
 
-```go
-// VectorSceneMap holds the full multi-resolution feature set for a scene.
-type VectorSceneMap struct {
-    Features map[FeatureID]*SceneFeature
-    mu       sync.RWMutex
-
-    // Spatial index for fast 2D queries (ground + structure footprints)
-    SpatialIndex *QuadTree // or R-tree; keyed by feature bounding box
-
-    // LOD index for fast level-filtered queries
-    LODIndex [4][]FeatureID // LODIndex[lod] = list of feature IDs at that LOD
-
-    // Statistics
-    GroundCount    uint32
-    StructureCount uint32
-    VolumeCount    uint32
-    NextFeatureID  FeatureID
-}
-```
+> **Source:** `VectorSceneMap` struct in `internal/lidar/` (when implemented). Holds `map[FeatureID]*SceneFeature` with RWMutex, spatial index (QuadTree or R-tree), per-LOD feature ID lists, and per-class counters.
 
 ### 5.2 Storage Budget
 
@@ -413,37 +303,7 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 
 ### 5.3 SQLite Persistence Schema
 
-```sql
-CREATE TABLE IF NOT EXISTS vector_scene_features (
-    feature_id    INTEGER PRIMARY KEY,
-    parent_id     INTEGER,               -- 0 for root features
-    class         INTEGER NOT NULL,       -- 0=ground, 1=structure, 2=volume
-    lod           INTEGER NOT NULL,       -- 0–3
-    settled       INTEGER NOT NULL DEFAULT 0,
-    confidence    REAL NOT NULL DEFAULT 0.0,
-    point_count   INTEGER NOT NULL DEFAULT 0,
-    last_updated  INTEGER NOT NULL,       -- timestamp nanos
-    geometry_blob BLOB NOT NULL,          -- gzip-compressed feature geometry
-    FOREIGN KEY (parent_id) REFERENCES vector_scene_features(feature_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_scene_feature_class ON vector_scene_features(class);
-CREATE INDEX IF NOT EXISTS idx_scene_feature_lod ON vector_scene_features(lod);
-CREATE INDEX IF NOT EXISTS idx_scene_feature_parent ON vector_scene_features(parent_id);
-
--- Snapshot table for versioned map states (analogous to ground_plane_snapshots)
-CREATE TABLE IF NOT EXISTS vector_scene_snapshots (
-    snapshot_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp_nanos   INTEGER NOT NULL,
-    sensor_id         TEXT,
-    origin_lat        REAL,    -- NULL if no GPS
-    origin_lon        REAL,
-    feature_count     INTEGER,
-    features_blob     BLOB,    -- gzip-compressed gob-encoded []SceneFeature
-    features_hash     TEXT,    -- SHA256 deduplication
-    lod_distribution  TEXT     -- JSON: {"lod0": 15, "lod1": 35, "lod2": 120, "lod3": 45}
-);
-```
+> **Source:** Schema in `internal/db/migrations/` (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
 
 ### 5.4 Export Formats
 
@@ -454,51 +314,7 @@ CREATE TABLE IF NOT EXISTS vector_scene_snapshots (
 | **VTK PolyData** | ParaView / LidarView         | PolyData with cell normals             | PolyData with wall planes               | Glyph data (OBBs as boxes)            |
 | **CityJSON**     | 3D city modelling            | Terrain surface                        | LOD 1–2 building shells                 | Vegetation objects                    |
 
-GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD:
-
-```json
-{
-  "type": "FeatureCollection",
-  "metadata": {
-    "scene_map_version": "1.0",
-    "lod_filter": 1,
-    "coordinate_system": "Sensor-XY",
-    "feature_count": 42
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[[0.5, 2.1], [12.3, 2.0], ...]] },
-      "properties": {
-        "id": 1001,
-        "class": "ground",
-        "subclass": "road",
-        "lod": 1,
-        "plane_normal": [0.01, 0.005, 0.9999],
-        "plane_offset": -2.85,
-        "planarity": 0.98,
-        "point_count": 2450,
-        "area_m2": 145.2,
-        "parent_id": 100
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[[15.0, 3.0], [15.0, 12.5], ...]] },
-      "properties": {
-        "id": 2001,
-        "class": "structure",
-        "subclass": "building",
-        "lod": 1,
-        "z_min": -2.8,
-        "z_max": 4.2,
-        "wall_count": 3,
-        "point_count": 890
-      }
-    }
-  ]
-}
-```
+GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD. Each Feature carries a GeoJSON `Polygon` geometry plus class-specific properties: ground features include `plane_normal`, `plane_offset`, `planarity`, `area_m2`, and `parent_id`; structure features include `z_min`, `z_max`, and `wall_count`. All features carry `id`, `class`, `subclass`, `lod`, and `point_count`. A top-level `metadata` object records `scene_map_version`, `lod_filter`, `coordinate_system`, and `feature_count`.
 
 ---
 
@@ -592,29 +408,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 
 The vector scene map publishes a query interface that extends `GroundSurface`:
 
-```go
-// SceneSurface extends GroundSurface with structural and volumetric queries.
-type SceneSurface interface {
-    GroundSurface // Embeds height-above-ground queries
-
-    // FeaturesAt returns all features at (x, y) up to the specified LOD.
-    // Returns features from coarsest to finest.
-    FeaturesAt(x, y float64, maxLOD uint8) []SceneFeature
-
-    // GroundPolygonAt returns the ground polygon containing (x, y) at the finest
-    // available LOD up to maxLOD. Falls back to coarser LOD if finer unavailable.
-    GroundPolygonAt(x, y float64, maxLOD uint8) (*GroundFeature, bool)
-
-    // NearestStructure returns the closest structure feature to (x, y) within radius.
-    NearestStructure(x, y, radius float64) (*StructureFeature, float64, bool)
-
-    // VolumesInRadius returns all volume features within radius of (x, y).
-    VolumesInRadius(x, y, radius float64) []VolumeFeature
-
-    // FeaturesInBBox returns all features whose bounding box overlaps [xMin,yMin]–[xMax,yMax].
-    FeaturesInBBox(xMin, yMin, xMax, yMax float64, maxLOD uint8) []SceneFeature
-}
-```
+> **Source:** `SceneSurface` interface in `internal/lidar/` (when implemented). Embeds `GroundSurface` and adds: `FeaturesAt(x, y, maxLOD)`, `GroundPolygonAt(x, y, maxLOD)`, `NearestStructure(x, y, radius)`, `VolumesInRadius(x, y, radius)`, `FeaturesInBBox(xMin, yMin, xMax, yMax, maxLOD)`.
 
 ### 7.2 LOD Fallback Semantics
 
@@ -629,7 +423,7 @@ This ensures that **every query returns something if any coverage exists**, rega
 
 ---
 
-## 8. Seamless Navigation Between LOD Levels
+## 8. Gap-Free Navigation Between LOD Levels
 
 ### 8.1 The Global Map Problem
 
@@ -640,7 +434,7 @@ At the global level (Tier 2, lat/long-aligned), the map should be navigable as a
 
 ### 8.2 Transition Strategy
 
-**Spatial containment invariant:** Every LOD N+1 feature is fully contained within its LOD N parent's boundary. This guarantees seamless transition:
+**Spatial containment invariant:** Every LOD N+1 feature is fully contained within its LOD N parent's boundary. This guarantees gap-free transition:
 
 ```
 Query at LOD 0: Returns ~15 large ground polygons + building footprints + vegetation spheres.
@@ -698,16 +492,7 @@ Vector Scene Map (LOD 0–3 polygons)    ←  Derived artefact for mapping, expo
 
 ### GroundSurface Delegation
 
-The `VectorSceneMap` can implement `GroundSurface` by delegating to the underlying `GroundPlaneGrid`:
-
-```go
-func (m *VectorSceneMap) QueryHeightAboveGround(x, y, z float64) (float64, float32, bool) {
-    // Delegate to the tile-based ground plane for real-time queries
-    return m.groundGrid.QueryHeightAboveGround(x, y, z)
-}
-```
-
-For offline/export use cases, the vector polygons can directly answer height queries using their plane equations.
+The `VectorSceneMap` implements `GroundSurface` by delegating height queries to the underlying `GroundPlaneGrid` for real-time use. For offline/export use cases, the vector polygons can directly answer height queries using their plane equations.
 
 ---
 
@@ -715,44 +500,7 @@ For offline/export use cases, the vector polygons can directly answer height que
 
 ### Default Parameters
 
-```go
-// VectorSceneParams configures the scene map construction.
-type VectorSceneParams struct {
-    // Ground polygon merging
-    MergeAngleThresholdDeg float64 // Max normal angle difference for merging (default: 2.0°)
-    MergeZThresholdM       float64 // Max Z-offset difference at shared edge (default: 0.03 m)
-
-    // LOD assignment
-    LOD0MinAreaM2 float64 // Polygons > this area are LOD 0 (default: 50.0 m²)
-    LOD1MinAreaM2 float64 // Polygons > this area are LOD 1 (default: 5.0 m²)
-    LOD2MinAreaM2 float64 // Polygons > this area are LOD 2 (default: 0.25 m²)
-
-    // Refinement triggers
-    RefinementCurvatureDeg   float64 // Curvature threshold to trigger LOD 2+ (default: 5.0°)
-    RefinementZStepM         float64 // Z-step threshold to trigger LOD 2+ (default: 0.10 m)
-    RefinementDensityPtsPerM2 float64 // Point density for LOD 3 eligibility (default: 50.0)
-
-    // Pruning (per-LOD minimum polygon area; see §4.3 pruning table)
-    MinPolygonAreaLOD2M2   float64 // Discard LOD 2 polygons smaller than this (default: 0.25 m²)
-    MinPolygonAreaLOD3M2   float64 // Discard LOD 3 polygons smaller than this (default: 0.10 m²)
-    MaxVerticesPerPolygon  int     // Simplify if exceeded (default: 32)
-    PlanarityImprovementMin float64 // Min planarity gain from split (default: 0.05)
-    MinConfidence          float32 // Exclude features below this (default: 0.70)
-    StaleTimeoutLOD01Nanos int64   // Stale timeout for LOD 0–1 (default: 300e9 = 5 min)
-    StaleTimeoutLOD23Nanos int64   // Stale timeout for LOD 2–3 (default: 120e9 = 2 min)
-
-    // Vertex simplification (Douglas-Peucker tolerance per LOD)
-    SimplifyToleranceLOD [4]float64 // {2.0, 0.5, 0.1, 0.02} metres
-
-    // Structure extraction
-    StructureMinHeight float64    // Minimum vertical extent for structures (default: 1.0 m)
-    StructureMaxNormalZ float64   // Max Z-component of normal for "vertical" (default: 0.3)
-
-    // Volume extraction
-    VolumeMinPersistenceSec float64 // Min seconds a cluster must persist (default: 30.0)
-    VolumeMinPointCount     int     // Min points for volume feature (default: 50)
-}
-```
+> **Source:** `VectorSceneParams` struct in `internal/lidar/` (when implemented). Key defaults: merge angle 2°, merge Z-offset 3 cm, LOD 0 min area 50 m², LOD 1 min area 5 m², refinement curvature 5°, refinement Z-step 10 cm, min confidence 0.70, Douglas-Peucker tolerances [2.0, 0.5, 0.1, 0.02] m per LOD, structure min height 1.0 m, volume min persistence 30 s.
 
 ---
 
@@ -901,403 +649,19 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 - Bulk or repeated scripted edits must follow OSM community guidance for
   automated/mechanical edits before execution.
 
+### Supplemental Geometry-Prior Service
+
+Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM. Local-first with optional static fetch from a public CDN; 0.01° grid-based folder structure; immutable contributor files with optional GPG signatures and CI-maintained trust manifest. Full architecture, file format specification, trust model, and hosting options: **[geometry-prior-service.md](./geometry-prior-service.md)**.
+
 ### Multi-Device Fusion
 
-Multiple sensors observing the same area can each produce a local vector scene map. Merging follows the same weighted-average approach as ground tile merging, operating on the polygon feature level. Building footprints from different viewpoints can be merged to refine corner positions.
-
-### Mobile Deployment
-
-A vehicle-mounted sensor produces a stream of local scene maps along its route. The global map accumulates structure and ground features into a corridor-style vector map. LOD 0–1 provides the route-level overview; LOD 2–3 captures surveyed detail at specific intersections.
+Multiple sensors observing the same area can each produce a local vector scene map. Merging follows weighted polygon averaging. Building footprints from different viewpoints refine corner positions.
 
 ---
 
----
+## Open Questions
 
-## Future Online Geometry-Prior Service (Supplemental to OSM)
-
-### Design Goal
-
-Enable a community-maintained public file tree that provides **supplemental**
-geometry priors (ground polygons, kerbs/crosswalks, boundary polylines,
-vegetation zones, and local refinements not well represented in OSM) for known
-deployment locations — while keeping velocity.report fully functional offline.
-
-For **building/structure priors**, prefer OSM Simple 3D Buildings (see §12 OSM
-Integration). The GeoJSON prior service described here is a complement, not
-the primary source of building geometry.
-
-### Architecture: Local-First with Optional Static Fetch
-
-Supplemental priors are served as **static GeoJSON files** from a public file
-server (CDN, GitHub Pages, or any HTTP host). No running service, no
-authentication, no accounts. Files are organised in a canonical grid-based
-folder structure keyed by coarsened GPS coordinates.
-
-**Grid resolution: 0.01°** (~1.1 km N-S × ~0.7 km E-W at UK latitudes). This
-resolution is chosen to:
-
-- Match the GPS coordinate coarsening applied before any network request
-  (preventing precise deployment location disclosure — see §Grid-Based Folder
-  Structure).
-- Keep each 1°×1° parent directory to at most **100 × 100 = 10,000 leaf
-  files**, manageable as a plain Git repository or static directory listing.
-- Provide sufficient scene overlap: a single 0.01° cell (~1 km²) encompasses
-  a typical residential intersection, a 300 m road stretch, or a school zone.
-
-```
-priors/
-  {lat_int}/
-    {lon_int}/
-      {lat_2dp}_{lon_2dp}.geojson   # 0.01° cell, ~1 km² coverage per file
-```
-
-Example: a sensor at 51.7523° N, 1.2577° W fetches
-`https://priors.velocity.report/51/-1/51.75_-1.26.geojson`
-
-The import path for OSM S3DB structure priors runs in parallel with this
-GeoJSON path. The diagram below focuses on the supplemental GeoJSON provider
-used primarily for non-OSM geometry classes.
-
-```
-                         ┌─────────────────────────────┐
-                         │  Public File Server (v2+)   │
-                         │  (static GeoJSON on CDN)    │
-                         │                             │
-                         │  GET /51/-1/51.75_-1.26     │
-                         │       .geojson              │
-                         │  → GeoJSON FeatureCollection│
-                         └──────────┬──────────────────┘
-                                    │ opt-in fetch (GPS required)
-                                    ▼
-┌─────────────┐      ┌───────────────────────────┐
-│ Local Prior │─────►│  Prior Loader             │
-│ File (v1.0) │      │  (reads local or remote)  │
-│ .geojson    │      │                           │
-└─────────────┘      └──────────┬────────────────┘
-                                │ w_prior weights
-                                ▼
-                     ┌───────────────────────────┐
-                     │  Ground-Plane Estimator   │
-                     │  (L4 Perception)          │
-                     │  Region scoring: §4.4     │
-                     │  S_R(p) = ... × w_prior   │
-                     └───────────────────────────┘
-```
-
-### Grid-Based Folder Structure
-
-The canonical grid uses **2-decimal-place latitude/longitude (0.01°)** (~1.1 km
-N-S × ~0.7 km E-W at UK latitudes), matching the coarsening applied to GPS
-coordinates before any network request. This prevents precise deployment
-location disclosure while providing sufficient locality for scene priors.
-
-| Path Component        | Resolution    | Example       | Max entries per parent                  |
-| --------------------- | ------------- | ------------- | --------------------------------------- |
-| `{lat_int}/`          | 1° (~111 km)  | `51/`         | 180 (−90 to +89)                        |
-| `{lon_int}/`          | 1° (~70 km)   | `-1/`         | 360 (−180 to +179)                      |
-| `{lat}_{lon}.geojson` | 0.01° (~1 km) | `51.75_-1.26` | up to 10,000 per `{lat_int}/{lon_int}/` |
-
-**Negative longitudes** use the minus sign in the folder and filename
-(e.g. `-1/51.75_-1.26.geojson`).
-
-**File count analysis:**
-
-Each `{lat_int}/{lon_int}/` directory holds at most 100 × 100 = **10,000 files**
-(the 0.01° grid over one 1°×1° block). In practice, populated cells are
-heavily sparse — a typical UK town produces 50–200 files across 2–4 parent
-directories. Empirical expectations by deployment density:
-
-| Scope                  | Approximate file count                             |
-| ---------------------- | -------------------------------------------------- |
-| Single intersection    | 1–4 files                                          |
-| Residential street     | 5–20 files                                         |
-| Town / suburb          | 50–300 files                                       |
-| County / large city    | 1,000–5,000 files                                  |
-| Full UK coverage       | ~50,000–200,000 files                              |
-| Global theoretical max | 648 million cells (unpopulated cells have no file) |
-
-### Contribution Model
-
-Contributions are submitted as **pull requests** to a public repository (or
-file uploads to a community-managed bucket). No accounts or authentication
-required for read access; write access goes through standard PR review.
-
-- Contributors export their sensor's learned scene map as GeoJSON.
-- A CI validation job checks schema conformance, coordinate bounds, and
-  file placement in the correct grid folder.
-- Merged files become immediately available on the CDN.
-- Contributor identity is provided as a **chosen name** plus an optional email
-  address and GPG key fingerprint (see §File Format Specification). Once
-  merged, **the GeoJSON file is never modified** — CI records signature status
-  separately in the `_trust/` manifest (see §Trust Tiers and Host Routing)
-  so that end users can always verify the original signature against the
-  original file bytes.
-
-### Future-Compatibility Strategy (What We Build Now)
-
-The following design choices in v1.0 ensure the online service is additive, not
-a rewrite:
-
-| Decision (v1.0)                                                       | Future Benefit (v2.0+)                                                                                |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **GeoJSON file format** for local priors                              | Same schema served by HTTP endpoint; no format conversion needed                                      |
-| **Prior weights are advisory (0–1)**, not hard constraints            | Service can return confidence-weighted priors; client applies them identically to local files         |
-| **Prior Loader abstraction** separates file I/O from perception maths | Swap file reader for HTTP client behind the same interface                                            |
-| **Sensor-local coordinate system** (no GPS required)                  | GPS is additive: if present, enables location-based prior lookup; if absent, local files still work   |
-| **Privacy by default**                                                | Online fetch is opt-in; no location data transmitted without explicit user consent                    |
-| **`_trust/` manifest separate from data files**                       | CI updates trust status without touching contributor files; signatures remain verifiable indefinitely |
-
-### File Format Specification (v2.0 Scope)
-
-All prior files are **GeoJSON FeatureCollections** (RFC 7946). Prior files are
-**immutable once merged** — CI never modifies the contributor-uploaded content,
-ensuring that detached GPG signatures remain independently verifiable by any
-end user at any time.
-
-**File structure (each grid cell):**
-
-```jsonc
-// {lat}_{lon}.geojson — GeoJSON FeatureCollection
-// This file is written once by the contributor and never altered after merge.
-{
-  "type": "FeatureCollection",
-  "metadata": {
-    "schema_version": "1",           // increments on breaking schema changes
-    "grid_cell": "51.75_-1.26",      // canonical cell identifier
-    "created_at": "2026-02-23T12:00:00Z",
-
-    // Contributor identity — chosen freely, no accounts required
-    "contributor_name": "Alice Smith",        // chosen display name (required if contributing)
-    "contributor_email": "alice@example.com", // optional; used for GPG key lookup
-    "gpg_fingerprint": "A1B2C3D4E5F6..."      // optional; fingerprint of signing key
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [[...]] },
-      "properties": {
-        "class": "ground",           // | "structure" | "volume"
-        "confidence": 0.97,          // 0.0–1.0
-        "updated_at": "2026-02-23T12:00:00Z"
-        // ... class-specific properties (plane_normal, z_min, etc.)
-      }
-    }
-  ]
-}
-```
-
-When a contributor provides a GPG key, the export tool produces a detached
-signature file submitted alongside the GeoJSON in the same PR:
-
-```
-51.75_-1.26.geojson
-51.75_-1.26.geojson.sig   # detached ASCII-armoured GPG signature
-```
-
-CI verifies the signature against the declared `gpg_fingerprint` at merge time.
-The result is recorded in the `_trust/` manifest (see below) — **the GeoJSON
-file itself is not touched**.
-
-### CI Trust Manifest
-
-Because prior files are immutable, CI maintains signature status in a separate
-directory at the root of the prior repository:
-
-```
-priors/
-  _trust/
-    manifest.json   # CI-owned; updated on every merge
-  51/
-    -1/
-      51.75_-1.26.geojson
-      51.75_-1.26.geojson.sig
-```
-
-**`_trust/manifest.json` structure:**
-
-```jsonc
-{
-  "generated_at": "2026-02-23T12:00:00Z",
-  "files": {
-    "51/-1/51.75_-1.26.geojson": {
-      "signed": true,
-      "gpg_fingerprint": "A1B2C3D4E5F6...",
-      "contributor_name": "Alice Smith",
-      "verified_at": "2026-02-23T12:00:00Z",
-    },
-    "51/-1/51.76_-1.26.geojson": {
-      "signed": false,
-      "contributor_name": "Bob Jones",
-      "verified_at": null,
-    },
-  },
-}
-```
-
-The manifest is the **only** place `signed` status is recorded. Clients fetch
-`_trust/manifest.json` once per session (or cache it) and consult it when
-deciding whether to trust a prior file. The data files themselves carry no
-trust annotation — their content is exactly what the contributor submitted.
-
-### Trust Tiers and Host Routing
-
-Host operators can mirror or gate the public repository to expose only the
-files they trust. Because the manifest is separate from the data files, a host
-can serve a filtered view simply by controlling which files it copies:
-
-| Trust tier    | Manifest `signed` | How to host                                          | Example base URL                            |
-| ------------- | ----------------- | ---------------------------------------------------- | ------------------------------------------- |
-| **Verified**  | `true` only       | Copy only files listed as `signed: true` in manifest | `https://priors.velocity.report/`           |
-| **Community** | `false` included  | Copy all files regardless of manifest status         | `https://priors-community.velocity.report/` |
-| **Local**     | either            | Full local copy from the repo                        | `file:///var/lib/velocity-report/priors/`   |
-
-A deployment operator configures which tier(s) to fetch from:
-
-```json
-// In tuning config:
-"prior_service": {
-  "enabled": true,
-  "base_url": "https://priors.velocity.report",
-  "require_signed": true    // if true, skip files absent from the signed manifest
-}
-```
-
-With `require_signed: true` the Prior Loader fetches `_trust/manifest.json`
-first, then only loads data files that appear with `signed: true`. With
-`require_signed: false` all files are loaded, but the Prior Loader logs a
-warning for each file where the manifest records `signed: false` or where the
-file is absent from the manifest entirely.
-
-**Privacy safeguards:**
-
-1. Location queries use coarsened coordinates (0.01° grid snapping, ~1 km²) to
-   prevent precise deployment location disclosure.
-2. No authentication required for read access (public static files).
-3. Contributor identity is a **freely chosen name** — no accounts, no
-   verification of real-world identity. Email and GPG key are entirely
-   optional. If provided, GPG signatures authenticate the _key_, not the
-   person. Signature status is recorded only in `_trust/manifest.json` and
-   is never written back into the data file.
-4. All prior data is geometry only — no speed, transit, or vehicle data.
-
-**Hosting options:**
-
-- GitHub Pages from the community prior repository (zero cost; CI verifies signatures and updates `_trust/manifest.json` on each merge, never touching contributor files)
-- Any static CDN (Cloudflare Pages, S3 + CloudFront, etc.)
-- Self-hosted by municipalities or research groups (any HTTP server)
-
-### Server-Generated Union Artefact
-
-Because individual contribution files are immutable and per-contributor, the
-practical served file for most clients will be a **server-generated union**:
-a daily aggregate produced by a scheduled job, not submitted by any single
-contributor.
-
-**Pipeline (at most once per 24 h per changed cell):**
-
-```
-Contribution store (raw, grow-only)
-    ↓  scheduled job
-1. Collect all contributions for each cell
-2. Spatial deduplication: remove duplicate polygons within tolerance
-3. Spam/sanity rejection: coordinate bounds check, minimum polygon area,
-   schema validation, implausibility heuristics
-4. Weighted polygon union: merge overlapping features, weight by contributor
-   confidence and whether the source file is signed
-5. Emit synthetic FeatureCollection
-   { metadata: { source: "synthetic", aggregated_at: "...", contributor_count: N } }
-6. Sign aggregate with project GPG key → published to served CDN path
-```
-
-The aggregate file is clearly labelled `source: synthetic` and signed with the
-**project key** (not a contributor key). Clients that set `require_signed: true`
-will load it because it carries a known-good signature. Individual contributor
-files remain in the contribution store for transparency and re-aggregation.
-
-### Open Questions
-
-These design questions are unresolved and should be addressed before the v2.0
-contribution pipeline is built:
-
-**Q1 — Multi-contributor merging for the same grid cell**
-
-Each 0.01° cell is a single file. If two contributors both submit priors for
-`51.75_-1.26.geojson`, whose data wins? Options range from last-write-wins to
-weighted polygon union to versioned per-contributor sub-files. The right
-approach likely depends on whether contributions cover overlapping or
-complementary areas of the cell. No merging strategy has been chosen yet.
-
-Considerations:
-
-- Immutability constraint makes in-place merge impossible — a merged file is
-  no longer either contributor's signed original.
-- Per-contributor files (e.g. `51.75_-1.26.<fingerprint>.geojson`) would
-  preserve immutability but multiply file count and complicate client queries.
-- A server-side merge artefact (unsigned, clearly marked synthetic) could live
-  alongside originals, but then clients need to know which to prefer.
-
-**Q2 — Spam, abuse screening, and Git repo scalability**
-
-Pull requests work at low volume but have two compounding problems at scale:
-
-_Git growth:_ A repo that only accumulates binary blobs (even small GeoJSON
-files) grows its pack history unboundedly. `git clone` time and CI checkout
-times increase linearly. Once the contribution store reaches tens of thousands
-of files across many PRs, standard Git workflows become painful regardless of
-file size.
-
-_Spam surface:_ An open PR target with no account requirement invites automated
-junk. CI schema checks cannot assess geometric plausibility.
-
-**Alternative submission and storage mechanisms — GeoJSON priors:**
-
-| Option                               | Cost                         | Growth model                                  | Notes                                                                                                                                                                               |
-| ------------------------------------ | ---------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cloudflare R2 + Worker**           | Free to ~10 GB / 1 M req/day | Object store (no Git)                         | ~50-line Worker validates schema, rate-limits by IP, stores to R2, triggers daily aggregation. No egress fees. Best fit for low-ops contribution endpoint.                          |
-| **Hugging Face Datasets**            | Free (public)                | Git + LFS, handles large growing datasets     | Designed for research data; supports GeoJSON/Parquet natively; rich API and discussion threads; Spaces could host a submission form. Mature tooling for versioned dataset releases. |
-| **Internet Archive (archive.org)**   | Free, unlimited              | Immutable items, S3-compatible API (`ia` CLI) | Good for archival snapshots and corpus releases; not ideal for live incremental updates.                                                                                            |
-| **GitHub Releases (aggregate only)** | Free                         | Binary assets per tag                         | Contribution store lives elsewhere; the daily signed aggregate is published as a release asset. Clients pin to a release URL. Avoids polluting repo history with many small blobs.  |
-| **Email / webhook drop**             | Free                         | Object store backend                          | Contributors email `.geojson` + `.sig`; a script validates and stores. Low friction, trivially spam-reject by just not responding.                                                  |
-
-Key open questions:
-
-- What constitutes a valid prior? CI can check schema and coordinate bounds
-  but cannot assess whether geometry is plausible for the claimed location.
-- Is GPG signing sufficient as a spam disincentive, or is lightweight
-  rate-limiting / a quarantine tier needed for unsigned submissions?
-- How do we revoke or deprecate a cell file that turns out to be malicious or
-  grossly inaccurate once it has been distributed via CDN?
-
-**Q3 — PCAP file hosting for research and corpus releases**
-
-LiDAR PCAP files are large (100 MB–10 GB per capture) and not suitable for Git
-even with LFS. Options for hosting a public research corpus:
-
-| Platform                                     | Cost                      | Max size                       | Notes                                                                                                                                                                                           |
-| -------------------------------------------- | ------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Zenodo** (zenodo.org)                      | Free                      | 50 GB/record (more on request) | CERN/OpenAIRE backed; DOI assignment per version; CC licensing; versioned dataset releases; widely cited in academic papers. Probably the best fit for a citable velocity.report PCAP corpus.   |
-| **Academic Torrents** (academictorrents.com) | Free                      | Unlimited                      | BitTorrent-based; designed specifically for large academic datasets; community-maintained trackers; data stays distributed among seeders. Good for static versioned releases, not live updates. |
-| **Hugging Face Datasets**                    | Free (public)             | LFS quotas apply per repo      | Works for moderate-sized PCAP sets; good discoverability in ML community; `datasets` library supports streaming.                                                                                |
-| **Internet Archive**                         | Free                      | No hard per-item limit         | Permanent, high-bandwidth; S3-compatible upload API; strong precedent for sensor and research data; easily torrentable.                                                                         |
-| **IPFS / Filecoin**                          | Free with pinning service | Unlimited                      | Decentralised; requires a pinning service (e.g. web3.storage) for persistence; more complex for end users to retrieve.                                                                          |
-
-There is no dedicated LiDAR PCAP repository analogous to a domain-specific
-archive — the field currently scatters data across Zenodo, Hugging Face, and
-vendor-specific portals (Velodyne sample data, KITTI, nuScenes, etc.). A
-velocity.report PCAP corpus on Zenodo with a stable DOI would fill a gap for
-low-speed urban traffic data specifically.
-
-### Implementation Phases
-
-| Phase  | Milestone | Scope                                                        |
-| ------ | --------- | ------------------------------------------------------------ |
-| **5a** | v1.0      | Define GeoJSON schema for local prior files                  |
-| **5b** | v1.0      | Implement Prior Loader with file-system backend              |
-| **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring      |
-| **5d** | v2.0      | Add HTTP backend to Prior Loader (static file fetch, opt-in) |
-| **5e** | v2.0      | Define canonical grid folder structure and CI validation     |
-| **5f** | v2.0      | Create public prior repository with contribution guidelines  |
-| **5g** | v2.0      | Add GeoJSON scene-map export command for prior contribution  |
+No open questions for the vector scene map core. Design choices (alpha-shape vs convex-hull boundary, QuadTree vs R-tree spatial index) are documented in §4 and §10. Open questions for the geometry-prior service are in [geometry-prior-service.md](./geometry-prior-service.md).
 
 ---
 
@@ -1305,11 +669,11 @@ low-speed urban traffic data specifically.
 
 ### Internal Documents
 
-- **Ground Plane Extraction** — `docs/lidar/architecture/../lidar/architecture/ground-plane-extraction.md` (tile-based ground model, Tier 1/2 design)
-- **Ground Plane Proposal Maths** — `data/maths/proposals/20260221-ground-plane-vector-scene-maths.md` (algorithm trade-offs)
-- **LiDAR Layer Model** — `docs/lidar/architecture/../lidar/architecture/lidar-data-layer-model.md` (L1–L6 layer definitions)
-- **Background Grid Standards** — `docs/lidar/architecture/lidar-background-grid-standards.md` (VTK/PCD export)
-- **PCAP Export Tool** — `docs/plans/pcap-ground-plane-export-tool-plan.md` (CLI flags, export formats)
+- **Ground Plane Extraction** — [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
+- **Ground Plane Proposal Maths** — [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
+- **LiDAR Layer Model** — [lidar-data-layer-model.md](./lidar-data-layer-model.md) (L1–L6 layer definitions)
+- **Background Grid Standards** — [lidar-background-grid-standards.md](./lidar-background-grid-standards.md) (VTK/PCD export)
+- **PCAP Export Tool** — [pcap-ground-plane-export-tool-plan.md](../../plans/pcap-ground-plane-export-tool-plan.md) (CLI flags, export formats)
 
 ### External Standards
 

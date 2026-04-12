@@ -1084,9 +1084,3 @@ make format-web
 # Check cache usage in GitHub Actions UI:
 # Repository → Actions → Caches
 ```
-
----
-
-**Last Updated**: 2026-02-01
-**Version**: 1.1
-**Maintainer**: david@banshee-data.com

@@ -2,7 +2,7 @@
 
 - **Status:** Complete ✅ (57/57 items)
 
-This document describes HINT (Human-Involved Numerical Tuning) sweep mode, which integrates human track labelling into the automated parameter optimisation loop.
+HINT (Human-Involved Numerical Tuning) integrates human track labelling into the automated parameter optimisation loop.
 
 ## Summary
 
@@ -122,97 +122,33 @@ the sweep if intermediate results look promising.
 
 ## Data Model Changes
 
-### New `HINTSweepRequest` (Go struct in `sweep/auto.go`)
+### `HINTSweepRequest`
 
-```go
-type HINTSweepRequest struct {
-    // Replay case to use (provides PCAP, sensor_id)
-    ReplayCaseID string `json:"replay_case_id"`
+Defined in `internal/lidar/sweep/hint.go`. Fields:
 
-    // Number of label-then-sweep cycles
-    NumRounds int `json:"num_rounds"`
+- `ReplayCaseID` — replay case to use (provides PCAP, sensor ID)
+- `NumRounds` — number of label-then-sweep cycles
+- `RoundDurations` — alternating label/sweep durations in minutes (see §Round Durations)
+- `Params` — parameter bounds to sweep (same format as `AutoTuneRequest`)
+- Auto-tune settings — `ValuesPerParam`, `TopK`, `Iterations`, `Interval`, `SettleTime`, `Seed`, `SettleMode`
+- `GroundTruthWeights` — scoring weights for the ground truth objective
+- `AcceptanceCriteria` — optional hard thresholds
+- `MinLabelThreshold` — minimum fraction of tracks that must be labelled before continuation (default 0.9). Sparse labels depress detection rate because unlabelled tracks count as non-detections.
+- `CarryOverLabels` — whether to carry over labels from previous round via temporal IoU matching (default true)
 
-    // Alternating label–sweep durations in minutes.
-    // Index 0 = first label window, 1 = first sweep, 2 = second label window, …
-    // If shorter than 2*NumRounds-1, the last value repeats.
-    RoundDurations []int `json:"round_durations"`
+### `HINTState`
 
-    // Parameters to sweep (same format as AutoTuneRequest.Params)
-    Params []SweepParam `json:"params"`
+Defined in `internal/lidar/sweep/hint.go`. Fields:
 
-    // Auto-tune settings (reused from AutoTuneRequest)
-    ValuesPerParam int    `json:"values_per_param"`
-    TopK           int    `json:"top_k"`
-    Iterations     int    `json:"iterations"`
-    Interval       string `json:"interval"`
-    SettleTime     string `json:"settle_time"`
-    Seed           string `json:"seed"`
-    SettleMode     string `json:"settle_mode"`
-
-    // Ground truth scoring weights
-    GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights"`
-
-    // Acceptance criteria (optional hard thresholds)
-    AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria"`
-
-    // Minimum fraction of tracks that must be labelled before
-    // the human can click "Continue" (default: 0.9 = 90%).
-    // Sparse labels depress detection rate because unlabelled
-    // tracks count as non-detections in ground truth scoring.
-    MinLabelThreshold float64 `json:"min_label_threshold"`
-
-    // Whether to carry over labels from previous round via temporal IoU
-    // matching (default: true)
-    CarryOverLabels bool `json:"carry_over_labels"`
-}
-```
-
-### New `HINTState` (Go struct in `sweep/auto.go`)
-
-```go
-type HINTState struct {
-    Status         string          `json:"status"`
-    // "idle" | "running_reference" | "awaiting_labels" | "running_sweep" | "completed" | "failed"
-    Mode           string          `json:"mode"`           // always "hint"
-    CurrentRound   int             `json:"current_round"`
-    TotalRounds    int             `json:"total_rounds"`
-    ReferenceRunID string          `json:"reference_run_id,omitempty"`
-    LabelProgress  *LabelProgress  `json:"label_progress,omitempty"`
-    LabelDeadline  *time.Time      `json:"label_deadline,omitempty"`
-    SweepDeadline  *time.Time      `json:"sweep_deadline,omitempty"`
-    AutoTuneState  *AutoTuneState  `json:"auto_tune_state,omitempty"`
-    Recommendation map[string]any  `json:"recommendation,omitempty"`
-    RoundHistory   []HINTRound     `json:"round_history"`
-    Error          string          `json:"error,omitempty"`
-
-    // Minimum label threshold (echoed from request for UI enforcement)
-    MinLabelThreshold float64     `json:"min_label_threshold"`
-
-    // Whether labels were carried over from a previous round
-    LabelsCarriedOver int         `json:"labels_carried_over"`
-
-    // Next round's sweep duration (editable by human during awaiting_labels)
-    NextSweepDuration int         `json:"next_sweep_duration_mins"`
-}
-
-type LabelProgress struct {
-    Total    int            `json:"total"`
-    Labelled int            `json:"labelled"`
-    Pct      float64        `json:"progress_pct"`
-    ByClass  map[string]int `json:"by_class"`
-}
-
-type HINTRound struct {
-    Round             int                `json:"round"`
-    ReferenceRunID    string             `json:"reference_run_id"`
-    LabelledAt        *time.Time         `json:"labelled_at,omitempty"`
-    LabelProgress     *LabelProgress     `json:"label_progress,omitempty"`
-    LabelsCarriedOver int                `json:"labels_carried_over"`
-    SweepID           string             `json:"sweep_id,omitempty"`
-    BestScore         float64            `json:"best_score"`
-    BestParams        map[string]float64 `json:"best_params,omitempty"`
-}
-```
+- `Status` — `"idle"`, `"running_reference"`, `"awaiting_labels"`, `"running_sweep"`, `"completed"`, `"failed"`
+- `CurrentRound`, `TotalRounds` — round tracking
+- `ReferenceRunID` — current reference run
+- `LabelProgress` — total/labelled/percentage/by-class breakdown
+- `LabelDeadline`, `SweepDeadline` — countdown targets
+- `MinLabelThreshold` — echoed from request for UI enforcement
+- `LabelsCarriedOver` — count of labels pre-populated from previous round
+- `NextSweepDuration` — editable by human during `awaiting_labels` phase
+- `RoundHistory` — list of `HINTRound` (round number, reference run, label count, best score, best params)
 
 ### Database: `lidar_sweeps` table
 
@@ -303,62 +239,7 @@ requirement.
    - Holds `analysisRunStore` for querying label progress.
    - Holds `replayCaseStore` for updating reference run IDs.
    - Holds `groundTruthScorer` (reuse same injection pattern).
-3. Implement the core loop in `run(ctx, req)`:
-
-```
-func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
-    replayCase := replayCaseStore.GetReplayCase(req.ReplayCaseID)
-    currentParams := loadCurrentParams()  // or use replayCase.optimal_params_json
-    bounds := req.Params  // initial param bounds
-
-    for round := 1..req.NumRounds:
-        // --- Reference Run ---
-        rt.setState("running_reference", round)
-        runID := createReferenceRun(scene, currentParams)
-        replayCaseStore.SetReferenceRun(req.ReplayCaseID, runID)
-        rt.setReferenceRunID(runID)
-
-        // --- Carry Over Labels (round 2+) ---
-        if round > 1 && req.CarryOverLabels {
-            carried := carryOverLabels(prevRunID, runID)
-            rt.setLabelsCarriedOver(carried)
-        }
-
-        // --- Await Labels ---
-        rt.setState("awaiting_labels", round)
-        labelDuration := getDuration(req.RoundDurations, (round-1)*2)
-        rt.setLabelDeadline(now + labelDuration)
-        rt.setNextSweepDuration(getDuration(req.RoundDurations, (round-1)*2+1))
-        err := waitForLabelsOrDeadline(ctx, runID, labelDuration, req.MinLabelThreshold)
-        if err != nil { rt.setState("failed"); return }  // threshold not met at deadline
-
-        // --- Sweep Round ---
-        rt.setState("running_sweep", round)
-        sweepDuration := rt.getNextSweepDuration()  // may have been edited
-        rt.setSweepDeadline(now + sweepDuration)
-
-        autoReq := buildAutoTuneRequest(bounds, req, scene)
-        autoReq.ReplayCaseID = req.ReplayCaseID  // ground truth uses this replay case's reference_run_id
-        autoReq.MaxRounds = 1  // single round per HINT cycle
-        autoReq.Objective = "ground_truth"
-
-        runAutoTuneRound(ctx, autoReq, sweepDuration)
-
-        // --- Narrow Bounds ---
-        bestResult := getBestResult()
-        currentParams = bestResult.params
-        bounds = narrowBounds(bounds, topKResults)
-        rt.recordRound(round, runID, bestResult)
-        prevRunID = runID
-
-        // --- Check for extra round added by human ---
-        // (TotalRounds may have been incremented by continueFromLabels)
-
-    // --- Complete ---
-    applyBestParams(currentParams)
-    replayCaseStore.SetOptimalParams(req.ReplayCaseID, currentParams)
-    rt.setState("completed")
-```
+3. Implement the core loop in `run(ctx, req)`: the method loads the replay case and initial parameter bounds, then iterates through `NumRounds` cycles. Each cycle transitions through four phases: (a) create a reference run with current best params and register it on the replay case, (b) carry over labels from the previous round via temporal IoU if round > 1, (c) enter `awaiting_labels` with a deadline computed from `RoundDurations` and block until the human continues or the deadline expires (failing if the label threshold is not met), (d) run a single auto-tune sweep round using the labelled reference as ground truth, then narrow bounds around the top-K results. After all rounds, the best parameters are applied and saved to the replay case.
 
 4. Implement `waitForLabelsOrDeadline`:
    - Poll `analysisRunStore.GetLabelingProgress(runID)` every 10s.
@@ -426,16 +307,9 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest):
 
 **`/api/lidar/sweep/hint/continue` request body:**
 
-```json
-{
-  "next_sweep_duration_mins": 120,
-  "add_round": false
-}
-```
-
-Both fields are optional. If `next_sweep_duration_mins` is provided, it overrides
-the scheduled duration for the upcoming sweep round. If `add_round` is `true`,
-an extra label→sweep cycle is appended after the current round.
+Both fields are optional JSON: `next_sweep_duration_mins` (int, overrides the
+scheduled sweep duration) and `add_round` (bool, appends an extra label→sweep
+cycle).
 
 The handler returns `400 Bad Request` if `label_progress.progress_pct` is below
 `min_label_threshold` (default 90%). The error message includes the current
@@ -459,19 +333,8 @@ labelling UI.
 
 #### 3a. Mode Toggle
 
-Update the mode toggle to three buttons:
-
-```html
-<div class="mode-toggle">
-  <button id="mode-manual" class="active" onclick="setMode('manual')">
-    Manual Sweep
-  </button>
-  <button id="mode-auto" onclick="setMode('auto')">Auto-Tune</button>
-  <button id="mode-hint" onclick="setMode('hint')">Human-in-the-Loop</button>
-</div>
-```
-
-CSS adds `body.hint-mode` alongside `body.auto-mode`:
+Update the mode toggle to three buttons: Manual Sweep, Auto-Tune, and
+Human-in-the-Loop. CSS adds `body.hint-mode` alongside `body.auto-mode`:
 
 - `.manual-only` hidden in auto and hint modes
 - `.auto-only` visible only in auto mode
@@ -589,26 +452,11 @@ The dashboard requests `Notification.requestPermission()` when HINT mode is
 selected. Notifications fire at two transition points:
 
 1. **Sweep round completed → labels needed.** When the poller detects a
-   transition to `awaiting_labels`, it fires:
+   transition to `awaiting_labels`, it fires a persistent notification
+   ("Labels needed — Round N") with `requireInteraction: true` so it stays
+   visible for overnight sweeps.
 
-   ```js
-   new Notification("Labels needed — Round N", {
-     body: "Reference run ready. Label tracks to continue the sweep.",
-     tag: "hint-labels-needed",
-     requireInteraction: true,
-   });
-   ```
-
-   `requireInteraction: true` keeps the notification visible until dismissed
-   (useful for overnight sweeps where the user may have stepped away).
-
-2. **HINT sweep completed.** When the poller detects `completed`:
-   ```js
-   new Notification("HINT Sweep Complete", {
-     body: "Best parameters found. Review and apply.",
-     tag: "hint-complete",
-   });
-   ```
+2. **HINT sweep completed.** A notification fires on `completed` status.
 
 Clicking either notification calls `window.focus()` to bring the dashboard tab
 to the front. The `tag` field ensures duplicate notifications are replaced rather

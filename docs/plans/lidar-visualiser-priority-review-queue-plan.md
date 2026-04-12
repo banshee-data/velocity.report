@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L9 Endpoints
-- **Canonical:** [priority-review-queue.md](../lidar/operations/visualiser/priority-review-queue.md)
+- **Canonical:** [priority-review-queue.md](../ui/visualiser/priority-review-queue.md)
 
 ## Objective
 

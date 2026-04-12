@@ -1,6 +1,6 @@
 # Implementation Plan
 
-This document defines an incremental, API-first implementation plan with explicit milestones and acceptance criteria.
+Incremental, API-first implementation with explicit milestones and acceptance criteria.
 
 **Current Status** (February 2026):
 
@@ -46,7 +46,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Status**: Complete
 
-**Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates end-to-end pipeline without real tracking.
+**Goal**: Visualiser renders synthetic point clouds, boxes, and trails. Validates full pipeline without real tracking.
 
 **Track A (Visualiser)**:
 
@@ -212,7 +212,7 @@ This document defines an incremental, API-first implementation plan with explici
 
 **Solution**: Send background snapshot every 30s (~920 KB), send foreground-only frames at 10 fps (~30 KB). Net bandwidth: ~3 Mbps.
 
-See [velocity-visualiser-architecture.md §10](./velocity-visualiser-architecture.md#10-performance-investigation--key-results) for the investigation summary.
+See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-investigation--key-results) for the investigation summary.
 
 **Implementation Notes**:
 
@@ -337,7 +337,7 @@ See [velocity-visualiser-architecture.md §10](./velocity-visualiser-architectur
 - [x] Occlusion handling (confirmed tracks coast 8 frames, covariance inflation)
 - [x] Classification hooks (`internal/lidar/features.go`, periodic re-classification)
 
-See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
+See [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) for detailed proposals.
 
 **Track A (Visualiser)**:
 
@@ -395,7 +395,7 @@ See [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/
 - [x] JSON export endpoint for benchmark and classification research tooling
 - [~] Integration with existing `/api/lidar/tracks` endpoint (deferred)
 
-> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
+> **Note (February 2026):** Label CRUD handlers exist in `internal/api/lidar_labels.go` and the database table exists (migration 000016), but the routes are **not registered** in `WebServer.RegisterRoutes()`. Wiring these routes is the first step of Phase 4.0 track labelling work. See [`lidar-track-labelling-auto-aware-tuning-plan.md`](../../plans/lidar-track-labelling-auto-aware-tuning-plan.md) Phase 1.1.
 
 **Acceptance Criteria**:
 
@@ -662,18 +662,18 @@ frame.PointCloud.Release()
 
 Each milestone has a **stop point** where functionality is complete and stable:
 
-| Milestone | Stop Point                               | Status          |
-| --------- | ---------------------------------------- | --------------- |
-| M0        | Synthetic visualisation works end-to-end | ✅ Complete     |
-| M1        | Replay with seek/pause works             | ✅ Complete     |
-| M2        | Real point clouds render                 | ✅ Complete     |
-| M3        | Both outputs work from same model        | ✅ Complete     |
-| M3.5      | Bandwidth reduced to <5 Mbps             | ✅ Complete     |
-| M4        | Golden replay tests pass                 | ✅ Complete     |
-| M5        | Improved tracking quality validated      | ✅ Complete (B) |
-| M6        | Labelling workflow complete              | ✅ Complete (B) |
-| M7        | Performance targets met                  | ✅ Complete     |
-| M8        | BG debug surfaces + region map live      | 📝 Planned      |
+| Milestone | Stop Point                          | Status          |
+| --------- | ----------------------------------- | --------------- |
+| M0        | Synthetic visualisation works fully | ✅ Complete     |
+| M1        | Replay with seek/pause works        | ✅ Complete     |
+| M2        | Real point clouds render            | ✅ Complete     |
+| M3        | Both outputs work from same model   | ✅ Complete     |
+| M3.5      | Bandwidth reduced to <5 Mbps        | ✅ Complete     |
+| M4        | Golden replay tests pass            | ✅ Complete     |
+| M5        | Improved tracking quality validated | ✅ Complete (B) |
+| M6        | Labelling workflow complete         | ✅ Complete (B) |
+| M7        | Performance targets met             | ✅ Complete     |
+| M8        | BG debug surfaces + region map live | 📝 Planned      |
 
 **MVP = M0 + M1 + M2**: Visualiser shows real data with basic playback. ✅ **ACHIEVED**
 
@@ -687,7 +687,7 @@ Each milestone has a **stop point** where functionality is complete and stable:
 
 ## 6. Related Documents
 
-- [velocity-visualiser-architecture.md](./velocity-visualiser-architecture.md) – System architecture (includes problem statement and performance notes)
-- [velocity-visualiser-api-contracts.md](./velocity-visualiser-api-contracts.md) – API contract (protobuf schema)
-- [../lidar/troubleshooting/01-tracking-upgrades.md](../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
-- [web-frontend-background-debug-surfaces-plan.md](../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope
+- [velocity-visualiser-architecture.md](./architecture.md) – System architecture (includes problem statement and performance notes)
+- [velocity-visualiser-api-contracts.md](./api-contracts.md) – API contract (protobuf schema)
+- [01-tracking-upgrades.md](../../lidar/troubleshooting/01-tracking-upgrades.md) – Tracking improvements
+- [web-frontend-background-debug-surfaces-plan.md](../../plans/web-frontend-background-debug-surfaces-plan.md) – Planned background debug surfaces scope

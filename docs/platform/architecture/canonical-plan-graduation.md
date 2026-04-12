@@ -101,9 +101,9 @@ hub docs legitimately serve multiple plans.
 
 ## Current State
 
-- 69 plan files, all with `Canonical` metadata
-- 111 hub docs across 4 hubs (excluding READMEs)
-- 25 plans graduated to symlinks
+- 85 plan files, all with `Canonical` metadata
+- ~140 hub docs across 4 hubs (excluding READMEs)
+- 21 plans graduated to symlinks
 - 0 gate violations, 7 advisory notes (deliberate shared targets)
 
 ## Success Criteria

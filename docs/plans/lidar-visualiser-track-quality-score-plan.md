@@ -2,7 +2,7 @@
 
 - **Status:** Proposed (February 2026)
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
-- **Canonical:** [track-quality-scoring.md](../lidar/operations/visualiser/track-quality-scoring.md)
+- **Canonical:** [track-quality-scoring.md](../ui/visualiser/track-quality-scoring.md)
 
 ## Objective
 

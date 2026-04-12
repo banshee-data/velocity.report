@@ -1,10 +1,9 @@
 # LiDAR Network Configuration
 
 - **Status:** Proposed
-- **Author:** Architecture Team
 - **Related:** [`HESAI_PACKET_FORMAT.md`](../../../data/structures/HESAI_PACKET_FORMAT.md), [`lidar-sidecar-overview.md`](./lidar-sidecar-overview.md), [`networking.md`](../../radar/architecture/networking.md)
 
-This document specifies the architecture for interface-aware UDP binding, network diagnostics, hot-reload configuration, and a settings UI for the LiDAR sensor network layer.
+Architecture for interface-aware UDP binding, network diagnostics, hot-reload configuration, and a settings UI for the LiDAR sensor network layer.
 
 ## Overview & Motivation
 
@@ -74,39 +73,7 @@ The Hesai Pandar40P broadcasts UDP packets at ~1,400 packets/sec (~10 Mbps) on i
 
 A new `lidar_network_config` table stores the network binding configuration, following the `radar_serial_config` pattern:
 
-```sql
-CREATE TABLE lidar_network_config (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    name            TEXT    NOT NULL UNIQUE,
-    interface_name  TEXT    NOT NULL DEFAULT '',
-    bind_address    TEXT    NOT NULL DEFAULT '',
-    udp_port        INTEGER NOT NULL DEFAULT 2369
-                    CHECK (udp_port BETWEEN 1024 AND 65535),
-    receive_buffer  INTEGER NOT NULL DEFAULT 4194304
-                    CHECK (receive_buffer BETWEEN 65536 AND 67108864),
-    enabled         INTEGER NOT NULL DEFAULT 0
-                    CHECK (enabled IN (0, 1)),
-    description     TEXT    NOT NULL DEFAULT '',
-    sensor_model    TEXT    NOT NULL DEFAULT 'hesai-pandar40p'
-                    CHECK (sensor_model LIKE 'hesai-%'),
-    forward_enabled INTEGER NOT NULL DEFAULT 0
-                    CHECK (forward_enabled IN (0, 1)),
-    forward_address TEXT    NOT NULL DEFAULT 'localhost',
-    forward_port    INTEGER NOT NULL DEFAULT 2368
-                    CHECK (forward_port BETWEEN 1024 AND 65535),
-    created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
-    updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
-);
-
-CREATE TRIGGER update_lidar_network_config_timestamp
-    AFTER UPDATE ON lidar_network_config
-    FOR EACH ROW
-BEGIN
-    UPDATE lidar_network_config
-    SET updated_at = unixepoch()
-    WHERE id = OLD.id;
-END;
-```
+> **Source:** Migration in `internal/db/migrations/` (when implemented). Table `lidar_network_config` with columns: id, name, interface_name, bind_address, udp_port (default 2369, CHECK 1024–65535), receive_buffer (default 4 MiB, CHECK 64 KiB – 64 MiB), enabled, description, sensor_model (CHECK `LIKE 'hesai-%'`), forward_enabled, forward_address, forward_port, created_at, updated_at. An AFTER UPDATE trigger maintains `updated_at`.
 
 **Key fields:**
 
@@ -125,42 +92,7 @@ END;
 
 A `LiDARNetworkManager` follows the `SerialPortManager` pattern — a hot-reload wrapper around the UDP listener with persistent API subscriptions and thread-safe configuration swaps.
 
-```go
-// LiDARNetworkManager wraps a UDPListener and enables hot-reloading of the
-// network configuration. It delegates to the active listener via RWMutex and
-// maintains persistent packet statistics across reloads.
-type LiDARNetworkManager struct {
-    mu       sync.RWMutex
-    current  *network.UDPListener
-    snapshot *NetworkConfigSnapshot
-    closed   bool
-
-    db      *db.DB
-    factory UDPListenerFactory
-
-    reloadMu sync.Mutex
-
-    // Persistent stats survive listener reloads
-    stats *network.PacketStats
-}
-
-// UDPListenerFactory constructs a UDPListener from the resolved bind address
-// and configuration. Injected so tests can supply mock listeners.
-// See internal/lidar/l1packets/network/listener.go for UDPListenerConfig.
-type UDPListenerFactory func(cfg network.UDPListenerConfig) (*network.UDPListener, error)
-
-// NetworkConfigSnapshot describes the active network configuration for API
-// responses.
-type NetworkConfigSnapshot struct {
-    ConfigID      int    `json:"config_id,omitempty"`
-    Name          string `json:"name,omitempty"`
-    InterfaceName string `json:"interface_name"`
-    BindAddress   string `json:"bind_address"`
-    UDPPort       int    `json:"udp_port"`
-    ReceiveBuffer int    `json:"receive_buffer"`
-    Source        string `json:"source"` // "database", "cli-flags", "default"
-}
-```
+> **Source:** `internal/api/lidar_network_reload.go` (when implemented). `LiDARNetworkManager` holds the active `UDPListener` behind an RWMutex, a `NetworkConfigSnapshot` of the running config, a DB handle, and an injected `UDPListenerFactory` for testability. `PacketStats` are owned by the manager and persist across listener reloads. `NetworkConfigSnapshot` carries config_id, name, interface_name, bind_address, udp_port, receive_buffer, and source (`"database"`, `"cli-flags"`, or `"default"`).
 
 **Reload strategy (mirrors serial pattern):**
 
@@ -182,18 +114,7 @@ The diagnostics subsystem provides three capabilities without requiring external
 
 #### 1. Interface Enumeration
 
-```go
-// NetworkInterface describes a local network interface for the UI.
-type NetworkInterface struct {
-    Name       string   `json:"name"`        // e.g., "eth0"
-    Addresses  []string `json:"addresses"`   // IPv4 and IPv6 CIDRs
-    MAC        string   `json:"mac"`         // Hardware address
-    Up         bool     `json:"up"`          // Interface is up
-    Running    bool     `json:"running"`     // Interface has carrier
-    MTU        int      `json:"mtu"`         // Maximum transmission unit
-    IsLoopback bool     `json:"is_loopback"` // Loopback interface
-}
-```
+> **Source:** `internal/api/network_diagnostics.go` (when implemented). `NetworkInterface` struct with fields: Name, Addresses (IPv4/IPv6 CIDRs), MAC, Up, Running, MTU, and IsLoopback.
 
 Uses `net.Interfaces()` to enumerate NICs. Filters out loopback and down interfaces in the default response; include-all available via query parameter.
 
@@ -201,14 +122,7 @@ Uses `net.Interfaces()` to enumerate NICs. Filters out loopback and down interfa
 
 For a selected interface, resolve additional network context:
 
-```go
-// NetworkInterfaceDetail extends NetworkInterface with routing information.
-type NetworkInterfaceDetail struct {
-    NetworkInterface
-    Gateway    string `json:"gateway,omitempty"`    // Default gateway (from /proc/net/route on Linux)
-    SubnetMask string `json:"subnet_mask,omitempty"`
-}
-```
+> **Source:** Same file. `NetworkInterfaceDetail` embeds `NetworkInterface` and adds Gateway (from `/proc/net/route` on Linux) and SubnetMask.
 
 Gateway resolution reads `/proc/net/route` on Linux (the target platform). On other platforms, this field is omitted.
 
@@ -216,20 +130,7 @@ Gateway resolution reads `/proc/net/route` on Linux (the target platform). On ot
 
 A non-destructive probe checks whether Hesai UDP traffic is arriving on a given interface and port:
 
-```go
-// TrafficProbeResult reports whether UDP traffic was detected.
-type TrafficProbeResult struct {
-    Port           int           `json:"port"`
-    InterfaceName  string        `json:"interface_name"`
-    BindAddress    string        `json:"bind_address"`
-    PacketsFound   int           `json:"packets_found"`
-    BytesReceived  int64         `json:"bytes_received"`
-    SourceAddrs    []string      `json:"source_addresses"`
-    Duration       time.Duration `json:"probe_duration_ms"`
-    ListenerActive bool          `json:"listener_active"` // True if main listener is on this port
-    Error          string        `json:"error,omitempty"`
-}
-```
+> **Source:** Same file. `TrafficProbeResult` struct with fields: Port, InterfaceName, BindAddress, PacketsFound, BytesReceived, SourceAddrs, Duration, ListenerActive (true when the main listener already holds this port), and Error.
 
 **Probe behaviour:**
 
@@ -375,12 +276,18 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 
 ### Phase 5: Integration & Testing
 
-| Task                                                 | Effort |
-| ---------------------------------------------------- | ------ |
-| End-to-end test: probe → configure → reload → verify | M      |
-| Coverage targets: 90%+ across new files              | M      |
+| Task                                                  | Effort |
+| ----------------------------------------------------- | ------ |
+| Integration test: probe → configure → reload → verify | M      |
+| Coverage targets: 90%+ across new files               | M      |
 
 **Size key:** S = ½ day, M = 1 day, L = 2 days
+
+## Resolved Design Questions
+
+| Question                         | Resolution                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allow privileged ports (< 1024)? | No. Schema restricts `udp_port` to 1024–65535. Hesai defaults (2368/2369) are well above 1024; privileged ports require root or `CAP_NET_BIND_SERVICE`. |
 
 ## Open Questions
 
@@ -390,8 +297,5 @@ A new settings page at `/settings/lidar-network` (under the `(constrained)` rout
 2. **Forwarding hot-reload**: Should forwarding targets (port 2368/2370) be independently hot-reloadable, or tied to the main listener config?
    - **Recommendation:** Include forwarding config in the same row. Forwarding changes require listener restart anyway (new forwarder goroutine).
 
-3. **Privileged ports**: The schema restricts `udp_port` to 1024–65535. Should we support binding to ports below 1024 (e.g., port 443 for tunnel scenarios)?
-   - **Recommendation:** Keep the unprivileged restriction. The Hesai default ports (2368/2369) are well above 1024, and privileged ports require root or `CAP_NET_BIND_SERVICE`.
-
-4. **Interface-change detection**: Should the system detect interface state changes (link down/up, IP change via DHCP) and auto-reload?
+3. **Interface-change detection**: Should the system detect interface state changes (link down/up, IP change via DHCP) and auto-reload?
    - **Recommendation:** Defer. Manual reload via API/UI is sufficient for v1. Interface monitoring (via netlink on Linux) is a natural extension for a future iteration.

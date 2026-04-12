@@ -69,7 +69,7 @@ Declared but not yet serialised:
 Tracked in BACKLOG.md under v0.5.2:
 
 - Debug overlay serialisation in `frameBundleToProto()`
-- Positive end-to-end serialisation tests replacing negative debug tests
+- Positive integration serialisation tests replacing negative debug tests
 - Cluster feature field serialisation
 - `SeekToTimestamp()` diagnostic logging gated behind debug flag
 - `SeekToTimestamp()` O(n) linear scan → O(log n) binary search with prebuilt sorted index
