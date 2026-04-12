@@ -54,7 +54,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
-## ⚠️ Warning: Alpha Software
+## ⚠️ Warning: Alpha software
 
 ```
     ░██       ░██                                ░██                      ░██
@@ -80,7 +80,7 @@ The radar measures vehicle speeds. No cameras, no licence plates, no surveillanc
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
-## Who It's For
+## Who it's for
 
 - **Neighbourhood groups** measuring speed on their street, with evidence instead of guesswork
 - **Community advocates** building a case for traffic calming, with data strong enough for a formal submission
@@ -97,7 +97,7 @@ The data stays on a local device. Reports are generated locally. If PII reaches 
 
 See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
-### In Practice: Clarendon Avenue School Zone
+### In practice: Clarendon Avenue school zone
 
 Clarendon Avenue runs past an elementary school in San Francisco. The city designated it a high injury road years ago. Parents were worried about how fast cars were going and whether the city's planned improvements would actually help.
 
@@ -119,7 +119,7 @@ The team generated comparison reports from both periods and [presented the findi
   <em>Clarendon Avenue school zone survey: speed distributions, percentile statistics, and period-over-period comparison</em>
 </div>
 
-## What's Included
+## What's included
 
 | Component            | What it does                                                                                                                                                                                                                |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -128,7 +128,7 @@ The team generated comparison reports from both periods and [presented the findi
 | **Web frontend**     | Data visualisation and interactive charts for recorded speed data. Svelte + TypeScript. → [web/](web/README.md)                                                                                                             |
 | **PDF generator** ⚠️ | Turns speed data into professional reports with charts, statistics, and proper formatting. Python + LaTeX, deprecated: PDF generation is moving into the Go server. → [tools/pdf-generator/](tools/pdf-generator/README.md) |
 
-## Quick Start
+## Quick start
 
 Requires Go 1.25+, Node.js 18+, and pnpm. See [CONTRIBUTING.md](CONTRIBUTING.md) for full prerequisites.
 
@@ -168,7 +168,7 @@ The server creates a new SQLite database if one does not exist. Open [localhost:
 
 The web frontend and PDF generator connect over HTTP (:8080). The macOS visualiser uses gRPC (:50051) for streaming point cloud data. The Python PDF generator is deprecated: PDF generation is moving into the Go server. For the full architecture see [ARCHITECTURE.md](ARCHITECTURE.md). Sensor fusion plans live in [VISION.md](docs/VISION.md).
 
-## Development & Contributing
+## Development & contributing
 
 Every contribution needs three commands:
 
@@ -188,11 +188,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup,
 
 The Go server runs as a systemd service on Raspberry Pi. See [public_html/src/guides/setup.md](public_html/src/guides/setup.md) for the complete setup guide.
 
-## Vision: Sensor Fusion
+## Vision: Sensor fusion
 
 The LiDAR pipeline already runs a full perception stack: DBSCAN spatial clustering, Kalman-filtered multi-object tracking with state and covariance estimation, and rule-based classification across eight object types (car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and general dynamic). Radar provides independent Doppler-accurate speed. Today, both run in parallel.
 
-The next stage fuses them into a single scene model: cross-sensor track handoff using Mahalanobis-distance gating, Bayesian evidence accumulation for persistent geometry, and canonical object refinement via streaming statistics. A lorry clipping a corner at 35 mph tells a different story to a bicycle at the same speed; the evidence is only useful if the system captures both.
+The next stage fuses them into a single scene model: cross-sensor track handoff using Mahalanobis-distance gating, Bayesian evidence accumulation for persistent geometry, and canonical object refinement via streaming statistics. A lorry clipping a corner at 35 mph tells a different story to a bicycle at the same speed; radar captures the speed regardless, and fusion adds the geometry to tell the two apart.
 
 The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and [VISION.md](docs/VISION.md).
 
@@ -212,7 +212,7 @@ make dev-mac
 
 Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud data (.pcap files). See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera navigation.
 
-## 🔑 Key Documents
+## 🔑 Key documents
 
 - 📐 [TENETS.md](TENETS.md): the non-negotiable principles: privacy, safety, evidence, local-first
 - 🔭 [VISION.md](docs/VISION.md): where the project is heading

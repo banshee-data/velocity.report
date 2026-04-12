@@ -31,7 +31,7 @@ visualiser via gRPC).
 
 ---
 
-## 1. HTTP API Endpoints: Radar / Main Server
+## 1. HTTP API endpoints: Radar / main server
 
 **Source:** `cmd/radar/radar.go`, `internal/api/server.go`
 
@@ -54,7 +54,7 @@ visualiser via gRPC).
 
 ---
 
-## 2. HTTP API Endpoints: LiDAR Monitor
+## 2. HTTP API endpoints: LiDAR monitor
 
 **Source:** `internal/lidar/monitor/webserver.go`, `track_api.go`, `run_track_api.go`, `internal/api/lidar_labels.go`\
 **Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
@@ -141,7 +141,7 @@ visualiser via gRPC).
 
 ---
 
-## 3. gRPC Service: macOS Visualiser
+## 3. gRPC service: macOS visualiser
 
 **Source:** `proto/velocity_visualiser/v1/visualiser.proto`
 
@@ -159,7 +159,7 @@ visualiser via gRPC).
 
 ---
 
-## 4. Database Tables
+## 4. Database tables
 
 **Source:** `internal/db/schema.sql`
 
@@ -192,7 +192,7 @@ visualiser via gRPC).
 
 ---
 
-## 5. Database Fields: All Columns
+## 5. Database fields: All columns
 
 | Table                      | Column                            | Type          | DB  | Web | PDF | Mac |
 | -------------------------- | --------------------------------- | ------------- | --- | --- | --- | --- |
@@ -498,7 +498,7 @@ visualiser via gRPC).
 
 ---
 
-## 6. Pipeline Stages
+## 6. Pipeline stages
 
 | Folder                        | File               | Stage                                      | DB  | Web | PDF | Mac |
 | ----------------------------- | ------------------ | ------------------------------------------ | --- | --- | --- | --- |
@@ -518,7 +518,7 @@ visualiser via gRPC).
 
 ---
 
-## 7. Go Data Structures: Computed but Not Persisted
+## 7. Go data structures: Computed but not persisted
 
 These structs are computed in-memory but have no persistence layer, no API
 endpoint, and no export path.
@@ -535,7 +535,7 @@ endpoint, and no export path.
 
 ---
 
-## 8. Go Data Structures: Comparison Logic (No Triggering Endpoint)
+## 8. Go data structures: Comparison logic (no triggering endpoint)
 
 | Folder                          | File                      | Function                  | DB  | Web | PDF | Mac | Notes                       |
 | ------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --- | --------------------------- |
@@ -546,7 +546,7 @@ endpoint, and no export path.
 
 ---
 
-## 9. Live Track Fields: Fully Wired (Reference)
+## 9. Live track fields: Fully wired (reference)
 
 Fields that flow correctly from pipeline through all applicable surfaces.
 
@@ -578,7 +578,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 10. Tuning Parameters
+## 10. Tuning parameters
 
 | Folder            | File                   | Parameter Group          | DB  | Web | PDF | Mac |
 | ----------------- | ---------------------- | ------------------------ | --- | --- | --- | --- |
@@ -589,7 +589,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 11. PDF Generator: Python Surfaces
+## 11. PDF generator: Python surfaces
 
 **Source:** `tools/pdf-generator/pdf_generator/core/api_client.py`
 
@@ -604,7 +604,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 12. macOS Visualiser: Swift Surfaces
+## 12. macOS visualiser: Swift surfaces
 
 **Source:** `tools/visualiser-macos/VelocityVisualiser/`
 
@@ -619,7 +619,7 @@ Fields that flow correctly from pipeline through all applicable surfaces.
 
 ---
 
-## 13. Classification Pipeline: Fully Wired (Reference)
+## 13. Classification pipeline: Fully wired (reference)
 
 **Go source:** `internal/lidar/l6objects/classification.go`: `TrackClassifier` (27 usages)
 
@@ -639,7 +639,7 @@ server as a service object, not persisted data.
 
 ---
 
-## 14. FrameBundle: macOS-Only Proto Fields
+## 14. FrameBundle: macOS-only proto fields
 
 **Proto:** `proto/velocity_visualiser/v1/visualiser.proto`: `FrameBundle`
 **Consumer:** macOS Metal visualiser via `StreamFrames` gRPC stream (~30 fps)
@@ -668,7 +668,7 @@ visualisation and debugging, not analysis or reporting. No wiring gap.
 
 ---
 
-## 15. ECharts Dashboard Endpoints
+## 15. ECharts dashboard endpoints
 
 **Go source:** `internal/lidar/monitor/chart_api.go` + `webserver.go`
 **Consumer:** Embedded ECharts dashboards (served from `/assets/*` via `go:embed`)
@@ -688,7 +688,7 @@ charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
 
 ---
 
-## 16. cmd/ Entry Points
+## 16. cmd/ entry points
 
 | Binary                | Location                              | Consumers                                    |
 | --------------------- | ------------------------------------- | -------------------------------------------- |
@@ -708,7 +708,7 @@ databases.
 
 ---
 
-## 17. Speed Percentile Columns: Resolved Design Debt
+## 17. Speed percentile columns: Resolved design debt
 
 The per-track percentile columns have been removed from the active schema.
 `lidar_tracks` and `lidar_run_tracks` no longer carry `p50_speed_mps`,
@@ -720,7 +720,7 @@ design debt is now retired in the live database schema.
 
 ---
 
-## 18. Debug / Admin Routes
+## 18. Debug / admin routes
 
 Embedded HTML dashboards and diagnostic endpoints. Not part of the
 application API but served by the same HTTP servers.

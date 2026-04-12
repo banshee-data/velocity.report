@@ -22,7 +22,7 @@ See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md#data-scientist) and
 
 ---
 
-## 1. Tracking Geometry and Bounding Box Stability
+## 1. Tracking geometry and bounding box stability
 
 The most visible user-facing problem: bounding boxes that spin,
 change shape, or fail to capture all cluster points.
@@ -67,7 +67,7 @@ pedestrian classes.
 
 ---
 
-## 2. Foreground Extraction and Motion Models
+## 2. Foreground extraction and motion models
 
 Separating moving objects from the static scene: the
 foundation that clustering and tracking depend on.
@@ -114,7 +114,7 @@ but may be slower.
 
 ---
 
-## 3. Ground Plane and Scene Geometry
+## 3. Ground plane and scene geometry
 
 The terrain under the sensor: getting this right means better
 foreground separation, fewer phantom objects, and the
@@ -159,7 +159,7 @@ rotation) with feature-matched confidence.
 
 ---
 
-## 4. Sensor Fusion and Multi-Sensor Architecture
+## 4. Sensor fusion and multi-sensor architecture
 
 Combining radar velocity with LiDAR spatial data and
 eventually merging overlapping fields of view.
@@ -190,7 +190,7 @@ principled and produce auditable confidence scores.
 
 ---
 
-## 5. Classification and Labelling
+## 5. Classification and labelling
 
 Turning tracked objects into named categories: currently a
 rule-based cascade, with explicit questions about whether
@@ -236,7 +236,7 @@ that auto-tuning can optimise against.
 
 ---
 
-## 6. Parameter Tuning and Benchmark Coverage
+## 6. Parameter tuning and benchmark coverage
 
 Every default has provenance: or it should. Roughly eight
 config keys are provisional (tuned on kirk0 only).
@@ -280,7 +280,7 @@ conditions?
 
 ---
 
-## 7. Kinematic Model Extensions
+## 7. Kinematic model extensions
 
 The current constant-velocity Kalman filter fragments tracks
 when vehicles brake, accelerate, or turn.
@@ -318,7 +318,7 @@ occlusion more robustly.
 
 ---
 
-## 8. Pose Stability and Static Anchors
+## 8. Pose stability and static anchors
 
 The sensor is stationary but not perfectly still: thermal
 expansion, wind, and mast flexion produce micro-movements
@@ -345,7 +345,7 @@ sufficient for shake diagnostics?
 
 ---
 
-## 9. Analytics and Traffic Engineering Metrics
+## 9. Analytics and traffic engineering metrics
 
 The numbers this project produces go to community meetings
 and council chambers. They must withstand scrutiny.
@@ -384,7 +384,7 @@ right-skewed. What distribution families fit observed data?
 
 ---
 
-## 10. Edge Hardware and Performance
+## 10. Edge hardware and performance
 
 All algorithms run on a Raspberry Pi 4 at 10 Hz. The current
 pipeline uses 23% of the 100 ms frame budget.
@@ -402,7 +402,7 @@ per-layer timing on Pi 4 hardware.
 
 ---
 
-## Cross-Cutting: Experimental Infrastructure
+## Cross-cutting: Experimental infrastructure
 
 Several questions above depend on infrastructure that does
 not yet exist or is incomplete.
@@ -433,7 +433,7 @@ See [performance-harness plan](../docs/plans/lidar-performance-measurement-harne
 
 ---
 
-## Index by Pipeline Layer
+## Index by pipeline layer
 
 | Layer         | Questions                          |
 | ------------- | ---------------------------------- |

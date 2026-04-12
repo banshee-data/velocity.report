@@ -2,26 +2,26 @@
 
 This guide covers common issues, error messages, and solutions for the velocity.report system across all components.
 
-## Table of Contents
+## Table of contents
 
-- [Quick Diagnosis](#quick-diagnosis)
-- [Go Server Issues](#go-server-issues)
-- [Python PDF Generator Issues](#python-pdf-generator-issues)
-- [Web Frontend Issues](#web-frontend-issues)
-- [Database Issues](#database-issues)
-- [Sensor Hardware Issues](#sensor-hardware-issues)
-- [Network and Connectivity Issues](#network-and-connectivity-issues)
-- [Performance Issues](#performance-issues)
-- [Known Fixed Issues](#known-fixed-issues)
-- [macOS Visualiser Issues](#macos-visualiser-issues)
-- [CI/CD Issues](#cicd-issues)
-- [Getting Help](#getting-help)
+- [Quick diagnosis](#quick-diagnosis)
+- [Go server issues](#go-server-issues)
+- [Python PDF generator issues](#python-pdf-generator-issues)
+- [Web frontend issues](#web-frontend-issues)
+- [Database issues](#database-issues)
+- [Sensor hardware issues](#sensor-hardware-issues)
+- [Network and connectivity issues](#network-and-connectivity-issues)
+- [Performance issues](#performance-issues)
+- [Known fixed issues](#known-fixed-issues)
+- [macOS visualiser issues](#macos-visualiser-issues)
+- [CI/CD issues](#cicd-issues)
+- [Getting help](#getting-help)
 
 ---
 
-## Quick Diagnosis
+## Quick diagnosis
 
-### System Health Check
+### System health check
 
 Run these commands to quickly diagnose the system state:
 
@@ -44,7 +44,7 @@ ls -lh web/build/
 ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 ```
 
-### Common Symptoms and Quick Fixes
+### Common symptoms and quick fixes
 
 | Symptom                | Likely Cause            | Quick Fix                                             |
 | ---------------------- | ----------------------- | ----------------------------------------------------- |
@@ -57,9 +57,9 @@ ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 
 ---
 
-## Go Server Issues
+## Go server issues
 
-### Server Won't Start
+### Server won't start
 
 **Error**: `listen tcp 0.0.0.0:8080: bind: address already in use`
 
@@ -80,7 +80,7 @@ kill -9 <PID>
 
 ---
 
-### Server Crashes on Startup
+### Server crashes on startup
 
 **Error**: `panic: unable to open database file: sensor_data.db: database is locked`
 
@@ -106,7 +106,7 @@ sqlite3 sensor_data.db < internal/db/schema.sql
 
 ---
 
-### Serial Port Not Found
+### Serial port not found
 
 **Error**: `failed to open serial port: open /dev/ttyUSB0: no such file or directory`
 
@@ -131,7 +131,7 @@ sudo usermod -a -G dialout $USER
 
 ---
 
-### No Data Being Collected
+### No data being collected
 
 **Error**: Server runs but no data appears in database
 
@@ -156,7 +156,7 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > dateti
 
 ---
 
-### LiDAR Connection Issues
+### LiDAR connection issues
 
 **Error**: `failed to bind UDP socket: bind: address already in use`
 
@@ -197,7 +197,7 @@ sudo ufw disable
 
 ---
 
-### API Returns Empty Data
+### API returns empty data
 
 **Error**: `GET /api/radar_stats` returns `{"metrics": []}`
 
@@ -221,9 +221,9 @@ curl "http://localhost:8080/api/radar_stats?start=1717200000&end=1717300000&grou
 
 ---
 
-## Python PDF Generator Issues
+## Python PDF generator issues
 
-### XeLaTeX Not Found
+### XeLaTeX not found
 
 **Error**: `FileNotFoundError: [Errno 2] No such file or directory: 'xelatex'`
 
@@ -250,7 +250,7 @@ xelatex --version
 
 ---
 
-### Missing Python Dependencies
+### Missing Python dependencies
 
 **Error**: `ModuleNotFoundError: No module named 'pylatex'`
 
@@ -278,7 +278,7 @@ pip list | grep -E "pylatex|matplotlib|requests"
 
 ---
 
-### Config Validation Errors
+### Config validation errors
 
 **Error**: `radar.cosine_error_angle is required`
 
@@ -312,7 +312,7 @@ else:
 
 ---
 
-### API Connection Failed
+### API connection failed
 
 **Error**: `requests.exceptions.ConnectionError: Failed to establish a new connection`
 
@@ -339,7 +339,7 @@ curl http://192.168.1.100:8080/api/config
 
 ---
 
-### LaTeX Compilation Errors
+### LaTeX compilation errors
 
 **Error**: `! LaTeX Error: File 'fontspec.sty' not found`
 
@@ -369,7 +369,7 @@ tlmgr search --global fontspec
 
 ---
 
-### Chart Generation Fails
+### Chart generation fails
 
 **Error**: `RuntimeError: Failed to create chart: no such column: speed_mph`
 
@@ -390,7 +390,7 @@ curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&unit
 
 ---
 
-### No Data Retrieved from API
+### No data retrieved from API
 
 **Error**: PDF generates but shows "No data available for period"
 
@@ -424,9 +424,9 @@ sqlite3 sensor_data.db "SELECT DATE(MIN(timestamp)), DATE(MAX(timestamp)) FROM r
 
 ---
 
-## Web Frontend Issues
+## Web frontend issues
 
-### Build Directory Missing
+### Build directory missing
 
 **Error**: `Error: ENOENT: no such file or directory, stat 'web/build'`
 
@@ -452,7 +452,7 @@ pnpm run dev
 
 ---
 
-### Blank Page After Navigation
+### Blank page after navigation
 
 **Error**: Clicking links results in blank page or 404
 
@@ -474,7 +474,7 @@ curl http://localhost:8080/app/dashboard
 
 ---
 
-### API Calls Fail from Frontend
+### API calls fail from frontend
 
 **Error**: `Failed to fetch` or CORS errors in browser console
 
@@ -498,7 +498,7 @@ curl http://localhost:8080/api/config
 
 ---
 
-### Chart Not Rendering
+### Chart not rendering
 
 **Error**: Charts don't display or show "Loading..."
 
@@ -527,9 +527,9 @@ console.log(
 
 ---
 
-## Database Issues
+## Database issues
 
-### Database Locked
+### Database locked
 
 **Error**: `database is locked`
 
@@ -557,7 +557,7 @@ sqlite3 sensor_data.db "PRAGMA wal_checkpoint(TRUNCATE);"
 
 ---
 
-### Database Corruption
+### Database corruption
 
 **Error**: `database disk image is malformed`
 
@@ -583,7 +583,7 @@ cp /path/to/backup/sensor_data.db.backup sensor_data.db
 
 ---
 
-### Slow Query Performance
+### Slow query performance
 
 **Error**: Queries take too long, API timeouts
 
@@ -611,7 +611,7 @@ ls -lh sensor_data.db
 
 ---
 
-### Schema Migration Issues
+### Schema migration issues
 
 **Error**: `no such column: elevation_fov`
 
@@ -640,9 +640,9 @@ sqlite3 sensor_data.db < internal/db/schema.sql
 
 ---
 
-## Sensor Hardware Issues
+## Sensor hardware issues
 
-### Radar Not Responding
+### Radar not responding
 
 **Symptoms**: No data, server logs show no speed readings
 
@@ -671,7 +671,7 @@ echo "R0" > /dev/ttyUSB0  # Set to reporting mode
 
 ---
 
-### LiDAR Not Producing Point Clouds
+### LiDAR not producing point clouds
 
 **Symptoms**: Server runs but no LiDAR data in database
 
@@ -702,7 +702,7 @@ sudo tcpdump -i eth0 -c 10 udp port 2368
 
 ---
 
-### Cosine Error Correction Issues
+### Cosine error correction issues
 
 **Error**: Speed readings seem consistently wrong by fixed percentage
 
@@ -727,9 +727,9 @@ jq .radar.cosine_error_angle config.json
 
 ---
 
-## Network and Connectivity Issues
+## Network and connectivity issues
 
-### Cannot Access Web Interface Remotely
+### Cannot access web interface remotely
 
 **Error**: Web interface works on localhost but not from other devices
 
@@ -755,7 +755,7 @@ curl http://<raspberry-pi-ip>:8080/api/config
 
 ---
 
-### Systemd Service Won't Start
+### Systemd service won't start
 
 **Error**: `systemctl status velocity-report` shows failed
 
@@ -782,9 +782,9 @@ cat /etc/systemd/system/velocity-report.service
 
 ---
 
-## Performance Issues
+## Performance issues
 
-### High CPU Usage
+### High CPU usage
 
 **Symptoms**: CPU at 100%, system sluggish
 
@@ -812,7 +812,7 @@ lsof sensor_data.db
 
 ---
 
-### High Memory Usage
+### High memory usage
 
 **Symptoms**: Out of memory errors, system swapping
 
@@ -839,7 +839,7 @@ go tool pprof heap.prof
 
 ---
 
-### Slow PDF Generation
+### Slow PDF generation
 
 **Symptoms**: PDF generation takes several minutes
 
@@ -866,9 +866,9 @@ time xelatex test.tex
 
 ---
 
-## Getting Help
+## Getting help
 
-### Before Asking for Help
+### Before asking for help
 
 Please gather this information:
 
@@ -895,13 +895,13 @@ journalctl -u velocity-report -n 100 > logs.txt
 cat config.json
 ```
 
-### Support Channels
+### Support channels
 
 - **GitHub Issues**: https://github.com/banshee-data/velocity.report/issues
 - **Documentation**: See `docs/README.md` for all documentation
 - **Email**: david@banshee-data.com
 
-### Useful Log Commands
+### Useful log commands
 
 ```bash
 # Tail Go server logs
@@ -919,12 +919,12 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 
 ---
 
-## Known Fixed Issues
+## Known fixed issues
 
 Issues that were previously reported and have been resolved. Listed here
 so operators on older versions can recognise the symptom and upgrade.
 
-### LiDAR Background Grid: Warmup Trails (fixed January 2026)
+### LiDAR background grid: Warmup trails (fixed january 2026)
 
 **Symptom:** False positive foreground points ("trails") appearing on walls
 and static surfaces for ~30 seconds after grid reset or service restart.
@@ -941,9 +941,9 @@ Vehicles (>1 m deviation) are still detected during warmup.
 
 ---
 
-## macOS Visualiser Issues
+## macOS visualiser issues
 
-### Build Errors
+### Build errors
 
 #### "Unable to find module dependency: 'GRPCCore'"
 
@@ -971,7 +971,7 @@ Metal device not available or shader compilation failure.
 2. Check Console.app for `MetalRenderer` error messages
 3. Try running from Xcode to see detailed crash logs
 
-### Connection Issues
+### Connection issues
 
 #### "Server unreachable" or connection timeout
 
@@ -990,7 +990,7 @@ Go gRPC server not running or wrong address.
 2. Verify the app is requesting the correct sensor ID
 3. Try restarting both server and client
 
-### Rendering Issues
+### Rendering issues
 
 | Symptom                        | Cause                                        | Solution                                          |
 | ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
@@ -999,7 +999,7 @@ Go gRPC server not running or wrong address.
 | Trails appear corrupted        | Bug in older builds                          | Rebuild with `make build-mac`                     |
 | SwiftUI "AttributeGraph cycle" | High-frequency frame updates through SwiftUI | Informational only; does not affect functionality |
 
-### Regenerating Protobuf Stubs
+### Regenerating protobuf stubs
 
 When the protobuf schema changes:
 
@@ -1012,7 +1012,7 @@ Generated Swift files are placed in
 
 ---
 
-## Common Error Messages Reference
+## Common error messages reference
 
 | Error Message                             | Component     | Solution                              |
 | ----------------------------------------- | ------------- | ------------------------------------- |
@@ -1029,9 +1029,9 @@ Generated Swift files are placed in
 
 ---
 
-## CI/CD Issues
+## CI/CD issues
 
-### Go CI Tests Fail with E2E Error
+### Go CI tests fail with e2e error
 
 **Error**: `ModuleNotFoundError: No module named 'numpy'` during Go tests
 
@@ -1050,7 +1050,7 @@ go test ./internal/api/...
 
 ---
 
-### Web CI Lint Failures
+### Web CI lint failures
 
 **Error**: Prettier or ESLint failures in web-ci workflow
 
@@ -1069,7 +1069,7 @@ make format-web
 
 ---
 
-### GitHub Actions Cache Issues
+### GitHub actions cache issues
 
 **Error**: CI runs slower than expected or cache misses
 

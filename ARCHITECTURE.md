@@ -2,30 +2,30 @@
 
 This document describes the system architecture, component relationships, data flow, and integration points for the velocity.report traffic monitoring system.
 
-### How to Read This Document
+### How to read this document
 
-- **Perception / ML engineers:** Start with [Perception Pipeline](#perception-pipeline) and [Data & Evaluation](#data--evaluation), then [Component Status](#component-status) for the layer table.
-- **Deploying the system:** Start with [Deployment Architecture](#deployment-architecture), then [Quick Start](README.md#quick-start).
-- **Contributing code:** Start with [Components](#components) and [Integration Points](#integration-points).
+- **Perception / ML engineers:** Start with [Perception pipeline](#perception-pipeline) and [Data & evaluation](#data--evaluation), then [Component status](#component-status) for the layer table.
+- **Deploying the system:** Start with [Deployment architecture](#deployment-architecture), then [Quick start](README.md#quick-start).
+- **Contributing code:** Start with [Components](#components) and [Integration points](#integration-points).
 
-## Table of Contents
+## Table of contents
 
-- [System Overview](#system-overview)
-- [Sensor Hardware](#sensor-hardware)
-- [Architecture Diagram](#architecture-diagram)
+- [System overview](#system-overview)
+- [Sensor hardware](#sensor-hardware)
+- [Architecture diagram](#architecture-diagram)
 - [Components](#components)
-- [Perception Pipeline](#perception-pipeline)
-- [Data Flow](#data-flow)
-- [Technology Stack](#technology-stack)
-- [Integration Points](#integration-points)
-- [Data & Evaluation](#data--evaluation)
-- [Deployment Architecture](#deployment-architecture)
-- [Security & Privacy](#security--privacy)
-- [Component Status](#component-status)
+- [Perception pipeline](#perception-pipeline)
+- [Data flow](#data-flow)
+- [Technology stack](#technology-stack)
+- [Integration points](#integration-points)
+- [Data & evaluation](#data--evaluation)
+- [Deployment architecture](#deployment-architecture)
+- [Security & privacy](#security--privacy)
+- [Component status](#component-status)
 - [Roadmap](#roadmap)
-- [Mathematical References](#mathematical-references)
+- [Mathematical references](#mathematical-references)
 
-## System Overview
+## System overview
 
 **velocity.report** is a privacy-preserving traffic monitoring platform. The core product is radar-based speed measurement: a Doppler radar sensor captures vehicle speeds, the Go server stores and aggregates the data, and produces professional reports ready for a city engineer's desk or a planning committee hearing. (PDF generation is migrating from the legacy Python + LaTeX tool into the Go server.) No cameras, no licence plates, no personally identifiable information: by architecture, not by policy.
 
@@ -40,7 +40,7 @@ The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR 
 | **Web frontend**     | Svelte + TypeScript | Real-time data visualisation and interactive dashboards                         |
 | **macOS visualiser** | Swift + Metal       | Native 3D LiDAR point cloud viewer with tracking and replay                     |
 
-### Design Principles
+### Design principles
 
 - **Privacy First**: No licence plates, no video, no PII
 - **Simplicity**: SQLite as the only database, minimal dependencies
@@ -48,7 +48,7 @@ The two sensors are complementary. Radar provides Doppler-accurate speed. LiDAR 
 - **Modular**: Each component operates independently
 - **Well-Tested**: Comprehensive test coverage across all components
 
-## Sensor Hardware
+## Sensor hardware
 
 | Sensor | Model                 | Measurement    | Interface           | Key Specifications                                                                     |
 | ------ | --------------------- | -------------- | ------------------- | -------------------------------------------------------------------------------------- |
@@ -59,9 +59,9 @@ Radar delivers Doppler-accurate speed through a narrow field of view. LiDAR deli
 
 For detailed sensor specifications, wiring, and calibration: see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
 
-## Architecture Diagram
+## Architecture diagram
 
-### Physical Deployment
+### Physical deployment
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -233,7 +233,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 
 ## Components
 
-### Go Server
+### Go server
 
 **Location**: `/cmd/`, `/internal/`
 
@@ -291,7 +291,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
   - HTTP API (JSON over port 8080, HTTPS via nginx on port 443)
   - SQLite database writes
 
-### Python PDF Generator (Deprecated)
+### Python PDF generator (deprecated)
 
 **Location**: `/tools/pdf-generator/`
 
@@ -329,7 +329,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 - LaTeX distribution (XeLaTeX)
 - matplotlib, PyLaTeX, requests
 
-### Web Frontend
+### Web frontend
 
 **Location**: `/web/`
 
@@ -356,7 +356,7 @@ For detailed sensor specifications, wiring, and calibration: see [.github/knowle
 - **Input**: Go Server HTTP API (JSON)
 - **Output**: HTML/CSS/JS served to browser
 
-### macOS Visualiser (Swift/Metal)
+### macOS visualiser (Swift/Metal)
 
 **Location**: `/tools/visualiser-macos/`
 
@@ -430,7 +430,7 @@ service VisualiserService {
 
 **See**: [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) and [docs/ui/](docs/ui/)
 
-### Database Layer
+### Database layer
 
 **Location**: `/data/`, managed by `internal/db/`
 
@@ -517,11 +517,11 @@ The `site_config_periods` table implements a Type 6 SCD pattern for tracking sen
 - **Web Frontend**: Read-only (via HTTP API)
   - Real-time dashboard showing all 3 transit sources
 
-## Perception Pipeline
+## Perception pipeline
 
 The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame: background subtraction, clustering, tracking, and classification. Each layer is a separate Go package under `internal/lidar/`, with its own parameters, tests, and maths reference. The pipeline processes ~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
 
-### L3: Background Model
+### L3: Background model
 
 The background model separates static scene (road surface, buildings, vegetation) from moving objects. It maintains a 40 × 3,600 polar grid (one row per LiDAR beam, one column per 0.1° azimuth bin) where each cell tracks an exponentially weighted moving average of range values and a Welford online variance estimate.
 
@@ -529,7 +529,7 @@ Cells are classified into three adaptive region types: **stable** (pavement, wal
 
 The grid settles over a configurable number of frames. Until a cell has seen enough observations, it remains unsettled and does not contribute to foreground extraction, which prevents the first vehicle through the scene from becoming part of the background.
 
-### L4: Clustering and Geometry
+### L4: Clustering and geometry
 
 Foreground points are grouped into spatial clusters using DBSCAN with a grid-accelerated spatial index. The index maps each point to a cell via a Szudzik pairing function on signed grid coordinates, making neighbourhood queries O(1) per point instead of O(n). Clusters are filtered by size, aspect ratio, and point count to reject noise and scene artefacts.
 
@@ -537,7 +537,7 @@ Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground
 
 Ground-plane points within each cluster are removed using a local height threshold relative to the cluster's lowest points.
 
-### L5: Multi-Object Tracking
+### L5: Multi-object tracking
 
 Tracking follows the predict–associate–update loop. Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 × 4 covariance matrix. The motion model assumes constant velocity between frames, simple enough to run at 10 Hz on constrained hardware, accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
 
@@ -553,9 +553,9 @@ The rule set uses threshold ranges derived from measured vehicle dimensions and 
 
 The classification is deliberately rule-based rather than learned. With single-digit labelled sessions, a trained classifier would overfit; the rule set is transparent, tuneable, and correct enough to structure the data for future ML work when the ground truth corpus is larger.
 
-## Data Flow
+## Data flow
 
-### Real-Time Data Collection
+### Real-time data collection
 
 ```
 Radar (Serial):
@@ -583,7 +583,7 @@ Three Transit Sources:
 • lidar_objects        (LiDAR tracking) [PLANNED]
 ```
 
-### PDF Report Generation
+### PDF report generation
 
 ```
 1. User → Run create_config.py → Generate config.json
@@ -597,7 +597,7 @@ Three Transit Sources:
 9. XeLaTeX → Compile → PDF output
 ```
 
-### Web Visualisation
+### Web visualisation
 
 ```
 1. User → Open browser → Vite dev server (or static build)
@@ -607,7 +607,7 @@ Three Transit Sources:
 5. Frontend → Display charts/tables → Browser DOM
 ```
 
-### macOS LiDAR Visualisation
+### macOS LiDAR visualisation
 
 ```
 Live Mode:
@@ -630,9 +630,9 @@ Synthetic Mode (Testing):
 3. Swift client → Render synthetic data → Validate pipeline
 ```
 
-## Technology Stack
+## Technology stack
 
-### Go Server
+### Go server
 
 | Component  | Technology              | Version | Purpose                 |
 | ---------- | ----------------------- | ------- | ----------------------- |
@@ -645,7 +645,7 @@ Synthetic Mode (Testing):
 | Deployment | systemd                 | -       | Service management      |
 | Build      | Make                    | -       | Build automation        |
 
-### Python PDF Generator (Deprecated)
+### Python PDF generator (deprecated)
 
 | Component      | Technology | Version | Purpose             |
 | -------------- | ---------- | ------- | ------------------- |
@@ -657,7 +657,7 @@ Synthetic Mode (Testing):
 | Coverage       | pytest-cov | 7.0+    | Coverage reporting  |
 | LaTeX Compiler | XeLaTeX    | -       | PDF compilation     |
 
-### Web Frontend
+### Web frontend
 
 | Component       | Technology | Version | Purpose               |
 | --------------- | ---------- | ------- | --------------------- |
@@ -667,7 +667,7 @@ Synthetic Mode (Testing):
 | Package Manager | pnpm       | 9.x     | Dependency management |
 | Linting         | ESLint     | 9.x     | Code quality          |
 
-### macOS Visualiser
+### macOS visualiser
 
 | Component     | Technology | Version  | Purpose              |
 | ------------- | ---------- | -------- | -------------------- |
@@ -678,9 +678,9 @@ Synthetic Mode (Testing):
 | Testing       | XCTest     | -        | Unit tests           |
 | Build         | Xcode      | 15+      | IDE & build system   |
 
-## Integration Points
+## Integration points
 
-### Go Server ↔ SQLite
+### Go server ↔ SQLite
 
 **Interface**: Go database/sql with SQLite driver
 
@@ -700,7 +700,7 @@ Synthetic Mode (Testing):
 - WAL mode for concurrent reads during writes
 - Subsecond timestamp precision (DOUBLE type)
 
-### Go Server ↔ Python PDF Generator (Deprecated)
+### Go server ↔ Python PDF generator (deprecated)
 
 **Interface**: HTTP REST API (JSON)
 
@@ -774,7 +774,7 @@ Response: [
 - HTTP 500: Server error
 - Python client retries with exponential backoff
 
-### Go Server ↔ Web Frontend
+### Go server ↔ web frontend
 
 **Interface**: HTTP REST API (JSON) + Static file serving
 
@@ -785,7 +785,7 @@ Response: [
 - Favicon serving
 - Root redirect to `/app/`
 
-### Go Server ↔ macOS Visualiser
+### Go server ↔ macOS visualiser
 
 **Interface**: gRPC streaming over protobuf (port 50051)
 
@@ -848,9 +848,9 @@ rpc StopRecording(RecordingRequest) returns (RecordingStatus);
 3. Retry logic for LaTeX errors
 4. Cleanup of intermediate files (`.aux`, `.log`)
 
-## Data & Evaluation
+## Data & evaluation
 
-### VRLOG Recording Format
+### VRLOG recording format
 
 LiDAR sessions are recorded in the VRLOG format (v0.5), a seekable binary container for point clouds, tracks, and metadata. A recording is a directory containing chunked data files and a binary index.
 
@@ -858,13 +858,13 @@ Each index entry is 24 bytes: an 8-byte frame ID, an 8-byte nanosecond timestamp
 
 VRLOG recordings are the primary unit of reproducible work. Every parameter sweep, every labelling session, and every evaluation run operates on a VRLOG file, so results are deterministic and reviewable.
 
-### Track Labelling and Ground Truth
+### Track labelling and ground truth
 
 The labelling workflow produces ground truth for parameter evaluation. A human reviewer watches a VRLOG replay in the macOS visualiser or Svelte frontend, marks each track as correctly detected, fragmented, false positive, or missed, and annotates the object type. Labels are stored alongside the recording and versioned with the run that produced them.
 
 The label vocabulary distinguishes selectable labels (what a reviewer can assign) from display labels (what the classifier can output). This separation lets the classifier report fine-grained types like truck and motorcyclist without requiring reviewers to distinguish them reliably at LiDAR resolution, an honest acknowledgement that some categories are easier to classify than to label.
 
-### HINT Parameter Tuner
+### HINT parameter tuner
 
 HINT (Human-Involved Numerical Tuning) closes the loop between perception quality and parameter selection. The workflow:
 
@@ -877,9 +877,9 @@ The scoring function is a weighted linear combination of detection quality metri
 
 HINT is not automated optimisation: the human labelling step is deliberate. At the current data scale, a reviewer who watches the replay catches failure modes that no metric captures: a track that technically scores well but visually drifts through a wall, or a cluster that fragments because the parameters are tuned for a different scene geometry. The human stays in the loop until the ground truth corpus is large enough to trust automated evaluation.
 
-## Deployment Architecture
+## Deployment architecture
 
-### Production Environment (Raspberry Pi)
+### Production environment (Raspberry Pi)
 
 ```
 ┌────────────────────────────────────────────────┐
@@ -917,7 +917,7 @@ sudo systemctl restart velocity-report.service
 sudo journalctl -u velocity-report.service -f
 ```
 
-### Development Environment
+### Development environment
 
 ```
 Developer Machine (macOS/Linux/Windows)
@@ -937,29 +937,29 @@ Web Development:
 • Hot module reloading
 ```
 
-## Security & Privacy
+## Security & privacy
 
-### Privacy Guarantees
+### Privacy guarantees
 
-✅ **No License Plate Recognition**
+✅ **No licence plate recognition**
 
 - Sensors measure speed only, no cameras
 
-✅ **No Video Recording**
+✅ **No video recording**
 
 - Pure time-series data (timestamp + speed)
 
-✅ **No Personally Identifiable Information**
+✅ **No personally identifiable information**
 
 - No tracking of individual vehicles
 - Aggregate statistics only
 
-✅ **Local Storage**
+✅ **Local storage**
 
 - All data stored locally on device
 - No cloud uploads unless explicitly configured
 
-### Security Considerations
+### Security considerations
 
 **API Access**:
 
@@ -983,9 +983,9 @@ Web Development:
 - Systemd service restart required
 - **TODO**: Add automatic update mechanism
 
-## Component Status
+## Component status
 
-### What Ships Today
+### What ships today
 
 | Capability                        | Status       | Component    |
 | --------------------------------- | ------------ | ------------ |
@@ -1002,7 +1002,7 @@ Web Development:
 | macOS 3D visualiser (Metal)       | Experimental | Swift app    |
 | Track labelling + VRLOG replay    | Experimental | Swift + Go   |
 
-### LiDAR Pipeline Layers
+### LiDAR pipeline layers
 
 The perception pipeline is organised as ten layers (L1–L10), each a distinct Go package under `internal/lidar/`. Layers L1–L6 form a complete stack from raw UDP frames to classified objects: DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment, and rule-based classification, all tuneable and inspectable end to end.
 
@@ -1021,7 +1021,7 @@ The perception pipeline is organised as ten layers (L1–L10), each a distinct G
 
 Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/lidar-data-layer-model.md)
 
-### LiDAR Capability Roadmap
+### LiDAR capability roadmap
 
 | Capability                                               | Status         | Target | Plan                                                               |
 | -------------------------------------------------------- | -------------- | ------ | ------------------------------------------------------------------ |
@@ -1033,16 +1033,16 @@ Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/l
 | Automated hyperparameter search                          | Planned        | v2.0   | [plan](docs/plans/lidar-parameter-tuning-optimisation-plan.md)     |
 | Production LiDAR deployment                              | Planned        | —      | —                                                                  |
 
-## Performance Characteristics
+## Performance characteristics
 
-### Go Server
+### Go server
 
 - **Throughput**: 1000+ readings/second (tested)
 - **Memory**: ~50MB typical, ~100MB peak
 - **CPU**: <5% on Raspberry Pi 4 (idle), <20% during aggregation
 - **Storage**: ~1MB per 10,000 readings (compressed)
 
-### Python PDF Generator (Deprecated)
+### Python PDF generator (deprecated)
 
 - **Execution Time**:
   - Config generation: <1 second
@@ -1051,7 +1051,7 @@ Canonical layer reference: [lidar-data-layer-model.md](docs/lidar/architecture/l
 - **Memory**: ~200MB peak (matplotlib rendering)
 - **Disk**: ~1MB per PDF, ~5MB temp files during generation
 
-### Web Frontend
+### Web frontend
 
 - **Bundle Size**: ~150KB (gzipped)
 - **Load Time**: <1 second (local network)
@@ -1074,7 +1074,7 @@ Development is tracked in the [backlog](docs/BACKLOG.md), organised by version. 
 
 The project ships incrementally. Each version has a design document per work item; the backlog links to all of them.
 
-## Mathematical References
+## Mathematical references
 
 The perception algorithms are documented in standalone mathematical references under `data/maths/`. Each document covers the theory, parameter choices, and implementation mapping for one pipeline stage.
 

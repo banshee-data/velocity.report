@@ -6,7 +6,7 @@
 
 # Frontend and Visualisation Design Language
 
-## 1. One Strict Goal
+## 1. One strict goal
 
 Design for **operational clarity and cross-platform comparability**.
 
@@ -23,7 +23,7 @@ Core philosophy:
 - DRY is mandatory for layout, styling, and chart semantics.
 - Reuse component primitives and shared style definitions before introducing one-off markup.
 
-## 2. Scope (Three Platforms)
+## 2. Scope (three platforms)
 
 This document applies to exactly these three surfaces:
 
@@ -37,7 +37,7 @@ Out of scope for new design work:
 
 - legacy Go-embedded LiDAR dashboards under `internal/lidar/monitor/` (migration target, not style baseline)
 
-## 3. Shared Design Language (Cross-Platform Contract)
+## 3. Shared design language (cross-platform contract)
 
 ### 3.1 Information hierarchy
 
@@ -79,7 +79,7 @@ These hex values are the **canonical percentile palette** for all chart stacks (
 
 That web implementation is **non-compliant** with this design contract and must be migrated to the canonical mapping above. Track and complete this migration via a follow-up issue in the web/frontend tracker, and update this document once the web palette is aligned.
 
-## 4. Chart Alignment Rules (Required vs Allowed)
+## 4. Chart alignment rules (required vs allowed)
 
 ### 4.1 Required alignment
 
@@ -102,7 +102,7 @@ That web implementation is **non-compliant** with this design contract and must 
 
 Charts do not need to be 100% identical; meaning and readability must be aligned.
 
-## 5. Web UI Style System
+## 5. Web UI style system
 
 ### 5.1 Existing canonical web styles
 
@@ -182,7 +182,7 @@ Enforcement guidance:
 - Keep analytical workspace bounded (roughly 2200-2600px max canvas zone).
 - Spend extra width on side panes/gutters/charts, not long unbroken form rows.
 
-## 6. macOS Swift Style System
+## 6. macOS Swift style system
 
 The macOS visualiser follows native platform conventions:
 
@@ -192,7 +192,7 @@ The macOS visualiser follows native platform conventions:
 - Keep inspector/detail pane widths practical (about 480-560px where possible).
 - When showing percentile metrics in charts/sparklines, use the shared metric palette mapping.
 
-## 7. Chart Stack Notes
+## 7. Chart stack notes
 
 - Web chart baseline: LayerChart/d3-scale patterns in Svelte routes/components.
 - Report chart baseline: matplotlib defaults in:
@@ -206,7 +206,7 @@ The macOS visualiser follows native platform conventions:
 - Replacing native macOS UI language with web-like styling.
 - Introducing a third visual style family beyond modern workspace and classic stack.
 
-## 9. PR Checklist
+## 9. PR checklist
 
 A UI/chart PR is complete only if:
 

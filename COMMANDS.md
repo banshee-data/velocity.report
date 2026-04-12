@@ -14,7 +14,7 @@ All make targets for building, testing, formatting, deploying, and operating vel
 
 Run `make help` or `make` to see all available targets with descriptions.
 
-## Naming Convention
+## Naming convention
 
 The project uses a consistent naming scheme: `<action>-<subsystem>[-<variant>]`
 
@@ -24,7 +24,7 @@ The project uses a consistent naming scheme: `<action>-<subsystem>[-<variant>]`
 
 For config consistency workflows, canonical targets are verb-first (`check-*`, `sync-*`). Legacy aliases are kept for compatibility.
 
-## Core Subsystem Targets
+## Core subsystem targets
 
 | Action             | Go                                                            | Python            | Web            | Docs           | macOS        |
 | ------------------ | ------------------------------------------------------------- | ----------------- | -------------- | -------------- | ------------ |
@@ -43,14 +43,14 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 
 - `format-sql`: Format SQL files (migrations and schema)
 
-## Aggregate Targets
+## Aggregate targets
 
 - `test`: Run all tests (Go + Python + Web + macOS)
 - `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
 - `lint`: Lint all code (Go + Python + Web); fails if formatting needed
 - `coverage`: Generate coverage reports for all components
 
-## Build Targets (Go Cross-Compilation)
+## Build targets (Go cross-compilation)
 
 - `build-radar-linux`: Build for Linux ARM64 with pcap
 - `build-radar-mac`: Build for macOS ARM64 with pcap
@@ -62,7 +62,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `build-web`: Build web frontend (SvelteKit)
 - `build-docs`: Build documentation site (Eleventy)
 
-## Testing Targets
+## Testing targets
 
 - `test`: Run all tests (Go + Python + Web + macOS)
 - `test-go`: Run Go unit tests
@@ -76,7 +76,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `test-perf`: Run performance regression tests (NAME=kirk0)
 - `coverage`: Generate coverage reports for all components
 
-## macOS Visualiser Targets
+## macOS visualiser targets
 
 - `build-mac`: Build macOS LiDAR visualiser (Xcode)
 - `clean-mac`: Clean macOS visualiser build artifacts
@@ -85,13 +85,13 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `test-mac`: Run macOS visualiser tests (XCTest)
 - `format-mac`: Format macOS Swift code (swift-format)
 
-## Protobuf Code Generation
+## Protobuf code generation
 
 - `proto-gen`: Generate protobuf stubs for all languages
 - `proto-gen-go`: Generate Go protobuf stubs
 - `proto-gen-swift`: Generate Swift protobuf stubs (macOS visualiser)
 
-## Deployment Targets (Removed)
+## Deployment targets (removed)
 
 > These targets were removed in v0.5.1. `velocity-deploy` has been replaced by `velocity-ctl`. See [deploy-rpi-imager-fork-plan.md §8](docs/plans/deploy-rpi-imager-fork-plan.md).
 
@@ -103,7 +103,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `deploy-install-latex`: Install LaTeX on remote target (**removed**)
 - `deploy-update-deps`: Update source, LaTeX, and Python deps on remote target (**removed**)
 
-## Formatting Targets
+## Formatting targets
 
 - `format`: Format all code (Go + Python + Web + macOS + SQL + Markdown)
 - `format-go`: Format Go code (gofmt)
@@ -113,14 +113,14 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `format-docs`: Format Markdown files (prettier)
 - `format-sql`: Format SQL files (sql-formatter)
 
-## Linting Targets
+## Linting targets
 
 - `lint`: Lint all code (Go + Python + Web); fails if formatting needed
 - `lint-go`: Check Go formatting
 - `lint-python`: Check Python formatting
 - `lint-web`: Check web formatting
 
-## Config Schema Consistency Targets
+## Config schema consistency targets
 
 - `check-config-order`: Validate canonical tuning key order across config and docs surfaces
 - `sync-config-order`: Rewrite config/docs targets to canonical tuning key order
@@ -129,7 +129,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
   Current status: optional in CI until webserver schema parity backlog is complete.
 - Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`
 
-## Database Migration Targets
+## Database migration targets
 
 - `migrate-up`: Apply all pending migrations
 - `migrate-down`: Rollback one migration
@@ -140,7 +140,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `migrate-baseline`: Set baseline version (VERSION=N)
 - `schema-sync`: Regenerate schema.sql from latest migrations
 
-## PDF Generator Targets
+## PDF generator targets
 
 - `pdf-report`: Generate PDF from config file
 - `pdf-config`: Create example configuration
@@ -148,7 +148,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `pdf-test`: Run PDF tests (alias for test-python)
 - `pdf`: Convenience alias for pdf-report
 
-## Utility Targets
+## Utility targets
 
 - `set-version`: Update version across codebase (VER=0.4.0 TARGETS='--all')
 - `log-go-tail`: Tail most recent Go server log
@@ -156,7 +156,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `log-go-tail-all`: Tail most recent Go server log plus debug log
 - `git-fs`: Show the git files that differ from main
 
-## Data Visualisation Targets
+## Data visualisation targets
 
 - `plot-noise-sweep`: Generate noise sweep line plot (FILE=data.csv)
 - `plot-multisweep`: Generate multi-parameter grid (FILE=data.csv)
@@ -164,7 +164,7 @@ For config consistency workflows, canonical targets are verb-first (`check-*`, `
 - `stats-live`: Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
 - `stats-pcap`: Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
 
-## API Shortcut Targets (LiDAR HTTP API)
+## API shortcut targets (LiDAR HTTP API)
 
 **Grid endpoints:**
 

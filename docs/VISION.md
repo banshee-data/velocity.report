@@ -16,11 +16,11 @@ Long-term product direction for velocity.report, guiding backlog pruning and pri
 
 Help neighbourhood change-makers measure and report on street-level vehicle behaviour; with no cameras, no licence plates, and no personally identifiable information. Measurements stay local, the user owns the data, and reports are compelling enough to drive policy change.
 
-### 1.1 Data Science Principle
+### 1.1 Data science principle
 
 The project favours transparent, replayable, metrics-driven analysis over opaque inference. Core pipeline logic must remain inspectable and tunable; future classification research is allowed only as an optional lane that competes against explicit rule-based baselines on fixed scorecards and never becomes a black box dependency for the reporting pipeline.
 
-## 2. End-State Goal
+## 2. End-state goal
 
 A deployment on a residential street produces:
 
@@ -29,9 +29,9 @@ A deployment on a residential street produces:
 
 Both outputs draw from a fused scene built from radar and LiDAR data.
 
-## 3. Sensor Fusion Architecture
+## 3. Sensor fusion architecture
 
-### 3.1 Radar Feeds
+### 3.1 Radar feeds
 
 The OmniPreSense OPS243 sensor provides three complementary data feeds:
 
@@ -49,7 +49,7 @@ All three feeds should be ingested simultaneously so that a single vehicle pass 
 
 The fused radar record is the **primary speed measurement** for every transit.
 
-### 3.2 LiDAR Feeds
+### 3.2 LiDAR feeds
 
 The LiDAR pipeline (L1–L6) progressively adds spatial context:
 
@@ -67,7 +67,7 @@ As LiDAR matures, it contributes:
 - **Classification**: object category, physical size, and vehicle class.
 - **Proximity measurements**: distance between tracked objects (e.g. vehicle-to-cyclist gap).
 
-### 3.3 Fused Scene
+### 3.3 Fused scene
 
 A **scene** combines both sensor feeds for a given street segment:
 
@@ -87,9 +87,9 @@ Fusion associates a radar transit with a LiDAR track by temporal overlap and dir
 
 When only one sensor is available the record degrades gracefully: radar-only deployments still produce speed reports; LiDAR-only deployments still produce spatial tracks.
 
-## 4. Storage Strategy
+## 4. Storage strategy
 
-### 4.1 Principle: No Long-Term Point Clouds
+### 4.1 Principle: No long-term point clouds
 
 Raw point clouds are ephemeral processing inputs. They are **never stored beyond the current analysis run**. Long-term storage holds only:
 
@@ -102,7 +102,7 @@ Raw point clouds are ephemeral processing inputs. They are **never stored beyond
 | **LiDAR observations** | Per-frame (x, y, z, vx, vy, speed, heading, bbox) | `lidar_track_obs`         |
 | **Fused transits**     | Combined record with sensor provenance            | ⬜ Schema not yet defined |
 
-### 4.2 Polyline Vector Scene
+### 4.2 Polyline vector scene
 
 For replay and visualisation the stored artefact is a **polyline vector scene**: a compact set of 2D trails with per-vertex timestamps and bounding box dimensions:
 
@@ -118,7 +118,7 @@ This enables:
 
 The existing `lidar_track_obs` table already stores the required per-frame data. The vector scene is a read-time projection, not a separate stored artefact.
 
-## 5. Track Description Language
+## 5. Track description language
 
 A **Track Description Language (TDL)** provides a textual query interface over the fused transit database: an abstract schema, a JSON filter API, and an optional DSL for report templates and CLI queries.
 
@@ -126,7 +126,7 @@ Full design: [Track Description Language and Description Interface plan](plans/d
 
 ## 6. Reporting
 
-### 6.1 PDF Report
+### 6.1 PDF report
 
 The existing Python PDF generator (`tools/pdf-generator/`) produces professional street-speed reports. The vision extends it to:
 
@@ -135,13 +135,13 @@ The existing Python PDF generator (`tools/pdf-generator/`) produces professional
 - **Accept TDL filter parameters** to scope the report (date range, direction, time-of-day).
 - **Generate comparison sections** (before/after intervention, weekday/weekend, peak/off-peak).
 
-### 6.2 Description Interface
+### 6.2 Description interface
 
 A web-based interface over the transit database for browsing, aggregating, replaying, and exporting transit data.
 
 Full design: [Track Description Language and Description Interface plan](plans/data-track-description-language-plan.md).
 
-## 7. Backlog Alignment
+## 7. Backlog alignment
 
 This vision document should inform prioritisation in `BACKLOG.md`:
 
