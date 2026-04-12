@@ -14,7 +14,7 @@ make tools-local
 
 ### 1. Multi-Parameter sweep (default)
 
-Test all combinations of noise, closeness, and neighbor parameters:
+Test all combinations of noise, closeness, and neighbour parameters:
 
 ```bash
 ./app-sweep \
@@ -27,7 +27,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
 
 ### 2. Single-Variable sweeps
 
-#### Noise sweep (fix closeness and neighbor)
+#### Noise sweep (fix closeness and neighbour)
 
 ```bash
 ./app-sweep \
@@ -39,7 +39,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -fixed-neighbor=1
 ```
 
-#### Closeness sweep (fix noise and neighbor)
+#### Closeness sweep (fix noise and neighbour)
 
 ```bash
 ./app-sweep \
@@ -51,7 +51,7 @@ Test all combinations of noise, closeness, and neighbor parameters:
   -fixed-neighbor=1
 ```
 
-#### Neighbor sweep (fix noise and closeness)
+#### Neighbour sweep (fix noise and closeness)
 
 ```bash
 ./app-sweep \
@@ -113,7 +113,7 @@ Run sweeps using PCAP file replay instead of live data:
 
 ### Other options
 
-- `-seed`: Seed behavior - `true`, `false`, or `toggle` (default: `true`)
+- `-seed`: Seed behaviour - `true`, `false`, or `toggle` (default: `true`)
 - `-settle-time`: Wait for grid to settle in live mode (default: 5s)
 
 ## Output files

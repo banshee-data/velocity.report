@@ -131,7 +131,7 @@ Files:
 UI additions:
 
 - Add an event lane below replay slider in `PlaybackControlsView`.
-- Event markers colored by severity and shaped by type.
+- Event markers coloured by severity and shaped by type.
 - Hover tooltip with event summary.
 - Click marker to seek to `timestamp_ns`.
 - Filter chips (`all`, `warnings`, `repairs`, `label changes`).

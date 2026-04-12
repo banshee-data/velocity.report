@@ -224,7 +224,7 @@ All Markdown content in `doc.njk` layout automatically gets beautiful typography
 This styles:
 
 - Headings with proper hierarchy
-- Links in brand colors
+- Links in brand colours
 - Code blocks with syntax highlighting
 - Tables with borders
 - Lists with proper spacing

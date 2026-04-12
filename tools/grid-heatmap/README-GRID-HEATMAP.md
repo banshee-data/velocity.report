@@ -1,8 +1,8 @@
-# Grid heatmap visualization guide
+# Grid heatmap visualisation guide
 
 ## Overview
 
-The grid heatmap visualization tools create spatial analysis plots from the `/api/lidar/grid_heatmap` endpoint, showing patterns of filled, settled, and unsettled cells across the LiDAR sensor's field of view.
+The grid heatmap visualisation tools create spatial analysis plots from the `/api/lidar/grid_heatmap` endpoint, showing patterns of filled, settled, and unsettled cells across the LiDAR sensor's field of view.
 
 ## Quick start
 
@@ -58,7 +58,7 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 | ------------------- | --------------------- | ----------------------------- |
 | `URL`               | http://localhost:8081 | Monitor server URL            |
 | `SENSOR`            | hesai-pandar40p       | Sensor ID                     |
-| `METRIC`            | unsettled_ratio       | Metric to visualize           |
+| `METRIC`            | unsettled_ratio       | Metric to visualise           |
 | `OUT`               | grid-heatmap.png      | Output filename               |
 | `AZIMUTH_BUCKET`    | 3.0                   | Azimuth bucket size (degrees) |
 | `SETTLED_THRESHOLD` | 5                     | Min times seen for settled    |
@@ -67,7 +67,7 @@ make plot-grid-heatmap URL=http://192.168.1.100:8081 SENSOR=my-sensor
 | `COMBINED`          | (auto)                | Create combined view          |
 | `DPI`               | 150                   | Image resolution              |
 
-## Visualization types
+## Visualisation types
 
 ### 1. Polar heatmap (ring vs azimuth)
 
@@ -77,7 +77,7 @@ Shows the sensor-centric view with rings (elevation) on Y-axis and azimuth on X-
 
 - Identifying sensor-specific patterns
 - Finding occlusions or blind spots
-- Analyzing azimuthal symmetry
+- Analysing azimuthal symmetry
 - Quick overview of grid state
 
 **Example:**
@@ -88,13 +88,13 @@ make plot-grid-heatmap POLAR=true METRIC=unsettled_ratio
 
 ### 2. Cartesian heatmap (X-Y spatial)
 
-Shows physical spatial distribution in meters, with sensor at origin (0, 0).
+Shows physical spatial distribution in metres, with sensor at origin (0, 0).
 
 **Best for:**
 
 - Understanding real-world spatial patterns
 - Identifying obstacles or occluded regions
-- Analyzing range-dependent behavior
+- Analysing range-dependent behaviour
 - Correlating with environment layout
 
 **Example:**
@@ -125,31 +125,31 @@ make plot-grid-heatmap COMBINED=true
 ### `fill_rate` (0.0 to 1.0)
 
 - **Definition**: Fraction of cells in bucket that have been observed (TimesSeenCount > 0)
-- **Color**: Yellow (low) → Green (high)
+- **Colour**: Yellow (low) → Green (high)
 - **Use**: Identify regions that aren't receiving observations
 
 ### `settle_rate` (0.0 to 1.0)
 
 - **Definition**: Fraction of filled cells that are settled (TimesSeenCount ≥ threshold)
-- **Color**: Yellow (low) → Green (high)
+- **Colour**: Yellow (low) → Green (high)
 - **Use**: Find regions taking longer to stabilise
 
 ### `unsettled_ratio` (0.0 to 1.0)
 
 - **Definition**: Fraction of filled cells that are NOT settled
-- **Color**: Green (low/good) → Red (high/bad)
+- **Colour**: Green (low/good) → Red (high/bad)
 - **Use**: **Primary diagnostic** - highlights problematic areas
 
 ### `mean_times_seen` (0 to n)
 
 - **Definition**: Average observation count for filled cells
-- **Color**: Viridis (blue → yellow)
+- **Colour**: Viridis (blue → yellow)
 - **Use**: Understand observation frequency across regions
 
 ### `frozen_ratio` (0.0 to 1.0)
 
 - **Definition**: Fraction of cells currently frozen (dynamic obstacle protection)
-- **Color**: Blues (white → dark blue)
+- **Colour**: Blues (white → dark blue)
 - **Use**: Identify regions with frequent dynamic obstacles
 
 ## Examples
@@ -218,7 +218,7 @@ Use the test script to generate example plots with synthetic data:
 .venv/bin/python3 tools/grid-heatmap/test_plot_grid_heatmap.py
 ```
 
-This creates 6 example visualizations demonstrating all plot types and metrics.
+This creates 6 example visualisations demonstrating all plot types and metrics.
 
 ## Output interpretation
 
@@ -226,22 +226,22 @@ This creates 6 example visualizations demonstrating all plot types and metrics.
 
 - **X-axis (0-360°)**: Azimuth angle around sensor
 - **Y-axis (0-40)**: Ring index (elevation angle)
-- **Color**: Metric value per coarse bucket
+- **Colour**: Metric value per coarse bucket
 - **Grid lines**: Every 30° azimuth, every 5 rings
 - **Summary box**: Total filled/settled/frozen counts
 
 ### Cartesian heatmap features
 
-- **X/Y axes**: Physical distance in meters
+- **X/Y axes**: Physical distance in metres
 - **Red star**: Sensor location (origin)
 - **Point size**: Number of filled cells in bucket
-- **Color**: Metric value
+- **Colour**: Metric value
 - **Circular pattern**: Range-dependent coverage
 
 ### Combined view features
 
 - **4 subplots**: fill_rate, settle_rate, unsettled_ratio, mean_times_seen
-- **Shared scale**: Consistent color mapping
+- **Shared scale**: Consistent colour mapping
 - **Compact**: Single image for all metrics
 
 ## Performance

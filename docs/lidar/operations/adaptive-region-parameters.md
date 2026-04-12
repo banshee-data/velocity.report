@@ -72,9 +72,9 @@ if regionParams := g.RegionMgr.GetRegionParams(regionID); regionParams != nil {
 
 Example with base parameters (`NoiseRelativeFraction=0.01`, `NeighborConfirmationCount=3`, `BackgroundUpdateFraction=0.02`):
 
-- **Stable region**: noise=0.008, neighbors=3, alpha=0.03
-- **Variable region**: noise=0.01, neighbors=3, alpha=0.02
-- **Volatile region**: noise=0.02, neighbors=5, alpha=0.01
+- **Stable region**: noise=0.008, neighbours=3, alpha=0.03
+- **Variable region**: noise=0.01, neighbours=3, alpha=0.02
+- **Volatile region**: noise=0.02, neighbours=5, alpha=0.01
 
 ## Configuration
 
@@ -138,7 +138,7 @@ curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01&inc
 }
 ```
 
-### Visualize regions
+### Visualise regions
 
 Use the grid mapping to visualise which cells belong to which region:
 

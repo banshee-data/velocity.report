@@ -28,7 +28,7 @@ preparedness, and changelog verification in a single pass.
 ## Relationship to other skills
 
 This skill orchestrates checks that overlap with other skills. It does not
-replace them — it calls them or runs their core checks in sequence:
+replace them: it calls them or runs their core checks in sequence:
 
 | Skill               | What release-prep uses from it                            |
 | ------------------- | --------------------------------------------------------- |
@@ -109,7 +109,7 @@ or prose for style compliance.
 
 Check each file against the full rule set in `.github/STYLE.md`. Common violations:
 
-- [ ] No em dashes — use colons, commas, or parentheses
+- [ ] No em dashes: use colons, commas, or parentheses
 - [ ] British English (`-ise` not `-ize`, `-our` not `-or`, `-re` not `-er`)
 - [ ] Sentence-case headings (not Title Case)
 - [ ] Colons introduce lists and expansions, not dashes

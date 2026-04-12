@@ -7,7 +7,7 @@ argument-hint: "[--width 80|100] [path/to/file.md]"
 # Skill: width-check
 
 Run the prose line-width check across all Markdown files (or a specific file)
-and report violations. Advisory only — this never blocks CI.
+and report violations. Advisory only: this never blocks CI.
 
 ## Usage
 
@@ -74,7 +74,7 @@ For each violation, determine the category:
 
 ### 3. Fix genuine violations
 
-Run `make format-docs` first — Prettier wraps most prose automatically at 100
+Run `make format-docs` first: Prettier wraps most prose automatically at 100
 columns. For anything Prettier did not catch (blockquotes, certain list items),
 fix manually.
 
@@ -90,7 +90,7 @@ Confirm the violation count dropped.
 
 State how many violations were found, how many were acceptable (URLs, special
 contexts), and how many were fixed. Note any files that consistently produce
-violations — those may warrant a prose tightening pass.
+violations: those may warrant a prose tightening pass.
 
 ## Notes
 

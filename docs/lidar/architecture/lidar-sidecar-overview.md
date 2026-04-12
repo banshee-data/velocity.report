@@ -22,7 +22,7 @@ Phases 1–3.9 complete: UDP ingestion, Hesai Pandar40P parsing, time-based fram
 - **World Frame Tracking**: Unified tracking across multiple intersections
 - **Cross-Sensor Association**: Track objects as they move between sensor coverage areas
 - **Distributed Storage**: Copy/consolidate data from edge nodes for whole-street analysis
-- **Performance Profiling**: Optimize for multi-sensor concurrent processing
+- **Performance Profiling**: Optimise for multi-sensor concurrent processing
 - **Memory Optimisation**: Efficient handling of 100+ tracks across multiple sensors
 - **Production Deployment**: Documentation for multi-node edge deployment
 - ✅ **Track Visualisation UI**: SvelteKit components for track history playback (implemented)
@@ -389,7 +389,7 @@ python3 tools/grid-heatmap/plot_grid_heatmap.py \
 
 ### Noise analysis scripts
 
-**Noise Sweep Plotting**: Visualize acceptance rates vs noise parameters
+**Noise Sweep Plotting**: Visualise acceptance rates vs noise parameters
 
 ```bash
 python3 plot_noise_sweep.py sweep-results.csv
@@ -406,7 +406,7 @@ tools/data-analysis/*.py
 ### Use cases
 
 1. **Spatial Pattern Analysis**: Identify regions not filling or settling properly
-2. **Parameter Tuning**: Visualize impact of noise/closeness/neighbour parameters
+2. **Parameter Tuning**: Visualise impact of noise/closeness/neighbour parameters
 3. **Diagnostic Visualisation**: Create heatmaps for filled vs settled cells
 4. **Anomaly Detection**: Find unexpected patterns in grid population
 5. **Temporal Analysis**: Track grid settlement progress during warmup
@@ -482,7 +482,7 @@ curl -X POST 'http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p' 
   - Cold start rejection: Empty cells (TimesSeenCount=0) reject observations until seeded
   - Empty cells rejecting before seeding (check `SeedFromFirstObservation` via `--lidar-seed-from-first` flag)
   - Tight thresholds at long range (check `NoiseRelativeFraction`)
-  - Strict neighbour confirmation (check `NeighborConfirmationCount` - neighbor=2 requires 2 of 2 neighbors)
+  - Strict neighbour confirmation (check `NeighborConfirmationCount` - neighbour=2 requires 2 of 2 neighbours)
   - NoiseRelativeFraction too strict (0.01 = 1% may be too tight for real sensor noise at long ranges)
 - Analysis: After settling period, rates typically converge to 99.8%+
 
@@ -653,7 +653,7 @@ These parameters are configured at startup and can be adjusted at runtime via th
 ```go
 BackgroundUpdateFraction       float32  // EMA learning rate (default: 0.02)
 ClosenessSensitivityMultiplier float32  // Motion threshold multiplier (default: 3.0)
-SafetyMarginMeters             float32  // Safety buffer in meters (default: 0.5)
+SafetyMarginMeters             float32  // Safety buffer in metres (default: 0.5)
 FreezeDurationNanos            int64    // Freeze after detection (default: 5s)
 NeighborConfirmationCount      int      // Spatial filtering votes (default: 3)
 NoiseRelativeFraction          float32  // Distance-adaptive noise (default: 0.315)

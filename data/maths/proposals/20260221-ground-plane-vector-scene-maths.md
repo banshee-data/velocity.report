@@ -150,7 +150,7 @@ derive gates from current tuning values:
 1. `noise_relative`, `safety_margin_meters`, `closeness_multiplier`
    - define scale for `sigma_z` and residual gates.
 2. `neighbor_confirmation_count`
-   - controls neighborhood support requirement before region admission near seams.
+   - controls neighbourhood support requirement before region admission near seams.
 3. `warmup_duration_nanos`, `warmup_min_frames`
    - define when `w_obs` is trusted enough to influence region locking.
 4. `post_settle_update_fraction`
@@ -305,7 +305,7 @@ Dominant cost is point admission/filtering and memory locality, not eigensolve m
 4. **Reacquire:** only for sustained, validated change signals.
 5. **Audit:** periodic residual and confidence diagnostics against L3 baselines.
 
-This is the preferred mode for neighborhood monitoring where reliability and drift resistance matter more than rapid transient adaptation.
+This is the preferred mode for neighbourhood monitoring where reliability and drift resistance matter more than rapid transient adaptation.
 
 ---
 

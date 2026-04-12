@@ -172,7 +172,7 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 **Implementation Notes**:
 
 - Polygon coordinates must close (first point == last point) per GeoJSON spec (RFC 7946)
-- If no GPS coordinates, use local Cartesian (meters) with `coordinate_system: "Sensor-XY"`
+- If no GPS coordinates, use local Cartesian (metres) with `coordinate_system: "Sensor-XY"`
 - Plane equation: `ax + by + cz + d = 0` where `[a,b,c]` is `plane_normal`, `d` is `plane_offset`
 
 ### ASC (cloudCompare compatible, priority 2)
@@ -198,7 +198,7 @@ NODATA_value -9999
 - Reuse existing `ExportBackgroundGridToASC()` from `internal/lidar/l3grid/export_bg_snapshot.go`
 - Z values are fitted plane heights, not raw point heights
 - Tiles below confidence threshold written as `NODATA_value`
-- If GPS coordinates available, use ENU X/Y for xllcorner/yllcorner (meters from GPS origin)
+- If GPS coordinates available, use ENU X/Y for xllcorner/yllcorner (metres from GPS origin)
 
 ### CSV (simple tabular, priority 2)
 

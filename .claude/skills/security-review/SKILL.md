@@ -37,7 +37,7 @@ Identify which subsystems are touched: radar, lidar, API, PDF generator, web, co
 
 Work through subsystems in priority order:
 
-1. **Input parsing functions** — highest risk
+1. **Input parsing functions**: highest risk
 2. **Database operations**
 3. **File I/O**
 4. **Network handlers**
@@ -47,7 +47,7 @@ For each area, check:
 
 - **Input validation**: high-risk parse points include radar JSON parsing (`internal/radar/`), LiDAR UDP packet parsing (`internal/lidar/`), serial command handling, API request bodies (oversized payloads, malformed JSON, path traversal), config file parsing. Test mentally with: overflows, negatives, special characters, null bytes, UTF-8 edge cases, injection payloads.
 - **Auth & access**: is API authentication implemented and enforced on every route? Are privilege levels checked? Can an unauthenticated user reach sensor data? Are default credentials present?
-- **Privacy guarantees** — verify these claims hold (they are the project's core promise):
+- **Privacy guarantees**: verify these claims hold (they are the project's core promise):
   - No licence plate data collected
   - No camera/video recording
   - No PII in database
@@ -70,10 +70,10 @@ For each in-scope target, describe the input surface and at least one concrete t
 
 ### 4. Pen test phases (if doing full review)
 
-1. **Recon** — port scan, service enumeration, dependency versions, API discovery
-2. **Discovery** — fuzz inputs, test auth bypass, injection, file access, default credentials
-3. **Exploitation** — working proof of concept, documented steps, measured impact
-4. **Reporting** — severity-rated findings, exploit code, remediation, verification tests
+1. **Recon**: port scan, service enumeration, dependency versions, API discovery
+2. **Discovery**: fuzz inputs, test auth bypass, injection, file access, default credentials
+3. **Exploitation**: working proof of concept, documented steps, measured impact
+4. **Reporting**: severity-rated findings, exploit code, remediation, verification tests
 
 ### 5. Apply the pre-merge checklist
 

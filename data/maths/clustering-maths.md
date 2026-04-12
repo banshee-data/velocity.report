@@ -12,7 +12,7 @@ Pipeline math components:
 
 1. coordinate transform,
 2. optional voxel downsampling,
-3. DBSCAN neighborhood clustering,
+3. DBSCAN neighbourhood clustering,
 4. cluster feature extraction (medoid + OBB/PCA).
 
 ## 2. Coordinate transform
@@ -44,7 +44,7 @@ This preserves observed geometry better than stride decimation.
 
 ## 4. DBSCAN formulation
 
-### 4.1 Neighborhood
+### 4.1 Neighbourhood
 
 Distance is 2D Euclidean in `(x,y)`:
 
@@ -62,7 +62,7 @@ Clusters are connected components grown from core points; noise points receive l
 
 A uniform grid with cell size near `eps` stores point indices.
 
-Neighborhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behaviour in typical scenes.
+Neighbourhood query checks only 3x3 adjacent cells around the seed cell, giving practical near-linear behaviour in typical scenes.
 
 ## 5. Cluster-Level geometry
 

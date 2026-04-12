@@ -58,7 +58,7 @@ _Schedule Configuration:_
 - Saturday-Sunday, 00:00-23:59: 20 mph
 - Monday-Friday: 25 mph (default site speed limit)
 
-_Value:_ Neighborhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
+_Value:_ Neighbourhood association can demonstrate that weekend traffic patterns justify the reduced speed limit.
 
 **Use Case 3: Multi-Period School Zone**
 
@@ -360,7 +360,7 @@ _Enhancement:_ Visual weekly calendar view:
 
 - 7 columns (days of week)
 - 24 rows (hours of day)
-- Color-coded speed limit blocks
+- Colour-coded speed limit blocks
 - Hover for details
 - Drag-to-create new blocks
 
@@ -558,7 +558,7 @@ _Enhancement:_ Multi-zone support:
 
 **SQL Injection Protection:**
 
-- All queries use parameterized statements (`?` placeholders)
+- All queries use parameterised statements (`?` placeholders)
 - No string concatenation for SQL construction
 - Foreign key constraints prevent invalid references
 

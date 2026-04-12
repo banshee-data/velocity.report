@@ -42,16 +42,16 @@ If file paths are given, read the files directly.
 - Read the test files alongside the changed code.
 - Read any plan or design doc linked in the PR.
 
-### 3. Security pass (malory's lens — read-only, gate classification)
+### 3. Security pass (malory's lens: read-only, gate classification)
 
 Check in priority order:
 
-1. **Input validation** — are all external inputs validated? (radar JSON, LiDAR UDP, API request bodies, config files)
-2. **Privacy leaks** — could PII reach a log, response body, or export? Flag CRITICAL if yes.
-3. **Injection vectors** — SQL, command, path traversal, LaTeX injection
-4. **Auth & access** — are new API routes authenticated? Can unauthenticated users reach sensor data?
-5. **Error messages** — do error messages leak internal state or sensitive data?
-6. **Dependencies** — are new dependencies introduced? Any known CVEs?
+1. **Input validation**: are all external inputs validated? (radar JSON, LiDAR UDP, API request bodies, config files)
+2. **Privacy leaks**: could PII reach a log, response body, or export? Flag CRITICAL if yes.
+3. **Injection vectors**: SQL, command, path traversal, LaTeX injection
+4. **Auth & access**: are new API routes authenticated? Can unauthenticated users reach sensor data?
+5. **Error messages**: do error messages leak internal state or sensitive data?
+6. **Dependencies**: are new dependencies introduced? Any known CVEs?
 
 Apply gate classification:
 
@@ -136,12 +136,12 @@ make build-radar-local  # or build-radar-linux if pcap unavailable
 
 Do NOT flag:
 
-- Go's explicit error handling verbosity — it is deliberate
-- HTTP without TLS on localhost — local-only deployment
-- SQLite without encryption at rest — local-only device, out of threat model
+- Go's explicit error handling verbosity: it is deliberate
+- HTTP without TLS on localhost: local-only deployment
+- SQLite without encryption at rest: local-only device, out of threat model
 - Standard Go interface size choices unless the interface exceeds its documented contract
-- `os.exec` calls in Makefile-invoked scripts — build tooling, not runtime code
-- Formatting issues — handled by `make format`
+- `os.exec` calls in Makefile-invoked scripts: build tooling, not runtime code
+- Formatting issues: handled by `make format`
 
 ## Notes
 

@@ -363,9 +363,9 @@ tlmgr search --global fontspec
 
 **Error**: `! Package xcolor Error: Undefined color 'linkcolor'`
 
-**Cause**: Custom color not defined
+**Cause**: Custom colour not defined
 
-**Solution**: Check LaTeX template in `document_builder.py` - ensure all colors are defined before use
+**Solution**: Check LaTeX template in `document_builder.py` - ensure all colours are defined before use
 
 ---
 

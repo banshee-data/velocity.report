@@ -1,6 +1,6 @@
 # velocity.report/web
 
-Svelte-based frontend for real-time traffic data visualization.
+Svelte-based frontend for real-time traffic data visualisation.
 
 - **Location**: `web/`
 - **Framework**: Svelte 5
@@ -14,7 +14,7 @@ Svelte-based frontend for real-time traffic data visualization.
   site generation
 - **[Tailwind CSS 4](https://tailwindcss.com/)** - Utility-first styling
 - **[svelte-ux 2](https://svelte-ux.techniq.dev/)** - UI components
-- **[LayerChart 2](https://www.layerchart.com/)** - Data visualization
+- **[LayerChart 2](https://www.layerchart.com/)** - Data visualisation
 
 ## Getting started
 

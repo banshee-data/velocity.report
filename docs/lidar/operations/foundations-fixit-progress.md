@@ -4,13 +4,13 @@ Progress of the LiDAR foundations fix-it pass, which stabilises documentation ac
 
 ## Goal
 
-Stabilize documentation and implementation boundaries so downstream work depends on explicit, accurate foundations.
+Stabilise documentation and implementation boundaries so downstream work depends on explicit, accurate foundations.
 
 ## Completed in this pass
 
 1. Region-adaptive parameter parity fixed on the production path:
    - `internal/lidar/l3grid/foreground.go`
-   - `ProcessFramePolarWithMask` now applies per-region noise/neighbor/alpha overrides.
+   - `ProcessFramePolarWithMask` now applies per-region noise/neighbour/alpha overrides.
 2. Runtime tuning parity improvement:
    - `internal/lidar/monitor/webserver.go`
    - `/api/lidar/params` POST now supports `max_tracks`.

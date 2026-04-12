@@ -8,7 +8,7 @@ This design document outlines the changes required to align the velocity.report 
 
 1. **Dual Return Support**: Capture and store both strongest returns (already supported by Hesai Pandar40P)
 2. **Elongation Measurement**: Add pulse elongation to point data structure
-3. **Range Image Format**: Organize point cloud data as 2D range images
+3. **Range Image Format**: Organise point cloud data as 2D range images
 4. **Channel Structure**: Align with standard AV 4-channel format (range, intensity, elongation, is_in_nlz: No-Label Zone flag)
 
 ## Current state analysis
@@ -44,7 +44,7 @@ Range Image Structure (per-lidar):
 
 - Range image organises point cloud in spherical coordinates
 - Rows = inclination (elevation), Columns = azimuth
-- Row 0 = maximum inclination, center column = forward (+X axis)
+- Row 0 = maximum inclination, centre column = forward (+X axis)
 - Separate range image for each return
 
 ### Elongation definition

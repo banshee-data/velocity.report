@@ -214,7 +214,7 @@ This minimal config will:
 
 ### Advanced visual customization
 
-#### Colors
+#### Colours
 
 ```json
 {

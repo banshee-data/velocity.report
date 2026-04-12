@@ -91,7 +91,7 @@ Clusters are detected objects before tracking association.
 | -------------------------- | --------------------- | --------------------------------------------------------------------- |
 | `centroid_x/y/z`           | float                 | Centroid position in world frame (metres)                             |
 | `aabb_length/width/height` | float                 | Axis-aligned bounding box extents (metres)                            |
-| `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (center xyz + length/width/height + `heading_rad`) |
+| `obb`                      | `OrientedBoundingBox` | Optional 7-DOF OBB (centre xyz + length/width/height + `heading_rad`) |
 | `points_count`             | int32                 | Number of points in cluster                                           |
 | `sample_points`            | packed float[]        | Optional xyz-interleaved sample points for debug rendering            |
 

@@ -57,7 +57,7 @@ If the plan contains authoritative content not yet in the hub doc:
 
 1. Move or merge that content into the hub doc.
 2. Update the hub doc to reflect the final implementation state.
-3. Do **not** add a "Graduated plan:" link in the hub doc — graduated plan links add noise and point to symlinks that resolve back to the hub doc itself.
+3. Do **not** add a "Graduated plan:" link in the hub doc; graduated plan links add noise and point to symlinks that resolve back to the hub doc itself.
 
 ### 4. Replace the plan file with a symlink
 
@@ -77,10 +77,10 @@ cat docs/plans/<plan-file>.md | head -5
 
 The relative path must go from `docs/plans/` to the hub doc location. Common patterns:
 
-- `../lidar/architecture/topic.md` — LiDAR architecture hub doc <!-- link-ignore -->
-- `../platform/operations/topic.md` — Platform operations hub doc <!-- link-ignore -->
-- `../platform/architecture/topic.md` — Platform architecture hub doc <!-- link-ignore -->
-- `../ui/topic.md` — UI hub doc <!-- link-ignore -->
+- `../lidar/architecture/topic.md`: LiDAR architecture hub doc <!-- link-ignore -->
+- `../platform/operations/topic.md`: Platform operations hub doc <!-- link-ignore -->
+- `../platform/architecture/topic.md`: Platform architecture hub doc <!-- link-ignore -->
+- `../ui/topic.md`: UI hub doc <!-- link-ignore -->
 
 ### 5. Verify plan hygiene
 
@@ -126,7 +126,7 @@ When graduating multiple plans in one PR:
 
 When a plan graduates:
 
-- **Do not** add "Graduated plan:" links to hub docs. These links point to symlinks that resolve back to the hub doc itself — circular and unhelpful.
+- **Do not** add "Graduated plan:" links to hub docs. These links point to symlinks that resolve back to the hub doc itself; circular and unhelpful.
 - **Do** remove any existing "Active plan:" line for that plan if the plan is no longer active.
 - **Do** keep "Active plan:" lines for other plans that are still in progress against the same hub doc.
 
@@ -146,7 +146,7 @@ When a plan graduates:
 | 9   | `Canonical` target not under an allowed hub prefix           |
 | 10  | Symlink created before plan was Complete on `main` (CI only) |
 
-Gate 4 (two plans sharing the same canonical target) is advisory only — some hub docs legitimately serve multiple plans.
+Gate 4 (two plans sharing the same canonical target) is advisory only: some hub docs legitimately serve multiple plans.
 
 ## Dry-run mode
 

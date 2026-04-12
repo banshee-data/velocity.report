@@ -12,7 +12,7 @@ Users need the ability to:
 1. **Configure cosine error angle correction** - Radar sensors are often not perfectly perpendicular to traffic, introducing cosine error in speed measurements.
 2. **Track configuration changes over time** - When sensors are adjusted or repositioned, different correction angles apply to different time periods.
 3. **Apply corrections retroactively** - Users may realize the angle was wrong after data collection and need to correct historical data without recomputation.
-4. **Visualize configuration coverage** - Identify time periods where data exists but no site configuration is assigned.
+4. **Visualise configuration coverage** - Identify time periods where data exists but no site configuration is assigned.
 5. **Support multiple configurations in reports** - A single report may span multiple days with different sensor angles.
 6. **Support consistent comparisons** - When comparing two different time periods (e.g., "This Week vs Last Week"), ensure that the correct angle correction is applied to each period independently to allow for accurate velocity comparisons.
 
@@ -129,7 +129,7 @@ Modify all speed-related queries in `internal/db/` to join with `site_config_per
 
 - `GET /api/site_config_periods` (List)
 - `POST /api/site_config_periods` (Create/Update)
-- `GET /api/timeline` (Visualize data coverage vs config coverage)
+- `GET /api/timeline` (Visualise data coverage vs config coverage)
 
 **Modified Responses:**
 

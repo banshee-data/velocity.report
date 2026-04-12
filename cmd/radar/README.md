@@ -125,7 +125,7 @@ You can provide either a bare filename (`"pcap_file": "file.pcap"`) or a relativ
 
 ## Architecture
 
-The application is organized into separate components under `internal/` for maintainability:
+The application is organised into separate components under `internal/` for maintainability:
 
 - `internal/serialmux` — Serial port abstraction and event handlers (real, mock, disabled implementations).
 - `internal/api` — Central HTTP server, static assets, and admin endpoints.
@@ -153,9 +153,9 @@ Performance notes (observed in production):
 - **Data Rate**: ~2.17 MB/sec with ~700k points/sec when parsing enabled
 - **Point Processing**: ~700,000 3D points/sec from parsed Pandar40P packets
 - **Forwarding Latency**: Microsecond-level with dedicated forwarding goroutine
-- **Memory Usage**: Optimized buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
+- **Memory Usage**: Optimised buffering with 1000-packet forwarding buffer and configurable UDP receive buffer
 - **CPU Usage**: Minimal overhead with direct packet processing (no per-packet goroutines)
-- **Statistics Logging**: Configurable intervals (1-60 seconds) with colored output for errors
+- **Statistics Logging**: Configurable intervals (1-60 seconds) with coloured output for errors
 
 ## Embedded configuration
 
@@ -163,7 +163,7 @@ Both binaries include embedded Pandar40P sensor configuration files (angle and f
 
 ## LidarView integration
 
-To visualize incoming LiDAR data, forward packets to LidarView's listening port (2368 by default) or configure a custom port and use the `--lidar-forward` flag.
+To visualise incoming LiDAR data, forward packets to LidarView's listening port (2368 by default) or configure a custom port and use the `--lidar-forward` flag.
 
 ## Command & DB notes
 

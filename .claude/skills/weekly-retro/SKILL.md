@@ -118,4 +118,4 @@ Read `docs/DECISIONS.md`:
 
 - This skill reads only. It does not modify backlog, decisions, or agent files. Recommendations are for the human or for Flo/Appius to act on.
 - If `scripts/flo-planning-review.sh` produces output, include it in the review rather than replacing it.
-- Flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission — these contradict `TENETS.md` and should be marked for revision regardless of milestone.
+- Flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission: these contradict `TENETS.md` and should be marked for revision regardless of milestone.

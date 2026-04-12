@@ -21,7 +21,7 @@ For the current implemented CLI reference, see [cli-comprehensive-guide.md](../r
 
 **Areas for Improvement:**
 
-1. **Flag Organization** (Priority: High)
+1. **Flag Organisation** (Priority: High)
    - **Issue:** 30+ flags with no logical grouping, making discovery difficult
    - **Impact:** Users struggle to find relevant flags, documentation is scattered
 
@@ -537,7 +537,7 @@ velocity-report db stats --format json
 velocity-report db stats --detailed
 ```
 
-**`db vacuum`** - Optimize database
+**`db vacuum`** - Optimise database
 
 ```bash
 velocity-report db vacuum
@@ -908,7 +908,7 @@ token = "vrt_abc123..."
 
 | Current                          | Long-Term                                 | Benefit                       |
 | -------------------------------- | ----------------------------------------- | ----------------------------- |
-| 30+ flat flags                   | Subcommands + JSON params                 | Organization, discoverability |
+| 30+ flat flags                   | Subcommands + JSON params                 | Organisation, discoverability |
 | `--lidar-bg-noise-relative 0.01` | `sensor lidar configure --params '{...}'` | Consistency with HTTP         |
 | 4 separate binaries              | Single binary with commands               | Unified interface             |
 | Multiple HTTP patterns           | Versioned API with consistent structure   | Predictability                |
@@ -926,7 +926,7 @@ token = "vrt_abc123..."
 **Tasks:**
 
 - ✅ Inventory all CLI flags, subcommands, HTTP endpoints
-- ✅ Categorize and document current patterns
+- ✅ Categorise and document current patterns
 - ✅ Design target structure with backward compatibility
 - ✅ Create comprehensive guide and implementation plan
 

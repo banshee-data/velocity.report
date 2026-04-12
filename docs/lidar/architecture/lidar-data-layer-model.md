@@ -808,7 +808,7 @@ The layer boundaries are intentionally aligned with common AV pipeline decomposi
 
 - Bewley, A., Ge, Z., Ott, L., Ramos, F., & Upcroft, B. (2016). Simple online and realtime tracking. _ICIP 2016_. arXiv:1602.00763.
 - Weng, X., Wang, J., Held, D., & Kitani, K. (2020). AB3DMOT: A baseline for 3D multi-object tracking and new evaluation metrics. _ECCVW 2020_. arXiv:2008.08063.
-- Yin, T., Zhou, X., & Krähenbühl, P. (2021). Center-based 3D object detection and tracking. _CVPR 2021_. arXiv:2006.11275.
+- Yin, T., Zhou, X., & Krähenbühl, P. (2021). Centre-based 3D object detection and tracking. _CVPR 2021_. arXiv:2006.11275.
 - Bernardin, K., & Stiefelhagen, R. (2008). Evaluating multiple object tracking performance: The CLEAR MOT metrics. _EURASIP JIVP_, 2008.
 
 ### Advanced motion models and smoothers (planned — l5h)

@@ -1,6 +1,6 @@
 ---
 name: backlog-prune
-description: Backlog grooming — verify completed items have PR numbers, identify release themes across the next 5 point releases, surface classification drift, and flag L/XL items for splitting.
+description: Backlog grooming; verify completed items have PR numbers, identify release themes across the next 5 point releases, surface classification drift, and flag L/XL items for splitting.
 argument-hint: "[--scan-all-prs]"
 ---
 
@@ -8,9 +8,9 @@ argument-hint: "[--scan-all-prs]"
 
 Groom `docs/BACKLOG.md`. Covers three distinct passes:
 
-1. **Completeness audit** — every item in the Complete section must have a `[#NNN]` PR number.
-2. **Theme coherence** — read the next 5 point releases, identify theme drift and rebalancing opportunities.
-3. **Size audit** — flag L/XL items that should be split and propose candidate sub-tasks.
+1. **Completeness audit**: every item in the Complete section must have a `[#NNN]` PR number.
+2. **Theme coherence**: read the next 5 point releases, identify theme drift and rebalancing opportunities.
+3. **Size audit**: flag L/XL items that should be split and propose candidate sub-tasks.
 
 ## Usage
 
@@ -33,15 +33,15 @@ cat docs/BACKLOG.md
 
 Parse the file into two logical regions:
 
-- **Pending** — all items above the `## Complete` heading, grouped by their milestone section (`### vX.Y.Z …`).
-- **Complete** — all items under `## Complete`.
+- **Pending**: all items above the `## Complete` heading, grouped by their milestone section (`### vX.Y.Z …`).
+- **Complete**: all items under `## Complete`.
 
 ### 2. Completeness audit (complete section)
 
 For every line in the Complete section:
 
-- **Has PR** — line begins with `[#NNN]` where NNN is a positive integer. ✅
-- **Missing PR** — line begins with `(#NNN)` (issue-only), `-` with no bracket reference, or any other format. ❌
+- **Has PR**: line begins with `[#NNN]` where NNN is a positive integer. ✅
+- **Missing PR**: line begins with `(#NNN)` (issue-only), `-` with no bracket reference, or any other format. ❌
 
 Collect all missing-PR items into a list.
 
@@ -82,24 +82,24 @@ If all complete items have valid `[#NNN]` references, write:
 
 ### 3. Theme coherence (next 5 point releases)
 
-Identify the **next 5 point releases** — the first five `### vX.Y.Z` sections in the pending region (in document order). If fewer than five exist, use all pending milestones.
+Identify the **next 5 point releases**: the first five `### vX.Y.Z` sections in the pending region (in document order). If fewer than five exist, use all pending milestones.
 
 For each release, extract:
 
 - The milestone title (e.g. `v0.5.2 - Data Contracts + Layer Foundations`)
 - The effort tags present: count of `XS`, `S`, `M`, `L`, `XL`
 - The domain spread: infer domains from item wording and linked plan docs. Use these canonical domain labels:
-  - `go-structure` — god-file splits, package hygiene, SQL boundary, context propagation
-  - `go-lidar` — LiDAR pipeline layers L1–L9, perception, clustering, tracking
-  - `go-radar` — radar ingest, transit worker, serial config
-  - `data-schema` — migrations, schema changes, SQLite model
-  - `web-ui` — Svelte frontend, charts, design system
-  - `mac-visualiser` — Swift/Metal macOS app
-  - `platform-infra` — deploy, packaging, CI, RPi image, scripts
-  - `observability` — logging, metrics, performance harness, profiling
-  - `docs-plans` — documentation, plan hygiene, canonical files
-  - `algorithm` — maths proposals, perception algorithm changes, Kalman, DBSCAN
-  - `api-contract` — HTTP API shape, proto contract, type safety, naming
+  - `go-structure`: god-file splits, package hygiene, SQL boundary, context propagation
+  - `go-lidar`: LiDAR pipeline layers L1–L9, perception, clustering, tracking
+  - `go-radar`: radar ingest, transit worker, serial config
+  - `data-schema`: migrations, schema changes, SQLite model
+  - `web-ui`: Svelte frontend, charts, design system
+  - `mac-visualiser`: Swift/Metal macOS app
+  - `platform-infra`: deploy, packaging, CI, RPi image, scripts
+  - `observability`: logging, metrics, performance harness, profiling
+  - `docs-plans`: documentation, plan hygiene, canonical files
+  - `algorithm`: maths proposals, perception algorithm changes, Kalman, DBSCAN
+  - `api-contract`: HTTP API shape, proto contract, type safety, naming
 
 Assess each release against these questions:
 
@@ -117,7 +117,7 @@ Compare the inferred domain/theme of each item against the milestone's stated th
 
 Collect drifted items. For each, propose a better home (a different existing milestone, or a note that it should become its own milestone entry).
 
-Present drift proposals as suggestions only — do not modify the backlog. Use this format:
+Present drift proposals as suggestions only: do not modify the backlog. Use this format:
 
 ```
 ## Theme Coherence
@@ -141,11 +141,11 @@ Theme fit: ⚠️ 2 items appear drifted:
       two items: one Mac (`S`) and one Web (`S`)
 ```
 
-### 4. Size audit (L and XL items)
+### 4. Size audit (l and XL items)
 
 Scan all pending items for effort tags `L` or `XL`. For each:
 
-- Read the linked design doc path if present (do not fetch the file — use the path as a signal)
+- Read the linked design doc path if present (do not fetch the file: use the path as a signal)
 - Assess whether the item description implies multiple independently deliverable phases
 
 An item is a **split candidate** if any of these apply:
@@ -231,13 +231,13 @@ Present any proposed text changes as a diff-style block. Do NOT apply them — w
 
 - This skill **reads and proposes only**. It never writes to `docs/BACKLOG.md` directly.
   All edits require explicit human or agent approval before application.
-- Apply the governance rule from the backlog header: never delete agreed items — only split,
+- Apply the governance rule from the backlog header: never delete agreed items; only split,
   consolidate, move, or complete them.
 - When proposing a split of an L/XL item, the original item should become a parent stub
   referencing the sub-items, or be replaced by the sub-items if the original wording is fully
   superseded.
 - If a drifted item has a `(#NNN)` issue reference or explicit dependency comment that
-  explains its placement, do not flag it as drift — it is intentionally anchored.
+  explains its placement, do not flag it as drift: it is intentionally anchored.
 - The `--scan-all-prs` flag is slow (one `gh` call per PR). Warn the user before making
   more than 20 network calls.
 - Do not propose moving items to milestones that are already complete or to versions earlier

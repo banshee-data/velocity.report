@@ -198,7 +198,7 @@ At each threshold band, search anchor families in this order:
 1. sign polygons with strong reflectivity and bounded footprint;
 2. reflective but non-semantic planar patches;
 3. large persistent wall/building planes and facade corners;
-4. ground/road support surfaces used only to stabilize `z`, `roll`, and
+4. ground/road support surfaces used only to stabilise `z`, `roll`, and
    `pitch`.
 
 The anchor estimator should record which family produced the current solution.

@@ -295,7 +295,7 @@ Covariance: P (13×13 matrix)
 
 **State Components:**
 
-- **Position (3):** x, y, z (meters)
+- **Position (3):** x, y, z (metres)
 - **Linear velocity (3):** vx, vy, vz (m/s)
 - **Orientation (4):** qw, qx, qy, qz (unit quaternion)
 - **Angular velocity (3):** wx, wy, wz (rad/s)

@@ -256,7 +256,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 #### NFR5: maintainability
 
-- **Code Organization:** Separate concerns (DB, API, UI) into appropriate modules
+- **Code Organisation:** Separate concerns (DB, API, UI) into appropriate modules
 - **Test Coverage:** Unit tests for all serial testing logic and API endpoints
 - **Documentation:** API documentation, user guide, troubleshooting section
 - **Consistent Patterns:** Follow existing codebase conventions (migrations, API structure, UI components)
@@ -339,7 +339,7 @@ See [serial-configuration-api.md](serial-configuration-api.md) for the full spec
 
 1. Multiple SerialMux instances in server
 2. Data tagging with sensor ID
-3. UI for sensor selection in visualizations
+3. UI for sensor selection in visualisations
 4. Documentation for multi-sensor setups
 
 **Timeline:** 5-7 days (future work)

@@ -33,7 +33,7 @@ accurate, navigable, and sized for purpose.
 ### Length target: 800 lines
 
 Specification and architecture documents should target **≤ 800 lines**. This
-is a guideline, not a hard wall — a 900-line doc with dense tables is fine;
+is a guideline, not a hard wall: a 900-line doc with dense tables is fine;
 a 2,000-line doc that wanders is not.
 
 **What to cut / what to keep:** see STYLE.md § Documentation Structure for the
@@ -58,9 +58,9 @@ service should split the prior service into its own file.
 Every spec should have an **Open Questions** section (or confirm none remain).
 Questions fall into two categories:
 
-- **Open** — genuinely unanswered. State the question, the trade-offs, and
+- **Open**: genuinely unanswered. State the question, the trade-offs, and
   any recommendations. Do not fabricate answers.
-- **Resolved** — answered by the author or through implementation. Move to a
+- **Resolved**: answered by the author or through implementation. Move to a
   **Resolved Design Questions** or **Design Decisions** table with the
   actual resolution.
 
@@ -71,7 +71,7 @@ the question open and surface it to the operator.
 
 Reference documents (architecture overviews, CLI guides, API references,
 configuration docs) describe the system **as it is implemented right now**.
-Plan files (`docs/plans/`) describe **future work** — proposed features,
+Plan files (`docs/plans/`) describe **future work**: proposed features,
 restructuring ideas, phased rollouts, aspirational architectures.
 
 **The boundary rule:** if a section describes something that does not exist
@@ -89,8 +89,8 @@ in the codebase today, it belongs in a plan file, not in a reference doc.
    move **from** the plan file **into** the reference doc. The plan file
    then becomes a candidate for graduation (symlink).
 
-**Ghost entries** — features documented as current but actually deleted,
-renamed, or never implemented — are the most dangerous form of stale
+**Ghost entries**: features documented as current but actually deleted,
+renamed, or never implemented: are the most dangerous form of stale
 content. Each audit pass should verify implementation status against the
 source code, ideally by checking the actual flag definitions, route
 registrations, or binary directories.
@@ -111,7 +111,7 @@ each entry against the codebase or the author's stated intent.
 
 ### 1. Fix links
 
-Run the fix-links skill first — broken links undermine every subsequent step.
+Run the fix-links skill first: broken links undermine every subsequent step.
 
 ```
 /fix-links
@@ -198,7 +198,7 @@ For each spec with a Design Decisions or Resolved Design Questions table:
 ### 6. Prose width check
 
 Run the advisory prose-width check and review the output. This never blocks
-CI — it is a quality signal, not a gate.
+CI: it is a quality signal, not a gate.
 
 ```bash
 make check-prose-width
@@ -283,6 +283,6 @@ Next: review changes, then /ship-change
 ## What this skill does not do
 
 - Does not write new documentation from scratch.
-- Does not make architectural decisions — surfaces them to the operator.
-- Does not commit or push — leaves changes staged for review.
-- Does not restructure code — only documentation files.
+- Does not make architectural decisions: surfaces them to the operator.
+- Does not commit or push: leaves changes staged for review.
+- Does not restructure code: only documentation files.

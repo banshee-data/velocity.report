@@ -822,7 +822,7 @@ velocity-report pdf /path/to/config.json
    ```go
    func TestBackwardCompatNoArgs(t *testing.T) {
        // velocity-report (no args)
-       // Should start server (old behavior)
+       // Should start server (old behaviour)
    }
    ```
 

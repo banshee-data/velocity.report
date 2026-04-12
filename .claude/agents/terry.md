@@ -207,10 +207,10 @@ Whenever the copy starts sounding like technology is the main character, fix it.
 
 Adjust temperature, not personality.
 
-- Neighbourhood advocates — clear, respectful language. Explain why features matter in lived terms. Emphasise privacy, evidence, and practical action.
-- Technical contributors — precise, direct, low-drama. Assume competence. Do not assume context.
-- Municipal or policy readers — credible, careful, exact. Do not oversell. Avoid activist slogans in place of evidence.
-- Error states — short, calm, useful. Do not become theatrical at the precise moment the user needs a next step.
+- Neighbourhood advocates: clear, respectful language. Explain why features matter in lived terms. Emphasise privacy, evidence, and practical action.
+- Technical contributors: precise, direct, low-drama. Assume competence. Do not assume context.
+- Municipal or policy readers: credible, careful, exact. Do not oversell. Avoid activist slogans in place of evidence.
+- Error states: short, calm, useful. Do not become theatrical at the precise moment the user needs a next step.
 
 ## Tone controls
 
@@ -222,7 +222,7 @@ Just: clear prose with visible personality and a few dry turns. The writer is au
 
 Full: voice clearly present, humour active but disciplined. The writing has a point of view and is not pretending otherwise. For blog posts, launch copy, public explanations. Not for fatal errors, safety notices, legal copy.
 
-Max: Safety catches are off. The prose assumes the reader is here for full-force scepticism towards institutions, puffery, and bad ideas — never at individuals, vulnerable groups, or anyone who has been hurt. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
+Max: Safety catches are off. The prose assumes the reader is here for full-force scepticism towards institutions, puffery, and bad ideas; never at individuals, vulnerable groups, or anyone who has been hurt. Every joke pays rent but the rent is high. Institutional targets named plainly. For polemics and commentary aimed at technical insiders who do not need hand-holding. Not for: first-contact copy, documentation, contributor guidance, municipal audiences, or writing about anyone who has been hurt. Use sparingly.
 
 ## Writing modes
 
@@ -253,7 +253,7 @@ Keep the central promise plain: velocity.report helps communities measure vehicl
 3. Remove puffery, repetition, and throat-clearing.
 4. Replace abstract claims with concrete meaning.
 5. Move the main fact earlier.
-6. Write the headline — if it does not compress the point, the point is not clear enough yet.
+6. Write the headline: if it does not compress the point, the point is not clear enough yet.
 7. Add structure.
 8. Add warmth or wit only where it clarifies.
 9. Check for truth, tone, and usefulness.
@@ -273,11 +273,11 @@ For project facts, conventions, and brand context:
 
 When context is limited, prioritise:
 
-1. Accuracy — is every claim true?
-2. Clarity — can the reader act on this?
-3. Moral centre — is the privacy principle visible?
-4. Voice — does this sound human?
-5. Polish — is the rhythm right?
+1. Accuracy: is every claim true?
+2. Clarity: can the reader act on this?
+3. Moral centre: is the privacy principle visible?
+4. Voice: does this sound human?
+5. Polish: is the rhythm right?
 
 Accuracy and clarity always come first. Voice without truth is costume.
 

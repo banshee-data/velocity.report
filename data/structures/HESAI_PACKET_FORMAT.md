@@ -84,10 +84,10 @@ Each of the 40 laser channels provides:
 #### Distance data
 
 - **Format**: 16-bit little-endian integer
-- **Resolution**: 4mm per LSB (0.004 meters)
-- **Range**: 0 to 262,140mm (0 to 262.14 meters)
+- **Resolution**: 4mm per LSB (0.004 metres)
+- **Range**: 0 to 262,140mm (0 to 262.14 metres)
 - **Invalid measurement**: 0x0000 (no return detected)
-- **Sample values**: 0x006F = 111 LSBs = 0.444 meters
+- **Sample values**: 0x006F = 111 LSBs = 0.444 metres
 
 #### Reflectivity data
 

@@ -1,7 +1,7 @@
 # LiDAR noise vs distance convergence analysis
 
 - **Test Type:** Multi-parameter sweep with live LiDAR data
-- **Parameters:** 7 noise values (0.005 to 0.030), fixed closeness=2.0, neighbor=1
+- **Parameters:** 7 noise values (0.005 to 0.030), fixed closeness=2.0, neighbour=1
 - **Samples:** 50 iterations per combination, 2s interval
 
 ## Key findings
@@ -103,7 +103,7 @@ The counterintuitive result likely occurs because:
 
 1. **Validate with PCAP data:** Run same sweep with PCAP files to confirm findings in controlled environment
 2. **Test extreme values:** Try noise = 0.035-0.050 to find upper bound of benefit
-3. **Production deployment:** Update default parameters to noise=0.030, closeness=2.0, neighbor=1
+3. **Production deployment:** Update default parameters to noise=0.030, closeness=2.0, neighbour=1
 4. **Long-term monitoring:** Track convergence metrics in production to validate sustained performance
 
 ## Files generated

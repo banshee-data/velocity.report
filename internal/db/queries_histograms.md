@@ -70,7 +70,7 @@ GROUP BY bucket
 ORDER BY bucket;
 ```
 
-If desired, you can normalize counts to percentages by adding `CAST(100.0 * COUNT(*) / (SELECT COUNT(*) FROM ... ) AS DOUBLE)`.
+If desired, you can normalise counts to percentages by adding `CAST(100.0 * COUNT(*) / (SELECT COUNT(*) FROM ... ) AS DOUBLE)`.
 
 4. Nearest-rank percentile queries (p50/p85/p98) — run sequentially
 

@@ -121,4 +121,4 @@ Produce a short verdict:
 
 - This skill reads only. It does not modify the plan or backlog.
 - If the plan is missing critical sections (acceptance criteria, migration path, privacy review), call them out explicitly rather than inferring.
-- Apply `TENETS.md` constraints — flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission as blocked.
+- Apply `TENETS.md` constraints: flag any plan that proposes cameras, licence plates, PII collection, or cloud transmission as blocked.

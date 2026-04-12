@@ -251,7 +251,7 @@ Spatial clustering of foreground world points to detect distinct objects.
 
 **Parameters:**
 
-- `eps = 0.6` meters (neighborhood radius)
+- `eps = 0.6` metres (neighbourhood radius)
 - `minPts = 12` (minimum points per cluster)
 - **Dimensionality:** 2D (x, y) clustering, with z used only for cluster features
 
@@ -310,7 +310,7 @@ Tentative → Confirmed → Deleted
 x = [x, y, vx, vy]^T
 ```
 
-- `x, y`: Position in world frame (meters)
+- `x, y`: Position in world frame (metres)
 - `vx, vy`: Velocity in world frame (m/s)
 
 **Motion Model (Constant Velocity):**
@@ -360,7 +360,7 @@ where:
   S = innovation covariance (H*P*H^T + R)
 ```
 
-**Threshold:** `GatingDistanceSquared = 25.0` (i.e., 5.0 meters)
+**Threshold:** `GatingDistanceSquared = 25.0` (i.e., 5.0 metres)
 
 - We threshold on **squared distance** to avoid square root computation
 - Threshold tuned empirically for typical vehicle/pedestrian speeds
@@ -460,7 +460,7 @@ Classify tracks by object type (pedestrian, car, bird, other) using world-frame 
 
 **Spatial Features:**
 
-- Bounding box dimensions (length, width, height) in meters
+- Bounding box dimensions (length, width, height) in metres
 - Height p95 (95th percentile Z coordinate)
 - Point density (points per cubic metre)
 
@@ -728,7 +728,7 @@ CREATE INDEX idx_training_sequence ON lidar_training_frames(frame_sequence_id);
 #### Planned features
 
 1. **Pose Validation:** Validate sensor calibration quality based on RMSE metrics
-2. **Quality Assessment:** Categorize pose quality (Excellent/Good/Fair/Poor)
+2. **Quality Assessment:** Categorise pose quality (Excellent/Good/Fair/Poor)
 3. **Transform Gating:** Gate world-frame transformations by pose quality
 4. **Research Data Filtering:** Filter classification research data by pose quality
 
@@ -744,7 +744,7 @@ The current implementation stores all data in polar (sensor) frame, which is pos
 
 When pose validation is implemented:
 
-| RMSE (meters) | Quality   | Usage Recommendation                  |
+| RMSE (metres) | Quality   | Usage Recommendation                  |
 | ------------- | --------- | ------------------------------------- |
 | < 0.05        | Excellent | Use for all downstream processing     |
 | 0.05 - 0.15   | Good      | Use for tracking and research export  |

@@ -25,7 +25,7 @@ This plan aligns with the overall ML pipeline vision while focusing on Step 1.
 **Deliverables:**
 
 1. Extend tracking to produce 7-DOF outputs (add heading, Z coordinate)
-2. Visualize 7-DOF tracks in Svelte UI (oriented bounding boxes with heading arrows)
+2. Visualise 7-DOF tracks in Svelte UI (oriented bounding boxes with heading arrows)
 3. Store 7-DOF tracks in database (conforming to av-lidar-integration-plan.md schema)
 
 **Timeline:** 2-3 weeks
@@ -920,7 +920,7 @@ sudo systemctl start velocity-report
 - [ ] Render oriented rectangles (rotate by heading angle)
 - [ ] Add heading arrow indicators
 - [ ] Display 7DOF values in track detail panel (center_x/y/z, length, width, height, heading)
-- [ ] Color-code by object class
+- [ ] Colour-code by object class
 - [ ] Add Z-height visualisation (colour gradient or label)
 
 **Exit Criteria:**

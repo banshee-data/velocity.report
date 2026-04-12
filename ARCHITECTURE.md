@@ -521,7 +521,7 @@ The `site_config_periods` table implements a Type 6 SCD pattern for tracking sen
 
 The LiDAR perception stack runs layers L3 through L6 on every 10 Hz frame: background subtraction, clustering, tracking, and classification. Each layer is a separate Go package under `internal/lidar/`, with its own parameters, tests, and maths reference. The pipeline processes ~70,000 points per frame on a Raspberry Pi 4 with no cloud dependency.
 
-### L3: Background model
+### L3: background model
 
 The background model separates static scene (road surface, buildings, vegetation) from moving objects. It maintains a 40 × 3,600 polar grid (one row per LiDAR beam, one column per 0.1° azimuth bin) where each cell tracks an exponentially weighted moving average of range values and a Welford online variance estimate.
 
@@ -529,7 +529,7 @@ Cells are classified into three adaptive region types: **stable** (pavement, wal
 
 The grid settles over a configurable number of frames. Until a cell has seen enough observations, it remains unsettled and does not contribute to foreground extraction, which prevents the first vehicle through the scene from becoming part of the background.
 
-### L4: Clustering and geometry
+### L4: clustering and geometry
 
 Foreground points are grouped into spatial clusters using DBSCAN with a grid-accelerated spatial index. The index maps each point to a cell via a Szudzik pairing function on signed grid coordinates, making neighbourhood queries O(1) per point instead of O(n). Clusters are filtered by size, aspect ratio, and point count to reject noise and scene artefacts.
 
@@ -537,7 +537,7 @@ Each cluster gets an oriented bounding box (OBB) fitted via 2D PCA on its ground
 
 Ground-plane points within each cluster are removed using a local height threshold relative to the cluster's lowest points.
 
-### L5: Multi-object tracking
+### L5: multi-object tracking
 
 Tracking follows the predict–associate–update loop. Each track maintains a constant-velocity Kalman filter with state vector `[X, Y, VX, VY]` and a 4 × 4 covariance matrix. The motion model assumes constant velocity between frames, simple enough to run at 10 Hz on constrained hardware, accurate enough for urban traffic where vehicles rarely accelerate hard between 100 ms frames.
 
@@ -545,7 +545,7 @@ Association uses the Hungarian algorithm (Kuhn–Munkres) with Mahalanobis dista
 
 Track lifecycle: a new track is **tentative** until it accumulates 4 consecutive hits, then **confirmed**. A confirmed track tolerates up to 15 consecutive misses (coasting through brief occlusions) before deletion. Tentative tracks are deleted after 3 misses. Covariance inflates progressively during coasting, so a coasted track's association gate widens naturally: it accepts a returning detection at greater distance but with lower confidence.
 
-### L6: Classification
+### L6: classification
 
 Each confirmed track is classified using a rule-based system (v1.2) that evaluates spatial and kinematic features: bounding box dimensions, aspect ratio, speed, point count, and height profile. The classifier assigns one of eight object types: car, truck, bus, pedestrian, cyclist, motorcyclist, bird, and dynamic (unclassified moving object), with confidence levels at three tiers: high (0.85), medium (0.70), and low (0.50).
 

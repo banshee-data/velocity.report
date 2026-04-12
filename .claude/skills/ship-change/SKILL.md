@@ -119,15 +119,15 @@ Format: `[prefix(es)] Description of change`
 
 Prefixes based on what changed:
 
-- `[go]` — Go code
-- `[py]` — Python code
-- `[js]` — JavaScript/TypeScript
-- `[mac]` — Swift/macOS
-- `[docs]` — Markdown documentation
-- `[sql]` — Database migrations
-- `[make]` — Makefile
-- `[cfg]` — Configuration files
-- `[ai]` — AI-authored edits (always include alongside language tag)
+- `[go]`: Go code
+- `[py]`: Python code
+- `[js]`: JavaScript/TypeScript
+- `[mac]`: Swift/macOS
+- `[docs]`: Markdown documentation
+- `[sql]`: Database migrations
+- `[make]`: Makefile
+- `[cfg]`: Configuration files
+- `[ai]`: AI-authored edits (always include alongside language tag)
 
 Rules:
 
@@ -164,7 +164,7 @@ git log -1    # confirm commit looks right
 ## Notes
 
 - Do not commit if any step in the quality gate fails.
-- Do not use `git add -A` or `git add .` — stage specific files to avoid accidentally including `.env`, credentials, or large binaries.
+- Do not use `git add -A` or `git add .`: stage specific files to avoid accidentally including `.env`, credentials, or large binaries.
 - Do not skip lint with `--no-verify`.
-- If a pre-commit hook fails, fix the issue and create a **new** commit — do not amend.
+- If a pre-commit hook fails, fix the issue and create a **new** commit: do not amend.
 - Documentation changes should also trigger doc update checks: did ARCHITECTURE.md, component READMEs, or `public_html/src/guides/setup.md` need updating?
