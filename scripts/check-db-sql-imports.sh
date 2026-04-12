@@ -43,6 +43,7 @@ done < <(grep -rl '"database/sql"' "$REPO_ROOT" \
     --exclude='*_test.go' \
     --exclude-dir=vendor \
     --exclude-dir=.git \
+    --exclude-dir=.claude \
     || true)
 
 if [ -n "$violations" ]; then
