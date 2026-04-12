@@ -17,8 +17,8 @@ without artefacts are anecdotes.
 **Constraint:** every algorithm must remain inspectable,
 tuneable, and explainable. A model that performs well but
 cannot explain itself is not welcome on the critical path.
-See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md#data-scientist)
-and [platform-data-science-metrics-first-plan.md](../docs/plans/platform-data-science-metrics-first-plan.md).
+See [CONTRIBUTING.md §Data Scientist](../CONTRIBUTING.md#data-scientist) and
+[platform-data-science-metrics-first-plan.md](../docs/plans/platform-data-science-metrics-first-plan.md).
 
 ---
 
@@ -76,7 +76,7 @@ foundation that clustering and tracking depend on.
 
 The [velocity-coherent proposal](maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 hypothesises 20–40% improvement in sparse object recall and
-10–25% reduction in fragmentation. These claims need benchmark
+10–25% reduction in fragmentation. These claims need
 evidence before the baseline is replaced.
 
 - **Acceptance gates:**

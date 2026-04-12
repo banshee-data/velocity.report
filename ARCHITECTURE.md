@@ -418,7 +418,7 @@ Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug ove
 - `adapter.go` - Convert pipeline data to FrameBundle proto
 - `model.go` - Canonical FrameBundle data structures
 
-**Swift Client** ([tools/visualiser-macos/VelocityVisualiser/](tools/visualiser-macos/VelocityVisualiser)):
+**Swift Client**: [tools/visualiser-macos/VelocityVisualiser/](tools/visualiser-macos/VelocityVisualiser)
 
 - `App/` - Application entry point and global state
 - `gRPC/` - gRPC client wrapper and proto decoding
@@ -431,7 +431,7 @@ Real-time 3D visualisation of LiDAR point clouds, object tracking, and debug ove
 - [cmd/tools/visualiser-server](cmd/tools/visualiser-server) - Multi-mode server (synthetic/replay/live)
 - [cmd/tools/gen-vrlog](cmd/tools/gen-vrlog) - Generate sample `.vrlog` recordings
 
-**Protocol Buffer Schema** ([proto/velocity_visualiser/v1/visualiser.proto](proto/velocity_visualiser/v1/visualiser.proto)):
+**Protocol Buffer Schema**: [proto/velocity_visualiser/v1/visualiser.proto](proto/velocity_visualiser/v1/visualiser.proto)
 
 ```protobuf
 service VisualiserService {
@@ -1197,8 +1197,8 @@ Each version has a design document per work item; the backlog links to all of th
 
 ## Mathematical references
 
-The perception algorithms are documented in standalone mathematical references under [data/maths/](data/maths).
-Each document covers the theory, parameter choices,
+The perception algorithms are documented in standalone mathematical references
+under [data/maths/](data/maths). Each document covers the theory, parameter choices,
 and implementation mapping for one pipeline stage.
 
 | Document                                                                          | Pipeline Layer | Content                                                                                    |
