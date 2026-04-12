@@ -129,7 +129,7 @@ python3 scripts/check-backtick-file-links.py --report 2>&1
 Key documents gate (README "🔑 key documents" section):
 
 - Every document reference in that section must be a Markdown link
-  (`[label](path)`), not a standalone backtick-quoted file path.
+  (`[label](path)`), not a standalone backtick-quoted file path. <!-- link-ignore -->
 - Every linked target must resolve to an existing file.
 
 ```bash

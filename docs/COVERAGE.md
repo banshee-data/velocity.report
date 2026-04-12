@@ -25,9 +25,9 @@ make coverage
 
 This will create HTML reports at:
 
-- Go: `coverage.html`
-- Python: [tools/pdf-generator/htmlcov/index.html](../tools/pdf-generator/htmlcov/index.html)
-- Web: [web/coverage/lcov-report/index.html](../web/coverage/lcov-report/index.html)
+- Go: [`coverage.html`](../coverage.html) <!-- link-ignore -->
+- Python: [`tools/pdf-generator/htmlcov/index.html`](../tools/pdf-generator/htmlcov/index.html) <!-- link-ignore -->
+- Web: [`web/coverage/lcov-report/index.html`](../web/coverage/lcov-report/index.html) <!-- link-ignore -->
 
 ### Individual components
 
