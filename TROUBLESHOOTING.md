@@ -924,7 +924,7 @@ journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.
 Issues that were previously reported and have been resolved. Listed here
 so operators on older versions can recognise the symptom and upgrade.
 
-### LiDAR background grid: Warmup trails (fixed january 2026)
+### LiDAR background grid: warmup trails (fixed January 2026)
 
 **Symptom:** False positive foreground points ("trails") appearing on walls
 and static surfaces for ~30 seconds after grid reset or service restart.

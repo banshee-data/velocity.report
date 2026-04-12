@@ -54,7 +54,7 @@ Street-level speed measurement for neighbourhood change-makers, researchers, and
 ▀   ▄█████▀   ▄█████▀    █████     ██████    ██████   ▀████▄  █████▄  ▀█████▄
 ```
 
-## Warning ⚠️ Alpha software 🚧
+## Warning ⚠️ alpha software 🚧
 
 ```
     ░██       ░██                                ░██                      ░██
@@ -76,7 +76,7 @@ Communities trying to make their streets safer face a familiar problem: everyone
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-A radar measures speeds, no cameras, no licence plates, no surveillance infrastructure. The logged data stays on a local device in someone's house. The reports are professional enough for a planning committee.
+A radar measures speeds: no cameras, no licence plates, no surveillance infrastructure. The logged data stays on a local device in someone's house. The reports are professional enough for a planning committee.
 
 Evidence over opinion. Privacy over convenience. Community ownership over cloud dependency.
 
@@ -99,7 +99,7 @@ See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
 ### In practice: Clarendon Avenue school zone
 
-Clarendon Avenue runs past an elementary school in San Francisco, designated a high injury road for years. Parents worried about about vehicle speeds and whether the city's planned repaving would actually help.
+Clarendon Avenue runs past an elementary school in San Francisco, designated a high injury road for years. Parents worried about vehicle speeds and whether the city's planned repaving would actually help.
 
 When the city announced a quick-build to repave Clarendon, the Banshee team ran a baseline speed survey in June 2025 and sent the results to the city engineering team ahead of their October planning meeting. The city repaved in December 2025. A second survey in January 2026 showed what parents feared: speeds had climbed, not fallen. The repaving, funded to improve safety, had made the school run more dangerous.
 
@@ -214,10 +214,10 @@ Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay ca
 
 ## 🔑 Key documents
 
-- 📐 [TENETS.md](TENETS.md): the four rules that do not bend: privacy, safety, evidence, local-first
+- 📐 [TENETS.md](TENETS.md): the six tenets that guide the project: privacy, safety, evidence, local-first, simplicity, DRY
 - 🔭 [VISION.md](docs/VISION.md): where this is going, and what it looks like when it gets there
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md): how the parts fit together: sensors, server, database, frontend
-- 🔢 [MATHS.md](data/maths/MATHS.md): the maths behind tracking, clustering, and classification — no handwaving
+- 🔢 [MATHS.md](data/maths/MATHS.md): the maths behind tracking, clustering, and classification, with no handwaving
 - 🤝 [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute without producing an exciting new class of bug
 - 🧱 [COMMANDS.md](COMMANDS.md): every make target, in one place
 - 🎨 [DESIGN.md](docs/ui/DESIGN.md): how the interface should look and why
