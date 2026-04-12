@@ -195,7 +195,30 @@ For each spec with a Design Decisions or Resolved Design Questions table:
 - Update entries that have drifted from implementation.
 - Add new decisions that were made during implementation but not recorded.
 
-### 6. Tone and Style Pass
+### 6. Prose width check
+
+Run the advisory prose-width check and review the output. This never blocks
+CI — it is a quality signal, not a gate.
+
+```bash
+make check-prose-width
+```
+
+Or directly:
+
+```bash
+python3 scripts/check-prose-line-width.py --report
+```
+
+The script checks running prose only. Fenced code blocks, tables, headings,
+image references, and link definitions are excluded. The limit is 100 columns.
+
+For each violation: assess whether it is a long URL (acceptable), a list item
+that cannot wrap cleanly (acceptable), or genuine overlong prose (fix it).
+Do not wrap lines mid-sentence to hit the number; Prettier handles that on
+`make format-docs`.
+
+### 7. Tone and style pass
 
 Quick scan for the most common tone issues:
 
@@ -207,7 +230,7 @@ Quick scan for the most common tone issues:
 - [ ] **Product name:** `velocity.report` (lowercase v, no spaces).
 - [ ] **British English:** `-ise` not `-ize`, `-our` not `-or`.
 
-### 7. Disk Image Readiness
+### 8. Disk image readiness
 
 Check that documentation referenced by the disk image build is present and
 correct:
@@ -231,7 +254,7 @@ Verify:
 - [ ] `TROUBLESHOOTING.md` covers known deployment issues.
 - [ ] Any docs bundled in the image (`static/`, `web/build/`) are up to date.
 
-### 8. Report
+### 9. Report
 
 Print a summary:
 
