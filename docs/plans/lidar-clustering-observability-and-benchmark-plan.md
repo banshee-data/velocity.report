@@ -434,9 +434,9 @@ Since the Pi has no display, the benchmark harness serves as the primary perform
 1. Cross-compile and deploy to Pi 4.
 2. Run `make test-perf NAME=kirk0 PROFILE=pi`.
 3. Check in `baseline-kirk0-pi.json`.
-4. Document tuning recommendations in `config/README.md`.
+4. Document tuning recommendations in `config/CONFIG.md`.
 
-**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, `config/README.md`
+**Files:** `internal/lidar/perf/baseline/baseline-kirk0-pi.json`, `config/CONFIG.md`
 
 ---
 

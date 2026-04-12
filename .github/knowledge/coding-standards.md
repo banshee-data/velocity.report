@@ -128,7 +128,7 @@ This applies to:
 
 ## Configuration
 
-Configuration is JSON, version-tagged (`v2`), and validated at load time. See `config/README.md` for the schema. Do not add CLI flags for values that belong in the tuning file.
+Configuration is JSON, version-tagged (`v2`), and validated at load time. See [config/CONFIG.md](../../config/CONFIG.md) for the schema. Do not add CLI flags for values that belong in the tuning file.
 
 ## Images and Media
 

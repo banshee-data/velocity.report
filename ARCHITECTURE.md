@@ -1210,7 +1210,7 @@ and implementation mapping for one pipeline stage.
 | [classification-maths.md](data/maths/classification-maths.md)                     | L6 Objects     | Rule-based classifier thresholds, feature definitions                                      |
 | [pipeline-review-open-questions.md](data/maths/pipeline-review-open-questions.md) | L1–L6          | Cross-layer dependency audit, open design questions                                        |
 
-The parameter configuration reference ([config/README.maths.md](config/README.maths.md)) maps every
+The parameter configuration reference ([config/CONFIG.md](config/CONFIG.md#config-to-maths-cross-reference)) maps every
 leaf path in `tuning.defaults.json` to the mathematical document that explains it.
 
 Key references from the literature: Kalman (1960), Munkres (1957), Ester et al.

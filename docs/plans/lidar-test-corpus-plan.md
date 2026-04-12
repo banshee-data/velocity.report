@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Layers:** Cross-cutting
-- **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/README.maths.md)
+- **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)
 
 ## Goal
@@ -111,6 +111,6 @@ results.
 ## References
 
 - [Pipeline review Q11](../../data/maths/pipeline-review-open-questions.md): overfitting analysis
-- [Config evidence levels](../../config/README.maths.md): evidence classification and sweep experiments
+- [Config evidence levels](../../config/CONFIG.md#config-to-maths-cross-reference): evidence classification and sweep experiments
 - [Performance harness plan](lidar-performance-measurement-harness-plan.md): CI integration
 - [Parameter tuning plan](lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

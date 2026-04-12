@@ -74,7 +74,7 @@ LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 - `--lidar-pcap-dir` (string): Safe directory for PCAP files (default: `../sensor_data/lidar`). Only files within this directory can be replayed via the API. This prevents path traversal attacks.
 
 **Sensor/network settings (config file only):** The following settings are
-configured via the [tuning config file](../../config/README.md), not CLI flags:
+configured via the [tuning config file](../../config/CONFIG.md), not CLI flags:
 
 For the canonical port register and numeric rationale, see [MAGIC_NUMBERS.md](../../MAGIC_NUMBERS.md).
 

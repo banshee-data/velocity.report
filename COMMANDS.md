@@ -126,7 +126,7 @@ Legacy aliases are kept for compatibility.
 
 - `check-config-order`: Validate canonical tuning key order across config and docs surfaces
 - `sync-config-order`: Rewrite config/docs targets to canonical tuning key order
-- `check-config-maths`: Validate `README.maths` keys against docs JSON, `tuning*.json`, and Go schema sources
+- `check-config-maths`: Validate config maths keys against docs JSON, `tuning*.json`, and Go schema sources
 - `check-config-maths-strict`: Strict parity mode; also requires full webserver POST schema parity
   Current status: optional in CI until webserver schema parity backlog is complete.
 - Compatibility aliases: `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`

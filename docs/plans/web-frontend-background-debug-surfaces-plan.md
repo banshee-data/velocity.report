@@ -3,7 +3,7 @@
 - **Status:** Planning-only (no implementation in this branch)
 - **Layers:** L3 Grid, L9 Endpoints, L10 Clients
 - **Scope:** Swift visualiser debugging outputs for background settlement
-- **Related:** [api-contracts.md](../ui/visualiser/api-contracts.md), [architecture.md](../ui/visualiser/architecture.md), [implementation.md](../ui/visualiser/implementation.md), [`config/README.maths.md`](../../config/README.maths.md)
+- **Related:** [api-contracts.md](../ui/visualiser/api-contracts.md), [architecture.md](../ui/visualiser/architecture.md), [implementation.md](../ui/visualiser/implementation.md), [`config/CONFIG.md`](../../config/CONFIG.md)
 - **Canonical:** [implementation.md](../ui/visualiser/implementation.md)
 
 ## 1. Problem
@@ -57,7 +57,7 @@ toggles.
 
 Config/math coupling for this plan is canonical in:
 
-- [`config/README.maths.md`](../../config/README.maths.md)
+- [`config/CONFIG.md`](../../config/CONFIG.md)
 
 Downstream mapping docs must sync from that file via:
 

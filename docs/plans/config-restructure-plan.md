@@ -11,7 +11,7 @@
 
 The current `tuning.defaults.json` uses a **flat** schema: 44 keys at root
 level with no nesting. This worked well for a single-engine pipeline, but the
-[velocity-coherent foreground extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+[velocity-coherent foreground extraction](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 proposal introduces:
 
 1. **Full layer coverage**: L1 through L6 are represented in a single
@@ -62,7 +62,7 @@ but with no structural hierarchy in JSON or Go.
 }
 ```
 
-Full key listing and documentation: [`config/README.md`](README.md).
+Full key listing and documentation: [`config/CONFIG.md`](../../config/CONFIG.md).
 
 ---
 
@@ -353,34 +353,34 @@ All values were previously hardcoded in `l2frames/frame_builder.go`.
 Fields shared by all L3 engines (embedded via `l3Common`).
 10 existing tunable + 16 newly exposed.
 
-| Key                                    | Type    | Maths reference / description                                                        | Source                                                        |
-| -------------------------------------- | ------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../data/maths/background-grid-settling-maths.md) | Tunable                                                       |
-| `closeness_multiplier`                 | float64 | EMA gating threshold                                                                 | Tunable                                                       |
-| `safety_margin_metres`                 | float64 | Additive minimum gate width                                                          | Tunable                                                       |
-| `noise_relative`                       | float64 | Range-proportional noise model                                                       | Tunable                                                       |
-| `neighbour_confirmation_count`         | int     | Spatial neighbour voting                                                             | Tunable                                                       |
-| `seed_from_first`                      | bool    | Cell initialisation policy                                                           | Tunable                                                       |
-| `warmup_duration_nanos`                | int64   | Settling state machine                                                               | Tunable                                                       |
-| `warmup_min_frames`                    | int     | Settling state machine                                                               | Tunable                                                       |
-| `post_settle_update_fraction`          | float64 | Post-convergence adaptation rate                                                     | Tunable                                                       |
-| `enable_diagnostics`                   | bool    | Per-cell debug output                                                                | Tunable                                                       |
-| `freeze_duration`                      | string  | Cell freeze time after foreground                                                    | **NEW**: was `FreezeDuration`                                 |
-| `freeze_threshold_multiplier`          | float64 | Closeness multiplier for freeze trigger                                              | **NEW**: was `FreezeThresholdMultiplier`                      |
-| `settling_period`                      | string  | Time before first persistence snapshot                                               | **NEW**: was `SettlingPeriod`                                 |
-| `snapshot_interval`                    | string  | Interval between background snapshots                                                | **NEW**: was `SnapshotInterval`                               |
-| `change_threshold_snapshot`            | int     | Min changed cells to trigger a snapshot                                              | **NEW**: was `ChangeThresholdSnapshot`                        |
-| `reacquisition_boost_multiplier`       | float64 | Fast re-acquisition alpha boost                                                      | **NEW**: was `DefaultReacquisitionBoostMultiplier`            |
-| `min_confidence_floor`                 | int     | Min `TimesSeenCount` to preserve during foreground                                   | **NEW**: was `DefaultMinConfidenceFloor`                      |
-| `locked_baseline_threshold`            | int     | Min observations before baseline lock                                                | **NEW**: was `DefaultLockedBaselineThreshold`                 |
-| `locked_baseline_multiplier`           | float64 | Locked spread acceptance window multiplier                                           | **NEW**: was `DefaultLockedBaselineMultiplier`                |
-| `sensor_movement_foreground_threshold` | float64 | Fraction of points → sensor movement detection                                       | **NEW**: was `SensorMovementForegroundThreshold`              |
-| `background_drift_threshold_metres`    | float64 | Cell drift distance for significant drift                                            | **NEW**: was `BackgroundDriftThresholdMeters`                 |
-| `background_drift_ratio_threshold`     | float64 | Fraction of settled cells → full background drift                                    | **NEW**: was `BackgroundDriftRatioThreshold`                  |
-| `settling_min_coverage`                | float64 | Min CoverageRate for convergence (e.g. 0.80 for 80%)                                 | **NEW**: was `DefaultSettlingThresholds().MinCoverage`        |
-| `settling_max_spread_delta`            | float64 | Max acceptable SpreadDeltaRate per frame                                             | **NEW**: was `DefaultSettlingThresholds().MaxSpreadDelta`     |
-| `settling_min_region_stability`        | float64 | Min region stability for convergence (e.g. 0.95 for 95%)                             | **NEW**: was `DefaultSettlingThresholds().MinRegionStability` |
-| `settling_min_confidence`              | float64 | Min mean TimesSeenCount for convergence                                              | **NEW**: was `DefaultSettlingThresholds().MinConfidence`      |
+| Key                                    | Type    | Maths reference / description                                                           | Source                                                        |
+| -------------------------------------- | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `background_update_fraction`           | float64 | [background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md) | Tunable                                                       |
+| `closeness_multiplier`                 | float64 | EMA gating threshold                                                                    | Tunable                                                       |
+| `safety_margin_metres`                 | float64 | Additive minimum gate width                                                             | Tunable                                                       |
+| `noise_relative`                       | float64 | Range-proportional noise model                                                          | Tunable                                                       |
+| `neighbour_confirmation_count`         | int     | Spatial neighbour voting                                                                | Tunable                                                       |
+| `seed_from_first`                      | bool    | Cell initialisation policy                                                              | Tunable                                                       |
+| `warmup_duration_nanos`                | int64   | Settling state machine                                                                  | Tunable                                                       |
+| `warmup_min_frames`                    | int     | Settling state machine                                                                  | Tunable                                                       |
+| `post_settle_update_fraction`          | float64 | Post-convergence adaptation rate                                                        | Tunable                                                       |
+| `enable_diagnostics`                   | bool    | Per-cell debug output                                                                   | Tunable                                                       |
+| `freeze_duration`                      | string  | Cell freeze time after foreground                                                       | **NEW**: was `FreezeDuration`                                 |
+| `freeze_threshold_multiplier`          | float64 | Closeness multiplier for freeze trigger                                                 | **NEW**: was `FreezeThresholdMultiplier`                      |
+| `settling_period`                      | string  | Time before first persistence snapshot                                                  | **NEW**: was `SettlingPeriod`                                 |
+| `snapshot_interval`                    | string  | Interval between background snapshots                                                   | **NEW**: was `SnapshotInterval`                               |
+| `change_threshold_snapshot`            | int     | Min changed cells to trigger a snapshot                                                 | **NEW**: was `ChangeThresholdSnapshot`                        |
+| `reacquisition_boost_multiplier`       | float64 | Fast re-acquisition alpha boost                                                         | **NEW**: was `DefaultReacquisitionBoostMultiplier`            |
+| `min_confidence_floor`                 | int     | Min `TimesSeenCount` to preserve during foreground                                      | **NEW**: was `DefaultMinConfidenceFloor`                      |
+| `locked_baseline_threshold`            | int     | Min observations before baseline lock                                                   | **NEW**: was `DefaultLockedBaselineThreshold`                 |
+| `locked_baseline_multiplier`           | float64 | Locked spread acceptance window multiplier                                              | **NEW**: was `DefaultLockedBaselineMultiplier`                |
+| `sensor_movement_foreground_threshold` | float64 | Fraction of points → sensor movement detection                                          | **NEW**: was `SensorMovementForegroundThreshold`              |
+| `background_drift_threshold_metres`    | float64 | Cell drift distance for significant drift                                               | **NEW**: was `BackgroundDriftThresholdMeters`                 |
+| `background_drift_ratio_threshold`     | float64 | Fraction of settled cells → full background drift                                       | **NEW**: was `BackgroundDriftRatioThreshold`                  |
+| `settling_min_coverage`                | float64 | Min CoverageRate for convergence (e.g. 0.80 for 80%)                                    | **NEW**: was `DefaultSettlingThresholds().MinCoverage`        |
+| `settling_max_spread_delta`            | float64 | Max acceptable SpreadDeltaRate per frame                                                | **NEW**: was `DefaultSettlingThresholds().MaxSpreadDelta`     |
+| `settling_min_region_stability`        | float64 | Min region stability for convergence (e.g. 0.95 for 95%)                                | **NEW**: was `DefaultSettlingThresholds().MinRegionStability` |
+| `settling_min_confidence`              | float64 | Min mean TimesSeenCount for convergence                                                 | **NEW**: was `DefaultSettlingThresholds().MinConfidence`      |
 
 **Engine variants:**
 
@@ -394,17 +394,17 @@ Fields shared by all L3 engines (embedded via `l3Common`).
 All 9 existing tunable fields. No newly exposed constants (L4 has minimal
 hardcoded values beyond numerical stability guards).
 
-| Key                             | Type    | Maths reference                                              |
-| ------------------------------- | ------- | ------------------------------------------------------------ |
-| `foreground_dbscan_eps`         | float64 | [clustering-maths.md](../data/maths/clustering-maths.md)     |
-| `foreground_min_cluster_points` | int     | DBSCAN MinPts                                                |
-| `foreground_max_input_points`   | int     | Downsampling cap                                             |
-| `height_band_floor`             | float64 | [ground-plane-maths.md](../data/maths/ground-plane-maths.md) |
-| `height_band_ceiling`           | float64 | Vertical band filter                                         |
-| `remove_ground`                 | bool    | Master ground-filter switch                                  |
-| `max_cluster_diameter`          | float64 | Post-DBSCAN cluster geometry filter                          |
-| `min_cluster_diameter`          | float64 | Minimum cluster extent                                       |
-| `max_cluster_aspect_ratio`      | float64 | Elongation filter                                            |
+| Key                             | Type    | Maths reference                                                 |
+| ------------------------------- | ------- | --------------------------------------------------------------- |
+| `foreground_dbscan_eps`         | float64 | [clustering-maths.md](../../data/maths/clustering-maths.md)     |
+| `foreground_min_cluster_points` | int     | DBSCAN MinPts                                                   |
+| `foreground_max_input_points`   | int     | Downsampling cap                                                |
+| `height_band_floor`             | float64 | [ground-plane-maths.md](../../data/maths/ground-plane-maths.md) |
+| `height_band_ceiling`           | float64 | Vertical band filter                                            |
+| `remove_ground`                 | bool    | Master ground-filter switch                                     |
+| `max_cluster_diameter`          | float64 | Post-DBSCAN cluster geometry filter                             |
+| `min_cluster_diameter`          | float64 | Minimum cluster extent                                          |
+| `max_cluster_aspect_ratio`      | float64 | Elongation filter                                               |
 
 **Engine variants:**
 
@@ -418,31 +418,31 @@ hardcoded values beyond numerical stability guards).
 
 22 existing tunable + 1 newly exposed.
 
-| Key                                   | Type    | Maths reference / description                                          | Source                                 |
-| ------------------------------------- | ------- | ---------------------------------------------------------------------- | -------------------------------------- |
-| `gating_distance_squared`             | float64 | [tracking-maths.md](../data/maths/tracking-maths.md): Mahalanobis gate | Tunable                                |
-| `process_noise_pos`                   | float64 | KF process noise (position)                                            | Tunable                                |
-| `process_noise_vel`                   | float64 | KF process noise (velocity)                                            | Tunable                                |
-| `measurement_noise`                   | float64 | KF measurement noise                                                   | Tunable                                |
-| `occlusion_cov_inflation`             | float64 | Coast-mode covariance growth                                           | Tunable                                |
-| `occlusion_threshold_nanos`           | int64   | Gap duration (ns) triggering occlusion mode (~200 ms at 10 Hz)         | **NEW**: was `occlusionThresholdNanos` |
-| `hits_to_confirm`                     | int     | Track lifecycle                                                        | Tunable                                |
-| `max_misses`                          | int     | Tentative track deletion                                               | Tunable                                |
-| `max_misses_confirmed`                | int     | Confirmed track deletion                                               | Tunable                                |
-| `max_tracks`                          | int     | Capacity limit                                                         | Tunable                                |
-| `max_reasonable_speed_mps`            | float64 | Velocity clamp                                                         | Tunable                                |
-| `max_position_jump_metres`            | float64 | Association plausibility gate                                          | Tunable                                |
-| `max_predict_dt`                      | float64 | Maximum prediction horizon                                             | Tunable                                |
-| `max_covariance_diag`                 | float64 | Covariance cap (numerical guard)                                       | Tunable                                |
-| `min_points_for_pca`                  | int     | OBB geometry minimum                                                   | Tunable                                |
-| `obb_heading_smoothing_alpha`         | float64 | Heading EMA                                                            | Tunable                                |
-| `obb_aspect_ratio_lock_threshold`     | float64 | Aspect-ratio lock guard                                                | Tunable                                |
-| `max_track_history_length`            | int     | History buffer size                                                    | Tunable                                |
-| `max_speed_history_length`            | int     | Speed statistics buffer                                                | Tunable                                |
-| `merge_size_ratio`                    | float64 | Track merge heuristic                                                  | Tunable                                |
-| `split_size_ratio`                    | float64 | Track split heuristic                                                  | Tunable                                |
-| `deleted_track_grace_period`          | string  | Grace period for deleted-track reuse                                   | Tunable                                |
-| `min_observations_for_classification` | int     | Classification confidence gate                                         | Tunable                                |
+| Key                                   | Type    | Maths reference / description                                             | Source                                 |
+| ------------------------------------- | ------- | ------------------------------------------------------------------------- | -------------------------------------- |
+| `gating_distance_squared`             | float64 | [tracking-maths.md](../../data/maths/tracking-maths.md): Mahalanobis gate | Tunable                                |
+| `process_noise_pos`                   | float64 | KF process noise (position)                                               | Tunable                                |
+| `process_noise_vel`                   | float64 | KF process noise (velocity)                                               | Tunable                                |
+| `measurement_noise`                   | float64 | KF measurement noise                                                      | Tunable                                |
+| `occlusion_cov_inflation`             | float64 | Coast-mode covariance growth                                              | Tunable                                |
+| `occlusion_threshold_nanos`           | int64   | Gap duration (ns) triggering occlusion mode (~200 ms at 10 Hz)            | **NEW**: was `occlusionThresholdNanos` |
+| `hits_to_confirm`                     | int     | Track lifecycle                                                           | Tunable                                |
+| `max_misses`                          | int     | Tentative track deletion                                                  | Tunable                                |
+| `max_misses_confirmed`                | int     | Confirmed track deletion                                                  | Tunable                                |
+| `max_tracks`                          | int     | Capacity limit                                                            | Tunable                                |
+| `max_reasonable_speed_mps`            | float64 | Velocity clamp                                                            | Tunable                                |
+| `max_position_jump_metres`            | float64 | Association plausibility gate                                             | Tunable                                |
+| `max_predict_dt`                      | float64 | Maximum prediction horizon                                                | Tunable                                |
+| `max_covariance_diag`                 | float64 | Covariance cap (numerical guard)                                          | Tunable                                |
+| `min_points_for_pca`                  | int     | OBB geometry minimum                                                      | Tunable                                |
+| `obb_heading_smoothing_alpha`         | float64 | Heading EMA                                                               | Tunable                                |
+| `obb_aspect_ratio_lock_threshold`     | float64 | Aspect-ratio lock guard                                                   | Tunable                                |
+| `max_track_history_length`            | int     | History buffer size                                                       | Tunable                                |
+| `max_speed_history_length`            | int     | Speed statistics buffer                                                   | Tunable                                |
+| `merge_size_ratio`                    | float64 | Track merge heuristic                                                     | Tunable                                |
+| `split_size_ratio`                    | float64 | Track split heuristic                                                     | Tunable                                |
+| `deleted_track_grace_period`          | string  | Grace period for deleted-track reuse                                      | Tunable                                |
+| `min_observations_for_classification` | int     | Classification confidence gate                                            | Tunable                                |
 
 **Engine variants:**
 
@@ -1003,7 +1003,7 @@ For each scenario, compute:
 Results are compared with paired bootstrap confidence intervals. All regression
 gates must pass before a configuration change is promoted.
 
-See: [velocity-coherent-foreground-extraction.md §7](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
+See: [velocity-coherent-foreground-extraction.md §7](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)
 for the full statistical protocol.
 
 ### 7.1 Long-term posture gaps (post-branch review)
@@ -1041,7 +1041,7 @@ provenance**. The main remaining gaps are:
 **Boundary decision:** this document remains the canonical home for the
 **runtime schema and config contract**. Detailed database/API design for
 immutable run-config assets remains canonical in
-[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md).
+[LiDAR Deterministic Run Config and Execution Metadata Plan](lidar-immutable-run-config-asset-plan.md).
 The new phase below is the sequencing bridge between this schema restructure
 and that deterministic asset plan.
 
@@ -1092,7 +1092,7 @@ of the hot-reload tuning schema on this branch.
 Turn the new nested schema into a reproducible **experiment surface**, not just
 a startup file format. This phase creates the bridge from runtime tuning config
 to immutable experiment assets. The detailed DB/API/storage design lives in
-[LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md);
+[LiDAR Deterministic Run Config and Execution Metadata Plan](lidar-immutable-run-config-asset-plan.md);
 this plan tracks the config-system work required to make that design land
 cleanly.
 
@@ -1112,7 +1112,7 @@ pipeline TTL/prune) and L6 classification thresholds. L2, L5, and pipeline
 constants are stable and work well at current values. L6 classification is
 deferred until the classifier strategy is settled: the rule-based classifier
 is a candidate for replacement by an ML classifier (see
-[ML classifier training pipeline](../docs/plans/lidar-ml-classifier-training-plan.md)).
+[ML classifier training pipeline](lidar-ml-classifier-training-plan.md)).
 
 | Step | Description                                                                       | Depends on  |
 | ---- | --------------------------------------------------------------------------------- | ----------- |
@@ -1128,10 +1128,10 @@ is a candidate for replacement by an ML classifier (see
 
 ## 9. Related documents
 
-- [Config README](README.md): current parameter documentation
-- [Config Maths Cross-Reference](README.maths.md): key-to-maths mapping
-- [LiDAR Deterministic Run Config and Execution Metadata Plan](../docs/plans/lidar-immutable-run-config-asset-plan.md): canonical design for immutable config assets and exact run provenance
-- [Velocity-Coherent Foreground Extraction](../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md): engine variants and config contract (§6)
-- [ML Solver Expansion](../docs/lidar/architecture/ml-solver-expansion.md): optimisation platform plan
-- [MATHS.md](../data/maths/MATHS.md): proposal roadmap (P1–P4)
-- [Geometry-Coherent Tracking](../data/maths/proposals/20260222-geometry-coherent-tracking.md): P1 proposal (L5 geometry model)
+- [Config reference](../../config/CONFIG.md): current parameter documentation
+- [Config-to-maths cross reference](../../config/CONFIG.md#config-to-maths-cross-reference): key-to-maths mapping
+- [LiDAR Deterministic Run Config and Execution Metadata Plan](lidar-immutable-run-config-asset-plan.md): canonical design for immutable config assets and exact run provenance
+- [Velocity-Coherent Foreground Extraction](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md): engine variants and config contract (§6)
+- [ML Solver Expansion](../lidar/architecture/ml-solver-expansion.md): optimisation platform plan
+- [MATHS.md](../../data/maths/MATHS.md): proposal roadmap (P1–P4)
+- [Geometry-Coherent Tracking](../../data/maths/proposals/20260222-geometry-coherent-tracking.md): P1 proposal (L5 geometry model)

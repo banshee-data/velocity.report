@@ -251,7 +251,7 @@ and rural road captures.
 - **Evidence needed:** Per-key performance (metric vs default
   value) across all five sites. Keys that diverge > 10%
   across sites need adaptive or site-profile defaults.
-- **Reference:** [config/README.maths.md §6](../config/README.maths.md),
+- **Reference:** [config/CONFIG.md §6](../config/CONFIG.md#config-to-maths-cross-reference),
   [pipeline-review Q7](maths/pipeline-review-open-questions.md),
   [pipeline-review Q11](maths/pipeline-review-open-questions.md)
 

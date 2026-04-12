@@ -112,8 +112,8 @@ help:
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
 	@echo "  sync-config-order    Rewrite tuning sources to canonical key order"
-	@echo "  check-config-maths   Validate README.maths keys across docs, tuning JSON, and Go surfaces"
-	@echo "  check-config-maths-strict Validate README.maths keys with strict webserver parity"
+	@echo "  check-config-maths   Validate config maths keys across docs, tuning JSON, and Go surfaces"
+	@echo "  check-config-maths-strict Validate config maths keys with strict webserver parity"
 	@echo ""
 	@echo "PDF GENERATOR:"
 	@echo "  pdf-check-latex-parity Verify package parity between document builder and format ini"
@@ -1139,14 +1139,14 @@ check-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
 		--discover \
-		--md-target config/README.md \
+		--md-target config/CONFIG.md \
 		--check
 
 sync-config-order:
 	@./scripts/config-order-sync \
 		--main-json config/tuning.defaults.json \
 		--discover \
-		--md-target config/README.md
+		--md-target config/CONFIG.md
 
 config-order-check: check-config-order
 

@@ -503,7 +503,7 @@ for the structured experiment design.
 
 The canonical evidence table: listing every config key, its default,
 evidence level, and derivation: lives in
-[`config/README.maths.md` §6](../../config/README.maths.md). Canonical
+[`config/CONFIG.md`](../../config/CONFIG.md#config-to-maths-cross-reference). Canonical
 default values are in
 [`config/tuning.defaults.json`](../../config/tuning.defaults.json).
 

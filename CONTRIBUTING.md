@@ -263,7 +263,7 @@ Read next:
   current CLI surface and planned consolidation
 - [internal/db/migrations/README.md](internal/db/migrations/README.md):
   schema workflow, migration commands, and production safety
-- [config/README.md](config/README.md): configuration
+- [config/CONFIG.md](config/CONFIG.md): configuration
   contract and tuning parameter layout
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md):
   release packaging strategy and install model

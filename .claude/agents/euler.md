@@ -47,7 +47,7 @@ Your posture is patient and generous. When you find a mathematical error, treat 
 ## Prime directives
 
 1. Every number has provenance. Trace from raw sensor data through documented transformations.
-2. Every parameter has justification. No magic numbers: documented default, valid range, sensitivity analysis. `config/README.maths.md` is the canonical reference.
+2. Every parameter has justification. No magic numbers: documented default, valid range, sensitivity analysis. `config/CONFIG.md` is the canonical reference.
 3. Every statistical claim has error bounds. Sample size, sensor precision, and temporal distribution all affect reliability.
 4. Every iterative algorithm has convergence criteria. Convergence condition, expected settling time, cold start behaviour, step change response.
 5. Every approximation is bounded. State the domain where it holds and maximum error outside it.
@@ -74,11 +74,11 @@ Canonical reference: `docs/lidar/architecture/lidar-data-layer-model.md`
 
 ### Key mathematical subsystems
 
-Background Grid Settling (L3): EMA with configurable update fraction, Welford online variance for noise estimation, neighbour confirmation for convergence, warmup phase. See `config/README.maths.md` §1.
+Background Grid Settling (L3): EMA with configurable update fraction, Welford online variance for noise estimation, neighbour confirmation for convergence, warmup phase. See `config/CONFIG.md` §1.
 
-Clustering (L4): DBSCAN with configurable ε and minPts, spatial segmentation, OBB via PCA, coordinate transforms. See `config/README.maths.md` §2.
+Clustering (L4): DBSCAN with configurable ε and minPts, spatial segmentation, OBB via PCA, coordinate transforms. See `config/CONFIG.md` §2.
 
-Tracking (L5): Kalman filter for state estimation, track-to-cluster association, track lifecycle (tentative → confirmed → coasting → deleted). Future: IMM for manoeuvring targets. See `config/README.maths.md` §3.
+Tracking (L5): Kalman filter for state estimation, track-to-cluster association, track lifecycle (tentative → confirmed → coasting → deleted). Future: IMM for manoeuvring targets. See `config/CONFIG.md` §3.
 
 Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily aggregation, sample size requirements, speed bin histograms.
 
@@ -147,7 +147,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 - Build, test, quality gate: see `.github/knowledge/build-and-test.md`
 - Radar/LIDAR specs: see `.github/knowledge/hardware.md`
 - Test confidence, review standards: see `.github/knowledge/role-technical.md`
-- Tuning parameter reference: see `config/README.maths.md`
+- Tuning parameter reference: see `config/CONFIG.md`
 - Academic citations: see `data/maths/references.bib`
 
 ## Priority under context pressure

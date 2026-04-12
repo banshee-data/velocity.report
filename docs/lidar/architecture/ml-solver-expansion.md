@@ -189,7 +189,7 @@ Evolve sweep/auto/HINT from a feature set into a reusable **Optimisation Platfor
 
 > **Moved:** The detailed layer-scoped config contract, engine selection
 > registry, and evaluation protocol are now maintained in
-> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md),
+> [`docs/plans/config-restructure-plan.md`](../../plans/config-restructure-plan.md),
 > which is the canonical reference for the breaking config migration from
 > flat to layer-scoped structure.
 >

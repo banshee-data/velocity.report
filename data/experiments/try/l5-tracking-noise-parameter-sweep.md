@@ -26,7 +26,7 @@ The L5 CV Kalman tracker uses three noise parameters:
 `measurement_noise` has a theoretical derivation path (sensor spec) but was
 tuned empirically on kirk0. All three are classified as provisional.
 
-See [config/README.maths.md §4](../../../config/README.maths.md) for the
+See [config/CONFIG.md §4](../../../config/CONFIG.md#config-to-maths-cross-reference) for the
 mathematical context.
 
 ## Method
@@ -97,7 +97,7 @@ Can run in parallel with L3 and L4 sweeps.
 
 ## References
 
-- [config/README.maths.md §4: Tracking](../../../config/README.maths.md)
+- [config/CONFIG.md §4: tracking](../../../config/CONFIG.md#config-to-maths-cross-reference)
 - [L3 background settling sweep](l3-background-settling-sweep.md)
 - [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
 - [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

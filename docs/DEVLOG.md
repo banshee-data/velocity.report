@@ -280,7 +280,7 @@
 
 ## March 1, 2026 - config restructure & maths refresh
 
-- Added [`config/CONFIG-RESTRUCTURE.md`](../config/CONFIG-RESTRUCTURE.md) documenting the migration from flat to layer-scoped nested tuning config schema.
+- Added [`docs/plans/config-restructure-plan.md`](plans/config-restructure-plan.md) documenting the migration from flat to layer-scoped nested tuning config schema.
 - Updated ML solver expansion and [velocity-coherent foreground extraction](plans/lidar-velocity-coherent-foreground-extraction-plan.md) maths documents to match new configuration and modelling direction.
 - Refreshed backlog references around the config and maths workstream.
 

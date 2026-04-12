@@ -239,7 +239,7 @@ Math coupling reference:
 
 Canonical config/maths mapping source:
 
-- `config/README.maths.md`
+- `config/CONFIG.md`
 
 ---
 

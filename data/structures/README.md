@@ -27,7 +27,7 @@ point to the authoritative source files.
 
 | Definition        | File                                                               | Description                                  |
 | ----------------- | ------------------------------------------------------------------ | -------------------------------------------- |
-| Tuning parameters | [`config/README.md`](../../config/README.md)                       | ~40 tuning knobs with types and defaults     |
+| Tuning parameters | [`config/CONFIG.md`](../../config/CONFIG.md)                       | ~40 tuning knobs with types and defaults     |
 | Default values    | [`config/tuning.defaults.json`](../../config/tuning.defaults.json) | Canonical defaults                           |
 | Tuning Go struct  | [`internal/config/tuning.go`](../../internal/config/tuning.go)     | `TuningConfig` with JSON tags and validation |
 

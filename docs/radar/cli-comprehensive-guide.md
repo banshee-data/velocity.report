@@ -81,7 +81,7 @@ velocity-report --enable-lidar --lidar-listen :8081
 - `--lidar-pcap-dir ../sensor_data/lidar` - Safe directory for PCAP files
 
 **Sensor/network settings** are now configured via the
-[tuning config file](../../config/README.md) (`l1.sensor`, `l1.udp_port`,
+[tuning config file](../../config/CONFIG.md) (`l1.sensor`, `l1.udp_port`,
 `l1.forward_port`, `l1.foreground_forward_port`), not CLI flags.
 
 **PDF Report Flags:**
@@ -110,9 +110,9 @@ velocity-report --enable-lidar --lidar-listen :8081
 
 **Tuning Config:**
 
-- `--config tuning.json` - Path to JSON tuning config file (see [config/README.md](../../config/README.md))
+- `--config tuning.json` - Path to JSON tuning config file (see [config/CONFIG.md](../../config/CONFIG.md))
 
-Background subtraction parameters (flush interval, noise threshold, frame buffer timeout, min frame points, seed behaviour) are configured via the [tuning config file](../../config/README.md), not CLI flags.
+Background subtraction parameters (flush interval, noise threshold, frame buffer timeout, min frame points, seed behaviour) are configured via the [tuning config file](../../config/CONFIG.md), not CLI flags.
 
 #### Subcommands
 
@@ -548,4 +548,4 @@ make plot-multisweep INPUT=sweep-results.csv
 
 **Performance Tuning:**
 
-LiDAR background subtraction parameters (frame buffer timeout, flush interval, noise threshold) are configured via the [tuning config file](../../config/README.md), adjustable at runtime via the HTTP API.
+LiDAR background subtraction parameters (frame buffer timeout, flush interval, noise threshold) are configured via the [tuning config file](../../config/CONFIG.md), adjustable at runtime via the HTTP API.

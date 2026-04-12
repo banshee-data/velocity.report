@@ -19,7 +19,7 @@ cluster size. The current ε = 0.8 is literature-derived but adapted for
 Hesai P40 point density. The minimum cluster size = 5 was tuned on kirk0
 and is classified as provisional.
 
-See [config/README.maths.md §3](../../../config/README.maths.md) for the
+See [config/CONFIG.md §3](../../../config/CONFIG.md#config-to-maths-cross-reference) for the
 mathematical context.
 
 ## Method
@@ -78,7 +78,7 @@ Can run in parallel with the L3 sweep on the same corpus PCAPs.
 
 ## References
 
-- [config/README.maths.md §3: Clustering](../../../config/README.maths.md)
+- [config/CONFIG.md §3: clustering](../../../config/CONFIG.md#config-to-maths-cross-reference)
 - [L3 background settling sweep](l3-background-settling-sweep.md)
 - [Pipeline review Q7](../../maths/pipeline-review-open-questions.md): evidence classification
 - [Parameter tuning plan](../../../docs/plans/lidar-parameter-tuning-optimisation-plan.md): sweep infrastructure

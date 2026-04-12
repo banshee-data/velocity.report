@@ -171,7 +171,7 @@ covariance-gated updates.
 > **Canonical reference:** The full config restructure plan, including the
 > complete key-to-layer mapping, nested JSON schema, migration strategy, and
 > engine-specific options, is maintained in
-> [`config/CONFIG-RESTRUCTURE.md`](../../../config/CONFIG-RESTRUCTURE.md).
+> [`docs/plans/config-restructure-plan.md`](../../../docs/plans/config-restructure-plan.md).
 >
 > This section retains the mathematical config contract for engine selection
 > and optimisation strategy only.
@@ -217,11 +217,10 @@ sweep strategy:
 }
 ```
 
-All engine parameters live inside the engine block: the block is a
-self-describing snapshot where every field is enforced when present. Only the
-selected engine's block may be present (see CONFIG-RESTRUCTURE.md §3.1
-principles 5–6). The full field set per engine is defined in
-CONFIG-RESTRUCTURE.md §5.
+All engine parameters live inside the engine block: the block is a self-describing snapshot where
+every field is enforced when present. Only the selected engine's block may be present
+(see config-restructure-plan.md §3.1 principles 5–6). The full field set per engine is defined in
+config-restructure-plan.md §5.
 
 Allowed engine values:
 
