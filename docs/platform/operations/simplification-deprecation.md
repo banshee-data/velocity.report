@@ -69,11 +69,11 @@ active plan for root cause, phases, and checklist.
   stale embeds)
 - **CI gate:** `scripts/check-binary-size.sh` (planned)
 
-| Segment                                    | Size   | Notes                                  |
-| ------------------------------------------ | ------ | -------------------------------------- |
-| Stale `static/` embeds                     | 172 MB | Root cause: build hygiene, not Svelte  |
-| Go code + all deps                         | 38 MB  | Includes SQLite, gRPC, protobuf, gonum |
-| [web/build/](../../../web/build) (current) | 1.1 MB | The actual SvelteKit build             |
+| Segment                | Size   | Notes                                  |
+| ---------------------- | ------ | -------------------------------------- |
+| Stale `static/` embeds | 172 MB | Root cause: build hygiene, not Svelte  |
+| Go code + all deps     | 38 MB  | Includes SQLite, gRPC, protobuf, gonum |
+| `web/build/` (current) | 1.1 MB | The actual SvelteKit build             |
 
 Phases: (1) eliminate stale embeds (~172 MB), (2) strip debug symbols (~8–12 MB),
 (3) CI binary size gate (45 MB threshold), (4) optional further reductions

@@ -155,7 +155,7 @@ curl                   # health checks
 | `velocity-ctl` (device management) | Cross-compiled ARM64 binary                                                       | `/usr/local/bin/velocity-ctl`                        |
 | PDF generator (Python)             | Wheel + vendored deps in venv                                                     | `/opt/velocity-report/tools/pdf-generator/`          |
 | Python venv                        | Pre-built `.venv/`                                                                | `/opt/velocity-report/.venv/`                        |
-| Web frontend (static assets)       | Pre-built [web/build/](../../web/build)                                           | Embedded in Go binary or `/opt/velocity-report/web/` |
+| Web frontend (static assets)       | Pre-built `web/build/`                                                            | Embedded in Go binary or `/opt/velocity-report/web/` |
 
 The Go binary is built with `CGO_ENABLED=1` and `-tags pcap` so that LiDAR
 packet capture is available at runtime. LiDAR is **disabled by default**; users

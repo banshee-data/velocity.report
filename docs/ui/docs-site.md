@@ -3,7 +3,7 @@
 The public-facing documentation site at [velocity.report](https://velocity.report), built with Eleventy and Tailwind CSS.
 
 **Source:** `public_html/`
-**Build output:** [public_html/\_site/](../../public_html/_site)
+**Build output:** `public_html/_site/`
 **Framework:** Eleventy (11ty) + Tailwind CSS
 **Package manager:** pnpm
 

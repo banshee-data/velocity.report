@@ -37,7 +37,7 @@ Stop and ask before continuing if any of these are true:
   reports `Dirty: true`.
 - `/opt/velocity-report` exists but `git status --short` is not clean.
 - The only available build output was produced from a checkout whose
-  [web/build/index.html](../../../web/build/index.html) is the stub page.
+  `web/build/index.html` is the stub page.
 - The host cannot provide `sudo` for service stop/start, file install, and
   backup steps.
 
@@ -264,7 +264,7 @@ export NEW_BIN="$PWD/$BINARY"
 "$NEW_BIN" --version
 ```
 
-If [web/build/index.html](../../../web/build/index.html) is missing, you need a real web build first:
+If `web/build/index.html` is missing, you need a real web build first:
 
 ```bash
 make install-web

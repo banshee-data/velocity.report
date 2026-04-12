@@ -40,14 +40,14 @@ It is a purpose-built on-device management tool with no SSH surface.
 
 ### Key changes
 
-| What               | Before                            | After                                               |
-| ------------------ | --------------------------------- | --------------------------------------------------- |
-| **Main binary**    | [cmd/radar/](../../../cmd/radar)  | `cmd/velocity-report/`                              |
-| **Start server**   | `velocity-report`                 | `velocity-report serve` (or just `velocity-report`) |
-| **PDF generation** | `PYTHONPATH=... python -m ...`    | `velocity-report pdf config.json`                   |
-| **Sweep tool**     | [./app-sweep](../../../app-sweep) | `velocity-report-sweep`                             |
-| **Installation**   | Manual build + scp + script       | `curl install.sh \| sudo bash`                      |
-| **Releases**       | None                              | GitHub Releases with CI/CD                          |
+| What               | Before                           | After                                               |
+| ------------------ | -------------------------------- | --------------------------------------------------- |
+| **Main binary**    | [cmd/radar/](../../../cmd/radar) | `cmd/velocity-report/`                              |
+| **Start server**   | `velocity-report`                | `velocity-report serve` (or just `velocity-report`) |
+| **PDF generation** | `PYTHONPATH=... python -m ...`   | `velocity-report pdf config.json`                   |
+| **Sweep tool**     | `./app-sweep`                    | `velocity-report-sweep`                             |
+| **Installation**   | Manual build + scp + script      | `curl install.sh \| sudo bash`                      |
+| **Releases**       | None                             | GitHub Releases with CI/CD                          |
 
 ## Components inventory
 
