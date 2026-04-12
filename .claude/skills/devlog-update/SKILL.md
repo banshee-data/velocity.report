@@ -205,4 +205,4 @@ grep "^## " docs/DEVLOG.md | sort | uniq -d
 - Coverage-update commits (`Update coverage data`) should be ignored: they are automated.
 - When multiple branches have work on the same day, group by theme rather than by branch. Mention the branch in the metadata line.
 - Keep bullets concise. A day with 60 commits should produce 5-10 bullets, not 60.
-- Use British English spelling consistent with the rest of the repository (e.g. "standardisation" not "standardization", "colour" not "colour").
+- Use British English spelling consistent with the rest of the repository (e.g. "standardisation" not "standardization", "colour" not "color").
