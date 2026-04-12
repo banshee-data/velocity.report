@@ -1,6 +1,6 @@
 # LiDAR layer alignment and readability review (2026-02-17)
 
-- **Status:** Reference; items 1–12 and 14 complete; item 13 (frontend decomposition) tracked in [BACKLOG.md](../../BACKLOG.md) §v0.7.0.
+- **Status:** Reference; items 1–12 and 14 complete; item 13 (frontend decomposition) tracked in [BACKLOG.md](../../BACKLOG.md).
 
 This review audits the codebase against the six-layer LiDAR model, identifying boundary violations, readability issues, and route-registration complexity to guide the layer alignment refactor.
 

@@ -18,10 +18,10 @@ Canonical vocabulary of track classification labels used across the proto wire f
 | 5     | BIRD         | ✅              | Airborne fauna               |
 | 6     | BUS          | ✅              | Public transit               |
 | 7     | CAR          | ✅              | Cars, vans, trucks           |
-| 8     | TRUCK        | Reserved v0.6+  | Proto value stable           |
-| 9     | MOTORCYCLIST | Reserved v0.6+  | Proto value stable           |
+| 8     | TRUCK        | Reserved        | Proto value stable           |
+| 9     | MOTORCYCLIST | Reserved        | Proto value stable           |
 
-v0.5.0 ships **7 user-assignable classes**. Truck and motorcyclist are
+The system ships **7 user-assignable classes**. Truck and motorcyclist are
 disabled in the classifier, hidden in UIs, and rejected by the label API.
 
 ## Wire protocol
@@ -45,7 +45,7 @@ features without a full `TrackedObject`.
 
 ## Keyboard shortcuts
 
-Renumbered 1–7 for v0.5.0: car, bus, pedestrian, cyclist, bird, dynamic,
+Renumbered 1–7 (migration 029): car, bus, pedestrian, cyclist, bird, dynamic,
 noise.
 
 ## Remaining work
@@ -72,7 +72,7 @@ runtime imports from the taxonomy API.
 Ensure REST API track responses use canonical string labels consistent
 with the taxonomy API.
 
-## Reactivation path (v0.6+)
+## Future reactivation path
 
 When sufficient labelled data exists: uncomment truck/motorcyclist cascade
 rules in `classification.go`, add labels back to `validUserLabels`, restore

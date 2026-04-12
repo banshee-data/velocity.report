@@ -9,15 +9,15 @@ alignment, see [LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md).
 
 | Layer | Label      | Package (Go)                      | Responsibility                                               |
 | ----- | ---------- | --------------------------------- | ------------------------------------------------------------ |
-| L1    | Packets    | `internal/lidar/l1packets/`       | Wire transport, UDP capture, PCAP replay, packet parsing     |
-| L2    | Frames     | `internal/lidar/l2frames/`        | Frame assembly, timestamps, geometry conversion              |
-| L3    | Grid       | `internal/lidar/l3grid/`          | Background model, foreground masking, persistence, regions   |
-| L4    | Perception | `internal/lidar/l4perception/`    | Per-frame clustering, OBBs, ground removal                   |
-| L5    | Tracks     | `internal/lidar/l5tracks/`        | Temporal association, identity, lifecycle, motion estimation |
-| L6    | Objects    | `internal/lidar/l6objects/`       | Semantic classification, per-object quality                  |
+| L1    | Packets    | `l1packets`                       | Wire transport, UDP capture, PCAP replay, packet parsing     |
+| L2    | Frames     | `l2frames`                        | Frame assembly, timestamps, geometry conversion              |
+| L3    | Grid       | `l3grid`                          | Background model, foreground masking, persistence, regions   |
+| L4    | Perception | `l4perception`                    | Per-frame clustering, OBBs, ground removal                   |
+| L5    | Tracks     | `l5tracks`                        | Temporal association, identity, lifecycle, motion estimation |
+| L6    | Objects    | `l6objects`                       | Semantic classification, per-object quality                  |
 | L7    | Scene      | _(planned)_                       | Persistent world model, multi-sensor fusion                  |
-| L8    | Analytics  | `internal/lidar/l8analytics/`     | Canonical metrics, summaries, comparisons, scoring           |
-| L9    | Endpoints  | `internal/lidar/l9endpoints/`     | gRPC streams, chart payload shaping, debug views             |
+| L8    | Analytics  | `l8analytics`                     | Canonical metrics, summaries, comparisons, scoring           |
+| L9    | Endpoints  | `l9endpoints`                     | gRPC streams, chart payload shaping, debug views             |
 | L10   | Clients    | `web/`, `tools/visualiser-macos/` | Browser, native, and report-generation consumers             |
 
 ## Folder structure
@@ -62,7 +62,7 @@ Labels are applied by human reviewers to tracks within an analysis run. The same
 
 ### Detection labels (`user_label`)
 
-Classify what object the track represents. v0.5.0 ships 7 active labels.
+Classify what object the track represents. Ships 7 active labels.
 
 <!-- Canonical source: internal/api/lidar_labels.go → AllDetectionLabels -->
 
@@ -99,4 +99,4 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 - **Svelte frontend:** `web/src/lib/types/lidar.ts`; `DetectionLabel`, `QualityLabel`
 - **macOS app:** `tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift`; `LabelPanelView`
 
-> **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. v0.5.0 ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).
+> **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. Ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).

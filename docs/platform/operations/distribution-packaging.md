@@ -24,11 +24,11 @@ velocity-report                        # Main binary (all users)
   └── version    (new)                # Version info
 
 velocity-ctl                           # On-device management (root)
-  ├── upgrade    (v0.5.1)             # In-place upgrade from GitHub Releases
-  ├── rollback   (v0.5.1)             # Restore previous version
-  ├── backup     (v0.5.1)             # Snapshot binary + database
-  ├── status     (v0.5.1)             # Service status
-  └── version    (v0.5.1)             # Show installed versions
+  ├── upgrade                        # In-place upgrade from GitHub Releases
+  ├── rollback                       # Restore previous version
+  ├── backup                         # Snapshot binary + database
+  ├── status                         # Service status
+  └── version                        # Show installed versions
 
 velocity-report-sweep                  # Power user tool
 velocity-report-backfill-rings         # Developer tool

@@ -33,11 +33,11 @@ Removal of `cmd/deploy` is gated on **all** of:
 Once met, `cmd/deploy/`, `internal/deploy/`, 8+ Makefile targets, and
 `scripts/setup-radar-host.sh` are removed.
 
-## v0.5.0 Breaking changes
+## Breaking changes
 
 1. **Track speed contract:** `peak_speed_mps` → `max_speed_mps`; percentiles
    reserved for grouped/report aggregates only.
-2. **Deploy surface deprecated**: prints warnings; removal in v0.7.0+.
+2. **Deploy surface deprecated**: prints warnings; removal gated on #210.
 3. **Sweep API:** Legacy request/result fields removed; `param_values` only.
 4. **Report download:** Query-parameter endpoint removed; path-based only.
 5. **Stats API:** Bare-array response removed; always `{ metrics, histogram }`.

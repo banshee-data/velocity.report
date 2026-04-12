@@ -297,7 +297,7 @@ sweep --pcap recording.pcap --pcap-settle 20s
 
 ### 3. Device management binary (`cmd/velocity-ctl`)
 
-> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary (v0.5.1).
+> **Note:** `velocity-ctl` replaces the deleted `velocity-deploy` binary.
 > See [deploy-rpi-imager-fork-plan.md §8](../plans/deploy-rpi-imager-fork-plan.md) for rationale.
 
 **Description:** On-device management tool for velocity.report installations. Handles upgrades, rollback, backup, and status; no SSH, no remote targets.

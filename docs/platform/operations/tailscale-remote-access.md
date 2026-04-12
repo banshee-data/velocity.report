@@ -200,4 +200,4 @@ sudo tailscale set --auto-update
   Tailscale without additional configuration.
 - **Tailscale Funnel**: exposes services to the public internet; directly
   conflicts with the privacy-first deployment model.
-- **Multi-site mesh**: coordinating multiple Pis is a v0.6.0+ concern.
+- **Multi-site mesh**: coordinating multiple Pis is a future concern.

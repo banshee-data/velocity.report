@@ -99,7 +99,7 @@ That migration is complete for the LiDAR packages (55 call sites across `l1packe
 
 - Structured logging (JSON fields, correlation IDs, external log pipelines)
 - LiDAR package logging (already migrated per the rubric design)
-- v0.5.x structural issues (covered in the hygiene plan)
+- Structural issues (covered in the hygiene plan)
 
 ## Verification
 

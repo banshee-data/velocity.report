@@ -4,7 +4,7 @@
 
 ## What changed
 
-Two coordinated migrations standardise the LiDAR schema before v0.5.0:
+Two coordinated migrations standardise the LiDAR schema:
 
 ### Migration 000030: column cleanup
 
@@ -76,6 +76,6 @@ separately. They must **not** be dropped.
 - Radar table names (LiDAR-only plan).
 - Merging live and analysis track tables (separate plan).
 
-## v0.5.x Follow-Through
+## Follow-Through
 
-> **Wire-by and wire-or-delete checklists:** tracked in the v0.5.x follow-through backlog.
+> **Wire-by and wire-or-delete checklists:** tracked in the follow-through backlog.

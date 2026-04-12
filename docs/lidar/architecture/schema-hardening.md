@@ -1,15 +1,15 @@
-# Pre-v0.5.0 schema hardening
+# Schema hardening (migrations 033–034)
 
 - **Status:** Complete
 
-One-pass schema cleanup before the `v0.5.0` branch cut: enable foreign
+One-pass schema cleanup before the release branch cut: enable foreign
 keys, move annotations to a durable owner, and tighten contracts the code
 already assumes.
 
 ## Architecture decision record
 
 - **Decision:** Move free-form annotations to a replay-owned table, then
-  enable `PRAGMA foreign_keys = ON` globally before `v0.5.0`.
+  enable `PRAGMA foreign_keys = ON` globally.
 - **Status:** Accepted and implemented (March 2026).
 
 ### Context
@@ -26,7 +26,7 @@ already assumes.
 | -------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics        |
 | **2**          | Keep current table, add replay-case FK only | Low effort, **high risk**: preserves the lifecycle bug (annotations still depend on transient live tracks) |
-| **3**          | Do nothing until after `v0.5.0`             | No effort now, **high risk**: release behaviour depends on FK-off connections; orphaning remains possible  |
+| **3**          | Do nothing; defer                           | No effort now, **high risk**: release behaviour depends on FK-off connections; orphaning remains possible  |
 
 ## System boundary diagram
 
@@ -121,14 +121,14 @@ to match existing Go-side validation:
 
 ## Failure registry
 
-| Failure mode                                  | User-visible effect                  | Handling                                                                      |
-| --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------- |
-| Legacy `lidar_track_annotations` rows dropped | Historical rows lost during `000033` | Accepted break before `v0.5.0`; export manually before upgrade if rows matter |
-| FK enforcement exposes orphan rows            | Upgrade blocked                      | Run integrity audit before migration; repair or quarantine violating rows     |
-| Replay case delete removes annotations        | User loses free-form notes           | Document delete contract; require migration test coverage for delete paths    |
-| Run delete fails due to child row references  | Delete endpoint errors after FK-on   | Make all run-owned children explicit before enabling FK-on                    |
-| Report creation without site still writes `0` | Report generation breaks under FK-on | `site_reports.site_id` migrated to nullable; API writes `NULL`                |
-| New enum checks reject legacy values          | Writes fail after schema change      | Backfill old taxonomy values during migration before adding `CHECK`s          |
+| Failure mode                                  | User-visible effect                  | Handling                                                                   |
+| --------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| Legacy `lidar_track_annotations` rows dropped | Historical rows lost during `000033` | Accepted break; export manually before upgrade if rows matter              |
+| FK enforcement exposes orphan rows            | Upgrade blocked                      | Run integrity audit before migration; repair or quarantine violating rows  |
+| Replay case delete removes annotations        | User loses free-form notes           | Document delete contract; require migration test coverage for delete paths |
+| Run delete fails due to child row references  | Delete endpoint errors after FK-on   | Make all run-owned children explicit before enabling FK-on                 |
+| Report creation without site still writes `0` | Report generation breaks under FK-on | `site_reports.site_id` migrated to nullable; API writes `NULL`             |
+| New enum checks reject legacy values          | Writes fail after schema change      | Backfill old taxonomy values during migration before adding `CHECK`s       |
 
 ## What shipped
 
@@ -141,7 +141,7 @@ to match existing Go-side validation:
 - Schema ordering tool handles self-referential FKs.
 
 Historical live-track annotations were deliberately not preserved: the
-pre-`v0.5.0` reset starts the replay-owned annotation model from a clean
+reset starts the replay-owned annotation model from a clean
 slate.
 
 ## Related

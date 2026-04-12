@@ -356,7 +356,7 @@ the service user is normally created with a non-login shell.
 
 ## Update service configuration
 
-From v0.5.0 onwards the binary requires a `--config` flag pointing at the
+The binary requires a `--config` flag pointing at the
 tuning defaults file. The old `ExecStart` line does not include this flag.
 
 Check whether the service already has `--config`:
@@ -491,11 +491,11 @@ velocity-report migrate up --db-path /var/lib/velocity-report/sensor_data.db
 The wrong form creates a stray database in the current working directory and
 reports migrations as up-to-date while the real database remains untouched.
 
-### Tuning config required from v0.5.0
+### Tuning config required
 
-From v0.5.0 the binary requires `--config` pointing at
+The binary requires `--config` pointing at
 `config/tuning.defaults.json` (or the file must exist relative to the working
-directory). Pre-v0.5.0 binaries had no `--config` flag. Upgrades crossing this
+directory). Older binaries had no `--config` flag. Upgrades crossing this
 boundary must update the `ExecStart` line in the systemd unit.
 
 ### `/opt/velocity-report` permissions

@@ -1,6 +1,6 @@
 # LiDAR data layer model (ten layers)
 
-- **Status:** Canonical reference; layer numbers are locked for codebase stability from v0.5.0 onwards.
+- **Status:** Canonical reference; layer numbers are locked for codebase stability.
 
 This is the canonical reference for the ten-layer LiDAR data processing model used throughout velocity.report, defining the scope, data forms, and stability guarantees for layers L1 through L10.
 
@@ -12,7 +12,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## Stability guarantee
 
-**Layer numbers L1–L10 are frozen from v0.5.0.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
+**Layer numbers L1–L10 are frozen.** Future capabilities extend existing layers or occupy reserved slots: they never renumber established layers. This ensures package names (`l1packets/`, `l2frames/`, … `l7scene/`) remain stable across years of evolution.
 
 ## The ten layers
 
@@ -724,22 +724,22 @@ L1–L6 remain per-sensor and sensor-local. Multi-sensor fusion happens exclusiv
 
 ## Long-term layer designation stability
 
-### Frozen designations (v0.5.0 onwards)
+### Frozen designations
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code  | Notes                                        |
-| ------ | ---------- | ------------------------------------ | -------------- | -------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0         | One instance per physical sensor             |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0         | Sensor-local coordinates                     |
-| L3     | Grid       | Background/foreground separation     | v0.1.0         | Sensor-local polar grid                      |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0         | Clusters, ground tiles, OBBs                 |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0         | Kalman + Hungarian per sensor                |
-| L6     | Objects    | Semantic classification              | v0.4.0         | Per-track class labels                       |
-| L7     | Scene      | Persistent canonical world model     | v1.0 (planned) | Multi-frame, multi-sensor, priors            |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0         | Currently in `monitor/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0         | `monitor/` dashboards; `visualiser/` gRPC    |
-| L10    | Clients    | Downstream renderers                 | v0.1.0         | Web frontend shipped with first release      |
+| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                        |
+| ------ | ---------- | ------------------------------------ | ------------- | -------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor             |
+| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                     |
+| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                      |
+| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                 |
+| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                |
+| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                       |
+| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors            |
+| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | Currently in `monitor/`; run comparison, IoU |
+| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `monitor/` dashboards; `visualiser/` gRPC    |
+| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release      |
 
 ### Rules for future evolution
 
