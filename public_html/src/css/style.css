@@ -23,6 +23,12 @@ html {
     @apply text-sm;
   }
 
+  /* Remove decorative backticks added by Tailwind Typography */
+  .prose code::before,
+  .prose code::after {
+    content: none;
+  }
+
   /* Header anchors */
   .header-anchor {
     @apply ml-2 text-gray-400 no-underline opacity-0 transition-opacity;
