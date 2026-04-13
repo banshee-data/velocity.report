@@ -5,670 +5,406 @@ description: Build a privacy-first traffic radar with Raspberry Pi and a pre-bui
 section: guides
 difficulty: intermediate
 time: 2-4 hours
-cost: $563-596
+cost: $592
 date: 2026-03-26
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 ---
 
 **A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make the case for safer streets with evidence.**
 
-**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $563–596
+**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $592
 
-**In this guide**: [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-7-generate-pdf-reports) • [Troubleshooting](#troubleshooting)
+**In this guide**: [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-6-generate-reports) • [Present Your Case](#taking-your-data-to-city-hall) • [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Introduction
 
-Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation tends to stall at "it feels fast" versus "the speed limit is fine": and feelings, however justified, do not survive contact with a council agenda.
+Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation stalls at "it feels fast" versus "the speed limit is fine," and data is what moves the conversation forward.
 
-This guide shows you how to build a privacy-first traffic radar using a pre-built Raspberry Pi image and off-the-shelf Doppler technology (the same sensors municipalities use). No cameras, no licence plates, no cloud accounts. Just local speed data that produces professional traffic reports.
-
-The whole system is designed for permanent outdoor deployment: weatherproof hardware, a single SD card flash, and software that starts collecting data the moment it boots.
-
-## Who this guide is for
-
-- **Community advocates** who need professional data for traffic calming proposals
-- **Parents** who want to prove speeding near schools with evidence, not exasperation
-- **Data enthusiasts** who appreciate useful civic tech built on open hardware
-- **Local officials** who want to validate commercial traffic studies independently
-
-**Not sure?** The project takes 2–4 hours and costs $563–596. If you care about street safety and want a permanent monitoring solution, that is a reasonable afternoon.
+This guide walks you through building a privacy-first traffic radar using a pre-built Raspberry Pi image and off-the-shelf Doppler technology. No cameras, no licence plates, no cloud accounts. The system starts collecting data the moment it boots.
 
 ## Before you begin
 
 **Skills required**:
 
-- Basic Linux command line (SSH, file editing, navigation)
+- Basic Linux command line (SSH, file editing)
 - Basic hardware assembly (connecting cables, mounting)
-- Patience for troubleshooting (sensor configuration can be finicky)
 
 **Tools needed**:
 
 - Computer with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) installed
-- Screwdrivers for assembly
-- Optional: Multimeter for troubleshooting connections
+- Screwdrivers, drill, adhesive
+- 5/16" nut driver (for steel bands)
+- Optional: multimeter for testing connections
 
-**No soldering required** • **No coding required** • **No prior radar experience needed**
+**No soldering required** 👩‍💻 **No coding required** 🛜 **No prior radar experience needed**
 
-## Privacy & legal considerations
+---
 
-### What this system does (and does not) collect
+## Privacy and legal considerations
+
+### What this system collects
 
 |                        |                                                          |
 | ---------------------- | -------------------------------------------------------- |
 | ✅ **Collected**       | Vehicle speed, direction, timestamp                      |
 | ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity |
-| ❌ **Not transmitted** | No upload, all data stays on your device                 |
+| ❌ **Not transmitted** | All data stays on your device                            |
 
-The system records vehicle speed data without collecting camera images, licence plates, or other personal details. The point is to measure traffic, not to build a private surveillance habit.
+The system records vehicle speed data without cameras, licence plates, or personal details.
 
-### Is this legal?
+### Legal position
 
-**In most jurisdictions, yes.** You are measuring public behaviour on public streets, similar to what traffic engineers and academic researchers do.
-
-**Generally allowed**:
-
-- Monitoring streets visible from your property
-- Temporary studies (1-4 weeks) for community advocacy
-- Presenting findings to local government
-- Sharing aggregate statistics (PDF reports)
-
-**May require permission**:
-
-- Mounting on utility poles (contact utility company)
-- Long-term installations (>1 month)
-- School zones or government property
-
-**Not allowed**:
-
-- Monitoring private property
-- Creating safety hazards
-
-**Disclaimer**: Laws vary. When in doubt, consult local authorities and/or an attorney.
-
-### Understanding speed: the physics behind street safety
-
-Speed is not just a number on a sign. It is physics, and physics does not negotiate.
-
-The kinetic energy of a moving object follows this formula:
-
-$$K_E = \frac{1}{2} m v^2$$
-
-Where $m$ is mass and $v$ is velocity. The key insight: energy scales with the _square_ of velocity.
-
-**Real-world impact**:
-
-- A 3,000 lb sedan at **40 mph** carries **four times** the crash energy of the same car at 20 mph
-- At **50 mph**, that energy jumps to **6.25 times** what it was at 20 mph
-- Even a 5 mph difference (say, 30 mph vs 35 mph) increases crash energy by 36%
-
-For anyone outside the vehicle: pedestrians, cyclists, children; this exponential relationship is the difference between walking away and never walking again.
-
-Streets designed for 25 mph but driven at 40? That driver is doing 2.56× the destructive force should they collide with a po.
-
-**Your radar measures what matters**: actual speeds, not posted limits. You capture real behaviour, quantify the risk, and produce data that speaks more clearly than feelings.
+In most jurisdictions, measuring vehicle speeds on public streets from your own property is legal: it is the same activity traffic engineers and academic researchers perform. Mount on utility poles only with permission. Check local regulations for long-term installations or school zones. When in doubt, consult local authorities.
 
 ---
 
 ## What you will build
 
-A weatherproof traffic monitoring system that runs on a Raspberry Pi and starts working the moment you plug it in:
-
-- **Doppler radar logger** that captures vehicle speeds 24/7
+- **Doppler radar logger**: captures vehicle speeds 24/7
 - **Local SQLite database**: all data stays on the device
-- **Live web dashboard** with real-time speeds, histograms, and time-of-day patterns
-- **Professional PDF reports** with traffic engineering metrics (p50, p85, p98)
-- **Weatherproof hardware** designed for permanent outdoor deployment
+- **Live web dashboard**: real-time speeds, histograms, time-of-day patterns
+- **Professional PDF reports**: traffic engineering metrics (p50, p85, p98)
+- **Weatherproof hardware**: designed for permanent outdoor deployment
 
-The velocity.report Pi image includes everything pre-configured: the server, the web dashboard, the PDF generator, serial port settings, and a systemd service that starts automatically on boot. You flash one SD card and connect one sensor.
-
-**Privacy by design**: no cameras, no licence plates, no identifying information; just velocity measurements.
-
-**[PLACEHOLDER: Image showing completed infrastructure deployment (weatherproof enclosure mounted on utility pole)]**
+The velocity.report Pi image includes everything pre-configured: server, web dashboard, PDF generator, serial port settings, and a systemd service that starts automatically on boot. Flash one SD card, connect one sensor.
 
 ---
 
 ## Parts and tools list
 
-**New to radar sensors?** The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment. It is weatherproof (IP67), has 100m range, and handles outdoor conditions reliably.
+The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment: weatherproof (IP67), 100 m range, RS232 interface.
 
 ### Bill of materials
 
-| Part                 | Recommended Model                                                                                     | Price (approx) | Notes                                                                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- |
-| Doppler Radar Sensor | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420           | Speed-only, RS232 interface (designated R2), 100m range, IP67 enclosure |
-| Mounting Plate       | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50            | Metal mounting bracket for OPS7243 enclosure                            |
-| M12 cable            | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17            | Connects sensor to board                                                |
-| Microcontroller      | Raspberry Pi 4 (4GB)                                                                                  | $45            | More reliable for 24/7 operation                                        |
-| SD Card              | SanDisk High Endurance 32GB                                                                           | $10-20         | Designed for continuous recording                                       |
-| Serial HAT           | Waveshare RS232/485 HAT                                                                               | $18-28         | Required for R2 (RS232) interface                                       |
-| RS-232 connector     | adafruit-DE-9                                                                                         | $3-8           | Connect sensor to board                                                 |
-| Power Supply         | Unifi U-PoE (15W)                                                                                     | $8             | Stable power for continuous operation                                   |
-| **TOTAL**            |                                                                                                       | **$563-596**   |                                                                         |
+| Part             | Recommended Model                                                                                     | Price    | Notes                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface (designated R2), 100 m range, IP67 enclosure |
+| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure                             |
+| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                                  |
+| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                                                |
+| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                                        |
+| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                                             |
+| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                                  |
+| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT                  |
+| **Total**        |                                                                                                       | **$592** |                                                                          |
+
+Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
 
 ---
 
-### Tools required
-
-- Basic screwdrivers, drill, adhesive
-- Computer for flashing SD card and SSH access
-- 5/16" nut driver (for steel bands)
-- Optional: Multimeter for testing connections
-
----
-
-## Step-by-Step build guide
+## Step-by-step build guide
 
 **Build overview** (total time: 2–4 hours):
 
-1. [Flash the Pi Image](#step-1-flash-the-pi-image): 10–15 minutes
-2. [Connect Sensor to Raspberry Pi](#step-2-connect-the-sensor-to-the-raspberry-pi): 15–30 minutes
-3. [Configure Sensor Output Mode](#step-3-configure-sensor-output-mode): 10 minutes
-4. [Verify Data Stream](#step-4-verify-data-stream): 5 minutes
-5. [Access the Web Dashboard](#step-5-access-the-web-dashboard): 5 minutes
-6. [Mount the Radar Sensor](#step-6-mount-the-radar-sensor): 1–2 hours
-7. [Generate PDF Reports](#step-7-generate-pdf-reports): After data collection
+1. [Wire the Sensor to the Raspberry Pi](#step-1-wire-the-sensor-to-the-raspberry-pi): 15–30 minutes
+2. [Flash the Pi Image](#step-2-flash-the-pi-image): 10–15 minutes
+3. [Access the Web Dashboard](#step-3-access-the-web-dashboard): 5 minutes
+4. [Mount the Radar Sensor](#step-4-mount-the-radar-sensor): 1–2 hours
+5. [Configure Your Site](#step-5-configure-your-site): 10 minutes
+6. [Generate Reports](#step-6-generate-reports): after data collection
 
 ---
 
-### Step 1: flash the Pi image
-
-_Estimated time: 10–15 minutes_
-
-The velocity.report image is a complete Raspberry Pi OS with all software pre-installed and pre-configured. Flash it to an SD card and the system is ready to run: no package installation, no build steps, no configuration files to edit.
-
-1. **Download and install** [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your computer
-
-2. **Open Raspberry Pi Imager** and select your Pi model (Pi 4, Pi 400, or Pi 5)
-
-3. **Choose the velocity.report image**:
-   - Click **Choose OS** → scroll to the bottom → **Use custom**
-   - Download the latest `.img.xz` file from [GitHub Releases](https://github.com/banshee-data/velocity.report/releases)
-   - Select the downloaded file
-
-4. **Choose your SD card**: a 32 GB high-endurance card is recommended for continuous recording
-
-5. **Configure Wi-Fi and SSH** (important):
-   - Click the **gear icon** (⚙) or **Edit Settings** before writing
-   - **Set hostname**: `velocity` (or your preference)
-   - **Enable SSH**: Use password authentication
-   - **Set username and password**: Choose something sensible and write it down
-   - **Configure Wi-Fi**: Enter your network name and password
-
-6. **Write** the image to the SD card
-
-7. **Insert the SD card** into your Raspberry Pi and power it on
-
-8. **Wait 1–2 minutes** for first boot, then verify you can connect:
-
-```bash
-ssh velocity@velocity.local
-# Or use the IP address if hostname resolution does not work
-```
-
-**What the image includes** (so you do not have to):
-
-| Component              | Location                                      | Purpose                                      |
-| ---------------------- | --------------------------------------------- | -------------------------------------------- |
-| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard      |
-| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates                |
-| PDF generator          | `/opt/velocity-report/tools/pdf-generator/`   | Professional traffic reports                 |
-| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot                 |
-| Udev rules             | `/etc/udev/rules.d/99-velocity-report.rules`  | Creates `/dev/velocity-radar` device symlink |
-
-The image also pre-configures serial port settings, UART overlays, and the service user. These are the things you would normally spend thirty minutes getting wrong, so they arrive done.
-
-**Success criteria**: You can SSH into the Pi and the service is running:
-
-```bash
-sudo systemctl status velocity-report
-# Should show "active (running)"
-```
-
----
-
-### Step 2: connect the sensor to the Raspberry Pi
+### Step 1: wire the sensor to the Raspberry Pi
 
 _Estimated time: 15–30 minutes_
 
-The OPS7243-A-CW-R2 sensor (RS232 interface) connects to the Raspberry Pi via a serial HAT. The Pi image has already configured the serial port and UART settings: you just need to wire things up.
+The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
-1. **Power off** the Raspberry Pi completely
+1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
 
-2. **Attach the serial HAT** (Waveshare RS232/485) to the 40-pin GPIO header. Ensure all pins are aligned and fully seated.
+2. **Stack the serial HAT** (Waveshare RS232/485) on top of the PoE HAT. Ensure all pins are aligned and fully seated.
 
-3. **Wire the sensor to the HAT**:
+3. **Wire the sensor to the HAT** following the wiring diagram below:
 
-![Radar wiring diagram showing M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/docs/hardware/radar-wiring.svg)
+![Radar wiring diagram: M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/img/radar-wiring.svg)
 
-| Sensor Pin (RS232) | HAT Terminal           | Wire Colour (typical) |
-| ------------------ | ---------------------- | --------------------- |
-| VCC (5V)           | +5V or separate supply | Red                   |
-| GND                | GND                    | Black                 |
-| TX                 | RX (receive)           | Green/Yellow          |
-| RX                 | TX (transmit)          | Blue/White            |
+---
 
-**Critical**: RS232 uses RX↔TX crossover. Sensor TX connects to HAT RX, and vice versa.
+### Step 2: flash the Pi image
 
-4. **Power up** the Raspberry Pi
+_Estimated time: 10–15 minutes_
 
-5. **Verify the serial device exists**:
+The velocity.report image is a complete Raspberry Pi OS with all software pre-installed and pre-configured. Flash it to an SD card and the system is ready to run.
+
+#### Option A: use the custom Raspberry Pi Imager catalogue (recommended)
+
+This opens Raspberry Pi Imager with the velocity.report image pre-loaded:
 
 ```bash
-ls -l /dev/serial0
-# Should show a link to ttyAMA0
+# macOS
+cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && \
+  ./rpi-imager --repo https://velocity.report/rpi.json
+
+# Linux
+rpi-imager --repo https://velocity.report/rpi.json
+
+# Windows
+"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://velocity.report/rpi.json
 ```
 
-If you are using a USB-Serial adapter instead of a HAT, the image creates a `/dev/velocity-radar` symlink automatically when it detects the OmniPreSense sensor.
+1. **Select your Pi model** (Pi 4, Pi 400, or Pi 5)
+2. **Select velocity.report** from the OS list
+3. **Choose your SD card** (32 GB high-endurance recommended)
+4. **Configure settings** before writing:
+   - Click the **gear icon** (⚙) or **Edit Settings**
+   - **Set hostname**: `velocity` (or your preference)
+   - **Enable SSH**: select **Allow public-key authentication only** and paste your public key (recommended). If you do not have an SSH key, select password authentication and choose a strong password.
+   - **Set username and password**: choose a username and password (required even with key authentication, for `sudo`)
+   - **Configure Wi-Fi** (optional): the Pi connects via Ethernet by default through the PoE HAT. Add Wi-Fi credentials only if you need wireless access as a fallback or for initial setup without Ethernet.
+5. **Write** the image
 
-**Success criteria**: `/dev/serial0` or `/dev/velocity-radar` exists
+#### Option B: manual download
 
-**Power considerations**:
+1. Download the latest `.img.xz` file from [GitHub Releases](https://github.com/banshee-data/velocity.report/releases)
+2. Open [Raspberry Pi Imager](https://www.raspberrypi.com/software/), select **Choose OS** → **Use custom**, and select the file
+3. Configure settings as above, then write
 
-- RS232 sensor typical draw: 300–440 mA at 5V (~2.2W)
-- Power the sensor from a dedicated supply (not the Pi's 5V pin) for stability
-- Use a low-voltage disconnect if running on battery or solar
+#### After flashing
 
----
+1. **Insert the SD card** into your Raspberry Pi and connect the PoE Ethernet cable
+2. **Wait 1–2 minutes** for first boot, then connect:
 
-### Step 3: configure sensor output mode
+```bash
+ssh velocity@velocity.local
+```
 
-_Estimated time: 10 minutes_
+The service starts automatically on boot and configures the sensor (JSON mode, units, magnitude). Verify it is running:
 
-The OmniPreSense sensor ships with CSV output by default. velocity.report expects **JSON output**, so this step switches formats and saves the setting.
+```bash
+velocity-status
+# Should show "active (running)"
+```
 
-1. **Connect via serial terminal**:
+To watch live logs:
 
-   ```bash
-   # Set serial port parameters
-   stty -F /dev/serial0 19200 cs8 -parenb -cstopb
+```bash
+velocity-log
+```
 
-   # Connect to sensor (press Ctrl+A then K to exit)
-   screen /dev/serial0 19200
-   ```
-
-2. **Configure sensor** (type these commands in the terminal):
-
-   ```
-   OJ    # Enable JSON output mode
-   UM    # Set units to metres per second
-   OM    # Enable magnitude reporting
-   A!    # Save settings permanently
-   ```
-
-   Press Enter after each command. The sensor should respond with `O`.
-
-3. **Verify** you see JSON output (lines with curly braces `{}`):
-
-   ```json
-   { "magnitude": 1.2, "speed": 3.4 }
-   ```
-
-**[PLACEHOLDER: Screenshot of terminal showing sensor configuration commands and JSON output verification]**
-
-**Success criteria**: You see JSON output (not CSV) when vehicles pass
-
-**If it is not working**:
-
-- **Still seeing CSV?** → Type `OJ` again and press Enter
-- **No response?** → Verify baud rate is 19200
-- **Garbled output?** → Check serial port settings match the above
-
-**Need more sensor info?** Type `??` to see module information or `?V` for firmware version.
-
-**Full documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
+The image installs shell aliases for common operations: `velocity-status`, `velocity-log`, `velocity-bounce` (restart), `velocity-stop`, and `velocity-start`. See the [Reference](#reference) section for the full list.
 
 ---
 
-### Step 4: verify data stream
+### Step 3: access the web dashboard
 
 _Estimated time: 5 minutes_
 
-Confirm the sensor is streaming data correctly:
+Open a browser on any device on the same network:
 
-```bash
-screen /dev/serial0 19200
-```
+### [https://velocity.local](https://velocity.local)
 
-**Success looks like**: JSON output with vehicle detections:
+The Pi generates a self-signed TLS certificate on first boot. Your browser will show a certificate warning: this is expected. To eliminate the warning, download the CA certificate from `https://velocity.local/ca.crt` and add it to your browser or system trust store.
 
-```json
-{ "magnitude": 1.2, "speed": 3.4 }
-```
+The dashboard shows real-time vehicle detections, speed distribution histograms, and time-of-day traffic patterns.
 
-When vehicles pass, you will see more detailed information. The key is that you see JSON-formatted output (curly braces `{}`), not comma-separated values.
-
-**If it is not working**:
-
-- **No output at all?** → Check baud rate (19200) and port (`/dev/serial0` or `/dev/velocity-radar`)
-- **Garbled text?** → Reconfigure sensor with `OJ` command from Step 3
-- **CSV format?** → Run `OJ` command from Step 3
-- **Permission denied?** → The image adds the default user to the `dialout` group, but if you created a different user: `sudo usermod -a -G dialout $USER` then log out and back in
-
----
-
-### Step 5: access the web dashboard
-
-_Estimated time: 5 minutes_
-
-Open a browser on any device on the same network and visit:
-
-```text
-http://velocity.local:8080
-```
-
-(Or use the Pi's IP address: `http://192.168.1.XXX:8080`)
-
-**What you will see**:
-
-- Real-time vehicle detections with speeds and timestamps
-- Speed distribution histograms
-- Time-of-day traffic patterns
-- Speed heatmaps
-
-**[PLACEHOLDER: Screenshot of web dashboard showing real-time vehicle detections, speed histogram, and time-of-day traffic patterns]**
-
-**Success criteria**: The dashboard loads and shows "No data yet" or live vehicle detections
+**Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
 **If the dashboard will not load**:
 
-1. Check the service is running: `sudo systemctl status velocity-report`
+1. Check the service is running: `velocity-status`
 2. Find the Pi's IP address: `hostname -I`
-3. Try connecting from the Pi itself: `curl http://localhost:8080/`
-
-If none of that helps, check the logs: `sudo journalctl -u velocity-report -f`
+3. Test from the Pi itself: `curl -k https://localhost/`
+4. Check logs: `velocity-log`
 
 ---
 
-### Step 6: mount the radar sensor
+### Step 4: mount the radar sensor
 
-_Estimated time: 1–2 hours for complete weatherproof installation_
+_Estimated time: 1–2 hours_
 
-**1. Prepare weatherproof enclosure**:
+**Enclosure preparation**:
 
-**Mounting preparation**:
-
-- Drill mounting holes in back plate for hose clamps
-- Install cable glands for power and (optional) Ethernet
-
-**Sensor positioning**:
-
-- Mount sensor inside with clear view through front panel
-- Use acrylic or polycarbonate window if sensor does not face forward
-
-**2. Install sensor inside enclosure**:
-
-- Aim radar sensor through front of enclosure
-- **Critical**: Avoid metal obstructions in front of sensor (Doppler radar uses RF energy)
-- Use plastic/nylon standoffs to mount sensor board
-
-**3. Mount enclosure to pole**:
+- Drill mounting holes in the back plate for hose clamps
+- Install cable glands for power and Ethernet
+- Mount the sensor inside with a clear view through the front panel
+- Use plastic or nylon standoffs (metal obstructs the radar signal)
 
 **Positioning**:
 
-- Mount 4-8 feet off ground (reduces false positives from small objects)
+- Mount 4–8 feet off the ground (reduces false detections from small objects)
 - Use two stainless steel hose clamps (top and bottom)
+- Choose a location with a clear line of sight to traffic
 
 **Aiming**:
 
-- **Angle**: 20-45° off-axis from traffic flow
-- **Orientation**: Face oncoming OR receding traffic (not perpendicular)
-- Tighten clamps securely but avoid over-tightening (can crack enclosure)
-- **Record your mounting angle**: Measure and note the angle off-axis for cosine correction in site configuration
+- **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
+- **Road coverage**: a 0° angle gives the best accuracy but the narrowest field of view. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
+- **Orientation**: face approaching or receding traffic (not perpendicular)
+- **Record your mounting angle**: you will enter this in the dashboard as the cosine error angle (Step 5)
 
-**[PLACEHOLDER: Diagram showing proper radar sensor mounting angle (20-45° off-axis from traffic flow) with top-down view of street and sensor position]**
+**Weatherproofing checklist**:
 
-**[PLACEHOLDER: Photo showing weatherproof enclosure mounted on utility pole with proper angle and positioning, including close-up of hose clamp mounting]**
-
-**4. Weatherproofing checklist**:
-
-- ✅ All cable glands properly sealed
+- ✅ All cable glands sealed
 - ✅ Desiccant pack inside enclosure
 - ✅ Enclosure gasket intact and clean
-- ✅ Test enclosure seal before final mounting
+- ✅ Seal tested before final mounting
 
-**Success criteria**: Enclosure is weatherproof, sensor aims correctly, mounting is secure
-
-**Why mount higher?** At 4–8 feet off the ground, the sensor has a cleaner line of sight to vehicle traffic and fewer opinions about squirrels.
-
-**Pole mounting best practices**:
-
-- Choose a location with clear view (no trees or signs blocking)
-- Ensure the pole is stable (utility poles preferred over signposts)
-- Check local regulations about attaching equipment to public infrastructure
-- Consider a solar panel if no mains power is available nearby
+**Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
 
 ---
 
-### Step 7: generate PDF reports
+### Step 5: configure your site
 
-_Estimated time: Varies; requires a data collection period_
+_Estimated time: 10 minutes_
 
-After collecting data for a few days or weeks, you can generate professional reports that speak the language traffic engineers and council members understand.
+Before generating reports, configure your site in the dashboard so speed measurements are corrected for your mounting angle.
 
-**Via Web Dashboard:**
+1. Open the dashboard at [`https://velocity.local`](https://velocity.local)
+2. Navigate to **Site Settings**
+3. Set the **site location** on the interactive map
+4. Set the **cosine error angle** to match your radar mounting angle from Step 4. Drag the red dot on the radar field-of-view triangle to adjust the angle visually, or type the value directly. The triangle should encompass the road lanes you want to measure.
+5. Add any **notes** about the installation (useful for later reference)
+6. **Save** the configuration
 
-1. Navigate to the **Reports** tab
-2. Select your site from the dropdown
-3. Configure report settings:
-   - **Date range**: Select start and end dates for the report period
-   - **Cosine angle**: Correction factor for sensor mounting angle (see below)
-4. Click **Generate Report**
-5. Download the PDF when ready
-
-**Cosine angle correction**: If your sensor is not mounted parallel to traffic flow, measured speeds will be lower than actual speeds. The cosine angle setting compensates for this. For a sensor mounted at 30° off-axis, set the cosine angle to 30°; the system applies the correction factor automatically. Leave at 0° if mounted parallel to traffic.
-
-**What is in the report**:
-
-- **p50 (median)**: Half of vehicles go faster than this
-- **p85 (traffic engineering standard)**: Speed at which 85% of traffic travels at or below
-- **p98 (top 2%)**: Threshold where the fastest regular drivers operate
-- Histograms, time-of-day charts, and crash physics analysis
-
-#### Comparison reports: measuring intervention effectiveness
-
-Comparison reports let you analyse the impact of traffic calming measures by comparing two time periods side by side. This is where the data earns its keep: showing council members that a speed hump reduced p85 speeds by 12 mph is considerably more persuasive than anyone's recollection of how things felt.
-
-**When to use comparison reports:**
-
-- **Before/after interventions**: Measure the effect of speed humps, signage, or enforcement campaigns
-- **Seasonal comparisons**: Compare summer vs winter traffic patterns
-- **Week-over-week analysis**: Track whether speeding issues are consistent or sporadic
-
-**To generate a comparison report via Web Dashboard:**
-
-1. Navigate to the **Reports** tab
-2. Select your site from the dropdown
-3. Set the **Primary period** dates (e.g., after intervention: 1-7 December 2025)
-4. Enable **Compare with previous period**
-5. Set the **Comparison period** dates (e.g., before intervention: 1-7 November 2025)
-6. Click **Generate Report**
-
-The report includes:
-
-- **Side-by-side metrics**: p50, p85, p98 for both periods with percentage changes
-- **Dual-period histogram**: Overlaid speed distributions with clear legend
-- **Comparison distribution table**: Detailed breakdown of speed buckets across periods
-
-**[PLACEHOLDER: Sample page from PDF report showing speed distribution histogram, p50/p85/p98 statistics, and time-of-day traffic patterns]**
-
-**Making your case**: Print the report and bring it to council. Instead of "cars go too fast", say "85% of drivers exceed the posted 25 mph limit, with p85 at 38 mph." With comparison reports, you can add: "After the speed hump installation, p85 dropped from 42 mph to 31 mph; a 26% reduction."
+The system stores this as the active site configuration period. Reports use the angle automatically to correct measured speeds. If you change the mounting angle later, create a new configuration period so historical reports remain accurate.
 
 ---
 
-#### Site configuration periods: time-based sensor settings
+### Step 6: generate reports
 
-When you reposition your sensor or adjust its mounting angle, historical data needs to be corrected using the angle that was in effect at the time of collection. The site configuration periods feature (based on a Type 6 Slowly Changing Dimension pattern) tracks these changes automatically.
+After collecting data for a few days, generate professional reports from the dashboard.
 
-**Why configuration periods matter:**
+1. Open the dashboard at [`https://velocity.local`](https://velocity.local)
+2. Select your site and set the **date range** for the report period
+3. Click **Generate Report**
+4. Download the PDF
 
-- **Accurate historical data**: If you moved the sensor from 15° to 30° on 1st December, data before that date uses the 15° correction, and data after uses 30°
-- **Retroactive corrections**: Realised your angle measurement was wrong? Update the configuration period and all reports automatically apply the correct correction
-- **Comparison report accuracy**: When comparing two time periods, each period uses the appropriate cosine correction for that date range
+The report uses the cosine error angle from your site configuration (Step 5) to correct measured speeds automatically.
 
-**Managing configuration periods via Web Dashboard:**
+**What the report includes**:
 
-1. Navigate to **Sites** → select your site
-2. Click **Configuration Periods**
-3. Add a new period with:
-   - **Start date**: When this configuration became active
-   - **End date**: When this configuration ended (leave blank for current)
-   - **Cosine error angle**: The sensor mounting angle for this period
-   - **Notes**: Optional description (e.g., "Moved sensor to east side of pole")
+- **p50 (median)**: half of vehicles go faster than this
+- **p85 (traffic engineering standard)**: speed at which 85% of traffic travels at or below
+- **p98 (top 2%)**: threshold where the fastest regular drivers operate
+- Speed distribution histograms and time-of-day charts
 
-**Example scenario:**
-
-| Period                   | Cosine Angle | Notes                           |
-| ------------------------ | ------------ | ------------------------------- |
-| 1 Jan 2025 → 15 Mar 2025 | 21°          | Initial installation            |
-| 15 Mar 2025 → 1 Jun 2025 | 35°          | Repositioned after storm damage |
-| 1 Jun 2025 → (current)   | 21°          | Restored to original position   |
-
-When generating a report for April 2025, the system automatically applies the 35° correction. A comparison report spanning February (21°) vs April (35°) applies each correction independently.
+The dashboard also supports **comparison reports** for measuring the effect of traffic calming interventions: select two date ranges and the report shows side-by-side metrics with percentage changes.
 
 ---
 
-## Network access & security
+## Taking your data to city hall
 
-### Local network deployment (recommended)
+Print the report. Bring it to the meeting. The data does the persuading.
 
-The web dashboard runs on port 8080 and is accessible to any device on your local network:
+Whether you are speaking at a US city council session, a UK parish council meeting, a town board hearing, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
 
-```text
-http://velocity.local:8080
-# or
-http://192.168.1.XXX:8080
-```
+### What to bring
 
-**Security considerations for LAN-only deployment**:
+- **Printed PDF report**: a physical document can be held, marked up, filed into the public record, and passed to the person who was not at the meeting. A screen share cannot.
+- **Site photos**: the street, the school, the park, the crossing. Data tells the story; photos make it concrete.
+- **Before-and-after comparison** (if available): if the council has already approved changes, bring the comparison report showing whether p85 actually dropped and whether it stayed down.
 
-- ✅ **No authentication required** if your network is trusted (home or office)
-- ✅ **Router firewall** blocks external access by default
-- ✅ **Data never leaves your network**: no cloud services involved
-- ⚠️ **Anyone on your Wi-Fi** can access the dashboard
+### What to say
+
+Lead with the metric traffic engineers already use:
+
+> "85% of vehicles on [street name] travel at or below [X] mph. The posted limit is [Y] mph."
+
+The **p85** is the standard threshold in US speed surveys (FHWA Manual on Uniform Traffic Control Devices) and UK speed assessments (Department for Transport guidance, 20 mph zone evaluations). Using it puts your request on the same footing as a professional traffic study.
+
+If the council has already acted and you have a comparison report:
+
+> "After the [speed hump / signage / enforcement campaign], p85 dropped from [X] to [Y] mph. [N] months later it has returned to [W] mph. The intervention slowed traffic temporarily. It has not changed the long-term behaviour."
+
+If nothing has changed:
+
+> "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is not an occasional problem. It is the normal condition of this street."
+
+### What to suggest
+
+Present the problem first, then name what might help:
+
+- **Speed humps or raised crossings**: reduce p85 by 5–15 mph in most studies
+- **Kerb extensions (UK) / curb bulb-outs (US)**: narrow the crossing distance
+- **Chicanes or lane narrowing**: reduce the straight-line path
+- **20 mph (UK) / 25 mph (US) zones**: lower posted limits near schools and parks
+- **Radar speed signs**: real-time driver feedback
+- **Targeted enforcement**: your time-of-day data shows peak violation hours
+
+You do not need to prescribe the answer. Present the evidence, name the options, and ask what the council can commit to and when.
+
+### What to avoid
+
+- **Do not share raw database files.** The PDF is the presentation format.
+- **Do not identify drivers or vehicles.** The system collects no personal data, and neither should the presentation.
+- **Do not lead with how the speed feels.** Lead with the measured speed. The data is more persuasive than the emotion.
+- **Do not accept a one-off fix as a permanent answer.** A new speed hump slows traffic for weeks. The question is whether it still works in six months. Continuous monitoring answers that question.
+
+### Why continuous monitoring matters
+
+A professional speed survey gives you a snapshot: a few days of data, a report, a recommendation. velocity.report gives you the full timeline:
+
+- **Baseline** before any intervention
+- **Initial effect** in the first weeks after a change
+- **Long-term compliance** months and seasons later
+- **Seasonal shifts**: school terms, holidays, construction
+- **Regression**: whether speeds drift back once the novelty wears off
+
+This is the difference between asking the council to act and being able to show the council whether the action worked. Communities that keep measuring hold planners and elected officials to account: not as a confrontation, but as a continuing conversation backed by evidence. The goal is continuous safety improvement, not a single fix that goes unmonitored.
+
+### Building support
+
+1. **Share with neighbours**: show the dashboard or hand out a printed report
+2. **Partner with local groups**: PTA, parent councils, neighbourhood associations, cycling and road safety campaigns
+3. **Request official data**: file public records requests (US) or FOI requests (UK) for the council's own traffic studies, and compare
+4. **Attend regularly**: present updated data at city hall or council quarterly, not once
+5. **Collect across seasons**: summer and winter patterns differ; a multi-season dataset is harder to dismiss
+6. **Follow up after every intervention**: generate a comparison report and present it at the next meeting
+
+---
+
+## Network access and security
+
+### Local network (recommended)
+
+The dashboard runs on HTTPS (port 443) and is accessible to any device on your local network. The Pi generates a self-signed TLS certificate on first boot; HTTP requests on port 80 redirect to HTTPS automatically. Your router firewall blocks external access by default, and no data leaves the network.
 
 **Best practices**:
 
-- Use a strong Wi-Fi password (WPA3 if supported)
-- Change the default Pi password immediately
-- Keep Pi OS updated: `sudo apt update && sudo apt upgrade`
-- Consider network segmentation for additional security
-
----
+- Use SSH key authentication (configured during flashing)
+- Use a strong Wi-Fi password (WPA3 if supported) if Wi-Fi is enabled
+- Keep the OS updated: `sudo apt update && sudo apt upgrade`
 
 ### Remote access with Tailscale (optional)
 
-[Tailscale](https://tailscale.com) provides secure remote access from anywhere without exposing your Pi to the public internet.
-
-**Why Tailscale?**
-
-- Zero-configuration VPN
-- End-to-end encrypted
-- NAT traversal (works behind routers)
-- Free for personal use (up to 20 devices)
-- No port forwarding or dynamic DNS needed
-
-**Setup** (5 minutes):
-
-1. **Install Tailscale on your Pi**:
+[Tailscale](https://tailscale.com) provides secure remote access without exposing your Pi to the public internet. Free for personal use.
 
 ```bash
-# Download and install Tailscale
+# Install Tailscale on your Pi
 curl -fsSL https://tailscale.com/install.sh | sh
 
 # Start Tailscale and authenticate
 sudo tailscale up
 ```
 
-2. **Authenticate** via the URL shown (opens browser)
+Follow the authentication URL, install Tailscale on your phone or laptop, then access the dashboard at `https://100.x.y.z` (using the Tailscale IP from your admin console).
 
-3. **Install Tailscale on your phone/laptop** from app store
+See the [Tailscale documentation](https://tailscale.com/kb/start) for details.
 
-4. **Access dashboard** from anywhere:
+### Shared and untrusted networks
 
-```text
-# Use the Tailscale IP shown in admin console
-http://100.x.y.z:8080
-```
+If the Pi is connected to a shared network (school, workplace, library, or multi-tenant building), other devices on that network can reach the dashboard. The dashboard has no user authentication: anyone who can reach port 443 can view your data.
 
-**Benefits**:
+**Recommended isolation**:
 
-- Access dashboard while away from home
-- Share access with trusted colleagues (invite to Tailscale network)
-- Monitor multiple deployments from single dashboard
-- No exposure to public internet scanners
+- **VLAN**: place the Pi on a dedicated VLAN or network segment so only your devices can reach it. Most managed switches and many consumer routers support VLAN configuration.
+- **Firewall rules**: if VLAN isolation is not available, configure the router or switch to restrict access to the Pi's IP address to specific client devices.
+- **Dedicated network**: for permanent installations, a small dedicated switch or router (connected to the PoE injector) keeps the Pi off the shared network entirely.
 
-**See also**: [Tailscale documentation](https://tailscale.com/kb/start)
+If you cannot isolate the device, use Tailscale (above) and disable the Pi's local network listener.
 
----
+### Public internet
 
-### Public internet deployment (not recommended)
-
-**Please do not expose this service directly to the public internet.** The dashboard has no authentication, no HTTPS, and no rate limiting. It was not designed for that, and it will not thank you for the experience.
-
-If you need remote access, please use [Tailscale](#remote-access-with-tailscale-optional).
-
----
-
-## Using your data for advocacy
-
-### Presenting to council
-
-**Do**:
-
-- Print professional PDF reports
-- Compare your data to posted speed limits
-- Propose specific solutions (speed humps, signage, enforcement)
-- Bring photos showing context (residential area, school zone)
-
-**Do not**:
-
-- Share raw database dumps
-- Attack specific drivers
-- Make emotional appeals without data backup
-- Demand immediate action without acknowledging budget constraints
-
-### Building community support
-
-1. **Share with neighbours** - Show them the data
-2. **Partner with local groups** - PTA, neighbourhood associations
-3. **File public records requests** - Compare to city traffic studies
-4. **Document over time** - Show patterns, not one-off incidents
-
-### Example talking points
-
-- ❌ "Cars go way too fast on our street!"
-- ✅ "85% of drivers exceed the 25 mph limit, with p85 at 39 mph: well above the engineering standard for residential safety."
-
-- ❌ "Someone's going to get hurt!"
-- ✅ "At 39 mph, crash energy is 143% higher than at the posted 25 mph limit. Our data shows consistent speeding during school hours."
-
-**[PLACEHOLDER: Photo of community member presenting PDF report at city council meeting with speed data displayed on screen]**
-
----
-
-## Troubleshooting
-
-**Most issues come down to**:
-
-1. Wrong baud rate (must be 19200)
-2. Sensor still in CSV mode (run the `OJ` command to switch to JSON)
-3. Wrong device port (check `ls /dev/tty*` before and after plugging in the sensor)
-4. Insufficient power (use a quality 2.5A+ power supply)
-
-**Quick fixes**:
-
-- **No sensor data?** → Check the device exists: `ls /dev/serial0` or `ls /dev/velocity-radar`
-- **Service will not start?** → Check logs: `sudo journalctl -u velocity-report -f`
-- **Dashboard will not load?** → Verify the service is running: `sudo systemctl status velocity-report`
-- **Need more help?** → See [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
+Do not expose this service to the public internet. The TLS certificate is self-signed and the dashboard has no user authentication. Use Tailscale for remote access.
 
 ---
 
 ## Updating the software
 
-The image makes zero unsolicited network requests. Updates happen when you decide, not when a server somewhere feels inspired.
+The image makes zero unsolicited network requests. Updates happen when you decide.
 
 ```bash
 # Check whether a newer version is available
@@ -677,11 +413,11 @@ sudo velocity-ctl upgrade --check
 # Download and apply the latest release
 sudo velocity-ctl upgrade
 
-# If something goes wrong, roll back to the previous version
+# If something goes wrong, roll back
 sudo velocity-ctl rollback
 ```
 
-Updates replace the server binary and run any database migrations. Your sensor data and configuration are preserved. If you prefer offline upgrades (air-gapped deployments, for example), you can apply a binary directly:
+Updates replace the server binary and run any database migrations. Your data and configuration are preserved. For air-gapped deployments:
 
 ```bash
 sudo velocity-ctl upgrade --binary /path/to/velocity-report
@@ -689,194 +425,214 @@ sudo velocity-ctl upgrade --binary /path/to/velocity-report
 
 ---
 
-## Reinstalling or starting fresh
+## Backup and restore
 
-Your sensor data is the thing that took weeks to collect. The software can be re-flashed in ten minutes. Back up the database first.
+Back up before re-flashing. Your sensor data took weeks to collect; the software can be re-flashed in ten minutes.
 
 ### Back up your data
 
-The database lives at `/var/lib/velocity-report/sensor_data.db`. Before doing anything destructive, copy it somewhere safe:
+The database lives at `/var/lib/velocity-report/sensor_data.db`.
 
 ```bash
-# Use the built-in backup tool (recommended)
+# Use the built-in backup tool
 sudo velocity-ctl backup
 
-# Or copy the database manually to removable storage or /tmp
+# Or copy manually
 sudo cp /var/lib/velocity-report/sensor_data.db \
   /tmp/sensor_data_$(date +%Y%m%d).db
 ```
 
-`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/`: but that directory lives on the SD card, so if you are about to re-flash, copy the backup file off the Pi first (to your laptop, a USB stick, or anywhere that is not about to be overwritten):
+`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/`. If you are about to re-flash the SD card, copy the backup off the Pi first:
 
 ```bash
-# From your laptop — pull the backup over SSH
+# From your laptop
 scp velocity@velocity.local:/var/lib/velocity-report/sensor_data.db \
   ~/sensor_data_backup_$(date +%Y%m%d).db
 ```
 
 ### Re-flash and restore
 
-1. **Re-flash the SD card** using [Step 1](#step-1-flash-the-pi-image)
-2. **Boot the Pi** and verify the service is running (`sudo systemctl status velocity-report`)
-3. **Stop the service** before restoring:
+1. **Re-flash the SD card** using [Step 2](#step-2-flash-the-pi-image)
+2. **Boot the Pi** and verify the service runs (`velocity-status`)
+3. **Stop the service**: `velocity-stop`
+4. **Copy the backup into place**:
 
 ```bash
-sudo systemctl stop velocity-report
-```
-
-4. **Copy your backed-up database** to the data directory:
-
-```bash
-# From your laptop — push the backup over SSH
+# From your laptop
 scp ~/sensor_data_backup_20260326.db \
   velocity@velocity.local:/tmp/sensor_data.db
 
-# On the Pi — move it into place with correct ownership
+# On the Pi
 sudo cp /tmp/sensor_data.db /var/lib/velocity-report/sensor_data.db
 sudo chown velocity:velocity /var/lib/velocity-report/sensor_data.db
 ```
 
-5. **Start the service**: it detects the existing database and runs any pending migrations automatically:
+5. **Start the service**: it detects the existing database and runs any pending migrations automatically.
 
 ```bash
-sudo systemctl start velocity-report
+velocity-start
 ```
-
-Your historical data, sites, and configuration periods will be exactly where you left them.
-
-### Removing velocity.report entirely
-
-If you want to remove velocity.report from a Pi that has other things on it:
-
-```bash
-# Stop and disable the service
-sudo systemctl stop velocity-report
-sudo systemctl disable velocity-report
-
-# Remove binaries and service
-sudo rm /usr/local/bin/velocity-report
-sudo rm /usr/local/bin/velocity-ctl
-sudo rm /etc/systemd/system/velocity-report.service
-
-# Remove data (back up first — see above)
-sudo rm -rf /var/lib/velocity-report/
-
-# Remove service user
-sudo userdel velocity
-```
-
-**Warning**: The `rm -rf` line deletes all collected data permanently. If you skipped the backup step above, now would be an excellent time to scroll back up.
 
 ---
 
-## Wrap-Up & next steps
+## Troubleshooting
 
-You have a working traffic radar.
+### Common issues
 
-**What you have built**:
+| Problem                 | Fix                                                                |
+| ----------------------- | ------------------------------------------------------------------ |
+| No sensor data          | Check device exists: `ls /dev/serial0` or `ls /dev/velocity-radar` |
+| Service will not start  | Check logs: `velocity-log`                                         |
+| Dashboard will not load | Verify service: `velocity-status`                                  |
+| Certificate warning     | Download CA from `https://velocity.local/ca.crt` and trust it      |
+| Garbled serial output   | Verify baud rate is 19200 (see below)                              |
+| Permission denied       | Add user to dialout group: `sudo usermod -a -G dialout $USER`      |
+| Still seeing CSV output | Service sets JSON mode on boot; see manual fix below               |
 
-- A weatherproof Doppler radar sensor connected to a Raspberry Pi
-- A pre-configured system that collects speed data, serves a live dashboard, and generates professional reports
-- Local-only data storage with no cloud dependencies
-- A permanent installation suitable for all-weather deployment
+### Verifying the serial connection
 
-**Keep it running**: A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that survives contact with a budget meeting.
+If the sensor is not producing data, check that the serial device exists:
 
-**Maintenance**:
+```bash
+ls -l /dev/serial0
+# Should show a link to ttyAMA0
+```
+
+If you are using a USB-serial adapter instead of a HAT, the image creates a `/dev/velocity-radar` symlink automatically when it detects the OmniPreSense sensor.
+
+To connect directly and inspect sensor output:
+
+```bash
+stty -F /dev/serial0 19200 cs8 -parenb -cstopb
+screen /dev/serial0 19200
+```
+
+You should see JSON output (`{"magnitude":1.2,"speed":3.4}`) when vehicles pass. Press Ctrl+A then K to exit `screen`.
+
+### Configuring sensor output mode manually
+
+The service configures the sensor automatically on boot (JSON mode, metres per second, magnitude reporting). If the sensor is producing CSV or garbled output despite a successful boot, connect via serial terminal and reconfigure manually:
+
+```bash
+stty -F /dev/serial0 19200 cs8 -parenb -cstopb
+screen /dev/serial0 19200
+```
+
+Type these commands, pressing Enter after each:
+
+```text
+OJ    # Enable JSON output mode
+UM    # Set units to metres per second
+OM    # Enable magnitude reporting
+A!    # Save settings permanently
+```
+
+Some commands produce a response (such as echoing the new setting); others are accepted silently. This is normal. After sending all four commands, verify you see JSON output (curly braces `{}`), not CSV, when vehicles pass.
+
+### Verifying the data stream
+
+To confirm the service is receiving data from the sensor:
+
+```bash
+velocity-log
+```
+
+You should see log entries indicating incoming radar data. If the service is running but no data appears, check the serial wiring and sensor configuration above.
+
+**Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
+
+**More help**: see [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
+
+---
+
+## Maintenance
 
 - Check the enclosure monthly for condensation
-- Clean the sensor lens seasonally
-- Document the installation with photos
-- Monitor system logs for any issues
+- Clean the sensor window seasonally
 - Run `sudo velocity-ctl upgrade --check` periodically
+- Monitor logs for issues: `journalctl -u velocity-report --since today`
 
-**Make it count**:
-
-Traffic safety advocacy should not require a six-figure budget or an engineering degree. With roughly $560 in parts and an afternoon of work, you have built something that produces the same metrics cities pay consultants thousands for.
-
-Show your neighbours. File public records requests to compare your data to official counts. Print the PDF report and bring it to council. The data does not care who collected it: it just needs to be accurate, and now it is.
+A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that holds up in a budget discussion.
 
 ---
 
-## Resources & links
+## Reference
 
-- **Project overview**: See the [main README](../../../README.md) for project background and philosophy
+### What the image includes
+
+| Component              | Location                                      | Purpose                                 |
+| ---------------------- | --------------------------------------------- | --------------------------------------- |
+| velocity-report server | `/usr/local/bin/velocity-report`              | Radar data collection and web dashboard |
+| velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
+| PDF generator          | `/opt/velocity-report/tools/pdf-generator/`   | Professional traffic reports            |
+| Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
+| Udev rules             | `/etc/udev/rules.d/99-velocity-report.rules`  | Creates `/dev/velocity-radar` symlink   |
+| Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
+| TLS certificates       | `/var/lib/velocity-report/tls/`               | Self-signed CA and server certificate   |
+
+The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
+
+### Shell aliases
+
+The image installs these aliases for all interactive shells (via `/etc/profile.d/velocity-aliases.sh`):
+
+| Alias             | Command                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| `velocity-status` | `systemctl status velocity-report.service`                  |
+| `velocity-log`    | `journalctl -u velocity-report.service -u nginx.service -f` |
+| `velocity-bounce` | `sudo systemctl restart velocity-report.service`            |
+| `velocity-stop`   | `sudo systemctl stop velocity-report.service`               |
+| `velocity-start`  | `sudo systemctl start velocity-report.service`              |
+
+### velocity-report subcommands
+
+The server binary supports these subcommands:
+
+| Subcommand | Purpose                                                                |
+| ---------- | ---------------------------------------------------------------------- |
+| `version`  | Print the installed version                                            |
+| `migrate`  | Database migration management (up, down, status, version, force, etc.) |
+| `transits` | Transit analytics: analyse, delete, migrate, rebuild                   |
+
+Example:
+
+```bash
+velocity-report version
+velocity-report migrate status
+```
+
+### velocity-ctl subcommands
+
+The device management CLI supports these subcommands:
+
+| Subcommand | Purpose                                                  |
+| ---------- | -------------------------------------------------------- |
+| `version`  | Print installed version                                  |
+| `status`   | Show systemd service status                              |
+| `upgrade`  | Check for and apply new releases (`--check` for dry run) |
+| `rollback` | Restore the previous version from a timestamped backup   |
+| `backup`   | Create a manual snapshot of binary and database          |
+
+Example:
+
+```bash
+sudo velocity-ctl version
+sudo velocity-ctl upgrade --check
+sudo velocity-ctl backup
+```
+
+---
+
+## Resources and links
+
 - **GitHub repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-
-**Related documentation**:
-
-- **Troubleshooting**: See [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) for common issues
-- **System design**: Read [ARCHITECTURE.md](../../../ARCHITECTURE.md) for technical details
-- **Report customisation**: Check [PDF Generator README](../../../tools/pdf-generator/README.md)
-- **Contributing**: See [CONTRIBUTING.md](../../../CONTRIBUTING.md) for conventions and workflow
-
-**Traffic safety resources**:
-
-- Vision Zero Network: [visionzeronetwork.org](https://visionzeronetwork.org)
-- NACTO Urban Street Design Guide: [nacto.org](https://nacto.org/publication/urban-street-design-guide/)
-- FHWA Speed Management: [safety.fhwa.dot.gov/speedmgt](https://safety.fhwa.dot.gov/speedmgt/)
-
----
-
-## Appendix: sensor selection guide
-
-### Understanding OmniPreSense product codes
-
-OmniPreSense offers radar sensors in multiple configurations. The product code format is:
-
-```
-203-OPS[model]-[data_type]-[modulation]-[interface]
-```
-
-**Product Code Breakdown**:
-
-| Component      | Options      | Meaning                                                  |
-| -------------- | ------------ | -------------------------------------------------------- |
-| **203-**       | Fixed prefix | Mouser manufacturer code for OmniPreSense                |
-| **OPS[model]** | 243, 7243    | Sensor model (243 = standard PCB, 7243 = IP67 enclosure) |
-| **Data Type**  | A, C         | A = Speed only, C = Speed + Distance                     |
-| **Modulation** | CW, FC       | CW = Continuous Wave, FC = FMCW (range capability)       |
-| **Interface**  | RP, WB, R2   | RP = USB, WB = USB + Bluetooth, R2 = RS-232              |
-
-**Examples**:
-
-- `203-OPS7243-A-CW-R2` = Sensor in IP67 housing, speed-only, continuous wave, RS232 interface
-- `203-OPS7243-C-FC-R2` = Sensor in IP67 housing, speed+distance, FMCW, RS232 interface
-
-### Available models comparison
-
-| Model               | Modulation | Speed | Distance | Interface  | IP67 | Range | Price |
-| ------------------- | ---------- | ----- | -------- | ---------- | ---- | ----- | ----- |
-| 203-OPS7243-A-CW-R2 | Doppler    | Yes   | No       | RS232 (R2) | Yes  | 100m  | ~$415 |
-| 203-OPS7243-C-FC-R2 | FMCW       | Yes   | Yes      | RS232 (R2) | Yes  | 60m   | ~$435 |
-
-**Key specifications**:
-
-- **A-type**: Speed only, ≈100m range (recommended for traffic monitoring)
-- **C-type**: Speed + distance, ≈60m range (FMCW)
-- **CW modulation**: Doppler (speed measurement)
-- **FC modulation**: FMCW (adds range/frequency-modulated distance)
-- **R2 interface**: RS232 industrial (requires serial HAT)
-- **7243 series**: IP67 weatherproof enclosure for outdoor deployment
-
-### Power requirements
-
-All models operate on **5V DC**:
-
-**RS232 models** (R2 interface):
-
-- Require separate 5-24V power supply
-- RS232 provides data lines only, no power
-- Typical draw: 300-440mA at 5V (~2.2W)
-
-**Important**: RS232 models (R2) require external 5V power in addition to the RS232 data connection.
+- **Troubleshooting**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md)
+- **System design**: [ARCHITECTURE.md](../../../ARCHITECTURE.md)
+- **Report customisation**: [PDF Generator README](../../../tools/pdf-generator/README.md)
+- **Contributing**: [CONTRIBUTING.md](../../../CONTRIBUTING.md)
 
 ---
 
 [Back to top](#)
-
----
-
-Let’s build safer streets. If the speeds do not drop, the work cannot stop.
