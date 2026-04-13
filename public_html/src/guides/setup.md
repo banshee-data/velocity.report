@@ -6,7 +6,7 @@ section: guides
 difficulty: intermediate
 time: 2-4 hours
 cost: $592
-date: 2026-03-26
+date: 2026-04-15T12:00:00Z
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 ---
 
@@ -20,7 +20,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 ## Introduction
 
-Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation stalls at "it feels fast" versus "the speed limit is fine," and data is what moves the conversation forward.
+Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation stalls at "it feels fast" versus "the speed limit is fine."
 
 This guide walks you through building a privacy-first traffic radar using a pre-built Raspberry Pi image and off-the-shelf Doppler technology. No cameras, no licence plates, no cloud accounts. The system starts collecting data the moment it boots.
 
@@ -68,7 +68,7 @@ In most jurisdictions, measuring vehicle speeds on public streets from your own 
 - **Professional PDF reports**: traffic engineering metrics (p50, p85, p98)
 - **Weatherproof hardware**: designed for permanent outdoor deployment
 
-The velocity.report Pi image includes everything pre-configured: server, web dashboard, PDF generator, serial port settings, and a systemd service that starts automatically on boot. Flash one SD card, connect one sensor.
+The velocity.report Pi image includes everything pre-configured: flash one SD card, connect one sensor, and it starts collecting.
 
 ---
 
@@ -127,7 +127,7 @@ The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT.
 
 _Estimated time: 10–15 minutes_
 
-The velocity.report image is a complete Raspberry Pi OS with all software pre-installed and pre-configured. Flash it to an SD card and the system is ready to run.
+The velocity.report image is a complete Raspberry Pi OS with everything pre-installed and pre-configured; flash it to an SD card and the system is ready to run.
 
 #### Option A: use the custom Raspberry Pi Imager catalogue (recommended)
 
@@ -192,13 +192,9 @@ The image installs shell aliases for common operations: `velocity-status`, `velo
 
 _Estimated time: 5 minutes_
 
-Open a browser on any device on the same network:
-
-### [https://velocity.local](https://velocity.local)
+Open a browser on any device on the same network: [https://velocity.local](https://velocity.local)
 
 The Pi generates a self-signed TLS certificate on first boot. Your browser will show a certificate warning: this is expected. To eliminate the warning, download the CA certificate from `https://velocity.local/ca.crt` and add it to your browser or system trust store.
-
-The dashboard shows real-time vehicle detections, speed distribution histograms, and time-of-day traffic patterns.
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
@@ -252,7 +248,7 @@ _Estimated time: 10 minutes_
 
 Before generating reports, configure your site in the dashboard so speed measurements are corrected for your mounting angle.
 
-1. Open the dashboard at [`https://velocity.local`](https://velocity.local)
+1. Open the dashboard at [https://velocity.local](https://velocity.local)
 2. Navigate to **Site Settings**
 3. Set the **site location** on the interactive map
 4. Set the **cosine error angle** to match your radar mounting angle from Step 4. Drag the red dot on the radar field-of-view triangle to adjust the angle visually, or type the value directly. The triangle should encompass the road lanes you want to measure.
@@ -267,7 +263,7 @@ The system stores this as the active site configuration period. Reports use the 
 
 After collecting data for a few days, generate professional reports from the dashboard.
 
-1. Open the dashboard at [`https://velocity.local`](https://velocity.local)
+1. Open the dashboard at [https://velocity.local](https://velocity.local)
 2. Select your site and set the **date range** for the report period
 3. Click **Generate Report**
 4. Download the PDF
@@ -287,9 +283,9 @@ The dashboard also supports **comparison reports** for measuring the effect of t
 
 ## Taking your data to city hall
 
-Print the report. Bring it to the meeting. The data does the persuading.
+Print the report. Bring it to the meeting. The data does the persuading, so let it.
 
-Whether you are speaking at a US city council session, a UK parish council meeting, a town board hearing, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
+Whether you are speaking at a city council session, a town board hearing, a parish council meeting, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
 
 ### What to bring
 
@@ -301,26 +297,24 @@ Whether you are speaking at a US city council session, a UK parish council meeti
 
 Lead with the metric traffic engineers already use:
 
-> "85% of vehicles on [street name] travel at or below [X] mph. The posted limit is [Y] mph."
+> "The 85th-percentile speed on [street name] is [X] mph. The posted limit is [Y] mph."
 
-The **p85** is the standard threshold in US speed surveys (FHWA Manual on Uniform Traffic Control Devices) and UK speed assessments (Department for Transport guidance, 20 mph zone evaluations). Using it puts your request on the same footing as a professional traffic study.
+The **p85** (85th-percentile speed) is the standard threshold in US federal speed surveys and UK Department for Transport assessments. Using it means your data speaks the same language as a professional traffic study.
 
-If the council has already acted and you have a comparison report:
+Then adapt to the situation:
 
-> "After the [speed hump / signage / enforcement campaign], p85 dropped from [X] to [Y] mph. [N] months later it has returned to [W] mph. The intervention slowed traffic temporarily. It has not changed the long-term behaviour."
-
-If nothing has changed:
-
-> "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is not an occasional problem. It is the normal condition of this street."
+- **If the intervention worked**: "After the [speed hump / signage / enforcement], p85 dropped from [X] to [Y] mph."
+- **If it worked and then wore off**: "p85 dropped to [Y] mph initially. [N] months later it has returned to [W] mph."
+- **If nothing has changed**: "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is the normal condition of this street."
 
 ### What to suggest
 
 Present the problem first, then name what might help:
 
 - **Speed humps or raised crossings**: reduce p85 by 5–15 mph in most studies
-- **Kerb extensions (UK) / curb bulb-outs (US)**: narrow the crossing distance
+- **Curb bulb-outs (US) / kerb extensions (UK)**: narrow the crossing distance
 - **Chicanes or lane narrowing**: reduce the straight-line path
-- **20 mph (UK) / 25 mph (US) zones**: lower posted limits near schools and parks
+- **20 mph zones**: lower posted limits near schools and parks
 - **Radar speed signs**: real-time driver feedback
 - **Targeted enforcement**: your time-of-day data shows peak violation hours
 
@@ -330,12 +324,13 @@ You do not need to prescribe the answer. Present the evidence, name the options,
 
 - **Do not share raw database files.** The PDF is the presentation format.
 - **Do not identify drivers or vehicles.** The system collects no personal data, and neither should the presentation.
-- **Do not lead with how the speed feels.** Lead with the measured speed. The data is more persuasive than the emotion.
-- **Do not accept a one-off fix as a permanent answer.** A new speed hump slows traffic for weeks. The question is whether it still works in six months. Continuous monitoring answers that question.
+- **Do not post your address on social media.** The site map in the PDF report is optional: include it when filing directly with city officials, leave it out of anything you share publicly. Your data should make your street safer, not your house easier to find.
+- **Do not lead with how the speed feels.** Lead with the measured speed. A number is harder for a committee to talk past than an anecdote.
+- **Do not accept a one-off fix as a permanent answer.** A new speed hump slows traffic for weeks. The question is whether it still works in six months.
 
 ### Why continuous monitoring matters
 
-A professional speed survey gives you a snapshot: a few days of data, a report, a recommendation. velocity.report gives you the full timeline:
+Most speed assessments capture a few days of data. Continuous monitoring gives you the full timeline:
 
 - **Baseline** before any intervention
 - **Initial effect** in the first weeks after a change
@@ -343,16 +338,20 @@ A professional speed survey gives you a snapshot: a few days of data, a report, 
 - **Seasonal shifts**: school terms, holidays, construction
 - **Regression**: whether speeds drift back once the novelty wears off
 
-This is the difference between asking the council to act and being able to show the council whether the action worked. Communities that keep measuring hold planners and elected officials to account: not as a confrontation, but as a continuing conversation backed by evidence. The goal is continuous safety improvement, not a single fix that goes unmonitored.
+This is the difference between asking the council to act and being able to show whether the action worked.
 
 ### Building support
 
+Data is harder to dismiss when the room is full and the ask has been consistent for months.
+
 1. **Share with neighbours**: show the dashboard or hand out a printed report
 2. **Partner with local groups**: PTA, parent councils, neighbourhood associations, cycling and road safety campaigns
-3. **Request official data**: file public records requests (US) or FOI requests (UK) for the council's own traffic studies, and compare
-4. **Attend regularly**: present updated data at city hall or council quarterly, not once
-5. **Collect across seasons**: summer and winter patterns differ; a multi-season dataset is harder to dismiss
-6. **Follow up after every intervention**: generate a comparison report and present it at the next meeting
+3. **Attend regularly**: present updated data quarterly, not once. Each presentation enters the public record.
+4. **Widen the audience**: share the report with your state or county DOT, your elected representative, or the local press
+5. **Collect across seasons**: summer and winter patterns differ; a multi-season dataset is harder to set aside
+6. **Follow up after every intervention**: generate a comparison report and bring it to the next meeting
+
+Policy changes often take multiple budget cycles. The community that keeps measuring is the one that gets heard.
 
 ---
 
@@ -434,15 +433,10 @@ Back up before re-flashing. Your sensor data took weeks to collect; the software
 The database lives at `/var/lib/velocity-report/sensor_data.db`.
 
 ```bash
-# Use the built-in backup tool
 sudo velocity-ctl backup
-
-# Or copy manually
-sudo cp /var/lib/velocity-report/sensor_data.db \
-  /tmp/sensor_data_$(date +%Y%m%d).db
 ```
 
-`velocity-ctl backup` creates a timestamped copy in `/var/lib/velocity-report/backups/`. If you are about to re-flash the SD card, copy the backup off the Pi first:
+This creates a timestamped copy in `/var/lib/velocity-report/backups/`. If you are about to re-flash the SD card, copy the backup off the Pi first:
 
 ```bash
 # From your laptop
@@ -477,71 +471,18 @@ velocity-start
 
 ## Troubleshooting
 
-### Common issues
+| Problem                 | Fix                                                               |
+| ----------------------- | ----------------------------------------------------------------- |
+| No sensor data          | `ls /dev/serial0` or `ls /dev/velocity-radar` to check the device |
+| Service will not start  | `velocity-log` to check logs                                      |
+| Dashboard will not load | `velocity-status` to verify the service                           |
+| Certificate warning     | Download CA from `https://velocity.local/ca.crt` and trust it     |
+| Garbled or CSV output   | Connect via `screen /dev/serial0 19200` and send `OJ` then `A!`   |
+| Permission denied       | `sudo usermod -a -G dialout $USER` then log out and back in       |
 
-| Problem                 | Fix                                                                |
-| ----------------------- | ------------------------------------------------------------------ |
-| No sensor data          | Check device exists: `ls /dev/serial0` or `ls /dev/velocity-radar` |
-| Service will not start  | Check logs: `velocity-log`                                         |
-| Dashboard will not load | Verify service: `velocity-status`                                  |
-| Certificate warning     | Download CA from `https://velocity.local/ca.crt` and trust it      |
-| Garbled serial output   | Verify baud rate is 19200 (see below)                              |
-| Permission denied       | Add user to dialout group: `sudo usermod -a -G dialout $USER`      |
-| Still seeing CSV output | Service sets JSON mode on boot; see manual fix below               |
+USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
-### Verifying the serial connection
-
-If the sensor is not producing data, check that the serial device exists:
-
-```bash
-ls -l /dev/serial0
-# Should show a link to ttyAMA0
-```
-
-If you are using a USB-serial adapter instead of a HAT, the image creates a `/dev/velocity-radar` symlink automatically when it detects the OmniPreSense sensor.
-
-To connect directly and inspect sensor output:
-
-```bash
-stty -F /dev/serial0 19200 cs8 -parenb -cstopb
-screen /dev/serial0 19200
-```
-
-You should see JSON output (`{"magnitude":1.2,"speed":3.4}`) when vehicles pass. Press Ctrl+A then K to exit `screen`.
-
-### Configuring sensor output mode manually
-
-The service configures the sensor automatically on boot (JSON mode, metres per second, magnitude reporting). If the sensor is producing CSV or garbled output despite a successful boot, connect via serial terminal and reconfigure manually:
-
-```bash
-stty -F /dev/serial0 19200 cs8 -parenb -cstopb
-screen /dev/serial0 19200
-```
-
-Type these commands, pressing Enter after each:
-
-```text
-OJ    # Enable JSON output mode
-UM    # Set units to metres per second
-OM    # Enable magnitude reporting
-A!    # Save settings permanently
-```
-
-Some commands produce a response (such as echoing the new setting); others are accepted silently. This is normal. After sending all four commands, verify you see JSON output (curly braces `{}`), not CSV, when vehicles pass.
-
-### Verifying the data stream
-
-To confirm the service is receiving data from the sensor:
-
-```bash
-velocity-log
-```
-
-You should see log entries indicating incoming radar data. If the service is running but no data appears, check the serial wiring and sensor configuration above.
-
-**Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
-
-**More help**: see [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or ask on [Discord](https://discord.gg/XXh6jXVFkt)
+**Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support) • **More help**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
@@ -550,7 +491,6 @@ You should see log entries indicating incoming radar data. If the service is run
 - Check the enclosure monthly for condensation
 - Clean the sensor window seasonally
 - Run `sudo velocity-ctl upgrade --check` periodically
-- Monitor logs for issues: `journalctl -u velocity-report --since today`
 
 A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that holds up in a budget discussion.
 
@@ -566,60 +506,25 @@ A week of data shows patterns. A month is compelling. Three months across differ
 | velocity-ctl           | `/usr/local/bin/velocity-ctl`                 | Device management and updates           |
 | PDF generator          | `/opt/velocity-report/tools/pdf-generator/`   | Professional traffic reports            |
 | Systemd service        | `/etc/systemd/system/velocity-report.service` | Starts automatically on boot            |
-| Udev rules             | `/etc/udev/rules.d/99-velocity-report.rules`  | Creates `/dev/velocity-radar` symlink   |
 | Nginx reverse proxy    | `/etc/nginx/sites-enabled/velocity`           | TLS termination, HTTPS on port 443      |
 | TLS certificates       | `/var/lib/velocity-report/tls/`               | Self-signed CA and server certificate   |
 
 The image also pre-configures serial port settings, UART overlays, sensor initialisation (JSON mode, units, magnitude reporting), and the service user.
 
-### Shell aliases
+### Commands
 
-The image installs these aliases for all interactive shells (via `/etc/profile.d/velocity-aliases.sh`):
-
-| Alias             | Command                                                     |
-| ----------------- | ----------------------------------------------------------- |
-| `velocity-status` | `systemctl status velocity-report.service`                  |
-| `velocity-log`    | `journalctl -u velocity-report.service -u nginx.service -f` |
-| `velocity-bounce` | `sudo systemctl restart velocity-report.service`            |
-| `velocity-stop`   | `sudo systemctl stop velocity-report.service`               |
-| `velocity-start`  | `sudo systemctl start velocity-report.service`              |
-
-### velocity-report subcommands
-
-The server binary supports these subcommands:
-
-| Subcommand | Purpose                                                                |
-| ---------- | ---------------------------------------------------------------------- |
-| `version`  | Print the installed version                                            |
-| `migrate`  | Database migration management (up, down, status, version, force, etc.) |
-| `transits` | Transit analytics: analyse, delete, migrate, rebuild                   |
-
-Example:
-
-```bash
-velocity-report version
-velocity-report migrate status
-```
-
-### velocity-ctl subcommands
-
-The device management CLI supports these subcommands:
-
-| Subcommand | Purpose                                                  |
-| ---------- | -------------------------------------------------------- |
-| `version`  | Print installed version                                  |
-| `status`   | Show systemd service status                              |
-| `upgrade`  | Check for and apply new releases (`--check` for dry run) |
-| `rollback` | Restore the previous version from a timestamped backup   |
-| `backup`   | Create a manual snapshot of binary and database          |
-
-Example:
-
-```bash
-sudo velocity-ctl version
-sudo velocity-ctl upgrade --check
-sudo velocity-ctl backup
-```
+| Command                             | Purpose                                                     |
+| ----------------------------------- | ----------------------------------------------------------- |
+| `velocity-status`                   | `systemctl status velocity-report.service`                  |
+| `velocity-log`                      | `journalctl -u velocity-report.service -u nginx.service -f` |
+| `velocity-bounce`                   | `sudo systemctl restart velocity-report.service`            |
+| `velocity-stop`                     | `sudo systemctl stop velocity-report.service`               |
+| `velocity-start`                    | `sudo systemctl start velocity-report.service`              |
+| `velocity-report version`           | Print the installed server version                          |
+| `sudo velocity-ctl upgrade --check` | Check whether a newer release is available                  |
+| `sudo velocity-ctl upgrade`         | Download and apply the latest release                       |
+| `sudo velocity-ctl rollback`        | Restore the previous version                                |
+| `sudo velocity-ctl backup`          | Create a timestamped snapshot of binary and database        |
 
 ---
 
