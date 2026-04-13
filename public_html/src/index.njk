@@ -142,28 +142,28 @@ title: "velocity.report: Measure Speeds, Make Streets Safer"
 
     <!-- Q&A Section -->
     <div class="dl-section mb-14 p-6 md:p-12">
-        <div class="max-w-2xl mx-auto text-center">
-            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Common questions</h2>
+        <div class="mx-auto md:px-[20%]">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">The short version</h2>
 
-            <div class="space-y-6 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+            <div class="space-y-6 text-base text-gray-600 dark:text-gray-300 leading-relaxed text-left">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Who is this for?</h3>
-                    <p>Community groups, residents near problem streets, neighbourhood associations, and anyone who wants measured evidence instead of guesswork when asking for safer roads. If you have ever stood in front of a council meeting and wished you had numbers, this is the tool.</p>
+                    <p>You, probably. Do you live on a street where traffic moves faster than it should? Have you ever wished you had numbers on just how fast car zip by the school? Well then, this is the tool for you! Parent associations, Community groups, neighbourhood watch. If you ever stood at a council meeting and wished your frustration came with a graph, well now it can.</p>
                 </div>
 
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What does it actually measure?</h3>
-                    <p>Vehicle speeds, using radar and LiDAR sensors mounted on a Raspberry Pi. No cameras, no licence plates, no faces. The system records how fast vehicles travel, not who is driving them.</p>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What does it measure?</h3>
+                    <p>Vehicle speeds, that's it. A radar sensor records how fast each vehicle passes and stores the data on a Raspberry Pi. No cameras, no licence plates, no faces. The goal is to measure traffic, not start a surveillance hobby.</p>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How do I get started?</h3>
-                    <p>The <a href="/guides/setup/" class="text-blue-600 hover:underline">setup guide</a> walks through everything: hardware, installation, first measurement, and producing a PDF report you can take to city hall. A Raspberry Pi, a radar sensor, and about an hour of your time.</p>
+                    <p>Follow the <a href="/guides/setup/" class="text-blue-600 hover:underline">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that looks like it was produced by a transport department rather than someone who is merely (and justifiably) very annoyed.</p>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Where does the data go?</h3>
-                    <p>It stays on your device. The system runs locally, stores data in a local database, and generates reports on the Pi itself. Nothing leaves your network unless you choose to share the finished PDF.</p>
+                    <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, no silent phone-home. The data does not leave your network unless you hand someone the finished PDF.</p>
                 </div>
             </div>
         </div>
@@ -175,7 +175,7 @@ title: "velocity.report: Measure Speeds, Make Streets Safer"
             <div class="text-center mb-8">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">VelocityVisualiser.app</h2>
                 <p class="text-lg text-gray-600 dark:text-gray-300 max-w-md mx-auto leading-relaxed">
-                    Watch the road in three dimensions. VelocityVisualiser renders live LiDAR point clouds, tracked objects, and motion trails, so you can see what the sensor sees and check its work.
+                    Watch the road in three dimensions. VelocityVisualiser.app renders live LiDAR point clouds, tracked objects, and motion trails, so you can see what the sensor sees and check its work.
                 </p>
             </div>
 

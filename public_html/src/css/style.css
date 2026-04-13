@@ -13,34 +13,9 @@ html {
 
 /* Syntax highlighting theme - matches GitHub style */
 @layer base {
-  /* Code blocks */
+  /* Code blocks — syntax-highlighted pre elements */
   pre[class*="language-"] {
-    @apply rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800;
-  }
-
-  /* Inline code in prose */
-  .prose code {
-    @apply text-sm font-mono px-1.5 py-0.5 rounded;
-    background-color: rgb(30 30 30);
-    color: rgb(212 212 212);
-  }
-
-  /* Inline code inside links should inherit link color */
-  .prose a code {
-    color: inherit;
-  }
-
-  /* Don't double-style code inside pre blocks */
-  .prose pre code {
-    @apply px-0 py-0 rounded-none;
-    background-color: transparent;
-    color: inherit;
-  }
-
-  /* Remove decorative backticks added by Tailwind Typography */
-  .prose code::before,
-  .prose code::after {
-    content: none;
+    @apply rounded-lg shadow-sm border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800;
   }
 
   /* Header anchors */
@@ -258,5 +233,55 @@ html {
         @apply bg-slate-600;
       }
     }
+  }
+}
+
+/* =========================================================================
+ * Typography plugin overrides
+ *
+ * These MUST be unlayered (outside @layer) to beat the Typography plugin's
+ * rules, which land in @layer utilities. In Tailwind CSS v4, @layer
+ * utilities > @layer base regardless of specificity.
+ * ========================================================================= */
+
+/* Remove decorative backticks that Typography adds via ::before/::after */
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+/* Inline code: light pill style, normal weight (Typography defaults to 600) */
+.prose code {
+  @apply text-sm font-mono font-normal px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-800;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose code {
+    @apply border-gray-700 bg-gray-800 text-gray-200;
+  }
+}
+
+/* Inline code inside links inherits the link colour */
+.prose a code {
+  color: inherit;
+}
+
+/* Code inside pre blocks: reset the inline pill styling */
+.prose pre code {
+  @apply px-0 py-0 rounded-none border-0 bg-transparent font-normal;
+  color: inherit;
+}
+
+/* Pre blocks in prose: light background in light mode.
+   Typography defaults --tw-prose-pre-bg to dark gray; override it. */
+.prose {
+  --tw-prose-pre-bg: var(--color-gray-50);
+  --tw-prose-pre-code: var(--color-gray-800);
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose {
+    --tw-prose-pre-bg: var(--color-gray-800);
+    --tw-prose-pre-code: var(--color-gray-200);
   }
 }
