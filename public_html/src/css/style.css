@@ -20,7 +20,21 @@ html {
 
   /* Inline code in prose */
   .prose code {
-    @apply text-sm;
+    @apply text-sm font-mono px-1.5 py-0.5 rounded;
+    background-color: rgb(30 30 30);
+    color: rgb(212 212 212);
+  }
+
+  /* Inline code inside links should inherit link color */
+  .prose a code {
+    color: inherit;
+  }
+
+  /* Don't double-style code inside pre blocks */
+  .prose pre code {
+    @apply px-0 py-0 rounded-none;
+    background-color: transparent;
+    color: inherit;
   }
 
   /* Remove decorative backticks added by Tailwind Typography */
