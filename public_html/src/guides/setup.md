@@ -85,9 +85,9 @@ The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deploymen
 | M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                                  |
 | Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                                                |
 | SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                                        |
+| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT                  |
 | Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                                             |
 | RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                                  |
-| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT                  |
 | **Total**        |                                                                                                       | **$592** |                                                                          |
 
 Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
@@ -229,7 +229,10 @@ _Estimated time: 1–2 hours_
 - **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
 - **Road coverage**: a 0° angle gives the best accuracy but the narrowest field of view. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
-- **Record your mounting angle**: you will enter this in the dashboard as the cosine error angle (Step 5)
+- **Record your mounting angle**: you will enter this in the dashboard as the cosine error angle (Step 5). To measure it:
+  1. Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.
+  2. Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.
+  3. Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.
 
 **Weatherproofing checklist**:
 
