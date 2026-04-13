@@ -170,11 +170,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install qemu-user-static for pi-gen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static
-          qemu-aarch64-static --version
+      - name: Setup qemu-user-static for pi-gen
+        uses: ./.github/actions/setup-qemu-pigen
 
       - name: Setup Node.js with pnpm (web)
         uses: ./.github/actions/setup-node-pnpm
@@ -239,11 +236,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install qemu-user-static for pi-gen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static
-          qemu-aarch64-static --version
+      - name: Setup qemu-user-static for pi-gen
+        uses: ./.github/actions/setup-qemu-pigen
 
       - name: Setup Node.js with pnpm (web)
         uses: ./.github/actions/setup-node-pnpm
