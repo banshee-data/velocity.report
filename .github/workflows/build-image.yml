@@ -170,6 +170,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup qemu-user-static for pi-gen
+        uses: ./.github/actions/setup-qemu-pigen
+
       - name: Setup Node.js with pnpm (web)
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -232,6 +235,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup qemu-user-static for pi-gen
+        uses: ./.github/actions/setup-qemu-pigen
 
       - name: Setup Node.js with pnpm (web)
         uses: ./.github/actions/setup-node-pnpm
