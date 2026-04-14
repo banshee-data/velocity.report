@@ -35,7 +35,7 @@ This guide walks you through building a privacy-first traffic radar using a pre-
 
 ---
 
-## Privacy and legal considerations
+## Privacy considerations
 
 ### What this system collects
 
@@ -47,9 +47,9 @@ This guide walks you through building a privacy-first traffic radar using a pre-
 
 The system records vehicle speed data without cameras, licence plates, or personal details.
 
-### Legal position
+### Civic position
 
-In most jurisdictions, measuring vehicle speeds on public streets from your own property is legal: it is the same activity traffic engineers and academic researchers perform. Mount on utility poles only with permission. Check local regulations for long-term installations or school zones. When in doubt, consult local authorities.
+In most jurisdictions, measuring vehicle speeds on public streets from your own property is legal: it is the same activity traffic engineers and academic researchers perform. However, you should only mount on public utility poles with explicit permission. Check local regulations for long-term installations. When in doubt, consult local authorities.
 
 ---
 
@@ -81,19 +81,19 @@ The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deploymen
      Purpose: lets the reader verify they have everything before starting
      Format: landscape, photograph, annotated with part names -->
 
-| Part             | Recommended Model                                                                                     | Price    | Notes                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
-| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface (designated R2), 100 m range, IP67 enclosure |
-| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure                             |
-| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                                  |
-| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                                                |
-| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                                        |
-| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT                  |
-| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                                             |
-| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                                  |
-| **Core total**   |                                                                                                       | **$592** | Required for all deployments                                             |
-| Roof Rack Mount  | PVC pipe, 2×4, clamps, braces, screws ([detail](#roof-rack-mount-bill-of-materials))                  | $55      | Optional: for car-mounted mobile deployment                              |
-| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                                   |
+| Part             | Recommended Model                                                                                     | Price    | Notes                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
+| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface, 100 m range, IP67 enclosure |
+| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure             |
+| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                  |
+| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                                |
+| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                        |
+| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT  |
+| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                             |
+| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                  |
+| **Core total**   |                                                                                                       | **$592** | Required for all deployments                             |
+| Roof Rack Mount  | PVC pipe, 2×4, clamps, braces, screws ([detail](#roof-rack-mount-bill-of-materials))                  | $55      | Optional: for car-mounted mobile deployment              |
+| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                   |
 
 Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
 
@@ -101,14 +101,17 @@ Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capabl
 
 ## Step-by-step build guide
 
-**Build overview** (total time: 2–4 hours):
-
-1. [Wire the Sensor to the Raspberry Pi](#step-1-wire-the-sensor-to-the-raspberry-pi): 15–30 minutes
-2. [Flash the Pi Image](#step-2-flash-the-pi-image): 10–15 minutes
-3. [Access the Web Dashboard](#step-3-access-the-web-dashboard): 5 minutes
-4. [Mount the Radar Sensor](#step-4-mount-the-radar-sensor): 1–2 hours
-5. [Configure Your Site](#step-5-configure-your-site): 10 minutes
-6. [Generate Reports](#step-6-generate-reports): after data collection
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
+<p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Build overview <span class="font-normal text-gray-500">(total time: 2–4 hours)</span></p>
+<ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-300">
+<li><a href="#step-1-wire-the-sensor-to-the-raspberry-pi" class="text-blue-600 dark:text-blue-400 hover:underline">Wire the Sensor to the Raspberry Pi</a>: 15–30 minutes</li>
+<li><a href="#step-2-flash-the-pi-image" class="text-blue-600 dark:text-blue-400 hover:underline">Flash the Pi Image</a>: 10–15 minutes</li>
+<li><a href="#step-3-access-the-web-dashboard" class="text-blue-600 dark:text-blue-400 hover:underline">Access the Web Dashboard</a>: 5 minutes</li>
+<li><a href="#step-4-mount-the-radar-sensor" class="text-blue-600 dark:text-blue-400 hover:underline">Mount the Radar Sensor</a>: 1–2 hours</li>
+<li><a href="#step-5-configure-your-site" class="text-blue-600 dark:text-blue-400 hover:underline">Configure Your Site</a>: 10 minutes</li>
+<li><a href="#step-6-generate-reports" class="text-blue-600 dark:text-blue-400 hover:underline">Generate Reports</a>: after data collection</li>
+</ol>
+</div>
 
 ---
 
