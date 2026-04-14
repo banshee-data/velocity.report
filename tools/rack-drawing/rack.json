@@ -1,0 +1,86 @@
+{
+  "title": "Raspberry Pi Roof Rack Sensor Mount",
+  "revision": "A",
+  "lumber": {
+    "species": "Kiln-dried Whitewood Stud",
+    "nominal": "2x4",
+    "actual_width_in": 1.5,
+    "actual_depth_in": 3.5,
+    "stock_length_in": 96,
+    "piece_length_in": 24,
+    "num_pieces": 4,
+    "note": "4 equal pieces; alternate 45-degree miter / 90-degree crosscut"
+  },
+  "pipe": {
+    "description": "4-in x 2-ft DWV Foam Core SCH 40 Pipe",
+    "od_in": 4.0,
+    "wall_in": 0.24,
+    "length_in": 24
+  },
+  "clamps": {
+    "large": {
+      "description": "3-in to 5-in Stainless Steel Adjustable Clamp",
+      "fits_od_min_in": 3.0,
+      "fits_od_max_in": 5.0,
+      "qty": 2,
+      "note": "Secures 4-inch DWV pipe to uprights"
+    },
+    "small": {
+      "description": "1-13/16 to 3-in Galvanised Adjustable Clamp",
+      "fits_od_min_in": 1.8125,
+      "fits_od_max_in": 3.0,
+      "qty": 2,
+      "note": "Secondary retention / cable management"
+    }
+  },
+  "bom": [
+    {
+      "description": "2x4x96-in KD Whitewood Stud",
+      "qty": 1,
+      "unit": "ea",
+      "unit_price": 3.85,
+      "lowes_item": "330568",
+      "note": "Cut to 4x 24-inch pieces with alternating miter/square ends"
+    },
+    {
+      "description": "Steel Corner Brace 3x0.75x3-in (4-Pack)",
+      "qty": 1,
+      "unit": "pk",
+      "unit_price": 5.48,
+      "lowes_item": "5217432",
+      "note": "1 brace per miter joint; 2 joints per mount = 4 total"
+    },
+    {
+      "description": "#8 x 1-1/4-in Deck Screws (75/Box)",
+      "qty": 1,
+      "unit": "bx",
+      "unit_price": 7.99,
+      "lowes_item": "753726",
+      "note": "2 screws per brace hole; approx 16 screws used"
+    },
+    {
+      "description": "4-in x 2-ft DWV Foam Core SCH 40 Pipe",
+      "qty": 1,
+      "unit": "ea",
+      "unit_price": 24.78,
+      "lowes_item": "256096",
+      "note": "Sensor housing; spans between the two mounts"
+    },
+    {
+      "description": "3-in to 5-in SS Adjustable Clamp",
+      "qty": 2,
+      "unit": "ea",
+      "unit_price": 3.78,
+      "lowes_item": "1343439",
+      "note": "Large clamp; secures 4-inch pipe to upright"
+    },
+    {
+      "description": "1-13/16 to 3-in Galv. Adjustable Clamp",
+      "qty": 2,
+      "unit": "ea",
+      "unit_price": 2.88,
+      "lowes_item": "5327202",
+      "note": "Small clamp; secondary retention"
+    }
+  ]
+}
