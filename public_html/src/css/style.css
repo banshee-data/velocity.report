@@ -51,11 +51,11 @@ html {
 @layer components {
   /* Custom button styles */
   .btn-primary {
-    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+    @apply bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors;
   }
 
   .btn-secondary {
-    @apply border-2 border-blue-600 text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors;
+    @apply border-2 border-emerald-600 text-emerald-600 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50 transition-colors;
   }
 
   /* Feature card component */
@@ -65,11 +65,11 @@ html {
 
   /* Navigation link active state */
   .nav-link {
-    @apply text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors;
+    @apply text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors;
   }
 
   .nav-link-active {
-    @apply text-blue-600 dark:text-blue-400 font-semibold;
+    @apply text-emerald-600 dark:text-emerald-400 font-semibold;
   }
 
   /* Hero section with image */
@@ -291,6 +291,103 @@ html {
 .prose {
   --tw-prose-pre-bg: var(--color-gray-50);
   --tw-prose-pre-code: var(--color-gray-800);
+  --tw-prose-links: #059669; /* emerald-600 */
+}
+
+/* =========================================================================
+ * Link colours — green text, green bg + white text on hover, visited state
+ * Applied to prose links and the .link utility class.
+ * ========================================================================= */
+
+.prose a {
+  color: #059669; /* emerald-600 */
+  text-decoration: none;
+  padding: 2px 3px;
+  margin: -2px -3px;
+  border-radius: 2px;
+  transition: background-color 150ms, color 150ms;
+}
+
+.prose a:hover {
+  background-color: #059669; /* emerald-600 */
+  color: white;
+}
+
+.prose a:visited {
+  color: #047857; /* emerald-700 — darker green for visited */
+}
+
+.prose a:visited:hover {
+  background-color: #059669;
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose {
+    --tw-prose-links: #34d399; /* emerald-400 */
+  }
+  .prose a {
+    color: #34d399; /* emerald-400 */
+  }
+  .prose a:hover {
+    background-color: #10b981; /* emerald-500 */
+    color: white;
+  }
+  .prose a:visited {
+    color: #10b981; /* emerald-500 */
+  }
+  .prose a:visited:hover {
+    background-color: #10b981;
+    color: white;
+  }
+}
+
+/* Code inside links: inherit the hover colour */
+.prose a:hover code {
+  color: white;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Reusable link class for non-prose contexts */
+.link {
+  color: #059669;
+  text-decoration: none;
+  padding: 2px 5px;
+  margin: -2px -5px;
+  border-radius: 4px;
+  transition: background-color 150ms, color 150ms;
+}
+
+.link:hover {
+  background-color: #059669;
+  color: white;
+}
+
+.link:visited {
+  color: #047857;
+}
+
+.link:visited:hover {
+  background-color: #059669;
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .link {
+    color: #34d399;
+  }
+  .link:hover {
+    background-color: #10b981;
+    color: white;
+  }
+  .link:visited {
+    color: #10b981;
+  }
+  .link:visited:hover {
+    background-color: #10b981;
+    color: white;
+  }
 }
 
 /* Gradient border on code blocks */
@@ -393,7 +490,7 @@ details.toc[open] > summary::after {
 }
 
 .toc-item a {
-  @apply text-gray-600 no-underline hover:text-blue-600 transition-colors;
+  @apply text-gray-600 no-underline hover:text-emerald-600 transition-colors;
 }
 
 .toc-item a[aria-current="true"] {
@@ -402,7 +499,7 @@ details.toc[open] > summary::after {
 
 @media (prefers-color-scheme: dark) {
   .toc-item a {
-    @apply text-gray-400 hover:text-blue-400;
+    @apply text-gray-400 hover:text-emerald-400;
   }
   .toc-item a[aria-current="true"] {
     @apply text-emerald-400;
