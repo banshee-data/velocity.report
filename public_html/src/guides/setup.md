@@ -5,14 +5,14 @@ description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, j
 section: guides
 difficulty: intermediate
 time: 2-4 hours
-cost: $592
+cost: $647
 date: 2026-04-15T12:00:00Z
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 ---
 
-**A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make the case for safer streets with evidence.**
+**A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make a data-informed case for safer streets.**
 
-**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $592
+**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $592–$647
 
 **In this guide**: [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-6-generate-reports) • [Present Your Case](#taking-your-data-to-city-hall) • [Troubleshooting](#troubleshooting)
 
@@ -93,7 +93,9 @@ The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deploymen
 | PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT                  |
 | Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                                             |
 | RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                                  |
-| **Total**        |                                                                                                       | **$592** |                                                                          |
+| **Core total**   |                                                                                                       | **$592** | Required for all deployments                                             |
+| Roof Rack Mount  | PVC pipe, 2×4, clamps, braces, screws ([detail](#roof-rack-mount-bill-of-materials))                  | $55      | Optional: for car-mounted mobile deployment                              |
+| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                                   |
 
 Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
 
@@ -240,6 +242,12 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 _Estimated time: 1–2 hours_
 
+The same hardware supports two deployment modes: a fixed mount at home, or a portable rig on your car roof rack. Pick whichever suits the situation — or build both and move the sensor to whichever street needs attention this month. That is what traffic engineers do, except they charge considerably more for the privilege.
+
+#### Deployment option A: home installation (permanent)
+
+A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that makes it difficult for a committee to claim the problem is temporary.
+
 **Enclosure preparation**:
 
 - Drill mounting holes in the back plate for hose clamps
@@ -277,6 +285,63 @@ _Estimated time: 1–2 hours_
 - ✅ Seal tested before final mounting
 
 **Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
+
+#### Deployment option B: car roof rack mount (mobile)
+
+A portable rig that clamps to a standard roof rack. Park on any street, aim the sensor, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.
+
+<!-- IMAGE 9: Car roof rack mount — completed build
+     Subject: the assembled PVC and timber mount sitting on a workbench,
+     showing the enclosure, hose clamps, corner braces, and 2×4 crossbar
+     Purpose: lets the reader see the finished result before starting the build
+     Format: photograph, landscape -->
+
+<!-- IMAGE 10: Car roof rack mount — installed on vehicle
+     Subject: the mount clamped to a car roof rack with the sensor enclosed
+     and aimed along the street. Show the PoE cable routed into the car.
+     Purpose: shows real-world deployment so readers know what to expect
+     Format: photograph, landscape -->
+
+<!-- IMAGE 11: Car roof rack mount — in operation
+     Subject: the car parked on a residential street with the sensor running,
+     dashboard visible on a laptop or phone inside the car
+     Purpose: completes the story — build → mount → measure
+     Format: photograph, landscape -->
+
+##### Roof rack mount bill of materials
+
+One hardware store trip. Prices from Lowe's (April 2026):
+
+| Part                                           | Model / Item #      | Unit Price | Qty |   Total |
+| ---------------------------------------------- | ------------------- | ---------: | --: | ------: |
+| 4 in × 2 ft DWV foam core SCH 40 pipe          | ADS 03400 (#256096) |     $24.78 |   1 |  $24.78 |
+| 2 in × 4 in × 96 in kiln-dried whitewood stud  | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
+| 3 in to 5 in stainless steel adjustable clamp  | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
+| 1-13/16 in to 3 in galvanised adjustable clamp | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
+| 3 in × 0.75 in black steel corner brace 4-pack | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
+| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
+| **Subtotal (roof rack mount)**                 |                     |            |     | **$55** |
+
+You will also need:
+
+- A PoE-capable battery pack or a 12 V car outlet to PoE adapter
+- A short Ethernet cable (sensor to Pi inside the car)
+
+##### Building the roof rack mount
+
+1. **Cut the 2×4** to the width of your roof rack crossbars (typically 36–42 in). This is the crossbar that sits on the rack.
+
+2. **Cut the PVC pipe** to the length of the sensor enclosure plus 4–6 in clearance on each side. This is the sensor cradle.
+
+3. **Attach the PVC cradle to the 2×4 crossbar** using the corner braces and deck screws. The pipe sits on top of the timber, perpendicular to the road when mounted. Two braces per side, four total.
+
+4. **Seat the sensor enclosure inside the PVC pipe.** The foam core pipe has a wide enough bore for the OPS7243 enclosure. Secure with the two 3–5 in stainless steel clamps around the pipe and enclosure.
+
+5. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly — the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+
+6. **Route the Ethernet cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
+
+**Aiming**: park the car parallel to the kerb with the sensor aimed along the street, not across it. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0° — which is the geometry you want.
 
 ---
 
@@ -368,7 +433,7 @@ You do not need to prescribe the answer. Present the evidence, name the options,
 
 - **Do not share raw database files.** The PDF is the presentation format.
 - **Do not identify drivers or vehicles.** The system collects no personal data, and neither should the presentation.
-- **Do not post your address on social media.** The site map in the PDF report is optional: include it when filing directly with city officials, leave it out of anything you share publicly. Your data should make your street safer, not your house easier to find.
+- **Include site maps for public locations; leave your home address off.** When the sensor covers a school zone, a park, a commercial district, or a senior centre, the site map shows exactly where the problem is. If the sensor is mounted at your house, it's best to omit the map. Your data should make your street safer, not your house easier to find.
 - **Do not lead with how the speed feels.** Lead with the measured speed. A number is harder for a committee to talk past than an anecdote.
 - **Do not accept a one-off fix as a permanent answer.** A new speed hump slows traffic for weeks. The question is whether it still works in six months.
 
@@ -526,7 +591,8 @@ velocity-start
 
 USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
-**Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support) • **More help**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
+- **Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
+- **More help**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
