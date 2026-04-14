@@ -132,6 +132,10 @@ help:
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
 	@echo ""
+	@echo "DIAGRAMS:"
+	@echo "  install-diagrams     Install build123d (3D CAD kernel) into shared venv"
+	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
+	@echo ""
 	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
 	@echo "  deploy-install       Removed — use RPi image or manual install"
@@ -497,7 +501,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
+.PHONY: install-python install-web install-docs install-diagrams activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1396,6 +1400,28 @@ clean-python:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
+
+# =============================================================================
+# DIAGRAMS
+# =============================================================================
+
+DIAGRAMS_DIR = tools/rack-drawing
+
+.PHONY: install-diagrams render-diagrams
+
+install-diagrams:
+	@echo "Installing build123d (3D CAD) into shared venv…"
+	@if [ ! -d "$(VENV_DIR)" ]; then $(MAKE) install-python; fi
+	@$(VENV_PIP) install --quiet build123d
+	@echo "✓ build123d installed"
+
+render-diagrams:
+	@echo "Rendering rack-mount diagrams…"
+	@if ! $(VENV_PYTHON) -c 'import build123d' 2>/dev/null; then \
+		echo "build123d not found — run 'make install-diagrams' first."; exit 1; \
+	fi
+	@cd $(DIAGRAMS_DIR) && ../../$(VENV_PYTHON) draw_rack.py
+	@echo "✓ Diagrams written to $(DIAGRAMS_DIR)/"
 
 # =============================================================================
 # DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)
