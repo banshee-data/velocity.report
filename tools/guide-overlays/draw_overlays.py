@@ -74,11 +74,12 @@ ANGEL_CFG = {
     "arc_radius_pct": 10,  # % of height
     "label_offset_pct": 2.7,  # extra offset beyond arc, % of height
     "label_font_size": 22,
-    # ── Inverted-T direction of travel marker ──
-    "t_centre_x_pct": 75.0,  # centre of horizontal bar — % of width
-    "t_centre_y_pct": 44.0,  # vertical position — % of height
+    # ── Direction-of-travel T marker ──
+    # Anchored at the beam apex. Bar = direction of travel (perpendicular
+    # to beam, pointing right in image coords). Stem = left arm of the V
+    # (the left cone edge direction from the apex).
     "t_bar_half_pct": 12.0,  # half-length of horizontal bar — % of width
-    "t_stem_pct": 10.0,  # stem length going UP — % of height
+    "t_stem_pct": 10.0,  # stem length along left edge of cone — % of height
     "t_label_text": "direction of travel →",
     "t_label_font_size": 16,
 }
@@ -102,18 +103,31 @@ def _angel_svg():
     label_r = arc_r + _pct_len(c["label_offset_pct"], H)
     lbl = _pt((ax, ay), h, label_r)
 
-    # ── Inverted T ──
-    tx, ty = _pct(c["t_centre_x_pct"], c["t_centre_y_pct"], W, H)
+    # ── Direction-of-travel T, anchored at beam apex ──
+    # Horizontal bar: direction of travel is perpendicular to beam heading.
+    # Beam heads roughly "up-right" (heading=12°), so direction of travel
+    # is 90° to the right of that = heading + 90° rotated from up = left/right
+    # in the image.  We draw the bar purely horizontal (left/right) since the
+    # road runs horizontally across the photo.
     bar_half = _pct_len(c["t_bar_half_pct"], W)
     stem_len = _pct_len(c["t_stem_pct"], H)
 
-    # Bar endpoints (horizontal, left→right = direction of travel)
-    bl = (tx - bar_half, ty)
-    br = (tx + bar_half, ty)
-    # Stem goes UP from centre of bar
-    st = (tx, ty - stem_len)
-    # Small right-angle square at junction (size = 8px)
-    sq = 8
+    # Bar runs horizontally through the apex (direction of travel)
+    bl = (ax - bar_half, ay)
+    br = (ax + bar_half, ay)
+
+    # Stem goes along the left arm of the cone from the apex.
+    # Left arm direction: heading - half_angle (clockwise from image-up).
+    stem_end = _pt((ax, ay), h - ha, stem_len)
+
+    # Right-angle marker between bar and stem (small square in the angle)
+    # Position the square marker offset from the apex along the bar and stem
+    sq = 10
+    # Find unit vector along stem direction
+    sdx, sdy = _dir(h - ha)
+    # Unit vector along bar direction (to the right = 90° from image-up)
+    bdx, bdy = 1.0, 0.0
+    sq_corner = (ax + bdx * sq, ay + sdy * sq)
 
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -148,20 +162,20 @@ def _angel_svg():
     {ha * 2}°
   </text>
 
-  <!-- Inverted-T: direction of travel reference -->
-  <!-- Horizontal bar -->
+  <!-- Direction-of-travel T anchored at apex -->
+  <!-- Horizontal bar (direction of travel) -->
   <line x1="{bl[0]:.1f}" y1="{bl[1]:.1f}"
         x2="{br[0]:.1f}" y2="{br[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.5" opacity="0.9"/>
-  <!-- Vertical stem (up) -->
-  <line x1="{tx:.1f}" y1="{ty:.1f}"
-        x2="{st[0]:.1f}" y2="{st[1]:.1f}"
+  <!-- Stem along left arm of cone -->
+  <line x1="{ax:.1f}" y1="{ay:.1f}"
+        x2="{stem_end[0]:.1f}" y2="{stem_end[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.5" opacity="0.9"/>
-  <!-- Right-angle marker -->
-  <polyline points="{tx + sq:.1f},{ty:.1f} {tx + sq:.1f},{ty - sq:.1f} {tx:.1f},{ty - sq:.1f}"
+  <!-- Right-angle marker at apex junction -->
+  <polyline points="{ax + bdx * sq:.1f},{ay + bdy * sq:.1f} {sq_corner[0]:.1f},{sq_corner[1]:.1f} {ax + sdx * sq:.1f},{ay + sdy * sq:.1f}"
             fill="none" stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"/>
-  <!-- Bar label -->
-  <text x="{tx:.1f}" y="{ty + 18:.1f}"
+  <!-- Label below the bar -->
+  <text x="{ax:.1f}" y="{ay + 18:.1f}"
         fill="{LABEL_FILL}" font-size="{c['t_label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="hanging"
         paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="2.5">

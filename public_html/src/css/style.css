@@ -295,6 +295,17 @@ html {
   margin-right: auto;
 }
 
+/* Image links: no colour/hover styling — treat as neutral wrapper */
+.prose a:has(> img),
+.prose a:has(> img):visited,
+.prose a:has(> img):hover,
+.prose a:has(> img):visited:hover {
+  color: inherit;
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+}
+
 /* Pre blocks in prose: light background in light mode.
    Typography defaults --tw-prose-pre-bg to dark gray; override it. */
 .prose {

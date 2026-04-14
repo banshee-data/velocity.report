@@ -315,6 +315,8 @@ You will also need:
 - A PoE-capable battery pack or a 12 V car outlet to PoE adapter
 - A short Ethernet cable (sensor to Pi inside the car)
 
+![Engineering drawing: isometric view of the roof rack sensor mount with bill of materials](/img/rack-drawing-iso-bom.png)
+
 ##### Building the roof rack mount
 
 ![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.JPG)
@@ -332,6 +334,8 @@ You will also need:
 6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly — the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
 
 7. **Route the Ethernet cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
+
+![Engineering drawing: front, top, and side orthographic views of the roof rack sensor mount](/img/rack-drawing-ortho.png)
 
 **Aiming**: park the car parallel to the kerb with the sensor aimed along the street, not across it. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0° — which is the geometry you want.
 

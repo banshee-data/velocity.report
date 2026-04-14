@@ -62,7 +62,7 @@ def make_frame(cfg: dict) -> Compound:
     Members:
       crossbar  — 32" along X, flat (wide face up), bottom at Z=0
       upright   — 24" along Z, centred on crossbar, bottom at Z=W
-      braces    — 45° supports, one each side, from crossbar to upright
+      braces    — 45° supports, one each side, mitre-cut at both ends
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH  # 1.5" = 38.1 mm  (narrow face)
@@ -72,57 +72,39 @@ def make_frame(cfg: dict) -> Compound:
     BTE = lbr["brace_top_edge_in"] * INCH  # 11" brace top edge
     BA = math.radians(lbr["brace_angle_deg"])  # 45°
 
-    parts = []
-
     # ── Crossbar (horizontal, lies on ground, wide face up) ──────────
-    # Long axis along X, centred at origin.
-    # Box(X_len, Y_len, Z_len) centred at origin; move bottom to Z=0.
     crossbar = Box(CB, D, W)
     crossbar = crossbar.move(Location((0, 0, W / 2)))
-    parts.append(crossbar)
 
     # ── Upright (vertical, centred on crossbar) ──────────────────────
-    # Sits on top of the crossbar at X=0. Wide face toward ±Y.
-    # Bottom at Z=W (top of crossbar).
     upright = Box(W, D, UL)
     upright = upright.move(Location((0, 0, W + UL / 2)))
-    parts.append(upright)
 
-    # ── 45° braces ───────────────────────────────────────────────────
-    # Each brace: 2×4 with both ends mitered at 45°.
-    # Top edge = BTE. For a 45° miter on a D-wide board:
-    #   bottom edge = BTE - 2·D  (D removed at each end by the miter)
-    # Centre length = BTE - D.
-    # When placed at 45°:
-    #   horizontal span = (BTE - D) · cos(45°)
-    #   vertical span   = (BTE - D) · sin(45°)
-    #
-    # Simplification: model as a rectangular prism at 45°, length =
-    # centre line = BTE - D.  The miter faces are cosmetic; the
-    # silhouette from front/side is correct.
+    # ── 45° braces with mitre cuts ──────────────────────────────────
+    # Start with an over-length brace, rotate and position at 45°,
+    # then boolean-subtract the crossbar and upright volumes.
+    # The intersection removes the overlapping ends, leaving clean
+    # mitre faces where the brace meets each member.
 
-    brace_center = BTE - D
-    brace = Box(W, D, brace_center)
-
-    # Brace attachment: bottom end sits on crossbar top (Z=W) at some
-    # X offset; top end meets the upright face.
-    # Horizontal span from upright edge:
+    brace_center = BTE - D  # centre-line length between mitre faces
     h_span = brace_center * math.cos(BA)
     v_span = brace_center * math.sin(BA)
 
-    # Right brace (+X side): rotates -45° around Y, then position.
-    # After rotation the brace centre is at the midpoint of its span.
-    # Brace centre X = W/2 + h_span/2, Z = W + v_span/2
-    right = brace.rotate(Axis.Y, -45)
+    # Over-length raw brace ensures both ends penetrate the
+    # neighbouring members so the boolean cut produces mating faces.
+    brace_raw = Box(W, D, BTE)
+
+    # Right brace (+X side)
+    right = brace_raw.rotate(Axis.Y, -45)
     right = right.move(Location((W / 2 + h_span / 2, 0, W + v_span / 2)))
-    parts.append(right)
+    right = right - crossbar - upright
 
-    # Left brace (-X side): mirror of right
-    left = brace.rotate(Axis.Y, 45)
+    # Left brace (-X side)
+    left = brace_raw.rotate(Axis.Y, 45)
     left = left.move(Location((-W / 2 - h_span / 2, 0, W + v_span / 2)))
-    parts.append(left)
+    left = left - crossbar - upright
 
-    return Compound(children=parts)
+    return Compound(children=[crossbar, upright, right, left])
 
 
 # ── Pipe ──────────────────────────────────────────────────────────────────────
@@ -150,7 +132,7 @@ def make_pipe(cfg: dict) -> Part:
 def make_assembly(cfg: dict) -> Compound:
     """
     Complete assembly: T-frame + vertical pipe.
-    Pipe sits on top of the upright, centred.
+    Pipe slides over the top of the upright and is screwed to it.
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH
@@ -160,9 +142,10 @@ def make_assembly(cfg: dict) -> Compound:
 
     frame = make_frame(cfg)
 
-    # Pipe: vertical, centred on the upright top.
-    # Upright top at Z = W + UL.  Pipe bottom rests there.
-    pipe_bottom_z = W + UL
+    # Pipe overlaps the top portion of the upright (held by hose clamps
+    # and screwed in).  8" of overlap keeps two clamps comfortably spaced.
+    PIPE_OVERLAP = 8 * INCH
+    pipe_bottom_z = W + UL - PIPE_OVERLAP
     pipe = make_pipe(cfg)
     pipe = pipe.move(Location((0, 0, pipe_bottom_z + pipe_len / 2)))
 
@@ -217,6 +200,7 @@ def main(config_path: str | None = None, out_dir: str | None = None) -> list[str
     views = {
         "front": ((0, 1, 0), (0, 0, 1)),
         "side": ((-1, 0, 0), (0, 0, 1)),
+        "top": ((0, 0, 1), (0, -1, 0)),
         "isometric": ((-_iso, -_iso, _iso), (0, 0, 1)),
     }
 
