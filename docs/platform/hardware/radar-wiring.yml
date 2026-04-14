@@ -3,53 +3,80 @@
 # Cable: OPS700-CBL-M1-PT-1.8 (M12 to pigtail, 1.8m)
 # HAT:   Waveshare RS232/485 HAT on Raspberry Pi 4 GPIO
 # Interface: RS-232 serial, 19200 baud, 8N1
+# Power:  12V from Waveshare HAT screw terminal → sensor VCC
 #
 # Generate diagram:
-#   wireviz docs/hardware/radar-wiring.yml
+#   make wiring
 #
-# Output: radar-wiring.svg, radar-wiring.png, radar-wiring.html (BOM)
+# Output: radar-wiring.svg, radar-wiring.png
 
 connectors:
   OPS7243:
-    type: M12 4-pin
+    type: M12
     subtype: female
-    pinlabels: [VCC, TX, RX, GND]
-    notes: OPS7243-A-CW-R2 radar sensor
+    pins: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    pinlabels:
+      [
+        GPIO,
+        GPIO,
+        Host Interrupt,
+        /Reset,
+        RS2_RxD,
+        UART_RxD,
+        UART_TxD,
+        RS2_TxD,
+        5-24V,
+        Ground,
+      ]
+    notes: OPS7243-A radar sensor (J3 Rev D)
 
   pigtail:
     type: pigtail
-    pinlabels: [Red, Green, White, Black]
-    notes: Bare wire ends of OPS700-CBL-M1-PT-1.8
+    pinlabels: [Brown, Black, Blue, White]
+    notes: OPS700-CBL-M1-PT-1.8
 
-  HAT:
+  HAT serial:
     type: DE-9
     subtype: male
     pinlabels: [DCD, RX, TX, DTR, GND, DSR, RTS, CTS, RI]
-    notes: Waveshare RS232/485 HAT (on Raspberry Pi 4)
+    notes: Waveshare RS232/485 HAT serial port
+
+  HAT 12V:
+    type: screw
+    pinlabels: ["V+", GND]
+    notes: Waveshare HAT 12V screw terminal
 
 cables:
   M12 cable:
     wirecount: 4
     length: 1.8 m
-    pn: OPS700-CBL-M1-PT-1.8
-    colors: [RD, GN, WH, BK]
-    notes: M12 to pigtail
+    colors: [BG, BK, BU, WH]
+    notes: OPS700-CBL-M1-PT-1.8
+
+  Power:
+    wirecount: 2
+    gauge: 28 AWG
+    colors: [BG, BK]
+    notes: 12V supply
 
   Serial:
     wirecount: 3
     gauge: 28 AWG
-    notes: >-
-      Pigtail soldered to DE-9 female connector,
-      plugged into HAT DB-9 (TX/RX crossover)
-    colors: [GN, WH, BK]
+    notes: TX/RX crossover
+    colors: [BU, WH, BK]
 
 connections:
   - # M12 cable from sensor to pigtail
-    - OPS7243: [1, 2, 3, 4]
+    - OPS7243: [5, 8, 9, 10]
     - M12 cable: [1, 2, 3, 4]
     - pigtail: [1, 2, 3, 4]
 
-  - # Pigtail to HAT via DE-9 (TX/RX crossover)
-    - pigtail: [2, 3, 4]
+  - # 12V from HAT screw terminal to pigtail VCC (Black)
+    - pigtail: [1, 2]
+    - Power: [1, 2]
+    - HAT 12V: [1, 2]
+
+  - # TX/RX crossover to DE-9
+    - pigtail: [3, 4, 2]
     - Serial: [1, 2, 3]
-    - HAT: [2, 3, 5]
+    - HAT serial: [2, 3, 5]
