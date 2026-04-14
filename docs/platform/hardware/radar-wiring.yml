@@ -33,11 +33,6 @@ connectors:
       src: m12-pinout.png
       caption: M12 connector face
 
-  HAT PoE:
-    type: screw
-    pinlabels: ["VCC", GND]
-    notes: Waveshare PoE HAT (F)
-
   HAT serial:
     type: DE-9
     subtype: male
@@ -47,20 +42,25 @@ connectors:
       src: de9-pinout.png
       caption: DE-9 connector face
 
+  HAT PoE:
+    type: pin
+    pinlabels: ["VCC", GND]
+    notes: Waveshare PoE HAT (F)
+
 cables:
   M12 cable:
     wirecount: 4
-    length: 1.8 m
+    length: 5 m
     colors: [WH, BU, BK, BG]
     notes: OPS700-CBL-M1-PT-1.8
 
 connections:
-  - # 12V power
-    - OPS7243: [9, 10]
-    - M12 cable: [3, 4]
-    - HAT PoE: [1, 2]
-
   - # Serial data
     - OPS7243: [5, 8, 10]
     - M12 cable: [1, 2, 4]
     - HAT serial: [2, 3, 5]
+
+  - # Power
+    - OPS7243: [9, 10]
+    - M12 cable: [3, 4]
+    - HAT PoE: [1, 2]
