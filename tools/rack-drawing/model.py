@@ -1,20 +1,25 @@
 """
 model.py — Parametric build123d model of the Raspberry Pi sensor mount.
 
-Assembly from photo:
-  - Two identical L-brackets, each made from 2x 24" 2x4 pieces joined at
-    a 45-degree miter, reinforced by a steel corner brace.
-  - A 4" DWV pipe spanning 24" between the two brackets, sitting in the
-    upright notch and secured by hose clamps.
+Assembly from the actual build:
+  - A 32" crossbar (2×4, flat) that sits on the roof rack.
+  - A 24" upright (2×4, vertical) centred on the crossbar.
+  - Two 45° braces (2×4, 11" top edge each) from the crossbar to the
+    upright, one each side.  Both ends are mitre-cut so the brace sits
+    flush against crossbar and upright without overlap.
+  - A 4" DWV pipe standing vertically, overlapping the top of the
+    upright and screwed into it.
 
 All dimensions are in millimetres internally (build123d default).
 Config values are read in inches and converted at the top of each function.
 """
 
 import json
+import math
 from pathlib import Path
 
 from build123d import (
+    Axis,
     Box,
     Compound,
     Cylinder,
@@ -45,71 +50,77 @@ def lumber_box(width_in: float, depth_in: float, length_in: float) -> Part:
     return Box(w, d, l)
 
 
-# ── L-bracket (single mount) ──────────────────────────────────────────────────
+# ── T-frame assembly ─────────────────────────────────────────────────────────
 
 
-def make_bracket(cfg: dict) -> Compound:
+def make_frame(cfg: dict) -> Compound:
     """
-    One L-shaped mount.
+    The T-shaped wooden frame.
 
-    The foot lies flat (long axis along X).
-    The upright stands vertically (long axis along Z).
-    They meet at a 45-degree miter at the inside corner.
+    Coordinate origin: centre of the crossbar at ground level (Z=0).
 
-    Coordinate origin: inside corner of the miter joint at ground level.
+    Members:
+      crossbar  — 32" along X, flat (wide face up), bottom at Z=0
+      upright   — 24" along Z, centred on crossbar, bottom at Z=W
+      braces    — 45° supports, one each side, from crossbar to upright
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH  # 1.5" = 38.1 mm  (narrow face)
     D = lbr["actual_depth_in"] * INCH  # 3.5" = 88.9 mm  (wide face)
-    L = lbr["piece_length_in"] * INCH  # 24"  = 609.6 mm
+    CB = lbr["crossbar_length_in"] * INCH  # 32" crossbar
+    UL = lbr["upright_length_in"] * INCH  # 24" upright
+    BTE = lbr["brace_top_edge_in"] * INCH  # 11" brace top edge
+    BA = math.radians(lbr["brace_angle_deg"])  # 45°
 
     parts = []
 
-    # ── Foot (horizontal, lies on ground, wide face up) ──────────────────
-    # The foot extends L mm in the -X direction from the miter corner.
-    # We position a Box centred at its own centre, then move it.
-    #
-    # Foot box: length=L, width=D (face up), height=W (thin edge down)
-    #   Centre: X = -L/2, Y = 0, Z = W/2  (bottom face at Z=0)
-    foot = Box(L, D, W)
-    foot = foot.move(Location((-L / 2, 0, W / 2)))
-    parts.append(foot)
+    # ── Crossbar (horizontal, lies on ground, wide face up) ──────────
+    # Long axis along X, centred at origin.
+    # Box(X_len, Y_len, Z_len) centred at origin; move bottom to Z=0.
+    crossbar = Box(CB, D, W)
+    crossbar = crossbar.move(Location((0, 0, W / 2)))
+    parts.append(crossbar)
 
-    # ── Upright (vertical, wide face toward -Y, back of bracket) ─────────
-    # The upright rises L mm above the miter corner.
-    # Its front face (at Y = -D/2 .. +D/2, centred Y=0) aligns with the
-    # foot's front face.
-    # The miter is approximated as the upright sitting on top of the foot's
-    # inner end; a 45° cut would make the faces flush — we show the geometry
-    # as a clean butt to keep the model simple, matching typical workshop
-    # construction where the brace carries the joint load.
-    #
-    # Upright box: width=D, depth=W, height=L
-    #   Centre: X = W/2, Y = 0, Z = W + L/2
-    upright = Box(W, D, L)
-    upright = upright.move(Location((W / 2, 0, W + L / 2)))
+    # ── Upright (vertical, centred on crossbar) ──────────────────────
+    # Sits on top of the crossbar at X=0. Wide face toward ±Y.
+    # Bottom at Z=W (top of crossbar).
+    upright = Box(W, D, UL)
+    upright = upright.move(Location((0, 0, W + UL / 2)))
     parts.append(upright)
 
-    # ── Steel corner brace ────────────────────────────────────────────────
-    # Thin flat plate, 3"×3"×0.075" steel, inside corner.
-    # Arms lie in the XZ plane at Y = -D/2 (back face of the joint).
-    brace_arm = 3.0 * INCH
-    brace_thk = 0.075 * INCH
-    brace_w = 0.75 * INCH
+    # ── 45° braces ───────────────────────────────────────────────────
+    # Each brace: 2×4 with both ends mitered at 45°.
+    # Top edge = BTE. For a 45° miter on a D-wide board:
+    #   bottom edge = BTE - 2·D  (D removed at each end by the miter)
+    # Centre length = BTE - D.
+    # When placed at 45°:
+    #   horizontal span = (BTE - D) · cos(45°)
+    #   vertical span   = (BTE - D) · sin(45°)
+    #
+    # Simplification: model as a rectangular prism at 45°, length =
+    # centre line = BTE - D.  The miter faces are cosmetic; the
+    # silhouette from front/side is correct.
 
-    # Horizontal arm: along -X from the corner
-    h_arm = Box(brace_arm, brace_w, brace_thk)
-    h_arm = h_arm.move(
-        Location((-brace_arm / 2, -D / 2 + brace_w / 2, W - brace_thk / 2))
-    )
-    parts.append(h_arm)
+    brace_center = BTE - D
+    brace = Box(W, D, brace_center)
 
-    # Vertical arm: along +Z from the corner
-    v_arm = Box(brace_thk, brace_w, brace_arm)
-    v_arm = v_arm.move(
-        Location((brace_thk / 2, -D / 2 + brace_w / 2, W + brace_arm / 2))
-    )
-    parts.append(v_arm)
+    # Brace attachment: bottom end sits on crossbar top (Z=W) at some
+    # X offset; top end meets the upright face.
+    # Horizontal span from upright edge:
+    h_span = brace_center * math.cos(BA)
+    v_span = brace_center * math.sin(BA)
+
+    # Right brace (+X side): rotates -45° around Y, then position.
+    # After rotation the brace centre is at the midpoint of its span.
+    # Brace centre X = W/2 + h_span/2, Z = W + v_span/2
+    right = brace.rotate(Axis.Y, -45)
+    right = right.move(Location((W / 2 + h_span / 2, 0, W + v_span / 2)))
+    parts.append(right)
+
+    # Left brace (-X side): mirror of right
+    left = brace.rotate(Axis.Y, 45)
+    left = left.move(Location((-W / 2 - h_span / 2, 0, W + v_span / 2)))
+    parts.append(left)
 
     return Compound(children=parts)
 
@@ -117,20 +128,18 @@ def make_bracket(cfg: dict) -> Compound:
 # ── Pipe ──────────────────────────────────────────────────────────────────────
 
 
-def make_pipe(cfg: dict, span_in: float) -> Part:
+def make_pipe(cfg: dict) -> Part:
     """
-    PVC pipe cylinder (hollow) along Y axis.
-    Positioned so it rests on top of the two uprights.
+    PVC pipe cylinder (hollow), vertical along Z.
     """
     pc = cfg["pipe"]
     od = pc["od_in"] * INCH / 2  # outer radius
     wall = pc["wall_in"] * INCH
     ir = od - wall
-    length = span_in * INCH
+    length = pc["length_in"] * INCH
 
-    # Outer cylinder minus inner cylinder
     outer = Cylinder(od, length)
-    inner = Cylinder(ir, length + 2)  # slightly longer to ensure clean subtraction
+    inner = Cylinder(ir, length + 2)
     pipe = outer - inner
     return pipe
 
@@ -140,37 +149,24 @@ def make_pipe(cfg: dict, span_in: float) -> Part:
 
 def make_assembly(cfg: dict) -> Compound:
     """
-    Complete assembly: two brackets + pipe.
-    Bracket A at Y=0, Bracket B at Y = pipe_length.
-    Pipe centred on the upright tops.
+    Complete assembly: T-frame + vertical pipe.
+    Pipe sits on top of the upright, centred.
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH
-    D = lbr["actual_depth_in"] * INCH
-    L = lbr["piece_length_in"] * INCH
-
-    pipe_span_in = cfg["pipe"]["length_in"]
-    pipe_span = pipe_span_in * INCH
+    UL = lbr["upright_length_in"] * INCH
+    pipe_len = cfg["pipe"]["length_in"] * INCH
     pipe_od = cfg["pipe"]["od_in"] * INCH / 2
 
-    bracket_a = make_bracket(cfg)
-    bracket_b = make_bracket(cfg)
+    frame = make_frame(cfg)
 
-    # Place bracket B at +Y = pipe_span
-    bracket_b = bracket_b.move(Location((0, pipe_span, 0)))
+    # Pipe: vertical, centred on the upright top.
+    # Upright top at Z = W + UL.  Pipe bottom rests there.
+    pipe_bottom_z = W + UL
+    pipe = make_pipe(cfg)
+    pipe = pipe.move(Location((0, 0, pipe_bottom_z + pipe_len / 2)))
 
-    # Pipe: rests on top of uprights.
-    # Upright top centre: X = W/2, Z = W + L + pipe_od (resting on top)
-    pipe_cx = W / 2
-    pipe_cz = W + L + pipe_od
-    pipe = make_pipe(cfg, pipe_span_in)
-    # Cylinder default axis is Z; rotate to lie along Y axis
-    from build123d import Axis
-
-    pipe = pipe.rotate(Axis.X, 90)
-    pipe = pipe.move(Location((pipe_cx, pipe_span / 2, pipe_cz)))
-
-    return Compound(children=[bracket_a, bracket_b, pipe])
+    return Compound(children=[frame, pipe])
 
 
 # ── SVG export helpers ────────────────────────────────────────────────────────
@@ -213,18 +209,10 @@ def main(config_path: str | None = None, out_dir: str | None = None) -> list[str
 
     assembly = make_assembly(cfg)
 
-    lbr = cfg["lumber"]
-    D = lbr["actual_depth_in"] * INCH
-    L = lbr["piece_length_in"] * INCH
-    W = lbr["actual_width_in"] * INCH
-    span = cfg["pipe"]["length_in"] * INCH
-
     # camera_direction: unit vector pointing from the scene toward the camera.
     # For front view: camera at +Y → direction = (0, 1, 0)
     # For side view: camera at -X → direction = (-1, 0, 0)
     # For isometric: camera at (-1, -1, 1) normalised
-    import math
-
     _iso = math.sqrt(1 / 3)
     views = {
         "front": ((0, 1, 0), (0, 0, 1)),

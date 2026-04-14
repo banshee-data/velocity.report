@@ -1,15 +1,18 @@
 {
   "title": "Raspberry Pi Roof Rack Sensor Mount",
-  "revision": "A",
+  "revision": "B",
   "lumber": {
     "species": "Kiln-dried Whitewood Stud",
     "nominal": "2x4",
     "actual_width_in": 1.5,
     "actual_depth_in": 3.5,
     "stock_length_in": 96,
-    "piece_length_in": 24,
+    "crossbar_length_in": 32,
+    "upright_length_in": 24,
+    "brace_top_edge_in": 11,
+    "brace_angle_deg": 45,
     "num_pieces": 4,
-    "note": "4 equal pieces; alternate 45-degree miter / 90-degree crosscut"
+    "note": "1 crossbar 32 in, 1 upright 24 in, 2 braces 11 in top edge at 45 deg"
   },
   "pipe": {
     "description": "4-in x 2-ft DWV Foam Core SCH 40 Pipe",

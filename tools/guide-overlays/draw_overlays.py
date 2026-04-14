@@ -266,6 +266,32 @@ def main():
         sutro_out.write_text(sutro_svg)
         print(f"  ✓ {sutro_out.relative_to(REPO)}")
 
+    # Rasterise to PNG (browsers block external <image> refs in <img> SVGs).
+    # rsvg-convert resolves relative <image href> from the SVG's directory.
+    import shutil
+    import subprocess
+
+    rsvg = shutil.which("rsvg-convert")
+    if not rsvg:
+        print("  ⚠ rsvg-convert not found — skipping PNG render")
+        print("    Install with: brew install librsvg")
+        return
+
+    primary = IMG_DIRS[0]  # public_html/src/images/
+    pairs = [
+        ("guide-angel.svg", "guide-angel.png"),
+        ("guide-aim-sutro.svg", "guide-aim-sutro.png"),
+    ]
+    for svg_name, png_name in pairs:
+        svg_path = primary / svg_name
+        for img_dir in IMG_DIRS:
+            png_path = img_dir / png_name
+            subprocess.run(
+                [rsvg, "-w", "1200", str(svg_path), "-o", str(png_path)],
+                check=True,
+            )
+            print(f"  ✓ {png_path.relative_to(REPO)}")
+
 
 if __name__ == "__main__":
     main()
