@@ -57,6 +57,11 @@ In most jurisdictions, measuring vehicle speeds on public streets from your own 
 
 ## What you will build
 
+<!-- IMAGE 1: Hero photo of the complete assembled unit
+     Subject: weatherproof enclosure mounted on a pole, cables routed, clean install
+     Purpose: shows the reader exactly what they're building before they start
+     Format: landscape, 16:9, photograph -->
+
 - **Doppler radar logger**: captures vehicle speeds 24/7
 - **Local SQLite database**: all data stays on the device
 - **Live web dashboard**: real-time speeds, histograms, time-of-day patterns
@@ -72,6 +77,11 @@ The velocity.report Pi image includes everything pre-configured: flash one SD ca
 The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment: weatherproof (IP67), 100 m range, RS232 interface.
 
 ### Bill of materials
+
+<!-- IMAGE 2: Flat-lay parts photo
+     Subject: all parts from the BOM laid out on a table, labelled
+     Purpose: lets the reader verify they have everything before starting
+     Format: landscape, photograph, annotated with part names -->
 
 | Part             | Recommended Model                                                                                     | Price    | Notes                                                                    |
 | ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
@@ -108,11 +118,22 @@ _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
+<!-- IMAGE 3: HAT stacking photo
+     Subject: close-up of Pi 4 with PoE HAT seated, then serial HAT stacked on top
+     Purpose: shows correct stacking order and pin alignment
+     Format: close-up photograph, side angle showing both HATs -->
+
 1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
 
 2. **Stack the serial HAT** (Waveshare RS232/485) on top of the PoE HAT. Ensure all pins are aligned and fully seated.
 
 3. **Wire the sensor to the HAT** following the wiring diagram below:
+
+<!-- IMAGE 4: M12 and DE-9 connector pinout diagrams
+     Subject: face-on view of M12 4-pin connector and DE-9 connector with
+     coloured pins matching wire colours (brown/black/blue/white)
+     Purpose: makes it obvious which wire goes where without reading a table
+     Format: SVG, generated (see connector diagram tooling) -->
 
 ![Radar wiring diagram: M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/img/radar-wiring.svg)
 
@@ -146,6 +167,8 @@ rpi-imager --repo https://velocity.report/rpi.json
 ```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://velocity.report/rpi.json
 ```
+
+![Screenshot of the Raspberry Pi Imager](/img/rpi-imager.png)
 
 1. **Select your Pi model** (Pi 4, Pi 400, or Pi 5)
 2. **Select velocity.report** from the OS list
@@ -199,6 +222,11 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
+<!-- IMAGE 6: Dashboard screenshot
+     Subject: web dashboard showing live speed detections, histogram, time chart
+     Purpose: shows the reader what success looks like — the payoff for the build
+     Format: screenshot, browser frame, light mode -->
+
 **If the dashboard will not load**:
 
 1. Check the service is running: `velocity-status`
@@ -224,6 +252,12 @@ _Estimated time: 1–2 hours_
 - Mount 4–8 feet off the ground (reduces false detections from small objects)
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
+
+<!-- IMAGE 7: Mounting angle diagram
+     Subject: top-down view of road showing sensor, beam cone, and angle to
+     traffic flow. Mark 0°, 10°, 20°, 30° with field-of-view triangles.
+     Purpose: makes the cosine correction concept visual and concrete
+     Format: SVG diagram, generated or drawn -->
 
 **Aiming**:
 
@@ -292,6 +326,12 @@ Print the report. Bring it to the meeting. The data does the persuading, so let 
 Whether you are speaking at a city council session, a town board hearing, a parish council meeting, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
 
 ### What to bring
+
+<!-- IMAGE 8: Sample PDF report page
+     Subject: first page of a generated PDF report showing speed histogram,
+     p85 metric, time-of-day chart, site map
+     Purpose: shows what the reader will hand to the council — the end goal
+     Format: photograph of printed report on a table, or a clean PDF screenshot -->
 
 - **Printed PDF report**: a physical document can be held, marked up, filed into the public record, and passed to the person who was not at the meeting. A screen share cannot.
 - **Site photos**: the street, the school, the park, the crossing. Data tells the story; photos make it concrete.
