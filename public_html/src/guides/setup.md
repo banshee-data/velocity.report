@@ -55,10 +55,7 @@ In most jurisdictions, measuring vehicle speeds on public streets from your own 
 
 ## What you will build
 
-<!-- IMAGE 1: Hero photo of the complete assembled unit
-     Subject: weatherproof enclosure mounted on a pole, cables routed, clean install
-     Purpose: shows the reader exactly what they're building before they start
-     Format: landscape, 16:9, photograph -->
+![Complete assembled velocity.report unit: weatherproof enclosure mounted on a pole with cables routed](/img/guide-hero.jpg)
 
 - **Doppler radar logger**: captures vehicle speeds 24/7
 - **Local SQLite database**: all data stays on the device
@@ -119,10 +116,7 @@ _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
-<!-- IMAGE 3: HAT stacking photo
-     Subject: close-up of Pi 4 with PoE HAT seated, then serial HAT stacked on top
-     Purpose: shows correct stacking order and pin alignment
-     Format: close-up photograph, side angle showing both HATs -->
+![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.JPG)
 
 1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
 
@@ -223,10 +217,7 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
-<!-- IMAGE 6: Dashboard screenshot
-     Subject: web dashboard showing live speed detections, histogram, time chart
-     Purpose: shows the reader what success looks like — the payoff for the build
-     Format: screenshot, browser frame, light mode -->
+![Web dashboard showing live speed detections, histogram, and time-of-day chart](/img/guide-dash-screenshot.png)
 
 **If the dashboard will not load**:
 
@@ -260,11 +251,7 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
 
-<!-- IMAGE 7: Mounting angle diagram
-     Subject: top-down view of road showing sensor, beam cone, and angle to
-     traffic flow. Mark 0°, 10°, 20°, 30° with field-of-view triangles.
-     Purpose: makes the cosine correction concept visual and concrete
-     Format: SVG diagram, generated or drawn -->
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.svg)
 
 **Aiming**:
 
@@ -391,11 +378,7 @@ Whether you are speaking at a city council session, a town board hearing, a pari
 
 ### What to bring
 
-<!-- IMAGE 8: Sample PDF report page
-     Subject: first page of a generated PDF report showing speed histogram,
-     p85 metric, time-of-day chart, site map
-     Purpose: shows what the reader will hand to the council — the end goal
-     Format: photograph of printed report on a table, or a clean PDF screenshot -->
+![Sample PDF report page showing speed histogram, p85 metric, and site map](/img/stack.png)
 
 - **Printed PDF report**: a physical document can be held, marked up, filed into the public record, and passed to the person who was not at the meeting. A screen share cannot.
 - **Site photos**: the street, the school, the park, the crossing. Data tells the story; photos make it concrete.
