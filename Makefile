@@ -135,6 +135,8 @@ help:
 	@echo "DIAGRAMS:"
 	@echo "  install-diagrams     Install build123d (3D CAD kernel) into shared venv"
 	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
+	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
+	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo ""
 	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
@@ -1422,6 +1424,17 @@ render-diagrams:
 	fi
 	@cd $(DIAGRAMS_DIR) && ../../$(VENV_PYTHON) draw_rack.py
 	@echo "✓ Diagrams written to $(DIAGRAMS_DIR)/"
+
+OVERLAYS_DIR = tools/guide-overlays
+
+.PHONY: render-overlays render
+
+render-overlays:
+	@echo "Rendering guide-image overlays…"
+	@$(VENV_PYTHON) $(OVERLAYS_DIR)/draw_overlays.py
+	@echo "✓ Overlays written"
+
+render: render-diagrams render-overlays
 
 # =============================================================================
 # DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)
