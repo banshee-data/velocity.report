@@ -29,6 +29,9 @@ connectors:
         Ground,
       ]
     notes: OPS7243-A radar sensor (J3 Rev D)
+    image:
+      src: m12-pinout.png
+      caption: M12 connector face
 
   pigtail:
     type: pigtail
@@ -40,6 +43,9 @@ connectors:
     subtype: male
     pinlabels: [DCD, RX, TX, DTR, GND, DSR, RTS, CTS, RI]
     notes: Waveshare RS232/485 HAT serial port
+    image:
+      src: de9-pinout.png
+      caption: DE-9 connector face
 
   HAT 12V:
     type: screw
