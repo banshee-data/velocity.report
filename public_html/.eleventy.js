@@ -24,6 +24,25 @@ module.exports = function (eleventyConfig) {
     slugify: eleventyConfig.getFilter("slugify"),
   });
 
+  // Wrap images in a link that opens the full-size image in a new tab
+  const defaultImageRender =
+    markdownLibrary.renderer.rules.image ||
+    function (tokens, idx, options, env, self) {
+      return self.renderToken(tokens, idx, options);
+    };
+  markdownLibrary.renderer.rules.image = function (
+    tokens,
+    idx,
+    options,
+    env,
+    self,
+  ) {
+    const token = tokens[idx];
+    const src = token.attrGet("src") || "";
+    const img = defaultImageRender(tokens, idx, options, env, self);
+    return `<a href="${src}" target="_blank" rel="noopener">${img}</a>`;
+  };
+
   eleventyConfig.setLibrary("md", markdownLibrary);
 
   // Copy static files directly to output

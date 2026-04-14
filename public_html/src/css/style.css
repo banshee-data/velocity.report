@@ -286,6 +286,15 @@ html {
   color: inherit;
 }
 
+/* Prevent tall images from dominating the page; centre in column */
+.prose img {
+  max-height: 28rem; /* 448 px — tall photos (especially portrait) stay reasonable */
+  width: auto;
+  object-fit: contain;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* Pre blocks in prose: light background in light mode.
    Typography defaults --tw-prose-pre-bg to dark gray; override it. */
 .prose {

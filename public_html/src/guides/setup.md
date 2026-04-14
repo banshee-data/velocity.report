@@ -98,7 +98,7 @@ Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capabl
 
 ## Step-by-step build guide
 
-<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed w-fit">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Build overview <span class="font-normal text-gray-500">(total time: 2–4 hours)</span></p>
 <ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-300">
 <li><a href="#step-1-wire-the-sensor-to-the-raspberry-pi" class="link">Wire the Sensor to the Raspberry Pi</a>: 15–30 minutes</li>
@@ -251,7 +251,7 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
 
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.svg)
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
 
 **Aiming**:
 
@@ -262,6 +262,8 @@ A permanent mount on your property, aimed at the street. This is the one for lon
   1. Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.
   2. Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.
   3. Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.
+
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
 
 **Weatherproofing checklist**:
 
@@ -315,19 +317,25 @@ You will also need:
 
 ##### Building the roof rack mount
 
-1. **Cut the 2×4** to the width of your roof rack crossbars (typically 36–42 in). This is the crossbar that sits on the rack.
+![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.JPG)
 
-2. **Cut the PVC pipe** to the length of the sensor enclosure plus 4–6 in clearance on each side. This is the sensor cradle.
+1. **Cut the 2×4** into three pieces: one 32 in crossbar, one 24 in upright, and two 11 in braces (measured on the top edge, with 45° miters on both ends).
 
-3. **Attach the PVC cradle to the 2×4 crossbar** using the corner braces and deck screws. The pipe sits on top of the timber, perpendicular to the road when mounted. Two braces per side, four total.
+2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces — one each side — from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
 
-4. **Seat the sensor enclosure inside the PVC pipe.** The foam core pipe has a wide enough bore for the OPS7243 enclosure. Secure with the two 3–5 in stainless steel clamps around the pipe and enclosure.
+3. **Cut the PVC pipe** to the length of the sensor enclosure plus 4–6 in clearance on each side. This is the sensor cradle. It sits vertically on top of the upright.
 
-5. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly — the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, centred on the upright top.
 
-6. **Route the Ethernet cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
+5. **Seat the sensor enclosure inside the PVC pipe.** The foam core pipe has a wide enough bore for the OPS7243 enclosure.
+
+6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly — the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+
+7. **Route the Ethernet cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
 
 **Aiming**: park the car parallel to the kerb with the sensor aimed along the street, not across it. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0° — which is the geometry you want.
+
+![Aiming reference: sensor beam direction relative to traffic flow (same principle applies to roof rack mounting)](/img/guide-aim-sutro.png)
 
 ---
 
