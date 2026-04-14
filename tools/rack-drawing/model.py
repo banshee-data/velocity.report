@@ -20,9 +20,9 @@ from build123d import (
     Cylinder,
     Location,
     Part,
-    Plane,
-    export_svg,
 )
+from OCP.gp import gp_Dir
+from ocpsvg.hlr import HiddenLineRenderer
 
 INCH = 25.4  # mm per inch
 
@@ -164,10 +164,10 @@ def make_assembly(cfg: dict) -> Compound:
     pipe_cx = W / 2
     pipe_cz = W + L + pipe_od
     pipe = make_pipe(cfg, pipe_span_in)
-    # Cylinder default axis is Z; rotate to Y axis
-    pipe = pipe.rotate(
-        Axis=Plane.XZ.z_dir, angle=90
-    )  # this api varies; use rotation matrix
+    # Cylinder default axis is Z; rotate to lie along Y axis
+    from build123d import Axis
+
+    pipe = pipe.rotate(Axis.X, 90)
     pipe = pipe.move(Location((pipe_cx, pipe_span / 2, pipe_cz)))
 
     return Compound(children=[bracket_a, bracket_b, pipe])
@@ -175,32 +175,29 @@ def make_assembly(cfg: dict) -> Compound:
 
 # ── SVG export helpers ────────────────────────────────────────────────────────
 
-_SVG_DEFAULTS = dict(
-    line_weight=0.5,
-    show_axes=False,
-    show_hidden=True,
-    hidden_weight=0.25,
-)
-
 
 def export_view(
     shape,
     path: str,
-    camera_position: tuple[float, float, float],
+    camera_direction: tuple[float, float, float],
     up: tuple[float, float, float] = (0, 0, 1),
-    viewport_width: float = 800,
-    viewport_height: float = 600,
+    width: float = 800,
 ) -> None:
-    """Export one orthographic SVG view of *shape*."""
-    export_svg(
-        shape,
-        path,
-        camera_position=camera_position,
-        camera_up_direction=up,
-        viewport_width=viewport_width,
-        viewport_height=viewport_height,
-        **_SVG_DEFAULTS,
+    """
+    Export one orthographic SVG view of *shape* using ocpsvg HLR.
+
+    camera_direction: unit vector pointing FROM the scene TOWARD the camera
+                      (i.e. the view direction reversed). For a front view
+                      looking along +Y, pass (0, -1, 0).
+    up: world-up direction for the projection.
+    """
+    renderer = HiddenLineRenderer.Orthographic(
+        camera_direction=gp_Dir(*camera_direction),
+        camera_up=gp_Dir(*up),
     )
+    render = renderer([shape.wrapped])
+    tree = render.to_svg(width=width)
+    tree.write(path, xml_declaration=True, encoding="unicode")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -222,13 +219,17 @@ def main(config_path: str | None = None, out_dir: str | None = None) -> list[str
     W = lbr["actual_width_in"] * INCH
     span = cfg["pipe"]["length_in"] * INCH
 
-    # Camera stand-off: large enough to see the whole assembly
-    far = (L + span) * 2.5
+    # camera_direction: unit vector pointing from the scene toward the camera.
+    # For front view: camera at +Y → direction = (0, 1, 0)
+    # For side view: camera at -X → direction = (-1, 0, 0)
+    # For isometric: camera at (-1, -1, 1) normalised
+    import math
 
+    _iso = math.sqrt(1 / 3)
     views = {
-        "front": ((0, -far, W + L / 2), (0, 0, 1)),
-        "side": ((-far, span / 2, W + L / 2), (0, 0, 1)),
-        "isometric": ((-far * 0.7, -far * 0.7, far * 0.9), (0, 0, 1)),
+        "front": ((0, 1, 0), (0, 0, 1)),
+        "side": ((-1, 0, 0), (0, 0, 1)),
+        "isometric": ((-_iso, -_iso, _iso), (0, 0, 1)),
     }
 
     paths = []

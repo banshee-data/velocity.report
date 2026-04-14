@@ -35,52 +35,58 @@
   },
   "bom": [
     {
-      "description": "2x4x96-in KD Whitewood Stud",
+      "icon": "🪵",
+      "description": "2×4×96″ KD Whitewood Stud",
       "qty": 1,
       "unit": "ea",
       "unit_price": 3.85,
       "lowes_item": "330568",
-      "note": "Cut to 4x 24-inch pieces with alternating miter/square ends"
+      "aisle": ""
     },
     {
-      "description": "Steel Corner Brace 3x0.75x3-in (4-Pack)",
+      "icon": "📐",
+      "description": "Corner Brace 3×¾×3″ (4-Pack)",
       "qty": 1,
       "unit": "pk",
       "unit_price": 5.48,
       "lowes_item": "5217432",
-      "note": "1 brace per miter joint; 2 joints per mount = 4 total"
+      "aisle": ""
     },
     {
-      "description": "#8 x 1-1/4-in Deck Screws (75/Box)",
+      "icon": "🔩",
+      "description": "#8 × 1¼″ Deck Screws (75/Box)",
       "qty": 1,
       "unit": "bx",
       "unit_price": 7.99,
       "lowes_item": "753726",
-      "note": "2 screws per brace hole; approx 16 screws used"
+      "aisle": ""
     },
     {
-      "description": "4-in x 2-ft DWV Foam Core SCH 40 Pipe",
+      "icon": "🔧",
+      "description": "4″ × 2′ DWV Pipe SCH 40",
       "qty": 1,
       "unit": "ea",
       "unit_price": 24.78,
       "lowes_item": "256096",
-      "note": "Sensor housing; spans between the two mounts"
+      "aisle": ""
     },
     {
-      "description": "3-in to 5-in SS Adjustable Clamp",
+      "icon": "🗜️",
+      "description": "3–5″ SS Hose Clamp",
       "qty": 2,
       "unit": "ea",
       "unit_price": 3.78,
       "lowes_item": "1343439",
-      "note": "Large clamp; secures 4-inch pipe to upright"
+      "aisle": ""
     },
     {
-      "description": "1-13/16 to 3-in Galv. Adjustable Clamp",
+      "icon": "🗜️",
+      "description": "1⅞–3″ Galv. Hose Clamp",
       "qty": 2,
       "unit": "ea",
       "unit_price": 2.88,
       "lowes_item": "5327202",
-      "note": "Small clamp; secondary retention"
+      "aisle": ""
     }
   ]
 }

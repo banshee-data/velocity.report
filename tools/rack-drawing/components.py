@@ -360,8 +360,8 @@ def leader(
 
 # ── BOM table ─────────────────────────────────────────────────────────────────
 
-_COL_WIDTHS = [258, 30, 34, 52, 56, 82]  # desc, qty, unit, unit$, total$, item#
-_COL_HEADS = ["Description", "Qty", "Unit", "Unit $", "Total $", "Lowes #"]
+_COL_WIDTHS = [28, 210, 44, 52, 60, 82]  # icon, desc, qty, unit$, aisle, item#
+_COL_HEADS = ["", "Item", "Qty", "Price", "Aisle", "Lowe's #"]
 
 
 def bom_table(
@@ -438,22 +438,24 @@ def bom_table(
         )
         line_total = item["qty"] * item["unit_price"]
         total_cost += line_total
+        qty_str = f"{item['qty']} {item['unit']}"
         values = [
+            item.get("icon", ""),
             item["description"],
-            str(item["qty"]),
-            item["unit"],
+            qty_str,
             f"${item['unit_price']:.2f}",
-            f"${line_total:.2f}",
+            item.get("aisle", ""),
             item.get("lowes_item", ""),
         ]
         cx = x
         for i, (val, w) in enumerate(zip(values, cw)):
-            anchor = "start" if i == 0 else "middle"
-            tx = cx + 3 if i == 0 else cx + w / 2
+            anchor = "middle" if i == 0 else ("start" if i == 1 else "middle")
+            tx = cx + w / 2 if i == 0 else (cx + 3 if i == 1 else cx + w / 2)
+            fs = FS_LABEL + 2 if i == 0 else FS_LABEL - 1
             d.append(
                 draw.Text(
                     val,
-                    FS_LABEL - 1,
+                    fs,
                     tx,
                     y + row_h / 2,
                     text_anchor=anchor,
@@ -492,7 +494,7 @@ def bom_table(
             font_weight="bold",
         )
     )
-    total_x = x + sum(cw[:4]) + cw[4] / 2
+    total_x = x + sum(cw[:3]) + cw[3] / 2
     d.append(
         draw.Text(
             f"${total_cost:.2f}",
