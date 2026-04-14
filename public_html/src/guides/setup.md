@@ -81,19 +81,19 @@ The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deploymen
      Purpose: lets the reader verify they have everything before starting
      Format: landscape, photograph, annotated with part names -->
 
-| Part             | Recommended Model                                                                                     | Price    | Notes                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
-| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface, 100 m range, IP67 enclosure |
-| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure             |
-| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                  |
-| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                                |
-| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                        |
-| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT  |
-| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                             |
-| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                  |
-| **Core total**   |                                                                                                       | **$592** | Required for all deployments                             |
-| Roof Rack Mount  | PVC pipe, 2×4, clamps, braces, screws ([detail](#roof-rack-mount-bill-of-materials))                  | $55      | Optional: for car-mounted mobile deployment              |
-| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                   |
+| Part             | Recommended Model                                                                                     | Price    | Notes                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------- |
+| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface, IP67 enclosure             |
+| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure            |
+| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                 |
+| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                               |
+| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                       |
+| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT |
+| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                            |
+| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                 |
+| **Core total**   |                                                                                                       | **$592** | Required for all deployments                            |
+| Roof Rack Mount  | PVC pipe, 2×4 & hardware ([detail](#roof-rack-mount-bill-of-materials))                               | $55      | Optional: for car-mounted mobile deployment             |
+| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                  |
 
 Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
 
@@ -104,16 +104,14 @@ Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capabl
 <div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Build overview <span class="font-normal text-gray-500">(total time: 2–4 hours)</span></p>
 <ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-300">
-<li><a href="#step-1-wire-the-sensor-to-the-raspberry-pi" class="text-blue-600 dark:text-blue-400 hover:underline">Wire the Sensor to the Raspberry Pi</a>: 15–30 minutes</li>
-<li><a href="#step-2-flash-the-pi-image" class="text-blue-600 dark:text-blue-400 hover:underline">Flash the Pi Image</a>: 10–15 minutes</li>
-<li><a href="#step-3-access-the-web-dashboard" class="text-blue-600 dark:text-blue-400 hover:underline">Access the Web Dashboard</a>: 5 minutes</li>
-<li><a href="#step-4-mount-the-radar-sensor" class="text-blue-600 dark:text-blue-400 hover:underline">Mount the Radar Sensor</a>: 1–2 hours</li>
-<li><a href="#step-5-configure-your-site" class="text-blue-600 dark:text-blue-400 hover:underline">Configure Your Site</a>: 10 minutes</li>
-<li><a href="#step-6-generate-reports" class="text-blue-600 dark:text-blue-400 hover:underline">Generate Reports</a>: after data collection</li>
+<li><a href="#step-1-wire-the-sensor-to-the-raspberry-pi" class="link">Wire the Sensor to the Raspberry Pi</a>: 15–30 minutes</li>
+<li><a href="#step-2-flash-the-pi-image" class="link">Flash the Pi Image</a>: 10–15 minutes</li>
+<li><a href="#step-3-access-the-web-dashboard" class="link">Access the Web Dashboard</a>: 5 minutes</li>
+<li><a href="#step-4-mount-the-radar-sensor" class="link">Mount the Radar Sensor</a>: 1–2 hours</li>
+<li><a href="#step-5-configure-your-site" class="link">Configure Your Site</a>: 10 minutes</li>
+<li><a href="#step-6-generate-reports" class="link">Generate Reports</a>: after data collection</li>
 </ol>
 </div>
-
----
 
 ### Step 1: wire the sensor to the Raspberry Pi
 
@@ -385,7 +383,7 @@ The dashboard also supports **comparison reports** for measuring the effect of t
 
 ---
 
-## Taking your data to city hall
+## Take your data to city hall
 
 Print the report. Bring it to the meeting. The data does the persuading, so let it.
 
@@ -639,7 +637,7 @@ The image also pre-configures serial port settings, UART overlays, sensor initia
 
 ---
 
-## Resources and links
+## Links
 
 - **GitHub repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense support**: [omnipresense.com/support](https://www.omnipresense.com/support)
