@@ -14,8 +14,6 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 **Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $592–$647
 
-**In this guide**: [Parts List](#parts-and-tools-list) • [Build Steps](#step-by-step-build-guide) • [Generate Reports](#step-6-generate-reports) • [Present Your Case](#taking-your-data-to-city-hall) • [Troubleshooting](#troubleshooting)
-
 ---
 
 ## Introduction
