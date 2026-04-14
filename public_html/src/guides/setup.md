@@ -1,7 +1,7 @@
 ---
 layout: doc.njk
 title: Set Up Your Radar
-description: Build a privacy-first traffic radar with Raspberry Pi and a pre-built image; no cameras, no cloud, just local speed data
+description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data PDFs
 section: guides
 difficulty: intermediate
 time: 2-4 hours
@@ -26,16 +26,11 @@ This guide walks you through building a privacy-first traffic radar using a pre-
 
 ## Before you begin
 
-**Skills required**:
-
-- Basic Linux command line (SSH, file editing)
-- Basic hardware assembly (connecting cables, mounting)
-
 **Tools needed**:
 
 - Computer with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) installed
-- Screwdrivers, drill, adhesive
 - 5/16" nut driver (for steel bands)
+- Screwdrivers, drill, adhesive
 - Optional: multimeter for testing connections
 
 **No soldering required** 👩‍💻 **No coding required** 🛜 **No prior radar experience needed**
@@ -133,15 +128,22 @@ The velocity.report image is a complete Raspberry Pi OS with everything pre-inst
 
 This opens Raspberry Pi Imager with the velocity.report image pre-loaded:
 
+**macOS**
+
 ```bash
-# macOS
 cd "/Applications/Raspberry Pi Imager.app/Contents/MacOS/" && \
   ./rpi-imager --repo https://velocity.report/rpi.json
+```
 
-# Linux
+**Linux**
+
+```bash
 rpi-imager --repo https://velocity.report/rpi.json
+```
 
-# Windows
+**Windows**
+
+```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://velocity.report/rpi.json
 ```
 
@@ -175,7 +177,6 @@ The service starts automatically on boot and configures the sensor (JSON mode, u
 
 ```bash
 velocity-status
-# Should show "active (running)"
 ```
 
 To watch live logs:
