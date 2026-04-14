@@ -26,11 +26,8 @@ module.exports = function (eleventyConfig) {
   eleventyConfig.setLibrary("md", markdownLibrary);
 
   // Copy static files directly to output
-  eleventyConfig.addPassthroughCopy("src/images");
-  eleventyConfig.addPassthroughCopy("src/js");
-
-  // Copy images with img alias for backwards compatibility
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
+  eleventyConfig.addPassthroughCopy("src/js");
 
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");

@@ -63,6 +63,7 @@ help:
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
+	@echo "  dev-docs-kill        Stop stale docs dev server processes"
 	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
 	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
 	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
@@ -621,7 +622,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -721,7 +722,17 @@ dev-web:
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
-dev-docs:
+dev-docs-kill:
+	@echo "Stopping stale docs dev server processes..."
+	@pids=$$(ps ax -o pid,args | grep 'public_html/node_modules/.*\(eleventy\|tailwindcss\|npm-run-all\)' | grep -v grep | awk '{print $$1}'); \
+	if [ -n "$$pids" ]; then \
+		echo "Killing PIDs: $$pids"; \
+		echo "$$pids" | xargs kill 2>/dev/null || true; \
+	else \
+		echo "No stale processes found."; \
+	fi
+
+dev-docs: dev-docs-kill
 	@echo "Starting docs dev server..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run dev; \
