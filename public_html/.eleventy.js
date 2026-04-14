@@ -100,6 +100,20 @@ module.exports = function (eleventyConfig) {
     return items;
   });
 
+  // Split content at first <h2> — returns everything before it
+  eleventyConfig.addFilter("content_preamble", (html) => {
+    if (!html || typeof html !== "string") return html;
+    const idx = html.search(/<h2[\s>]/i);
+    return idx === -1 ? html : html.slice(0, idx);
+  });
+
+  // Split content at first <h2> — returns everything from it onward
+  eleventyConfig.addFilter("content_body", (html) => {
+    if (!html || typeof html !== "string") return "";
+    const idx = html.search(/<h2[\s>]/i);
+    return idx === -1 ? "" : html.slice(idx);
+  });
+
   return {
     dir: {
       input: "src",

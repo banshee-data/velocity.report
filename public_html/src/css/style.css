@@ -94,13 +94,16 @@ html {
 
   /* Card styles - matches Svelte app */
   .card {
-    @apply rounded-lg shadow-lg p-8 bg-white border border-black;
+    @apply rounded-lg shadow-lg p-8;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
+      linear-gradient(to top left, #047857, #34d399) border-box;
   }
 
   @media (prefers-color-scheme: dark) {
     .card {
-      background-color: rgb(38, 38, 42);
-      @apply border-white;
+      --gb-fill: rgb(38, 38, 42);
     }
   }
 
@@ -149,7 +152,11 @@ html {
 
   /* Outer section panel — download groups, visualiser, video */
   .dl-section {
-    @apply bg-gray-50 rounded-2xl border border-gray-200;
+    @apply rounded-2xl;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+      linear-gradient(to top left, #047857, #34d399) border-box;
   }
 
   /* Subcard column — constrains width and centres within section */
@@ -209,7 +216,7 @@ html {
 
   @media (prefers-color-scheme: dark) {
     .dl-section {
-      @apply bg-slate-900 border-slate-800;
+      --gb-fill: rgb(15 23 42); /* slate-900 */
     }
     .dl-card {
       border-color: var(--color-slate-700);
@@ -389,9 +396,16 @@ details.toc[open] > summary::after {
   @apply text-gray-600 no-underline hover:text-blue-600 transition-colors;
 }
 
+.toc-item a[aria-current="true"] {
+  @apply text-emerald-700 font-medium;
+}
+
 @media (prefers-color-scheme: dark) {
   .toc-item a {
     @apply text-gray-400 hover:text-blue-400;
+  }
+  .toc-item a[aria-current="true"] {
+    @apply text-emerald-400;
   }
 }
 
