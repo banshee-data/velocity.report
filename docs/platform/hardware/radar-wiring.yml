@@ -20,57 +20,47 @@ connectors:
         GPIO,
         GPIO,
         Host Interrupt,
-        /Reset,
-        RS2_RxD,
-        UART_RxD,
-        UART_TxD,
-        RS2_TxD,
-        5-24V,
-        Ground,
+        Reset,
+        RS2_Rx,
+        UART_Rx,
+        UART_Tx,
+        RS2_Tx,
+        VCC,
+        GND,
       ]
-    hide_disconnected_pins: true
     notes: OPS7243-A radar sensor (J3 Rev D)
     image:
       src: m12-pinout.png
       caption: M12 connector face
 
+  HAT PoE:
+    type: screw
+    pinlabels: ["VCC", GND]
+    notes: Waveshare PoE HAT (F)
+
   HAT serial:
     type: DE-9
     subtype: male
     pinlabels: [DCD, RX, TX, DTR, GND, DSR, RTS, CTS, RI]
-    notes: Waveshare RS232/485 HAT serial port
+    notes: Waveshare 2x RS-232 HAT
     image:
       src: de9-pinout.png
       caption: DE-9 connector face
-
-  HAT 12V:
-    type: screw
-    pinlabels: ["V+", GND]
-    notes: Waveshare HAT 12V screw terminal
 
 cables:
   M12 cable:
     wirecount: 4
     length: 1.8 m
-    colors: [BG, BK, BU, WH]
+    colors: [WH, BU, BK, BG]
     notes: OPS700-CBL-M1-PT-1.8
-
-  GND:
-    wirecount: 1
-    colors: [BG]
 
 connections:
   - # 12V power
     - OPS7243: [9, 10]
-    - M12 cable: [2, 1]
-    - HAT 12V: [1, 2]
-
-  - # Serial TX/RX crossover
-    - OPS7243: [8, 5]
     - M12 cable: [3, 4]
-    - HAT serial: [2, 3]
+    - HAT PoE: [1, 2]
 
-  - # Shared ground bus
-    - HAT 12V: [2]
-    - GND: [1]
-    - HAT serial: [5]
+  - # Serial data
+    - OPS7243: [5, 8, 10]
+    - M12 cable: [1, 2, 4]
+    - HAT serial: [2, 3, 5]

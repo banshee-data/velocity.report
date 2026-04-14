@@ -115,11 +115,19 @@ def _color(code):
 
 def m12_svg(pins):
     """Face-on M12 A-coded 4-pin female connector."""
-    W, H = 280, 230
-    CX, CY = 140, 108
+    PAD = 6
     BODY = 56
     PCIRC = 27
     DOT = 12
+    LR = BODY + 14  # leader-line end radius from centre
+    LABEL_W = 52  # width for longest label text ("White wire" at 9px)
+
+    # M12 A-coded pins sit at 45° — compute actual horizontal extent
+    SIN45 = math.sin(math.radians(45))
+    CX = round(PAD + LABEL_W + LR * SIN45)
+    CY = PAD + BODY
+    W = CX * 2  # symmetric
+    H = round(CY + LR * SIN45 + 16 + PAD)  # bottom labels + pad
 
     # M12 A-coded pin angles (CW from 12 o'clock, looking at female face)
     ANGLES = {1: 45, 2: 135, 3: 225, 4: 315}
@@ -131,16 +139,6 @@ def m12_svg(pins):
         f"  text {{ font-family: {FONT}; }}\n"
         f"</style>\n"
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
-    )
-
-    # Title
-    s.append(
-        f'<text x="{CX}" y="24" text-anchor="middle" font-size="13"'
-        f' font-weight="600" fill="#1F2937">M12 4-pin · sensor cable</text>'
-    )
-    s.append(
-        f'<text x="{CX}" y="40" text-anchor="middle" font-size="10"'
-        f' fill="#9CA3AF">Female face (looking at cable end)</text>'
     )
 
     # Connector body
@@ -183,7 +181,7 @@ def m12_svg(pins):
             continue
 
         # Leader line + label outside the body
-        lr = BODY + 16
+        lr = LR
         lx = CX + lr * math.sin(a)
         ly = CY - lr * math.cos(a)
         ex = CX + (BODY + 3) * math.sin(a)
@@ -201,7 +199,7 @@ def m12_svg(pins):
         )
         s.append(
             f'<text x="{lx:.1f}" y="{ly + 13:.1f}" text-anchor="{anchor}"'
-            f' font-size="9" fill="#9CA3AF">{name} wire</text>'
+            f' font-size="9" fill="#9CA3AF">{name}</text>'
         )
 
     s.append("</svg>")
@@ -213,8 +211,7 @@ def m12_svg(pins):
 
 def de9_svg(labels, connected):
     """Face-on DE-9 male connector with colored connected pins."""
-    W, H = 340, 195
-    CX, CY = 170, 82
+    PAD = 8
     PIN_SP = 32
     ROW_SP = 30
     DOT = 10
@@ -222,12 +219,19 @@ def de9_svg(labels, connected):
     # D-shell dimensions
     sw = 5 * PIN_SP + 40
     sh = ROW_SP + 44
+    taper = 10
+    r = 14
+
+    # Centre so the shell sits snugly
+    CX = PAD + sw / 2
+    CY = PAD + sh / 2
+    W = int(CX * 2)
+    H = int(CY + sh / 2 + 38)  # shell bottom + leader + labels + pad
+
     sl = CX - sw / 2
     sr = CX + sw / 2
     st = CY - sh / 2
     sb = CY + sh / 2
-    taper = 10
-    r = 14
 
     s = []
     s.append(
@@ -236,16 +240,6 @@ def de9_svg(labels, connected):
         f"  text {{ font-family: {FONT}; }}\n"
         f"</style>\n"
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
-    )
-
-    # Title
-    s.append(
-        f'<text x="{CX}" y="22" text-anchor="middle" font-size="13"'
-        f' font-weight="600" fill="#1F2937">DE-9 · serial HAT</text>'
-    )
-    s.append(
-        f'<text x="{CX}" y="38" text-anchor="middle" font-size="10"'
-        f' fill="#9CA3AF">Male face (looking at HAT connector)</text>'
     )
 
     # D-shell outline (trapezoid with rounded corners, wider at top)
