@@ -29,6 +29,7 @@ help:
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
+	@echo "  wiring               Generate radar wiring diagram (WireViz)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
 	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
@@ -326,6 +327,14 @@ build-docs:
 		echo "pnpm/npm not found; install pnpm (recommended) or npm and retry"; exit 1; \
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
+
+WIRING_SRC = docs/platform/hardware/radar-wiring.yml
+
+.PHONY: wiring
+wiring:
+	@command -v wireviz >/dev/null 2>&1 || { echo "wireviz not found; pip install wireviz"; exit 1; }
+	wireviz -f ps $(WIRING_SRC)
+	@echo "✓ Wiring diagram: $(dir $(WIRING_SRC))radar-wiring.{svg,png}"
 
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
