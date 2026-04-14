@@ -28,15 +28,11 @@ connectors:
         5-24V,
         Ground,
       ]
+    hide_disconnected_pins: true
     notes: OPS7243-A radar sensor (J3 Rev D)
     image:
       src: m12-pinout.png
       caption: M12 connector face
-
-  pigtail:
-    type: pigtail
-    pinlabels: [Brown, Black, Blue, White]
-    notes: OPS700-CBL-M1-PT-1.8
 
   HAT serial:
     type: DE-9
@@ -59,30 +55,22 @@ cables:
     colors: [BG, BK, BU, WH]
     notes: OPS700-CBL-M1-PT-1.8
 
-  Power:
-    wirecount: 2
-    gauge: 28 AWG
-    colors: [BG, BK]
-    notes: 12V supply
-
-  Serial:
-    wirecount: 3
-    gauge: 28 AWG
-    notes: TX/RX crossover
-    colors: [BU, WH, BK]
+  GND:
+    wirecount: 1
+    colors: [BG]
 
 connections:
-  - # M12 cable from sensor to pigtail
-    - OPS7243: [5, 8, 9, 10]
-    - M12 cable: [1, 2, 3, 4]
-    - pigtail: [1, 2, 3, 4]
-
-  - # 12V from HAT screw terminal to pigtail VCC (Black)
-    - pigtail: [1, 2]
-    - Power: [1, 2]
+  - # 12V power
+    - OPS7243: [9, 10]
+    - M12 cable: [2, 1]
     - HAT 12V: [1, 2]
 
-  - # TX/RX crossover to DE-9
-    - pigtail: [3, 4, 2]
-    - Serial: [1, 2, 3]
-    - HAT serial: [2, 3, 5]
+  - # Serial TX/RX crossover
+    - OPS7243: [8, 5]
+    - M12 cable: [3, 4]
+    - HAT serial: [2, 3]
+
+  - # Shared ground bus
+    - HAT 12V: [2]
+    - GND: [1]
+    - HAT serial: [5]

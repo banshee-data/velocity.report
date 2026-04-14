@@ -66,37 +66,38 @@ def parse_wiring():
     cabs = data["cables"]
     conns = data["connections"]
 
-    def find_connection(*names):
-        """Find a connection group routing through all named endpoints."""
+    def find_connections(*names):
+        """Find all connection groups routing through all named endpoints."""
+        results = []
         for grp in conns:
             eps = {}
             for ep in grp:
                 for k, v in ep.items():
                     eps[k] = v
             if all(n in eps for n in names):
-                return eps
-        return None
+                results.append(eps)
+        return results
 
     # ── M12 cable pin data ────────────────────────────────────────────
     m12_wire_colors = cabs["M12 cable"]["colors"]
     ops_label_map = dict(zip(cons["OPS7243"]["pins"], cons["OPS7243"]["pinlabels"]))
-    m12_conn = find_connection("OPS7243", "M12 cable")
     m12_pins = {}
-    if m12_conn:
-        for ops_pin, wire in zip(m12_conn["OPS7243"], m12_conn["M12 cable"]):
-            m12_pins[wire] = (
-                m12_wire_colors[wire - 1],
-                ops_label_map.get(ops_pin, f"Pin {ops_pin}"),
-            )
+    for grp in find_connections("OPS7243", "M12 cable"):
+        for ops_pin, wire in zip(grp["OPS7243"], grp["M12 cable"]):
+            if wire not in m12_pins:
+                m12_pins[wire] = (
+                    m12_wire_colors[wire - 1],
+                    ops_label_map.get(ops_pin, f"Pin {ops_pin}"),
+                )
 
     # ── DE-9 pin data ─────────────────────────────────────────────────
     de9_labels = cons["HAT serial"]["pinlabels"]
-    ser_colors = cabs["Serial"]["colors"]
-    ser_conn = find_connection("Serial", "HAT serial")
     de9_connected = {}
-    if ser_conn:
-        for wire, pin in zip(ser_conn["Serial"], ser_conn["HAT serial"]):
-            de9_connected[pin] = ser_colors[wire - 1]
+    for cable_name in cabs:
+        cable_colors = cabs[cable_name]["colors"]
+        for grp in find_connections(cable_name, "HAT serial"):
+            for wire, pin in zip(grp[cable_name], grp["HAT serial"]):
+                de9_connected[pin] = cable_colors[wire - 1]
 
     return m12_pins, de9_labels, de9_connected
 
@@ -114,8 +115,8 @@ def _color(code):
 
 def m12_svg(pins):
     """Face-on M12 A-coded 4-pin female connector."""
-    W, H = 320, 280
-    CX, CY = 160, 132
+    W, H = 280, 230
+    CX, CY = 140, 108
     BODY = 56
     PCIRC = 27
     DOT = 12
@@ -203,12 +204,6 @@ def m12_svg(pins):
             f' font-size="9" fill="#9CA3AF">{name} wire</text>'
         )
 
-    # Footer
-    s.append(
-        f'<text x="{CX}" y="{H - 12}" text-anchor="middle"'
-        f' font-size="9" fill="#9CA3AF">'
-        f"OPS7243-A · J3 Rev D (4 of 10 pins used)</text>"
-    )
     s.append("</svg>")
     return "\n".join(s)
 
@@ -218,8 +213,8 @@ def m12_svg(pins):
 
 def de9_svg(labels, connected):
     """Face-on DE-9 male connector with colored connected pins."""
-    W, H = 380, 240
-    CX, CY = 190, 105
+    W, H = 340, 195
+    CX, CY = 170, 82
     PIN_SP = 32
     ROW_SP = 30
     DOT = 10
@@ -314,12 +309,6 @@ def de9_svg(labels, connected):
             f' font-size="9" fill="#9CA3AF">{name}</text>'
         )
 
-    # Footer
-    s.append(
-        f'<text x="{CX}" y="{H - 8}" text-anchor="middle"'
-        f' font-size="9" fill="#9CA3AF">'
-        f"Waveshare RS232/485 HAT · {len(connected)} of 9 pins used</text>"
-    )
     s.append("</svg>")
     return "\n".join(s)
 
