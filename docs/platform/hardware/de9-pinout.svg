@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 240">
+<style>
+  text { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; }
+</style>
+<rect width="380" height="240" fill="white" rx="8"/>
+<text x="190" y="22" text-anchor="middle" font-size="13" font-weight="600" fill="#1F2937">DE-9 · serial HAT</text>
+<text x="190" y="38" text-anchor="middle" font-size="10" fill="#9CA3AF">Male face (looking at HAT connector)</text>
+<path d="M 104.0,68.0 L 276.0,68.0 Q 290.0,68.0 290.0,82.0 L 280.0,128.0 Q 280.0,142.0 266.0,142.0 L 114.0,142.0 Q 100.0,142.0 100.0,128.0 L 90.0,82.0 Q 90.0,68.0 104.0,68.0 Z" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2"/>
+<circle cx="126.0" cy="90.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="126.0" y="93.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">1</text>
+<circle cx="158.0" cy="90.0" r="10" fill="#2563EB" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="158.0" y="93.5" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff">2</text>
+<circle cx="190.0" cy="90.0" r="10" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="190.0" y="93.5" text-anchor="middle" font-size="9" font-weight="700" fill="#000000">3</text>
+<circle cx="222.0" cy="90.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="222.0" y="93.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">4</text>
+<circle cx="254.0" cy="90.0" r="10" fill="#222222" stroke="#000000" stroke-width="1.5"/>
+<text x="254.0" y="93.5" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff">5</text>
+<circle cx="142.0" cy="120.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="142.0" y="123.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">6</text>
+<circle cx="174.0" cy="120.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="174.0" y="123.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">7</text>
+<circle cx="206.0" cy="120.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="206.0" y="123.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">8</text>
+<circle cx="238.0" cy="120.0" r="10" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="238.0" y="123.5" text-anchor="middle" font-size="9" font-weight="700" fill="#6B7280">9</text>
+<line x1="158.0" y1="102.0" x2="158.0" y2="146.0" stroke="#D1D5DB" stroke-width="0.75"/>
+<circle cx="158.0" cy="152.0" r="4" fill="#2563EB"/>
+<text x="158.0" y="164.0" text-anchor="middle" font-size="10" font-weight="600" fill="#374151">RX</text>
+<text x="158.0" y="176.0" text-anchor="middle" font-size="9" fill="#9CA3AF">Blue</text>
+<line x1="190.0" y1="102.0" x2="190.0" y2="146.0" stroke="#D1D5DB" stroke-width="0.75"/>
+<circle cx="190.0" cy="152.0" r="4" fill="#F3F4F6"/>
+<text x="190.0" y="164.0" text-anchor="middle" font-size="10" font-weight="600" fill="#374151">TX</text>
+<text x="190.0" y="176.0" text-anchor="middle" font-size="9" fill="#9CA3AF">White</text>
+<line x1="254.0" y1="102.0" x2="254.0" y2="146.0" stroke="#D1D5DB" stroke-width="0.75"/>
+<circle cx="254.0" cy="152.0" r="4" fill="#222222"/>
+<text x="254.0" y="164.0" text-anchor="middle" font-size="10" font-weight="600" fill="#374151">GND</text>
+<text x="254.0" y="176.0" text-anchor="middle" font-size="9" fill="#9CA3AF">Black</text>
+<text x="190" y="232" text-anchor="middle" font-size="9" fill="#9CA3AF">Waveshare RS232/485 HAT · 3 of 9 pins used</text>
+</svg>

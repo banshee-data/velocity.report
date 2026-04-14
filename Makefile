@@ -333,6 +333,7 @@ WIRING_SRC = docs/platform/hardware/radar-wiring.yml
 .PHONY: wiring
 wiring:
 	@command -v wireviz >/dev/null 2>&1 || { echo "wireviz not found; pip install wireviz"; exit 1; }
+	python3 scripts/generate-connector-pinouts.py
 	wireviz -f ps $(WIRING_SRC)
 	@echo "✓ Wiring diagram: $(dir $(WIRING_SRC))radar-wiring.{svg,png}"
 
