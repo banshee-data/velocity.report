@@ -1,0 +1,9 @@
+{% macro render(items) %}
+<ol class="toc-list">
+    {% for item in items %}
+    <li class="toc-item">
+        <a href="#{{ item.id }}">{{ item.text }}</a>
+    </li>
+    {% endfor %}
+</ol>
+{% endmacro %}

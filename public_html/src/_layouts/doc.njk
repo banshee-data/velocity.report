@@ -1,7 +1,12 @@
 ---
 layout: page.njk
 ---
-<div class="max-w-4xl mx-auto">
+{% from "toc.njk" import render as renderToc %}
+{% set toc_items = content | table_of_contents %}
+{% set has_toc = toc_items.length > 0 %}
+
+<div class="max-w-4xl mx-auto {% if has_toc %}xl:max-w-none doc-grid{% endif %}">
+    <div>
     {# Breadcrumb navigation #}
     {% if section %}
     <nav class="text-sm text-gray-600 dark:text-gray-400 mb-6" aria-label="Breadcrumb">
@@ -55,6 +60,14 @@ layout: page.njk
             </div>
             {% endif %}
         </div>
+
+        {# Mobile TOC — collapsible, collapsed by default, hidden at xl #}
+        {% if has_toc %}
+        <details class="not-prose toc gradient-border xl:hidden" aria-label="Table of contents">
+            <summary class="toc-heading cursor-pointer select-none">On this page</summary>
+            {{ renderToc(toc_items) }}
+        </details>
+        {% endif %}
 
         {# Actual markdown content #}
         {{ content | safe }}
@@ -112,4 +125,15 @@ layout: page.njk
             </a>
         </div>
     </div>
+    </div>
+
+    {# Desktop sidebar TOC — visible at xl breakpoint, sticky #}
+    {% if has_toc %}
+    <aside class="toc-sidebar hidden xl:block" aria-label="Table of contents">
+        <div class="toc sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
+            <p class="toc-heading">On this page</p>
+            {{ renderToc(toc_items) }}
+        </div>
+    </aside>
+    {% endif %}
 </div>

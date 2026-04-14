@@ -15,7 +15,7 @@ html {
 @layer base {
   /* Code blocks — syntax-highlighted pre elements */
   pre[class*="language-"] {
-    @apply rounded-lg shadow-sm border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800;
+    @apply rounded-lg shadow-sm bg-gray-50 dark:bg-gray-800;
   }
 
   /* Header anchors */
@@ -252,12 +252,19 @@ html {
 
 /* Inline code: light pill style, normal weight (Typography defaults to 600) */
 .prose code {
-  @apply text-sm font-mono font-normal px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-800;
+  @apply text-sm font-mono font-normal px-1.5 py-0.5 rounded bg-gray-50 text-gray-800;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#f9fafb, #f9fafb) padding-box,
+    linear-gradient(to top left, #047857, #34d399) border-box;
 }
 
 @media (prefers-color-scheme: dark) {
   .prose code {
-    @apply border-gray-700 bg-gray-800 text-gray-200;
+    @apply bg-gray-800 text-gray-200;
+    background:
+      linear-gradient(#1f2937, #1f2937) padding-box,
+      linear-gradient(to top left, #047857, #34d399) border-box;
   }
 }
 
@@ -279,9 +286,118 @@ html {
   --tw-prose-pre-code: var(--color-gray-800);
 }
 
+/* Gradient border on code blocks */
+.prose pre {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#f9fafb, #f9fafb) padding-box,
+    linear-gradient(to top left, #047857, #34d399) border-box;
+}
+
 @media (prefers-color-scheme: dark) {
   .prose {
     --tw-prose-pre-bg: var(--color-gray-800);
     --tw-prose-pre-code: var(--color-gray-200);
   }
+  .prose pre {
+    background:
+      linear-gradient(#1f2937, #1f2937) padding-box,
+      linear-gradient(to top left, #047857, #34d399) border-box;
+  }
+}
+
+/* =========================================================================
+ * Gradient border — shared across TOC, code blocks, and inline code
+ * Two-green gradient: emerald-400 (upper-left) → emerald-700 (lower-right)
+ * Uses the double-background trick so border-radius is preserved.
+ * ========================================================================= */
+
+.gradient-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+    linear-gradient(to top left, #047857, #34d399) border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gradient-border {
+    --gb-fill: #1f2937; /* gray-800 */
+  }
+}
+
+/* =========================================================================
+ * Table of contents
+ * — collapsible inline on narrow screens, sticky sidebar on xl+
+ * ========================================================================= */
+
+/* Grid layout for doc pages with a TOC sidebar */
+@media (min-width: 1280px) {
+  .doc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 56rem) 16rem;
+    gap: 2rem;
+  }
+}
+
+.toc {
+  @apply text-sm leading-relaxed mb-6 p-4 rounded-lg;
+}
+
+/* Mobile <details> styling */
+details.toc > summary {
+  @apply font-semibold text-xs tracking-wide uppercase text-gray-500 list-none;
+}
+
+details.toc > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.toc > summary::after {
+  content: "▸";
+  @apply ml-2 inline-block transition-transform duration-200;
+}
+
+details.toc[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  details.toc > summary {
+    @apply text-gray-400;
+  }
+}
+
+.toc-heading {
+  @apply font-semibold text-xs tracking-wide uppercase text-gray-500 mb-3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toc-heading {
+    @apply text-gray-400;
+  }
+}
+
+.toc-list {
+  @apply list-none m-0 p-0 mt-3;
+}
+
+.toc-item {
+  @apply my-1;
+}
+
+.toc-item a {
+  @apply text-gray-600 no-underline hover:text-blue-600 transition-colors;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toc-item a {
+    @apply text-gray-400 hover:text-blue-400;
+  }
+}
+
+/* Sidebar TOC: strip card chrome for lighter feel beside content */
+.toc-sidebar .toc {
+  @apply bg-transparent p-0 rounded-none;
+  border: none;
+  background: none;
 }

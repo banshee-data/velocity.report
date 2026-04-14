@@ -1,6 +1,7 @@
 const syntaxHighlight = require("@11ty/eleventy-plugin-syntaxhighlight");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
+const cheerio = require("cheerio");
 
 module.exports = function (eleventyConfig) {
   // Add syntax highlighting plugin
@@ -77,6 +78,26 @@ module.exports = function (eleventyConfig) {
       month: "long",
       day: "numeric",
     });
+  });
+
+  // Table of contents: extract h2 headings into a flat list
+  eleventyConfig.addFilter("table_of_contents", (html) => {
+    if (!html || typeof html !== "string") return [];
+
+    const $ = cheerio.load(html, { decodeEntities: false }, false);
+    const headings = $("h2").toArray();
+
+    if (headings.length < 2) return [];
+
+    const items = [];
+    for (const heading of headings) {
+      const text = $(heading).text().replace(/#$/, "").trim();
+      const id = heading.attribs?.id;
+      if (!text || !id) continue;
+      items.push({ id, text });
+    }
+
+    return items;
   });
 
   return {
