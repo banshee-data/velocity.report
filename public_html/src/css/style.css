@@ -4,6 +4,8 @@
 /* Dark mode support */
 :root {
   color-scheme: light dark;
+  /* Gradient border: dark emerald at top-left, mid-emerald at bottom-right */
+  --gb-border: linear-gradient(to top left, #047857, #064e3b);
 }
 
 /* Scroll padding to account for fixed header */
@@ -98,7 +100,7 @@ html {
     border: 1px solid transparent;
     background:
       linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
-      linear-gradient(to top left, #047857, #34d399) border-box;
+      linear-gradient(to top left, #047857, #064e3b) border-box;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -156,7 +158,7 @@ html {
     border: 1px solid transparent;
     background:
       linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
-      linear-gradient(to top left, #047857, #34d399) border-box;
+      linear-gradient(to top left, #047857, #064e3b) border-box;
   }
 
   /* Subcard column — constrains width and centres within section */
@@ -263,7 +265,7 @@ html {
   border: 1px solid transparent;
   background:
     linear-gradient(#f9fafb, #f9fafb) padding-box,
-    linear-gradient(to top left, #047857, #34d399) border-box;
+    var(--gb-border) border-box;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -271,7 +273,7 @@ html {
     @apply bg-gray-800 text-gray-200;
     background:
       linear-gradient(#1f2937, #1f2937) padding-box,
-      linear-gradient(to top left, #047857, #34d399) border-box;
+      linear-gradient(to top left, #047857, #064e3b) border-box;
   }
 }
 
@@ -415,7 +417,7 @@ html {
   border: 1px solid transparent;
   background:
     linear-gradient(#f9fafb, #f9fafb) padding-box,
-    linear-gradient(to top left, #047857, #34d399) border-box;
+    var(--gb-border) border-box;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -426,13 +428,13 @@ html {
   .prose pre {
     background:
       linear-gradient(#1f2937, #1f2937) padding-box,
-      linear-gradient(to top left, #047857, #34d399) border-box;
+      linear-gradient(to top left, #047857, #064e3b) border-box;
   }
 }
 
 /* =========================================================================
  * Gradient border — shared across TOC, code blocks, and inline code
- * Two-green gradient: emerald-400 (upper-left) → emerald-700 (lower-right)
+ * --gb-border: emerald-950 (top-left) → emerald-700 (bottom-right)
  * Uses the double-background trick so border-radius is preserved.
  * ========================================================================= */
 
@@ -440,7 +442,7 @@ html {
   border: 1px solid transparent;
   background:
     linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
-    linear-gradient(to top left, #047857, #34d399) border-box;
+    var(--gb-border) border-box;
 }
 
 @media (prefers-color-scheme: dark) {
