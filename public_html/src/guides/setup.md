@@ -116,7 +116,7 @@ _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
-![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.JPG)
+![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.jpg)
 
 1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
 
@@ -325,19 +325,19 @@ You will also need:
 
 ##### Building the roof rack mount
 
-![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.JPG)
+![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.jpg)
 
 1. **Cut the 2×4** into three pieces: one 32 in crossbar, one 24 in upright, and two 11 in braces (measured on the top edge, with 45° miters on both ends).
 
 2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces (one on each side) from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
 
-3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright (upper 8 in). At each position, drill a pilot hole through both walls of the pipe so the hose clamps seat cleanly and the pipe cannot rotate on the upright.
+3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright: 6 inches and 18 inches down from the top end of the upright. At each position, drill a pilot hole through both walls of the pipe and into the upright wood so the screw seats cleanly and the pipe cannot rotate.
 
 4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, overlapping the top of the upright. Thread each clamp through its pilot holes and tighten.
 
 5. **Attach the sensor to the pipe.** Using hose clamps secure the sensor to the pipe.
 
-6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly: the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Before drilling the clamp holes in the crossbar, measure the centre-to-centre distance between your roof rack bars. The drawing shows holes spaced 14 inches apart; adjust the spacing to match your own rack so the bolts land squarely on the bars. Tighten firmly: the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
 
 7. **Route the cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
 

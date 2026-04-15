@@ -190,7 +190,7 @@ def _angel_svg():
 # ═════════════════════════════════════════════════════════════════════
 
 SUTRO_CFG = {
-    "jpeg": "guide-aim-sutro_RAW.JPG",
+    "jpeg": "guide-aim-sutro_raw.jpg",
     "w": 2000,
     "h": 1500,
     # ── Beam cone ──
