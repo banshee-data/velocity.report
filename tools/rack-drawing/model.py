@@ -113,6 +113,61 @@ def make_frame(cfg: dict) -> Compound:
     return Compound(children=[crossbar, upright, right, left])
 
 
+# ── Clamp and fastener holes ──────────────────────────────────────────────────
+
+
+def _drill_crossbar_clamp_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract two vertical clearance holes through the crossbar's top face
+    (along Z, the thickness axis = W) for the 3/8-16 roof-rack bolts.
+
+    Hole positions are centred on the crossbar X-midline (X=0) and spaced
+    ±spacing/2 along X.  The crossbar occupies Z=0 to Z=W.
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH  # 1.5"  (crossbar thickness)
+    D = lbr["actual_depth_in"] * INCH  # 3.5"  (crossbar depth, along Y)
+    h_cfg = cfg["holes"]["crossbar_clamp"]
+    r = h_cfg["dia_in"] * INCH / 2
+    spacing = h_cfg["spacing_in"] * INCH
+    # Extend drill 2 mm each side so booleans don't leave a paper-thin skin
+    length = W + 4
+
+    for x_sign in (+1, -1):
+        hole = Cylinder(r, length)
+        hole = hole.move(Location((x_sign * spacing / 2, 0, W / 2)))
+        frame = frame - hole
+
+    return frame
+
+
+def _drill_upright_brace_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract two pilot holes through the wide face of the upright (along Y)
+    at the brace junction height, one each side.  These accept the lag screws
+    that pin the diagonal brace to the upright.
+
+    Height measured from the top of the crossbar (Z = W).
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH
+    D = lbr["actual_depth_in"] * INCH
+    h_cfg = cfg["holes"]["upright_brace_screw"]
+    r = h_cfg["dia_in"] * INCH / 2
+    z = W + h_cfg["height_above_crossbar_in"] * INCH
+    # Full penetration through D plus 4 mm either side
+    length = D + 4
+
+    # One hole each side of the upright (rotated 90° to drill along Y)
+    for x_offset in (W / 4, -W / 4):
+        hole = Cylinder(r, length)
+        hole = hole.rotate(Axis.X, 90)  # align along Y
+        hole = hole.move(Location((x_offset, 0, z)))
+        frame = frame - hole
+
+    return frame
+
+
 # ── Pipe ──────────────────────────────────────────────────────────────────────
 
 
@@ -147,6 +202,11 @@ def make_assembly(cfg: dict) -> Compound:
     pipe_od = cfg["pipe"]["od_in"] * INCH / 2
 
     frame = make_frame(cfg)
+
+    # ── Drill fastener holes into the frame ───────────────────────────────
+    if "holes" in cfg:
+        frame = _drill_crossbar_clamp_holes(frame, cfg)
+        frame = _drill_upright_brace_holes(frame, cfg)
 
     # Pipe overlaps the top portion of the upright (held by hose clamps
     # and screwed in).  18" of overlap (10" lower than v1) positions the
@@ -195,7 +255,10 @@ def main(config_path: str | None = None, out_dir: str | None = None) -> list[str
     Returns list of output file paths.
     """
     cfg = load_config(Path(config_path) if config_path else None)
-    out = Path(out_dir or Path(__file__).parent)
+    # Default build dir sits next to this file; callers may override.
+    default_out = Path(__file__).parent / "build"
+    out = Path(out_dir) if out_dir else default_out
+    out.mkdir(parents=True, exist_ok=True)
 
     assembly = make_assembly(cfg)
 
