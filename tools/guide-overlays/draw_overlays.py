@@ -218,6 +218,11 @@ def _sutro_svg():
     left = _pt((ax, ay), h - ha, length)
     right = _pt((ax, ay), h + ha, length)
 
+    # Truncate apex tip: cut the first 20% of the cone to form a trapezoid.
+    TRUNC = 0.25
+    near_left = (ax + TRUNC * (left[0] - ax), ay + TRUNC * (left[1] - ay))
+    near_right = (ax + TRUNC * (right[0] - ax), ay + TRUNC * (right[1] - ay))
+
     # ── Chevrons along centre line ──
     n = c["chevron_count"]
     cs = c["chevron_start_pct"] / 100.0
@@ -237,7 +242,7 @@ def _sutro_svg():
         chevrons.append(
             f'  <polyline points="{cl[0]:.1f},{cl[1]:.1f} '
             f'{tip[0]:.1f},{tip[1]:.1f} {cr[0]:.1f},{cr[1]:.1f}"'
-            f'\n            fill="none" stroke="rgba(0,200,80,0.85)"'
+            f'\n            fill="none" stroke="rgba(0,140,50,0.95)"'
             f' stroke-width="2.5" stroke-linecap="round"'
             f' stroke-linejoin="round"/>'
         )
@@ -255,10 +260,10 @@ def _sutro_svg():
   <g transform="translate({H}, 0) rotate(90)">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone (opaque fill, green) -->
+  <!-- Beam cone (truncated trapezoid, dark green) -->
   <polygon
-    points="{ax:.1f},{ay:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f}"
-    fill="rgba(0,200,80,0.25)" stroke="rgba(0,200,80,0.85)"
+    points="{near_left[0]:.1f},{near_left[1]:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f} {near_right[0]:.1f},{near_right[1]:.1f}"
+    fill="rgba(0,155,55,0.55)" stroke="rgba(0,140,50,0.95)"
     stroke-width="2.5" stroke-linejoin="round"/>
 
   <!-- Forward-facing chevrons -->

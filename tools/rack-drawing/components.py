@@ -360,7 +360,7 @@ def leader(
 
 # ── BOM table ─────────────────────────────────────────────────────────────────
 
-_COL_WIDTHS = [28, 210, 44, 52, 60, 82]  # icon, desc, qty, unit$, aisle, item#
+_COL_WIDTHS = [28, 222, 44, 52, 60, 82]  # icon, desc, qty, unit$, aisle, item#
 _COL_HEADS = ["", "Item", "Qty", "Price", "Aisle", "Lowe's #"]
 
 
@@ -377,8 +377,8 @@ def bom_table(
     """
     cw = _COL_WIDTHS
     total_w = sum(cw)
-    row_h = 23
-    header_h = 26
+    row_h = 26
+    header_h = 28
 
     # ── Subassembly title bar ─────────────────────────────────────────────
     d.append(
@@ -451,7 +451,7 @@ def bom_table(
         for i, (val, w) in enumerate(zip(values, cw)):
             anchor = "middle" if i == 0 else ("start" if i == 1 else "middle")
             tx = cx + w / 2 if i == 0 else (cx + 3 if i == 1 else cx + w / 2)
-            fs = FS_LABEL + 2 if i == 0 else FS_LABEL - 1
+            fs = FS_LABEL + 2 if i == 0 else FS_LABEL
             d.append(
                 draw.Text(
                     val,

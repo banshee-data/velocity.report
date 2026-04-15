@@ -327,7 +327,7 @@ def build_combined_sheet(
     # ── Zone 2: ortho views + dimension annotations ────────────────────────
     # Reserve left margin for vertical dim lines and bottom margin for
     # horizontal dim lines so annotations don't overlap view labels.
-    DIM_PAD_LEFT = 46
+    DIM_PAD_LEFT = 58
     DIM_PAD_BTM = 40
 
     title_y_comb = COMBINED_H - TITLE_H - MARGIN
@@ -409,6 +409,34 @@ def build_combined_sheet(
         sx + right_w * 0.72,
         fy + bot_h * 0.12,
         'HOLES: 6" + 12" FROM TOP',
+        anchor="start",
+    )
+
+    # 5. Pipe overlap — second vertical dim showing 18" clamped zone on front view.
+    #    PIPE_OVERLAP = 18" means the pipe extends 18" down from the top of the
+    #    upright (= 24" total upright, so 18/24 = 75% of the front elevation height).
+    overlap_frac = 18 / up_in  # 18" / 24" = 0.75
+    dim_v(d, ox - 34, fy, fy + int(bot_h * overlap_frac), '18"', ext=10, tick=3)
+
+    # 6. Brace callout — leader pointing to the brace area (upper-left of front view).
+    leader(
+        d,
+        ox + left_w * 0.12,
+        fy + bot_h * 0.08,
+        ox + left_w * 0.04,
+        fy - 14,
+        f'BRACE 2\u00d7 \u00b7 {lbr["brace_top_edge_in"]:.0f}" \u00b7 {lbr["brace_angle_deg"]:.0f}\u00b0',
+        anchor="start",
+    )
+
+    # 7. Lumber section callout — side elevation shows the 3.5" depth of the 2×4.
+    leader(
+        d,
+        sx + right_w * 0.35,
+        fy + bot_h * 0.42,
+        sx + right_w * 0.82,
+        fy + bot_h * 0.32,
+        f'2\u00d74 ACT {lbr["actual_width_in"]:.1f}"\u00d7{lbr["actual_depth_in"]:.1f}"',
         anchor="start",
     )
 

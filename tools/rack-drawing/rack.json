@@ -89,7 +89,23 @@
       "unit": "ea",
       "unit_price": 2.88,
       "lowes_item": "5327202",
+      "aisle": ""    },
+    {
+      "icon": "🔩",
+      "description": "3/8-16 x 3-1/2\" Carriage Bolt + Nut + Washer (4-pk)",
+      "qty": 1,
+      "unit": "pk",
+      "unit_price": 2.98,
+      "lowes_item": "",
       "aisle": ""
-    }
+    },
+    {
+      "icon": "🗁️",
+      "description": "4\" Galv. Rigid Pipe Strap (2-pk)",
+      "qty": 1,
+      "unit": "pk",
+      "unit_price": 3.28,
+      "lowes_item": "",
+      "aisle": ""    }
   ]
 }

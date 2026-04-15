@@ -268,7 +268,6 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 **Weatherproofing checklist**:
 
 - ✅ All cable glands sealed
-- ✅ Desiccant pack inside enclosure
 - ✅ Enclosure gasket intact and clean
 - ✅ Seal tested before final mounting
 
@@ -296,19 +295,26 @@ A portable rig that clamps to a standard roof rack. Park on any street, aim the 
      Purpose: completes the story — build → mount → measure
      Format: photograph, landscape -->
 
+##### Tools needed
+
+- Handsaw or circular saw (crosscuts and brace miters)
+- Mitre box (accurate 45° cuts on the braces)
+- Drill + 1/8 in bit (pilot holes for screws; mounting holes in pipe)
+- Pencil and tape measure
+
 ##### Roof rack mount bill of materials
 
 One hardware store trip. Prices from Lowe's (April 2026):
 
-| Part                                           | Model / Item #      | Unit Price | Qty |   Total |
-| ---------------------------------------------- | ------------------- | ---------: | --: | ------: |
-| 4 in × 2 ft DWV foam core SCH 40 pipe          | ADS 03400 (#256096) |     $24.78 |   1 |  $24.78 |
-| 2 in × 4 in × 96 in kiln-dried whitewood stud  | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
-| 3 in to 5 in stainless steel adjustable clamp  | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
-| 1-13/16 in to 3 in galvanised adjustable clamp | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
-| 3 in × 0.75 in black steel corner brace 4-pack | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
-| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
-| **Subtotal (roof rack mount)**                 |                     |            |     | **$55** |
+| Part                                           | Lowes SF Location | Lowes Item #        | Unit Price | Qty |   Total |
+| ---------------------------------------------- | ----------------- | ------------------- | ---------: | --: | ------: |
+| 4in × 2ft SCH 40 ABS pipe                      | Aisle 6 - Bay 1   | #256096             |     $24.78 |   1 |  $24.78 |
+| 2in × 4in × 96in whitewood stud                |                   | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
+| 3 in to 5 in stainless steel adjustable clamp  |                   | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
+| 1-13/16 in to 3 in galvanised adjustable clamp |                   | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
+| 3 in × 0.75 in black steel corner brace 4-pack |                   | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
+| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) |                   | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
+| **Subtotal (roof rack mount)**                 |                   |                     |            |     | **$55** |
 
 You will also need:
 
@@ -323,23 +329,19 @@ You will also need:
 
 1. **Cut the 2×4** into three pieces: one 32 in crossbar, one 24 in upright, and two 11 in braces (measured on the top edge, with 45° miters on both ends).
 
-2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces — one each side — from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
+2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces (one on each side) from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
 
-3. **Cut the PVC pipe** to the length of the sensor enclosure plus 4–6 in clearance on each side. This is the sensor cradle. It sits vertically on top of the upright.
+3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright (upper 8 in). At each position, drill a pilot hole through both walls of the pipe so the hose clamps seat cleanly and the pipe cannot rotate on the upright.
 
-4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, centred on the upright top.
+4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, overlapping the top of the upright. Thread each clamp through its pilot holes and tighten.
 
-5. **Seat the sensor enclosure inside the PVC pipe.** The foam core pipe has a wide enough bore for the OPS7243 enclosure.
+5. **Attach the sensor to the pipe.** Using hose clamps secure the sensor to the pipe.
 
-6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly — the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Tighten firmly: the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
 
-7. **Route the Ethernet cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
+7. **Route the cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
 
-![Engineering drawing: front, top, and side orthographic views of the roof rack sensor mount](/img/rack-drawing-ortho.png)
-
-**Aiming**: park the car parallel to the kerb with the sensor aimed along the street, not across it. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0° — which is the geometry you want.
-
-![Aiming reference: sensor beam direction relative to traffic flow (same principle applies to roof rack mounting)](/img/guide-aim-sutro.png)
+**Aiming**: park the car parallel to the kerb with the sensor aimed along the street. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0°: which is the geometry you want.
 
 ---
 
