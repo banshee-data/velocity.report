@@ -25,6 +25,9 @@ import drawsvg as draw
 
 from components import (
     bom_table,
+    dim_h,
+    dim_v,
+    leader,
     DIM_COLOUR,
     FONT,
     FS_LABEL,
@@ -35,6 +38,7 @@ from components import (
 
 SHEET_W = 1200
 SHEET_H = 850
+COMBINED_H = 1600
 MARGIN = 28
 TITLE_H = 62
 
@@ -62,8 +66,10 @@ def embed_svg_as_image(
 # ── Title block ───────────────────────────────────────────────────────────────
 
 
-def draw_title_block(d: draw.Drawing, cfg: dict, view_name: str) -> None:
-    tb_y = SHEET_H - TITLE_H - MARGIN
+def draw_title_block(
+    d: draw.Drawing, cfg: dict, view_name: str, sheet_h: float = SHEET_H
+) -> None:
+    tb_y = sheet_h - TITLE_H - MARGIN
     tb_h = TITLE_H
     tb_w = SHEET_W - 2 * MARGIN
 
@@ -157,7 +163,7 @@ def draw_title_block(d: draw.Drawing, cfg: dict, view_name: str) -> None:
             MARGIN,
             MARGIN,
             SHEET_W - 2 * MARGIN,
-            SHEET_H - 2 * MARGIN,
+            sheet_h - 2 * MARGIN,
             fill="none",
             stroke="#333",
             stroke_width=1.5,
@@ -271,6 +277,146 @@ def build_ortho_sheet(
     print(f"Saved: {out_path}")
 
 
+# ── Combined sheet (iso+BOM top, ortho+dims bottom) ──────────────────────────
+
+
+def build_combined_sheet(
+    cfg: dict,
+    iso_svg: str,
+    front_svg: str,
+    top_svg: str,
+    side_svg: str,
+    out_path: str,
+) -> None:
+    """Single combined sheet: iso+BOM on top half, annotated ortho projection below."""
+    d = draw.Drawing(SHEET_W, COMBINED_H)
+    d.append(draw.Rectangle(0, 0, SHEET_W, COMBINED_H, fill="white"))
+
+    # ── Zone 1: iso view (left) + BOM table (right) ───────────────────────
+    ISO_ZONE_H = 510
+    vw, vh = 540, 490
+    embed_svg_as_image(d, iso_svg, MARGIN, MARGIN + 10, vw, vh)
+    view_label(d, "ISOMETRIC VIEW", MARGIN + vw / 2, MARGIN + 10 + vh + 14)
+
+    d.append(
+        draw.Line(
+            MARGIN + vw + 10,
+            MARGIN,
+            MARGIN + vw + 10,
+            MARGIN + ISO_ZONE_H,
+            stroke="#bbb",
+            stroke_width=0.8,
+        )
+    )
+    bom_table(
+        d,
+        x=MARGIN + vw + 22,
+        y=MARGIN + 10,
+        items=cfg["bom"],
+        title="BILL OF MATERIALS  —  Sensor Mount Subassembly",
+    )
+
+    # Zone separator
+    sep_y = MARGIN + ISO_ZONE_H + 8
+    d.append(
+        draw.Line(
+            MARGIN, sep_y, SHEET_W - MARGIN, sep_y, stroke="#bbb", stroke_width=1.0
+        )
+    )
+
+    # ── Zone 2: ortho views + dimension annotations ────────────────────────
+    # Reserve left margin for vertical dim lines and bottom margin for
+    # horizontal dim lines so annotations don't overlap view labels.
+    DIM_PAD_LEFT = 46
+    DIM_PAD_BTM = 40
+
+    title_y_comb = COMBINED_H - TITLE_H - MARGIN
+    ortho_y = sep_y + 14
+    ortho_avail_h = title_y_comb - ortho_y - 8
+    draw_w_ortho = SHEET_W - 2 * MARGIN - DIM_PAD_LEFT
+    draw_h_ortho = ortho_avail_h - DIM_PAD_BTM
+
+    gap = 14
+    lbl = 18
+
+    top_h = int(draw_h_ortho * 0.28)
+    bot_h = draw_h_ortho - top_h - gap - lbl
+    left_w = int(draw_w_ortho * 0.58)
+    right_w = draw_w_ortho - left_w - gap
+
+    ox = MARGIN + DIM_PAD_LEFT
+    oy = ortho_y
+
+    # Top view
+    embed_svg_as_image(d, top_svg, ox, oy, left_w, top_h)
+    view_label(d, "TOP VIEW", ox + left_w / 2, oy + top_h + lbl - 4)
+
+    # Front view
+    fy = oy + top_h + lbl + gap
+    embed_svg_as_image(d, front_svg, ox, fy, left_w, bot_h)
+    view_label(d, "FRONT ELEVATION", ox + left_w / 2, fy + bot_h + lbl - 4)
+
+    # Side view
+    sx = ox + left_w + gap
+    embed_svg_as_image(d, side_svg, sx, fy, right_w, bot_h)
+    view_label(d, "SIDE ELEVATION", sx + right_w / 2, fy + bot_h + lbl - 4)
+
+    # Divider between front and side
+    d.append(
+        draw.Line(
+            sx - gap // 2,
+            fy - gap // 2,
+            sx - gap // 2,
+            fy + bot_h,
+            stroke="#bbb",
+            stroke_width=0.8,
+        )
+    )
+
+    # ── Dimension annotations ──────────────────────────────────────────────
+    lbr = cfg["lumber"]
+    cross_in = lbr["crossbar_length_in"]  # 32"
+    up_in = lbr["upright_length_in"]  # 24"
+    pipe_od = cfg["pipe"]["od_in"]  # 4.0"
+
+    # 1. Crossbar width — horizontal dim below the front-view label
+    h_dim_y = fy + bot_h + lbl + 14
+    dim_h(d, ox, ox + left_w, h_dim_y, f'{cross_in:.0f}"', ext=9, tick=3)
+
+    # 2. Upright length — vertical dim to the left of the front view
+    dim_v(d, ox - 16, fy, fy + bot_h, f'{up_in:.0f}"', ext=10, tick=3)
+
+    # 3. Pipe OD — leader from pipe circle in the top view.
+    #    Top view is shallow and wide; the pipe appears as a circle at the
+    #    centre (X=0 symmetric, pipe overlaps the upright at centre).
+    leader(
+        d,
+        ox + left_w * 0.50,
+        oy + top_h * 0.50,
+        ox + left_w * 0.68,
+        oy + top_h * 0.26,
+        f'\u00d8{pipe_od:.0f}" OD',
+        anchor="start",
+    )
+
+    # 4. Clamp-hole zone — callout on the side view.
+    #    Two pilot holes drilled through the pipe where it overlaps the
+    #    upright, approximately 6" and 12" from top of upright.
+    leader(
+        d,
+        sx + right_w * 0.52,
+        fy + bot_h * 0.20,
+        sx + right_w * 0.72,
+        fy + bot_h * 0.12,
+        'HOLES: 6" + 12" FROM TOP',
+        anchor="start",
+    )
+
+    draw_title_block(d, cfg, "ISOMETRIC + ORTHOGRAPHIC PROJECTION", COMBINED_H)
+    d.save_svg(out_path)
+    print(f"Saved: {out_path}")
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 
@@ -304,10 +450,8 @@ def main() -> None:
 
     # ── Step 2: assemble sheets ───────────────────────────────────────────
     print("Assembling drawing sheets…")
-    iso_bom_svg = out_dir / "sheet_iso_bom.svg"
-    ortho_svg = out_dir / "sheet_ortho.svg"
-    build_iso_bom_sheet(cfg, iso_3d, str(iso_bom_svg))
-    build_ortho_sheet(cfg, front_3d, top_3d, side_3d, str(ortho_svg))
+    combined_svg = out_dir / "sheet_combined.svg"
+    build_combined_sheet(cfg, iso_3d, front_3d, top_3d, side_3d, str(combined_svg))
 
     # ── Step 3: rasterise sheets to PNG for web use ───────────────────────
     rsvg = shutil.which("rsvg-convert")
@@ -318,8 +462,7 @@ def main() -> None:
             repo_root / "docs" / "images",
         ]
         pairs = [
-            (iso_bom_svg, "rack-drawing-iso-bom.png"),
-            (ortho_svg, "rack-drawing-ortho.png"),
+            (combined_svg, "rack-drawing-iso-bom.png"),
         ]
         for svg_path, png_name in pairs:
             for img_dir in img_dirs:

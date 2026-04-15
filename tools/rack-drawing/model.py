@@ -149,8 +149,9 @@ def make_assembly(cfg: dict) -> Compound:
     frame = make_frame(cfg)
 
     # Pipe overlaps the top portion of the upright (held by hose clamps
-    # and screwed in).  8" of overlap keeps two clamps comfortably spaced.
-    PIPE_OVERLAP = 8 * INCH
+    # and screwed in).  18" of overlap (10" lower than v1) positions the
+    # sensor at a better working height.
+    PIPE_OVERLAP = 18 * INCH
     pipe_bottom_z = W + UL - PIPE_OVERLAP
     pipe = make_pipe(cfg)
     pipe = pipe.move(Location((0, 0, pipe_bottom_z + pipe_len / 2)))

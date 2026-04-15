@@ -67,7 +67,7 @@ ANGEL_CFG = {
     # ── Beam cone (all percentages of image dimensions) ──
     "apex_x_pct": 43.50,  # sensor tube opening — % of width
     "apex_y_pct": 73,  # % of height (44.4 + 35)
-    "beam_heading_deg": 12,  # clockwise from image-up
+    "beam_heading_deg": 10,  # clockwise from image-up (2° CCW from v1)
     "beam_half_angle_deg": 10.5,  # half of 21° cone
     "beam_length_pct": 38,  # % of height
     # ── Angle arc + label ──
@@ -194,11 +194,11 @@ SUTRO_CFG = {
     "w": 2000,
     "h": 1500,
     # ── Beam cone ──
-    "apex_x_pct": 50.0,  # sensor position — % of width
-    "apex_y_pct": 88.0,  # % of height
+    "apex_x_pct": 72.0,  # sensor position — % of width
+    "apex_y_pct": 50.0,  # % of height
     "beam_heading_deg": -90,  # pointing along road after 90° CW display rotation
     "beam_half_angle_deg": 10.5,  # half of 21° cone
-    "beam_length_pct": 56,  # % of height
+    "beam_length_pct": 28,  # % of height (half of original)
     # ── Chevrons (forward markers inside the cone) ──
     "chevron_count": 5,
     "chevron_start_pct": 20,  # first chevron at this % of beam length
