@@ -44,12 +44,33 @@
       "qty": 2,
       "note": "3/8-16 carriage bolt clearance. Centred on crossbar length. Adjust spacing to match roof-rack bar centres."
     },
-    "upright_brace_screw": {
-      "description": "Pilot holes through upright face at brace junction for lag screws",
+    "upright_pipe_screw": {
+      "description": "Pilot holes through upright face to pin pipe to upright, on centreline",
       "dia_in": 0.1875,
-      "height_above_crossbar_in": 2.0,
+      "depths_from_top_in": [6.0, 18.0],
       "qty": 2,
-      "note": "3/16 pilot for #10 × 3 wood screw. One each side of upright, at brace contact zone."
+      "note": "3/16 pilot for #10 × 3 wood screw. Both holes on X=0 centreline, drilled along Y. 6-in and 18-in down from top of upright. Screw passes through pipe wall into wood."
+    },
+    "brace_screw": {
+      "description": "Pilot holes through 45-degree brace face into crossbar and upright",
+      "dia_in": 0.1875,
+      "qty": 8,
+      "note": "3/16 pilot for #10 wood screw. Hole axis perpendicular to the 45-degree brace face. 2 per brace end × 2 brace ends per brace × 2 braces = 8 total."
+    },
+    "upright_clamp_slot": {
+      "description": "Hose-clamp band pass-through holes at each end of the upright",
+      "dia_in": 0.5,
+      "spacing_in": 1.5,
+      "offset_from_end_in": 0.75,
+      "qty": 4,
+      "note": "0.5-in clearance holes for clamp band, 1.5-in apart centred on upright width (X=0). Two holes at each end (top and bottom) drilled along Y axis."
+    },
+    "corner_brace_screw": {
+      "description": "Pilot holes for 3x3-inch L-bracket screws at T-joint between upright and crossbar",
+      "dia_in": 0.1875,
+      "arm_in": 3.0,
+      "qty": 16,
+      "note": "4 brackets × 4 holes each. Holes at 28% and 72% along the 3-in arm. Two brackets per side of the T-joint."
     }
   },
   "bom": [

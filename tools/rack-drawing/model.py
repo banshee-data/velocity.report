@@ -126,7 +126,6 @@ def _drill_crossbar_clamp_holes(frame: Compound, cfg: dict) -> Compound:
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH  # 1.5"  (crossbar thickness)
-    D = lbr["actual_depth_in"] * INCH  # 3.5"  (crossbar depth, along Y)
     h_cfg = cfg["holes"]["crossbar_clamp"]
     r = h_cfg["dia_in"] * INCH / 2
     spacing = h_cfg["spacing_in"] * INCH
@@ -141,28 +140,196 @@ def _drill_crossbar_clamp_holes(frame: Compound, cfg: dict) -> Compound:
     return frame
 
 
-def _drill_upright_brace_holes(frame: Compound, cfg: dict) -> Compound:
+def _drill_pipe_clamp_holes(frame: Compound, cfg: dict) -> Compound:
     """
-    Subtract two pilot holes through the wide face of the upright (along Y)
-    at the brace junction height, one each side.  These accept the lag screws
-    that pin the diagonal brace to the upright.
+    Subtract two pilot holes through the upright on the centreline (X=0),
+    drilled along Y.  These accept the screws that pin the PVC pipe to the
+    upright: the screw passes through both walls of the pipe and bites into
+    the wood.
 
-    Height measured from the top of the crossbar (Z = W).
+    Positions are measured down from the top end of the upright:
+      6"  from top  — upper clamp zone
+      18" from top  — lower clamp zone
+
+    Both holes sit at X=0 (centreline) and penetrate the full 3.5" depth
+    of the upright plus 2 mm each side.
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH  # crossbar thickness; upright bottom is at Z=W
+    D = lbr["actual_depth_in"] * INCH  # 3.5" upright depth (Y axis)
+    UL = lbr["upright_length_in"] * INCH
+    h_cfg = cfg["holes"]["upright_pipe_screw"]
+    r = h_cfg["dia_in"] * INCH / 2
+    length = D + 4  # full penetration through depth + 2 mm each side
+
+    top_z = W + UL  # Z-coordinate of the upright's top face
+
+    for depth_in in h_cfg["depths_from_top_in"]:
+        z = top_z - depth_in * INCH
+        hole = Cylinder(r, length)
+        hole = hole.rotate(Axis.X, 90)  # align cylinder axis along Y
+        hole = hole.move(Location((0, 0, z)))
+        frame = frame - hole
+
+    return frame
+
+
+def _drill_brace_crossbar_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract pilot holes through each diagonal brace into the crossbar.
+
+    The hole axis is perpendicular to the 45° brace face, i.e. it is tilted
+    45° from vertical (one component each in X and Z).
+
+    For the right brace (+X side) the axis points in the direction
+    (+sin45°, 0, -cos45°) — down and outward — so the cylinder is built
+    along Z then rotated -45° around Y.  The left brace mirrors in X.
+
+    The drill entry point is at the centroid of the brace–crossbar contact
+    face, approximately:
+        X = ±(W/2 + h_span/2)   (centre of brace footprint)
+        Z = W                    (top of crossbar)
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH
     D = lbr["actual_depth_in"] * INCH
-    h_cfg = cfg["holes"]["upright_brace_screw"]
+    BA = math.radians(lbr["brace_angle_deg"])
+    BTE = lbr["brace_top_edge_in"] * INCH
+    h_cfg = cfg["holes"]["brace_screw"]
     r = h_cfg["dia_in"] * INCH / 2
-    z = W + h_cfg["height_above_crossbar_in"] * INCH
-    # Full penetration through D plus 4 mm either side
+    # Penetrate through the full brace depth plus into crossbar — D + 4 suffices
     length = D + 4
 
-    # One hole each side of the upright (rotated 90° to drill along Y)
-    for x_offset in (W / 4, -W / 4):
+    # Reproduce brace centre-line span from make_frame so the entry X is correct
+    brace_center = BTE - W * (2 * math.sqrt(2) - 1)
+    h_span = brace_center * math.cos(BA)
+
+    for x_sign in (+1, -1):
+        entry_x = x_sign * (W / 2 + h_span / 2)
         hole = Cylinder(r, length)
+        # Rotate so hole axis is perpendicular to the 45° brace face
+        hole = hole.rotate(Axis.Y, x_sign * -45)
+        hole = hole.move(Location((entry_x, 0, W)))
+        frame = frame - hole
+
+    return frame
+
+
+def _drill_brace_upright_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract pilot holes through each diagonal brace into the upright.
+
+    The hole axis is perpendicular to the 45° brace face at its upper end,
+    i.e. tilted 45° inward and upward.
+
+    For the right brace (+X side) the axis points in the direction
+    (-sin45°, 0, +cos45°) — up and inward toward the upright.  The cylinder
+    is built along Z then rotated +45° around Y.  The left brace mirrors.
+
+    The drill entry point is at the centroid of the brace–upright contact
+    face, approximately:
+        X = ±W/2     (side of upright)
+        Z = W + v_span/2
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH
+    D = lbr["actual_depth_in"] * INCH
+    BA = math.radians(lbr["brace_angle_deg"])
+    BTE = lbr["brace_top_edge_in"] * INCH
+    h_cfg = cfg["holes"]["brace_screw"]
+    r = h_cfg["dia_in"] * INCH / 2
+    length = D + 4
+
+    brace_center = BTE - W * (2 * math.sqrt(2) - 1)
+    v_span = brace_center * math.sin(BA)
+
+    for x_sign in (+1, -1):
+        entry_x = x_sign * W / 2
+        entry_z = W + v_span / 2
+        hole = Cylinder(r, length)
+        # Rotate so hole axis is perpendicular to the 45° brace face (opposite
+        # direction to the crossbar holes: angling up into the upright)
+        hole = hole.rotate(Axis.Y, x_sign * 45)
+        hole = hole.move(Location((entry_x, 0, entry_z)))
+        frame = frame - hole
+
+    return frame
+
+
+def _drill_upright_clamp_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract hose-clamp band pass-through holes at each end of the upright.
+
+    Two holes per end, drilled along Y (through the 3.5" face), spaced
+    ±spacing/2 around X=0.  One pair near the bottom of the upright (to wrap
+    the crossbar beneath) and one pair near the top (for the roof-rack bar).
+
+    Each hole is a clearance hole for the clamp band width, not a pilot.
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH
+    D = lbr["actual_depth_in"] * INCH
+    UL = lbr["upright_length_in"] * INCH
+    h_cfg = cfg["holes"]["upright_clamp_slot"]
+    r = h_cfg["dia_in"] * INCH / 2
+    spacing = h_cfg["spacing_in"] * INCH
+    offset = h_cfg["offset_from_end_in"] * INCH
+    length = D + 4  # through full depth + clearance
+
+    top_z = W + UL
+    z_positions = (W + offset, top_z - offset)  # bottom end, top end
+
+    for z in z_positions:
+        for x_sign in (+1, -1):
+            hole = Cylinder(r, length)
+            hole = hole.rotate(Axis.X, 90)  # align along Y
+            hole = hole.move(Location((x_sign * spacing / 2, 0, z)))
+            frame = frame - hole
+
+    return frame
+
+
+def _drill_lbracket_holes(frame: Compound, cfg: dict) -> Compound:
+    """
+    Subtract pilot holes for the L-bracket screws at the upright/crossbar
+    T-joint.
+
+    Four brackets total (two on each ±Y face of the T-joint).  Each bracket
+    has four screw holes: two into the crossbar top face (along Z, going down)
+    and two into the upright face (along Y).  Holes are at 28% and 72% of the
+    3-inch arm length, matching the component.py corner_brace() drawing.
+
+    Crossbar holes (along Z):
+        X=0, Y = ±arm × {0.28, 0.72}, Z = W (top of crossbar) drilling down
+
+    Upright holes (along Y):
+        X=0, Z = W + arm × {0.28, 0.72} (measured up from crossbar top)
+        drilled along Y through the 3.5" face
+    """
+    lbr = cfg["lumber"]
+    W = lbr["actual_width_in"] * INCH
+    D = lbr["actual_depth_in"] * INCH
+    h_cfg = cfg["holes"]["corner_brace_screw"]
+    r = h_cfg["dia_in"] * INCH / 2
+    arm = h_cfg["arm_in"] * INCH
+
+    fractions = (0.28, 0.72)
+
+    # Crossbar holes — drilled vertically (along Z) into the crossbar top face
+    crossbar_drill_len = W + 4
+    for frac in fractions:
+        for y_sign in (+1, -1):
+            hole = Cylinder(r, crossbar_drill_len)
+            hole = hole.move(Location((0, y_sign * arm * frac, W / 2)))
+            frame = frame - hole
+
+    # Upright holes — drilled horizontally (along Y) into the upright ±Y face
+    upright_drill_len = D + 4
+    for frac in fractions:
+        z = W + arm * frac
+        hole = Cylinder(r, upright_drill_len)
         hole = hole.rotate(Axis.X, 90)  # align along Y
-        hole = hole.move(Location((x_offset, 0, z)))
+        hole = hole.move(Location((0, 0, z)))
         frame = frame - hole
 
     return frame
@@ -206,7 +373,11 @@ def make_assembly(cfg: dict) -> Compound:
     # ── Drill fastener holes into the frame ───────────────────────────────
     if "holes" in cfg:
         frame = _drill_crossbar_clamp_holes(frame, cfg)
-        frame = _drill_upright_brace_holes(frame, cfg)
+        frame = _drill_pipe_clamp_holes(frame, cfg)
+        frame = _drill_brace_crossbar_holes(frame, cfg)
+        frame = _drill_brace_upright_holes(frame, cfg)
+        frame = _drill_upright_clamp_holes(frame, cfg)
+        frame = _drill_lbracket_holes(frame, cfg)
 
     # Pipe overlaps the top portion of the upright (held by hose clamps
     # and screwed in).  18" of overlap (10" lower than v1) positions the
