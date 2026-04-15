@@ -1,9 +1,9 @@
 # Wiring: OPS7243 radar sensor to Raspberry Pi via RS-232
 #
-# Cable: OPS700-CBL-M1-PT-1.8 (M12 to pigtail, 1.8m)
+# Cable: OPS700-CBL-M1-PT-1.8 (M12 to pigtail, 5 m run)
 # HAT:   Waveshare RS232/485 HAT on Raspberry Pi 4 GPIO
 # Interface: RS-232 serial, 19200 baud, 8N1
-# Power:  12V from Waveshare HAT screw terminal → sensor VCC
+# Power:  12V from Waveshare PoE HAT → sensor VCC
 #
 # Generate diagram:
 #   make wiring
