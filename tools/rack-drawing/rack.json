@@ -36,6 +36,22 @@
       "note": "Secondary retention / cable management"
     }
   },
+  "holes": {
+    "crossbar_clamp": {
+      "description": "Holes for roof-rack mounting bolts through crossbar (flat face)",
+      "dia_in": 0.375,
+      "spacing_in": 14.0,
+      "qty": 2,
+      "note": "3/8-16 carriage bolt clearance. Centred on crossbar length. Adjust spacing to match roof-rack bar centres."
+    },
+    "upright_brace_screw": {
+      "description": "Pilot holes through upright face at brace junction for lag screws",
+      "dia_in": 0.1875,
+      "height_above_crossbar_in": 2.0,
+      "qty": 2,
+      "note": "3/16 pilot for #10 × 3 wood screw. One each side of upright, at brace contact zone."
+    }
+  },
   "bom": [
     {
       "icon": "🪵",
@@ -89,7 +105,8 @@
       "unit": "ea",
       "unit_price": 2.88,
       "lowes_item": "5327202",
-      "aisle": ""    },
+      "aisle": ""
+    },
     {
       "icon": "🔩",
       "description": "3/8-16 x 3-1/2\" Carriage Bolt + Nut + Washer (4-pk)",
@@ -106,6 +123,7 @@
       "unit": "pk",
       "unit_price": 3.28,
       "lowes_item": "",
-      "aisle": ""    }
+      "aisle": ""
+    }
   ]
 }
