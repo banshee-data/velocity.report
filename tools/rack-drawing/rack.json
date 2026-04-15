@@ -15,7 +15,7 @@
     "note": "1 crossbar 32 in, 1 upright 24 in, 2 braces 11 in top edge at 45 deg"
   },
   "pipe": {
-    "description": "4-in x 2-ft DWV Foam Core SCH 40 Pipe",
+    "description": "4-in x 2-ft DWV SCH 40 Pipe",
     "od_in": 4.0,
     "wall_in": 0.24,
     "length_in": 24

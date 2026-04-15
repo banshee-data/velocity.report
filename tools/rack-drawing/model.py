@@ -86,7 +86,13 @@ def make_frame(cfg: dict) -> Compound:
     # The intersection removes the overlapping ends, leaving clean
     # mitre faces where the brace meets each member.
 
-    brace_center = BTE - D  # centre-line length between mitre faces
+    # At 45°, the brace's width W projects ±W/√2 in both X and Z.
+    # For the boolean subtraction to produce clean mitre faces, each
+    # brace end must fully penetrate the adjacent member.  The required
+    # centre-line length is BTE minus the extra caused by both miter
+    # cuts: W·(2√2 − 1).  Using D here is wrong — it leaves one corner
+    # of each end outside the subtraction volume, producing raw tails.
+    brace_center = BTE - W * (2 * math.sqrt(2) - 1)
     h_span = brace_center * math.cos(BA)
     v_span = brace_center * math.sin(BA)
 

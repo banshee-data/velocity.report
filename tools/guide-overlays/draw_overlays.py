@@ -65,15 +65,15 @@ ANGEL_CFG = {
     "w": 1200,
     "h": 900,
     # ── Beam cone (all percentages of image dimensions) ──
-    "apex_x_pct": 45.0,  # sensor tube opening — % of width
-    "apex_y_pct": 44.4,  # % of height
+    "apex_x_pct": 43.50,  # sensor tube opening — % of width
+    "apex_y_pct": 73,  # % of height (44.4 + 35)
     "beam_heading_deg": 12,  # clockwise from image-up
-    "beam_half_angle_deg": 10,  # half of 20° cone
+    "beam_half_angle_deg": 10.5,  # half of 21° cone
     "beam_length_pct": 38,  # % of height
     # ── Angle arc + label ──
     "arc_radius_pct": 10,  # % of height
-    "label_offset_pct": 2.7,  # extra offset beyond arc, % of height
-    "label_font_size": 22,
+    "label_offset_pct": 12,  # extra offset beyond arc, % of height
+    "label_font_size": 32,
     # ── Direction-of-travel T marker ──
     # Anchored at the beam apex. Bar = direction of travel (perpendicular
     # to beam, pointing right in image coords). Stem = left arm of the V
@@ -81,7 +81,7 @@ ANGEL_CFG = {
     "t_bar_half_pct": 12.0,  # half-length of horizontal bar — % of width
     "t_stem_pct": 10.0,  # stem length along left edge of cone — % of height
     "t_label_text": "direction of travel →",
-    "t_label_font_size": 16,
+    "t_label_font_size": 26,
 }
 
 
@@ -159,7 +159,7 @@ def _angel_svg():
         fill="{LABEL_FILL}" font-size="{c['label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="central"
         paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="3">
-    {ha * 2}°
+    {ha * 2:.0f}°
   </text>
 
   <!-- Direction-of-travel T anchored at apex -->
@@ -196,8 +196,8 @@ SUTRO_CFG = {
     # ── Beam cone ──
     "apex_x_pct": 50.0,  # sensor position — % of width
     "apex_y_pct": 88.0,  # % of height
-    "beam_heading_deg": 0,  # straight up in image (along road)
-    "beam_half_angle_deg": 10,  # half of 20° cone
+    "beam_heading_deg": -90,  # pointing along road after 90° CW display rotation
+    "beam_half_angle_deg": 10.5,  # half of 21° cone
     "beam_length_pct": 56,  # % of height
     # ── Chevrons (forward markers inside the cone) ──
     "chevron_count": 5,
@@ -237,29 +237,33 @@ def _sutro_svg():
         chevrons.append(
             f'  <polyline points="{cl[0]:.1f},{cl[1]:.1f} '
             f'{tip[0]:.1f},{tip[1]:.1f} {cr[0]:.1f},{cr[1]:.1f}"'
-            f'\n            fill="none" stroke="rgba(255,200,0,0.7)"'
+            f'\n            fill="none" stroke="rgba(0,200,80,0.85)"'
             f' stroke-width="2.5" stroke-linecap="round"'
             f' stroke-linejoin="round"/>'
         )
 
     chevron_str = "\n".join(chevrons)
 
+    # 90° CW rotation: swap viewport dimensions, wrap content in transform.
+    # translate(H, 0) rotate(90) maps original (x,y) → (H-y, x).
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="{W}" height="{H}"
-     viewBox="0 0 {W} {H}">
+     width="{H}" height="{W}"
+     viewBox="0 0 {H} {W}">
+  <g transform="translate({H}, 0) rotate(90)">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone (opaque fill) -->
+  <!-- Beam cone (opaque fill, green) -->
   <polygon
     points="{ax:.1f},{ay:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f}"
-    fill="{CONE_FILL}" stroke="{CONE_STROKE}"
+    fill="rgba(0,200,80,0.25)" stroke="rgba(0,200,80,0.85)"
     stroke-width="2.5" stroke-linejoin="round"/>
 
   <!-- Forward-facing chevrons -->
 {chevron_str}
+  </g>
 </svg>
 """
 
