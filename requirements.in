@@ -20,6 +20,9 @@ PyLaTeX
 # SVG engineering drawing (used by tools/rack-drawing/)
 drawsvg
 
+# YAML parsing (used by scripts/generate-connector-pinouts.py)
+pyyaml
+
 # Testing
 pytest
 pytest-cov
