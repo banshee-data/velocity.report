@@ -31,10 +31,6 @@ import drawsvg as draw
 
 from components import (
     bom_table,
-    dim_h,
-    dim_v,
-    leader,
-    DIM_COLOUR,
     FONT,
     FS_LABEL,
     FS_HEAD,
@@ -132,7 +128,7 @@ def draw_title_block(d: draw.Drawing, cfg: dict, sheet_h: float = SHEET_H) -> No
                 label,
                 6,
                 cx + 3,
-                cy + 3,
+                cy + 8,
                 dominant_baseline="hanging",
                 font_family=FONT,
                 fill="#888",
@@ -229,7 +225,7 @@ def build_iso_bom_sheet(cfg: dict, iso_svg: str, out_path: str) -> None:
             MARGIN + vw + 10,
             MARGIN,
             MARGIN + vw + 10,
-            SHEET_H - TITLE_H - MARGIN - 10,
+            SHEET_H - TB_H - MARGIN - 10,
             stroke="#bbb",
             stroke_width=0.8,
         )
@@ -352,104 +348,6 @@ def build_combined_sheet(
             stroke="#bbb",
             stroke_width=0.8,
         )
-    )
-
-    # ── Dimension annotations ──────────────────────────────────────────────
-    lbr = cfg["lumber"]
-    cross_in = lbr["crossbar_length_in"]
-    up_in = lbr["upright_length_in"]
-    pipe_od = cfg["pipe"]["od_in"]
-    pipe_len = cfg["pipe"]["length_in"]
-    w_in = lbr["actual_width_in"]
-    d_in = lbr["actual_depth_in"]
-    brace_in = lbr["brace_top_edge_in"]
-    brace_deg = lbr["brace_angle_deg"]
-    h_offsets = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]
-    pipe_depths = cfg["holes"]["upright_pipe_screw"]["depths_from_top_in"]
-    px_per_in = left_w / cross_in
-
-    h_dim_y = fy + bot_h + 16
-    dim_h(d, ox, ox + left_w, h_dim_y, f'{cross_in:.0f}"', ext=9, tick=3)
-    dim_v(d, ox - 16, fy, fy + bot_h, f'{up_in:.0f}"', ext=10, tick=3)
-    overlap_frac = 18 / up_in
-    dim_v(d, ox - 34, fy, fy + int(bot_h * overlap_frac), '18"', ext=10, tick=3)
-    crossbar_band_frac = w_in / (up_in + w_in)
-    cb_top_y = fy + bot_h
-    cb_bot_y = fy + bot_h - int(bot_h * crossbar_band_frac)
-    dim_v(d, ox + left_w + 6, cb_bot_y, cb_top_y, f'{w_in}"', ext=8, tick=2)
-    hole_dim_y = h_dim_y + 18
-    x_hole_3 = ox + h_offsets[0] * px_per_in
-    x_hole_6 = ox + h_offsets[1] * px_per_in
-    dim_h(d, ox, x_hole_3, hole_dim_y, f'{h_offsets[0]:.0f}"', ext=8, tick=2)
-    dim_h(d, ox, x_hole_6, hole_dim_y + 16, f'{h_offsets[1]:.0f}"', ext=8, tick=2)
-    d.append(
-        draw.Text(
-            "CLG BOLT HOLES ×4",
-            7,
-            ox + left_w * 0.15,
-            hole_dim_y + 30,
-            text_anchor="middle",
-            font_family=FONT,
-            fill=DIM_COLOUR,
-        )
-    )
-    leader(
-        d,
-        ox + left_w * 0.12,
-        fy + bot_h * 0.08,
-        ox + left_w * 0.04,
-        fy - 14,
-        f'BRACE 2\u00d7  {brace_in:.0f}"  {brace_deg:.0f}\u00b0',
-        anchor="start",
-    )
-    dim_v(d, ox - 16, oy, oy + top_h, f'{d_in}"', ext=10, tick=2)
-    leader(
-        d,
-        ox + left_w * 0.50,
-        oy + top_h * 0.50,
-        ox + left_w * 0.68,
-        oy + top_h * 0.26,
-        f'\u00d8{pipe_od:.0f}" OD',
-        anchor="start",
-    )
-    leader(
-        d,
-        sx + right_w * 0.52,
-        fy + bot_h * 0.20,
-        sx + right_w * 0.75,
-        fy + bot_h * 0.12,
-        f'PIPE SCREWS: {pipe_depths[0]:.0f}" + {pipe_depths[1]:.0f}" FROM TOP',
-        anchor="start",
-    )
-    leader(
-        d,
-        sx + right_w * 0.35,
-        fy + bot_h * 0.42,
-        sx + right_w * 0.82,
-        fy + bot_h * 0.32,
-        f'2\u00d74 ACT {w_in:.1f}"\u00d7{d_in:.1f}"',
-        anchor="start",
-    )
-    pipe_frac = pipe_len / (up_in + w_in)
-    dim_v(
-        d,
-        sx + right_w + 14,
-        fy,
-        fy + int(bot_h * pipe_frac),
-        f'\u00d8{pipe_od:.0f}" PIPE  {pipe_len:.0f}"',
-        ext=14,
-        tick=2,
-    )
-    clamp_span_px = (h_offsets[1] - h_offsets[0]) * px_per_in
-    cb_side_y = fy + bot_h - int(bot_h * w_in / (up_in + w_in))
-    dim_h(
-        d,
-        sx + right_w * 0.2,
-        sx + right_w * 0.2 + clamp_span_px,
-        cb_side_y - 8,
-        f'{h_offsets[1] - h_offsets[0]:.0f}" CLAMP SLOT',
-        ext=7,
-        tick=2,
     )
 
     # ── Zone separator ─────────────────────────────────────────────────────
