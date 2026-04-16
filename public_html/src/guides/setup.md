@@ -57,7 +57,7 @@ Measuring vehicle speeds on public streets from your own property is generally l
 
 ## What you will build
 
-![Complete assembled velocity.report unit: weatherproof enclosure mounted on a pole with cables routed](/img/guide-hero.jpg)
+![Complete assembled velocity.report unit: weatherproof enclosure mounted on a pole with cables routed](/img/guide-hero.jpg) <!-- link-ignore -->
 
 - **Doppler radar logger**: captures vehicle speeds 24/7
 - **Local SQLite database**: all data stays on the device
@@ -118,7 +118,7 @@ _Estimated time: 15–30 minutes_
 
 The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT. The PoE HAT stacks on top to provide power over Ethernet.
 
-![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.jpg)
+![HAT stacking: PoE HAT on Raspberry Pi 4, serial HAT stacked on top](/img/guide-stack.jpg) <!-- link-ignore -->
 
 1. **Attach the PoE HAT** to the Raspberry Pi's 40-pin GPIO header
 
@@ -132,7 +132,7 @@ The OPS7243-A-CW-R2 sensor connects to the Raspberry Pi via an RS232 serial HAT.
      Purpose: makes it obvious which wire goes where without reading a table
      Format: SVG, generated (see connector diagram tooling) -->
 
-![Radar wiring diagram: M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/img/radar-wiring.svg)
+![Radar wiring diagram: M12 cable from OPS7243 sensor through pigtail and DE-9 connector to Waveshare RS232 HAT](/img/radar-wiring.svg) <!-- link-ignore -->
 
 ---
 
@@ -165,7 +165,7 @@ rpi-imager --repo https://velocity.report/rpi.json
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://velocity.report/rpi.json
 ```
 
-![Screenshot of the Raspberry Pi Imager](/img/rpi-imager.png)
+![Screenshot of the Raspberry Pi Imager](/img/rpi-imager.png) <!-- link-ignore -->
 
 1. **Select your Pi model**
 2. **Select velocity.report** from the OS list
@@ -219,7 +219,7 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
-![Web dashboard showing live speed detections, histogram, and time-of-day chart](/img/guide-dash-screenshot.png)
+![Web dashboard showing live speed detections, histogram, and time-of-day chart](/img/guide-dash-screenshot.png) <!-- link-ignore -->
 
 **If the dashboard will not load**:
 
@@ -242,11 +242,11 @@ A portable rig that clamps to a standard roof rack. Park on any street, collect 
 
 Parts are listed in the [parts list](#parts-list) above. You will also need a PoE battery pack or 12 V car outlet adapter, and a short Ethernet cable from sensor to Pi.
 
-![Engineering drawing: isometric view of the roof rack sensor mount with bill of materials](/img/rack-drawing-iso-bom.png)
+![Engineering drawing: isometric view of the roof rack sensor mount with bill of materials](/img/rack-drawing-iso-bom.png) <!-- link-ignore -->
 
 ##### Building the roof rack mount
 
-![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.jpg)
+![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.jpg) <!-- link-ignore -->
 
 1. **Cut the 2×4 into four pieces**: one 32-inch crossbar, one 24-inch upright, and two 11-inch braces (top-edge measurement, 45° mitres at both ends).
 
@@ -265,6 +265,8 @@ Parts are listed in the [parts list](#parts-list) above. You will also need a Po
 8. **Clamp the crossbar to the roof rack.** Use the two 1-13/16 to 3 in galvanised clamps and tighten firmly so the mount stays stable in wind while parked.
 
 9. **Route the cable** from the sensor through a rear window seal or sunroof into the car. Connect to the Pi and power source inside.
+
+![Completed roof rack mount installed on a car](/img/guide-mounted.jpg) <!-- link-ignore -->
 
 **Do not drive with the mount attached!**
 
@@ -290,13 +292,13 @@ A permanent mount on your property, aimed at the street.
 
 Once the sensor is mounted, aim it before collecting data. These guidelines apply to both deployments. For the mobile mount, parking parallel to the kerb already puts you close to 0°.
 
-![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aiming.jpg)
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aiming.jpg) <!-- link-ignore -->
 
 - **Angle**: as close to 0° (parallel with traffic flow) as practical, typically 15–25°. Lower angles need less cosine correction, so the speed readings are more accurate.
 - **Road coverage**: the beam must encompass the full lane of traffic you are measuring. Angling the sensor 15–25° widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error small. Choose the smallest angle whose beam triangle fully covers the lane.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
 
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-cosign-angle.jpg)
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-cosign-angle.jpg) <!-- link-ignore -->
 
 <div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed w-full md:max-w-[60%] mx-auto">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
@@ -357,7 +359,7 @@ Whether you are at a city council session, a town board hearing, or submitting w
 
 ### What to bring
 
-![Sample PDF report page showing speed histogram, p85 metric, and site map](/img/stack.png)
+![Sample PDF report page showing speed histogram, p85 metric, and site map](/img/stack.png) <!-- link-ignore -->
 
 - **Printed PDF report**: a physical document can be held, marked up, and filed into the public record. Screen shares cannot.
 - **Site photos**: the street, the school, the park, the crossing. Data tells the story; photos make it concrete.
