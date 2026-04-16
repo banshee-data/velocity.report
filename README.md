@@ -27,7 +27,7 @@ no individual is identified, tracked, or recorded. The data belongs to the commu
 </div>
 
 - 📊 PDF reports: speed distributions, percentile statistics, before-and-after comparisons
-- 🔒 No video, no plate recognition, no personally identifiable information
+- 🔒 Privacy by architecture: the hardware cannot collect what the design never asked for
 - 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md), combining both sensors)
 - 🏠 Runs locally in your neighbourhood, offline-first
 - 🔒 Open source and auditable, because trust should be verifiable
@@ -111,9 +111,9 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 ## Privacy
 
-The system records vehicle speed data. That is all it records.
-No cameras, no licence plates, no video, no personally identifiable information:
-by design, not by policy.
+The system measures speed. That is all it measures.
+The privacy guarantee is architectural, not a policy bolted on after the fact:
+nothing in the hardware or software is capable of identifying a person or a vehicle.
 The point is to measure traffic, not to start building a private surveillance habit.
 
 The data stays on a local device. Reports are generated locally.
