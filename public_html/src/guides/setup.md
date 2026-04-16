@@ -306,13 +306,13 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 
 Once the sensor is mounted, aim it before collecting data. These guidelines apply to both deployments. For the mobile mount, parking parallel to the kerb already puts you close to 0°.
 
-![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aiming.jpg)
 
-- **Angle**: as close to 0° (parallel with traffic flow) as practical, typically 15–25°. Lower angles need less cosine correction, so the speed readings are more accurate. At 0° the radar reads full vehicle speed directly; at 30° measured speeds are 86.6% of actual, and the correction amplifies noise.
-- **Road coverage**: the beam must encompass the full lane of traffic you are measuring. A pure 0° angle is the most accurate but too narrow for a side-of-road mount: the beam passes along the lane instead of across it. Angling the sensor 15–25° widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error small. Choose the smallest angle whose beam triangle fully covers the lane.
+- **Angle**: as close to 0° (parallel with traffic flow) as practical, typically 15–25°. Lower angles need less cosine correction, so the speed readings are more accurate.
+- **Road coverage**: the beam must encompass the full lane of traffic you are measuring. Angling the sensor 15–25° widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error small. Choose the smallest angle whose beam triangle fully covers the lane.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
 
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-cosign-angle.jpg)
 
 <div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed max-w-[60%] mx-auto">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
