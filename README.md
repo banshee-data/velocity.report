@@ -111,13 +111,17 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 ## Privacy
 
-The system measures speed. That is all it measures.
-The privacy guarantee is architectural, not a policy bolted on after the fact:
-nothing in the hardware or software is capable of identifying an individual person or a specific vehicle (for example by licence plate or make/model).
-The point is to measure traffic, not to start building a private surveillance habit.
+The system is built to measure traffic speed and protect vulnerable road users.
+That defines what we log, what we store, and what we report.
+
+The software does not collect, store, or expose anything that identifies an individual
+or a specific vehicle. No licence plates. No faces. No make or model.
+Object classification tracks road user types: pedestrian, cyclist, car, bus.
+Not people. Not plates.
 
 The data stays on a local device. Reports are generated locally.
-If PII reaches a log, a response body, or an export, the system has failed.
+If personal data reaches a log, a response body, or an export, that is a bug,
+[please report it.](https://github.com/banshee-data/velocity.report/issues)
 
 See [TENETS.md](TENETS.md) for the full set of non-negotiable principles.
 
