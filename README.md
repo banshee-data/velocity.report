@@ -113,7 +113,7 @@ Evidence over opinion. Privacy over convenience. Community ownership over cloud 
 
 The system measures speed. That is all it measures.
 The privacy guarantee is architectural, not a policy bolted on after the fact:
-nothing in the hardware or software is capable of identifying a person or a vehicle.
+nothing in the hardware or software is capable of identifying an individual person or a specific vehicle (for example by licence plate or make/model).
 The point is to measure traffic, not to start building a private surveillance habit.
 
 The data stays on a local device. Reports are generated locally.
