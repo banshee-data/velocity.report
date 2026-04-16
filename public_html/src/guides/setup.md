@@ -5,7 +5,7 @@ description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, j
 section: guides
 difficulty: intermediate
 time: 2-4 hours
-cost: $647
+cost: $650
 date: 2026-04-15T12:00:00Z
 tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 ---
@@ -18,7 +18,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 ## Introduction
 
-Safer streets start with measured speeds.
+Safer streets start with measured traffic speeds.
 
 One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have a speed monitor logging every vehicle that passes, a live dashboard, and the beginnings of the dataset that goes to your next council meeting. No cameras, no licence plates, no cloud accounts: just local speed data on hardware you own.
 
@@ -27,9 +27,13 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 **Tools needed**:
 
 - Computer with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) installed
-- 5/16" nut driver (for steel bands)
-- Screwdrivers, drill, adhesive
-- Optional: multimeter for testing connections
+- 5/16" nut driver (steel bands)
+- Screwdriver
+- Handsaw or circular saw
+- Drill and bits
+- Pencil and tape measure
+- Optional: mitre box
+- Optional: multimeter
 
 **No soldering required** · **No coding required** · **No prior radar experience needed**
 
@@ -45,11 +49,9 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 | ❌ **Not collected**   | No licence plates, no vehicle photos, no driver identity |
 | ❌ **Not transmitted** | All data stays on your device                            |
 
-The system records vehicle speed data without cameras, licence plates, or personal details.
+### Compliance
 
-### Civic position
-
-In most jurisdictions, measuring vehicle speeds on public streets from your own property is legal: it is the same activity traffic engineers and academic researchers perform. However, you should only mount on public utility poles with explicit permission. Check local regulations for long-term installations. When in doubt, consult local authorities.
+Measuring vehicle speeds on public streets from your own property is generally legal. Mounting on public utility poles requires explicit permission. Always check your local regulations.
 
 ---
 
@@ -67,32 +69,32 @@ The velocity.report Pi image includes everything pre-configured: flash one SD ca
 
 ---
 
-## Parts and tools list
-
-The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deployment: weatherproof (IP67), 100 m range, RS232 interface.
-
-### Bill of materials
+## Parts list
 
 <!-- IMAGE 2: Flat-lay parts photo
      Subject: all parts from the BOM laid out on a table, labelled
      Purpose: lets the reader verify they have everything before starting
      Format: landscape, photograph, annotated with part names -->
 
-| Part             | Recommended Model                                                                                     | Price    | Notes                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------- |
-| Radar Sensor     | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                            | $420     | Speed-only, RS232 interface, IP67 enclosure             |
-| Mounting Plate   | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                | $50      | Metal mounting bracket for OPS7243 enclosure            |
-| M12 Cable        | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/) | $17      | M12 to pigtail, connects sensor to DE-9                 |
-| Raspberry Pi 4   | Raspberry Pi 4 (4 GB)                                                                                 | $45      | Also compatible with Pi 5                               |
-| SD Card          | SanDisk High Endurance 32 GB                                                                          | $10      | Designed for continuous recording                       |
-| PoE HAT          | Waveshare PoE HAT (F)                                                                                 | $29      | Powers the Pi over Ethernet; stacks with the serial HAT |
-| Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                            |
-| RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                 |
-| **Core total**   |                                                                                                       | **$592** | Required for all deployments                            |
-| Roof Rack Mount  | PVC pipe, 2×4 & hardware ([detail](#roof-rack-mount-bill-of-materials))                               | $48      | Optional: for car-mounted mobile deployment             |
-| **Full total**   |                                                                                                       | **$640** | Core + roof rack mount                                  |
+| Part                    | Part No.                                                                                                                                        | Price    | Notes                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
+| Radar sensor            | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                                                                      | $420     | IP67, 100 m range, RS232                       |
+| Sensor mounting bracket | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                                                          | $50      | Metal bracket for OPS7243 enclosure            |
+| Sensor cable            | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/)                                           | $17      | M12 to pigtail; connects sensor to serial HAT  |
+| Server                  | [Raspberry Pi 4 (2Gb)](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)                                                            | $55      | Also compatible with Pi 5                      |
+| PoE HAT (802.3af/at)    | [Waveshare PoE HAT (F) #26399](https://www.waveshare.com/poe-hat-f.htm)                                                                         | $20      | Powers the Pi + sensor over Ethernet           |
+| Serial HAT              | [Waveshare RS232 HAT #17498](https://www.waveshare.com/product/iot-communication/wired-comm-converter/rs232-rs485-can-dali2/2-ch-rs232-hat.htm) | $16      | RS232 interface for the sensor                 |
+| Serial connector        | [Adafruit DE-9](https://www.adafruit.com/product/3123)                                                                                          | $3       | Connects sensor cable to serial HAT            |
+| SD card                 | [SanDisk High Endurance (32 GB)](https://www.sandisk.com/products/memory-cards/microsd-cards/sandisk-high-endurance-uhs-i-microsd)              | $23      | High-endurance; designed for continuous writes |
+| **Core total**          |                                                                                                                                                 | **$604** |                                                |
+| ABS pipe (4in × 2ft)    | [Lowe's #256096](https://www.lowes.com/pd/Charlotte-Pipe-4-in-x-2-ft-ABS-DWV-Pipe/3415778)                                                      | $25      | Sensor mast                                    |
+| Timber stud (2×4, 8ft)  | [Lowe's #330568](https://www.lowes.com/pd/Unbranded-2-4-8-KD-DF-SELECT-STUD/5003667531)                                                         | $4       | Crossbar and upright                           |
+| Small hose clamps ×2    | [Lowe's #5327202](https://www.lowes.com/pd/RELIABILT-Indoor-Hook-up-and-Outdoor-Exhaust-Dryer-Vent-Kit/5014298699)                              | $6       | Clamp crossbar to roof rack bars               |
+| Corner braces (4-pack)  | [Lowe's #5217432](https://www.lowes.com/pd/RELIABILT-3-in-x-0-75-in-x-3-in-Gauge-Black-Steel-Corner-Brace-4-Pack/5013834841)                    | $5       | Brace the T-frame                              |
+| Deck screws (67-pack)   | [Lowe's #5333958](https://www.lowes.com/pd/Grip-Rite-8-x-1-5-8-in-Wood-To-Wood-Deck-Screws-67-Per-Box/5014220681)                               | $6       | Frame assembly                                 |
+| **Full total**          |                                                                                                                                                 | **$650** | Core + roof rack mount                         |
 
-Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
+Power is delivered over Ethernet via the PoE HAT. You will need a PoE-capable switch or injector on the network side. For mobile deployment you will also need a PoE battery pack or 12 V car outlet adapter, and a short Ethernet cable.
 
 ---
 
@@ -238,30 +240,7 @@ The same hardware supports two deployment modes: a portable rig on your car roof
 
 A portable rig that clamps to a standard roof rack. Park on any street, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.
 
-##### Tools needed
-
-- Handsaw or circular saw (crosscuts and brace miters)
-- Mitre box (accurate 45° cuts on the braces)
-- Drill + 1/8 in bit (pilot holes for screws; mounting holes in pipe)
-- Pencil and tape measure
-
-##### Roof rack mount bill of materials
-
-One hardware store trip. Prices from Lowe's (April 2026):
-
-| Part                                           | Item #              | Unit Price | Qty |   Total |
-| ---------------------------------------------- | ------------------- | ---------: | --: | ------: |
-| 4in × 2ft SCH 40 ABS pipe                      | #256096             |     $24.78 |   1 |  $24.78 |
-| 2in × 4in × 96in whitewood stud                | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
-| 1-13/16 in to 3 in galvanised adjustable clamp | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
-| 3 in × 0.75 in black steel corner brace 4-pack | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
-| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
-| **Subtotal (roof rack mount)**                 |                     |            |     | **$48** |
-
-You will also need:
-
-- A PoE-capable battery pack or a 12 V car outlet to PoE adapter
-- A short Ethernet cable (sensor to Pi inside the car)
+Parts are listed in the [parts list](#parts-list) above. You will also need a PoE battery pack or 12 V car outlet adapter, and a short Ethernet cable from sensor to Pi.
 
 ![Engineering drawing: isometric view of the roof rack sensor mount with bill of materials](/img/rack-drawing-iso-bom.png)
 
