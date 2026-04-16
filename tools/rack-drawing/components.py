@@ -444,7 +444,6 @@ def bom_table(
             item["description"],
             qty_str,
             f"${item['unit_price']:.2f}",
-            item.get("aisle", ""),
             item.get("lowes_item", ""),
         ]
         cx = x

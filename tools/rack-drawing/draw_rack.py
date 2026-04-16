@@ -336,7 +336,7 @@ def build_combined_sheet(
 
     # ── Zone 1: iso view (left) + BOM table (right) ───────────────────────
     ISO_ZONE_H = 510
-    vw, vh = 540, 490
+    vw, vh = 490, 490
     embed_svg_as_image(d, iso_svg, MARGIN, MARGIN + 10, vw, vh)
     view_label(d, "ISOMETRIC VIEW", MARGIN + vw / 2, MARGIN + 10 + vh + 14)
 
@@ -350,9 +350,16 @@ def build_combined_sheet(
             stroke_width=0.8,
         )
     )
+
+    # Centre BOM in the right-hand column
+    from components import _COL_WIDTHS as _bom_cw  # noqa: PLC0415
+
+    bom_total_w = sum(_bom_cw)
+    bom_avail = SHEET_W - MARGIN - (MARGIN + vw + 10) - 20
+    bom_x = MARGIN + vw + 10 + max(10, (bom_avail - bom_total_w) / 2)
     bom_table(
         d,
-        x=MARGIN + vw + 22,
+        x=bom_x,
         y=MARGIN + 10,
         items=cfg["bom"],
         title="BILL OF MATERIALS  —  Sensor Mount Subassembly",

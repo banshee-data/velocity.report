@@ -148,9 +148,11 @@ def _cosign_angle_svg():
      viewBox="0 0 {W} {H}">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone — dark green (navbar #047857) -->
-  <polygon
-    points="{ax:.1f},{ay:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f}"
+  <!-- Beam cone — circular segment: two straight legs + arc top edge -->
+  <path d="M {ax:.1f},{ay:.1f}
+           L {left[0]:.1f},{left[1]:.1f}
+           A {length:.1f},{length:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f}
+           Z"
     fill="{COSIGN_FILL}" stroke="{COSIGN_STROKE}"
     stroke-width="2.5" stroke-linejoin="round"/>
 
@@ -160,7 +162,7 @@ def _cosign_angle_svg():
   <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{right[0]:.1f}" y2="{right[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
 
-  <!-- Top arc connecting the two tips — radius = beam length -->
+  <!-- Top arc — drawn again on top so it sits over the fill stroke -->
   <path d="M {left[0]:.1f},{left[1]:.1f}
            A {length:.1f},{length:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f}"
         fill="none" stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
@@ -201,7 +203,7 @@ def _cosign_angle_svg():
   <text x="{ax:.1f}" y="{label_y:.1f}"
         fill="{LABEL_FILL}" font-size="{c['t_label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="hanging"
-        paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="2.5">
+        paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="11">
     {c['t_label_text']}
   </text>
 </svg>
@@ -216,14 +218,14 @@ def _cosign_angle_svg():
 
 AIMING_CFG = {
     "jpeg": "guide-aim-sutro_raw.jpg",
-    "w": 2000,
-    "h": 1500,
+    "w": 1038,
+    "h": 1384,
     # ── Beam cone ──
     "apex_x_pct": 69.5,  # sensor position — % of width
     "apex_y_pct": 50.5,  # % of height
     "beam_heading_deg": -90,  # pointing left; 90° CW display rotation → up
     "beam_half_angle_deg": 18.0,  # wide cone (36° total)
-    "beam_length_pct": 30,  # % of height
+    "beam_length_pct": 28,  # % of height
     # ── Truncation ──
     "trunc_frac": 0.20,  # near edge cut at 20% of beam length from apex
     # ── Far-edge bow ──
@@ -233,8 +235,12 @@ AIMING_CFG = {
     # ── Chevrons ──
     "chevron_count": 5,
     "chevron_start_pct": 22,  # first chevron at this % of beam length
-    "chevron_end_pct": 88,  # last chevron at this %
-    "chevron_width_frac": 0.55,  # fraction of cone width at that distance
+    "chevron_end_pct": 85,  # last chevron at this %
+    "chevron_width_frac": 1.0,  # 1.0 = full cone width at that distance (radar ping)
+    # ── Near edge ──
+    # Near edge is wider than the natural cone angle to show the radar mouth.
+    # Uses its own half-angle so the trapezoid flares at the base.
+    "near_half_angle_deg": 50.0,  # wider than beam_half_angle_deg (18°)
     # ── Direction arrow ──
     "arrow_head_size_pct": 4,  # arrowhead leg length as % of height
     "arrow_head_angle": 64,  # half-angle of arrowhead — wider/flatter
@@ -253,16 +259,14 @@ def _aiming_svg():
     bulge = c["curve_bulge"]
 
     # ── Four corners of the trapezoid ──
+    # Far corners follow beam_half_angle; near corners use the wider
+    # near_half_angle so the base of the beam flares out from the sensor.
+    near_ha = c["near_half_angle_deg"]
+    near_dist = length * trunc
     left_far = _pt((ax, ay), h - ha, length)
     right_far = _pt((ax, ay), h + ha, length)
-    near_left = (
-        ax + trunc * (left_far[0] - ax),
-        ay + trunc * (left_far[1] - ay),
-    )
-    near_right = (
-        ax + trunc * (right_far[0] - ax),
-        ay + trunc * (right_far[1] - ay),
-    )
+    near_left = _pt((ax, ay), h - near_ha, near_dist)
+    near_right = _pt((ax, ay), h + near_ha, near_dist)
 
     # ── Curved far edge (only this edge bows; arms are straight) ──
     far_mid = (
