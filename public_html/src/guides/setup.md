@@ -12,7 +12,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 **A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make a data-informed case for safer streets.**
 
-**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $592–$647
+**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $640
 
 ---
 
@@ -89,8 +89,8 @@ The **OmniPreSense OPS7243-A-CW-R2** is recommended for infrastructure deploymen
 | Serial HAT       | Waveshare RS232/485 HAT                                                                               | $18      | Required for RS232 interface                            |
 | RS-232 Connector | Adafruit DE-9                                                                                         | $3       | Connects pigtail to HAT                                 |
 | **Core total**   |                                                                                                       | **$592** | Required for all deployments                            |
-| Roof Rack Mount  | PVC pipe, 2×4 & hardware ([detail](#roof-rack-mount-bill-of-materials))                               | $55      | Optional: for car-mounted mobile deployment             |
-| **Full total**   |                                                                                                       | **$647** | Core + roof rack mount                                  |
+| Roof Rack Mount  | PVC pipe, 2×4 & hardware ([detail](#roof-rack-mount-bill-of-materials))                               | $48      | Optional: for car-mounted mobile deployment             |
+| **Full total**   |                                                                                                       | **$640** | Core + roof rack mount                                  |
 
 Power is delivered over Ethernet through the PoE HAT. You will need a PoE-capable switch or a PoE injector on the network side.
 
@@ -236,7 +236,7 @@ The same hardware supports two deployment modes: a portable rig on your car roof
 
 #### Deployment option A: car roof rack mount (mobile)
 
-A portable rig that clamps to a standard roof rack. Park on any street, aim the sensor, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.
+A portable rig that clamps to a standard roof rack. Park on any street, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.
 
 ##### Tools needed
 
@@ -253,11 +253,10 @@ One hardware store trip. Prices from Lowe's (April 2026):
 | ---------------------------------------------- | ------------------- | ---------: | --: | ------: |
 | 4in × 2ft SCH 40 ABS pipe                      | #256096             |     $24.78 |   1 |  $24.78 |
 | 2in × 4in × 96in whitewood stud                | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
-| 3 in to 5 in stainless steel adjustable clamp  | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
 | 1-13/16 in to 3 in galvanised adjustable clamp | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
 | 3 in × 0.75 in black steel corner brace 4-pack | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
 | #8 × 1-1/8 in wood-to-wood deck screws (75-pk) | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
-| **Subtotal (roof rack mount)**                 |                     |            |     | **$55** |
+| **Subtotal (roof rack mount)**                 |                     |            |     | **$48** |
 
 You will also need:
 
@@ -284,12 +283,6 @@ You will also need:
 
 7. **Route the cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
 
-![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
-
-**Aiming**: park the car parallel to the kerb with the sensor aimed along the street. A parked car pointed down the road is already close to 0°, which is the geometry you want. See the aiming guidance below for details.
-
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
-
 #### Deployment option B: home installation (permanent)
 
 A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that builds a compelling case over time.
@@ -299,6 +292,7 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 - Mount 4–8 feet off the ground (reduces false detections from small objects)
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
+- Use plastic or nylon standoffs (metal obstructs the radar signal)
 
 **Weatherproofing checklist**:
 
@@ -308,19 +302,25 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 
 **Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
 
-#### Aiming (both deployments)
+#### Aiming the sensor
 
-- **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
-- **Road coverage**: a 0° angle gives the best accuracy but is impractical for a side of the road installation. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
+Once the sensor is mounted, aim it before collecting data. These guidelines apply to both deployments. For the mobile mount, parking parallel to the kerb already puts you close to 0°.
+
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
+
+- **Angle**: as close to 0° (parallel with traffic flow) as practical, typically 15–25°. Lower angles need less cosine correction, so the speed readings are more accurate. At 0° the radar reads full vehicle speed directly; at 30° measured speeds are 86.6% of actual, and the correction amplifies noise.
+- **Road coverage**: the beam must encompass the full lane of traffic you are measuring. A pure 0° angle is the most accurate but too narrow for a side-of-road mount: the beam passes along the lane instead of across it. Angling the sensor 15–25° widens the field-of-view triangle enough to capture vehicles across the lane while keeping cosine error small. Choose the smallest angle whose beam triangle fully covers the lane.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
 
-<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
+
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed max-w-[60%] mx-auto">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
-<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5). To measure it:</p>
+<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5).</p>
 <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
-<li>Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.</li>
-<li>Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.</li>
-<li>Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.</li>
+<li>Take a photo looking straight down at the road surface, perpendicular to the kerb. Include the sensor and the road in the frame.</li>
+<li>Draw one line along the kerb and a second line from the sensor along its beam direction.</li>
+<li>Measure the angle between the two lines and subtract from 90°. A phone protractor app works.</li>
 </ol>
 </div>
 
