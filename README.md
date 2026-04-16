@@ -94,7 +94,7 @@ Meanwhile, someone's child is still crossing that road while motorists zip by.
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-A radar measures speeds of road users, from cars to bicycles, e-scooters to pedestrians (and birds!)
+A radar measures vehicle speeds.
 The logged data stays on a local device in someone's house.
 The reports are professional enough for a planning committee.
 
