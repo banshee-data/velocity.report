@@ -1,13 +1,13 @@
 # Development log
 
-## April 16, 2026 — Setup guide polish & responsive tables
+## April 16, 2026 - Setup guide polish & responsive tables
 
 - Added responsive table styling with striped row backgrounds for the docs site.
 - Standardised title casing and improved table formatting in the setup guide.
 - Removed unused guide images (`guide-aim-sutro`, `guide-angel`) and added `link-ignore` annotations for image paths resolved at build time.
 - Bumped version to 0.5.1-pre5.
 
-## April 15, 2026 — Rack geometry, isometric drawings & assembly prose
+## April 15, 2026 - Rack geometry, isometric drawings & assembly prose
 
 - Added fastener hole geometry to the rack model: crossbar, brace, and pipe connection definitions in `rack.json`.
 - Generated isometric BOM drawing with title block and combined drawing sheet.
@@ -18,7 +18,7 @@
 - Added Makefile targets for wiring diagram generation; added `pyyaml` dependency.
 - Addressed Copilot PR review comments across docs, web, and Python code.
 
-## April 14, 2026 — Rack-mount drawing tools & docs site improvements
+## April 14, 2026 - Rack-mount drawing tools & docs site improvements
 
 - Created rack-mount engineering drawing tools: `draw_rack.py`, `draw_overlays.py`, and `model.py` with `drawsvg` dependency.
 - Added Eleventy table-of-contents functionality with content preamble and body filters.
@@ -28,7 +28,7 @@
 - Added Makefile targets for diagram installation, rendering, and stale docs-server cleanup.
 - Updated setup guide parts list and build overview formatting; removed redundant sections.
 
-## April 13, 2026 — RPi image CI fix & setup guide overhaul begins
+## April 13, 2026 - RPi image CI fix & setup guide overhaul begins
 
 - Fixed Raspberry Pi image CI by installing `qemu-user-static` before ARM64 builds; deduplicated QEMU setup action (#467).
 - Began setup guide overhaul: added hardware photos, updated prerequisites, corrected dates and content.
