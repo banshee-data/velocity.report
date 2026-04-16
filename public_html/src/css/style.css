@@ -4,8 +4,19 @@
 /* Dark mode support */
 :root {
   color-scheme: light dark;
-  /* Gradient border: dark emerald at top-left, mid-emerald at bottom-right */
-  --gb-border: linear-gradient(to top left, #047857, #064e3b);
+  /* Gradient border stops — light mode: emerald-400 → emerald-600 (visible on white) */
+  --gb-from: #34d399;
+  --gb-to:   #059669;
+  --gb-border: linear-gradient(to top left, var(--gb-to), var(--gb-from));
+  --gb-hr:     linear-gradient(to right, var(--gb-from), var(--gb-to));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode: emerald-700 → emerald-950 (visible on dark fills) */
+    --gb-from: #047857;
+    --gb-to:   #064e3b;
+  }
 }
 
 /* Scroll padding to account for fixed header */
@@ -100,7 +111,7 @@ html {
     border: 1px solid transparent;
     background:
       linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
-      linear-gradient(to top left, #047857, #064e3b) border-box;
+      var(--gb-border) border-box;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -158,7 +169,7 @@ html {
     border: 1px solid transparent;
     background:
       linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
-      linear-gradient(to top left, #047857, #064e3b) border-box;
+      var(--gb-border) border-box;
   }
 
   /* Subcard column — constrains width and centres within section */
@@ -273,7 +284,7 @@ html {
     @apply bg-gray-800 text-gray-200;
     background:
       linear-gradient(#1f2937, #1f2937) padding-box,
-      linear-gradient(to top left, #047857, #064e3b) border-box;
+      var(--gb-border) border-box;
   }
 }
 
@@ -428,7 +439,7 @@ html {
   .prose pre {
     background:
       linear-gradient(#1f2937, #1f2937) padding-box,
-      linear-gradient(to top left, #047857, #064e3b) border-box;
+      var(--gb-border) border-box;
   }
 }
 
@@ -449,6 +460,21 @@ html {
   .gradient-border {
     --gb-fill: #1f2937; /* gray-800 */
   }
+}
+
+/* Horizontal rules — gradient left to right using the shared border stops */
+hr {
+  border: none;
+  height: 1px;
+  background: var(--gb-hr);
+  opacity: 0.6;
+}
+
+.prose hr {
+  border: none;
+  height: 1px;
+  background: var(--gb-hr);
+  opacity: 0.6;
 }
 
 /* =========================================================================
