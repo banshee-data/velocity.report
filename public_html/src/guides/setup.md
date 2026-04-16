@@ -12,7 +12,7 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 **A weatherproof traffic logger that keeps data local, requires no cameras, and helps you make a data-informed case for safer streets.**
 
-**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $640
+**Difficulty**: Intermediate • **Time**: 2–4 hours • **Cost**: $650
 
 ---
 
@@ -32,7 +32,7 @@ One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have 
 - Handsaw or circular saw
 - Drill and bits
 - Pencil and tape measure
-- Optional: mitre box
+- Optional: mitre box for 45° cuts
 - Optional: multimeter
 
 **No soldering required** · **No coding required** · **No prior radar experience needed**
