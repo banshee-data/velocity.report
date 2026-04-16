@@ -29,7 +29,7 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
             <div class="space-y-4 mb-10">
                 <div class="flex items-start text-gray-600 dark:text-gray-300">
                     <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                    <span><strong>Before and after:</strong> Measure before. Measure after. The numbers tell you whether the changes worked, or if more work is needed.</span>
+                    <span><strong>Before and after:</strong> Measure before. Measure after. The numbers tell you whether the changes worked.</span>
                 </div>
                 <div class="flex items-start text-gray-600 dark:text-gray-300">
                     <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -37,7 +37,7 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
                 </div>
                 <div class="flex items-start text-gray-600 dark:text-gray-300">
                      <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                    <span><strong>Open source:</strong> Audit every line, run it on your own Pi, and keep the data on a shelf you own rather than someone else's cloud.</span>
+                    <span><strong>Open source:</strong> Audit every line, run it on your own Pi, and keep the data on your own hardware, not someone else's cloud.</span>
                 </div>
             </div>
 
@@ -153,17 +153,17 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What does it measure?</h3>
-                    <p>Vehicle speeds, that's it. A radar sensor records how fast each vehicle passes and stores the data on a Raspberry Pi. Speed only: no faces, no licence plates.</p>
+                    <p>Vehicle speeds, that's it. A radar sensor records how fast each vehicle passes and stores the data on a Raspberry Pi. No faces, no licence plates, no images of any kind.</p>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Where does the data go?</h3>
-                    <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, no silent phone-home. The data does not leave your network unless you hand someone the finished PDF.</p>
+                    <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, nothing that sends data anywhere without your knowledge. The only way data leaves your network is when you hand (or email) someone the finished PDF.</p>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How do I get started?</h3>
-                    <p>Follow the <a href="/guides/setup/" class="link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that looks like it was produced by a transport department rather than someone who is merely (and justifiably) very annoyed.</p>
+                    <p>Follow the <a href="/guides/setup/" class="link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that holds up in a council meeting.</p>
                 </div>
             </div>
         </div>
@@ -175,7 +175,10 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
             <div class="text-center mb-8">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Research</h2>
                 <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                    Radar measures speed, LiDAR paints a scene. The perception pipeline turns raw point clouds into tracked, labelled road users: pedestrians, cyclists, cars, buses. The data shows not just speed: it shows who is sharing the road, and who is in the path of traffic moving too fast.
+                    The radar setup gives you speed data and a PDF. Lidar is the next level: see the full scene, identify road users by type, and see how they move around each other. It can answer questions the radar cannot, like how close cars pass cyclists, or how many drivers roll through the intersection (and how fast).
+                </p>
+                <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                    This is research-stage work, and contributions are welcome. The pipeline is open source, the <a href="https://github.com/banshee-data/velocity.report/blob/main/data/maths/MATHS.md" class="link"> maths are documented</a>, and there's a list of <a href="https://github.com/banshee-data/velocity.report/blob/main/data/QUESTIONS.md" class="link'>open questions</a> we'd love to hear your thoughts on. Please feel free to put up a PR!
                 </p>
             </div>
 
