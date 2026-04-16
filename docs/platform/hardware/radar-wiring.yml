@@ -52,7 +52,7 @@ cables:
     wirecount: 4
     length: 5 m
     colors: [WH, BU, BK, BG]
-    notes: OPS700-CBL-M1-PT-1.8
+    notes: OPS700-CBL-M1-PT-5.0
 
 connections:
   - # Serial data
