@@ -31,6 +31,16 @@ LABEL_FILL = "white"
 LABEL_STROKE = "rgba(0,0,0,0.6)"
 FONT = "system-ui, -apple-system, sans-serif"
 
+# UI navbar green — hex #047857 (Tailwind emerald-700)
+NAVBAR_GREEN = "#047857"
+NAVBAR_GREEN_FILL = "rgba(4,120,87,0.85)"
+NAVBAR_GREEN_STROKE = "rgba(4,120,87,0.92)"
+
+# Deep orange for Sutro beam
+SUTRO_FILL = "rgba(230,81,0,0.85)"  # deep-orange-900 tint
+SUTRO_STROKE = "rgba(230,81,0,0.95)"
+SUTRO_CHEVRON = "rgba(255,111,0,1.0)"  # deep-orange-A400
+
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -65,9 +75,10 @@ ANGEL_CFG = {
     "w": 1200,
     "h": 900,
     # ── Beam cone (all percentages of image dimensions) ──
-    "apex_x_pct": 43.50,  # sensor tube opening — % of width
-    "apex_y_pct": 73,  # % of height (44.4 + 35)
-    "beam_heading_deg": 10,  # clockwise from image-up (2° CCW from v1)
+    "apex_x_pct": 43.20,  # sensor tube opening — % of width
+    "apex_y_pct": 73.2,  # % of height
+    # Nudge the whole diagram 1° CW relative to previous heading of 10°
+    "beam_heading_deg": 11,  # was 10, +1° CW
     "beam_half_angle_deg": 10.5,  # half of 21° cone
     "beam_length_pct": 38,  # % of height
     # ── Angle arc + label ──
@@ -75,13 +86,12 @@ ANGEL_CFG = {
     "label_offset_pct": 12,  # extra offset beyond arc, % of height
     "label_font_size": 32,
     # ── Direction-of-travel T marker ──
-    # Anchored at the beam apex. Bar = direction of travel (perpendicular
-    # to beam, pointing right in image coords). Stem = left arm of the V
-    # (the left cone edge direction from the apex).
     "t_bar_half_pct": 12.0,  # half-length of horizontal bar — % of width
     "t_stem_pct": 10.0,  # stem length along left edge of cone — % of height
+    # Bigger label, pushed lower (dominant-baseline="hanging" + bigger dy)
     "t_label_text": "direction of travel →",
-    "t_label_font_size": 26,
+    "t_label_font_size": 34,  # was 26
+    "t_label_dy": 28,  # pixels below bar (was 18)
 }
 
 
@@ -95,7 +105,6 @@ def _angel_svg():
 
     left = _pt((ax, ay), h - ha, length)
     right = _pt((ax, ay), h + ha, length)
-    centre_far = _pt((ax, ay), h, length)
 
     arc_r = _pct_len(c["arc_radius_pct"], H)
     arc_left = _pt((ax, ay), h - ha, arc_r)
@@ -103,31 +112,25 @@ def _angel_svg():
     label_r = arc_r + _pct_len(c["label_offset_pct"], H)
     lbl = _pt((ax, ay), h, label_r)
 
+    # ── 90° reference line: straight up from apex, extending past triangle tip ──
+    # "Up" in image coords = heading 0°. Extends from apex to 130% of beam length.
+    ref_line_end = _pt((ax, ay), 0, length * 1.30)
+
     # ── Direction-of-travel T, anchored at beam apex ──
-    # Horizontal bar: direction of travel is perpendicular to beam heading.
-    # Beam heads roughly "up-right" (heading=12°), so direction of travel
-    # is 90° to the right of that = heading + 90° rotated from up = left/right
-    # in the image.  We draw the bar purely horizontal (left/right) since the
-    # road runs horizontally across the photo.
     bar_half = _pct_len(c["t_bar_half_pct"], W)
     stem_len = _pct_len(c["t_stem_pct"], H)
 
-    # Bar runs horizontally through the apex (direction of travel)
     bl = (ax - bar_half, ay)
     br = (ax + bar_half, ay)
 
-    # Stem goes along the left arm of the cone from the apex.
-    # Left arm direction: heading - half_angle (clockwise from image-up).
     stem_end = _pt((ax, ay), h - ha, stem_len)
 
-    # Right-angle marker between bar and stem (small square in the angle)
-    # Position the square marker offset from the apex along the bar and stem
     sq = 10
-    # Find unit vector along stem direction
     sdx, sdy = _dir(h - ha)
-    # Unit vector along bar direction (to the right = 90° from image-up)
     bdx, bdy = 1.0, 0.0
     sq_corner = (ax + bdx * sq, ay + sdy * sq)
+
+    label_y = ay + c["t_label_dy"]
 
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -137,16 +140,16 @@ def _angel_svg():
      viewBox="0 0 {W} {H}">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone -->
+  <!-- Beam cone — dark green (navbar colour #047857) -->
   <polygon
     points="{ax:.1f},{ay:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f}"
-    fill="{CONE_FILL}" stroke="{CONE_STROKE}"
+    fill="{NAVBAR_GREEN_FILL}" stroke="{NAVBAR_GREEN_STROKE}"
     stroke-width="2.5" stroke-linejoin="round"/>
 
-  <!-- Centre beam (dashed) -->
+  <!-- 90° reference line: vertical dashed, from apex upward, 130% of beam length -->
   <line x1="{ax:.1f}" y1="{ay:.1f}"
-        x2="{centre_far[0]:.1f}" y2="{centre_far[1]:.1f}"
-        stroke="rgba(255,200,0,0.5)" stroke-width="1.5"
+        x2="{ref_line_end[0]:.1f}" y2="{ref_line_end[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"
         stroke-dasharray="10,6"/>
 
   <!-- Angle arc -->
@@ -174,8 +177,8 @@ def _angel_svg():
   <!-- Right-angle marker at apex junction -->
   <polyline points="{ax + bdx * sq:.1f},{ay + bdy * sq:.1f} {sq_corner[0]:.1f},{sq_corner[1]:.1f} {ax + sdx * sq:.1f},{ay + sdy * sq:.1f}"
             fill="none" stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"/>
-  <!-- Label below the bar -->
-  <text x="{ax:.1f}" y="{ay + 18:.1f}"
+  <!-- Label below the bar — bigger font, pushed lower -->
+  <text x="{ax:.1f}" y="{label_y:.1f}"
         fill="{LABEL_FILL}" font-size="{c['t_label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="hanging"
         paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="2.5">
@@ -186,7 +189,8 @@ def _angel_svg():
 
 
 # ═════════════════════════════════════════════════════════════════════
-# SUTRO IMAGE — opaque beam cone with forward-facing chevrons
+# SUTRO IMAGE — wide truncated-triangle beam with curved edges,
+#               direction arrow along centreline, deep-orange colour
 # ═════════════════════════════════════════════════════════════════════
 
 SUTRO_CFG = {
@@ -194,16 +198,23 @@ SUTRO_CFG = {
     "w": 2000,
     "h": 1500,
     # ── Beam cone ──
-    "apex_x_pct": 72.0,  # sensor position — % of width
+    "apex_x_pct": 70.0,  # sensor position — % of width
     "apex_y_pct": 50.0,  # % of height
-    "beam_heading_deg": -90,  # pointing along road after 90° CW display rotation
-    "beam_half_angle_deg": 10.5,  # half of 21° cone
-    "beam_length_pct": 28,  # % of height (half of original)
-    # ── Chevrons (forward markers inside the cone) ──
+    "beam_heading_deg": -90,  # pointing left after 90° CW display rotation
+    "beam_half_angle_deg": 18.0,  # wider triangle (was 10.5)
+    "beam_length_pct": 34,  # slightly longer to fill frame better (was 28)
+    # ── Truncation (near edge of trapezoid) ──
+    "trunc_frac": 0.20,  # cut first 20% of cone from apex
+    # ── Curved edges: cubic Bézier control-point pull fraction ──
+    # 0 = straight lines; positive = bow outward (wider at mid-point)
+    "curve_bulge": 0.18,
+    # ── Chevrons ──
     "chevron_count": 5,
-    "chevron_start_pct": 20,  # first chevron at this % of beam length
-    "chevron_end_pct": 90,  # last chevron at this %
-    "chevron_width_frac": 0.4,  # fraction of cone width at that distance
+    "chevron_start_pct": 22,  # first chevron at this % of beam length
+    "chevron_end_pct": 88,  # last chevron at this %
+    "chevron_width_frac": 0.55,  # fraction of cone width at that distance
+    # ── Direction arrow ──
+    "arrow_head_size_pct": 2.8,  # arrowhead size as % of height
 }
 
 
@@ -214,16 +225,39 @@ def _sutro_svg():
     h = c["beam_heading_deg"]
     ha = c["beam_half_angle_deg"]
     length = _pct_len(c["beam_length_pct"], H)
+    trunc = c["trunc_frac"]
+    bulge = c["curve_bulge"]
 
-    left = _pt((ax, ay), h - ha, length)
-    right = _pt((ax, ay), h + ha, length)
+    # Four corners of the trapezoid
+    left_far = _pt((ax, ay), h - ha, length)
+    right_far = _pt((ax, ay), h + ha, length)
+    near_left = (ax + trunc * (left_far[0] - ax), ay + trunc * (left_far[1] - ay))
+    near_right = (ax + trunc * (right_far[0] - ax), ay + trunc * (right_far[1] - ay))
 
-    # Truncate apex tip: cut the first 20% of the cone to form a trapezoid.
-    TRUNC = 0.25
-    near_left = (ax + TRUNC * (left[0] - ax), ay + TRUNC * (left[1] - ay))
-    near_right = (ax + TRUNC * (right[0] - ax), ay + TRUNC * (right[1] - ay))
+    # ── Curved far edge + straight arms ──
+    # The far (wide) edge connecting left_far → right_far bows outward —
+    # away from the sensor, i.e. further along the beam heading direction.
+    # Control point sits at the midpoint of that edge, pushed forward by
+    # bulge × edge_length.
+    far_mid = ((left_far[0] + right_far[0]) / 2, (left_far[1] + right_far[1]) / 2)
+    far_edge_len = math.hypot(right_far[0] - left_far[0], right_far[1] - left_far[1])
+    fdx, fdy = _dir(h)  # unit vector pointing forward (outward from sensor)
+    ctrl_far = (
+        far_mid[0] + fdx * far_edge_len * bulge,
+        far_mid[1] + fdy * far_edge_len * bulge,
+    )
 
-    # ── Chevrons along centre line ──
+    # SVG path: near_left → (straight) → left_far → (curved far edge) →
+    #           right_far → (straight) → near_right → (straight near edge) → Z
+    path_d = (
+        f"M {near_left[0]:.1f},{near_left[1]:.1f} "
+        f"L {left_far[0]:.1f},{left_far[1]:.1f} "
+        f"Q {ctrl_far[0]:.1f},{ctrl_far[1]:.1f} {right_far[0]:.1f},{right_far[1]:.1f} "
+        f"L {near_right[0]:.1f},{near_right[1]:.1f} "
+        f"Z"
+    )
+
+    # ── Chevrons along centre line — curved to match the far-edge bow ──
     n = c["chevron_count"]
     cs = c["chevron_start_pct"] / 100.0
     ce = c["chevron_end_pct"] / 100.0
@@ -233,24 +267,32 @@ def _sutro_svg():
         t = cs + (ce - cs) * i / max(n - 1, 1)
         dist = length * t
         tip = _pt((ax, ay), h, dist)
-        # Width of cone at this distance (linear interpolation)
         half_w = dist * math.tan(math.radians(ha)) * wf
         cl = _pt(tip, h + 90, half_w)
         cr = _pt(tip, h - 90, half_w)
-        # Chevron points back from tip
-        back = _pt(tip, h + 180, half_w * 0.6)
+        # Control point bows forward by the same bulge fraction as the far edge
+        chev_len = math.hypot(cr[0] - cl[0], cr[1] - cl[1])
+        ctrl_chev = (tip[0] + fdx * chev_len * bulge, tip[1] + fdy * chev_len * bulge)
         chevrons.append(
-            f'  <polyline points="{cl[0]:.1f},{cl[1]:.1f} '
-            f'{tip[0]:.1f},{tip[1]:.1f} {cr[0]:.1f},{cr[1]:.1f}"'
-            f'\n            fill="none" stroke="rgba(0,140,50,0.95)"'
-            f' stroke-width="2.5" stroke-linecap="round"'
-            f' stroke-linejoin="round"/>'
+            f'  <path d="M {cl[0]:.1f},{cl[1]:.1f} '
+            f'Q {ctrl_chev[0]:.1f},{ctrl_chev[1]:.1f} {cr[0]:.1f},{cr[1]:.1f}"'
+            f'\n        fill="none" stroke="{SUTRO_CHEVRON}"'
+            f' stroke-width="4.5" stroke-linecap="round"/>'
         )
 
     chevron_str = "\n".join(chevrons)
 
+    # ── Direction arrow along beam centreline ──
+    # Runs from the near edge to the far edge of the cone, pointing "forward"
+    # (from sensor outward, i.e. in direction h).
+    arrow_start = _pt((ax, ay), h, length * trunc)
+    arrow_end = _pt((ax, ay), h, length * 0.78)
+    ahs = _pct_len(c["arrow_head_size_pct"], H)
+    # Arrowhead: two lines back from tip at ±25°
+    ah_l = _pt(arrow_end, h + 180 - 25, ahs)
+    ah_r = _pt(arrow_end, h + 180 + 25, ahs)
+
     # 90° CW rotation: swap viewport dimensions, wrap content in transform.
-    # translate(H, 0) rotate(90) maps original (x,y) → (H-y, x).
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
@@ -260,14 +302,22 @@ def _sutro_svg():
   <g transform="translate({H}, 0) rotate(90)">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone (truncated trapezoid, dark green) -->
-  <polygon
-    points="{near_left[0]:.1f},{near_left[1]:.1f} {left[0]:.1f},{left[1]:.1f} {right[0]:.1f},{right[1]:.1f} {near_right[0]:.1f},{near_right[1]:.1f}"
-    fill="rgba(0,155,55,0.55)" stroke="rgba(0,140,50,0.95)"
-    stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Beam cone — wide truncated triangle, curved edges, deep orange -->
+  <path d="{path_d}"
+        fill="{SUTRO_FILL}" stroke="{SUTRO_STROKE}"
+        stroke-width="5.0" stroke-linejoin="round"/>
 
-  <!-- Forward-facing chevrons -->
+  <!-- Forward-facing chevrons (deep orange) -->
 {chevron_str}
+
+  <!-- Direction arrow along centreline (bottom → top of beam) -->
+  <line x1="{arrow_start[0]:.1f}" y1="{arrow_start[1]:.1f}"
+        x2="{arrow_end[0]:.1f}" y2="{arrow_end[1]:.1f}"
+        stroke="{SUTRO_STROKE}" stroke-width="5.5"
+        stroke-linecap="round"/>
+  <polyline points="{ah_l[0]:.1f},{ah_l[1]:.1f} {arrow_end[0]:.1f},{arrow_end[1]:.1f} {ah_r[0]:.1f},{ah_r[1]:.1f}"
+            fill="none" stroke="{SUTRO_STROKE}" stroke-width="5.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>
 """
