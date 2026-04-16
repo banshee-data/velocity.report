@@ -248,36 +248,41 @@ Parts are listed in the [parts list](#parts-list) above. You will also need a Po
 
 ![Completed T-frame mount: 32-inch crossbar, 24-inch upright, and two 45° braces with PVC pipe](/img/guide-frame.jpg)
 
-1. **Cut the 2×4** into three pieces: one 32 in crossbar, one 24 in upright, and two 11 in braces (measured on the top edge, with 45° miters on both ends).
+1. **Cut the 2×4 into four pieces**: one 32-inch crossbar, one 24-inch upright, and two 11-inch braces (top-edge measurement, 45° mitres at both ends).
 
-2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces (one on each side) from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
+2. **Build the main T-joint first**: centre the upright on the crossbar and fasten it with corner brackets and deck screws so it stands properly vertical.
 
-3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright: 6 inches and 12 inches down from the top end of the upright. At each position, drill a pilot hole through both walls of the pipe and into the upright wood so the screw seats cleanly and the pipe cannot rotate.
+3. **Fit the two 45° braces**, one each side, and fasten with the remaining brackets and deck screws. These braces are what keep the structure from developing opinions in the wind.
 
-4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, overlapping the top of the upright. Thread each clamp through its pilot holes and tighten.
+4. **Mark two pipe fixing points** where it overlaps the wooden upright: 6-inch and 12-inch up from the bottom of the pipe. Drill pilot holes through the pipe into the wood.
 
-5. **Attach the sensor to the pipe.** Using hose clamps secure the sensor to the pipe.
+5. **Attach the pipe to the upright**: hold the pipe vertical against the upright and drive screws through the pilot holes into the wood until the mast is locked in place.
 
-6. **Clamp the crossbar to the roof rack** using the two 1-13/16 to 3 in galvanised clamps. Before drilling the clamp holes in the crossbar, measure the centre-to-centre distance between your roof rack bars. The drawing shows holes spaced 14 inches apart; adjust the spacing to match your own rack so the bolts land squarely on the bars. Tighten firmly: the mount needs to handle wind while parked, not motorway speeds. Do not drive with the sensor running.
+6. **Measure roof-rack bar spacing** centre-to-centre, then mark and drill matching clamp holes in the crossbar.
 
-7. **Route the cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
+7. **Attach the sensor to the pipe.** Use hose clamps to secure the sensor body to the pipe. Tighten evenly.
+
+8. **Clamp the crossbar to the roof rack.** Use the two 1-13/16 to 3 in galvanised clamps and tighten firmly so the mount stays stable in wind while parked.
+
+9. **Route the cable** from the sensor through a rear window seal or sunroof into the car. Connect to the Pi and power source inside.
+
+**Do not drive with the mount attached!**
 
 #### Deployment option B: home installation (permanent)
 
-A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that builds a compelling case over time.
+A permanent mount on your property, aimed at the street.
 
 **Positioning**:
 
 - Mount 4–8 feet off the ground (reduces false detections from small objects)
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
-- Use plastic or nylon standoffs (metal obstructs the radar signal)
 
 **Weatherproofing checklist**:
 
-- ✅ All cable glands sealed
 - ✅ Enclosure gasket intact and clean
 - ✅ Seal tested before final mounting
+- ✅ All cable glands sealed
 
 **Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
 
@@ -348,15 +353,15 @@ The dashboard also supports **comparison reports** for measuring the effect of t
 
 Print the report. Bring it to the meeting. The data does the persuading.
 
-Whether you are speaking at a city council session, a town board hearing, a parish council meeting, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
+Whether you are at a city council session, a town board hearing, or submitting written comments to a transport committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
 
 ### What to bring
 
 ![Sample PDF report page showing speed histogram, p85 metric, and site map](/img/stack.png)
 
-- **Printed PDF report**: a physical document can be held, marked up, filed into the public record, and passed to the person who was not at the meeting. A screen share cannot.
+- **Printed PDF report**: a physical document can be held, marked up, and filed into the public record. Screen shares cannot.
 - **Site photos**: the street, the school, the park, the crossing. Data tells the story; photos make it concrete.
-- **Before-and-after comparison** (if available): if the council has already approved changes, bring the comparison report showing whether p85 actually dropped and whether it stayed down.
+- **Before-and-after comparison**: if the council has already approved changes, bring the comparison report. Did p85 drop? Did it stay down?
 
 ### What to say
 
@@ -364,61 +369,41 @@ Lead with the metric traffic engineers already use:
 
 > "The 85th-percentile speed on [street name] is [X] mph. The posted limit is [Y] mph."
 
-The **p85** (85th-percentile speed) is the standard threshold in US federal speed surveys and UK Department for Transport assessments. Using it means your data speaks the same language as a professional traffic study.
+The **p85** is the standard threshold in US federal speed surveys and UK Department for Transport assessments. Using it means your data speaks the same language as a professional traffic study.
 
 Then adapt to the situation:
 
 - **If the intervention worked**: "After the [speed hump / signage / enforcement], p85 dropped from [X] to [Y] mph."
-- **If it worked and then wore off**: "p85 dropped to [Y] mph initially. [N] months later it has returned to [W] mph."
+- **If it worked and then wore off**: "p85 dropped initially. [N] months later it has returned to [W] mph."
 - **If nothing has changed**: "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is the normal condition of this street."
+
+In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue — a 25 mph school zone on San Francisco's high-injury network — to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
+
+[![Clarendon Avenue SFMTA board presentation, January 2026](https://img.youtube.com/vi/ZTJOI5gYZM4/hqdefault.jpg)](https://www.youtube.com/watch?v=ZTJOI5gYZM4)
 
 ### What to suggest
 
 Present the problem first, then name what might help:
 
 - **Speed humps or raised crossings**: reduce p85 by 5–15 mph in most studies
-- **Curb bulb-outs (US) / kerb extensions (UK)**: narrow the crossing distance
-- **Chicanes or lane narrowing**: reduce the straight-line path
+- **Kerb extensions**: narrow the crossing distance
+- **Chicanes or lane narrowing**: remove the straight-line path
 - **20 mph zones**: lower posted limits near schools and parks
 - **Radar speed signs**: real-time driver feedback
-- **Targeted enforcement**: your time-of-day data shows peak violation hours
+- **Targeted enforcement**: your time-of-day data shows peak hours
 
 You do not need to prescribe the answer. Present the evidence, name the options, and ask what the council can commit to and when.
 
-### Presenting effectively
+### Keep measuring
 
-- **Share the PDF, not the database.** The report is the presentation format; raw files invite misinterpretation.
-- **Keep it about speed, not about drivers.** The system collects no personal data, and neither should the presentation.
-- **Include site maps for public locations; leave your home address off.** When the sensor covers a school zone, a park, a commercial district, or a senior centre, the site map shows exactly where the problem is. If the sensor is mounted at your house, omit the map. Your data should make your street safer, not your house easier to find.
-- **Lead with the measured speed.** A number is harder for a committee to talk past than an anecdote.
-- **Keep measuring after the fix.** A new speed hump slows traffic for weeks. The question is whether it still works in six months.
-
-### Why continuous monitoring matters
-
-Most speed assessments capture a few days of data. Continuous monitoring gives you the full timeline:
+Attend regularly. Each presentation enters the public record. Share the report with neighbours, the local press, and your elected representative.
 
 - **Baseline** before any intervention
 - **Initial effect** in the first weeks after a change
-- **Long-term compliance** months and seasons later
-- **Seasonal shifts**: school terms, holidays, construction
+- **Long-term compliance** in the months that follow
 - **Regression**: whether speeds drift back once the novelty wears off
 
-This is the difference between asking the council to act and being able to show whether the action worked.
-
-### Building support
-
-Data carries more weight when more people stand behind it. You do not need to be an organiser to build support; you just need to share what you have found.
-
-1. **Share with neighbours**: show the dashboard or hand out a printed report
-2. **Partner with local groups**: PTA, parent councils, neighbourhood associations, cycling and road safety campaigns
-3. **Attend regularly**: present updated data quarterly, not once. Each presentation enters the public record.
-4. **Widen the audience**: share the report with your state or county DOT, your elected representative, or the local press
-5. **Collect across seasons**: summer and winter patterns differ; a multi-season dataset is harder to set aside
-6. **Follow up after every intervention**: generate a comparison report and bring it to the next meeting
-
-Policy changes often take multiple budget cycles. The community that keeps measuring is the one that gets heard.
-
-A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that holds up in a budget discussion.
+A week of data shows patterns. A month is compelling. Three months across seasons is the kind of evidence that holds up in a budget discussion. The community that keeps measuring is the one that gets heard.
 
 ---
 
