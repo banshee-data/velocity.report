@@ -16,12 +16,18 @@
 </div>
 
 Street-level speed measurement for neighbourhood change-makers, researchers,
-and anyone learning what LiDAR can tell you about how traffic actually behaves.
-Privacy-preserving radar and LiDAR sensors collect evidence so communities can make the case for
-safer streets: no cameras, no licence plates, no personally identifiable information.
+and anyone who needs evidence instead of guesswork about what traffic does.
+Radar and LiDAR sensors measure speeds and movement: no cameras, no licence plates,
+no individual is identified, tracked, or recorded. The data belongs to the community that collected it.
 
-- 📊 Professional PDF reports ready for city hall
-- 🔒 No video, no plates, no personally identifiable information
+<div align="center">
+
+[![Setup your radar](https://img.shields.io/badge/HOWTO-Setup_your_radar_%E2%86%92-0077cc?style=for-the-badge)](https://velocity.report/guides/setup)
+
+</div>
+
+- 📊 PDF reports: speed distributions, percentile statistics, before-and-after comparisons
+- 🔒 No video, no plate recognition, no personally identifiable information
 - 📡 Radar speed measurement and LiDAR object tracking (working toward [sensor fusion](docs/plans/lidar-l7-scene-plan.md), combining both sensors)
 - 🏠 Runs locally in your neighbourhood, offline-first
 - 🔒 Open source and auditable, because trust should be verifiable
@@ -72,14 +78,10 @@ safer streets: no cameras, no licence plates, no personally identifiable informa
 ```
 
 > **This is alpha software.** It works. It is tested. It is not yet hardened.
-> **No authentication, no access control**:
-> an exposed instance will serve its data to anyone who asks and its PDF endpoint to anyone who
-> hammers it.
-> PDF generation writes large files to disk with no rate limiting and no cap on concurrent requests;
-> a determined request loop will fill available storage and take the system down.
-> Do not cohost velocity.report on a machine where disk exhaustion would be someone else's problem.
+> **No authentication, no access control**: an exposed instance will serve its data to anyone who
+> asks and the PDF endpoint will fill up a hard drive if someone keeps clicking "Generate Report".
 > Deploy on a private network or a dedicated VLAN with its own storage budget (or better yet,
-> a dedicated Pi).
+> dedicated hardware like a Raspberry Pi).
 > Do not point it at the open internet and hope for the best: hope is not a security architecture.
 > See [BACKLOG.md](docs/BACKLOG.md) for current priorities.
 
@@ -92,7 +94,7 @@ Meanwhile, someone's child is still crossing that road while motorists zip by.
 
 velocity.report exists to close the gap between _feeling unsafe_ and _proving it_.
 
-A radar measures speeds: no cameras, no licence plates, no surveillance infrastructure.
+A radar measures speeds of road users, from cars to bicycles, e-scooters to pedestrians (and birds!)
 The logged data stays on a local device in someone's house.
 The reports are professional enough for a planning committee.
 
