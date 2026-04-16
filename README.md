@@ -217,11 +217,9 @@ make test      # run all test suites
 These are the core quality checks for local development and CI,
 but pull requests may also run additional repository or documentation checks.
 
-Start with a small issue and read the nearby code before changing anything broad.
-It is the fastest route to understanding the project and the slowest route to producing an exciting
-new class of bug.
+Check out [docs/plans](docs/plans/) and [BACKLOG.md](docs/BACKLOG.md) for any work that catches your eye.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, dev environment setup, coding standards,
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, coding standards,
 and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
 
 ## Deployment

@@ -18,6 +18,8 @@ coverage[toml]==7.10.7
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
+drawsvg==2.4.0
+    # via -r requirements.in
 fonttools==4.62.1
     # via
     #   -r requirements.in

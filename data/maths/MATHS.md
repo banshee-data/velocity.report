@@ -9,9 +9,9 @@
 ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░   ░░░░░  ░░░░░░░░░
 ```
 
-# LiDAR maths: assumptions and architecture
+# Pipeline maths: assumptions and architecture
 
-This folder documents the mathematically significant parts of the LiDAR pipeline.
+This folder documents the mathematically significant parts of the pipeline.
 
 Scope:
 

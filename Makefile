@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre4
+VERSION := 0.5.1-pre5
 
 # =============================================================================
 # HELP TARGET (default)
@@ -29,6 +29,7 @@ help:
 	@echo "  clean-images         Remove old images, keeping only the latest build"
 	@echo "  build-web            Build web frontend (SvelteKit)"
 	@echo "  build-docs           Build documentation site (Eleventy)"
+	@echo "  wiring               Generate radar wiring diagram (WireViz)"
 	@echo "  build-mac            Build macOS LiDAR visualiser (Xcode)"
 	@echo "  dmg-mac              Create versioned DMG (includes git SHA)"
 	@echo "  dmg-mac-release      Create release DMG (version only, no SHA)"
@@ -62,6 +63,7 @@ help:
 	@echo "  dev-go-kill-server   Stop background Go server"
 	@echo "  dev-web              Start web dev server"
 	@echo "  dev-docs             Start docs dev server"
+	@echo "  dev-docs-kill        Stop stale docs dev server processes"
 	@echo "  dev-vis-server       Start visualiser gRPC server (VIS_MODE=synthetic)"
 	@echo "  dev-ssh              SSH to velocity@velocity.local (refreshes known_hosts if key rotated)"
 	@echo "  dev-ssh-audit        Remote health-check on a freshly booted Pi (9-step audit)"
@@ -129,6 +131,12 @@ help:
 	@echo "  pdf-test             Run PDF tests (alias for test-python)"
 	@echo "  pdf                  Alias for pdf-report"
 	@echo "  clean-python         Clean PDF output files"
+	@echo ""
+	@echo "DIAGRAMS:"
+	@echo "  install-diagrams     Install build123d (3D CAD kernel) into shared venv"
+	@echo "  render-diagrams      Generate rack-mount SVG sheets (front, ortho, isometric)"
+	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
+	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo ""
 	@echo "DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl):"
 	@echo "  setup-radar          Install server on this host (requires sudo, legacy, removed)"
@@ -327,6 +335,15 @@ build-docs:
 	fi
 	@echo "✓ Docs build complete: public_html/_site/"
 
+WIRING_SRC = docs/platform/hardware/radar-wiring.yml
+
+.PHONY: wiring
+wiring:
+	@command -v wireviz >/dev/null 2>&1 || { echo "wireviz not found; pip install wireviz"; exit 1; }
+	$(VENV_PYTHON) scripts/generate-connector-pinouts.py
+	wireviz -f svg -f png $(WIRING_SRC)
+	@echo "✓ Wiring diagram: $(dir $(WIRING_SRC))radar-wiring.{svg,png}"
+
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
 VISUALISER_DIR = tools/visualiser-macos
 MAC_CONFIG ?= Release
@@ -486,7 +503,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
+.PHONY: install-python install-web install-docs install-diagrams activate-web-cache clean-web ensure-web-cache codex-setup build-texlive-minimal build-tex-fmt install-texlive-minimal validate-tex-minimal
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -611,7 +628,7 @@ ensure-python-tools:
 # DEVELOPMENT SERVERS
 # =============================================================================
 
-.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
+.PHONY: dev-go dev-go-latex-full dev-go-lidar dev-go-lidar-both dev-go-kill-server dev-web dev-docs dev-docs-kill dev-vis-server record-sample vrlog-analyse vrlog-compare dev-ssh dev-ssh-audit
 
 # Reusable script for starting the app in background. Call with extra flags
 # using '$(call run_dev_go,<extra-flags>)'. Uses shell $$ variables so we
@@ -711,7 +728,17 @@ dev-web:
 			echo "pnpm/npm not found; install dependencies (pnpm install) and run 'pnpm run dev'"; exit 1; \
 		fi
 
-dev-docs:
+dev-docs-kill:
+	@echo "Stopping stale docs dev server processes..."
+	@pids=$$(ps ax -o pid,args | grep 'public_html/node_modules/.*\(eleventy\|tailwindcss\|npm-run-all\)' | grep -v grep | awk '{print $$1}'); \
+	if [ -n "$$pids" ]; then \
+		echo "Killing PIDs: $$pids"; \
+		echo "$$pids" | xargs kill 2>/dev/null || true; \
+	else \
+		echo "No stale processes found."; \
+	fi
+
+dev-docs: dev-docs-kill
 	@echo "Starting docs dev server..."
 	@cd public_html && if command -v pnpm >/dev/null 2>&1; then \
 		pnpm run dev; \
@@ -1375,6 +1402,39 @@ clean-python:
 	rm -rf $(PDF_DIR)/.coverage
 	rm -rf $(PDF_DIR)/pdf_generator/**/__pycache__
 	@echo "✓ Cleaned"
+
+# =============================================================================
+# DIAGRAMS
+# =============================================================================
+
+DIAGRAMS_DIR = tools/rack-drawing
+
+.PHONY: install-diagrams render-diagrams
+
+install-diagrams:
+	@echo "Installing build123d (3D CAD) into shared venv…"
+	@if [ ! -d "$(VENV_DIR)" ]; then $(MAKE) install-python; fi
+	@$(VENV_PIP) install --quiet build123d
+	@echo "✓ build123d installed"
+
+render-diagrams:
+	@echo "Rendering rack-mount diagrams…"
+	@if ! $(VENV_PYTHON) -c 'import build123d' 2>/dev/null; then \
+		echo "build123d not found — run 'make install-diagrams' first."; exit 1; \
+	fi
+	@cd $(DIAGRAMS_DIR) && ../../$(VENV_PYTHON) draw_rack.py
+	@echo "✓ Diagrams written to $(DIAGRAMS_DIR)/output/"
+
+OVERLAYS_DIR = tools/guide-overlays
+
+.PHONY: render-overlays render
+
+render-overlays:
+	@echo "Rendering guide-image overlays…"
+	@$(VENV_PYTHON) $(OVERLAYS_DIR)/draw_overlays.py
+	@echo "✓ Overlays written"
+
+render: render-diagrams render-overlays
 
 # =============================================================================
 # DEPLOYMENT (removed in v0.5.1 — replaced by velocity-ctl)

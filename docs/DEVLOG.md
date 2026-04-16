@@ -1,5 +1,42 @@
 # Development log
 
+## April 16, 2026 - Setup guide polish & responsive tables
+
+- Added responsive table styling with striped row backgrounds for the docs site.
+- Standardised title casing and improved table formatting in the setup guide.
+- Removed unused guide images (`guide-aim-sutro`, `guide-angel`) and added `link-ignore` annotations for image paths resolved at build time.
+- Bumped version to 0.5.1-pre5.
+
+## April 15, 2026 - Rack geometry, isometric drawings & assembly prose
+
+- Added fastener hole geometry to the rack model: crossbar, brace, and pipe connection definitions in `rack.json`.
+- Generated isometric BOM drawing with title block and combined drawing sheet.
+- Produced aiming and cosine-angle SVG overlays via `draw_overlays.py`; added matching guide images.
+- Rewrote T-frame assembly section of the setup guide for clarity and correct step ordering.
+- Updated cost estimates, deployment options, and cable-length references in the setup guide.
+- Refined homepage content and descriptions; updated gradient border styles for light and dark modes.
+- Added Makefile targets for wiring diagram generation; added `pyyaml` dependency.
+- Addressed Copilot PR review comments across docs, web, and Python code.
+
+## April 14, 2026 - Rack-mount drawing tools & docs site improvements
+
+- Created rack-mount engineering drawing tools: `draw_rack.py`, `draw_overlays.py`, and `model.py` with `drawsvg` dependency.
+- Added Eleventy table-of-contents functionality with content preamble and body filters.
+- Switched docs site colour scheme to emerald for buttons, links, footer, and section titles.
+- Added guide hero image and updated setup guide with engineering drawing references.
+- Added `cheerio` dependency for HTML manipulation in Eleventy build.
+- Added Makefile targets for diagram installation, rendering, and stale docs-server cleanup.
+- Updated setup guide parts list and build overview formatting; removed redundant sections.
+
+## April 13, 2026 - RPi image CI fix & setup guide overhaul begins
+
+- Fixed Raspberry Pi image CI by installing `qemu-user-static` before ARM64 builds; deduplicated QEMU setup action (#467).
+- Began setup guide overhaul: added hardware photos, updated prerequisites, corrected dates and content.
+- Moved radar wiring documentation to a dedicated directory; added connector pinout SVG generation script.
+- Generated DE-9 and M12 connector pinout SVGs with connection parsing logic.
+- Updated homepage with Q&A section, enhanced inline code styling, and improved header navigation links.
+- Added PoE HAT details and mounting-angle measurement guidance to the setup guide.
+
 ## April 12, 2026 - LiDAR docs restructure, directory indices & STYLE compliance
 
 - Deprecated Python matplotlib chart rendering and updated STYLE.md guidelines (#463).
@@ -10,6 +47,8 @@
 - Banned compilable code blocks and Author/Authors metadata in design documents. Updated DESIGN.md for chart rendering: matplotlib deprecation, SVG-first architecture, shared abstractions.
 - Stripped version-number references from 16 documentation files to make docs timeless. Improved LiDAR maths documentation clarity across classification and taxonomy files.
 - Integrated ascfix Markdown formatter into CI, then removed it: corrupts hand-crafted ASCII art. Documented findings as an operations note.
+- Removed compilable code blocks from 30 plan files and 8 hub docs: replaced Go, SQL, JSON, YAML, Protobuf, and other fenced blocks with field tables and prose. Banned Author/Authors metadata and added metadata audit to docs-release-prep (#465).
+- Fixed tag-triggered release asset builds and image uploads in CI (#466).
 - {dd/fix/dependabot-updates} Tightened pnpm override ranges and added node engines constraint.
 
 ## April 11, 2026 - README refresh, dependency fixes & documentation polish

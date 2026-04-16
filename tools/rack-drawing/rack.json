@@ -1,0 +1,124 @@
+{
+  "title": "Raspberry Pi Roof Rack Sensor Mount",
+  "revision": "B",
+  "lumber": {
+    "species": "Kiln-dried Whitewood Stud",
+    "nominal": "2x4",
+    "actual_width_in": 1.5,
+    "actual_depth_in": 3.5,
+    "stock_length_in": 96,
+    "crossbar_length_in": 32,
+    "upright_length_in": 24,
+    "brace_top_edge_in": 11,
+    "brace_angle_deg": 45,
+    "num_pieces": 4,
+    "note": "1 crossbar 32 in, 1 upright 24 in, 2 braces 11 in top edge at 45 deg"
+  },
+  "pipe": {
+    "description": "4-in x 2-ft DWV SCH 40 Pipe",
+    "od_in": 4.0,
+    "wall_in": 0.24,
+    "length_in": 24
+  },
+  "clamps": {
+    "large": {
+      "description": "3-in to 5-in Stainless Steel Adjustable Clamp",
+      "fits_od_min_in": 3.0,
+      "fits_od_max_in": 5.0,
+      "qty": 2,
+      "note": "Secures 4-inch DWV pipe to uprights"
+    },
+    "small": {
+      "description": "1-13/16 to 3-in Galvanised Adjustable Clamp",
+      "fits_od_min_in": 1.8125,
+      "fits_od_max_in": 3.0,
+      "qty": 2,
+      "note": "Secondary retention / cable management"
+    }
+  },
+  "holes": {
+    "crossbar_clamp": {
+      "description": "Holes for roof-rack mounting bolts through crossbar (flat face), near each end",
+      "dia_in": 0.375,
+      "offsets_from_end_in": [3.0, 6.0],
+      "qty": 4,
+      "note": "3/8-16 carriage bolt clearance. Two holes per end, at 3-in and 6-in from each end of the crossbar. Measure your rack bar positions and adjust offset to suit."
+    },
+    "upright_pipe_screw": {
+      "description": "Pilot holes through upright face to pin pipe to upright, on centreline",
+      "dia_in": 0.1875,
+      "depths_from_top_in": [6.0, 12.0],
+      "qty": 2,
+      "note": "3/16 pilot for #10 × 3 wood screw. Both holes on X=0 centreline, drilled along Y. 6-in and 12-in down from top of upright. Screw passes through pipe wall into wood."
+    },
+    "brace_screw": {
+      "description": "Pilot holes through 45-degree brace face into crossbar and upright",
+      "dia_in": 0.1875,
+      "qty": 8,
+      "note": "3/16 pilot for #10 wood screw. Hole axis perpendicular to the 45-degree brace face. 2 per brace end × 2 brace ends per brace × 2 braces = 8 total."
+    },
+    "upright_clamp_slot": {
+      "description": "Hose-clamp band pass-through holes at each end of the upright",
+      "dia_in": 0.5,
+      "spacing_in": 1.5,
+      "offset_from_end_in": 0.75,
+      "qty": 4,
+      "note": "0.5-in clearance holes for clamp band, 1.5-in apart along Z axis, centred on upright width (X=0). Two holes at each end (top and bottom) drilled along X axis through the narrow face."
+    },
+    "corner_brace_screw": {
+      "description": "Pilot holes for 3x3-inch L-bracket screws at T-joint between upright and crossbar",
+      "dia_in": 0.1875,
+      "arm_in": 3.0,
+      "crossbar_insets_from_face_in": [0.5, 1.5],
+      "qty": 8,
+      "note": "2 brackets (one per ±Y face). Crossbar holes at 0.5-in and 1.5-in inset from the ±D/2 face edge. Upright holes at same Z positions, drilled along Y."
+    }
+  },
+  "bom": [
+    {
+      "icon": "🪵",
+      "description": "2×4×96″ KD Whitewood Stud",
+      "qty": 1,
+      "unit": "ea",
+      "unit_price": 3.85,
+      "lowes_item": "330568",
+      "aisle": ""
+    },
+    {
+      "icon": "📐",
+      "description": "Corner Brace 3×¾×3″ (4-Pack)",
+      "qty": 1,
+      "unit": "pk",
+      "unit_price": 5.48,
+      "lowes_item": "5217432",
+      "aisle": ""
+    },
+    {
+      "icon": "🔩",
+      "description": "#8 × 1¼″ Deck Screws (75/Box)",
+      "qty": 1,
+      "unit": "bx",
+      "unit_price": 7.99,
+      "lowes_item": "753726",
+      "aisle": ""
+    },
+    {
+      "icon": "🔧",
+      "description": "4″ × 2′ DWV Pipe SCH 40",
+      "qty": 1,
+      "unit": "ea",
+      "unit_price": 24.78,
+      "lowes_item": "256096",
+      "aisle": ""
+    },
+    {
+      "icon": "🗜️",
+      "description": "1⅞–3″ Galv. Hose Clamp",
+      "qty": 2,
+      "unit": "ea",
+      "unit_price": 2.88,
+      "lowes_item": "5327202",
+      "aisle": ""
+    }
+  ]
+}

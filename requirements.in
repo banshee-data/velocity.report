@@ -17,6 +17,12 @@ urllib3>=2.6.3    # CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 fixes
 # LaTeX/PDF generation
 PyLaTeX
 
+# SVG engineering drawing (used by tools/rack-drawing/)
+drawsvg
+
+# YAML parsing (used by scripts/generate-connector-pinouts.py)
+pyyaml
+
 # Testing
 pytest
 pytest-cov

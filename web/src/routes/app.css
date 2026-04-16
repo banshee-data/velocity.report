@@ -72,3 +72,23 @@ input[type='number'] {
 	border-color: color-mix(in srgb, var(--color-surface-content) 10%, transparent);
 	padding: 1rem;
 }
+
+/* =========================================================================
+ * Table stripes — emerald tint, barely visible, works on light and dark
+ * rgba(4,120,87, …) = emerald-700; transparency does the work on both themes
+ * ========================================================================= */
+
+thead tr,
+tfoot tr {
+	background-color: rgba(4, 120, 87, 0.1);
+}
+
+tbody tr:nth-child(even) {
+	background-color: rgba(4, 120, 87, 0.06);
+}
+
+/* Table cell padding — ensures stripe background has breathing room */
+th,
+td {
+	padding: 0.5rem 1rem;
+}

@@ -1,0 +1,4 @@
+# Ignore all generated SVG/XML build artefacts; keep only .gitkeep
+*
+!.gitkeep
+!.gitignore

@@ -1,6 +1,6 @@
 {
   "name": "velocity.report",
-  "version": "0.5.1-pre4",
+  "version": "0.5.1-pre5",
   "description": "https://velocity.report",
   "main": "index.js",
   "scripts": {
@@ -23,6 +23,7 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "autoprefixer": "^10.4.23",
+    "cheerio": "^1.2.0",
     "markdown-it": "^14.1.1",
     "markdown-it-anchor": "^9.2.0",
     "npm-run-all": "^4.1.5",

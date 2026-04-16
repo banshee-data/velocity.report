@@ -1,6 +1,7 @@
 const syntaxHighlight = require("@11ty/eleventy-plugin-syntaxhighlight");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
+const cheerio = require("cheerio");
 
 module.exports = function (eleventyConfig) {
   // Add syntax highlighting plugin
@@ -23,14 +24,31 @@ module.exports = function (eleventyConfig) {
     slugify: eleventyConfig.getFilter("slugify"),
   });
 
+  // Wrap images in a link that opens the full-size image in a new tab
+  const defaultImageRender =
+    markdownLibrary.renderer.rules.image ||
+    function (tokens, idx, options, env, self) {
+      return self.renderToken(tokens, idx, options);
+    };
+  markdownLibrary.renderer.rules.image = function (
+    tokens,
+    idx,
+    options,
+    env,
+    self,
+  ) {
+    const token = tokens[idx];
+    const src = token.attrGet("src") || "";
+    const escapedSrc = markdownLibrary.utils.escapeHtml(src);
+    const img = defaultImageRender(tokens, idx, options, env, self);
+    return `<a href="${escapedSrc}" target="_blank" rel="noopener noreferrer">${img}</a>`;
+  };
+
   eleventyConfig.setLibrary("md", markdownLibrary);
 
   // Copy static files directly to output
-  eleventyConfig.addPassthroughCopy("src/images");
-  eleventyConfig.addPassthroughCopy("src/js");
-
-  // Copy images with img alias for backwards compatibility
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
+  eleventyConfig.addPassthroughCopy("src/js");
 
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
@@ -80,6 +98,40 @@ module.exports = function (eleventyConfig) {
       month: "long",
       day: "numeric",
     });
+  });
+
+  // Table of contents: extract h2 headings into a flat list
+  eleventyConfig.addFilter("table_of_contents", (html) => {
+    if (!html || typeof html !== "string") return [];
+
+    const $ = cheerio.load(html, { decodeEntities: false }, false);
+    const headings = $("h2").toArray();
+
+    if (headings.length < 2) return [];
+
+    const items = [];
+    for (const heading of headings) {
+      const text = $(heading).text().replace(/#$/, "").trim();
+      const id = heading.attribs?.id;
+      if (!text || !id) continue;
+      items.push({ id, text });
+    }
+
+    return items;
+  });
+
+  // Split content at first <h2> — returns everything before it
+  eleventyConfig.addFilter("content_preamble", (html) => {
+    if (!html || typeof html !== "string") return html;
+    const idx = html.search(/<h2[\s>]/i);
+    return idx === -1 ? html : html.slice(0, idx);
+  });
+
+  // Split content at first <h2> — returns everything from it onward
+  eleventyConfig.addFilter("content_body", (html) => {
+    if (!html || typeof html !== "string") return "";
+    const idx = html.search(/<h2[\s>]/i);
+    return idx === -1 ? "" : html.slice(idx);
   });
 
   return {

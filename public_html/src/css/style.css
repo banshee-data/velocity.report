@@ -4,6 +4,19 @@
 /* Dark mode support */
 :root {
   color-scheme: light dark;
+  /* Gradient border stops — light mode: emerald-400 → emerald-600 (visible on white) */
+  --gb-from: #34d399;
+  --gb-to:   #059669;
+  --gb-border: linear-gradient(to top left, var(--gb-to), var(--gb-from));
+  --gb-hr:     linear-gradient(to right, var(--gb-from), var(--gb-to));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode: emerald-700 → emerald-950 (visible on dark fills) */
+    --gb-from: #047857;
+    --gb-to:   #064e3b;
+  }
 }
 
 /* Scroll padding to account for fixed header */
@@ -13,14 +26,9 @@ html {
 
 /* Syntax highlighting theme - matches GitHub style */
 @layer base {
-  /* Code blocks */
+  /* Code blocks — syntax-highlighted pre elements */
   pre[class*="language-"] {
-    @apply rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800;
-  }
-
-  /* Inline code in prose */
-  .prose code {
-    @apply text-sm;
+    @apply rounded-lg shadow-sm bg-gray-50 dark:bg-gray-800;
   }
 
   /* Header anchors */
@@ -51,16 +59,23 @@ html {
   .prose h1 {
     @apply text-4xl;
   }
+
+  /* Prevent wide tables from stretching the viewport on mobile */
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @layer components {
   /* Custom button styles */
   .btn-primary {
-    @apply bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+    @apply bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-colors;
   }
 
   .btn-secondary {
-    @apply border-2 border-blue-600 text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors;
+    @apply border-2 border-emerald-600 text-emerald-600 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50 transition-colors;
   }
 
   /* Feature card component */
@@ -70,11 +85,11 @@ html {
 
   /* Navigation link active state */
   .nav-link {
-    @apply text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors;
+    @apply text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors;
   }
 
   .nav-link-active {
-    @apply text-blue-600 dark:text-blue-400 font-semibold;
+    @apply text-emerald-600 dark:text-emerald-400 font-semibold;
   }
 
   /* Hero section with image */
@@ -99,13 +114,16 @@ html {
 
   /* Card styles - matches Svelte app */
   .card {
-    @apply rounded-lg shadow-lg p-8 bg-white border border-black;
+    @apply rounded-lg shadow-lg p-8;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
+      var(--gb-border) border-box;
   }
 
   @media (prefers-color-scheme: dark) {
     .card {
-      background-color: rgb(38, 38, 42);
-      @apply border-white;
+      --gb-fill: rgb(38, 38, 42);
     }
   }
 
@@ -154,7 +172,11 @@ html {
 
   /* Outer section panel — download groups, visualiser, video */
   .dl-section {
-    @apply bg-gray-50 rounded-2xl border border-gray-200;
+    @apply rounded-2xl;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+      var(--gb-border) border-box;
   }
 
   /* Subcard column — constrains width and centres within section */
@@ -214,7 +236,7 @@ html {
 
   @media (prefers-color-scheme: dark) {
     .dl-section {
-      @apply bg-slate-900 border-slate-800;
+      --gb-fill: rgb(15 23 42); /* slate-900 */
     }
     .dl-card {
       border-color: var(--color-slate-700);
@@ -239,4 +261,329 @@ html {
       }
     }
   }
+}
+
+/* =========================================================================
+ * Typography plugin overrides
+ *
+ * These MUST be unlayered (outside @layer) to beat the Typography plugin's
+ * rules, which land in @layer utilities. In Tailwind CSS v4, @layer
+ * utilities > @layer base regardless of specificity.
+ * ========================================================================= */
+
+/* Remove decorative backticks that Typography adds via ::before/::after */
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+/* Inline code: light pill style, normal weight (Typography defaults to 600) */
+.prose code {
+  @apply text-sm font-mono font-normal px-1.5 py-0.5 rounded bg-gray-50 text-gray-800;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#f9fafb, #f9fafb) padding-box,
+    var(--gb-border) border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose code {
+    @apply bg-gray-800 text-gray-200;
+    background:
+      linear-gradient(#1f2937, #1f2937) padding-box,
+      var(--gb-border) border-box;
+  }
+}
+
+/* Inline code inside links inherits the link colour */
+.prose a code {
+  color: inherit;
+}
+
+/* Code inside pre blocks: reset the inline pill styling */
+.prose pre code {
+  @apply px-0 py-0 rounded-none border-0 bg-transparent font-normal;
+  color: inherit;
+}
+
+/* Prevent tall images from dominating the page; centre in column */
+.prose img {
+  max-height: 28rem; /* 448 px — tall photos (especially portrait) stay reasonable */
+  width: auto;
+  object-fit: contain;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Image links: no colour/hover styling — treat as neutral wrapper */
+.prose a:has(> img),
+.prose a:has(> img):visited,
+.prose a:has(> img):hover,
+.prose a:has(> img):visited:hover {
+  color: inherit;
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+/* Pre blocks in prose: light background in light mode.
+   Typography defaults --tw-prose-pre-bg to dark gray; override it. */
+.prose {
+  --tw-prose-pre-bg: var(--color-gray-50);
+  --tw-prose-pre-code: var(--color-gray-800);
+  --tw-prose-links: #059669; /* emerald-600 */
+}
+
+/* =========================================================================
+ * Link colours — green text, green bg + white text on hover, visited state
+ * Applied to prose links and the .link utility class.
+ * ========================================================================= */
+
+.prose a {
+  color: #059669; /* emerald-600 */
+  text-decoration: none;
+  padding: 2px 3px;
+  margin: -2px -3px;
+  border-radius: 2px;
+  transition: background-color 150ms, color 150ms;
+}
+
+.prose a:hover {
+  background-color: #059669; /* emerald-600 */
+  color: white;
+}
+
+.prose a:visited {
+  color: #047857; /* emerald-700 — darker green for visited */
+}
+
+.prose a:visited:hover {
+  background-color: #059669;
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose {
+    --tw-prose-links: #34d399; /* emerald-400 */
+  }
+  .prose a {
+    color: #34d399; /* emerald-400 */
+  }
+  .prose a:hover {
+    background-color: #10b981; /* emerald-500 */
+    color: white;
+  }
+  .prose a:visited {
+    color: #10b981; /* emerald-500 */
+  }
+  .prose a:visited:hover {
+    background-color: #10b981;
+    color: white;
+  }
+}
+
+/* Code inside links: inherit the hover colour */
+.prose a:hover code {
+  color: white;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Reusable link class for non-prose contexts */
+.link {
+  color: #059669;
+  text-decoration: none;
+  padding: 2px 5px;
+  margin: -2px -5px;
+  border-radius: 4px;
+  transition: background-color 150ms, color 150ms;
+}
+
+.link:hover {
+  background-color: #059669;
+  color: white;
+}
+
+.link:visited {
+  color: #047857;
+}
+
+.link:visited:hover {
+  background-color: #059669;
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .link {
+    color: #34d399;
+  }
+  .link:hover {
+    background-color: #10b981;
+    color: white;
+  }
+  .link:visited {
+    color: #10b981;
+  }
+  .link:visited:hover {
+    background-color: #10b981;
+    color: white;
+  }
+}
+
+/* Gradient border on code blocks */
+.prose pre {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#f9fafb, #f9fafb) padding-box,
+    var(--gb-border) border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose {
+    --tw-prose-pre-bg: var(--color-gray-800);
+    --tw-prose-pre-code: var(--color-gray-200);
+  }
+  .prose pre {
+    background:
+      linear-gradient(#1f2937, #1f2937) padding-box,
+      var(--gb-border) border-box;
+  }
+}
+
+/* =========================================================================
+ * Gradient border — shared across TOC, code blocks, and inline code
+ * --gb-border: emerald-950 (top-left) → emerald-700 (bottom-right)
+ * Uses the double-background trick so border-radius is preserved.
+ * ========================================================================= */
+
+.gradient-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+    var(--gb-border) border-box;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gradient-border {
+    --gb-fill: #1f2937; /* gray-800 */
+  }
+}
+
+/* Horizontal rules — gradient left to right using the shared border stops */
+hr {
+  border: none;
+  height: 1px;
+  background: var(--gb-hr);
+  opacity: 0.6;
+}
+
+.prose hr {
+  border: none;
+  height: 1px;
+  background: var(--gb-hr);
+  opacity: 0.6;
+}
+
+/* =========================================================================
+ * Table of contents
+ * — collapsible inline on narrow screens, sticky sidebar on xl+
+ * ========================================================================= */
+
+/* Grid layout for doc pages with a TOC sidebar */
+@media (min-width: 1280px) {
+  .doc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 56rem) 16rem;
+    gap: 2rem;
+  }
+}
+
+.toc {
+  @apply text-sm leading-relaxed mb-6 p-4 rounded-lg;
+}
+
+/* Mobile <details> styling */
+details.toc > summary {
+  @apply font-semibold text-xs tracking-wide uppercase text-gray-500 list-none;
+}
+
+details.toc > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.toc > summary::after {
+  content: "▸";
+  @apply ml-2 inline-block transition-transform duration-200;
+}
+
+details.toc[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  details.toc > summary {
+    @apply text-gray-400;
+  }
+}
+
+.toc-heading {
+  @apply font-semibold text-xs tracking-wide uppercase text-gray-500 mb-3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toc-heading {
+    @apply text-gray-400;
+  }
+}
+
+.toc-list {
+  @apply list-none m-0 p-0 mt-3;
+}
+
+.toc-item {
+  @apply my-1;
+}
+
+.toc-item a {
+  @apply text-gray-600 no-underline hover:text-emerald-600 transition-colors;
+}
+
+.toc-item a[aria-current="true"] {
+  @apply text-emerald-700 font-medium;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toc-item a {
+    @apply text-gray-400 hover:text-emerald-400;
+  }
+  .toc-item a[aria-current="true"] {
+    @apply text-emerald-400;
+  }
+}
+
+/* Sidebar TOC: strip card chrome for lighter feel beside content */
+.toc-sidebar .toc {
+  @apply bg-transparent p-0 rounded-none;
+  border: none;
+  background: none;
+}
+
+/* =========================================================================
+ * Table stripes — emerald tint, barely visible, works on light and dark
+ * rgba(4,120,87, …) = emerald-700; transparency does the work on both themes
+ * ========================================================================= */
+
+.prose thead tr,
+.prose tfoot tr {
+  background-color: rgba(4, 120, 87, 0.10);
+}
+
+.prose tbody tr:nth-child(even) {
+  background-color: rgba(4, 120, 87, 0.06);
+}
+
+/* Table cell padding — ensures stripe background has breathing room */
+.prose th,
+.prose td {
+  padding: 0.5rem 1rem;
 }

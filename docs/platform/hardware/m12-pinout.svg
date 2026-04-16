@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 214 133">
+<style>
+  text { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; }
+</style>
+<rect width="214" height="133" fill="white" rx="8"/>
+<circle cx="107" cy="62" r="56" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2.5"/>
+<rect x="101" y="5" width="12" height="10" rx="2" fill="#9CA3AF"/>
+<rect x="103" y="6" width="8" height="8" rx="1" fill="white"/>
+<circle cx="126.1" cy="42.9" r="12" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="1.5"/>
+<text x="126.1" y="46.9" text-anchor="middle" font-size="11" font-weight="700" fill="#000000">1</text>
+<line x1="148.7" y1="20.3" x2="156.5" y2="12.5" stroke="#D1D5DB" stroke-width="0.75"/>
+<text x="156.5" y="13.5" text-anchor="start" font-size="11" fill="#374151">RS2_Rx</text>
+<text x="156.5" y="25.5" text-anchor="start" font-size="9" fill="#9CA3AF">White</text>
+<circle cx="126.1" cy="81.1" r="12" fill="#2563EB" stroke="#1D4ED8" stroke-width="1.5"/>
+<text x="126.1" y="85.1" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">2</text>
+<line x1="148.7" y1="103.7" x2="156.5" y2="111.5" stroke="#D1D5DB" stroke-width="0.75"/>
+<text x="156.5" y="112.5" text-anchor="start" font-size="11" fill="#374151">RS2_Tx</text>
+<text x="156.5" y="124.5" text-anchor="start" font-size="9" fill="#9CA3AF">Blue</text>
+<circle cx="87.9" cy="81.1" r="12" fill="#222222" stroke="#000000" stroke-width="1.5"/>
+<text x="87.9" y="85.1" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">3</text>
+<line x1="65.3" y1="103.7" x2="57.5" y2="111.5" stroke="#D1D5DB" stroke-width="0.75"/>
+<text x="57.5" y="112.5" text-anchor="end" font-size="11" fill="#374151">VCC</text>
+<text x="57.5" y="124.5" text-anchor="end" font-size="9" fill="#9CA3AF">Black</text>
+<circle cx="87.9" cy="42.9" r="12" fill="#8B4513" stroke="#6B3410" stroke-width="1.5"/>
+<text x="87.9" y="46.9" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">4</text>
+<line x1="65.3" y1="20.3" x2="57.5" y2="12.5" stroke="#D1D5DB" stroke-width="0.75"/>
+<text x="57.5" y="13.5" text-anchor="end" font-size="11" fill="#374151">GND</text>
+<text x="57.5" y="25.5" text-anchor="end" font-size="9" fill="#9CA3AF">Brown</text>
+</svg>

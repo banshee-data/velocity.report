@@ -37,6 +37,7 @@ These defaults are configurable unless noted otherwise.
 | 8080  | Main HTTP API/UI listen address (`--listen`)                 | [cmd/radar/radar.go](cmd/radar/radar.go#L50)                                                 | Active default                 |
 | 8081  | LiDAR monitor HTTP listen (`--lidar-listen`)                 | [cmd/radar/radar.go](cmd/radar/radar.go#L67)                                                 | Active default                 |
 | 8082  | Worker HTTP surface (`--worker-listen`)                      | [docs/lidar/architecture/distributed-sweep.md](docs/lidar/architecture/distributed-sweep.md) | Planned/distributed sweep docs |
+| 8090  | Docs site Eleventy dev server (`--port`)                     | [public_html/package.json](public_html/package.json#L9)                                      | Dev only                       |
 | 50051 | gRPC visualiser stream (`--lidar-grpc-listen`)               | [cmd/radar/radar.go](cmd/radar/radar.go#L80)                                                 | Active default                 |
 
 ## Sensor and geometry invariants
