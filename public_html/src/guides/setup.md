@@ -395,7 +395,7 @@ Then adapt to the situation:
   </a>
 </div>
 
-In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue — a 25 mph school zone on San Francisco's high-injury network — to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
+In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue (a 25 mph school zone on San Francisco's high-injury network) to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
 
 ### What to suggest
 
@@ -551,7 +551,7 @@ velocity-start
 USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 - **Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
-- **More help**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
+- **More help**: [TROUBLESHOOTING.md](https://github.com/banshee-data/velocity.report/blob/main/TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
@@ -600,10 +600,8 @@ The image also pre-configures serial port settings, UART overlays, sensor initia
 - **GitHub repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-- **Troubleshooting**: [TROUBLESHOOTING.md](../../../TROUBLESHOOTING.md)
-- **System design**: [ARCHITECTURE.md](../../../ARCHITECTURE.md)
-- **Report customisation**: [PDF Generator README](../../../tools/pdf-generator/README.md)
-- **Contributing**: [CONTRIBUTING.md](../../../CONTRIBUTING.md)
+- [TROUBLESHOOTING.md](https://github.com/banshee-data/velocity.report/blob/main/TROUBLESHOOTING.md)
+- [CONTRIBUTING.md](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)
 
 ---
 
