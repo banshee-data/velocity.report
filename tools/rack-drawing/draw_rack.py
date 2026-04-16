@@ -314,87 +314,35 @@ def build_combined_sheet(
     side_svg: str,
     out_path: str,
 ) -> None:
-    """Single combined sheet: iso+BOM on top half, annotated ortho projection below."""
+    """Combined sheet: ortho top (with dims), iso lower-left, BOM lower-right."""
     d = draw.Drawing(SHEET_W, COMBINED_H)
     d.append(draw.Rectangle(0, 0, SHEET_W, COMBINED_H, fill="white"))
 
-    # ── Zone 1: iso view (left) + BOM table (right) ───────────────────────
-    ISO_ZONE_H = 510
-    vw, vh = 490, 490
-    embed_svg_as_image(d, iso_svg, MARGIN, MARGIN + 10, vw, vh)
-    view_label(d, "ISOMETRIC VIEW", MARGIN + vw / 2, MARGIN + 10 + vh + 14)
+    # ── Geometry ───────────────────────────────────────────────────────────
+    ORTHO_H = 960  # ortho zone height
+    BOT_Y = MARGIN + ORTHO_H + 10
+    BOT_H = COMBINED_H - BOT_Y - MARGIN
 
-    d.append(
-        draw.Line(
-            MARGIN + vw + 10,
-            MARGIN,
-            MARGIN + vw + 10,
-            MARGIN + ISO_ZONE_H,
-            stroke="#bbb",
-            stroke_width=0.8,
-        )
-    )
-
-    # Centre BOM in the right-hand column
-    from components import _COL_WIDTHS as _bom_cw  # noqa: PLC0415
-
-    bom_total_w = sum(_bom_cw)
-    bom_avail = SHEET_W - MARGIN - (MARGIN + vw + 10) - 20
-    bom_x = MARGIN + vw + 10 + max(10, (bom_avail - bom_total_w) / 2)
-    bom_table(
-        d,
-        x=bom_x,
-        y=MARGIN + 10,
-        items=cfg["bom"],
-        title="BILL OF MATERIALS  —  Sensor Mount Subassembly",
-    )
-
-    # Zone separator
-    sep_y = MARGIN + ISO_ZONE_H + 8
-    d.append(
-        draw.Line(
-            MARGIN, sep_y, SHEET_W - MARGIN, sep_y, stroke="#bbb", stroke_width=1.0
-        )
-    )
-
-    # ── Zone 2: ortho views + dimension annotations ────────────────────────
-    # Reserve left margin for vertical dim lines and bottom margin for
-    # horizontal dim lines so annotations don't overlap view labels.
     DIM_PAD_LEFT = 58
-    DIM_PAD_BTM = 40
-
-    title_y_comb = COMBINED_H - TB_H - MARGIN - 8
-    ortho_y = sep_y + 14
-    ortho_avail_h = title_y_comb - ortho_y - 8
+    DIM_PAD_BTM = 50
     draw_w_ortho = SHEET_W - 2 * MARGIN - DIM_PAD_LEFT
-    draw_h_ortho = ortho_avail_h - DIM_PAD_BTM
-
+    draw_h_ortho = ORTHO_H - DIM_PAD_BTM
     gap = 14
-    lbl = 18
 
     top_h = int(draw_h_ortho * 0.28)
-    bot_h = draw_h_ortho - top_h - gap - lbl
+    bot_h = draw_h_ortho - top_h - gap
     left_w = int(draw_w_ortho * 0.58)
     right_w = draw_w_ortho - left_w - gap
 
     ox = MARGIN + DIM_PAD_LEFT
-    oy = ortho_y
-
-    # Top view
-    embed_svg_as_image(d, top_svg, ox, oy, left_w, top_h)
-    view_label(d, "TOP VIEW", ox + left_w / 2, oy + top_h + lbl - 4)
-
-    # Front view
-    fy = oy + top_h + lbl + gap
-    embed_svg_as_image(d, front_svg, ox, fy, left_w, bot_h)
-    view_label(d, "FRONT ELEVATION", ox + left_w / 2, fy + bot_h + lbl - 4)
-
-    # Side view
+    oy = MARGIN + 6
+    fy = oy + top_h + gap
     sx = ox + left_w + gap
-    embed_svg_as_image(d, side_svg, sx, fy, right_w, bot_h)
-    view_label(d, "SIDE ELEVATION", sx + right_w / 2, fy + bot_h + lbl - 4)
 
-    # Divider between front and side
+    # ── Zone 1 (top): ortho views ─────────────────────────────────────────
+    embed_svg_as_image(d, top_svg, ox, oy, left_w, top_h)
+    embed_svg_as_image(d, front_svg, ox, fy, left_w, bot_h)
+    embed_svg_as_image(d, side_svg, sx, fy, right_w, bot_h)
     d.append(
         draw.Line(
             sx - gap // 2,
@@ -408,46 +356,32 @@ def build_combined_sheet(
 
     # ── Dimension annotations ──────────────────────────────────────────────
     lbr = cfg["lumber"]
-    cross_in = lbr["crossbar_length_in"]  # 32"
-    up_in = lbr["upright_length_in"]  # 24"
-    pipe_od = cfg["pipe"]["od_in"]  # 4.0"
-    pipe_len = cfg["pipe"]["length_in"]  # 24"
-    w_in = lbr["actual_width_in"]  # 1.5"
-    d_in = lbr["actual_depth_in"]  # 3.5"
-    brace_in = lbr["brace_top_edge_in"]  # 11"
-    brace_deg = lbr["brace_angle_deg"]  # 45°
-    h_offsets = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]  # [3, 6]
-    pipe_depths = cfg["holes"]["upright_pipe_screw"]["depths_from_top_in"]  # [6, 12]
+    cross_in = lbr["crossbar_length_in"]
+    up_in = lbr["upright_length_in"]
+    pipe_od = cfg["pipe"]["od_in"]
+    pipe_len = cfg["pipe"]["length_in"]
+    w_in = lbr["actual_width_in"]
+    d_in = lbr["actual_depth_in"]
+    brace_in = lbr["brace_top_edge_in"]
+    brace_deg = lbr["brace_angle_deg"]
+    h_offsets = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]
+    pipe_depths = cfg["holes"]["upright_pipe_screw"]["depths_from_top_in"]
+    px_per_in = left_w / cross_in
 
-    # ── Front elevation dims ───────────────────────────────────────────────
-    # 1. Crossbar total length — below front view
-    h_dim_y = fy + bot_h + lbl + 14
+    h_dim_y = fy + bot_h + 16
     dim_h(d, ox, ox + left_w, h_dim_y, f'{cross_in:.0f}"', ext=9, tick=3)
-
-    # 2. Upright length — vertical left of front view
     dim_v(d, ox - 16, fy, fy + bot_h, f'{up_in:.0f}"', ext=10, tick=3)
-
-    # 3. Pipe overlap (18" clamp zone) — second vertical dim further left
     overlap_frac = 18 / up_in
     dim_v(d, ox - 34, fy, fy + int(bot_h * overlap_frac), '18"', ext=10, tick=3)
-
-    # 4. Crossbar width (1.5") — small vertical dim on the front view crossbar band
     crossbar_band_frac = w_in / (up_in + w_in)
     cb_top_y = fy + bot_h
     cb_bot_y = fy + bot_h - int(bot_h * crossbar_band_frac)
     dim_v(d, ox + left_w + 6, cb_bot_y, cb_top_y, f'{w_in}"', ext=8, tick=2)
-
-    # 5. Hole positions on crossbar — dim along bottom of front view
-    # Crossbar spans ox..ox+left_w in the drawing. Holes at 3" and 6" from each end.
-    # Scale factor: left_w pixels = cross_in inches
-    px_per_in = left_w / cross_in
-    hole_dim_y = h_dim_y + 20
-    # Left end holes
-    x_hole_3_left = ox + h_offsets[0] * px_per_in
-    x_hole_6_left = ox + h_offsets[1] * px_per_in
-    dim_h(d, ox, x_hole_3_left, hole_dim_y, f'{h_offsets[0]:.0f}"', ext=8, tick=2)
-    dim_h(d, ox, x_hole_6_left, hole_dim_y + 16, f'{h_offsets[1]:.0f}"', ext=8, tick=2)
-    # Label
+    hole_dim_y = h_dim_y + 18
+    x_hole_3 = ox + h_offsets[0] * px_per_in
+    x_hole_6 = ox + h_offsets[1] * px_per_in
+    dim_h(d, ox, x_hole_3, hole_dim_y, f'{h_offsets[0]:.0f}"', ext=8, tick=2)
+    dim_h(d, ox, x_hole_6, hole_dim_y + 16, f'{h_offsets[1]:.0f}"', ext=8, tick=2)
     d.append(
         draw.Text(
             "CLG BOLT HOLES ×4",
@@ -459,8 +393,6 @@ def build_combined_sheet(
             fill=DIM_COLOUR,
         )
     )
-
-    # 6. Brace callout
     leader(
         d,
         ox + left_w * 0.12,
@@ -470,12 +402,7 @@ def build_combined_sheet(
         f'BRACE 2\u00d7  {brace_in:.0f}"  {brace_deg:.0f}\u00b0',
         anchor="start",
     )
-
-    # ── Top view dims ──────────────────────────────────────────────────────
-    # 7. Crossbar depth (3.5") — vertical dim on top view
     dim_v(d, ox - 16, oy, oy + top_h, f'{d_in}"', ext=10, tick=2)
-
-    # 8. Pipe OD — leader from centre of top view
     leader(
         d,
         ox + left_w * 0.50,
@@ -485,9 +412,6 @@ def build_combined_sheet(
         f'\u00d8{pipe_od:.0f}" OD',
         anchor="start",
     )
-
-    # ── Side elevation dims ────────────────────────────────────────────────
-    # 9. Pipe screw hole depths from top
     leader(
         d,
         sx + right_w * 0.52,
@@ -497,8 +421,6 @@ def build_combined_sheet(
         f'PIPE SCREWS: {pipe_depths[0]:.0f}" + {pipe_depths[1]:.0f}" FROM TOP',
         anchor="start",
     )
-
-    # 10. Lumber section callout
     leader(
         d,
         sx + right_w * 0.35,
@@ -508,25 +430,18 @@ def build_combined_sheet(
         f'2\u00d74 ACT {w_in:.1f}"\u00d7{d_in:.1f}"',
         anchor="start",
     )
-
-    # 11. Pipe length — vertical dim right of side view
     pipe_frac = pipe_len / (up_in + w_in)
     dim_v(
         d,
         sx + right_w + 14,
         fy,
         fy + int(bot_h * pipe_frac),
-        f'\u00d8{pipe_od:.0f}" PIPE\n{pipe_len:.0f}"',
+        f'\u00d8{pipe_od:.0f}" PIPE  {pipe_len:.0f}"',
         ext=14,
         tick=2,
     )
-
-    # 12. Clamp hole spacing — small horizontal dim on side view crossbar
-    # Crossbar occupies the bottom fraction of the side elevation
-    cb_frac = w_in / (up_in + w_in)
-    cb_side_h = int(bot_h * cb_frac)
-    cb_side_y = fy + bot_h - cb_side_h
     clamp_span_px = (h_offsets[1] - h_offsets[0]) * px_per_in
+    cb_side_y = fy + bot_h - int(bot_h * w_in / (up_in + w_in))
     dim_h(
         d,
         sx + right_w * 0.2,
@@ -535,6 +450,41 @@ def build_combined_sheet(
         f'{h_offsets[1] - h_offsets[0]:.0f}" CLAMP SLOT',
         ext=7,
         tick=2,
+    )
+
+    # ── Zone separator ─────────────────────────────────────────────────────
+    d.append(
+        draw.Line(
+            MARGIN, BOT_Y, SHEET_W - MARGIN, BOT_Y, stroke="#bbb", stroke_width=1.0
+        )
+    )
+
+    # ── Zone 2 (bottom-left): isometric view ──────────────────────────────
+    ISO_W = int((SHEET_W - 2 * MARGIN) * 0.52)
+    embed_svg_as_image(d, iso_svg, MARGIN, BOT_Y + 6, ISO_W, BOT_H - 6)
+
+    div_x = MARGIN + ISO_W + 10
+    d.append(
+        draw.Line(
+            div_x, BOT_Y, div_x, COMBINED_H - MARGIN, stroke="#bbb", stroke_width=0.8
+        )
+    )
+
+    # ── Zone 2 (bottom-right): BOM centred ────────────────────────────────
+    from components import _COL_WIDTHS as _bom_cw  # noqa: PLC0415
+
+    bom_total_w = sum(_bom_cw)
+    bom_avail = SHEET_W - MARGIN - div_x - 10
+    bom_x = div_x + 10 + max(0, (bom_avail - bom_total_w) / 2)
+    n_rows = len(cfg["bom"])
+    bom_total_h = 28 + 26 + n_rows * 26 + 28  # title + header + rows + total
+    bom_y = BOT_Y + max(6, (BOT_H - bom_total_h) / 2)
+    bom_table(
+        d,
+        x=bom_x,
+        y=bom_y,
+        items=cfg["bom"],
+        title="BILL OF MATERIALS  —  Sensor Mount Subassembly",
     )
 
     draw_title_block(d, cfg, COMBINED_H)
