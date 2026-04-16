@@ -59,6 +59,13 @@ html {
   .prose h1 {
     @apply text-4xl;
   }
+
+  /* Prevent wide tables from stretching the viewport on mobile */
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @layer components {
@@ -559,4 +566,24 @@ details.toc[open] > summary::after {
   @apply bg-transparent p-0 rounded-none;
   border: none;
   background: none;
+}
+
+/* =========================================================================
+ * Table stripes — emerald tint, barely visible, works on light and dark
+ * rgba(4,120,87, …) = emerald-700; transparency does the work on both themes
+ * ========================================================================= */
+
+.prose thead tr,
+.prose tfoot tr {
+  background-color: rgba(4, 120, 87, 0.10);
+}
+
+.prose tbody tr:nth-child(even) {
+  background-color: rgba(4, 120, 87, 0.06);
+}
+
+/* Table cell padding — ensures stripe background has breathing room */
+.prose th,
+.prose td {
+  padding: 0.5rem 1rem;
 }
