@@ -232,74 +232,11 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 _Estimated time: 1–2 hours_
 
-The same hardware supports two deployment modes: a fixed mount at home, or a portable rig on your car roof rack. Pick whichever suits the situation, or build both and move the sensor to whichever street needs attention this month.
+The same hardware supports two deployment modes: a portable rig on your car roof rack, or a fixed mount at home. Pick whichever suits the situation, or build both and move the sensor to whichever street needs attention this month.
 
-#### Deployment option A: home installation (permanent)
-
-A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that builds a compelling case over time.
-
-**Enclosure preparation**:
-
-- Drill mounting holes in the back plate for hose clamps
-- Install cable glands for power and Ethernet
-- Mount the sensor inside with a clear view through the front panel
-- Use plastic or nylon standoffs (metal obstructs the radar signal)
-
-**Positioning**:
-
-- Mount 4–8 feet off the ground (reduces false detections from small objects)
-- Use two stainless steel hose clamps (top and bottom)
-- Choose a location with a clear line of sight to traffic
-
-![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
-
-**Aiming**:
-
-- **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
-- **Road coverage**: a 0° angle gives the best accuracy but the narrowest field of view. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
-- **Orientation**: face approaching or receding traffic (not perpendicular)
-
-<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
-<p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
-<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5). To measure it:</p>
-<ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
-<li>Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.</li>
-<li>Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.</li>
-<li>Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.</li>
-</ol>
-</div>
-
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
-
-**Weatherproofing checklist**:
-
-- ✅ All cable glands sealed
-- ✅ Enclosure gasket intact and clean
-- ✅ Seal tested before final mounting
-
-**Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
-
-#### Deployment option B: car roof rack mount (mobile)
+#### Deployment option A: car roof rack mount (mobile)
 
 A portable rig that clamps to a standard roof rack. Park on any street, aim the sensor, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.
-
-<!-- IMAGE 9: Car roof rack mount — completed build
-     Subject: the assembled PVC and timber mount sitting on a workbench,
-     showing the enclosure, hose clamps, corner braces, and 2×4 crossbar
-     Purpose: lets the reader see the finished result before starting the build
-     Format: photograph, landscape -->
-
-<!-- IMAGE 10: Car roof rack mount — installed on vehicle
-     Subject: the mount clamped to a car roof rack with the sensor enclosed
-     and aimed along the street. Show the PoE cable routed into the car.
-     Purpose: shows real-world deployment so readers know what to expect
-     Format: photograph, landscape -->
-
-<!-- IMAGE 11: Car roof rack mount — in operation
-     Subject: the car parked on a residential street with the sensor running,
-     dashboard visible on a laptop or phone inside the car
-     Purpose: completes the story — build → mount → measure
-     Format: photograph, landscape -->
 
 ##### Tools needed
 
@@ -347,7 +284,45 @@ You will also need:
 
 7. **Route the cable** from the sensor through a rear window seal or door gap into the car. Connect to the Pi and power source inside.
 
-**Aiming**: park the car parallel to the kerb with the sensor aimed along the street. The same angle guidance from the home installation applies. A parked car pointed down the road is already close to 0°: which is the geometry you want.
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
+
+**Aiming**: park the car parallel to the kerb with the sensor aimed along the street. A parked car pointed down the road is already close to 0°, which is the geometry you want. See the aiming guidance below for details.
+
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
+
+#### Deployment option B: home installation (permanent)
+
+A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that builds a compelling case over time.
+
+**Positioning**:
+
+- Mount 4–8 feet off the ground (reduces false detections from small objects)
+- Use two stainless steel hose clamps (top and bottom)
+- Choose a location with a clear line of sight to traffic
+
+**Weatherproofing checklist**:
+
+- ✅ All cable glands sealed
+- ✅ Enclosure gasket intact and clean
+- ✅ Seal tested before final mounting
+
+**Success criteria**: enclosure is weatherproof, sensor aims correctly, mounting is secure
+
+#### Aiming (both deployments)
+
+- **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
+- **Road coverage**: a 0° angle gives the best accuracy but is impractical for a side of the road installation. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
+- **Orientation**: face approaching or receding traffic (not perpendicular)
+
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
+<p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
+<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5). To measure it:</p>
+<ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
+<li>Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.</li>
+<li>Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.</li>
+<li>Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.</li>
+</ol>
+</div>
 
 ---
 
