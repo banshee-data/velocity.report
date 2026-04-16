@@ -39,7 +39,8 @@ NAVBAR_GREEN_STROKE = "rgba(4,120,87,0.92)"
 # Deep orange for Sutro beam
 SUTRO_FILL = "rgba(230,81,0,0.85)"  # deep-orange-900 tint
 SUTRO_STROKE = "rgba(230,81,0,0.95)"
-SUTRO_CHEVRON = "rgba(255,111,0,1.0)"  # deep-orange-A400
+SUTRO_CHEVRON = "rgba(255,255,255,0.72)"  # light white for chevrons
+SUTRO_ARROW = "rgba(255,255,255,0.95)"  # near-white arrow
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -75,8 +76,8 @@ ANGEL_CFG = {
     "w": 1200,
     "h": 900,
     # ── Beam cone (all percentages of image dimensions) ──
-    "apex_x_pct": 43.20,  # sensor tube opening — % of width
-    "apex_y_pct": 73.2,  # % of height
+    "apex_x_pct": 43.50,  # sensor tube opening — % of width
+    "apex_y_pct": 73.1,  # % of height
     # Nudge the whole diagram 1° CW relative to previous heading of 10°
     "beam_heading_deg": 11,  # was 10, +1° CW
     "beam_half_angle_deg": 10.5,  # half of 21° cone
@@ -91,7 +92,7 @@ ANGEL_CFG = {
     # Bigger label, pushed lower (dominant-baseline="hanging" + bigger dy)
     "t_label_text": "direction of travel →",
     "t_label_font_size": 34,  # was 26
-    "t_label_dy": 28,  # pixels below bar (was 18)
+    "t_label_dy": 44,  # pixels below bar (was 28)
 }
 
 
@@ -112,9 +113,12 @@ def _angel_svg():
     label_r = arc_r + _pct_len(c["label_offset_pct"], H)
     lbl = _pt((ax, ay), h, label_r)
 
-    # ── 90° reference line: straight up from apex, extending past triangle tip ──
-    # "Up" in image coords = heading 0°. Extends from apex to 130% of beam length.
-    ref_line_end = _pt((ax, ay), 0, length * 1.30)
+    # ── 90° reference lines: two dashed verticals rising from each tip ──
+    # Each starts at the tip of its cone leg and extends straight up (heading 0°)
+    # by 20% of beam length beyond the triangle endpoint.
+    ext = length * 0.20
+    ref_left_end = (left[0], left[1] - ext)  # straight up from left tip
+    ref_right_end = _pt(right, h + ha, ext)  # continues along right leg heading
 
     # ── Direction-of-travel T, anchored at beam apex ──
     bar_half = _pct_len(c["t_bar_half_pct"], W)
@@ -146,10 +150,20 @@ def _angel_svg():
     fill="{NAVBAR_GREEN_FILL}" stroke="{NAVBAR_GREEN_STROKE}"
     stroke-width="2.5" stroke-linejoin="round"/>
 
-  <!-- 90° reference line: vertical dashed, from apex upward, 130% of beam length -->
-  <line x1="{ax:.1f}" y1="{ay:.1f}"
-        x2="{ref_line_end[0]:.1f}" y2="{ref_line_end[1]:.1f}"
-        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"
+  <!-- Cone leg lines — white, full length from apex to each tip -->
+  <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{left[0]:.1f}" y2="{left[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
+  <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{right[0]:.1f}" y2="{right[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
+
+  <!-- Reference dashed lines — vertical from each tip, 20% past triangle -->
+  <line x1="{left[0]:.1f}" y1="{left[1]:.1f}"
+        x2="{ref_left_end[0]:.1f}" y2="{ref_left_end[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75"
+        stroke-dasharray="10,6"/>
+  <line x1="{right[0]:.1f}" y1="{right[1]:.1f}"
+        x2="{ref_right_end[0]:.1f}" y2="{ref_right_end[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75"
         stroke-dasharray="10,6"/>
 
   <!-- Angle arc -->
@@ -288,9 +302,9 @@ def _sutro_svg():
     arrow_start = _pt((ax, ay), h, length * trunc)
     arrow_end = _pt((ax, ay), h, length * 0.78)
     ahs = _pct_len(c["arrow_head_size_pct"], H)
-    # Arrowhead: two lines back from tip at ±25°
-    ah_l = _pt(arrow_end, h + 180 - 25, ahs)
-    ah_r = _pt(arrow_end, h + 180 + 25, ahs)
+    # Arrowhead: wide/flat — ±40° back from tip (was ±25°)
+    ah_l = _pt(arrow_end, h + 180 - 40, ahs)
+    ah_r = _pt(arrow_end, h + 180 + 40, ahs)
 
     # 90° CW rotation: swap viewport dimensions, wrap content in transform.
     return f"""\
@@ -313,10 +327,10 @@ def _sutro_svg():
   <!-- Direction arrow along centreline (bottom → top of beam) -->
   <line x1="{arrow_start[0]:.1f}" y1="{arrow_start[1]:.1f}"
         x2="{arrow_end[0]:.1f}" y2="{arrow_end[1]:.1f}"
-        stroke="{SUTRO_STROKE}" stroke-width="5.5"
+        stroke="{SUTRO_ARROW}" stroke-width="5.5"
         stroke-linecap="round"/>
   <polyline points="{ah_l[0]:.1f},{ah_l[1]:.1f} {arrow_end[0]:.1f},{arrow_end[1]:.1f} {ah_r[0]:.1f},{ah_r[1]:.1f}"
-            fill="none" stroke="{SUTRO_STROKE}" stroke-width="5.5"
+            fill="none" stroke="{SUTRO_ARROW}" stroke-width="5.5"
             stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>
