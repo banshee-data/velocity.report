@@ -46,8 +46,6 @@ SHEET_W = 1200
 SHEET_H = 850
 COMBINED_H = 1600
 MARGIN = 28
-TITLE_H = 62
-
 
 # ── SVG viewport embed ────────────────────────────────────────────────────────
 
@@ -71,55 +69,81 @@ def embed_svg_as_image(
 
 # ── Title block ───────────────────────────────────────────────────────────────
 
+TB_W = 380  # title block width
+TB_H = 96  # title block height
 
-def draw_title_block(
-    d: draw.Drawing, cfg: dict, view_name: str, sheet_h: float = SHEET_H
-) -> None:
-    tb_y = sheet_h - TITLE_H - MARGIN
-    tb_h = TITLE_H
-    tb_w = SHEET_W - 2 * MARGIN
 
-    # Outer border
+def draw_title_block(d: draw.Drawing, cfg: dict, sheet_h: float = SHEET_H) -> None:
+    """Standard lower-right title block."""
+    tb_x = SHEET_W - MARGIN - TB_W
+    tb_y = sheet_h - MARGIN - TB_H
+
+    # Background + outer border
     d.append(
         draw.Rectangle(
-            MARGIN, tb_y, tb_w, tb_h, fill="white", stroke="#333", stroke_width=1.0
+            tb_x,
+            tb_y,
+            TB_W,
+            TB_H,
+            fill="white",
+            stroke="#333",
+            stroke_width=1.0,
         )
     )
 
-    # Column dividers at x offsets from left: 320 | 200 | 110 | 110 | remainder
-    col_xs = [320, 200, 110, 110]
-    cx = MARGIN
-    for dv in col_xs:
-        cx += dv
-        d.append(draw.Line(cx, tb_y, cx, tb_y + tb_h, stroke="#333", stroke_width=0.5))
+    # ── Row heights from top: title(28) | row1(28) | row2(20) | row3(20) ──
+    r0_h, r1_h, r2_h, r3_h = 28, 24, 22, 22
+    r0_y = tb_y
+    r1_y = r0_y + r0_h
+    r2_y = r1_y + r1_h
+    r3_y = r2_y + r2_h
 
-    # Horizontal mid-divider splitting each cell into label + value rows
-    mid_y = tb_y + tb_h * 0.42
+    # Row dividers
+    for ry in (r1_y, r2_y, r3_y):
+        d.append(draw.Line(tb_x, ry, tb_x + TB_W, ry, stroke="#333", stroke_width=0.5))
+
+    # Row 0 — drawing title (full width, bold centre)
     d.append(
-        draw.Line(MARGIN, mid_y, MARGIN + tb_w, mid_y, stroke="#333", stroke_width=0.4)
+        draw.Text(
+            "velocity.report Radar Mount",
+            FS_HEAD,
+            tb_x + TB_W / 2,
+            r0_y + r0_h / 2,
+            text_anchor="middle",
+            dominant_baseline="middle",
+            font_family=FONT,
+            fill="#1a1a2e",
+            font_weight="bold",
+        )
     )
 
-    # ── Cell helpers ──────────────────────────────────────────────────────
-    def cell_label(text: str, lx: float, w: float) -> None:
+    # Rows 1-3: two-column cells (label top-left, value centred)
+    def cell(
+        label: str,
+        value: str,
+        cx: float,
+        cy: float,
+        cw: float,
+        ch: float,
+        bold: bool = False,
+    ) -> None:
         d.append(
             draw.Text(
-                text,
+                label,
                 6,
-                lx + 4,
-                tb_y + 5,
+                cx + 3,
+                cy + 3,
                 dominant_baseline="hanging",
                 font_family=FONT,
-                fill="#777",
+                fill="#888",
             )
         )
-
-    def cell_value(text: str, lx: float, w: float, bold: bool = False) -> None:
         d.append(
             draw.Text(
-                text,
-                FS_LABEL if not bold else FS_HEAD,
-                lx + w / 2,
-                mid_y + (tb_y + tb_h - mid_y) / 2,
+                value,
+                FS_LABEL if not bold else FS_LABEL + 1,
+                cx + cw / 2,
+                cy + ch / 2 + 3,
                 text_anchor="middle",
                 dominant_baseline="middle",
                 font_family=FONT,
@@ -128,76 +152,47 @@ def draw_title_block(
             )
         )
 
-    # Col 0 — Drawing title (wide)
-    c0_x, c0_w = MARGIN, col_xs[0]
-    cell_label("DRAWING TITLE", c0_x, c0_w)
-    cell_value("velocity.report Radar Mount", c0_x, c0_w, bold=True)
-
-    # Col 1 — Firm name
-    c1_x, c1_w = MARGIN + col_xs[0], col_xs[1]
-    cell_label("FIRM", c1_x, c1_w)
-    cell_value("Banshee Inc", c1_x, c1_w, bold=True)
-
-    # Col 2 — Drawn by
-    c2_x, c2_w = c1_x + col_xs[1], col_xs[2]
-    cell_label("DRAWN BY", c2_x, c2_w)
-    cell_value("D. Dolphin", c2_x, c2_w)
-
-    # Col 3 — Date
-    c3_x, c3_w = c2_x + col_xs[2], col_xs[3]
-    cell_label("DATE", c3_x, c3_w)
-    cell_value("2026-04-15", c3_x, c3_w)
-
-    # Col 4 — Rev + scale + projection (remainder)
-    c4_x = c3_x + col_xs[3]
-    c4_w = tb_w - sum(col_xs)
-    cell_label("REV / SCALE", c4_x, c4_w)
-    # Split into two lines in the value area
-    rev = cfg.get("revision", "A")
+    # Row 1: FIRM (60%) | DRAWN BY (40%)
+    col_a = int(TB_W * 0.60)
     d.append(
-        draw.Text(
-            f"Rev {rev}   ·   1:10",
-            FS_LABEL,
-            c4_x + c4_w / 2,
-            mid_y + 8,
-            text_anchor="middle",
-            dominant_baseline="hanging",
-            font_family=FONT,
-            fill="#1a1a2e",
-            font_weight="bold",
+        draw.Line(
+            tb_x + col_a, r1_y, tb_x + col_a, r2_y, stroke="#333", stroke_width=0.4
+        )
+    )
+    cell("FIRM", "Banshee Inc", tb_x, r1_y, col_a, r1_h, bold=True)
+    cell("DRAWN BY", "D. Dolphin", tb_x + col_a, r1_y, TB_W - col_a, r1_h)
+
+    # Row 2: DATE (40%) | REV (30%) | SCALE (30%)
+    col_b, col_c = int(TB_W * 0.40), int(TB_W * 0.30)
+    d.append(
+        draw.Line(
+            tb_x + col_b, r2_y, tb_x + col_b, r3_y, stroke="#333", stroke_width=0.4
         )
     )
     d.append(
-        draw.Text(
-            "THIRD-ANGLE PROJECTION",
-            6,
-            c4_x + c4_w / 2,
-            mid_y + 22,
-            text_anchor="middle",
-            dominant_baseline="hanging",
-            font_family=FONT,
-            fill="#555",
+        draw.Line(
+            tb_x + col_b + col_c,
+            r2_y,
+            tb_x + col_b + col_c,
+            r3_y,
+            stroke="#333",
+            stroke_width=0.4,
         )
     )
+    cell("DATE", "2026-04-15", tb_x, r2_y, col_b, r2_h)
+    cell(
+        "REV",
+        f"Rev {cfg.get('revision', 'A')}",
+        tb_x + col_b,
+        r2_y,
+        col_c,
+        r2_h,
+        bold=True,
+    )
+    cell("SCALE", "1:10", tb_x + col_b + col_c, r2_y, TB_W - col_b - col_c, r2_h)
 
-    # Notes strip above the title block cells (inside border, top row)
-    notes = [
-        "All dims: inches unless noted.",
-        '2×4 nominal = 1.5"×3.5" actual.',
-        "Qty 2 mounts required.",
-    ]
-    for i, note in enumerate(notes):
-        d.append(
-            draw.Text(
-                note,
-                7,
-                MARGIN + 4 + i * 210,
-                tb_y + 5,
-                dominant_baseline="hanging",
-                font_family=FONT,
-                fill="#555",
-            )
-        )
+    # Row 3: PROJECTION (full width)
+    cell("PROJECTION", "THIRD-ANGLE", tb_x, r3_y, TB_W, r3_h)
 
     # Sheet border
     d.append(
@@ -214,18 +209,7 @@ def draw_title_block(
 
 
 def view_label(d: draw.Drawing, text: str, x: float, y: float) -> None:
-    d.append(
-        draw.Text(
-            text,
-            FS_LABEL,
-            x,
-            y,
-            text_anchor="middle",
-            font_family=FONT,
-            fill=DIM_COLOUR,
-            font_weight="bold",
-        )
-    )
+    pass  # labels removed
 
 
 # ── Sheet builders ────────────────────────────────────────────────────────────
@@ -259,7 +243,7 @@ def build_iso_bom_sheet(cfg: dict, iso_svg: str, out_path: str) -> None:
         title="BILL OF MATERIALS  —  Sensor Mount Subassembly",
     )
 
-    draw_title_block(d, cfg, "ISOMETRIC VIEW")
+    draw_title_block(d, cfg)
     d.save_svg(out_path)
     print(f"Saved: {out_path}")
 
@@ -276,7 +260,7 @@ def build_ortho_sheet(
     d.append(draw.Rectangle(0, 0, SHEET_W, SHEET_H, fill="white"))
 
     draw_w = SHEET_W - 2 * MARGIN
-    draw_h = SHEET_H - TITLE_H - 2 * MARGIN
+    draw_h = SHEET_H - 2 * MARGIN - 14  # small bottom gap above title block
     gap = 14
     lbl = 18
 
@@ -314,7 +298,7 @@ def build_ortho_sheet(
         )
     )
 
-    draw_title_block(d, cfg, "ORTHOGRAPHIC PROJECTION")
+    draw_title_block(d, cfg)
     d.save_svg(out_path)
     print(f"Saved: {out_path}")
 
@@ -379,7 +363,7 @@ def build_combined_sheet(
     DIM_PAD_LEFT = 58
     DIM_PAD_BTM = 40
 
-    title_y_comb = COMBINED_H - TITLE_H - MARGIN
+    title_y_comb = COMBINED_H - TB_H - MARGIN - 8
     ortho_y = sep_y + 14
     ortho_avail_h = title_y_comb - ortho_y - 8
     draw_w_ortho = SHEET_W - 2 * MARGIN - DIM_PAD_LEFT
@@ -553,7 +537,7 @@ def build_combined_sheet(
         tick=2,
     )
 
-    draw_title_block(d, cfg, "ISOMETRIC + ORTHOGRAPHIC PROJECTION", COMBINED_H)
+    draw_title_block(d, cfg, COMBINED_H)
     d.save_svg(out_path)
     print(f"Saved: {out_path}")
 

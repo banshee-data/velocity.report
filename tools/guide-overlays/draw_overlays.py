@@ -221,30 +221,31 @@ AIMING_CFG = {
     "w": 1038,
     "h": 1384,
     # ── Beam cone ──
-    "apex_x_pct": 69.5,  # sensor position — % of width
-    "apex_y_pct": 50.5,  # % of height
-    "beam_heading_deg": -90,  # pointing left; 90° CW display rotation → up
+    # Image is portrait (1038×1384).  We display it 90° CCW so the road runs
+    # left-right.  In original portrait coords the sensor (white box) sits near
+    # the bottom-centre and the beam fires upward (heading 0° = image-up).
+    "apex_x_pct": 52.0,  # sensor centre — % of original width
+    "apex_y_pct": 91.5,  # sensor centre — % of original height
+    "beam_heading_deg": 0,  # up in portrait = left (away) after CCW rotation
     "beam_half_angle_deg": 18.0,  # wide cone (36° total)
-    "beam_length_pct": 28,  # % of height
+    "beam_length_pct": 25,  # % of original height — half the scene height
     # ── Truncation ──
-    "trunc_frac": 0.20,  # near edge cut at 20% of beam length from apex
+    "trunc_frac": 0.16,  # small cut at sensor end
     # ── Far-edge bow ──
-    # Only the far (wide) edge curves; the two arms are straight.
-    # Control point pushed forward by bulge × far-edge-length.
     "curve_bulge": 0.18,
     # ── Chevrons ──
+    # Each chevron spans the cone width at its distance MINUS a constant margin
+    # on each side, so the gap between chevron tip and cone edge stays uniform.
     "chevron_count": 5,
-    "chevron_start_pct": 22,  # first chevron at this % of beam length
-    "chevron_end_pct": 85,  # last chevron at this %
-    "chevron_width_frac": 1.0,  # 1.0 = full cone width at that distance (radar ping)
+    "chevron_start_pct": 10,  # first chevron at this % of beam length
+    "chevron_end_pct": 88,  # last chevron at this %
+    "chevron_margin_pct": 1.8,  # constant gap each side — % of original height
     # ── Near edge ──
-    # Near edge is wider than the natural cone angle to show the radar mouth.
-    # Uses its own half-angle so the trapezoid flares at the base.
-    "near_half_angle_deg": 50.0,  # wider than beam_half_angle_deg (18°)
+    "near_half_angle_deg": 50.0,  # flared base at sensor mouth
     # ── Direction arrow ──
-    "arrow_head_size_pct": 4,  # arrowhead leg length as % of height
-    "arrow_head_angle": 64,  # half-angle of arrowhead — wider/flatter
-    "arrow_end_frac": 0.85,  # arrow tip at this fraction of beam length (moved up)
+    "arrow_head_size_pct": 4,
+    "arrow_head_angle": 64,
+    "arrow_end_frac": 0.85,
 }
 
 
@@ -292,17 +293,20 @@ def _aiming_svg():
         f"Z"
     )
 
-    # ── Chevrons — curved arcs matching the far-edge bow ──
+    # ── Chevrons — constant margin from cone edge at each distance ──
+    # half-width = cone half-width at dist minus a fixed pixel margin,
+    # so the gap between chevron end and cone side stays the same everywhere.
     n = c["chevron_count"]
     cs = c["chevron_start_pct"] / 100.0
     ce = c["chevron_end_pct"] / 100.0
-    wf = c["chevron_width_frac"]
+    margin = _pct_len(c["chevron_margin_pct"], H)  # constant pixel gap each side
     chevrons = []
     for i in range(n):
         t = cs + (ce - cs) * i / max(n - 1, 1)
         dist = length * t
         tip = _pt((ax, ay), h, dist)
-        half_w = dist * math.tan(math.radians(ha)) * wf
+        cone_half_w = dist * math.tan(math.radians(ha))
+        half_w = max(0.0, cone_half_w - margin)
         cl = _pt(tip, h + 90, half_w)
         cr = _pt(tip, h - 90, half_w)
         chev_len = math.hypot(cr[0] - cl[0], cr[1] - cl[1])
@@ -326,14 +330,13 @@ def _aiming_svg():
     ah_l = _pt(arrow_end, h + 180 - aha, ahs)
     ah_r = _pt(arrow_end, h + 180 + aha, ahs)
 
-    # 90° CW display rotation
+    # No display rotation — image is portrait, radar points up.
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="{H}" height="{W}"
-     viewBox="0 0 {H} {W}">
-  <g transform="translate({H}, 0) rotate(90)">
+     width="{W}" height="{H}"
+     viewBox="0 0 {W} {H}">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
   <!-- Aiming beam — wide truncated triangle, curved far edge, deep orange -->
@@ -352,7 +355,6 @@ def _aiming_svg():
     points="{ah_l[0]:.1f},{ah_l[1]:.1f} {arrow_end[0]:.1f},{arrow_end[1]:.1f} {ah_r[0]:.1f},{ah_r[1]:.1f}"
     fill="none" stroke="{AIMING_ARROW}" stroke-width="5.5"
     stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
 </svg>
 """
 
