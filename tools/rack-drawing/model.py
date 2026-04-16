@@ -371,37 +371,57 @@ def make_crossbar_hose_clamps(cfg: dict) -> Compound:
     x_outer = CB / 2 - offsets_in[0] * INCH  # 3" from end — outer hole
     span = x_outer - x_inner  # distance between the two holes
 
-    band_t = 2.0  # strap thickness in mm
-    band_w = 12.0  # strap width in Y (~1/2")
-    rack_gap = 15.0  # clearance below crossbar for rack bar (mm)
-    loop_h = W + rack_gap  # total vertical extent of the loop
+    band_t = 2.5  # band strip thickness (mm)
+    band_w = 12.0  # band width in Y (~1/2")
+    rack_gap = 15.0  # clearance below crossbar for rack bar
+    loop_h = W + rack_gap
+
+    # Worm-drive tightening boss dimensions
+    boss_l = 18.0  # length along X
+    boss_h = 10.0  # height above band
+    boss_w = band_w + 2.0  # slightly wider than band
 
     clamps = []
 
     for x_sign in (+1, -1):
-        cx = x_sign * (x_inner + span / 2)  # X centre between the two holes
+        ix = x_sign * x_inner  # X of inner leg (6" hole)
+        ox = x_sign * x_outer  # X of outer leg (3" hole)
+        cx = (ix + ox) / 2  # X centre of top/bottom segments
 
-        # Top segment — runs along X between the two holes, on the crossbar top
+        # Top segment
         top = Box(span, band_w, band_t)
         top = top.move(Location((cx, 0, W + band_t / 2)))
         clamps.append(top)
 
-        # Bottom segment — runs along X at the same span, below the rack gap
+        # Bottom segment
         bot = Box(span, band_w, band_t)
         bot = bot.move(Location((cx, 0, -rack_gap + band_t / 2)))
         clamps.append(bot)
 
-        # Inner leg (at 6" hole) — vertical, connects top to bottom
-        inner_x = x_sign * x_inner
+        # Inner leg (at 6" hole)
         leg_inner = Box(band_t, band_w, loop_h)
-        leg_inner = leg_inner.move(Location((inner_x, 0, (W - rack_gap) / 2)))
+        leg_inner = leg_inner.move(Location((ix, 0, (W - rack_gap) / 2)))
         clamps.append(leg_inner)
 
-        # Outer leg (at 3" hole) — vertical, connects top to bottom
-        outer_x = x_sign * x_outer
+        # Outer leg (at 3" hole)
         leg_outer = Box(band_t, band_w, loop_h)
-        leg_outer = leg_outer.move(Location((outer_x, 0, (W - rack_gap) / 2)))
+        leg_outer = leg_outer.move(Location((ox, 0, (W - rack_gap) / 2)))
         clamps.append(leg_outer)
+
+        # Worm-drive tightening boss on top segment, next to outer leg
+        boss_cx = ox - x_sign * (boss_l / 2 + 3.0)
+        boss = Box(boss_l, boss_w, boss_h)
+        boss = boss.move(Location((boss_cx, 0, W + band_t + boss_h / 2)))
+        clamps.append(boss)
+
+        # Screw-head slot on outer face of boss
+        slot = Box(1.5, boss_w * 0.5, boss_h * 0.6)
+        slot = slot.move(
+            Location(
+                (boss_cx + x_sign * (boss_l / 2 - 0.75), 0, W + band_t + boss_h / 2)
+            )
+        )
+        clamps.append(slot)
 
     return Compound(children=clamps)
 

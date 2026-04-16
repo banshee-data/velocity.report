@@ -33,9 +33,9 @@ FONT = "Arial, sans-serif"
 MONO = "Courier New, monospace"
 
 FS_DIM = 9
-FS_LABEL = 9
-FS_TITLE = 12
-FS_HEAD = 14
+FS_LABEL = 10
+FS_TITLE = 13
+FS_HEAD = 15
 
 
 # ── Arrowhead helper (no SVG markers needed) ──────────────────────────────────
@@ -360,8 +360,8 @@ def leader(
 
 # ── BOM table ─────────────────────────────────────────────────────────────────
 
-_COL_WIDTHS = [28, 222, 44, 52, 60, 82]  # icon, desc, qty, unit$, aisle, item#
-_COL_HEADS = ["", "Item", "Qty", "Price", "Aisle", "Lowe's #"]
+_COL_WIDTHS = [30, 260, 50, 60, 90]  # icon, desc, qty, unit$, item#
+_COL_HEADS = ["", "Item", "Qty", "Price", "Lowe's #"]
 
 
 def bom_table(

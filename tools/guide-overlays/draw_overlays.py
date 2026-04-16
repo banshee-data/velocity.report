@@ -37,10 +37,10 @@ COSIGN_FILL = "rgba(4,120,87,0.75)"
 COSIGN_STROKE = "rgba(4,120,87,0.92)"
 
 # Deep orange for aiming beam
-AIMING_FILL = "rgba(230,81,0,0.75)"  # deep-orange-900 tint
+AIMING_FILL = "rgba(230,81,0,0.85)"  # deep-orange-900 tint
 AIMING_STROKE = "rgba(230,81,0,0.95)"
-AIMING_CHEVRON = "rgba(255,255,255,0.72)"  # light white chevrons
-AIMING_ARROW = "rgba(255,255,255,0.95)"  # near-white arrow
+AIMING_CHEVRON = "rgba(255,138,0,0.90)"  # deep-orange-A200 — orange chevrons
+AIMING_ARROW = "rgba(255,204,128,1)"  # deep-orange-100 — very light orange arrow
 
 
 # ── Geometry helpers ──────────────────────────────────────────────────
@@ -219,11 +219,11 @@ AIMING_CFG = {
     "w": 2000,
     "h": 1500,
     # ── Beam cone ──
-    "apex_x_pct": 70.0,  # sensor position — % of width
-    "apex_y_pct": 50.0,  # % of height
+    "apex_x_pct": 69.5,  # sensor position — % of width
+    "apex_y_pct": 50.5,  # % of height
     "beam_heading_deg": -90,  # pointing left; 90° CW display rotation → up
     "beam_half_angle_deg": 18.0,  # wide cone (36° total)
-    "beam_length_pct": 34,  # % of height
+    "beam_length_pct": 30,  # % of height
     # ── Truncation ──
     "trunc_frac": 0.20,  # near edge cut at 20% of beam length from apex
     # ── Far-edge bow ──
@@ -236,8 +236,9 @@ AIMING_CFG = {
     "chevron_end_pct": 88,  # last chevron at this %
     "chevron_width_frac": 0.55,  # fraction of cone width at that distance
     # ── Direction arrow ──
-    "arrow_head_size_pct": 2.8,  # arrowhead leg length as % of height
-    "arrow_head_angle": 40,  # half-angle of arrowhead (flat/wide)
+    "arrow_head_size_pct": 4,  # arrowhead leg length as % of height
+    "arrow_head_angle": 64,  # half-angle of arrowhead — wider/flatter
+    "arrow_end_frac": 0.85,  # arrow tip at this fraction of beam length (moved up)
 }
 
 
@@ -315,7 +316,7 @@ def _aiming_svg():
 
     # ── Direction arrow along centreline ──
     arrow_start = _pt((ax, ay), h, length * trunc)
-    arrow_end = _pt((ax, ay), h, length * 0.78)
+    arrow_end = _pt((ax, ay), h, length * c["arrow_end_frac"])
     ahs = _pct_len(c["arrow_head_size_pct"], H)
     aha = c["arrow_head_angle"]
     ah_l = _pt(arrow_end, h + 180 - aha, ahs)

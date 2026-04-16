@@ -79,26 +79,89 @@ def draw_title_block(
     tb_h = TITLE_H
     tb_w = SHEET_W - 2 * MARGIN
 
+    # Outer border
     d.append(
         draw.Rectangle(
             MARGIN, tb_y, tb_w, tb_h, fill="white", stroke="#333", stroke_width=1.0
         )
     )
 
-    divs = [400, 200, 140]
+    # Column dividers at x offsets from left: 320 | 200 | 110 | 110 | remainder
+    col_xs = [320, 200, 110, 110]
     cx = MARGIN
-    for dv in divs:
+    for dv in col_xs:
         cx += dv
         d.append(draw.Line(cx, tb_y, cx, tb_y + tb_h, stroke="#333", stroke_width=0.5))
 
+    # Horizontal mid-divider splitting each cell into label + value rows
+    mid_y = tb_y + tb_h * 0.42
+    d.append(
+        draw.Line(MARGIN, mid_y, MARGIN + tb_w, mid_y, stroke="#333", stroke_width=0.4)
+    )
+
+    # ── Cell helpers ──────────────────────────────────────────────────────
+    def cell_label(text: str, lx: float, w: float) -> None:
+        d.append(
+            draw.Text(
+                text,
+                6,
+                lx + 4,
+                tb_y + 5,
+                dominant_baseline="hanging",
+                font_family=FONT,
+                fill="#777",
+            )
+        )
+
+    def cell_value(text: str, lx: float, w: float, bold: bool = False) -> None:
+        d.append(
+            draw.Text(
+                text,
+                FS_LABEL if not bold else FS_HEAD,
+                lx + w / 2,
+                mid_y + (tb_y + tb_h - mid_y) / 2,
+                text_anchor="middle",
+                dominant_baseline="middle",
+                font_family=FONT,
+                fill="#1a1a2e",
+                font_weight="bold" if bold else "normal",
+            )
+        )
+
+    # Col 0 — Drawing title (wide)
+    c0_x, c0_w = MARGIN, col_xs[0]
+    cell_label("DRAWING TITLE", c0_x, c0_w)
+    cell_value("velocity.report Radar Mount", c0_x, c0_w, bold=True)
+
+    # Col 1 — Firm name
+    c1_x, c1_w = MARGIN + col_xs[0], col_xs[1]
+    cell_label("FIRM", c1_x, c1_w)
+    cell_value("Banshee Inc", c1_x, c1_w, bold=True)
+
+    # Col 2 — Drawn by
+    c2_x, c2_w = c1_x + col_xs[1], col_xs[2]
+    cell_label("DRAWN BY", c2_x, c2_w)
+    cell_value("D. Dolphin", c2_x, c2_w)
+
+    # Col 3 — Date
+    c3_x, c3_w = c2_x + col_xs[2], col_xs[3]
+    cell_label("DATE", c3_x, c3_w)
+    cell_value("2026-04-15", c3_x, c3_w)
+
+    # Col 4 — Rev + scale + projection (remainder)
+    c4_x = c3_x + col_xs[3]
+    c4_w = tb_w - sum(col_xs)
+    cell_label("REV / SCALE", c4_x, c4_w)
+    # Split into two lines in the value area
+    rev = cfg.get("revision", "A")
     d.append(
         draw.Text(
-            cfg.get("title", "Rack Mount Drawing"),
-            FS_HEAD,
-            MARGIN + 200,
-            tb_y + 18,
+            f"Rev {rev}   ·   1:10",
+            FS_LABEL,
+            c4_x + c4_w / 2,
+            mid_y + 8,
             text_anchor="middle",
-            dominant_baseline="middle",
+            dominant_baseline="hanging",
             font_family=FONT,
             fill="#1a1a2e",
             font_weight="bold",
@@ -106,64 +169,37 @@ def draw_title_block(
     )
     d.append(
         draw.Text(
-            f"View: {view_name}  —  velocity.report Sensor Mount",
-            FS_LABEL,
-            MARGIN + 200,
-            tb_y + 40,
+            "THIRD-ANGLE PROJECTION",
+            6,
+            c4_x + c4_w / 2,
+            mid_y + 22,
             text_anchor="middle",
+            dominant_baseline="hanging",
             font_family=FONT,
             fill="#555",
         )
     )
 
-    d.append(
-        draw.Text(
-            f"Rev {cfg.get('revision', 'A')}",
-            FS_LABEL,
-            MARGIN + 400 + 100,
-            tb_y + 22,
-            text_anchor="middle",
-            dominant_baseline="middle",
-            font_family=FONT,
-            fill="#1a1a2e",
-            font_weight="bold",
-        )
-    )
-
+    # Notes strip above the title block cells (inside border, top row)
     notes = [
         "All dims: inches unless noted.",
         '2×4 nominal = 1.5"×3.5" actual.',
         "Qty 2 mounts required.",
     ]
-    nx = MARGIN + 400 + 200 + 70
     for i, note in enumerate(notes):
         d.append(
-            draw.Text(note, 7, nx, tb_y + 10 + i * 17, font_family=FONT, fill="#333")
+            draw.Text(
+                note,
+                7,
+                MARGIN + 4 + i * 210,
+                tb_y + 5,
+                dominant_baseline="hanging",
+                font_family=FONT,
+                fill="#555",
+            )
         )
 
-    d.append(
-        draw.Text(
-            "THIRD-ANGLE PROJECTION",
-            FS_LABEL - 1,
-            SHEET_W - MARGIN - 60,
-            tb_y + 22,
-            text_anchor="middle",
-            font_family=FONT,
-            fill="#555",
-        )
-    )
-    d.append(
-        draw.Text(
-            "SCALE: 1:10 approx.",
-            FS_LABEL - 1,
-            SHEET_W - MARGIN - 60,
-            tb_y + 40,
-            text_anchor="middle",
-            font_family=FONT,
-            fill="#555",
-        )
-    )
-
+    # Sheet border
     d.append(
         draw.Rectangle(
             MARGIN,
@@ -384,17 +420,71 @@ def build_combined_sheet(
     cross_in = lbr["crossbar_length_in"]  # 32"
     up_in = lbr["upright_length_in"]  # 24"
     pipe_od = cfg["pipe"]["od_in"]  # 4.0"
+    pipe_len = cfg["pipe"]["length_in"]  # 24"
+    w_in = lbr["actual_width_in"]  # 1.5"
+    d_in = lbr["actual_depth_in"]  # 3.5"
+    brace_in = lbr["brace_top_edge_in"]  # 11"
+    brace_deg = lbr["brace_angle_deg"]  # 45°
+    h_offsets = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]  # [3, 6]
+    pipe_depths = cfg["holes"]["upright_pipe_screw"]["depths_from_top_in"]  # [6, 12]
 
-    # 1. Crossbar width — horizontal dim below the front-view label
+    # ── Front elevation dims ───────────────────────────────────────────────
+    # 1. Crossbar total length — below front view
     h_dim_y = fy + bot_h + lbl + 14
     dim_h(d, ox, ox + left_w, h_dim_y, f'{cross_in:.0f}"', ext=9, tick=3)
 
-    # 2. Upright length — vertical dim to the left of the front view
+    # 2. Upright length — vertical left of front view
     dim_v(d, ox - 16, fy, fy + bot_h, f'{up_in:.0f}"', ext=10, tick=3)
 
-    # 3. Pipe OD — leader from pipe circle in the top view.
-    #    Top view is shallow and wide; the pipe appears as a circle at the
-    #    centre (X=0 symmetric, pipe overlaps the upright at centre).
+    # 3. Pipe overlap (18" clamp zone) — second vertical dim further left
+    overlap_frac = 18 / up_in
+    dim_v(d, ox - 34, fy, fy + int(bot_h * overlap_frac), '18"', ext=10, tick=3)
+
+    # 4. Crossbar width (1.5") — small vertical dim on the front view crossbar band
+    crossbar_band_frac = w_in / (up_in + w_in)
+    cb_top_y = fy + bot_h
+    cb_bot_y = fy + bot_h - int(bot_h * crossbar_band_frac)
+    dim_v(d, ox + left_w + 6, cb_bot_y, cb_top_y, f'{w_in}"', ext=8, tick=2)
+
+    # 5. Hole positions on crossbar — dim along bottom of front view
+    # Crossbar spans ox..ox+left_w in the drawing. Holes at 3" and 6" from each end.
+    # Scale factor: left_w pixels = cross_in inches
+    px_per_in = left_w / cross_in
+    hole_dim_y = h_dim_y + 20
+    # Left end holes
+    x_hole_3_left = ox + h_offsets[0] * px_per_in
+    x_hole_6_left = ox + h_offsets[1] * px_per_in
+    dim_h(d, ox, x_hole_3_left, hole_dim_y, f'{h_offsets[0]:.0f}"', ext=8, tick=2)
+    dim_h(d, ox, x_hole_6_left, hole_dim_y + 16, f'{h_offsets[1]:.0f}"', ext=8, tick=2)
+    # Label
+    d.append(
+        draw.Text(
+            "CLG BOLT HOLES ×4",
+            7,
+            ox + left_w * 0.15,
+            hole_dim_y + 30,
+            text_anchor="middle",
+            font_family=FONT,
+            fill=DIM_COLOUR,
+        )
+    )
+
+    # 6. Brace callout
+    leader(
+        d,
+        ox + left_w * 0.12,
+        fy + bot_h * 0.08,
+        ox + left_w * 0.04,
+        fy - 14,
+        f'BRACE 2\u00d7  {brace_in:.0f}"  {brace_deg:.0f}\u00b0',
+        anchor="start",
+    )
+
+    # ── Top view dims ──────────────────────────────────────────────────────
+    # 7. Crossbar depth (3.5") — vertical dim on top view
+    dim_v(d, ox - 16, oy, oy + top_h, f'{d_in}"', ext=10, tick=2)
+
+    # 8. Pipe OD — leader from centre of top view
     leader(
         d,
         ox + left_w * 0.50,
@@ -405,45 +495,55 @@ def build_combined_sheet(
         anchor="start",
     )
 
-    # 4. Clamp-hole zone — callout on the side view.
-    #    Two pilot holes drilled through the pipe where it overlaps the
-    #    upright, approximately 6" and 12" from top of upright.
+    # ── Side elevation dims ────────────────────────────────────────────────
+    # 9. Pipe screw hole depths from top
     leader(
         d,
         sx + right_w * 0.52,
         fy + bot_h * 0.20,
-        sx + right_w * 0.72,
+        sx + right_w * 0.75,
         fy + bot_h * 0.12,
-        'HOLES: 6" + 12" FROM TOP',
+        f'PIPE SCREWS: {pipe_depths[0]:.0f}" + {pipe_depths[1]:.0f}" FROM TOP',
         anchor="start",
     )
 
-    # 5. Pipe overlap — second vertical dim showing 18" clamped zone on front view.
-    #    PIPE_OVERLAP = 18" means the pipe extends 18" down from the top of the
-    #    upright (= 24" total upright, so 18/24 = 75% of the front elevation height).
-    overlap_frac = 18 / up_in  # 18" / 24" = 0.75
-    dim_v(d, ox - 34, fy, fy + int(bot_h * overlap_frac), '18"', ext=10, tick=3)
-
-    # 6. Brace callout — leader pointing to the brace area (upper-left of front view).
-    leader(
-        d,
-        ox + left_w * 0.12,
-        fy + bot_h * 0.08,
-        ox + left_w * 0.04,
-        fy - 14,
-        f'BRACE 2\u00d7 \u00b7 {lbr["brace_top_edge_in"]:.0f}" \u00b7 {lbr["brace_angle_deg"]:.0f}\u00b0',
-        anchor="start",
-    )
-
-    # 7. Lumber section callout — side elevation shows the 3.5" depth of the 2×4.
+    # 10. Lumber section callout
     leader(
         d,
         sx + right_w * 0.35,
         fy + bot_h * 0.42,
         sx + right_w * 0.82,
         fy + bot_h * 0.32,
-        f'2\u00d74 ACT {lbr["actual_width_in"]:.1f}"\u00d7{lbr["actual_depth_in"]:.1f}"',
+        f'2\u00d74 ACT {w_in:.1f}"\u00d7{d_in:.1f}"',
         anchor="start",
+    )
+
+    # 11. Pipe length — vertical dim right of side view
+    pipe_frac = pipe_len / (up_in + w_in)
+    dim_v(
+        d,
+        sx + right_w + 14,
+        fy,
+        fy + int(bot_h * pipe_frac),
+        f'\u00d8{pipe_od:.0f}" PIPE\n{pipe_len:.0f}"',
+        ext=14,
+        tick=2,
+    )
+
+    # 12. Clamp hole spacing — small horizontal dim on side view crossbar
+    # Crossbar occupies the bottom fraction of the side elevation
+    cb_frac = w_in / (up_in + w_in)
+    cb_side_h = int(bot_h * cb_frac)
+    cb_side_y = fy + bot_h - cb_side_h
+    clamp_span_px = (h_offsets[1] - h_offsets[0]) * px_per_in
+    dim_h(
+        d,
+        sx + right_w * 0.2,
+        sx + right_w * 0.2 + clamp_span_px,
+        cb_side_y - 8,
+        f'{h_offsets[1] - h_offsets[0]:.0f}" CLAMP SLOT',
+        ext=7,
+        tick=2,
     )
 
     draw_title_block(d, cfg, "ISOMETRIC + ORTHOGRAPHIC PROJECTION", COMBINED_H)
