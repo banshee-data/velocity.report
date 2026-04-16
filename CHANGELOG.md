@@ -42,22 +42,36 @@ Each component (Radar, PDF Generator, Deploy Tool, Web Frontend) maintains indep
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
-## [0.5.1] - 2026-03-26 🌞 `Sunny Southeast`
+## [0.5.1] - 2026-04-16 🌞 `Sunny Southeast`
 
-Raspberry Pi image pipeline: the first step toward a one-flash deployment.
+The release where velocity.report learns to be understood by someone who did not build it. Flashable Pi image, setup guide with real photographs, standardised voice across every error message, and seven AI agent personas to keep the docs from drifting.
 
 ### Deployment
 
-#### Added
+- **Raspberry Pi image pipeline**: pi-gen stage scripts, CI workflow, minimal TeX Live (~143 MB, ~1 GB saved). Dedicated `velocity` service account, udev rules (`/dev/velocity-radar`), UART overlay, static LiDAR IP, Wi-Fi fallback, and systemd service.
+- **`velocity-ctl`**: on-device management (`upgrade`, `rollback`, `backup`, `status`, `version`). Replaces `velocity-deploy` and `velocity-update`.
+- **Versioned asset naming** across Go binaries, `velocity-ctl`, RPi images, and DMG. MOTD shows build version, timestamp, and SHA.
+- **rpi-imager catalogue** (`os-list-velocity.json`) and **homepage download section** with SHA-256 hashes and clipboard copy.
 
-- **Raspberry Pi image pipeline**: `image/` directory with pi-gen stage scripts, GitHub Actions CI workflow (`build-image.yml`), and `os-list-velocity.json` catalogue for stock rpi-imager. Installs `texlive-xetex` at build time and extracts a minimal TeX Live tree (~143 MB) for the PDF generator; LaTeX APT packages are purged from the final image (~1 GB saved).
-- **`velocity-ctl` binary**: on-device management tool (`upgrade`, `rollback`, `backup`, `status`, `version`). Replaces `velocity-deploy` and `velocity-update` script. No automatic updates; no unsolicited network requests.
-- **`os-list-velocity.json`**: rpi-imager custom repository catalogue pointing at GitHub Release `.img.xz` assets for Pi 4/400/5.
-- **Udev rules** for OmniPreSense OPS243 USB-Serial adapter (`/dev/velocity-radar` symlink).
-- **LiDAR network config**: pre-configured static IP for 192.168.100.x subnet (disabled by default).
-- **US Wi-Fi fallback**: regulatory domain defaults to US so wireless is functional out of the box.
-- **UART overlay**: `miniuart-bt` configured to free main UART for radar serial connection.
-- **Systemd service** shipped with image (canonical source in `image/stage-velocity/03-velocity-config/files/`).
+### Documentation
+
+- **Setup guide**: hardware photographs, wiring diagrams, step-by-step instructions (+4,273 lines).
+- **`STYLE.md`**: British English conventions, heading rules, and prose mechanics.
+- **Plan hygiene**: graduated 10 plans to symlinks, fixed 23 dead links, narrative openings on 58 hub docs, removed code blocks from 38 files. README refreshed with sample report and visualiser screenshots.
+
+### Platform
+
+- **Standardised project voice**: rewrote ~250 error and status messages across Go, Python, and Svelte.
+- **CI**: `go-version-file`; fixed QEMU cross-compilation and tag-triggered asset builds; Vite worktree symlink.
+
+### Security
+
+- **Dependency updates** across Go, npm, and Python. Fixed dev-mode path traversal in Vite.
+
+### Fixes
+
+- **macOS visualiser**: `APIError` exhaustive switch for Swift compiler compliance.
+- **Homepage mobile layout**: theming and download card spacing.
 
 ## [0.5.0] - 2026-03-24 🌞 `Sunny Southeast`
 
