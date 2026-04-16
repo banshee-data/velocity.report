@@ -39,8 +39,9 @@ module.exports = function (eleventyConfig) {
   ) {
     const token = tokens[idx];
     const src = token.attrGet("src") || "";
+    const escapedSrc = markdownLibrary.utils.escapeHtml(src);
     const img = defaultImageRender(tokens, idx, options, env, self);
-    return `<a href="${src}" target="_blank" rel="noopener noreferrer">${img}</a>`;
+    return `<a href="${escapedSrc}" target="_blank" rel="noopener noreferrer">${img}</a>`;
   };
 
   eleventyConfig.setLibrary("md", markdownLibrary);
