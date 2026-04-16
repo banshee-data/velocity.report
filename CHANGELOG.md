@@ -51,7 +51,7 @@ The release where velocity.report learns to be understood by someone who did not
 - **Raspberry Pi image pipeline**: pi-gen stage scripts, CI workflow, minimal TeX Live (~143 MB, ~1 GB saved). Dedicated `velocity` service account, udev rules (`/dev/velocity-radar`), UART overlay, static LiDAR IP, Wi-Fi fallback, and systemd service.
 - **`velocity-ctl`**: on-device management (`upgrade`, `rollback`, `backup`, `status`, `version`). Replaces `velocity-deploy` and `velocity-update`.
 - **Versioned asset naming** across Go binaries, `velocity-ctl`, RPi images, and DMG. MOTD shows build version, timestamp, and SHA.
-- **rpi-imager catalogue** (`os-list-velocity.json`) and **homepage download section** with SHA-256 hashes and clipboard copy.
+- **rpi-imager catalogue** (`os-list-velocity.json`, https://velocity.report/rpi.json ) and **homepage download section** with SHA-256 hashes and clipboard copy.
 
 ### Documentation
 
