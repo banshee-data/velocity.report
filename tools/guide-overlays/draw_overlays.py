@@ -3,181 +3,166 @@
 
 Two diagrams are produced:
 
-  cosign-angle  (was: angel)  — green beam cone, white leg lines, angle arc,
-                                 dashed extension lines, direction-of-travel T
-  aiming        (was: sutro)  — orange truncated triangle, curved far edge,
-                                 curved chevrons, white direction arrow
+  cosign-angle  — green beam cone (circular segment), white leg lines, arc
+                   connecting tips, dashed extensions, angle label, direction T
+  aiming        — orange truncated-triangle beam, curved far edge, margin-spaced
+                   chevrons, light-orange direction arrow
 
-Each SVG embeds the raw JPEG via relative <image> reference. All positions are
+Each SVG embeds the raw JPEG via a relative <image> reference. All positions are
 percentages of image dimensions so they survive crops and resizes.
 
 Usage:
     python3 tools/guide-overlays/draw_overlays.py
 
-Output (both locations written identically):
-  public_html/src/images/guide-cosign-angle.svg  / .png
-  public_html/src/images/guide-aiming.svg        / .png
-  docs/images/guide-cosign-angle.svg             / .png
-  docs/images/guide-aiming.svg                   / .png
+Output (written to both locations):
+  public_html/src/images/guide-cosign-angle.svg / .jpg
+  public_html/src/images/guide-aiming.svg       / .jpg
+  docs/images/guide-cosign-angle.svg            / .jpg
+  docs/images/guide-aiming.svg                  / .jpg
 """
 
+import io
 import math
+import shutil
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 IMG_DIRS = [REPO / "public_html" / "src" / "images", REPO / "docs" / "images"]
 
-# ── Shared ────────────────────────────────────────────────────────────
+# ── Shared palette ────────────────────────────────────────────────────
 LABEL_FILL = "white"
 LABEL_STROKE = "rgba(0,0,0,0.6)"
 FONT = "system-ui, -apple-system, sans-serif"
 
-# UI navbar green — hex #047857 (Tailwind emerald-700)
+# UI navbar green — Tailwind emerald-700 #047857
 COSIGN_FILL = "rgba(4,120,87,0.75)"
 COSIGN_STROKE = "rgba(4,120,87,0.92)"
 
-# Deep orange for aiming beam
-AIMING_FILL = "rgba(230,81,0,0.85)"  # deep-orange-900 tint
-AIMING_STROKE = "rgba(230,81,0,0.95)"
-AIMING_CHEVRON = "rgba(255,138,0,0.90)"  # deep-orange-A200 — orange chevrons
-AIMING_ARROW = "rgba(255,204,128,1)"  # deep-orange-100 — very light orange arrow
+# Deep orange — Material deep-orange palette
+AIMING_FILL = "rgba(230,81,0,0.85)"  # 900 tint
+AIMING_STROKE = "rgba(230,81,0,0.95)"  # 900
+AIMING_CHEVRON = "rgba(255,138,0,0.90)"  # A200
+AIMING_ARROW = "rgba(255,204,128,1)"  # 100 — very light orange
 
 
 # ── Geometry helpers ──────────────────────────────────────────────────
 
 
-def _dir(heading_deg):
-    """Unit vector (dx, dy) for heading_deg clockwise from image-up."""
-    r = math.radians(heading_deg)
-    return (math.sin(r), -math.cos(r))
+def _dir(deg):
+    """Unit vector (dx, dy) for heading `deg` clockwise from image-up."""
+    r = math.radians(deg)
+    return math.sin(r), -math.cos(r)
 
 
-def _pt(origin, heading_deg, dist):
-    """Point at dist pixels from origin along heading_deg."""
-    dx, dy = _dir(heading_deg)
-    return (origin[0] + dx * dist, origin[1] + dy * dist)
+def _pt(origin, deg, dist):
+    """Point `dist` pixels from `origin` along heading `deg`."""
+    dx, dy = _dir(deg)
+    return origin[0] + dx * dist, origin[1] + dy * dist
 
 
-def _pct(pct_x, pct_y, w, h):
-    """Percentage position → pixel coords."""
-    return (pct_x / 100.0 * w, pct_y / 100.0 * h)
+def _pct_xy(px, py, w, h):
+    """Percentage (px%, py%) -> pixel coords for an image of size w x h."""
+    return px / 100 * w, py / 100 * h
 
 
-def _pct_len(pct, ref):
-    """Percentage length → pixels."""
-    return pct / 100.0 * ref
+def _pct(pct, ref):
+    """Percentage of `ref` dimension -> pixels."""
+    return pct / 100 * ref
 
 
-# ═════════════════════════════════════════════════════════════════════
-# COSIGN-ANGLE IMAGE
-# Shows: green beam cone, white leg lines extending to tips, arc
-# connecting the two tips (radius = beam length), dashed extension
-# lines from each tip, small angle arc + label at apex,
-# direction-of-travel T marker.
-# ═════════════════════════════════════════════════════════════════════
+# =====================================================================
+# COSIGN-ANGLE
+# =====================================================================
 
 COSIGN_CFG = {
     "jpeg": "guide_angel_RAW.jpeg",
     "w": 1200,
     "h": 900,
-    # ── Beam cone ──
-    "apex_x_pct": 43.50,  # sensor tube opening — % of width
+    # Beam cone — lengths as % of image height unless noted
+    "apex_x_pct": 43.50,  # % of width
     "apex_y_pct": 73.1,  # % of height
-    "beam_heading_deg": 11,  # clockwise from image-up (1° CW nudge from v1)
-    "beam_half_angle_deg": 10.5,  # half of 21° cone
-    "beam_length_pct": 38,  # % of height
-    # ── Angle arc ──
-    "arc_radius_pct": 10,  # small decorative arc near apex — % of height
-    "label_offset_pct": 12,  # label offset beyond arc — % of height
+    "beam_heading_deg": 11,  # clockwise from image-up
+    "beam_half_angle_deg": 10.5,  # half of full 21 deg cone
+    "beam_length_pct": 38,  # % of height — also used as arc radius
+    # Angle label arc (small, decorative, near apex)
+    "arc_radius_pct": 10,  # % of height
+    "label_offset_pct": 12,  # extra offset beyond arc — % of height
     "label_font_size": 32,
-    # ── Leg extension lines (dashed, past each tip) ──
-    "ext_frac": 0.20,  # extend by this fraction of beam length
-    # ── Direction-of-travel T marker ──
-    "t_bar_half_pct": 12.0,  # half-length of horizontal bar — % of width
-    "t_stem_pct": 10.0,  # stem along left leg — % of height
+    # Dashed extensions past each tip
+    "ext_frac": 0.20,  # fraction of beam_length
+    # Direction-of-travel T marker
+    "t_bar_half_pct": 12.0,  # half bar length — % of width
+    "t_stem_pct": 10.0,  # stem length along left leg — % of height
     "t_label_text": "direction of travel →",
     "t_label_font_size": 34,
-    "t_label_dy": 44,  # pixels below bar
+    "t_label_dy": 44,  # pixels below bar baseline
 }
 
 
 def _cosign_angle_svg():
     c = COSIGN_CFG
     W, H = c["w"], c["h"]
-    ax, ay = _pct(c["apex_x_pct"], c["apex_y_pct"], W, H)
-    h = c["beam_heading_deg"]
+    ax, ay = _pct_xy(c["apex_x_pct"], c["apex_y_pct"], W, H)
+    hdg = c["beam_heading_deg"]
     ha = c["beam_half_angle_deg"]
-    length = _pct_len(c["beam_length_pct"], H)
+    blen = _pct(c["beam_length_pct"], H)
 
-    # Cone tips
-    left = _pt((ax, ay), h - ha, length)
-    right = _pt((ax, ay), h + ha, length)
+    left = _pt((ax, ay), hdg - ha, blen)
+    right = _pt((ax, ay), hdg + ha, blen)
 
-    # Small decorative arc near apex
-    arc_r = _pct_len(c["arc_radius_pct"], H)
-    arc_left = _pt((ax, ay), h - ha, arc_r)
-    arc_right = _pt((ax, ay), h + ha, arc_r)
-    label_r = arc_r + _pct_len(c["label_offset_pct"], H)
-    lbl = _pt((ax, ay), h, label_r)
+    arc_r = _pct(c["arc_radius_pct"], H)
+    arc_left = _pt((ax, ay), hdg - ha, arc_r)
+    arc_right = _pt((ax, ay), hdg + ha, arc_r)
+    lbl = _pt((ax, ay), hdg, arc_r + _pct(c["label_offset_pct"], H))
 
-    # ── Dashed extension lines from each tip ──
-    ext = length * c["ext_frac"]
-    ext_left_end = (left[0], left[1] - ext)  # straight up from left tip
-    ext_right_end = _pt(right, h + ha, ext)  # along right leg heading
+    ext = blen * c["ext_frac"]
+    ext_left_end = (left[0], left[1] - ext)
+    ext_right_end = _pt(right, hdg + ha, ext)
 
-    # ── Direction-of-travel T ──
-    bar_half = _pct_len(c["t_bar_half_pct"], W)
-    stem_len = _pct_len(c["t_stem_pct"], H)
+    bar_half = _pct(c["t_bar_half_pct"], W)
+    stem_end = _pt((ax, ay), hdg - ha, _pct(c["t_stem_pct"], H))
     bl = (ax - bar_half, ay)
     br = (ax + bar_half, ay)
-    stem_end = _pt((ax, ay), h - ha, stem_len)
 
-    # Right-angle marker
     sq = 10
-    sdx, sdy = _dir(h - ha)
-    bdx, bdy = 1.0, 0.0
-    sq_corner = (ax + bdx * sq, ay + sdy * sq)
-
+    sdx, sdy = _dir(hdg - ha)
+    sq_corner = (ax + sq, ay + sdy * sq)
     label_y = ay + c["t_label_dy"]
 
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="{W}" height="{H}"
-     viewBox="0 0 {W} {H}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="{W}" height="{H}" viewBox="0 0 {W} {H}">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Beam cone — circular segment: two straight legs + arc top edge -->
+  <!-- Beam: circular segment (two straight legs + arc top) -->
   <path d="M {ax:.1f},{ay:.1f}
            L {left[0]:.1f},{left[1]:.1f}
-           A {length:.1f},{length:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f}
-           Z"
-    fill="{COSIGN_FILL}" stroke="{COSIGN_STROKE}"
-    stroke-width="2.5" stroke-linejoin="round"/>
+           A {blen:.1f},{blen:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f} Z"
+        fill="{COSIGN_FILL}" stroke="{COSIGN_STROKE}"
+        stroke-width="2.5" stroke-linejoin="round"/>
 
-  <!-- Cone leg lines — white, apex to each tip -->
-  <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{left[0]:.1f}" y2="{left[1]:.1f}"
+  <!-- Leg lines (white, drawn over fill) -->
+  <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{left[0]:.1f}"  y2="{left[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
   <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{right[0]:.1f}" y2="{right[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
 
-  <!-- Top arc — drawn again on top so it sits over the fill stroke -->
+  <!-- Arc top (white, drawn over fill stroke) -->
   <path d="M {left[0]:.1f},{left[1]:.1f}
-           A {length:.1f},{length:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f}"
+           A {blen:.1f},{blen:.1f} 0 0,1 {right[0]:.1f},{right[1]:.1f}"
         fill="none" stroke="{LABEL_FILL}" stroke-width="2.0" opacity="0.85"/>
 
-  <!-- Dashed extension lines past each tip -->
-  <line x1="{left[0]:.1f}" y1="{left[1]:.1f}"
-        x2="{ext_left_end[0]:.1f}" y2="{ext_left_end[1]:.1f}"
-        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75"
-        stroke-dasharray="10,6"/>
+  <!-- Dashed extensions past each tip -->
+  <line x1="{left[0]:.1f}"  y1="{left[1]:.1f}"
+        x2="{ext_left_end[0]:.1f}"  y2="{ext_left_end[1]:.1f}"
+        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75" stroke-dasharray="10,6"/>
   <line x1="{right[0]:.1f}" y1="{right[1]:.1f}"
         x2="{ext_right_end[0]:.1f}" y2="{ext_right_end[1]:.1f}"
-        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75"
-        stroke-dasharray="10,6"/>
+        stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.75" stroke-dasharray="10,6"/>
 
-  <!-- Small decorative angle arc near apex -->
+  <!-- Decorative angle arc near apex -->
   <path d="M {arc_left[0]:.1f},{arc_left[1]:.1f}
            A {arc_r:.1f},{arc_r:.1f} 0 0,1 {arc_right[0]:.1f},{arc_right[1]:.1f}"
         fill="none" stroke="{LABEL_FILL}" stroke-width="2" opacity="0.9"/>
@@ -187,7 +172,7 @@ def _cosign_angle_svg():
         fill="{LABEL_FILL}" font-size="{c['label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="central"
         paint-order="stroke" stroke="{LABEL_STROKE}" stroke-width="3">
-    {ha * 2:.0f}°
+    {ha * 2:.0f}
   </text>
 
   <!-- Direction-of-travel T -->
@@ -195,11 +180,10 @@ def _cosign_angle_svg():
         stroke="{LABEL_FILL}" stroke-width="2.5" opacity="0.9"/>
   <line x1="{ax:.1f}" y1="{ay:.1f}" x2="{stem_end[0]:.1f}" y2="{stem_end[1]:.1f}"
         stroke="{LABEL_FILL}" stroke-width="2.5" opacity="0.9"/>
-  <polyline
-    points="{ax + bdx * sq:.1f},{ay + bdy * sq:.1f} {sq_corner[0]:.1f},{sq_corner[1]:.1f} {ax + sdx * sq:.1f},{ay + sdy * sq:.1f}"
-    fill="none" stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"/>
+  <polyline points="{ax + sq:.1f},{ay:.1f} {sq_corner[0]:.1f},{sq_corner[1]:.1f} {ax + sdx * sq:.1f},{ay + sdy * sq:.1f}"
+            fill="none" stroke="{LABEL_FILL}" stroke-width="1.5" opacity="0.7"/>
 
-  <!-- "direction of travel" label -->
+  <!-- Direction label -->
   <text x="{ax:.1f}" y="{label_y:.1f}"
         fill="{LABEL_FILL}" font-size="{c['t_label_font_size']}" font-weight="bold"
         font-family="{FONT}" text-anchor="middle" dominant-baseline="hanging"
@@ -210,247 +194,217 @@ def _cosign_angle_svg():
 """
 
 
-# ═════════════════════════════════════════════════════════════════════
-# AIMING IMAGE
-# Shows: wide truncated triangle with straight arms and curved far edge,
-# curved chevrons, white direction arrow.  Displayed 90° CW rotated.
-# ═════════════════════════════════════════════════════════════════════
+# =====================================================================
+# AIMING
+# Portrait image (1038x1384). Sensor (white box) at bottom-centre;
+# beam fires straight up (heading 0 = image-up).
+# =====================================================================
 
 AIMING_CFG = {
     "jpeg": "guide-aim-sutro_raw.jpg",
     "w": 1038,
     "h": 1384,
-    # ── Beam cone ──
-    # Image is portrait (1038×1384).  We display it 90° CCW so the road runs
-    # left-right.  In original portrait coords the sensor (white box) sits near
-    # the bottom-centre and the beam fires upward (heading 0° = image-up).
-    "apex_x_pct": 52.0,  # sensor centre — % of original width
-    "apex_y_pct": 91.5,  # sensor centre — % of original height
-    "beam_heading_deg": 0,  # up in portrait = left (away) after CCW rotation
-    "beam_half_angle_deg": 18.0,  # wide cone (36° total)
-    "beam_length_pct": 25,  # % of original height — half the scene height
-    # ── Truncation ──
-    "trunc_frac": 0.16,  # small cut at sensor end
-    # ── Far-edge bow ──
+    # Beam cone
+    "apex_x_pct": 52.0,  # sensor centre — % of width
+    "apex_y_pct": 91.5,  # sensor centre — % of height
+    "beam_heading_deg": 0,  # straight up (image-up)
+    "beam_half_angle_deg": 18.0,  # half of 36 deg cone
+    "beam_length_pct": 25,  # % of height
+    # Near edge: truncation point and flare angle.
+    # near edge sits at trunc_frac * beam_length from apex.
+    # near_half_angle_deg must be > beam_half_angle_deg to show the flared mouth.
+    # chevron_start_pct must be > trunc_frac*100 (enforced at runtime).
+    "trunc_frac": 0.16,  # fraction of beam_length
+    "near_half_angle_deg": 50.0,  # wider than beam_half_angle_deg (18)
+    # Far edge bow (Bezier bulge as fraction of far-edge length)
     "curve_bulge": 0.18,
-    # ── Chevrons ──
-    # Each chevron spans the cone width at its distance MINUS a constant margin
-    # on each side, so the gap between chevron tip and cone edge stays uniform.
+    # Chevrons: each arc inset by a constant pixel margin from the cone walls,
+    # so the gap is uniform regardless of distance.
     "chevron_count": 5,
-    "chevron_start_pct": 10,  # first chevron at this % of beam length
-    "chevron_end_pct": 88,  # last chevron at this %
-    "chevron_margin_pct": 1.8,  # constant gap each side — % of original height
-    # ── Near edge ──
-    "near_half_angle_deg": 50.0,  # flared base at sensor mouth
-    # ── Direction arrow ──
-    "arrow_head_size_pct": 4,
-    "arrow_head_angle": 64,
-    "arrow_end_frac": 0.85,
+    "chevron_start_pct": 20,  # % of beam_length (must be > trunc_frac*100)
+    "chevron_end_pct": 88,  # % of beam_length
+    "chevron_margin_pct": 1.8,  # constant inset each side — % of height
+    # Direction arrow
+    "arrow_end_frac": 0.85,  # fraction of beam_length to arrowhead tip
+    "arrow_head_size_pct": 4,  # arrowhead leg length — % of height
+    "arrow_head_angle": 64,  # half-angle of arrowhead (wide/flat)
 }
 
 
 def _aiming_svg():
     c = AIMING_CFG
     W, H = c["w"], c["h"]
-    ax, ay = _pct(c["apex_x_pct"], c["apex_y_pct"], W, H)
-    h = c["beam_heading_deg"]
+    ax, ay = _pct_xy(c["apex_x_pct"], c["apex_y_pct"], W, H)
+    hdg = c["beam_heading_deg"]
     ha = c["beam_half_angle_deg"]
-    length = _pct_len(c["beam_length_pct"], H)
-    trunc = c["trunc_frac"]
-    bulge = c["curve_bulge"]
+    blen = _pct(c["beam_length_pct"], H)
 
-    # ── Four corners of the trapezoid ──
-    # Far corners follow beam_half_angle; near corners use the wider
-    # near_half_angle so the base of the beam flares out from the sensor.
+    assert (
+        c["chevron_start_pct"] > c["trunc_frac"] * 100
+    ), "chevron_start_pct must exceed trunc_frac*100 or chevrons fall in the cut zone"
+
+    near_dist = blen * c["trunc_frac"]
     near_ha = c["near_half_angle_deg"]
-    near_dist = length * trunc
-    left_far = _pt((ax, ay), h - ha, length)
-    right_far = _pt((ax, ay), h + ha, length)
-    near_left = _pt((ax, ay), h - near_ha, near_dist)
-    near_right = _pt((ax, ay), h + near_ha, near_dist)
 
-    # ── Curved far edge (only this edge bows; arms are straight) ──
-    far_mid = (
-        (left_far[0] + right_far[0]) / 2,
-        (left_far[1] + right_far[1]) / 2,
-    )
-    far_edge_len = math.hypot(right_far[0] - left_far[0], right_far[1] - left_far[1])
-    fdx, fdy = _dir(h)  # forward unit vector (outward from sensor)
+    left_far = _pt((ax, ay), hdg - ha, blen)
+    right_far = _pt((ax, ay), hdg + ha, blen)
+    near_left = _pt((ax, ay), hdg - near_ha, near_dist)
+    near_right = _pt((ax, ay), hdg + near_ha, near_dist)
+
+    fdx, fdy = _dir(hdg)
+    far_mid = ((left_far[0] + right_far[0]) / 2, (left_far[1] + right_far[1]) / 2)
+    far_len = math.hypot(right_far[0] - left_far[0], right_far[1] - left_far[1])
     ctrl_far = (
-        far_mid[0] + fdx * far_edge_len * bulge,
-        far_mid[1] + fdy * far_edge_len * bulge,
+        far_mid[0] + fdx * far_len * c["curve_bulge"],
+        far_mid[1] + fdy * far_len * c["curve_bulge"],
     )
 
-    # Path: near_left → (straight arm) → left_far
-    #       → (curved far edge Q) → right_far
-    #       → (straight arm) → near_right → Z
     path_d = (
         f"M {near_left[0]:.1f},{near_left[1]:.1f} "
         f"L {left_far[0]:.1f},{left_far[1]:.1f} "
-        f"Q {ctrl_far[0]:.1f},{ctrl_far[1]:.1f} "
-        f"{right_far[0]:.1f},{right_far[1]:.1f} "
-        f"L {near_right[0]:.1f},{near_right[1]:.1f} "
-        f"Z"
+        f"Q {ctrl_far[0]:.1f},{ctrl_far[1]:.1f} {right_far[0]:.1f},{right_far[1]:.1f} "
+        f"L {near_right[0]:.1f},{near_right[1]:.1f} Z"
     )
 
-    # ── Chevrons — constant margin from cone edge at each distance ──
-    # half-width = cone half-width at dist minus a fixed pixel margin,
-    # so the gap between chevron end and cone side stays the same everywhere.
+    margin = _pct(c["chevron_margin_pct"], H)
     n = c["chevron_count"]
-    cs = c["chevron_start_pct"] / 100.0
-    ce = c["chevron_end_pct"] / 100.0
-    margin = _pct_len(c["chevron_margin_pct"], H)  # constant pixel gap each side
+    cs = c["chevron_start_pct"] / 100
+    ce = c["chevron_end_pct"] / 100
     chevrons = []
     for i in range(n):
         t = cs + (ce - cs) * i / max(n - 1, 1)
-        dist = length * t
-        tip = _pt((ax, ay), h, dist)
-        cone_half_w = dist * math.tan(math.radians(ha))
-        half_w = max(0.0, cone_half_w - margin)
-        cl = _pt(tip, h + 90, half_w)
-        cr = _pt(tip, h - 90, half_w)
+        dist = blen * t
+        tip = _pt((ax, ay), hdg, dist)
+        half_w = max(0.0, dist * math.tan(math.radians(ha)) - margin)
+        cl = _pt(tip, hdg + 90, half_w)
+        cr = _pt(tip, hdg - 90, half_w)
         chev_len = math.hypot(cr[0] - cl[0], cr[1] - cl[1])
         ctrl_chev = (
-            tip[0] + fdx * chev_len * bulge,
-            tip[1] + fdy * chev_len * bulge,
+            tip[0] + fdx * chev_len * c["curve_bulge"],
+            tip[1] + fdy * chev_len * c["curve_bulge"],
         )
         chevrons.append(
             f'  <path d="M {cl[0]:.1f},{cl[1]:.1f} '
             f'Q {ctrl_chev[0]:.1f},{ctrl_chev[1]:.1f} {cr[0]:.1f},{cr[1]:.1f}"'
-            f'\n        fill="none" stroke="{AIMING_CHEVRON}"'
+            f' fill="none" stroke="{AIMING_CHEVRON}"'
             f' stroke-width="4.5" stroke-linecap="round"/>'
         )
     chevron_str = "\n".join(chevrons)
 
-    # ── Direction arrow along centreline ──
-    arrow_start = _pt((ax, ay), h, length * trunc)
-    arrow_end = _pt((ax, ay), h, length * c["arrow_end_frac"])
-    ahs = _pct_len(c["arrow_head_size_pct"], H)
+    arrow_start = _pt((ax, ay), hdg, near_dist)
+    arrow_end = _pt((ax, ay), hdg, blen * c["arrow_end_frac"])
+    ahs = _pct(c["arrow_head_size_pct"], H)
     aha = c["arrow_head_angle"]
-    ah_l = _pt(arrow_end, h + 180 - aha, ahs)
-    ah_r = _pt(arrow_end, h + 180 + aha, ahs)
+    ah_l = _pt(arrow_end, hdg + 180 - aha, ahs)
+    ah_r = _pt(arrow_end, hdg + 180 + aha, ahs)
 
-    # No display rotation — image is portrait, radar points up.
     return f"""\
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="{W}" height="{H}"
-     viewBox="0 0 {W} {H}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="{W}" height="{H}" viewBox="0 0 {W} {H}">
   <image href="{c['jpeg']}" width="{W}" height="{H}"/>
 
-  <!-- Aiming beam — wide truncated triangle, curved far edge, deep orange -->
+  <!-- Aiming beam — truncated triangle, curved far edge -->
   <path d="{path_d}"
         fill="{AIMING_FILL}" stroke="{AIMING_STROKE}"
         stroke-width="5.0" stroke-linejoin="round"/>
 
-  <!-- Curved chevrons -->
+  <!-- Chevrons (margin-inset, curved) -->
 {chevron_str}
 
-  <!-- Direction arrow (near edge → 78% of beam length) -->
+  <!-- Direction arrow -->
   <line x1="{arrow_start[0]:.1f}" y1="{arrow_start[1]:.1f}"
-        x2="{arrow_end[0]:.1f}" y2="{arrow_end[1]:.1f}"
+        x2="{arrow_end[0]:.1f}"   y2="{arrow_end[1]:.1f}"
         stroke="{AIMING_ARROW}" stroke-width="5.5" stroke-linecap="round"/>
-  <polyline
-    points="{ah_l[0]:.1f},{ah_l[1]:.1f} {arrow_end[0]:.1f},{arrow_end[1]:.1f} {ah_r[0]:.1f},{ah_r[1]:.1f}"
-    fill="none" stroke="{AIMING_ARROW}" stroke-width="5.5"
-    stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="{ah_l[0]:.1f},{ah_l[1]:.1f} {arrow_end[0]:.1f},{arrow_end[1]:.1f} {ah_r[0]:.1f},{ah_r[1]:.1f}"
+            fill="none" stroke="{AIMING_ARROW}" stroke-width="5.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 """
 
 
-# ── Main ──────────────────────────────────────────────────────────────
+# ── Output manifest ───────────────────────────────────────────────────
 
-# Output file stems — new names replacing the old angel/sutro names
 OUTPUTS = [
     ("guide-cosign-angle", _cosign_angle_svg),
     ("guide-aiming", _aiming_svg),
 ]
 
 
-def main():
-    import shutil
-    import subprocess
+# ── Main ──────────────────────────────────────────────────────────────
 
+
+def main():
     svgs = [(stem, fn()) for stem, fn in OUTPUTS]
 
-    # ── Step 1: write SVGs ────────────────────────────────────────────
+    # Step 1 — write SVGs
     for img_dir in IMG_DIRS:
         for stem, svg in svgs:
             out = img_dir / f"{stem}.svg"
             out.write_text(svg)
-            print(f"  ✓ {out.relative_to(REPO)}")
+            print(f"  OK {out.relative_to(REPO)}")
 
-    # ── Step 2: rasterise SVG → intermediate PNG ─────────────────────
-    # rsvg-convert resolves relative <image href> from the SVG's directory.
+    # Step 2 — rasterise SVG -> intermediate PNG via rsvg-convert
     rsvg = shutil.which("rsvg-convert")
     if not rsvg:
-        print("  ⚠ rsvg-convert not found — skipping PNG/JPEG render")
-        print("    Install with: brew install librsvg")
+        print("  WARN rsvg-convert not found — skipping PNG/JPEG render")
+        print("    Install: brew install librsvg")
         return
 
     primary = IMG_DIRS[0]
-    tmp_pngs = {}  # stem → Path of intermediate PNG (primary dir only)
+    tmp_pngs = {}
     for stem, _ in OUTPUTS:
-        svg_path = primary / f"{stem}.svg"
-        png_path = primary / f"{stem}.png"
+        png = primary / f"{stem}.png"
         subprocess.run(
-            [rsvg, "-w", "1200", str(svg_path), "-o", str(png_path)],
+            [rsvg, "-w", "1200", str(primary / f"{stem}.svg"), "-o", str(png)],
             check=True,
         )
-        tmp_pngs[stem] = png_path
-        print(f"  ✓ {png_path.relative_to(REPO)}  (intermediate)")
+        tmp_pngs[stem] = png
+        print(f"  OK {png.relative_to(REPO)}  (intermediate)")
 
-    # ── Step 3: compress PNG → JPEG ≤ 1023 KB ────────────────────────
-    # Binary-search JPEG quality from 92 down to find the highest quality
-    # that stays under the 1023 KB threshold.
+    # Step 3 — compress PNG -> JPEG <= 1023 KB (binary-search on quality)
     try:
         from PIL import Image
     except ImportError:
-        print("  ⚠ Pillow not found — skipping JPEG compression")
-        print("    Install with: pip install Pillow")
+        print("  WARN Pillow not found — skipping JPEG compression")
+        print("    Install: pip install Pillow")
         return
 
-    LIMIT_BYTES = 1023 * 1024
+    LIMIT = 1023 * 1024
 
-    for stem, png_path in tmp_pngs.items():
-        img = Image.open(png_path).convert("RGB")
-        lo, hi = 50, 92
-        best_data = None
-        best_q = lo
-        import io
-
+    for stem, png in tmp_pngs.items():
+        img = Image.open(png).convert("RGB")
+        lo, hi, best_data, best_q = 50, 92, None, 50
         while lo <= hi:
             mid = (lo + hi) // 2
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=mid, optimize=True)
             data = buf.getvalue()
-            if len(data) <= LIMIT_BYTES:
+            if len(data) <= LIMIT:
                 best_data, best_q = data, mid
                 lo = mid + 1
             else:
                 hi = mid - 1
-
         if best_data is None:
-            # Even q=50 is over limit — save at 50 and warn
             buf = io.BytesIO()
             img.save(buf, format="JPEG", quality=50, optimize=True)
             best_data, best_q = buf.getvalue(), 50
-            kb = len(best_data) / 1024
-            print(f"  ⚠ {stem}.jpg  {kb:.0f} KB at q=50 — still over 1023 KB limit")
+            print(
+                f"  WARN {stem}.jpg still over limit at q=50 ({len(best_data)//1024} KB)"
+            )
 
         for img_dir in IMG_DIRS:
-            jpg_path = img_dir / f"{stem}.jpg"
-            jpg_path.write_bytes(best_data)
-            kb = len(best_data) / 1024
-            print(f"  ✓ {jpg_path.relative_to(REPO)}  ({kb:.0f} KB, q={best_q})")
+            jpg = img_dir / f"{stem}.jpg"
+            jpg.write_bytes(best_data)
+            print(
+                f"  OK {jpg.relative_to(REPO)}  ({len(best_data)//1024} KB, q={best_q})"
+            )
 
-        # Remove intermediate PNG — it's a build artefact, not the final output
         for img_dir in IMG_DIRS:
             p = img_dir / f"{stem}.png"
             if p.exists():
                 p.unlink()
-                print(f"  ✗ {p.relative_to(REPO)}  (intermediate removed)")
+                print(f"  RM {p.relative_to(REPO)}  (intermediate)")
 
 
 if __name__ == "__main__":
