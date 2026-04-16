@@ -18,9 +18,9 @@ tags: [hardware, raspberry-pi, infrastructure, traffic-safety]
 
 ## Introduction
 
-Measuring vehicle speeds is the first step toward safer streets. Without data, the conversation stalls at "it feels fast" versus "the speed limit is fine."
+Safer streets start with measured speeds.
 
-This guide walks you through building a privacy-first traffic radar using a pre-built Raspberry Pi image and off-the-shelf Doppler technology. No cameras, no licence plates, no cloud accounts. The system starts collecting data the moment it boots.
+One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have a speed monitor logging every vehicle that passes, a live dashboard, and the beginnings of the dataset that goes to your next council meeting. No cameras, no licence plates, no cloud accounts: just local speed data on hardware you own.
 
 ## Before you begin
 
@@ -31,7 +31,7 @@ This guide walks you through building a privacy-first traffic radar using a pre-
 - Screwdrivers, drill, adhesive
 - Optional: multimeter for testing connections
 
-**No soldering required** 👩‍💻 **No coding required** 🛜 **No prior radar experience needed**
+**No soldering required** · **No coding required** · **No prior radar experience needed**
 
 ---
 
@@ -165,7 +165,7 @@ rpi-imager --repo https://velocity.report/rpi.json
 
 ![Screenshot of the Raspberry Pi Imager](/img/rpi-imager.png)
 
-1. **Select your Pi model** (Pi 4, Pi 400, or Pi 5)
+1. **Select your Pi model**
 2. **Select velocity.report** from the OS list
 3. **Choose your SD card** (32 GB high-endurance recommended)
 4. **Configure settings** before writing:
@@ -232,11 +232,11 @@ The Pi generates a self-signed TLS certificate on first boot. Your browser will 
 
 _Estimated time: 1–2 hours_
 
-The same hardware supports two deployment modes: a fixed mount at home, or a portable rig on your car roof rack. Pick whichever suits the situation — or build both and move the sensor to whichever street needs attention this month. That is what traffic engineers do, except they charge considerably more for the privilege.
+The same hardware supports two deployment modes: a fixed mount at home, or a portable rig on your car roof rack. Pick whichever suits the situation, or build both and move the sensor to whichever street needs attention this month.
 
 #### Deployment option A: home installation (permanent)
 
-A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that makes it difficult for a committee to claim the problem is temporary.
+A permanent mount on your property, aimed at the street. This is the one for long-term baselines: seasonal comparisons, before-and-after studies, and the kind of multi-month dataset that builds a compelling case over time.
 
 **Enclosure preparation**:
 
@@ -251,19 +251,25 @@ A permanent mount on your property, aimed at the street. This is the one for lon
 - Use two stainless steel hose clamps (top and bottom)
 - Choose a location with a clear line of sight to traffic
 
-![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
+![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
 
 **Aiming**:
 
 - **Angle**: as close to 0° (parallel with traffic flow) as practical. Lower angles produce more accurate speed measurements because they need less cosine correction. At 0°, the radar reads the full vehicle speed directly. At 30°, measured speeds are 86.6% of actual, and the correction amplifies measurement noise.
 - **Road coverage**: a 0° angle gives the best accuracy but the narrowest field of view. A slight angle (10–20°) lets the radar beam sweep across the full road width, capturing vehicles in all lanes. Choose the smallest angle whose field-of-view triangle fully encompasses the lanes you need to measure.
 - **Orientation**: face approaching or receding traffic (not perpendicular)
-- **Record your mounting angle**: you will enter this in the dashboard as the cosine error angle (Step 5). To measure it:
-  1. Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.
-  2. Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.
-  3. Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.
 
-![Aiming reference: sensor beam direction relative to traffic flow on Sutro Street](/img/guide-aim-sutro.png)
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed">
+<p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
+<p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5). To measure it:</p>
+<ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
+<li>Stand back from the sensor and take a photo looking straight down at the road surface, perpendicular to the kerb. Include both the sensor enclosure and the road in the frame. The kerb gives you a reliable reference line.</li>
+<li>Open the photo on a phone or computer. Draw one line along the kerb (this represents 90° to traffic flow) and a second line from the sensor along its beam direction.</li>
+<li>Measure the angle between the two lines and subtract from 90° to get the angle relative to traffic flow. A phone protractor app or any image annotation tool works.</li>
+</ol>
+</div>
+
+![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-angel.png)
 
 **Weatherproofing checklist**:
 
@@ -306,15 +312,15 @@ A portable rig that clamps to a standard roof rack. Park on any street, aim the 
 
 One hardware store trip. Prices from Lowe's (April 2026):
 
-| Part                                           | Lowes SF Location | Lowes Item #        | Unit Price | Qty |   Total |
-| ---------------------------------------------- | ----------------- | ------------------- | ---------: | --: | ------: |
-| 4in × 2ft SCH 40 ABS pipe                      | Aisle 6 - Bay 1   | #256096             |     $24.78 |   1 |  $24.78 |
-| 2in × 4in × 96in whitewood stud                |                   | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
-| 3 in to 5 in stainless steel adjustable clamp  |                   | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
-| 1-13/16 in to 3 in galvanised adjustable clamp |                   | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
-| 3 in × 0.75 in black steel corner brace 4-pack |                   | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
-| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) |                   | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
-| **Subtotal (roof rack mount)**                 |                   |                     |            |     | **$55** |
+| Part                                           | Item #              | Unit Price | Qty |   Total |
+| ---------------------------------------------- | ------------------- | ---------: | --: | ------: |
+| 4in × 2ft SCH 40 ABS pipe                      | #256096             |     $24.78 |   1 |  $24.78 |
+| 2in × 4in × 96in whitewood stud                | #26818 (#330568)    |      $3.85 |   1 |   $3.85 |
+| 3 in to 5 in stainless steel adjustable clamp  | #67004 (#143645)    |      $3.78 |   2 |   $7.56 |
+| 1-13/16 in to 3 in galvanised adjustable clamp | LTS 5276 (#5327202) |      $2.88 |   2 |   $5.76 |
+| 3 in × 0.75 in black steel corner brace 4-pack | #22504PK (#5217432) |      $5.48 |   1 |   $5.48 |
+| #8 × 1-1/8 in wood-to-wood deck screws (75-pk) | #42890 (#755725)    |      $7.98 |   1 |   $7.98 |
+| **Subtotal (roof rack mount)**                 |                     |            |     | **$55** |
 
 You will also need:
 
@@ -331,7 +337,7 @@ You will also need:
 
 2. **Assemble the T-frame.** Screw the upright to the centre of the crossbar so it stands vertical. Attach the two 45° braces (one on each side) from the crossbar to the upright using corner braces and deck screws. The braces carry the load; get them tight.
 
-3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright: 6 inches and 18 inches down from the top end of the upright. At each position, drill a pilot hole through both walls of the pipe and into the upright wood so the screw seats cleanly and the pipe cannot rotate.
+3. **Drill mounting holes in the pipe.** Mark two positions on the pipe where it will overlap the upright: 6 inches and 12 inches down from the top end of the upright. At each position, drill a pilot hole through both walls of the pipe and into the upright wood so the screw seats cleanly and the pipe cannot rotate.
 
 4. **Attach the PVC pipe to the upright** using the two 3–5 in stainless steel clamps. The pipe stands vertical, overlapping the top of the upright. Thread each clamp through its pilot holes and tighten.
 
@@ -386,7 +392,7 @@ The dashboard also supports **comparison reports** for measuring the effect of t
 
 ## Take your data to city hall
 
-Print the report. Bring it to the meeting. The data does the persuading, so let it.
+Print the report. Bring it to the meeting. The data does the persuading.
 
 Whether you are speaking at a city council session, a town board hearing, a parish council meeting, or submitting written comments to a transportation committee, the approach is the same: state the measured speed, explain what it means, and make clear that you intend to keep measuring.
 
@@ -425,13 +431,13 @@ Present the problem first, then name what might help:
 
 You do not need to prescribe the answer. Present the evidence, name the options, and ask what the council can commit to and when.
 
-### What to avoid
+### Presenting effectively
 
-- **Do not share raw database files.** The PDF is the presentation format.
-- **Do not identify drivers or vehicles.** The system collects no personal data, and neither should the presentation.
-- **Include site maps for public locations; leave your home address off.** When the sensor covers a school zone, a park, a commercial district, or a senior centre, the site map shows exactly where the problem is. If the sensor is mounted at your house, it's best to omit the map. Your data should make your street safer, not your house easier to find.
-- **Do not lead with how the speed feels.** Lead with the measured speed. A number is harder for a committee to talk past than an anecdote.
-- **Do not accept a one-off fix as a permanent answer.** A new speed hump slows traffic for weeks. The question is whether it still works in six months.
+- **Share the PDF, not the database.** The report is the presentation format; raw files invite misinterpretation.
+- **Keep it about speed, not about drivers.** The system collects no personal data, and neither should the presentation.
+- **Include site maps for public locations; leave your home address off.** When the sensor covers a school zone, a park, a commercial district, or a senior centre, the site map shows exactly where the problem is. If the sensor is mounted at your house, omit the map. Your data should make your street safer, not your house easier to find.
+- **Lead with the measured speed.** A number is harder for a committee to talk past than an anecdote.
+- **Keep measuring after the fix.** A new speed hump slows traffic for weeks. The question is whether it still works in six months.
 
 ### Why continuous monitoring matters
 
@@ -447,7 +453,7 @@ This is the difference between asking the council to act and being able to show 
 
 ### Building support
 
-Data is harder to dismiss when the room is full and the ask has been consistent for months.
+Data carries more weight when more people stand behind it. You do not need to be an organiser to build support; you just need to share what you have found.
 
 1. **Share with neighbours**: show the dashboard or hand out a printed report
 2. **Partner with local groups**: PTA, parent councils, neighbourhood associations, cycling and road safety campaigns
@@ -457,6 +463,8 @@ Data is harder to dismiss when the room is full and the ask has been consistent 
 6. **Follow up after every intervention**: generate a comparison report and bring it to the next meeting
 
 Policy changes often take multiple budget cycles. The community that keeps measuring is the one that gets heard.
+
+A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that holds up in a budget discussion.
 
 ---
 
@@ -597,8 +605,6 @@ USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 - Check the enclosure monthly for condensation
 - Clean the sensor window seasonally
 - Run `sudo velocity-ctl upgrade --check` periodically
-
-A week of data shows patterns. A month is compelling. Three months across different seasons is the kind of evidence that holds up in a budget discussion.
 
 ---
 
