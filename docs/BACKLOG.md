@@ -11,10 +11,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ## 05x Sunny southeast 🌞
 
-### v0.5.1 - Raspberry Pi image (051)
-
-- [#445] Setup guide refresh: update [public_html/src/guides/setup.md](../public_html/src/guides/setup.md) with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
-
 ### v0.5.2 - Housekeeping + cleanup (052)
 
 - PDF generation migration to Go: replace Python matplotlib/PyLaTeX with Go SVG charts + Go `text/template` LaTeX assembly; retain XeTeX for typesetting: [design doc](plans/pdf-go-chart-migration-plan.md) `L`
@@ -267,6 +263,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - [#436] (#210) Raspberry Pi image pipeline: test image on physical Raspberry Pi 4 hardware and produce first `.img.xz` release asset: [design doc](plans/deploy-rpi-imager-fork-plan.md) `XS`
 - [#436] PDF map quality parity with web: the SVG map stored in `site.map_svg_data` is rendered at a fixed 600×400 viewBox from Overpass API vector data, but the web UI shows raster tiles from OSM at zoom 15 with far more detail; raise SVG viewBox to 1200×800, increase road stroke widths proportionally, add Overpass queries for missing feature types (amenity labels, place names, POI markers), and match tile-layer detail at the configured zoom level; the marker overlay and SVG→PDF conversion path are already vector-clean: `S`
 - [#436] Stale localStorage date range: `reportSettings` persists absolute `dateRange.from`/`dateRange.to` ISO strings with no TTL; returning after days shows old dates; add freshness check or persist relative period instead of absolute timestamps: `S`
+- [#445] Setup guide refresh: update [public_html/src/guides/setup.md](../public_html/src/guides/setup.md) with current hardware photos, wiring diagrams, and step-by-step installation walkthrough; photograph mounted sensor enclosure, RPi board, and cabling; revise screenshots to reflect current web UI: `S`
 - [#447] Agent knowledge architecture (all phases): [../TENETS.md](../TENETS.md), [.github/knowledge/](../.github/knowledge) shared modules, condensed Copilot agent files, [CLAUDE.md](../CLAUDE.md), [.claude/agents/](../.claude/agents) (7 Claude-native personas), [.claude/skills/](../.claude/skills) (8 workflow slash commands), drift detection via `make check-agent-drift`: [design doc](plans/agent-claude-preparedness-review-plan.md) [ops doc](platform/operations/agent-preparedness.md)
 - [#457] Asset naming standardisation (Phases 1–6): versioned filenames for all publishable artefacts (Go binaries, velocity-ctl, RPi image, macOS DMG); Makefile variables, symlink compat, CI workflow updates, and docs; image MOTD displays version/build-time/SHA: [design doc](plans/asset-naming-plan.md) `M`
 - [#459] Documentation and data DRY audit (Groups 1–4): 14 gate violations fixed, 14 plans graduated to symlinks, visualiser-app subdirectory consolidated, PCAP ops docs unified, tailscale guide relocated, playback-speed doc moved, config cross-references added, warmup-trails-fix resolved, architecture review artefacts classified, 58 docs given narrative openings, link checker symlink resolution fixed, dead link checks moved to nightly CI, image build includes docs site: [design doc](plans/docs-data-dry-audit-plan.md)
