@@ -1,6 +1,6 @@
 ---
 layout: doc.njk
-title: Set Up Your Radar
+title: Setup your Radar
 description: Build a privacy-first traffic radar; 1x Pi, no cameras, no cloud, just local speed data PDFs
 section: guides
 difficulty: intermediate
@@ -76,23 +76,23 @@ The velocity.report Pi image includes everything pre-configured: flash one SD ca
      Purpose: lets the reader verify they have everything before starting
      Format: landscape, photograph, annotated with part names -->
 
-| Part                    | Part No.                                                                                                                                        | Price    | Notes                                          |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
-| Radar sensor            | [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                                                                      | $420     | IP67, 100 m range, RS232                       |
-| Sensor mounting bracket | [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                                                          | $50      | Metal bracket for OPS7243 enclosure            |
-| Sensor cable            | [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/)                                           | $17      | M12 to pigtail; connects sensor to serial HAT  |
-| Server                  | [Raspberry Pi 4 (2Gb)](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)                                                            | $55      | Also compatible with Pi 5                      |
-| PoE HAT (802.3af/at)    | [Waveshare PoE HAT (F) #26399](https://www.waveshare.com/poe-hat-f.htm)                                                                         | $20      | Powers the Pi + sensor over Ethernet           |
-| Serial HAT              | [Waveshare RS232 HAT #17498](https://www.waveshare.com/product/iot-communication/wired-comm-converter/rs232-rs485-can-dali2/2-ch-rs232-hat.htm) | $16      | RS232 interface for the sensor                 |
-| Serial connector        | [Adafruit DE-9](https://www.adafruit.com/product/3123)                                                                                          | $3       | Connects sensor cable to serial HAT            |
-| SD card                 | [SanDisk High Endurance (32 GB)](https://www.sandisk.com/products/memory-cards/microsd-cards/sandisk-high-endurance-uhs-i-microsd)              | $23      | High-endurance; designed for continuous writes |
-| **Core total**          |                                                                                                                                                 | **$604** |                                                |
-| ABS pipe (4in × 2ft)    | [Lowe's #256096](https://www.lowes.com/pd/Charlotte-Pipe-4-in-x-2-ft-ABS-DWV-Pipe/3415778)                                                      | $25      | Sensor mast                                    |
-| Timber stud (2×4, 8ft)  | [Lowe's #330568](https://www.lowes.com/pd/Unbranded-2-4-8-KD-DF-SELECT-STUD/5003667531)                                                         | $4       | Crossbar and upright                           |
-| Small hose clamps ×2    | [Lowe's #5327202](https://www.lowes.com/pd/RELIABILT-Indoor-Hook-up-and-Outdoor-Exhaust-Dryer-Vent-Kit/5014298699)                              | $6       | Clamp crossbar to roof rack bars               |
-| Corner braces (4-pack)  | [Lowe's #5217432](https://www.lowes.com/pd/RELIABILT-3-in-x-0-75-in-x-3-in-Gauge-Black-Steel-Corner-Brace-4-Pack/5013834841)                    | $5       | Brace the T-frame                              |
-| Deck screws (67-pack)   | [Lowe's #5333958](https://www.lowes.com/pd/Grip-Rite-8-x-1-5-8-in-Wood-To-Wood-Deck-Screws-67-Per-Box/5014220681)                               | $6       | Frame assembly                                 |
-| **Full total**          |                                                                                                                                                 | **$650** | Core + roof rack mount                         |
+| Part                                                                                                                                     | Price    | Notes                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
+| Radar sensor [OPS7243-A-CW-R2](https://omnipresense.com/product/31099/)                                                                  | $420     | IP67, 100 m range, RS232                       |
+| Sensor mounting bracket [OPS100-BK](https://omnipresense.com/product/mounting-bracket-all-weather-enclosures/)                           | $50      | Metal bracket for OPS7243 enclosure            |
+| Sensor cable [OPS700-CBL-M1-PT-1.8](https://omnipresense.com/product/rs-232-cable-with-m12-connector-for-ops7243/)                       | $17      | M12 to pigtail; connects sensor to serial HAT  |
+| [Raspberry Pi 4 (2 GB)](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)                                                    | $55      | Also compatible with Pi 5                      |
+| [Waveshare PoE HAT (F)](https://www.waveshare.com/poe-hat-f.htm)                                                                         | $20      | Powers the Pi + sensor over Ethernet           |
+| [Waveshare RS232 HAT](https://www.waveshare.com/product/iot-communication/wired-comm-converter/rs232-rs485-can-dali2/2-ch-rs232-hat.htm) | $16      | RS232 interface for the sensor                 |
+| [Adafruit DE-9 serial connector](https://www.adafruit.com/product/3123)                                                                  | $3       | Connects sensor cable to serial HAT            |
+| [SanDisk High Endurance 32 GB](https://www.sandisk.com/products/memory-cards/microsd-cards/sandisk-high-endurance-uhs-i-microsd)         | $23      | High-endurance; designed for continuous writes |
+| **Core total**                                                                                                                           | **$604** |                                                |
+| [ABS pipe, 4-in × 2-ft](https://www.lowes.com/pd/Charlotte-Pipe-4-in-x-2-ft-ABS-DWV-Pipe/3415778)                                        | $25      | Sensor mast                                    |
+| [Timber stud, 2×4 × 8-ft](https://www.lowes.com/pd/Unbranded-2-4-8-KD-DF-SELECT-STUD/5003667531)                                         | $4       | Crossbar and upright                           |
+| [Hose clamps ×2](https://www.lowes.com/pd/RELIABILT-Indoor-Hook-up-and-Outdoor-Exhaust-Dryer-Vent-Kit/5014298699)                        | $6       | Clamp crossbar to roof rack bars               |
+| [Corner braces, 4-pack](https://www.lowes.com/pd/RELIABILT-3-in-x-0-75-in-x-3-in-Gauge-Black-Steel-Corner-Brace-4-Pack/5013834841)       | $5       | Brace the T-frame                              |
+| [Deck screws, 67-pack](https://www.lowes.com/pd/Grip-Rite-8-x-1-5-8-in-Wood-To-Wood-Deck-Screws-67-Per-Box/5014220681)                   | $6       | Frame assembly                                 |
+| **Full total**                                                                                                                           | **$650** | Core + roof rack mount                         |
 
 Power is delivered over Ethernet via the PoE HAT. You will need a PoE-capable switch or injector on the network side. For mobile deployment you will also need a PoE battery pack or 12 V car outlet adapter, and a short Ethernet cable.
 
@@ -298,7 +298,7 @@ Once the sensor is mounted, aim it before collecting data. These guidelines appl
 
 ![Radar beam cone angle: top-down view showing sensor angle to direction of travel](/img/guide-cosign-angle.jpg)
 
-<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed max-w-[60%] mx-auto">
+<div class="not-prose gradient-border rounded-lg p-5 my-6 text-sm leading-relaxed w-full md:max-w-[60%] mx-auto">
 <p class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Recording your mounting angle</p>
 <p class="text-gray-600 dark:text-gray-300 mb-3">You will enter this in the dashboard as the cosine error angle (Step 5).</p>
 <ol class="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-300">
@@ -377,7 +377,21 @@ Then adapt to the situation:
 - **If it worked and then wore off**: "p85 dropped initially. [N] months later it has returned to [W] mph."
 - **If nothing has changed**: "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is the normal condition of this street."
 
-[![Clarendon Avenue SFMTA board presentation, January 2026](https://img.youtube.com/vi/ZTJOI5gYZM4/hqdefault.jpg)](https://www.youtube.com/watch?v=ZTJOI5gYZM4)
+<div class="not-prose my-6 w-full md:w-1/2 md:mx-auto">
+  <a href="https://www.youtube.com/watch?v=ZTJOI5gYZM4" target="_blank" rel="noopener noreferrer"
+     style="display:block;position:relative;overflow:hidden;padding-bottom:56.25%;height:0;border-radius:0.5rem;">
+    <img src="https://img.youtube.com/vi/ZTJOI5gYZM4/hqdefault.jpg"
+         alt="Clarendon Avenue SFMTA board presentation, January 2026"
+         style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;" />
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:8%;">
+      <div style="width:64px;height:64px;background:rgba(0,0,0,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="10,6 24,14 10,22" fill="white"/>
+        </svg>
+      </div>
+    </div>
+  </a>
+</div>
 
 In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue — a 25 mph school zone on San Francisco's high-injury network — to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
 
