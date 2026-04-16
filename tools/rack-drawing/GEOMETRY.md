@@ -76,28 +76,36 @@ millimetres at the top of each function using `INCH = 25.4`.
    bottom sits at `Z = W + UL − PIPE_OVERLAP` (default overlap 18 in).
 
 5. **Holes** — applied in `make_assembly` after the frame is assembled:
-   - `_drill_crossbar_clamp_holes`: vertical Cylinders through the crossbar.
-   - `_drill_upright_brace_holes`: horizontal Cylinders through the upright.
+   - `_drill_pipe_clamp_holes`: vertical Cylinders through the crossbar for roof-rack bolts.
+   - `_drill_brace_crossbar_holes` / `_drill_brace_upright_holes`: pilot holes through the brace faces.
+   - `_drill_lbracket_holes`: pilot holes for corner L-bracket screws at the T-joint.
 
 ### Hole specs (`rack.json → "holes"`)
 
 ```json
 "holes": {
   "crossbar_clamp": {
-    "dia_in": 0.375,     // 3/8" clearance for carriage bolt
-    "spacing_in": 14.0,  // ±7" from crossbar centre — match roof-rack bar spacing
+    "description": "Holes for roof-rack mounting bolts through crossbar (flat face), near each end",
+    "dia_in": 0.375,
+    "offsets_from_end_in": [3.0, 6.0],
+    "qty": 4
+  },
+  "upright_pipe_screw": {
+    "description": "Pilot holes through upright face to pin pipe to upright",
+    "dia_in": 0.1875,
+    "depths_from_top_in": [6.0, 12.0],
     "qty": 2
   },
-  "upright_brace_screw": {
-    "dia_in": 0.1875,               // 3/16" pilot
-    "height_above_crossbar_in": 2.0,// measured from top of crossbar
-    "qty": 2                        // one each side of upright
+  "brace_screw": {
+    "description": "Pilot holes through 45-degree brace face into crossbar and upright",
+    "dia_in": 0.1875,
+    "qty": 8
   }
 }
 ```
 
-If you need to adjust hole spacing for a different roof-rack carrier, change
-`crossbar_clamp.spacing_in` and re-run `make render-diagrams`.
+If you need to adjust hole positions for a different roof-rack carrier, change
+`crossbar_clamp.offsets_from_end_in` and re-run `make render-diagrams`.
 
 ---
 

@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import drawsvg as draw
@@ -175,7 +176,7 @@ def draw_title_block(d: draw.Drawing, cfg: dict, sheet_h: float = SHEET_H) -> No
             stroke_width=0.4,
         )
     )
-    cell("DATE", "2026-04-15", tb_x, r2_y, col_b, r2_h)
+    cell("DATE", date.today().isoformat(), tb_x, r2_y, col_b, r2_h)
     cell(
         "REV",
         f"Rev {cfg.get('revision', 'A')}",

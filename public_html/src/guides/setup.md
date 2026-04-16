@@ -377,9 +377,9 @@ Then adapt to the situation:
 - **If it worked and then wore off**: "p85 dropped initially. [N] months later it has returned to [W] mph."
 - **If nothing has changed**: "We have [N] weeks of continuous data. The p85 is [X] mph, consistently [Z] mph above the posted limit. This is the normal condition of this street."
 
-In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue — a 25 mph school zone on San Francisco's high-injury network — to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
-
 [![Clarendon Avenue SFMTA board presentation, January 2026](https://img.youtube.com/vi/ZTJOI5gYZM4/hqdefault.jpg)](https://www.youtube.com/watch?v=ZTJOI5gYZM4)
+
+In January 2026, a velocity.report user took 6,000 transits from Clarendon Avenue — a 25 mph school zone on San Francisco's high-injury network — to the SFMTA board. After repaving, median speed was up 8% to 33 mph and p85 up 5% to 39 mph. The ask: publish a before-and-after scoreboard for every project, and keep iterating until the speeds actually drop.
 
 ### What to suggest
 
