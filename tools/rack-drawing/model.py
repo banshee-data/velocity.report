@@ -46,8 +46,8 @@ def load_config(path: Path | None = None) -> dict:
 
 def lumber_box(width_in: float, depth_in: float, length_in: float) -> Part:
     """Plain rectangular lumber piece, long axis along Z."""
-    w, d, l = width_in * INCH, depth_in * INCH, length_in * INCH
-    return Box(w, d, l)
+    w, d, ln = width_in * INCH, depth_in * INCH, length_in * INCH
+    return Box(w, d, ln)
 
 
 # ── T-frame assembly ─────────────────────────────────────────────────────────
@@ -264,44 +264,36 @@ def _drill_brace_upright_holes(frame: Compound, cfg: dict) -> Compound:
 
 def _drill_lbracket_holes(frame: Compound, cfg: dict) -> Compound:
     """
-    Pilot holes for the two L-bracket screws at the upright/crossbar T-joint.
+    Pilot holes for the L-bracket screws at the upright/crossbar T-joint.
 
-    Two brackets, one against each ±Y wide face of the crossbar/upright.
-    Each bracket has:
-      - Two holes down into the crossbar top (along Z):
-          at Y = y_sign * (D/2 - inset), X = 0, centred in crossbar thickness
-          insets = [0.5, 1.5] from ±D/2 face
-      - Two holes through the upright wide face (along Y, into upright):
-          at Z = W + arm * {1/3, 2/3}, X = 0
-          These go all the way through — drilled once, serve both brackets.
+    One bracket each side (±X), centred on Y=0.  Each has:
+      - Two holes down into the crossbar top (Z), at X = ±(W/2 + arm*{0.28,0.72})
+      - Two holes through the upright narrow face (X), at Z = W + arm*{0.28,0.72}
     """
     lbr = cfg["lumber"]
-    W = lbr["actual_width_in"] * INCH  # 1.5" crossbar/upright narrow face
-    D = lbr["actual_depth_in"] * INCH  # 3.5" wide face
+    W = lbr["actual_width_in"] * INCH
     h_cfg = cfg["holes"]["corner_brace_screw"]
     r = h_cfg["dia_in"] * INCH / 2
     arm = h_cfg["arm_in"] * INCH
-    insets = h_cfg["crossbar_insets_from_face_in"]  # [0.5, 1.5] from ±D/2 face
 
-    crossbar_drill_len = W + 4  # through crossbar thickness (Z)
-    upright_drill_len = D + 4  # through upright depth (Y), full penetration
+    crossbar_drill_len = W + 4
+    upright_drill_len = W + 4
 
-    # Crossbar holes: two per bracket face (×2 faces = 4 total), vertical (Z)
-    for y_sign in (+1, -1):
-        for inset_in in insets:
-            inset = inset_in * INCH
-            hy = y_sign * (D / 2 - inset)
+    for x_sign in (+1, -1):
+        # Crossbar arm holes: vertical (Z)
+        for frac in (0.28, 0.72):
+            hx = x_sign * (W / 2 + arm * frac)
             hole = Cylinder(r, crossbar_drill_len)
-            hole = hole.move(Location((0, hy, W / 2)))
+            hole = hole.move(Location((hx, 0, W / 2)))
             frame = frame - hole
 
-    # Upright holes: two heights × full Y penetration (shared by both brackets)
-    for frac in (1 / 3, 2 / 3):
-        hz = W + arm * frac
-        hole = Cylinder(r, upright_drill_len)
-        hole = hole.rotate(Axis.X, 90)  # align along Y
-        hole = hole.move(Location((0, 0, hz)))
-        frame = frame - hole
+        # Upright arm holes: horizontal (X)
+        for frac in (0.28, 0.72):
+            hz = W + arm * frac
+            hole = Cylinder(r, upright_drill_len)
+            hole = hole.rotate(Axis.Y, 90)
+            hole = hole.move(Location((0, 0, hz)))
+            frame = frame - hole
 
     return frame
 
@@ -313,47 +305,38 @@ def make_lbrackets(cfg: dict) -> Compound:
     """
     Two steel L-brackets at the upright/crossbar T-joint.
 
-    Each bracket sits flat against one ±Y wide face of the crossbar/upright,
-    straddling the inside corner where the crossbar top meets the upright side.
+    One bracket on each side (±X) of the upright.  Each is a single thin plate
+    in the XZ plane, centred at Y=0, Wb wide in Y.
 
-    Coordinate layout (front bracket, y_sign = +1):
-      Bracket plate is in the XZ plane, at Y = +(D/2 + Tp/2)
-      Horizontal arm: arm(X) × Tp(Y) × Wb(Z)
-        Lies along the crossbar top, Y-face outward, X-span = [-arm/2 .. +arm/2]
-        Z centre = W + Wb/2  (sits on top of crossbar, Wb thick in Z)
-      Vertical arm: Wb(X) × Tp(Y) × arm(Z)
-        Stands up the upright face, X-span = [-Wb/2 .. +Wb/2], centred on X=0
-        Z centre = W + arm/2  (rises arm height above the crossbar top)
+    Horizontal arm: arm(X) × Wb(Y) × Tp(Z)  — lies flat on crossbar top face
+      X centre: x_sign*(W/2 + arm/2)
+      Z centre: W + Tp/2
 
-    Both arms share the same thin Y dimension (Tp = 3/32" plate thickness).
-    arm = 3" from rack.json corner_brace_screw.arm_in
-    Wb = 3/4" bracket width (plate width)
+    Vertical arm: Tp(X) × Wb(Y) × arm(Z)  — stands against upright narrow face
+      X centre: x_sign*(W/2 - Tp/2)  — flush with outside of upright face
+      Z centre: W + arm/2
+
+    arm=3", Tp=3/32" plate thickness, Wb=3/4" plate width.
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH
-    D = lbr["actual_depth_in"] * INCH
 
     h_cfg = cfg["holes"]["corner_brace_screw"]
     arm = h_cfg["arm_in"] * INCH
     Tp = 0.09375 * INCH  # 3/32" plate thickness
-    Wb = 0.75 * INCH  # 3/4" bracket width
+    Wb = 0.75 * INCH  # 3/4" bracket plate width
 
     brackets = []
 
-    for y_sign in (+1, -1):
-        # Bracket plate sits just outside the ±D/2 wide face
-        bkt_y = y_sign * (D / 2 + Tp / 2)
-
-        # Horizontal arm — arm(X) × Tp(Y) × Wb(Z), lies flat on crossbar top
-        # X centre = 0, Y = bkt_y, Z centre = W + Wb/2
-        horiz = Box(arm, Tp, Wb)
-        horiz = horiz.move(Location((0, bkt_y, W + Wb / 2)))
+    for x_sign in (+1, -1):
+        # Horizontal arm — flat on crossbar top (Z=W), extending outward in X
+        horiz = Box(arm, Wb, Tp)
+        horiz = horiz.move(Location((x_sign * (W / 2 + arm / 2), 0, W + Tp / 2)))
         brackets.append(horiz)
 
-        # Vertical arm — Wb(X) × Tp(Y) × arm(Z), stands against upright wide face
-        # X centre = 0, Y = bkt_y, Z centre = W + arm/2
-        vert = Box(Wb, Tp, arm)
-        vert = vert.move(Location((0, bkt_y, W + arm / 2)))
+        # Vertical arm — against upright narrow face, rising up in Z
+        vert = Box(Tp, Wb, arm)
+        vert = vert.move(Location((x_sign * (W / 2 - Tp / 2), 0, W + arm / 2)))
         brackets.append(vert)
 
     return Compound(children=brackets)
@@ -364,62 +347,61 @@ def make_lbrackets(cfg: dict) -> Compound:
 
 def make_crossbar_hose_clamps(cfg: dict) -> Compound:
     """
-    Two worm-drive hose clamp loops, one per end of the crossbar.
+    Two hose-clamp strap loops, one per end of the crossbar.
 
-    Each clamp band threads through the two holes (at 3" and 6" from the end)
-    and wraps around the crossbar from below, gripping the roof-rack bar.
+    Each strap threads DOWN through the inner hole (6" from end), runs under
+    the crossbar (and around the roof-rack bar below), then comes UP through
+    the outer hole (3" from end) and across the top face.
 
-    Modelled as a rectangular torus-like loop: a thin flat band that forms a
-    closed rectangle around the crossbar cross-section (D × W) plus a small
-    stand-off for the rack bar beneath.  Built from four thin Box segments.
+    The strap is modelled as a U-shaped loop in the XZ plane, with:
+      - A top segment running along X between the two holes (on the crossbar top)
+      - A bottom segment at the same X span, below the crossbar + rack gap
+      - Two vertical legs connecting top and bottom at each hole X position
 
-    The clamp is centred at X = ±(CB/2 − mid_offset) where mid_offset is the
-    midpoint between the two hole offsets (4.5" from end → X = ±11.5").
+    Holes are at X = ±(CB/2 - 3") and ±(CB/2 - 6") from centre.
+    band_t = strap thickness (thin flat band, ~2 mm wide).
+    band_w = strap width in Y (real clamp bands are ~1/2" wide).
     """
     lbr = cfg["lumber"]
     W = lbr["actual_width_in"] * INCH  # 1.5" crossbar thickness (Z)
-    D = lbr["actual_depth_in"] * INCH  # 3.5" crossbar depth (Y)
     CB = lbr["crossbar_length_in"] * INCH
 
-    offsets = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]
-    mid_offset = (offsets[0] + offsets[1]) / 2 * INCH  # midpoint between holes
+    offsets_in = cfg["holes"]["crossbar_clamp"]["offsets_from_end_in"]  # [3.0, 6.0]
+    x_inner = CB / 2 - offsets_in[1] * INCH  # 6" from end — inner hole
+    x_outer = CB / 2 - offsets_in[0] * INCH  # 3" from end — outer hole
+    span = x_outer - x_inner  # distance between the two holes
 
-    band_t = 1.5  # band thickness in mm (represents clamp band width ~1/16")
-    rack_gap = 6 * INCH / 10  # ~15 mm clearance for rack bar beneath crossbar
-
-    # Total loop height: crossbar thickness + rack_gap below + band_t above
-    loop_h = W + rack_gap
-    # Loop width: crossbar depth + two band thicknesses
-    loop_w = D + 2 * band_t
+    band_t = 2.0  # strap thickness in mm
+    band_w = 12.0  # strap width in Y (~1/2")
+    rack_gap = 15.0  # clearance below crossbar for rack bar (mm)
+    loop_h = W + rack_gap  # total vertical extent of the loop
 
     clamps = []
 
     for x_sign in (+1, -1):
-        cx = x_sign * (CB / 2 - mid_offset)
-        # Z centre of the loop: crossbar occupies Z=0..W; clamp wraps from
-        # slightly below (Z = -rack_gap) to slightly above (Z = W + band_t).
-        # Loop centre Z = (W + band_t - rack_gap) / 2
-        cz = (W + band_t - rack_gap) / 2
+        cx = x_sign * (x_inner + span / 2)  # X centre between the two holes
 
-        # Top segment (over crossbar top)
-        top = Box(band_t, loop_w, band_t)
+        # Top segment — runs along X between the two holes, on the crossbar top
+        top = Box(span, band_w, band_t)
         top = top.move(Location((cx, 0, W + band_t / 2)))
         clamps.append(top)
 
-        # Bottom segment (under crossbar, below rack bar gap)
-        bot = Box(band_t, loop_w, band_t)
+        # Bottom segment — runs along X at the same span, below the rack gap
+        bot = Box(span, band_w, band_t)
         bot = bot.move(Location((cx, 0, -rack_gap + band_t / 2)))
         clamps.append(bot)
 
-        # Front side segment (+Y)
-        front = Box(band_t, band_t, loop_h)
-        front = front.move(Location((cx, D / 2 + band_t / 2, cz)))
-        clamps.append(front)
+        # Inner leg (at 6" hole) — vertical, connects top to bottom
+        inner_x = x_sign * x_inner
+        leg_inner = Box(band_t, band_w, loop_h)
+        leg_inner = leg_inner.move(Location((inner_x, 0, (W - rack_gap) / 2)))
+        clamps.append(leg_inner)
 
-        # Back side segment (-Y)
-        back = Box(band_t, band_t, loop_h)
-        back = back.move(Location((cx, -D / 2 - band_t / 2, cz)))
-        clamps.append(back)
+        # Outer leg (at 3" hole) — vertical, connects top to bottom
+        outer_x = x_sign * x_outer
+        leg_outer = Box(band_t, band_w, loop_h)
+        leg_outer = leg_outer.move(Location((outer_x, 0, (W - rack_gap) / 2)))
+        clamps.append(leg_outer)
 
     return Compound(children=clamps)
 
@@ -455,7 +437,6 @@ def make_assembly(cfg: dict) -> Compound:
     W = lbr["actual_width_in"] * INCH
     UL = lbr["upright_length_in"] * INCH
     pipe_len = cfg["pipe"]["length_in"] * INCH
-    pipe_od = cfg["pipe"]["od_in"] * INCH / 2
 
     frame = make_frame(cfg)
 
