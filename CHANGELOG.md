@@ -58,15 +58,18 @@ The release where velocity.report learns to be understood by someone who did not
 - **Setup guide**: hardware photographs, wiring diagrams, step-by-step instructions (+4,273 lines).
 - **`STYLE.md`**: British English conventions, heading rules, and prose mechanics.
 - **Plan hygiene**: graduated 10 plans to symlinks, fixed 23 dead links, narrative openings on 58 hub docs, removed code blocks from 38 files. README refreshed with sample report and visualiser screenshots.
+- **Setup guide TLS**: removed CA certificate download instruction; replaced with browser-native exception steps. Tailscale reframed as recommended path for clean HTTPS via `*.ts.net`.
 
 ### Platform
 
 - **Standardised project voice**: rewrote ~250 error and status messages across Go, Python, and Svelte.
-- **CI**: `go-version-file`; fixed QEMU cross-compilation and tag-triggered asset builds; Vite worktree symlink.
+- **CI**: `go-version-file`; fixed QEMU cross-compilation and tag-triggered asset builds; Vite worktree symlink. All GitHub Actions `uses:` lines pinned to commit SHAs.
 
 ### Security
 
 - **Dependency updates** across Go, npm, and Python. Fixed dev-mode path traversal in Vite.
+- **`velocity-ctl upgrade` SHA verification**: fetches `SHA256SUMS` from the same GitHub release and verifies the downloaded binary before installation. Missing manifest warns and proceeds for older releases.
+- **GitHub Actions SHA pinning**: all `uses:` lines across 13 workflow files converted from version tags to immutable commit SHAs.
 
 ### Fixes
 
