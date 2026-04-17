@@ -339,3 +339,67 @@ jobs:
           git diff --cached --quiet || \
             git commit -m "[ci] update os-list-velocity.json for ${GITHUB_REF_NAME}"
           git push origin "HEAD:${{ github.event.repository.default_branch }}"
+
+  update-release-json:
+    name: Update release.json
+    if: github.event_name == 'push'
+    needs:
+      - release-linux-radar
+      - release-darwin-radar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Compute binary SHAs and update release.json
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          VERSION_NUM="${VERSION#v}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+
+          LINUX_URL="${BASE_URL}/velocity-report-${VERSION_NUM}-linux-arm64"
+          DARWIN_URL="${BASE_URL}/velocity-report-${VERSION_NUM}-darwin-arm64"
+
+          echo "Downloading Linux ARM64 binary..."
+          curl -L --fail -o linux-arm64 "$LINUX_URL"
+          LINUX_SHA=$(sha256sum linux-arm64 | awk '{print $1}')
+          echo "Linux ARM64 SHA256: $LINUX_SHA"
+          rm -f linux-arm64
+
+          echo "Downloading macOS ARM64 binary..."
+          curl -L --fail -o darwin-arm64 "$DARWIN_URL"
+          DARWIN_SHA=$(sha256sum darwin-arm64 | awk '{print $1}')
+          echo "macOS ARM64 SHA256: $DARWIN_SHA"
+          rm -f darwin-arm64
+
+          RELEASE_JSON="public_html/src/_data/release.json"
+
+          # Determine channel: tags containing "-" are prereleases.
+          if [[ "$VERSION_NUM" == *-* ]]; then
+            CHANNEL="prerelease"
+          else
+            CHANNEL="stable"
+          fi
+
+          echo "Updating ${CHANNEL} channel to ${VERSION_NUM}"
+
+          jq --arg version "$VERSION_NUM" \
+             --arg linux_sha "$LINUX_SHA" \
+             --arg darwin_sha "$DARWIN_SHA" \
+             --arg channel "$CHANNEL" \
+             '.[$channel].version = $version |
+              .[$channel].linux_arm64_sha256 = $linux_sha |
+              .[$channel].mac_arm64_sha256 = $darwin_sha' \
+            "$RELEASE_JSON" > "${RELEASE_JSON}.tmp"
+          mv "${RELEASE_JSON}.tmp" "$RELEASE_JSON"
+
+      - name: Commit updated release.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public_html/src/_data/release.json
+          git diff --cached --quiet || \
+            git commit -m "[ci] update release.json ${GITHUB_REF_NAME}"
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"

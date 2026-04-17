@@ -108,36 +108,47 @@ def check_entry(
 
 def entries_from_release_json(data: dict) -> list[dict]:
     """Extract downloadable entries from release.json."""
-    v = data["version"]
-    base = f"https://github.com/banshee-data/velocity.report/releases/download/v{v}"
-    entries = [
-        {
-            "label": f"Linux ARM64 server v{v}",
-            "url": f"{base}/velocity-report-{v}-linux-arm64",
-            "sha": data.get("linux_arm64_sha256"),
-            "size": None,
-        },
-        {
-            "label": f"macOS ARM64 server v{v}",
-            "url": f"{base}/velocity-report-{v}-darwin-arm64",
-            "sha": data.get("mac_arm64_sha256"),
-            "size": None,
-        },
-        {
-            "label": f"VelocityVisualiser v{v}",
-            "url": f"{base}/VelocityVisualiser-{v}.dmg",
-            "sha": data.get("visualiser_sha256"),
-            "size": None,
-        },
-    ]
-    # RPi image (may not be present in older releases)
-    if data.get("rpi_image_url"):
+    entries = []
+    for channel in ("stable", "prerelease"):
+        ch = data.get(channel)
+        if not ch or not ch.get("version"):
+            continue
+        v = ch["version"]
+        # Skip channels with empty SHAs (not yet released).
+        if not ch.get("linux_arm64_sha256"):
+            continue
+        base = f"https://github.com/banshee-data/velocity.report/releases/download/v{v}"
+        entries.extend(
+            [
+                {
+                    "label": f"[{channel}] Linux ARM64 server v{v}",
+                    "url": f"{base}/velocity-report-{v}-linux-arm64",
+                    "sha": ch.get("linux_arm64_sha256"),
+                    "size": None,
+                },
+                {
+                    "label": f"[{channel}] macOS ARM64 server v{v}",
+                    "url": f"{base}/velocity-report-{v}-darwin-arm64",
+                    "sha": ch.get("mac_arm64_sha256"),
+                    "size": None,
+                },
+                {
+                    "label": f"[{channel}] VelocityVisualiser v{v}",
+                    "url": f"{base}/VelocityVisualiser-{v}.dmg",
+                    "sha": ch.get("visualiser_sha256"),
+                    "size": None,
+                },
+            ]
+        )
+    # RPi image (nested under rpi_image key).
+    rpi = data.get("rpi_image", {})
+    if rpi.get("url"):
         entries.append(
             {
-                "label": f"RPi image v{data.get('rpi_image_version', '?')}",
-                "url": data["rpi_image_url"],
-                "sha": data.get("rpi_image_sha256"),
-                "size": data.get("rpi_image_download_size"),
+                "label": f"RPi image v{rpi.get('version', '?')}",
+                "url": rpi["url"],
+                "sha": rpi.get("sha256"),
+                "size": rpi.get("download_size"),
             }
         )
     return entries
@@ -216,18 +227,19 @@ def main() -> int:
         release = load_json(RELEASE_JSON)
         os_list = load_json(OS_LIST_JSON)
         os_entries = os_list.get("os_list", [])
-        if release.get("rpi_image_url") and os_entries:
+        rpi = release.get("rpi_image", {})
+        if rpi.get("url") and os_entries:
             os_item = os_entries[0]
             checks = [
-                ("url", release.get("rpi_image_url"), os_item.get("url")),
+                ("url", rpi.get("url"), os_item.get("url")),
                 (
                     "download_size",
-                    release.get("rpi_image_download_size"),
+                    rpi.get("download_size"),
                     os_item.get("image_download_size"),
                 ),
                 (
                     "extract_sha256",
-                    release.get("rpi_image_extract_sha256"),
+                    rpi.get("extract_sha256"),
                     os_item.get("extract_sha256"),
                 ),
             ]
