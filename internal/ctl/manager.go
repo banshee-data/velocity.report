@@ -1,6 +1,7 @@
 package ctl
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -420,12 +421,64 @@ func (m *Manager) downloadToTemp(url string) (string, error) {
 		return "", err
 	}
 
-	checksum := hex.EncodeToString(h.Sum(nil))
-	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, checksum)
-	// TODO(v0.6.0): fetch SHA256SUMS release asset and verify checksum;
-	// see docs/plans/deploy-rpi-imager-fork-plan.md §4 step 2.
+	computed := hex.EncodeToString(h.Sum(nil))
+	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, computed)
 
+	// Derive binary filename and the SHA256SUMS URL from the last path segment.
+	// strings.LastIndex preserves the URL scheme and authority unchanged.
+	lastSlash := strings.LastIndex(url, "/")
+	binaryName := url[lastSlash+1:]
+	sumsURL := url[:lastSlash+1] + "SHA256SUMS"
+
+	expected, err := m.fetchExpectedChecksum(client, sumsURL, binaryName)
+	if err != nil {
+		// SHA256SUMS not available or does not cover this binary: warn and proceed
+		// so that upgrades continue to work for releases that predate the manifest.
+		fmt.Fprintf(m.err, "warning: SHA256SUMS not available for this release, skipping verification (%v)\n", err)
+		return tmp.Name(), nil
+	}
+
+	if computed != expected {
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("SHA-256 mismatch for %s: expected %s, got %s", binaryName, expected, computed)
+	}
+
+	fmt.Fprintf(m.out, "SHA-256 verified.\n")
 	return tmp.Name(), nil
+}
+
+// fetchExpectedChecksum downloads the SHA256SUMS manifest at sumsURL and returns
+// the expected hex digest for binaryName. It returns an error if the manifest
+// cannot be fetched, returns a non-200 status, or does not contain an entry for
+// the requested binary.
+func (m *Manager) fetchExpectedChecksum(client *http.Client, sumsURL, binaryName string) (string, error) {
+	resp, err := client.Get(sumsURL) //nolint:gosec // URL derived from release metadata
+	if err != nil {
+		return "", fmt.Errorf("fetching SHA256SUMS: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("SHA256SUMS returned %s", resp.Status)
+	}
+
+	// Standard sha256sum format: "<hex>  <filename>" (two spaces) or "<hex> <filename>".
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		if fields[1] == binaryName {
+			return fields[0], nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("reading SHA256SUMS: %w", err)
+	}
+
+	return "", fmt.Errorf("no entry for %s in SHA256SUMS", binaryName)
 }
 
 func (m *Manager) createBackupTo(baseDir string) (string, error) {

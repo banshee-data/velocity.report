@@ -2,12 +2,15 @@ package ctl
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -450,24 +453,116 @@ func TestCopyFilePreservesContentsAndMode(t *testing.T) {
 	}
 }
 
+// sha256Hex returns the hex-encoded SHA-256 digest of s.
+func sha256Hex(s string) string {
+	h := sha256.New()
+	h.Write([]byte(s))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func TestDownloadToTempSuccess(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("payload"))
+	const payload = "payload"
+	const binaryName = "velocity-report-binary"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path.Base(r.URL.Path) {
+		case "SHA256SUMS":
+			fmt.Fprintf(w, "%s  %s\n", sha256Hex(payload), binaryName)
+		default:
+			_, _ = w.Write([]byte(payload))
+		}
 	}))
 	defer server.Close()
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
-	path, err := m.downloadToTemp(server.URL)
+	binaryURL := server.URL + "/v0.5.2/" + binaryName
+	tmpPath, err := m.downloadToTemp(binaryURL)
 	if err != nil {
 		t.Fatalf("downloadToTemp failed: %v", err)
 	}
-	defer os.Remove(path)
+	defer os.Remove(tmpPath)
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(tmpPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != payload {
+		t.Fatalf("unexpected downloaded data: %q", string(data))
+	}
+	if !strings.Contains(out.String(), "SHA-256 verified") {
+		t.Fatalf("expected verification confirmation in output, got: %s", out.String())
+	}
+}
+
+func TestDownloadToTempChecksumMismatch(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	const binaryName = "velocity-report-binary"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path.Base(r.URL.Path) {
+		case "SHA256SUMS":
+			// Deliberately wrong hash.
+			fmt.Fprintf(w, "%s  %s\n", strings.Repeat("a", 64), binaryName)
+		default:
+			_, _ = w.Write([]byte("payload"))
+		}
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
+	binaryURL := server.URL + "/v0.5.2/" + binaryName
+	_, err := m.downloadToTemp(binaryURL)
+	if err == nil {
+		t.Fatal("expected checksum mismatch error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SHA-256 mismatch") {
+		t.Fatalf("expected mismatch in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), strings.Repeat("a", 64)) {
+		t.Fatalf("expected expected hash in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), sha256Hex("payload")) {
+		t.Fatalf("expected computed hash in error, got: %v", err)
+	}
+}
+
+func TestDownloadToTempSHA256SUMSNotFound(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	const binaryName = "velocity-report-binary"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch path.Base(r.URL.Path) {
+		case "SHA256SUMS":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			_, _ = w.Write([]byte("payload"))
+		}
+	}))
+	defer server.Close()
+
+	var stdout, stderr bytes.Buffer
+	m := NewManager(cfg, nil, &fakeRunner{}, &stdout, &stderr)
+	binaryURL := server.URL + "/v0.5.2/" + binaryName
+	tmpPath, err := m.downloadToTemp(binaryURL)
+	if err != nil {
+		t.Fatalf("downloadToTemp should proceed when SHA256SUMS is absent, got: %v", err)
+	}
+	defer os.Remove(tmpPath)
+
+	if !strings.Contains(stderr.String(), "SHA256SUMS not available") {
+		t.Fatalf("expected warning about missing SHA256SUMS, got: %s", stderr.String())
+	}
+
+	data, err := os.ReadFile(tmpPath)
 	if err != nil {
 		t.Fatal(err)
 	}
