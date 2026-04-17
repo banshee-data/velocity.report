@@ -266,6 +266,8 @@ endif
 	printf 'This will ERASE $(DISK). Continue? [y/N] '; \
 	read ans; \
 	if [ "$$ans" != "y" ] && [ "$$ans" != "Y" ]; then echo "Aborted."; exit 1; fi; \
+	echo "Authenticating (sudo)..."; \
+	sudo -v || exit 1; \
 	echo "Unmounting $(DISK)..."; \
 	diskutil unmountDisk $(DISK) || exit 1; \
 	RAW=$$(echo $(DISK) | sed 's|/dev/disk|/dev/rdisk|'); \
@@ -275,13 +277,20 @@ endif
 	echo "Uncompressed size: $${SIZE_MB} MB"; \
 	echo ""; \
 	if command -v pv >/dev/null 2>&1; then \
-		sudo sh -c 'xzcat "$$1" | pv -s "$$2" -i 5 -e -r -p | dd of="$$3" bs=1m 2>/dev/null' _ "$$IMG" "$$SIZE" "$$RAW" \
-			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
+		sudo sh -c 'xzcat "$$1" | pv -s "$$2" -i 5 -e -r -p | dd of="$$3" bs=1m 2>/dev/null' _ "$$IMG" "$$SIZE" "$$RAW"; \
 	else \
 		echo "(install pv for progress: brew install pv)"; \
-		sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW" \
-			|| { echo "Flash FAILED — does Terminal have Full Disk Access?"; exit 1; }; \
-	fi; \
+		sudo sh -c 'xzcat "$$1" | dd of="$$2" bs=1m' _ "$$IMG" "$$RAW"; \
+	fi \
+		|| { echo ""; \
+		     echo "Flash FAILED — Permission denied on $$RAW."; \
+		     echo ""; \
+		     echo "Use a USB SD card reader (built-in readers are classified as internal"; \
+		     echo "by macOS and may be blocked even with sudo)."; \
+		     echo ""; \
+		     echo "Also ensure your terminal has Full Disk Access:"; \
+		     echo "  System Settings → Privacy & Security → Full Disk Access → add Terminal.app"; \
+		     exit 1; }; \
 	echo ""; \
 	echo "Ejecting $(DISK)..."; \
 	sudo diskutil eject $(DISK); \
