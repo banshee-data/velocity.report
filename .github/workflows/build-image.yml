@@ -53,7 +53,7 @@ jobs:
     name: Cross-compile Go binaries (Linux ARM64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Build ARM64 binaries via Docker
         # Uses image/Dockerfile.build (Debian bookworm + multiarch) to avoid
@@ -80,7 +80,7 @@ jobs:
           docker rm "$CONTAINER_ID"
           chmod +x velocity-report-arm64 velocity-ctl-arm64
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: velocity-binaries
           path: |
@@ -96,7 +96,7 @@ jobs:
       - build-binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: velocity-binaries
           path: dist/linux
@@ -111,7 +111,7 @@ jobs:
           echo "RADAR_SHA_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Linux release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
@@ -124,10 +124,10 @@ jobs:
     needs: prepare-release
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
           cache: true
@@ -153,7 +153,7 @@ jobs:
           echo "RADAR_SHA_PATH=velocity-report-${VERSION}-darwin-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Darwin release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
@@ -168,7 +168,7 @@ jobs:
       - build-binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup qemu-user-static for pi-gen
         uses: ./.github/actions/setup-qemu-pigen
@@ -183,7 +183,7 @@ jobs:
         with:
           working-directory: public_html
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: velocity-binaries
           path: image/velocity-binaries
@@ -221,7 +221,7 @@ jobs:
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
@@ -234,7 +234,7 @@ jobs:
     needs: build-binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup qemu-user-static for pi-gen
         uses: ./.github/actions/setup-qemu-pigen
@@ -249,7 +249,7 @@ jobs:
         with:
           working-directory: public_html
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: velocity-binaries
           path: image/velocity-binaries
@@ -287,7 +287,7 @@ jobs:
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: velocity-report-image
           path: |
