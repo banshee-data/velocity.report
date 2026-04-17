@@ -20,9 +20,8 @@ import (
 )
 
 const (
-	defaultGitHubRepo      = "banshee-data/velocity.report"
-	defaultReleasesAPI     = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases/latest"
-	defaultReleasesListAPI = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases"
+	defaultReleasesMetaURL = "https://velocity.report/releases.json"
+	defaultGHDownloadBase  = "https://github.com/banshee-data/velocity.report/releases/download"
 	defaultBinaryName      = "velocity-report"
 	defaultBinaryPath      = "/usr/local/bin/" + defaultBinaryName
 	defaultServiceName     = "velocity-report.service"
@@ -31,8 +30,7 @@ const (
 )
 
 type Config struct {
-	ReleasesAPI     string
-	ReleasesListAPI string
+	ReleasesMetaURL string
 	BinaryName      string
 	BinaryPath      string
 	ServiceName     string
@@ -52,8 +50,7 @@ type UpgradeOptions struct {
 
 func DefaultConfig() Config {
 	return Config{
-		ReleasesAPI:     defaultReleasesAPI,
-		ReleasesListAPI: defaultReleasesListAPI,
+		ReleasesMetaURL: defaultReleasesMetaURL,
 		BinaryName:      defaultBinaryName,
 		BinaryPath:      defaultBinaryPath,
 		ServiceName:     defaultServiceName,
@@ -112,11 +109,8 @@ func NewDefaultManager() *Manager {
 }
 
 func NewManager(cfg Config, httpClient HTTPGetter, runner CommandRunner, out io.Writer, err io.Writer) *Manager {
-	if cfg.ReleasesAPI == "" {
-		cfg.ReleasesAPI = defaultReleasesAPI
-	}
-	if cfg.ReleasesListAPI == "" {
-		cfg.ReleasesListAPI = defaultReleasesListAPI
+	if cfg.ReleasesMetaURL == "" {
+		cfg.ReleasesMetaURL = defaultReleasesMetaURL
 	}
 	if cfg.BinaryName == "" {
 		cfg.BinaryName = defaultBinaryName
@@ -189,12 +183,11 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return m.applyLocalBinary(binaryFile)
 	}
 
-	release, err := m.fetchLatestRelease(opts.IncludePrereleases)
+	latest, assetURL, err := m.fetchLatestRelease(opts.IncludePrereleases)
 	if err != nil {
 		return fmt.Errorf("checking for updates: %w", err)
 	}
 
-	latest := strings.TrimPrefix(release.TagName, "v")
 	current := m.cfg.CurrentVersion
 
 	if latest == current {
@@ -234,12 +227,7 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return nil
 	}
 
-	assetURL, err := m.findAssetURL(release)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(m.out, "Downloading %s...\n", assetURL)
+	fmt.Fprintf(m.out, "Downloading from %s...\n", assetURL)
 	tmpFile, err := m.downloadToTemp(assetURL)
 	if err != nil {
 		return fmt.Errorf("downloading release: %w", err)
@@ -305,29 +293,13 @@ func (m *Manager) RunStatus() error {
 	return fmt.Errorf("running systemctl: %w", err)
 }
 
-type githubRelease struct {
-	TagName    string        `json:"tag_name"`
-	Prerelease bool          `json:"prerelease"`
-	Draft      bool          `json:"draft"`
-	Assets     []githubAsset `json:"assets"`
+type releasesMeta struct {
+	Stable     releasesChannel `json:"stable"`
+	Prerelease releasesChannel `json:"prerelease"`
 }
 
-type githubAsset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-}
-
-func (m *Manager) findAssetURL(release *githubRelease) (string, error) {
-	// Strip the "v" prefix from the tag to get the version.
-	version := strings.TrimPrefix(release.TagName, "v")
-	assetName := fmt.Sprintf("velocity-report-%s-%s-%s", version, m.cfg.GOOS, m.cfg.GOARCH)
-	for _, a := range release.Assets {
-		if a.Name == assetName {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no binary asset found for %s/%s in release %s", m.cfg.GOOS, m.cfg.GOARCH, release.TagName)
+type releasesChannel struct {
+	Version string `json:"version"`
 }
 
 func (m *Manager) applyLocalBinary(path string) error {
@@ -385,53 +357,37 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 	return nil
 }
 
-func (m *Manager) fetchLatestRelease(includePrereleases bool) (*githubRelease, error) {
-	if includePrereleases {
-		return m.fetchLatestReleaseIncludingPrereleases()
-	}
-
-	resp, err := m.httpClient.Get(m.cfg.ReleasesAPI)
+// fetchLatestRelease fetches velocity.report/releases.json and returns the
+// version string and download URL for the appropriate channel.
+func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL string, err error) {
+	resp, err := m.httpClient.Get(m.cfg.ReleasesMetaURL)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
+		return "", "", fmt.Errorf("releases metadata returned %s", resp.Status)
 	}
 
-	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("parsing release JSON: %w", err)
+	var meta releasesMeta
+	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
+		return "", "", fmt.Errorf("parsing releases.json: %w", err)
 	}
 
-	return &release, nil
-}
-
-func (m *Manager) fetchLatestReleaseIncludingPrereleases() (*githubRelease, error) {
-	resp, err := m.httpClient.Get(m.cfg.ReleasesListAPI)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
+	ver := meta.Stable.Version
+	if includePrereleases && meta.Prerelease.Version != "" {
+		ver = meta.Prerelease.Version
 	}
 
-	var releases []githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("parsing release JSON: %w", err)
+	if ver == "" {
+		return "", "", fmt.Errorf("no version found in releases.json")
 	}
 
-	for _, release := range releases {
-		if release.Draft {
-			continue
-		}
-		return &release, nil
-	}
-
-	return nil, fmt.Errorf("no non-draft releases found")
+	url := fmt.Sprintf("%s/v%s/velocity-report-%s-%s-%s",
+		defaultGHDownloadBase, ver, ver, m.cfg.GOOS, m.cfg.GOARCH,
+	)
+	return ver, url, nil
 }
 
 func (m *Manager) downloadToTemp(url string) (string, error) {

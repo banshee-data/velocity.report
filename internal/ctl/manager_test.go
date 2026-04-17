@@ -2,7 +2,6 @@ package ctl
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,9 +38,19 @@ func (f *fakeRunner) Run(name string, args ...string) error {
 	return nil
 }
 
+// stableJSON returns a minimal releases.json payload for tests.
+func stableJSON(version string) string {
+	return `{"stable":{"version":"` + version + `"}}`
+}
+
+// channelsJSON returns a releases.json with both channels populated.
+func channelsJSON(stable, prerelease string) string {
+	return `{"stable":{"version":"` + stable + `"},"prerelease":{"version":"` + prerelease + `"}}`
+}
+
 func testConfig(tmp string) Config {
 	return Config{
-		ReleasesAPI:     "",
+		ReleasesMetaURL: "",
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		ServiceName:     "velocity-report.service",
@@ -174,11 +183,11 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(stableJSON("0.5.2")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 	if err := m.RunUpgrade(true, ""); err != nil {
@@ -198,11 +207,11 @@ func TestRunUpgradePreventDowngrade(t *testing.T) {
 	cfg.CurrentVersion = "0.5.1-pre3"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.0","assets":[{"name":"velocity-report-0.5.0-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(stableJSON("0.5.0")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -227,11 +236,11 @@ func TestRunUpgradePrereleaseSuggestsFlag(t *testing.T) {
 	cfg.CurrentVersion = "0.5.1"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.0","assets":[]}`))
+		_, _ = w.Write([]byte(stableJSON("0.5.0")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -257,11 +266,11 @@ func TestRunUpgradeAllowsLegitimateUpgrade(t *testing.T) {
 	cfg.CurrentVersion = "0.5.0"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(stableJSON("0.5.2")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -313,21 +322,21 @@ func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	}
 }
 
-func TestRunUpgradeNoMatchingAsset(t *testing.T) {
+func TestRunUpgradeNoVersionInJSON(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"other","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(`{"stable":{"version":""}}`))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	err := m.RunUpgrade(false, "")
-	if err == nil || !strings.Contains(err.Error(), "no binary asset found") {
-		t.Fatalf("expected no-asset error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no version found") {
+		t.Fatalf("expected no-version error, got: %v", err)
 	}
 }
 
@@ -337,14 +346,14 @@ func TestFetchLatestReleaseBadJSON(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":`))
+		_, _ = w.Write([]byte(`{"stable":`))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, err := m.fetchLatestRelease(false)
-	if err == nil || !strings.Contains(err.Error(), "parsing release JSON") {
+	_, _, err := m.fetchLatestRelease(false)
+	if err == nil || !strings.Contains(err.Error(), "parsing releases.json") {
 		t.Fatalf("expected JSON parse error, got: %v", err)
 	}
 }
@@ -358,10 +367,10 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, err := m.fetchLatestRelease(false)
-	if err == nil || !strings.Contains(err.Error(), "GitHub API returned") {
+	_, _, err := m.fetchLatestRelease(false)
+	if err == nil || !strings.Contains(err.Error(), "releases metadata returned") {
 		t.Fatalf("expected HTTP status error, got: %v", err)
 	}
 }
@@ -371,44 +380,34 @@ func TestFetchLatestReleaseGetError(t *testing.T) {
 	cfg := testConfig(tmp)
 	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	_, err := m.fetchLatestRelease(false)
+	_, _, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "network down") {
 		t.Fatalf("expected getter error, got: %v", err)
 	}
 }
 
-func TestFindAssetURLVersionedName(t *testing.T) {
+func TestFetchLatestReleaseURLConstruction(t *testing.T) {
 	tmp := t.TempDir()
-	cfg := testConfig(tmp)
-	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+	cfg := testConfig(tmp) // GOOS=linux, GOARCH=arm64
 
-	url, err := m.findAssetURL(&githubRelease{
-		TagName: "v0.5.2",
-		Assets: []githubAsset{
-			{Name: "velocity-report-0.5.2-linux-arm64", BrowserDownloadURL: "https://example.com/versioned"},
-		},
-	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(stableJSON("0.5.2")))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesMetaURL = server.URL
+	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
+	ver, url, err := m.fetchLatestRelease(false)
 	if err != nil {
-		t.Fatalf("findAssetURL failed: %v", err)
+		t.Fatalf("fetchLatestRelease failed: %v", err)
 	}
-	if url != "https://example.com/versioned" {
-		t.Fatalf("unexpected asset URL: %s", url)
+	if ver != "0.5.2" {
+		t.Fatalf("unexpected version: %s", ver)
 	}
-}
-
-func TestFindAssetURLNoMatchForUnversioned(t *testing.T) {
-	tmp := t.TempDir()
-	cfg := testConfig(tmp)
-	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	_, err := m.findAssetURL(&githubRelease{
-		TagName: "v0.5.2",
-		Assets: []githubAsset{
-			{Name: "velocity-report-linux-arm64", BrowserDownloadURL: "https://example.com/old"},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected error for unversioned asset name")
+	wantSuffix := "/v0.5.2/velocity-report-0.5.2-linux-arm64"
+	if !strings.HasSuffix(url, wantSuffix) {
+		t.Fatalf("unexpected download URL: %s", url)
 	}
 }
 
@@ -512,150 +511,75 @@ func TestApplyUpgradeInstallFailureTriggersRestart(t *testing.T) {
 	}
 }
 
-func TestFetchLatestReleaseDecodeRoundTrip(t *testing.T) {
+func TestFetchLatestReleaseStableChannel(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
-	want := githubRelease{
-		TagName: "v0.5.2",
-		Assets:  []githubAsset{{Name: "velocity-report-0.5.2-linux-arm64", BrowserDownloadURL: "https://example.com/bin"}},
-	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(want)
+		_, _ = w.Write([]byte(channelsJSON("0.5.2", "0.6.0-pre1")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	got, err := m.fetchLatestRelease(false)
+	ver, _, err := m.fetchLatestRelease(false)
 	if err != nil {
-		t.Fatalf("fetchLatestRelease failed: %v", err)
+		t.Fatalf("fetchLatestRelease(false) failed: %v", err)
 	}
-	if got.TagName != want.TagName || len(got.Assets) != 1 {
-		t.Fatalf("unexpected release payload: %+v", got)
+	if ver != "0.5.2" {
+		t.Fatalf("expected stable version 0.5.2, got: %s", ver)
 	}
 }
 
-func TestFetchLatestReleaseIncludingPrereleasesUsesListEndpoint(t *testing.T) {
+func TestFetchLatestReleasePrereleaseChannel(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/releases":
-			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]},
-				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
-			]`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
+		_, _ = w.Write([]byte(channelsJSON("0.5.2", "0.6.0-pre1")))
 	}))
 	defer server.Close()
 
-	cfg.ReleasesListAPI = server.URL + "/releases"
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	got, err := m.fetchLatestRelease(true)
+	ver, _, err := m.fetchLatestRelease(true)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
 	}
-	if got.TagName != "v0.6.0-rc1" {
-		t.Fatalf("expected prerelease from list endpoint, got: %+v", got)
+	if ver != "0.6.0-pre1" {
+		t.Fatalf("expected prerelease version 0.6.0-pre1, got: %s", ver)
 	}
 }
 
-func TestFetchLatestReleaseIncludingPrereleasesSkipsDrafts(t *testing.T) {
+func TestFetchLatestReleasePrereleaseEmptyFallsBackToStable(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[
-			{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":true,"assets":[]},
-			{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
-		]`))
+		_, _ = w.Write([]byte(stableJSON("0.5.2"))) // no prerelease channel
 	}))
 	defer server.Close()
 
-	cfg.ReleasesListAPI = server.URL
+	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	got, err := m.fetchLatestRelease(true)
+	ver, _, err := m.fetchLatestRelease(true)
 	if err != nil {
-		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
+		t.Fatalf("fetchLatestRelease(true) with empty prerelease failed: %v", err)
 	}
-	if got.TagName != "v0.5.2" {
-		t.Fatalf("expected first non-draft release, got: %+v", got)
-	}
-}
-
-func TestFetchLatestReleaseIncludingPrereleasesNoNonDraft(t *testing.T) {
-	tmp := t.TempDir()
-	cfg := testConfig(tmp)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[
-			{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":true,"assets":[]}
-		]`))
-	}))
-	defer server.Close()
-
-	cfg.ReleasesListAPI = server.URL
-	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	_, err := m.fetchLatestRelease(true)
-	if err == nil || !strings.Contains(err.Error(), "no non-draft releases found") {
-		t.Fatalf("expected no-non-draft error, got: %v", err)
+	if ver != "0.5.2" {
+		t.Fatalf("expected fallback to stable 0.5.2, got: %s", ver)
 	}
 }
 
-func TestFetchLatestReleaseIncludingPrereleasesBadJSON(t *testing.T) {
-	tmp := t.TempDir()
-	cfg := testConfig(tmp)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[`))
-	}))
-	defer server.Close()
-
-	cfg.ReleasesListAPI = server.URL
-	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	_, err := m.fetchLatestRelease(true)
-	if err == nil || !strings.Contains(err.Error(), "parsing release JSON") {
-		t.Fatalf("expected JSON parse error, got: %v", err)
-	}
-}
-
-func TestFetchLatestReleaseIncludingPrereleasesHTTPError(t *testing.T) {
-	tmp := t.TempDir()
-	cfg := testConfig(tmp)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-	defer server.Close()
-
-	cfg.ReleasesListAPI = server.URL
-	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-
-	_, err := m.fetchLatestRelease(true)
-	if err == nil || !strings.Contains(err.Error(), "GitHub API returned") {
-		t.Fatalf("expected HTTP status error, got: %v", err)
-	}
-}
-
-func TestFetchLatestReleaseIncludingPrereleasesGetError(t *testing.T) {
+func TestFetchLatestReleasePrereleaseGetError(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	_, err := m.fetchLatestRelease(true)
+	_, _, err := m.fetchLatestRelease(true)
 	if err == nil || !strings.Contains(err.Error(), "network down") {
 		t.Fatalf("expected getter error, got: %v", err)
 	}
