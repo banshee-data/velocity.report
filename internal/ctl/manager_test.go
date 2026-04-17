@@ -190,6 +190,91 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	}
 }
 
+func TestRunUpgradePreventDowngrade(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	// Current is 0.5.1-pre3, stable latest is 0.5.0 → should refuse.
+	cfg.CurrentVersion = "0.5.1-pre3"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tag_name":"v0.5.0","assets":[{"name":"velocity-report-0.5.0-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesAPI = server.URL
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
+
+	if err := m.RunUpgrade(false, ""); err != nil {
+		t.Fatalf("RunUpgrade should not return error on downgrade prevention: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "newer than the latest stable") {
+		t.Fatalf("expected downgrade prevention message, got: %s", output)
+	}
+	if !strings.Contains(output, "--prerelease") {
+		t.Fatalf("expected --prerelease suggestion for prerelease user, got: %s", output)
+	}
+}
+
+func TestRunUpgradePrereleaseSuggestsFlag(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	// Current is 0.5.1 (stable), latest stable is 0.5.0 → downgrade blocked, no --prerelease hint.
+	cfg.CurrentVersion = "0.5.1"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tag_name":"v0.5.0","assets":[]}`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesAPI = server.URL
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
+
+	if err := m.RunUpgrade(false, ""); err != nil {
+		t.Fatalf("RunUpgrade should not error: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "newer than the latest stable") {
+		t.Fatalf("expected downgrade prevention message, got: %s", output)
+	}
+	// Stable user should NOT get the --prerelease suggestion.
+	if strings.Contains(output, "--prerelease") {
+		t.Fatalf("stable user should not see --prerelease suggestion, got: %s", output)
+	}
+}
+
+func TestRunUpgradeAllowsLegitimateUpgrade(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := testConfig(tmp)
+
+	// Current is 0.5.0, latest is 0.5.2 → should proceed to check-only output.
+	cfg.CurrentVersion = "0.5.0"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+	}))
+	defer server.Close()
+
+	cfg.ReleasesAPI = server.URL
+	var out bytes.Buffer
+	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
+
+	if err := m.RunUpgradeWithOptions(true, "", UpgradeOptions{}); err != nil {
+		t.Fatalf("RunUpgrade check-only failed: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Latest:  v0.5.2") {
+		t.Fatalf("expected upgrade available output, got: %s", output)
+	}
+}
+
 func TestRunUpgradeLocalBinaryHappyPath(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)

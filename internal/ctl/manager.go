@@ -202,6 +202,30 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return nil
 	}
 
+	// Semver comparison to prevent downgrades.
+	currentSV, currentParsed := parseSemver(current)
+	latestSV, latestParsed := parseSemver(latest)
+	if currentParsed && latestParsed {
+		cmp := compareSemver(latestSV, currentSV)
+		if cmp < 0 {
+			channelLabel := "stable"
+			if opts.IncludePrereleases {
+				channelLabel = "pre-release"
+			}
+			fmt.Fprintf(m.out, "Current: v%s\n", current)
+			fmt.Fprintf(m.out, "Latest %s: v%s\n", channelLabel, latest)
+			fmt.Fprintf(m.out, "\nCurrent version is newer than the latest %s release.\n", channelLabel)
+			if currentSV.isPrerelease() && !opts.IncludePrereleases {
+				fmt.Fprintln(m.out, "You are on a pre-release. Run 'sudo velocity-ctl upgrade --prerelease' to check for newer pre-releases.")
+			}
+			return nil
+		}
+		if cmp == 0 {
+			fmt.Fprintf(m.out, "Already up to date (v%s).\n", current)
+			return nil
+		}
+	}
+
 	fmt.Fprintf(m.out, "Current: v%s\n", current)
 	fmt.Fprintf(m.out, "Latest:  v%s\n", latest)
 
