@@ -215,7 +215,7 @@ _Estimated time: 5 minutes_
 
 Open a browser on any device on the same network: [https://velocity.local](https://velocity.local)
 
-The Pi generates a self-signed TLS certificate on first boot. Your browser will show a certificate warning: this is expected. To eliminate the warning, download the CA certificate from `https://velocity.local/ca.crt` and add it to your browser or system trust store.
+The Pi generates a self-signed TLS certificate on first boot. Your browser will show a certificate warning: this is expected for a self-signed certificate. Click **Advanced → Proceed to velocity.local** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari). No certificate installation is needed.
 
 **Success criteria**: the dashboard loads and shows live vehicle detections or "No data yet"
 
@@ -435,9 +435,9 @@ The dashboard runs on HTTPS (port 443) and is accessible to any device on your l
 - Use a strong Wi-Fi password (WPA3 if supported) if Wi-Fi is enabled
 - Keep the OS updated: `sudo apt update && sudo apt upgrade`
 
-### Remote access with Tailscale (optional)
+### Remote access with Tailscale (recommended for clean HTTPS)
 
-[Tailscale](https://tailscale.com) provides secure remote access without exposing your Pi to the public internet. Free for personal use.
+[Tailscale](https://tailscale.com) provides secure remote access without exposing your Pi to the public internet. Free for personal use. It is also the cleanest way to access the dashboard: Tailscale assigns your device a `*.ts.net` hostname with a valid Let's Encrypt certificate, which means no browser warnings and no certificate exceptions required.
 
 ```bash
 # Install Tailscale on your Pi
@@ -447,7 +447,7 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-Follow the authentication URL, install Tailscale on your phone or laptop, then access the dashboard at `https://100.x.y.z` (using the Tailscale IP from your admin console).
+Follow the authentication URL, install Tailscale on your phone or laptop, then access the dashboard at `https://<hostname>.<tailnet>.ts.net` — this URL has a valid certificate and works without any exception.
 
 See the [Tailscale documentation](https://tailscale.com/kb/start) for details.
 
@@ -539,14 +539,14 @@ velocity-start
 
 ## Troubleshooting
 
-| Problem                 | Fix                                                               |
-| ----------------------- | ----------------------------------------------------------------- |
-| No sensor data          | `ls /dev/serial0` or `ls /dev/velocity-radar` to check the device |
-| Service will not start  | `velocity-log` to check logs                                      |
-| Dashboard will not load | `velocity-status` to verify the service                           |
-| Certificate warning     | Download CA from `https://velocity.local/ca.crt` and trust it     |
-| Garbled or CSV output   | Connect via `screen /dev/serial0 19200` and send `OJ` then `A!`   |
-| Permission denied       | `sudo usermod -a -G dialout $USER` then log out and back in       |
+| Problem                 | Fix                                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| No sensor data          | `ls /dev/serial0` or `ls /dev/velocity-radar` to check the device                               |
+| Service will not start  | `velocity-log` to check logs                                                                    |
+| Dashboard will not load | `velocity-status` to verify the service                                                         |
+| Certificate warning     | Click **Advanced → Proceed** (Chrome/Edge) or **Accept the Risk and Continue** (Firefox/Safari) |
+| Garbled or CSV output   | Connect via `screen /dev/serial0 19200` and send `OJ` then `A!`                                 |
+| Permission denied       | `sudo usermod -a -G dialout $USER` then log out and back in                                     |
 
 USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
