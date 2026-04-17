@@ -111,7 +111,7 @@ jobs:
           echo "RADAR_SHA_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Linux release asset
-        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
@@ -153,7 +153,7 @@ jobs:
           echo "RADAR_SHA_PATH=velocity-report-${VERSION}-darwin-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Darwin release asset
-        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
@@ -221,7 +221,7 @@ jobs:
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image to release
-        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a95d9f766 # v2.2.2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
