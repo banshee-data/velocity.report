@@ -39,7 +39,7 @@ def parse_uses_lines(path: Path) -> list[tuple[int, str]]:
     """Return (line_number, ref) for every uses: line in a workflow file."""
     results = []
     for i, line in enumerate(path.read_text().splitlines(), start=1):
-        m = re.match(r"""^\s+uses:\s+(['"]?)([^'"#\s]+)\1""", line)
+        m = USES_RE.match(line)
         if m:
             results.append((i, m.group(2)))
     return results
