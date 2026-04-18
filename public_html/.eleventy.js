@@ -58,6 +58,11 @@ module.exports = function (eleventyConfig) {
     "../image/os-list-velocity.json": "rpi.json",
   });
 
+  // Serve release metadata at /release.json for velocity-ctl and external consumers
+  eleventyConfig.addPassthroughCopy({
+    "src/_data/release.json": "release.json",
+  });
+
   // Watch CSS source files for changes (triggers Eleventy rebuild)
   eleventyConfig.addWatchTarget("./src/css/");
 

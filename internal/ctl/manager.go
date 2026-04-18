@@ -20,19 +20,16 @@ import (
 )
 
 const (
-	defaultGitHubRepo      = "banshee-data/velocity.report"
-	defaultReleasesAPI     = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases/latest"
-	defaultReleasesListAPI = "https://api.github.com/repos/" + defaultGitHubRepo + "/releases"
-	defaultBinaryName      = "velocity-report"
-	defaultBinaryPath      = "/usr/local/bin/" + defaultBinaryName
-	defaultServiceName     = "velocity-report.service"
-	defaultBackupDir       = "/var/lib/velocity-report/backups"
-	defaultDBPath          = "/var/lib/velocity-report/sensor_data.db"
+	defaultReleaseMetaURL = "https://velocity.report/release.json"
+	defaultBinaryName     = "velocity-report"
+	defaultBinaryPath     = "/usr/local/bin/" + defaultBinaryName
+	defaultServiceName    = "velocity-report.service"
+	defaultBackupDir      = "/var/lib/velocity-report/backups"
+	defaultDBPath         = "/var/lib/velocity-report/sensor_data.db"
 )
 
 type Config struct {
-	ReleasesAPI     string
-	ReleasesListAPI string
+	ReleaseMetaURL  string
 	BinaryName      string
 	BinaryPath      string
 	ServiceName     string
@@ -52,8 +49,7 @@ type UpgradeOptions struct {
 
 func DefaultConfig() Config {
 	return Config{
-		ReleasesAPI:     defaultReleasesAPI,
-		ReleasesListAPI: defaultReleasesListAPI,
+		ReleaseMetaURL:  defaultReleaseMetaURL,
 		BinaryName:      defaultBinaryName,
 		BinaryPath:      defaultBinaryPath,
 		ServiceName:     defaultServiceName,
@@ -112,11 +108,8 @@ func NewDefaultManager() *Manager {
 }
 
 func NewManager(cfg Config, httpClient HTTPGetter, runner CommandRunner, out io.Writer, err io.Writer) *Manager {
-	if cfg.ReleasesAPI == "" {
-		cfg.ReleasesAPI = defaultReleasesAPI
-	}
-	if cfg.ReleasesListAPI == "" {
-		cfg.ReleasesListAPI = defaultReleasesListAPI
+	if cfg.ReleaseMetaURL == "" {
+		cfg.ReleaseMetaURL = defaultReleaseMetaURL
 	}
 	if cfg.BinaryName == "" {
 		cfg.BinaryName = defaultBinaryName
@@ -189,17 +182,43 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return m.applyLocalBinary(binaryFile)
 	}
 
-	release, err := m.fetchLatestRelease(opts.IncludePrereleases)
+	latest, assetURL, expectedSHA, err := m.fetchLatestRelease(opts.IncludePrereleases)
 	if err != nil {
 		return fmt.Errorf("checking for updates: %w", err)
 	}
 
-	latest := strings.TrimPrefix(release.TagName, "v")
 	current := m.cfg.CurrentVersion
 
 	if latest == current {
 		fmt.Fprintf(m.out, "Already up to date (v%s).\n", current)
 		return nil
+	}
+
+	// Semver comparison to prevent downgrades.
+	currentSV, currentParsed := parseSemver(current)
+	latestSV, latestParsed := parseSemver(latest)
+	if currentParsed && latestParsed {
+		cmp := compareSemver(latestSV, currentSV)
+		if cmp < 0 {
+			// Label reflects the fetched version's actual channel, not the
+			// flag: --prerelease can fall back to stable when no prerelease
+			// is published.
+			channelLabel := "stable"
+			if latestSV.isPrerelease() {
+				channelLabel = "pre-release"
+			}
+			fmt.Fprintf(m.out, "Current: v%s\n", current)
+			fmt.Fprintf(m.out, "Latest %s: v%s\n", channelLabel, latest)
+			fmt.Fprintf(m.out, "\nCurrent version is newer than the latest %s release.\n", channelLabel)
+			if currentSV.isPrerelease() && !opts.IncludePrereleases {
+				fmt.Fprintln(m.out, "You are on a pre-release. Run 'sudo velocity-ctl upgrade --prerelease' to check for newer pre-releases.")
+			}
+			return nil
+		}
+		if cmp == 0 {
+			fmt.Fprintf(m.out, "Already up to date (v%s).\n", current)
+			return nil
+		}
 	}
 
 	fmt.Fprintf(m.out, "Current: v%s\n", current)
@@ -210,13 +229,8 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return nil
 	}
 
-	assetURL, err := m.findAssetURL(release)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(m.out, "Downloading %s...\n", assetURL)
-	tmpFile, err := m.downloadToTemp(assetURL)
+	fmt.Fprintf(m.out, "Downloading from %s...\n", assetURL)
+	tmpFile, err := m.downloadToTemp(assetURL, expectedSHA)
 	if err != nil {
 		return fmt.Errorf("downloading release: %w", err)
 	}
@@ -281,29 +295,21 @@ func (m *Manager) RunStatus() error {
 	return fmt.Errorf("running systemctl: %w", err)
 }
 
-type githubRelease struct {
-	TagName    string        `json:"tag_name"`
-	Prerelease bool          `json:"prerelease"`
-	Draft      bool          `json:"draft"`
-	Assets     []githubAsset `json:"assets"`
+type releasesMeta struct {
+	Stable     releasesChannel `json:"stable"`
+	Prerelease releasesChannel `json:"prerelease"`
 }
 
-type githubAsset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
+type releasesChannel struct {
+	LinuxArm64 releaseAsset `json:"linux_arm64"`
+	MacArm64   releaseAsset `json:"mac_arm64"`
+	Visualiser releaseAsset `json:"visualiser"`
 }
 
-func (m *Manager) findAssetURL(release *githubRelease) (string, error) {
-	// Strip the "v" prefix from the tag to get the version.
-	version := strings.TrimPrefix(release.TagName, "v")
-	assetName := fmt.Sprintf("velocity-report-%s-%s-%s", version, m.cfg.GOOS, m.cfg.GOARCH)
-	for _, a := range release.Assets {
-		if a.Name == assetName {
-			return a.BrowserDownloadURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no binary asset found for %s/%s in release %s", m.cfg.GOOS, m.cfg.GOARCH, release.TagName)
+type releaseAsset struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+	SHA256  string `json:"sha256"`
 }
 
 func (m *Manager) applyLocalBinary(path string) error {
@@ -361,56 +367,66 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 	return nil
 }
 
-func (m *Manager) fetchLatestRelease(includePrereleases bool) (*githubRelease, error) {
+// fetchLatestRelease fetches velocity.report/release.json and returns the
+// version string, download URL, and expected SHA-256 hex digest for the
+// appropriate channel and platform.
+func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL, expectedSHA string, err error) {
+	resp, err := m.httpClient.Get(m.cfg.ReleaseMetaURL)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", "", fmt.Errorf("releases metadata returned %s", resp.Status)
+	}
+
+	var meta releasesMeta
+	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
+		return "", "", "", fmt.Errorf("parsing release.json: %w", err)
+	}
+
+	// Pick the asset for this platform, preferring the prerelease channel
+	// when requested and the prerelease asset is populated. Versions live
+	// on each asset so different binaries can ship independently.
+	asset, err := pickAsset(meta.Stable, m.cfg.GOOS, m.cfg.GOARCH)
+	if err != nil {
+		return "", "", "", err
+	}
 	if includePrereleases {
-		return m.fetchLatestReleaseIncludingPrereleases()
-	}
-
-	resp, err := m.httpClient.Get(m.cfg.ReleasesAPI)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
-	}
-
-	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("parsing release JSON: %w", err)
-	}
-
-	return &release, nil
-}
-
-func (m *Manager) fetchLatestReleaseIncludingPrereleases() (*githubRelease, error) {
-	resp, err := m.httpClient.Get(m.cfg.ReleasesListAPI)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %s", resp.Status)
-	}
-
-	var releases []githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("parsing release JSON: %w", err)
-	}
-
-	for _, release := range releases {
-		if release.Draft {
-			continue
+		pre, err := pickAsset(meta.Prerelease, m.cfg.GOOS, m.cfg.GOARCH)
+		if err == nil && pre.Version != "" {
+			asset = pre
 		}
-		return &release, nil
 	}
-
-	return nil, fmt.Errorf("no non-draft releases found")
+	if asset.Version == "" {
+		return "", "", "", fmt.Errorf("no version found in release.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
+	}
+	if asset.URL == "" {
+		return "", "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
+	}
+	return asset.Version, asset.URL, asset.SHA256, nil
 }
 
-func (m *Manager) downloadToTemp(url string) (string, error) {
+// pickAsset returns the asset for the caller's platform. velocity-ctl
+// only ships the server binary; the visualiser is macOS-only and not an
+// upgrade target here.
+func pickAsset(ch releasesChannel, goos, goarch string) (releaseAsset, error) {
+	switch {
+	case goos == "linux" && goarch == "arm64":
+		return ch.LinuxArm64, nil
+	case goos == "darwin" && goarch == "arm64":
+		return ch.MacArm64, nil
+	default:
+		return releaseAsset{}, fmt.Errorf("unsupported platform %s/%s", goos, goarch)
+	}
+}
+
+// downloadToTemp downloads the binary at url, verifies its SHA-256 against
+// expectedSHA (from release.json), and returns the path to a temp file.
+// If expectedSHA is empty (older release metadata), verification is skipped
+// with a warning.
+func (m *Manager) downloadToTemp(url, expectedSHA string) (string, error) {
 	client := &http.Client{Timeout: m.cfg.DownloadTimeout}
 	resp, err := client.Get(url) //nolint:gosec // URL comes from release metadata
 	if err != nil {
@@ -440,11 +456,22 @@ func (m *Manager) downloadToTemp(url string) (string, error) {
 		return "", err
 	}
 
-	checksum := hex.EncodeToString(h.Sum(nil))
-	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, checksum)
-	// TODO(v0.6.0): fetch SHA256SUMS release asset and verify checksum;
-	// see docs/plans/deploy-rpi-imager-fork-plan.md §4 step 2.
+	computed := hex.EncodeToString(h.Sum(nil))
+	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, computed)
 
+	if expectedSHA == "" {
+		fmt.Fprintf(m.err, "warning: no expected SHA-256 in release metadata, skipping verification\n")
+		return tmp.Name(), nil
+	}
+
+	if computed != expectedSHA {
+		os.Remove(tmp.Name())
+		lastSlash := strings.LastIndex(url, "/")
+		binaryName := url[lastSlash+1:]
+		return "", fmt.Errorf("SHA-256 mismatch for %s: expected %s, got %s", binaryName, expectedSHA, computed)
+	}
+
+	fmt.Fprintf(m.out, "SHA-256 verified.\n")
 	return tmp.Name(), nil
 }
 

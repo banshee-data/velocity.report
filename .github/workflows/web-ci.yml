@@ -37,7 +37,7 @@ jobs:
         working-directory: web
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js with pnpm
         uses: ./.github/actions/setup-node-pnpm
@@ -55,7 +55,7 @@ jobs:
         working-directory: web
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js with pnpm
         uses: ./.github/actions/setup-node-pnpm
@@ -66,7 +66,7 @@ jobs:
         run: pnpm run test:ci
 
       - name: Upload Web coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@1e68e06f1dbfde0e4cefc87efeba9e4643565303 # v5.3.2
         with:
           files: ./web/coverage/lcov.info
           flags: web
@@ -74,7 +74,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Coverage comment
-        uses: romeovs/lcov-reporter-action@v0.3.1
+        uses: romeovs/lcov-reporter-action@dda1c9b1fa1622b225e9acd87a248751dbcc6ada # v0.3.1
         if: github.event_name == 'pull_request'
         with:
           lcov-file: ./web/coverage/lcov.info
@@ -98,7 +98,7 @@ jobs:
         working-directory: web
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js with pnpm
         uses: ./.github/actions/setup-node-pnpm

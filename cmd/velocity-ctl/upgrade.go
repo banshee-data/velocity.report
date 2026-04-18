@@ -49,7 +49,8 @@ func runUpgrade(args []string) error {
 	fs := flag.NewFlagSet("upgrade", flag.ContinueOnError)
 	checkOnly := fs.Bool("check", false, "Check for updates without applying")
 	binaryFile := fs.String("binary", "", "Apply a local binary file (offline upgrade)")
-	includePrereleases := fs.Bool("include-prereleases", false, "Allow upgrade to pre-release tags")
+	prerelease := fs.Bool("prerelease", false, "Allow upgrade to pre-release tags")
+	includePrereleases := fs.Bool("include-prereleases", false, "Alias for --prerelease (deprecated)")
 	configPath := fs.String("config", "", "Optional path to velocity-ctl config JSON (default: ~/.velocity-ctl.json)")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -61,7 +62,7 @@ func runUpgrade(args []string) error {
 	}
 
 	opts := ctl.UpgradeOptions{
-		IncludePrereleases: *includePrereleases || cfgIncludePrereleases,
+		IncludePrereleases: *prerelease || *includePrereleases || cfgIncludePrereleases,
 	}
 
 	return ctlManager.RunUpgradeWithOptions(*checkOnly, *binaryFile, opts)

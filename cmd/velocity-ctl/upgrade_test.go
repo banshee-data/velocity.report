@@ -17,13 +17,12 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	tmp := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/bin"}]}`))
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/bin","sha256":""}}}`))
 	}))
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesAPI:     server.URL,
-		ReleasesListAPI: server.URL,
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),
@@ -136,25 +135,14 @@ func TestLoadIncludePrereleasesHomeDirError(t *testing.T) {
 
 func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
 	tmp := t.TempDir()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
-		case "/releases":
-			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]},
-				{"tag_name":"v0.5.2","prerelease":false,"draft":false,"assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}
-			]`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/stable","sha256":""}},"prerelease":{"linux_arm64":{"version":"0.6.0-rc1","url":"https://example.com/rc","sha256":""}}}`))
 	}))
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesAPI:     server.URL + "/latest",
-		ReleasesListAPI: server.URL + "/releases",
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),
@@ -187,24 +175,14 @@ func TestRunUpgradeCheckOnlyIncludePrereleasesFromConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/latest":
-			_, _ = w.Write([]byte(`{"tag_name":"v0.5.2","assets":[{"name":"velocity-report-0.5.2-linux-arm64","browser_download_url":"https://example.com/stable"}]}`))
-		case "/releases":
-			_, _ = w.Write([]byte(`[
-				{"tag_name":"v0.6.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"velocity-report-0.6.0-rc1-linux-arm64","browser_download_url":"https://example.com/rc"}]}
-			]`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/stable","sha256":""}},"prerelease":{"linux_arm64":{"version":"0.6.0-rc1","url":"https://example.com/rc","sha256":""}}}`))
 	}))
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesAPI:     server.URL + "/latest",
-		ReleasesListAPI: server.URL + "/releases",
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),

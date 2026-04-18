@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1200" height="900" viewBox="0 0 1200 900">
+  <image href="guide_angel_RAW.jpeg" width="1200" height="900"/>
+
+  <!-- Beam: circular segment (two straight legs + arc top) -->
+  <path d="M 522.0,657.9
+           L 525.0,315.9
+           A 342.0,342.0 0 0,1 647.3,339.7 Z"
+        fill="rgba(4,120,87,0.75)" stroke="rgba(4,120,87,0.92)"
+        stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Leg lines (white, drawn over fill) -->
+  <line x1="522.0" y1="657.9" x2="525.0"  y2="315.9"
+        stroke="white" stroke-width="2.0" opacity="0.85"/>
+  <line x1="522.0" y1="657.9" x2="647.3" y2="339.7"
+        stroke="white" stroke-width="2.0" opacity="0.85"/>
+
+  <!-- Arc top (white, drawn over fill stroke) -->
+  <path d="M 525.0,315.9
+           A 342.0,342.0 0 0,1 647.3,339.7"
+        fill="none" stroke="white" stroke-width="2.0" opacity="0.85"/>
+
+  <!-- Dashed extensions past each tip -->
+  <line x1="525.0"  y1="315.9"
+        x2="525.0"  y2="247.5"
+        stroke="white" stroke-width="1.5" opacity="0.75" stroke-dasharray="10,6"/>
+  <line x1="647.3" y1="339.7"
+        x2="672.4" y2="276.1"
+        stroke="white" stroke-width="1.5" opacity="0.75" stroke-dasharray="10,6"/>
+
+  <!-- Decorative angle arc near apex -->
+  <path d="M 522.8,567.9
+           A 90.0,90.0 0 0,1 555.0,574.2"
+        fill="none" stroke="white" stroke-width="2" opacity="0.9"/>
+
+  <!-- Angle label -->
+  <text x="559.8" y="463.5"
+        fill="white" font-size="32" font-weight="bold"
+        font-family="system-ui, -apple-system, sans-serif" text-anchor="middle" dominant-baseline="central"
+        paint-order="stroke" stroke="rgba(0,0,0,0.6)" stroke-width="3">
+    21
+  </text>
+
+  <!-- Direction-of-travel T -->
+  <line x1="378.0" y1="657.9" x2="666.0" y2="657.9"
+        stroke="white" stroke-width="2.5" opacity="0.9"/>
+  <line x1="522.0" y1="657.9" x2="522.8" y2="567.9"
+        stroke="white" stroke-width="2.5" opacity="0.9"/>
+  <polyline points="532.0,657.9 532.0,647.9 522.1,647.9"
+            fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Direction label -->
+  <text x="522.0" y="701.9"
+        fill="white" font-size="34" font-weight="bold"
+        font-family="system-ui, -apple-system, sans-serif" text-anchor="middle" dominant-baseline="hanging"
+        paint-order="stroke" stroke="rgba(0,0,0,0.6)" stroke-width="11">
+    direction of travel →
+  </text>
+</svg>

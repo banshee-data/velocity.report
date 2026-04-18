@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1038" height="1384" viewBox="0 0 1038 1384">
+  <image href="guide-aim-sutro_raw.jpg" width="1038" height="1384"/>
+
+  <!-- Aiming beam — truncated triangle, curved far edge -->
+  <path d="M 497.4,1230.8 L 432.8,937.3 Q 539.8,898.8 646.7,937.3 L 582.2,1230.8 Z"
+        fill="rgba(230,81,0,0.85)" stroke="rgba(230,81,0,0.95)"
+        stroke-width="5.0" stroke-linejoin="round"/>
+
+  <!-- Chevrons (margin-inset, curved) -->
+  <path d="M 539.8,1197.2 Q 539.8,1197.2 539.8,1197.2" fill="none" stroke="rgba(255,138,0,0.90)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 556.4,1138.3 Q 539.8,1132.3 523.1,1138.3" fill="none" stroke="rgba(255,138,0,0.90)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 575.6,1079.5 Q 539.8,1066.6 504.0,1079.5" fill="none" stroke="rgba(255,138,0,0.90)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 594.7,1020.7 Q 539.8,1000.9 484.9,1020.7" fill="none" stroke="rgba(255,138,0,0.90)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 613.8,961.9 Q 539.8,935.2 465.7,961.9" fill="none" stroke="rgba(255,138,0,0.90)" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Direction arrow -->
+  <line x1="539.8" y1="1211.0"
+        x2="539.8"   y2="972.3"
+        stroke="rgba(255,204,128,1)" stroke-width="5.5" stroke-linecap="round"/>
+  <polyline points="589.5,996.5 539.8,972.3 490.0,996.5"
+            fill="none" stroke="rgba(255,204,128,1)" stroke-width="5.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

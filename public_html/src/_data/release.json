@@ -1,14 +1,46 @@
 {
-  "version": "0.5.0",
-  "linux_arm64_sha256": "1e96dc4ef660f35dcbde98d3b98a7f645e3419d95f3036b029080621321faf5e",
-  "mac_arm64_sha256": "b263e8a108c58e71f608cb2727fde2b2fd5c3f40e38353b9ef8c2d59d1b094d4",
-  "visualiser_sha256": "2136a5468b0db70f13812d2de8d72f6d65f85486f420fa1d332508f4d967e93d",
-  "rpi_image_version": "0.5.1-pre1",
-  "rpi_image_url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre1/2026-04-08-093248-velocity-report.img.xz",
-  "rpi_image_sha256": "d2969f2d361fad20b04dbf33729f99b26d19d22d093850e96438829eeb1bcd73",
-  "rpi_image_extract_sha256": "f6355be83d780be546d1d69e8d13c10ec3c79d0b5210de31116873f880ba812a",
-  "rpi_image_release_url": "https://github.com/banshee-data/velocity.report/releases/tag/v0.5.1-pre1",
-  "rpi_image_download_size": 402626132,
-  "rpi_image_extract_size": 2625634304,
+  "stable": {
+    "linux_arm64": {
+      "version": "0.5.0",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-0.5.0-linux-arm64",
+      "sha256": "1e96dc4ef660f35dcbde98d3b98a7f645e3419d95f3036b029080621321faf5e"
+    },
+    "mac_arm64": {
+      "version": "0.5.0",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-0.5.0-darwin-arm64",
+      "sha256": "b263e8a108c58e71f608cb2727fde2b2fd5c3f40e38353b9ef8c2d59d1b094d4"
+    },
+    "visualiser": {
+      "version": "0.5.0",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/VelocityVisualiser-0.5.0.dmg",
+      "sha256": "2136a5468b0db70f13812d2de8d72f6d65f85486f420fa1d332508f4d967e93d"
+    }
+  },
+  "prerelease": {
+    "linux_arm64": {
+      "version": "0.5.1-pre5",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre5/velocity-report-0.5.1-pre5-linux-arm64",
+      "sha256": "9281ebe4347e9a5f34f7efb9a8cda156909e26051cfd6af8592046d69070d727"
+    },
+    "mac_arm64": {
+      "version": "0.5.1-pre5",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre5/velocity-report-0.5.1-pre5-darwin-arm64",
+      "sha256": "c396faf2706d56bd2894b85361d72e199f0ddde10d8df0b1b92d3e16dc966ad2"
+    },
+    "visualiser": {
+      "version": "",
+      "url": "",
+      "sha256": ""
+    }
+  },
+  "rpi_image": {
+    "version": "0.5.1-pre1",
+    "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre1/2026-04-08-093248-velocity-report.img.xz",
+    "sha256": "d2969f2d361fad20b04dbf33729f99b26d19d22d093850e96438829eeb1bcd73",
+    "extract_sha256": "f6355be83d780be546d1d69e8d13c10ec3c79d0b5210de31116873f880ba812a",
+    "release_url": "https://github.com/banshee-data/velocity.report/releases/tag/v0.5.1-pre1",
+    "download_size": 402626132,
+    "extract_size": 2625634304
+  },
   "rpi_imager_repo_url": "https://velocity.report/rpi.json"
 }

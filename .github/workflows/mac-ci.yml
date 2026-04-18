@@ -25,11 +25,11 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Cache grpc-swift plugin
         id: cache-grpc-swift
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: /tmp/protoc-gen-grpc-swift
           key: grpc-swift-protobuf-2.0.0-macos-15
@@ -43,7 +43,7 @@ jobs:
           cp .build/release/protoc-gen-grpc-swift-2 /tmp/protoc-gen-grpc-swift
 
       - name: Upload grpc-swift plugin
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: protoc-gen-grpc-swift-2
           path: /tmp/protoc-gen-grpc-swift
@@ -59,7 +59,7 @@ jobs:
         run: make proto-gen-swift
 
       - name: Upload generated protos
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: generated-protos
           path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
@@ -70,7 +70,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install swift-format
         run: brew install swift-format
@@ -86,10 +86,10 @@ jobs:
     needs: setup
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download generated protos
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: generated-protos
           path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
@@ -120,10 +120,10 @@ jobs:
     needs: setup
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download generated protos
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: generated-protos
           path: tools/visualiser-macos/VelocityVisualiser/gRPC/Generated/
@@ -152,7 +152,7 @@ jobs:
         run: make dmg-mac-release
 
       - name: Upload DMG artefact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: VelocityVisualiser-dmg
           path: tools/visualiser-macos/build/*VelocityVisualiser-*.dmg
