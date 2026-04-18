@@ -26,6 +26,17 @@ Options:
     --dry-run                            compute and print, do not write
     --quiet                              suppress progress noise
 
+Caching:
+    --no-cache                           ignore and do not write the asset cache
+    --cache-dir PATH                     override default ~/.cache/velocity-release
+    --clear-cache                        wipe the cache file and exit
+
+    Before downloading an asset, the script HEADs its URL and compares the
+    returned ETag + Content-Length against a local index. On match it reuses
+    the cached sha256 (and extract_sha256 for rpi_image) without re-reading
+    the bytes — typical re-runs are near-instant. On mismatch the cache
+    entry is replaced.
+
 Environment:
     GITHUB_TOKEN    required. Needed for rate-limited API calls and to download
                     private assets. A read-only token is enough for public repos.
@@ -39,6 +50,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import lzma
@@ -56,6 +68,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 RELEASE_JSON = REPO_ROOT / "public_html" / "src" / "_data" / "release.json"
 OS_LIST_JSON = REPO_ROOT / "image" / "os-list-velocity.json"
 CHECK_SCRIPT = REPO_ROOT / "scripts" / "check-release-hashes.py"
+
+DEFAULT_CACHE_DIR = Path.home() / ".cache" / "velocity-release"
+CACHE_FILE_NAME = "assets.json"
 
 GITHUB_API = f"https://api.github.com/repos/{REPO}"
 
@@ -115,6 +130,72 @@ def get_release_by_tag(tag: str, token: str) -> dict:
     if not isinstance(result, dict):
         raise RuntimeError(f"unexpected API response for tag {tag!r}")
     return result
+
+
+def head_asset(url: str, token: str) -> tuple[Optional[str], Optional[int]]:
+    """HEAD the asset URL, following redirects. Return (etag, content_length).
+    Either may be None if the CDN omits the header or the request fails —
+    callers treat missing values as a cache miss.
+
+    We deliberately do NOT send an Authorization header here: GitHub's
+    release-asset endpoint redirects to an Azure Blob CDN that rejects the
+    forwarded GitHub bearer token with 401. Public assets are HEAD-able
+    unauthenticated. Private assets are out of scope for this script."""
+    req = urllib.request.Request(
+        url,
+        method="HEAD",
+        headers={
+            "Accept": "application/octet-stream",
+            "User-Agent": "velocity-release-updater/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            etag = resp.headers.get("ETag")
+            cl_hdr = resp.headers.get("Content-Length")
+            cl = int(cl_hdr) if cl_hdr else None
+            return etag, cl
+    except Exception:
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# Asset cache
+# ---------------------------------------------------------------------------
+
+
+def cache_file(cache_dir: Path) -> Path:
+    return cache_dir / CACHE_FILE_NAME
+
+
+def load_cache(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_cache(path: Path, cache: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
+
+
+def _now_iso() -> str:
+    return (
+        datetime.datetime.now(datetime.timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def _cache_hit(entry: dict | None, etag: Optional[str], cl: Optional[int]) -> bool:
+    if not entry or not etag or cl is None:
+        return False
+    return entry.get("etag") == etag and entry.get("content_length") == cl
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +278,72 @@ def stream_rpi(url: str, token: str, log) -> tuple[str, int, str, int]:
     return dl_h.hexdigest(), dl_bytes, ex_h.hexdigest(), ex_bytes
 
 
+def fetch_asset_meta(
+    url: str, token: str, cache: Optional[dict], log
+) -> tuple[str, int]:
+    """HEAD → cache lookup → stream on miss. Returns (sha256, download_size)."""
+    etag, cl = (None, None)
+    if cache is not None:
+        etag, cl = head_asset(url, token)
+        entry = cache.get(url)
+        if _cache_hit(entry, etag, cl):
+            log(
+                f"    cached:   sha256={entry['sha256']}  "
+                f"({cl} bytes, etag match)"
+            )
+            return entry["sha256"], cl  # type: ignore[return-value]
+
+    sha, size = stream_sha_and_size(url, token, log)
+    if cache is not None and etag:
+        cache[url] = {
+            "etag": etag,
+            "content_length": size,
+            "sha256": sha,
+            "cached_at": _now_iso(),
+        }
+    return sha, size
+
+
+def fetch_rpi_meta(
+    url: str, token: str, cache: Optional[dict], log
+) -> tuple[str, int, str, int]:
+    """HEAD → cache lookup → stream on miss. Returns (download_sha,
+    download_size, extract_sha, extract_size)."""
+    etag, cl = (None, None)
+    if cache is not None:
+        etag, cl = head_asset(url, token)
+        entry = cache.get(url)
+        if (
+            _cache_hit(entry, etag, cl)
+            and entry.get("extract_sha256")
+            and entry.get("extract_size") is not None
+        ):
+            log(
+                f"    cached:   sha256={entry['sha256']}  "
+                f"({cl} bytes, etag match)\n"
+                f"              extract_sha256={entry['extract_sha256']}  "
+                f"({entry['extract_size']} bytes extracted)"
+            )
+            return (
+                entry["sha256"],
+                cl,  # type: ignore[return-value]
+                entry["extract_sha256"],
+                entry["extract_size"],
+            )
+
+    dl_sha, dl_size, ex_sha, ex_size = stream_rpi(url, token, log)
+    if cache is not None and etag:
+        cache[url] = {
+            "etag": etag,
+            "content_length": dl_size,
+            "sha256": dl_sha,
+            "extract_sha256": ex_sha,
+            "extract_size": ex_size,
+            "cached_at": _now_iso(),
+        }
+    return dl_sha, dl_size, ex_sha, ex_size
+
+
 # ---------------------------------------------------------------------------
 # Updaters
 # ---------------------------------------------------------------------------
@@ -212,6 +359,7 @@ def update_channeled_platform(
     releases: list[dict],
     pinned_release: Optional[dict],
     token: str,
+    cache: Optional[dict],
     log,
 ) -> dict:
     """Return the new {version, url, sha256} entry for stable or prerelease."""
@@ -235,7 +383,7 @@ def update_channeled_platform(
     version = _strip_tag(release["tag_name"])
     url = asset["browser_download_url"]
     log(f"  → matched {release['tag_name']} asset {asset['name']}")
-    sha, _ = stream_sha_and_size(url, token, log)
+    sha, _ = fetch_asset_meta(url, token, cache, log)
     return {"version": version, "url": url, "sha256": sha}
 
 
@@ -244,6 +392,7 @@ def update_rpi_entry(
     releases: list[dict],
     pinned_release: Optional[dict],
     token: str,
+    cache: Optional[dict],
     log,
 ) -> dict:
     """Return the new rpi_image dict (including extract_sha256 etc.)."""
@@ -270,7 +419,7 @@ def update_rpi_entry(
     published_at = release.get("published_at") or release.get("created_at") or ""
     release_date = published_at[:10]  # "2026-04-18"
     log(f"  → matched {release['tag_name']} asset {asset['name']}")
-    dl_sha, dl_size, ex_sha, ex_size = stream_rpi(url, token, log)
+    dl_sha, dl_size, ex_sha, ex_size = fetch_rpi_meta(url, token, cache, log)
     return {
         "version": version,
         "url": url,
@@ -326,6 +475,21 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--validate", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--quiet", action="store_true")
+    p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="bypass the asset cache (no reads, no writes)",
+    )
+    p.add_argument(
+        "--cache-dir",
+        default=str(DEFAULT_CACHE_DIR),
+        help=f"cache directory (default: {DEFAULT_CACHE_DIR})",
+    )
+    p.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="delete the cache file and exit",
+    )
     return p.parse_args(argv)
 
 
@@ -345,6 +509,21 @@ def resolve_platforms(args: argparse.Namespace) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> int:
+    cache_dir = Path(args.cache_dir).expanduser()
+    cache_path = cache_file(cache_dir)
+
+    def log(msg: str) -> None:
+        if not args.quiet:
+            print(msg)
+
+    if args.clear_cache:
+        if cache_path.exists():
+            cache_path.unlink()
+            log(f"removed {cache_path}")
+        else:
+            log(f"no cache at {cache_path}")
+        return 0
+
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         print("error: GITHUB_TOKEN is required", file=sys.stderr)
@@ -357,14 +536,16 @@ def run(args: argparse.Namespace) -> int:
     else:
         channels = [args.channel]
 
-    def log(msg: str) -> None:
-        if not args.quiet:
-            print(msg)
+    cache: Optional[dict] = None if args.no_cache else load_cache(cache_path)
 
     log(f"platforms: {', '.join(platforms)}")
     log(f"channels:  {', '.join(channels)}")
     if args.tag:
         log(f"pinned tag: {args.tag}")
+    if cache is None:
+        log("cache:     disabled")
+    else:
+        log(f"cache:     {cache_path} ({len(cache)} entries)")
     log("")
 
     # Load current state. We write back to disk only once at the end, so any
@@ -403,7 +584,7 @@ def run(args: argparse.Namespace) -> int:
             log(f"[{label}]")
             try:
                 entry = update_channeled_platform(
-                    platform, channel, releases, pinned_release, token, log
+                    platform, channel, releases, pinned_release, token, cache, log
                 )
             except Exception as exc:
                 if is_both:
@@ -433,7 +614,7 @@ def run(args: argparse.Namespace) -> int:
         log(f"[rpi_image · {rpi_channel}]")
         try:
             new_rpi = update_rpi_entry(
-                rpi_channel, releases, pinned_release, token, log
+                rpi_channel, releases, pinned_release, token, cache, log
             )
         except Exception as exc:
             msg = f"rpi_image: {exc}"
@@ -447,6 +628,12 @@ def run(args: argparse.Namespace) -> int:
             release_data["rpi_image"] = merged
             sync_os_list(merged, os_list_data)
             log("")
+
+    # Persist the asset cache regardless of dry-run or failures: the cache
+    # reflects what was observed on GitHub, not what we wrote to release.json.
+    if cache is not None:
+        save_cache(cache_path, cache)
+        log(f"cache:     wrote {cache_path} ({len(cache)} entries)")
 
     if failures:
         print(f"\n{len(failures)} failure(s); not writing files:", file=sys.stderr)
