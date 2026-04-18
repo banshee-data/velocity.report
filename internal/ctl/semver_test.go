@@ -68,6 +68,14 @@ func TestCompareSemver(t *testing.T) {
 		{"0.5.1-pre5", "0.5.1-pre3", 1},
 		{"0.5.1-pre3", "0.5.1-pre5", -1},
 
+		// Tagged-numeric tokens: pre16 > pre2 (not lexicographic).
+		{"0.5.1-pre16", "0.5.1-pre2", 1},
+		{"0.5.1-pre2", "0.5.1-pre16", -1},
+		{"0.5.1-pre10", "0.5.1-pre9", 1},
+		{"0.5.1-rc2", "0.5.1-rc10", -1},
+		// Different prefixes fall back to lexicographic.
+		{"0.5.1-pre2", "0.5.1-rc2", -1},
+
 		// Numeric prerelease identifiers.
 		{"1.0.0-1", "1.0.0-2", -1},
 		{"1.0.0-2", "1.0.0-1", 1},

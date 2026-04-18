@@ -202,8 +202,11 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 	if currentParsed && latestParsed {
 		cmp := compareSemver(latestSV, currentSV)
 		if cmp < 0 {
+			// Label reflects the fetched version's actual channel, not the
+			// flag: --prerelease can fall back to stable when no prerelease
+			// is published.
 			channelLabel := "stable"
-			if opts.IncludePrereleases {
+			if latestSV.isPrerelease() {
 				channelLabel = "pre-release"
 			}
 			fmt.Fprintf(m.out, "Current: v%s\n", current)

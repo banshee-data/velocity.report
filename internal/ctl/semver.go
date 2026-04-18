@@ -82,6 +82,10 @@ func compareSemver(a, b semverVersion) int {
 // comparePrerelease compares prerelease identifiers per semver §11:
 // split by ".", numeric identifiers compared as integers, string
 // identifiers compared lexically, numeric < string, fewer fields < more.
+//
+// Also handles tagged-numeric tokens like "pre16" (shared alpha prefix
+// followed by a digit run) so that pre16 > pre2 rather than sorting
+// lexicographically. This covers the repo's established tag format.
 func comparePrerelease(a, b string) int {
 	aParts := strings.Split(a, ".")
 	bParts := strings.Split(b, ".")
@@ -105,16 +109,39 @@ func comparePrerelease(a, b string) int {
 		case bErr == nil:
 			return 1 // string > numeric
 		default:
-			if aParts[i] < bParts[i] {
+			aPre, aSuf, aOk := splitTaggedNumeric(aParts[i])
+			bPre, bSuf, bOk := splitTaggedNumeric(bParts[i])
+			if aOk && bOk && aPre == bPre {
+				if c := intCmp(aSuf, bSuf); c != 0 {
+					return c
+				}
+			} else if aParts[i] < bParts[i] {
 				return -1
-			}
-			if aParts[i] > bParts[i] {
+			} else if aParts[i] > bParts[i] {
 				return 1
 			}
 		}
 	}
 
 	return intCmp(len(aParts), len(bParts))
+}
+
+// splitTaggedNumeric splits a token like "pre16" into prefix "pre" and
+// numeric suffix 16. Returns ok=false if the token has no trailing digit
+// run or no alpha prefix.
+func splitTaggedNumeric(s string) (prefix string, suffix int, ok bool) {
+	i := len(s)
+	for i > 0 && s[i-1] >= '0' && s[i-1] <= '9' {
+		i--
+	}
+	if i == len(s) || i == 0 {
+		return "", 0, false
+	}
+	n, err := strconv.Atoi(s[i:])
+	if err != nil {
+		return "", 0, false
+	}
+	return s[:i], n, true
 }
 
 func intCmp(a, b int) int {
