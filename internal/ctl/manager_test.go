@@ -52,11 +52,15 @@ func channelsJSON(stable, prerelease string) string {
 	return `{"stable":` + channelJSON(stable) + `,"prerelease":` + channelJSON(prerelease) + `}`
 }
 
-// channelJSON returns one channel object with linux_arm64 URL derived
-// from the version so tests match the shape served in production.
+// channelJSON returns one channel object with linux_arm64 populated
+// using the given asset version (empty version means the asset is
+// unpublished — useful for testing the prerelease fallback).
 func channelJSON(version string) string {
+	if version == "" {
+		return `{"linux_arm64":{"version":"","url":"","sha256":""}}`
+	}
 	url := "https://example.com/v" + version + "/velocity-report-" + version + "-linux-arm64"
-	return `{"version":"` + version + `","linux_arm64":{"url":"` + url + `","sha256":""}}`
+	return `{"linux_arm64":{"version":"` + version + `","url":"` + url + `","sha256":""}}`
 }
 
 func testConfig(tmp string) Config {

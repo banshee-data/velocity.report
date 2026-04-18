@@ -116,19 +116,19 @@ def entries_from_release_json(data: dict) -> list[dict]:
     }
     for channel in ("stable", "prerelease"):
         ch = data.get(channel)
-        if not ch or not ch.get("version"):
+        if not ch:
             continue
-        v = ch["version"]
         for key, label in asset_labels.items():
             asset = ch.get(key) or {}
+            version = asset.get("version")
             url = asset.get("url")
             sha = asset.get("sha256")
-            # Skip assets not yet published (empty url or sha).
-            if not url or not sha:
+            # Skip assets not yet published (empty url, sha, or version).
+            if not url or not sha or not version:
                 continue
             entries.append(
                 {
-                    "label": f"[{channel}] {label} v{v}",
+                    "label": f"[{channel}] {label} v{version}",
                     "url": url,
                     "sha": sha,
                     "size": None,

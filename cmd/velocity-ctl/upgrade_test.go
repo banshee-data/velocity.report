@@ -17,7 +17,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	tmp := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"stable":{"version":"0.5.2","linux_arm64":{"url":"https://example.com/bin","sha256":""}}}`))
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/bin","sha256":""}}}`))
 	}))
 	defer server.Close()
 
@@ -137,7 +137,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
 	tmp := t.TempDir()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"stable":{"version":"0.5.2","linux_arm64":{"url":"https://example.com/stable","sha256":""}},"prerelease":{"version":"0.6.0-rc1","linux_arm64":{"url":"https://example.com/rc","sha256":""}}}`))
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/stable","sha256":""}},"prerelease":{"linux_arm64":{"version":"0.6.0-rc1","url":"https://example.com/rc","sha256":""}}}`))
 	}))
 	defer server.Close()
 
@@ -177,7 +177,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleasesFromConfig(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"stable":{"version":"0.5.2","linux_arm64":{"url":"https://example.com/stable","sha256":""}},"prerelease":{"version":"0.6.0-rc1","linux_arm64":{"url":"https://example.com/rc","sha256":""}}}`))
+		_, _ = w.Write([]byte(`{"stable":{"linux_arm64":{"version":"0.5.2","url":"https://example.com/stable","sha256":""}},"prerelease":{"linux_arm64":{"version":"0.6.0-rc1","url":"https://example.com/rc","sha256":""}}}`))
 	}))
 	defer server.Close()
 

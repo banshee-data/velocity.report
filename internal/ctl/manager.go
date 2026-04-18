@@ -302,15 +302,15 @@ type releasesMeta struct {
 }
 
 type releasesChannel struct {
-	Version    string       `json:"version"`
 	LinuxArm64 releaseAsset `json:"linux_arm64"`
 	MacArm64   releaseAsset `json:"mac_arm64"`
 	Visualiser releaseAsset `json:"visualiser"`
 }
 
 type releaseAsset struct {
-	URL    string `json:"url"`
-	SHA256 string `json:"sha256"`
+	Version string `json:"version"`
+	URL     string `json:"url"`
+	SHA256  string `json:"sha256"`
 }
 
 func (m *Manager) applyLocalBinary(path string) error {
@@ -386,22 +386,26 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 		return "", "", fmt.Errorf("parsing releases.json: %w", err)
 	}
 
-	ch := meta.Stable
-	if includePrereleases && meta.Prerelease.Version != "" {
-		ch = meta.Prerelease
-	}
-	if ch.Version == "" {
-		return "", "", fmt.Errorf("no version found in releases.json")
-	}
-
-	asset, err := pickAsset(ch, m.cfg.GOOS, m.cfg.GOARCH)
+	// Pick the asset for this platform, preferring the prerelease channel
+	// when requested and the prerelease asset is populated. Versions live
+	// on each asset so different binaries can ship independently.
+	asset, err := pickAsset(meta.Stable, m.cfg.GOOS, m.cfg.GOARCH)
 	if err != nil {
 		return "", "", err
 	}
-	if asset.URL == "" {
-		return "", "", fmt.Errorf("release %s has no download URL for %s/%s", ch.Version, m.cfg.GOOS, m.cfg.GOARCH)
+	if includePrereleases {
+		pre, err := pickAsset(meta.Prerelease, m.cfg.GOOS, m.cfg.GOARCH)
+		if err == nil && pre.Version != "" {
+			asset = pre
+		}
 	}
-	return ch.Version, asset.URL, nil
+	if asset.Version == "" {
+		return "", "", fmt.Errorf("no version found in releases.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
+	}
+	if asset.URL == "" {
+		return "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
+	}
+	return asset.Version, asset.URL, nil
 }
 
 // pickAsset returns the asset for the caller's platform. velocity-ctl
