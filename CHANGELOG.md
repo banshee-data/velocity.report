@@ -68,7 +68,7 @@ The release where velocity.report learns to be understood by someone who did not
 ### Security
 
 - **Dependency updates** across Go, npm, and Python. Fixed dev-mode path traversal in Vite.
-- **`velocity-ctl upgrade` SHA verification**: verifies the downloaded binary before installation against the per-asset `sha256` published in `https://velocity.report/releases.json`. Missing checksum warns and proceeds for older releases.
+- **`velocity-ctl upgrade` SHA verification**: verifies the downloaded binary before installation against the per-asset `sha256` published in `https://velocity.report/release.json`. Missing checksum warns and proceeds for older releases.
 - **GitHub Actions SHA pinning**: all `uses:` lines across 13 workflow files converted from version tags to immutable commit SHAs.
 
 ### Fixes

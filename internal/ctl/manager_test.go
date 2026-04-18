@@ -40,13 +40,13 @@ func (f *fakeRunner) Run(name string, args ...string) error {
 	return nil
 }
 
-// stableJSON returns a minimal releases.json payload for tests.
+// stableJSON returns a minimal release.json payload for tests.
 // The linux_arm64 asset is populated so pickAsset returns a URL.
 func stableJSON(version string) string {
 	return `{"stable":` + channelJSON(version) + `}`
 }
 
-// channelsJSON returns a releases.json with both channels populated.
+// channelsJSON returns a release.json with both channels populated.
 func channelsJSON(stable, prerelease string) string {
 	return `{"stable":` + channelJSON(stable) + `,"prerelease":` + channelJSON(prerelease) + `}`
 }
@@ -64,7 +64,7 @@ func channelJSON(version string) string {
 
 func testConfig(tmp string) Config {
 	return Config{
-		ReleasesMetaURL: "",
+		ReleaseMetaURL:  "",
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		ServiceName:     "velocity-report.service",
@@ -201,7 +201,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 	if err := m.RunUpgrade(true, ""); err != nil {
@@ -225,7 +225,7 @@ func TestRunUpgradePreventDowngrade(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -254,7 +254,7 @@ func TestRunUpgradePrereleaseSuggestsFlag(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -284,7 +284,7 @@ func TestRunUpgradeAllowsLegitimateUpgrade(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 
@@ -346,7 +346,7 @@ func TestRunUpgradeNoVersionInJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	err := m.RunUpgrade(false, "")
 	if err == nil || !strings.Contains(err.Error(), "no version found") {
@@ -364,10 +364,10 @@ func TestFetchLatestReleaseBadJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	_, _, _, err := m.fetchLatestRelease(false)
-	if err == nil || !strings.Contains(err.Error(), "parsing releases.json") {
+	if err == nil || !strings.Contains(err.Error(), "parsing release.json") {
 		t.Fatalf("expected JSON parse error, got: %v", err)
 	}
 }
@@ -381,7 +381,7 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	_, _, _, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "releases metadata returned") {
@@ -410,7 +410,7 @@ func TestFetchLatestReleaseURLConstruction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	ver, url, _, err := m.fetchLatestRelease(false)
 	if err != nil {
@@ -612,7 +612,7 @@ func TestFetchLatestReleaseStableChannel(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	ver, _, _, err := m.fetchLatestRelease(false)
 	if err != nil {
@@ -633,7 +633,7 @@ func TestFetchLatestReleasePrereleaseChannel(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	ver, _, _, err := m.fetchLatestRelease(true)
 	if err != nil {
@@ -654,7 +654,7 @@ func TestFetchLatestReleasePrereleaseEmptyFallsBackToStable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg.ReleasesMetaURL = server.URL
+	cfg.ReleaseMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 	ver, _, _, err := m.fetchLatestRelease(true)
 	if err != nil {

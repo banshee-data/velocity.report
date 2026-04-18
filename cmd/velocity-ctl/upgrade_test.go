@@ -22,7 +22,7 @@ func TestRunUpgradeCheckOnly(t *testing.T) {
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesMetaURL: server.URL,
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),
@@ -142,7 +142,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleases(t *testing.T) {
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesMetaURL: server.URL,
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),
@@ -182,7 +182,7 @@ func TestRunUpgradeCheckOnlyIncludePrereleasesFromConfig(t *testing.T) {
 	defer server.Close()
 
 	cfg := ctl.Config{
-		ReleasesMetaURL: server.URL,
+		ReleaseMetaURL:  server.URL,
 		BinaryName:      "velocity-report",
 		BinaryPath:      filepath.Join(tmp, "bin", "velocity-report"),
 		BackupDir:       filepath.Join(tmp, "backups"),

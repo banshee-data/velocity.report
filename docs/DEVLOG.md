@@ -2,7 +2,7 @@
 
 ## April 17, 2026 - Supply-chain hardening & documentation trust fixes
 
-- Added SHA verification to `velocity-ctl upgrade`: binary download is verified against the per-asset `sha256` published in `https://velocity.report/releases.json` before install. Hash mismatch aborts; an empty `sha256` entry (older release metadata) warns and continues. Resolves the open TODO in `internal/ctl/manager.go`.
+- Added SHA verification to `velocity-ctl upgrade`: binary download is verified against the per-asset `sha256` published in `https://velocity.report/release.json` before install. Hash mismatch aborts; an empty `sha256` entry (older release metadata) warns and continues. Resolves the open TODO in `internal/ctl/manager.go`.
 - Pinned all GitHub Actions `uses:` lines across 13 CI workflow files from version tags to commit SHAs (`@<sha> # vX.Y.Z`). Priority order: `softprops/action-gh-release`, `peter-evans/create-pull-request`, `codecov/codecov-action`, then all remaining third-party and first-party actions.
 - Replaced CA certificate trust instructions in the setup guide with browser-native exception steps (Chrome/Edge and Firefox/Safari); removed from both step 3 and the troubleshooting table. The CA endpoint remains in nginx but is no longer the advertised path.
 - Promoted the Tailscale section from "optional" to "recommended for clean HTTPS"; added explanation that `*.ts.net` provides a valid Let's Encrypt certificate. Dashboard URL updated to `https://<hostname>.<tailnet>.ts.net` form.

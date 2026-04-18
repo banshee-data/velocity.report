@@ -20,16 +20,16 @@ import (
 )
 
 const (
-	defaultReleasesMetaURL = "https://velocity.report/releases.json"
-	defaultBinaryName      = "velocity-report"
-	defaultBinaryPath      = "/usr/local/bin/" + defaultBinaryName
-	defaultServiceName     = "velocity-report.service"
-	defaultBackupDir       = "/var/lib/velocity-report/backups"
-	defaultDBPath          = "/var/lib/velocity-report/sensor_data.db"
+	defaultReleaseMetaURL = "https://velocity.report/release.json"
+	defaultBinaryName     = "velocity-report"
+	defaultBinaryPath     = "/usr/local/bin/" + defaultBinaryName
+	defaultServiceName    = "velocity-report.service"
+	defaultBackupDir      = "/var/lib/velocity-report/backups"
+	defaultDBPath         = "/var/lib/velocity-report/sensor_data.db"
 )
 
 type Config struct {
-	ReleasesMetaURL string
+	ReleaseMetaURL  string
 	BinaryName      string
 	BinaryPath      string
 	ServiceName     string
@@ -49,7 +49,7 @@ type UpgradeOptions struct {
 
 func DefaultConfig() Config {
 	return Config{
-		ReleasesMetaURL: defaultReleasesMetaURL,
+		ReleaseMetaURL:  defaultReleaseMetaURL,
 		BinaryName:      defaultBinaryName,
 		BinaryPath:      defaultBinaryPath,
 		ServiceName:     defaultServiceName,
@@ -108,8 +108,8 @@ func NewDefaultManager() *Manager {
 }
 
 func NewManager(cfg Config, httpClient HTTPGetter, runner CommandRunner, out io.Writer, err io.Writer) *Manager {
-	if cfg.ReleasesMetaURL == "" {
-		cfg.ReleasesMetaURL = defaultReleasesMetaURL
+	if cfg.ReleaseMetaURL == "" {
+		cfg.ReleaseMetaURL = defaultReleaseMetaURL
 	}
 	if cfg.BinaryName == "" {
 		cfg.BinaryName = defaultBinaryName
@@ -367,11 +367,11 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 	return nil
 }
 
-// fetchLatestRelease fetches velocity.report/releases.json and returns the
+// fetchLatestRelease fetches velocity.report/release.json and returns the
 // version string, download URL, and expected SHA-256 hex digest for the
 // appropriate channel and platform.
 func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL, expectedSHA string, err error) {
-	resp, err := m.httpClient.Get(m.cfg.ReleasesMetaURL)
+	resp, err := m.httpClient.Get(m.cfg.ReleaseMetaURL)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -383,7 +383,7 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 
 	var meta releasesMeta
 	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return "", "", "", fmt.Errorf("parsing releases.json: %w", err)
+		return "", "", "", fmt.Errorf("parsing release.json: %w", err)
 	}
 
 	// Pick the asset for this platform, preferring the prerelease channel
@@ -400,7 +400,7 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 		}
 	}
 	if asset.Version == "" {
-		return "", "", "", fmt.Errorf("no version found in releases.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
+		return "", "", "", fmt.Errorf("no version found in release.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
 	}
 	if asset.URL == "" {
 		return "", "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
@@ -423,7 +423,7 @@ func pickAsset(ch releasesChannel, goos, goarch string) (releaseAsset, error) {
 }
 
 // downloadToTemp downloads the binary at url, verifies its SHA-256 against
-// expectedSHA (from releases.json), and returns the path to a temp file.
+// expectedSHA (from release.json), and returns the path to a temp file.
 // If expectedSHA is empty (older release metadata), verification is skipped
 // with a warning.
 func (m *Manager) downloadToTemp(url, expectedSHA string) (string, error) {
