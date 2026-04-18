@@ -109,37 +109,31 @@ def check_entry(
 def entries_from_release_json(data: dict) -> list[dict]:
     """Extract downloadable entries from release.json."""
     entries = []
+    asset_labels = {
+        "linux_arm64": "Linux ARM64 server",
+        "mac_arm64": "macOS ARM64 server",
+        "visualiser": "VelocityVisualiser",
+    }
     for channel in ("stable", "prerelease"):
         ch = data.get(channel)
         if not ch or not ch.get("version"):
             continue
         v = ch["version"]
-        # Skip channels with empty SHAs (not yet released).
-        if not ch.get("linux_arm64_sha256"):
-            continue
-        base = f"https://github.com/banshee-data/velocity.report/releases/download/v{v}"
-        entries.extend(
-            [
+        for key, label in asset_labels.items():
+            asset = ch.get(key) or {}
+            url = asset.get("url")
+            sha = asset.get("sha256")
+            # Skip assets not yet published (empty url or sha).
+            if not url or not sha:
+                continue
+            entries.append(
                 {
-                    "label": f"[{channel}] Linux ARM64 server v{v}",
-                    "url": f"{base}/velocity-report-{v}-linux-arm64",
-                    "sha": ch.get("linux_arm64_sha256"),
+                    "label": f"[{channel}] {label} v{v}",
+                    "url": url,
+                    "sha": sha,
                     "size": None,
-                },
-                {
-                    "label": f"[{channel}] macOS ARM64 server v{v}",
-                    "url": f"{base}/velocity-report-{v}-darwin-arm64",
-                    "sha": ch.get("mac_arm64_sha256"),
-                    "size": None,
-                },
-                {
-                    "label": f"[{channel}] VelocityVisualiser v{v}",
-                    "url": f"{base}/VelocityVisualiser-{v}.dmg",
-                    "sha": ch.get("visualiser_sha256"),
-                    "size": None,
-                },
-            ]
-        )
+                }
+            )
     # RPi image (nested under rpi_image key).
     rpi = data.get("rpi_image", {})
     if rpi.get("url"):

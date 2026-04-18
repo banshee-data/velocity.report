@@ -42,13 +42,21 @@ func (f *fakeRunner) Run(name string, args ...string) error {
 }
 
 // stableJSON returns a minimal releases.json payload for tests.
+// The linux_arm64 asset is populated so pickAsset returns a URL.
 func stableJSON(version string) string {
-	return `{"stable":{"version":"` + version + `"}}`
+	return `{"stable":` + channelJSON(version) + `}`
 }
 
 // channelsJSON returns a releases.json with both channels populated.
 func channelsJSON(stable, prerelease string) string {
-	return `{"stable":{"version":"` + stable + `"},"prerelease":{"version":"` + prerelease + `"}}`
+	return `{"stable":` + channelJSON(stable) + `,"prerelease":` + channelJSON(prerelease) + `}`
+}
+
+// channelJSON returns one channel object with linux_arm64 URL derived
+// from the version so tests match the shape served in production.
+func channelJSON(version string) string {
+	url := "https://example.com/v" + version + "/velocity-report-" + version + "-linux-arm64"
+	return `{"version":"` + version + `","linux_arm64":{"url":"` + url + `","sha256":""}}`
 }
 
 func testConfig(tmp string) Config {

@@ -22,7 +22,6 @@ import (
 
 const (
 	defaultReleasesMetaURL = "https://velocity.report/releases.json"
-	defaultGHDownloadBase  = "https://github.com/banshee-data/velocity.report/releases/download"
 	defaultBinaryName      = "velocity-report"
 	defaultBinaryPath      = "/usr/local/bin/" + defaultBinaryName
 	defaultServiceName     = "velocity-report.service"
@@ -303,7 +302,15 @@ type releasesMeta struct {
 }
 
 type releasesChannel struct {
-	Version string `json:"version"`
+	Version    string       `json:"version"`
+	LinuxArm64 releaseAsset `json:"linux_arm64"`
+	MacArm64   releaseAsset `json:"mac_arm64"`
+	Visualiser releaseAsset `json:"visualiser"`
+}
+
+type releaseAsset struct {
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
 }
 
 func (m *Manager) applyLocalBinary(path string) error {
@@ -362,7 +369,7 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 }
 
 // fetchLatestRelease fetches velocity.report/releases.json and returns the
-// version string and download URL for the appropriate channel.
+// version string and download URL for the appropriate channel and platform.
 func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL string, err error) {
 	resp, err := m.httpClient.Get(m.cfg.ReleasesMetaURL)
 	if err != nil {
@@ -379,19 +386,36 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 		return "", "", fmt.Errorf("parsing releases.json: %w", err)
 	}
 
-	ver := meta.Stable.Version
+	ch := meta.Stable
 	if includePrereleases && meta.Prerelease.Version != "" {
-		ver = meta.Prerelease.Version
+		ch = meta.Prerelease
 	}
-
-	if ver == "" {
+	if ch.Version == "" {
 		return "", "", fmt.Errorf("no version found in releases.json")
 	}
 
-	url := fmt.Sprintf("%s/v%s/velocity-report-%s-%s-%s",
-		defaultGHDownloadBase, ver, ver, m.cfg.GOOS, m.cfg.GOARCH,
-	)
-	return ver, url, nil
+	asset, err := pickAsset(ch, m.cfg.GOOS, m.cfg.GOARCH)
+	if err != nil {
+		return "", "", err
+	}
+	if asset.URL == "" {
+		return "", "", fmt.Errorf("release %s has no download URL for %s/%s", ch.Version, m.cfg.GOOS, m.cfg.GOARCH)
+	}
+	return ch.Version, asset.URL, nil
+}
+
+// pickAsset returns the asset for the caller's platform. velocity-ctl
+// only ships the server binary; the visualiser is macOS-only and not an
+// upgrade target here.
+func pickAsset(ch releasesChannel, goos, goarch string) (releaseAsset, error) {
+	switch {
+	case goos == "linux" && goarch == "arm64":
+		return ch.LinuxArm64, nil
+	case goos == "darwin" && goarch == "arm64":
+		return ch.MacArm64, nil
+	default:
+		return releaseAsset{}, fmt.Errorf("unsupported platform %s/%s", goos, goarch)
+	}
 }
 
 func (m *Manager) downloadToTemp(url string) (string, error) {

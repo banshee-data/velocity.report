@@ -1,15 +1,33 @@
 {
   "stable": {
     "version": "0.5.0",
-    "linux_arm64_sha256": "1e96dc4ef660f35dcbde98d3b98a7f645e3419d95f3036b029080621321faf5e",
-    "mac_arm64_sha256": "b263e8a108c58e71f608cb2727fde2b2fd5c3f40e38353b9ef8c2d59d1b094d4",
-    "visualiser_sha256": "2136a5468b0db70f13812d2de8d72f6d65f85486f420fa1d332508f4d967e93d"
+    "linux_arm64": {
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-0.5.0-linux-arm64",
+      "sha256": "1e96dc4ef660f35dcbde98d3b98a7f645e3419d95f3036b029080621321faf5e"
+    },
+    "mac_arm64": {
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/velocity-report-0.5.0-darwin-arm64",
+      "sha256": "b263e8a108c58e71f608cb2727fde2b2fd5c3f40e38353b9ef8c2d59d1b094d4"
+    },
+    "visualiser": {
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.0/VelocityVisualiser-0.5.0.dmg",
+      "sha256": "2136a5468b0db70f13812d2de8d72f6d65f85486f420fa1d332508f4d967e93d"
+    }
   },
   "prerelease": {
     "version": "0.5.1-pre5",
-    "linux_arm64_sha256": "",
-    "mac_arm64_sha256": "",
-    "visualiser_sha256": ""
+    "linux_arm64": {
+      "url": "",
+      "sha256": ""
+    },
+    "mac_arm64": {
+      "url": "",
+      "sha256": ""
+    },
+    "visualiser": {
+      "url": "",
+      "sha256": ""
+    }
   },
   "rpi_image": {
     "version": "0.5.1-pre1",
