@@ -65,7 +65,7 @@ PLATFORM_ASSET_RE: dict[str, re.Pattern[str]] = {
     "linux_arm64": re.compile(r"^velocity-report-.+-linux-arm64$"),
     "mac_arm64": re.compile(r"^velocity-report-.+-darwin-arm64$"),
     "visualiser": re.compile(r"^VelocityVisualiser-.+\.dmg$"),
-    "rpi_image": re.compile(r".+velocity-report\.img\.xz$"),
+    "rpi_image": re.compile(r"velocity-report.*\.img\.xz$"),
 }
 
 ALL_PLATFORMS = list(PLATFORM_ASSET_RE.keys())
@@ -266,6 +266,9 @@ def update_rpi_entry(
 
     version = _strip_tag(release["tag_name"])
     url = asset["browser_download_url"]
+    # published_at is ISO 8601 with trailing Z, e.g. "2026-04-18T03:12:08Z".
+    published_at = release.get("published_at") or release.get("created_at") or ""
+    release_date = published_at[:10]  # "2026-04-18"
     log(f"  → matched {release['tag_name']} asset {asset['name']}")
     dl_sha, dl_size, ex_sha, ex_size = stream_rpi(url, token, log)
     return {
@@ -274,6 +277,7 @@ def update_rpi_entry(
         "sha256": dl_sha,
         "extract_sha256": ex_sha,
         "release_url": release["html_url"],
+        "release_date": release_date,
         "download_size": dl_size,
         "extract_size": ex_size,
     }
@@ -289,11 +293,10 @@ def sync_os_list(rpi: dict, os_list: dict) -> None:
     item["image_download_size"] = rpi["download_size"]
     item["extract_size"] = rpi["extract_size"]
     item["extract_sha256"] = rpi["extract_sha256"]
-    # release_date: first 10 chars of tag if it starts with a date, else untouched.
-    tag_name = rpi.get("version", "")
-    m = re.match(r"^(\d{4}-\d{2}-\d{2})", tag_name)
-    if m:
-        item["release_date"] = m.group(1)
+    # release_date: from the GitHub release's published_at timestamp.
+    release_date = rpi.get("release_date", "")
+    if release_date:
+        item["release_date"] = release_date
 
 
 # ---------------------------------------------------------------------------
