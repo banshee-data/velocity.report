@@ -147,6 +147,7 @@ help:
 	@echo ""
 	@echo "UTILITIES:"
 	@echo "  set-version          Update version across codebase (VER=0.4.0 TARGETS='--all')"
+	@echo "  update-release-json  Refresh release.json/os-list from GitHub Releases (ARGS='--ci --channel prerelease --validate')"
 	@echo "  log-go-tail          Tail most recent Go server log"
 	@echo "  log-go-cat           Cat most recent Go server log"
 	@echo "  log-go-tail-all      Tail most recent Go server log plus debug log"
