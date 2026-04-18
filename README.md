@@ -25,7 +25,7 @@
 | pdf\_generator/core/table\_builders.py     |      220 |        6 |     97% |175, 458, 717, 728-734 |
 | pdf\_generator/core/tex\_environment.py    |       45 |        5 |     89% | 69-73, 87 |
 | pdf\_generator/core/zip\_utils.py          |      125 |       17 |     86% |67-68, 178-180, 185-187, 254, 281-282, 286-287, 292-293, 298-299 |
-| **TOTAL**                                  | **3032** |  **185** | **94%** |           |
+|                                  **TOTAL** | **3032** |  **185** | **94%** |           |
 
 
 ## Setup coverage badge
