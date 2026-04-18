@@ -105,18 +105,13 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           mv dist/linux/velocity-report-arm64 "dist/linux/velocity-report-${VERSION}-linux-arm64"
-          sha256sum "dist/linux/velocity-report-${VERSION}-linux-arm64" \
-            > "dist/linux/velocity-report-${VERSION}-linux-arm64.sha256"
           echo "RADAR_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64" >> "$GITHUB_ENV"
-          echo "RADAR_SHA_PATH=dist/linux/velocity-report-${VERSION}-linux-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Linux release asset
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            ${{ env.RADAR_PATH }}
-            ${{ env.RADAR_SHA_PATH }}
+          files: ${{ env.RADAR_PATH }}
 
   release-darwin-radar:
     name: Publish macOS ARM64 radar binary
@@ -146,19 +141,13 @@ jobs:
             -o "velocity-report-${VERSION}-darwin-arm64" \
             ./cmd/radar
 
-          shasum -a 256 "velocity-report-${VERSION}-darwin-arm64" \
-            > "velocity-report-${VERSION}-darwin-arm64.sha256"
-
           echo "RADAR_PATH=velocity-report-${VERSION}-darwin-arm64" >> "$GITHUB_ENV"
-          echo "RADAR_SHA_PATH=velocity-report-${VERSION}-darwin-arm64.sha256" >> "$GITHUB_ENV"
 
       - name: Upload Darwin release asset
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            ${{ env.RADAR_PATH }}
-            ${{ env.RADAR_SHA_PATH }}
+          files: ${{ env.RADAR_PATH }}
 
   build-image:
     name: Build Raspberry Pi image
@@ -205,7 +194,6 @@ jobs:
             exit 1
           fi
 
-          rm -f "${IMAGE_PATH}.sha256"
           FINAL_IMAGE_PATH="$IMAGE_PATH"
 
           if [ -n "${RELEASE_TAG}" ]; then
@@ -214,19 +202,14 @@ jobs:
             mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
           fi
 
-          sha256sum "$FINAL_IMAGE_PATH" > "${FINAL_IMAGE_PATH}.sha256"
-
           echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
-          echo "CHECKSUM_PATH=${FINAL_IMAGE_PATH}.sha256" >> "$GITHUB_ENV"
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image to release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            ${{ env.IMAGE_PATH }}
-            ${{ env.CHECKSUM_PATH }}
+          files: ${{ env.IMAGE_PATH }}
 
   build-image-manual:
     name: Build Raspberry Pi image (manual)
@@ -271,7 +254,6 @@ jobs:
             exit 1
           fi
 
-          rm -f "${IMAGE_PATH}.sha256"
           FINAL_IMAGE_PATH="$IMAGE_PATH"
 
           if [ -n "${RELEASE_TAG}" ]; then
@@ -280,17 +262,12 @@ jobs:
             mv "$IMAGE_PATH" "$FINAL_IMAGE_PATH"
           fi
 
-          sha256sum "$FINAL_IMAGE_PATH" > "${FINAL_IMAGE_PATH}.sha256"
-
           echo "IMAGE_PATH=$FINAL_IMAGE_PATH" >> "$GITHUB_ENV"
-          echo "CHECKSUM_PATH=${FINAL_IMAGE_PATH}.sha256" >> "$GITHUB_ENV"
           echo "Image size: $(du -h "$FINAL_IMAGE_PATH" | cut -f1)"
 
       - name: Upload image as artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: velocity-report-image
-          path: |
-            ${{ env.IMAGE_PATH }}
-            ${{ env.CHECKSUM_PATH }}
+          path: ${{ env.IMAGE_PATH }}
           retention-days: 7
