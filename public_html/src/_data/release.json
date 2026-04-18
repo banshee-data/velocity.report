@@ -18,14 +18,14 @@
   },
   "prerelease": {
     "linux_arm64": {
-      "version": "0.5.1-pre5",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre5/velocity-report-0.5.1-pre5-linux-arm64",
-      "sha256": "9281ebe4347e9a5f34f7efb9a8cda156909e26051cfd6af8592046d69070d727"
+      "version": "0.5.1-pre6",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre6/velocity-report-0.5.1-pre6-linux-arm64",
+      "sha256": "d92fd300d9dae3c6fb41cb8703d800b61c7eb0eb44d51df06dbc757d4679da05"
     },
     "mac_arm64": {
-      "version": "0.5.1-pre5",
-      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre5/velocity-report-0.5.1-pre5-darwin-arm64",
-      "sha256": "c396faf2706d56bd2894b85361d72e199f0ddde10d8df0b1b92d3e16dc966ad2"
+      "version": "0.5.1-pre6",
+      "url": "https://github.com/banshee-data/velocity.report/releases/download/v0.5.1-pre6/velocity-report-0.5.1-pre6-darwin-arm64",
+      "sha256": "57ca3ce63b597f04a1238bd5288b2cd090d7e1f1f2c95996956c8960a905208d"
     },
     "visualiser": {
       "version": "",
