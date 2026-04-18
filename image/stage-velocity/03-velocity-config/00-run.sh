@@ -24,11 +24,16 @@ mkdir -p /opt/velocity-report/config
 # because the on_chroot heredoc is single-quoted to preserve sudoers
 # backslash continuations.
 #
-# Commands:
+# Commands granted to `pi`:
 #   getent shadow pi        — MOTD default-password check
 #   systemctl *             — shell aliases (start/stop/restart)
 #   velocity-ctl            — on-device management tool (runs as root)
 #   velocity-report migrate — database migrations invoked by velocity-ctl
+#
+# Commands granted to the `velocity` service user:
+#   velocity-ctl tailscale * — lets the Go server unmask/start/stop tailscaled
+#                              when the operator toggles Tailscale in the web UI.
+#                              Narrow allowlist; nothing else escalates.
 cat > /etc/sudoers.d/020_velocity-nopasswd <<'SUDOEOF'
 pi ALL=(root) NOPASSWD: \
     /usr/bin/getent shadow pi, \
@@ -40,6 +45,10 @@ pi ALL=(root) NOPASSWD: \
     /usr/local/bin/velocity-ctl, \
     /usr/local/bin/velocity-ctl *, \
     /usr/local/bin/velocity-report migrate *
+
+velocity ALL=(root) NOPASSWD: \
+    /usr/local/bin/velocity-ctl tailscale enable-tailscaled, \
+    /usr/local/bin/velocity-ctl tailscale disable-tailscaled
 SUDOEOF
 chmod 440 /etc/sudoers.d/020_velocity-nopasswd
 
