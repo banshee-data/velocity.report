@@ -1,7 +1,6 @@
 package ctl
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -183,7 +182,7 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 		return m.applyLocalBinary(binaryFile)
 	}
 
-	latest, assetURL, err := m.fetchLatestRelease(opts.IncludePrereleases)
+	latest, assetURL, expectedSHA, err := m.fetchLatestRelease(opts.IncludePrereleases)
 	if err != nil {
 		return fmt.Errorf("checking for updates: %w", err)
 	}
@@ -231,7 +230,7 @@ func (m *Manager) RunUpgradeWithOptions(checkOnly bool, binaryFile string, opts 
 	}
 
 	fmt.Fprintf(m.out, "Downloading from %s...\n", assetURL)
-	tmpFile, err := m.downloadToTemp(assetURL)
+	tmpFile, err := m.downloadToTemp(assetURL, expectedSHA)
 	if err != nil {
 		return fmt.Errorf("downloading release: %w", err)
 	}
@@ -369,21 +368,22 @@ func (m *Manager) applyUpgrade(newBinaryPath string) error {
 }
 
 // fetchLatestRelease fetches velocity.report/releases.json and returns the
-// version string and download URL for the appropriate channel and platform.
-func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL string, err error) {
+// version string, download URL, and expected SHA-256 hex digest for the
+// appropriate channel and platform.
+func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, downloadURL, expectedSHA string, err error) {
 	resp, err := m.httpClient.Get(m.cfg.ReleasesMetaURL)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("releases metadata returned %s", resp.Status)
+		return "", "", "", fmt.Errorf("releases metadata returned %s", resp.Status)
 	}
 
 	var meta releasesMeta
 	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return "", "", fmt.Errorf("parsing releases.json: %w", err)
+		return "", "", "", fmt.Errorf("parsing releases.json: %w", err)
 	}
 
 	// Pick the asset for this platform, preferring the prerelease channel
@@ -391,7 +391,7 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 	// on each asset so different binaries can ship independently.
 	asset, err := pickAsset(meta.Stable, m.cfg.GOOS, m.cfg.GOARCH)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	if includePrereleases {
 		pre, err := pickAsset(meta.Prerelease, m.cfg.GOOS, m.cfg.GOARCH)
@@ -400,12 +400,12 @@ func (m *Manager) fetchLatestRelease(includePrereleases bool) (version, download
 		}
 	}
 	if asset.Version == "" {
-		return "", "", fmt.Errorf("no version found in releases.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
+		return "", "", "", fmt.Errorf("no version found in releases.json for %s/%s", m.cfg.GOOS, m.cfg.GOARCH)
 	}
 	if asset.URL == "" {
-		return "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
+		return "", "", "", fmt.Errorf("release %s has no download URL for %s/%s", asset.Version, m.cfg.GOOS, m.cfg.GOARCH)
 	}
-	return asset.Version, asset.URL, nil
+	return asset.Version, asset.URL, asset.SHA256, nil
 }
 
 // pickAsset returns the asset for the caller's platform. velocity-ctl
@@ -422,7 +422,11 @@ func pickAsset(ch releasesChannel, goos, goarch string) (releaseAsset, error) {
 	}
 }
 
-func (m *Manager) downloadToTemp(url string) (string, error) {
+// downloadToTemp downloads the binary at url, verifies its SHA-256 against
+// expectedSHA (from releases.json), and returns the path to a temp file.
+// If expectedSHA is empty (older release metadata), verification is skipped
+// with a warning.
+func (m *Manager) downloadToTemp(url, expectedSHA string) (string, error) {
 	client := &http.Client{Timeout: m.cfg.DownloadTimeout}
 	resp, err := client.Get(url) //nolint:gosec // URL comes from release metadata
 	if err != nil {
@@ -455,61 +459,20 @@ func (m *Manager) downloadToTemp(url string) (string, error) {
 	computed := hex.EncodeToString(h.Sum(nil))
 	fmt.Fprintf(m.out, "Downloaded %d bytes (SHA-256: %s)\n", written, computed)
 
-	// Derive binary filename and the SHA256SUMS URL from the last path segment.
-	// strings.LastIndex preserves the URL scheme and authority unchanged.
-	lastSlash := strings.LastIndex(url, "/")
-	binaryName := url[lastSlash+1:]
-	sumsURL := url[:lastSlash+1] + "SHA256SUMS"
-
-	expected, err := m.fetchExpectedChecksum(client, sumsURL, binaryName)
-	if err != nil {
-		// SHA256SUMS not available or does not cover this binary: warn and proceed
-		// so that upgrades continue to work for releases that predate the manifest.
-		fmt.Fprintf(m.err, "warning: SHA256SUMS not available for this release, skipping verification (%v)\n", err)
+	if expectedSHA == "" {
+		fmt.Fprintf(m.err, "warning: no expected SHA-256 in release metadata, skipping verification\n")
 		return tmp.Name(), nil
 	}
 
-	if computed != expected {
+	if computed != expectedSHA {
 		os.Remove(tmp.Name())
-		return "", fmt.Errorf("SHA-256 mismatch for %s: expected %s, got %s", binaryName, expected, computed)
+		lastSlash := strings.LastIndex(url, "/")
+		binaryName := url[lastSlash+1:]
+		return "", fmt.Errorf("SHA-256 mismatch for %s: expected %s, got %s", binaryName, expectedSHA, computed)
 	}
 
 	fmt.Fprintf(m.out, "SHA-256 verified.\n")
 	return tmp.Name(), nil
-}
-
-// fetchExpectedChecksum downloads the SHA256SUMS manifest at sumsURL and returns
-// the expected hex digest for binaryName. It returns an error if the manifest
-// cannot be fetched, returns a non-200 status, or does not contain an entry for
-// the requested binary.
-func (m *Manager) fetchExpectedChecksum(client *http.Client, sumsURL, binaryName string) (string, error) {
-	resp, err := client.Get(sumsURL) //nolint:gosec // URL derived from release metadata
-	if err != nil {
-		return "", fmt.Errorf("fetching SHA256SUMS: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("SHA256SUMS returned %s", resp.Status)
-	}
-
-	// Standard sha256sum format: "<hex>  <filename>" (two spaces) or "<hex> <filename>".
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
-		}
-		if fields[1] == binaryName {
-			return fields[0], nil
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("reading SHA256SUMS: %w", err)
-	}
-
-	return "", fmt.Errorf("no entry for %s in SHA256SUMS", binaryName)
 }
 
 func (m *Manager) createBackupTo(baseDir string) (string, error) {

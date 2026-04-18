@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -367,7 +366,7 @@ func TestFetchLatestReleaseBadJSON(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, _, err := m.fetchLatestRelease(false)
+	_, _, _, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "parsing releases.json") {
 		t.Fatalf("expected JSON parse error, got: %v", err)
 	}
@@ -384,7 +383,7 @@ func TestFetchLatestReleaseHTTPError(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	_, _, err := m.fetchLatestRelease(false)
+	_, _, _, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "releases metadata returned") {
 		t.Fatalf("expected HTTP status error, got: %v", err)
 	}
@@ -395,7 +394,7 @@ func TestFetchLatestReleaseGetError(t *testing.T) {
 	cfg := testConfig(tmp)
 	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	_, _, err := m.fetchLatestRelease(false)
+	_, _, _, err := m.fetchLatestRelease(false)
 	if err == nil || !strings.Contains(err.Error(), "network down") {
 		t.Fatalf("expected getter error, got: %v", err)
 	}
@@ -413,7 +412,7 @@ func TestFetchLatestReleaseURLConstruction(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	ver, url, err := m.fetchLatestRelease(false)
+	ver, url, _, err := m.fetchLatestRelease(false)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease failed: %v", err)
 	}
@@ -480,19 +479,14 @@ func TestDownloadToTempSuccess(t *testing.T) {
 	const binaryName = "velocity-report-binary"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch path.Base(r.URL.Path) {
-		case "SHA256SUMS":
-			fmt.Fprintf(w, "%s  %s\n", sha256Hex(payload), binaryName)
-		default:
-			_, _ = w.Write([]byte(payload))
-		}
+		_, _ = w.Write([]byte(payload))
 	}))
 	defer server.Close()
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 	binaryURL := server.URL + "/v0.5.2/" + binaryName
-	tmpPath, err := m.downloadToTemp(binaryURL)
+	tmpPath, err := m.downloadToTemp(binaryURL, sha256Hex(payload))
 	if err != nil {
 		t.Fatalf("downloadToTemp failed: %v", err)
 	}
@@ -517,27 +511,22 @@ func TestDownloadToTempChecksumMismatch(t *testing.T) {
 	const binaryName = "velocity-report-binary"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch path.Base(r.URL.Path) {
-		case "SHA256SUMS":
-			// Deliberately wrong hash.
-			fmt.Fprintf(w, "%s  %s\n", strings.Repeat("a", 64), binaryName)
-		default:
-			_, _ = w.Write([]byte("payload"))
-		}
+		_, _ = w.Write([]byte("payload"))
 	}))
 	defer server.Close()
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
 	binaryURL := server.URL + "/v0.5.2/" + binaryName
-	_, err := m.downloadToTemp(binaryURL)
+	wrongSHA := strings.Repeat("a", 64)
+	_, err := m.downloadToTemp(binaryURL, wrongSHA)
 	if err == nil {
 		t.Fatal("expected checksum mismatch error, got nil")
 	}
 	if !strings.Contains(err.Error(), "SHA-256 mismatch") {
 		t.Fatalf("expected mismatch in error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), strings.Repeat("a", 64)) {
+	if !strings.Contains(err.Error(), wrongSHA) {
 		t.Fatalf("expected expected hash in error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), sha256Hex("payload")) {
@@ -545,33 +534,28 @@ func TestDownloadToTempChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestDownloadToTempSHA256SUMSNotFound(t *testing.T) {
+func TestDownloadToTempEmptySHA(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := testConfig(tmp)
 
 	const binaryName = "velocity-report-binary"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch path.Base(r.URL.Path) {
-		case "SHA256SUMS":
-			w.WriteHeader(http.StatusNotFound)
-		default:
-			_, _ = w.Write([]byte("payload"))
-		}
+		_, _ = w.Write([]byte("payload"))
 	}))
 	defer server.Close()
 
 	var stdout, stderr bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &stdout, &stderr)
 	binaryURL := server.URL + "/v0.5.2/" + binaryName
-	tmpPath, err := m.downloadToTemp(binaryURL)
+	tmpPath, err := m.downloadToTemp(binaryURL, "")
 	if err != nil {
-		t.Fatalf("downloadToTemp should proceed when SHA256SUMS is absent, got: %v", err)
+		t.Fatalf("downloadToTemp should proceed when expectedSHA is empty, got: %v", err)
 	}
 	defer os.Remove(tmpPath)
 
-	if !strings.Contains(stderr.String(), "SHA256SUMS not available") {
-		t.Fatalf("expected warning about missing SHA256SUMS, got: %s", stderr.String())
+	if !strings.Contains(stderr.String(), "no expected SHA-256") {
+		t.Fatalf("expected warning about missing SHA, got: %s", stderr.String())
 	}
 
 	data, err := os.ReadFile(tmpPath)
@@ -630,7 +614,7 @@ func TestFetchLatestReleaseStableChannel(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	ver, _, err := m.fetchLatestRelease(false)
+	ver, _, _, err := m.fetchLatestRelease(false)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease(false) failed: %v", err)
 	}
@@ -651,7 +635,7 @@ func TestFetchLatestReleasePrereleaseChannel(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	ver, _, err := m.fetchLatestRelease(true)
+	ver, _, _, err := m.fetchLatestRelease(true)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease(true) failed: %v", err)
 	}
@@ -672,7 +656,7 @@ func TestFetchLatestReleasePrereleaseEmptyFallsBackToStable(t *testing.T) {
 
 	cfg.ReleasesMetaURL = server.URL
 	m := NewManager(cfg, nil, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
-	ver, _, err := m.fetchLatestRelease(true)
+	ver, _, _, err := m.fetchLatestRelease(true)
 	if err != nil {
 		t.Fatalf("fetchLatestRelease(true) with empty prerelease failed: %v", err)
 	}
@@ -686,7 +670,7 @@ func TestFetchLatestReleasePrereleaseGetError(t *testing.T) {
 	cfg := testConfig(tmp)
 	m := NewManager(cfg, errorGetter{err: errors.New("network down")}, &fakeRunner{}, &bytes.Buffer{}, &bytes.Buffer{})
 
-	_, _, err := m.fetchLatestRelease(true)
+	_, _, _, err := m.fetchLatestRelease(true)
 	if err == nil || !strings.Contains(err.Error(), "network down") {
 		t.Fatalf("expected getter error, got: %v", err)
 	}
@@ -731,7 +715,7 @@ func TestDownloadToTempHTTPError(t *testing.T) {
 
 	var out bytes.Buffer
 	m := NewManager(cfg, nil, &fakeRunner{}, &out, &out)
-	_, err := m.downloadToTemp(server.URL)
+	_, err := m.downloadToTemp(server.URL, "")
 	if err == nil || !strings.Contains(err.Error(), "download returned") {
 		t.Fatalf("expected HTTP error, got: %v", err)
 	}
