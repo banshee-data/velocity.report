@@ -49,7 +49,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 REPO = "banshee-data/velocity.report"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -171,9 +171,7 @@ def stream_sha_and_size(url: str, token: str, log) -> tuple[str, int]:
     return h.hexdigest(), total
 
 
-def stream_rpi(
-    url: str, token: str, log
-) -> tuple[str, int, str, int]:
+def stream_rpi(url: str, token: str, log) -> tuple[str, int, str, int]:
     """For an .img.xz URL, return (download_sha, download_size,
     extract_sha, extract_size) in one pass."""
     dl_h = hashlib.sha256()
@@ -231,9 +229,7 @@ def update_channeled_platform(
     else:
         hit = pick_release(releases, channel, asset_re)
         if hit is None:
-            raise RuntimeError(
-                f"no {channel!r} release found with a {platform} asset"
-            )
+            raise RuntimeError(f"no {channel!r} release found with a {platform} asset")
         release, asset = hit
 
     version = _strip_tag(release["tag_name"])
@@ -265,9 +261,7 @@ def update_rpi_entry(
     else:
         hit = pick_release(releases, channel, asset_re)
         if hit is None:
-            raise RuntimeError(
-                f"no {channel!r} release found with an rpi_image asset"
-            )
+            raise RuntimeError(f"no {channel!r} release found with an rpi_image asset")
         release, asset = hit
 
     version = _strip_tag(release["tag_name"])
@@ -308,8 +302,12 @@ def sync_os_list(rpi: dict, os_list: dict) -> None:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--channel", choices=["stable", "prerelease", "both"], default="both")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--channel", choices=["stable", "prerelease", "both"], default="both"
+    )
     p.add_argument(
         "--platform",
         action="append",
@@ -319,7 +317,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--all", action="store_true", help=f"shorthand for {ALL_PLATFORMS}")
     p.add_argument("--ci", action="store_true", help=f"shorthand for {CI_PLATFORMS}")
-    p.add_argument("--tag", help="pin all updates to a specific release tag, e.g. v0.5.2-pre1")
+    p.add_argument(
+        "--tag", help="pin all updates to a specific release tag, e.g. v0.5.2-pre1"
+    )
     p.add_argument("--validate", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--quiet", action="store_true")
@@ -384,11 +384,17 @@ def run(args: argparse.Namespace) -> int:
             return 1
 
     failures: list[str] = []
+    is_both = args.channel == "both"
 
     # Channeled platforms: iterate over requested channels.
+    # When --channel=both, a missing channel is a skip (the platform may only
+    # have stable or prerelease releases). It becomes a hard failure only if
+    # BOTH channels miss, or if the user explicitly requested a single channel.
+    platform_hits: dict[str, int] = {}
     for platform in platforms:
         if platform == "rpi_image":
             continue
+        platform_hits[platform] = 0
         for channel in channels:
             label = f"{channel}.{platform}"
             log(f"[{label}]")
@@ -397,12 +403,24 @@ def run(args: argparse.Namespace) -> int:
                     platform, channel, releases, pinned_release, token, log
                 )
             except Exception as exc:
-                msg = f"{label}: {exc}"
-                print(f"  FAIL {msg}", file=sys.stderr)
-                failures.append(msg)
+                if is_both:
+                    log(f"  skip {label}: {exc}")
+                else:
+                    msg = f"{label}: {exc}"
+                    print(f"  FAIL {msg}", file=sys.stderr)
+                    failures.append(msg)
                 continue
+            platform_hits[platform] += 1
             release_data.setdefault(channel, {})[platform] = entry
             log("")
+
+    # When --channel=both, fail only for platforms with zero hits.
+    if is_both:
+        for platform, hits in platform_hits.items():
+            if hits == 0:
+                msg = f"{platform}: no release found in any channel"
+                print(f"  FAIL {msg}", file=sys.stderr)
+                failures.append(msg)
 
     # rpi_image: single slot, not channeled in the JSON.
     if "rpi_image" in platforms:
