@@ -468,6 +468,41 @@ export async function updateTransitWorker(
 	return res.json();
 }
 
+// Tailscale enrollment status reported by /api/tailscale/status.
+export interface TailscaleStatus {
+	daemon_running: boolean;
+	backend_state: string;
+	login_url?: string;
+	login_in_progress: boolean;
+	hostname?: string;
+	magic_dns?: string;
+	tailnet_name?: string;
+	peer_count: number;
+}
+
+async function tailscaleResult(action: string, res: Response): Promise<TailscaleStatus> {
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+		throw new Error(errorData.error || `${action} (HTTP ${res.status})`);
+	}
+	return res.json();
+}
+
+export async function getTailscaleStatus(): Promise<TailscaleStatus> {
+	const res = await fetch(`${API_BASE}/tailscale/status`);
+	return tailscaleResult('Could not load Tailscale status', res);
+}
+
+export async function enableTailscale(): Promise<TailscaleStatus> {
+	const res = await fetch(`${API_BASE}/tailscale/enable`, { method: 'POST' });
+	return tailscaleResult('Could not enable Tailscale', res);
+}
+
+export async function disableTailscale(): Promise<TailscaleStatus> {
+	const res = await fetch(`${API_BASE}/tailscale/disable`, { method: 'POST' });
+	return tailscaleResult('Could not disable Tailscale', res);
+}
+
 // LiDAR Track API
 
 import type {

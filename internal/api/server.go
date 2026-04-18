@@ -26,6 +26,7 @@ type Server struct {
 	debugMode            bool
 	transitController    TransitController    // Interface for transit worker control
 	capabilitiesProvider CapabilitiesProvider // Interface for sensor capability reporting
+	tailscale            TailscaleController  // Interface for Tailscale enable/disable/status
 	// mux holds the HTTP handlers; storing it here ensures callers that
 	// obtain the mux via ServeMux() and register additional admin routes
 	// will have those routes preserved when Start uses the mux to run the
@@ -107,6 +108,9 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux.HandleFunc("/api/reports/", s.handleReports)             // Report management endpoints
 	s.mux.HandleFunc("/api/transit_worker", s.handleTransitWorker) // Transit worker control
 	s.mux.HandleFunc("/api/db_stats", s.handleDatabaseStats)       // Database table sizes and disk usage
+	s.mux.HandleFunc("/api/tailscale/status", s.handleTailscaleStatus)
+	s.mux.HandleFunc("/api/tailscale/enable", s.handleTailscaleEnable)
+	s.mux.HandleFunc("/api/tailscale/disable", s.handleTailscaleDisable)
 	return s.mux
 }
 

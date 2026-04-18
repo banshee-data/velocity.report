@@ -14,9 +14,13 @@
 #   ./image/scripts/build-image.sh [options]
 #
 # Options:
-#   --skip-binaries   Reuse binaries from a previous build
-#   --host-build      Build binaries with the host Go toolchain (no Docker compile)
-#   --ssh-key <path>  Install an SSH public key for the login user
+#   --skip-binaries        Reuse binaries from a previous build
+#   --host-build           Build binaries with the host Go toolchain (no Docker compile)
+#   --ssh-key <path>       Install an SSH public key for the login user
+#
+# Tailscale: the image ships with tailscaled installed but masked.  The
+# operator opts in via the velocity.report web UI (Settings → Tailscale)
+# at runtime; there is no build-time auth-key flow.
 
 set -euo pipefail
 

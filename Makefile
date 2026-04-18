@@ -237,14 +237,46 @@ build-ctl:
 build-ctl-linux:
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_TS_COMPACT)-velocity-ctl-$(DEV_VERSION)-linux-arm64-$(GIT_SHA_SHORT) ./cmd/velocity-ctl
 
+# Pre-flight dependency check for build-image.
+# pi-gen and build-image.sh invoke a grab-bag of host tools; when any is
+# missing the build fails 2-30 minutes in.  This target lists every
+# external tool, fails fast if one is absent, and prints a distro-specific
+# install hint.  Kept separate from build-image so it can be invoked
+# on its own: `make build-image-deps`.
+.PHONY: build-image-deps
+build-image-deps:
+	@missing=""; \
+	for tool in docker git curl xz unzip python3 sha256sum; do \
+	    command -v $$tool >/dev/null 2>&1 || missing="$$missing $$tool"; \
+	done; \
+	command -v pnpm >/dev/null 2>&1 || command -v npm >/dev/null 2>&1 || missing="$$missing pnpm-or-npm"; \
+	command -v qemu-aarch64-static >/dev/null 2>&1 || missing="$$missing qemu-aarch64-static"; \
+	if ! docker info >/dev/null 2>&1; then \
+	    echo "✗ Docker daemon not running — start Docker and retry"; \
+	    exit 1; \
+	fi; \
+	if [ -n "$$missing" ]; then \
+	    echo "✗ build-image is missing host tools:$$missing"; \
+	    echo ""; \
+	    echo "  Install hints:"; \
+	    echo "    Debian/Ubuntu: sudo apt-get install -y$$(echo "$$missing" | sed 's/qemu-aarch64-static/qemu-user-static/; s/pnpm-or-npm/npm/')"; \
+	    echo "    Fedora:        sudo dnf install -y$$(echo "$$missing" | sed 's/qemu-aarch64-static/qemu-user-static/; s/pnpm-or-npm/npm/')"; \
+	    echo "    macOS:         brew install$$(echo "$$missing" | sed 's/qemu-aarch64-static//; s/pnpm-or-npm/pnpm/; s/python3/python@3/; s/sha256sum//')"; \
+	    echo "                   (qemu-user-static is Linux-only; on macOS Docker Desktop provides ARM emulation)"; \
+	    exit 1; \
+	fi; \
+	echo "✓ build-image dependencies OK"
+
 # Build a Raspberry Pi image using pi-gen (requires Docker)
 # Compiles ARM64 Go binaries with pcap support inside a Docker container,
 # then runs pi-gen to produce the flashable .img file.
 # Pass SKIP_BINARIES=1 to reuse previously built binaries.
 # Pass HOST_BUILD=1 to use the host Go toolchain instead of Docker for compilation.
 # Pass SSH_KEY=~/.ssh/id_ed25519.pub to install an SSH key for the velocity user.
+# Tailscale: opt in at runtime via the velocity.report web UI
+# (Settings → Tailscale).  No build-time configuration.
 .PHONY: build-image
-build-image:
+build-image: build-image-deps
 	@./image/scripts/build-image.sh $(if $(filter 1,$(SKIP_BINARIES)),--skip-binaries) $(if $(filter 1,$(HOST_BUILD)),--host-build) $(if $(SSH_KEY),--ssh-key $(SSH_KEY))
 
 # Flash the most recent .img.xz from deploy/ to an SD card (macOS only).
