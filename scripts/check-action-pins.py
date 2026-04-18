@@ -62,7 +62,7 @@ def check_sha_live(owner_repo: str, sha: str, token: Optional[str]) -> tuple:
         if e.code == 422:
             return False, "SHA not a valid commit object"
         if e.code == 403:
-            return False, f"rate-limited or forbidden (HTTP 403) — set GITHUB_TOKEN"
+            return False, "rate-limited or forbidden (HTTP 403) — set GITHUB_TOKEN"
         return False, f"HTTP {e.code}: {e.reason}"
     except urllib.error.URLError as e:
         return False, f"network error: {e.reason}"
@@ -89,7 +89,9 @@ def main() -> int:
         print(f"error: {workflows_dir} is not a directory", file=sys.stderr)
         return 1
 
-    yaml_files = sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml"))
+    yaml_files = sorted(workflows_dir.glob("*.yml")) + sorted(
+        workflows_dir.glob("*.yaml")
+    )
     if not yaml_files:
         print(f"no workflow files found in {workflows_dir}", file=sys.stderr)
         return 1
@@ -165,10 +167,14 @@ def main() -> int:
         1
         for wf in yaml_files
         for _, ref in parse_uses_lines(wf)
-        if not ref.startswith("./") and "@" in ref and SHA_RE.match(ref.rsplit("@", 1)[1])
+        if not ref.startswith("./")
+        and "@" in ref
+        and SHA_RE.match(ref.rsplit("@", 1)[1])
     )
     liveness_str = "" if args.no_liveness else f", {request_count} SHA(s) verified live"
-    print(f"check-action-pins: {pinned} pinned ref(s) across {len(yaml_files)} workflow(s) OK{liveness_str}")
+    print(
+        f"check-action-pins: {pinned} pinned ref(s) across {len(yaml_files)} workflow(s) OK{liveness_str}"
+    )
     return 0
 
 
