@@ -31,8 +31,10 @@ from pathlib import Path
 from typing import Optional
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-# Matches:  uses: owner/repo@sha  OR  uses: owner/repo/subdir@sha
-USES_RE = re.compile(r"""^\s+uses:\s+(['"]?)([^'"#\s]+)\1""", re.MULTILINE)
+# Matches both YAML forms for step uses:
+#   bare:      "    uses: owner/repo@sha"            (composite-action steps)
+#   list-item: "    - uses: owner/repo@sha"          (workflow job steps)
+USES_RE = re.compile(r"""^\s+(?:-\s+)?uses:\s+(['"]?)([^'"#\s]+)\1""", re.MULTILINE)
 
 
 def parse_uses_lines(path: Path) -> list[tuple[int, str]]:
