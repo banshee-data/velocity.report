@@ -287,10 +287,7 @@ def fetch_asset_meta(
         etag, cl = head_asset(url, token)
         entry = cache.get(url)
         if _cache_hit(entry, etag, cl):
-            log(
-                f"    cached:   sha256={entry['sha256']}  "
-                f"({cl} bytes, etag match)"
-            )
+            log(f"    cached:   sha256={entry['sha256']}  " f"({cl} bytes, etag match)")
             return entry["sha256"], cl  # type: ignore[return-value]
 
     sha, size = stream_sha_and_size(url, token, log)
