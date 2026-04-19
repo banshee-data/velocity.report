@@ -292,13 +292,19 @@ def stream_rpi(url: str, token: str, log) -> tuple[str, int, str, int]:
         while chunk := resp.read(block_size):
             dl_h.update(chunk)
             dl_bytes += len(chunk)
-            pending = chunk
-            while pending:
-                plain = dec.decompress(pending, max_length=block_size)
-                pending = dec.unconsumed_tail
-                if plain:
-                    ex_h.update(plain)
-                    ex_bytes += len(plain)
+            plain = dec.decompress(chunk, max_length=block_size)
+            if plain:
+                ex_h.update(plain)
+                ex_bytes += len(plain)
+            # Drain any buffered decompressed output before reading more
+            # compressed input. needs_input is False when the decompressor
+            # has more output available without new input.
+            while not dec.needs_input and not dec.eof:
+                plain = dec.decompress(b"", max_length=block_size)
+                if not plain:
+                    break
+                ex_h.update(plain)
+                ex_bytes += len(plain)
     if not dec.eof:
         raise RuntimeError("xz stream ended before end-of-stream marker")
     log(
