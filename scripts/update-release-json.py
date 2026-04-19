@@ -215,9 +215,13 @@ def prettier_format(paths: list[Path], log) -> None:
         log(f"warning: prettier not found at {PRETTIER_BIN}; skipping format pass")
         log("         run `make install-web` (or `pnpm install --dir web`) to enable")
         return
-    rc = subprocess.call([str(PRETTIER_BIN), "--write", "--log-level=warn", *map(str, paths)])
+    rc = subprocess.call(
+        [str(PRETTIER_BIN), "--write", "--log-level=warn", *map(str, paths)]
+    )
     if rc != 0:
-        log(f"warning: prettier exited {rc}; files were written but may not match editor style")
+        log(
+            f"warning: prettier exited {rc}; files were written but may not match editor style"
+        )
 
 
 # ---------------------------------------------------------------------------
