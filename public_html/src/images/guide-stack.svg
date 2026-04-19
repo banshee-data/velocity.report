@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="2000" height="1500" viewBox="0 0 2000 1500">
+  <image href="guide-stack-raw.jpg" width="2000" height="1500"/>
+
+  <line x1="620.0" y1="705.0" x2="900.0" y2="705.0" stroke="white" stroke-width="4" opacity="0.9" stroke-linecap="round"/>
+  <text x="600.0" y="705.0" fill="white" font-size="72" font-weight="bold" font-family="system-ui, -apple-system, sans-serif" text-anchor="end" dominant-baseline="central" paint-order="stroke" stroke="rgba(0,0,0,0.6)" stroke-width="20">RS232 HAT</text>
+  <line x1="620.0" y1="795.0" x2="900.0" y2="795.0" stroke="white" stroke-width="4" opacity="0.9" stroke-linecap="round"/>
+  <text x="600.0" y="795.0" fill="white" font-size="72" font-weight="bold" font-family="system-ui, -apple-system, sans-serif" text-anchor="end" dominant-baseline="central" paint-order="stroke" stroke="rgba(0,0,0,0.6)" stroke-width="20">PoE HAT</text>
+  <line x1="620.0" y1="1005.0" x2="900.0" y2="1005.0" stroke="white" stroke-width="4" opacity="0.9" stroke-linecap="round"/>
+  <text x="600.0" y="1005.0" fill="white" font-size="72" font-weight="bold" font-family="system-ui, -apple-system, sans-serif" text-anchor="end" dominant-baseline="central" paint-order="stroke" stroke="rgba(0,0,0,0.6)" stroke-width="20">Raspberry Pi 4</text>
+</svg>
