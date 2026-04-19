@@ -38,8 +38,9 @@ Caching:
     entry is replaced.
 
 Environment:
-    GITHUB_TOKEN    required. Needed for rate-limited API calls and to download
-                    private assets. A read-only token is enough for public repos.
+    GITHUB_TOKEN    required. Used for authenticated GitHub API calls and to
+                    avoid stricter unauthenticated rate limits. A read-only
+                    token is enough for public repos.
 
 Exit codes:
     0  success
@@ -84,15 +85,14 @@ PLATFORM_ASSET_RE: dict[str, re.Pattern[str]] = {
     "linux_arm64": re.compile(r"^velocity-report-.+-linux-arm64$"),
     "mac_arm64": re.compile(r"^velocity-report-.+-darwin-arm64$"),
     "visualiser": re.compile(r"^VelocityVisualiser-.+\.dmg$"),
-    "rpi_image": re.compile(r"velocity-report.*\.img\.xz$"),
+    "rpi_image": re.compile(r"^velocity-report.*\.img\.xz$"),
 }
-
-ALL_PLATFORMS = list(PLATFORM_ASSET_RE.keys())
-CI_PLATFORMS = ["linux_arm64", "mac_arm64", "rpi_image"]
 
 # Platforms that live under stable/prerelease channels in release.json.
 # rpi_image lives at the top level (single slot).
 CHANNELED_PLATFORMS = ["linux_arm64", "mac_arm64", "visualiser"]
+ALL_PLATFORMS = [*CHANNELED_PLATFORMS, "rpi_image"]
+CI_PLATFORMS = ["linux_arm64", "mac_arm64", "rpi_image"]
 
 
 # ---------------------------------------------------------------------------
@@ -285,16 +285,20 @@ def stream_rpi(url: str, token: str, log) -> tuple[str, int, str, int]:
     ex_h = hashlib.sha256()
     dl_bytes = 0
     ex_bytes = 0
+    block_size = 1 << 20
     dec = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
     log(f"    download: {url}")
     with _open_download(url, token) as resp:
-        while chunk := resp.read(1 << 20):
+        while chunk := resp.read(block_size):
             dl_h.update(chunk)
             dl_bytes += len(chunk)
-            plain = dec.decompress(chunk)
-            if plain:
-                ex_h.update(plain)
-                ex_bytes += len(plain)
+            pending = chunk
+            while pending:
+                plain = dec.decompress(pending, max_length=block_size)
+                pending = dec.unconsumed_tail
+                if plain:
+                    ex_h.update(plain)
+                    ex_bytes += len(plain)
     if not dec.eof:
         raise RuntimeError("xz stream ended before end-of-stream marker")
     log(
@@ -585,7 +589,11 @@ def run(args: argparse.Namespace) -> int:
             print(f"error: fetching tag {args.tag}: {e}", file=sys.stderr)
             return 1
     else:
-        releases = list_releases(token)
+        try:
+            releases = list_releases(token)
+        except urllib.error.HTTPError as e:
+            print(f"error: listing releases: {e}", file=sys.stderr)
+            return 1
         if not releases:
             print("error: no releases returned from GitHub API", file=sys.stderr)
             return 1
@@ -599,7 +607,7 @@ def run(args: argparse.Namespace) -> int:
     # BOTH channels miss, or if the user explicitly requested a single channel.
     platform_hits: dict[str, int] = {}
     for platform in platforms:
-        if platform == "rpi_image":
+        if platform not in CHANNELED_PLATFORMS:
             continue
         platform_hits[platform] = 0
         for channel in channels:
