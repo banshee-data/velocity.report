@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Check all uses: lines are SHA-pinned and SHAs are still live
+      - name: "Check all uses: lines are SHA-pinned and SHAs are still live"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

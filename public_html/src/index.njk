@@ -1,14 +1,14 @@
 ---
 layout: page.njk
-title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Streets"
+title: "velocity.report: Measure Traffic Speeds, Demand Safer Streets"
 ---
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-gray-900 dark:text-gray-100">
     <!-- Hero Section -->
     <div class="flex flex-col md:flex-row items-center gap-8 mb-2 py-8 md:py-12">
         <div class="w-full md:w-auto md:shrink-0">
-            <h1 class="text-6xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4 leading-tight text-center md:text-left">
-                Measure traffic speeds.<br class="hidden md:block"> Build the case for safer streets.
+            <h1 class="text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4 leading-tight text-center md:text-left">
+                Measure traffic speeds.<br class="hidden md:block"> Demand safer streets.
             </h1>
 
             <div class="max-w-[28rem] mx-auto md:mx-0">
@@ -47,10 +47,44 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
             </div>
         </div>
         <div class="flex-1 w-full min-w-0">
-            <a href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" target="_blank" rel="noopener noreferrer" class="relative block">
-                <img src="/img/stack.png" alt="velocity.report PDF report stack" class="w-full h-auto drop-shadow-2xl transform hover:scale-105 transition-transform duration-500" />
-                <span class="absolute inset-0 flex items-center justify-center -translate-x-10"><span class="bg-emerald-600/90 text-white text-2xl md:text-3xl font-bold uppercase tracking-widest px-6 py-3 rounded shadow-lg rotate-3" style="font-family: 'Stencil Std', 'Allerta Stencil', 'Impact', sans-serif; letter-spacing: 0.15em;">Sample Report</span></span>
+            <a href="https://banshee-data.com/velocity.reports/2026-01-19_velocity.report_Clarendon-Avenue-San-Francisco.pdf" target="_blank" rel="noopener noreferrer" class="group relative block transform hover:scale-105 transition-transform duration-500">
+                <img src="/img/stack.png" alt="velocity.report PDF report stack" class="w-full h-auto drop-shadow-2xl" />
+                <span class="pointer-events-none absolute inset-0 flex items-center justify-center -translate-x-14 translate-y-10"><span class="bg-emerald-600/90 text-white text-2xl md:text-3xl font-bold uppercase tracking-widest px-6 py-3 rounded shadow-lg rotate-3 transform transition-transform duration-500 group-hover:rotate-[4deg]" style="font-family: 'Stencil Std', 'Allerta Stencil', 'Impact', sans-serif; letter-spacing: 0.15em;">Sample Report</span></span>
             </a>
+        </div>
+    </div>
+
+    <!-- Q&A Section -->
+    <div class="dl-section mb-14 p-6 md:p-12">
+        <div class="mx-auto md:px-[20%]">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">Common Questions</h2>
+
+            <div class="space-y-6 text-base text-gray-600 dark:text-gray-300 leading-relaxed text-left">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What is this?</h3>
+                    <p>An open-source traffic speed monitor. A radar sensor plugged into a Raspberry Pi records how fast vehicles pass, stores the data locally, and generates a professional PDF report: speed distributions, hourly patterns, and percentile breakdowns. No cloud, no cameras, no surveillance.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Who is this for?</h3>
+                    <p>You, probably. If you live on a street where traffic moves faster than it should, this is the tool. Parent associations, community groups, neighbourhood watch, residents with a safety concern and nowhere to take it. If you've ever stood at a council meeting and been told to come back with evidence, here's how you get it.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What does it measure?</h3>
+                    <p>Vehicle speeds. A radar sensor records how fast vehicles pass and stores the data on a Raspberry Pi. No faces, no licence plates, no images of any kind.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Where does the data go?</h3>
+                    <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, nothing that sends data anywhere without your knowledge. The only way data leaves your network is when you hand (or email) someone the finished PDF.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How do I get started?</h3>
+                    <p>Follow the <a href="/guides/setup/" class="link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that holds up in a council meeting.</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -139,40 +173,6 @@ title: "velocity.report: Measure Traffic Speeds, Build the Case for Safer Street
                         </div>
                     </div>
                     <p class="dl-muted">Requires macOS 15+</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Q&A Section -->
-    <div class="dl-section mb-14 p-6 md:p-12">
-        <div class="mx-auto md:px-[20%]">
-            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">Common Questions</h2>
-
-            <div class="space-y-6 text-base text-gray-600 dark:text-gray-300 leading-relaxed text-left">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What is this?</h3>
-                    <p>An open-source traffic speed monitor. A radar sensor plugged into a Raspberry Pi records how fast vehicles pass, stores the data locally, and generates a professional PDF report: speed distributions, hourly patterns, and percentile breakdowns. No cloud, no cameras, no surveillance.</p>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Who is this for?</h3>
-                    <p>You, probably. If you live on a street where traffic moves faster than it should, this is the tool. Parent associations, community groups, neighbourhood watch, residents with a safety concern and nowhere to take it. If you've ever stood at a council meeting and been told to come back with evidence, here's how you get it.</p>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">What does it measure?</h3>
-                    <p>Road user speeds, including pedestrians. A radar sensor records how fast each road user passes and stores the data on a Raspberry Pi. No faces, no licence plates, no images of any kind.</p>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Where does the data go?</h3>
-                    <p>Nowhere. It stays on your device, in a local database. There is no cloud account, no upload step, nothing that sends data anywhere without your knowledge. The only way data leaves your network is when you hand (or email) someone the finished PDF.</p>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">How do I get started?</h3>
-                    <p>Follow the <a href="/guides/setup/" class="link">setup guide</a>. You need a Raspberry Pi and an OmniPreSense radar sensor. By the end, you'll have a working speed monitor and a PDF report that holds up in a council meeting.</p>
                 </div>
             </div>
         </div>

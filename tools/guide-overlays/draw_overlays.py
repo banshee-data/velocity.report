@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Generate annotated guide-image SVGs for setup documentation.
 
-Two diagrams are produced:
+Three diagrams are produced:
 
   cosign-angle  — green beam cone (circular segment), white leg lines, arc
                    connecting tips, dashed extensions, angle label, direction T
   aiming        — orange truncated-triangle beam, curved far edge, margin-spaced
                    chevrons, light-orange direction arrow
+  stack         — three caption labels for the HAT stack (RS232 HAT, PoE HAT,
+                   Raspberry Pi 4) with short leader lines to each board.
 
 Each SVG embeds the raw JPEG via a relative <image> reference. All positions are
 percentages of image dimensions so they survive crops and resizes.
@@ -17,8 +19,10 @@ Usage:
 Output (written to both locations):
   public_html/src/images/guide-cosign-angle.svg / .jpg
   public_html/src/images/guide-aiming.svg       / .jpg
+  public_html/src/images/guide-stack.svg        / .jpg
   docs/images/guide-cosign-angle.svg            / .jpg
   docs/images/guide-aiming.svg                  / .jpg
+  docs/images/guide-stack.svg                   / .jpg
 """
 
 import io
@@ -323,11 +327,75 @@ def _aiming_svg():
 """
 
 
+# =====================================================================
+# STACK
+# Labels for the three boards visible in the HAT stack enclosure:
+#   RS232 HAT (DB9 connector) — top
+#   PoE HAT                    — middle
+#   Raspberry Pi 4             — bottom
+# Each label sits to the left of the stack, right-aligned, with a short
+# leader line pointing rightward to the relevant board.
+# =====================================================================
+
+STACK_CFG = {
+    "jpeg": "guide-stack-raw.jpg",
+    "w": 2000,
+    "h": 1500,
+    "label_font_size": 72,
+    "label_stroke_width": 20,
+    "leader_stroke_width": 4,
+    # Label anchor x (% of width) — right edge of each (right-aligned) text label
+    "label_x_pct": 30.0,
+    # Leader tip x (% of width) — where the leader line touches the board
+    "leader_tip_x_pct": 45.0,
+    "labels": [
+        {"text": "RS-232 HAT", "y_pct": 47.0},
+        {"text": "PoE HAT", "y_pct": 53.0},
+        {"text": "Raspberry Pi", "y_pct": 67.0},
+    ],
+}
+
+
+def _stack_svg():
+    c = STACK_CFG
+    W, H = c["w"], c["h"]
+    lx = _pct(c["label_x_pct"], W)
+    tip_x = _pct(c["leader_tip_x_pct"], W)
+
+    parts = []
+    for lab in c["labels"]:
+        ly = _pct(lab["y_pct"], H)
+        parts.append(
+            f'  <line x1="{lx + 20:.1f}" y1="{ly:.1f}" x2="{tip_x:.1f}" y2="{ly:.1f}" '
+            f'stroke="{LABEL_FILL}" stroke-width="{c["leader_stroke_width"]}" '
+            f'opacity="0.9" stroke-linecap="round"/>'
+        )
+        parts.append(
+            f'  <text x="{lx:.1f}" y="{ly:.1f}" '
+            f'fill="{LABEL_FILL}" font-size="{c["label_font_size"]}" font-weight="bold" '
+            f'font-family="{FONT}" text-anchor="end" dominant-baseline="central" '
+            f'paint-order="stroke" stroke="{LABEL_STROKE}" '
+            f'stroke-width="{c["label_stroke_width"]}">{lab["text"]}</text>'
+        )
+    body = "\n".join(parts)
+
+    return f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+  <image href="{c['jpeg']}" width="{W}" height="{H}"/>
+
+{body}
+</svg>
+"""
+
+
 # ── Output manifest ───────────────────────────────────────────────────
 
 OUTPUTS = [
     ("guide-cosign-angle", _cosign_angle_svg),
     ("guide-aiming", _aiming_svg),
+    ("guide-stack", _stack_svg),
 ]
 
 
