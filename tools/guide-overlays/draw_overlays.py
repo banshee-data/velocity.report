@@ -349,9 +349,9 @@ STACK_CFG = {
     # Leader tip x (% of width) — where the leader line touches the board
     "leader_tip_x_pct": 45.0,
     "labels": [
-        {"text": "RS232 HAT", "y_pct": 47.0},
+        {"text": "RS-232 HAT", "y_pct": 47.0},
         {"text": "PoE HAT", "y_pct": 53.0},
-        {"text": "Raspberry Pi 4", "y_pct": 67.0},
+        {"text": "Raspberry Pi", "y_pct": 67.0},
     ],
 }
 
