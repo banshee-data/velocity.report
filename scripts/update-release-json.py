@@ -72,6 +72,10 @@ CHECK_SCRIPT = REPO_ROOT / "scripts" / "check-release-hashes.py"
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "velocity-release"
 CACHE_FILE_NAME = "assets.json"
 
+# Prettier binary path for post-write JSON formatting. Matches the binary
+# that VSCode's "format on save" invokes, so the diff stays stable.
+PRETTIER_BIN = REPO_ROOT / "web" / "node_modules" / ".bin" / "prettier"
+
 GITHUB_API = f"https://api.github.com/repos/{REPO}"
 
 # Asset-name patterns, anchored to filename (not full URL). Each platform picks
@@ -196,6 +200,24 @@ def _cache_hit(entry: dict | None, etag: Optional[str], cl: Optional[int]) -> bo
     if not entry or not etag or cl is None:
         return False
     return entry.get("etag") == etag and entry.get("content_length") == cl
+
+
+# ---------------------------------------------------------------------------
+# Output formatting (match editor format-on-save)
+# ---------------------------------------------------------------------------
+
+
+def prettier_format(paths: list[Path], log) -> None:
+    """Run prettier --write on the given paths so the diff matches what the
+    editor produces on save (short arrays inline, trailing newline, etc.).
+    If prettier isn't installed, warn and leave files as-is."""
+    if not PRETTIER_BIN.exists():
+        log(f"warning: prettier not found at {PRETTIER_BIN}; skipping format pass")
+        log("         run `make install-web` (or `pnpm install --dir web`) to enable")
+        return
+    rc = subprocess.call([str(PRETTIER_BIN), "--write", "--log-level=warn", *map(str, paths)])
+    if rc != 0:
+        log(f"warning: prettier exited {rc}; files were written but may not match editor style")
 
 
 # ---------------------------------------------------------------------------
@@ -649,6 +671,7 @@ def run(args: argparse.Namespace) -> int:
     OS_LIST_JSON.write_text(json.dumps(os_list_data, indent=2) + "\n")
     log(f"wrote {RELEASE_JSON.relative_to(REPO_ROOT)}")
     log(f"wrote {OS_LIST_JSON.relative_to(REPO_ROOT)}")
+    prettier_format([RELEASE_JSON, OS_LIST_JSON], log)
 
     if args.validate:
         log("")
