@@ -9,7 +9,7 @@ Orphan avoidance: if the last line of a paragraph would be very short
 to redistribute text and eliminate the orphan.
 
 Usage:
-    reflow-prose.py [--width 100] [--check] FILE [FILE ...]
+    reflow-prose.py [--width 99] [--check] FILE [FILE ...]
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 
 # ── Defaults ─────────────────────────────────────────────────────────────
 
-DEFAULT_WIDTH = 100
+DEFAULT_WIDTH = 99
 MIN_LAST_LINE = 40  # orphan threshold: last line shorter than this triggers fix
 MAX_NARROW = 35  # maximum width reduction when fixing orphans
 MIN_WIDTH = 60  # never narrow below this

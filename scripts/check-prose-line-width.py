@@ -21,7 +21,7 @@ from pathlib import Path
 
 # ── Defaults ─────────────────────────────────────────────────────────────
 
-DEFAULT_WIDTH = 100
+DEFAULT_WIDTH = 99
 
 # Basenames only — os.walk() yields directory basenames, not paths.
 EXCLUDED_DIRS = {

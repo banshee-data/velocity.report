@@ -115,7 +115,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
-	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
+	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
@@ -1101,7 +1101,7 @@ format-mac:
 format-docs:
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Reflowing Markdown prose (width=100, orphan avoidance)..."
+	@echo "Reflowing Markdown prose (width=99, orphan avoidance)..."
 	@python3 scripts/reflow-prose.py
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
 	@pnpm exec prettier --write '**/*.md'
@@ -1125,7 +1125,7 @@ check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break P
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
+check-prose-width: ## Advisory: report prose lines over 99 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
 
 check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail)
