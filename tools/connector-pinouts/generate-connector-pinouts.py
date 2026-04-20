@@ -16,10 +16,11 @@ Usage:
 """
 
 import math
-import shutil
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _render.svg_to_png import MISSING_HINT, svg_to_png  # noqa: E402
 
 try:
     import yaml
@@ -328,36 +329,6 @@ def de9_svg(labels, connected):
     return "\n".join(s)
 
 
-# ── PNG conversion ────────────────────────────────────────────────────
-
-
-def svg_to_png(svg_path, png_path, scale=2):
-    """Convert SVG to PNG. Tries rsvg-convert, then cairosvg."""
-    if shutil.which("rsvg-convert"):
-        subprocess.run(
-            [
-                "rsvg-convert",
-                "-z",
-                str(scale),
-                "-o",
-                str(png_path),
-                str(svg_path),
-            ],
-            check=True,
-        )
-        return True
-
-    try:
-        import cairosvg
-
-        cairosvg.svg2png(url=str(svg_path), write_to=str(png_path), scale=scale)
-        return True
-    except ImportError:
-        pass
-
-    return False
-
-
 # ── Main ──────────────────────────────────────────────────────────────
 
 
@@ -374,7 +345,7 @@ def main():
     png_ok = True
     for svg_path in (m12_svg_path, de9_svg_path):
         png_path = svg_path.with_suffix(".png")
-        if not svg_to_png(svg_path, png_path):
+        if not svg_to_png(svg_path, png_path, scale=2):
             png_ok = False
 
     for p in (m12_svg_path, de9_svg_path):

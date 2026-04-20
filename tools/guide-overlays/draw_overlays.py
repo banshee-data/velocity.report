@@ -27,9 +27,11 @@ Output (written to both locations):
 
 import io
 import math
-import shutil
-import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _render.svg_to_png import MISSING_HINT, svg_to_png  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
 IMG_DIRS = [REPO / "public_html" / "src" / "images", REPO / "docs" / "images"]
@@ -412,21 +414,14 @@ def main():
             out.write_text(svg)
             print(f"  OK {out.relative_to(REPO)}")
 
-    # Step 2 — rasterise SVG -> intermediate PNG via rsvg-convert
-    rsvg = shutil.which("rsvg-convert")
-    if not rsvg:
-        print("  WARN rsvg-convert not found — skipping PNG/JPEG render")
-        print("    Install: brew install librsvg")
-        return
-
+    # Step 2 — rasterise SVG -> intermediate PNG
     primary = IMG_DIRS[0]
     tmp_pngs = {}
     for stem, _ in OUTPUTS:
         png = primary / f"{stem}.png"
-        subprocess.run(
-            [rsvg, "-w", "1200", str(primary / f"{stem}.svg"), "-o", str(png)],
-            check=True,
-        )
+        if not svg_to_png(primary / f"{stem}.svg", png, width=1200):
+            print(f"  WARN SVG→PNG failed; {MISSING_HINT}")
+            return
         tmp_pngs[stem] = png
         print(f"  OK {png.relative_to(REPO)}  (intermediate)")
 

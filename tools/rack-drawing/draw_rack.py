@@ -24,11 +24,14 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
 import drawsvg as draw
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _render.svg_to_png import MISSING_HINT, svg_to_png  # noqa: E402
 
 from components import (
     bom_table,
@@ -431,15 +434,9 @@ def main() -> None:
     build_combined_sheet(cfg, iso_3d, front_3d, top_3d, side_3d, str(combined_svg))
 
     # ── Step 3: rasterise to output/ and web image directories ────────────
-    rsvg = shutil.which("rsvg-convert")
-    if rsvg:
-        repo_root = script_dir.parent.parent
-        # Canonical output checked into git
-        local_png = output_dir / "rack-drawing-iso-bom.png"
-        subprocess.run(
-            [rsvg, "-w", "1200", str(combined_svg), "-o", str(local_png)],
-            check=True,
-        )
+    repo_root = script_dir.parent.parent
+    local_png = output_dir / "rack-drawing-iso-bom.png"
+    if svg_to_png(combined_svg, local_png, width=1200):
         print(f"  ✓ {local_png.relative_to(script_dir)}")
 
         # Copy to web + docs image directories
@@ -452,8 +449,7 @@ def main() -> None:
             shutil.copy2(local_png, dest)
             print(f"  ✓ {dest.relative_to(repo_root)}")
     else:
-        print("  ⚠ rsvg-convert not found — skipping PNG export")
-        print("    Install with: brew install librsvg")
+        print(f"  ⚠ SVG→PNG failed; {MISSING_HINT}")
 
     print("Done.")
 
