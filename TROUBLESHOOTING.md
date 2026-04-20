@@ -604,11 +604,7 @@ curl http://localhost:8080/api/config
 
 // 2. Data format mismatch
 // Check API response format matches chart expectations
-console.log(
-  await fetch("/api/radar_stats?start=0&end=9999999999&group=1h").then((r) =>
-    r.json(),
-  ),
-);
+console.log(await fetch("/api/radar_stats?start=0&end=9999999999&group=1h").then((r) => r.json()));
 
 // 3. Async data not loading
 // Ensure component waits for data before rendering

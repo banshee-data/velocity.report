@@ -4,22 +4,18 @@
  ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀ ▀▀▀ ▀▀  ▀▀▀  ▀  ▀▀▀ ▀ ▀ ▀▀▀
 ```
 
-This is a project that measures how fast vehicles move through
-neighbourhoods so the people who live there can do something
-about it. It does this without cameras, without licence plates,
-and without collecting the sort of personal data that makes a
-privacy officer reach for the whisky. If that sounds worth
-working on, read on.
+This is a project that measures how fast vehicles move through neighbourhoods so the people who
+live there can do something about it. It does this without cameras, without licence plates, and
+without collecting the sort of personal data that keeps a privacy officer up at night.
+If that sounds worth working on, read on.
 
 ## Community & discussion
 
 ### [Join us on Discord](https://discord.gg/XXh6jXVFkt)
 
-- **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt)
-  for real-time conversation, questions, and the occasional
-  digression about sensor calibration
-- **GitHub Issues**: Bugs, feature requests, and the project
-  roadmap
+- **Discord**: [Join the server](https://discord.gg/XXh6jXVFkt) for real-time conversation,
+  questions, and the occasional digression about sensor calibration
+- **GitHub Issues**: Bugs, feature requests, and the project roadmap
 
 ## Principles
 
@@ -32,272 +28,215 @@ wallpaper; they are load-bearing walls.
 - ✅ Local-only data storage
 - ✅ Explainable algorithms: no black-box models
 
-If a feature would be clever but would require a camera, or
-convenient but would phone home, it does not get built. The
-privacy commitment is the product, not a constraint on it.
+If a feature would be clever but would require a camera, or convenient but would phone home, it
+does not get built. The privacy commitment is the product, not a constraint on it.
 
 ## Finding your way in
 
-The project spans sensor hardware, real-time data pipelines,
-web visualisation, data science, and hardware deployment.
-Nobody knows all of it. Pick the role closest to what you
-already do, read the linked documents, and then find an
-issue that fits.
+The project spans sensor hardware, real-time data pipelines, web visualisation, data science, and
+hardware deployment. Nobody knows all of it. Pick the role closest to what you already do, read the
+linked documents, and then find an issue that fits.
 
 ### Data scientist
 
-The perception pipeline runs on transparent, auditable maths:
-polar background settling, ground and cluster geometry,
-Kalman-plus-Hungarian tracking, and a rule-based classifier
-with explicit features and thresholds. The aim is not to
-replace this with something opaque, but to make it sharper
-through labelled reference sets, replayable scorecards,
-threshold studies, drift analysis, and traffic-engineering
-metrics that hold up in front of people who read footnotes.
+The perception pipeline runs on transparent, auditable maths: polar background settling, ground and
+cluster geometry, Kalman-plus-Hungarian tracking, and a rule-based classifier with explicit
+features and thresholds. The aim is not to replace this with something opaque, but to make it
+sharper through labelled reference sets, replayable scorecards, threshold studies, drift analysis,
+and traffic-engineering metrics that hold up in front of people who read footnotes.
 
-New research follows a proposal-first discipline: write down
-the maths, define the layer boundary, state the evaluation
-contract, and compare against the current baseline on fixed
-replay packs. Any future model must stay auditable, beat the
-baseline on reproducible benchmarks, and preserve a tunable
-fallback path at runtime. A model that performs well but
+New research follows a proposal-first discipline: write down the maths, define the layer
+boundary, state the evaluation contract, and compare against the current baseline on fixed
+replay packs. Any future model must stay auditable, beat the baseline on reproducible
+benchmarks, and preserve a tunable fallback path at runtime. A model that performs well but
 cannot explain itself is not welcome on the critical path.
 
-Current research areas include geometry-coherent tracking,
-velocity-coherent foreground extraction, ground-plane and
-vector-scene maths, and optional offline classification work.
+Current research areas include geometry-coherent tracking, velocity-coherent foreground extraction,
+ground-plane and vector-scene maths, and optional offline classification work.
 
 #### Open research questions
 
-The full set of open questions with acceptance criteria
-and evidence requirements lives in
-[data/QUESTIONS.md](data/QUESTIONS.md). These four are the
+The full set of open questions with acceptance criteria and evidence requirements
+lives in [data/QUESTIONS.md](data/QUESTIONS.md). These four are the
 highest-impact starting points for a data scientist:
 
 1. **[Bounding box geometry](data/maths/proposals/20260222-geometry-coherent-tracking.md)**:
-   Does the Bayesian geometry-coherent model reduce
-   heading drift and dimension instability enough to
-   replace the reactive OBB guards?
+   Does the Bayesian geometry-coherent model reduce heading drift and dimension instability
+   enough to replace the reactive OBB guards?
 2. **[Velocity-coherent foreground](data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md)**:
-   Does track-assisted foreground promotion beat the
-   current baseline on track completeness and
-   fragmentation across multiple sites?
-3. **[Interpretable classification](data/maths/classification-maths.md)**:
-   Can a shallow, explainable model improve per-class
-   precision/recall without introducing a black box?
+   Does track-assisted foreground promotion beat the current baseline on track completeness
+   and fragmentation across multiple sites?
+3. **[Interpretable classification](data/maths/classification-maths.md)**: Can a shallow,
+   explainable model improve per-class precision/recall without introducing a black box?
 4. **[Pose anchors](data/maths/proposals/20260310-reflective-sign-pose-anchor-maths.md)**:
-   Can reflective signs serve as reliable static pose
-   anchors, and what fallback hierarchy works in
-   sign-poor scenes?
+   Can reflective signs serve as reliable static pose anchors, and what
+   fallback hierarchy works in sign-poor scenes?
 
-When contributing here, include the question being answered,
-the observed result, the exact parameter bundle, the
-validation date, and the replay artefacts used (`.pcap`,
-`.vrlog`, scene IDs, run IDs, baselines, and any LFS-backed
-files). Claims without artefacts are anecdotes.
+When contributing here, include the question being answered, the observed result, the exact
+parameter bundle, the validation date, and the replay artefacts used (`.pcap`, `.vrlog`, scene IDs,
+run IDs, baselines, and any LFS-backed files). Claims without artefacts are anecdotes.
 
 Read next:
 
-- [data/QUESTIONS.md](data/QUESTIONS.md): full index of
-  open research questions across the pipeline, grouped by
-  theme with acceptance criteria and evidence requirements
-- [Pipeline Architecture](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): Ten layer data processing stack, from sensors to visualisation tools
-- [data/maths/MATHS.md](data/maths/MATHS.md): mathematical
-  foundations across settling, ground modelling, clustering,
-  tracking, and proposals
+- [data/QUESTIONS.md](data/QUESTIONS.md): full index of open research questions across the
+  pipeline, grouped by theme with acceptance criteria and evidence requirements
+- [Pipeline Architecture](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): Ten layer data processing
+  stack, from sensors to visualisation tools
+- [data/maths/MATHS.md](data/maths/MATHS.md): mathematical foundations across settling, ground
+  modelling, clustering, tracking, and proposals
 - [docs/plans/platform-data-science-metrics-first-plan.md](docs/plans/platform-data-science-metrics-first-plan.md):
-  the repo-wide data science stance: metrics first, no black
-  boxes on the critical path
+  the repo-wide data science stance: metrics first, no black boxes on the critical path
 - [docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md](docs/plans/lidar-track-labelling-auto-aware-tuning-plan.md):
   how labelled runs, ground truth, and tuning fit together
 - [docs/plans/data-track-description-language-plan.md](docs/plans/data-track-description-language-plan.md):
   metric and schema model for derived transit statistics
-- [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md):
-  collected metrics, objectives, and decision-making for
-  tuning
+- [docs/lidar/operations/auto-tuning.md](docs/lidar/operations/auto-tuning.md): collected metrics,
+  objectives, and decision-making for tuning
 - [data/maths/classification-maths.md](data/maths/classification-maths.md):
   the current boring static classifier
 
 ### Designer (UX & data visualisation)
 
-Designers turn speed data into clear, persuasive stories that
-help people argue for safer streets. This includes information
-hierarchy, chart design, colour, layout, accessibility, and
-design system consistency across the product. Contributions
-range from Figma exploration to hands-on Svelte and CSS.
+Designers turn speed data into clear, persuasive stories that help people argue for safer
+streets. This includes information hierarchy, chart design, colour, layout,
+accessibility, and design system consistency across the product. Contributions range from
+Figma exploration to hands-on Svelte and CSS.
 
-This also includes the **PDF report pipeline**. The charts and
-visuals in generated reports should match the web dashboard in
-palette, typography, and overall visual language so every
-output looks like it came from the same project, because it
-did.
+This also includes the **PDF report pipeline**. The charts and visuals in generated reports should
+match the web dashboard in palette, typography, and overall visual language so every output looks
+like it came from the same project, because it did.
 
 #### Open questions
 
-1. **[Speed distribution visualisation](data/QUESTIONS.md)**:
-   Urban speed data is often bimodal or skewed; how
-   should charts represent non-normal distributions and
-   communicate sample-size confidence to non-technical
-   audiences?
+1. **[Speed distribution visualisation](data/QUESTIONS.md)**: Urban speed data is often
+   bimodal or skewed; how should charts represent non-normal distributions and communicate
+   sample-size confidence to non-technical audiences?
 2. **[Percentile aggregation display](docs/plans/speed-percentile-aggregation-alignment-plan.md)**:
-   What visual language makes it clear that p85 values
-   across time bins cannot simply be averaged?
+   What visual language makes it clear that p85 values across time bins cannot simply be averaged?
 
 Read next:
 
-- [docs/ui/DESIGN.md](docs/ui/DESIGN.md): the canonical
-  design language across web, macOS, and report outputs
-- [docs/VISION.md](docs/VISION.md): product goals, target
-  users, and reporting outcomes the UI needs to support
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md):
-  report surface, chart pipeline, and configuration model
-- [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
-  concrete workflows, UX targets, and architecture for the LiDAR visualiser
+- [docs/ui/DESIGN.md](docs/ui/DESIGN.md): the canonical design
+  language across web, macOS, and report outputs
+- [docs/VISION.md](docs/VISION.md): product goals, target users, and
+  reporting outcomes the UI needs to support
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md): report
+  surface, chart pipeline, and configuration model
+- [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md): concrete workflows, UX
+  targets, and architecture for the LiDAR visualiser
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
   current implementation milestones
 
 ### Technical writer
 
-Technical writers make the project easier to understand,
-contribute to, and deploy. Setup guides, architecture docs,
-API references, design documents, and the public documentation
-site all benefit from someone who can explain sensor and
-traffic concepts without losing precision or the reader.
+Technical writers make the project easier to understand, contribute to, and deploy. Setup guides,
+architecture docs, API references, design documents, and the public documentation site all benefit
+from someone who can explain sensor and traffic concepts without losing precision or the reader.
 
-The project expects documentation to stay structured, accurate,
-and in step with the code. Documentation that falls behind the
-implementation is not documentation; it is a trap with good
-formatting.
+The project expects documentation to stay structured, accurate, and in step with
+the code. Documentation that falls behind the implementation is not
+documentation; it is a trap with good formatting.
 
 Read next:
 
-- [README.md](README.md): project overview, component map,
-  and contributor setup
-- [docs/README.md](docs/README.md): documentation structure,
-  ownership, and naming rules
+- [README.md](README.md): project overview, component map, and contributor setup
+- [docs/README.md](docs/README.md): documentation structure, ownership, and naming rules
 - [docs/plans/platform-documentation-standardisation-plan.md](docs/plans/platform-documentation-standardisation-plan.md):
   the current documentation quality contract
-- [public_html/README.md](public_html/README.md): how the
-  public docs site is built and organised
-- [public_html/src/guides/setup.md](public_html/src/guides/setup.md):
-  a representative public-facing guide for tone and structure
+- [public_html/README.md](public_html/README.md): how the public docs site is built and organised
+- [public_html/src/guides/setup.md](public_html/src/guides/setup.md): a representative
+  public-facing guide for tone and structure
 
 ### Perception & algorithm engineer
 
-Perception and algorithm engineers turn raw radar and LiDAR
-data into tracked objects with speed, heading, and
-classification. Clustering, tracking, classification, sensor
-fusion, and the spatial maths that make those steps reliable
-are all in scope.
+Perception and algorithm engineers turn raw radar and LiDAR data into tracked objects with speed,
+heading, and classification. Clustering, tracking, classification, sensor fusion, and the spatial
+maths that make those steps reliable are all in scope.
 
-Most of this work happens in Go, with some optional Swift and
-Metal for the macOS visualiser. A background in robotics,
-computer vision, signal processing, or applied geometry fits
-well. A tolerance for point clouds that occasionally contain a
-seagull also helps.
+Most of this work happens in Go, with some optional Swift and Metal for the macOS visualiser. A
+background in robotics, computer vision, signal processing, or applied geometry fits well. A
+tolerance for point clouds that occasionally contain a seagull also helps.
 
 #### Open questions
 
 1. **[Ground plane modelling](data/maths/proposals/20260221-ground-plane-vector-scene-maths.md)**:
-   When does the height-band filter stop being good
-   enough, and what replay evidence justifies tile-plane
-   fitting?
-2. **[Kinematic model extensions](data/QUESTIONS.md)**:
-   Does adding acceleration states or IMM blending
-   reduce track fragmentation enough to justify the CPU
-   cost on a Raspberry Pi?
-3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)**:
-   Should fusion be scored at L5 per-track association
-   or L7 scene-level, and how should conflicting
-   observations be resolved?
+   When does the height-band filter stop being good enough, and what
+   replay evidence justifies tile-plane fitting?
+2. **[Kinematic model extensions](data/QUESTIONS.md)**: Does adding acceleration states or IMM
+   blending reduce track fragmentation enough to justify the CPU cost on a Raspberry Pi?
+3. **[Radar + LiDAR fusion](docs/plans/lidar-l7-scene-plan.md)**: Should fusion be scored at L5
+   per-track association or L7 scene-level, and how should conflicting observations be resolved?
 
 Read next:
 
-- [LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md): entry point
-  to the LiDAR subsystem docs
+- [LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md):
+  entry point to the LiDAR subsystem docs
 - [docs/lidar/architecture/lidar-pipeline-reference.md](docs/lidar/architecture/lidar-pipeline-reference.md):
   end-to-end LiDAR pipeline and component inventory
-- [data/maths/MATHS.md](data/maths/MATHS.md): how the
-  maths-heavy layers fit together
-- [data/maths/clustering-maths.md](data/maths/clustering-maths.md):
-  clustering assumptions, geometry extraction, and complexity
-- [data/maths/tracking-maths.md](data/maths/tracking-maths.md):
-  Kalman filtering, gating, assignment, and lifecycle dynamics
+- [data/maths/MATHS.md](data/maths/MATHS.md): how the maths-heavy layers fit together
+- [data/maths/clustering-maths.md](data/maths/clustering-maths.md): clustering
+  assumptions, geometry extraction, and complexity
+- [data/maths/tracking-maths.md](data/maths/tracking-maths.md): Kalman filtering,
+  gating, assignment, and lifecycle dynamics
 
 ### Platform engineer
 
-Platform engineers work on the Go server and everything around
-it: sensor ingestion, APIs, database work, configuration,
-deployment, packaging, CI, and release workflows. The aim is
-simple, reliable deployment on low-cost hardware: especially
-Raspberry Pi systems used by community advocates who have
-better things to do than diagnose why a service failed to start
-at three in the morning.
+Platform engineers work on the Go server and everything around it: sensor ingestion, APIs, database
+work, configuration, deployment, packaging, CI, and release workflows. The aim is simple, reliable
+deployment on low-cost hardware: especially Raspberry Pi systems used by community advocates who
+have better things to do than diagnose why a service failed to start at three in the morning.
 
-This also covers operational quality: observability, logging,
-health checks, and graceful behaviour on constrained devices.
-Experience with concurrency, serial or UDP protocols, SQLite,
-shell tooling, and deployment automation is useful.
+This also covers operational quality: observability, logging, health checks, and graceful behaviour
+on constrained devices. Experience with concurrency, serial or UDP protocols, SQLite, shell
+tooling, and deployment automation is useful.
 
 #### Open questions
 
 1. **[Parameter tuning and overfitting](docs/plans/lidar-parameter-tuning-optimisation-plan.md)**:
-   Most defaults were tuned on a single PCAP; which
-   survive multi-site validation and what does the
+   Most defaults were tuned on a single PCAP; which survive multi-site validation and what does the
    auto-tuning objective function look like?
-2. **[Edge hardware budget](data/QUESTIONS.md)**:
-   Do all proposed algorithm improvements fit within
+2. **[Edge hardware budget](data/QUESTIONS.md)**: Do all proposed algorithm improvements fit within
    the 100 ms frame budget on a Raspberry Pi 4?
-3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)**:
-   How should observed geometry be diffed, reviewed,
-   and exported against OSM without weakening
-   provenance?
+3. **[OSM geometry export](docs/plans/lidar-l7-scene-plan.md)**: How should observed geometry be
+   diffed, reviewed, and exported against OSM without weakening provenance?
 
 Read next:
 
-- [ARCHITECTURE.md](ARCHITECTURE.md): system boundaries,
-  data flow, and deployment shape
-- [cmd/radar/README.md](cmd/radar/README.md): the main
-  binary, runtime flags, and service model
+- [ARCHITECTURE.md](ARCHITECTURE.md): system boundaries, data flow, and deployment shape
+- [cmd/radar/README.md](cmd/radar/README.md): the main binary, runtime flags, and service model
 - [docs/radar/cli-comprehensive-guide.md](docs/radar/cli-comprehensive-guide.md):
   current CLI surface and planned consolidation
-- [internal/db/migrations/README.md](internal/db/migrations/README.md):
-  schema workflow, migration commands, and production safety
-- [config/CONFIG.md](config/CONFIG.md): configuration
-  contract and tuning parameter layout
+- [internal/db/migrations/README.md](internal/db/migrations/README.md): schema workflow,
+  migration commands, and production safety
+- [config/CONFIG.md](config/CONFIG.md): configuration contract and tuning parameter layout
 - [docs/plans/deploy-distribution-packaging-plan.md](docs/plans/deploy-distribution-packaging-plan.md):
   release packaging strategy and install model
-- [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md):
-  listener segmentation, trust model, and network hardening
+- [docs/radar/architecture/networking.md](docs/radar/architecture/networking.md): listener
+  segmentation, trust model, and network hardening
 
 ### Frontend engineer (js:Svelte / mac:Swift / py:matplotlib)
 
-Frontend work spans three surfaces: the **Svelte web app**,
-the **macOS LiDAR visualiser**, and the **PDF report charts**.
-The goal across all three is the same: present complex traffic
+Frontend work spans three surfaces: the **Svelte web app**, the **macOS LiDAR visualiser**,
+and the **PDF report charts**. The goal across all three is the same: present complex traffic
 data clearly, consistently, and accessibly.
 
-Web contributors build real-time dashboards, charts, and
-configuration flows in Svelte. macOS contributors work on the
-native visualiser: rendering, playback, and overlays. PDF
-chart work uses Python and matplotlib to produce report-ready
-visuals that match the project's design system. Experience in
-any one area is welcome; nobody is expected to cover all three.
+Web contributors build real-time dashboards, charts, and configuration flows in Svelte. macOS
+contributors work on the native visualiser: rendering, playback, and overlays. PDF chart work uses
+Python and matplotlib to produce report-ready visuals that match the project's design system.
+Experience in any one area is welcome; nobody is expected to cover all three.
 
 Read next:
 
-- [web/README.md](web/README.md): local frontend setup,
-  build, and maintenance commands
-- [docs/ui/DESIGN.md](docs/ui/DESIGN.md): design contract
-  for web, macOS, and report charts
+- [web/README.md](web/README.md): local frontend setup, build, and maintenance commands
+- [docs/ui/DESIGN.md](docs/ui/DESIGN.md): design contract for web, macOS, and report charts
 - [docs/ui/design-review-and-improvement.md](docs/ui/design-review-and-improvement.md):
   current frontend design gaps and follow-up work
 - [docs/plans/web-frontend-consolidation-plan.md](docs/plans/web-frontend-consolidation-plan.md):
   roadmap for retiring legacy Go-embedded dashboards
-- [tools/pdf-generator/README.md](tools/pdf-generator/README.md):
-  PDF report pipeline, chart builders, and configuration
-- [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md):
-  macOS visualiser setup, build, and architecture
+- [tools/pdf-generator/README.md](tools/pdf-generator/README.md): PDF report
+  pipeline, chart builders, and configuration
+- [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md): macOS
+  visualiser setup, build, and architecture
 - [docs/ui/visualiser/architecture.md](docs/ui/visualiser/architecture.md):
   concrete workflows and UX targets
 - [docs/ui/visualiser/implementation.md](docs/ui/visualiser/implementation.md):
@@ -305,81 +244,64 @@ Read next:
 
 ## Themes of work
 
-These are the broad areas of work across the project. Specific
-tasks live in the [backlog](docs/BACKLOG.md); the themes help
-you find the part that fits your hands.
+These are the broad areas of work across the project. Specific tasks live in the
+[backlog](docs/BACKLOG.md); the themes help you find the part that fits your hands.
 
 ### Sensor integration & data pipeline
 
-Getting data in from radar and LiDAR sensors, validating it,
-and storing it. Serial and UDP protocol handling, data parsing,
-schema design, and making sure nothing gets quietly lost on
-hardware that costs forty pounds.
+Getting data in from radar and LiDAR sensors, validating it, and storing it. Serial and
+UDP protocol handling, data parsing, schema design, and making sure nothing gets quietly
+lost on hardware that costs forty pounds.
 
 ### Tracking, perception & sensor fusion
 
-Turning raw sensor feeds into meaningful objects: clustering
-point clouds, maintaining tracked identities across frames,
-classifying vehicles, and fusing radar speed with LiDAR
-spatial tracks. The goal is a unified transit record that
-would survive a polite cross-examination.
+Turning raw sensor feeds into meaningful objects: clustering point clouds, maintaining tracked
+identities across frames, classifying vehicles, and fusing radar speed with LiDAR spatial tracks.
+The goal is a unified transit record that would survive a polite cross-examination.
 
 ### Web frontend & visualisation
 
-The Svelte web app and the macOS visualiser: real-time
-dashboards, interactive charts, configuration interfaces,
-native LiDAR playback, overlays, and design system
-enforcement. Also includes migrating legacy Go-embedded
-dashboards to Svelte, improving responsiveness, and ensuring
+The Svelte web app and the macOS visualiser: real-time dashboards, interactive charts,
+configuration interfaces, native LiDAR playback, overlays, and design system enforcement. Also
+includes migrating legacy Go-embedded dashboards to Svelte, improving responsiveness, and ensuring
 the whole thing works for people who use screen readers.
 
 ### Report generation & data export
 
-Producing professional PDF speed reports suitable for
-submitting to a local authority, and providing data export
-(CSV, GeoJSON) for external analysis. This spans the Python
-and matplotlib chart pipeline, LaTeX templating, and
-query-scoped report generation. The report is often the first
-thing a council officer reads, so it needs to look like it was
-made on purpose.
+Producing professional PDF speed reports suitable for submitting to a local authority, and
+providing data export (CSV, GeoJSON) for external analysis. This spans the Python and matplotlib
+chart pipeline, LaTeX templating, and query-scoped report generation. The report is often the first
+thing a council officer reads, so it needs to look like it was made on purpose.
 
 ### Deployment, packaging & platform
 
-Making velocity.report straightforward to install and run:
-Raspberry Pi image pipelines, cross-compiled binaries,
-one-line installers, systemd integration, CI/CD automation,
-and release management. The target user is a neighbourhood
-advocate, not a systems administrator.
+Making velocity.report straightforward to install and run: Raspberry Pi image pipelines,
+cross-compiled binaries, one-line installers, systemd integration, CI/CD automation, and release
+management. The target user is a neighbourhood advocate, not a systems administrator.
 
 ### Quality, testing & accessibility
 
-Raising and maintaining test coverage across Go, Python, and
-web components. Unit testing, E2E testing with Playwright,
-visual regression testing, accessibility auditing, and code
-quality tooling. The test suite is the last thing standing
-between a commit and a user having a bad afternoon.
+Raising and maintaining test coverage across Go, Python, and web components. Unit
+testing, E2E testing with Playwright, visual regression testing, accessibility
+auditing, and code quality tooling. The test suite is the last thing standing between a
+commit and a user having a bad afternoon.
 
 ### Documentation & community
 
-Writing and maintaining setup guides, architecture docs,
-design documents, and the public documentation site. Keeping
-documentation accurate as the code evolves, and helping new
-contributors find their footing without needing to read the
-entire commit history first.
+Writing and maintaining setup guides, architecture docs, design documents, and the public
+documentation site. Keeping documentation accurate as the code evolves, and helping new
+contributors find their footing without needing to read the entire commit history first.
 
 ## Roadmap
 
 The project roadmap lives in
-[GitHub Issues](https://github.com/banshee-data/velocity.report/issues).
-Useful labels:
+[GitHub Issues](https://github.com/banshee-data/velocity.report/issues). Useful labels:
 
 - `enhancement`: New features and improvements
 - `bug`: Known problems awaiting attention
-- `good first issue`: Manageable starting points that will
-  not leave you staring at a screen wondering what just
-  happened
-- `help wanted`: Issues where extra hands would make a real
-  difference
+- `good first issue`: Manageable starting points that will not leave you staring
+  at a screen wondering what just happened
+- `help wanted`: Issues where extra hands would make a real difference
 
 ## Getting started
 
@@ -388,8 +310,8 @@ Useful labels:
 - **Go 1.25+**: server development
 - **Python 3.11+**: PDF generator
 - **Node.js 18+** with pnpm: web frontend
-- **SQLite3**: database (also the entire database strategy,
-  which is one of the nicer things about the project)
+- **SQLite3**: database (also the entire database strategy, which is
+  one of the nicer things about the project)
 
 ### Initial setup
 
@@ -409,10 +331,9 @@ See the [README](README.md) for the full story.
 
 ### Formatting
 
-Each language has a formatter. The formatters are not
-optional. See
-[.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md#formatting)
-for the per-language table. Before committing, run all three:
+Each language has a formatter. The formatters are not optional. See
+[.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md#formatting) for the
+per-language table. Before committing, run all three:
 
 ```bash
 make format    # Auto-format everything
@@ -420,13 +341,12 @@ make lint      # Check it worked
 make test      # Make sure nothing caught fire
 ```
 
-All three must pass before submitting a PR. This is the
-quality gate, and it does not have a side entrance.
+All three must pass before submitting a PR. This is the quality
+gate, and it does not have a side entrance.
 
 ### Pre-commit hooks (recommended)
 
-For regular contributors, install hooks that format on commit
-so you do not have to remember:
+For regular contributors, install hooks that format on commit so you do not have to remember:
 
 ```bash
 pip install pre-commit
@@ -435,29 +355,23 @@ pre-commit install
 
 ### Advisory linting (non-blocking)
 
-Some lint checks are **advisory**: they report issues without
-blocking your PR. This is a deliberate low-friction workflow:
+Some lint checks are **advisory**: they report issues without blocking your PR.
+This is a deliberate low-friction workflow:
 
-1. **Local check**: Run `make lint` to see all warnings
-   including line-width reports.
-2. **Pre-commit hook**: Auto-formats code on commit if you
-   have `pre-commit install` enabled. Width-related prose
-   checks are opt-in and advisory.
-3. **CI check**: PR checks include an advisory line-width
-   job (`continue-on-error: true`). It shows a yellow tick,
-   not a red cross. Your PR can merge regardless.
-4. **Weekly nag PR**: A scheduled workflow opens a standing
-   PR each week with any remaining style fixes. Easy to
-   review and merge: no manual effort required.
+1. **Local check**: Run `make lint` to see all warnings including line-width reports.
+2. **Pre-commit hook**: Auto-formats code on commit if you have `pre-commit install` enabled.
+   Width-related prose checks are opt-in and advisory.
+3. **CI check**: PR checks include an advisory line-width job (`continue-on-error: true`). It shows
+   a yellow tick, not a red cross. Your PR can merge regardless.
+4. **Weekly nag PR**: A scheduled workflow opens a standing PR each week with any remaining style
+   fixes. Easy to review and merge: no manual effort required.
 
-This means you never need to stop work for a style issue.
-Fix what you can locally, let CI flag the rest, and the
-weekly nag PR sweeps up anything that slips through.
+This means you never need to stop work for a style issue. Fix what you can locally, let CI flag the
+rest, and the weekly nag PR sweeps up anything that slips through.
 
 **Line width:** The repo target is **100 columns** for all
-code and prose. Formatters (prettier, swift-format) are
-configured to enforce this; Python currently uses `black` with
-its default 88-column line length. The prose-width linter checks
+code and prose. Formatters (prettier, swift-format) are configured to enforce this; Python
+currently uses `black` with its default 88-column line length. The prose-width linter checks
 Markdown. For details see
 [`line-width-standardisation-plan.md`](docs/plans/line-width-standardisation-plan.md).
 
@@ -474,9 +388,8 @@ Name branches so a stranger can guess the contents:
 
 ### Commit messages
 
-Prefix each commit message with the primary language or
-purpose. This makes the log scannable for humans who are not
-yet machines.
+Prefix each commit message with the primary language or purpose. This makes the log
+scannable for humans who are not yet machines.
 
 ```
 [prefix] Description of change
@@ -484,10 +397,9 @@ yet machines.
 
 The full prefix table lives in
 [.github/knowledge/coding-standards.md](.github/knowledge/coding-standards.md#allowed-prefixes).
-The short version: `[go]`, `[py]`, `[js]`, `[mac]`, `[docs]`,
-`[sh]`, `[sql]`, `[fs]`, `[tex]`, `[ci]`, `[make]`, `[git]`,
-`[sed]`, `[cfg]`, `[exe]`, `[ai]`. AI-authored edits always
-include `[ai]` alongside the language tag.
+The short version: `[go]`, `[py]`, `[js]`, `[mac]`, `[docs]`, `[sh]`, `[sql]`, `[fs]`,
+`[tex]`, `[ci]`, `[make]`, `[git]`, `[sed]`, `[cfg]`, `[exe]`, `[ai]`. AI-authored edits
+always include `[ai]` alongside the language tag.
 
 Examples:
 
@@ -498,25 +410,21 @@ Examples:
 [py][sql] add site configuration schema and report support
 ```
 
-Multiple tags are fine when a commit touches more than one
-area. Split commits when practical.
+Multiple tags are fine when a commit touches more than one area. Split commits when practical.
 
 ## Design language
 
 All UI and chart work follows the design contract in
 [docs/ui/DESIGN.md](docs/ui/DESIGN.md). The short version:
 
-- Use the **canonical percentile colour palette** (§3.3) for
-  all chart stacks.
-- Follow the **information hierarchy**: context header →
-  control strip → primary workspace → detail/inspector.
-- Use **svelte-ux** components first; fall back to native HTML
-  only with good reason.
+- Use the **canonical percentile colour palette** (§3.3) for all chart stacks.
+- Follow the **information hierarchy**: context header → control strip → primary
+  workspace → detail/inspector.
+- Use **svelte-ux** components first; fall back to native HTML only with good reason.
 - Use **LayerChart/d3-scale** for charts; avoid ad-hoc SVG.
-- Extract repeated class bundles into **shared standard
-  classes** (§5.5).
-- Include explicit **loading/empty/error states** for charts.
-  An empty chart without explanation is a mild act of cruelty.
+- Extract repeated class bundles into **shared standard classes** (§5.5).
+- Include explicit **loading/empty/error states** for charts. An empty chart
+  without explanation is a mild act of cruelty.
 
 See DESIGN.md §9 for the full UI and chart PR checklist.
 
@@ -525,11 +433,10 @@ See DESIGN.md §9 for the full UI and chart PR checklist.
 1. **Fork & branch**: Create a feature branch from `main`.
 2. **Make changes**: Follow the code style conventions above.
 3. **Test locally**: `make format && make lint && make test`.
-4. **Update docs**: If your change affects behaviour, update
-   the relevant documentation. Future-you will be grateful.
-5. **Submit PR**: Describe what changed and why. The "why"
-   matters more than the "what"; the diff already shows the
-   what.
+4. **Update docs**: If your change affects behaviour, update the relevant documentation.
+   Future-you will be grateful.
+5. **Submit PR**: Describe what changed and why. The "why" matters more than the "what";
+   the diff already shows the what.
 6. **Review**: Address feedback from maintainers.
 
 ### PR checklist
@@ -557,10 +464,9 @@ make test-web          # Web tests (Jest)
 - **Web**: Jest, with test files matching
   `**/__tests__/**/*.[jt]s` or `**/?(*.)+(spec|test).[jt]s`.
 
-If you change behaviour, write a test that would have caught
-the problem. If you fix a bug, write a test that reproduces
-it. A bug without a regression test is a bug that will come
-back when you are on holiday.
+If you change behaviour, write a test that would have caught the problem. If you fix a bug, write
+a test that reproduces it. A bug without a regression test is a bug that will come back when you
+are on your holidays.
 
 ## Project structure
 
@@ -582,32 +488,28 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture.
 When changing behaviour, update all affected docs:
 
 - The main [README.md](README.md)
-- Component READMEs:
-  [web/README.md](web/README.md),
+- Component READMEs: [web/README.md](web/README.md),
   [tools/pdf-generator/README.md](tools/pdf-generator/README.md),
   [public_html/README.md](public_html/README.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md) for design changes
-- [public_html/src/guides/](public_html/src/guides/) for
-  user-facing guides
+- [public_html/src/guides/](public_html/src/guides/) for user-facing guides
 
-Documentation that contradicts the code is worse than no
-documentation at all, because at least an absence is honest.
+Documentation that contradicts the code is worse than no documentation at
+all, because at least an absence is honest.
 
 ## Getting help
 
-- **Discord**: Best for quick questions:
-  [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
+- **Discord**: Best for quick questions: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
 - **GitHub Issues**: For bugs and feature requests
-- **Code Review**: We are happy to guide you through a PR.
-  Ask early rather than late; it saves everyone time.
+- **Code Review**: We are happy to guide you through a PR. Ask early rather than late;
+  it saves everyone time.
 
 ## Licence
 
-By contributing, you agree that your contributions will be
-licensed under the [Apache Licence 2.0](LICENSE).
+By contributing, you agree that your contributions will be licensed under the
+[Apache Licence 2.0](LICENSE).
 
 ---
 
-Streets are safer when the people who live on them have
-evidence. That is the point of the project, and the point of
-your contribution.
+Streets are safer when the people who live on them have evidence. That is the point of the
+project, and the point of your contribution.
