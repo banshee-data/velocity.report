@@ -1,9 +1,17 @@
-# Troubleshooting guide
+```
+  _
+ / | _  /_    _  _  ._  _
+/_.'/_'/_//_//_//_/// //_/
+             _/ _/     _/
+```
 
-This guide covers common issues, error messages,
-and solutions for the velocity.report system across all components.
+Debugging is the subtle art of persuading a very literal machine to confess what it has been
+doing all along.
 
-## Table of contents
+This guide is your map, torch, and occasional pep talk: real errors, likely causes, and practical
+fixes for the velocity.report system across all components.
+
+## Debugging table of contents
 
 - [Quick diagnosis](#quick-diagnosis)
 - [Go server issues](#go-server-issues)
@@ -27,7 +35,7 @@ and solutions for the velocity.report system across all components.
 
 ### System health check
 
-Run these commands to quickly diagnose the system state:
+Run this quick sweep to see what is alive, and what might be broken:
 
 ```bash
 # Check if Go server is running
@@ -48,7 +56,7 @@ ls -lh web/build/
 ls -l /dev/ttySC* /dev/ttyUSB* 2>/dev/null || echo "No serial devices found"
 ```
 
-### Common symptoms and quick fixes
+### Common symptoms and quick fixes (short version)
 
 | Symptom                | Likely Cause            | Quick Fix                                                    |
 | ---------------------- | ----------------------- | ------------------------------------------------------------ |
@@ -67,9 +75,9 @@ ls -l /dev/ttySC* /dev/ttyUSB* 2>/dev/null || echo "No serial devices found"
 
 **Error**: `listen tcp 0.0.0.0:8080: bind: address already in use`
 
-**Cause**: Another process is using port 8080
+**Likely cause**: Another process is using port 8080
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Find the process using port 8080
@@ -92,9 +100,9 @@ kill -TERM <PID>   # escalate to -KILL only if -TERM fails
 
 **Error**: `panic: unable to open database file: sensor_data.db: database is locked`
 
-**Cause**: Database file is locked by another process or has incorrect permissions
+**Likely cause**: Database file is locked by another process or has incorrect permissions
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Stop the service before touching the file
@@ -123,9 +131,9 @@ sudo systemctl start velocity-report
 
 **Error**: `failed to open serial port: open /dev/ttyUSB0: no such file or directory`
 
-**Cause**: Radar sensor not connected or USB-Serial driver not loaded
+**Likely cause**: Radar sensor not connected or USB-Serial driver not loaded
 
-**Solution**:
+**Do this**:
 
 ```bash
 # List available serial devices
@@ -150,9 +158,9 @@ sudo usermod -a -G dialout "$USER"
 
 **Error**: Server runs but no data appears in database
 
-**Cause**: Radar not sending data, incorrect baud rate, or serial misconfiguration
+**Likely cause**: Radar not sending data, incorrect baud rate, or serial misconfiguration
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Test serial connection manually. OPS243-A ships at 19200 baud (NOT 115200).
@@ -176,10 +184,10 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > dateti
 
 **Error**: `failed to bind UDP socket: bind: address already in use`
 
-**Cause**: Another process is using the LiDAR UDP ingest port (2369). Port 2368 is the
+**Likely cause**: Another process is using the LiDAR UDP ingest port (2369). Port 2368 is the
 raw-forward port used only when `--lidar-forward` is set; do not confuse the two.
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Find process using port 2369
@@ -200,9 +208,9 @@ ip addr show | grep 192.168.100
 
 **Error**: `no LiDAR packets received`
 
-**Cause**: LiDAR not configured to send to correct IP, network cable issue, or firewall blocking
+**Likely cause**: LiDAR not configured to send to correct IP, network cable issue, or firewall blocking
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check if packets are arriving on the ingest port
@@ -286,9 +294,9 @@ subnet, or make the change persistent via netplan / systemd-networkd.
 
 **Error**: `GET /api/radar_stats` returns `{"metrics": []}`
 
-**Cause**: No data in date range, incorrect query parameters, or timezone issues
+**Likely cause**: No data in date range, incorrect query parameters, or timezone issues
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check what data exists in database
@@ -312,9 +320,9 @@ curl "http://localhost:8080/api/radar_stats?start=1717200000&end=1717300000&grou
 
 **Error**: `FileNotFoundError: [Errno 2] No such file or directory: 'xelatex'`
 
-**Cause**: XeLaTeX not installed
+**Likely cause**: XeLaTeX not installed
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Ubuntu/Debian
@@ -340,9 +348,9 @@ xelatex --version
 
 **Error**: `ModuleNotFoundError: No module named 'pylatex'`
 
-**Cause**: Virtual environment not activated or dependencies not installed
+**Likely cause**: Virtual environment not activated or dependencies not installed
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Preferred path: the shared venv lives at the repo root, not inside tools/pdf-generator.
@@ -370,9 +378,9 @@ pip install -e tools/pdf-generator    # editable install of the package
 
 **Error**: `radar.cosine_error_angle is required`
 
-**Cause**: Config file missing required field
+**Likely cause**: Config file missing required field
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Generate new config with all fields
@@ -404,9 +412,9 @@ else:
 
 **Error**: `requests.exceptions.ConnectionError: Failed to establish a new connection`
 
-**Cause**: Go server not running or wrong host/port
+**Likely cause**: Go server not running or wrong host/port
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check if server is running
@@ -431,9 +439,9 @@ curl http://192.168.1.100:8080/api/config
 
 **Error**: `! LaTeX Error: File 'fontspec.sty' not found`
 
-**Cause**: Missing LaTeX packages
+**Likely cause**: Missing LaTeX packages
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Install missing packages
@@ -451,9 +459,9 @@ tlmgr search --global fontspec
 
 **Error**: `! Package xcolor Error: Undefined color 'linkcolor'`
 
-**Cause**: Custom colour not defined
+**Likely cause**: Custom colour not defined
 
-**Solution**:
+**Do this**:
 Check LaTeX template in `document_builder.py` - ensure all colours are defined before use
 
 ---
@@ -462,9 +470,9 @@ Check LaTeX template in `document_builder.py` - ensure all colours are defined b
 
 **Error**: `RuntimeError: Failed to create chart: no such column: speed_mph`
 
-**Cause**: Database schema mismatch or API response format change
+**Likely cause**: Database schema mismatch or API response format change
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check database schema
@@ -483,9 +491,9 @@ curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h&unit
 
 **Error**: PDF generates but shows "No data available for period"
 
-**Cause**: Date range has no data, wrong timezone, or source parameter mismatch
+**Likely cause**: Date range has no data, wrong timezone, or source parameter mismatch
 
-**Solution**:
+**Do this**:
 
 ```json
 // Check config.json query section:
@@ -519,9 +527,9 @@ sqlite3 sensor_data.db "SELECT DATE(MIN(timestamp)), DATE(MAX(timestamp)) FROM r
 
 **Error**: `Error: ENOENT: no such file or directory, stat 'web/build'`
 
-**Cause**: Frontend not built
+**Likely cause**: Frontend not built
 
-**Solution**:
+**Do this**:
 
 ```bash
 cd web
@@ -545,9 +553,9 @@ pnpm run dev
 
 **Error**: Clicking links results in blank page or 404
 
-**Cause**: SPA routing not configured correctly, missing prerendered routes
+**Likely cause**: SPA routing not configured correctly, missing prerendered routes
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check if build has HTML files for routes
@@ -567,9 +575,9 @@ curl http://localhost:8080/app/dashboard
 
 **Error**: `Failed to fetch` or CORS errors in browser console
 
-**Cause**: API server not running, CORS misconfiguration, or wrong API URL
+**Likely cause**: API server not running, CORS misconfiguration, or wrong API URL
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check API is accessible
@@ -591,9 +599,9 @@ curl http://localhost:8080/api/config
 
 **Error**: Charts don't display or show "Loading..."
 
-**Cause**: Missing chart library, data format mismatch, or API error
+**Likely cause**: Missing chart library, data format mismatch, or API error
 
-**Solution**:
+**Do this**:
 
 ```javascript
 // Open browser console (F12) and check for errors
@@ -618,9 +626,9 @@ console.log(await fetch("/api/radar_stats?start=0&end=9999999999&group=1h").then
 
 **Error**: `database is locked`
 
-**Cause**: Multiple processes accessing database, or previous process crashed without releasing lock
+**Likely cause**: Multiple processes accessing database, or previous process crashed without releasing lock
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check what processes have the database open
@@ -646,9 +654,9 @@ sqlite3 sensor_data.db "PRAGMA wal_checkpoint(TRUNCATE);"
 
 **Error**: `database disk image is malformed`
 
-**Cause**: Disk error, power loss during write, or filesystem issue
+**Likely cause**: Disk error, power loss during write, or filesystem issue
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Always stop the service before touching a damaged DB — concurrent writes guarantee
@@ -678,9 +686,9 @@ sudo systemctl start velocity-report
 
 **Error**: Queries take too long, API timeouts
 
-**Cause**: Missing indexes, large dataset, or inefficient query
+**Likely cause**: Missing indexes, large dataset, or inefficient query
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check query plan
@@ -706,9 +714,9 @@ ls -lh sensor_data.db
 
 **Error**: `no such column: elevation_fov`
 
-**Cause**: Database schema out of date
+**Likely cause**: Database schema out of date
 
-**Solution**:
+**Do this**:
 
 Migrations are embedded in the binary via `golang-migrate` and applied on startup: the
 server is the source of truth, not the raw `.sql` files. Do not shell `sqlite3 < migration.sql`
@@ -733,9 +741,9 @@ sqlite3 sensor_data.db ".schema radar_data"
 
 ### Radar not responding
 
-**Symptoms**: No data, server logs show no speed readings
+**What you see**: No data, server logs show no speed readings
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Test serial connection directly. OPS243-A defaults to 19200 baud. On a Pi HAT the
@@ -752,7 +760,7 @@ echo "OT" > /dev/ttySC1  # Set output to JSON
 echo "R0" > /dev/ttySC1  # Set to reporting mode
 ```
 
-**Solutions**:
+**Do this**:
 
 - Power cycle the radar (unplug, wait 10s, replug)
 - Check cable (try different cable/port)
@@ -763,9 +771,9 @@ echo "R0" > /dev/ttySC1  # Set to reporting mode
 
 ### LiDAR not producing point clouds
 
-**Symptoms**: Server runs but no LiDAR data in database
+**What you see**: Server runs but no LiDAR data in database
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Check network connectivity
@@ -783,7 +791,7 @@ sudo tcpdump -i eth0 -c 10 udp port 2369
 # - Laser is ON
 ```
 
-**Solutions**:
+**Do this**:
 
 - Power cycle LiDAR
 - Verify network cable connection
@@ -796,9 +804,9 @@ sudo tcpdump -i eth0 -c 10 udp port 2369
 
 **Error**: Speed readings seem consistently wrong by fixed percentage
 
-**Cause**: Incorrect `cosine_error_angle` in config
+**Likely cause**: Incorrect `cosine_error_angle` in config
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Check current angle in config
@@ -813,7 +821,7 @@ jq .radar.cosine_error_angle config.json
 # angle = acos(28/30) = 21.04°
 ```
 
-**Solution**: Measure actual mounting angle with protractor or level, update config
+**Do this**: Measure actual mounting angle with protractor or level, update config
 
 ---
 
@@ -823,9 +831,9 @@ jq .radar.cosine_error_angle config.json
 
 **Error**: Web interface works on localhost but not from other devices
 
-**Cause**: Server binding to localhost only, or firewall blocking
+**Likely cause**: Server binding to localhost only, or firewall blocking
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check server binding
@@ -850,7 +858,7 @@ curl http://<raspberry-pi-ip>:8080/api/config
 
 **Error**: `systemctl status velocity-report` shows failed
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Check service status and logs
@@ -886,11 +894,11 @@ rollback, backup, and status operations. Subcommands: `upgrade`, `rollback`, `ba
 **Error**: `velocity-ctl upgrade` times out, reports a network error, or exits with
 `SHA-256 mismatch`.
 
-**Cause**: Release metadata is fetched from `https://velocity.report/release.json`. Network
+**Likely cause**: Release metadata is fetched from `https://velocity.report/release.json`. Network
 failure, TLS error, a stale DNS cache, or a corrupted download will stop the upgrade before
 anything on disk changes.
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Verify the release feed is reachable and well-formed
@@ -906,10 +914,10 @@ sudo velocity-ctl upgrade
 
 ### Upgrade left the service in a bad state
 
-**Symptoms**: `velocity-ctl status` reports the service failed after upgrade; logs show a
+**What you see**: `velocity-ctl status` reports the service failed after upgrade; logs show a
 migration error or `schema_migrations` dirty version.
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Check the migration state
@@ -927,10 +935,10 @@ sudo velocity-ctl rollback
 
 ### `velocity-ctl rollback` reports no backup found
 
-**Cause**: `/var/lib/velocity-report/backups/` is empty — either this is the first install,
+**Likely cause**: `/var/lib/velocity-report/backups/` is empty — either this is the first install,
 or an earlier manual operation removed it.
 
-**Solution**:
+**Do this**:
 
 ```bash
 ls -la /var/lib/velocity-report/backups/
@@ -941,10 +949,10 @@ sudo velocity-ctl backup
 
 ### First boot: no web UI, service disabled, or TLS not ready
 
-**Symptoms**: Pi is up and reachable but `https://velocity.local/` returns a connection
+**What you see**: Pi is up and reachable but `https://velocity.local/` returns a connection
 error, or nginx is running but serves a certificate error.
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Confirm the two first-boot services are enabled and have run
@@ -959,7 +967,7 @@ journalctl -u velocity-generate-tls.service -n 50 --no-pager
 ls -la /var/lib/velocity-report/tls/     # expect ca.crt, ca.key, server.crt, server.key
 ```
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Re-enable services if missing (e.g. image-build hiccup)
@@ -973,11 +981,11 @@ sudo systemctl reload nginx
 
 ### Certificate expired or about to expire
 
-**Cause**: The server certificate is issued for ~825 days and auto-renews on boot when
+**Likely cause**: The server certificate is issued for ~825 days and auto-renews on boot when
 within 24 hours of expiry. The CA is valid for ten years and is regenerated only if
 missing or expired. If the Pi is powered off for long periods, certs can lapse.
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Inspect validity
@@ -994,14 +1002,14 @@ sudo systemctl reload nginx
 
 ### Clock drift / NTP not syncing
 
-**Symptoms**: Transit timestamps jump or land in the future; PDF reports list the wrong
+**What you see**: Transit timestamps jump or land in the future; PDF reports list the wrong
 date; radar/LiDAR frames are occasionally rejected by ingest checks that assume a
 monotonic clock.
 
-**Cause**: The Pi image ships with `systemd-timesyncd`, not chrony. On a network with no
+**Likely cause**: The Pi image ships with `systemd-timesyncd`, not chrony. On a network with no
 outbound UDP/123, or on first boot before DNS resolves, the clock can be hours or days off.
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 timedatectl status
@@ -1010,7 +1018,7 @@ timedatectl status
 journalctl -u systemd-timesyncd.service -n 50 --no-pager
 ```
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Enable NTP if disabled
@@ -1028,14 +1036,14 @@ sudo systemctl restart velocity-report
 
 ### SD card errors or filesystem remounted read-only
 
-**Symptoms**: The Go server logs `readonly database` or `disk I/O error`; writes to the
+**What you see**: The Go server logs `readonly database` or `disk I/O error`; writes to the
 DB fail; `velocity-ctl backup` reports `permission denied` despite running as root.
 
-**Cause**: Raspberry Pi OS uses a writable ext4 root on the SD card. Power loss during
+**Likely cause**: Raspberry Pi OS uses a writable ext4 root on the SD card. Power loss during
 write and end-of-life wear both trigger ext4 to remount read-only. Once that happens,
 every writer — server, migrations, backup — fails in confusing ways.
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Is the root filesystem read-only?
@@ -1046,7 +1054,7 @@ findmnt -no OPTIONS /          # look for "ro" in the options list
 sudo dmesg | grep -Ei 'ext4-fs error|remount.*read-only|I/O error' | tail -20
 ```
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Stop the service before touching the filesystem
@@ -1071,9 +1079,9 @@ sudo cp -a /var/lib/velocity-report/sensor_data.db /media/usb/pre-replace.db
 
 ### High CPU usage
 
-**Symptoms**: CPU at 100%, system sluggish
+**What you see**: CPU at 100%, system sluggish
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Check which process is using CPU
@@ -1090,7 +1098,7 @@ curl http://localhost:8080/debug/pprof/goroutine?debug=1
 lsof sensor_data.db
 ```
 
-**Solutions**:
+**Do this**:
 
 - Restart Go server (background worker may be stuck)
 - Reduce LiDAR frame rate if processing can't keep up
@@ -1101,9 +1109,9 @@ lsof sensor_data.db
 
 ### High memory usage
 
-**Symptoms**: Out of memory errors, system swapping
+**What you see**: Out of memory errors, system swapping
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Check memory usage
@@ -1117,7 +1125,7 @@ curl http://localhost:8080/debug/pprof/heap > heap.prof
 go tool pprof heap.prof
 ```
 
-**Solutions**:
+**Do this**:
 
 - Reduce histogram bucket counts in API queries
 - Limit query result sizes
@@ -1129,9 +1137,9 @@ go tool pprof heap.prof
 
 ### Slow PDF generation
 
-**Symptoms**: PDF generation takes several minutes
+**What you see**: PDF generation takes several minutes
 
-**Diagnosis**:
+**Quick check**:
 
 ```bash
 # Enable debug mode to see timing
@@ -1144,7 +1152,7 @@ time curl "http://localhost:8080/api/radar_stats?start=0&end=9999999999&group=1h
 time xelatex test.tex
 ```
 
-**Solutions**:
+**Do this**:
 
 - Use smaller date ranges
 - Disable histogram if not needed
@@ -1330,9 +1338,9 @@ Generated Swift files are placed in: `tools/visualiser-macos/VelocityVisualiser/
 
 **Error**: `ModuleNotFoundError: No module named 'numpy'` during Go tests
 
-**Cause**: PDF generation E2E tests require Python dependencies
+**Likely cause**: PDF generation E2E tests require Python dependencies
 
-**Solution**:
+**Do this**:
 API tests including E2E tests run in the CI `test-integration` job where Python dependencies are
 installed. For local development:
 
@@ -1351,9 +1359,9 @@ go test ./internal/api/...
 
 **Error**: Prettier or ESLint failures in web-ci workflow
 
-**Cause**: Code formatting inconsistency
+**Likely cause**: Code formatting inconsistency
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Auto-fix formatting
@@ -1370,9 +1378,9 @@ make format-web
 
 **Error**: CI runs slower than expected or cache misses
 
-**Cause**: Cache key mismatch or cache eviction
+**Likely cause**: Cache key mismatch or cache eviction
 
-**Solution**:
+**Do this**:
 
 ```bash
 # Clear and rebuild caches by pushing a commit that changes lock files
