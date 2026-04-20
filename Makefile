@@ -1098,20 +1098,24 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-# Directories and files formatted by mdformat.
+# Directories formatted by mdformat.
 # public_html/ is excluded because it contains Nunjucks/Eleventy templates.
 # web/ is excluded because its .md files are peripheral and Prettier owns that tree.
-MDFORMAT_PATHS = \
-	docs data config cmd internal tools scripts \
-	.github .claude \
+MDFORMAT_DIRS = docs data config cmd internal tools scripts .github .claude
+MDFORMAT_ROOT_FILES = \
 	ARCHITECTURE.md CHANGELOG.md CLAUDE.md CODE_OF_CONDUCT.md COMMANDS.md \
 	CONTRIBUTING.md MAGIC_NUMBERS.md README.md TENETS.md TROUBLESHOOTING.md
+
+# Directories to skip when scanning for .md files (build artifacts, vendored deps).
+MDFORMAT_PRUNE = -name build -o -name DerivedData -o -name node_modules -o -name dist -o -name .venv -o -name venv
 
 format-docs: ensure-python-tools
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Formatting Markdown files with mdformat (wrap=100)..."
-	@$(VENV_PYTHON) -m mdformat $(MDFORMAT_PATHS)
+	@find $(MDFORMAT_DIRS) \( $(MDFORMAT_PRUNE) \) -prune -o -name '*.md' -print \
+		| xargs $(VENV_PYTHON) -m mdformat
+	@$(VENV_PYTHON) -m mdformat $(MDFORMAT_ROOT_FILES)
 
 format-sql:
 	@echo "Formatting SQL files with sql-formatter..."

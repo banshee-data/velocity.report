@@ -47,11 +47,12 @@ repos:
         stages: [pre-commit]
 
       - id: format-docs
-        name: format-docs (prettier for Markdown files)
+        name: format-docs (mdformat for Markdown files)
         entry: make format-docs
         language: system
         pass_filenames: false
         files: \.md$
+        exclude: ^(public_html|web|tools/visualiser-macos/(build|DerivedData))/
         stages: [pre-commit]
 
       - id: format-sql
