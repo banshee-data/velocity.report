@@ -215,6 +215,71 @@ sudo tcpdump -i eth0 udp port 2369
 sudo ufw allow from 192.168.100.202 to any port 2369 proto udp
 ```
 
+### LiDAR emitting on an unknown IP, subnet, or port
+
+The factory defaults (`192.168.100.202` → `192.168.100.151:2369`) are only a starting
+point: any previous operator may have changed the source address, destination address,
+destination port, or subnet mask. A sensor that has left the factory network is invisible
+to the Pi until you find out what it is actually transmitting.
+
+The cleanest way to answer "what is this sensor doing?" is to isolate it on a dedicated
+interface and watch traffic directly. Use a USB 3.0 gigabit Ethernet adapter as a second
+NIC, connect the LiDAR to it with a short patch cable (no switch in between), and confirm
+the adapter came up — for example, `eth1`:
+
+```bash
+# Find the new interface after plugging in the adapter
+ip -br link show
+# Expect a new entry like: eth1  UP  ...
+
+# Bring the interface up without assigning an IP — we only want to listen
+sudo ip link set eth1 up
+```
+
+Now passively observe. The `-Q in` filter drops anything the Pi itself transmits, and
+`-q -nn` strip the output down to source → destination so the LiDAR's real IP and port
+are obvious:
+
+```bash
+# tcpdump: one line per packet, unique src → dst pairs
+sudo tcpdump -i eth1 -Q in -nn -q -c 200 udp 2>/dev/null \
+  | awk '{print $3, "->", $5}' \
+  | sed 's/:$//' \
+  | sort -u
+```
+
+`tshark` is friendlier if you want a clean table and port frequencies:
+
+```bash
+# 10-second capture; columns: src, dst, src-port, dst-port; sorted by frequency
+sudo tshark -i eth1 -a duration:10 -n -Q \
+  -Y 'udp and !mdns and !stp and !lldp' \
+  -T fields -e ip.src -e ip.dst -e udp.srcport -e udp.dstport 2>/dev/null \
+  | sort | uniq -c | sort -rn
+```
+
+Interpret the output:
+
+- **Source IP** is the LiDAR's current address. If it is on an unexpected subnet (say
+  `10.5.0.x`), either the LiDAR was reconfigured or it is still carrying another site's
+  settings — plan to reset it from the Hesai web UI once you can reach it.
+- **Destination IP** tells you whether the LiDAR is unicasting to a host that no longer
+  exists (common after a Pi swap) or broadcasting (`255.255.255.255` or a subnet
+  broadcast). Either way, change it to the Pi's LiDAR-facing address.
+- **Destination port** confirms whether the sensor is pointed at `2369` (our ingest) or
+  something else.
+
+To reach the LiDAR's web UI once its address is known, put the monitoring interface on
+the same subnet — for example, if the sensor is on `192.168.50.x`:
+
+```bash
+sudo ip addr add 192.168.50.10/24 dev eth1
+# Then browse to the address shown as the packet source
+```
+
+Revert any ad-hoc `ip addr add` once the sensor is reconfigured onto the production
+subnet, or make the change persistent via netplan / systemd-networkd.
+
 ---
 
 ### API returns empty data
