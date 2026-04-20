@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Reflow Markdown prose to target width with orphan-line avoidance.
 
-Handles prose paragraphs only — leaves code blocks, tables, headings,
-lists, block quotes, frontmatter, and other structural elements untouched.
+Handles prose paragraphs and list-item text while leaving code blocks,
+tables, headings, block quotes, frontmatter, and other structural elements
+untouched.
 
 Orphan avoidance: if the last line of a paragraph would be very short
 (≤ 25 chars), the paragraph is re-wrapped at a slightly narrower width
@@ -74,6 +75,10 @@ _TABLE_RE = re.compile(r"^\s*\|")
 _HEADING_RE = re.compile(r"^#{1,6}\s")
 _UNORDERED_LIST_RE = re.compile(r"^(\s*)[-*+]\s")
 _ORDERED_LIST_RE = re.compile(r"^(\s*)\d+[.)]\s")
+_LIST_ITEM_START_RE = re.compile(
+    r"^(?P<indent>\s*)(?P<marker>(?:[-*+]|(?:\d+[.)])))(?P<ws>\s+)"
+    r"(?:(?P<task>\[[ xX]\])(?P<taskws>\s+))?(?P<text>.*)$"
+)
 _HR_RE = re.compile(r"^[-*_]{3,}\s*$")
 _LINK_DEF_RE = re.compile(r"^\[.+\]:\s")
 _IMAGE_RE = re.compile(r"^!\[")
@@ -86,6 +91,7 @@ _HTML_COMMENT_CLOSE = re.compile(r"-->")
 # Protect spaces inside these by replacing with a placeholder before wrapping.
 _INLINE_MATH_RE = re.compile(r"\$[^$\n]+?\$")
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+?`")
+_INLINE_LINK_RE = re.compile(r"\[[^\]\n]+?\]\([^)\n]+?\)")
 
 PROTECT_CHAR = "\x00"
 
@@ -168,6 +174,7 @@ def _protect_inline(text: str) -> str:
 
     text = _INLINE_MATH_RE.sub(_protect, text)
     text = _INLINE_CODE_RE.sub(_protect, text)
+    text = _INLINE_LINK_RE.sub(_protect, text)
     return text
 
 
@@ -246,6 +253,109 @@ def _wrap_no_orphan(
     return [_unprotect_inline(ln) for ln in best]
 
 
+def _reflow_list_item(
+    lines: list[str], start: int, width: int
+) -> tuple[list[str], int] | None:
+    """Reflow one Markdown list item (bullet/numbered), if present at *start*.
+
+    Returns (rewritten_lines, next_index) or None when the current line is
+    not a list item start.
+    """
+    line = lines[start]
+    m = _LIST_ITEM_START_RE.match(line.rstrip())
+    if not m:
+        return None
+
+    indent = m.group("indent")
+    marker = m.group("marker")
+    ws = m.group("ws")
+    task = m.group("task") or ""
+    taskws = m.group("taskws") or ""
+    first_text = (m.group("text") or "").strip()
+
+    prefix = f"{indent}{marker}{ws}{task}{taskws}"
+    continuation_prefix = " " * len(prefix)
+
+    parts: list[str] = []
+    if first_text:
+        parts.append(first_text)
+
+    i = start + 1
+    n = len(lines)
+    while i < n:
+        ln = lines[i]
+        st = ln.rstrip()
+
+        if not st:
+            break
+        if _FENCE_RE.match(st) or st.startswith("$$"):
+            break
+        if _HTML_COMMENT_OPEN.search(ln) and not _HTML_COMMENT_CLOSE.search(ln):
+            break
+
+        next_item = _LIST_ITEM_START_RE.match(st)
+        if next_item and len(next_item.group("indent")) <= len(indent):
+            break
+
+        if not ln.startswith(continuation_prefix):
+            break
+
+        body_raw = ln[len(continuation_prefix) :]
+        body = body_raw.strip()
+        if not body:
+            break
+
+        # Preserve nested list structure under an item such as:
+        # - Keys:
+        #   - alpha
+        #   - beta
+        # These lines must remain independent list items rather than being
+        # flattened into the parent text.
+        if _UNORDERED_LIST_RE.match(body) or _ORDERED_LIST_RE.match(body):
+            break
+
+        parts.append(body)
+        i += 1
+
+    if not parts:
+        return [line], i
+
+    # Repair previously flattened nested list content, e.g.:
+    # - Keys: - alpha - beta - gamma
+    # back into:
+    # - Keys:
+    #   - alpha
+    #   - beta
+    #   - gamma
+    flattened = re.sub(r"  +", " ", " ".join(parts))
+    if ": - " in flattened:
+        head, tail = flattened.split(": ", 1)
+        if tail.startswith("- "):
+            nested_items = [item.strip() for item in tail[2:].split(" - ")]
+            if len(nested_items) >= 1 and all(item for item in nested_items):
+                nested_prefix = f"{continuation_prefix}- "
+                nested_width = max(width - len(nested_prefix), 20)
+
+                out = [f"{prefix}{head}:"]
+                for item in nested_items:
+                    nested_wrapped = _wrap_no_orphan(
+                        item, nested_width, original_lines=[item]
+                    )
+                    out.append(f"{nested_prefix}{nested_wrapped[0]}")
+                    out.extend(
+                        f"{continuation_prefix}  {frag}" for frag in nested_wrapped[1:]
+                    )
+                return out, i
+
+    text = re.sub(r"  +", " ", " ".join(parts))
+    wrap_width = max(width - len(prefix), 20)
+    wrapped = _wrap_no_orphan(text, wrap_width, original_lines=parts)
+
+    out = [f"{prefix}{wrapped[0]}"]
+    out.extend(f"{continuation_prefix}{frag}" for frag in wrapped[1:])
+    return out, i
+
+
 # ── File processing ──────────────────────────────────────────────────────
 
 
@@ -320,6 +430,14 @@ def _reflow_file(path: Path, width: int) -> str | None:
             in_html_comment = True
             output.append(line)
             i += 1
+            continue
+
+        # ── List item text (bullet/numbered) ─────────────────────
+        list_result = _reflow_list_item(lines, i, width)
+        if list_result is not None:
+            rewritten, next_i = list_result
+            output.extend(rewritten)
+            i = next_i
             continue
 
         # ── Structural line — pass through ───────────────────────
