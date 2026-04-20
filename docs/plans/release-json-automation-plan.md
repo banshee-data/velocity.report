@@ -353,7 +353,7 @@ version (not the OS image version) and is likely static.
 1. Update ruleset `6362131`: set `required_approving_review_count: 1`,
    `require_last_push_approval: true`
 2. Add `Repository admin` to `bypass_actors` with `bypass_mode: always`
-3. Create `.github/CODEOWNERS` with `* @ddol` default entry
+3. Create `.github/CODEOWNERS` with `* @ddol` default entry <!-- link-ignore -->
 4. Document bypass policy in `docs/platform/operations/branch-protection.md`
 
 **Milestone:** can land before Option A work begins
@@ -470,7 +470,7 @@ the core flow.
 
 - [ ] Update ruleset: approval count 0 → 1, last-push approval on (`S`)
 - [ ] Add admin bypass to ruleset (`S`)
-- [ ] Create `.github/CODEOWNERS` with default entry (`S`)
+- [ ] Create `.github/CODEOWNERS` with default entry (`S`) <!-- link-ignore -->
 - [ ] Document bypass policy in `docs/platform/operations/` (`S`)
 - [ ] Create `velocity-release-bot` GitHub App (`S`)
 - [ ] Create `velocity-release-approver` GitHub App (`S`)
