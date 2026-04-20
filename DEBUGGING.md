@@ -142,8 +142,11 @@ ls -l /dev/tty*
 # Check if device is recognized
 dmesg | grep tty
 
-# Add user to dialout group (required for serial access). Use the service account
-# in production (`velocity`); use your interactive account only for development shells.
+# Add user to dialout group (required for serial access).
+# Production: grant access to the systemd service account.
+sudo usermod -a -G dialout velocity
+# Development only: if you run the server manually from your shell, grant access to
+# your interactive account as well.
 sudo usermod -a -G dialout "$USER"
 # Log out and back in for group membership to take effect
 
@@ -887,7 +890,11 @@ cat /etc/systemd/system/velocity-report.service
 `velocity-ctl` is the on-device management tool. It runs as root and wraps upgrade,
 rollback, backup, and status operations. Subcommands: `upgrade`, `rollback`, `backup`,
 `status`, `version`. Schema migrations are owned by the `velocity-report` binary, not
-`velocity-ctl`: `velocity-report migrate <up|down|status|version|force>`.
+`velocity-ctl`. Common migration operations use `velocity-report migrate up`,
+`velocity-report migrate down`, `velocity-report migrate status`,
+`velocity-report migrate version`, and `velocity-report migrate force`;
+`baseline`, `detect`, and `help` subcommands are also available for recovery
+and diagnostics.
 
 ### Upgrade check fails or stalls
 
@@ -921,13 +928,13 @@ migration error or `schema_migrations` dirty version.
 
 ```bash
 # Check the migration state
-sudo velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db
+sudo velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db status
 
 # If a migration is marked dirty, inspect the target version, resolve the underlying error,
 # then force the version back to a known-good number before re-running `migrate up`.
 # `force` is a recovery escape hatch — it marks the version without executing the migration.
-sudo velocity-report migrate force <N> --db-path /var/lib/velocity-report/sensor_data.db
-sudo velocity-report migrate up   --db-path /var/lib/velocity-report/sensor_data.db
+sudo velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db force <N>
+sudo velocity-report migrate --db-path /var/lib/velocity-report/sensor_data.db up
 
 # If the failure is not recoverable, roll back to the previous snapshot
 sudo velocity-ctl rollback
