@@ -125,9 +125,8 @@ def m12_svg(pins):
 
     # M12 A-coded pins sit at 45° — compute actual horizontal extent
     SIN45 = math.sin(math.radians(45))
-    TITLE_H = 18
     CX = round(PAD + LABEL_W + LR * SIN45)
-    CY = PAD + TITLE_H + BODY
+    CY = PAD + BODY
     W = CX * 2  # symmetric
     H = round(CY + LR * SIN45 + 16 + PAD)  # bottom labels + pad
 
@@ -141,13 +140,6 @@ def m12_svg(pins):
         f"  text {{ font-family: {FONT}; }}\n"
         f"</style>\n"
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
-    )
-
-    # Title
-    s.append(
-        f'<text x="{CX}" y="{PAD + 12}" text-anchor="middle"'
-        f' font-size="12" font-weight="700" fill="#374151">'
-        f"M12 female (cable end)</text>"
     )
 
     # Connector body
@@ -234,11 +226,10 @@ def de9_svg(labels, connected):
     sh = ROW_SP + 44
     taper = 10
     r = 14
-    TITLE_H = 18
 
     # Centre so the shell sits snugly
     CX = PAD + sw / 2
-    CY = PAD + TITLE_H + sh / 2
+    CY = PAD + sh / 2
     W = int(CX * 2)
     H = int(CY + sh / 2 + 38)  # shell bottom + leader + labels + pad
 
@@ -254,13 +245,6 @@ def de9_svg(labels, connected):
         f"  text {{ font-family: {FONT}; }}\n"
         f"</style>\n"
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
-    )
-
-    # Title
-    s.append(
-        f'<text x="{CX}" y="{PAD + 12}" text-anchor="middle"'
-        f' font-size="12" font-weight="700" fill="#374151">'
-        f"DE-9 female (cable end)</text>"
     )
 
     # D-shell outline (trapezoid with rounded corners, wider at top)
