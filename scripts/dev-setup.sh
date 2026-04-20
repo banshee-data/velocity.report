@@ -443,7 +443,7 @@ print_next_steps() {
     echo "  README.md           # Project overview"
     echo "  ARCHITECTURE.md     # System architecture"
     echo "  CONTRIBUTING.md     # Development guide"
-    echo "  DEBUGGING.md  # Common issues"
+    echo "  DEBUGGING.md        # Common issues"
     echo "  PERFORMANCE.md      # Performance tuning"
     echo ""
 
