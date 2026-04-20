@@ -22,6 +22,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Domain tag vocabulary: add `{domain}` inline tags to backlog items and `- **Domains:**` metadata to plan docs; lint script validates known tags and cross-checks plan-backlog agreement: [design doc](plans/domain-tag-vocabulary-plan.md) `S`
 - Tailscale remote access setup guide: document Tailscale installation and configuration on RPi for secure remote access to velocity-report web UI and SSH without port forwarding; CLI-first walkthrough with `tailscale up` flags and ACL recommendations: [design doc](plans/tailscale-remote-access-guide.md) `S`
 - Legacy `.vrlog` speed-key shim removal: remove `Track.UnmarshalJSON` fallback that remaps `PeakSpeedMps`/`peak_speed_mps` → `MaxSpeedMps`; last remaining shim from #383; includes 4 test functions and 2 UI deprecation strings: [design doc](plans/v050-backward-compatibility-shim-removal-plan.md) `S`
+- Version-bump consolidation: pin 3 dead-metadata package versions to `"0.0.0"`, strip `--web`/`--docs`/`--pdf` targets from `set-version.sh`, simplify CI version-check workflow: [design doc](plans/version-bump-consolidation-plan.md) `S`
 
 ### v0.5.3 - Data contracts + metrics (053)
 
