@@ -52,7 +52,7 @@ cleanup() {
     # Remove staged root documents
     local stage_files="$IMAGE_DIR/stage-velocity/03-velocity-config/files"
     for f in README.md ARCHITECTURE.md CHANGELOG.md CODE_OF_CONDUCT.md \
-             COMMANDS.md CONTRIBUTING.md TROUBLESHOOTING.md TENETS.md LICENSE; do
+             COMMANDS.md CONTRIBUTING.md DEBUGGING.md TENETS.md LICENSE; do
         rm -f "$stage_files/$f"
     done
     rm -f "$stage_files/velocity-report-build"
@@ -299,7 +299,7 @@ for f in \
     COMMANDS.md \
     CONTRIBUTING.md \
     TENETS.md \
-    TROUBLESHOOTING.md \
+    DEBUGGING.md \
     LICENSE; do
     [ -f "$REPO_ROOT/$f" ] && install -m 644 "$REPO_ROOT/$f" \
         "$IMAGE_DIR/stage-velocity/03-velocity-config/files/$f"

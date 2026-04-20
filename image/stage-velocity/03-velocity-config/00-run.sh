@@ -74,7 +74,7 @@ for f in \
     CODE_OF_CONDUCT.md \
     COMMANDS.md \
     CONTRIBUTING.md \
-    TROUBLESHOOTING.md \
+    DEBUGGING.md \
     TENETS.md \
     LICENSE; do
     if [ -f "files/$f" ]; then
