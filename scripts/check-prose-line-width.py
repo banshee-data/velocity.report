@@ -61,7 +61,7 @@ DEFAULT_SCAN_PATHS = [
     "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
-    "TROUBLESHOOTING.md",
+    "DEBUGGING.md",
 ]
 
 

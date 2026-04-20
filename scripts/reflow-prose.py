@@ -65,7 +65,7 @@ DEFAULT_SCAN_PATHS = [
     "COMMANDS.md",
     "CONTRIBUTING.md",
     "MAGIC_NUMBERS.md",
-    "TROUBLESHOOTING.md",
+    "DEBUGGING.md",
 ]
 
 # ── Line classification ─────────────────────────────────────────────────
