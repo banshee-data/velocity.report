@@ -5,12 +5,14 @@ Handles prose paragraphs and list-item text while leaving code blocks,
 tables, headings, block quotes, frontmatter, and other structural elements
 untouched.
 
-Orphan avoidance: if the last line of a paragraph would be very short
-(≤ 25 chars), the paragraph is re-wrapped at a slightly narrower width
-to redistribute text and eliminate the orphan.
+Orphan avoidance: if the last line of a paragraph would be shorter than
+``MIN_LAST_LINE`` (40 chars), the paragraph is re-wrapped at a slightly
+narrower width to redistribute text and eliminate the orphan.
 
 Usage:
-    reflow-prose.py [--width 99] [--check] FILE [FILE ...]
+    reflow-prose.py [--width 99] [--check] [PATH ...]
+
+If no paths are provided, scans ``DEFAULT_SCAN_PATHS``.
 """
 
 from __future__ import annotations
@@ -42,8 +44,12 @@ EXCLUDED_DIRS = {
     "web",
 }
 
-# Files excluded from reflow.
-EXCLUDED_FILES: set[str] = set()
+# Files excluded from reflow. Mirrors `check-prose-line-width.py` so that
+# files exempted from width enforcement are also left alone by reflow.
+EXCLUDED_FILES: set[str] = {
+    "CHANGELOG.md",
+    "docs/DECISIONS.md",
+}
 
 DEFAULT_SCAN_PATHS = [
     "docs",
@@ -85,7 +91,7 @@ _IMAGE_RE = re.compile(r"^!\[")
 _BOLD_META_RE = re.compile(r"^\*\*\w[^*]*:\*\*")
 _HTML_OPEN_RE = re.compile(r"^<")
 _HTML_COMMENT_OPEN = re.compile(r"<!--")
-_HTML_COMMENT_CLOSE = re.compile(r"-->")
+_HTML_COMMENT_CLOSE = re.compile(r"--!?>")
 
 # Inline elements that should not be broken across lines.
 # Protect spaces inside these by replacing with a placeholder before wrapping.
