@@ -47,7 +47,7 @@ repos:
         stages: [pre-commit]
 
       - id: format-docs
-        name: format-docs (prettier for Markdown files)
+        name: format-docs (reflow-prose + prettier for Markdown files)
         entry: make format-docs
         language: system
         pass_filenames: false

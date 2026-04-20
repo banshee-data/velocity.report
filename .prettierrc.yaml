@@ -1,10 +1,13 @@
 # Root Prettier config — Markdown formatting only.
 # Web-specific config (Svelte, Tailwind plugins) lives in web/.prettierrc.
 #
+# Prose reflow is handled by scripts/reflow-prose.py (with orphan avoidance).
+# Prettier normalises structural elements (tables, lists, fences) only.
+#
 # Run: make format-docs
 
 overrides:
   - files: "*.md"
     options:
-      proseWrap: always
+      proseWrap: preserve
       printWidth: 100
