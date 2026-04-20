@@ -106,7 +106,7 @@ help:
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
 	@echo "  format-mac           Format macOS Swift code (swift-format)"
-	@echo "  format-docs          Reflow + format Markdown files (reflow-prose + prettier)"
+	@echo "  format-docs          Format Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -1102,7 +1102,13 @@ format-docs: ensure-web-cache
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
-	@pnpm exec prettier --write '**/*.md'
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm exec prettier --write '**/*.md'; \
+	elif command -v npx >/dev/null 2>&1; then \
+		npx prettier --write '**/*.md'; \
+	else \
+		echo "Skipping Markdown prettier formatting (pnpm/npx not found)"; \
+	fi
 
 format-sql:
 	@echo "Formatting SQL files with sql-formatter..."
