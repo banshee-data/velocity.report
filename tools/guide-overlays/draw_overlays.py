@@ -420,7 +420,7 @@ def main():
     for stem, _ in OUTPUTS:
         png = primary / f"{stem}.png"
         if not svg_to_png(primary / f"{stem}.svg", png, width=1200):
-            print(f"  WARN SVG→PNG failed; {MISSING_HINT}")
+            print(f"  WARN no SVG→PNG converter available; {MISSING_HINT}")
             return
         tmp_pngs[stem] = png
         print(f"  OK {png.relative_to(REPO)}  (intermediate)")

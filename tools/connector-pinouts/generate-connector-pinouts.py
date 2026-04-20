@@ -339,7 +339,7 @@ def main():
             print(f"  {png.relative_to(REPO)}")
 
     if not png_ok:
-        print(f"  ⚠ PNG conversion failed; {MISSING_HINT}", file=sys.stderr)
+        print(f"  ⚠ no SVG→PNG converter available; {MISSING_HINT}", file=sys.stderr)
 
 
 if __name__ == "__main__":

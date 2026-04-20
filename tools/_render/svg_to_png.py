@@ -6,6 +6,9 @@ or `width` (output pixel width).
 
 Returns True on success, False if no converter is available on the system.
 Raises ValueError if neither or both of scale/width are supplied.
+Conversion and rendering failures from the selected backend (e.g.
+``subprocess.CalledProcessError`` from ``rsvg-convert``, exceptions from
+``cairosvg.svg2png``) propagate to the caller.
 """
 
 from __future__ import annotations

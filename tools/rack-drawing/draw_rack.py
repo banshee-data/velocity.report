@@ -449,7 +449,7 @@ def main() -> None:
             shutil.copy2(local_png, dest)
             print(f"  ✓ {dest.relative_to(repo_root)}")
     else:
-        print(f"  ⚠ SVG→PNG failed; {MISSING_HINT}")
+        print(f"  ⚠ no SVG→PNG converter available; {MISSING_HINT}")
 
     print("Done.")
 
