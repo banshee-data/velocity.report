@@ -1101,8 +1101,6 @@ format-mac:
 format-docs:
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Reflowing Markdown prose (width=99, orphan avoidance)..."
-	@python3 scripts/reflow-prose.py
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
 	@pnpm exec prettier --write '**/*.md'
 
