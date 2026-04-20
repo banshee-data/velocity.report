@@ -12,11 +12,14 @@ and solutions for the velocity.report system across all components.
 - [Database issues](#database-issues)
 - [Sensor hardware issues](#sensor-hardware-issues)
 - [Network and connectivity issues](#network-and-connectivity-issues)
+- [Deployment and upgrade issues](#deployment-and-upgrade-issues)
+- [Pi system issues](#pi-system-issues)
 - [Performance issues](#performance-issues)
+- [Getting help](#getting-help)
 - [Known fixed issues](#known-fixed-issues)
 - [macOS visualiser issues](#macos-visualiser-issues)
+- [Common error messages reference](#common-error-messages-reference)
 - [CI/CD issues](#cicd-issues)
-- [Getting help](#getting-help)
 
 ---
 
@@ -41,20 +44,20 @@ cd tools/pdf-generator
 # Check web build
 ls -lh web/build/
 
-# Check sensor connections
-ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
+# Check sensor connections (Pi HAT default: ttySC1; USB-serial dongle: ttyUSB0)
+ls -l /dev/ttySC* /dev/ttyUSB* 2>/dev/null || echo "No serial devices found"
 ```
 
 ### Common symptoms and quick fixes
 
-| Symptom                | Likely Cause            | Quick Fix                                             |
-| ---------------------- | ----------------------- | ----------------------------------------------------- |
-| No data appearing      | Radar not connected     | Check `/dev/ttyUSB0`, verify power                    |
-| PDF generation fails   | Missing LaTeX           | Install XeLaTeX: `sudo apt-get install texlive-xetex` |
-| Web frontend blank     | Build not generated     | Run `cd web && pnpm run build`                        |
-| API returns 500 errors | Database corruption     | Check database with `PRAGMA integrity_check`          |
-| High CPU usage         | Background worker stuck | Restart Go server                                     |
-| Cosine error warnings  | Missing config field    | Add `radar.cosine_error_angle` to config              |
+| Symptom                | Likely Cause            | Quick Fix                                                    |
+| ---------------------- | ----------------------- | ------------------------------------------------------------ |
+| No data appearing      | Radar not connected     | Check `/dev/ttySC1` (Pi HAT) or `/dev/ttyUSB0`, verify power |
+| PDF generation fails   | Missing LaTeX           | Install XeLaTeX: `sudo apt-get install texlive-xetex`        |
+| Web frontend blank     | Build not generated     | Run `cd web && pnpm run build`                               |
+| API returns 500 errors | Database corruption     | Check database with `PRAGMA integrity_check`                 |
+| High CPU usage         | Background worker stuck | Restart Go server                                            |
+| Cosine error warnings  | Missing config field    | Add `radar.cosine_error_angle` to config                     |
 
 ---
 
@@ -72,11 +75,15 @@ ls -l /dev/ttyUSB* 2>/dev/null || echo "No USB-Serial devices found"
 # Find the process using port 8080
 sudo lsof -i :8080
 
-# Kill it (replace PID with actual process ID)
-kill -9 <PID>
+# Prefer stopping the service cleanly if it's ours
+sudo systemctl stop velocity-report
+
+# Otherwise verify the PID is what you think, then ask it to exit
+ps -p <PID> -o comm=
+kill -TERM <PID>   # escalate to -KILL only if -TERM fails
 
 # Or use a different port
-./velocity-report-local -listen :8081
+./velocity-report-local --listen :8081
 ```
 
 ---
@@ -90,19 +97,24 @@ kill -9 <PID>
 **Solution**:
 
 ```bash
-# Check if another process has the database open
+# Stop the service before touching the file
+sudo systemctl stop velocity-report
+
+# Check if anything else still holds the database open
 lsof sensor_data.db
 
-# Fix permissions
-chmod 644 sensor_data.db
-chown $USER:$USER sensor_data.db
+# Fix permissions to match the service account (not world-readable: the DB holds transit data)
+sudo chown velocity:velocity sensor_data.db
+sudo chmod 600 sensor_data.db
 
 # If database is corrupted, check integrity
 sqlite3 sensor_data.db "PRAGMA integrity_check;"
 
-# Last resort: backup and recreate
-cp sensor_data.db sensor_data.db.backup
-sqlite3 sensor_data.db < internal/db/schema.sql
+# Last resort: move the file aside and let the binary re-create + migrate on next start.
+# Migrations are embedded in the binary (golang-migrate); do NOT pipe schema.sql into sqlite3 —
+# it is an auto-generated reference and leaves `schema_migrations` unpopulated.
+sudo mv sensor_data.db sensor_data.db.$(date +%s).bak
+sudo systemctl start velocity-report
 ```
 
 ---
@@ -122,12 +134,14 @@ ls -l /dev/tty*
 # Check if device is recognized
 dmesg | grep tty
 
-# Add user to dialout group (required for serial access)
-sudo usermod -a -G dialout $USER
+# Add user to dialout group (required for serial access). Use the service account
+# in production (`velocity`); use your interactive account only for development shells.
+sudo usermod -a -G dialout "$USER"
 # Log out and back in for group membership to take effect
 
-# If using different port, specify it
-./velocity-report-local -serial /dev/ttyUSB1
+# If using a different device, specify it. Pi HAT default is /dev/ttySC1;
+# USB-serial dongles typically appear as /dev/ttyUSB0.
+./velocity-report-local --port /dev/ttyUSB1
 ```
 
 ---
@@ -141,18 +155,19 @@ sudo usermod -a -G dialout $USER
 **Solution**:
 
 ```bash
-# Test serial connection manually
-screen /dev/ttyUSB0 115200
+# Test serial connection manually. OPS243-A ships at 19200 baud (NOT 115200).
+# On a Pi with the SC16IS HAT, the device is /dev/ttySC1.
+screen /dev/ttySC1 19200
 # Should see radar output. Press Ctrl-A, K to exit
 
 # Verify radar configuration
-echo "??" > /dev/ttyUSB0  # Query radar status
+echo "??" > /dev/ttySC1  # Query radar status
 
 # Check database for recent data
 sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > datetime('now', '-1 hour');"
 
 # Enable debug logging
-./velocity-report-local -debug
+./velocity-report-local --debug
 ```
 
 ---
@@ -161,22 +176,26 @@ sqlite3 sensor_data.db "SELECT COUNT(*) FROM radar_data WHERE timestamp > dateti
 
 **Error**: `failed to bind UDP socket: bind: address already in use`
 
-**Cause**: Another process is using the LiDAR UDP port (2368)
+**Cause**: Another process is using the LiDAR UDP ingest port (2369). Port 2368 is the
+raw-forward port used only when `--lidar-forward` is set; do not confuse the two.
 
 **Solution**:
 
 ```bash
-# Find process using port 2368
-sudo netstat -tulpn | grep 2368
+# Find process using port 2369
+sudo lsof -i UDP:2369
+# or: sudo ss -lunp 'sport = :2369'
 
-# Kill the process
-sudo kill <PID>
+# Verify the PID is what you think, then stop it cleanly
+ps -p <PID> -o comm=
+sudo systemctl stop velocity-report   # if it is ours
 
 # Verify LiDAR network configuration
 ip addr show | grep 192.168.100
 
-# If network interface missing, add it
-sudo ip addr add 192.168.100.151/24 dev eth0
+# If a static address on the LiDAR VLAN is missing, configure it persistently via
+# netplan or systemd-networkd. Ad-hoc `ip addr add` does not survive reboot and can
+# conflict with an active DHCP lease.
 ```
 
 **Error**: `no LiDAR packets received`
@@ -186,14 +205,14 @@ sudo ip addr add 192.168.100.151/24 dev eth0
 **Solution**:
 
 ```bash
-# Check if packets are arriving
-sudo tcpdump -i eth0 udp port 2368
+# Check if packets are arriving on the ingest port
+sudo tcpdump -i eth0 udp port 2369
 
 # Verify LiDAR is powered and LED is solid green
-# Configure LiDAR to send to 192.168.100.151 using Hesai web interface at 192.168.100.202
+# Configure LiDAR to send to 192.168.100.151:2369 using Hesai web interface at 192.168.100.202
 
-# Disable firewall temporarily to test
-sudo ufw disable
+# If a firewall is involved, open the ingest port narrowly rather than disabling ufw:
+sudo ufw allow from 192.168.100.202 to any port 2369 proto udp
 ```
 
 ---
@@ -239,10 +258,11 @@ sudo apt-get install texlive-xetex texlive-fonts-extra
 
 # macOS
 brew install --cask mactex
-# Or minimal version:
+# Or minimal version — basictex alone will fail at first compile; pull in the packages
+# this project actually uses:
 brew install basictex
 sudo tlmgr update --self
-sudo tlmgr install xetex
+sudo tlmgr install xetex fontspec unicode-math booktabs collection-fontsrecommended
 
 # Verify installation
 which xelatex
@@ -260,21 +280,23 @@ xelatex --version
 **Solution**:
 
 ```bash
-cd tools/pdf-generator
+# Preferred path: the shared venv lives at the repo root, not inside tools/pdf-generator.
+make install-python
 
-# Create virtual environment if missing
-python3 -m venv .venv
-
-# Activate virtual environment
-source .venv/bin/activate  # Linux/macOS
-# OR
-.venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install -r requirements.txt
+# Then activate it before running pdf-generator commands
+source .venv/bin/activate
 
 # Verify installation
 pip list | grep -E "pylatex|matplotlib|requests"
+```
+
+If you need to bootstrap by hand (dependencies are declared in `pyproject.toml`, not
+`requirements.txt`):
+
+```bash
+python3 -m venv .venv                 # from repo root
+source .venv/bin/activate
+pip install -e tools/pdf-generator    # editable install of the package
 ```
 
 ---
@@ -540,14 +562,14 @@ console.log(
 **Solution**:
 
 ```bash
-# Check what processes have database open
+# Check what processes have the database open
 lsof sensor_data.db
 
-# Kill stale processes
-kill -9 <PID>
-
-# If persistent, restart in exclusive mode
-sqlite3 sensor_data.db "PRAGMA locking_mode=EXCLUSIVE; SELECT 1;"
+# Stop the service cleanly. `kill -9` skips SQLite's cleanup and is itself a common cause
+# of locked databases and corruption — reach for it only after -TERM has been refused.
+sudo systemctl stop velocity-report
+ps -p <PID> -o comm=   # only if an unmanaged process remains
+kill -TERM <PID>
 
 # Check for WAL files
 ls -lh sensor_data.db*
@@ -568,12 +590,17 @@ sqlite3 sensor_data.db "PRAGMA wal_checkpoint(TRUNCATE);"
 **Solution**:
 
 ```bash
-# Try to recover
-sqlite3 sensor_data.db ".recover" | sqlite3 recovered.db
+# Always stop the service before touching a damaged DB — concurrent writes guarantee
+# further damage — and operate on a copy, not the live file.
+sudo systemctl stop velocity-report
+cp sensor_data.db sensor_data.db.corrupt
+
+# Try to recover from the copy
+sqlite3 sensor_data.db.corrupt ".recover" | sqlite3 recovered.db
 
 # Or dump and restore
-sqlite3 sensor_data.db .dump > backup.sql
-mv sensor_data.db sensor_data.db.corrupt
+sqlite3 sensor_data.db.corrupt .dump > backup.sql
+mv sensor_data.db sensor_data.db.old
 sqlite3 sensor_data.db < backup.sql
 
 # Verify integrity
@@ -581,6 +608,7 @@ sqlite3 sensor_data.db "PRAGMA integrity_check;"
 
 # If unrecoverable, restore from backup
 cp /path/to/backup/sensor_data.db.backup sensor_data.db
+sudo systemctl start velocity-report
 ```
 
 ---
@@ -603,7 +631,7 @@ sqlite3 sensor_data.db "CREATE INDEX IF NOT EXISTS idx_radar_data_timestamp ON r
 # Vacuum database to reclaim space and rebuild indexes
 sqlite3 sensor_data.db "VACUUM;"
 
-# Analyse tables for query optimisation
+# Analyse tables for query optimisation (ANALYZE is the SQL keyword — keep the spelling)
 sqlite3 sensor_data.db "ANALYZE;"
 
 # Check database size
@@ -621,23 +649,21 @@ ls -lh sensor_data.db
 
 **Solution**:
 
+Migrations are embedded in the binary via `golang-migrate` and applied on startup: the
+server is the source of truth, not the raw `.sql` files. Do not shell `sqlite3 < migration.sql`
+by hand — that bypasses the `schema_migrations` table and leaves the DB in a dirty state
+the next startup will refuse to repair. Likewise, `internal/db/schema.sql` is an
+auto-generated snapshot for reference only, not an installer.
+
 ```bash
-# Check current schema
+# Stop the service, take a backup, then let the binary migrate on the next start
+sudo systemctl stop velocity-report
+sudo cp /var/lib/velocity-report/sensor_data.db /var/lib/velocity-report/sensor_data.db.pre-migrate
+sudo systemctl start velocity-report
+sudo journalctl -u velocity-report -n 100    # confirm migrations applied cleanly
+
+# To inspect the current schema for comparison
 sqlite3 sensor_data.db ".schema radar_data"
-
-# Compare with expected schema
-cat internal/db/schema.sql
-
-# Run migrations
-cd internal/db/migrations
-ls -1 *.sql | sort | while read migration; do
-  echo "Running $migration..."
-  sqlite3 ../../sensor_data.db < "$migration"
-done
-
-# Or recreate database (CAUTION: loses data)
-mv sensor_data.db sensor_data.db.old
-sqlite3 sensor_data.db < internal/db/schema.sql
 ```
 
 ---
@@ -651,24 +677,25 @@ sqlite3 sensor_data.db < internal/db/schema.sql
 **Diagnosis**:
 
 ```bash
-# Test serial connection directly
-screen /dev/ttyUSB0 115200
+# Test serial connection directly. OPS243-A defaults to 19200 baud. On a Pi HAT the
+# device is /dev/ttySC1; on a USB-serial dongle it is typically /dev/ttyUSB0.
+screen /dev/ttySC1 19200
 # Should see JSON output like: {"speed":28.5,"direction":"inbound"}
 
 # Query radar firmware
-echo "??" > /dev/ttyUSB0
-cat /dev/ttyUSB0
+echo "??" > /dev/ttySC1
+cat /dev/ttySC1
 
-# Send initialization commands
-echo "OT" > /dev/ttyUSB0  # Set output to JSON
-echo "R0" > /dev/ttyUSB0  # Set to reporting mode
+# Send initialisation commands
+echo "OT" > /dev/ttySC1  # Set output to JSON
+echo "R0" > /dev/ttySC1  # Set to reporting mode
 ```
 
 **Solutions**:
 
 - Power cycle the radar (unplug, wait 10s, replug)
-- Check USB cable (try different cable/port)
-- Verify baud rate is 115200
+- Check cable (try different cable/port)
+- Verify baud rate is 19200
 - Update radar firmware if available
 
 ---
@@ -683,15 +710,15 @@ echo "R0" > /dev/ttyUSB0  # Set to reporting mode
 # Check network connectivity
 ping 192.168.100.202
 
-# Verify packets arriving
-sudo tcpdump -i eth0 -c 10 udp port 2368
+# Verify packets arriving on the ingest port (2369, NOT 2368 — 2368 is the raw-forward port)
+sudo tcpdump -i eth0 -c 10 udp port 2369
 # Should see packet captures
 
 # Check LiDAR status via web interface
 # Navigate to http://192.168.100.202 in browser
 # Verify:
 # - Destination IP is 192.168.100.151
-# - Destination Port is 2368
+# - Destination Port is 2369
 # - Laser is ON
 ```
 
@@ -744,12 +771,13 @@ jq .radar.cosine_error_angle config.json
 netstat -tlnp | grep 8080
 # Should show 0.0.0.0:8080, not 127.0.0.1:8080
 
-# Start server with explicit binding
-./velocity-report-local -listen 0.0.0.0:8080
+# The HTTP API ships without authentication. Binding to 0.0.0.0 publishes transit data
+# and site coordinates to every network the Pi can reach. Prefer binding to a specific
+# LAN interface and gating access with ufw from a trusted CIDR.
+./velocity-report-local --listen 192.168.1.10:8080
 
-# Check firewall
-sudo ufw status
-sudo ufw allow 8080/tcp
+# If you must bind widely, restrict by source address
+sudo ufw allow from 192.168.1.0/24 to any port 8080 proto tcp
 
 # Test from remote machine
 curl http://<raspberry-pi-ip>:8080/api/config
@@ -771,16 +799,210 @@ journalctl -u velocity-report -n 50
 # Check service file
 cat /etc/systemd/system/velocity-report.service
 
-# Test manual start
-/usr/local/bin/velocity-report-local -db /var/lib/velocity-report/sensor_data.db
+# Test manual start. The production binary is installed as `velocity-report` (no -local
+# suffix); `velocity-report-local` is the dev-build artefact produced by `make build-radar-local`.
+/usr/local/bin/velocity-report --db-path /var/lib/velocity-report/sensor_data.db
 ```
 
 **Common Issues**:
 
-- Binary path incorrect: verify `/usr/local/bin/velocity-report-local` exists
+- Binary path incorrect: verify `/usr/local/bin/velocity-report` exists
 - Database path wrong: ensure `/var/lib/velocity-report/` exists and is writable
-- Serial port permissions: add service user to `dialout` group
+- Serial port permissions: add the `velocity` service user to `dialout` (`sudo usermod -a -G dialout velocity`)
 - Working directory: ensure `WorkingDirectory=` is set correctly
+
+---
+
+## Deployment and upgrade issues
+
+`velocity-ctl` is the on-device management tool. It runs as root and wraps upgrade,
+rollback, backup, and status operations. Subcommands: `upgrade`, `rollback`, `backup`,
+`status`, `version`. Schema migrations are owned by the `velocity-report` binary, not
+`velocity-ctl`: `velocity-report migrate <up|down|status|version|force>`.
+
+### Upgrade check fails or stalls
+
+**Error**: `velocity-ctl upgrade` times out, reports a network error, or exits with
+`SHA-256 mismatch`.
+
+**Cause**: Release metadata is fetched from `https://velocity.report/release.json`. Network
+failure, TLS error, a stale DNS cache, or a corrupted download will stop the upgrade before
+anything on disk changes.
+
+**Solution**:
+
+```bash
+# Verify the release feed is reachable and well-formed
+curl -sfL https://velocity.report/release.json | jq .
+
+# Re-run with explicit check (no side effects)
+sudo velocity-ctl upgrade --check
+
+# If the feed is reachable but a SHA-256 mismatch is reported, retry the upgrade —
+# a partial download is the most common cause. Do not move the binary by hand.
+sudo velocity-ctl upgrade
+```
+
+### Upgrade left the service in a bad state
+
+**Symptoms**: `velocity-ctl status` reports the service failed after upgrade; logs show a
+migration error or `schema_migrations` dirty version.
+
+**Solution**:
+
+```bash
+# Check the migration state
+sudo velocity-report migrate status --db-path /var/lib/velocity-report/sensor_data.db
+
+# If a migration is marked dirty, inspect the target version, resolve the underlying error,
+# then force the version back to a known-good number before re-running `migrate up`.
+# `force` is a recovery escape hatch — it marks the version without executing the migration.
+sudo velocity-report migrate force <N> --db-path /var/lib/velocity-report/sensor_data.db
+sudo velocity-report migrate up   --db-path /var/lib/velocity-report/sensor_data.db
+
+# If the failure is not recoverable, roll back to the previous snapshot
+sudo velocity-ctl rollback
+```
+
+### `velocity-ctl rollback` reports no backup found
+
+**Cause**: `/var/lib/velocity-report/backups/` is empty — either this is the first install,
+or an earlier manual operation removed it.
+
+**Solution**:
+
+```bash
+ls -la /var/lib/velocity-report/backups/
+
+# Take a manual snapshot before the next upgrade so a rollback target always exists
+sudo velocity-ctl backup
+```
+
+### First boot: no web UI, service disabled, or TLS not ready
+
+**Symptoms**: Pi is up and reachable but `https://velocity.local/` returns a connection
+error, or nginx is running but serves a certificate error.
+
+**Diagnosis**:
+
+```bash
+# Confirm the two first-boot services are enabled and have run
+systemctl is-enabled velocity-report.service velocity-generate-tls.service
+systemctl status velocity-generate-tls.service
+systemctl status velocity-report.service
+
+# Inspect TLS generation output — it is a oneshot unit that runs before nginx
+journalctl -u velocity-generate-tls.service -n 50 --no-pager
+
+# Confirm the cert files landed
+ls -la /var/lib/velocity-report/tls/     # expect ca.crt, ca.key, server.crt, server.key
+```
+
+**Solution**:
+
+```bash
+# Re-enable services if missing (e.g. image-build hiccup)
+sudo systemctl enable --now velocity-generate-tls.service velocity-report.service
+
+# The TLS script is idempotent and preserves the CA across regeneration, so operators
+# do not need to re-trust the CA in their browser after a renewal:
+sudo /usr/local/bin/velocity-generate-tls.sh
+sudo systemctl reload nginx
+```
+
+### Certificate expired or about to expire
+
+**Cause**: The server certificate is issued for ~825 days and auto-renews on boot when
+within 24 hours of expiry. The CA is valid for ten years and is regenerated only if
+missing or expired. If the Pi is powered off for long periods, certs can lapse.
+
+**Solution**:
+
+```bash
+# Inspect validity
+openssl x509 -in /var/lib/velocity-report/tls/server.crt -noout -dates
+
+# Regenerate (reuses the existing CA — browsers that already trust it keep trusting)
+sudo systemctl restart velocity-generate-tls.service
+sudo systemctl reload nginx
+```
+
+---
+
+## Pi system issues
+
+### Clock drift / NTP not syncing
+
+**Symptoms**: Transit timestamps jump or land in the future; PDF reports list the wrong
+date; radar/LiDAR frames are occasionally rejected by ingest checks that assume a
+monotonic clock.
+
+**Cause**: The Pi image ships with `systemd-timesyncd`, not chrony. On a network with no
+outbound UDP/123, or on first boot before DNS resolves, the clock can be hours or days off.
+
+**Diagnosis**:
+
+```bash
+timedatectl status
+# Look for: "System clock synchronized: yes" and "NTP service: active"
+
+journalctl -u systemd-timesyncd.service -n 50 --no-pager
+```
+
+**Solution**:
+
+```bash
+# Enable NTP if disabled
+sudo timedatectl set-ntp true
+
+# If outbound 123/udp is blocked, point timesyncd at a reachable server
+sudo mkdir -p /etc/systemd/timesyncd.conf.d
+printf '[Time]\nNTP=time.cloudflare.com\n' | \
+  sudo tee /etc/systemd/timesyncd.conf.d/local.conf
+sudo systemctl restart systemd-timesyncd
+
+# After the clock resyncs, restart the service so it stops carrying stale timestamps
+sudo systemctl restart velocity-report
+```
+
+### SD card errors or filesystem remounted read-only
+
+**Symptoms**: The Go server logs `readonly database` or `disk I/O error`; writes to the
+DB fail; `velocity-ctl backup` reports `permission denied` despite running as root.
+
+**Cause**: Raspberry Pi OS uses a writable ext4 root on the SD card. Power loss during
+write and end-of-life wear both trigger ext4 to remount read-only. Once that happens,
+every writer — server, migrations, backup — fails in confusing ways.
+
+**Diagnosis**:
+
+```bash
+# Is the root filesystem read-only?
+mount | awk '$3=="/" {print}'
+findmnt -no OPTIONS /          # look for "ro" in the options list
+
+# Kernel messages usually name the failing block device
+sudo dmesg | grep -Ei 'ext4-fs error|remount.*read-only|I/O error' | tail -20
+```
+
+**Solution**:
+
+```bash
+# Stop the service before touching the filesystem
+sudo systemctl stop velocity-report
+
+# A clean remount is only a probe — if the kernel went read-only, it had a reason.
+# Capture the current backup elsewhere, then plan for an SD-card replacement.
+sudo cp -a /var/lib/velocity-report/sensor_data.db /media/usb/pre-replace.db
+
+# fsck can only run on an unmounted or read-only root — reboot into rescue or shut
+# down, pull the card, and fsck it from another host:
+#   sudo fsck.ext4 -fy /dev/sdX2
+# Do not run `fsck -y` on a mounted rw filesystem; it will damage more than it fixes.
+
+# After replacing the card, re-flash the velocity image and restore the copied DB into
+# /var/lib/velocity-report/ before starting the service for the first time.
+```
 
 ---
 
@@ -798,7 +1020,9 @@ top
 # Or more detailed:
 htop
 
-# Check Go server goroutines
+# Check Go server goroutines. Pprof is mounted on the main listen port; access may be
+# gated to loopback/tailscale by `tsweb.AllowDebugAccess` — a 403 here is expected from a
+# remote host, run the curl from the Pi itself.
 curl http://localhost:8080/debug/pprof/goroutine?debug=1
 
 # Check database activity
@@ -834,10 +1058,11 @@ go tool pprof heap.prof
 
 **Solutions**:
 
-- Restart server periodically (add to cron)
 - Reduce histogram bucket counts in API queries
 - Limit query result sizes
 - Add more swap space if needed
+- If memory grows unboundedly, capture a heap profile (`curl /debug/pprof/heap`) and
+  file an issue rather than papering over the leak with a cron restart
 
 ---
 
@@ -880,7 +1105,7 @@ uname -a
 cat /etc/os-release
 
 # Go server version
-./velocity-report-local -version
+./velocity-report-local --version
 
 # Python version and packages
 .venv/bin/python --version
@@ -890,11 +1115,19 @@ cat /etc/os-release
 sqlite3 sensor_data.db "SELECT sqlite_version();"
 ls -lh sensor_data.db
 
-# Recent logs
-journalctl -u velocity-report -n 100 > logs.txt
+# Recent logs. Logs can contain request paths with query parameters and client IPs; mask
+# them before sharing outside the team:
+journalctl -u velocity-report -n 100 \
+  | sed -E 's/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/x.x.x.x/g' > logs.txt
 
-# Config (redact sensitive info)
-cat config.json
+# Config with sensitive fields stripped. config.json holds site coordinates, install
+# address, and any API keys; share the redacted version, never the raw file:
+jq 'del(
+      .site.latitude, .site.longitude, .site.address,
+      .site.installer, .site.contact_email
+    )
+    | del(.. | objects | .api_key?, .auth_token?, .password?)' \
+  config.json > config.redacted.json
 ```
 
 ### Support channels
@@ -916,7 +1149,7 @@ journalctl -u velocity-report | grep -i error
 journalctl -u velocity-report --since "2025-01-01" --until "2025-01-02" > debug.log
 
 # Enable debug logging
-./velocity-report-local -debug
+./velocity-report-local --debug
 ```
 
 ---
