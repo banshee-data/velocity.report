@@ -1,14 +1,14 @@
 # Markdown formatting configuration for mdformat.
 # Run: make format-docs
 #
-# Plugins: mdformat-gfm (tables, task lists, strikethrough),
-#          mdformat-frontmatter (YAML frontmatter preservation).
+# Plugins: mdformat-myst (dollar-math, footnotes, frontmatter),
+#          mdformat-gfm (tables, task lists, strikethrough).
 #
 # Scope: all .md files except public_html/ (Nunjucks templates).
 # File paths are listed explicitly in the Makefile because the
 # exclude option requires Python 3.13+.
 
 wrap = 100
-number = false
+number = true
 end_of_line = "lf"
 validate = true

@@ -630,7 +630,7 @@ install-docs:
 
 .PHONY: ensure-python-tools
 ensure-python-tools:
-	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ] || [ ! -x "$(VENV_DIR)/bin/mdformat" ]; then \
+	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
 		$(MAKE) install-python; \
 	fi
 
@@ -1098,24 +1098,11 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-# Directories formatted by mdformat.
-# public_html/ is excluded because it contains Nunjucks/Eleventy templates.
-# web/ is excluded because its .md files are peripheral and Prettier owns that tree.
-MDFORMAT_DIRS = docs data config cmd internal tools scripts .github .claude
-MDFORMAT_ROOT_FILES = \
-	ARCHITECTURE.md CHANGELOG.md CLAUDE.md CODE_OF_CONDUCT.md COMMANDS.md \
-	CONTRIBUTING.md MAGIC_NUMBERS.md README.md TENETS.md TROUBLESHOOTING.md
-
-# Directories to skip when scanning for .md files (build artifacts, vendored deps).
-MDFORMAT_PRUNE = -name build -o -name DerivedData -o -name node_modules -o -name dist -o -name .venv -o -name venv
-
-format-docs: ensure-python-tools
+format-docs:
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Formatting Markdown files with mdformat (wrap=100)..."
-	@find $(MDFORMAT_DIRS) \( $(MDFORMAT_PRUNE) \) -prune -o -name '*.md' -print \
-		| xargs $(VENV_PYTHON) -m mdformat
-	@$(VENV_PYTHON) -m mdformat $(MDFORMAT_ROOT_FILES)
+	@echo "Formatting Markdown files with prettier (proseWrap=always, printWidth=100)..."
+	@pnpm exec prettier --write '**/*.md'
 
 format-sql:
 	@echo "Formatting SQL files with sql-formatter..."

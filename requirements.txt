@@ -30,30 +30,10 @@ iniconfig==2.1.0
     # via pytest
 kiwisolver==1.4.9
     # via matplotlib
-markdown-it-py==4.0.0
-    # via
-    #   mdformat
-    #   mdformat-gfm
-    #   mdit-py-plugins
 matplotlib==3.10.8
     # via
     #   -r requirements.in
     #   seaborn
-mdformat==1.0.0
-    # via
-    #   -r requirements.in
-    #   mdformat-frontmatter
-    #   mdformat-gfm
-mdformat-frontmatter==2.0.10
-    # via -r requirements.in
-mdformat-gfm==1.0.0
-    # via -r requirements.in
-mdit-py-plugins==0.5.0
-    # via
-    #   mdformat-frontmatter
-    #   mdformat-gfm
-mdurl==0.1.2
-    # via markdown-it-py
 mypy-extensions==1.1.0
     # via black
 numpy==2.4.2
@@ -115,8 +95,6 @@ requests==2.33.0
     #   responses
 responses==0.26.0
     # via -r requirements.in
-ruamel-yaml==0.19.1
-    # via mdformat-frontmatter
 ruff==0.15.4
     # via -r requirements.in
 scipy==1.17.1
@@ -130,5 +108,3 @@ urllib3==2.6.3
     #   -r requirements.in
     #   requests
     #   responses
-wcwidth==0.6.0
-    # via mdformat-gfm

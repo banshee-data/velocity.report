@@ -1,0 +1,10 @@
+# Root Prettier config — Markdown formatting only.
+# Web-specific config (Svelte, Tailwind plugins) lives in web/.prettierrc.
+#
+# Run: make format-docs
+
+overrides:
+  - files: "*.md"
+    options:
+      proseWrap: always
+      printWidth: 100

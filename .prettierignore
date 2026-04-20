@@ -27,5 +27,11 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 
+# Nunjucks/Eleventy templates (not standard Markdown)
+public_html/
+
+# Web tree (owned by web/.prettierrc — run format-web separately)
+web/
+
 # macOS
 .DS_Store
