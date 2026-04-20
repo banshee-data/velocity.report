@@ -149,7 +149,7 @@ python3 scripts/check-backtick-file-links.py --report \
   TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
   CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
   docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
-  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  data/structures/MATRIX.md data/QUESTIONS.md DEBUGGING.md \
   CODE_OF_CONDUCT.md
 
 # Auto-fix resolvable standalone backtick file refs to Markdown links
@@ -157,7 +157,7 @@ python3 scripts/check-backtick-file-links.py --fix \
   TENETS.md docs/VISION.md ARCHITECTURE.md data/maths/MATHS.md \
   CONTRIBUTING.md COMMANDS.md docs/ui/DESIGN.md docs/DECISIONS.md \
   docs/COVERAGE.md CHANGELOG.md docs/DEVLOG.md docs/BACKLOG.md \
-  data/structures/MATRIX.md data/QUESTIONS.md TROUBLESHOOTING.md \
+  data/structures/MATRIX.md data/QUESTIONS.md DEBUGGING.md \
   CODE_OF_CONDUCT.md
 
 # Validate links in README (includes key-docs section)
@@ -332,7 +332,7 @@ correct:
 
 ```bash
 # Verify README and key docs exist
-ls -la README.md ARCHITECTURE.md TROUBLESHOOTING.md CHANGELOG.md
+ls -la README.md ARCHITECTURE.md DEBUGGING.md CHANGELOG.md
 
 # Verify the web build includes help content
 ls -la web/build/ 2>/dev/null || echo "Web not built — run make build-web"
@@ -346,7 +346,7 @@ Verify:
 - [ ] `README.md` is current and reflects the latest release.
 - [ ] `CHANGELOG.md` has an entry for the upcoming release.
 - [ ] `ARCHITECTURE.md` matches the current component layout.
-- [ ] `TROUBLESHOOTING.md` covers known deployment issues.
+- [ ] `DEBUGGING.md` covers known deployment issues.
 - [ ] Any docs bundled in the image (`static/`, `web/build/`) are up to date.
 
 ### 11. Report

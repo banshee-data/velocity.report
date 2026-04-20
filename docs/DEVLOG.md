@@ -544,7 +544,7 @@
 
 - Fixed sweep parameter schema and config compatibility issues from PR review.
 - Updated documentation to reflect current code state: corrected Makefile target count (59→101), Go version (1.21+→1.25+), SQLite version (3.51.2), Python version (3.11+).
-- Fixed broken doc links and wrong paths in [TROUBLESHOOTING.md](../TROUBLESHOOTING.md).
+- Fixed broken doc links and wrong paths in [DEBUGGING.md](../DEBUGGING.md).
 - Expanded repo structure in `copilot-instructions.md` (5→15 internal packages).
 - Fixed setup guide frontmatter cost and typos.
 - Dependency update: bumped `markdown-it` 14.1.0→14.1.1 in docs site.

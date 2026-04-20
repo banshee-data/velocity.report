@@ -45,7 +45,7 @@ When the guide changes, other documents may need to match:
 
 - [ ] **README.md**: Update any references to the setup process or installation method
 - [ ] **ARCHITECTURE.md**: Verify paths and component descriptions still match
-- [ ] **TROUBLESHOOTING.md**: Ensure the troubleshooting guide covers the same failure modes
+- [ ] **DEBUGGING.md**: Ensure the troubleshooting guide covers the same failure modes
 - [ ] **tools/pdf-generator/README.md**: Verify report generation instructions are consistent
 - [ ] **image/README.md**: Ensure the image README and the setup guide do not contradict each other
 
