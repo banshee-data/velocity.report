@@ -52,6 +52,7 @@ repos:
         language: system
         pass_filenames: false
         files: \.md$
+        exclude: ^(public_html|web|tools/visualiser-macos/(build|DerivedData))/
         stages: [pre-commit]
 
       - id: format-sql

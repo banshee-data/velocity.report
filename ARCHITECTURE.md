@@ -188,7 +188,7 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
 │  │                │                                               │  │
 │  │  ┌─────────────▼────────────────────────────────────────────┐  │  │
 │  │  │         HTTP API Server (internal/api/)                  │  │  │
-│  │  │         Listen: 0.0.0.0:8080                              │  │  │
+│  │  │         Listen: 0.0.0.0:8080                             │  │  │
 │  │  │                                                          │  │  │
 │  │  │  Endpoints:                                              │  │  │
 │  │  │  • GET  /api/radar_stats (aggregated transit stats)      │  │  │
@@ -219,8 +219,8 @@ see [.github/knowledge/hardware.md](.github/knowledge/hardware.md).
                                  │
            ┌─────────────────────┴─────────────────────────────┐
            │                                                   │
-           │ HTTPS via nginx (port 443 → 8080)    gRPC (protobuf) │
-           │                                          Port 50051 │
+           │ HTTPS via nginx (port 443 → 8080)  gRPC (protobuf)│
+           │                                        Port 50051 │
            │                                                   │
            ├───────────────────────┐                           │
            │                       │                           │
@@ -1007,7 +1007,7 @@ evaluation.
 │  │  (Go Server Binary)                      │  │
 │  │                                          │  │
 │  │  Configuration:                          │  │
-│  │  • --listen :8080                         │  │
+│  │  • --listen :8080                        │  │
 │  │  • --db-path (explicit SQLite location)  │  │
 │  │  • WorkingDirectory=/var/lib/velocity... │  │
 │  └──────────────────────────────────────────┘  │

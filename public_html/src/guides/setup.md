@@ -551,7 +551,7 @@ velocity-start
 USB-serial adapters get a `/dev/velocity-radar` symlink automatically.
 
 - **Full sensor documentation**: [OmniPreSense Support](https://www.omnipresense.com/support)
-- **More help**: [TROUBLESHOOTING.md](https://github.com/banshee-data/velocity.report/blob/main/TROUBLESHOOTING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
+- **More help**: [DEBUGGING.md](https://github.com/banshee-data/velocity.report/blob/main/DEBUGGING.md) or [Discord](https://discord.gg/XXh6jXVFkt)
 
 ---
 
@@ -600,7 +600,7 @@ The image also pre-configures serial port settings, UART overlays, sensor initia
 - **GitHub repository**: [github.com/banshee-data/velocity.report](https://github.com/banshee-data/velocity.report)
 - **OmniPreSense support**: [omnipresense.com/support](https://www.omnipresense.com/support)
 - **Community Discord**: [discord.gg/XXh6jXVFkt](https://discord.gg/XXh6jXVFkt)
-- [TROUBLESHOOTING.md](https://github.com/banshee-data/velocity.report/blob/main/TROUBLESHOOTING.md)
+- [DEBUGGING.md](https://github.com/banshee-data/velocity.report/blob/main/DEBUGGING.md)
 - [CONTRIBUTING.md](https://github.com/banshee-data/velocity.report/blob/main/CONTRIBUTING.md)
 
 ---

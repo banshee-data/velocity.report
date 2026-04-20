@@ -55,5 +55,5 @@ The site hosts the Raspberry Pi Imager custom OS list at `os-list-velocity.json`
 ## Content guidelines
 
 - British English spelling and punctuation (see [.github/STYLE.md](../../.github/STYLE.md))
-- Setup guide (`src/guides/setup.md`) must stay in sync with [TROUBLESHOOTING.md](../../TROUBLESHOOTING.md) and [COMMANDS.md](../../COMMANDS.md)
+- Setup guide (`src/guides/setup.md`) must stay in sync with [DEBUGGING.md](../../DEBUGGING.md) and [COMMANDS.md](../../COMMANDS.md)
 - Release metadata in `src/_data/release.json` is updated manually at release time

@@ -151,7 +151,7 @@ something. One per directory or per topic.
 | `CHANGELOG.md`                                           | Release history                          |
 | `TENETS.md`                                              | Project principles                       |
 | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`                  | Community governance                     |
-| `TROUBLESHOOTING.md`, `COMMANDS.md`                      | Operational quick-reference              |
+| `DEBUGGING.md`, `COMMANDS.md`                            | Operational quick-reference              |
 | `docs/BACKLOG.md`, `docs/DECISIONS.md`, `docs/DEVLOG.md` | Project management canon                 |
 | `config/CONFIG.md`                                       | Configuration schema reference           |
 | `data/maths/MATHS.md`                                    | Maths reference index                    |

@@ -106,7 +106,7 @@ help:
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
 	@echo "  format-mac           Format macOS Swift code (swift-format)"
-	@echo "  format-docs          Format docs Markdown files (prettier)"
+	@echo "  format-docs          Format Markdown files (prettier)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -115,7 +115,7 @@ help:
 	@echo "  lint-python          Check Python formatting"
 	@echo "  lint-web             Check web formatting"
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
-	@echo "  check-prose-width    Advisory: report prose lines over 100 columns"
+	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  check-config-order   Validate tuning key order consistency"
@@ -1101,17 +1101,13 @@ format-mac:
 format-docs: ensure-web-cache
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Formatting Markdown files with prettier..."
-	@if [ -d "$(WEB_DIR)" ]; then \
-		if command -v pnpm >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
-		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
-		else \
-			echo "pnpm/npx not found; skipping Markdown formatting"; \
-		fi; \
+	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
+	@if command -v pnpm >/dev/null 2>&1; then \
+		pnpm exec prettier --write '**/*.md'; \
+	elif command -v npx >/dev/null 2>&1; then \
+		npx prettier --write '**/*.md'; \
 	else \
-		echo "$(WEB_DIR) does not exist; skipping Markdown formatting"; \
+		echo "Skipping Markdown prettier formatting (pnpm/npx not found)"; \
 	fi
 
 format-sql:
@@ -1133,7 +1129,7 @@ check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break P
 check-mermaid: ## [gated] Validate Mermaid code fences in Markdown docs
 	@python3 scripts/check-mermaid-blocks.py
 
-check-prose-width: ## Advisory: report prose lines over 100 columns (never fails CI)
+check-prose-width: ## Advisory: report prose lines over 99 columns (never fails CI)
 	@python3 scripts/check-prose-line-width.py --report
 
 check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail)

@@ -1,12 +1,50 @@
 # Line-Width standardisation plan
 
-- **Status:** Proposed (March 2026)
+- **Status:** On hold (April 2026 review)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
-Plan to adopt 100 columns as the single line-width standard
-across all code and documentation, with gradual enforcement
-via weekly nag PRs, optional CI gating, and an opt-in
-pre-commit hook.
+Plan to adopt 100 columns as the single line-width standard across all code and documentation, with
+gradual enforcement via weekly nag PRs, optional CI gating, and an opt-in pre-commit hook.
+
+## April 2026 findings (do not ship now)
+
+Current recommendation: pause rollout and do not ship the broad Markdown reflow batch.
+
+### Review scope
+
+- Reviewed the full current Markdown width-change set in the working tree.
+- Files touched: 278 Markdown files.
+- Largest diffs include:
+  - `docs/DEVLOG.md` (1002 changed lines)
+  - `data/maths/pipeline-review-open-questions.md` (799)
+  - `docs/BACKLOG.md` (741)
+  - `CONTRIBUTING.md` (514)
+
+### Findings
+
+1. Change surface is too large for safe review in one pass.
+2. Some edits are harmless prose reflow, but there are high-risk structured-doc degradations.
+3. At least one flattened list-style addition pattern was detected (`: - ` in added lines).
+4. 74 added Markdown lines exceed 120 columns, indicating inconsistent outcomes from the width pass.
+5. Concrete structural break examples were observed in technical plan docs, including compressed
+   pseudo-code/comment lines such as:
+   - `type Pose struct { T [16]float64 // ... // ... }`
+   - `State: x = [x, y, vx, vy]ᵀ Covariance: P (4×4 matrix)`
+
+### Decision
+
+- Do not ship the current wide Markdown line-width batch.
+- Re-scope to targeted, file-by-file changes with explicit reviewer ownership for each docs area.
+- Keep line-width checks advisory-only until structured-doc safety checks are added.
+
+### Required follow-up before re-attempt
+
+1. Add guardrails to reflow tooling for structured prose patterns (lists, pseudo-code blocks,
+   formula-heavy sections, and comment-style lines in Markdown).
+2. Run the formatter in small batches by doc area and review each batch independently.
+3. Add a pre-merge detector for suspicious Markdown rewrites (flattened lists, merged pseudo-code,
+   and excessive long-line regressions).
+4. Re-open rollout only after a narrow pilot batch passes manual review with no structural regressions.
 
 ## Problem
 

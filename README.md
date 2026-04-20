@@ -290,7 +290,7 @@ navigation.
 - 📋 [BACKLOG.md](docs/BACKLOG.md): prioritised work queue
 - 🌲 [MATRIX.md](data/structures/MATRIX.md): test and validation surface coverage
 - ❓ [QUESTIONS.md](data/QUESTIONS.md): things we do not know yet
-- 🛠️ [TROUBLESHOOTING.md](TROUBLESHOOTING.md): when things go wrong, start here
+- 🛠️ [DEBUGGING.md](DEBUGGING.md): when things go wrong, start here
 - 🤝 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we treat each other
 
 ## Community

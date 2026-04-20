@@ -26,7 +26,7 @@ For project-wide numeric constants and default thresholds, see
 - `/docs/VISION.md` # Product vision and backlog alignment guide
 - `/docs/COVERAGE.md` # Test coverage tracking
 - `/docs/DEVLOG.md` # Chronological development notes
-- `/docs/TROUBLESHOOTING.md` # Cross-component debugging guide
+- `/docs/DEBUGGING.md` # Cross-component debugging guide
 
 ## Scope rules
 

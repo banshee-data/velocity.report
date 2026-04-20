@@ -10,6 +10,13 @@ dist/
 node_modules/
 .venv/
 venv/
+.tox/
+
+# Test / tool caches
+.pytest_cache/
+
+# Third-party submodule content
+image/.pi-gen/
 
 # Generated files
 proto/
@@ -26,6 +33,12 @@ htmlcov/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Nunjucks/Eleventy templates (not standard Markdown)
+public_html/
+
+# Web tree (owned by web/.prettierrc — run format-web separately)
+web/
 
 # macOS
 .DS_Store
