@@ -1098,7 +1098,7 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-format-docs:
+format-docs: ensure-web-cache
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
 	@echo "Normalising Markdown structure with prettier (proseWrap=preserve)..."
