@@ -11,7 +11,7 @@ Pin assignments and wire colors come from the YAML so the connector
 diagrams stay consistent with the WireViz harness.
 
 Usage:
-    python3 scripts/generate-connector-pinouts.py
+    python3 tools/connector-pinouts/generate-connector-pinouts.py
     make wiring   # calls this automatically
 """
 
@@ -47,7 +47,7 @@ COLORS = {
 
 NC = ("#D1D5DB", "#9CA3AF", "#6B7280", "n/c")  # not connected
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 WIRING_YAML = REPO / "docs" / "platform" / "hardware" / "radar-wiring.yml"
 OUT_DIR = REPO / "docs" / "platform" / "hardware"
 
@@ -120,12 +120,13 @@ def m12_svg(pins):
     PCIRC = 27
     DOT = 12
     LR = BODY + 14  # leader-line end radius from centre
-    LABEL_W = 52  # width for longest label text ("White wire" at 9px)
+    LABEL_W = 40  # width for longest label text ("RS2_Rx" at 11px)
 
     # M12 A-coded pins sit at 45° — compute actual horizontal extent
     SIN45 = math.sin(math.radians(45))
+    TITLE_H = 18
     CX = round(PAD + LABEL_W + LR * SIN45)
-    CY = PAD + BODY
+    CY = PAD + TITLE_H + BODY
     W = CX * 2  # symmetric
     H = round(CY + LR * SIN45 + 16 + PAD)  # bottom labels + pad
 
@@ -139,6 +140,13 @@ def m12_svg(pins):
         f"  text {{ font-family: {FONT}; }}\n"
         f"</style>\n"
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
+    )
+
+    # Title
+    s.append(
+        f'<text x="{CX}" y="{PAD + 12}" text-anchor="middle"'
+        f' font-size="12" font-weight="700" fill="#374151">'
+        f"M12 female (cable end)</text>"
     )
 
     # Connector body
@@ -210,7 +218,11 @@ def m12_svg(pins):
 
 
 def de9_svg(labels, connected):
-    """Face-on DE-9 male connector with colored connected pins."""
+    """Face-on DE-9 female connector with colored connected pins.
+
+    Pin numbering is mirrored from the male view: pin 1 is top-right,
+    pin 5 top-left, pin 6 bottom-right, pin 9 bottom-left.
+    """
     PAD = 8
     PIN_SP = 32
     ROW_SP = 30
@@ -221,10 +233,11 @@ def de9_svg(labels, connected):
     sh = ROW_SP + 44
     taper = 10
     r = 14
+    TITLE_H = 18
 
     # Centre so the shell sits snugly
     CX = PAD + sw / 2
-    CY = PAD + sh / 2
+    CY = PAD + TITLE_H + sh / 2
     W = int(CX * 2)
     H = int(CY + sh / 2 + 38)  # shell bottom + leader + labels + pad
 
@@ -242,6 +255,13 @@ def de9_svg(labels, connected):
         f'<rect width="{W}" height="{H}" fill="white" rx="8"/>'
     )
 
+    # Title
+    s.append(
+        f'<text x="{CX}" y="{PAD + 12}" text-anchor="middle"'
+        f' font-size="12" font-weight="700" fill="#374151">'
+        f"DE-9 female (cable end)</text>"
+    )
+
     # D-shell outline (trapezoid with rounded corners, wider at top)
     s.append(
         f'<path d="'
@@ -257,9 +277,10 @@ def de9_svg(labels, connected):
     )
 
     def pin_xy(n):
+        # Female face: mirrored in X relative to male.
         if n <= 5:
-            return CX + (n - 3) * PIN_SP, CY - ROW_SP / 2
-        return CX + (n - 7.5) * PIN_SP, CY + ROW_SP / 2
+            return CX + (3 - n) * PIN_SP, CY - ROW_SP / 2
+        return CX + (7.5 - n) * PIN_SP, CY + ROW_SP / 2
 
     # All 9 pins
     for pn in range(1, 10):
@@ -363,10 +384,7 @@ def main():
             print(f"  {png.relative_to(REPO)}")
 
     if not png_ok:
-        print(
-            "  ⚠ PNG conversion failed; install librsvg (brew install librsvg)",
-            file=sys.stderr,
-        )
+        print(f"  ⚠ PNG conversion failed; {MISSING_HINT}", file=sys.stderr)
 
 
 if __name__ == "__main__":

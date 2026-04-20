@@ -20,7 +20,7 @@ PyLaTeX
 # SVG engineering drawing (used by tools/rack-drawing/)
 drawsvg
 
-# YAML parsing (used by scripts/generate-connector-pinouts.py)
+# YAML parsing (used by tools/connector-pinouts/generate-connector-pinouts.py)
 pyyaml
 
 # Testing

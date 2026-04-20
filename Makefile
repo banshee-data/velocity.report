@@ -350,8 +350,8 @@ WIRING_SRC = docs/platform/hardware/radar-wiring.yml
 .PHONY: wiring
 wiring:
 	@command -v wireviz >/dev/null 2>&1 || { echo "wireviz not found; pip install wireviz"; exit 1; }
-	$(VENV_PYTHON) scripts/generate-connector-pinouts.py
-	wireviz -f svg -f png $(WIRING_SRC)
+	$(VENV_PYTHON) tools/connector-pinouts/generate-connector-pinouts.py
+	wireviz -f sp $(WIRING_SRC)
 	@echo "✓ Wiring diagram: $(dir $(WIRING_SRC))radar-wiring.{svg,png}"
 
 # Build macOS LiDAR visualiser (requires macOS and Xcode)
