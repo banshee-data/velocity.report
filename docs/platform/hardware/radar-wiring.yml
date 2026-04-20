@@ -31,7 +31,7 @@ connectors:
     notes: OPS7243-A radar sensor (J3 Rev D)
     image:
       src: m12-pinout.png
-      caption: M12 connector face
+      caption: M12 female (cable end)
 
   HAT serial:
     type: DE-9
@@ -40,7 +40,7 @@ connectors:
     notes: Waveshare 2x RS-232 HAT
     image:
       src: de9-pinout.png
-      caption: DE-9 connector face
+      caption: DE-9 female (cable end)
 
   HAT PoE:
     type: pin

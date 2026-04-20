@@ -11,15 +11,16 @@ Pin assignments and wire colors come from the YAML so the connector
 diagrams stay consistent with the WireViz harness.
 
 Usage:
-    python3 scripts/generate-connector-pinouts.py
+    python3 tools/connector-pinouts/generate-connector-pinouts.py
     make wiring   # calls this automatically
 """
 
 import math
-import shutil
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _render.svg_to_png import MISSING_HINT, svg_to_png  # noqa: E402
 
 try:
     import yaml
@@ -47,7 +48,7 @@ COLORS = {
 
 NC = ("#D1D5DB", "#9CA3AF", "#6B7280", "n/c")  # not connected
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parent.parent.parent
 WIRING_YAML = REPO / "docs" / "platform" / "hardware" / "radar-wiring.yml"
 OUT_DIR = REPO / "docs" / "platform" / "hardware"
 
@@ -120,7 +121,7 @@ def m12_svg(pins):
     PCIRC = 27
     DOT = 12
     LR = BODY + 14  # leader-line end radius from centre
-    LABEL_W = 52  # width for longest label text ("White wire" at 9px)
+    LABEL_W = 40  # width for longest label text ("RS2_Rx" at 11px)
 
     # M12 A-coded pins sit at 45° — compute actual horizontal extent
     SIN45 = math.sin(math.radians(45))
@@ -210,7 +211,11 @@ def m12_svg(pins):
 
 
 def de9_svg(labels, connected):
-    """Face-on DE-9 male connector with colored connected pins."""
+    """Face-on DE-9 female connector with colored connected pins.
+
+    Pin numbering is mirrored from the male view: pin 1 is top-right,
+    pin 5 top-left, pin 6 bottom-right, pin 9 bottom-left.
+    """
     PAD = 8
     PIN_SP = 32
     ROW_SP = 30
@@ -257,9 +262,10 @@ def de9_svg(labels, connected):
     )
 
     def pin_xy(n):
+        # Female face: mirrored in X relative to male.
         if n <= 5:
-            return CX + (n - 3) * PIN_SP, CY - ROW_SP / 2
-        return CX + (n - 7.5) * PIN_SP, CY + ROW_SP / 2
+            return CX + (3 - n) * PIN_SP, CY - ROW_SP / 2
+        return CX + (7.5 - n) * PIN_SP, CY + ROW_SP / 2
 
     # All 9 pins
     for pn in range(1, 10):
@@ -307,36 +313,6 @@ def de9_svg(labels, connected):
     return "\n".join(s)
 
 
-# ── PNG conversion ────────────────────────────────────────────────────
-
-
-def svg_to_png(svg_path, png_path, scale=2):
-    """Convert SVG to PNG. Tries rsvg-convert, then cairosvg."""
-    if shutil.which("rsvg-convert"):
-        subprocess.run(
-            [
-                "rsvg-convert",
-                "-z",
-                str(scale),
-                "-o",
-                str(png_path),
-                str(svg_path),
-            ],
-            check=True,
-        )
-        return True
-
-    try:
-        import cairosvg
-
-        cairosvg.svg2png(url=str(svg_path), write_to=str(png_path), scale=scale)
-        return True
-    except ImportError:
-        pass
-
-    return False
-
-
 # ── Main ──────────────────────────────────────────────────────────────
 
 
@@ -353,7 +329,7 @@ def main():
     png_ok = True
     for svg_path in (m12_svg_path, de9_svg_path):
         png_path = svg_path.with_suffix(".png")
-        if not svg_to_png(svg_path, png_path):
+        if not svg_to_png(svg_path, png_path, scale=2):
             png_ok = False
 
     for p in (m12_svg_path, de9_svg_path):
@@ -363,10 +339,7 @@ def main():
             print(f"  {png.relative_to(REPO)}")
 
     if not png_ok:
-        print(
-            "  ⚠ PNG conversion failed; install librsvg (brew install librsvg)",
-            file=sys.stderr,
-        )
+        print(f"  ⚠ no SVG→PNG converter available; {MISSING_HINT}", file=sys.stderr)
 
 
 if __name__ == "__main__":
