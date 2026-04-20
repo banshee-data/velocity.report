@@ -106,7 +106,7 @@ help:
 	@echo "  format-python        Format Python code (black + ruff)"
 	@echo "  format-web           Format web code (prettier)"
 	@echo "  format-mac           Format macOS Swift code (swift-format)"
-	@echo "  format-docs          Format docs Markdown files (prettier)"
+	@echo "  format-docs          Format docs Markdown files (mdformat)"
 	@echo "  format-sql           Format SQL files (sql-formatter)"
 	@echo ""
 	@echo "LINTING (non-mutating, CI-friendly):"
@@ -630,7 +630,7 @@ install-docs:
 
 .PHONY: ensure-python-tools
 ensure-python-tools:
-	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ]; then \
+	@if [ ! -d "$(VENV_DIR)" ] || [ ! -x "$(VENV_DIR)/bin/black" ] || [ ! -x "$(VENV_DIR)/bin/ruff" ] || [ ! -x "$(VENV_DIR)/bin/mdformat" ]; then \
 		$(MAKE) install-python; \
 	fi
 
@@ -1098,21 +1098,20 @@ format-mac:
 		echo "Skipping macOS formatting"; \
 	fi
 
-format-docs: ensure-web-cache
+# Directories and files formatted by mdformat.
+# public_html/ is excluded because it contains Nunjucks/Eleventy templates.
+# web/ is excluded because its .md files are peripheral and Prettier owns that tree.
+MDFORMAT_PATHS = \
+	docs data config cmd internal tools scripts \
+	.github .claude \
+	ARCHITECTURE.md CHANGELOG.md CLAUDE.md CODE_OF_CONDUCT.md COMMANDS.md \
+	CONTRIBUTING.md MAGIC_NUMBERS.md README.md TENETS.md TROUBLESHOOTING.md
+
+format-docs: ensure-python-tools
 	@echo "Fixing header metadata format..."
 	@python3 scripts/check-doc-header-metadata.py --fix
-	@echo "Formatting Markdown files with prettier..."
-	@if [ -d "$(WEB_DIR)" ]; then \
-		if command -v pnpm >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && pnpm exec prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
-		elif command -v npx >/dev/null 2>&1; then \
-			cd $(WEB_DIR) && npx prettier --write "../**/*.md" --ignore-path ../.prettierignore || echo "prettier failed"; \
-		else \
-			echo "pnpm/npx not found; skipping Markdown formatting"; \
-		fi; \
-	else \
-		echo "$(WEB_DIR) does not exist; skipping Markdown formatting"; \
-	fi
+	@echo "Formatting Markdown files with mdformat (wrap=100)..."
+	@$(VENV_PYTHON) -m mdformat $(MDFORMAT_PATHS)
 
 format-sql:
 	@echo "Formatting SQL files with sql-formatter..."
