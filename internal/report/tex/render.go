@@ -61,6 +61,12 @@ type TemplateData struct {
 	CompareMax       string
 	CompareCount     int
 
+	// Comparison deltas (primary - comparison), formatted with a sign.
+	DeltaP50 string
+	DeltaP85 string
+	DeltaP98 string
+	DeltaMax string
+
 	// Radar/survey parameters
 	Source       string
 	Group        string

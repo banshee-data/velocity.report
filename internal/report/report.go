@@ -196,6 +196,21 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		)
 	}
 
+	// Site map (if configured on the site).
+	var mapPDFName string
+	if cfg.IncludeMap && len(cfg.MapSVG) > 0 {
+		mapSVGPath := filepath.Join(workDir, "map.svg")
+		if err = os.WriteFile(mapSVGPath, cfg.MapSVG, 0644); err != nil {
+			return Result{}, fmt.Errorf("write map.svg: %w", err)
+		}
+		mapPDFPath := filepath.Join(workDir, "map.pdf")
+		if err = convertSVGToPDF(ctx, mapSVGPath, mapPDFPath); err != nil {
+			return Result{}, fmt.Errorf("convert map SVG: %w", err)
+		}
+		zipFiles["map.svg"] = cfg.MapSVG
+		mapPDFName = "map.pdf"
+	}
+
 	// Comparison chart (if requested).
 	if compareResult != nil && cfg.Histogram {
 		primaryHist := convertHistogramKeys(summaryResult.Histogram, cfg.Units)
@@ -281,6 +296,10 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		td.HistogramChart = "histogram.pdf"
 	}
 
+	if mapPDFName != "" {
+		td.MapChart = mapPDFName
+	}
+
 	if compareResult != nil {
 		td.CompareChart = "comparison.pdf"
 		td.CompareStartDate = compareResult.startDate
@@ -290,6 +309,10 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		td.CompareP98 = tex.FormatNumber(compareResult.p98)
 		td.CompareMax = tex.FormatNumber(compareResult.maxSpeed)
 		td.CompareCount = compareResult.count
+		td.DeltaP50 = tex.FormatDelta(summaryP50, compareResult.p50)
+		td.DeltaP85 = tex.FormatDelta(summaryP85, compareResult.p85)
+		td.DeltaP98 = tex.FormatDelta(summaryP98, compareResult.p98)
+		td.DeltaMax = tex.FormatDelta(summaryMax, compareResult.maxSpeed)
 	}
 
 	// Render .tex.

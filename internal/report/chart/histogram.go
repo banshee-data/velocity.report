@@ -35,8 +35,9 @@ func NormaliseHistogram(buckets map[float64]int64) (keys []float64, counts []int
 }
 
 // BucketLabel returns a display label like "20-25" or "70+".
+// maxBucket <= 0 means no upper cap is applied.
 func BucketLabel(lo, hi, maxBucket float64) string {
-	if lo >= maxBucket {
+	if maxBucket > 0 && lo >= maxBucket {
 		return fmt.Sprintf("%.0f+", lo)
 	}
 	return fmt.Sprintf("%.0f-%.0f", lo, hi)

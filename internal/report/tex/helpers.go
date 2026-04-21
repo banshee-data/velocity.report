@@ -37,6 +37,19 @@ func FormatNumber(v float64) string {
 	return fmt.Sprintf("%.2f", v)
 }
 
+// FormatDelta formats a signed delta value (primary - comparison).
+// Returns "--" for NaN or Inf, otherwise "+1.23" or "-0.45".
+func FormatDelta(primary, compare float64) string {
+	if math.IsNaN(primary) || math.IsNaN(compare) || math.IsInf(primary, 0) || math.IsInf(compare, 0) {
+		return "--"
+	}
+	d := primary - compare
+	if d >= 0 {
+		return fmt.Sprintf("+%.2f", d)
+	}
+	return fmt.Sprintf("%.2f", d)
+}
+
 // FormatPercent formats a float as a percentage.
 // Returns "--" for NaN or Inf, otherwise "%.1f%%".
 func FormatPercent(v float64) string {
@@ -93,12 +106,13 @@ func BuildHistogramTableTeX(buckets map[float64]int64, bucketSz, cutoff, maxBuck
 	}
 	var rows []displayRow
 
+	hasUpperCap := maxBucket > 0
 	for _, k := range keys {
 		count := buckets[k]
 		switch {
 		case k < cutoff:
 			belowCount += count
-		case k >= maxBucket:
+		case hasUpperCap && k >= maxBucket:
 			aboveCount += count
 		default:
 			rows = append(rows, displayRow{

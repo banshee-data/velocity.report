@@ -462,6 +462,13 @@ func (s *Server) generateReportGo(
 		PaperSize:         req.PaperSize,
 	}
 
+	if site != nil {
+		cfg.IncludeMap = site.IncludeMap
+		if site.MapSVGData != nil {
+			cfg.MapSVG = *site.MapSVGData
+		}
+	}
+
 	// Determine output directory.
 	pdfDir, err := getPDFGeneratorDir()
 	if err != nil {

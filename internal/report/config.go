@@ -40,6 +40,10 @@ type Config struct {
 	// Radar calibration
 	CosineAngle float64 // degrees
 
+	// Site map (embedded SVG bytes, rendered as figure if IncludeMap is true)
+	IncludeMap bool
+	MapSVG     []byte
+
 	// PaperSize selects physical chart dimensions and LaTeX paper
 	// ("a4" or "letter"). Empty defaults to "a4".
 	PaperSize string
