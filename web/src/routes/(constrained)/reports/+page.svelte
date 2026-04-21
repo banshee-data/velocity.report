@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import {
+		buildComparisonChartPath,
+		buildHistogramChartPath,
+		buildTimeSeriesChartPath,
 		generateReport,
 		getConfig,
 		getReport,
@@ -46,6 +49,7 @@
 	let minSpeed: number = 5;
 	let maxSpeedCutoff: number | null = null;
 	let boundaryThreshold: number = 5;
+	const histogramBucketSize = 5;
 
 	let generatingReport = false;
 	let reportMessage = '';
@@ -71,6 +75,61 @@
 
 	$: selectedSite =
 		selectedSiteId != null ? (sites.find((site) => site.id === selectedSiteId) ?? null) : null;
+
+	$: reportTimeSeriesChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildTimeSeriesChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					group,
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					minSpeed,
+					boundaryThreshold
+				})
+			: '';
+
+	$: reportHistogramChartUrl =
+		selectedSiteId != null && dateRange.from && dateRange.to
+			? buildHistogramChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					bucketSize: histogramBucketSize,
+					max: maxSpeedCutoff ?? undefined,
+					minSpeed,
+					boundaryThreshold
+				})
+			: '';
+
+	$: reportComparisonChartUrl =
+		selectedSiteId != null &&
+		compareEnabled &&
+		dateRange.from &&
+		dateRange.to &&
+		compareRange.from &&
+		compareRange.to
+			? buildComparisonChartPath({
+					siteId: selectedSiteId,
+					startDate: isoDate(dateRange.from),
+					endDate: isoDate(dateRange.to),
+					compareStartDate: isoDate(compareRange.from),
+					compareEndDate: isoDate(compareRange.to),
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					compareSource,
+					bucketSize: histogramBucketSize,
+					max: maxSpeedCutoff ?? undefined,
+					minSpeed,
+					boundaryThreshold
+				})
+			: '';
 
 	async function loadConfig() {
 		try {
@@ -414,6 +473,67 @@
 			</div>
 		</Card>
 
+		{#if reportTimeSeriesChartUrl || reportHistogramChartUrl || reportComparisonChartUrl}
+			<Card>
+				<div class="space-y-4 p-6">
+					<div class="space-y-1">
+						<h3 class="text-base font-semibold">Chart Previews</h3>
+						<p class="text-surface-content/70 text-sm">
+							These previews come from the Go SVG chart endpoints used by the report pipeline.
+						</p>
+					</div>
+
+					<div class="grid gap-4 lg:grid-cols-2">
+						{#if reportTimeSeriesChartUrl}
+							<div class="space-y-2 rounded border p-3 lg:col-span-2">
+								<h4 class="text-sm font-semibold">Time-series overview</h4>
+								<img
+									src={reportTimeSeriesChartUrl}
+									alt="Preview of the report time-series chart"
+									class="block w-full rounded bg-white"
+									loading="lazy"
+									decoding="async"
+								/>
+							</div>
+						{/if}
+
+						{#if reportHistogramChartUrl}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Velocity distribution</h4>
+								<img
+									src={reportHistogramChartUrl}
+									alt="Preview of the report histogram chart"
+									class="block w-full rounded bg-white"
+									loading="lazy"
+									decoding="async"
+								/>
+							</div>
+						{/if}
+
+						{#if compareEnabled && reportComparisonChartUrl}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Comparison distribution</h4>
+								<img
+									src={reportComparisonChartUrl}
+									alt="Preview of the report comparison histogram chart"
+									class="block w-full rounded bg-white"
+									loading="lazy"
+									decoding="async"
+								/>
+							</div>
+						{:else if compareEnabled}
+							<div class="space-y-2 rounded border p-3">
+								<h4 class="text-sm font-semibold">Comparison distribution</h4>
+								<p class="text-surface-content/70 text-sm">
+									Select a complete comparison range to preview the comparison chart.
+								</p>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</Card>
+		{/if}
+
 		{#if reportMessage}
 			<div
 				role={lastGeneratedReportId !== null ? 'status' : 'alert'}
@@ -458,7 +578,7 @@
 					</p>
 				{/if}
 				<p class="text-surface-600-300-token text-xs">
-					The ZIP file contains LaTeX source files and chart PDFs for custom editing.
+					The ZIP file contains LaTeX source files and chart SVG assets for custom editing.
 				</p>
 			</div>
 		{/if}

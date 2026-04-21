@@ -35,6 +35,35 @@ export interface TimeSeriesChartRequest {
 	boundaryThreshold?: number;
 }
 
+export interface HistogramChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	bucketSize?: number;
+	max?: number;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+}
+
+export interface ComparisonChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	compareStartDate: string;
+	compareEndDate: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	compareSource?: string;
+	bucketSize?: number;
+	max?: number;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+}
+
 // Raw shape returned from the server for a single metric row
 type RawRadarStats = {
 	classifier: string;
@@ -167,6 +196,39 @@ export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): strin
 		units: request.units,
 		tz: request.timezone,
 		source: request.source,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold
+	});
+}
+
+export function buildHistogramChartPath(request: HistogramChartRequest): string {
+	return buildRelativeApiPath('/charts/histogram', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		bucket_size: request.bucketSize,
+		max: request.max,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold
+	});
+}
+
+export function buildComparisonChartPath(request: ComparisonChartRequest): string {
+	return buildRelativeApiPath('/charts/comparison', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		compare_start: request.compareStartDate,
+		compare_end: request.compareEndDate,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		compare_source: request.compareSource,
+		bucket_size: request.bucketSize,
+		max: request.max,
 		min_speed: request.minSpeed,
 		boundary_threshold: request.boundaryThreshold
 	});

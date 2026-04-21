@@ -1,8 +1,10 @@
 import {
+	buildComparisonChartPath,
+	buildHistogramChartPath,
+	buildTimeSeriesChartPath,
 	createSite,
 	deleteReport,
 	deleteSite,
-	buildTimeSeriesChartPath,
 	downloadReport,
 	generateReport,
 	getActiveTracks,
@@ -287,6 +289,56 @@ describe('api', () => {
 			});
 
 			expect(path).toBe('/api/charts/timeseries?site_id=7&start=2025-01-01&end=2025-01-31');
+		});
+	});
+
+	describe('buildHistogramChartPath', () => {
+		it('should build the histogram SVG path with report parameters', () => {
+			const path = buildHistogramChartPath({
+				siteId: 42,
+				startDate: '2025-05-02',
+				endDate: '2025-05-30',
+				units: 'mph',
+				timezone: 'UTC',
+				source: 'radar_objects',
+				bucketSize: 5,
+				max: 70,
+				minSpeed: 10,
+				boundaryThreshold: 3
+			});
+
+			expect(path).toContain('/api/charts/histogram?');
+			expect(path).toContain('site_id=42');
+			expect(path).toContain('bucket_size=5');
+			expect(path).toContain('max=70');
+			expect(path).toContain('min_speed=10');
+			expect(path).toContain('boundary_threshold=3');
+		});
+	});
+
+	describe('buildComparisonChartPath', () => {
+		it('should build the comparison SVG path with both date ranges', () => {
+			const path = buildComparisonChartPath({
+				siteId: 42,
+				startDate: '2025-05-02',
+				endDate: '2025-05-30',
+				compareStartDate: '2025-04-02',
+				compareEndDate: '2025-04-30',
+				units: 'mph',
+				timezone: 'America/Los_Angeles',
+				source: 'radar_objects',
+				compareSource: 'radar_data_transits',
+				bucketSize: 5,
+				max: 70
+			});
+
+			expect(path).toContain('/api/charts/comparison?');
+			expect(path).toContain('start=2025-05-02');
+			expect(path).toContain('end=2025-05-30');
+			expect(path).toContain('compare_start=2025-04-02');
+			expect(path).toContain('compare_end=2025-04-30');
+			expect(path).toContain('compare_source=radar_data_transits');
+			expect(path).toContain('tz=America%2FLos_Angeles');
 		});
 	});
 
