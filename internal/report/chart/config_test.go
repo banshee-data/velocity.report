@@ -33,6 +33,23 @@ func TestDefaultTimeSeriesStyle(t *testing.T) {
 	}
 }
 
+func TestDefaultWebTimeSeriesStyle(t *testing.T) {
+	pdf := DefaultTimeSeriesStyle()
+	web := DefaultWebTimeSeriesStyle()
+	if web.WidthMM == 0 || web.HeightMM == 0 {
+		t.Fatal("web time-series dimensions are zero")
+	}
+	if web.WidthMM >= pdf.WidthMM {
+		t.Fatalf("web WidthMM = %v, want less than pdf WidthMM = %v", web.WidthMM, pdf.WidthMM)
+	}
+	if web.AxisTickFontPx <= pdf.AxisTickFontPx {
+		t.Fatalf("web AxisTickFontPx = %v, want greater than pdf AxisTickFontPx = %v", web.AxisTickFontPx, pdf.AxisTickFontPx)
+	}
+	if web.LineWidthPx <= pdf.LineWidthPx {
+		t.Fatalf("web LineWidthPx = %v, want greater than pdf LineWidthPx = %v", web.LineWidthPx, pdf.LineWidthPx)
+	}
+}
+
 func TestDefaultHistogramStyle(t *testing.T) {
 	s := DefaultHistogramStyle()
 	if s.WidthMM == 0 {
@@ -46,5 +63,19 @@ func TestDefaultHistogramStyle(t *testing.T) {
 	}
 	if s.AxisLabelFontPx == 0 {
 		t.Error("AxisLabelFontPx is zero")
+	}
+}
+
+func TestDefaultWebHistogramStyle(t *testing.T) {
+	pdf := DefaultHistogramStyle()
+	web := DefaultWebHistogramStyle()
+	if web.WidthMM == 0 || web.HeightMM == 0 {
+		t.Fatal("web histogram dimensions are zero")
+	}
+	if web.WidthMM <= pdf.WidthMM {
+		t.Fatalf("web WidthMM = %v, want greater than pdf WidthMM = %v", web.WidthMM, pdf.WidthMM)
+	}
+	if web.AxisTickFontPx <= pdf.AxisTickFontPx {
+		t.Fatalf("web AxisTickFontPx = %v, want greater than pdf AxisTickFontPx = %v", web.AxisTickFontPx, pdf.AxisTickFontPx)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -270,6 +271,73 @@ func TestGenerate_WithComparison(t *testing.T) {
 	// Should have 3 DB calls: summary, time-series, comparison.
 	if m.callCount != 3 {
 		t.Errorf("expected 3 DB calls, got %d", m.callCount)
+	}
+}
+
+func TestGenerate_EscapesTemplateFields(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	outDir := t.TempDir()
+	m := &mockDB{}
+
+	cfg := Config{
+		SiteID:          1,
+		Location:        "Clarendon Avenue, San Francisco",
+		Surveyor:        "J. Engineer",
+		Contact:         "test@example.com",
+		SpeedLimit:      25,
+		SiteDescription: "Escaping regression test",
+		StartDate:       "2025-06-01",
+		EndDate:         "2025-06-02",
+		Timezone:        "UTC",
+		Units:           "mph",
+		Group:           "1h",
+		Source:          "radar_data_transits",
+		ModelVersion:    "hourly-cron",
+		MinSpeed:        5.0,
+		Histogram:       true,
+		HistBucketSize:  5.0,
+		HistMax:         70.0,
+		OutputDir:       outDir,
+	}
+
+	result, err := Generate(context.Background(), m, cfg)
+	if err != nil {
+		t.Fatalf("Generate error: %v", err)
+	}
+
+	zipData, err := os.ReadFile(result.ZIPPath)
+	if err != nil {
+		t.Fatalf("read ZIP: %v", err)
+	}
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("open ZIP: %v", err)
+	}
+
+	var reportTex string
+	for _, f := range r.File {
+		if f.Name != "report.tex" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open report.tex: %v", err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("read report.tex: %v", err)
+		}
+		reportTex = string(data)
+		break
+	}
+	if reportTex == "" {
+		t.Fatal("report.tex not found in ZIP")
+	}
+	if !strings.Contains(reportTex, `Source & radar\_data\_transits \\`) {
+		t.Fatalf("expected escaped source field in report.tex, got:\n%s", reportTex)
 	}
 }
 

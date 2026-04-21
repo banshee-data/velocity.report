@@ -247,8 +247,8 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 
 		StartDate: startTime.Format("2 January 2006"),
 		EndDate:   endTime.Format("2 January 2006"),
-		Timezone:  cfg.Timezone,
-		Units:     cfg.Units,
+		Timezone:  tex.EscapeTeX(cfg.Timezone),
+		Units:     tex.EscapeTeX(cfg.Units),
 
 		P50:        tex.FormatNumber(summaryP50),
 		P85:        tex.FormatNumber(summaryP85),
@@ -263,12 +263,12 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 
 		HistogramTableTeX: histogramTableTeX,
 
-		Source:       cfg.Source,
-		Group:        cfg.Group,
+		Source:       tex.EscapeTeX(cfg.Source),
+		Group:        tex.EscapeTeX(cfg.Group),
 		MinSpeed:     cfg.MinSpeed,
 		CosineAngle:  cfg.CosineAngle,
 		CosineFactor: cosineFactor,
-		ModelVersion: cfg.ModelVersion,
+		ModelVersion: tex.EscapeTeX(cfg.ModelVersion),
 
 		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
 	}

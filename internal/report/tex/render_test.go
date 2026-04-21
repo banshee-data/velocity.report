@@ -66,6 +66,24 @@ func TestRenderTeX_EscapedStrings(t *testing.T) {
 	}
 }
 
+func TestRenderTeX_TitleBlockUsesParagraphBreaks(t *testing.T) {
+	data := minimalTemplateData()
+	data.Location = EscapeTeX("Clarendon Avenue, San Francisco")
+
+	out, err := RenderTeX(data)
+	if err != nil {
+		t.Fatalf("RenderTeX() error: %v", err)
+	}
+
+	s := string(out)
+	if !strings.Contains(s, `{\Large\bfseries Velocity Report: Clarendon Avenue, San Francisco\par}`) {
+		t.Fatal("expected title block to use a paragraph break")
+	}
+	if strings.Contains(s, `Velocity Report: Clarendon Avenue, San Francisco}\\[6pt]`) {
+		t.Fatal("unexpected fragile title line break found in output")
+	}
+}
+
 func TestRenderTeX_ConditionalHistogram(t *testing.T) {
 	data := minimalTemplateData()
 	data.HistogramTableTeX = ""

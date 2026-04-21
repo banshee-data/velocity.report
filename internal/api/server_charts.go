@@ -60,7 +60,7 @@ func (s *Server) handleChartTimeSeries(w http.ResponseWriter, r *http.Request) {
 		Title:  fmt.Sprintf("Vehicle speeds — %s–%s", q.Get("start"), q.Get("end")),
 	}
 
-	svg, err := chart.RenderTimeSeries(data, chart.DefaultTimeSeriesStyle())
+	svg, err := chart.RenderTimeSeries(data, chart.DefaultWebTimeSeriesStyle())
 	if err != nil {
 		log.Printf("Chart timeseries render error: %v", err)
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to render chart")
@@ -112,7 +112,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		MaxBucket: histMax,
 	}
 
-	svg, err := chart.RenderHistogram(data, chart.DefaultHistogramStyle())
+	svg, err := chart.RenderHistogram(data, chart.DefaultWebHistogramStyle())
 	if err != nil {
 		log.Printf("Chart histogram render error: %v", err)
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to render chart")
@@ -204,7 +204,7 @@ func (s *Server) handleChartComparison(w http.ResponseWriter, r *http.Request) {
 		chart.HistogramData{Buckets: compareHist, Units: displayUnits, BucketSz: bucketSize, MaxBucket: histMax},
 		fmt.Sprintf("%s–%s", q.Get("start"), q.Get("end")),
 		fmt.Sprintf("%s–%s", compareStart, compareEnd),
-		chart.DefaultHistogramStyle(),
+		chart.DefaultWebHistogramStyle(),
 	)
 	if err != nil {
 		log.Printf("Chart comparison render error: %v", err)
