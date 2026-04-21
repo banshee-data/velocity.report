@@ -672,7 +672,16 @@ define run_dev_go_require_precompiled_root
 		echo "Error: precompiled TeX flow requested but $$tex_root/texmf-dist/web2c/xelatex/xelatex.fmt not found."; \
 		echo "Run 'make build-tex-fmt' (or rebuild via 'make build-texlive-minimal'), or use 'make dev-go-latex-full'."; \
 		exit 1; \
-	fi
+	fi; \
+	for required in \
+		"$$tex_root/texmf-dist/tex/latex/xcolor/xcolor.sty" \
+		"$$tex_root/texmf-dist/tex/latex/colortbl/colortbl.sty"; do \
+		if [ ! -f "$$required" ]; then \
+			echo "Error: precompiled TeX tree is stale; missing $$required."; \
+			echo "Run 'make build-texlive-minimal' to refresh the minimal TeX packages, or use 'make dev-go-latex-full'."; \
+			exit 1; \
+		fi; \
+	done
 endef
 
 define run_dev_go_kill_server
