@@ -9,6 +9,7 @@
 \end{itemize}
 
 \subsection*{Key Metrics}
+{\ttfamily
 \begin{tabular}{lr}
 \hline
 \textbf{Metric} & \textbf{Value} \\
@@ -19,19 +20,30 @@ P98 & <<.P98>> <<.Units>> \\
 Maximum & <<.MaxSpeed>> <<.Units>> \\
 \hline
 \end{tabular}
+}
 
 <<if .CompareStartDate>>
 \subsection*{Comparison Summary}
-\begin{tabular}{lrr}
+{\ttfamily
+\begin{tabular}{lrrr}
 \hline
-\textbf{Metric} & \textbf{Primary} & \textbf{Comparison} \\
+\textbf{Metric} & \textbf{Primary} & \textbf{Comparison} & \textbf{$\Delta$} \\
 \hline
-P50 & <<.P50>> & <<.CompareP50>> \\
-P85 & <<.P85>> & <<.CompareP85>> \\
-P98 & <<.P98>> & <<.CompareP98>> \\
-Max & <<.MaxSpeed>> & <<.CompareMax>> \\
-Count & <<.TotalCount>> & <<.CompareCount>> \\
+P50 & <<.P50>> & <<.CompareP50>> & <<.DeltaP50>> \\
+P85 & <<.P85>> & <<.CompareP85>> & <<.DeltaP85>> \\
+P98 & <<.P98>> & <<.CompareP98>> & <<.DeltaP98>> \\
+Max & <<.MaxSpeed>> & <<.CompareMax>> & <<.DeltaMax>> \\
+Count & <<.TotalCount>> & <<.CompareCount>> & \\
 \hline
 \end{tabular}
+}
+
+<<if .CompareChart>>
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{<<.CompareChart>>}
+\caption{Speed distribution: primary vs comparison}
+\end{figure}
+<<end>>
 <<end>>
 <<end>>

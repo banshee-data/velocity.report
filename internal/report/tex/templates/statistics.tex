@@ -1,12 +1,22 @@
 <<define "statistics">>
+<<if .HistogramChart>>
+\begin{figure}[H]
+\centering
+\includegraphics[width=\columnwidth]{<<.HistogramChart>>}
+\caption{Speed distribution}
+\end{figure}
+<<end>>
+
 <<if .HistogramTableTeX>>
 \subsection*{Speed Distribution}
+{\ttfamily\small
 <<.HistogramTableTeX>>
+}
 <<end>>
 
 <<if .StatRows>>
 \subsection*{Detailed Data}
-\footnotesize
+{\ttfamily\footnotesize
 \setlength{\tabcolsep}{2pt}
 \tablehead{%
   \hline
@@ -19,6 +29,6 @@
 <<.StartTime>> & <<.Count>> & <<.P50>> & <<.P85>> & <<.P98>> & <<.MaxSpeed>> \\
 <<end>>
 \end{supertabular}
-\normalsize
+}
 <<end>>
 <<end>>
