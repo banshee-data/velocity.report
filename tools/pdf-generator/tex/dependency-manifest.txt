@@ -64,11 +64,13 @@ texmf-dist/tex/latex/hyperref/hxetex.def
 texmf-dist/tex/latex/fontspec/fontspec.sty
 texmf-dist/tex/latex/fontspec/fontspec-xetex.sty
 texmf-dist/tex/latex/caption/caption.sty
+texmf-dist/tex/latex/colortbl
 texmf-dist/tex/latex/ragged2e
 texmf-dist/tex/latex/supertabular/supertabular.sty
 texmf-dist/tex/latex/float/float.sty
 texmf-dist/tex/latex/tools/array.sty
 texmf-dist/tex/latex/geometry/geometry.sty
+texmf-dist/tex/latex/xcolor
 
 texmf-dist/tex/latex/l3kernel/expl3.sty
 texmf-dist/tex/latex/l3kernel/expl3.ltx
@@ -86,10 +88,12 @@ texmf-dist/tex/latex/titlesec
 texmf-dist/tex/latex/hyperref
 texmf-dist/tex/latex/fontspec
 texmf-dist/tex/latex/caption
+texmf-dist/tex/latex/colortbl
 texmf-dist/tex/latex/supertabular
 texmf-dist/tex/latex/float
 texmf-dist/tex/latex/tools
 texmf-dist/tex/latex/geometry
+texmf-dist/tex/latex/xcolor
 
 # Computer Modern and Latin Modern metrics and outlines.
 # Latin Modern is the default XeLaTeX font family.
