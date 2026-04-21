@@ -33,7 +33,6 @@
 	let p98Speed = 0;
 	let loading = true;
 	let error = '';
-
 	// Site management
 	let sites: Site[] = [];
 	let selectedSiteId: number | null = null;
@@ -213,13 +212,12 @@
 
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
-			const savedPeriodType = settings?.dateRange?.periodType;
 			if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
 
 			dateRange = {
 				from,
 				to,
-				periodType: savedPeriodType === PeriodType.Day ? PeriodType.Day : PeriodType.Day
+				periodType: PeriodType.Day
 			};
 		} catch (e) {
 			console.warn('Could not load saved report settings:', e);
