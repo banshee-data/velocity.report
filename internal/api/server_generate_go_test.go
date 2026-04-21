@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -199,6 +200,34 @@ func TestGenerateReport_GoBackend_ConfigMapping(t *testing.T) {
 	// Verify it hit the Go path (not Python).
 	if isPythonError(respBody) {
 		t.Errorf("expected Go pipeline path but got Python error: %s", respBody)
+	}
+}
+
+func TestRelativeReportPaths_Valid(t *testing.T) {
+	root := filepath.Join(string(os.PathSeparator), "tmp", "pdf-generator")
+	pdfPath := filepath.Join(root, "output", "run-1", "report.pdf")
+	zipPath := filepath.Join(root, "output", "run-1", "report_sources.zip")
+
+	pdfRel, zipRel, err := relativeReportPaths(root, pdfPath, zipPath)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if pdfRel != filepath.Join("output", "run-1", "report.pdf") {
+		t.Fatalf("unexpected pdf rel path: %s", pdfRel)
+	}
+	if zipRel != filepath.Join("output", "run-1", "report_sources.zip") {
+		t.Fatalf("unexpected zip rel path: %s", zipRel)
+	}
+}
+
+func TestRelativeReportPaths_RejectEscape(t *testing.T) {
+	root := filepath.Join(string(os.PathSeparator), "tmp", "pdf-generator")
+	badPDF := filepath.Join(string(os.PathSeparator), "tmp", "outside", "report.pdf")
+	zipPath := filepath.Join(root, "output", "run-1", "report_sources.zip")
+
+	_, _, err := relativeReportPaths(root, badPDF, zipPath)
+	if err == nil {
+		t.Fatal("expected error for escaping pdf path")
 	}
 }
 

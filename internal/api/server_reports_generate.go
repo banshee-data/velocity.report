@@ -485,18 +485,18 @@ func (s *Server) generateReportGo(
 		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
-
-	// Build relative paths matching the Python path convention.
-	relativePdfPath, err := filepath.Rel(pdfDir, result.PDFPath)
-	if err != nil {
+	if err := security.ValidatePathWithinDirectory(result.ZIPPath, pdfDir); err != nil {
+		log.Printf("Security: rejected Go ZIP path %s: %v", result.ZIPPath, err)
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to compute relative PDF path")
+		s.writeJSONError(w, http.StatusForbidden, "Invalid file path")
 		return
 	}
-	relativeZipPath, err := filepath.Rel(pdfDir, result.ZIPPath)
+
+	// Build relative paths matching the Python path convention.
+	relativePdfPath, relativeZipPath, err := relativeReportPaths(pdfDir, result.PDFPath, result.ZIPPath)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to compute relative ZIP path")
+		s.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -586,4 +586,24 @@ func outputIndicatesReportFailure(output string) bool {
 	}
 
 	return false
+}
+
+func relativeReportPaths(pdfDir, pdfPath, zipPath string) (string, string, error) {
+	relativePDFPath, err := filepath.Rel(pdfDir, pdfPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compute relative PDF path")
+	}
+	if strings.HasPrefix(relativePDFPath, "..") {
+		return "", "", fmt.Errorf("failed to compute relative PDF path")
+	}
+
+	relativeZIPPath, err := filepath.Rel(pdfDir, zipPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compute relative ZIP path")
+	}
+	if strings.HasPrefix(relativeZIPPath, "..") {
+		return "", "", fmt.Errorf("failed to compute relative ZIP path")
+	}
+
+	return relativePDFPath, relativeZIPPath, nil
 }
