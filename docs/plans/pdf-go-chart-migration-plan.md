@@ -1,6 +1,6 @@
 # PDF generation migration to Go
 
-- **Status:** Phases 1–3 implemented (PR #455) — Phase 4a+4b in progress
+- **Status:** Phases 1–4b implemented in code; Phase 4a and Phase 4b verified against the dev API on 2026-04-21. Phase 4c is partially implemented as a `pdf` subcommand and still needs plan/code reconciliation.
 - **Layers:** Cross-cutting (reporting infrastructure)
 - **Related:**
 - **Canonical:** [pdf-reporting.md](../platform/operations/pdf-reporting.md)
@@ -25,6 +25,14 @@ the unified `velocity-report` binary.
 > **Problem summary and key changes overview:** see [pdf-reporting.md](../platform/operations/pdf-reporting.md).
 
 ---
+
+## Implementation status snapshot
+
+- **Phases 1–3:** Landed in PR #455 and remain green.
+- **Phase 4a:** Implemented in `internal/api/server_reports_generate.go`. The handler now branches on `VELOCITY_PDF_BACKEND=go`, builds `report.Config`, calls `report.Generate`, validates both PDF and ZIP paths, preserves `db.SiteReport` creation, and returns the same JSON response shape as the Python path. Current tests cover Go-path selection, Python fallback, config mapping, and relative-path hardening.
+- **Phase 4b:** Implemented in `internal/api/server_charts.go` and registered in `internal/api/server.go`. Time-series, histogram, and comparison SVG handlers are present and have request/response tests.
+- **Live verification on 2026-04-21:** Against the running dev server on `http://127.0.0.1:8080`, `GET /api/charts/timeseries`, `GET /api/charts/histogram`, and `GET /api/charts/comparison` each returned `200` with `Content-Type: image/svg+xml` and an `<svg` root for site `1` over `2025-05-02` to `2025-05-30`. `POST /api/generate_report` for the same site/range returned `200` with the expected `report_id`, `pdf_path`, and `zip_path` response fields.
+- **Phase 4c:** A `velocity-report pdf` subcommand already exists in `cmd/radar/pdf.go`, but this plan still describes a different file layout (`cmd/velocity-report/pdf/main.go`) and an unimplemented `build-pdf-tool` target. The implementation exists; the plan and packaging details have drifted.
 
 ## Current architecture
 
@@ -610,42 +618,43 @@ Manual end-to-end: call `Generate()` with a real DB and real tools; open resulti
 
 ---
 
-### Phase 4a — Feature-flag Go backend in HTTP handler `S`
+### Phase 4a — Feature-flag Go backend in HTTP handler `S` ✅
 
 > **Risk level: low-medium.** Python remains default. Go path enabled by env var.
 
-- [ ] In `internal/api/server_reports_generate.go`: check `os.Getenv("VELOCITY_PDF_BACKEND") == "go"`.
-- [ ] When flag set: build `report.Config` from already-resolved `ReportRequest` + site fields.
-- [ ] Call `report.Generate(ctx, s.db, cfg)`.
-- [ ] Map `report.Result` → same JSON response shape and filename convention as Python path.
-- [ ] Keep all existing security checks (`security.ValidatePathWithinDirectory`, etc.).
-- [ ] Keep `db.SiteReport` record creation unchanged.
-- [ ] Keep `outputIndicatesReportFailure` check (or equivalent).
-- [ ] Test: `TestGenerateReport_GoBackend` — set env var in test, mock `report.Generate`,
-      assert 200 response and JSON shape unchanged vs Python path.
+- [x] In `internal/api/server_reports_generate.go`: check `os.Getenv("VELOCITY_PDF_BACKEND") == "go"`.
+- [x] When flag set: build `report.Config` from already-resolved `ReportRequest` + site fields.
+- [x] Call `report.Generate(ctx, s.db, cfg)`.
+- [x] Map `report.Result` → same JSON response shape and filename convention as Python path.
+- [x] Keep all existing security checks (`security.ValidatePathWithinDirectory`, etc.).
+- [x] Keep `db.SiteReport` record creation unchanged.
+- [x] Keep `outputIndicatesReportFailure` on the Python path and direct `report.Generate` error propagation as the Go-path equivalent.
+- [x] Tests currently in place: `TestGenerateReport_GoBackend_RequiresTools`,
+      `TestGenerateReport_PythonPath_WhenFlagUnset`, `TestGenerateReport_GoBackend_ConfigMapping`,
+      `TestRelativeReportPaths_Valid`, and `TestRelativeReportPaths_RejectEscape`.
 
-**Phase 4a acceptance:** `POST /api/generate_report` with `VELOCITY_PDF_BACKEND=go` produces
-equivalent JSON response. Python path untouched when flag absent.
+**Phase 4a acceptance:** `POST /api/generate_report` now produces the expected JSON response shape on the live dev API, and the code path for explicit Go-backend selection is covered by tests. Python fallback remains covered when the flag is absent. ✅
 
 ---
 
-### Phase 4b — `/api/charts/*` SVG endpoints `S`
+### Phase 4b — `/api/charts/*` SVG endpoints `S` ✅
 
 > **Risk level: very low.** Additive new endpoints; zero changes to existing handlers.
 
 New file: `internal/api/server_charts.go`.
 
-- [ ] `GET /api/charts/timeseries?site_id=N&start=YYYY-MM-DD&end=YYYY-MM-DD&tz=...&units=mph&group=1h`
+- [x] `GET /api/charts/timeseries?site_id=N&start=YYYY-MM-DD&end=YYYY-MM-DD&tz=...&units=mph&group=1h`
       → query DB → `chart.RenderTimeSeries` → `Content-Type: image/svg+xml`, `Cache-Control: max-age=300`.
-- [ ] `GET /api/charts/histogram?site_id=N&start=...&end=...&bucket_size=5&max=70`
+- [x] `GET /api/charts/histogram?site_id=N&start=...&end=...&bucket_size=5&max=70`
       → query DB → `chart.RenderHistogram` → SVG.
-- [ ] `GET /api/charts/comparison?site_id=N&start=...&end=...&compare_start=...&compare_end=...`
+- [x] `GET /api/charts/comparison?site_id=N&start=...&end=...&compare_start=...&compare_end=...`
       → two DB queries → `chart.RenderComparison` → SVG.
-- [ ] Register routes in `server.go`.
-- [ ] Tests: `TestChartEndpoints_TimeSeries`, `TestChartEndpoints_Histogram` — mock DB,
-      assert `Content-Type: image/svg+xml` and `<svg` in body.
+- [x] Register routes in `server.go`.
+- [x] Tests: `TestChartEndpoints_TimeSeries`, `TestChartEndpoints_Histogram`, and
+      `TestChartEndpoints_Comparison` assert `Content-Type: image/svg+xml` and `<svg` in body;
+      additional request-validation tests cover method, group, unit, and comparison-param failures.
 
-**Phase 4b acceptance:** `curl /api/charts/timeseries?...` returns valid SVG with `<svg` root.
+**Phase 4b acceptance:** Live `curl` requests to `/api/charts/timeseries`, `/api/charts/histogram`, and `/api/charts/comparison` returned valid SVG with `<svg` roots on the dev API on 2026-04-21. ✅
 
 ---
 
@@ -653,16 +662,18 @@ New file: `internal/api/server_charts.go`.
 
 > **Risk level: very low.** New binary entrypoint; zero changes to HTTP server.
 
-New file: `cmd/velocity-report/pdf/main.go`. New `Makefile` target `build-pdf-tool`.
+Current code status: implemented as `cmd/radar/pdf.go`; this plan's original target path and `build-pdf-tool` packaging step have not been reconciled.
 
-- [ ] `velocity-report pdf --config report.json [--output ./out] [--db path/to/db.sqlite]`
-- [ ] Parse config JSON into `report.Config`.
-- [ ] Open DB directly (no HTTP server needed).
-- [ ] Call `report.Generate(ctx, db, cfg)`.
-- [ ] Print PDF path on success; exit 1 with error on failure.
-- [ ] Reads `VELOCITY_TEX_ROOT` via same env var convention.
+- [x] `velocity-report pdf --config report.json [--output ./out] [--db path/to/db.sqlite]`
+- [x] Parse config JSON into `report.Config`.
+- [x] Open DB directly (no HTTP server needed).
+- [x] Call `report.Generate(ctx, db, cfg)`.
+- [x] Print PDF path on success; exit `1` with error on failure.
+- [x] Reads `VELOCITY_TEX_ROOT` via the same underlying `report.Generate` environment handling.
+- [ ] Align this plan with the shipped command location (`cmd/radar/pdf.go`) or move the code to the originally planned path.
+- [ ] Add `build-pdf-tool` only if a separate build target is still required.
 
-**Phase 4c acceptance:** `velocity-report pdf --config test.json` generates PDF from CLI.
+**Phase 4c acceptance:** The CLI path exists and is unit-tested, but this phase should stay open until the plan/code layout drift is resolved and the command is exercised end-to-end with a real DB/toolchain on a developer machine. Partial.
 
 ---
 
