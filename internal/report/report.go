@@ -317,13 +317,9 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	}
 
 	// Determine output directory.
-	outDir := cfg.OutputDir
-	if outDir == "" {
-		outDir = workDir
-	} else {
-		if err = os.MkdirAll(outDir, 0755); err != nil {
-			return Result{}, fmt.Errorf("create output dir: %w", err)
-		}
+	outDir, err := normaliseOutputDir(cfg.OutputDir, workDir)
+	if err != nil {
+		return Result{}, err
 	}
 
 	// Copy PDF to output.
@@ -332,12 +328,18 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 	if err != nil {
 		return Result{}, fmt.Errorf("read compiled PDF: %w", err)
 	}
-	outPDF := filepath.Join(outDir, pdfName)
+	outPDF, err := safeOutputPath(outDir, pdfName)
+	if err != nil {
+		return Result{}, err
+	}
 	if err = os.WriteFile(outPDF, pdfData, 0644); err != nil {
 		return Result{}, fmt.Errorf("write output PDF: %w", err)
 	}
 
-	outZIP := filepath.Join(outDir, zipName)
+	outZIP, err := safeOutputPath(outDir, zipName)
+	if err != nil {
+		return Result{}, err
+	}
 	if err = os.WriteFile(outZIP, zipBytes, 0644); err != nil {
 		return Result{}, fmt.Errorf("write output ZIP: %w", err)
 	}
@@ -436,6 +438,40 @@ func convertHistogramKeys(hist map[float64]int64, displayUnits string) map[float
 		out[units.ConvertSpeed(k, displayUnits)] = v
 	}
 	return out
+}
+
+func normaliseOutputDir(outputDir, workDir string) (string, error) {
+	if outputDir == "" {
+		return workDir, nil
+	}
+
+	cleaned := filepath.Clean(outputDir)
+	if !filepath.IsAbs(cleaned) {
+		return "", fmt.Errorf("invalid output dir %q: must be an absolute path", outputDir)
+	}
+
+	absDir, err := filepath.Abs(cleaned)
+	if err != nil {
+		return "", fmt.Errorf("normalise output dir: %w", err)
+	}
+
+	if err = os.MkdirAll(absDir, 0755); err != nil {
+		return "", fmt.Errorf("create output dir: %w", err)
+	}
+
+	return absDir, nil
+}
+
+func safeOutputPath(outDir, fileName string) (string, error) {
+	outPath := filepath.Clean(filepath.Join(outDir, fileName))
+	rel, err := filepath.Rel(outDir, outPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve output path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid output path: %q escapes output dir", fileName)
+	}
+	return outPath, nil
 }
 
 // convertSVGToPDF calls rsvg-convert to produce a PDF from an SVG.

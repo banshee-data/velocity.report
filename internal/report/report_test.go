@@ -285,6 +285,8 @@ func TestGenerate_InvalidGroup(t *testing.T) {
 }
 
 func TestGenerate_InvalidTimezone(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
 	m := &mockDB{}
 	cfg := Config{
 		Group:    "1h",
@@ -293,6 +295,36 @@ func TestGenerate_InvalidTimezone(t *testing.T) {
 	_, err := Generate(context.Background(), m, cfg)
 	if err == nil || !strings.Contains(err.Error(), "invalid timezone") {
 		t.Errorf("expected invalid timezone error, got: %v", err)
+	}
+}
+
+func TestGenerate_OutputDirMustBeAbsolute(t *testing.T) {
+	binDir := createMockBinaries(t)
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	m := &mockDB{}
+	cfg := Config{
+		SiteID:          1,
+		Location:        "Test Street",
+		Surveyor:        "J. Engineer",
+		Contact:         "test@example.com",
+		SpeedLimit:      25,
+		SiteDescription: "Test site for unit tests",
+		SpeedLimitNote:  "Posted: 25 mph",
+		StartDate:       "2025-06-01",
+		EndDate:         "2025-06-02",
+		Timezone:        "UTC",
+		Units:           "mph",
+		Group:           "1h",
+		Source:          "radar_objects",
+		ModelVersion:    "hourly-cron",
+		MinSpeed:        5.0,
+		OutputDir:       "relative/output/path",
+	}
+
+	_, err := Generate(context.Background(), m, cfg)
+	if err == nil || !strings.Contains(err.Error(), "must be an absolute path") {
+		t.Fatalf("expected absolute output dir error, got: %v", err)
 	}
 }
 
