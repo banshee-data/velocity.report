@@ -496,23 +496,13 @@ func checkRsvgConvert() error {
 // runXeLatex compiles a .tex file to PDF using xelatex.
 // Runs two passes for cross-references and fancyhdr.
 func runXeLatex(ctx context.Context, texDir, texFile string) error {
-	texRoot := os.Getenv("VELOCITY_TEX_ROOT")
-
-	var compiler string
-	var extraEnv []string
-
-	if texRoot != "" {
-		compiler = filepath.Join(texRoot, "bin", "xelatex")
-		extraEnv = buildTexEnv(texRoot)
-	} else {
-		compiler = "xelatex"
-	}
+	latexEnv := resolveTexEnvironment()
 
 	for pass := 0; pass < 2; pass++ {
-		cmd := exec.CommandContext(ctx, compiler, "-interaction=nonstopmode", "-halt-on-error", texFile)
+		cmd := exec.CommandContext(ctx, latexEnv.compiler, buildXeLatexArgs(texFile, latexEnv.fmtName)...)
 		cmd.Dir = texDir
-		if len(extraEnv) > 0 {
-			cmd.Env = append(os.Environ(), extraEnv...)
+		if len(latexEnv.env) > 0 {
+			cmd.Env = append(os.Environ(), latexEnv.env...)
 		}
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -523,23 +513,116 @@ func runXeLatex(ctx context.Context, texDir, texFile string) error {
 	return nil
 }
 
+type texEnvironment struct {
+	compiler string
+	env      []string
+	fmtName  string
+}
+
+func resolveTexEnvironment() texEnvironment {
+	texRoot := resolvedTexRoot()
+	if texRoot == "" {
+		return texEnvironment{compiler: "xelatex"}
+	}
+
+	fmtDir := filepath.Join(texRoot, "texmf-dist", "web2c", "xelatex")
+	fmtName := ""
+	if shouldUseVelocityFmt() {
+		if _, err := os.Stat(filepath.Join(fmtDir, "velocity-report.fmt")); err == nil {
+			fmtName = "velocity-report"
+		}
+	}
+
+	return texEnvironment{
+		compiler: filepath.Join(texRoot, "bin", "xelatex"),
+		env:      buildTexEnv(texRoot),
+		fmtName:  fmtName,
+	}
+}
+
+func resolvedTexRoot() string {
+	texRoot := strings.TrimSpace(os.Getenv("VELOCITY_TEX_ROOT"))
+	if texRoot == "" {
+		return ""
+	}
+	absRoot, err := filepath.Abs(filepath.Clean(texRoot))
+	if err != nil {
+		return texRoot
+	}
+	return absRoot
+}
+
+func shouldUseVelocityFmt() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("VELOCITY_USE_VELOCITY_FMT"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildXeLatexArgs(texFile, fmtName string) []string {
+	args := []string{"-interaction=nonstopmode", "-halt-on-error"}
+	if fmtName != "" {
+		args = append(args, "-fmt="+fmtName)
+	}
+	args = append(args, texFile)
+	return args
+}
+
 // buildTexEnv returns environment variables for a vendored TeX installation.
 func buildTexEnv(texRoot string) []string {
-	return []string{
-		fmt.Sprintf("TEXMFHOME=%s/texmf-dist", texRoot),
-		fmt.Sprintf("TEXMFDIST=%s/texmf-dist", texRoot),
-		fmt.Sprintf("TEXMFVAR=%s/texmf-var", texRoot),
-		fmt.Sprintf("TEXMFCNF=%s/texmf-dist/web2c", texRoot),
-		fmt.Sprintf("TEXINPUTS=.:%s/texmf-dist//:", texRoot),
-		fmt.Sprintf("TFMFONTS=%s/texmf-dist/fonts//:", texRoot),
-		fmt.Sprintf("OPENTYPEFONTS=%s/texmf-dist/fonts//:", texRoot),
-		fmt.Sprintf("OSFONTDIR=%s/texmf-dist/fonts//:", texRoot),
+	sep := string(os.PathListSeparator)
+	texmfDist := filepath.Join(texRoot, "texmf-dist")
+	texmfHome := filepath.Join(texRoot, "texmf")
+	texmfVar := filepath.Join(texRoot, "texmf-var")
+	binDir := filepath.Join(texRoot, "bin")
+	web2cDir := filepath.Join(texmfDist, "web2c")
+
+	env := []string{
+		fmt.Sprintf("TEXMFHOME=%s", texmfHome),
+		fmt.Sprintf("TEXMFDIST=%s", texmfDist),
+		fmt.Sprintf("TEXMFVAR=%s", texmfVar),
+		fmt.Sprintf("TEXMFCNF=%s%s", web2cDir, sep),
+		fmt.Sprintf("TEXINPUTS=%s//%s", filepath.Join(texmfDist, "tex"), sep),
+		fmt.Sprintf("TFMFONTS=%s//%s", filepath.Join(texmfDist, "fonts", "tfm"), sep),
+		fmt.Sprintf("OPENTYPEFONTS=%s//%s", filepath.Join(texmfDist, "fonts", "opentype"), sep),
+		fmt.Sprintf("OSFONTDIR=%s//%s", filepath.Join(texmfDist, "fonts"), sep),
 	}
+
+	currentPath := os.Getenv("PATH")
+	if currentPath != "" {
+		env = append(env, fmt.Sprintf("PATH=%s%s%s", binDir, sep, currentPath))
+	} else {
+		env = append(env, fmt.Sprintf("PATH=%s", binDir))
+	}
+
+	fmtDir := filepath.Join(texmfDist, "web2c", "xelatex")
+	if _, err := os.Stat(filepath.Join(fmtDir, "xelatex.fmt")); err == nil {
+		existingFormats := os.Getenv("TEXFORMATS")
+		if existingFormats != "" {
+			env = append(env, fmt.Sprintf("TEXFORMATS=%s%s%s", fmtDir, sep, existingFormats))
+		} else {
+			env = append(env, fmt.Sprintf("TEXFORMATS=%s%s", fmtDir, sep))
+		}
+	}
+
+	libDir := filepath.Join(texRoot, "lib")
+	if info, err := os.Stat(libDir); err == nil && info.IsDir() {
+		existingLD := os.Getenv("LD_LIBRARY_PATH")
+		if existingLD != "" {
+			env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s%s%s", libDir, sep, existingLD))
+		} else {
+			env = append(env, fmt.Sprintf("LD_LIBRARY_PATH=%s", libDir))
+		}
+	}
+
+	return env
 }
 
 // checkXeLatex verifies that xelatex is available.
 func checkXeLatex() error {
-	texRoot := os.Getenv("VELOCITY_TEX_ROOT")
+	texRoot := resolvedTexRoot()
 	if texRoot != "" {
 		compiler := filepath.Join(texRoot, "bin", "xelatex")
 		if _, err := os.Stat(compiler); err != nil {

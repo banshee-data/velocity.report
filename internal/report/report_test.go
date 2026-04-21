@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -393,21 +394,125 @@ func TestSupportedGroups(t *testing.T) {
 }
 
 func TestBuildTexEnv(t *testing.T) {
-	env := buildTexEnv("/opt/texlive")
-	if len(env) == 0 {
-		t.Fatal("expected non-empty env")
-	}
-	found := false
-	for _, e := range env {
-		if strings.HasPrefix(e, "TEXMFDIST=") {
-			found = true
-			if !strings.Contains(e, "/opt/texlive/texmf-dist") {
-				t.Errorf("unexpected TEXMFDIST: %s", e)
-			}
+	texRoot := t.TempDir()
+	binDir := filepath.Join(texRoot, "bin")
+	texmfDist := filepath.Join(texRoot, "texmf-dist")
+	texmfHome := filepath.Join(texRoot, "texmf")
+	texmfVar := filepath.Join(texRoot, "texmf-var")
+	fmtDir := filepath.Join(texmfDist, "web2c", "xelatex")
+
+	for _, dir := range []string{binDir, texmfHome, texmfVar, fmtDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
-	if !found {
-		t.Error("TEXMFDIST not found in env")
+	if err := os.WriteFile(filepath.Join(fmtDir, "xelatex.fmt"), []byte("fmt"), 0644); err != nil {
+		t.Fatalf("write xelatex fmt: %v", err)
+	}
+
+	t.Setenv("PATH", "/usr/bin:/bin")
+	t.Setenv("TEXFORMATS", "/existing/formats")
+
+	env := envSliceToMap(buildTexEnv(texRoot))
+
+	sep := string(os.PathListSeparator)
+	if got := env["TEXMFHOME"]; got != texmfHome {
+		t.Fatalf("TEXMFHOME = %q, want %q", got, texmfHome)
+	}
+	if got := env["TEXMFDIST"]; got != texmfDist {
+		t.Fatalf("TEXMFDIST = %q, want %q", got, texmfDist)
+	}
+	if got := env["TEXMFVAR"]; got != texmfVar {
+		t.Fatalf("TEXMFVAR = %q, want %q", got, texmfVar)
+	}
+	if got := env["TEXMFCNF"]; got != filepath.Join(texmfDist, "web2c")+sep {
+		t.Fatalf("TEXMFCNF = %q", got)
+	}
+	if got := env["OPENTYPEFONTS"]; got != filepath.Join(texmfDist, "fonts", "opentype")+"//"+sep {
+		t.Fatalf("OPENTYPEFONTS = %q", got)
+	}
+	if got := env["PATH"]; !strings.HasPrefix(got, binDir+sep) {
+		t.Fatalf("PATH = %q, want prefix %q", got, binDir+sep)
+	}
+	if got := env["TEXFORMATS"]; !strings.HasPrefix(got, fmtDir+sep) || !strings.Contains(got, "/existing/formats") {
+		t.Fatalf("TEXFORMATS = %q", got)
+	}
+}
+
+func TestRunXeLatex_VendoredSetsTexFormats(t *testing.T) {
+	texRoot := t.TempDir()
+	binDir := filepath.Join(texRoot, "bin")
+	fmtDir := filepath.Join(texRoot, "texmf-dist", "web2c", "xelatex")
+	for _, dir := range []string{binDir, filepath.Join(texRoot, "texmf"), filepath.Join(texRoot, "texmf-var"), fmtDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(fmtDir, "xelatex.fmt"), []byte("fmt"), 0644); err != nil {
+		t.Fatalf("write xelatex fmt: %v", err)
+	}
+
+	xelatex := filepath.Join(binDir, "xelatex")
+	script := fmt.Sprintf(`#!/bin/sh
+case "$TEXFORMATS" in
+  %q:*) ;;
+  %q) ;;
+  *)
+    echo "missing TEXFORMATS: $TEXFORMATS"
+    exit 1
+    ;;
+esac
+texfile=""
+for arg in "$@"; do
+  case "$arg" in
+    *.tex) texfile="$arg" ;;
+  esac
+done
+base=$(echo "$texfile" | sed 's/\.tex$//')
+echo "%%PDF-1.4 mock" > "${base}.pdf"
+echo "mock log" > "${base}.log"
+`, fmtDir, fmtDir)
+	if err := os.WriteFile(xelatex, []byte(script), 0755); err != nil {
+		t.Fatalf("write mock xelatex: %v", err)
+	}
+
+	workDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workDir, "report.tex"), []byte("\\relax\n"), 0644); err != nil {
+		t.Fatalf("write report.tex: %v", err)
+	}
+
+	t.Setenv("VELOCITY_TEX_ROOT", texRoot)
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	if err := runXeLatex(context.Background(), workDir, "report.tex"); err != nil {
+		t.Fatalf("runXeLatex error: %v", err)
+	}
+}
+
+func TestResolveTexEnvironment_UsesVelocityFmtWhenOptedIn(t *testing.T) {
+	texRoot := t.TempDir()
+	fmtDir := filepath.Join(texRoot, "texmf-dist", "web2c", "xelatex")
+	for _, dir := range []string{filepath.Join(texRoot, "bin"), filepath.Join(texRoot, "texmf"), filepath.Join(texRoot, "texmf-var"), fmtDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(fmtDir, "velocity-report.fmt"), []byte("fmt"), 0644); err != nil {
+		t.Fatalf("write velocity-report fmt: %v", err)
+	}
+
+	t.Setenv("VELOCITY_TEX_ROOT", texRoot)
+	t.Setenv("VELOCITY_USE_VELOCITY_FMT", "1")
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	latexEnv := resolveTexEnvironment()
+	if latexEnv.fmtName != "velocity-report" {
+		t.Fatalf("fmtName = %q, want velocity-report", latexEnv.fmtName)
+	}
+
+	args := buildXeLatexArgs("report.tex", latexEnv.fmtName)
+	if !containsArg(args, "-fmt=velocity-report") {
+		t.Fatalf("expected -fmt=velocity-report in args, got %v", args)
 	}
 }
 
@@ -431,4 +536,25 @@ func TestReadLogExcerpt_Truncation(t *testing.T) {
 	if len(resultLines) > 51 { // 50 lines + possible trailing newline split
 		t.Errorf("expected ≤51 lines, got %d", len(resultLines))
 	}
+}
+
+func envSliceToMap(env []string) map[string]string {
+	result := make(map[string]string, len(env))
+	for _, entry := range env {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		result[key] = value
+	}
+	return result
+}
+
+func containsArg(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want {
+			return true
+		}
+	}
+	return false
 }
