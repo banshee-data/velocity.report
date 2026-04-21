@@ -11,14 +11,15 @@ description: Turn a top-down radar photo into the cosine error angle used to cor
         <h2 class="angle-tool__title">Measure sensor angle</h2>
         <p class="angle-tool__lead">
           This tool turns a top-down photo into the cosine error angle used in
-          Site Settings. Draw the kerb, draw the sensor beam, and it works out
-          the number for you. That matters because the speed correction depends
-          on this angle, and the computer will cheerfully do the wrong maths if
-          you give it the wrong one.
+          Site Settings. Place two points along the straight part of the kerb
+          nearest the car, then two more along the sensor baseplate, and it
+          works out the angle for you. That matters because the speed
+          correction depends on this number, and the computer will cheerfully
+          do the wrong maths if you give it the wrong angle.
         </p>
         <div class="angle-tool__actions">
           <label class="angle-tool__file-button" for="angle-file-input">
-            Upload or take a photo
+            Upload photo
             <input id="angle-file-input" type="file" accept="image/*" hidden>
           </label>
           <a href="/guides/setup/#recording-your-mounting-angle" class="link">Back to the setup guide</a>
@@ -29,9 +30,9 @@ description: Turn a top-down radar photo into the cosine error angle used to cor
         <h3 class="angle-tool__sidecar-title">What you are measuring</h3>
         <ul class="angle-tool__howto angle-tool__howto--bullets">
           <li>Take the photo straight down, perpendicular to the kerb, so the geometry is trustworthy.</li>
-          <li>Draw the grey kerb line first. The tool derives the upright reference from that line automatically.</li>
-          <li>Draw the emerald sensor beam second. The value below is the cosine error angle you enter in Site Settings.</li>
-          <li>Aim for less than 30°. Lower angles need less correction, but the beam still has to cover the lane.</li>
+          <li>Tap two points along the straight part of the kerb near the car. The grey line sets the road direction of travel.</li>
+          <li>Tap two points along the sensor baseplate. The emerald line is the sensor line the tool compares against the kerb reference.</li>
+          <li>Tip: when mounting aim for an angle of less than 30°. Lower angles need less correction, but the beam still has to cover the full lane.</li>
         </ul>
       </div>
     </div>
@@ -39,7 +40,7 @@ description: Turn a top-down radar photo into the cosine error angle used to cor
     <div id="angle-editor" class="angle-tool__editor hidden">
       <div id="angle-canvas-wrap" class="angle-tool__canvas-wrap">
         <canvas id="angle-canvas"></canvas>
-        <div id="angle-hint" class="angle-tool__hint">Tap to place the kerb reference start</div>
+        <div id="angle-hint" class="angle-tool__hint">Tap the first point on the straight kerb edge near the car</div>
       </div>
 
       <div class="angle-tool__readout" role="status" aria-live="polite">
