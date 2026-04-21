@@ -98,7 +98,7 @@ func TestRenderTimeSeries_Structure(t *testing.T) {
 		Units:  "mph",
 		Title:  "Test Chart",
 	}
-	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle())
+	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderTimeSeries error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestRenderTimeSeries_DayLines(t *testing.T) {
 		Points: makeTestPoints(8, start, time.Hour),
 		Units:  "mph",
 	}
-	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle())
+	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderTimeSeries error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestRenderTimeSeries_Empty(t *testing.T) {
 		Points: nil,
 		Units:  "mph",
 	}
-	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle())
+	svg, err := RenderTimeSeries(data, DefaultTimeSeriesStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderTimeSeries error: %v", err)
 	}

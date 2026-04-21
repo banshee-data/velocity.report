@@ -101,7 +101,7 @@ func TestChartEndpoints_TimeSeries(t *testing.T) {
 	if !strings.Contains(body, "<svg") {
 		t.Errorf("response body does not contain <svg root element")
 	}
-	if !strings.Contains(body, `viewBox="0 0 816.0000 336.0000"`) {
+	if !strings.Contains(body, `viewBox="0 0 816.0000 302.3622"`) {
 		t.Errorf("expected web-sized time-series viewBox, got %s", body)
 	}
 }

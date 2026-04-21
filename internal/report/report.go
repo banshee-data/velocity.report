@@ -131,16 +131,19 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		}
 	}
 
+	// Resolve paper size for chart sizing + LaTeX paper geometry.
+	paper := chart.NormalisePaperSize(cfg.PaperSize)
+
 	// Convert DB rows to chart data.
 	tsPoints := convertToTimeSeriesPoints(tsResult.Metrics, cfg.Units, loc)
 	tsData := chart.TimeSeriesData{
 		Points: tsPoints,
 		Units:  cfg.Units,
-		Title:  fmt.Sprintf("Vehicle speeds — %s", cfg.Location),
+		Title:  "",
 	}
 
 	// Render time-series SVG.
-	tsSVG, err := chart.RenderTimeSeries(tsData, chart.DefaultTimeSeriesStyle())
+	tsSVG, err := chart.RenderTimeSeries(tsData, chart.DefaultTimeSeriesStyle(paper))
 	if err != nil {
 		return Result{}, fmt.Errorf("render time-series: %w", err)
 	}
@@ -174,7 +177,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 			Cutoff:    cfg.MinSpeed,
 		}
 
-		histSVG, err = chart.RenderHistogram(histData, chart.DefaultHistogramStyle())
+		histSVG, err = chart.RenderHistogram(histData, chart.DefaultHistogramStyle(paper))
 		if err != nil {
 			return Result{}, fmt.Errorf("render histogram: %w", err)
 		}
@@ -203,7 +206,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 			chart.HistogramData{Buckets: compareHist, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax, Cutoff: cfg.MinSpeed},
 			fmt.Sprintf("%s–%s", cfg.StartDate, cfg.EndDate),
 			fmt.Sprintf("%s–%s", cfg.CompareStart, cfg.CompareEnd),
-			chart.DefaultHistogramStyle(),
+			chart.DefaultHistogramStyle(paper),
 		)
 		if cerr != nil {
 			return Result{}, fmt.Errorf("render comparison: %w", cerr)
@@ -271,6 +274,7 @@ func Generate(ctx context.Context, database DB, cfg Config) (result Result, err 
 		ModelVersion: tex.EscapeTeX(cfg.ModelVersion),
 
 		SpeedLimitNote: tex.EscapeTeX(cfg.SpeedLimitNote),
+		PaperOption:    paperTexOption(paper),
 	}
 
 	if cfg.Histogram && histSVG != nil {
@@ -649,6 +653,14 @@ func readLogExcerpt(texDir, texFile string) string {
 		lines = lines[len(lines)-50:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// paperTexOption returns the LaTeX documentclass paper option for a PaperSize.
+func paperTexOption(p chart.PaperSize) string {
+	if p == chart.PaperLetter {
+		return "letterpaper"
+	}
+	return "a4paper"
 }
 
 // sanitiseFilename replaces characters unsuitable for file names.

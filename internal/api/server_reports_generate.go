@@ -34,6 +34,9 @@ type ReportRequest struct {
 	HistBucketSize    float64 `json:"hist_bucket_size"`   // histogram bucket size
 	HistMax           float64 `json:"hist_max"`           // histogram max value
 
+	// Paper size for PDF output: "a4" (default) or "letter"
+	PaperSize string `json:"paper_size"`
+
 	// These can be overridden if site_id is not provided
 	Location        string `json:"location"`         // site location
 	Surveyor        string `json:"surveyor"`         // surveyor name
@@ -456,6 +459,7 @@ func (s *Server) generateReportGo(
 		CompareEnd:        req.CompareEnd,
 		CompareSource:     req.CompareSource,
 		CosineAngle:       cosineErrorAngle,
+		PaperSize:         req.PaperSize,
 	}
 
 	// Determine output directory.

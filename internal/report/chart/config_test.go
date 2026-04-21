@@ -3,7 +3,7 @@ package chart
 import "testing"
 
 func TestDefaultTimeSeriesStyle(t *testing.T) {
-	s := DefaultTimeSeriesStyle()
+	s := DefaultTimeSeriesStyle(PaperA4)
 	if s.WidthMM == 0 {
 		t.Error("WidthMM is zero")
 	}
@@ -34,13 +34,10 @@ func TestDefaultTimeSeriesStyle(t *testing.T) {
 }
 
 func TestDefaultWebTimeSeriesStyle(t *testing.T) {
-	pdf := DefaultTimeSeriesStyle()
+	pdf := DefaultTimeSeriesStyle(PaperA4)
 	web := DefaultWebTimeSeriesStyle()
 	if web.WidthMM == 0 || web.HeightMM == 0 {
 		t.Fatal("web time-series dimensions are zero")
-	}
-	if web.WidthMM >= pdf.WidthMM {
-		t.Fatalf("web WidthMM = %v, want less than pdf WidthMM = %v", web.WidthMM, pdf.WidthMM)
 	}
 	if web.AxisTickFontPx <= pdf.AxisTickFontPx {
 		t.Fatalf("web AxisTickFontPx = %v, want greater than pdf AxisTickFontPx = %v", web.AxisTickFontPx, pdf.AxisTickFontPx)
@@ -51,7 +48,7 @@ func TestDefaultWebTimeSeriesStyle(t *testing.T) {
 }
 
 func TestDefaultHistogramStyle(t *testing.T) {
-	s := DefaultHistogramStyle()
+	s := DefaultHistogramStyle(PaperA4)
 	if s.WidthMM == 0 {
 		t.Error("WidthMM is zero")
 	}
@@ -67,7 +64,7 @@ func TestDefaultHistogramStyle(t *testing.T) {
 }
 
 func TestDefaultWebHistogramStyle(t *testing.T) {
-	pdf := DefaultHistogramStyle()
+	pdf := DefaultHistogramStyle(PaperA4)
 	web := DefaultWebHistogramStyle()
 	if web.WidthMM == 0 || web.HeightMM == 0 {
 		t.Fatal("web histogram dimensions are zero")

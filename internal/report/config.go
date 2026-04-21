@@ -40,6 +40,10 @@ type Config struct {
 	// Radar calibration
 	CosineAngle float64 // degrees
 
+	// PaperSize selects physical chart dimensions and LaTeX paper
+	// ("a4" or "letter"). Empty defaults to "a4".
+	PaperSize string
+
 	// Output directory (absolute path)
 	OutputDir string
 }

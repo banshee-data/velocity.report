@@ -65,7 +65,7 @@ func TestRenderHistogram_Structure(t *testing.T) {
 		MaxBucket: 50,
 		Cutoff:    5,
 	}
-	svg, err := RenderHistogram(data, DefaultHistogramStyle())
+	svg, err := RenderHistogram(data, DefaultHistogramStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderHistogram error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestRenderHistogram_Empty(t *testing.T) {
 		BucketSz:  5,
 		MaxBucket: 50,
 	}
-	svg, err := RenderHistogram(data, DefaultHistogramStyle())
+	svg, err := RenderHistogram(data, DefaultHistogramStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderHistogram error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestRenderComparison_Structure(t *testing.T) {
 		BucketSz:  5,
 		MaxBucket: 50,
 	}
-	svg, err := RenderComparison(primary, compare, "Period A", "Period B", DefaultHistogramStyle())
+	svg, err := RenderComparison(primary, compare, "Period A", "Period B", DefaultHistogramStyle(PaperA4))
 	if err != nil {
 		t.Fatalf("RenderComparison error: %v", err)
 	}

@@ -71,6 +71,9 @@ type TemplateData struct {
 
 	// Speed limit note (e.g. "Posted speed limit: 25 mph")
 	SpeedLimitNote string
+
+	// LaTeX paper option (e.g. "a4paper" or "letterpaper")
+	PaperOption string
 }
 
 // StatRow represents one row of the detailed statistics table.
