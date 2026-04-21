@@ -6,6 +6,7 @@
 
   const KERB_COLOR = "#374151";
   const SENSOR_COLOR = "#059669";
+  const REFERENCE_OUTLINE_COLOR = "rgba(31, 41, 55, 0.96)";
   const TAG_TEXT_COLOR = "#f8fafc";
   const TEXT_STROKE_COLOR = "rgba(0, 0, 0, 0.78)";
   const HALO_COLOR = "rgba(0, 0, 0, 0.55)";
@@ -13,8 +14,7 @@
   const HANDLE_HIT_PAD = 12;
   const FONT_FAMILY =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  const LABEL_FONT =
-    `700 24px ${FONT_FAMILY}`;
+  const LABEL_FONT = `700 24px ${FONT_FAMILY}`;
   const EXPORT_FONT_FAMILY = FONT_FAMILY;
   const MAX_ZOOM_MULT = 8;
   const EXPORT_ARC_RADIUS = 300;
@@ -140,7 +140,10 @@
   }
 
   function canvasToImg(cx, cy) {
-    return { x: (cx - state.ox) / state.scale, y: (cy - state.oy) / state.scale };
+    return {
+      x: (cx - state.ox) / state.scale,
+      y: (cy - state.oy) / state.scale,
+    };
   }
 
   function clientToCanvas(ev) {
@@ -270,7 +273,9 @@
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
       if (dist < 1) return;
 
-      const newScale = clampScale(gesture.startScale * (dist / gesture.startDist));
+      const newScale = clampScale(
+        gesture.startScale * (dist / gesture.startDist),
+      );
       state.scale = newScale;
       state.ox = mid.x - gesture.imgPtAtMid.x * newScale;
       state.oy = mid.y - gesture.imgPtAtMid.y * newScale;
@@ -424,10 +429,19 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  function normaliseVector(vector) {
+    const length = Math.hypot(vector.x, vector.y);
+    if (length < 1e-6) return null;
+
+    return {
+      x: vector.x / length,
+      y: vector.y / length,
+    };
+  }
+
   function getSectorLabelRadius(arcRadius, angleRadians) {
     const theta = Math.max(Math.abs(angleRadians), 1e-3);
-    const centroidRadius =
-      (4 * arcRadius * Math.sin(theta / 2)) / (3 * theta);
+    const centroidRadius = (4 * arcRadius * Math.sin(theta / 2)) / (3 * theta);
     const preferredOuterRadius =
       theta < Math.PI / 8
         ? arcRadius * 0.9
@@ -494,31 +508,44 @@
     const pointCount = state.points.length;
 
     if (pointCount === 0) {
-      els.hint.textContent = "Tap the first point on the straight kerb edge near the car";
+      els.hint.textContent =
+        "Tap the first point on the straight kerb edge near the car";
     } else if (pointCount === 1) {
-      els.hint.textContent = "Tap the second point on that kerb edge to draw the road-direction line";
+      els.hint.textContent =
+        "Tap the second point on that kerb edge to draw the road-direction line";
     } else if (pointCount === 2) {
       els.hint.textContent = "Tap the first point on the sensor baseplate";
     } else if (pointCount === 3) {
-      els.hint.textContent = "Tap the second point on the baseplate to draw the sensor line";
+      els.hint.textContent =
+        "Tap the second point on the baseplate to draw the sensor line";
     } else {
       els.hint.textContent = "Drag handles to adjust. Pinch or scroll to zoom.";
     }
   }
 
-  function drawLineWithHalo(context, point1, point2, color, mapPoint, options = {}) {
+  function drawLineWithHalo(
+    context,
+    point1,
+    point2,
+    color,
+    mapPoint,
+    options = {},
+  ) {
     const a = mapPoint(point1);
     const b = mapPoint(point2);
     const haloWidth = options.haloWidth ?? 7;
     const lineWidth = options.lineWidth ?? 3;
+    const showHalo = options.showHalo ?? true;
 
     context.lineCap = "round";
-    context.strokeStyle = HALO_COLOR;
-    context.lineWidth = haloWidth;
-    context.beginPath();
-    context.moveTo(a.x, a.y);
-    context.lineTo(b.x, b.y);
-    context.stroke();
+    if (showHalo) {
+      context.strokeStyle = HALO_COLOR;
+      context.lineWidth = haloWidth;
+      context.beginPath();
+      context.moveTo(a.x, a.y);
+      context.lineTo(b.x, b.y);
+      context.stroke();
+    }
 
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
@@ -528,7 +555,13 @@
     context.stroke();
   }
 
-  function drawHandle(context, point, color, mapPoint, radius = HANDLE_RADIUS_CSS) {
+  function drawHandle(
+    context,
+    point,
+    color,
+    mapPoint,
+    radius = HANDLE_RADIUS_CSS,
+  ) {
     const canvasPoint = mapPoint(point);
 
     context.fillStyle = HALO_COLOR;
@@ -548,60 +581,70 @@
     context.stroke();
   }
 
-  function lineIntersection(a1, a2, b1, b2) {
-    const x1 = a1.x;
-    const y1 = a1.y;
-    const x2 = a2.x;
-    const y2 = a2.y;
-    const x3 = b1.x;
-    const y3 = b1.y;
-    const x4 = b2.x;
-    const y4 = b2.y;
-    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  function projectPointToLine(point, lineStart, lineVec) {
+    const lineLengthSquared = lineVec.x * lineVec.x + lineVec.y * lineVec.y;
+    if (lineLengthSquared < 1e-6) return null;
 
-    if (Math.abs(denom) < 1e-6) return null;
+    const projectionFactor =
+      ((point.x - lineStart.x) * lineVec.x +
+        (point.y - lineStart.y) * lineVec.y) /
+      lineLengthSquared;
 
-    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+    return {
+      x: lineStart.x + lineVec.x * projectionFactor,
+      y: lineStart.y + lineVec.y * projectionFactor,
+    };
   }
 
   function getAngleGeometry() {
     const measurement = computeMeasurement();
     if (!measurement) return null;
 
-    const intersection = lineIntersection(
-      measurement.kerbStart,
-      measurement.kerbEnd,
-      measurement.sensorStart,
-      measurement.sensorEnd,
-    );
-    const center = intersection || {
-      x: (measurement.kerbStart.x + measurement.kerbEnd.x) / 2,
-      y: (measurement.kerbStart.y + measurement.kerbEnd.y) / 2,
-    };
+    const lowerSensorPoint =
+      measurement.sensorStart.y >= measurement.sensorEnd.y
+        ? measurement.sensorStart
+        : measurement.sensorEnd;
+    const upperSensorPoint =
+      lowerSensorPoint === measurement.sensorStart
+        ? measurement.sensorEnd
+        : measurement.sensorStart;
+    const center = { x: lowerSensorPoint.x, y: lowerSensorPoint.y };
 
     const kerbAngle = Math.atan2(measurement.kerbVec.y, measurement.kerbVec.x);
-    const sensorAngle = Math.atan2(measurement.sensorVec.y, measurement.sensorVec.x);
+    const sensorAngle = Math.atan2(
+      upperSensorPoint.y - lowerSensorPoint.y,
+      upperSensorPoint.x - lowerSensorPoint.x,
+    );
     const normalAngles = [kerbAngle + Math.PI / 2, kerbAngle - Math.PI / 2];
-    const upwardNormalAngle = normalAngles.reduce((bestAngle, candidateAngle) => {
-      if (bestAngle === null) return candidateAngle;
-      return Math.sin(candidateAngle) < Math.sin(bestAngle) ? candidateAngle : bestAngle;
-    }, null);
-    const sensorAngles = [sensorAngle, sensorAngle + Math.PI];
-
-    let bestGeometry = null;
-    for (const sensorLineAngle of sensorAngles) {
-      const diff = normaliseAngle(sensorLineAngle - upwardNormalAngle);
-      if (!bestGeometry || Math.abs(diff) < Math.abs(bestGeometry.diff)) {
-        bestGeometry = { start: upwardNormalAngle, diff };
-      }
-    }
+    const upwardNormalAngle = normalAngles.reduce(
+      (bestAngle, candidateAngle) => {
+        if (bestAngle === null) return candidateAngle;
+        return Math.sin(candidateAngle) < Math.sin(bestAngle)
+          ? candidateAngle
+          : bestAngle;
+      },
+      null,
+    );
+    const diff = normaliseAngle(sensorAngle - upwardNormalAngle);
+    const kerbProjection =
+      projectPointToLine(center, measurement.kerbStart, measurement.kerbVec) ||
+      measurement.kerbStart;
+    const referenceUnit = {
+      x: Math.cos(upwardNormalAngle),
+      y: Math.sin(upwardNormalAngle),
+    };
+    const projectionSide =
+      (kerbProjection.x - center.x) * referenceUnit.x +
+      (kerbProjection.y - center.y) * referenceUnit.y;
 
     return {
       measurement,
       center,
-      start: bestGeometry.start,
-      diff: bestGeometry.diff,
+      upperSensorPoint,
+      kerbProjection,
+      projectionSide,
+      start: upwardNormalAngle,
+      diff,
       labelText: `${measurement.alignmentAngle.toFixed(1)}°`,
     };
   }
@@ -620,47 +663,183 @@
     context.restore();
   }
 
+  function drawRightAngleMarker(
+    context,
+    origin,
+    kerbUnit,
+    uprightUnit,
+    options = {},
+  ) {
+    if (!kerbUnit || !uprightUnit) return;
+
+    const size = options.size ?? 16;
+    const first = {
+      x: origin.x + kerbUnit.x * size,
+      y: origin.y + kerbUnit.y * size,
+    };
+    const second = {
+      x: first.x + uprightUnit.x * size,
+      y: first.y + uprightUnit.y * size,
+    };
+    const third = {
+      x: origin.x + uprightUnit.x * size,
+      y: origin.y + uprightUnit.y * size,
+    };
+    const outlineWidth = options.outlineWidth ?? (options.lineWidth ?? 2) + 4;
+
+    context.save();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
+    context.strokeStyle = options.outlineStyle ?? REFERENCE_OUTLINE_COLOR;
+    context.lineWidth = outlineWidth;
+    context.beginPath();
+    context.moveTo(first.x, first.y);
+    context.lineTo(second.x, second.y);
+    context.lineTo(third.x, third.y);
+    context.stroke();
+
+    context.strokeStyle = options.strokeStyle ?? "rgba(248, 250, 252, 0.92)";
+    context.lineWidth = options.lineWidth ?? 2;
+    context.beginPath();
+    context.moveTo(first.x, first.y);
+    context.lineTo(second.x, second.y);
+    context.lineTo(third.x, third.y);
+    context.stroke();
+    context.restore();
+  }
+
   function drawAngleArc(context, mapPoint, options = {}) {
     const geometry = getAngleGeometry();
     if (!geometry) return;
     const grade = getGrade(geometry.measurement.alignmentAngle);
 
     const center = mapPoint(geometry.center);
+    const referenceAnchor = mapPoint(geometry.kerbProjection);
     const arcRadius = options.arcRadius ?? 34;
     const referenceLength = options.referenceLength ?? arcRadius + 72;
+    const referenceEnd =
+      geometry.projectionSide > 0
+        ? center
+        : {
+            x: center.x + Math.cos(geometry.start) * referenceLength,
+            y: center.y + Math.sin(geometry.start) * referenceLength,
+          };
     const startX = center.x + Math.cos(geometry.start) * arcRadius;
     const startY = center.y + Math.sin(geometry.start) * arcRadius;
     const endAngle = geometry.start + geometry.diff;
+    const kerbUnit = normaliseVector(geometry.measurement.kerbVec);
+    const uprightUnit = normaliseVector({
+      x: geometry.center.x - geometry.kerbProjection.x,
+      y: geometry.center.y - geometry.kerbProjection.y,
+    });
+    const upperSensorCanvasPoint = mapPoint(geometry.upperSensorPoint);
+    const rightAngleSize =
+      options.rightAngleSize ?? Math.max(12, arcRadius * 0.08);
+
+    let rightAngleKerbUnit = null;
+    if (kerbUnit && uprightUnit) {
+      const positiveCorner = {
+        x: referenceAnchor.x + (kerbUnit.x + uprightUnit.x) * rightAngleSize,
+        y: referenceAnchor.y + (kerbUnit.y + uprightUnit.y) * rightAngleSize,
+      };
+      const negativeCorner = {
+        x: referenceAnchor.x + (-kerbUnit.x + uprightUnit.x) * rightAngleSize,
+        y: referenceAnchor.y + (-kerbUnit.y + uprightUnit.y) * rightAngleSize,
+      };
+      const positiveDistance = Math.hypot(
+        positiveCorner.x - upperSensorCanvasPoint.x,
+        positiveCorner.y - upperSensorCanvasPoint.y,
+      );
+      const negativeDistance = Math.hypot(
+        negativeCorner.x - upperSensorCanvasPoint.x,
+        negativeCorner.y - upperSensorCanvasPoint.y,
+      );
+      rightAngleKerbUnit =
+        positiveDistance <= negativeDistance
+          ? kerbUnit
+          : { x: -kerbUnit.x, y: -kerbUnit.y };
+    }
 
     context.fillStyle = options.sectorFill ?? grade.fill;
     context.beginPath();
     context.moveTo(center.x, center.y);
     context.lineTo(startX, startY);
     if (geometry.diff >= 0) {
-      context.arc(center.x, center.y, arcRadius, geometry.start, endAngle, false);
+      context.arc(
+        center.x,
+        center.y,
+        arcRadius,
+        geometry.start,
+        endAngle,
+        false,
+      );
     } else {
-      context.arc(center.x, center.y, arcRadius, geometry.start, endAngle, true);
+      context.arc(
+        center.x,
+        center.y,
+        arcRadius,
+        geometry.start,
+        endAngle,
+        true,
+      );
     }
     context.closePath();
     context.fill();
 
+    drawRightAngleMarker(
+      context,
+      referenceAnchor,
+      rightAngleKerbUnit,
+      uprightUnit,
+      {
+        size: rightAngleSize,
+        strokeStyle: options.referenceColor,
+        lineWidth: options.referenceWidth,
+        outlineStyle: options.referenceOutlineColor,
+        outlineWidth: (options.referenceWidth ?? 2) + 6,
+      },
+    );
+
+    context.strokeStyle = options.referenceColor ?? "rgba(248, 250, 252, 0.92)";
+    context.lineWidth = (options.referenceWidth ?? 2) + 4;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(referenceAnchor.x, referenceAnchor.y);
+    context.lineTo(referenceEnd.x, referenceEnd.y);
+    context.strokeStyle =
+      options.referenceOutlineColor ?? REFERENCE_OUTLINE_COLOR;
+    context.stroke();
+
     context.strokeStyle = options.referenceColor ?? "rgba(248, 250, 252, 0.92)";
     context.lineWidth = options.referenceWidth ?? 2;
     context.beginPath();
-    context.moveTo(center.x, center.y);
-    context.lineTo(
-      center.x + Math.cos(geometry.start) * referenceLength,
-      center.y + Math.sin(geometry.start) * referenceLength,
-    );
+    context.moveTo(referenceAnchor.x, referenceAnchor.y);
+    context.lineTo(referenceEnd.x, referenceEnd.y);
     context.stroke();
 
     context.strokeStyle = options.strokeColor ?? grade.stroke;
     context.lineWidth = options.strokeWidth ?? 2;
     context.beginPath();
     if (geometry.diff >= 0) {
-      context.arc(center.x, center.y, arcRadius, geometry.start, endAngle, false);
+      context.arc(
+        center.x,
+        center.y,
+        arcRadius,
+        geometry.start,
+        endAngle,
+        false,
+      );
     } else {
-      context.arc(center.x, center.y, arcRadius, geometry.start, endAngle, true);
+      context.arc(
+        center.x,
+        center.y,
+        arcRadius,
+        geometry.start,
+        endAngle,
+        true,
+      );
     }
     context.stroke();
 
@@ -684,18 +863,12 @@
     );
     const labelX = center.x + Math.cos(labelAngle) * labelRadius;
     const labelY = center.y + Math.sin(labelAngle) * labelRadius;
-    drawAngleText(
-      context,
-      labelX,
-      labelY,
-      geometry.labelText,
-      {
-        font: options.annotationFont,
-        fillStyle: options.annotationFill,
-        strokeStyle: options.annotationStroke,
-        lineWidth: options.annotationStrokeWidth,
-      },
-    );
+    drawAngleText(context, labelX, labelY, geometry.labelText, {
+      font: options.annotationFont,
+      fillStyle: options.annotationFill,
+      strokeStyle: options.annotationStroke,
+      lineWidth: options.annotationStrokeWidth,
+    });
   }
 
   function drawOverlay(context, mapPoint, options = {}) {
@@ -704,17 +877,32 @@
     const handleRadius = options.handleRadius ?? HANDLE_RADIUS_CSS;
 
     if (state.points.length >= 2) {
-      drawLineWithHalo(context, state.points[0], state.points[1], KERB_COLOR, mapPoint, {
-        lineWidth,
-        haloWidth,
-      });
+      drawLineWithHalo(
+        context,
+        state.points[0],
+        state.points[1],
+        KERB_COLOR,
+        mapPoint,
+        {
+          lineWidth,
+          haloWidth,
+        },
+      );
     }
 
     if (state.points.length >= 4) {
-      drawLineWithHalo(context, state.points[2], state.points[3], SENSOR_COLOR, mapPoint, {
-        lineWidth,
-        haloWidth,
-      });
+      drawLineWithHalo(
+        context,
+        state.points[2],
+        state.points[3],
+        SENSOR_COLOR,
+        mapPoint,
+        {
+          lineWidth,
+          haloWidth,
+          showHalo: false,
+        },
+      );
     }
 
     if (state.points.length >= 4) {
