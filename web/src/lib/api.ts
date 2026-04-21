@@ -23,6 +23,18 @@ export interface Config {
 	timezone: string;
 }
 
+export interface TimeSeriesChartRequest {
+	siteId: number;
+	startDate: string;
+	endDate: string;
+	group?: string;
+	units?: string;
+	timezone?: string;
+	source?: string;
+	minSpeed?: number;
+	boundaryThreshold?: number;
+}
+
 // Raw shape returned from the server for a single metric row
 type RawRadarStats = {
 	classifier: string;
@@ -62,6 +74,19 @@ export interface Capabilities {
 }
 
 const API_BASE = '/api';
+
+function buildRelativeApiPath(
+	path: string,
+	params: Record<string, string | number | null | undefined>
+): string {
+	const searchParams = new URLSearchParams();
+	for (const [key, value] of Object.entries(params)) {
+		if (value === undefined || value === null || value === '') continue;
+		searchParams.set(key, String(value));
+	}
+	const query = searchParams.toString();
+	return query ? `${API_BASE}${path}?${query}` : `${API_BASE}${path}`;
+}
 
 /**
  * Build a human-readable API error with status-code context.
@@ -131,6 +156,20 @@ export async function getRadarStats(
 	const cosineCorrection =
 		payload && payload.cosine_correction ? payload.cosine_correction : undefined;
 	return { metrics, histogram, cosineCorrection };
+}
+
+export function buildTimeSeriesChartPath(request: TimeSeriesChartRequest): string {
+	return buildRelativeApiPath('/charts/timeseries', {
+		site_id: request.siteId,
+		start: request.startDate,
+		end: request.endDate,
+		group: request.group,
+		units: request.units,
+		tz: request.timezone,
+		source: request.source,
+		min_speed: request.minSpeed,
+		boundary_threshold: request.boundaryThreshold
+	});
 }
 
 export async function getConfig(): Promise<Config> {

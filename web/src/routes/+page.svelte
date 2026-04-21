@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import RadarOverviewChart from '$lib/components/charts/RadarOverviewChart.svelte';
 	import { isoDate } from '$lib/dateUtils';
 	import {
 		isDateRangeStale,
@@ -12,6 +11,7 @@
 	import { onMount } from 'svelte';
 	import { Button, Card, DateRangeField, Header } from 'svelte-ux';
 	import {
+		buildTimeSeriesChartPath,
 		generateReport,
 		getConfig,
 		getRadarStats,
@@ -19,7 +19,6 @@
 		getSites,
 		type Config,
 		type RadarStats,
-		type RadarStatsResponse,
 		type Site,
 		type SiteReport
 	} from '../lib/api';
@@ -46,8 +45,9 @@
 	fromDefault.setDate(today.getDate() - 13); // last 14 days inclusive
 	let dateRange = { from: fromDefault, to: today, periodType: PeriodType.Day };
 	let group: string = '4h';
-	let graphData: RadarStats[] = [];
 	let selectedSource: string = 'radar_objects';
+	let timeSeriesChartUrl = '';
+	let chartLoadError = '';
 
 	const groupOptions = [
 		'1h',
@@ -65,9 +65,8 @@
 		'28d'
 	];
 
-	// Reload behavior: react to dateRange, units, group, or source changes.
-	// - If dateRange, units, or source changed -> reload both stats and chart.
-	// - If only group changed -> reload only the chart for faster response.
+	// Reload behavior: when the dashboard filters change, refresh the summary
+	// stats and point the chart image at the matching SVG endpoint.
 	let lastFrom: number = 0;
 	let lastTo: number = 0;
 	let lastUnits: Unit | undefined = undefined;
@@ -75,11 +74,8 @@
 	let lastSource = '';
 	let lastSiteId: number | null = null;
 	let initialized = false;
-	// Cache the last raw stats response
-	let lastStatsRaw: RadarStatsResponse | null = null;
 	let cosineCorrectionAngles: number[] = [];
 	let cosineCorrectionLabel = '';
-	let lastStatsRequestKey = '';
 
 	function weightedMedian(values: Array<{ value: number; weight: number }>): number {
 		const filtered = values
@@ -114,8 +110,7 @@
 		const sourceChanged = selectedSource !== lastSource;
 		const siteChanged = selectedSiteId !== lastSiteId;
 
-		// Full reload when date range, display units, or source changes
-		if (dateChanged || unitsChanged || sourceChanged || siteChanged) {
+		if (dateChanged || unitsChanged || groupChanged || sourceChanged || siteChanged) {
 			lastFrom = from;
 			lastTo = to;
 			lastUnits = $displayUnits;
@@ -127,21 +122,42 @@
 			}
 
 			loading = true;
-			// run loadStats first so it can populate the cache, then run loadChart which will reuse it
 			loadStats($displayUnits) // eslint-disable-line svelte/infinite-reactive-loop
-				.then(() => loadChart())
+				.then(() => refreshTimeSeriesChartUrl())
 				.catch((e) => {
 					error = e instanceof Error && e.message ? e.message : String(e); // eslint-disable-line svelte/infinite-reactive-loop
 				})
 				.finally(() => {
 					loading = false;
 				});
-			// done
-		} else if (groupChanged) {
-			// Only grouping changed -> refresh chart only
-			lastGroup = group;
-			loadChart();
 		}
+	}
+
+	function refreshTimeSeriesChartUrl() {
+		if (!dateRange.from || !dateRange.to || selectedSiteId == null) {
+			timeSeriesChartUrl = '';
+			chartLoadError = '';
+			return;
+		}
+
+		timeSeriesChartUrl = buildTimeSeriesChartPath({
+			siteId: selectedSiteId,
+			startDate: isoDate(dateRange.from),
+			endDate: isoDate(dateRange.to),
+			group,
+			units: $displayUnits,
+			timezone: $displayTimezone,
+			source: selectedSource
+		});
+		chartLoadError = '';
+	}
+
+	function handleTimeSeriesChartLoad() {
+		chartLoadError = '';
+	}
+
+	function handleTimeSeriesChartError() {
+		chartLoadError = 'Could not load the dashboard chart preview.';
 	}
 
 	async function loadConfig() {
@@ -197,12 +213,13 @@
 
 			const from = settings?.dateRange?.from ? new Date(settings.dateRange.from) : null;
 			const to = settings?.dateRange?.to ? new Date(settings.dateRange.to) : null;
+			const savedPeriodType = settings?.dateRange?.periodType;
 			if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
 
 			dateRange = {
 				from,
 				to,
-				periodType: settings?.dateRange?.periodType ?? PeriodType.Day
+				periodType: savedPeriodType === PeriodType.Day ? PeriodType.Day : PeriodType.Day
 			};
 		} catch (e) {
 			console.warn('Could not load saved report settings:', e);
@@ -224,7 +241,7 @@
 			settings.dateRange = {
 				from: dateRange.from.toISOString(),
 				to: dateRange.to.toISOString(),
-				periodType: dateRange.periodType,
+				periodType: String(dateRange.periodType),
 				savedAt: new Date().toISOString()
 			};
 
@@ -254,9 +271,6 @@
 				selectedSource,
 				selectedSiteId
 			);
-			// cache raw response so loadChart can reuse it instead of making a second request
-			lastStatsRaw = statsResp;
-			lastStatsRequestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
 			if (browser) console.debug('[dashboard] fetch stats timezone ->', $displayTimezone);
 			stats = statsResp.metrics;
 			cosineCorrectionAngles = statsResp.cosineCorrection?.angles ?? [];
@@ -290,68 +304,6 @@
 		}
 	}
 
-	// load chart data for the selected date range and group
-	async function loadChart() {
-		if (!dateRange.from || !dateRange.to) {
-			graphData = [];
-			return;
-		}
-		const startUnix = Math.floor(dateRange.from.getTime() / 1000);
-		const endUnix = Math.floor(dateRange.to.getTime() / 1000);
-		const units = $displayUnits;
-		const requestKey = `${startUnix}|${endUnix}|${group}|${units}|${$displayTimezone}|${selectedSource}|${selectedSiteId ?? 'all'}`;
-
-		let arr: RadarStats[];
-		if (lastStatsRaw && requestKey === lastStatsRequestKey) {
-			// reuse cached stats response
-			arr = lastStatsRaw.metrics || [];
-			if (browser) console.debug('[dashboard] reusing cached stats for chart');
-		} else {
-			// fetch via the shared API helper so we use the same code path as loadStats
-			if (browser)
-				console.debug('[dashboard] chart fetching via getRadarStats ->', $displayTimezone);
-			const resp = await getRadarStats(
-				startUnix,
-				endUnix,
-				group,
-				units,
-				$displayTimezone,
-				selectedSource,
-				selectedSiteId
-			);
-			arr = resp.metrics;
-			// cache the response for potential reuse
-			lastStatsRaw = resp;
-			lastStatsRequestKey = requestKey;
-		}
-
-		// filter out rows with missing/invalid date to avoid scale errors
-		const validRows = arr.filter((r) => {
-			const dt = r.date instanceof Date ? r.date : new Date(r.date);
-			return dt && !isNaN(dt.getTime());
-		});
-		if (validRows.length !== arr.length && browser) {
-			console.debug('[dashboard] dropped rows with invalid date', arr.length - validRows.length);
-		}
-
-		// normalize data types so chart math never receives strings/invalid values
-		graphData = validRows
-			.map((row) => {
-				const dt = row.date instanceof Date ? row.date : new Date(row.date);
-				return {
-					...row,
-					date: dt,
-					count: Number(row.count || 0),
-					p50: Number(row.p50 || 0),
-					p85: Number(row.p85 || 0),
-					p98: Number(row.p98 || 0),
-					max: Number(row.max || 0)
-				} as RadarStats;
-			})
-			.filter((row) => row.date instanceof Date && !Number.isNaN(row.date.getTime()))
-			.sort((a, b) => a.date.getTime() - b.date.getTime());
-	}
-
 	async function loadData() {
 		loading = true;
 		error = '';
@@ -365,9 +317,9 @@
 			lastUnits = $displayUnits;
 			lastGroup = group;
 			lastSource = selectedSource;
+			lastSiteId = selectedSiteId;
 			await loadStats($displayUnits);
-			// populate the chart for the default date range
-			await loadChart();
+			refreshTimeSeriesChartUrl();
 		} finally {
 			loading = false;
 			// mark initialization complete so the reactive watcher can start firing
@@ -585,13 +537,28 @@
 			</p>
 		{/if}
 
-		{#if graphData.length > 0}
-			<RadarOverviewChart
-				data={graphData}
-				{group}
-				speedUnits={getUnitLabel($displayUnits)}
-				p98Reference={p98Speed}
-			/>
+		{#if timeSeriesChartUrl}
+			<div class="rounded border p-4">
+				<img
+					src={timeSeriesChartUrl}
+					alt="Vehicle count bars and percentile speed lines"
+					class="block w-full rounded"
+					loading="eager"
+					decoding="async"
+					on:load={handleTimeSeriesChartLoad}
+					on:error={handleTimeSeriesChartError}
+				/>
+			</div>
+
+			{#if chartLoadError}
+				<div
+					role="alert"
+					aria-live="assertive"
+					class="rounded border border-red-300 bg-red-50 p-3 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200"
+				>
+					{chartLoadError}
+				</div>
+			{/if}
 
 			<!-- Accessible data table fallback -->
 			<details class="rounded border p-4">
@@ -612,7 +579,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each graphData as row (row.date.getTime())}
+							{#each stats as row (row.date.getTime())}
 								<tr class="border-b">
 									<td class="px-2 py-2">{format(row.date, 'MMM d HH:mm')}</td>
 									<td class="px-2 py-2 text-right">{row.count}</td>
