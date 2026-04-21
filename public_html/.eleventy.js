@@ -53,10 +53,6 @@ module.exports = function (eleventyConfig) {
   // Copy video files to output
   eleventyConfig.addPassthroughCopy("src/video");
 
-  // Copy the standalone protractor app verbatim
-  eleventyConfig.addPassthroughCopy("src/protractor");
-  eleventyConfig.ignores.add("src/protractor/**/*");
-
   // Copy os-list JSON for Raspberry Pi Imager catalogue
   eleventyConfig.addPassthroughCopy({
     "../image/os-list-velocity.json": "rpi.json",

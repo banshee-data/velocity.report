@@ -1,0 +1,72 @@
+---
+layout: page.njk
+title: Protractor
+description: Turn a top-down radar photo into the cosine error angle used to correct measured speeds.
+---
+
+<section class="max-w-6xl mx-auto">
+  <section id="angle-tool-app" class="card angle-tool">
+    <div id="angle-empty-state" class="angle-tool__empty-state">
+      <div>
+        <h2 class="angle-tool__title">Measure sensor angle</h2>
+        <p class="angle-tool__lead">
+          This tool turns a top-down photo into the cosine error angle used in
+          Site Settings. Draw the kerb, draw the sensor beam, and it works out
+          the number for you. That matters because the speed correction depends
+          on this angle, and the computer will cheerfully do the wrong maths if
+          you give it the wrong one.
+        </p>
+        <div class="angle-tool__actions">
+          <label class="angle-tool__file-button" for="angle-file-input">
+            Upload or take a photo
+            <input id="angle-file-input" type="file" accept="image/*" hidden>
+          </label>
+          <a href="/guides/setup/#recording-your-mounting-angle" class="link">Back to the setup guide</a>
+        </div>
+      </div>
+
+      <div class="angle-tool__sidecar">
+        <h3 class="angle-tool__sidecar-title">What you are measuring</h3>
+        <ul class="angle-tool__howto angle-tool__howto--bullets">
+          <li>Take the photo straight down, perpendicular to the kerb, so the geometry is trustworthy.</li>
+          <li>Draw the grey kerb line first. The tool derives the upright reference from that line automatically.</li>
+          <li>Draw the emerald sensor beam second. The value below is the cosine error angle you enter in Site Settings.</li>
+          <li>Aim for less than 30°. Lower angles need less correction, but the beam still has to cover the lane.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="angle-editor" class="angle-tool__editor hidden">
+      <div id="angle-canvas-wrap" class="angle-tool__canvas-wrap">
+        <canvas id="angle-canvas"></canvas>
+        <div id="angle-hint" class="angle-tool__hint">Tap to place the kerb reference start</div>
+      </div>
+
+      <div class="angle-tool__readout" role="status" aria-live="polite">
+        <div class="angle-tool__readout-row">
+          <div class="angle-tool__readout-primary">
+            <div class="angle-tool__readout-label">Cosine error angle</div>
+            <div id="angle-align-value" class="angle-tool__readout-value">-</div>
+          </div>
+
+          <div class="angle-tool__readout-secondary">
+            <div class="angle-tool__readout-label">Aim for</div>
+            <div class="angle-tool__readout-value-small">Less than 30°</div>
+          </div>
+        </div>
+
+        <div class="angle-tool__controls">
+          <button id="angle-fit-btn" type="button" class="angle-tool__button">Fit view</button>
+          <button id="angle-reset-btn" type="button" class="angle-tool__button">Reset lines</button>
+          <button id="angle-download-btn" type="button" class="angle-tool__button angle-tool__button--accent">Download overlay</button>
+          <label class="angle-tool__button" for="angle-file-input-2">
+            New photo
+            <input id="angle-file-input-2" type="file" accept="image/*" hidden>
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<script src="/js/tool-protractor.js"></script>
