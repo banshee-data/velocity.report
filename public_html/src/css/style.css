@@ -6,16 +6,16 @@
   color-scheme: light dark;
   /* Gradient border stops — light mode: emerald-400 → emerald-600 (visible on white) */
   --gb-from: #34d399;
-  --gb-to:   #059669;
+  --gb-to: #059669;
   --gb-border: linear-gradient(to top left, var(--gb-to), var(--gb-from));
-  --gb-hr:     linear-gradient(to right, var(--gb-from), var(--gb-to));
+  --gb-hr: linear-gradient(to right, var(--gb-from), var(--gb-to));
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     /* Dark mode: emerald-700 → emerald-950 (visible on dark fills) */
     --gb-from: #047857;
-    --gb-to:   #064e3b;
+    --gb-to: #064e3b;
   }
 }
 
@@ -117,7 +117,8 @@ html {
     @apply rounded-lg shadow-lg p-8;
     border: 1px solid transparent;
     background:
-      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff)) padding-box,
+      linear-gradient(var(--gb-fill, #ffffff), var(--gb-fill, #ffffff))
+        padding-box,
       var(--gb-border) border-box;
   }
 
@@ -175,7 +176,8 @@ html {
     @apply rounded-2xl;
     border: 1px solid transparent;
     background:
-      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+      linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb))
+        padding-box,
       var(--gb-border) border-box;
   }
 
@@ -345,7 +347,9 @@ html {
   padding: 2px 3px;
   margin: -2px -3px;
   border-radius: 2px;
-  transition: background-color 150ms, color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms;
 }
 
 .prose a:hover {
@@ -396,7 +400,9 @@ html {
   padding: 2px 5px;
   margin: -2px -5px;
   border-radius: 4px;
-  transition: background-color 150ms, color 150ms;
+  transition:
+    background-color 150ms,
+    color 150ms;
 }
 
 .link:hover {
@@ -459,7 +465,8 @@ html {
 .gradient-border {
   border: 1px solid transparent;
   background:
-    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb)) padding-box,
+    linear-gradient(var(--gb-fill, #f9fafb), var(--gb-fill, #f9fafb))
+      padding-box,
     var(--gb-border) border-box;
 }
 
@@ -575,7 +582,7 @@ details.toc[open] > summary::after {
 
 .prose thead tr,
 .prose tfoot tr {
-  background-color: rgba(4, 120, 87, 0.10);
+  background-color: rgba(4, 120, 87, 0.1);
 }
 
 .prose tbody tr:nth-child(even) {
@@ -707,7 +714,10 @@ details.toc[open] > summary::after {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 150ms, border-color 150ms, color 150ms,
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    color 150ms,
     transform 150ms;
 }
 
