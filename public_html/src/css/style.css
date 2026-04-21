@@ -622,7 +622,7 @@ details.toc[open] > summary::after {
 
 @media (min-width: 1024px) {
   .angle-tool__empty-state {
-    grid-template-columns: minmax(0, 1.15fr) minmax(23rem, 28rem);
+    grid-template-columns: minmax(0, 1.08fr) minmax(23rem, 35rem);
     align-items: start;
   }
 }

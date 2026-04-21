@@ -428,7 +428,45 @@
     const theta = Math.max(Math.abs(angleRadians), 1e-3);
     const centroidRadius =
       (4 * arcRadius * Math.sin(theta / 2)) / (3 * theta);
-    return clamp(centroidRadius, arcRadius * 0.38, arcRadius * 0.74);
+    const preferredOuterRadius =
+      theta < Math.PI / 8
+        ? arcRadius * 0.9
+        : theta < Math.PI / 3
+          ? arcRadius * 0.84
+          : arcRadius * 0.76;
+    return clamp(
+      Math.max(centroidRadius + arcRadius * 0.08, preferredOuterRadius),
+      arcRadius * 0.46,
+      arcRadius * 0.92,
+    );
+  }
+
+  function getMaxRadiusForBounds(center, angle, boundW, boundH, padding) {
+    let maxRadius = Infinity;
+    const cosAngle = Math.cos(angle);
+    const sinAngle = Math.sin(angle);
+
+    if (Math.abs(cosAngle) > 1e-6) {
+      const xLimit =
+        cosAngle > 0
+          ? (boundW - padding - center.x) / cosAngle
+          : (padding - center.x) / cosAngle;
+      if (xLimit >= 0) {
+        maxRadius = Math.min(maxRadius, xLimit);
+      }
+    }
+
+    if (Math.abs(sinAngle) > 1e-6) {
+      const yLimit =
+        sinAngle > 0
+          ? (boundH - padding - center.y) / sinAngle
+          : (padding - center.y) / sinAngle;
+      if (yLimit >= 0) {
+        maxRadius = Math.min(maxRadius, yLimit);
+      }
+    }
+
+    return Number.isFinite(maxRadius) ? Math.max(0, maxRadius) : 0;
   }
 
   function classify(alignmentAngle) {
@@ -456,13 +494,13 @@
     const pointCount = state.points.length;
 
     if (pointCount === 0) {
-      els.hint.textContent = "Tap to place the kerb reference start";
+      els.hint.textContent = "Tap the first point on the straight kerb edge near the car";
     } else if (pointCount === 1) {
-      els.hint.textContent = "Tap to place the kerb reference end";
+      els.hint.textContent = "Tap the second point on that kerb edge to draw the road-direction line";
     } else if (pointCount === 2) {
-      els.hint.textContent = "Tap to place the sensor beam start";
+      els.hint.textContent = "Tap the first point on the sensor baseplate";
     } else if (pointCount === 3) {
-      els.hint.textContent = "Tap to place the sensor beam end";
+      els.hint.textContent = "Tap the second point on the baseplate to draw the sensor line";
     } else {
       els.hint.textContent = "Drag handles to adjust. Pinch or scroll to zoom.";
     }
@@ -627,19 +665,25 @@
     context.stroke();
 
     const labelAngle = geometry.start + geometry.diff / 2;
-    const labelRadius =
-      options.labelRadius ?? getSectorLabelRadius(arcRadius, geometry.diff);
     const labelPadding = options.margin ?? 24;
-    const labelX = clamp(
-      center.x + Math.cos(labelAngle) * labelRadius,
+    const maxRadiusForBounds = getMaxRadiusForBounds(
+      center,
+      labelAngle,
+      options.boundW,
+      options.boundH,
       labelPadding,
-      options.boundW - labelPadding,
     );
-    const labelY = clamp(
-      center.y + Math.sin(labelAngle) * labelRadius,
-      labelPadding,
-      options.boundH - labelPadding,
+    const labelRadius = clamp(
+      Math.min(
+        options.labelRadius ?? getSectorLabelRadius(arcRadius, geometry.diff),
+        maxRadiusForBounds,
+        arcRadius * 0.92,
+      ),
+      arcRadius * 0.35,
+      arcRadius * 0.92,
     );
+    const labelX = center.x + Math.cos(labelAngle) * labelRadius;
+    const labelY = center.y + Math.sin(labelAngle) * labelRadius;
     drawAngleText(
       context,
       labelX,
