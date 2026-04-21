@@ -15,6 +15,7 @@
 	import DataSourceSelector from '$lib/components/DataSourceSelector.svelte';
 	import { isoDate } from '$lib/dateUtils';
 	import { isDateRangeStale, REPORT_SETTINGS_KEY } from '$lib/reportSettings';
+	import { paperSize, initializePaperSize } from '$lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '$lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '$lib/stores/units';
 	import { PeriodType } from '@layerstack/utils';
@@ -136,6 +137,7 @@
 			config = await getConfig();
 			initializeUnits(config.units);
 			initializeTimezone(config.timezone);
+			initializePaperSize();
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
 		}
@@ -288,7 +290,8 @@
 				boundary_threshold: boundaryThreshold,
 				histogram: true,
 				hist_bucket_size: 5.0,
-				site_id: selectedSiteId
+				site_id: selectedSiteId,
+				paper_size: $paperSize
 			};
 
 			if (compareEnabled) {

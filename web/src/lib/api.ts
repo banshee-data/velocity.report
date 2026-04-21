@@ -273,6 +273,7 @@ export interface ReportRequest {
 	speed_limit?: number; // posted speed limit
 	site_description?: string; // site description
 	cosine_error_angle?: number; // radar mounting angle
+	paper_size?: 'a4' | 'letter'; // PDF paper size
 }
 
 export interface ReportResponse {

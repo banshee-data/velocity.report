@@ -23,6 +23,7 @@
 		type SiteReport
 	} from '../lib/api';
 	import DataSourceSelector from '../lib/components/DataSourceSelector.svelte';
+	import { paperSize, initializePaperSize } from '../lib/stores/paper';
 	import { displayTimezone, initializeTimezone } from '../lib/stores/timezone';
 	import { displayUnits, initializeUnits } from '../lib/stores/units';
 	import { getUnitLabel, type Unit } from '../lib/units';
@@ -165,6 +166,7 @@
 			initializeUnits(config.units);
 			// initialize the timezone store as well so the dashboard uses stored timezone
 			initializeTimezone(config.timezone);
+			initializePaperSize();
 			if (browser) console.debug('[dashboard] initialized timezone store ->', $displayTimezone);
 		} catch (e) {
 			error = e instanceof Error && e.message ? e.message : 'Could not load configuration.';
@@ -362,7 +364,8 @@
 				source: selectedSource,
 				histogram: true,
 				hist_bucket_size: 5.0,
-				site_id: selectedSiteId
+				site_id: selectedSiteId,
+				paper_size: $paperSize
 			});
 
 			lastGeneratedReportId = response.report_id;
