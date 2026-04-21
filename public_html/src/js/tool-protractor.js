@@ -358,7 +358,7 @@
   });
 
   els.downloadBtn.addEventListener("click", () => {
-    if (!state.image) return;
+    if (!state.image || !computeMeasurement()) return;
     downloadComposite();
   });
 
